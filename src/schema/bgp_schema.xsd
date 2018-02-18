@@ -275,6 +275,8 @@
             allowed in the AS_PATH attribute.'/>
     <xsd:element name='prefix-limit' type='BgpPrefixLimit' required='optional' operation='CRUD'
          description='prefix-limit contains the maximum number of prefixes that are allowed to be received on the session for this address family.'/>
+    <xsd:element name='default-tunnel-encap' type='BgpTunnelEncapsulationType' maxOccurs='unbounded'
+        required='optional' operations='CRUD' description='Default prioritized tunnel encapsulation list.'/>
 </xsd:complexType>
 
 <xsd:simpleType name='BgpAsPathLoopCount'>
@@ -346,6 +348,15 @@
     <xsd:element name='key-items' type='AuthenticationKeyItem' maxOccurs='2' required='true' operation='CRUD'
          description='Upto two keys can be specified. Currently only one key is supported.'/>
 </xsd:complexType>
+
+<xsd:simpleType name="BgpTunnelEncapsulationType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="gre"/>
+        <xsd:enumeration value="udp"/>
+        <xsd:enumeration value="vxlan"/>
+        <xsd:enumeration value="mpls"/>
+    </xsd:restriction>
+</xsd:simpleType>
 
 <xsd:element name='service-chain-information' type='ServiceChainInfo'/>
 <!-- #IFMAP-SEMANTICS-IDL

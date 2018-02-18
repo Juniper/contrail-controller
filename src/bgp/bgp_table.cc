@@ -20,6 +20,7 @@
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
 
 using std::map;
@@ -209,6 +210,23 @@ void BgpTable::ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
     }
 }
 
+void BgpTable::ProcessDefaultTunnelEncapsulation(const RibOut *ribout,
+    ExtCommunityDB *extcomm_db, BgpAttr *attr) const {
+    if (!ribout->ExportPolicy().default_tunnel_encap_list.empty()) {
+        ExtCommunity::ExtCommunityList encap_list;
+        BOOST_FOREACH(const string encap_string,
+          ribout->ExportPolicy().default_tunnel_encap_list) {
+            TunnelEncap tunnel_encap(encap_string);
+            encap_list.push_back(tunnel_encap.GetExtCommunity());
+        }
+        ExtCommunityPtr ext_community = attr->ext_community();
+        ext_community =
+            extcomm_db->ReplaceTunnelEncapsulationAndLocate(
+            ext_community.get(), encap_list);
+        attr->set_ext_community(ext_community);
+    }
+}
+
 UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         const RibPeerSet &peerset) {
     const BgpPath *path = route->BestPath();
@@ -368,6 +386,16 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         }
 
         assert(clone);
+
+        // Update with the Default tunnel Encapsulation ordered List if
+        // configured on the peer.
+        // Note that all peers with the same list share the same Ribout, this is
+        // ensured by making the Default Encapsulation List part of the Rib
+        // Export policy.Note that, if there is Default Tunnel Encapsulation
+        // configuration any tunnel encapsulation present is removed.
+        ProcessDefaultTunnelEncapsulation(ribout, server()->extcomm_db(),
+                                          clone);
+
         ProcessLlgrState(ribout, path, clone, llgr_stale_comm);
 
         // Locate the new BgpAttrPtr.

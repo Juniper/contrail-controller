@@ -10,6 +10,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
         <xsd:enumeration value="gre"/>
         <xsd:enumeration value="udp"/>
         <xsd:enumeration value="vxlan"/>
+        <xsd:enumeration value="mpls"/>
     </xsd:restriction>
 </xsd:simpleType>
 

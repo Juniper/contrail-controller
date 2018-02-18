@@ -54,6 +54,7 @@ struct BgpPeerFamilyAttributes {
     uint32_t prefix_limit;
     uint32_t idle_timeout;
     IpAddress gateway_address;
+    std::vector<std::string> default_tunnel_encap_list;
 };
 
 //
@@ -67,6 +68,8 @@ struct BgpPeerFamilyAttributesCompare {
             KEY_COMPARE(lhs->prefix_limit, rhs->prefix_limit);
             KEY_COMPARE(lhs->idle_timeout, rhs->idle_timeout);
             KEY_COMPARE(lhs->gateway_address, rhs->gateway_address);
+            KEY_COMPARE(lhs->default_tunnel_encap_list,
+                        rhs->default_tunnel_encap_list);
         } else {
             KEY_COMPARE(lhs, rhs);
         }
@@ -304,6 +307,16 @@ public:
     virtual int GetTotalPathCount() const { return total_path_count_; }
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const;
+    virtual void ProcessPathTunnelEncapsulation(const BgpPath *path,
+        BgpAttr *attr, ExtCommunityDB *extcomm_db, const BgpTable *table) const;
+    virtual const std::vector<std::string> GetDefaultTunnelEncap(
+        const Address::Family family) const {
+        if (family_attributes_list_[family] == NULL) {
+            return std::vector<std::string>();
+        } else {
+            return family_attributes_list_[family]->default_tunnel_encap_list;
+        }
+    }
     virtual int GetPrimaryPathCount() const { return primary_path_count_; }
 
     void RegisterToVpnTables();
