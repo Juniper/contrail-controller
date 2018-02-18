@@ -56,6 +56,10 @@ class VncKubernetesConfig(object):
         return cls.vnc_kubernetes_config.get("cluster_service_ipam_fq_name", None)
 
     @classmethod
+    def ip_fabric_ipam_fq_name(cls):
+        return cls.vnc_kubernetes_config.get("cluster_ip_fabric_ipam_fq_name", None)
+
+    @classmethod
     def cluster_owner(cls):
         return cls.args().kubernetes_cluster_owner
 
