@@ -60,7 +60,8 @@ struct RibExportPolicy {
         uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
-        int affinity, uint32_t cluster_id);
+        int affinity, uint32_t cluster_id,
+        std::vector<std::string> &default_tunnel_encap_list);
 
     void SetRemovePrivatePolicy(bool all, bool replace, bool peer_loop_check);
     bool operator<(const RibExportPolicy &rhs) const;
@@ -74,6 +75,7 @@ struct RibExportPolicy {
     bool llgr;
     uint32_t cluster_id;
     RemovePrivatePolicy remove_private;
+    std::vector<std::string> default_tunnel_encap_list;
 };
 
 #endif  // SRC_BGP_BGP_RIB_POLICY_H_

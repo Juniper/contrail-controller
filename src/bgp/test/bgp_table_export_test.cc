@@ -88,6 +88,17 @@ public:
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
+    virtual void UpdateBgpAttrWithTunnelEncapsulation(BgpAttr *attr,
+        ExtCommunityDB *extcomm_db, const BgpTable *table) const {
+    }
+    virtual void ProcessPathTunnelEncapsulation(const BgpPath *path,
+        BgpAttr *attr, ExtCommunityDB *extcomm_db, const BgpTable *table)
+        const {
+    }
+    virtual const std::vector<std::string> GetDefaultTunnelEncap(
+        Address::Family family) const {
+        return std::vector<std::string>();
+    }
     virtual bool IsRegistrationRequired() const { return true; }
     virtual void MembershipRequestCallback(BgpTable *table) { }
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,
@@ -239,8 +250,10 @@ protected:
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number,
             bool as_override, IpAddress nexthop) {
+        vector<string> t_e_l;
         RibExportPolicy policy(
-            type, encoding, as_number, as_override, false, nexthop, -1, 0);
+            type, encoding, as_number, as_override, false, nexthop, -1, 0,
+            t_e_l);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }

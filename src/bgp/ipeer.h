@@ -208,6 +208,13 @@ public:
     virtual const std::string GetStateName() const = 0;
     virtual void UpdateTotalPathCount(int count) const = 0;
     virtual int GetTotalPathCount() const = 0;
+    virtual void UpdateBgpAttrWithTunnelEncapsulation(BgpAttr *attr,
+        ExtCommunityDB *extcomm_db, const BgpTable *table) const = 0;
+    virtual void ProcessPathTunnelEncapsulation(const BgpPath *path,
+        BgpAttr *attr, ExtCommunityDB *extcomm_db,
+        const BgpTable *table) const = 0;
+    virtual const std::vector<std::string> GetDefaultTunnelEncap(
+        const Address::Family family) const = 0;
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family = Address::UNSPEC) const = 0;
     virtual int GetPrimaryPathCount() const = 0;

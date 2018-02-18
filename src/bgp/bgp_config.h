@@ -94,6 +94,7 @@ struct BgpFamilyAttributesConfig {
     uint8_t loop_count;
     uint32_t prefix_limit;
     uint32_t idle_timeout;
+    std::vector<std::string> default_tunnel_encap_list;
 };
 
 //
