@@ -325,8 +325,8 @@ pugi::xml_document *XmppDocumentMock::RouteDeleteXmlDoc(
 
 pugi::xml_document *XmppDocumentMock::LabeledInetRouteAddXmlDoc(
         const std::string &network, const std::string &prefix,
-        const NextHop &nh) {
-    return LabeledInetRouteAddDeleteXmlDoc(network, prefix, true, nh);
+        const int label, const NextHop &nh) {
+    return LabeledInetRouteAddDeleteXmlDoc(network, prefix, true, nh, label);
 }
 
 pugi::xml_document *XmppDocumentMock::LabeledInetRouteDeleteXmlDoc(
@@ -514,7 +514,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
 
 pugi::xml_document *XmppDocumentMock::LabeledInetRouteAddDeleteXmlDoc(
         const std::string &network, const std::string &prefix, bool add,
-        const NextHop &nh) {
+        const NextHop &nh, const int label) {
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
@@ -533,7 +533,7 @@ pugi::xml_document *XmppDocumentMock::LabeledInetRouteAddDeleteXmlDoc(
             autogen::NextHopType item_nexthop;
             item_nexthop.af = BgpAf::IPv4;
             item_nexthop.address = localaddr();
-            item_nexthop.label = label_alloc_++;
+            item_nexthop.label = label;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                 list_of("gre");
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
@@ -542,7 +542,7 @@ pugi::xml_document *XmppDocumentMock::LabeledInetRouteAddDeleteXmlDoc(
             item_nexthop.af = BgpAf::IPv4;
             assert(!nh.address_.empty());
             item_nexthop.address = nh.address_;
-            item_nexthop.label = nh.label_ ? nh.label_ : label_alloc_++;
+            item_nexthop.label = label;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                 nh.tunnel_encapsulations_;
             item_nexthop.tag_list.tag = nh.tag_list_;
@@ -1235,11 +1235,12 @@ void NetworkAgentMock::DeleteRoute(const string &network_name,
 }
 
 void NetworkAgentMock::AddLabeledInetRoute(const string &network_name,
-                                const string &prefix, const string nexthop) {
+                                const string &prefix, const int label,
+                                const string nexthop) {
     NextHop nh(nexthop);
     AgentPeer *peer = GetAgent();
     xml_document *xdoc =
-        impl_->LabeledInetRouteAddXmlDoc(network_name, prefix, nh);
+        impl_->LabeledInetRouteAddXmlDoc(network_name, prefix, label, nh);
     peer->SendDocument(xdoc);
     route_mgr_->AddOriginated(network_name, prefix);
 }

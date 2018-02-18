@@ -166,7 +166,7 @@ protected:
     }
 
 
-    // Check for a route's existence in l3vpn table.
+    // Check for a route's existence in inet.3 table.
     bool CheckLabeledInetRouteExists(BgpServerTestPtr server, string prefix) {
         task_util::TaskSchedulerLock lock;
         BgpTable *table = static_cast<BgpTable *>(
@@ -186,6 +186,10 @@ protected:
         TASK_UTIL_EXPECT_TRUE(CheckLabeledInetRouteExists(server, prefix));
     }
 
+    void VerifyLabeledInetRouteNoExists(BgpServerTestPtr server,
+                                        string prefix) {
+        TASK_UTIL_EXPECT_FALSE(CheckLabeledInetRouteExists(server, prefix));
+    }
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
@@ -223,8 +227,9 @@ TEST_P(BgpXmppLabeledInet2ControlNodeTest, RouteAddBasic) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "10.1.1.1/32";
+    // Add route with label 3
     agent_a_->AddLabeledInetRoute(BgpConfigManager::kMasterInstance,
-                                  route_a.str(), "192.168.1.1");
+                                  route_a.str(), 3, "192.168.1.1");
     task_util::WaitForIdle();
 
     // Verify that route showed up on BGP servers A and B
@@ -248,6 +253,95 @@ TEST_P(BgpXmppLabeledInet2ControlNodeTest, RouteAddBasic) {
     agent_a_->SessionDown();
     agent_b_->SessionDown();
 }
+
+TEST_P(BgpXmppLabeledInet2ControlNodeTest, RouteAddInvalidLabel0) {
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to Master instance
+    agent_a_->LabeledInetSubscribe(BgpConfigManager::kMasterInstance, 1);
+    agent_b_->LabeledInetSubscribe(BgpConfigManager::kMasterInstance, 1);
+
+    task_util::WaitForIdle();
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    // Add route with label 3
+    agent_a_->AddLabeledInetRoute(BgpConfigManager::kMasterInstance,
+                                  route_a.str(), 0, "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on BGP servers A and B
+    VerifyLabeledInetRouteNoExists(bs_x_, "10.1.1.1/32");
+    VerifyLabeledInetRouteNoExists(bs_y_, "10.1.1.1/32");
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, BgpConfigManager::kMasterInstance,
+                        route_a.str());
+    VerifyRouteNoExists(agent_b_, BgpConfigManager::kMasterInstance,
+                        route_a.str());
+    // Delete route from agent A.
+    agent_a_->DeleteLabeledInetRoute(BgpConfigManager::kMasterInstance,
+                                     route_a.str()); task_util::WaitForIdle();
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+TEST_P(BgpXmppLabeledInet2ControlNodeTest, RouteAddInvalidLabelHigh) {
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to Master instance
+    agent_a_->LabeledInetSubscribe(BgpConfigManager::kMasterInstance, 1);
+    agent_b_->LabeledInetSubscribe(BgpConfigManager::kMasterInstance, 1);
+
+    task_util::WaitForIdle();
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    // Add route with label 3
+    agent_a_->AddLabeledInetRoute(BgpConfigManager::kMasterInstance,
+                                  route_a.str(), 0x1FFFFF, "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on BGP servers A and B
+    VerifyLabeledInetRouteNoExists(bs_x_, "10.1.1.1/32");
+    VerifyLabeledInetRouteNoExists(bs_y_, "10.1.1.1/32");
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, BgpConfigManager::kMasterInstance,
+                        route_a.str());
+    VerifyRouteNoExists(agent_b_, BgpConfigManager::kMasterInstance,
+                        route_a.str());
+    // Delete route from agent A.
+    agent_a_->DeleteLabeledInetRoute(BgpConfigManager::kMasterInstance,
+                                     route_a.str()); task_util::WaitForIdle();
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

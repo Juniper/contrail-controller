@@ -11,6 +11,9 @@
 #include "bgp/inet/inet_table.h"
 #include "db/db.h"
 
+using std::vector;
+using std::string;
+
 class BgpTableTest : public ::testing::Test {
 protected:
     BgpTableTest()
@@ -327,12 +330,13 @@ TEST_F(BgpTableTest, RiboutNexthop) {
     IpAddress nexthop2 = IpAddress::from_string("10.1.1.2", ec);
     IpAddress nexthop3 = IpAddress::from_string("10.1.1.3", ec);
     RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
+    vector<string> t_e_l;
     RibExportPolicy policy1(BgpProto::EBGP, RibExportPolicy::BGP, 100, true,
-                            false, nexthop1, -1, 0);
+                            false, nexthop1, -1, 0, t_e_l);
     RibExportPolicy policy2(BgpProto::EBGP, RibExportPolicy::BGP, 100, true,
-                            false, nexthop2, -1, 0);
+                            false, nexthop2, -1, 0, t_e_l);
     RibExportPolicy policy3(BgpProto::EBGP, RibExportPolicy::BGP, 100, true,
-                            false, nexthop3, -1, 0);
+                            false, nexthop3, -1, 0, t_e_l);
 
     // Create 3 ribouts.
     ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
