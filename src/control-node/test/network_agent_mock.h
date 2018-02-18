@@ -293,7 +293,7 @@ public:
     pugi::xml_document *RouteDeleteXmlDoc(const std::string &network,
         const std::string &prefix);
     pugi::xml_document *LabeledInetRouteAddXmlDoc(const std::string &network,
-        const std::string &prefix, const NextHop &nh);
+        const std::string &prefix, const int label, const NextHop &nh);
     pugi::xml_document *LabeledInetRouteDeleteXmlDoc(const std::string &network,
         const std::string &prefix);
 
@@ -350,7 +350,8 @@ private:
     pugi::xml_document* LabeledInetRouteAddDeleteXmlDoc(
             const std::string &network,
             const std::string &prefix, bool add,
-            const NextHop &nh = NextHop());
+            const NextHop &nh = NextHop(),
+            const int label=0);
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, bool add,
             const NextHop &nh = NextHop(),
@@ -587,6 +588,7 @@ public:
     void DeleteRoute(const std::string &network, const std::string &prefix);
     void AddLabeledInetRoute(const std::string &network,
                              const std::string &prefix,
+                             const int label,
                              const std::string nexthop = "");
     void DeleteLabeledInetRoute(const std::string &network,
         const std::string &prefix);
