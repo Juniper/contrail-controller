@@ -818,6 +818,7 @@ struct ShowBgpNeighborFamilyConfig {
     3: i32 prefix_limit;
     5: i32 idle_timeout;
     4: string gateway_address;
+    6: list<string> default_tunnel_encap_list;
 }
 
 struct ShowBgpNeighborConfig {
