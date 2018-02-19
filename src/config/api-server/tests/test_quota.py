@@ -288,12 +288,12 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure one counter is initialized
         proj_name = ["default-domain", "default-project"]
         proj_obj = self._vnc_lib.project_read(proj_name)
-        sgr_quota_counter = '%s%s/security_group_rule' % (
+        sgr_quota_counter_key = '%s%s/security_group_rule' % (
                 _DEFAULT_ZK_COUNTER_PATH_PREFIX, proj_obj.uuid)
         quota_counters = self._server_info['api_server'].quota_counter
-        self.assertEqual(True, sgr_quota_counter in quota_counters.keys())
+        self.assertEqual(True, sgr_quota_counter_key in quota_counters.keys())
         # make sure sgr quota counter is incremented
-        sgr_quota_counter = quota_counters[quota_counter_keys[0]]
+        sgr_quota_counter = quota_counters[sgr_quota_counter_key]
         self.assertEqual(sgr_quota_counter.value, 1)
 
         logger.info("Test#2: Update sg with rules one less than quota limit.")
@@ -541,7 +541,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # updated with the sgr counter only in the api-server
         # which served the project update,
         # by removing the sgr quota counter
-        del quota_counters[quota_counter_keys[0]]
+        del quota_counters[sgr_quota_counter_key]
         # Update SG with one more rule
         new_sg_obj = self._vnc_lib.security_group_read(
                 ["default-domain", "default-project", new_sg_name])
@@ -552,7 +552,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         self._security_group_rule_append(new_sg_obj, sg_rule)
         self._vnc_lib.security_group_update(new_sg_obj)
         # make sure sgr quota counter is incremented
-        sgr_quota_counter = quota_counters[quota_counter_keys[0]]
+        sgr_quota_counter = quota_counters[sgr_quota_counter_key]
         self.assertEqual(sgr_quota_counter.value, 7)
         # Try exceeding new quota limit
         new_sg_obj = self._vnc_lib.security_group_read(
