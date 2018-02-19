@@ -32,22 +32,35 @@
 #include <test/pkt_gen.h>
 #include <services/services_sandesh.h>
 #include "vr_types.h"
+#include "services/igmp_proto.h"
+
+extern uint32_t igmp_sgh_add_count;
+extern uint32_t igmp_sgh_del_count;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
+                        uint32_t qrivl, uint32_t lmqi);
+#ifdef __cplusplus
+}
+#endif
 
 #define MAX_WAIT_COUNT 60
 #define BUF_SIZE 8192
 char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 
-        struct PortInfo input[] = {
-            {"vnet1-0", 1, "10.1.1.3", "00:00:10:01:01:03", 1, 1},
-            {"vnet1-1", 2, "10.1.1.4", "00:00:10:01:01:04", 1, 1},
-        };
+struct PortInfo input[] = {
+    {"vnet1-0", 1, "10.1.1.3", "00:00:10:01:01:03", 1, 1},
+    {"vnet1-1", 2, "10.1.1.4", "00:00:10:01:01:04", 1, 1},
+};
 
 char print_buf[1024*3];
 
 struct igmp_common {
-    u_int8_t igmp_tc;             /* IGMP type and code */
-    u_int8_t max_resp_time;
+    u_int8_t igmp_type;             /* IGMP type */
+    u_int8_t igmp_code;             /* IGMP code */
     u_int16_t igmp_cksum;           /* checksum */
 };
 
@@ -74,7 +87,7 @@ struct igmp_report {
 struct igmp_v3_grecord {
     u_int8_t igmp_record_type;
     u_int8_t igmp_aux_data_len;
-    u_int8_t igmp_num_sources;
+    u_int16_t igmp_num_sources;
     struct in_addr igmp_group;
     struct in_addr igmp_source[0];
 };
@@ -133,7 +146,7 @@ public:
             {"10.1.1.0", 24, "1.1.1.200", true},
         };
 
-        CreateVmportEnv(input, 2, 0);
+        CreateVmportEnv(input, sizeof(input)/sizeof(struct PortInfo), 0);
         client->WaitForIdle();
         client->Reset();
         AddIPAM("vn1", ipam_info, 1); 
@@ -147,7 +160,7 @@ public:
         client->WaitForIdle();
 
         client->Reset();
-        DeleteVmportEnv(input, 2, 1, 0);
+        DeleteVmportEnv(input, sizeof(input)/sizeof(struct PortInfo), 1, 0);
         client->WaitForIdle();
     }
 
@@ -183,7 +196,6 @@ public:
         return itf_id_[index];
     }
 
-
     void PrintIgmp(uint8_t *buf, uint32_t len) {
 
         uint32_t print_loc = 0;
@@ -200,8 +212,9 @@ public:
         return;
     }
 
-    uint32_t FormIgmp(uint8_t *buf, int len, short ifindex, uint32_t src_ip, IgmpType igmp_type,
-                    struct IgmpGroupSource *igmp_gs, uint32_t gs_count) {
+    uint32_t FormIgmp(uint8_t *buf, int len, short ifindex, const char *src_ip,
+                            IgmpType igmp_type, struct IgmpGroupSource *igmp_gs,
+                            uint32_t gs_count) {
 
         struct ether_header *eth = (struct ether_header *)buf;
         eth->ether_dhost[5] = 1;
@@ -227,18 +240,18 @@ public:
         ip->ip_ttl = 1;
         ip->ip_p = IPPROTO_IGMP;
         ip->ip_sum = 0;
-        ip->ip_src.s_addr = htonl(src_ip);
+        ip->ip_src.s_addr = inet_addr(src_ip);
         if (igmp_type == IgmpTypeV1Query) {
 
             if (igmp_gs == NULL) {
                 ip->ip_dst.s_addr = inet_addr("224.0.0.1");
             } else {
-                ip->ip_dst.s_addr = ntohl(igmp_gs[0].group);
+                ip->ip_dst.s_addr = igmp_gs[0].group;
             }
         } else if ((igmp_type == IgmpTypeV1Report) ||
                    (igmp_type == IgmpTypeV2Report)) {
 
-            ip->ip_dst.s_addr = ntohl(igmp_gs[0].group);
+            ip->ip_dst.s_addr = igmp_gs[0].group;
         } else if (igmp_type == IgmpTypeV2Leave) {
 
             ip->ip_dst.s_addr = inet_addr("224.0.0.2");
@@ -249,8 +262,8 @@ public:
 
         uint32_t igmp_length = 0;
         struct igmp_common *igmp = (struct igmp_common *) (ip + 1);
-        igmp->igmp_tc = igmp_type;
-        igmp->max_resp_time = 0;
+        igmp->igmp_type = igmp_type;
+        igmp->igmp_code = 0;
         igmp->igmp_cksum = 0;
 
         igmp_length += sizeof(struct igmp_common);
@@ -261,13 +274,13 @@ public:
                 igmp_length += sizeof(struct igmp_query);
             } else if ((gs_count == 1) && (igmp_gs[0].source_count == 0)) {
                 struct igmp_query *query = (struct igmp_query *) (igmp + 1);
-                query->igmp_group.s_addr = ntohl(igmp_gs[0].group);
-                igmp->max_resp_time = 50; /* 5 seconds */
+                query->igmp_group.s_addr = igmp_gs[0].group;
+                igmp->igmp_code = 50; /* 5 seconds */
                 igmp_length += sizeof(struct igmp_query);
             } else {
                 struct igmp_v3_query *query = (struct igmp_v3_query *) (igmp + 1);
-                query->igmp_group.s_addr = ntohl(igmp_gs[0].group);
-                igmp->max_resp_time = 50; /* 5 seconds */
+                query->igmp_group.s_addr = igmp_gs[0].group;
+                igmp->igmp_code = 50; /* 5 seconds */
                 query->resv_s_qrv = 0;
                 query->qqic = 0;
 
@@ -275,25 +288,25 @@ public:
 
                 struct in_addr *igmp_source = &query->igmp_sources[0];
                 for (uint32_t i = 0; i < igmp_gs[0].source_count; i++) {
-                    igmp_source->s_addr = ntohl(igmp_gs[0].sources[i]);
+                    igmp_source->s_addr = igmp_gs[0].sources[i];
                     igmp_source++;
                     igmp_length += sizeof(struct in_addr);
                 }
             }
         } else if (igmp_type == IgmpTypeV2Leave) {
             struct igmp_leave *leave = (struct igmp_leave *) (igmp + 1);
-            leave->igmp_group.s_addr = ntohl(igmp_gs[0].group);
+            leave->igmp_group.s_addr = igmp_gs[0].group;
 
             igmp_length += sizeof(struct igmp_leave);
         } else if ((igmp_type == IgmpTypeV1Report) ||
                    (igmp_type == IgmpTypeV2Report)) {
             struct igmp_report *report = (struct igmp_report *) (igmp + 1);
-            report->igmp_group.s_addr = ntohl(igmp_gs[0].group);
+            report->igmp_group.s_addr = igmp_gs[0].group;
             igmp_length += sizeof(struct igmp_report);
         } else if (igmp_type == IgmpTypeV3Report) {
             struct igmp_v3_report *report = (struct igmp_v3_report *) (igmp + 1);
             report->reserved = 0;
-            report->num_groups = gs_count;
+            report->num_groups = htons(gs_count);
 
             igmp_length += sizeof(struct igmp_v3_report);
 
@@ -301,14 +314,15 @@ public:
             for (uint32_t i = 0; i < gs_count; i++) {
                 grecord->igmp_record_type = igmp_gs[i].record_type;
                 grecord->igmp_aux_data_len = 0;
-                grecord->igmp_num_sources = igmp_gs[i].source_count;
+                grecord->igmp_num_sources = htons(igmp_gs[i].source_count);
                 grecord->igmp_group.s_addr = igmp_gs[i].group;
+                igmp_length += sizeof(struct igmp_v3_grecord);
                 struct in_addr *source = &grecord->igmp_source[0];
-                for (int j = 0; j < grecord->igmp_num_sources; j++) {
+                for (u_int32_t j = 0; j < igmp_gs[i].source_count; j++) {
                     source->s_addr = igmp_gs[i].sources[j];
                     source++;
+                    igmp_length += sizeof(struct in_addr);
                 }
-                igmp_length += sizeof(struct igmp_v3_grecord);
                 grecord = (struct igmp_v3_grecord *)source;
             }
         } else {
@@ -326,7 +340,7 @@ public:
         return len;
     }
 
-    void SendIgmp(short ifindex, uint32_t src_ip, IgmpType igmp_type,
+    void SendIgmp(short ifindex, const char *src_ip, IgmpType igmp_type,
                     struct IgmpGroupSource *igmp_gs, uint32_t gs_count) {
 
         int len = 1024;
@@ -340,8 +354,38 @@ public:
         tap->TxPacket(buf, len);
     }
 
+    void WaitForRxOkCount(VmInterface *vm_itf, uint32_t index,
+                                    uint32_t ex_count) {
+
+        IgmpInfo::McastInterfaceState::IgmpIfStats stats;
+
+        int count = 0;
+        uint32_t counter = 0;
+
+        do {
+            usleep(1000);
+            client->WaitForIdle();
+            stats = Agent::GetInstance()->GetIgmpProto()->GetIfStats(vm_itf);
+            counter = stats.rx_okpacket[index-1];
+            if (++count == MAX_WAIT_COUNT)
+                assert(0);
+        } while (counter < ex_count);
+    }
+
+    void WaitForSgCount(volatile uint32_t *counter, uint32_t ex_count) {
+
+        int count = 0;
+
+        do {
+            usleep(1000);
+            client->WaitForIdle();
+            if (++count == MAX_WAIT_COUNT)
+                assert(0);
+        } while (*counter != ex_count);
+    }
+
     void IgmpTestClientReceive(uint8_t *buff, std::size_t len) {
-        TEST_LOG(DEBUG, "Received Packet" << endl);
+        return;
     }
 
 private:
@@ -379,13 +423,15 @@ TEST_F(IgmpTest, PrintPackets) {
 
     Set_Up();
 
-    len = FormIgmp(buf, buf_len, 0, 0x01010101, IgmpTypeV1Query, NULL, 0);
+    cout << "Not Printing for now. TEST_LOG is commented." << endl;
+
+    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Query, NULL, 0);
     TEST_LOG(DEBUG, "IgmpTypeV1Query Packet : " << endl);
     PrintIgmp(buf, len);
 
     igmp_gs[0].group = inet_addr("224.0.0.10");
     igmp_gs[0].source_count = 0;
-    len = FormIgmp(buf, buf_len, 0, 0x01010101, IgmpTypeV1Query, igmp_gs, 1);
+    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Query, igmp_gs, 1);
     TEST_LOG(DEBUG, "IgmpTypeV2Query Packet : " << endl);
     PrintIgmp(buf, len);
 
@@ -393,24 +439,24 @@ TEST_F(IgmpTest, PrintPackets) {
     igmp_gs[0].group = inet_addr("224.0.0.10");
     igmp_gs[0].group = inet_addr("224.0.0.11");
     igmp_gs[0].group = inet_addr("224.0.0.12");
-    len = FormIgmp(buf, buf_len, 0, 0x01010101, IgmpTypeV1Query, igmp_gs, 3);
+    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Query, igmp_gs, 3);
     TEST_LOG(DEBUG, "IgmpTypeV3Query Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
-    len = FormIgmp(buf, buf_len, 0, 0x01010101, IgmpTypeV2Leave, igmp_gs, 0);
+    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV2Leave, igmp_gs, 0);
     TEST_LOG(DEBUG, "IgmpTypeV2Leave Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
     igmp_gs[0].group = inet_addr("224.0.0.10");
-    len = FormIgmp(buf, buf_len, 0, 0x01010101, IgmpTypeV1Report, igmp_gs, 1);
+    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Report, igmp_gs, 1);
     TEST_LOG(DEBUG, "IgmpTypeV1Report Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
     igmp_gs[0].group = inet_addr("224.0.0.10");
-    len = FormIgmp(buf, buf_len, 0, 0x01010101, IgmpTypeV2Report, igmp_gs, 1);
+    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV2Report, igmp_gs, 1);
     TEST_LOG(DEBUG, "IgmpTypeV2Report Packet : " << endl);
     PrintIgmp(buf, len);
 
@@ -439,22 +485,121 @@ TEST_F(IgmpTest, PrintPackets) {
     igmp_gs[2].sources[0] = inet_addr("100.3.0.40");
     igmp_gs[2].sources[0] = inet_addr("100.3.0.50");
 
-    len = FormIgmp(buf, buf_len, 0, 0x01010101, IgmpTypeV3Report, igmp_gs, 3);
+    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV3Report, igmp_gs, 3);
     TEST_LOG(DEBUG, "IgmpTypeV3Report Packet : " << endl);
     PrintIgmp(buf, len);
 
     Tear_Down();
 
-    delete buf;
+    delete [] buf;
 
     return;
 }
 
-TEST_F(IgmpTest, SendOnePacket) {
+TEST_F(IgmpTest, SendV3ReportAndV2Leave) {
+
+    VmInterface *vm_itf;
+    IgmpInfo::McastInterfaceState::IgmpIfStats stats;
+
+    struct IgmpGroupSource igmp_gs[5];
+
+    // Force timeout for IGMP faster.
+    gmp_set_def_ipv4_ivl_params(1, 10000, 1000, 100);
+    // 5 for tolerance, formula from gmpr_intf_update_lmqt
+    // from above, 100 - last param, 1 - first param
+    uint32_t lmqt = ((100 * 1)+ 100/2 + 5) * 1000;
 
     Set_Up();
 
-    SendIgmp(0, 0x01010101, IgmpTypeV1Query, NULL, 0);
+    vm_itf = VmInterfaceGet(input[0].intf_id);
+
+    memset(igmp_gs, 0x00, sizeof(igmp_gs));
+    igmp_gs[0].group = inet_addr("224.1.0.10");
+    igmp_gs[0].sources[0] = inet_addr("100.1.0.10");
+    igmp_gs[0].sources[1] = inet_addr("100.1.0.20");
+    igmp_gs[0].sources[2] = inet_addr("100.1.0.30");
+    igmp_gs[0].sources[3] = inet_addr("100.1.0.40");
+    igmp_gs[0].sources[4] = inet_addr("100.1.0.50");
+
+    igmp_gs[1].group = inet_addr("224.2.0.10");
+    igmp_gs[1].sources[0] = inet_addr("100.2.0.10");
+    igmp_gs[1].sources[1] = inet_addr("100.2.0.20");
+    igmp_gs[1].sources[2] = inet_addr("100.2.0.30");
+    igmp_gs[1].sources[3] = inet_addr("100.2.0.40");
+    igmp_gs[1].sources[4] = inet_addr("100.2.0.50");
+
+    igmp_gs[2].group = inet_addr("224.3.0.10");
+    igmp_gs[2].sources[0] = inet_addr("100.3.0.10");
+    igmp_gs[2].sources[1] = inet_addr("100.3.0.20");
+    igmp_gs[2].sources[2] = inet_addr("100.3.0.30");
+    igmp_gs[2].sources[3] = inet_addr("100.3.0.40");
+    igmp_gs[2].sources[4] = inet_addr("100.3.0.50");
+
+    uint32_t local_sgh_add_count = 0;
+
+    igmp_gs[0].record_type = 2;
+    igmp_gs[0].source_count = 4;
+    local_sgh_add_count += 0;
+    SendIgmp(GetItfId(0), "10.1.1.4", IgmpTypeV3Report, igmp_gs, 1);
+    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    client->WaitForIdle();
+    WaitForSgCount(&igmp_sgh_add_count, local_sgh_add_count);
+
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    local_sgh_add_count += igmp_gs[0].source_count;
+    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV3Report, igmp_gs, 1);
+    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    client->WaitForIdle();
+    WaitForSgCount(&igmp_sgh_add_count, local_sgh_add_count);
+
+    igmp_gs[1].record_type = 1;
+    igmp_gs[1].source_count = 4;
+    local_sgh_add_count += igmp_gs[1].source_count;
+    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV3Report, igmp_gs, 2);
+    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 2);
+    client->WaitForIdle();
+    WaitForSgCount(&igmp_sgh_add_count, local_sgh_add_count);
+
+    igmp_gs[2].record_type = 1;
+    igmp_gs[2].source_count = 5;
+    local_sgh_add_count += igmp_gs[2].source_count;
+    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV3Report, &igmp_gs[2], 1);
+    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 3);
+    client->WaitForIdle();
+    WaitForSgCount(&igmp_sgh_add_count, local_sgh_add_count);
+
+    uint32_t local_sgh_del_count = 0;
+
+    local_sgh_del_count += 3;
+    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV2Leave, &igmp_gs[0], 1);
+    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, 1);
+    client->WaitForIdle();
+    usleep(lmqt);
+    WaitForSgCount(&igmp_sgh_del_count, local_sgh_del_count);
+
+    usleep(1000000);
+
+    local_sgh_del_count += 0;
+    SendIgmp(GetItfId(0), "10.1.1.4", IgmpTypeV2Leave, &igmp_gs[0], 1);
+    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, 1);
+    client->WaitForIdle();
+    usleep(lmqt);
+    WaitForSgCount(&igmp_sgh_del_count, local_sgh_del_count);
+
+    local_sgh_del_count += igmp_gs[1].source_count;
+    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV2Leave, &igmp_gs[1], 1);
+    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, 2);
+    client->WaitForIdle();
+    usleep(lmqt);
+    WaitForSgCount(&igmp_sgh_del_count, local_sgh_del_count);
+
+    local_sgh_del_count += igmp_gs[2].source_count;
+    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV2Leave, &igmp_gs[2], 1);
+    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, 3);
+    client->WaitForIdle();
+    usleep(lmqt);
+    WaitForSgCount(&igmp_sgh_del_count, local_sgh_del_count);
 
     Tear_Down();
     return;

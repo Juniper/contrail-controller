@@ -34,6 +34,6 @@
 
 #define TYPE_NAME(_type) boost::units::detail::demangle(typeid(_type).name())
 #define TEST_LOG(_Level, _Msg)                                          \
-    cout << _Msg << endl;
+    // cout << _Msg << endl;        // Not printing for now.
 
 #endif /* __IGMP_TEST_H__ */
