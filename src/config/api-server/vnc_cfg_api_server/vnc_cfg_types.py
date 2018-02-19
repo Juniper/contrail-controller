@@ -4468,12 +4468,12 @@ class ProjectServer(Resource, Project):
         return True, ''
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
+    def dbe_update_notification(cls, obj_ids, extra_dict=None):
         quota_counter = cls.server.quota_counter
         db_conn = cls.server._db_conn
-        ok, proj_dict = QuotaHelper.get_project_dict_for_quota(obj_ids['uuid'], db_conn)
-        for obj_type, quota_limit in proj_dict['quota'].items():
-            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids['uuid']
+        ok, proj_dict = QuotaHelper.get_project_dict_for_quota(obj_ids, db_conn)
+        for obj_type, quota_limit in proj_dict.get('quota', {}).items():
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids
             path = path_prefix + "/" + obj_type
             if (quota_counter.get(path) and quota_limit == -1):
                 # free the counter from cache for resources updated
