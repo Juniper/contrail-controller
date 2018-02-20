@@ -125,7 +125,9 @@ private:
                               AgentPath *path,
                               const AgentPath *local_peer_path,
                               const AgentPath *local_vm_peer_path,
-                              bool del, uint32_t *evpn_label);
+                              bool del,
+                              const std::string &vrf_name,
+                              uint32_t *evpn_label);
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
     AgentPath *FindEvpnPathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data) const;
