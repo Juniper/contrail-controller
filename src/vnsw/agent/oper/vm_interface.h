@@ -412,9 +412,9 @@ public:
 
     enum FatFlowIgnoreAddressType {
         IGNORE_NONE,
-        IGNORE_REMOTE,
         IGNORE_SOURCE,
-        IGNORE_DESTINATION
+        IGNORE_DESTINATION,
+        IGNORE_REMOTE
     };
 
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
@@ -1217,7 +1217,8 @@ public:
     const FatFlowList &fat_flow_list() const {
         return fat_flow_list_;
     }
-    bool IsFatFlow(uint8_t protocol, uint16_t port) const;
+    bool IsFatFlow(uint8_t protocol, uint16_t port,
+                   VmInterface::FatFlowIgnoreAddressType *ignore_addr) const;
 
     const BridgeDomainList &bridge_domain_list() const {
         return bridge_domain_list_;
