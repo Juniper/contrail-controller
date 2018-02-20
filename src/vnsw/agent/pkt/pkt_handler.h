@@ -384,6 +384,7 @@ struct PktInfo {
     TunnelInfo          tunnel;
     bool                l3_label;
     bool                multicast_label;
+    VmInterface::FatFlowIgnoreAddressType ignore_address; //fat-flow config
 
     // Pointer to different headers in user packet
     struct ether_header *eth;

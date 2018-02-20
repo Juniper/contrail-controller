@@ -835,9 +835,13 @@ const Peer *VmInterface::peer() const {
     return peer_.get();
 }
 
-bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port) const {
-    if (fat_flow_list_.list_.find(FatFlowEntry(protocol, port)) !=
-                fat_flow_list_.list_.end()) {
+bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port,
+                            VmInterface::FatFlowIgnoreAddressType *ignore_addr)
+    const {
+    FatFlowEntrySet::iterator it = fat_flow_list_.list_.
+        find(FatFlowEntry(protocol, port));
+    if (it != fat_flow_list_.list_.end()) {
+        *ignore_addr = it->ignore_address;
         return true;
     }
     return false;
