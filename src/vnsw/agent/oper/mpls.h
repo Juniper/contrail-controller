@@ -29,15 +29,21 @@ private:
 
 class MplsLabelData : public AgentData {
 public:
-    MplsLabelData(const NextHopKey *nh_key) : nh_key_(nh_key) {
+    MplsLabelData(const NextHopKey *nh_key) : nh_key_(nh_key), vrf_name_() {
     }
 
     virtual ~MplsLabelData() {
     }
 
     const NextHopKey *nh_key() const { return nh_key_.get(); }
+    std::string vrf_name() const {return vrf_name_;}
+    void set_vrf_name(const std::string &vrf_name) {
+        vrf_name_ = vrf_name;
+    }
+
 private:
     std::auto_ptr<const NextHopKey> nh_key_;
+    std::string vrf_name_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -72,12 +78,17 @@ public:
 
     uint32_t label() const {return label_;}
     const NextHop *nexthop() const {return nh_;}
+    std::map<std::string, NextHop *> &fmg_nh_list() {
+        return fmg_nh_list_;
+    }
+
 private:
     friend class MplsTable;
     Agent *agent_;
     uint32_t label_;
     bool free_label_;
     NextHop *nh_;
+    std::map<std::string, NextHop *> fmg_nh_list_;
     DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
     DISALLOW_COPY_AND_ASSIGN(MplsLabel);
 };
@@ -114,6 +125,7 @@ public:
     MplsLabel *AllocLabel(const NextHopKey *nh_key);
     uint32_t AllocLabel(ResourceManager::KeyPtr key);
     void FreeLabel(uint32_t label);
+    void FreeLabel(uint32_t label, const std::string &vrf_name);
 
     void ReserveMulticastLabel(uint32_t start, uint32_t end, uint8_t idx);
     bool IsFabricMulticastLabel(uint32_t label) const;
