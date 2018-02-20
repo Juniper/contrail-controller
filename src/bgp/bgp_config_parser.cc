@@ -409,7 +409,7 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
 
     string subcluster_name;
     if (node.child("sub-cluster")) {
-        xml_attribute sc = node.child("sub-cluster").attribute("to");
+        xml_attribute sc = node.child("sub-cluster").attribute("name");
         subcluster_name = sc.value();
         assert(!subcluster_name.empty());
     }
@@ -508,20 +508,6 @@ static bool ParseInstanceVirtualNetwork(const string &instance,
     return true;
 }
 
-static bool ParseInstanceSubCluster(const string &instance,
-    const xml_node &node, bool add_change,
-    BgpConfigParser::RequestList *requests) {
-    string subcluster_name = node.child_value();
-    if (add_change) {
-        MapObjectLink("routing-instance", instance, "sub-cluster",
-                      subcluster_name, "bgp-router-sub-cluster", requests);
-    } else {
-        MapObjectUnlink("routing-instance", instance, "sub-cluster",
-                        subcluster_name, "bgp-router-sub-cluster", requests);
-    }
-    return true;
-}
-
 }  // namespace
 
 BgpConfigParser::BgpConfigParser(DB *db)
@@ -550,8 +536,6 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
             ParseInstanceTarget(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "virtual-network") == 0) {
             ParseInstanceVirtualNetwork(instance, node, add_change, requests);
-        } else if (strcmp(node.name(), "sub-cluster") == 0) {
-            ParseInstanceSubCluster(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "service-chain-info") == 0) {
             ParseServiceChain(instance, node, add_change, Address::INET,
                               requests);

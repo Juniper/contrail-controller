@@ -381,6 +381,11 @@ bgp_xmpp_rtarget_test = env.UnitTest('bgp_xmpp_rtarget_test',
                                      ['bgp_xmpp_rtarget_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_rtarget_test', bgp_xmpp_rtarget_test)
 
+bgp_subcluster_integration_test = env.UnitTest(
+    'bgp_subcluster_integration_test', ['bgp_subcluster_integration_test.cc'])
+env.Alias('src/bgp:bgp_subcluster_integration_test',
+          bgp_subcluster_integration_test)
+
 bgp_xmpp_test = env.UnitTest('bgp_xmpp_test',
                              ['bgp_xmpp_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_test', bgp_xmpp_test)
@@ -658,6 +663,7 @@ test_suite = [
     bgp_show_routing_instance_test,
     bgp_show_rtarget_group_test,
 #   bgp_stress_test,
+    bgp_subcluster_integration_test,
     bgp_table_export_test,
     bgp_table_test,
     bgp_table_walk_test,
