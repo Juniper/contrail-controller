@@ -274,7 +274,7 @@ public:
     VrfEntry *vrf() const {return vrf_;}
     uint32_t vrf_id() const;
     const std::string &intf_route_type() const { return intf_route_type_; }
-    void SetIntfRouteType(const std::string &intf_route_type) {
+    void set_intf_route_type(const std::string &intf_route_type) {
         intf_route_type_ = intf_route_type;
     }
 

@@ -260,7 +260,11 @@ static const map<string, MatchProtocol::MatchProtocolType> fromString
     ("xmpp", MatchProtocol::XMPP)
     ("static", MatchProtocol::StaticRoute)
     ("service-chain", MatchProtocol::ServiceChainRoute)
-    ("aggregate", MatchProtocol::AggregateRoute);
+    ("aggregate", MatchProtocol::AggregateRoute)
+    ("interface", MatchProtocol::Interface)
+    ("interface-static", MatchProtocol::InterfaceStatic)
+    ("service-interface", MatchProtocol::ServiceInterface)
+    ("bgpaas", MatchProtocol::BGPaaS);
 
 static const map<MatchProtocol::MatchProtocolType, string> toString
   = boost::assign::map_list_of
@@ -268,7 +272,11 @@ static const map<MatchProtocol::MatchProtocolType, string> toString
     (MatchProtocol::XMPP, "xmpp")
     (MatchProtocol::StaticRoute, "static")
     (MatchProtocol::ServiceChainRoute, "service-chain")
-    (MatchProtocol::AggregateRoute, "aggregate");
+    (MatchProtocol::AggregateRoute, "aggregate")
+    (MatchProtocol::Interface, "interface")
+    (MatchProtocol::InterfaceStatic, "interface-static")
+    (MatchProtocol::ServiceInterface, "service-interface")
+    (MatchProtocol::BGPaaS, "bgpaas");
 
 static const map<MatchProtocol::MatchProtocolType, BgpPath::PathSource>
     pathSourceMap = boost::assign::map_list_of
@@ -276,7 +284,11 @@ static const map<MatchProtocol::MatchProtocolType, BgpPath::PathSource>
     (MatchProtocol::XMPP, BgpPath::BGP_XMPP)
     (MatchProtocol::StaticRoute, BgpPath::StaticRoute)
     (MatchProtocol::ServiceChainRoute, BgpPath::ServiceChain)
-    (MatchProtocol::AggregateRoute, BgpPath::Aggregate);
+    (MatchProtocol::AggregateRoute, BgpPath::Aggregate)
+    (MatchProtocol::Interface, BgpPath::BGP_XMPP)
+    (MatchProtocol::InterfaceStatic, BgpPath::BGP_XMPP)
+    (MatchProtocol::ServiceInterface, BgpPath::BGP_XMPP)
+    (MatchProtocol::BGPaaS, BgpPath::BGP_XMPP);
 
 static const string MatchProtocolToString(
                               MatchProtocol::MatchProtocolType protocol) {
@@ -339,6 +351,13 @@ bool MatchProtocol::Match(const BgpRoute *route, const BgpPath *path,
                     continue;
                 if (protocol == BGP && is_xmpp)
                     continue;
+                if (attr && !attr->sub_protocol().empty()) {
+                    std::string matchps = MatchProtocolToString(protocol);
+                    if (matchps.compare(attr->sub_protocol()) != 0) {
+                        continue;
+                    }
+                    if (!is_xmpp) continue;
+                }
                 return true;
             }
         }
