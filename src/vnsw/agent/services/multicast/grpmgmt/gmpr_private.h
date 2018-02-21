@@ -61,7 +61,7 @@
  * by interface ID on little-endian machines.
  */
 typedef struct gmpr_instance_ {
-    u_int32_t rinst_magic;	     	/* Magic number for robustness */
+    uint32_t rinst_magic;	     	/* Magic number for robustness */
     thread rinst_thread;	  	/* Link on global instance thread */
     thread rinst_client_thread;		/* Head of client thread */
     thread rinst_startup_intf_thread;	/* Head of intfs starting up */
@@ -69,17 +69,17 @@ typedef struct gmpr_instance_ {
     gmpx_patroot *rinst_intfs;		/* Tree of interfaces */
     gmpx_patroot *rinst_global_state_root; /* Root of global state tree */
     gmp_proto rinst_proto;		/* Protocol (IGMP/MLD) */
-    u_int rinst_addrlen;		/* Address length (v4 or v6) */
+    uint32_t rinst_addrlen;		/* Address length (v4 or v6) */
     gmp_addr_catalog rinst_addr_cat;	/* Address catalog */
-    u_int32_t rinst_min_max_resp;	/* Min value of max resp field */
+    uint32_t rinst_min_max_resp;	/* Min value of max resp field */
 
     ordinal_handle rinst_ord_handle;	/* Handle for client ordinals */
     void_t rinst_context;		/* Client instance context */
     gmpr_instance_context rinst_cb_context; /* Instance callbacks */
 
-    u_int32_t rinst_group_timeout;	/* Group timeout count */
+    uint32_t rinst_group_timeout;	/* Group timeout count */
 
-    u_int32_t rinst_traceflags;		/* Trace flags */
+    uint32_t rinst_traceflags;		/* Trace flags */
 
     gmpx_timer *rinst_smear_timer;	/* Timer for query timer smearing */
 
@@ -136,9 +136,9 @@ typedef struct gmpr_intf_ {
     gmpx_patnode rintf_inst_patnode;	/* Node on instance tree */
     gmpx_patnode rintf_global_patnode;	/* Node on global tree */
     gmpx_patroot *rintf_group_root;	/* Root of aggregated group records */
-    u_int32_t rintf_group_count;	/* Number of groups */
+    uint32_t rintf_group_count;	/* Number of groups */
     gmpx_patroot *rintf_oif_group_root;	/* Root of output group records */
-    u_int32_t rintf_oif_group_count;	/* Number of output groups */
+    uint32_t rintf_oif_group_count;	/* Number of output groups */
     gmpx_intf_id rintf_id;		/* Interface ID */
     gmpx_patroot *rintf_host_root;	/* Root of host entries */
     thread rintf_startup_thread;	/* Entry on instance startup thread */
@@ -146,33 +146,33 @@ typedef struct gmpr_intf_ {
     /* Query stuff */
 
     gmpx_timer *rintf_query_timer;	/* General query timer */
-    u_int32_t rintf_query_ivl;		/* General query timer interval */
-    u_int32_t rintf_local_query_ivl;	/* Local general query interval */
-    u_int32_t rintf_query_resp_ivl;	/* Query response interval */
-    u_int32_t rintf_local_query_resp_ivl; /* Local query response interval */
-    u_int32_t rintf_robustness;		/* Robustness variable */
-    u_int32_t rintf_local_robustness;	/* Local robustness variable */
-    u_int32_t rintf_lmq_ivl;		/* Last member query interval */
-    u_int32_t rintf_lmq_count;		/* Last member query count */
-    u_int32_t rintf_group_membership_ivl; /* Group membership interval */
-    u_int32_t rintf_lmqt;		/* Last member query time */
-    u_int32_t rintf_other_querier_ivl;	/* Other querier present interval */
+    uint32_t rintf_query_ivl;		/* General query timer interval */
+    uint32_t rintf_local_query_ivl;	/* Local general query interval */
+    uint32_t rintf_query_resp_ivl;	/* Query response interval */
+    uint32_t rintf_local_query_resp_ivl; /* Local query response interval */
+    uint32_t rintf_robustness;		/* Robustness variable */
+    uint32_t rintf_local_robustness;	/* Local robustness variable */
+    uint32_t rintf_lmq_ivl;		/* Last member query interval */
+    uint32_t rintf_lmq_count;		/* Last member query count */
+    uint32_t rintf_group_membership_ivl; /* Group membership interval */
+    uint32_t rintf_lmqt;		/* Last member query time */
+    uint32_t rintf_other_querier_ivl;	/* Other querier present interval */
     gmpx_timer *rintf_other_querier_present; /* Other querier present timer */
     boolean rintf_suppress_gen_query;	/* Suppress general queries */
     boolean rintf_gen_query_requested;	/* General query seq was requested */
     boolean rintf_first_query_pending;	/* First query in sequence ready */
     boolean rintf_suppress_gs_query;	/* Suppress GS/GSS queries */
 
-    u_int rintf_startup_query_count;	/* Count of initial queries */
+    uint32_t rintf_startup_query_count;	/* Count of initial queries */
 
-    u_int32_t rintf_channel_limit;	/* Max number of channels */
-    u_int32_t rintf_channel_threshold;  /* Percentage of maximum at which to
+    uint32_t rintf_channel_limit;	/* Max number of channels */
+    uint32_t rintf_channel_threshold;  /* Percentage of maximum at which to
 				           start generating warnings */
-    u_int32_t rintf_log_interval;       /* Time between consecutive limit log msgs */
+    uint32_t rintf_log_interval;       /* Time between consecutive limit log msgs */
     time_t last_log_time;               /* Time last group limit related message
 					   was logged */  
-    u_int32_t rintf_channel_count;	/* Current channel count */
-    u_int32_t rintf_chan_limit_drops;	/* Count of drops due to chan limit */
+    uint32_t rintf_channel_count;	/* Current channel count */
+    uint32_t rintf_chan_limit_drops;	/* Count of drops due to chan limit */
     gmpr_limit_state_t rintf_limit_state; /* if count is above/below chan limit/threshold */   
 
     /* Transmission stuff */
@@ -287,7 +287,7 @@ typedef struct gmpr_group_ {
 
     gmpx_timer *rgroup_query_timer;	/* For sending group queries */
     gmpx_timer *rgroup_gss_query_timer;	/* For sending GSS queries */
-    u_int8_t rgroup_query_rexmit_count;	/* Rexmit count for group queries */
+    uint8_t rgroup_query_rexmit_count;	/* Rexmit count for group queries */
     gmp_addr_list rgroup_query_lo_timers; /* List of sources with lo timers */
     gmp_addr_list rgroup_query_hi_timers; /* List of sources with hi timers */
 
@@ -328,7 +328,7 @@ typedef struct gmpr_group_addr_entry_
     gmp_addr_list_entry rgroup_addr_entry;	/* Address entry */
     gmpr_group *rgroup_addr_group;	/* Owning group */
     gmpx_timer *rgroup_addr_timer;	/* Timer */
-    u_int8_t rgroup_addr_rexmit_count;	/* Query retransmission count */
+    uint8_t rgroup_addr_rexmit_count;	/* Query retransmission count */
     thread rgroup_addr_oif_thread;	/* Entry on OIF thread */
     struct gmpr_ogroup_addr_entry_ *rgroup_addr_oif_addr; /* OIF address */
 
@@ -440,7 +440,7 @@ EMBEDDED_STRUCT_TO_STRUCT(gmpr_addr_entry_to_ogroup_entry,
  * state.
  */
 typedef struct gmpr_client_ {
-    u_int32_t rclient_magic;		/* Magic number for robustness */
+    uint32_t rclient_magic;		/* Magic number for robustness */
     gmpr_instance *rclient_instance;	/* Owning instance */
     ordinal_t rclient_ordinal;		/* Client ordinal */
     thread rclient_thread;		/* Link on instance client thread */
@@ -516,7 +516,7 @@ typedef struct gmpr_host_group_ {
     gmpr_notify_block rhgroup_notify[GMPX_MAX_RTR_CLIENTS];
 					/* Notification block */
     boolean rhgroup_is_deleted;		/* Deleted, but locked */
-    u_int8_t rhgroup_lock_count;	/* Lock count */
+    uint8_t rhgroup_lock_count;	/* Lock count */
 } gmpr_host_group;
 
 THREAD_TO_STRUCT(gmpr_thread_to_host_group, gmpr_host_group, rhgroup_thread);
@@ -604,7 +604,7 @@ static inline gmpr_ogroup *
 gmpr_client_notification_to_group (gmpr_notify_block *notify_block,
 				   ordinal_t ordinal)
 {
-    u_int8_t *byte_ptr;
+    uint8_t *byte_ptr;
     gmpr_ogroup *group;
 
     if (!notify_block)
@@ -620,7 +620,7 @@ gmpr_client_notification_to_group (gmpr_notify_block *notify_block,
 
     /* Now back up to the start of the group. */
 
-    byte_ptr = (u_int8_t *) notify_block;
+    byte_ptr = (uint8_t *) notify_block;
     byte_ptr -= offsetof(gmpr_ogroup, rogroup_client_thread);
 
     group = (gmpr_ogroup *) byte_ptr;
@@ -641,7 +641,7 @@ static inline gmpr_ogroup_addr_entry *
 gmpr_client_notification_to_addr_entry (gmpr_notify_block *notify_block,
 					ordinal_t ordinal)
 {
-    u_int8_t *byte_ptr;
+    uint8_t *byte_ptr;
     gmpr_ogroup_addr_entry *group_addr;
 
     gmpx_assert(ordinal < GMPX_MAX_RTR_CLIENTS);
@@ -657,7 +657,7 @@ gmpr_client_notification_to_addr_entry (gmpr_notify_block *notify_block,
 
     /* Now back up to the start of the address entry. */
 
-    byte_ptr = (u_int8_t *) notify_block;
+    byte_ptr = (uint8_t *) notify_block;
     byte_ptr -= offsetof(gmpr_ogroup_addr_entry, rogroup_addr_client_thread);
 
     group_addr = (gmpr_ogroup_addr_entry *) byte_ptr;
@@ -677,7 +677,7 @@ static inline gmpr_host_group *
 gmpr_client_notification_to_host_group (gmpr_notify_block *notify_block,
 					ordinal_t ordinal)
 {
-    u_int8_t *byte_ptr;
+    uint8_t *byte_ptr;
     gmpr_host_group *host_group;
 
     if (!notify_block)
@@ -693,7 +693,7 @@ gmpr_client_notification_to_host_group (gmpr_notify_block *notify_block,
 
     /* Now back up to the start of the group. */
 
-    byte_ptr = (u_int8_t *) notify_block;
+    byte_ptr = (uint8_t *) notify_block;
     byte_ptr -= offsetof(gmpr_host_group, rhgroup_notify);
 
     host_group = (gmpr_host_group *) byte_ptr;
@@ -714,7 +714,7 @@ static inline gmpr_host_group_addr *
 gmpr_client_notification_to_host_group_addr (gmpr_notify_block *notify_block,
 					     ordinal_t ordinal)
 {
-    u_int8_t *byte_ptr;
+    uint8_t *byte_ptr;
     gmpr_host_group_addr *group_addr;
 
     gmpx_assert(ordinal < GMPX_MAX_RTR_CLIENTS);
@@ -730,7 +730,7 @@ gmpr_client_notification_to_host_group_addr (gmpr_notify_block *notify_block,
 
     /* Now back up to the start of the address entry. */
 
-    byte_ptr = (u_int8_t *) notify_block;
+    byte_ptr = (uint8_t *) notify_block;
     byte_ptr -= offsetof(gmpr_host_group_addr, rhga_notify);
 
     group_addr = (gmpr_host_group_addr *) byte_ptr;
@@ -1066,8 +1066,8 @@ extern int gmpr_attach_intf_internal(gmpr_instance *instance,
 extern int gmpr_detach_intf_internal(gmpr_instance *instance,
 				     gmpx_intf_id intf_id);
 extern void gmpr_destroy_instance_intfs(gmpr_instance *instance);
-extern void gmpr_intf_update_robustness(gmpr_intf *intf, u_int32_t robustness);
-extern void gmpr_intf_update_query_ivl(gmpr_intf *intf, u_int32_t query_ivl);
+extern void gmpr_intf_update_robustness(gmpr_intf *intf, uint32_t robustness);
+extern void gmpr_intf_update_query_ivl(gmpr_intf *intf, uint32_t query_ivl);
 extern void gmpr_update_querier(gmpr_intf *intf, gmp_addr_string *addr,
 				boolean querier);
 extern void gmpr_setup_initial_query_timer(gmpr_intf *intf);
@@ -1079,8 +1079,8 @@ extern gmpr_intf *gmpr_next_instance_intf(gmpr_instance *instance,
 
 extern gmpr_group *gmpr_group_create(gmpr_intf *intf,
 				     const gmp_addr_string *group_addr);
-extern gmpr_group *gmpr_group_lookup(gmpr_intf *intf, const u_int8_t *group);
-extern gmpr_ogroup *gmpr_ogroup_lookup(gmpr_intf *intf, const u_int8_t *group);
+extern gmpr_group *gmpr_group_lookup(gmpr_intf *intf, const uint8_t *group);
+extern gmpr_ogroup *gmpr_ogroup_lookup(gmpr_intf *intf, const uint8_t *group);
 extern gmpx_timer *gmpr_create_change_report_timer(gmpr_group *group);
 extern gmpr_group *gmpr_first_group_xmit(gmpr_intf *intf);
 extern void gmpr_dequeue_group_xmit(gmpr_group *group);
@@ -1093,12 +1093,12 @@ extern void gmpr_init_group_addr_entry(gmpr_group *group,
 extern gmpr_global_group *gmpr_link_global_group(gmpr_ogroup *group);
 extern void gmpr_delink_global_group(gmpr_ogroup *group);
 extern gmpr_global_group *gmpr_lookup_global_group(gmpr_instance *instance,
-						   u_int8_t *group_addr);
+						   uint8_t *group_addr);
 extern void gmpr_evaluate_group_version(gmpr_group *group);
 extern gmp_version gmpr_group_version(gmpr_intf *intf, gmpr_group *group);
 extern boolean gmpr_group_forwards_all_sources(gmpr_ogroup *group);
 extern boolean gmpr_group_forwards_source(gmpr_ogroup *group,
-					  const u_int8_t *source);
+					  const uint8_t *source);
 extern void gmpr_timeout_group(gmpr_group *group);
 extern void gmpr_update_group_oif(gmpr_group *group, oif_update_type type);
 extern void gmpr_update_source_oif(gmpr_group_addr_entry *group_addr,
@@ -1128,7 +1128,7 @@ extern void gmpr_last_host_group_ref_gone(gmpr_group *group);
 /* gmpr_host.c */
 
 extern void
-    gmpr_host_process_report(u_int8_t *src_addr, gmp_report_rectype rec_type,
+    gmpr_host_process_report(uint8_t *src_addr, gmp_report_rectype rec_type,
 			     gmpr_group *group, gmp_addr_vect *source_vect);
 extern gmpr_client_host_notification *
     gmpr_client_get_host_notification(gmpr_client *client,
@@ -1140,6 +1140,6 @@ extern void gmpr_client_enqueue_all_host_groups(gmpr_client *client);
 extern void gmpr_flush_host_notifications_client(gmpr_client *client);
 extern void gmpr_destroy_intf_hosts(gmpr_intf *intf);
 extern void gmpr_host_notify_oif_map_change(gmpr_group *group);
-extern gmpr_host *gmpr_lookup_host(gmpr_intf *intf, const u_int8_t *host_addr);
+extern gmpr_host *gmpr_lookup_host(gmpr_intf *intf, const uint8_t *host_addr);
 
 #endif /* __GMPR_PRIVATE_H__ */
