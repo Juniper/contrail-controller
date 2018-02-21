@@ -113,7 +113,7 @@ gmpp_init (void)
  */
 gmp_report_group_record *
 gmpp_create_group_record (gmp_report_packet *report_packet, void *group_id,
-			  const u_int8_t *group_addr, u_int addr_len)
+			  const uint8_t *group_addr, uint32_t addr_len)
 {
     gmp_report_group_record *group_record;
 
@@ -126,7 +126,7 @@ gmpp_create_group_record (gmp_report_packet *report_packet, void *group_id,
     /* Initialize it. */
 
     group_record->gmp_rpt_group_id = group_id;
-    bcopy(group_addr, group_record->gmp_rpt_group.gmp_addr, addr_len);
+    memmove(group_record->gmp_rpt_group.gmp_addr, group_addr, addr_len);
 
     /* Put it into the thread. */
 
@@ -332,7 +332,7 @@ gmpp_deregister (gmp_role role)
 
     /* Zap the context block. */
 
-    bzero(ctx, sizeof(gmpp_context));
+    memset(ctx, 0, sizeof(gmpp_context));
 }
 
 
@@ -476,7 +476,7 @@ gmp_register_peek_function (gmp_role role,
  */
 gmp_packet *
 gmpp_next_xmit_packet (gmp_role role, gmp_proto proto, gmpx_intf_id intf_id,
-		       u_int buffer_len)
+		       uint32_t buffer_len)
 {
     gmpp_context *ctx;
     gmp_packet *packet;
@@ -589,13 +589,13 @@ gmpp_process_rcv_packet (gmp_packet *packet, gmpx_intf_id intf_id)
  *
  * If the buffer length is zero, we always return one group.
  */
-u_int
+uint32_t
 gmpp_max_group_count (gmp_proto proto, gmp_version version,
-		      gmp_message_type msg_type, u_int buffer_len)
+		      gmp_message_type msg_type, uint32_t buffer_len)
 {
-    u_int overhead;
-    u_int group_len;
-    u_int max_group_count;
+    uint32_t overhead;
+    uint32_t group_len;
+    uint32_t max_group_count;
 
     /*
      * The only packets that carry more than one group are IGMPv3/

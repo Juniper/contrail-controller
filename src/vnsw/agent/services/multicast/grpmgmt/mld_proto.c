@@ -467,7 +467,7 @@ mld_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
     gmpx_assert(packet_len >= sizeof(mld_v1_pkt));
     v1_pkt = &packet->mld_pkt_v1;
     pkt_hdr = &v1_pkt->mld_v1_pkt_hdr;
-    bzero(pkt_hdr, sizeof(mld_hdr));
+    memset(pkt_hdr, 0, sizeof(mld_hdr));
     formatted_len = sizeof(mld_v1_pkt);
 
     switch (gen_packet->gmp_packet_type) {
@@ -484,14 +484,12 @@ mld_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
 	 * zero it.  Set the destination address accordingly.
 	 */
 	if (query_pkt->gmp_query_group_query) {
-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
-		  v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
+            memmove(v1_pkt->mld_v1_pkt_group, query_pkt->gmp_query_group.gmp_addr, IPV6_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
+                IPV6_ADDR_LEN);
 	} else {
-	    bzero(v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
-	    bcopy(mld_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
-		  IPV6_ADDR_LEN);
+            memset(v1_pkt->mld_v1_pkt_group, 0, IPV6_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_hosts, IPV6_ADDR_LEN);
 	}
 
 	/* Store the max resp value. */
@@ -530,16 +528,14 @@ mld_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
 	     group_record->gmp_rpt_type == GMP_RPT_IS_IN) &&
 	    gmp_addr_list_empty(group_record->gmp_rpt_xmit_srcs)) {
 	    pkt_hdr->mld_hdr_type = MLD_TYPE_V1_LEAVE;
-	    bcopy(mld_all_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
-		  IPV6_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_routers, IPV6_ADDR_LEN);
 	} else {
 	    pkt_hdr->mld_hdr_type = MLD_TYPE_V1_REPORT;
-	    bcopy(group_record->gmp_rpt_group.gmp_addr,
-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, group_record->gmp_rpt_group.gmp_addr,
+                IPV6_ADDR_LEN);
 	}
 
-	bcopy(group_record->gmp_rpt_group.gmp_addr,
-	      v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
+        memmove(v1_pkt->mld_v1_pkt_group, group_record->gmp_rpt_group.gmp_addr, IPV6_ADDR_LEN);
 
 	/* If this is a BLOCK record, don't send anything. */
 
@@ -588,7 +584,7 @@ mld_format_v2_query (gmp_role role, gmp_packet *gen_packet,
     gmpx_assert(packet_len >= sizeof(mld_v2_query) + IPV6_ADDR_LEN);
     query_pkt = &gen_packet->gmp_packet_contents.gmp_packet_query;
     v2_query_pkt = &packet->mld_pkt_v2_query;
-    bzero(v2_query_pkt, sizeof(mld_v2_query));
+    memset(v2_query_pkt, 0, sizeof(mld_v2_query));
     pkt_hdr = &v2_query_pkt->mld_v2_query_hdr;
 
     /* Set up the header. */
@@ -607,14 +603,13 @@ mld_format_v2_query (gmp_role role, gmp_packet *gen_packet,
      * zero it.  Set the destination address accordingly.
      */
     if (query_pkt->gmp_query_group_query) {
-	bcopy(query_pkt->gmp_query_group.gmp_addr,
-	      v2_query_pkt->mld_v2_query_group, IPV6_ADDR_LEN);
-	bcopy(query_pkt->gmp_query_group.gmp_addr,
-	      gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
+        memmove(v2_query_pkt->mld_v2_query_group, query_pkt->gmp_query_group.gmp_addr,
+            IPV6_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
+            IPV6_ADDR_LEN);
     } else {
-	bzero(v2_query_pkt->mld_v2_query_group, IPV6_ADDR_LEN);
-	bcopy(mld_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
-	      IPV6_ADDR_LEN);
+        memset(v2_query_pkt->mld_v2_query_group, 0, IPV6_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_hosts, IPV6_ADDR_LEN);
     }
 
     /* Set the S and QRV fields. */
@@ -670,7 +665,7 @@ mld_format_v2_query (gmp_role role, gmp_packet *gen_packet,
 		gmp_get_addr_cat_by_ordinal(addr_list->addr_vect.av_catalog,
 					    addr_entry->addr_ent_ord);
 	    gmpx_assert(cat_entry);
-	    bcopy(cat_entry->adcat_ent_addr.gmp_addr, addr_ptr, IPV6_ADDR_LEN);
+            memmove(addr_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV6_ADDR_LEN);
 
 	    /* Delink the address entry. */
 
@@ -734,7 +729,7 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
 		sizeof(mld_v2_rpt_rcrd) + IPV6_ADDR_LEN);
     report_pkt = &gen_packet->gmp_packet_contents.gmp_packet_report;
     v2_rpt_pkt = &packet->mld_pkt_v2_rpt;
-    bzero(v2_rpt_pkt, sizeof(mld_v2_report));
+    memset(v2_rpt_pkt, 0, sizeof(mld_v2_report));
     pkt_hdr = &v2_rpt_pkt->mld_v2_report_hdr;
 
     /* Set up the header. */
@@ -790,10 +785,10 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
 
 	/* Create the group record header. */
 
-	bzero(v2_group_rcrd, sizeof(mld_v2_rpt_rcrd));
+	memset(v2_group_rcrd, 0, sizeof(mld_v2_rpt_rcrd));
 	v2_group_rcrd->mld_v2_rpt_rec_type = group_record->gmp_rpt_type;
-	bcopy(group_record->gmp_rpt_group.gmp_addr,
-	      v2_group_rcrd->mld_v2_rpt_group, IPV6_ADDR_LEN);
+        memmove(v2_group_rcrd->mld_v2_rpt_group, group_record->gmp_rpt_group.gmp_addr,
+            IPV6_ADDR_LEN);
 	packet_len -= sizeof(mld_v2_rpt_rcrd);
 	formatted_len += sizeof(mld_v2_rpt_rcrd);
 	byte_ptr = v2_group_rcrd->mld_v2_rpt_source;
@@ -830,8 +825,7 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
 					addr_list->addr_vect.av_catalog,
 					addr_entry->addr_ent_ord);
 		gmpx_assert(cat_entry);
-		bcopy(cat_entry->adcat_ent_addr.gmp_addr, byte_ptr,
-		      IPV6_ADDR_LEN);
+                memmove(byte_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV6_ADDR_LEN);
 
 		/* Delink the address entry. */
 
@@ -884,8 +878,7 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
 
     /* Set the destination address. */
 
-    bcopy(mld_all_v2_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
-	  IPV6_ADDR_LEN);
+    memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_v2_routers, IPV6_ADDR_LEN);
 
     /* Update the group count in the packet header. */
 
@@ -1012,8 +1005,7 @@ mld_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id, void *packet,
      * source address, which is part of the v6 checksum.
      */
     if (formatted_len && dest_addr) {
-	bcopy(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr,
-	      IPV6_ADDR_LEN);
+        memmove(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
 
 	/* Trace the packet. */
 
@@ -1067,8 +1059,7 @@ mld_parse_v1_packet(mld_packet *packet, gmp_packet *gen_packet,
 
 	/* Copy the group address. */
 
-	bcopy(v1_pkt->mld_v1_pkt_group,
-	      query_pkt->gmp_query_group.gmp_addr, IPV6_ADDR_LEN);
+        memmove(query_pkt->gmp_query_group.gmp_addr, v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
 	
 	/*
 	 * If the group address is nonzero, flag that we've got a
@@ -1262,8 +1253,7 @@ mld_parse_v2_query_packet(mld_packet *packet, gmp_packet *gen_packet,
 
     /* Copy the group address. */
 
-    bcopy(v2_query_pkt->mld_v2_query_group,
-	  query_pkt->gmp_query_group.gmp_addr, IPV6_ADDR_LEN);
+    memmove(query_pkt->gmp_query_group.gmp_addr, v2_query_pkt->mld_v2_query_group, IPV6_ADDR_LEN);
 	
     /*
      * If the group address is nonzero, flag that we've got a
@@ -1416,12 +1406,10 @@ mld_process_pkt (void *rcv_pkt, const u_int8_t *src_addr,
     /* Set up the address fields. */
 
     if (src_addr) {
-	bcopy(src_addr, gen_packet->gmp_packet_src_addr.gmp_addr,
-	      IPV6_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_src_addr.gmp_addr, src_addr, IPV6_ADDR_LEN);
     }
     if (dest_addr) {
-	bcopy(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr,
-	      IPV6_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr, IPV6_ADDR_LEN);
     }
 
     /* If the packet looks OK so far, parse it further. */

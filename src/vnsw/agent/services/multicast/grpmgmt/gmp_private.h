@@ -29,7 +29,7 @@
     static inline outerstruct * procname (innerstruct *ptr) \
     { \
 	if (ptr)\
-	    return ((outerstruct *) (((u_char *) ptr) - \
+	    return ((outerstruct *) (((uint8_t *) ptr) - \
 				     offsetof(outerstruct, field))); \
 	 return NULL; \
     }
@@ -95,7 +95,7 @@ typedef struct gmp_addr_catalog_
     gmpx_patroot *adcat_addr_root;	/* Root of address tree */
     gmpx_patroot *adcat_ord_root;	/* Root of ordinal tree */
     ordinal_handle adcat_ord_handle;	/* Ordinal space handle */
-    u_int32_t adcat_addrlen;		/* Address length */
+    uint32_t adcat_addrlen;		/* Address length */
 } gmp_addr_catalog;
 
 typedef struct gmp_addr_cat_entry_
@@ -245,13 +245,13 @@ THREAD_TO_STRUCT(gmp_xmit_thread_to_addr_list_entry, gmp_addr_list_entry,
  * as the associated address catalog necessarily belongs to the client.
  */
 typedef struct gmp_query_packet_ {
-    u_int32_t gmp_query_max_resp;	/* Max resp value, in msec */
+    uint32_t gmp_query_max_resp;	/* Max resp value, in msec */
     gmp_addr_string gmp_query_group;	/* Group address */
     void *gmp_query_group_id;		/* Opaque group ID */
     boolean gmp_query_group_query;	/* TRUE if a group query */
     boolean gmp_query_suppress;		/* Suppress router-side processing */
-    u_int32_t gmp_query_qrv;		/* Querier's robustness variable */
-    u_int32_t gmp_query_qqi;		/* Querier's query interval (msec) */
+    uint32_t gmp_query_qrv;		/* Querier's robustness variable */
+    uint32_t gmp_query_qqi;		/* Querier's query interval (msec) */
     gmp_addr_list *gmp_query_xmit_srcs;	/* List of sources (xmit) */
     gmp_addr_thread *gmp_query_rcv_srcs; /* Sources (receive) */
 } gmp_query_packet;
@@ -266,7 +266,7 @@ typedef struct gmp_query_packet_ {
  */
 typedef struct gmp_report_packet_ {
     thread gmp_report_group_head;	/* Head of thread of group records */
-    u_int32_t gmp_report_group_count;	/* Number of group records */
+    uint32_t gmp_report_group_count;	/* Number of group records */
 } gmp_report_packet;
 
 
@@ -343,7 +343,7 @@ struct gmp_packet_ {
  */
 struct gmp_addr_thread_ {
     thread gmp_addr_thread_head;	/* Head of address thread */
-    u_int32_t gmp_addr_thread_count;	/* Count of entries */
+    uint32_t gmp_addr_thread_count;	/* Count of entries */
 };
 
 
@@ -376,7 +376,7 @@ THREAD_TO_STRUCT(gmp_adth_thread_to_thread_entry, gmp_addr_thread_entry,
  */
 typedef gmp_packet * (*gmp_xmit_callback_func)(gmpx_intf_id intf_id,
 					       gmp_proto proto,
-					       u_int buffer_len);
+					       uint32_t buffer_len);
 
 
 /*
@@ -417,7 +417,7 @@ typedef void (*gmp_group_done_callback_func)(void *group_id);
  * version.
  */
 static inline gmp_version
-gmp_translate_version (gmp_proto proto, u_int version)
+gmp_translate_version (gmp_proto proto, uint32_t version)
 {
     /* Bloody dull. */
 
@@ -454,7 +454,7 @@ gmp_translate_version (gmp_proto proto, u_int version)
  *
  * Untranslates from generic version to protocol version number.
  */
-static inline u_int
+static inline uint32_t
 gmp_untranslate_version (gmp_proto proto, gmp_version version)
 {
     switch (proto) {
@@ -539,13 +539,13 @@ extern void gmp_init_addr_vector(gmp_addr_vect *vector,
 				 gmp_addr_catalog *catalog);
 extern void gmp_destroy_addr_catalog(gmp_addr_catalog *catalog);
 extern int gmp_init_addr_catalog(gmp_addr_catalog *catalog,
-				 u_int32_t addr_len);
+				 uint32_t addr_len);
 extern gmp_addr_cat_entry *
 gmp_get_addr_cat_by_ordinal(gmp_addr_catalog *catalog, ordinal_t ordinal);
 extern ordinal_t gmp_lookup_create_addr_cat_entry(gmp_addr_catalog *catalog,
-						  u_int8_t *addr);
+						  uint8_t *addr);
 extern gmp_addr_cat_entry *gmp_lookup_addr_cat_entry(gmp_addr_catalog *catalog,
-						     const u_int8_t *addr);
+						     const uint8_t *addr);
 extern void gmp_lock_adcat_entry(gmp_addr_catalog *catalog, ordinal_t ordinal);
 extern void gmp_unlock_adcat_entry(gmp_addr_catalog *catalog,
 				   ordinal_t ordinal);
@@ -572,7 +572,7 @@ extern gmp_addr_list_entry *
 extern void gmp_move_addr_list_entry(gmp_addr_list *to_list,
 				     gmp_addr_list_entry *addr_entry);
 extern boolean gmp_addr_vect_empty(gmp_addr_vect *vector);
-extern boolean gmp_addr_is_zero(gmp_addr_string *addr, u_int addr_len);
+extern boolean gmp_addr_is_zero(gmp_addr_string *addr, uint32_t addr_len);
 
 /* gmpp_proto.c */
 
@@ -591,16 +591,16 @@ extern gmp_packet *gmpp_create_packet_header(gmp_version version,
 extern void gmpp_destroy_packet(gmp_packet *packet);
 extern gmp_report_group_record *
     gmpp_create_group_record(gmp_report_packet *report_packet, void *group_id,
-			     const u_int8_t *group_addr, u_int addr_len);
+			     const uint8_t *group_addr, uint32_t addr_len);
 extern void gmpp_init(void);
 extern gmp_packet *gmpp_next_xmit_packet(gmp_role role, gmp_proto proto,
 					 gmpx_intf_id intf_id,
-					 u_int buffer_len);
+					 uint32_t buffer_len);
 extern void gmpp_group_done(gmp_role role, gmp_proto proto, void *group_id);
 extern void gmpp_packet_done(gmp_role role, gmp_proto proto,
 			     gmp_packet *packet);
 extern void gmpp_process_rcv_packet(gmp_packet *packet, gmpx_intf_id intf_id);
-extern u_int gmpp_max_group_count(gmp_proto proto, gmp_version version,
-				  gmp_message_type msg_type, u_int buffer_len);
+extern uint32_t gmpp_max_group_count(gmp_proto proto, gmp_version version,
+				  gmp_message_type msg_type, uint32_t buffer_len);
 
 #endif /* __GMP_PRIVATE_H__ */

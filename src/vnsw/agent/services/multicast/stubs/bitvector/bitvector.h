@@ -297,9 +297,6 @@
  *
  * Miscellaneous stuff:
  *
- *   bzero(ptr, length)
- *     Zeroes "length" bytes at the specified pointer (standard stuff).
- *
  *   bvx_assert(condition)
  *     Crashes if the condition is not true.
  *
@@ -307,7 +304,7 @@
  *     Used in procedure declarations after unused parameters to avoid
  *     generating compilation warnings, e.g. "int flort(int foo BVX_UNUSED)".
  *
- *   u_int32_t
+ *   uint32_t
  *     Must be typedefed to an unsigned, 32 bit scalar.
  *
  *   boolean, TRUE, FALSE
@@ -328,7 +325,7 @@
  *    A type defining the size of a scalar word.
  *
  *  BV_BITSIZE_LOG2 must be greater than or equal to the base 2 log of the
- *  bit size of bv_word_t.  So if bv_word_t is typedefed as a u_int32_t,
+ *  bit size of bv_word_t.  So if bv_word_t is typedefed as a uint32_t,
  *  BV_BITSIZE_LOG2 must be greater than or equal to 5.
  *
  *  BV_BITSIZE_LOG2 represents the granularity of memory allocated to maintain
@@ -373,12 +370,12 @@
  * number if no allocated blocks with free bits are available.
  */
 
-typedef u_int32_t bv_bitnum_t;		/* Bit number */
+typedef uint32_t bv_bitnum_t;		/* Bit number */
 #define BV_BAD_BITNUM 0xffffffff	/* Illegal bit number */
 
 typedef struct bit_vector_ {
     bvx_patroot *bv_root;		/* Patricia root */
-    u_int32_t bv_entry_count;		/* Number of attached entries */
+    uint32_t bv_entry_count;		/* Number of attached entries */
     thread bv_nonfull_head;		/* Head of non-full entries */
     bv_bitnum_t bv_callback_ord;	/* Ordinal of callback bit */
     bv_bitnum_t bv_freed_ord;		/* Ordinal of a freed entry */

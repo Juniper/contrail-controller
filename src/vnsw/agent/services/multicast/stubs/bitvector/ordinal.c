@@ -96,7 +96,7 @@ ord_destroy_context (ordinal_handle handle)
  *
  * Returns the ordinal, or ORD_BAD_ORDINAL if out of memory.
  */
-u_int32_t
+uint32_t
 ord_get_ordinal (ordinal_handle handle)
 {
     ord_context *context;
