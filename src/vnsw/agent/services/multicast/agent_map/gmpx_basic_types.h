@@ -28,11 +28,11 @@
 #define UNUSED
 #endif
 
-static inline u_short
+static inline uint16_t
 get_short (const void *ptr)
 {
-    const u_char *cp = (const u_char *)ptr;
-    u_short sh;
+    const uint8_t *cp = (const uint8_t *)ptr;
+    uint16_t sh;
 
     sh = *cp++;
     sh = (sh << 8) | *cp;
@@ -40,19 +40,19 @@ get_short (const void *ptr)
 }
 
 static inline void *
-put_short (void *ptr, u_short value)
+put_short (void *ptr, uint16_t value)
 {
-    u_char *cp = (u_char *)ptr;
+    uint8_t *cp = (uint8_t *)ptr;
 
     *cp++ = value >> 8;
     *cp++ = value & 0xff;
     return(cp);
 }
 
-static inline u_int16_t inet_cksum(void *packet, size_t length)
+static inline uint16_t inet_cksum(void *packet, size_t length)
 {
-    u_int32_t sum = 0;
-    u_int16_t *ptr = (u_int16_t *)packet;
+    uint32_t sum = 0;
+    uint16_t *ptr = (uint16_t *)packet;
 
     while (length > 1) {
         sum += *ptr++;
@@ -62,7 +62,7 @@ static inline u_int16_t inet_cksum(void *packet, size_t length)
     }
 
     if (length > 0)
-        sum += *(u_int8_t *)ptr;
+        sum += *(uint8_t *)ptr;
 
     while (sum >> 16)
         sum = (sum & 0xFFFF) + (sum >> 16);
