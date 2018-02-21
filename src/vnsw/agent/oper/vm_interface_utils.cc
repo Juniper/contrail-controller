@@ -486,7 +486,9 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                            bool is_health_check_service,
                            const IpAddress &service_ip,
                            const IpAddress &dependent_rt,
-                           const CommunityList &communities, uint32_t label) {
+                           const CommunityList &communities, uint32_t label,
+                           const std::string &intf_route_type) {
+
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
@@ -512,7 +514,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
         (peer_.get(), vrf_name, addr, plen, GetUuid(), vn_list, label,
          sg_id_list, tag_list, communities, force_policy, path_preference,
          service_ip, ecmp_load_balance, is_local, is_health_check_service,
-         name_, native_encap);
+         name_, native_encap, intf_route_type);
     return;
 }
 

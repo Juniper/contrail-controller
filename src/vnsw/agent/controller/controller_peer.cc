@@ -1680,16 +1680,17 @@ void PopulateEcmpHashFieldsToUse(ItemType &item,
 }
 
 bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
-                                       const VnListType &vn_list,
-                                       const SecurityGroupList *sg_list,
-                                       const TagList *tag_list,
-                                       const CommunityList *communities,
-                                       uint32_t mpls_label,
-                                       TunnelType::TypeBmap bmap,
-                                       const PathPreference &path_preference,
-                                       bool associate,
-                                       Agent::RouteTableType type,
-                                       const EcmpLoadBalance &ecmp_load_balance) {
+                             const VnListType &vn_list,
+                             const SecurityGroupList *sg_list,
+                             const TagList *tag_list,
+                             const CommunityList *communities,
+                             uint32_t mpls_label,
+                             TunnelType::TypeBmap bmap,
+                             const PathPreference &path_preference,
+                             bool associate,
+                             Agent::RouteTableType type,
+                             const EcmpLoadBalance &ecmp_load_balance,
+                             const std::string &intf_route_type = "interface") {
 
     static int id = 0;
     ItemType item;
@@ -1746,6 +1747,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
         item.entry.community_tag_list.community_tag = *communities;
     }
 
+    item.entry.sub_protocol = intf_route_type;
     item.entry.version = 1; //TODO
     item.entry.med = 0;
 
@@ -2375,17 +2377,18 @@ bool AgentXmppChannel::ControllerSendEvpnRouteDelete(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
-                                              AgentRoute *route,
-                                              const Ip4Address *nexthop_ip,
-                                              const VnListType &vn_list,
-                                              uint32_t label,
-                                              TunnelType::TypeBmap bmap,
-                                              const SecurityGroupList *sg_list,
-                                              const TagList *tag_list,
-                                              const CommunityList *communities,
-                                              Agent::RouteTableType type,
-                                              const PathPreference &path_preference,
-                                              const EcmpLoadBalance &ecmp_load_balance)
+                                     AgentRoute *route,
+                                     const Ip4Address *nexthop_ip,
+                                     const VnListType &vn_list,
+                                     uint32_t label,
+                                     TunnelType::TypeBmap bmap,
+                                     const SecurityGroupList *sg_list,
+                                     const TagList *tag_list,
+                                     const CommunityList *communities,
+                                     Agent::RouteTableType type,
+                                     const PathPreference &path_preference,
+                                     const EcmpLoadBalance &ecmp_load_balance,
+                                     const std::string &intf_route_type)
 {
     if (!peer) return false;
 
@@ -2398,9 +2401,9 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
     if (((type == Agent::INET4_UNICAST) || (type == Agent::INET6_UNICAST)) &&
          (peer->agent()->simulate_evpn_tor() == false)) {
         ret = peer->ControllerSendV4V6UnicastRouteCommon(route, vn_list,
-                                                   sg_list, tag_list, communities, label,
-                                                   bmap, path_preference, true,
-                                                   type, ecmp_load_balance);
+                                     sg_list, tag_list, communities, label,
+                                     bmap, path_preference, true,
+                                     type, ecmp_load_balance, intf_route_type);
     }
     if (type == Agent::EVPN) {
         std::string vn;
