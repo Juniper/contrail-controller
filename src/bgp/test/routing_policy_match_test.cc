@@ -730,7 +730,17 @@ INSTANTIATE_TEST_CASE_P(Instance, MatchCommunityParamTest, ::testing::Bool());
 
 class MatchProtocolTest : public ::testing::Test {
 protected:
-    MatchProtocolTest() { }
+    MatchProtocolTest() : server_(&evm_), attr_db_(server_.attr_db()) {
+    }
+
+    void TearDown() {
+        server_.Shutdown();
+        task_util::WaitForIdle();
+    }
+
+    EventManager evm_;
+    BgpServer server_;
+    BgpAttrDB *attr_db_;
 };
 
 TEST_F(MatchProtocolTest, Constructor1) {
@@ -784,6 +794,22 @@ TEST_F(MatchProtocolTest, Constructor3) {
         MatchProtocol::AggregateRoute) == match.protocols().end());
 }
 
+TEST_F(MatchProtocolTest, Constructor4) {
+    vector<string> protocols = list_of("interface")("interface-static")
+                                       ("service-interface")("bgpaas");
+    MatchProtocol match(protocols);
+    EXPECT_EQ(4, match.protocols().size());
+
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::Interface) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::InterfaceStatic) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::ServiceInterface) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::BGPaaS) != match.protocols().end());
+}
+
 TEST_F(MatchProtocolTest, ToString1a) {
     vector<string> protocols = list_of("bgp")("xmpp")("static");
     MatchProtocol match(protocols);
@@ -806,6 +832,18 @@ TEST_F(MatchProtocolTest, ToString2b) {
     vector<string> protocols = list_of("service-chain")("aggregate")("static");
     MatchProtocol match(protocols);
     EXPECT_EQ("protocol [ static,service-chain,aggregate ]", match.ToString());
+}
+
+TEST_F(MatchProtocolTest, ToString3a) {
+    vector<string> protocols = list_of("interface")("interface-static");
+    MatchProtocol match(protocols);
+    EXPECT_EQ("protocol [ interface,interface-static ]", match.ToString());
+}
+
+TEST_F(MatchProtocolTest, ToString3b) {
+    vector<string> protocols = list_of("service-interface")("bgpaas");
+    MatchProtocol match(protocols);
+    EXPECT_EQ("protocol [ service-interface,bgpaas ]", match.ToString());
 }
 
 TEST_F(MatchProtocolTest, IsEqual1) {
@@ -843,6 +881,16 @@ TEST_F(MatchProtocolTest, IsEqual4) {
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
+
+TEST_F(MatchProtocolTest, IsEqual5) {
+    vector<string> protocols1 = list_of("interface")("interface-static")("aggregate");
+    vector<string> protocols2 = list_of("interface-static")("interface")("aggregate");
+    MatchProtocol match1(protocols1);
+    MatchProtocol match2(protocols2);
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
 
 TEST_F(MatchProtocolTest, Match1) {
     vector<string> protocols = list_of("bgp")("static");
@@ -889,6 +937,42 @@ TEST_F(MatchProtocolTest, Match2) {
     BgpPath path5(BgpPath::Aggregate, attr);
     EXPECT_TRUE(match.Match(NULL, &path5, NULL));
 }
+
+TEST_F(MatchProtocolTest, Match3) {
+    vector<string> protocols = list_of("interface")("interface-static") \
+                                      ("service-interface")("bgpaas");
+    MatchProtocol match(protocols);
+
+    BgpAttrSubProtocol sbp("service-interface");
+    BgpAttrSpec spec;
+    spec.push_back(&sbp);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    PeerMock peer1(true, "10.1.1.1");
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr, 0, 0);
+    EXPECT_TRUE(match.Match(NULL, &path1, attr.get()));
+
+    PeerMock peer2(false, "20.1.1.1");
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr, 0, 0);
+
+    BgpAttrSubProtocol sbp2("bgpaas");
+    spec.clear();
+    spec.push_back(&sbp2);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, &path2, attr.get()));
+
+    BgpAttrSubProtocol sbp3("interface");
+    spec.clear();
+    spec.push_back(&sbp3);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, &path1, attr.get()));
+
+    BgpAttrSubProtocol sbp4("interface-static");
+    spec.clear();
+    spec.push_back(&sbp4);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, &path1, attr.get()));
+}
+
 
 //
 // Template structure to pass to fixture class template. Needed because

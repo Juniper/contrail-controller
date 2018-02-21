@@ -848,7 +848,7 @@ bool LocalVmRoute::UpdateRoute(AgentRoute *rt) {
     }
 
     if (intf_route_type().compare(rt->intf_route_type()) != 0) {
-        rt->SetIntfRouteType(intf_route_type());
+        rt->set_intf_route_type(intf_route_type());
         return true;
     }
 
