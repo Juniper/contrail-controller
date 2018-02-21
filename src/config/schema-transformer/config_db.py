@@ -219,6 +219,8 @@ class GlobalSystemConfigST(DBBaseST):
             self.update_autonomous_system(self.obj.autonomous_system)
         if 'bgpaas_parameters' in changed:
             self.update_bgpaas_parameters(self.obj.bgpaas_parameters)
+        if 'ibgp_auto_mesh' in changed:
+            GlobalSystemConfigST.ibgp_auto_mesh = self.ibgp_auto_mesh
         return changed
     # end update
 
