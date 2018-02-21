@@ -233,8 +233,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                       state->label_, path->GetTunnelBmap(),
                       &path->sg_list(), &path->tag_list(), &path->communities(),
                       type, state->path_preference_,
-                      state->ecmp_load_balance_,
-                      route->intf_route_type());
+                      state->ecmp_load_balance_);
         }
     } else {
         if (state->exported_ == true) {

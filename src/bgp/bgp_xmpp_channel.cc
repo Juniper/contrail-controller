@@ -1342,6 +1342,10 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         if (!master && !ext.communities.empty())
             attrs.push_back(&ext);
 
+        // Process sub-protocol(route types)
+        BgpAttrSubProtocol sbp(item.entry.sub_protocol);
+        attrs.push_back(&sbp);
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
         req.data.reset(new BgpTable::RequestData(
             attr, flags, label, 0, subscription_gen_id));
@@ -1626,6 +1630,10 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             LoadBalance load_balance(item.entry.load_balance);
             if (!load_balance.IsDefault())
                 ext.communities.push_back(load_balance.GetExtCommunityValue());
+
+            // Process sub-protocol(route types)
+            BgpAttrSubProtocol sbp(item.entry.sub_protocol);
+            attrs.push_back(&sbp);
 
             if (!comm.communities.empty())
                 attrs.push_back(&comm);

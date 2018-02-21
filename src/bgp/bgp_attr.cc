@@ -812,6 +812,24 @@ std::string BgpAttrParams::ToString() const {
     return std::string(repr);
 }
 
+int BgpAttrSubProtocol::CompareTo(const BgpAttribute &rhs_attr) const {
+    int ret = BgpAttribute::CompareTo(rhs_attr);
+    if (ret != 0) return ret;
+    KEY_COMPARE(sbp, static_cast<const BgpAttrSubProtocol &>(rhs_attr).sbp);
+    return 0;
+}
+
+void BgpAttrSubProtocol::ToCanonical(BgpAttr *attr) {
+    attr->set_sub_protocol(sbp);
+}
+
+std::string BgpAttrSubProtocol::ToString() const {
+    char repr[80];
+    snprintf(repr, sizeof(repr), "SubProtocol <subcode: %d> : %s",
+             subcode, sbp.c_str());
+    return std::string(repr);
+}
+
 BgpAttr::BgpAttr()
     : attr_db_(NULL), origin_(BgpAttrOrigin::INCOMPLETE), nexthop_(),
       med_(0), local_pref_(0), atomic_aggregate_(false),
@@ -857,7 +875,8 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       edge_forwarding_(rhs.edge_forwarding_),
       label_block_(rhs.label_block_),
       olist_(rhs.olist_),
-      leaf_olist_(rhs.leaf_olist_) {
+      leaf_olist_(rhs.leaf_olist_),
+      sub_protocol_(rhs.sub_protocol_) {
     refcount_ = 0;
 }
 
@@ -1101,6 +1120,7 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(community_.get(), rhs.community_.get());
     KEY_COMPARE(ext_community_.get(), rhs.ext_community_.get());
     KEY_COMPARE(origin_vn_path_.get(), rhs.origin_vn_path_.get());
+    KEY_COMPARE(sub_protocol_, rhs.sub_protocol_);
     return 0;
 }
 
@@ -1137,6 +1157,9 @@ std::size_t hash_value(BgpAttr const &attr) {
     if (attr.community_) boost::hash_combine(hash, *attr.community_);
     if (attr.ext_community_) boost::hash_combine(hash, *attr.ext_community_);
     if (attr.origin_vn_path_) boost::hash_combine(hash, *attr.origin_vn_path_);
+    if (!attr.sub_protocol_.empty()) {
+        boost::hash_combine(hash, attr.sub_protocol_);
+    }
 
     return hash;
 }
@@ -1233,6 +1256,15 @@ BgpAttrPtr BgpAttrDB::ReplaceLeafOListAndLocate(const BgpAttr *attr,
     clone->set_leaf_olist(leaf_olist_spec);
     return Locate(clone);
 }
+
+// Return a clone of attribute with updated sub-protocol.
+BgpAttrPtr BgpAttrDB::ReplaceSubProtocolAndLocate(const BgpAttr *attr,
+    const std::string &sbp) {
+    BgpAttr *clone = new BgpAttr(*attr);
+    clone->set_sub_protocol(sbp);
+    return Locate(clone);
+}
+
 
 // Return a clone of attribute with updated pmsi tunnel.
 BgpAttrPtr BgpAttrDB::ReplacePmsiTunnelAndLocate(const BgpAttr *attr,

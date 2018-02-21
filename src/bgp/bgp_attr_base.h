@@ -53,7 +53,8 @@ public:
         SourceRd = 3,
         Esi = 4,
         Params = 5,
-        LeafOList = 6
+        LeafOList = 6,
+        SubProtocol = 7
     };
 
     BgpAttribute() : code(0), subcode(0), flags(0) { }

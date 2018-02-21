@@ -756,6 +756,18 @@ struct BgpAttrEsi : public BgpAttribute {
     virtual std::string ToString() const;
 };
 
+struct BgpAttrSubProtocol : public BgpAttribute {
+    BgpAttrSubProtocol() : BgpAttribute(0, SubProtocol, 0) {}
+    explicit BgpAttrSubProtocol(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
+    explicit BgpAttrSubProtocol(const std::string &sbp)
+        : BgpAttribute(0, SubProtocol, 0), sbp(sbp) {
+    }
+    std::string sbp;
+    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
+    virtual void ToCanonical(BgpAttr *attr);
+    virtual std::string ToString() const;
+};
+
 struct BgpAttrParams : public BgpAttribute {
     enum Flags {
         TestFlag = 1 << 0
@@ -819,6 +831,9 @@ public:
     void set_label_block(LabelBlockPtr label_block);
     void set_olist(const BgpOListSpec *olist_spec);
     void set_leaf_olist(const BgpOListSpec *leaf_olist_spec);
+    void set_sub_protocol(const std::string &sub_protocol) {
+        sub_protocol_ = sub_protocol;
+    }
     friend std::size_t hash_value(BgpAttr const &attr);
 
     BgpAttrOrigin::OriginType origin() const { return origin_; }
@@ -857,6 +872,7 @@ public:
     LabelBlockPtr label_block() const { return label_block_; }
     BgpOListPtr olist() const { return olist_; }
     BgpOListPtr leaf_olist() const { return leaf_olist_; }
+    const std::string &sub_protocol() const { return sub_protocol_; }
     BgpAttrDB *attr_db() { return attr_db_; }
     const BgpAttrDB *attr_db() const { return attr_db_; }
     uint32_t sequence_number() const;
@@ -896,6 +912,7 @@ private:
     LabelBlockPtr label_block_;
     BgpOListPtr olist_;
     BgpOListPtr leaf_olist_;
+    std::string sub_protocol_;
 };
 
 inline int intrusive_ptr_add_ref(const BgpAttr *cattrp) {
@@ -954,6 +971,8 @@ public:
                                           const PmsiTunnelSpec *pmsi_spec);
     BgpAttrPtr ReplaceNexthopAndLocate(const BgpAttr *attr,
                                        const IpAddress &addr);
+    BgpAttrPtr ReplaceSubProtocolAndLocate(const BgpAttr *attr,
+                                           const std::string &sbp);
     BgpServer *server() { return server_; }
     const BgpServer *server() const { return server_; }
 

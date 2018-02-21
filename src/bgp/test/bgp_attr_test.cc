@@ -1724,6 +1724,33 @@ TEST_F(BgpAttrTest, ParamsToString) {
         params_spec.ToString());
 }
 
+TEST_F(BgpAttrTest, SubProtocol) {
+    BgpAttrSpec attr_spec;
+    std::string sbp("interface-static");
+    BgpAttrSubProtocol sp(sbp);
+    attr_spec.push_back(&sp);
+    BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(sbp, ptr->sub_protocol());
+}
+
+TEST_F(BgpAttrTest, SubProtocolCompareTo) {
+    std::string sp1 = "interface";
+    std::string sp2 = "interface-static";
+    BgpAttrSubProtocol sbp1(sp1);
+    BgpAttrSubProtocol sbp2(sp2);
+    EXPECT_EQ(0, sbp1.CompareTo(sbp1));
+    EXPECT_NE(0, sbp1.CompareTo(sbp2));
+    EXPECT_NE(0, sbp2.CompareTo(sbp1));
+}
+
+TEST_F(BgpAttrTest, SubProtcolToString) {
+    std::string sp = "interface";
+    BgpAttrSubProtocol sbp(sp);
+    EXPECT_EQ("SubProtocol <subcode: 7> : interface", sbp.ToString());
+}
+
+
 TEST_F(BgpAttrTest, PmsiTunnelSpec) {
     PmsiTunnelSpec pmsi_spec;
     EXPECT_EQ(0, pmsi_spec.identifier.size());
