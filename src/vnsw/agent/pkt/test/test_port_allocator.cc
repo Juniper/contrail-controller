@@ -133,7 +133,6 @@ TEST_F(PortAllocationTest, FloatingIpConfig) {
 TEST_F(PortAllocationTest, DISABLED_IcmpFlow) {
     TxIpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 1);
     client->WaitForIdle();
-    client->WaitForIdle();
 
     FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
                               1, 0, 0, GetFlowKeyNH(1));
@@ -205,7 +204,7 @@ TEST_F(PortAllocationTest, TcpFlow) {
 			6, 100, 100, GetFlowKeyNH(1));
 	EXPECT_TRUE(flow != NULL);
 	EXPECT_TRUE(flow->IsShortFlow() == false);
-	EXPECT_TRUE(flow->IsNatFlow() == true);
+    EXPECT_TRUE(flow->IsNatFlow() == true);
 }
 
 TEST_F(PortAllocationTest, NonTcpUdpFlow) {
@@ -326,6 +325,25 @@ TEST_F(PortAllocationTest, RangeUpdate1) {
     for (uint16_t i = 0; i < 10; i++) {
         EXPECT_TRUE(pt->GetPortIndex(50000 + i) == i);
     }
+}
+
+TEST_F(PortAllocationTest, PolicyFlow) {
+    PortTableManager *pm = agent_->pkt()->get_flow_proto()->port_table_manager();
+    pm->UpdatePortConfig(IPPROTO_TCP, 0, 22, 22);
+    client->WaitForIdle();
+
+    TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 22, false);
+    client->WaitForIdle();
+
+    //No port config hence short flow
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
+            6, 100, 22, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
+    EXPECT_TRUE(flow->IsNatFlow() == true);
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::FabricControlFlow));
+    EXPECT_FALSE(flow->reverse_flow_entry()->
+            is_flags_set(FlowEntry::FabricControlFlow));
 }
 
 int main(int argc, char *argv[]) {

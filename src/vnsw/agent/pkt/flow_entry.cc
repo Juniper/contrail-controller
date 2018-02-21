@@ -810,6 +810,10 @@ bool FlowEntry::IsFabricControlFlow() const {
         return false;
     }
 
+    if (IsNatFlow()) {
+        return false;
+    }
+
     Agent *agent = flow_table()->agent();
     if (key_.protocol == IPPROTO_TCP) {
         if (key_.src_addr == agent->router_id()) {
