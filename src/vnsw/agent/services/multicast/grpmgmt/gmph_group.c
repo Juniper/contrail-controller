@@ -133,7 +133,7 @@ gmph_group_create (gmph_intf *intf, const u_int8_t *group_addr)
     /* Initialize it. */
 
     thread_new_circular_thread(&group->hgroup_client_thread);
-    bcopy(group_addr, group->hgroup_addr.gmp_addr, instance->hinst_addrlen);
+    memmove(group->hgroup_addr.gmp_addr, group_addr, instance->hinst_addrlen);
 
     gmp_addr_list_init(&group->hgroup_src_addr_list, &instance->hinst_addr_cat,
 		       gmp_alloc_generic_addr_list_entry,

@@ -155,8 +155,8 @@ gmpr_create_instance (gmp_proto proto, void_t inst_context,
     /* Copy over the context block. */
 
     if (cb_context) {
-	bcopy(cb_context, &instance->rinst_cb_context,
-	      sizeof(gmpr_instance_context));
+        memmove(&instance->rinst_cb_context, cb_context,
+            sizeof(gmpr_instance_context));
     }
 
     return instance;
@@ -209,8 +209,8 @@ gmpr_register (gmp_instance_id instance_id, void_t client_context,
 
     /* Copy over the context block. */
 
-    bcopy(cb_context, &client->rclient_cb_context,
-	  sizeof(gmpr_client_context));
+    memmove(&client->rclient_cb_context, cb_context,
+        sizeof(gmpr_client_context));
 
     /* If the client supplied a host callback, turn on host tracking. */
 
@@ -612,8 +612,8 @@ gmpr_add_intf_list_entry(gmpr_client_intf_list *cur_intf_list,
  * Returns a pointer to an interface list, or NULL if out of memory.
  */
 gmpr_client_intf_list *
-gmpr_get_intf_list (gmp_instance_id instance_id, u_int8_t *group_addr,
-		    u_int8_t *source_addr, gmpr_intf_list_match match_type)
+gmpr_get_intf_list (gmp_instance_id instance_id, uint8_t *group_addr,
+		    uint8_t *source_addr, gmpr_intf_list_match match_type)
 {
     gmpr_instance *instance;
     gmpr_global_group *global_group;
@@ -739,8 +739,8 @@ gmpr_free_intf_list (gmpr_client_intf_list *intf_list)
  */
 boolean
 gmpr_is_forwarding_channel (gmp_instance_id instance_id, gmpx_intf_id intf_id,
-			    const u_int8_t *source_addr,
-			    const u_int8_t *group_addr, boolean exact)
+			    const uint8_t *source_addr,
+			    const uint8_t *group_addr, boolean exact)
 {
     gmpr_instance *instance;
     gmpr_intf *intf;
@@ -790,7 +790,7 @@ gmpr_is_forwarding_channel (gmp_instance_id instance_id, gmpx_intf_id intf_id,
  */
 void
 gmpr_update_intf_state (gmp_instance_id instance_id, gmpx_intf_id intf_id,
-			const u_int8_t *intf_addr)
+			const uint8_t *intf_addr)
 {
     gmpr_instance *instance;
     gmpr_intf *intf;
@@ -812,23 +812,21 @@ gmpr_update_intf_state (gmp_instance_id instance_id, gmpx_intf_id intf_id,
     if (intf_addr) {
 	intf->rintf_up = TRUE;
 
-	if (!was_up || bcmp(intf_addr, intf->rintf_local_addr.gmp_addr,
-			    instance->rinst_addrlen)) {
+        if (!was_up || memcmp(intf_addr, intf->rintf_local_addr.gmp_addr,
+            instance->rinst_addrlen)) {
 
 	    /* Make ourselves querier. */
 
-	    bcopy(intf_addr, intf->rintf_local_addr.gmp_addr,
-		  instance->rinst_addrlen);
+            memmove(intf->rintf_local_addr.gmp_addr, intf_addr, instance->rinst_addrlen);
 	    gmpr_update_querier(intf, &intf->rintf_local_addr, TRUE);
 	}
 
     } else {
+        /* No address.  Mark the interface down and zap the querier address */
 
-	/* No address.  Mark the interface down and zap the querier address */
-
-	intf->rintf_up = FALSE;
-	intf->rintf_querier = FALSE;
-	bzero(intf->rintf_local_addr.gmp_addr, instance->rinst_addrlen);
+        intf->rintf_up = FALSE;
+        intf->rintf_querier = FALSE;
+        memset(intf->rintf_local_addr.gmp_addr, 0, instance->rinst_addrlen);
     }
 
     /* If the up/down status changed, update any associated output groups. */
@@ -961,8 +959,8 @@ gmpr_get_intf_groups (gmp_instance_id instance_id, gmpx_intf_id intf_id)
 
 	/* Set the group address and filter mode. */
 
-	bcopy(group->rogroup_addr.gmp_addr, cur_group->gig_group_addr.gmp_addr,
-	      instance->rinst_addrlen);
+        memmove(cur_group->gig_group_addr.gmp_addr, group->rogroup_addr.gmp_addr,
+            instance->rinst_addrlen);
 	cur_group->gig_filter_mode = group->rogroup_filter_mode;
 
 	/* If there are sources, copy them in as well. */
@@ -1008,7 +1006,7 @@ gmpr_get_intf_groups (gmp_instance_id instance_id, gmpx_intf_id intf_id)
 gmpr_intf_group_entry *
 gmpr_get_host_groups (gmp_instance_id instance_id,
                       gmpx_intf_id intf_id,
-                      const u_int8_t *host_addr)
+                      const uint8_t *host_addr)
 {
     gmpr_instance *instance;
     gmpr_intf *intf;
@@ -1066,9 +1064,9 @@ gmpr_get_host_groups (gmp_instance_id instance_id,
 
 	/* Set the group address. */
 
-	bcopy(host_group->rhgroup_addr.gmp_addr,
-              cur_group->gig_group_addr.gmp_addr,
-              instance->rinst_addrlen);
+        memmove(cur_group->gig_group_addr.gmp_addr,
+            host_group->rhgroup_addr.gmp_addr,
+            instance->rinst_addrlen);
 
 	/* If there are sources, copy them in as well. */
 
@@ -1207,8 +1205,8 @@ gmpr_get_intf_hosts (gmp_instance_id instance_id, gmpx_intf_id intf_id)
 
         /* Set the host address */
 
-        bcopy(host->rhost_addr.gmp_addr, cur_host->gih_host_addr.gmp_addr,
-              instance->rinst_addrlen);
+        memmove(cur_host->gih_host_addr.gmp_addr, host->rhost_addr.gmp_addr,
+            instance->rinst_addrlen);
 
         /*
          * Link the new entry to the list.
@@ -1302,18 +1300,18 @@ gmpr_is_initialized (void)
  */
 void
 gmpr_timeout_group_range (gmp_instance_id instance_id, gmpx_intf_id intf_id,
-			  const u_int8_t *group_addr, u_int pfx_len,
+			  const uint8_t *group_addr, uint32_t pfx_len,
 			  boolean send_query)
 {
     gmpr_instance *instance;
     gmpr_intf *intf;
     gmpr_group *group;
     gmpr_group *next_group;
-    u_int8_t last_byte_mask;
-    u_int pfx_full_bytes;
-    u_int pfx_len_bytes;
-    u_int extra_bits;
-    u_int bit_ix;
+    uint8_t last_byte_mask;
+    uint32_t pfx_full_bytes;
+    uint32_t pfx_len_bytes;
+    uint32_t extra_bits;
+    uint32_t bit_ix;
 
     /* Get the instance and interface. */
 
@@ -1346,7 +1344,7 @@ gmpr_timeout_group_range (gmp_instance_id instance_id, gmpx_intf_id intf_id,
 
 	/* Compare the full bytes. */
 
-	if (!bcmp(group_addr, group->rgroup_addr.gmp_addr, pfx_full_bytes)) {
+        if (!memcmp(group_addr, group->rgroup_addr.gmp_addr, pfx_full_bytes)) {
 
 	    /* The full bytes match.  If there's a partial byte, try that. */
 
@@ -1379,7 +1377,7 @@ gmpr_timeout_group_range (gmp_instance_id instance_id, gmpx_intf_id intf_id,
  */
 boolean
 gmpr_sg_is_excluded (gmp_instance_id instance_id, gmpx_intf_id intf_id,
-		     const u_int8_t *group_addr, const u_int8_t *source_addr)
+		     const uint8_t *group_addr, const uint8_t *source_addr)
 {
     gmpr_instance *instance;
     gmpr_intf *intf;
@@ -1419,7 +1417,7 @@ gmpr_sg_is_excluded (gmp_instance_id instance_id, gmpx_intf_id intf_id,
  * Update trace flags for an instance.
  */
 void
-gmpr_update_trace_flags (gmp_instance_id instance_id, u_int32_t trace_flags)
+gmpr_update_trace_flags (gmp_instance_id instance_id, uint32_t trace_flags)
 {
     gmpr_instance *instance;
 

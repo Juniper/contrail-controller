@@ -255,7 +255,7 @@ gmpr_intf_update_lmq_count (gmpr_intf *intf)
  * Update the robustness variable.
  */
 void
-gmpr_intf_update_robustness (gmpr_intf *intf, u_int32_t robustness)
+gmpr_intf_update_robustness (gmpr_intf *intf, uint32_t robustness)
 {
     /* If the value is zero, use the local value. */
 
@@ -282,8 +282,8 @@ gmpr_intf_update_robustness (gmpr_intf *intf, u_int32_t robustness)
 static void
 gmpr_intf_update_query_resp_ivl (gmpr_intf *intf)
 {
-    u_int32_t ivl;
-    u_int32_t ivl_target;
+    uint32_t ivl;
+    uint32_t ivl_target;
     gmpr_instance *instance;
 
     instance = intf->rintf_instance;
@@ -326,7 +326,7 @@ gmpr_intf_update_query_resp_ivl (gmpr_intf *intf)
  * Update the query interval variable.
  */
 void
-gmpr_intf_update_query_ivl (gmpr_intf *intf, u_int32_t query_ivl)
+gmpr_intf_update_query_ivl (gmpr_intf *intf, uint32_t query_ivl)
 {
     /* If the value is zero, use the default value. */
 
@@ -375,7 +375,7 @@ static void
 gmpr_restart_query_timer (gmpr_intf *intf)
 {
     gmpr_instance *instance;
-    u_int32_t ivl;
+    uint32_t ivl;
     int intf_count;
     thread *thread_ptr;
 
@@ -463,7 +463,7 @@ gmpr_restart_query_timer (gmpr_intf *intf)
  * smooth things out.)
  */
 static void
-gmpr_setup_initial_query_timer_internal (gmpr_intf *intf, u_int query_count)
+gmpr_setup_initial_query_timer_internal (gmpr_intf *intf, uint32_t query_count)
 {
 
     gmpr_instance *instance;
@@ -729,8 +729,8 @@ gmpr_intf_set_params (gmpr_instance *instance, gmpx_intf_id intf_id,
     gmpr_group *group;
     boolean version_changed;
     gmp_version new_version;
-    u_int32_t old_query_ivl;
-    u_int old_robustness;
+    uint32_t old_query_ivl;
+    uint32_t old_robustness;
     boolean send_query;
 
     /* Get the interface. */
@@ -963,16 +963,16 @@ gmpr_update_querier (gmpr_intf *intf, gmp_addr_string *addr, boolean querier)
     /* Bail if nothing has changed. */
 
     if (querier == intf->rintf_querier &&
-	(!addr || !bcmp(addr->gmp_addr, intf->rintf_querier_addr.gmp_addr,
-			instance->rinst_addrlen))) {
+        (!addr || !memcmp(addr->gmp_addr, intf->rintf_querier_addr.gmp_addr,
+            instance->rinst_addrlen))) {
 	return;
     }
 
     /* Update the status. */
 
     intf->rintf_querier = querier;
-    bcopy(addr->gmp_addr, intf->rintf_querier_addr.gmp_addr,
-	  instance->rinst_addrlen);
+    memmove(intf->rintf_querier_addr.gmp_addr, addr->gmp_addr,
+        instance->rinst_addrlen);
 
     /*
      * If we're becoming querier, update the query interval to the
