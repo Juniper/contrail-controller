@@ -3866,7 +3866,8 @@ class DBInterface(object):
                  'admin_state_up': True,
                  'device_id': router_id,
                  'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
-                 'name': ''})
+                 'name': '',
+                 'port_security_enabled': False})
 
             port_id = port['id']
 
