@@ -247,9 +247,9 @@ static void
 gmpr_copy_reporter (gmpr_group *group,
 		    gmpr_group_addr_entry *group_addr_entry)
 {
-    bcopy(group->rgroup_last_reporter.gmp_addr,
-	  group_addr_entry->rgroup_addr_last_reporter.gmp_addr,
-	  group->rgroup_intf->rintf_instance->rinst_addrlen);
+    memmove(group_addr_entry->rgroup_addr_last_reporter.gmp_addr,
+        group->rgroup_last_reporter.gmp_addr,
+        group->rgroup_intf->rintf_instance->rinst_addrlen);
 }
 
 
@@ -1256,7 +1256,7 @@ static void
 gmpr_update_version_compatibility_mode (gmpr_group *group, gmp_version ver)
 {
     gmpr_intf *intf;
-    u_int32_t old_host_ivl;
+    uint32_t old_host_ivl;
 
     intf = group->rgroup_intf;
 
@@ -1353,7 +1353,7 @@ gmpr_process_report_packet(gmpr_intf *intf, gmp_packet *packet)
     gmp_addr_vect source_vect;
     gmp_addr_thread_entry *thread_entry;
     gmp_addr_string *addr;
-    u_int8_t *group_addr;
+    uint8_t *group_addr;
     gmpr_instance_context *ctx;
     gmp_version group_version;
     boolean got_sources;
@@ -1482,9 +1482,9 @@ gmpr_process_report_packet(gmpr_intf *intf, gmp_packet *packet)
 
 		/* Note the reporter's address. */
 
-		bcopy(packet->gmp_packet_src_addr.gmp_addr, 
-		      group->rgroup_last_reporter.gmp_addr,
-		      instance->rinst_addrlen);
+		memmove(group->rgroup_last_reporter.gmp_addr,
+            packet->gmp_packet_src_addr.gmp_addr,
+            instance->rinst_addrlen);
  
 		/* See if this is a current-state or state-change record. */
 
@@ -1647,8 +1647,7 @@ gmpr_send_gss_query (gmpr_group *group)
     query_packet = &packet->gmp_packet_contents.gmp_packet_query;
     query_packet->gmp_query_max_resp = intf->rintf_lmq_ivl;
     query_packet->gmp_query_group_query = TRUE;
-    bcopy(&group->rgroup_addr, &query_packet->gmp_query_group,
-	  sizeof(gmp_addr_string));
+    memmove(&query_packet->gmp_query_group, &group->rgroup_addr, sizeof(gmp_addr_string));
     query_packet->gmp_query_qrv = intf->rintf_robustness;
     query_packet->gmp_query_qqi = intf->rintf_query_ivl;
     query_packet->gmp_query_suppress = hi_timer;
@@ -1702,8 +1701,7 @@ gmpr_send_group_query (gmpr_group *group)
     query_packet = &packet->gmp_packet_contents.gmp_packet_query;
     query_packet->gmp_query_max_resp = intf->rintf_lmq_ivl;
     query_packet->gmp_query_group_query = TRUE;
-    bcopy(&group->rgroup_addr, &query_packet->gmp_query_group,
-	  sizeof(gmp_addr_string));
+    memmove(&query_packet->gmp_query_group, &group->rgroup_addr, sizeof(gmp_addr_string));
     query_packet->gmp_query_qrv = intf->rintf_robustness;
     query_packet->gmp_query_qqi = intf->rintf_query_ivl;
     query_packet->gmp_query_group_id = group;
@@ -1822,7 +1820,7 @@ gmpr_group_done_callback (void *group_id)
  */
 static gmp_packet *
 gmpr_xmit_callback (gmpx_intf_id intf_id, gmp_proto proto,
-		    u_int buffer_len GMPX_UNUSED)
+		    uint32_t buffer_len GMPX_UNUSED)
 {
     gmpr_intf *intf;
     gmpr_group *group;

@@ -46,6 +46,6 @@
 /*
  * Define the size of a bit vector word.
  */
-typedef u_int32_t bv_word_t;		/* Bit vector word type */
+typedef uint32_t bv_word_t;		/* Bit vector word type */
 
 #endif

@@ -240,7 +240,7 @@ gmpr_destroy_instance_clients (gmpr_instance *instance)
 boolean
 gmpr_notifications_active (gmpr_notify_block *notify_block)
 {
-    u_int client_ord;
+    uint32_t client_ord;
 
     /* Walk the notification array. */
 
@@ -967,9 +967,9 @@ gmpr_build_delta_notification (gmpr_instance *instance,
 	cat_entry = gmp_get_addr_cat_by_ordinal(&instance->rinst_addr_cat,
 						addr_entry->addr_ent_ord);
 	gmpx_assert(cat_entry);
-	bcopy(cat_entry->adcat_ent_addr.gmp_addr,
-	      client_notif->notif_source_addr.gmp_addr,
-	      instance->rinst_addrlen);
+	memmove(client_notif->notif_source_addr.gmp_addr,
+        cat_entry->adcat_ent_addr.gmp_addr,
+        instance->rinst_addrlen);
 
 	/*
 	 * Now split out in each combination of the current filter
@@ -1193,7 +1193,7 @@ gmpr_client_get_notification (gmpr_client *client,
     if (last_notification) {
 	client_notif = last_notification;
 	gmp_destroy_addr_thread(client_notif->notif_addr_thread);
-	bzero(client_notif, sizeof(gmpr_client_notification));
+	memset(client_notif, 0, sizeof(gmpr_client_notification));
     }
 
     /* Note whether we're doing both kinds of notifications. */
@@ -1235,9 +1235,9 @@ gmpr_client_get_notification (gmpr_client *client,
 
     if (group) {
 	client_notif->notif_intf_id = group->rogroup_intf->rintf_id;
-	bcopy(group->rogroup_addr.gmp_addr,
-	      client_notif->notif_group_addr.gmp_addr,
-	      instance->rinst_addrlen);
+	memmove(client_notif->notif_group_addr.gmp_addr,
+        group->rogroup_addr.gmp_addr,
+        instance->rinst_addrlen);
 	client_notif->notif_filter_mode = group->rogroup_filter_mode;
     }
 

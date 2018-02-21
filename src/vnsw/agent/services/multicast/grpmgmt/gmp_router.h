@@ -151,8 +151,8 @@ typedef void (*gmpr_notif_cb)(void_t cli_context);
  */
 typedef boolean (*gmpr_oif_map_cb)(void_t inst_context,
 				   gmpx_intf_id rcv_if,
-				   u_int8_t *group_addr,
-				   u_int8_t *source_addr,
+				   uint8_t *group_addr,
+				   uint8_t *source_addr,
 				   gmpx_intf_id *output_if);
 
 /*
@@ -164,8 +164,8 @@ typedef boolean (*gmpr_oif_map_cb)(void_t inst_context,
  */
 typedef boolean (*gmpr_policy_cb)(void_t inst_context,
 				  gmpx_intf_id rcv_if,
-				  u_int8_t *group_addr,
-				  u_int8_t *source_addr,
+				  uint8_t *group_addr,
+				  uint8_t *source_addr,
 				  gmpx_packet_attr attribute);
 
 /*
@@ -178,7 +178,7 @@ typedef boolean (*gmpr_policy_cb)(void_t inst_context,
  */
 typedef boolean (*gmpr_ssm_check_cb)(void_t inst_context,
 				     gmpx_intf_id rcv_if,
-				     u_int8_t *group_addr);
+				     uint8_t *group_addr);
 
 /*
  * Querier change callback type
@@ -186,7 +186,7 @@ typedef boolean (*gmpr_ssm_check_cb)(void_t inst_context,
  * This defines the callback to a client when the querier status changes.
  */
 typedef void (*gmpr_querier_cb)(void_t cli_context, gmpx_intf_id intf,
-				boolean querier, u_int8_t *querier_addr);
+				boolean querier, uint8_t *querier_addr);
 
 /*
  * Router-side instance context block
@@ -287,7 +287,7 @@ typedef struct gmpr_client_host_notification_ {
 
 typedef struct gmpr_client_intf_list_ {
     struct gmpr_client_intf_list_ *gci_next; /* Next entry */
-    u_int gci_intf_count;		/* Number of entries */
+    uint32_t gci_intf_count;		/* Number of entries */
     gmpx_intf_id gci_intfs[GMPR_INTF_LIST_SIZE]; /* Array of entries */
 } gmpr_client_intf_list;
 
@@ -363,23 +363,23 @@ gmpr_notification_last_sg(gmpr_client_notification *notification);
 
 typedef enum {INTF_LIST_LOOSE, INTF_LIST_STRICT} gmpr_intf_list_match;
 extern gmpr_client_intf_list *gmpr_get_intf_list(gmp_instance_id instance_id,
-						 u_int8_t *group_addr,
-						 u_int8_t *source_addr,
+						 uint8_t *group_addr,
+						 uint8_t *source_addr,
 						 gmpr_intf_list_match type);
 extern void gmpr_free_intf_list(gmpr_client_intf_list *intf_list);
 extern boolean
     gmpr_is_forwarding_channel(gmp_instance_id instance_id,
 			       gmpx_intf_id intf_id,
-			       const u_int8_t *source_addr,
-			       const u_int8_t *group_addr, boolean exact);
+			       const uint8_t *source_addr,
+			       const uint8_t *group_addr, boolean exact);
 extern void gmpr_update_intf_state(gmp_instance_id instance_id,
 				   gmpx_intf_id intf_id,
-				   const u_int8_t *intf_addr);
+				   const uint8_t *intf_addr);
 extern gmpr_intf_group_entry *gmpr_get_intf_groups(gmp_instance_id instance_id,
 						   gmpx_intf_id intf_id);
 extern gmpr_intf_group_entry *gmpr_get_host_groups(gmp_instance_id instance_id,
                                                    gmpx_intf_id intf_id,
-                                                   const u_int8_t *host_addr);
+                                                   const uint8_t *host_addr);
 extern gmpr_intf_host_entry *gmpr_get_intf_hosts(gmp_instance_id instance_id,
                                                  gmpx_intf_id intf_id);
 extern void gmpr_destroy_intf_group(gmpr_intf_group_entry *group_list);
@@ -387,14 +387,14 @@ extern void gmpr_destroy_intf_host(gmpr_intf_host_entry *host_list);
 extern boolean gmpr_is_initialized(void);
 extern void gmpr_timeout_group_range(gmp_instance_id instance_id,
 				     gmpx_intf_id intf_id,
-				     const u_int8_t *group_addr,
-				     u_int pfx_len, boolean send_query);
+				     const uint8_t *group_addr,
+				     uint32_t pfx_len, boolean send_query);
 extern boolean gmpr_sg_is_excluded(gmp_instance_id instance_id,
 				gmpx_intf_id intf_id, 
-				const u_int8_t *group_addr,
-				const u_int8_t *source_addr);
+				const uint8_t *group_addr,
+				const uint8_t *source_addr);
 extern void gmpr_update_trace_flags(gmp_instance_id instance_id,
-				    u_int32_t trace_flags);
+				    uint32_t trace_flags);
 extern void gmpr_force_general_queries(gmp_instance_id instance_id,
 				       gmpx_intf_id intf_id);
 extern void gmpr_request_general_queries(gmp_instance_id instance_id,

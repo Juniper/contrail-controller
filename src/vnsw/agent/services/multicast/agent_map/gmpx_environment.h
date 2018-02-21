@@ -90,8 +90,8 @@ struct gmpx_timer_ {
 
 /* gmpx_environment.c */
 
-extern void gmpx_start_timer(gmpx_timer *timer, u_int32_t ivl,
-			     u_int jitter_pct);
+extern void gmpx_start_timer(gmpx_timer *timer, uint32_t ivl,
+			     uint32_t jitter_pct);
 extern gmpx_timer *gmpx_create_timer(void_t inst_context, const char *name,
 				     gmpx_timer_callback callback,
 				     void *timer_context);
@@ -101,7 +101,7 @@ extern gmpx_timer *gmpx_create_grouped_timer(gmp_timer_group group,
 					     gmpx_timer_callback callback,
 					     void *timer_context);
 extern void gmpx_destroy_timer(gmpx_timer *timer);
-extern u_int32_t gmpx_timer_time_remaining(gmpx_timer *timer);
+extern uint32_t gmpx_timer_time_remaining(gmpx_timer *timer);
 extern boolean gmpx_timer_running(gmpx_timer *timer);
 extern void gmpx_stop_timer(gmpx_timer *timer);
 extern void gmpx_smear_timer_group(gmp_proto proto, gmp_timer_group group);
