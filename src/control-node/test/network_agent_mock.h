@@ -336,6 +336,7 @@ public:
     const std::string &localaddr() const { return localaddr_; }
 
     void set_localaddr(const std::string &addr) { localaddr_ = addr; }
+    void set_xmlns(const std::string &xmlns) { xmlns_ = xmlns; }
 
 private:
     pugi::xml_node PubSubHeader(std::string type);
@@ -366,6 +367,7 @@ private:
             const std::string &sg, bool add, int rt_type = 7,
             const std::string &nh = "");
 
+    std::string xmlns_;
     std::string hostname_;
     int label_alloc_;
     std::string localaddr_;
@@ -472,7 +474,8 @@ public:
     NetworkAgentMock(EventManager *evm, const std::string &hostname,
                      int server_port, std::string local_address = "127.0.0.1",
                      std::string server_address = "127.0.0.1",
-                     bool xmpp_auth_enabled = false);
+                     bool xmpp_auth_enabled = false,
+                     const std::string &xmlns = "");
     ~NetworkAgentMock();
 
     bool skip_updates_processing() { return skip_updates_processing_; }

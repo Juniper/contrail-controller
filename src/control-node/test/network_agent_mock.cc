@@ -307,8 +307,9 @@ private:
 };
 
 XmppDocumentMock::XmppDocumentMock(const std::string &hostname)
-    : hostname_(hostname), label_alloc_(10000), xdoc_(new pugi::xml_document) {
-        localaddr_ = "127.0.0.1";
+        : xmlns_(kPubSubNS), hostname_(hostname), label_alloc_(10000),
+          xdoc_(new pugi::xml_document) {
+    localaddr_ = "127.0.0.1";
 }
 
 pugi::xml_document *XmppDocumentMock::RouteAddXmlDoc(
@@ -404,7 +405,8 @@ xml_node XmppDocumentMock::PubSubHeader(string type) {
     iq.append_attribute("to") = type.c_str();
     // TODO: iq.append_attribute("id") =
     xml_node pubsub = iq.append_child("pubsub");
-    pubsub.append_attribute("xmlns") = kPubSubNS;
+    pubsub.append_attribute("xmlns") =
+        xmlns_.empty() ? kPubSubNS : xmlns_.c_str();
     return pubsub;
 }
 
@@ -963,7 +965,8 @@ void NetworkAgentMock::Initialize() {
 NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
                                    int server_port, string local_address,
                                    string server_address,
-                                   bool xmpp_auth_enabled)
+                                   bool xmpp_auth_enabled,
+                                   const string &xmlns)
     : impl_(new XmppDocumentMock(hostname)),
       server_address_(server_address), local_address_(local_address),
       server_port_(server_port), skip_updates_processing_(false), down_(false),
@@ -992,6 +995,8 @@ NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
 
     XmppConfigData *data = new XmppConfigData();
     XmppChannelConfig *cfg = CreateXmppConfig();
+    cfg->xmlns = xmlns;
+    impl_->set_xmlns(cfg->xmlns);
     data->AddXmppChannelConfig(cfg);
     client_ = new XmppClient(evm, cfg);
     client_->ConfigUpdate(data);
