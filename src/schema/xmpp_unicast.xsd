@@ -86,7 +86,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
         <xsd:enumeration value="interface"/>
         <xsd:enumeration value="interface-static"/>
         <xsd:enumeration value="service-interface"/>
-        <xsd:enumeration value="BGPaaS"/>
+        <xsd:enumeration value="bgpaas"/>
     </xsd:restriction>
 </xsd:simpleType>
 

@@ -555,7 +555,7 @@ public:
                  const EcmpLoadBalance &ecmp_load_balance, bool is_local,
                  bool is_health_check_service, uint64_t sequence_number,
                  bool etree_leaf, bool native_encap,
-                 const std::string &intf_route_type = "interface") :
+                 const std::string &intf_route_type = VmInterface::kInterface):
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
         intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
@@ -588,7 +588,7 @@ public:
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
     bool proxy_arp() const {return proxy_arp_;}
     bool etree_leaf() const { return etree_leaf_;}
-    std::string intf_route_type() const { return intf_route_type_; }
+    const std::string &intf_route_type() const { return intf_route_type_; }
 private:
     VmInterfaceKey intf_;
     uint32_t mpls_label_;

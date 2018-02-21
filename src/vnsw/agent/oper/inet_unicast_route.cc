@@ -756,6 +756,7 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     data.set_proxy_arp(proxy_arp_);
     data.set_src_vrf(vrf()->GetName());
     data.set_multicast(AgentRoute::is_multicast());
+    data.set_intf_route_type(AgentRoute::intf_route_type());
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());

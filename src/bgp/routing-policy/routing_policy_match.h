@@ -83,6 +83,10 @@ public:
         StaticRoute,
         ServiceChainRoute,
         AggregateRoute,
+        Interface,
+        InterfaceStatic,
+        ServiceInterface,
+        BGPaaS
     };
     typedef std::vector<MatchProtocolType> PathSourceList;
     explicit MatchProtocol(const std::vector<std::string> &protocols);

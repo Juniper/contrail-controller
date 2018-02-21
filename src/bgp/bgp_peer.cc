@@ -1673,6 +1673,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
                                                        origin_override_.origin);
     }
 
+    if ((router_type_ == "bgpaas-client")  ||
+        (router_type_ == "bgpaas-server")) {
+        attr = server_->attr_db()->ReplaceSubProtocolAndLocate(attr.get(),
+                                                               "bgpaas");
+    }
+
     uint32_t reach_count = 0, unreach_count = 0;
     RoutingInstance *instance = GetRoutingInstance();
     if (msg->nlri.size() || msg->withdrawn_routes.size()) {
