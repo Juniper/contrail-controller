@@ -112,6 +112,19 @@ private:
     std::string address_str_;
 };
 
+class XmppPeerMock : public BgpPeerMock {
+public:
+    XmppPeerMock(const Ip4Address &address)
+        : BgpPeerMock(address) {
+    }
+    virtual ~XmppPeerMock() { }
+    virtual bool IsXmppPeer() const { return true; }
+    virtual bool IsRegistrationRequired() const { return false; }
+    BgpProto::BgpPeerType PeerType() const {
+        return BgpProto::XMPP;
+    }
+};
+
 #define VERIFY_EQ(expected, actual) \
     TASK_UTIL_EXPECT_EQ(expected, actual)
 
@@ -186,7 +199,8 @@ protected:
     template<typename T>
     void AddRoute(IPeer *peer, const string &table_name,
                   const string &prefix, int localpref,
-                  const vector<string> &community_list = vector<string>()) {
+                  const vector<string> &community_list = vector<string>(),
+                  const string &intf_route_type = "") {
         typedef typename T::TableT TableT;
         typedef typename T::PrefixT PrefixT;
         boost::system::error_code error;
@@ -208,6 +222,19 @@ protected:
                 spec.communities.push_back(community);
             }
             attr_spec.push_back(&spec);
+        }
+
+        boost::scoped_ptr<BgpAttrSubProtocol> sbp(
+                            new BgpAttrSubProtocol(intf_route_type));
+        if (!intf_route_type.empty()) {
+            attr_spec.push_back(sbp.get());
+        }
+
+        // For Xmpp peers only
+        RouteDistinguisher rd = RouteDistinguisher::FromString("192.168.0.1:1");
+        boost::scoped_ptr<BgpAttrSourceRd> source_rd(new BgpAttrSourceRd(rd));
+        if (peer->IsXmppPeer()) {
+             attr_spec.push_back(source_rd.get());
         }
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
@@ -401,6 +428,36 @@ TEST_F(RoutingPolicyTest, PolicyProtocolMatchUpdateLocalPref) {
 
     AddRoute<InetDefinition>(peers_[0], "test.inet.0",
                                    "10.0.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicySubProtocolMatchUpdateLocalPref) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0e1.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new XmppPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0",
+                             "10.0.1.1/32", 100,
+                             vector<string>(), "interface");
     task_util::WaitForIdle();
 
     VERIFY_EQ(1, RouteCount("test.inet.0"));

@@ -76,8 +76,7 @@ public:
                                        const CommunityList *communities,
                                        Agent::RouteTableType type,
                                        const PathPreference &path_preference,
-                                       const EcmpLoadBalance &ecmp_load_balance,
-                                       const std::string &intf_type);
+                                       const EcmpLoadBalance &ecmp_load_balance);
     static bool ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                            AgentRoute *route,
                                            const Ip4Address *nexthop_ip,
@@ -229,8 +228,7 @@ private:
                                             const PathPreference &path_preference,
                                             bool associate,
                                             Agent::RouteTableType type,
-                                            const EcmpLoadBalance &ecmp_load_balance,
-                                            const std::string &intf_route_type);
+                                            const EcmpLoadBalance &ecmp_load_balance);
     bool BuildTorMulticastMessage(autogen::EnetItemType &item,
                                   std::stringstream &node_id,
                                   AgentRoute *route,
