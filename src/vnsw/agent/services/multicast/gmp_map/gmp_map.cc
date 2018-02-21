@@ -34,16 +34,17 @@ mgm_global_data mgm_global[MCAST_AF_MAX];
 gmpr_intf_params def_gmpr_intf_params[MCAST_AF_MAX];
 
 static gmpr_instance_context gmp_inst_ctx = {
-    .rctx_oif_map_cb = gmp_oif_map_cb,
-    .rctx_policy_cb = gmp_policy_cb,
-    .rctx_ssm_check_cb = gmp_ssm_check_cb
+    gmp_oif_map_cb,     // rctx_oif_map_cb
+    gmp_policy_cb,      // rctx_policy_cb
+    gmp_ssm_check_cb,   // rctx_ssm_check_cb
 };
 
 static gmpr_client_context igmp_client_context = {
-    .rctx_notif_cb = igmp_notification_ready,
-    .rctx_host_notif_cb = igmp_host_notification_ready,
-    .rctx_querier_cb = mgm_querier_change,
-    .rctx_delta_notifications = TRUE,
+    igmp_notification_ready,        // rctx_notif_cb
+    igmp_host_notification_ready,   // rctx_host_notif_cb
+    mgm_querier_change,             // rctx_querier_cb
+    TRUE,                           // gmpr_client_context
+    FALSE,                          // rctx_full_notifications
 };
 
 void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
@@ -163,7 +164,7 @@ gmp_intf *gmp_attach_intf(mgm_global_data *gd, void *mif_state)
     gif->vm_interface = mif_state;
     gif->gmpif_proto = GMP_PROTO_IGMP;
     gif->gmpif_handle.gmpifh_host = FALSE;
-    bzero(&gif->gmpif_handle.gmpifh_xmit_thread, sizeof(thread));
+    std::memset(&gif->gmpif_handle.gmpifh_xmit_thread, 0, sizeof(thread));
     gmpr_attach_intf(gd->mgm_gmpr_instance, &gif->gmpif_handle);
     gmp_set_intf_params(gd, gif);
 

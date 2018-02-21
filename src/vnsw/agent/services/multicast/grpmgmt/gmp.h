@@ -74,9 +74,9 @@ typedef enum {GMP_FILTER_MODE_EXCLUDE, GMP_FILTER_MODE_INCLUDE}
  * address type is contextualized by its environment (IGMP vs. MLD).
  */
 typedef union gmp_addrstring_ {
-    u_int8_t gmp_v4_addr[IPV4_ADDR_LEN]; /* IPv4 address */
-    u_int8_t gmp_v6_addr[IPV6_ADDR_LEN]; /* IPv6 address */
-    u_int8_t gmp_addr[0];		/* Generic address pointer */
+    uint8_t gmp_v4_addr[IPV4_ADDR_LEN]; /* IPv4 address */
+    uint8_t gmp_v6_addr[IPV6_ADDR_LEN]; /* IPv6 address */
+    uint8_t gmp_addr[1];		/* Generic address pointer */
 } gmp_addr_string;
 
 
@@ -86,7 +86,7 @@ typedef union gmp_addrstring_ {
  * Passed via the gmph_set_intf_params call
  */
 typedef struct gmph_intf_params_ {
-    u_int8_t gmph_version;		/* Protocol version */
+    uint8_t gmph_version;		/* Protocol version */
 } gmph_intf_params;
 
 /*
@@ -95,14 +95,14 @@ typedef struct gmph_intf_params_ {
  * Passed via the gmpr_set_intf_params call
  */
 typedef struct gmpr_intf_params_ {
-    u_int8_t gmpr_ifparm_version;	/* Protocol version */
-    u_int8_t gmpr_ifparm_robustness;	/* Robustness value */
-    u_int32_t gmpr_ifparm_qivl;		/* Query interval */
-    u_int32_t gmpr_ifparm_qrivl;	/* Query response interval */
-    u_int32_t gmpr_ifparm_lmqi;		/* Last member query interval */
-    u_int32_t gmpr_ifparm_chan_limit;	/* Channel limit */
-    u_int32_t gmpr_ifparm_chan_threshold; /* Channel threshold */
-    u_int32_t gmpr_ifparm_log_interval;  /* Time between consecutive similar limit log events */
+    uint8_t gmpr_ifparm_version;	/* Protocol version */
+    uint8_t gmpr_ifparm_robustness;	/* Robustness value */
+    uint32_t gmpr_ifparm_qivl;		/* Query interval */
+    uint32_t gmpr_ifparm_qrivl;	/* Query response interval */
+    uint32_t gmpr_ifparm_lmqi;		/* Last member query interval */
+    uint32_t gmpr_ifparm_chan_limit;	/* Channel limit */
+    uint32_t gmpr_ifparm_chan_threshold; /* Channel threshold */
+    uint32_t gmpr_ifparm_log_interval;  /* Time between consecutive similar limit log events */
     boolean gmpr_ifparm_fast_leave;	/* Fast leaves */
     boolean gmpr_ifparm_querier_enabled; /* Allowed to be V1 querier */
     boolean gmpr_ifparm_passive_receive; /* Passive receive */

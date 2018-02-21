@@ -52,51 +52,51 @@ typedef void (*gmp_xmit_peek_callback_func)(gmpx_intf_id intf_id,
 
 /* igmp_proto.c */
 
-extern u_int igmp_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
-				   void *packet, u_int8_t *dest_addr,
-				   u_int packet_len, void_t trace_context,
-				   u_int32_t trace_flags);
-extern boolean igmp_process_pkt(void *rcv_pkt, const u_int8_t *src_addr,
-				const u_int8_t *dest_addr,
-				u_int32_t packet_len, gmpx_intf_id intf_id,
+extern uint32_t igmp_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
+				   void *packet, uint8_t *dest_addr,
+				   uint32_t packet_len, void_t trace_context,
+				   uint32_t trace_flags);
+extern boolean igmp_process_pkt(void *rcv_pkt, const uint8_t *src_addr,
+				const uint8_t *dest_addr,
+				uint32_t packet_len, gmpx_intf_id intf_id,
 				gmpx_packet_attr attrib, void_t trace_context,
-				u_int32_t trace_flags);
+				uint32_t trace_flags);
 extern void
-    gmp_igmp_trace_pkt(void *pkt, u_int len, const u_int8_t *addr,
+    gmp_igmp_trace_pkt(void *pkt, uint32_t len, const uint8_t *addr,
 		       gmpx_intf_id intf_id, boolean receive,
-		       void_t trace_context, u_int32_t trace_flags);
+		       void_t trace_context, uint32_t trace_flags);
 extern void
-    gmp_igmp_trace_bad_pkt(u_int len, const u_int8_t *addr,
+    gmp_igmp_trace_bad_pkt(uint32_t len, const uint8_t *addr,
 			   gmpx_intf_id intf_id, void_t trace_context,
-			   u_int32_t trace_flags);
+			   uint32_t trace_flags);
 
 /* mld_proto.c */
 
-extern u_int mld_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
-				  void *packet, u_int8_t *dest_addr,
-				  u_int packet_len, void_t trace_context,
-				  u_int32_t trace_flags);
-extern boolean mld_process_pkt(void *rcv_pkt, const u_int8_t *src_addr,
-			       const u_int8_t *dest_addr, u_int32_t packet_len,
+extern uint32_t mld_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
+				  void *packet, uint8_t *dest_addr,
+				  uint32_t packet_len, void_t trace_context,
+				  uint32_t trace_flags);
+extern boolean mld_process_pkt(void *rcv_pkt, const uint8_t *src_addr,
+			       const uint8_t *dest_addr, uint32_t packet_len,
 			       gmpx_intf_id intf_id, gmpx_packet_attr attrib,
-			       void_t trace_context, u_int32_t trace_flags);
-extern void gmp_mld_trace_pkt(void *pkt, u_int len, const u_int8_t *addr,
+			       void_t trace_context, uint32_t trace_flags);
+extern void gmp_mld_trace_pkt(void *pkt, uint32_t len, const uint8_t *addr,
 			      gmpx_intf_id intf_id, boolean receive,
-			      void_t trace_context, u_int32_t trace_flags);
-extern void gmp_mld_trace_bad_pkt(u_int len, const u_int8_t *addr,
+			      void_t trace_context, uint32_t trace_flags);
+extern void gmp_mld_trace_bad_pkt(uint32_t len, const uint8_t *addr,
 				  gmpx_intf_id intf_id, void_t trace_context,
-				  u_int32_t trace_flags);
+				  uint32_t trace_flags);
 
 /* gmp_addrlist.c */
 
 extern gmp_addr_thread *gmp_alloc_addr_thread(void);
 extern int gmp_enqueue_addr_thread_addr(gmp_addr_thread *addr_thread,
-					u_int8_t *addr, u_int addr_len);
+					uint8_t *addr, uint32_t addr_len);
 extern gmp_addr_string
     *gmp_next_addr_thread_addr(gmp_addr_thread *addr_thread,
 			       gmp_addr_thread_entry **entry_ptr);
 extern void gmp_destroy_addr_thread(gmp_addr_thread *addr_thread);
-extern u_int32_t gmp_addr_thread_count(gmp_addr_thread *addr_thread);
+extern uint32_t gmp_addr_thread_count(gmp_addr_thread *addr_thread);
 
 
 /* gmpp_proto.c */
