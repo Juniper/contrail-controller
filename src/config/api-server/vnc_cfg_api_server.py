@@ -2725,8 +2725,12 @@ class VncApiServer(object):
                 parent_uuid = obj_dict.get('parent_uuid')
                 try:
                     if parent_uuid is None:
-                        parent_uuid = self._db_conn.fq_name_to_uuid(
-                            parent_type, parent_fq_name)
+                        try:
+                            parent_uuid = self._db_conn.fq_name_to_uuid(
+                                parent_type, parent_fq_name)
+                        except NoIdError:
+                            raise cfgm_common.exceptions.HttpError(
+                            404, 'Name' + pformat(parent_fq_name) + ' not found')
                     ok, parent_obj_dict = self._db_conn.dbe_read(
                         parent_type, parent_uuid, obj_fields=['perms2'])
                 except NoIdError as e:
