@@ -97,7 +97,8 @@ class IronicNotificationManager(object):
             'os_auth_url': auth_url,
             'os_username': self._args.admin_user,
             'os_password': self._args.admin_password,
-            'os_project_name': self._args.admin_tenant_name
+            'os_project_name': self._args.admin_tenant_name,
+            'os_endpoint_type': self._args.endpoint_type
         }
         if 'v2.0' not in auth_url.split('/'):
             kwargs['os_user_domain_name'] = self._args.user_domain_name
@@ -266,7 +267,8 @@ def parse_args(args_str):
         'keyfile': '',
         'auth_type': 'password',
         'auth_url': '',
-        'region_name': ''
+        'region_name': '',
+        'endpoint_type': 'internalURL'
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     sandesh_opts = SandeshConfig.get_default_options()
