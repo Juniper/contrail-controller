@@ -14,6 +14,7 @@ typedef struct task_timer_ task_timer;
 typedef void (*timer_callback)(task_timer *, time_t);
 
 typedef struct task_timer_root_ {
+    int placeholder;
 } task_timer_root;
 
 typedef struct task_timer_ {
@@ -38,7 +39,7 @@ extern task_timer *task_timer_create_idle_leaf(task *tp, const char *name,
 extern void task_timer_delete(task_timer *timer);
 extern void task_timer_smear_auto_parent_timers(task_timer_root *root);
 extern void task_timer_uset_alt_root_auto_parent_oneshot(task_timer_root *root,
-                task_timer *timer, utime_t *offset, u_int jitter);
+                task_timer *timer, utime_t *offset, uint32_t jitter);
 extern void task_timer_reset(task_timer *timer);
 extern task_timer_root *task_timer_get_auto_parent_root(void);
 extern void *task_timer_data(task_timer *timer);

@@ -34,9 +34,9 @@ static gmp_addr_string zero_addr;
  * Returns TRUE if the address is all zero, or FALSE if not.
  */
 boolean
-gmp_addr_is_zero (gmp_addr_string *addr, u_int addr_len)
+gmp_addr_is_zero (gmp_addr_string *addr, uint32_t addr_len)
 {
-    return !bcmp(addr->gmp_addr, zero_addr.gmp_addr, addr_len);
+    return !memcmp(addr->gmp_addr, zero_addr.gmp_addr, addr_len);
 }
 
 
@@ -70,7 +70,7 @@ gmp_init_addr_thread (gmp_addr_thread *addr_thread)
  *
  * Tolerates null pointers.
  */
-u_int32_t
+uint32_t
 gmp_addr_thread_count (gmp_addr_thread *addr_thread)
 {
     if (!addr_thread)
@@ -109,7 +109,7 @@ gmp_alloc_addr_thread (void)
  */
 int
 gmp_enqueue_addr_thread_addr(gmp_addr_thread *addr_thread,
-			     u_int8_t *addr, u_int addr_len)
+			     uint8_t *addr, uint32_t addr_len)
 {
     gmp_addr_thread_entry *thread_entry;
 
@@ -121,7 +121,7 @@ gmp_enqueue_addr_thread_addr(gmp_addr_thread *addr_thread,
 
     /* Copy in the address. */
 
-    bcopy(addr, thread_entry->gmp_adth_addr.gmp_addr, addr_len);
+    memmove(thread_entry->gmp_adth_addr.gmp_addr, addr, addr_len);
 
     /* Enqueue the entry. */
 
@@ -291,7 +291,7 @@ gmp_destroy_addr_catalog (gmp_addr_catalog *catalog)
  * Returns 0 if all OK, or -1 if out of memory.
  */
 int
-gmp_init_addr_catalog (gmp_addr_catalog *catalog, u_int32_t addr_len)
+gmp_init_addr_catalog (gmp_addr_catalog *catalog, uint32_t addr_len)
 {
     /* Create the tree roots. */
 
@@ -443,7 +443,7 @@ gmp_lock_adcat_entry (gmp_addr_catalog *catalog, ordinal_t ordinal)
  * Returns a pointer to the entry, or NULL if not found.
  */
 gmp_addr_cat_entry *
-gmp_lookup_addr_cat_entry (gmp_addr_catalog *catalog, const u_int8_t *addr)
+gmp_lookup_addr_cat_entry (gmp_addr_catalog *catalog, const uint8_t *addr)
 {
     gmpx_patnode *node;
     gmp_addr_cat_entry *cat_entry;
@@ -469,7 +469,7 @@ gmp_lookup_addr_cat_entry (gmp_addr_catalog *catalog, const u_int8_t *addr)
  */
 ordinal_t
 gmp_lookup_create_addr_cat_entry (gmp_addr_catalog *catalog,
-				  u_int8_t *addr)
+				  uint8_t *addr)
 {
     gmp_addr_cat_entry *cat_entry;
 
@@ -479,26 +479,26 @@ gmp_lookup_create_addr_cat_entry (gmp_addr_catalog *catalog,
 
     if (!cat_entry) {
 
-	/* No entry found.  Create a new one. */
+        /* No entry found.  Create a new one. */
 
-	cat_entry = gmpx_malloc_block(gmp_adcat_entry_tag);
-	if (!cat_entry)
-	    return ORD_BAD_ORDINAL;	/* Out of memory */
+        cat_entry = gmpx_malloc_block(gmp_adcat_entry_tag);
+        if (!cat_entry)
+            return ORD_BAD_ORDINAL;	/* Out of memory */
 
-	/* Got one.  Initialize it. */
+        /* Got one.  Initialize it. */
 
-	bcopy(addr, cat_entry->adcat_ent_addr.gmp_addr,
-	      catalog->adcat_addrlen);
-	cat_entry->adcat_ent_ord = ord_get_ordinal(catalog->adcat_ord_handle);
-	if (cat_entry->adcat_ent_ord == ORD_BAD_ORDINAL)
-	    return ORD_BAD_ORDINAL;	/* Out of memory */
+        memmove(cat_entry->adcat_ent_addr.gmp_addr, addr,
+            catalog->adcat_addrlen);
+        cat_entry->adcat_ent_ord = ord_get_ordinal(catalog->adcat_ord_handle);
+        if (cat_entry->adcat_ent_ord == ORD_BAD_ORDINAL)
+            return ORD_BAD_ORDINAL;	/* Out of memory */
 
-	/* Add it to the patricia trees. */
+        /* Add it to the patricia trees. */
 
-	gmpx_assert(gmpx_patricia_add(catalog->adcat_addr_root,
-				      &cat_entry->adcat_ent_addr_node));
-	gmpx_assert(gmpx_patricia_add(catalog->adcat_ord_root,
-				      &cat_entry->adcat_ent_ord_node));
+        gmpx_assert(gmpx_patricia_add(catalog->adcat_addr_root,
+                          &cat_entry->adcat_ent_addr_node));
+        gmpx_assert(gmpx_patricia_add(catalog->adcat_ord_root,
+                          &cat_entry->adcat_ent_ord_node));
     }
 
     return cat_entry->adcat_ent_ord;
@@ -589,7 +589,7 @@ gmp_addr_list_init (gmp_addr_list *list, gmp_addr_catalog *catalog,
 {
     /* Zero it out. */
 
-    bzero(list, sizeof(gmp_addr_list));
+    memset(list, 0, sizeof(gmp_addr_list));
 
     /* Initialize the threads. */
 
@@ -1038,7 +1038,7 @@ gmp_init_addr_vector (gmp_addr_vect *vector, gmp_addr_catalog *catalog)
  * refcount has gone to zero.
  */
 static boolean
-gmp_addr_vect_clean_cb (void *context GMPX_UNUSED, u_int32_t bitnum,
+gmp_addr_vect_clean_cb (void *context GMPX_UNUSED, uint32_t bitnum,
 			boolean new_bitval, boolean old_bitval GMPX_UNUSED)
 {
     gmp_addr_catalog *catalog;

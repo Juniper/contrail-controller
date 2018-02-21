@@ -1,0 +1,5 @@
+If there's a need to reimport GRP code, one can use the patch file to get rid of POSIX features, eg.:
+
+```
+git apply -3 remove_posix.patch
+```
