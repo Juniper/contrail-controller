@@ -240,7 +240,7 @@ gmph_destroy_intf_client_groups (gmph_client *client, gmph_intf *intf)
 
     /* Set up the key. */
 
-    bzero(&key, sizeof(key));
+    memset(&key, 0, sizeof(key));
     key.group_key_intf_id = intf->hintf_id;
 
     /* Loop until we run out of client groups on this interface. */
@@ -318,8 +318,7 @@ gmph_create_client_group (gmph_intf *intf, gmph_client *client,
     client_group->client_group_intf_id = intf->hintf_id;
     client_group->client_group_group = group;
     client_group->client_filter_mode = filter_mode;
-    bcopy(group_addr, client_group->client_group_addr.gmp_addr,
-	  instance->hinst_addrlen);
+    memmove(client_group->client_group_addr.gmp_addr, group_addr, instance->hinst_addrlen);
 
     /* Link the group entry into the client tree. */
 
@@ -358,9 +357,9 @@ gmph_lookup_client_group (gmph_client *client, gmpx_intf_id intf_id,
 
     /* Set up the key. */
 
-    bzero(&key, sizeof(key));
+    memset(&key, 0, sizeof(key));
     key.group_key_intf_id = intf_id;
-    bcopy(group, key.group_key_addr.gmp_addr, instance->hinst_addrlen);
+    memmove(key.group_key_addr.gmp_addr, group, instance->hinst_addrlen);
 
     /* Look up the entry. */
 

@@ -11,21 +11,21 @@
 /*
  * Conditional tracing
  */
-#define gmpr_trace(instance, flag, parms...) \
+#define gmpr_trace(instance, flag, ...) \
     if (instance->rinst_traceflags & (flag)) \
-        gmpx_trace(instance->rinst_context, parms)
+        gmpx_trace(instance->rinst_context, __VA_ARGS__)
 
 /*
  * Unconditional tracing
  */
-#define gmpr_trace_uncond(instance, parms...) \
-    gmpx_trace(instance->rinst_context, parms)
+#define gmpr_trace_uncond(instance, ...) \
+    gmpx_trace(instance->rinst_context, __VA_ARGS__)
 
 /*
  * Error event 
  */
-#define gmpr_post_event(instance, ev, parms...) \
-    gmpx_post_event(instance->rinst_context, ev, parms)
+#define gmpr_post_event(instance, ev, ...) \
+    gmpx_post_event(instance->rinst_context, ev, __VA_ARGS__)
 
 
 /*

@@ -916,9 +916,9 @@ gmpr_fill_client_host_notif (gmpr_instance *instance,
 	cat_entry = gmp_get_addr_cat_by_ordinal(&instance->rinst_addr_cat,
 						addr_entry->addr_ent_ord);
 	gmpx_assert(cat_entry);
-	bcopy(cat_entry->adcat_ent_addr.gmp_addr,
-	      client_notif->host_notif_source_addr.gmp_addr,
-	      instance->rinst_addrlen);
+	memmove(client_notif->host_notif_source_addr.gmp_addr,
+        cat_entry->adcat_ent_addr.gmp_addr,
+        instance->rinst_addrlen);
 	client_notif->host_notif_source_present = TRUE;
 
 	/* Set the notification type. */
@@ -1023,7 +1023,7 @@ gmpr_client_get_host_notification (gmpr_client *client,
     client_notif = NULL;
     if (last_notification) {
 	client_notif = last_notification;
-	bzero(client_notif, sizeof(gmpr_client_host_notification));
+	memset(client_notif, 0, sizeof(gmpr_client_host_notification));
     }
 	
     /* Dequeue the top of the notification thread. */
@@ -1060,12 +1060,12 @@ gmpr_client_get_host_notification (gmpr_client *client,
 
     intf = host->rhost_intf;
     client_notif->host_notif_intf_id = intf->rintf_id;
-    bcopy(host_group->rhgroup_addr.gmp_addr,
-	  client_notif->host_notif_group_addr.gmp_addr,
-	  instance->rinst_addrlen);
-    bcopy(host_group->rhgroup_host->rhost_addr.gmp_addr,
-	  client_notif->host_notif_host_addr.gmp_addr,
-	  instance->rinst_addrlen);
+    memmove(client_notif->host_notif_group_addr.gmp_addr,
+        host_group->rhgroup_addr.gmp_addr,
+        instance->rinst_addrlen);
+    memmove(client_notif->host_notif_host_addr.gmp_addr,
+        host_group->rhgroup_host->rhost_addr.gmp_addr,
+        instance->rinst_addrlen);
 
     /* Trace it. */
 
@@ -1132,8 +1132,7 @@ gmpr_create_host_group (gmpr_host *host, gmp_addr_string *group_addr)
 
     /* Got the block.  Initialize it. */
 
-    bcopy(group_addr->gmp_addr, host_group->rhgroup_addr.gmp_addr,
-	  instance->rinst_addrlen);
+    memmove(host_group->rhgroup_addr.gmp_addr, group_addr->gmp_addr, instance->rinst_addrlen);
     gmp_addr_list_init(&host_group->rhgroup_addrs, &instance->rinst_addr_cat,
 		       gmpr_host_group_addr_alloc, gmpr_host_group_addr_free,
 		       host_group);
@@ -1164,7 +1163,7 @@ gmpr_create_host_group (gmpr_host *host, gmp_addr_string *group_addr)
  * Returns a pointer to the host entry, or NULL if not found.
  */
 gmpr_host *
-gmpr_lookup_host (gmpr_intf *intf, const u_int8_t *host_addr)
+gmpr_lookup_host (gmpr_intf *intf, const uint8_t *host_addr)
 {
     gmpr_host *host;
     gmpx_patnode *node;
@@ -1186,7 +1185,7 @@ gmpr_lookup_host (gmpr_intf *intf, const u_int8_t *host_addr)
  * Returns a pointer to the host entry, or NULL if out of memory.
  */
 static gmpr_host *
-gmpr_create_host (gmpr_intf *intf, u_int8_t *host_addr)
+gmpr_create_host (gmpr_intf *intf, uint8_t *host_addr)
 {
     gmpr_host *host;
     gmpr_instance *instance;
@@ -1198,7 +1197,7 @@ gmpr_create_host (gmpr_intf *intf, u_int8_t *host_addr)
 
     /* Got the block.  Initialize it. */
 
-    bcopy(host_addr, host->rhost_addr.gmp_addr, instance->rinst_addrlen);
+    memmove(host->rhost_addr.gmp_addr, host_addr, instance->rinst_addrlen);
 
     host->rhost_group_root =
 	gmpx_patroot_init(instance->rinst_addrlen,
@@ -1430,7 +1429,7 @@ gmpr_delink_host_group (gmpr_host_group *host_group)
  * don't care about non-null Exclude state.
  */
 void
-gmpr_host_process_report (u_int8_t *src_addr, gmp_report_rectype rec_type,
+gmpr_host_process_report (uint8_t *src_addr, gmp_report_rectype rec_type,
 			  gmpr_group *group, gmp_addr_vect *source_vect)
 {
     // gmpr_instance *instance;

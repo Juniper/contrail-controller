@@ -35,12 +35,12 @@ public:
 template <class D, Patricia::Node D::* P, class K>
 class PatriciaMap : public Patricia::Tree<D, P, K> {
 public:
-    PatriciaMap(u_int16_t klen, u_int8_t koffset) :
+    PatriciaMap(uint16_t klen, uint8_t koffset) :
                 Patricia::Tree<D, P, K>(), klen_(klen), koffset_(koffset) {
     }
 
-    u_int16_t klen_;
-    u_int8_t koffset_;
+    uint16_t klen_;
+    uint8_t koffset_;
 };
 
 typedef PatriciaMap<PatriciaNode, &PatriciaNode::node_, PatriciaNode::Key> PatriciaMapTable;
