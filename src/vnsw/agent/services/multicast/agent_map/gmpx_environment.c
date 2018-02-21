@@ -70,7 +70,7 @@ gmpx_destroy_timer (gmpx_timer *timer)
  * Start a timer.
  */
 void
-gmpx_start_timer (gmpx_timer *timer, u_int32_t ivl, u_int jitter_pct)
+gmpx_start_timer (gmpx_timer *timer, uint32_t ivl, uint32_t jitter_pct)
 {
     utime_t long_ivl;
 
@@ -183,11 +183,11 @@ gmpx_create_timer (void_t inst_context, const char *name,
  *
  * Returns the time remaining before expiration of a timer, in millseconds.
  */
-u_int32_t
+uint32_t
 gmpx_timer_time_remaining (gmpx_timer *timer)
 {
     utime_t time_left_usec;
-    u_int32_t time_left_msec;
+    uint32_t time_left_msec;
 
     if (!timer)
 	return 0;

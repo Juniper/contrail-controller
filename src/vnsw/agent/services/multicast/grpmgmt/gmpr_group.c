@@ -515,7 +515,7 @@ gmpr_set_notification_type (gmpr_notify_block *notify_block,
  * Returns a pointer to the group entry, or NULL if it's not there.
  */
 gmpr_ogroup *
-gmpr_ogroup_lookup (gmpr_intf *intf, const u_int8_t *group_addr)
+gmpr_ogroup_lookup (gmpr_intf *intf, const uint8_t *group_addr)
 {
     gmpr_ogroup *group;
     patnode *node;
@@ -542,7 +542,7 @@ gmpr_ogroup_lookup (gmpr_intf *intf, const u_int8_t *group_addr)
  * Returns a pointer to the group entry, or NULL if it's not there.
  */
 gmpr_group *
-gmpr_group_lookup (gmpr_intf *intf, const u_int8_t *group_addr)
+gmpr_group_lookup (gmpr_intf *intf, const uint8_t *group_addr)
 {
     gmpr_group *group;
     patnode *node;
@@ -676,8 +676,7 @@ gmpr_ogroup_create (gmpr_intf *intf, gmp_addr_string *group_addr)
     /* Initialize it. */
 
     ogroup->rogroup_intf = intf;
-    bcopy(group_addr->gmp_addr, ogroup->rogroup_addr.gmp_addr,
-	  instance->rinst_addrlen);
+    memmove(ogroup->rogroup_addr.gmp_addr, group_addr->gmp_addr, instance->rinst_addrlen);
     ogroup->rogroup_filter_mode = GMP_FILTER_MODE_INCLUDE;
     thread_new_circular_thread(&ogroup->rogroup_oif_head);
 
@@ -747,8 +746,7 @@ gmpr_group_create (gmpr_intf *intf, const gmp_addr_string *group_addr)
 
     group->rgroup_intf = intf;
     intf->rintf_channel_count++;
-    bcopy(group_addr->gmp_addr, group->rgroup_addr.gmp_addr,
-	  instance->rinst_addrlen);
+    memmove(group->rgroup_addr.gmp_addr, group_addr->gmp_addr, instance->rinst_addrlen);
     group->rgroup_filter_mode = GMP_FILTER_MODE_INCLUDE;
     group->rgroup_compatibility_mode = GMP_VERSION_SOURCES;
     thread_new_circular_thread(&group->rgroup_host_group_head);
@@ -1124,7 +1122,7 @@ gmpr_attempt_group_free (gmpr_group *group)
  * Returns a pointer to the global group entry, or NULL if it's not there.
  */
 gmpr_global_group *
-gmpr_lookup_global_group (gmpr_instance *instance, u_int8_t *group_addr)
+gmpr_lookup_global_group (gmpr_instance *instance, uint8_t *group_addr)
 {
     gmpr_global_group *global_group;
     gmpx_patnode *node;
@@ -1160,23 +1158,23 @@ gmpr_get_global_group (gmpr_ogroup *group)
 					    group->rogroup_addr.gmp_addr);
     if (!global_group) {
 
-	/* Entry isn't there.  Create one. */
+        /* Entry isn't there.  Create one. */
 
-	global_group = gmpx_malloc_block(gmpr_global_group_tag);
-	if (!global_group)
-	    return NULL;		/* Out of memory */
+        global_group = gmpx_malloc_block(gmpr_global_group_tag);
+        if (!global_group)
+            return NULL;		/* Out of memory */
 
-	/* Initialize. */
+        /* Initialize. */
 
-	thread_new_circular_thread(&global_group->global_group_head);
-	bcopy(group->rogroup_addr.gmp_addr,
-	      global_group->global_group_addr.gmp_addr,
-	      instance->rinst_addrlen);
+        thread_new_circular_thread(&global_group->global_group_head);
+        memmove(global_group->global_group_addr.gmp_addr,
+            group->rogroup_addr.gmp_addr,
+            instance->rinst_addrlen);
 
-	/* Stick it into the tree. */
+        /* Stick it into the tree. */
 
-	gmpx_assert(gmpx_patricia_add(instance->rinst_global_state_root,
-				      &global_group->global_group_node));
+        gmpx_assert(gmpx_patricia_add(instance->rinst_global_state_root,
+                          &global_group->global_group_node));
     }
 
     return global_group;
@@ -1318,7 +1316,7 @@ gmpr_group_forwards_all_sources (gmpr_ogroup *group)
  * FALSE if not.
  */
 boolean
-gmpr_group_forwards_source (gmpr_ogroup *group, const u_int8_t *source_addr)
+gmpr_group_forwards_source (gmpr_ogroup *group, const uint8_t *source_addr)
 {
     gmpr_instance *instance;
     gmp_addr_cat_entry *cat_entry;
@@ -1772,7 +1770,7 @@ gmpr_get_current_group_oif (gmpr_group *group)
  * no output interface.
  */
 static gmpr_intf *
-gmpr_get_mapped_oif (gmpr_intf *intf, u_int8_t *group, u_int8_t *source)
+gmpr_get_mapped_oif (gmpr_intf *intf, uint8_t *group, uint8_t *source)
 {
     gmpr_intf *oif;
     gmpx_intf_id oif_id;
