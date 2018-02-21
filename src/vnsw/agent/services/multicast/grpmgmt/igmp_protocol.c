@@ -19,9 +19,9 @@
 /*
  * Destination addresses
  */
-static u_int8_t igmp_all_hosts[IPV4_ADDR_LEN] = {224, 0, 0, 1};
-static u_int8_t igmp_all_routers[IPV4_ADDR_LEN] = {224, 0, 0, 2};
-static u_int8_t igmp_all_v3_routers[IPV4_ADDR_LEN] = {224, 0, 0, 22};
+static uint8_t igmp_all_hosts[IPV4_ADDR_LEN] = {224, 0, 0, 1};
+static uint8_t igmp_all_routers[IPV4_ADDR_LEN] = {224, 0, 0, 2};
+static uint8_t igmp_all_v3_routers[IPV4_ADDR_LEN] = {224, 0, 0, 22};
 
 
 
@@ -31,7 +31,7 @@ static u_int8_t igmp_all_v3_routers[IPV4_ADDR_LEN] = {224, 0, 0, 22};
  * Returns the IGMP packet type string given the packet type.
  */
 static const char *
-igmp_packet_type_string (igmp_hdr *hdr, u_int len)
+igmp_packet_type_string (igmp_hdr *hdr, uint32_t len)
 {
     switch (hdr->igmp_hdr_type) {
       case IGMP_TYPE_QUERY:
@@ -65,10 +65,10 @@ igmp_packet_type_string (igmp_hdr *hdr, u_int len)
  * Decodes a fix/float field (Max Resp or QQIC).  Returns the value in
  * native units.
  */
-static u_int
-igmp_decode_fixfloat (u_int8_t value)
+static uint32_t
+igmp_decode_fixfloat (uint8_t value)
 {
-    u_int mant, exp, result;
+    uint32_t mant, exp, result;
 
     /* If the flag is set, decode the value as floating point. */
 
@@ -95,7 +95,7 @@ igmp_decode_fixfloat (u_int8_t value)
  * Also returns the generic message type.
  */
 static gmp_version
-igmp_generic_version (igmp_packet *pkt, u_int pkt_len,
+igmp_generic_version (igmp_packet *pkt, uint32_t pkt_len,
 		      gmp_message_type *msg_type)
 {
     gmp_version version;
@@ -150,9 +150,9 @@ igmp_generic_version (igmp_packet *pkt, u_int pkt_len,
  * Returns the value of the max resp field, in standard units (100 msec.)
  * If the value is zero, it returns the default value (for IGMP v1.)
  */
-static u_int igmp_max_resp_value (igmp_packet *pkt, gmp_version version)
+static uint32_t igmp_max_resp_value (igmp_packet *pkt, gmp_version version)
 {
-    u_int max_resp_field, value;
+    uint32_t max_resp_field, value;
 
     max_resp_field =
 	pkt->igmp_pkt_naked.igmp_naked_header_hdr.igmp_hdr_maxresp;
@@ -186,8 +186,8 @@ static u_int igmp_max_resp_value (igmp_packet *pkt, gmp_version version)
  * Trace a bad IGMP packet
  */
 void
-gmp_igmp_trace_bad_pkt(u_int len, const u_int8_t *addr, gmpx_intf_id intf_id,
-		       void_t trace_context, u_int32_t trace_flags)
+gmp_igmp_trace_bad_pkt(uint32_t len, const uint8_t *addr, gmpx_intf_id intf_id,
+		       void_t trace_context, uint32_t trace_flags)
 {
     /* Bail if not tracing bad packets. */
 
@@ -205,9 +205,9 @@ gmp_igmp_trace_bad_pkt(u_int len, const u_int8_t *addr, gmpx_intf_id intf_id,
  * Trace an IGMP packet
  */
 void
-gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
+gmp_igmp_trace_pkt (void *packet, uint32_t len, const uint8_t *addr,
 		    gmpx_intf_id intf_id, boolean receive,
-		    void_t trace_context, u_int32_t trace_flags)
+		    void_t trace_context, uint32_t trace_flags)
 {
     const char *direction;
     const char *op;
@@ -218,9 +218,9 @@ gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
     igmp_v3_rpt_rcrd *rpt_rcrd;
     gmp_version version;
     gmp_message_type msg_type;
-    u_int8_t *byte_ptr;
-    u_int source_count;
-    u_int record_count;
+    uint8_t *byte_ptr;
+    uint32_t source_count;
+    uint32_t record_count;
     boolean detail;
     igmp_packet *pkt;
 
@@ -331,7 +331,7 @@ gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
 		       rpt_rcrd->igmp_v3_rpt_group,
 		       gmp_report_type_string(rpt_rcrd->igmp_v3_rpt_rec_type),
 		       rpt_rcrd->igmp_v3_rpt_aux_len, source_count);
-	    byte_ptr = rpt_rcrd->igmp_v3_rpt_source;
+	    byte_ptr = IGMP_V3_RPT_SOURCE(rpt_rcrd);
 	    while (source_count--) {
 		gmpx_trace(trace_context, "      Source %a", byte_ptr);
 		byte_ptr += IPV4_ADDR_LEN;
@@ -355,15 +355,15 @@ gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
  * The encoded value will be less than or equal to the provided value (since
  * we lose granularity in the encoding.)
  */
-static u_int8_t
-igmp_encode_fixfloat (u_int value)
+static uint8_t
+igmp_encode_fixfloat (uint32_t value)
 {
-    u_int mant, exp;
+    uint32_t mant, exp;
 
     /* If the value is small enough, just use it. */
 
     if (value < IGMP_FIXFLOAT_FLAG)
-	return (u_int8_t) value;
+	return (uint8_t) value;
 
     /* If the value is too big, bail. */
 
@@ -399,9 +399,9 @@ igmp_encode_fixfloat (u_int value)
  *
  * Returns the formatted packet length, or 0 if nothing to send.
  */
-static u_int
+static uint32_t
 igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
-		       igmp_packet *packet, u_int packet_len)
+		       igmp_packet *packet, uint32_t packet_len)
 {
     igmp_v1v2_pkt *v1v2_pkt;
     igmp_hdr *pkt_hdr;
@@ -409,14 +409,14 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
     thread *thread_ptr;
     gmp_report_group_record *group_record;
     gmp_report_packet *report_pkt;
-    u_int formatted_len;
+    uint32_t formatted_len;
 
     /* Version 1 packet.  Pretty straightforward. */
 
     gmpx_assert(packet_len >= sizeof(igmp_v1v2_pkt));
     v1v2_pkt = &packet->igmp_pkt_v1v2;
     pkt_hdr = &v1v2_pkt->igmp_v1v2_pkt_hdr;
-    bzero(pkt_hdr, sizeof(igmp_hdr));
+    memset(pkt_hdr, 0, sizeof(igmp_hdr));
     formatted_len = sizeof(igmp_v1v2_pkt);
 
     switch (gen_packet->gmp_packet_type) {
@@ -426,9 +426,8 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
 
 	pkt_hdr->igmp_hdr_type = IGMP_TYPE_QUERY;
 	query_pkt = &gen_packet->gmp_packet_contents.gmp_packet_query;
-	bzero(v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
-	bcopy(igmp_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
-	      IPV4_ADDR_LEN);
+	memset(v1v2_pkt->igmp_v1v2_pkt_group, 0, IPV4_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_hosts, IPV4_ADDR_LEN);
 	/*
 	 * Flush the source list.  We may end up here with a GSS query due
 	 * to a race condition while changing versions.
@@ -461,10 +460,8 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
 	     gmp_addr_list_empty(group_record->gmp_rpt_xmit_srcs))) {
 	    formatted_len = 0;
 	}
-	bcopy(group_record->gmp_rpt_group.gmp_addr,
-	      v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
-	bcopy(group_record->gmp_rpt_group.gmp_addr,
-	      gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
+        memmove(v1v2_pkt->igmp_v1v2_pkt_group, group_record->gmp_rpt_group.gmp_addr, IPV4_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, group_record->gmp_rpt_group.gmp_addr, IPV4_ADDR_LEN);
 
 	/* Flush the source list and flag that we're done with this group. */
 
@@ -487,9 +484,9 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
  *
  * Returns the formatted packet length, or 0 if nothing to send.
  */
-static u_int
+static uint32_t
 igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
-		       igmp_packet *packet, u_int packet_len)
+		       igmp_packet *packet, uint32_t packet_len)
 {
     igmp_v1v2_pkt *v1v2_pkt;
     igmp_hdr *pkt_hdr;
@@ -497,15 +494,15 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
     gmp_report_packet *report_pkt;
     thread *thread_ptr;
     gmp_report_group_record *group_record;
-    u_int32_t max_resp;
-    u_int formatted_len;
+    uint32_t max_resp;
+    uint32_t formatted_len;
 
     /* Initialize and idiot-proof. */
 
     gmpx_assert(packet_len >= sizeof(igmp_v1v2_pkt));
     v1v2_pkt = &packet->igmp_pkt_v1v2;
     pkt_hdr = &v1v2_pkt->igmp_v1v2_pkt_hdr;
-    bzero(pkt_hdr, sizeof(igmp_hdr));
+    memset(pkt_hdr, 0, sizeof(igmp_hdr));
     formatted_len = sizeof(igmp_v1v2_pkt);
 
     switch (gen_packet->gmp_packet_type) {
@@ -522,14 +519,13 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
 	 * zero it.  Set the destination address accordingly.
 	 */
 	if (query_pkt->gmp_query_group_query) {
-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
-		  v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
+            memmove(v1v2_pkt->igmp_v1v2_pkt_group, query_pkt->gmp_query_group.gmp_addr,
+                IPV4_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
+                IPV4_ADDR_LEN);
 	} else {
-	    bzero(v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
-	    bcopy(igmp_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
-		  IPV4_ADDR_LEN);
+            memset(v1v2_pkt->igmp_v1v2_pkt_group, 0, IPV4_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_hosts, IPV4_ADDR_LEN);
 	}
 
 	/* Store the max resp value. */
@@ -575,16 +571,14 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
 	     group_record->gmp_rpt_type == GMP_RPT_IS_IN) &&
 	    gmp_addr_list_empty(group_record->gmp_rpt_xmit_srcs)) {
 	    pkt_hdr->igmp_hdr_type = IGMP_TYPE_V2_LEAVE;
-	    bcopy(igmp_all_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
-		  IPV4_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_routers, IPV4_ADDR_LEN);
 	} else {
 	    pkt_hdr->igmp_hdr_type = IGMP_TYPE_V2_REPORT;
-	    bcopy(group_record->gmp_rpt_group.gmp_addr,
-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
+            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, group_record->gmp_rpt_group.gmp_addr,
+                IPV4_ADDR_LEN);
 	}
 
-	bcopy(group_record->gmp_rpt_group.gmp_addr,
-	      v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
+        memmove(v1v2_pkt->igmp_v1v2_pkt_group, group_record->gmp_rpt_group.gmp_addr, IPV4_ADDR_LEN);
 
 	/* If this is a BLOCK record, don't send anything. */
 
@@ -612,18 +606,18 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
  *
  * Returns the formatted packet length, or 0 if nothing to send.
  */
-static u_int
+static uint32_t
 igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
-		      igmp_packet *packet, u_int packet_len)
+		      igmp_packet *packet, uint32_t packet_len)
 {
     igmp_v3_query *v3_query_pkt;
     igmp_hdr *pkt_hdr;
     gmp_query_packet *query_pkt;
-    u_int formatted_len;
-    u_int source_count;
+    uint32_t formatted_len;
+    uint32_t source_count;
     gmp_addr_list_entry *addr_entry;
     gmp_addr_list *addr_list;
-    u_int8_t *addr_ptr;
+    uint8_t *addr_ptr;
     gmp_addr_cat_entry *cat_entry;
     // boolean gss_query;
     boolean group_done;
@@ -633,7 +627,7 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
     gmpx_assert(packet_len >= sizeof(igmp_v3_query) + IPV4_ADDR_LEN);
     query_pkt = &gen_packet->gmp_packet_contents.gmp_packet_query;
     v3_query_pkt = &packet->igmp_pkt_v3_query;
-    bzero(v3_query_pkt, sizeof(igmp_v3_query));
+    memset(v3_query_pkt, 0, sizeof(igmp_v3_query));
     pkt_hdr = &v3_query_pkt->igmp_v3_query_hdr;
 
     /* Set up the header. */
@@ -653,14 +647,13 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
      * zero it.  Set the destination address accordingly.
      */
     if (query_pkt->gmp_query_group_query) {
-	bcopy(query_pkt->gmp_query_group.gmp_addr,
-	      v3_query_pkt->igmp_v3_query_group, IPV4_ADDR_LEN);
-	bcopy(query_pkt->gmp_query_group.gmp_addr,
-	      gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
+        memmove(v3_query_pkt->igmp_v3_query_group, query_pkt->gmp_query_group.gmp_addr,
+            IPV4_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
+            IPV4_ADDR_LEN);
     } else {
-	bzero(v3_query_pkt->igmp_v3_query_group, IPV4_ADDR_LEN);
-	bcopy(igmp_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
-	      IPV4_ADDR_LEN);
+        memset(v3_query_pkt->igmp_v3_query_group, 0, IPV4_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_hosts, IPV4_ADDR_LEN);
     }
 
     /* Set the S and QRV fields. */
@@ -716,7 +709,7 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
 		gmp_get_addr_cat_by_ordinal(addr_list->addr_vect.av_catalog,
 					    addr_entry->addr_ent_ord);
 	    gmpx_assert(cat_entry);
-	    bcopy(cat_entry->adcat_ent_addr.gmp_addr, addr_ptr, IPV4_ADDR_LEN);
+            memmove(addr_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV4_ADDR_LEN);
 
 	    /* Delink the address entry. */
 
@@ -753,23 +746,23 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
  *
  * Returns the formatted packet length, or 0 if nothing to send.
  */
-static u_int
+static uint32_t
 igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
-		       igmp_packet *packet, u_int packet_len)
+		       igmp_packet *packet, uint32_t packet_len)
 {
     igmp_v3_report *v3_rpt_pkt;
     igmp_v3_rpt_rcrd *v3_group_rcrd;
     igmp_hdr *pkt_hdr;
     gmp_report_packet *report_pkt;
     gmp_report_group_record *group_record;
-    u_int formatted_len;
-    u_int source_count;
-    u_int group_count;
-    u_int groups_remaining;
-    u_int group_space;
+    uint32_t formatted_len;
+    uint32_t source_count;
+    uint32_t group_count;
+    uint32_t groups_remaining;
+    uint32_t group_space;
     gmp_addr_list_entry *addr_entry;
     gmp_addr_list *addr_list;
-    u_int8_t *byte_ptr;
+    uint8_t *byte_ptr;
     gmp_addr_cat_entry *cat_entry;
     thread *thread_ptr;
     boolean group_done;
@@ -780,7 +773,7 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
 		sizeof(igmp_v3_rpt_rcrd) + IPV4_ADDR_LEN);
     report_pkt = &gen_packet->gmp_packet_contents.gmp_packet_report;
     v3_rpt_pkt = &packet->igmp_pkt_v3_rpt;
-    bzero(v3_rpt_pkt, sizeof(igmp_v3_report));
+    memset(v3_rpt_pkt, 0, sizeof(igmp_v3_report));
     pkt_hdr = &v3_rpt_pkt->igmp_v3_report_hdr;
 
     /* Set up the header. */
@@ -836,13 +829,13 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
 
 	/* Create the group record header. */
 
-	bzero(v3_group_rcrd, sizeof(igmp_v3_rpt_rcrd));
+	memset(v3_group_rcrd, 0, sizeof(igmp_v3_rpt_rcrd));
 	v3_group_rcrd->igmp_v3_rpt_rec_type = group_record->gmp_rpt_type;
-	bcopy(group_record->gmp_rpt_group.gmp_addr,
-	      v3_group_rcrd->igmp_v3_rpt_group, IPV4_ADDR_LEN);
+        memmove(v3_group_rcrd->igmp_v3_rpt_group, group_record->gmp_rpt_group.gmp_addr,
+            IPV4_ADDR_LEN);
 	packet_len -= sizeof(igmp_v3_rpt_rcrd);
 	formatted_len += sizeof(igmp_v3_rpt_rcrd);
-	byte_ptr = v3_group_rcrd->igmp_v3_rpt_source;
+	byte_ptr = IGMP_V3_RPT_SOURCE(v3_group_rcrd);
 	group_count++;
 
 	/* Now walk the sources, if any, and add them to the record. */
@@ -876,8 +869,7 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
 					addr_list->addr_vect.av_catalog,
 					addr_entry->addr_ent_ord);
 		gmpx_assert(cat_entry);
-		bcopy(cat_entry->adcat_ent_addr.gmp_addr, byte_ptr,
-		      IPV4_ADDR_LEN);
+                memmove(byte_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV4_ADDR_LEN);
 
 		/* Delink the address entry. */
 
@@ -930,8 +922,7 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
 
     /* Set the destination address. */
 
-    bcopy(igmp_all_v3_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
-	  IPV4_ADDR_LEN);
+    memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_v3_routers, IPV4_ADDR_LEN);
 
     /* Update the group count in the packet header. */
 
@@ -948,11 +939,11 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
  *
  * Returns the formatted packet length, or 0 if nothing to send.
  */
-static u_int
+static uint32_t
 igmp_format_v3_packet (gmp_role role, gmp_packet *gen_packet,
-		       igmp_packet *packet, u_int packet_len)
+		       igmp_packet *packet, uint32_t packet_len)
 {
-    u_int formatted_len;
+    uint32_t formatted_len;
 
     /* See what kind of packet we're sending. */
 
@@ -994,16 +985,16 @@ igmp_format_v3_packet (gmp_role role, gmp_packet *gen_packet,
  *
  * Source and destination addresses are written through the supplied pointers.
  */
-u_int
+uint32_t
 igmp_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id,
-		       void *packet, u_int8_t *dest_addr, u_int packet_len,
-		       void_t trace_context, u_int32_t trace_flags)
+		       void *packet, uint8_t *dest_addr, uint32_t packet_len,
+		       void_t trace_context, uint32_t trace_flags)
 {
     gmp_packet *gen_packet;
     igmp_packet *igmp_pkt;
     igmp_hdr *pkt_hdr;
-    u_int formatted_len;
-    u_int16_t checksum;
+    uint32_t formatted_len;
+    uint16_t checksum;
 
     igmp_pkt = packet;
     formatted_len = 0;
@@ -1067,8 +1058,7 @@ igmp_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id,
 	pkt_hdr = &igmp_pkt->igmp_pkt_naked.igmp_naked_header_hdr;
 	checksum = gmpx_calculate_cksum(packet, formatted_len);
 	pkt_hdr->igmp_hdr_cksum = checksum;
-	bcopy(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr,
-	      IPV4_ADDR_LEN);
+        memmove(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
 
 	/* Trace the packet. */
 
@@ -1096,7 +1086,7 @@ igmp_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id,
  */
 static boolean
 igmp_parse_v1_packet(igmp_packet *packet, gmp_packet *gen_packet,
-		     u_int32_t packet_len GMPX_UNUSED,
+		     uint32_t packet_len GMPX_UNUSED,
 		     gmp_message_type msg_type)
 {
     gmp_query_packet *query_pkt;
@@ -1160,14 +1150,14 @@ igmp_parse_v1_packet(igmp_packet *packet, gmp_packet *gen_packet,
  */
 static boolean
 igmp_parse_v2_packet(igmp_packet *packet, gmp_packet *gen_packet,
-		     u_int32_t packet_len GMPX_UNUSED,
+		     uint32_t packet_len GMPX_UNUSED,
 		     gmp_message_type msg_type)
 {
     gmp_query_packet *query_pkt;
     gmp_report_packet *report_pkt;
     gmp_report_group_record *group_rcrd;
     igmp_v1v2_pkt *v1v2_pkt;
-    u_int byte_offset;
+    uint32_t byte_offset;
 
     /* Switch based on the message type. */
 
@@ -1186,8 +1176,7 @@ igmp_parse_v2_packet(igmp_packet *packet, gmp_packet *gen_packet,
 
 	/* Copy the group address. */
 
-	bcopy(v1v2_pkt->igmp_v1v2_pkt_group,
-	      query_pkt->gmp_query_group.gmp_addr, IPV4_ADDR_LEN);
+        memmove(query_pkt->gmp_query_group.gmp_addr, v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
 	
 	/*
 	 * If the group address is nonzero, flag that we've got a
@@ -1249,17 +1238,17 @@ igmp_parse_v2_packet(igmp_packet *packet, gmp_packet *gen_packet,
  */
 static boolean
 igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
-			    u_int32_t packet_len)
+			    uint32_t packet_len)
 {
     igmp_v3_report *v3_rpt_pkt;
     igmp_v3_rpt_rcrd *v3_rpt_rcrd;
     gmp_report_packet *report_pkt;
     gmp_report_group_record *group_rcrd;
-    u_int group_count;
-    u_int source_count;
-    u_int record_length;
-    u_int8_t *byte_ptr;
-    u_int8_t *addr_ptr;
+    uint32_t group_count;
+    uint32_t source_count;
+    uint32_t record_length;
+    uint8_t *byte_ptr;
+    uint8_t *addr_ptr;
     gmp_addr_thread *addr_thread;
 
     /* Bail if the packet is too small. */
@@ -1278,7 +1267,7 @@ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
 
     packet_len -= sizeof(igmp_v3_report);
     v3_rpt_rcrd = v3_rpt_pkt->igmp_v3_report_rcrd;
-    byte_ptr = (u_int8_t *) v3_rpt_rcrd;
+    byte_ptr = (uint8_t *) v3_rpt_rcrd;
     while (group_count--) {
 
 	/*
@@ -1325,7 +1314,7 @@ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
 	/* If there are any sources, add them to the record. */
 
 	if (source_count) {
-	    addr_ptr = v3_rpt_rcrd->igmp_v3_rpt_source;
+	    addr_ptr = IGMP_V3_RPT_SOURCE(v3_rpt_rcrd);
 
 	    /* Allocate an address thread. */
 
@@ -1367,14 +1356,14 @@ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
  */
 static boolean
 igmp_parse_v3_query_packet(igmp_packet *packet, gmp_packet *gen_packet,
-			   u_int32_t packet_len)
+			   uint32_t packet_len)
 {
     igmp_v3_query *v3_query_pkt;
     gmp_query_packet *query_pkt;
-    u_int byte_offset;
+    uint32_t byte_offset;
     gmp_addr_thread *addr_thread;
-    u_int source_count;
-    u_int8_t *addr_ptr;
+    uint32_t source_count;
+    uint8_t *addr_ptr;
 
     /* Bail if the packet is too small. */
 
@@ -1391,9 +1380,8 @@ igmp_parse_v3_query_packet(igmp_packet *packet, gmp_packet *gen_packet,
 
     /* Copy the group address. */
 
-    bcopy(v3_query_pkt->igmp_v3_query_group,
-	  query_pkt->gmp_query_group.gmp_addr, IPV4_ADDR_LEN);
-	
+    memmove(query_pkt->gmp_query_group.gmp_addr, v3_query_pkt->igmp_v3_query_group, IPV4_ADDR_LEN);
+
     /*
      * If the group address is nonzero, flag that we've got a
      * group query.
@@ -1468,7 +1456,7 @@ igmp_parse_v3_query_packet(igmp_packet *packet, gmp_packet *gen_packet,
  */
 static boolean
 igmp_parse_v3_packet(igmp_packet *packet, gmp_packet *gen_packet,
-		     u_int32_t packet_len, gmp_message_type msg_type)
+		     uint32_t packet_len, gmp_message_type msg_type)
 {
     boolean result;
 
@@ -1505,10 +1493,10 @@ igmp_parse_v3_packet(igmp_packet *packet, gmp_packet *gen_packet,
  * Returns TRUE if the packet parsed OK, or FALSE if there was a problem.
  */
 boolean
-igmp_process_pkt (void *rcv_pkt, const u_int8_t *src_addr,
-		  const u_int8_t *dest_addr, u_int32_t packet_len,
+igmp_process_pkt (void *rcv_pkt, const uint8_t *src_addr,
+		  const uint8_t *dest_addr, uint32_t packet_len,
 		  gmpx_intf_id intf_id, gmpx_packet_attr attrib,
-		  void_t trace_context, u_int32_t trace_flags)
+		  void_t trace_context, uint32_t trace_flags)
 {
     igmp_packet *packet;
     gmp_packet *gen_packet;
@@ -1545,13 +1533,11 @@ igmp_process_pkt (void *rcv_pkt, const u_int8_t *src_addr,
     /* Set up the address fields. */
 
     if (src_addr) {
-	bcopy(src_addr, gen_packet->gmp_packet_src_addr.gmp_addr,
-	      IPV4_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_src_addr.gmp_addr, src_addr, IPV4_ADDR_LEN);
     }
 
     if (dest_addr) {
-	bcopy(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr,
-	      IPV4_ADDR_LEN);
+        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr, IPV4_ADDR_LEN);
     }
 
     /* If the packet looks OK so far, parse it further. */

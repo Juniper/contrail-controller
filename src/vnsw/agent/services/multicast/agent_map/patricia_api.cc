@@ -11,8 +11,8 @@ extern "C" {
 }
 #endif
 
-patroot *patricia_root_init(patroot *root, boolean key_is_ptr, u_int16_t klen,
-                        u_int8_t koffset)
+patroot *patricia_root_init(patroot *root, boolean key_is_ptr, uint16_t klen,
+                        uint8_t koffset)
 {
     patroot *pat_root = NULL;
 

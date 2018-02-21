@@ -23,9 +23,9 @@
  * The IGMP header qualifies the contents of the rest of the packet.
  */
 typedef struct igmp_hdr_ {
-    u_int8_t igmp_hdr_type;		/* packet type */
-    u_int8_t igmp_hdr_maxresp;		/* Max resp code or reserved */
-    u_int16_t igmp_hdr_cksum;		/* Checksum */
+    uint8_t igmp_hdr_type;		/* packet type */
+    uint8_t igmp_hdr_maxresp;		/* Max resp code or reserved */
+    uint16_t igmp_hdr_cksum;		/* Checksum */
 } igmp_hdr;
 
 #define IGMP_TYPE_QUERY		0x11	/* Query (all versions) */
@@ -41,7 +41,7 @@ typedef struct igmp_hdr_ {
  */
 typedef struct igmp_v1v2_pkt_ {
     igmp_hdr igmp_v1v2_pkt_hdr;		/* Packet header */
-    u_int8_t igmp_v1v2_pkt_group[IPV4_ADDR_LEN]; /* Group address */
+    uint8_t igmp_v1v2_pkt_group[IPV4_ADDR_LEN]; /* Group address */
 } igmp_v1v2_pkt;
 
 
@@ -50,11 +50,11 @@ typedef struct igmp_v1v2_pkt_ {
  */
 typedef struct igmp_v3_query_ {
     igmp_hdr igmp_v3_query_hdr;		/* Packet header */
-    u_int8_t igmp_v3_query_group[IPV4_ADDR_LEN]; /* Group address */
-    u_int8_t igmp_v3_query_s_qrv;	/* S/QRV fields */
-    u_int8_t igmp_v3_query_qqic;	/* QQIC */
-    u_int16_t igmp_v3_query_num_srcs;	/* Number of sources */
-    u_int8_t igmp_v3_query_source[0];	/* Array of sources */
+    uint8_t igmp_v3_query_group[IPV4_ADDR_LEN]; /* Group address */
+    uint8_t igmp_v3_query_s_qrv;	/* S/QRV fields */
+    uint8_t igmp_v3_query_qqic;	/* QQIC */
+    uint16_t igmp_v3_query_num_srcs;	/* Number of sources */
+    uint8_t igmp_v3_query_source[0];	/* Array of sources */
 } igmp_v3_query;
 
 #define IGMP_SUPP_RTR_PROC_MASK 0x8	/* "S" bit in s_qrv field */
@@ -67,17 +67,19 @@ typedef struct igmp_v3_query_ {
  * Version 3 reports have one or more group records.
  */
 typedef struct igmp_v3_rpt_rcrd_ {
-    u_int8_t igmp_v3_rpt_rec_type;	/* Record type */
-    u_int8_t igmp_v3_rpt_aux_len;	/* Auxiliary data length */
-    u_int16_t igmp_v3_rpt_num_srcs;	/* Number of sources */
-    u_int8_t igmp_v3_rpt_group[IPV4_ADDR_LEN]; /* Group address */
-    u_int8_t igmp_v3_rpt_source[0];	/* Array of sources */
+    uint8_t igmp_v3_rpt_rec_type;	/* Record type */
+    uint8_t igmp_v3_rpt_aux_len;	/* Auxiliary data length */
+    uint16_t igmp_v3_rpt_num_srcs;	/* Number of sources */
+    uint8_t igmp_v3_rpt_group[IPV4_ADDR_LEN]; /* Group address */
 } igmp_v3_rpt_rcrd;
+
+/* Array of sources */
+#define IGMP_V3_RPT_SOURCE(rpt_rcrd_) ((uint8_t*)(&rpt_rcrd_ + 1))
 
 typedef struct igmp_v3_report_ {
     igmp_hdr igmp_v3_report_hdr;	/* Packet header */
-    u_int16_t igmp_v3_report_rsvd;	/* Reserved */
-    u_int16_t igmp_v3_report_num_rcrds;	/* Number of records */
+    uint16_t igmp_v3_report_rsvd;	/* Reserved */
+    uint16_t igmp_v3_report_num_rcrds;	/* Number of records */
     igmp_v3_rpt_rcrd igmp_v3_report_rcrd[0]; /* Set records */
 } igmp_v3_report;
 
@@ -136,7 +138,7 @@ typedef union igmp_packet_ {
  * Returns TRUE if the address is multicast, or FALSE if not.
  */
 static inline boolean
-igmp_addr_is_mcast (const u_int8_t *addr)
+igmp_addr_is_mcast (const uint8_t *addr)
 {
     return ((*addr & 0xf0) == 0xe0);
 }

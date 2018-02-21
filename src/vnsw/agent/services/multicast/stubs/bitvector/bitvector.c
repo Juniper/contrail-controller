@@ -26,7 +26,7 @@ static bvx_block_tag bv_ent_tag;
  * Index into this array with a byte of data, returns the number of bits
  * set in the byte.
  */
-static const u_int8_t bitcount_array[256] =
+static const uint8_t bitcount_array[256] =
     {0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
      1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
      1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -50,12 +50,12 @@ static const u_int8_t bitcount_array[256] =
  *
  * Returns the number of set bits in a vector word.
  */
-static u_int32_t
+static uint32_t
 bv_bitcount (bv_word_t word)
 {
-    u_int32_t bitcount;
-    u_int bytenum;
-    u_int8_t byteval;
+    uint32_t bitcount;
+    uint32_t bytenum;
+    uint8_t byteval;
 
     bitcount = 0;
 
@@ -111,8 +111,8 @@ static int
 bv_first_set (bv_word_t word)
 {
     int bitnum;
-    u_int bytenum;
-    u_int8_t byteval;
+    uint32_t bytenum;
+    uint8_t byteval;
 
     /* Quick cheat.  Bail if the word is zero. */
 
@@ -175,8 +175,8 @@ static int
 bv_first_clear (bv_word_t word)
 {
     int bitnum;
-    u_int bytenum;
-    u_int8_t byteval;
+    uint32_t bytenum;
+    uint8_t byteval;
 
     /* Quick cheat.  Bail if the word is all one. */
 
@@ -320,7 +320,7 @@ bv_advance_entry (bit_vector *bv, bv_entry *cur_ent, bv_bitnum_t start_bitnum)
 void
 bv_init_vector (bit_vector *bv, boolean fast_vects)
 {
-    bzero(bv, sizeof(bit_vector));
+    memset(bv, 0, sizeof(bit_vector));
     bv->bv_fastvects = fast_vects;
     bv->bv_freed_ord = BV_BAD_BITNUM;
     thread_new_circular_thread(&bv->bv_nonfull_head);
@@ -359,7 +359,7 @@ bv_init_vector_tree (bit_vector *bv)
  * will burn some CPU but still do the right thing.
  */
 static void
-bv_build_key (u_int8_t key_ptr[], bv_bitnum_t bit_number)
+bv_build_key (uint8_t key_ptr[], bv_bitnum_t bit_number)
 {
     int key_count;
 
@@ -495,7 +495,7 @@ bv_ent_lookup (bit_vector *bv, bv_bitnum_t bit_number)
     bv_entry *result;
     bvx_patnode *node;
     bv_bitnum_t start_bit;
-    u_int8_t key[sizeof(bv_bitnum_t)];
+    uint8_t key[sizeof(bv_bitnum_t)];
 
     /* If there's no bit vector or patricia tree, the entry isn't here. */
 
@@ -850,7 +850,7 @@ bv_bit_is_set (bit_vector *bv, bv_bitnum_t bit_number)
 static bv_bitnum_t
 bv_find_clear_in_ent (bv_entry *bv_ent)
 {
-    u_int word_offset;
+    uint32_t word_offset;
     bv_word_t bitword;
     int word_bitnum;
 
@@ -1098,7 +1098,7 @@ bv_bitnum_t
 bv_first_set_bit (bit_vector *bv)
 {
     bv_entry *bv_ent;
-    u_int word_offset;
+    uint32_t word_offset;
     bv_bitnum_t bitnum;
     int word_bitnum;
     bv_word_t bitword;
@@ -1180,7 +1180,7 @@ bv_first_set_bit (bit_vector *bv)
  * value, even if the destination bit is the same.
  */
 static int
-bv_update_result (bit_vector *bv, bv_entry *dest_ent, u_int32_t word_index,
+bv_update_result (bit_vector *bv, bv_entry *dest_ent, uint32_t word_index,
 		  bv_word_t value, bv_bitnum_t word_bitnum,
 		  bit_vector *src_bv1, bit_vector *src_bv2,
 		  bv_callback callback, void *context,
@@ -1189,9 +1189,9 @@ bv_update_result (bit_vector *bv, bv_entry *dest_ent, u_int32_t word_index,
     bv_word_t dest_copy, value_copy;
     bv_word_t *dest_ptr;
     int net_set_count;
-    u_int dest_bit, value_bit;
-    u_int byte_ix, bit_ix;
-    u_int8_t dest_copy_byte, value_copy_byte;
+    uint32_t dest_bit, value_bit;
+    uint32_t byte_ix, bit_ix;
+    uint8_t dest_copy_byte, value_copy_byte;
     boolean cb_bitset;
     boolean abort_walk;
     bv_bitnum_t cur_bitnum;
@@ -1369,7 +1369,7 @@ bv_clear_result_entry (bit_vector *src1, bit_vector *src2, bit_vector *result,
 		       bv_callback callback, void *context,
 		       bv_callback_option cb_opt)
 {
-    u_int i;
+    uint32_t i;
     int net_set_count;
 
     /* Only bother if there's an entry here. */
@@ -1467,7 +1467,7 @@ bv_copy_result (bit_vector *src1, bit_vector *src2, bv_entry *copy_ptr,
 {
     int net_set_count;
     int set_count_delta;
-    u_int i;
+    uint32_t i;
 
     /* See if the entry copied from is present. */
 
@@ -1493,8 +1493,7 @@ bv_copy_result (bit_vector *src1, bit_vector *src2, bv_entry *copy_ptr,
 	 * copy the bits.
 	 */
 	if (result && result->bv_fastvects && !callback) {
-	    bcopy(&copy_ptr->bv_bits, &result_ent->bv_bits,
-		  sizeof(result_ent->bv_bits));
+            memmove(&result_ent->bv_bits, &copy_ptr->bv_bits, sizeof(result_ent->bv_bits));
 	    result_ent->bv_setcount = BV_UNKNOWN_COUNT;
 	    thread_remove(&result_ent->bv_ent_nonfull_thread);
 
@@ -1583,7 +1582,7 @@ bv_vector_op (vector_op_type op_type, bit_vector *first, bit_vector *second,
     bv_entry scratch_ent;
     bv_entry *result_ptr;
     bv_entry *copy_ptr;
-    u_int i;
+    uint32_t i;
     boolean local_result;
 
     /* No null result with no callback. */
@@ -1747,7 +1746,7 @@ bv_vector_op (vector_op_type op_type, bit_vector *first, bit_vector *second,
 		result_ptr = result_ent;
 		local_result = FALSE;
 	    } else {
-		bzero(&scratch_ent, sizeof(scratch_ent));
+                memset(&scratch_ent, 0, sizeof(scratch_ent));
 		scratch_ent.bv_start = start_bitnum;
 		result_ptr = &scratch_ent;
 		local_result = TRUE;
