@@ -24,7 +24,7 @@ typedef struct patnode_ {
     }
 
 extern patroot *patricia_root_init(patroot *root, boolean key_is_ptr,
-                        u_int16_t klen, u_int8_t offset);
+                        uint16_t klen, uint8_t offset);
 extern void patricia_root_delete(patroot *root);
 extern boolean patricia_add(patroot *root, patnode *node);
 extern boolean patricia_delete(patroot *root, patnode *node);
