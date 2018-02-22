@@ -1195,6 +1195,39 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('enable-security-logging', 'global-vrouter-config', 'optional', 'CRUD',
               'Enable or disable security-logging in the system') -->
 
+<xsd:simpleType name="EncryptionMode">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="none"
+             description='default mode, not encrypt all traffic'/>
+        <xsd:enumeration value="all"
+             description='Encrypt all traffic in for the endpoint'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="encryption-mode" type="EncryptionMode" default="none"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('encryption-mode', 'global-vrouter-config', 'optional', 'CRUD',
+              'Enable encryption mode') -->
+
+<xsd:complexType name="EncryptionTunnelEndpoint">
+    <xsd:all>
+        <xsd:element name="tunnel-remote-ip-address" type="IpAddressType"
+             required='true' operation='CRUD' description='Tunnel endpoint remote address'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="EncryptionTunnelEndpointList">
+    <xsd:all>
+        <xsd:element name="endpoint" type="EncryptionTunnelEndpoint" maxOccurs="unbounded"
+             description='Tunnel endpoint remote address'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="encryption-tunnel-endpoints" type="EncryptionTunnelEndpointList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('encryption-tunnel-endpoints', 'global-vrouter-config', 'optional', 'CRUD',
+                  'Encryption tunnel endpoints list') -->
+
 <xsd:element name="global-qos-config" type="ifmap:IdentityType"/>
 <!--Identifier "global-qos-config" is used to hang global QoS properties
     for vhost interface and fabric traffic
