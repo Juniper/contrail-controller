@@ -90,6 +90,7 @@ class VrouterProvisioner(object):
             'router_type': None,
             'dpdk_enabled': False,
             'disable_vhost_vmi': False,
+            'sub_cluster_name': None,
         }
         ksopts = {
             'admin_user': 'user1',
@@ -143,6 +144,8 @@ class VrouterProvisioner(object):
             "--dpdk_enabled", action="store_true", help="Whether forwarding mode on vrouter is DPDK based")
         parser.add_argument(
             "--disable_vhost_vmi", action="store_true", help="Do not create vhost0 vmi if flag is set")
+        parser.add_argument(
+            "--sub_cluster_name", help="Sub cluster this vrouter to be part of")
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
             "--api_server_ip", help="IP address of api server",
@@ -169,6 +172,15 @@ class VrouterProvisioner(object):
                 fq_name=vrouter_obj.get_fq_name())
         except NoIdError:
             vrouter_exists = False
+
+        if self._args.sub_cluster_name:
+            sub_cluster_obj = SubCluster(self._args.sub_cluster_name)
+            try:
+                sub_cluster_obj = self._vnc_lib.sub_cluster_read(
+                    fq_name=sub_cluster_obj.get_fq_name())
+            except NoIdError:
+                raise RuntimeError("Sub cluster has to be provisioned first")
+            vrouter_obj.add_sub_cluster(sub_cluster_obj)
 
         # Configure router type
         if self._args.router_type:
