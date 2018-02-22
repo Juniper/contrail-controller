@@ -1,0 +1,13 @@
+- name: discover_device
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  pre_tasks:
+    - set_fact:
+        ipaddress: []
+        credentials:  [ { "username": "root", "password": "pasword" } ]
+
+  roles:
+   - probe_device
+   - check_credentials

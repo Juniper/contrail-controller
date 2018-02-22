@@ -1,0 +1,94 @@
+---
+# tasks file for image_upgrade_role
+
+- name: Read Image info
+  include_tasks: read_image_info.yml
+
+- name: parse image uri to get container name
+  set_fact:
+    container_name: "{{image_uri.split('/')[-2]}}"
+
+#- name: Read PR device info
+#  include_tasks: read_pr_info.yml
+
+# compatibilty check using device family
+- name: Compatibily check using device family
+  include_tasks: error_handler.yml
+  when: "pr_family != image_family"
+  vars:
+    op_err_message: "Image not compatible on the physical router device. Image family is {{image_family}} and Device family is {{pr_family}}"
+    results: |
+          {
+            "prouter_uuid": "{{prouter_uuid}}",
+            "image_uuid": "{{image_uuid}}",
+            "msg": "Image compatibility task failed"
+          }
+    jl_err_message: "Image not compatible on the physical router device. Image family is {{image_family}} and Device family is {{pr_family}}"
+
+- name: Read swift conf info
+  include_tasks: read_swift_conf_info.yml
+
+- name: Get swift temp url
+  include_tasks: get_swiftfile_url.yml
+
+- name: encode temp url
+  set_fact:
+    enc_tempurl: "{{tempurl.split('?')[0]+'?'+tempurl.split('?')[-1]|urlencode()}}"
+
+- name: Debug encode temp url
+  debug:
+    var: enc_tempurl
+
+- name: JOB LOGS
+  job_objectlog:
+    message: "Encoded swift temp url: {{enc_tempurl}}"
+    status: "in-progress"
+
+- name: Do junos upgrade
+  include_tasks: junos_upgrade.yml
+
+- name: JOB LOGS
+  job_objectlog:
+    message: "Device rebooting. Will wait and check netconf connectivity."
+    status: "in-progress"
+  when: "'Reboot' in junos_response.msg"
+
+# Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
+- name: Check NETCONF connectivity after reboot
+  wait_for:
+    host: "{{pr_host}}"
+    port: 830
+    timeout: 1200
+    delay: 60
+    connect_timeout: 10
+    sleep: 60
+  when: "'Reboot' in junos_response.msg"
+
+- name: check device OS version
+  include_tasks: check_version_rpc.yml
+
+# check if image os version is same as device os version
+- name: Validate version in device to see if it does not matches image version
+  include_tasks: error_handler.yml
+  when: "image_info.device_image_os_version != device_version"
+  vars:
+    op_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+    results: |
+          {
+            "prouter_uuid": "{{prouter_uuid}}",
+            "image_uuid": "{{image_uuid}}",
+            "msg": "Device version validation task failed"
+          }
+    jl_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+
+# update job log
+- name: JOB LOGS
+  job_objectlog:
+    message: "Device {{pr_name}} is upgraded with image: {{filename}} successfully. Device version matched Image version after upgrade"
+    status: "in-progress"
+
+# update device uve
+- name: Prouter LOGS
+  prouter_objectlog:
+    name: "{{pr_fqname}}"
+    os_version: "{{device_version}}"
