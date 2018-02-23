@@ -852,7 +852,7 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
         std::pair<SecurityPolicyStatsSet::iterator,bool> ret =
            stats_set.insert(stats);
         UveSecurityPolicyStatsPtr entry(*ret.first);
-        /* Update the statistics for the entry */
+        /* Update the statistics and action for the entry */
         UpdateSecurityPolicyStatsInternal(info, entry.get());
     }
 }
@@ -860,6 +860,7 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
 
 void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStatsInternal
     (const EndpointStatsInfo &info, UveSecurityPolicyStats *stats) {
+    stats->action = info.action;
     if (info.in_stats) {
         stats->in_bytes += info.diff_bytes;
         stats->in_pkts += info.diff_pkts;
