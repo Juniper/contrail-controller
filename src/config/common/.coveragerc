@@ -1,0 +1,9 @@
+[run]
+branch = True
+omit =
+    *__init__*
+    */tests/*
+    */uve/*
+
+[report]
+ignore_errors = True

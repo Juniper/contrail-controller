@@ -60,6 +60,9 @@ test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-
 # This add'l alias is to allow retry of UT in CI
 env.Alias('controller/src/config/vnc_openstack/vnc_openstack:test', test_target)
 
+# XXX(kklimonda): a temporary test target to enable this test during full run
+env.Alias('test', env.Alias(env.Dir('.').srcnode().path + ':test'))
+
 # Local Variables:
 # mode: python
 # End:

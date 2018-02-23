@@ -1,8 +1,10 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-from setuptools import setup
 import re
+
+from setuptools import setup, find_packages
+
 
 def requirements(filename):
     with open(filename) as f:
@@ -10,31 +12,30 @@ def requirements(filename):
     c = re.compile(r'\s*#.*')
     return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
 
+
 setup(
     name='cfgm_common',
+    description="Contrail VNC Configuration Common Utils",
+    long_description="Contrail VNC Configuration Common Utils",
+    license='Apache-2',
+    author='OpenContrail',
     version='0.1dev',
-    packages=['cfgm_common',
-              'cfgm_common.uve',
-              'cfgm_common.uve.acl',
-              'cfgm_common.uve.service_instance',
-              'cfgm_common.uve.vnc_api',
-              'cfgm_common.uve.virtual_machine',
-              'cfgm_common.uve.virtual_network',
-              'cfgm_common.uve.physical_router',
-              'cfgm_common.uve.cfgm_cpuinfo',
-              'cfgm_common.uve.greenlets',
-              'cfgm_common.uve.msg_traces',
-              'cfgm_common.uve.nodeinfo',
-              'cfgm_common.uve.nodeinfo.cpuinfo',
-              'cfgm_common.uve.nodeinfo.process_info',
-              'cfgm_common.uve.config_req',
-              'cfgm_common.uve.physical_router_config',
-              'cfgm_common.uve.service_status',
-              ],
-    package_data={'': ['*.html', '*.css', '*.xml']},
-    zip_safe=False,
-    long_description="VNC Configuration Common Utils",
+    classifiers=[
+        'Environment :: OpenContrail',
+        'Intended Audience :: Information Technology',
+        'Intended Audience :: Developers',
+        'Intended Audience :: System Administrators',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: POSIX :: Linux',
+        'Development Status :: 5 - Production/Stable',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+    ],
+    packages=find_packages(),
+    package_data={'': ['*.xml']},
     install_requires=requirements('requirements.txt'),
     tests_require=requirements('test-requirements.txt'),
-    test_suite='tests.test_suite',
+    test_suite='cfgm_common.tests',
+    keywords='contrail vnc utils',
 )
