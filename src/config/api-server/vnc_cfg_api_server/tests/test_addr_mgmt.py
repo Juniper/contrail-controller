@@ -10,7 +10,8 @@ import string
 import unittest
 from netaddr import *
 
-sys.path.append("../common/tests")
+# FIXME(kklimonda): try using installed cfgm_common package
+sys.path.append("../common/cfgm_common/tests")
 import test_common
 
 try:

@@ -46,7 +46,7 @@ from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import rest
 vnc_cgitb.enable(format='text')
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 import test_common
 import test_case
