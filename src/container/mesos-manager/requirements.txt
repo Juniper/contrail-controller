@@ -1,1 +1,2 @@
 requests
+contrail-config-common

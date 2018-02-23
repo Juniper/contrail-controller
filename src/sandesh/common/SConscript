@@ -55,6 +55,7 @@ sdist_gen = env.Command('dist/sandesh-common-0.1dev.tar.gz',
 # install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
 env.Alias('nodemgr-full', sdist_gen)
+env.Alias('controller/sandesh/common:sdist', sdist_gen)
 env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:

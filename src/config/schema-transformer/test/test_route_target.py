@@ -15,8 +15,7 @@ from vnc_cfg_api_server import db_manage
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
 
-sys.path.append("../common/tests")
-import test_common
+from cfgm_common.tests import test_common
 
 class VerifyRouteTarget(VerifyPolicy):
     def __init__(self, vnc_lib):
