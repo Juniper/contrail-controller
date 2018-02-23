@@ -3,7 +3,7 @@
 #
 import sys
 import gevent
-sys.path.append("../common/tests")
+sys.path.append("../common/cfgm_common/tests")
 from testtools.matchers import Equals, Contains, Not
 from test_utils import *
 import test_common
