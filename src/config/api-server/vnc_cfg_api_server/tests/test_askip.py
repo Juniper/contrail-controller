@@ -27,9 +27,6 @@ import cfgm_common
 from cfgm_common import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
-sys.path.append('../common/tests')
-from test_utils import *
-import test_common
 import test_case
 
 logger = logging.getLogger(__name__)

@@ -1,18 +1,15 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 
 import json
-import sys
 import uuid
 
+from cfgm_common.tests import test_utils
 from keystonemiddleware import auth_token
 import mock
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import VncApi
 
 from vnc_cfg_api_server.tests import test_case
-
-sys.path.append('../common/tests')  # noqa
-import test_utils  # noqa
 
 
 def get_token(user_name, project_name, domain_name, role_name, project_id=None,
