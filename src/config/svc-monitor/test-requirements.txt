@@ -6,7 +6,6 @@ mock
 bitarray
 kombu
 gevent==1.1a2
-cfgm_common
 sandesh
 sandesh-common
 contrail-api-client

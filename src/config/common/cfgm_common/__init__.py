@@ -126,6 +126,7 @@ def has_role(role, roles):
 def get_lr_internal_vn_name(uuid):
     return '__contrail_lr_internal_vn_' + uuid + '__'
 
+
 def get_dci_internal_vn_name(uuid):
     return '__contrail_dci_internal_vn_' + uuid + '__'
 

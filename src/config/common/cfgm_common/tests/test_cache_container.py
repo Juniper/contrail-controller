@@ -1,28 +1,30 @@
 import unittest
+
 from cfgm_common.utils import CacheContainer
 
-class TestCachContainer(unittest.TestCase):
+
+class TestCacheContainer(unittest.TestCase):
     def test_cache_container_trimming(self):
         c = CacheContainer(5)
-        l = ['a','b','c','d','e','f','h','i','j','k','m']
+        lst = ['a', 'b', 'c', 'd', 'e', 'f', 'h', 'i', 'j', 'k', 'm']
 
-        for index, value in enumerate(l):
-            c[value] = index+1
+        for index, value in enumerate(lst):
+            c[value] = index + 1
 
         self.assertEqual(len(c.dictionary.keys()), 5)
-        self.assertEqual(set(l[-5:]), set(c.dictionary.keys()))
+        self.assertEqual(set(lst[-5:]), set(c.dictionary.keys()))
 
     def test_cache_container_fetch(self):
         c = CacheContainer(5)
-        l = ['a','b','c','d','e']
+        lst = ['a', 'b', 'c', 'd', 'e']
 
-        for index, value in enumerate(l):
-            c[value] = index+1
+        for index, value in enumerate(lst):
+            c[value] = index + 1
 
-        self.assertEqual(set(l), set(c.dictionary.keys()))
+        self.assertEqual(set(lst), set(c.dictionary.keys()))
 
         # get the oldest value and check on the next set its not lost
-        _ = c['a']
+        c['a']
         c['f'] = 6
         self.assertEqual(set(['c', 'd', 'e', 'f', 'a']),
                          set(c.dictionary.keys()))
