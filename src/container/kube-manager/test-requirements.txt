@@ -14,7 +14,6 @@ junitxml
 jsonpickle
 testrepository
 mock
-cfgm_common
 contrail-api-client
 contrail-api-server
 bitstring
