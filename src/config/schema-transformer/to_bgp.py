@@ -2138,10 +2138,11 @@ class BgpRouterST(DictST):
             return
         router_obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
         params = router_obj.get_bgp_router_parameters()
-        params.autonomous_system = int(asn)
-        router_obj.set_bgp_router_parameters(params)
-        _vnc_lib.bgp_router_update(router_obj)
-        self.update_autonomous_system(asn)
+        if int(params.autonomous_system) != int(asn):
+            params.autonomous_system = int(asn)
+            router_obj.set_bgp_router_parameters(params)
+            _vnc_lib.bgp_router_update(router_obj)
+            self.update_autonomous_system(asn)
     # end update_global_asn
 
     def update_autonomous_system(self, asn):
@@ -3864,10 +3865,11 @@ class SchemaTransformer(object):
 def set_ifmap_search_done(transformer):
     while time.time() - gevent.getcurrent().poll_timestamp < 60:
         gevent.sleep(60)
-    transformer.ifmap_search_done = True
-    transformer.current_network_set = set(VirtualNetworkST.keys())
-    transformer.process_networks()
-    transformer.process_stale_objects()
+    if not transformer.ifmap_search_done:
+        transformer.ifmap_search_done = True
+        transformer.current_network_set = set(VirtualNetworkST.keys())
+        transformer.process_networks()
+        transformer.process_stale_objects()
     transformer.ifmap_search_done_greenlet = None
 # end set_ifmap_search_done
 
