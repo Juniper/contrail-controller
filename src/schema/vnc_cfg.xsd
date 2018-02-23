@@ -1889,7 +1889,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:simpleType name="FatFlowIgnoreAddressType">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="none"/>
-        <xsd:enumeration value="remote"/>
         <xsd:enumeration value="source"/>
         <xsd:enumeration value="destination"/>
     </xsd:restriction>
@@ -1901,7 +1900,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="port" type="xsd:integer"/>
         <xsd:element name="ignore-address" type="FatFlowIgnoreAddressType"/>
              required='optional'
-             description='Address ignored while creating flows'/>
+             description='Address ignored while creating flows, from the perspective of packets egressing the VM. For packets originated by VM, source and destination indicate the corresponding IPs in the packet. For packets coming from remote source, source indicates destination IP of the packet is ignored and destination indicates source IP of the packet is ignored.'/>
     </xsd:all>
 </xsd:complexType>
 
