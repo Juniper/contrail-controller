@@ -4,3 +4,6 @@ kazoo
 bitarray
 bottle
 attrdict
+requests
+sandesh
+contrail-api-client

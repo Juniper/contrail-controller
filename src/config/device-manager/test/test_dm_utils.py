@@ -2,10 +2,9 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import sys
-sys.path.append("../common/tests")
 from cStringIO import StringIO
 from lxml import etree
-from test_utils import stub
+from cfgm_common.tests.test_utils import stub
 
 
 class FakeNetconfManager(object):
