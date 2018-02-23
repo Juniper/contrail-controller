@@ -87,6 +87,9 @@ env.SetupPyTestSuite(sdist_gen,
 env.Alias('install',
           env.Install(env['INSTALL_MESSAGE_DOC'] + '/contrail-mesos-manager/', doc_files))
 
+# XXX(kklimonda): a temporary test target to enable this test during full run
+env.Alias('test', env.Alias(env.Dir('.').srcnode().path + ':test'))
+
 # Local Variables:
 # mode: python
 # End:

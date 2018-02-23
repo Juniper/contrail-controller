@@ -82,13 +82,6 @@ sdist_gen = env.Command('dist/svc_monitor-0.1dev.tar.gz',
                         cd_cmd + 'python setup.py sdist')
 env.Alias('controller/src/config/svc_monitor:sdist', sdist_gen)
 
-packages = [
-    '%s/%s' % (env['TOP'], env.GetVncAPIPkg()),
-    '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
-    '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
-    '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
-]
-
 # Documentation
 doc_files = []
 doc_files += env.SandeshGenDoc('svc_mon_introspect.sandesh')
@@ -122,6 +115,9 @@ test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-
 test_target = env['TOP'][1:] + '/config/svc-monitor:test'
 env.Alias('controller/src/config/svc-monitor/svc_monitor:test', test_target)
 env.Alias('controller/src/config/svc_monitor:test', test_target)
+
+# XXX(kklimonda): a temporary test target to enable this test during full run
+env.Alias('test', env.Alias(env.Dir('.').srcnode().path + ':test'))
 
 # Local Variables:
 # mode: python
