@@ -9,4 +9,5 @@ kombu==4.0.2
 netifaces
 bottle
 stevedore
+contrail-config-common
 vine==1.1.3
