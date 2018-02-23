@@ -2,7 +2,7 @@ import sys
 import time
 import os
 
-sys.path.append("../../config/common/tests")
+sys.path.append("../../config/common/cfgm_common/tests")
 from test_utils import *
 import test_common
 sys.path.insert(0, '../../../../build/production/container/mesos-manager')
