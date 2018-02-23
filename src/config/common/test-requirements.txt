@@ -1,2 +1,7 @@
 mock
 six>=1.9
+coverage
+flexmock
+webtest
+python-novaclient
+netaddr
