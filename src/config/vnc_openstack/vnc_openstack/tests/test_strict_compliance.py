@@ -9,7 +9,7 @@ import webtest.app
 
 from vnc_api.vnc_api import *
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 import test_common
 
