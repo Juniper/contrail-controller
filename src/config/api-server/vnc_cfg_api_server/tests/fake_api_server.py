@@ -11,7 +11,8 @@ import argparse
 from flexmock import flexmock, Mock
 
 import sys
-sys.path.append("../common/tests")
+
+sys.path.append("../common/cfgm_common/tests")
 from test_utils import *
 import test_common
 
