@@ -1527,12 +1527,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     link_information = phy_links['local_link_information'][0]
-                    ok, pi_obj_dict = cls.dbe_read(db_conn, 'physical_interface',
-                        link_information['switch_info'])
-                    pi_name = pi_obj_dict['fq_name'][-1]
                     vlan_tag = 0
-                    li_fq_name = (pi_obj_dict['fq_name'][:] +
-                        ['%s.%s' %(pi_name, vlan_tag)])
+                    li_fq_name = ['default-global-system-config',
+                                  link_information['switch_info'],
+                                  link_information['port_id'],]
+                    li_fq_name = li_fq_name + ['%s.%s' %(link_information['port_id'], vlan_tag)]
                     li_obj = LogicalInterface(
                         parent_type='physical-interface', fq_name=li_fq_name,
                         logical_interface_vlan_tag=vlan_tag)
