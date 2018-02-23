@@ -1,3 +1,4 @@
 requests
 bitstring
 netaddr>=0.7.5
+contrail-config-common

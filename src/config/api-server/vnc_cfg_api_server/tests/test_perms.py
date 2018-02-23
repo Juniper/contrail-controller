@@ -19,9 +19,7 @@ import cfgm_common
 from cfgm_common import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
-sys.path.append('../common/tests')
-import test_utils
-import test_common
+from cfgm_common.tests import test_utils
 import test_case
 
 from test_perms2 import (User, set_perms, vnc_read_obj, vnc_aal_create,

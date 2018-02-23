@@ -8,7 +8,6 @@ python-keystoneclient
 python-novaclient
 webtest
 ncclient==0.6.3
-cfgm_common
 sandesh
 sandesh_common
 contrail-api-client
