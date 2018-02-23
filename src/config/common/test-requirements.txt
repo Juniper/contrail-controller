@@ -1,2 +1,9 @@
 mock
 six>=1.9
+coverage
+testrepository
+flexmock
+webtest
+python-novaclient
+netaddr
+junitxml
