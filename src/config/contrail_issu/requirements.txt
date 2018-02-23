@@ -9,3 +9,4 @@ kombu
 netifaces
 bottle
 stevedore
+contrail-config-common

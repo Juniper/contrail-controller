@@ -3,7 +3,6 @@ testrepository
 flexmock
 coverage
 pyaml
-cfgm_common
 fabric_ansible
 contrail-api-client
 sandesh
