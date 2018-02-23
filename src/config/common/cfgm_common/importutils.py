@@ -13,16 +13,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-Import related utilities and helper functions.
-"""
+"""Import related utilities and helper functions."""
 
 import sys
 import traceback
 
 
 def import_class(import_str):
-    """Returns a class from a string including module and class."""
+    """Return a class from a string including module and class."""
     mod_str, _sep, class_str = import_str.rpartition('.')
     __import__(mod_str)
     try:
@@ -39,7 +37,7 @@ def import_object(import_str, *args, **kwargs):
 
 
 def import_object_ns(name_space, import_str, *args, **kwargs):
-    """Tries to import object from default namespace.
+    """Trie to import object from default namespace.
 
     Imports a class and return an instance of it, first by trying
     to find the class in a default namespace, then failing back to
