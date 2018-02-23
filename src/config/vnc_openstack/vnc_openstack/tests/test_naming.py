@@ -12,7 +12,7 @@ from testtools import content, content_type, ExpectedException
 from vnc_api.vnc_api import *
 from pysandesh.connection_info import ConnectionState
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 import test_common
 

@@ -13,7 +13,7 @@ from ansible.executor.playbook_executor import PlaybookExecutor
 
 from vnc_api.vnc_api import *
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 import test_case
 from job_mgr import JobManager, initialize_sandesh_logger
