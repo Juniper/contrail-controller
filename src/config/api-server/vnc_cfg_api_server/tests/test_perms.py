@@ -23,7 +23,7 @@ import cfgm_common
 from cfgm_common import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 import test_utils
 import test_common
 import test_case

@@ -93,6 +93,7 @@ sdist_gen = env.Command('dist/vnc_api-{}.tar.gz'\
                         .read().strip('\n').strip('\t')),
                         'setup.py', cd_cmd + 'python setup.py sdist')
 
+env.Alias('controller/api-lib:sdist', sdist_gen)
 env.Default(sdist_gen)
 
 # generated files depend on autogeneration infra parts
@@ -111,7 +112,13 @@ if 'install' in BUILD_TARGETS:
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'vnc_api_lib.ini'))
 
-env.SetupPyTestSuiteWithDeps(sdist_gen, '/config/common/dist/cfgm_common-0.1dev.tar.gz')
+sdist_depends = [
+  'controller/config:cfgm_common',
+]
+env.SetupPyTestSuiteWithDeps(sdist_gen, sdist_depends=sdist_depends)
+
+# XXX(kklimonda): a temporary test target to enable this test during full run
+env.Alias('test', env.Alias(env.Dir('.').srcnode().path + ':test'))
 
 # Local Variables:
 # mode: python
