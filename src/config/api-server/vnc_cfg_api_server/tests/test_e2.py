@@ -32,7 +32,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
 vnc_cgitb.enable(format='text')
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 import test_common
 import test_case

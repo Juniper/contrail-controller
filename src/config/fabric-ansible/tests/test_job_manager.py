@@ -16,8 +16,8 @@ from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
 from vnc_api.vnc_api import JobTemplate
 
-sys.path.append('../common/tests')
-
+sys.path.append('../common/cfgm_common/tests')
+from test_utils import *
 import test_case
 from job_mgr import JobManager
 from job_log_utils import JobLogUtils
