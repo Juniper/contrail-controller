@@ -20,8 +20,7 @@ from vnc_api.vnc_api import (BgpRouterParams, VirtualMachineInterface,
 from test_case import STTestCase, retries
 from test_route_target import VerifyRouteTarget
 
-sys.path.append("../common/tests")
-import test_common
+from cfgm_common.tests import test_common
 from random import randint
 from cfgm_common import get_lr_internal_vn_name
 from vnc_api.vnc_api import *
