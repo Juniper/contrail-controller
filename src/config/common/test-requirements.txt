@@ -1,2 +1,8 @@
 mock
 six>=1.9
+coverage
+flexmock
+webtest
+python-novaclient
+netaddr
+kombu # as we have to remove the dep in requirement, add it in the test-req for UT
