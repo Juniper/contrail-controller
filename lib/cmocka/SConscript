@@ -1,0 +1,11 @@
+#
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+#
+
+env = DefaultEnvironment()
+
+vpath = '#third_party/cmocka-1.1.1'
+
+env.Install('#build/include', vpath + '/include/cmocka.h')
+env.Install('#build/lib', vpath + '/lib/cmocka.lib')
+env.Install('#build/bin', vpath + '/bin/cmocka.dll')
