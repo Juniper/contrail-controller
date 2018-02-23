@@ -9,7 +9,7 @@ from testtools.matchers import Equals, Contains, Not
 import stevedore.extension
 
 from vnc_cfg_api_server import vnc_cfg_api_server
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 from test_common import TestCase, setup_extra_flexmock
 
