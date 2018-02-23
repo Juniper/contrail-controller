@@ -68,7 +68,7 @@ struct JobExecution {
     // Add additional items here as needed
 }
 
-objectlog sandesh UvePRouterOnboardingLog {
+objectlog sandesh PRouterOnboardingLog {
     1: PRouterOnboardingLogEntry log_entry;
 }
 
