@@ -4,12 +4,12 @@
 import sys
 import gevent
 from time import sleep
-sys.path.append("../common/tests")
-from test_utils import *
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
-from test_common import *
+from cfgm_common.tests.test_common import retries
+from cfgm_common.tests.test_common import retry_exc_handler
+from cfgm_common.exceptions import BadRequest
 from test_dm_common import *
 from test_dm_utils import FakeDeviceConnect
 
@@ -150,7 +150,7 @@ class TestNetworkDM(TestCommonDM):
         try:
             self._vnc_lib.data_center_interconnect_create(dci2)
             raise Exception("dci is not allowed to create with lr, which is part of another dci")
-        except cfgm_common.exceptions.BadRequest as e:
+        except BadRequest as e:
             # lr can not be associated more than one dci
             pass
 
@@ -174,7 +174,7 @@ class TestNetworkDM(TestCommonDM):
         try:
             self._vnc_lib.data_center_interconnect_create(dci2)
             raise Exception("dci is not allowed to create with lr, lr has prs part of different fabrics")
-        except cfgm_common.exceptions.BadRequest as e:
+        except BadRequest as e:
             # can't create dci with lr connected to two different fabrics
             pass
 

@@ -8,7 +8,6 @@ webtest
 kazoo
 ncclient
 jsonpickle
-cfgm_common
 sandesh
 sandesh_common
 contrail-api-client

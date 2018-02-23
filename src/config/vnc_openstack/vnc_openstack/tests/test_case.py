@@ -9,9 +9,9 @@ from testtools.matchers import Equals, Contains, Not
 import stevedore.extension
 
 from vnc_cfg_api_server import vnc_cfg_api_server
-sys.path.append('../common/tests')
-from test_utils import *
-from test_common import TestCase, setup_extra_flexmock
+from cfgm_common.tests.test_utils import FakeExtensionManager
+from cfgm_common.tests.test_utils import get_keystone_client
+from cfgm_common.tests.test_common import TestCase, setup_extra_flexmock
 
 import fake_neutron
 import vnc_openstack

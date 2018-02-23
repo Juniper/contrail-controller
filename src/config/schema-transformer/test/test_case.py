@@ -1,9 +1,7 @@
 import sys
 from gevent import sleep
 
-sys.path.append("../common/tests")
-from test_utils import *
-import test_common
+from cfgm_common.tests import test_common
 sys.path.insert(0, '../../../../build/production/config/schema-transformer/')
 
 from vnc_api.vnc_api import *

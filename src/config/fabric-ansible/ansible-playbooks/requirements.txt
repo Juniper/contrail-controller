@@ -1,4 +1,4 @@
-cfgm_common
+contrail-config-common
 contrail-api-client
 sandesh
 sandesh-common

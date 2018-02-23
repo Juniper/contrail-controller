@@ -11,7 +11,6 @@ from vnc_api.gen.resource_client import *
 from vnc_api.gen.resource_xsd import *
 from vnc_api.utils import obj_type_to_vnc_class
 import shutil
-sys.path.append("../common/tests")
 
 from time import sleep
 logger = logging.getLogger(__name__)

@@ -5,3 +5,4 @@ psutil>=0.6.0
 bottle
 kazoo
 pyyaml
+contrail-config-common

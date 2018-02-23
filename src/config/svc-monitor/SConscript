@@ -53,7 +53,6 @@ sources = [
     'svc_monitor/tests/test_svc_monitor.py',
     'svc_monitor/tests/test_vrouter_instance_manager.py',
     'svc_monitor/tests/test_virtual_machine_manager.py',
-    'svc_monitor/tests/test_dep_track.py',
     'svc_monitor/tests/test_ha_proxy.py',
     'svc_monitor/tests/test_snat.py',
     'svc_monitor/tests/test_snat_agent.py',
@@ -81,13 +80,6 @@ sdist_gen = env.Command('dist/svc_monitor-0.1dev.tar.gz',
                         sources,
                         cd_cmd + 'python setup.py sdist')
 env.Alias('controller/src/config/svc_monitor:sdist', sdist_gen)
-
-packages = [
-    '%s/%s' % (env['TOP'], env.GetVncAPIPkg()),
-    '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
-    '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
-    '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
-]
 
 # Documentation
 doc_files = []
