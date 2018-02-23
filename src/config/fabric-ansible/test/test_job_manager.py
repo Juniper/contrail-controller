@@ -16,13 +16,11 @@ from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
 from vnc_api.vnc_api import JobTemplate
 
-sys.path.append('../common/tests')
-
 import test_case
 from job_manager.job_mgr import WFManager
 from job_manager.job_utils import JobStatus
 from job_manager.job_utils import PLAYBOOK_EOL_PATTERN
-from test_utils import FakeKazooClient
+from cfgm_common.tests.test_utils import FakeKazooClient
 from test_job_manager_utils import TestJobManagerUtils
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,6 @@ bitarray
 kombu==4.0.2
 gevent
 eventlet
-cfgm_common
 contrail-api-client
 sandesh
 sandesh-common
