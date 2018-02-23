@@ -29,6 +29,7 @@ import requests
 import bottle
 import stevedore
 import netaddr
+import contextlib
 
 from vnc_api.vnc_api import *
 from cfgm_common import exceptions as vnc_exceptions
@@ -43,9 +44,9 @@ from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import rest
 vnc_cgitb.enable(format='text')
 
-sys.path.append('../common/tests')
-from test_utils import *
-import test_common
+from cfgm_common.tests import test_common
+from cfgm_common.tests.test_utils import FakeKombu
+from cfgm_common.tests.test_utils import FakeExtensionManager
 import test_case
 from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 
