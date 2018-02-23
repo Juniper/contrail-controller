@@ -3,7 +3,7 @@
 #
 
 import sys
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 
 import os
 import shutil
