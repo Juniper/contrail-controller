@@ -24,7 +24,8 @@
             "controller/src/config/api-server:test",
             "controller/src/config/vnc_openstack:test",
             "controller/src/config/fabric-ansible:test",
-            "controller/src/container/kube-manager:test"
+            "controller/src/container/kube-manager:test",
+            "controller/src/config/common:test"
         ],
         "misc_test_targets" : [ ]
     },

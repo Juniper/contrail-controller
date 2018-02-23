@@ -25,9 +25,8 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import rest
 vnc_cgitb.enable(format='text')
 
-sys.path.append('../common/tests')
-import test_utils
-import test_common
+from cfgm_common.tests import test_utils
+from cfgm_common.tests import test_common
 import test_case
 import requests
 
