@@ -5,7 +5,7 @@ import fcntl
 import sys
 import sqlalchemy
 
-sys.path.append("../common/tests")
+sys.path.append("../common/cfgm_common/tests")
 
 from vnc_api import vnc_api
 from cfgm_common import vnc_rdbms
