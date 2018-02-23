@@ -1,5 +1,3 @@
-# -*- mode: python; -*-
-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -9,75 +7,49 @@ Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 setup_sources = [
-           'setup.py',
-           'requirements.txt',
-           'test-requirements.txt',
-           'MANIFEST.in',
-          ]
+    '.coveragerc',
+    '.stestr.conf',
+    'setup.py',
+    'requirements.txt',
+    'test-requirements.txt',
+    'tox.ini',
+    'MANIFEST.in',
+    'cfgm_common',
+]
 
 setup_sources_rules = []
 for file in setup_sources:
-    setup_sources_rules.append(env.Install(Dir('.'), File(file).srcnode()))
+    setup_sources_rules.append(
+        env.Install(Dir('.'), "#controller/src/config/common/" + file))
 
-local_sources = [
-                  '__init__.py',
-                  'zkclient.py',
-                  'exceptions.py',
-                  'utils.py',
-                  'rbaclib.py',
-                  'jsonutils.py',
-                  'svc_info.py',
-                  'rest.py',
-                  'vnc_plugin_base.py',
-                  'vnc_extensions.py',
-                  'importutils.py',
-                  'analytics_client.py',
-                  'vnc_cassandra.py',
-                  'vnc_kombu.py',
-                  'vnc_db.py',
-                  'vnc_object_db.py',
-                  'dependency_tracker.py',
-                  'vnc_api_stats.py',
-                  'vnc_greenlets.py',
-                  'vnc_amqp.py',
-                  'vnc_logger.py',
-                  'vnc_cgitb.py',
-                  'db_json_exim.py',
-                  'kombu_amqp.py',
-                 ]
-local_sources_rules = []
-for file in local_sources:
-    local_sources_rules.append(env.Install("cfgm_common", File(file).srcnode()))
-
-test_sources = [
-                'tests/__init__.py',
-                'tests/test_analytics_client.py',
-                'tests/test_importutils.py',
-                'tests/fake.py',
-                'tests/test_suite.py',
-                'tests/test_cache_container.py'
-               ]
-test_sources_rules = []
-for file in test_sources:
-    test_sources_rules.append(env.Install("cfgm_common/tests/", File(file)))
-
-
-# install in common so that unit tests can run from src or build
-test_sources_rules.append(env.Install("tests", Glob("#controller/src/config/common/tests/*")))
-
-pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/vnc_api.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/virtual_machine.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/virtual_network.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/physical_router.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/acl.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/greenlets.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/msg_traces.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/config_req.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/physical_router_config.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/service_status.sandesh', 'cfgm_common/uve/', False),
+pkg = [
+    env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/vnc_api.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/virtual_machine.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/virtual_network.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/physical_router.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/acl.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/greenlets.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/msg_traces.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/config_req.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/physical_router_config.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/service_status.sandesh', 'cfgm_common/uve/', False),
 ]
+
+# A set of scripts used by other python tests - they are expected in #build
+common_test_tools = [
+    'tests/tools/colorizer.py',
+    'tests/tools/install_venv.py',
+    'tests/tools/install_venv_common.py',
+    'tests/tools/run_tests.sh',
+    'tests/tools/with_venv.sh',
+]
+
+common_test_tools_rules = []
+for file in common_test_tools:
+    common_test_tools_rules.append(
+        env.Install(Dir('.').abspath + '/tests/tools/', "#controller/src/config/common/" + file))
 
 # Generate the sandesh cpuinfo from base
 nodeinfo_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/nodeinfo.sandesh', 'cfgm_common/uve/', False)
@@ -94,8 +66,7 @@ build_info_rules = [env.Command(target='cfgm_common/buildinfo.py', source = None
 
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(test_sources_rules)
+sdist_depends.extend(common_test_tools_rules)
 sdist_depends.extend(pkg)
 sdist_depends.extend(nodeinfo_pkg)
 sdist_depends.extend(cpuinfo_pkg)
@@ -103,49 +74,29 @@ sdist_depends.extend(process_info_pkg)
 sdist_depends.extend(build_info_rules)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-
-# TODO: deprecate
 sdist_gen = env.Command('dist/cfgm_common-0.1dev.tar.gz',
                         'setup.py', cd_cmd + 'python setup.py sdist')
 
+# Add the dependency between cfgm_common tarball and its dependencies.
+# That lets others depend only on cfgm_common without having to also
+# depend on vnc_api.
 env.Depends(sdist_gen, sdist_depends)
+env.Alias('controller/config/common:sdist', sdist_gen)
 env.Default(sdist_gen)
 
-def BuildPyTestSetup(env, target, source):
-    file = open(target[0].abspath, 'w')
-    file.write("[easy_install]\nfind_links =")
-    for pkg in source:
-        dependency = env.File(pkg)
-        file.write(" %s" % os.path.dirname(dependency.abspath))
-    file.write("\n")
-    file.close()
-    return
-
-def GeneratePyTestSetup(env, targets, source):
-    """
-    Generate a setup.cfg file that contains a list of directories
-    where dependent packages can be found. The fact that package directory
-    list is being given as a source automatically adds them as dependencies.
-    """
-    target = env.File('setup.cfg')
-    return env.Command(target=target, source=source, action=BuildPyTestSetup);
-
-env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
-test_sources += env.PythonTestSetup(source=pkg)
-test = env.Command('test.log', test_sources,  cd_cmd + 'python setup.py test')
-
-# XXX Need to extend SetupPyTestSuite*() to handle above
-#
-if 'BUILD_ONLY' in env['ENV']:
-    test = env.Command('build_only.log', test_sources,  'touch build_only.log')
-
-#env.Alias('test', test)
-#env.Alias('controller/src/config/common:test', test)
+# We can't use SetupPyTestSuite because it adds ourselves to dependencies
+env.SetupPyTestSuiteWithDeps(
+    sdist_gen,
+    sdist_depends = [
+        env.GetVncAPIPkg(),
+        'sandesh/library/python:sdist',
+    ],
+    use_tox=True)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
                               cd_cmd + 'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
+    env.Depends(install_cmd, sdist_gen)
     env.Alias('install', install_cmd)
 

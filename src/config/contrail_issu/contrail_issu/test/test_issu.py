@@ -4,13 +4,12 @@
 
 import sys
 import gevent
-sys.path.append("../common/tests")
 sys.path.append("../schema-transformer/test")
 sys.path.append("../schema-transformer")
 sys.path.append("contrail_issu")
 from testtools.matchers import Equals, Contains, Not
 from test_utils import *
-import test_common
+from cfgm_common.tests import test_common
 import test_case
 from test_policy import VerifyPolicy
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel

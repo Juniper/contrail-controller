@@ -1,11 +1,8 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-import sys
-sys.path.append("../common/tests")
-
-from test_common import retries
-from test_common import retry_exc_handler
+from cfgm_common.tests.test_common import retries
+from cfgm_common.tests.test_common import retry_exc_handler
 from test_dm_common import TestCommonDM
 from test_dm_utils import FakeJobHandler
 
