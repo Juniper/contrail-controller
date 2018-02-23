@@ -26,7 +26,7 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType, VirtualNetworkType,
 from cfgm_common.exceptions import RefsExistError
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
-sys.path.append("../common/tests")
+sys.path.append("../common/cfgm_common/tests")
 from test_utils import CassandraCFs
 import test_common
 from unittest import skip

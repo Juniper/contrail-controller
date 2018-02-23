@@ -15,7 +15,7 @@ import uuid
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_test import *
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 import test_case
 
