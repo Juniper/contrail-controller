@@ -4,10 +4,7 @@
 import sys
 import gevent
 from time import sleep
-sys.path.append("../common/tests")
 from testtools.matchers import Equals, Contains, Not
-from test_utils import *
-import test_common
 import test_case
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *

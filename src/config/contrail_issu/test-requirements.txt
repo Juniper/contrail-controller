@@ -9,7 +9,6 @@ keystonemiddleware!=4.19.0
 webtest
 kazoo
 jsonpickle
-cfgm_common
 sandesh
 sandesh-common
 contrail-api-client

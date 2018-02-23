@@ -2,17 +2,17 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of dependency tracker
-for contrail config daemons
-"""
-
 from collections import OrderedDict
 
-# This class tracks dependencies among different objects based on a reaction map.
-# Objects could be derived from DBBase. Each object has an object_type and the
-# mapping from object_type to the class is specified using object_class_map
+
 class DependencyTracker(object):
+    """Dependency tracker for contrail config daemons.
+
+    This class tracks dependencies among different objects based on a reaction
+    map. Objects could be derived from DBBase. Each object has an object_type
+    and the mapping from object_type to the class is specified using
+    object_class_map
+    """
 
     def __init__(self, object_class_map, reaction_map):
         self._reaction_map = reaction_map
@@ -40,7 +40,7 @@ class DependencyTracker(object):
         for ref_type in self._reaction_map[obj_type][from_type]:
             ref = getattr(obj, ref_type, None)
             if ref is None:
-                refs = getattr(obj, ref_type+'s', [])
+                refs = getattr(obj, ref_type + 's', [])
             else:
                 refs = [ref]
             if obj.skip_evaluate(from_type):

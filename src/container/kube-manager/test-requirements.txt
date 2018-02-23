@@ -15,7 +15,6 @@ jsonpickle
 testrepository
 mock
 kombu
-cfgm_common
 contrail-api-client
 contrail-api-server
 bitstring

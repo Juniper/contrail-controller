@@ -18,8 +18,6 @@
 # @author: Sylvain Afchain, eNovance.
 
 import requests
-import six
-from requests.exceptions import ConnectionError
 from six.moves.urllib import parse as urlparse
 
 
@@ -32,7 +30,7 @@ class Client(object):
 
     def __init__(self, analytics_api_ip, analytics_api_port, data={}):
         self.data = data
-        #As per requirements, IPs can be space or comma seperated
+        # As per requirements, IPs can be space or comma seperated
         self.analytics_api_servers = analytics_api_ip.replace(',', ' ').split()
         if len(self.analytics_api_servers) == 0:
             raise IndexError("No analytics API IP provided")
@@ -53,17 +51,18 @@ class Client(object):
 
         req_params = self._get_req_params(user_token, data=req_data)
 
-        #get the starting index
+        # get the starting index
         analytics_server_index = self.round_robin()
 
         client_count = len(self.analytics_api_servers)
-        #once you have a starting index, we need to traverse through
-        #entire list in case of failure.
+        # once you have a starting index, we need to traverse through
+        # entire list in case of failure.
         for index in range(client_count):
             try:
-                analytics_ip = self.analytics_api_servers[analytics_server_index]
+                analytics_ip = self.analytics_api_servers[
+                    analytics_server_index]
                 endpoint = "http://%s:%s" % (analytics_ip,
-                                     self.analytics_api_port)
+                                             self.analytics_api_port)
 
                 url = urlparse.urljoin(endpoint, path + fqdn_uuid)
                 resp = requests.get(url, **req_params)
@@ -74,12 +73,12 @@ class Client(object):
                 return resp.json()
 
             except Exception as e:
-                #In case of failure, continue till we check all other
-                #available servers
+                # In case of failure, continue till we check all other
+                # available servers
                 analytics_server_index = self.round_robin()
                 continue
 
-        #If we reach here, raise the last encountered exception
+        # If we reach here, raise the last encountered exception
         raise e
 
     def _get_req_params(self, user_token, data=None):

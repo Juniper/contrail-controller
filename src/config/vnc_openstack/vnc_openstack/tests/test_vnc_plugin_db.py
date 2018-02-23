@@ -5,8 +5,7 @@ import sys
 
 import fake_neutron
 from vnc_openstack import neutron_plugin_db as db
-sys.path.append("../common/tests")
-from test_utils import FakeKazooClient
+from cfgm_common.tests.test_utils import FakeKazooClient
 
 class MockDbInterface(db.DBInterface):
     def __init__(self):
