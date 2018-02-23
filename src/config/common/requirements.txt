@@ -3,3 +3,9 @@ bottle
 geventhttpclient
 psutil>=0.6.0
 sqlalchemy
+requests
+vnc_api
+pycassa
+kombu
+kazoo
+sandesh
