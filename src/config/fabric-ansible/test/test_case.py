@@ -2,9 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 import sys
-sys.path.append("../common/tests")
-from test_utils import *
-import test_common
+from cfgm_common.tests import test_common
 sys.path.insert(0, '../../../../build/production/config/fabric-ansible/')
 sys.path.insert(0, '../../../../build/debug/config/fabric-ansible/job_manager')
 

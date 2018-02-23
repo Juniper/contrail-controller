@@ -1,10 +1,5 @@
-import sys
-
-sys.path.append("../common/tests")
-
 from vnc_api import vnc_api
-from test_utils import *
-import test_common
+from cfgm_common.tests import test_common
 
 
 class ApiServerTestCase(test_common.TestCase):
