@@ -5,7 +5,7 @@ import sys
 import gevent
 import itertools
 from time import sleep
-sys.path.append("../common/tests")
+sys.path.append("../common/cfgm_common/tests")
 from test_utils import *
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *

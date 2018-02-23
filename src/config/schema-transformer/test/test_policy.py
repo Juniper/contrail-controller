@@ -16,7 +16,7 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType,
         ActionListType)
 
 from test_case import STTestCase, retries, VerifyCommon
-sys.path.append("../common/tests")
+sys.path.append("../common/cfgm_common/tests")
 import test_common
 from schema_transformer.to_bgp import DBBaseST
 

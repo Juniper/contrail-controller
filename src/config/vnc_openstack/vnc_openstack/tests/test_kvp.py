@@ -13,7 +13,7 @@ from vnc_api.vnc_api import *
 import fake_neutron
 import vnc_openstack
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from test_utils import *
 import test_common
 
