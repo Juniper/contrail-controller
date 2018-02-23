@@ -8,7 +8,7 @@ from testtools import ExpectedException
 import webtest.app
 import datetime
 
-sys.path.append('../common/tests')
+sys.path.append('../common/cfgm_common/tests')
 from vnc_openstack import neutron_plugin_db
 from cfgm_common.exceptions import NoIdError
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX

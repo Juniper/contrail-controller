@@ -4,8 +4,6 @@
 import sys
 import gevent
 from time import sleep
-sys.path.append("../common/tests")
-from test_utils import *
 from unittest import skip
 from vnc_api.vnc_api import *
 from cfgm_common.vnc_db import DBBase
@@ -16,7 +14,8 @@ monkey.patch_all()
 from device_manager.db import DMCassandraDB
 from device_manager.db import DBBaseDM
 from device_manager.device_manager import DeviceManager
-from test_common import *
+from cfgm_common.tests.test_common import retries
+from cfgm_common.tests.test_common import retry_exc_handler
 from test_dm_common import *
 from test_case import DMTestCase
 from test_dm_utils import FakeDeviceConnect

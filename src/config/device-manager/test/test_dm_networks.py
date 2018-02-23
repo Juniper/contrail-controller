@@ -4,12 +4,11 @@
 import sys
 import gevent
 from time import sleep
-sys.path.append("../common/tests")
-from test_utils import *
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
-from test_common import *
+from cfgm_common.tests.test_common import retries
+from cfgm_common.tests.test_common import retry_exc_handler
 from test_dm_common import *
 from test_dm_utils import FakeDeviceConnect
 

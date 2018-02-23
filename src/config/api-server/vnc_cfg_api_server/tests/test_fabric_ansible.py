@@ -11,8 +11,6 @@ import json
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_test import *
 
-sys.path.append('../common/tests')
-from test_utils import *
 import test_case
 
 logger = logging.getLogger(__name__)

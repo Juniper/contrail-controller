@@ -1,7 +1,5 @@
 import sys
-sys.path.append("../common/tests")
-from test_utils import *
-import test_common
+from cfgm_common.tests import test_common
 sys.path.insert(0, '../../../../build/production/config/device-manager/')
 sys.path.insert(0, '../../../../build/debug/config/device-manager/device_manager')
 sys.path.insert(0, '../../../../build/debug/config/device-manager/device_api')
