@@ -93,6 +93,7 @@ sdist_gen = env.Command('dist/vnc_api-{}.tar.gz'\
                         .read().strip('\n').strip('\t')),
                         'setup.py', cd_cmd + 'python setup.py sdist')
 
+env.Alias('controller/api-lib:vnc_api', sdist_gen)
 env.Default(sdist_gen)
 
 # generated files depend on autogeneration infra parts
