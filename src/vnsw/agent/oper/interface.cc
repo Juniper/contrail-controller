@@ -476,8 +476,10 @@ void Interface::GetOsParams(Agent *agent) {
     //mac address set in configuration file, since
     //agent cane query for mac address as physical interface
     //will not be present
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(this);
     if (transport_ == TRANSPORT_PMD) {
-        if (type_ == PHYSICAL || type_ == INET) {
+        if (type_ == PHYSICAL ||
+            (vm_intf && vm_intf->vmi_type() == VmInterface::VHOST)) {
             struct ether_addr *addr = ether_aton(agent->params()->
                                       physical_interface_mac_addr().c_str());
             if (addr) {
