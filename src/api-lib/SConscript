@@ -111,7 +111,10 @@ if 'install' in BUILD_TARGETS:
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'vnc_api_lib.ini'))
 
-env.SetupPyTestSuiteWithDeps(sdist_gen, '/config/common/dist/cfgm_common-0.1dev.tar.gz')
+sdist_depends = [
+  'controller/config:cfgm_common',
+]
+env.SetupPyTestSuiteWithDeps(sdist_gen, sdist_depends=sdist_depends)
 
 # Local Variables:
 # mode: python
