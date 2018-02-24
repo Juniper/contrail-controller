@@ -109,6 +109,7 @@ sdist_gen = env.Command('dist/cfgm_common-0.1dev.tar.gz',
                         'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
+env.Alias('controller/config:cfgm_common', sdist_gen)
 env.Default(sdist_gen)
 
 def BuildPyTestSetup(env, target, source):
