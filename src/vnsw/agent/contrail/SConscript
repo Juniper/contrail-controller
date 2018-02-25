@@ -48,6 +48,7 @@ buildinfo_dep_libs += MapBuildCmnLib([
     'ifmap/client/' + env['LIBPREFIX'] + 'ifmapio' + env['LIBSUFFIX'],
     'schema/' + env['LIBPREFIX'] + 'xmpp_unicast' + env['LIBSUFFIX'],
     'schema/' + env['LIBPREFIX'] + 'xmpp_multicast' + env['LIBSUFFIX'],
+    'schema/' + env['LIBPREFIX'] + 'xmpp_mvpn' + env['LIBSUFFIX'],
     'vrouter/utils/' + env['LIBPREFIX'] + 'vrutil' + env['LIBSUFFIX'],
     'xml/' + env['LIBPREFIX'] + 'xml' + env['LIBSUFFIX'],
     'xmpp/' + env['LIBPREFIX'] + 'xmpp' + env['LIBSUFFIX'],
