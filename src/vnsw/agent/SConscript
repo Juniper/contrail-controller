@@ -118,6 +118,7 @@ env.Prepend(LIBS = [
     'xmpp',
     'peer_sandesh',
     'xmpp_multicast',
+    'xmpp_mvpn',
     'xmpp_enet',
     'xmpp_unicast',
     'xml2',
@@ -230,7 +231,7 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
 
 if sys.platform != 'win32':
     AgentEnv.AppendUnique(CONTRAIL_LIBS = [
-        'tcmalloc',
+#        'tcmalloc',
         'isc',
     ])
 

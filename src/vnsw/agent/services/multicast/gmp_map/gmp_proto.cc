@@ -3,6 +3,9 @@
  */
 
 #include "cmn/agent_cmn.h"
+#include "oper/route_common.h"
+#include "oper/multicast.h"
+#include "oper/nexthop.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,11 +23,8 @@ extern "C" {
 #include "task_map.h"
 #include "gmp_proto.h"
 
-uint32_t igmp_sgh_add_count = 0;
-uint32_t igmp_sgh_del_count = 0;
-
-GmpIntf::GmpIntf(const GmpProto *gmp_proto) : gmp_proto_(gmp_proto),
-                            ip_addr_() {
+GmpIntf::GmpIntf(const GmpProto *gmp_proto) : gmp_proto_(gmp_proto), vrf_name_(),
+                                    ip_addr_() {
 
     gif_ = NULL;
 }
@@ -45,6 +45,11 @@ bool GmpIntf::SetIpAddress(const IpAddress &addr) {
     return false;
 }
 
+bool GmpIntf::SetVrf(const string &vrf_name) {
+    vrf_name_ = vrf_name;
+    return true;
+}
+
 GmpProto::GmpProto(GmpType::Type type, Agent *agent,
                             const std::string &task_name, int instance,
                             boost::asio::io_service &io) :
@@ -52,6 +57,9 @@ GmpProto::GmpProto(GmpType::Type type, Agent *agent,
 
     task_map_ = NULL;
     gd_ = NULL;
+
+    stats_.igmp_sgh_add_count_ = 0;
+    stats_.igmp_sgh_del_count_ = 0;
 }
 
 GmpProto::~GmpProto() {
@@ -117,9 +125,9 @@ bool GmpProto::GmpProcessPkt(GmpIntf *gmp_intf,
     uint32_t addr;
     gmp_addr_string src_addr, dst_addr;
 
-    addr = ip_saddr.to_v4().to_ulong();
+    addr = htonl(ip_saddr.to_v4().to_ulong());
     memcpy(&src_addr, &addr, IPV4_ADDR_LEN);
-    addr = ip_daddr.to_v4().to_ulong();
+    addr = htonl(ip_daddr.to_v4().to_ulong());
     memcpy(&dst_addr, &addr, IPV4_ADDR_LEN);
 
     boolean ret = gmp_process_pkt(gd_, gmp_intf->GetGif(), rcv_pkt,
@@ -135,8 +143,51 @@ void GmpProto::GroupNotify(GmpIntf *gif, IpAddress source, IpAddress group,
 void GmpProto::ResyncNotify(GmpIntf *gif, IpAddress source, IpAddress group) {
 }
 
-void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, IpAddress host,
-                            IpAddress source, IpAddress group) {
+void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
+                                    IpAddress source, IpAddress group) {
+
+    uint32_t src_addr;
+    src_addr = htonl(source.to_v4().to_ulong());
+
+    MulticastHandler *mch = MulticastHandler::GetInstance();
+    if (!mch) {
+        return;
+    }
+
+    InetUnicastAgentRouteTable *table =
+                agent_->vrf_table()->GetInet4UnicastRouteTable(gif->GetVrf());
+    InetUnicastRouteEntry *uc_route = table->FindLPM(host);
+    if (!uc_route) {
+        return;
+    }
+
+    const NextHop *nh = uc_route->GetActiveNextHop();
+    if (!nh) {
+        return;
+    }
+
+    const InterfaceNH *inh = dynamic_cast<const InterfaceNH *>(nh);
+    const Interface *intf = inh->GetInterface();
+    if (!intf) {
+        return;
+    }
+
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(intf);
+    if (!vm_intf) {
+        return;
+    }
+
+    if (src_addr) {
+        if (join) {
+            stats_.igmp_sgh_add_count_++;
+            mch->AddVmInterfaceToSourceGroup(agent_->fabric_policy_vrf_name(),
+                    agent_->fabric_vn_name(), vm_intf, source.to_v4(), group.to_v4());
+        } else {
+            stats_.igmp_sgh_del_count_++;
+            mch->DeleteVmInterfaceFromSourceGroup(agent_->fabric_policy_vrf_name(),
+                    vm_intf, source.to_v4(), group.to_v4());
+        }
+    }
 }
 
 GmpProto *GmpProtoManager::CreateGmpProto(GmpType::Type type, Agent *agent,
@@ -214,9 +265,9 @@ void gmp_cache_resync_notify(mgm_global_data *gd, gmp_intf *intf,
     gmp_proto->ResyncNotify(gif, source_addr, group_addr);
 }
 
-void gmp_host_update(mgm_global_data *gd, gmp_intf *intf,
+void gmp_host_update(mgm_global_data *gd, gmp_intf *intf, boolean join,
                             gmp_addr_string host, gmp_addr_string source,
-                            gmp_addr_string group, boolean join_leave)
+                            gmp_addr_string group)
 {
     if (!gd || !intf) {
         return;
@@ -231,22 +282,13 @@ void gmp_host_update(mgm_global_data *gd, gmp_intf *intf,
 
     uint32_t addr;
     memcpy(&addr, &host, IPV4_ADDR_LEN);
-    IpAddress host_addr = IpAddress(Ip4Address(addr));
+    IpAddress host_addr = Ip4Address(ntohl(addr));
     memcpy(&addr, &source, IPV4_ADDR_LEN);
-    IpAddress source_addr = IpAddress(Ip4Address(addr));
+    IpAddress source_addr = Ip4Address(ntohl(addr));
     memcpy(&addr, &group, IPV4_ADDR_LEN);
-    IpAddress group_addr = IpAddress(Ip4Address(addr));
+    IpAddress group_addr = Ip4Address(ntohl(addr));
 
-    gmp_proto->UpdateHostInSourceGroup(gif, host_addr, source_addr, group_addr);
-
-    uint32_t src_addr;
-    memcpy(&src_addr, &source, IPV4_ADDR_LEN);
-    if (src_addr) {
-        if (join_leave) {
-            igmp_sgh_add_count++;
-        } else {
-            igmp_sgh_del_count++;
-        }
-    }
+    gmp_proto->UpdateHostInSourceGroup(gif, join ? true : false, host_addr,
+                                    source_addr, group_addr);
 }
 

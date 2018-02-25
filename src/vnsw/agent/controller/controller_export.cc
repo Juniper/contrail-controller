@@ -260,6 +260,10 @@ done:
 static const AgentPath *GetMulticastExportablePath(const Agent *agent,
                                                    const AgentRoute *route) {
     const AgentPath *active_path = route->FindPath(agent->local_vm_peer());
+    if (!active_path && (route->GetTableType() == Agent::INET4_MULTICAST)) {
+        return NULL;
+    }
+
     //OVS peer path
     if (active_path == NULL) {
         const EvpnRouteEntry *evpn_route =
@@ -286,7 +290,8 @@ bool RouteExport::MulticastRouteCanDissociate(const AgentRoute *route) {
     Agent *agent = static_cast<AgentRouteTable*>(route->get_table())->
         agent();
     const AgentPath *local_path = route->FindPath(agent->local_peer());
-    if (local_path && !agent->tor_agent_enabled()) {
+    if (local_path && !agent->tor_agent_enabled() &&
+            (route->GetTableType() != Agent::INET4_MULTICAST)) {
         return can_dissociate;
     }
     if (route->is_multicast()) {
@@ -353,6 +358,18 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         state = NULL;
         return;
     }
+
+    if (route->GetTableType() == Agent::INET4_MULTICAST) {
+        if (route_can_be_dissociated) {
+            AgentXmppChannel::ControllerSendMcastRouteDelete(bgp_xmpp_peer,
+                                    route);
+        } else {
+            AgentXmppChannel::ControllerSendMcastRouteAdd(bgp_xmpp_peer,
+                                    route);
+        }
+        return;
+    }
+
     //Handle withdraw for following cases:
     //- Route is not having any active multicast exportable path or is deleted.
     //- associate(false): Bgp Peer has gone down and state needs to be removed. 
