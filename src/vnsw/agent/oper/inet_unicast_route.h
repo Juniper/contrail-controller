@@ -58,6 +58,9 @@ public:
     virtual const std::string GetAddressString() const {
         return addr_.to_string();
     }
+    virtual const std::string GetSourceAddressString() const {
+        return "0.0.0.0";
+    }
     virtual Agent::RouteTableType GetTableType() const {
         if (addr_.is_v4()) {
             return Agent::INET4_UNICAST;

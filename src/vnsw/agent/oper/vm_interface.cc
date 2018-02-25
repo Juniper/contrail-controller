@@ -901,6 +901,11 @@ bool NextHopState::AddL3(const Agent *agent, VmInterface *vmi) const {
                                        vmi->forwarding_vrf()->GetName(),
                                        vmi->learning_enabled(),
                                        vmi->name());
+
+    InterfaceNH::CreateMulticastVmInterfaceNH(vmi->GetUuid(), vmi->vm_mac(),
+                                       vmi->forwarding_vrf()->GetName(),
+                                       vmi->name());
+
     InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                            vmi->GetUuid(), vmi->name()),
                         true, InterfaceNHFlags::INET4, vmi->vm_mac());
@@ -912,6 +917,14 @@ bool NextHopState::AddL3(const Agent *agent, VmInterface *vmi) const {
                         false, InterfaceNHFlags::INET4, vmi->vm_mac());
     l3_nh_no_policy_ = static_cast<NextHop *>
         (agent->nexthop_table()->FindActiveEntry(&key2));
+
+    InterfaceNHKey key3(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                    vmi->GetUuid(), vmi->name()), false,
+                                    (InterfaceNHFlags::INET4|
+                                     InterfaceNHFlags::MULTICAST),
+                                    vmi->vm_mac());
+    l3_mcast_nh_no_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key3));
 
     // Update L3 mpls label from nh entry
     if (vmi->policy_enabled()) {
@@ -930,9 +943,12 @@ bool NextHopState::DeleteL3(const Agent *agent, VmInterface *vmi) const {
     if (vmi->IsActive() && vmi->layer3_forwarding())
         return false;
 
+    l3_mcast_nh_no_policy_.reset();
     l3_nh_policy_.reset();
     l3_nh_no_policy_.reset();
     l3_label_ = MplsTable::kInvalidLabel;
+    InterfaceNH::DeleteMulticastVmInterfaceNH(vmi->GetUuid(), vmi->vm_mac(),
+                                    vmi->name());
     InterfaceNH::DeleteL3InterfaceNH(vmi->GetUuid(), vmi->vm_mac(), vmi->name());
     return true;
 }

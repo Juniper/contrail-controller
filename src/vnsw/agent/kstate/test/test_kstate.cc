@@ -118,26 +118,27 @@ public:
             WAIT_FOR(1000, 1000, ((oper_if_count) ==
                                 Agent::GetInstance()->interface_table()->Size()));
         }
+
         uint32_t port_with_vhost_count = num_ports + 1;
-        //One EVPN label for VN, One for Vrf, 4 per VM port
-        WAIT_FOR(1000, 1000, (((port_with_vhost_count * 4) + 2 ==
+        //One EVPN label for VN, One for Vrf, 5 per VM port
+        WAIT_FOR(1000, 1000, (((port_with_vhost_count * NH_PER_VM) + 2 ==
                             (Agent::GetInstance()->mpls_table()->Size()))));
         if (!ksync_init_) {
-            //One EVPN label for VN, One for Vrf, 4 per VM port
-            WAIT_FOR(1000, 1000, ((port_with_vhost_count * 4) + 2 ==
+            //One EVPN label for VN, One for Vrf, 5 per VM port
+            WAIT_FOR(1000, 1000, ((port_with_vhost_count * NH_PER_VM) + 2 ==
                                   (uint32_t)(KSyncSockTypeMap::MplsCount())));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((num_ports + if_count) ==
                                     (uint32_t)KSyncSockTypeMap::IfCount()));
             }
             if (nh_count) {
-                //4 interface nexthops get created for each interface
+                //5 interface nexthops get created for each interface
                 //(l2 with policy, l2 without policy, l3 with policy, l3
-                // without policy)
+                // without policy, one multicast NH without policy)
                 //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs
                 //i.e. TOR CNH, EVPN CNH, Fabric CNH)
                 WAIT_FOR(1000, 1000, ((nh_count + 
-                                     (num_ports * 4) + 4) ==
+                                     (num_ports * NH_PER_VM) + 4) ==
                                     (uint32_t)KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
@@ -154,7 +155,7 @@ public:
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vm_table()->Size()));
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, false);
-        WAIT_FOR(1000, 1000, (4 == Agent::GetInstance()->mpls_table()->Size()));
+        WAIT_FOR(1000, 1000, (NH_PER_VM == Agent::GetInstance()->mpls_table()->Size()));
     }
 
     void CreatePortsWithPolicy() {
@@ -279,7 +280,7 @@ TEST_F(KStateTest, NHDumpTest) {
     //4 interface nexthops get created for each interface
     //(l2 with policy, l2 without policy, l3 with policy, l3 without policy)
     //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs)
-    TestNHKState::Init(-1, true, nh_count + (max_ports * 4) + 4);
+    TestNHKState::Init(-1, true, nh_count + (max_ports * NH_PER_VM) + 4);
     client->WaitForIdle();
     client->KStateResponseWait(1);
 
@@ -320,7 +321,7 @@ TEST_F(KStateTest, MplsDumpTest) {
     mpls_count = TestKStateBase::fetched_count_;
 
     CreatePorts(0, 0, 0);
-    TestMplsKState::Init(-1, true, mpls_count + (4 * MAX_TEST_FD) + 2);
+    TestMplsKState::Init(-1, true, mpls_count + (NH_PER_VM * MAX_TEST_FD) + 2);
     client->WaitForIdle(3);
     client->KStateResponseWait(1);
 

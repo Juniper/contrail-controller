@@ -683,8 +683,8 @@ TEST_F(KStateSandeshTest, MplsTest) {
 
     //verify the response
     EXPECT_TRUE((type_specific_response_count_ != 0));
-    //4 for vhost interface
-    EXPECT_EQ(6U, num_entries_);
+    //5 for vhost interface
+    EXPECT_EQ(7U, num_entries_);
 
     //cleanup
     KSyncSockTypeMap::MplsDelete(9);

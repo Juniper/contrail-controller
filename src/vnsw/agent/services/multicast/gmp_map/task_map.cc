@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 #include "task_int.h"
+#include "task_timer_api.h"
 #ifdef __cplusplus
 }
 #endif
@@ -47,6 +48,8 @@ TaskMap *TaskMapManager::CreateTaskMap(Agent *agent, const std::string &name,
         delete task_map;
         return NULL;
     }
+
+    task_timer_init(task_map->task_);
 
     return task_map;
 }

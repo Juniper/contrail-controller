@@ -9,6 +9,8 @@
 
 using namespace std;
 
+#define NH_PER_VM 5
+
 #define EXPECT_TRUE_RET(a) \
     do { EXPECT_TRUE((a)); if ((a) == false) ret = false; } while(0);
 #define EXPECT_FALSE_RET(a) \
@@ -231,6 +233,7 @@ bool MCRouteFind(const string &vrf_name, const string &addr);
 InetUnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
 InetUnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
+Inet4MulticastRouteEntry *MCRouteGet(const Peer *peer, const string &vrf_name, const Ip4Address &grp_addr, const Ip4Address &src_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
 BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac);
 BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
@@ -240,6 +243,9 @@ EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr, uint32_t ethernet_tag);
 const NextHop* RouteToNextHop(const string &vrf_name, const Ip4Address &addr,
                               int plen);
+const NextHop* MCRouteToNextHop(const Peer *peer, const string &vrf_name,
+                            const Ip4Address &grp_addr,
+                            const Ip4Address &src_addr);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
 bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
