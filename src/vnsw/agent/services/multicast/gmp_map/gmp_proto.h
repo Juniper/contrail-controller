@@ -19,9 +19,12 @@ public:
     void SetGif(gmp_intf *gif) { gif_ = gif; }
     gmp_intf *GetGif() { return gif_; }
     bool SetIpAddress(const IpAddress &ip_addr);
+    const string &GetVrf() { return vrf_name_; }
+    bool SetVrf(const std::string &vrf_name);
 
 private:
     const GmpProto *gmp_proto_;
+    string vrf_name_;
     IpAddress ip_addr_;
     gmp_intf *gif_;
 };
@@ -36,6 +39,17 @@ struct GmpType {
 
 class GmpProto {
 public:
+    struct GmpStats {
+        GmpStats() { Reset(); }
+        void Reset() {
+            igmp_sgh_add_count_ = 0;
+            igmp_sgh_del_count_ = 0;
+        }
+
+        uint32_t igmp_sgh_add_count_;
+        uint32_t igmp_sgh_del_count_;
+    };
+
     GmpProto(GmpType::Type type, Agent *agent, const std::string &task_name, 
                             int instance, boost::asio::io_service &io);
     ~GmpProto();
@@ -48,8 +62,10 @@ public:
                             IpAddress ip_saddr, IpAddress ip_daddr);
     void GroupNotify(GmpIntf *gif, IpAddress source, IpAddress group, bool add);
     void ResyncNotify(GmpIntf *gif, IpAddress source, IpAddress group);
-    void UpdateHostInSourceGroup(GmpIntf *gif, IpAddress host, IpAddress source,
-                            IpAddress group);
+    void UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
+                            IpAddress source, IpAddress group);
+    const GmpStats &GetStats() const { return stats_; }
+    void ClearStats() { stats_.Reset(); }
 
 private:
     GmpType::Type type_;
@@ -60,6 +76,7 @@ private:
 
     TaskMap *task_map_;
     mgm_global_data *gd_;
+    GmpStats stats_;
 
     friend class GmpIntf;
 };

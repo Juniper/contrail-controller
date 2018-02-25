@@ -159,6 +159,8 @@ public:
                                        bool associate);
     bool ControllerSendMcastRouteCommon(AgentRoute *route,
                                         bool associate);
+    bool ControllerSendIPMcastRouteCommon(AgentRoute *route, bool add_route);
+    bool ControllerSendMvpnRouteCommon(AgentRoute *route, bool add_route);
     bool BuildEvpnMulticastMessage(autogen::EnetItemType &item,
                                    std::stringstream &node_id,
                                    AgentRoute *route,

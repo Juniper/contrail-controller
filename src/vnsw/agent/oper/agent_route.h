@@ -266,6 +266,13 @@ public:
     }
     //Can be used for operations resulting from deletion of route.
     virtual void DeleteDerivedRoutes(AgentRouteTable *table) { }
+    virtual void HandleMulticastLabel(const Agent *agent,
+                                            AgentPath *path,
+                                            const AgentPath *local_peer_path,
+                                            const AgentPath *local_vm_peer_path,
+                                            bool del, uint32_t *evpn_label);
+    virtual bool ReComputeMulticastPaths(AgentPath *path, bool del);
+    virtual void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
 
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}

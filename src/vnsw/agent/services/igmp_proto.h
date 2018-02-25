@@ -50,7 +50,7 @@ public:
         uint32_t rx_okpacket[IGMP_MAX_TYPE];
     };
 
-    McastInterfaceState() {
+    McastInterfaceState() : DBState(), vrf_name_() {
         gmp_intf_ = NULL;
     }
     ~McastInterfaceState() {}
@@ -77,7 +77,12 @@ public:
     void ClearIfStats() { stats_.Reset(); }
 
     GmpIntf *gmp_intf_;
+    std::string vrf_name_;
     IgmpIfStats stats_;
+};
+struct VrfState : public DBState {
+    VrfState() : DBState() {};
+    DBTableBase::ListenerId mc_rt_id_;
 };
 }
 
@@ -120,11 +125,12 @@ public:
                             VmInterface *vm_itf);
 
     DBTableBase::ListenerId ItfListenerId ();
+    DBTableBase::ListenerId VrfListenerId ();
 
 private:
     void ItfNotify(DBTablePartBase *part, DBEntryBase *entry);
-    void VrfNotify(DBEntryBase *entry);
-    void VnNotify(DBEntryBase *entry);
+    void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
+    void Inet4McRouteTableNotify(DBTablePartBase *part, DBEntryBase *entry);
 
     void AsyncRead();
     void ReadHandler(const boost::system::error_code &error, std::size_t len);
@@ -133,6 +139,7 @@ private:
     boost::asio::io_service &io_;
 
     DBTableBase::ListenerId iid_;
+    DBTableBase::ListenerId vrfid_;
 
     GmpProto *gmp_proto_;
     IgmpStats stats_;

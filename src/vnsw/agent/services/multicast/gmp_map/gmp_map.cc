@@ -263,8 +263,8 @@ void igmp_notification_ready(void *context)
         handle = notification->notif_intf_id;
         gif = gmp_handle_to_gif(handle);
 
-        memcpy(&g, notification->notif_group_addr.gmp_addr, IPV4_ADDR_LEN);
-        memcpy(&s, notification->notif_source_addr.gmp_addr, IPV4_ADDR_LEN);
+        memcpy(&g, &notification->notif_group_addr, IPV4_ADDR_LEN);
+        memcpy(&s, &notification->notif_source_addr, IPV4_ADDR_LEN);
 
         switch (notification->notif_type) {
             case GMPR_NOTIF_ALLOW_SOURCE:
@@ -379,9 +379,9 @@ void igmp_host_notification_ready(void_t context)
         /*
          *  Get needed addresses.
          */
-        memcpy(&g, gmpr_notif->host_notif_group_addr.gmp_addr, IPV4_ADDR_LEN);
-        memcpy(&s, gmpr_notif->host_notif_source_addr.gmp_addr, IPV4_ADDR_LEN);
-        memcpy(&h, gmpr_notif->host_notif_host_addr.gmp_addr, IPV4_ADDR_LEN);
+        memcpy(&g, &gmpr_notif->host_notif_group_addr, IPV4_ADDR_LEN);
+        memcpy(&s, &gmpr_notif->host_notif_source_addr, IPV4_ADDR_LEN);
+        memcpy(&h, &gmpr_notif->host_notif_host_addr, IPV4_ADDR_LEN);
 
         /*
          *  Update mapped OIF module.
@@ -394,7 +394,7 @@ void igmp_host_notification_ready(void_t context)
                 /*
                  *  This is a join.
                  */
-                gmp_host_update(gd, gif, h, s, g, TRUE);
+                gmp_host_update(gd, gif, TRUE, h, s, g);
                 break;
 
             case GMPR_NOTIF_HOST_LEAVE:
@@ -403,7 +403,7 @@ void igmp_host_notification_ready(void_t context)
                 /*
                  *  This is a leave.
                  */
-                gmp_host_update(gd, gif, h, s, g, FALSE);
+                gmp_host_update(gd, gif, FALSE, h, s, g);
                 break;
 
             default:

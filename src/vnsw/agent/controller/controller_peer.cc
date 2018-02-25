@@ -31,6 +31,7 @@
 #include <xmpp_enet_types.h>
 #include <xmpp_unicast_types.h>
 #include "xmpp_multicast_types.h"
+#include "xmpp_mvpn_types.h"
 #include "ifmap/ifmap_agent_table.h"
 #include "controller/controller_types.h"
 #include <assert.h>
@@ -309,7 +310,6 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
     strtok_r(NULL, "/", &saveptr);
     char *vrf_name =  strtok_r(NULL, "", &saveptr);
     const std::string vrf(vrf_name);
-    TunnelOlist olist;
 
     pugi::xml_node node_check = pugi->FindNode("retract");
     if (!pugi->IsNull(node_check)) {
@@ -356,6 +356,7 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                     return;
                 }
 
+                TunnelOlist olist;
                 //Retract with invalid identifier
                 agent_->oper_db()->multicast()->
                     ModifyFabricMembers(agent_->multicast_tree_builder_peer(),
@@ -413,6 +414,7 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             return;
         }
 
+        TunnelOlist olist;
         std::vector<McastNextHopType>::iterator iter;
         for (iter = item->entry.olist.next_hop.begin();
                 iter != item->entry.olist.next_hop.end(); iter++) {
@@ -2223,6 +2225,8 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     autogen::McastItemType item;
     uint8_t data_[4096];
     size_t datalen_;
+    Inet4MulticastRouteEntry *ip_mc_route =
+                    dynamic_cast<Inet4MulticastRouteEntry *>(route);
 
     if (add_route && (agent_->mulitcast_builder() != this)) {
         CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(),
@@ -2242,7 +2246,11 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     item.entry.nlri.af = BgpAf::IPv4;
     item.entry.nlri.safi = BgpAf::Mcast;
     item.entry.nlri.group = route->GetAddressString();
-    item.entry.nlri.source = "0.0.0.0";
+    if (route->GetTableType() == Agent::INET4_MULTICAST) {
+        item.entry.nlri.source = ip_mc_route->GetSourceAddressString();
+    } else {
+        item.entry.nlri.source = "0.0.0.0";
+    }
 
     autogen::McastNextHopType item_nexthop;
     item_nexthop.af = BgpAf::IPv4;
@@ -2312,6 +2320,114 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     // send data
     SendUpdate(data_,datalen_);
     end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec(); 
+    return true;
+}
+
+bool AgentXmppChannel::ControllerSendIPMcastRouteCommon(AgentRoute *route,
+                                                      bool add_route) {
+    if (agent_->fabric_policy_vrf_name() != route->vrf()->GetName()) {
+        return ControllerSendMvpnRouteCommon(route, add_route);
+    } else {
+        return ControllerSendMcastRouteCommon(route, add_route);
+    }
+}
+
+bool AgentXmppChannel::ControllerSendMvpnRouteCommon(AgentRoute *route,
+                                                      bool add_route) {
+    static int id = 0;
+    MvpnItemType item;
+    uint8_t data_[4096];
+    size_t datalen_;
+    Inet4MulticastRouteEntry *ip_mc_route =
+                    dynamic_cast<Inet4MulticastRouteEntry *>(route);
+
+    if (add_route && (agent_->mulitcast_builder() != this)) {
+        CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(),
+                                    route->vrf()->GetName(),
+                                    "Peer not elected Multicast Tree Builder");
+        return false;
+    }
+
+    CONTROLLER_INFO_TRACE(McastSubscribe, GetBgpPeerName(),
+                                route->vrf()->GetName(), " ",
+                                route->ToString());
+
+    //Build the DOM tree
+    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+
+    item.entry.nlri.af = BgpAf::IPv4;
+    item.entry.nlri.safi = BgpAf::MVpn;
+    item.entry.nlri.group = route->GetAddressString();
+    item.entry.nlri.source = ip_mc_route->GetSourceAddressString();
+    item.entry.nlri.route_type = 7;
+
+    item.entry.next_hop.af = BgpAf::IPv4;
+    string rtr(agent_->router_id().to_string());
+    item.entry.next_hop.address = rtr;
+    item.entry.next_hop.label = 0;
+
+    //Build the pugi tree
+    pugi->AddNode("iq", "");
+    pugi->AddAttribute("type", "set");
+    pugi->AddAttribute("from", channel_->FromString());
+    std::string to(channel_->ToString());
+    to += "/";
+    to += XmppInit::kBgpPeer;
+    pugi->AddAttribute("to", to);
+
+    std::string pubsub_id("pubsub_b");
+    stringstream str_id;
+    str_id << id;
+    pubsub_id += str_id.str();
+    pugi->AddAttribute("id", pubsub_id);
+
+    pugi->AddChildNode("pubsub", "");
+    pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
+    pugi->AddChildNode("publish", "");
+    stringstream ss_node;
+    ss_node << item.entry.nlri.af << "/"
+            << item.entry.nlri.safi << "/"
+            << route->vrf()->GetExportName() << "/"
+            << route->GetAddressString();
+    std::string node_id(ss_node.str());
+    pugi->AddAttribute("node", node_id);
+    pugi->AddChildNode("item", "");
+
+    pugi::xml_node node = pugi->FindNode("item");
+
+    //Call Auto-generated Code to encode the struct
+    item.Encode(&node);
+
+    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    // send data
+    SendUpdate(data_,datalen_);
+
+
+    pugi->DeleteNode("pubsub");
+    pugi->ReadNode("iq");
+
+    stringstream collection_id;
+    collection_id << "collection" << id++;
+    pugi->ModifyAttribute("id", collection_id.str());
+    pugi->AddChildNode("pubsub", "");
+    pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
+    pugi->AddChildNode("collection", "");
+
+    pugi->AddAttribute("node", route->vrf()->GetName());
+    if (add_route) {
+        pugi->AddChildNode("associate", "");
+    } else {
+        pugi->AddChildNode("dissociate", "");
+    }
+    pugi->AddAttribute("node", node_id);
+
+    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+
+    // send data for BgpAf::Mvpn
+    SendUpdate(data_,datalen_);
+
+    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
 
@@ -2466,6 +2582,11 @@ bool AgentXmppChannel::ControllerSendMcastRouteAdd(AgentXmppChannel *peer,
     CONTROLLER_INFO_TRACE(RouteExport, peer->GetBgpPeerName(),
                                 route->vrf()->GetName(),
                                 route->ToString(), true, 0);
+
+    if (route->GetTableType() == Agent::INET4_MULTICAST) {
+        return peer->ControllerSendIPMcastRouteCommon(route, true);
+    }
+
     return peer->ControllerSendMcastRouteCommon(route, true);
 }
 
@@ -2476,6 +2597,10 @@ bool AgentXmppChannel::ControllerSendMcastRouteDelete(AgentXmppChannel *peer,
     CONTROLLER_INFO_TRACE(RouteExport, peer->GetBgpPeerName(),
                                 route->vrf()->GetName(),
                                 route->ToString(), false, 0);
+
+    if (route->GetTableType() == Agent::INET4_MULTICAST) {
+        return peer->ControllerSendIPMcastRouteCommon(route, false);
+    }
 
     return peer->ControllerSendMcastRouteCommon(route, false);
 }

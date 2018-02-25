@@ -30,14 +30,28 @@ public:
                            const string &interface_name,
                            const Ip4Address &addr,
                            bool policy);
+    Inet4MulticastRouteEntry *FindRoute(const Ip4Address &grp_addr,
+                            const Ip4Address &src_addr);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static void AddMulticastRoute(const string &vn_name, const string &vrf_name,
                                   const Ip4Address &src_addr,
                                   const Ip4Address &grp_addr,
                                   ComponentNHKeyList &component_nh_key_list);
+    static void AddMulticastRoute(const Peer *peer,
+                                  const string &vrf_name,
+                                  const Ip4Address &src_addr,
+                                  const Ip4Address &grp_addr,
+                                  uint32_t ethernet_tag,
+                                  AgentRouteData *data);
     static void DeleteMulticastRoute(const string &vrf_name, 
                                      const Ip4Address &src_addr,
                                      const Ip4Address &grp_addr); 
+    static void DeleteMulticastRoute(const Peer *peer,
+                                     const string &vrf_name,
+                                     const Ip4Address &src_addr,
+                                     const Ip4Address &grp_addr,
+                                     uint32_t ethernet_tag,
+                                     COMPOSITETYPE type);
     static void Delete(const string &vrf_name, const Ip4Address &src_addr,
                        const Ip4Address &grp_addr);
 private:
@@ -57,13 +71,20 @@ public:
     virtual string ToString() const;
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
+    virtual bool ReComputePathAdd(AgentPath *path);
+    virtual bool ReComputePathDeletion(AgentPath *path);
     virtual const string GetAddressString() const {
         return dst_addr_.to_string();
+    }
+    virtual const string GetSourceAddressString() const {
+        return src_addr_.to_string();
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::INET4_MULTICAST;
     }
+    bool DBEntrySandesh(Sandesh *sresp, const Ip4Address &src_addr,
+                            const Ip4Address &dst_addr, bool stale) const;
 
     void set_dest_ip_addr(const Ip4Address &dst) {dst_addr_ = dst;}
     void set_src_ip_addr(const Ip4Address &src) {src_addr_ = src;}
@@ -78,22 +99,32 @@ private:
 
 class Inet4MulticastRouteKey : public AgentRouteKey {
 public:
+    Inet4MulticastRouteKey(const Peer *peer, const string &vrf_name,
+                           const Ip4Address &dip,
+                           const Ip4Address &sip,
+                           uint32_t ethernet_tag) :
+        AgentRouteKey(peer, vrf_name),
+        dip_(dip), sip_(sip), ethernet_tag_(ethernet_tag) {
+    }
     Inet4MulticastRouteKey(const string &vrf_name,const Ip4Address &dip, 
                            const Ip4Address &sip) :
         AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name),
         dip_(dip), sip_(sip) {
+        ethernet_tag_ = 0;
     }
     Inet4MulticastRouteKey(const string &vrf_name, const Ip4Address &dip) :
         AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name),
         dip_(dip) { 
         boost::system::error_code ec;
         sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
+        ethernet_tag_ = 0;
     }
     Inet4MulticastRouteKey(const string &vrf_name) : 
         AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name) {
             boost::system::error_code ec;
             dip_ =  IpAddress::from_string("255.255.255.255", ec).to_v4();
             sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
+            ethernet_tag_ = 0;
     }
     virtual ~Inet4MulticastRouteKey() { }
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
@@ -109,6 +140,10 @@ public:
 private:
     Ip4Address dip_;
     Ip4Address sip_;
+    //TODO retained only for multicast route. Once multicast route shift to
+    //evpn table this will go off.
+    // from bridge_route.h
+    uint32_t ethernet_tag_;
     DISALLOW_COPY_AND_ASSIGN(Inet4MulticastRouteKey);
 };
 
