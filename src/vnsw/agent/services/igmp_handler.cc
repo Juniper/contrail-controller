@@ -45,7 +45,7 @@ bool IgmpHandler::HandleVmIgmpPacket() {
 
     if (pkt_info_->len <
                 (sizeof(struct ether_header) + ntohs(pkt_info_->ip->ip_len))) {
-        return false;
+        return true;
     }
 
     iphlen = (pkt_info_->ip->ip_hl << 2);

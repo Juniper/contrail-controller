@@ -167,6 +167,9 @@ public:
     virtual const std::string GetAddressString() const {
         return mac_.ToString();
     }
+    virtual const std::string GetSourceAddressString() const {
+        return (MacAddress::kZeroMac).ToString();
+    }
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::EVPN;
     }

@@ -109,6 +109,7 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
     virtual const std::string GetAddressString() const;
+    virtual const std::string GetSourceAddressString() const;
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::BRIDGE;
     }
@@ -122,17 +123,10 @@ public:
     const MacVmBindingPath *FindMacVmBindingPath() const;
 
 private:
-    void HandleMulticastLabel(const Agent *agent,
-                              AgentPath *path,
-                              const AgentPath *local_peer_path,
-                              const AgentPath *local_vm_peer_path,
-                              bool del, uint32_t *evpn_label);
-    bool ReComputeMulticastPaths(AgentPath *path, bool del);
     AgentPath *FindEvpnPathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data) const;
     AgentPath *FindMulticastPathUsingKeyData(const AgentRouteKey *key,
                                              const AgentRouteData *data) const;
-    void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
 
     MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);
