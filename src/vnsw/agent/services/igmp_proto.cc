@@ -5,6 +5,8 @@
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
 #include "oper/vn.h"
+#include "oper/route_common.h"
+#include "oper/multicast.h"
 #include "services/igmp_proto.h"
 
 IgmpProto::IgmpProto(Agent *agent, boost::asio::io_service &io) :
@@ -24,14 +26,14 @@ void IgmpProto::IgmpProtoInit(void) {
     work_queue_.SetSize(agent_->params()->services_queue_limit());
     work_queue_.SetBounded(true);
 
-    iid_ = agent_->interface_table()->Register(
-            boost::bind(&IgmpProto::ItfNotify, this, _1, _2));
-
     gmp_proto_ = GmpProtoManager::CreateGmpProto(GmpType::IGMP, agent_,
                                     task_name_, PktHandler::IGMP, io_);
     if (gmp_proto_) {
         gmp_proto_->Start();
     }
+
+    iid_ = agent_->interface_table()->Register(
+            boost::bind(&IgmpProto::ItfNotify, this, _1, _2));
 
     ClearStats();
 }
@@ -68,6 +70,11 @@ void IgmpProto::ItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     if (itf->IsDeleted()) {
         if (mif_state) {
             gmp_proto_->DeleteIntf(mif_state->gmp_intf_);
+            if (agent_->oper_db()->multicast()) {
+                agent_->oper_db()->multicast()->DeleteVmInterfaceFromSourceGroup(
+                                    agent_->fabric_policy_vrf_name(),
+                                    mif_state->vrf_name_, vm_itf);
+            }
             entry->ClearState(part->parent(), iid_);
             itf_attach_count_--;
             delete mif_state;
@@ -84,7 +91,14 @@ void IgmpProto::ItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     }
 
     if (mif_state && mif_state->gmp_intf_) {
-        mif_state->gmp_intf_->SetIpAddress(vm_itf->primary_ip_addr());
+        mif_state->gmp_intf_->set_ip_address(vm_itf->primary_ip_addr());
+        if (vm_itf->vrf()) {
+            mif_state->gmp_intf_->set_vrf_name(vm_itf->vrf()->GetName());
+        }
+    }
+
+    if (vm_itf->vrf()) {
+        mif_state->vrf_name_ = vm_itf->vrf()->GetName();
     }
 }
 
