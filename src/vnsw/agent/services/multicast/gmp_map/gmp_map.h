@@ -61,8 +61,8 @@ extern void gmp_group_notify(mgm_global_data *gd, gmp_intf *gif,
                             gmp_addr_string group);
 extern void gmp_cache_resync_notify(mgm_global_data *gd, gmp_intf *gif,
                             gmp_addr_string source, gmp_addr_string group);
-extern void gmp_host_update(mgm_global_data *gd, gmp_intf *intf,
+extern void gmp_host_update(mgm_global_data *gd, gmp_intf *intf, boolean join,
                             gmp_addr_string host, gmp_addr_string source,
-                            gmp_addr_string group, boolean join_leave);
+                            gmp_addr_string group);
 
 #endif /* vnsw_agent_gmp_map_h */

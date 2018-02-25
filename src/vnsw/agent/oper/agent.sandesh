@@ -1045,6 +1045,10 @@ request sandesh Inet4McRouteReq {
     1: i32 vrf_index = 0;
     /** Boolean value which indicates to display stale multicast routes */
     2: bool stale = 0;
+    /** Source Ip address of unicast route */
+    3: string src_ip;
+    /** Group Ip address of unicast route */
+    4: string grp_ip;
 }
 
 /**
@@ -2382,6 +2386,24 @@ trace sandesh MulticastLog {
     3: string dst_ip;
     /** Label of multicast entry */
     4: i32 label;
+}
+
+/**
+ * @description: log for multicast
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh MulticastLogSG {
+    /** Message for multicast entry */
+    1: string message;
+    /** Name of vrf associated with multicast entry */
+    2: string vrf_name;
+    /** Source ip address of multicast entry */
+    3: string src_ip;
+    /** Destination ip address of multicast entry */
+    4: string dst_ip;
+    /** Label of multicast entry */
+    5: i32 label;
 }
 
 /**

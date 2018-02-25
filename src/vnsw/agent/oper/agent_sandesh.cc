@@ -449,8 +449,11 @@ void AgentInet4McRtSandesh::Alloc() {
 }
 
 bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
-    AgentRoute *rt = static_cast<AgentRoute *>(entry);
-    return rt->DBEntrySandesh(resp_, stale_);
+    Inet4MulticastRouteEntry *rt = static_cast<Inet4MulticastRouteEntry *>(entry);
+    if (dump_table_) {
+        return rt->DBEntrySandesh(resp_, stale_);
+    }
+    return rt->DBEntrySandesh(resp_, src_addr_, grp_addr_, stale_);
 }
 
 DBTable *AgentEvpnRtSandesh::AgentGetTable() {

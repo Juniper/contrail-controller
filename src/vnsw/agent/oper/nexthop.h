@@ -1053,11 +1053,7 @@ public:
             return flags_ < key.flags_;
         }
 
-        if (flags_ == InterfaceNHFlags::INET4 ||
-            flags_ == InterfaceNHFlags::INET6) {
-            return dmac_ < key.dmac_;
-        }
-        return false;
+        return dmac_ < key.dmac_;
     }
 
 private:
@@ -1123,6 +1119,7 @@ public:
                                              const string &vrf_name,
                                              const string &intf_name);
     static void DeleteMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                             const MacAddress &dmac,
                                              const std::string &intf_name);
     static void CreateL2VmInterfaceNH(const uuid &intf_uuid,
                                       const MacAddress &dmac,
