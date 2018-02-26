@@ -20,23 +20,29 @@ using namespace boost;
 class RoutingInstanceMgrTest : public ::testing::Test {
 protected:
     RoutingInstanceMgrTest() : server_(&evm_) {
+        char   value[100];
+
         // Intialize the environmental variables for this test prior to 
         // the creation of the Routing Instance Manager
         buffer_capacity_str_ = getenv(
                 "CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE");
         buffer_threshold_str_ = getenv(
                 "CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD");
-        size_t dormant_trace_buf_size = TEST_DORMANT_TRACE_BUFFER_SIZE;
+        if (!buffer_capacity_str_) {
+            size_t dormant_trace_buf_size = TEST_DORMANT_TRACE_BUFFER_SIZE;
+            
+            snprintf(value, sizeof(value), "%zu", dormant_trace_buf_size);
+            setenv("CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE",
+                    value, true);
+        }
 
-        char   value[100];
-        snprintf(value, sizeof(value), "%zu", dormant_trace_buf_size);
-        setenv("CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE",
-                value, true);
+        if (!buffer_threshold_str_) {
+            size_t trace_buf_threshold = TEST_DORMANT_TRACE_BUFFER_THRESHOLD;
 
-        size_t trace_buf_threshold = TEST_DORMANT_TRACE_BUFFER_THRESHOLD;
-        snprintf(value, sizeof(value), "%zu", trace_buf_threshold);
-        setenv("CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD",
-                value, true);
+            snprintf(value, sizeof(value), "%zu", trace_buf_threshold);
+            setenv("CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD",
+                    value, true);
+        }
 
         ri_mgr_ = server_.routing_instance_mgr();
     }
@@ -124,6 +130,14 @@ protected:
 
     size_t GetRoutingInstanceDormantTraceBufSize() {
         return ri_mgr_->GetRoutingInstanceDormantTraceBufSize();
+    }
+
+    size_t GetRoutingInstanceDormantTraceBufferCapacity() {
+        return ri_mgr_->GetRoutingInstanceDormantTraceBufferCapacity();
+    }
+
+    size_t GetRoutingInstanceDormantTraceBufferThreshold() {
+        return ri_mgr_->GetRoutingInstanceDormantTraceBufferThreshold();
     }
 
     bool HasRoutingInstanceActiveTraceBuf(const string &name) {
@@ -519,6 +533,11 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
     SandeshTraceBufferPtr   trace_buf;
     size_t active_tracebuf_count, dormant_tracebuf_count;
 
+    size_t dormant_tracebuf_capacity = 
+        GetRoutingInstanceDormantTraceBufferCapacity();
+    size_t dormant_tracebuf_threshold = 
+        GetRoutingInstanceDormantTraceBufferThreshold();
+
     ri1_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#1"));
     
     scoped_ptr<BgpInstanceConfigTest> ri2_cfg;
@@ -557,34 +576,50 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
     DeleteRoutingInstance(ri1_cfg.get());
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
-    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
-    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+    if (dormant_tracebuf_capacity) {
+        TASK_UTIL_EXPECT_EQ(true, 
+                HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+        TASK_UTIL_EXPECT_EQ(false, 
+                HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+        TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 1),
+                GetRoutingInstanceDormantTraceBufSize());
+        TASK_UTIL_EXPECT_EQ(trace_buf, GetDormantTraceBuffer("TestRi#1"));
+    } else {
+        TASK_UTIL_EXPECT_EQ(false,
+                HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+    }
     TASK_UTIL_EXPECT_EQ((active_tracebuf_count + 1),
-                                 GetRoutingInstanceActiveTraceBufSize());
-    TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 1),
-                                 GetRoutingInstanceDormantTraceBufSize());
-    TASK_UTIL_EXPECT_EQ(trace_buf, GetDormantTraceBuffer("TestRi#1"));
+                GetRoutingInstanceActiveTraceBufSize());
 
     DeleteRoutingInstance(ri2_cfg.get());
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
-    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
-    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+
+    if (dormant_tracebuf_capacity) {
+        TASK_UTIL_EXPECT_EQ(true,
+                HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+        TASK_UTIL_EXPECT_EQ(true,
+                HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+        TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 2),
+                GetRoutingInstanceDormantTraceBufSize());
+    }
     TASK_UTIL_EXPECT_EQ(active_tracebuf_count, GetRoutingInstanceActiveTraceBufSize());
-    TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 2),
-                               GetRoutingInstanceDormantTraceBufSize());
     
     CreateRoutingInstance(ri1_cfg.get());
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
-    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
-    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
     TASK_UTIL_EXPECT_EQ((active_tracebuf_count + 1), 
                               GetRoutingInstanceActiveTraceBufSize());
-    TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 1),
-                              GetRoutingInstanceDormantTraceBufSize());
     TASK_UTIL_EXPECT_EQ(trace_buf, GetActiveTraceBuffer("TestRi#1"));
-    TASK_UTIL_EXPECT_NE(trace_buf, GetDormantTraceBuffer("TestRi#1"));
+    if (dormant_tracebuf_capacity) {
+        TASK_UTIL_EXPECT_EQ(false,
+                HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+        TASK_UTIL_EXPECT_EQ(true,
+                HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+        TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 1),
+                GetRoutingInstanceDormantTraceBufSize());
+        TASK_UTIL_EXPECT_NE(trace_buf, GetDormantTraceBuffer("TestRi#1"));
+    }
 
     CreateRoutingInstance(ri2_cfg.get());
     CreateRoutingInstance(ri3_cfg.get());
@@ -598,18 +633,30 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
     DeleteRoutingInstance(ri1_cfg.get());
     DeleteRoutingInstance(ri2_cfg.get());
     DeleteRoutingInstance(ri3_cfg.get());
-    TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 3),
-                              GetRoutingInstanceDormantTraceBufSize());
-    // reaching dormant max capacity
+
+    if (dormant_tracebuf_capacity) {
+        TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 3),
+                GetRoutingInstanceDormantTraceBufSize());
+    }
     DeleteRoutingInstance(ri4_cfg.get());
-    DeleteRoutingInstance(ri5_cfg.get());
-    // checking with threshold
-    TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 3),
-                              GetRoutingInstanceDormantTraceBufSize());
-    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
-    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
-    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#3"));
-    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#4"));
+    if (dormant_tracebuf_capacity == 4) {
+        // reaching dormant max capacity
+        DeleteRoutingInstance(ri5_cfg.get());
+
+        // checking with threshold
+        if (dormant_tracebuf_threshold) {
+            TASK_UTIL_EXPECT_EQ(dormant_tracebuf_capacity,
+                    (GetRoutingInstanceDormantTraceBufSize() +
+                     dormant_tracebuf_threshold - 1));
+        } else {
+            TASK_UTIL_EXPECT_EQ(dormant_tracebuf_capacity,
+                    GetRoutingInstanceDormantTraceBufSize());
+        }
+        TASK_UTIL_EXPECT_EQ(false,
+                HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+        TASK_UTIL_EXPECT_EQ(true,
+                HasRoutingInstanceDormantTraceBuf("TestRi#5"));
+    }
 
     if (set_log_disable == true) {
         SetLoggingDisabled(true);
@@ -619,7 +666,6 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
         setenv("CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE",
                 buffer_capacity_str_, true);
     }
-
     if (buffer_threshold_str_) {
         setenv("CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD",
                 buffer_threshold_str_, true);
