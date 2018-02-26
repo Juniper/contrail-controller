@@ -85,6 +85,11 @@ bool MplsLabel::ChangeInternal(const DBRequest *req) {
         DiscardNH key;
         nh = static_cast<NextHop *>(nh_table->FindActiveEntry(&key));
     }
+
+    if (IsFabricMulticastReservedLabel()) {
+        fmg_nh_list_[data->vrf_name()] = nh;
+    }
+
     return ChangeNH(nh);
 }
 
@@ -108,7 +113,8 @@ void MplsLabel::SyncDependentPath() {
 }
 
 bool MplsLabel::IsFabricMulticastReservedLabel() const {
-    MplsTable *table = static_cast<MplsTable *>(get_table());
+    //MplsTable *table = static_cast<MplsTable *>(get_table());
+    MplsTable *table = static_cast<MplsTable *>(agent_->mpls_table());
     return table->IsFabricMulticastLabel(label_);
 }
 
@@ -239,12 +245,18 @@ uint32_t MplsTable::AllocLabel(ResourceManager::KeyPtr key) {
 
 //Free label from resource manager and delete db entry
 void MplsTable::FreeLabel(uint32_t label) {
+    FreeLabel(label, std::string());
+}
+
+void MplsTable::FreeLabel(uint32_t label, const std::string &vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     MplsLabelKey *key = new MplsLabelKey(label);
+    MplsLabelData *data = new MplsLabelData(NULL);
+    data->set_vrf_name(vrf_name);
     req.key.reset(key);
-    req.data.reset(NULL);
+    req.data.reset(data);
 
     Process(req);
 }
@@ -270,7 +282,19 @@ bool MplsTable::OnChange(DBEntry *entry, const DBRequest *req) {
 }
 
 bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
+    MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
     MplsLabel *mpls = static_cast<MplsLabel *>(entry);
+    if (IsFabricMulticastLabel(mpls->label())) {
+        mpls->fmg_nh_list().erase(data->vrf_name());
+        if (mpls->fmg_nh_list().empty() == false) {
+            if (mpls->ChangeNH(mpls->fmg_nh_list().begin()->second)) {
+                DBTablePartBase *tpart =
+                    static_cast<DBTablePartition *>(GetTablePartition(mpls));
+                tpart->Notify(mpls);
+            }
+            return false;
+        }
+    }
     mpls->Delete(req);
     return true;
 }
@@ -305,6 +329,7 @@ uint32_t MplsTable::CreateRouteLabel(uint32_t label, const NextHopKey *nh_key,
     req.key.reset(key);
 
     MplsLabelData *data = new MplsLabelData(nh_key->Clone());
+    data->set_vrf_name(vrf_name);
     req.data.reset(data);
 
     Process(req);
