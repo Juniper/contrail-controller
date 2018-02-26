@@ -75,9 +75,7 @@ class JobResultHandler(object):
         # generate job result summary
         self._job_result_message = self.create_job_summary_message()
         # create the job log
-        self._job_utils.send_job_log(self._job_result_message,
-                                     self._job_result_status,
-                                     timestamp=timestamp)
+        self._logger.debug("%s" % self._job_result_message)
 
     def create_job_summary_message(self):
         try:
