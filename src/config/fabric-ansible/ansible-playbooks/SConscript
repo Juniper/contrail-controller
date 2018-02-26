@@ -49,3 +49,10 @@ sdist_gen = env.Command('dist/job_manager-0.1dev.tar.gz', 'setup.py', cd_cmd + '
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
+
+install_cmd = env.Install(env['INSTALL_BIN'],
+   env['TOP'] + '/config/fabric-ansible/ansible-playbooks/dist/fabric_ansible_playbooks-0.1dev.tar.gz')
+
+env.Alias('install', install_cmd)
+env.Depends(install_cmd, sdist_gen)
+
