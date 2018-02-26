@@ -32,12 +32,12 @@ class RunTestsCommand(Command):
                 os._exit(1)
 
 setup(
-    name='job_manager',
+    name='fabric_ansible',
     version='0.1dev',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
-    long_description="Job Manager",
+    long_description="Fabric Ansible",
     entry_points = {
          # Please update sandesh/common/vns.sandesh on process name change
          'console_scripts' : [
