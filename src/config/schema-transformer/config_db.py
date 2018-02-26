@@ -1613,6 +1613,7 @@ class NetworkPolicyST(DBBaseST):
         self.referred_policies = set()
         # policies referring to this policy as src or dst
         self.update(obj)
+        self.has_subnet_only_rules = True
         for vn_ref in self.obj.get_virtual_network_back_refs() or []:
             vn_name = ':'.join(vn_ref['to'])
             self.virtual_networks.add(vn_name)
@@ -1624,6 +1625,16 @@ class NetworkPolicyST(DBBaseST):
         self.network_policys = NetworkPolicyST._network_policys.get(name, set())
         self.update_multiple_refs('security_logging_object', self.obj)
     # end __init__
+
+
+    def update_subnet_only_rules(self):
+        for rule in self.rules:
+            for address in itertools.chain(rule.src_addresses,
+                                           rule.dst_addresses):
+                if (address.virtual_network not in (None, 'local') or
+                    address.network_policy):
+                    self.has_subnet_only_rules = False
+    # end update_subnet_only_rules
 
     def set_internal(self):
         self.internal = True
@@ -1694,6 +1705,7 @@ class NetworkPolicyST(DBBaseST):
                 policy.network_policys = policy_set
         self.referred_policies = np_set
         self.update_service_instances(si_set)
+        self.update_subnet_only_rules()
         return True
     # end add_rules
 

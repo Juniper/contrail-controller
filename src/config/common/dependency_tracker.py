@@ -31,6 +31,12 @@ class DependencyTracker(object):
         return True
     # end _add_resource
 
+    def skip_obj_evaluate(self, ref_type, from_type, obj):
+        if ref_type == "virtual_network" and from_type == "self":
+            return getattr(obj, "has_subnet_only_rules", False)
+        return False
+    # end skip_obj_evaluate
+
     def evaluate(self, obj_type, obj, from_type='self'):
         if obj_type not in self._reaction_map:
             return
@@ -38,6 +44,8 @@ class DependencyTracker(object):
             return
 
         for ref_type in self._reaction_map[obj_type][from_type]:
+            if self.skip_obj_evaluate(ref_type, from_type, obj) == True:
+                continue
             ref = getattr(obj, ref_type, None)
             if ref is None:
                 refs = getattr(obj, ref_type+'s', [])
