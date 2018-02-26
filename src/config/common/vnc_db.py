@@ -429,4 +429,7 @@ class DBBase(object):
         except NoIdError:
             return None
 
+    def skip_evaluate(self, from_type, ref_type):
+        return False
+    #end skip_evaluate
 # end class DBBase
