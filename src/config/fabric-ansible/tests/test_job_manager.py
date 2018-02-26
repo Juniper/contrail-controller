@@ -55,7 +55,7 @@ class TestJobManager(test_case.JobTestCase):
         execution_id = uuid.uuid4()
         job_input_json = {"job_template_id": job_template_uuid,
                           "input": {"playbook_data": "some playbook data"},
-                          "execution_id": str(execution_id)}
+                          "job_execution_id": str(execution_id)}
         sandesh_logger = initialize_sandesh_logger()
         jm = JobManager(sandesh_logger, self._vnc_lib, job_input_json)
         jm.start_job()
