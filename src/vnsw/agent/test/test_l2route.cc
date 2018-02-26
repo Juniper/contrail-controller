@@ -1726,6 +1726,145 @@ TEST_F(RouteTest, label_in_evpn_mcast_path) {
     bgp_peer.reset();
 }
 
+TEST_F(RouteTest, test_ntt) {
+    client->Reset();
+    AddVrf("vrf1");
+    AddVn("vn1", 1);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    agent_->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
+                                                                   oper_db()->multicast());
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::MplsType()));
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist, 1);
+    client->WaitForIdle();
+    //MulticastGroupObject *obj =
+    //    mc_handler->FindFloodGroupObject("vrf1");
+    //uint32_t evpn_label = obj->evpn_mpls_label();
+    //EXPECT_FALSE(FindMplsLabel(MplsLabel::MCAST_NH, evpn_label));
+
+    //Delete remote paths
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist,
+                                    ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    TunnelOlist del_olist;
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 del_olist,
+                                 10,
+                                 ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 del_olist,
+                                 10,
+                                 ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+
+    DeleteBgpPeer(bgp_peer_ptr);
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, test_fmg_label_1) {
+    client->Reset();
+    AddVrf("vrf1");
+   AddVn("vn1", 1);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    AddVrf("vrf2");
+    AddVn("vn2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+   client->WaitForIdle();
+    //Add a peer and enqueue path add in multicast route.
+    agent_->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
+                                                                   oper_db()->multicast());
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::MplsType()));
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist, 1);
+    client->WaitForIdle();
+    MplsLabel *label_entry =
+        Agent::GetInstance()->mpls_table()->FindMplsLabelUsingKey(4100);
+    const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(label_entry->
+                                                               nexthop());
+   EXPECT_TRUE(label_entry != NULL);
+    EXPECT_TRUE(cnh->vrf()->GetName() == "vrf1");
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf2",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist, 1);
+    client->WaitForIdle();
+    label_entry =
+        Agent::GetInstance()->mpls_table()->FindMplsLabelUsingKey(4100);
+    cnh = dynamic_cast<const CompositeNH *>(label_entry->nexthop());
+    EXPECT_TRUE(label_entry != NULL);
+
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf2",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist,
+                                    ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    label_entry =
+        Agent::GetInstance()->mpls_table()->FindMplsLabelUsingKey(4100);
+    EXPECT_TRUE(label_entry != NULL);
+    //Start cleaning
+    //Delete remote paths
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist,
+                                    ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVrf("vrf1");
+    DelVn("vn1");
+    DelVrf("vrf2");
+    DelVn("vn2");
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
