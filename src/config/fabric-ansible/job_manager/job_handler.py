@@ -23,15 +23,16 @@ from job_exception import JobException
 class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
-                 params, job_utils):
+                 params, job_utils, device_json, auth_token):
         self._logger = logger
-        self._sandesh = logger._sandesh
         self._vnc_api = vnc_api
         self._job_template = job_template
         self._execution_id = execution_id
         self._job_input = input
         self._job_params = params
         self._job_utils = job_utils
+        self._device_json = device_json
+        self._auth_token = auth_token
 
     def handle_job(self, result_handler):
         msg = "Starting playbook execution for job template %s with " \
@@ -99,11 +100,28 @@ class JobHandler(object):
                 {'job_template_id': self._job_template.get_uuid()})
             extra_vars.update({'device_id': device_id})
             extra_vars.update({'device_family': device_family})
+            extra_vars.update({'auth_token': self._auth_token})
+            extra_vars.update({'job_execution_id': self._execution_id})
             extra_vars.update({'vendor': play_info.vendor})
+            if self._device_json is not None:
+                device_data = self._device_json.get(device_id)
+                if device_data is not None:
+                    extra_vars.update({
+                        'device_management_ip':
+                            device_data.get('device_management_ip')})
+                    extra_vars.update({
+                        'device_username': device_data.get('device_username')})
+                    extra_vars.update({
+                        'device_password': device_data.get('device_password')})
+                    extra_vars.update({
+                        'device_fqname': device_data.get('device_fqname')})
+                    self._logger.debug("Passing the following device "
+                                       "ip to playbook %s " % device_data.get(
+                                        'device_management_ip'))
             playbook_input = {'playbook_input': extra_vars}
 
             playbook_info = dict()
-            playbook_info.update({'uri': play_info.playbook_url})
+            playbook_info.update({'uri': play_info.playbook_uri})
             playbook_info.update({'extra_vars': playbook_input})
 
             return playbook_info
@@ -128,7 +146,6 @@ class JobHandler(object):
                    json.dumps(playbook_info['extra_vars']['playbook_input']
                               ['params']))
             self._logger.debug(msg)
-            self._job_utils.send_job_log(msg, JobStatus.IN_PROGRESS)
 
             if not os.path.exists(playbook_info['uri']):
                 raise JobException("Playbook %s does not "
@@ -182,7 +199,6 @@ class JobHandler(object):
                                   playbook_info['extra_vars']['playbook_input']
                                   ['device_id'])
             self._logger.debug(msg)
-            self._job_utils.send_job_log(msg, JobStatus.IN_PROGRESS)
 
             return output
         except Exception as e:
