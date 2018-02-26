@@ -58,7 +58,7 @@ class JobManager(object):
             raise Exception("job_execution_id is missing in the job input")
 
         self.job_template_id = job_input_json['job_template_id']
-        self.job_execution_id = job_input_json['execution_id']
+        self.job_execution_id = job_input_json['job_execution_id']
 
         self.job_data = job_input_json.get('input')
         if self.job_data is None:
@@ -99,7 +99,7 @@ class JobManager(object):
             self.job_utils.send_job_execution_uve(timestamp, 100)
             result_handler.create_job_summary_log(timestamp)
         except JobException as e:
-            self.mark_job_failure(e.message, self.job_execution_id)
+            self.mark_job_failure(e.message)
         except Exception as e:
             self._logger.error("Error while executing job %s " % repr(e))
             self._logger.error(traceback.print_stack())
