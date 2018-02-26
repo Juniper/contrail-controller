@@ -75,9 +75,7 @@ class JobResultHandler(object):
         # generate job result summary
         self._job_result_message = self.create_job_summary_message()
         # create the job log
-        self._job_utils.send_job_log(self._job_result_message,
-                                     self._job_result_status,
-                                     timestamp=timestamp)
+        self._logger.debug("%s" % self._job_result_message)
 
     def create_job_summary_message(self):
         try:
@@ -95,13 +93,8 @@ class JobResultHandler(object):
             job_summary_message += "Detailed job results: \n"
             result_summary = ""
             for entry in self._job_result:
-                if entry == self.DUMMY_DEVICE_ID:
-                    result_summary += self._job_result[
-                        self.DUMMY_DEVICE_ID].message
-                else:
-                    result_summary += \
-                        "%s:%s \n" % (entry, self._job_result[
-                            self.DUMMY_DEVICE_ID].message)
+                result_summary += \
+                     "%s:%s \n" % (entry, self._job_result[entry].message)
             job_summary_message += result_summary
 
             return job_summary_message
