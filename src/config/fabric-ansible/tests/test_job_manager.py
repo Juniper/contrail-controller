@@ -16,7 +16,8 @@ from vnc_api.vnc_api import *
 sys.path.append('../common/tests')
 from test_utils import *
 import test_case
-from job_mgr import JobManager, initialize_sandesh_logger
+from job_mgr import JobManager
+from logger import JobLogger
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -55,9 +56,10 @@ class TestJobManager(test_case.JobTestCase):
         execution_id = uuid.uuid4()
         job_input_json = {"job_template_id": job_template_uuid,
                           "input": {"playbook_data": "some playbook data"},
-                          "execution_id": str(execution_id)}
-        sandesh_logger = initialize_sandesh_logger()
-        jm = JobManager(sandesh_logger, self._vnc_lib, job_input_json)
+                          "job_execution_id": str(execution_id),
+                          "auth_token": "6e7d7f87faa54fac96a2a28ec752336a"}
+        logger = JobLogger()
+        jm = JobManager(logger, self._vnc_lib, job_input_json)
         jm.start_job()
 
     def mock_play_book_executor(self):
