@@ -231,6 +231,10 @@ class TestBgp(STTestCase, VerifyBgp):
         self.check_rt_is_deleted(name=lr_target)
 
     def test_ibgp_auto_mesh(self):
+        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+                         True, "ibgp_auto_mesh_toggle_test")
+
         # create router1
         r1_name = self.id() + 'router1'
         router1 = self.create_bgp_router(r1_name, 'contrail')
