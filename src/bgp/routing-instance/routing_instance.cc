@@ -73,8 +73,9 @@ RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
             boost::bind(&RoutingInstanceMgr::IdentifierUpdateCallback,
                 this, _1))),
         dormant_trace_buf_size_(
-                GetRoutingInstanceDormantTraceBufferCapacity()),
-        trace_buf_threshold_(GetRoutingInstanceDormantTraceBufferThreshold()),
+                GetEnvRoutingInstanceDormantTraceBufferCapacity()),
+        trace_buf_threshold_(
+                GetEnvRoutingInstanceDormantTraceBufferThreshold()),
         deleter_(new DeleteActor(this)),
         server_delete_ref_(this, server->deleter()) {
     int task_id = TaskScheduler::GetInstance()->GetTaskId("bgp::ConfigHelper");
@@ -768,26 +769,32 @@ void RoutingInstanceMgr::DisableTraceBuffer(const std::string &name) {
     if (iter != trace_buffer_active_.end()) {
         trace_buf = iter->second;
         trace_buffer_active_.erase(iter);
-        if (trace_buffer_dormant_.size() >= dormant_trace_buf_size_){
-            // No room in the Dormant map, so creating by:
-            // 1. Delete oldest entrie(s) in dormant map 
-            // 2. Insert the new entry.
-            for (size_t i = 0; 
-                 i < std::min(trace_buffer_dormant_list_.size(),
-                          trace_buf_threshold_);
-                 i++) {
-                iter = trace_buffer_dormant_.find(
-                        trace_buffer_dormant_list_.front());
-                assert(iter != trace_buffer_dormant_.end());
-                trace_buf_delete = iter->second;
-                trace_buffer_dormant_.erase(iter);
-                trace_buffer_dormant_list_.pop_front();
-                trace_buf_delete.reset();
+        if (dormant_trace_buf_size_) {
+            // Move to Dormant map.
+            if (trace_buffer_dormant_.size() >= dormant_trace_buf_size_) {
+                // Make room in the Dormant map, so creating by:
+                // 1. Delete oldest entries in dormant map 
+                // 2. Insert the new entry.
+                size_t remove_count = std::min(trace_buffer_dormant_list_.size(),
+                                               trace_buf_threshold_);
+                if (!remove_count) {
+                    // retain the latest deleted RI's TraceBuf
+                    remove_count = 1;
+                }
+                for (size_t i = 0; i < remove_count; i++) {
+                    iter = trace_buffer_dormant_.find(
+                            trace_buffer_dormant_list_.front());
+                    assert(iter != trace_buffer_dormant_.end());
+                    trace_buf_delete = iter->second;
+                    trace_buffer_dormant_.erase(iter);
+                    trace_buffer_dormant_list_.pop_front();
+                    trace_buf_delete.reset();
+                }
             }
+            ret = trace_buffer_dormant_.insert(make_pair(name, trace_buf));
+            assert(ret.second == true);
+            trace_buffer_dormant_list_.push_back(name);
         }
-        ret = trace_buffer_dormant_.insert(make_pair(name, trace_buf));
-        assert(ret.second == true);
-        trace_buffer_dormant_list_.push_back(name);
     }
 
     return;
@@ -837,18 +844,19 @@ bool RoutingInstanceMgr::HasRoutingInstanceDormantTraceBuf(const std::string
 }
 
 size_t
-RoutingInstanceMgr::GetRoutingInstanceDormantTraceBufferCapacity() const {
+RoutingInstanceMgr::GetEnvRoutingInstanceDormantTraceBufferCapacity() const {
     char *buffer_capacity_str = getenv(
             "CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE");
+    // return Trace buf capacity 0, if not set in env variable.
     if (buffer_capacity_str) {
         size_t env_buffer_capacity = strtoul(buffer_capacity_str, NULL, 0);
         return env_buffer_capacity;
     } 
-    return ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE_64K;
+    return 0;
 }
 
 size_t
-RoutingInstanceMgr::GetRoutingInstanceDormantTraceBufferThreshold() const {
+RoutingInstanceMgr::GetEnvRoutingInstanceDormantTraceBufferThreshold() const {
     char *buffer_threshold_str = getenv(
             "CONTRAIL_ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD");
     if (buffer_threshold_str) {
