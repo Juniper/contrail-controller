@@ -59,7 +59,7 @@ sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(job_pkg)
-sdist_gen = env.Command('dist/job_manager-0.1dev.tar.gz', 'setup.py', cd_cmd + 'python setup.py sdist')
+sdist_gen = env.Command('dist/fabric_ansible-0.1dev.tar.gz', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
