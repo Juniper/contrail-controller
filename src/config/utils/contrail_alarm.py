@@ -649,6 +649,24 @@ alarm_list = [
                             }
                         }
                     ]
+                },
+                {
+                    "and_list": [
+                        {
+                            "operand1": "XMPPPeerInfo.state_info.state",
+                            "operation": "!=",
+                            "operand2": {
+                                "json_value": "Established"
+                            }
+                        },
+                        {
+                            "operand1": "XMPPPeerInfo.close_reason",
+                            "operation": "!=",
+                            "operand2": {
+                                "json_value": "null"
+                            }
+                        }
+                    ]
                 }
             ]
         },
