@@ -673,6 +673,37 @@ alarm_list = [
                 {
                     "and_list": [
                         {
+                            "operand1": "XmppPeerInfoData.close_reason",
+                            "operation": "!=",
+                            "operand2": {
+                                "json_value": "null"
+                            }
+                        },
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 1,
+        "fq_name": [
+            "default-global-system-config",
+            "system-defined-xmpp-close-reason"
+        ],
+        "id_perms": {
+            "description": "XMPP close reason"
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "control-node"
+            ]
+        }
+    },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
                             "operand1": "NodeStatus.all_core_file_list",
                             "operand2": {
                                 "json_value": "null"
