@@ -37,8 +37,11 @@ from pprint import pformat
 from cStringIO import StringIO
 from vnc_api.utils import AAA_MODE_VALID_VALUES
 # import GreenletProfiler
-
 from cfgm_common import vnc_cgitb
+import subprocess
+import traceback
+import job_manager
+
 from cfgm_common import has_role
 from cfgm_common import _obj_serializer_all
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
@@ -151,6 +154,8 @@ _ACTION_RESOURCES = [
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
     {'uri': '/obj-cache', 'link_name': 'obj-cache',
      'method': 'POST', 'method_name': 'dump_cache'},
+    {'uri': '/execute-job', 'link_name': 'execute-job',
+     'method': 'POST', 'method_name': 'execute_job_http_post'},
 ]
 
 _MANDATORY_PROPS = [
@@ -311,6 +316,89 @@ class VncApiServer(object):
             raise ValueError('Invalid service interface type %s. '
                              'Valid values are: management|left|right|other[0-9]*'
                               % value)
+
+    def execute_job_http_post(self):
+        try:
+            self.config_log("Entered execute-job",
+                            level=SandeshLevel.SYS_NOTICE)
+            request_params = get_request().json
+            msg = "Job Input %s " % json.dumps(request_params)
+            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+            # TODO do any required input validations
+            # TODO - pass the job manager config file from api server config
+
+            # read the device object and pass the necessary data to the job
+            extra_params = request_params.get('params')
+            if extra_params is not None:
+                device_list = extra_params.get('device_list')
+                if device_list is not None:
+                    self.read_device_data(device_list, request_params)
+
+            # generate the job execution id
+            execution_id = uuid.uuid4()
+            request_params.update({'job_execution_id': str(execution_id)})
+
+            # get the auth token
+            auth_token = get_request().get_header('X-Auth-Token')
+            request_params.update({'auth_token': auth_token})
+
+            # create job manager subprocess
+            job_mgr_path = os.path.dirname(
+                job_manager.__file__) + "/job_mgr.py"
+            subprocess.Popen(["python",
+                              job_mgr_path, "-i",
+                              json.dumps(request_params)],
+                             cwd="/", close_fds=True)
+
+            self.config_log("Created job manager process. Execution id: %s" %
+                            execution_id,
+                            level=SandeshLevel.SYS_NOTICE)
+            return {'job_execution_id': str(execution_id)}
+        except cfgm_common.exceptions.HttpError as e:
+            raise e
+        except Exception as e:
+            err_msg = "Error while executing job request: %s" % repr(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+            stack_trace = traceback.print_stack()
+            self.config_log(stack_trace, level=SandeshLevel.SYS_ERR)
+            raise cfgm_common.exceptions.HttpError(501, err_msg)
+
+    def read_device_data(self, device_list, request_params):
+        device_data = dict()
+        for device_id in device_list:
+            db_conn = self._db_conn
+            try:
+                (ok, result) = db_conn.dbe_read(
+                    "physical-router", device_id,
+                    ['physical_router_user_credentials',
+                     'physical_router_management_ip', 'fq_name',
+                     'physical_router_device_family'])
+
+                if not ok:
+                    self.config_object_error(device_id, None,
+                                             "physical-router  ",
+                                             'execute_job', result)
+            except NoIdError as e:
+                raise cfgm_common.exceptions.HttpError(404, str(e))
+            if not ok:
+                raise cfgm_common.exceptions.HttpError(500, result)
+
+            device_json = {"device_management_ip":  result[
+                'physical_router_management_ip']}
+            device_json.update({"device_fqname": result['fq_name']})
+            user_cred = result.get('physical_router_user_credentials')
+            if user_cred:
+                device_json.update({"device_username": user_cred['username']})
+                device_json.update({"device_password":
+                                        user_cred['password']})
+            device_family = result.get("physical_router_device_family")
+            if device_family:
+                device_json.update({"device_family": device_family})
+            device_data.update({device_id: device_json})
+
+        if len(device_data) > 0:
+            request_params.update({"device_json": device_data})
 
     @classmethod
     def _validate_simple_type(cls, type_name, xsd_type, simple_type, value, restrictions=None):
