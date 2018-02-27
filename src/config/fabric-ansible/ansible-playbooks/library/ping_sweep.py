@@ -9,12 +9,12 @@ This file contains implementation of sending ping requests to the list of
 IP addresses defined by subnet
 """
 
+__metaclass__ = type
+
 from ansible.module_utils.basic import AnsibleModule
 import subprocess
 import ipaddress
 import socket
-__metaclass__ = type
-
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
@@ -82,7 +82,7 @@ def main():
     result['reachable_hosts'] = reachable
     result['unreachable_hosts'] = unreachable
     result['job_log_message'] = "Task: PING SWEEP: ping sweep completed." + \
-                                "Reachable hosts are : " + ','.join(reachable)
+        "Reachable hosts are : " + ','.join(reachable)
 
     module.exit_json(**result)
 

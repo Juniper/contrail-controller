@@ -9,6 +9,7 @@
      #- debug:
      #     msg: "{{ item.hostname }}  {{ item.username }} {{ item.password }}"
      #  with_items: "{{ successful_connections.ssh_success }}"
+     - debug: var=successful_connections.job_log_message
 
      - name: list
        vnc_db_mod:
@@ -19,6 +20,7 @@
               "filters": {"physical_router_management_ip":"{{ item.hostname }}"}
            }
          auth_token: "{{ auth_token }}"
+         api_server_host: "{{ api_server_host }}"
        with_items: "{{ successful_connections.ssh_success }}"
        register: PR_url
        no_log: True
@@ -31,6 +33,8 @@
 
 
      - name: call vnc to update physical-router
+       vars:
+         physical_router_uuids: {"failure": false}
        vnc_db_mod:
          object_type: "physical_router"
          object_op: "update"
@@ -43,17 +47,23 @@
                   }
           }
          auth_token: "{{ auth_token }}"
+         api_server_host: "{{ api_server_host }}"
        register: physical_router_uuids
-       when: physical_router_uuids.failure == false
+       when:
+         - physical_router_uuids is defined 
+       #  - "physical_router_uuids.failure == false"
        with_together:
            - "{{ PR_url.results }}"
            - "{{ successful_connections.ssh_success }}"
-       no_log: True
+       #no_log: True
+
+     - debug: var=physical_router_uuids
 
      - name: if vnc failed end play
        include_tasks: error_handler.yml
-       when: "physical_router_uuids.failure == true"
        vars:
-         op_err_message: "{{ physical_router_uuids.msg }}"
+         op_err_message: "{{ item.msg }}"
          results: ""
-         jl_err_message: "VNC error while creating PR Router " + "{{ physical_router_uuids.msg }}"
+         jl_err_message: "VNC error while creating PR Router  + {{ item.msg }}"
+       when: "item.failure == true"
+       with_items: "{{ physical_router_uuids.results }}"
