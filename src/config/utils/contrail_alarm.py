@@ -673,6 +673,45 @@ alarm_list = [
                 {
                     "and_list": [
                         {
+                            "operand1": "XmppPeerInfoData.close_reason",
+                            "operation": "!=",
+                            "operand2": {
+                                "json_value": "null"
+                            }
+                        },
+                        {
+                            "operand1": "XmppPeerInfoData.state_info.state",
+                            "operation": "!=",
+                            "operand2": {
+                                "json_value": "\"Established\""
+                            }
+                        },
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 1,
+        "fq_name": [
+            "default-global-system-config",
+            "system-defined-xmpp-close-reason"
+        ],
+        "id_perms": {
+            "description": "XMPP connection closed towards peer, \
+                            alarm has close reason"
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "xmpp-peer"
+            ]
+        }
+    },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
                             "operand1": "NodeStatus.all_core_file_list",
                             "operand2": {
                                 "json_value": "null"
