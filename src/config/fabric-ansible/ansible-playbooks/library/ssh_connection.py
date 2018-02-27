@@ -7,10 +7,8 @@
 """
 This file contains implementation of checking for successful SSH connections
 """
-from ansible.module_utils.basic import AnsibleModule
-import paramiko
 
-
+from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 
@@ -26,32 +24,59 @@ EXAMPLES = '''
 RETURN = '''
 '''
 
+from ansible.module_utils.basic import AnsibleModule
+import paramiko
+result = {'job_log_message': '', 'oid_mapping': {}}
 
-def ssh_check(module):
+
+def ssh_connect(ssh_conn, username, password, hostname):
+    successful_cred = {}
+    try:
+        ssh_conn.connect(username=username, password=password, hostname=hostname)
+        successful_cred.update({'hostname': hostname, 'username': username, 'password': password})
+        result['job_log_message'] += "\nTask: CREDENTIAL CHECK : Credentials worked for host: " + hostname
+    except(paramiko.BadHostKeyException, paramiko.AuthenticationException, paramiko.SSHException, Exception) as e:
+        result['job_log_message'] += "\nTask: CREDENTIAL CHECK: Host: " + hostname + " hit the exception " + str(e)
+        pass
+
+    return successful_cred
+
+
+def ssh_check (module):
     hosts = module.params['hosts']
     credentials = module.params['credentials']
 
+    remove_null = []
     successful_connections = []
-
     ssh_conn = paramiko.SSHClient()
     ssh_conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+    for single_dict in credentials:
+        remove_null.append(dict([(dkey, ddata) for dkey, ddata in single_dict.iteritems() if(ddata)]))
+    sorted_len = sorted(remove_null, key=len, reverse=True)
+
     for host in hosts:
-        for cred in credentials:
-            try:
-                ssh_conn.connect(username=cred['username'],
-                                 password=cred['password'], hostname=host)
-                successful_connections.append({'hostname': host,
-                                               'username': cred['username'],
-                                               'password': cred['password']})
+        for cred in sorted_len:
+            if ('vendor' in cred and cred['vendor'].lower() == host['vendor']):
+                if 'device_family' in cred:
+                    if (cred['device_family'] in host['family']):
+                        valid_cred = ssh_connect(ssh_conn, cred['credential']['username'],cred['credential']['password'],host['host'])
+                        if valid_cred:
+                            successful_connections.append(valid_cred)
+                        break
+                    else:
+                        continue
+                valid_cred = ssh_connect(ssh_conn, cred['credential']['username'],cred['credential']['password'],host['host'])
+                if valid_cred:
+                    successful_connections.append(valid_cred)
                 break
-            except(paramiko.BadHostKeyException,
-                   paramiko.AuthenticationException,
-                   paramiko.SSHException, Exception) as e:
-                continue
+            else:
+                valid_cred = ssh_connect(ssh_conn, cred['credential']['username'],cred['credential']['password'],host['host'], result)
+                if valid_cred:
+                    successful_connections.append(valid_cred)
+                break
 
     return successful_connections
-
 
 def main():
 
@@ -65,10 +90,8 @@ def main():
 
     successful_connections = ssh_check(module)
 
-    result = {}
     result['ssh_success'] = successful_connections
     module.exit_json(**result)
-
 
 if __name__ == '__main__':
     main()

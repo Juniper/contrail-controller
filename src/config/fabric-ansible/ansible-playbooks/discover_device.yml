@@ -1,13 +1,112 @@
-- name: discover_device
+- name: Gather fabric details and discover device
   hosts: localhost
   gather_facts: no
   connection: local
+  vars:
+     auth_token: "{{ playbook_input.auth_token }}"
+     output: {"status":"", "message":"", "results":""}
+     host_prefix: []
 
   pre_tasks:
     - set_fact:
-        ipaddress: []
-        credentials:  [ { "username": "root", "password": "pasword" } ]
+        fabric_fq_name: "{{ playbook_input.input.fabric_fq_name }}"
+      when: playbook_input.input.fabric_fq_name is defined
+
+    - set_fact:
+        fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+      when: playbook_input.input.fabric_uuid is defined
+
+    - name: get fabric fq name
+      vnc_db_mod:
+         object_type: "fabric"
+         object_op: "id_to_fq_name"
+         object_dict: |
+           {
+              "uuid": "{{ fabric_uuid }}"
+           }
+         auth_token: "{{ auth_token }}"
+      register: fq_name
+      when: fabric_uuid is defined
+
+    - set_fact:
+         fabric_fq_name: "{{ fq_name.fq_name }}"
+      when: fabric_uuid is defined
+
+    - name: get credentials
+      vnc_db_mod:
+         object_type: "fabric"
+         object_op: "read"
+         object_dict: |
+           {
+              "fq_name": "{{ fabric_fq_name }}"
+           }
+         auth_token: "{{ auth_token }}"
+      register: device_credentials
+
+    - set_fact:
+         credentials: "{{ device_credentials.obj.fabric_credentials.device_credential }}"
+
+    - debug: var=credentials
+
+    - name: get tag uuid
+      vnc_db_mod:
+         object_type: "tag"
+         object_op: "fq_name_to_id"
+         object_dict: |
+           {
+              "fq_name": "namespace=management_ip"
+           }
+         auth_token: "{{ auth_token }}"
+      register: tag_uuid
+
+    - set_fact:
+         tag_uuid: "{{ tag_uuid.uuid }}"
+
+    - name: get fabric namespaces for a tag
+      vnc_db_mod:
+         object_type: "fabric_namespace"
+         object_op: "list"
+         object_dict: |
+           {
+              "detail": "True",
+              "back_ref_id": "{{ tag_uuid }}"
+           }
+         auth_token: "{{ auth_token }}"
+      register: fabric_namespaces_mgmt_ip_tag
+
+
+    - name: get subnet from namespaces that match the fabric fq_name
+      set_fact:
+         subnets: "{{ subnets|default([]) + [ item.fabric_namespace_value.ipv4_cidr.subnet ] }}"
+      when:
+        - item.fq_name[1] == "{{ fabric_fq_name[1] }}"
+        - item.fabric_namespace_type == "IPV4-CIDR"
+      with_items: "{{ fabric_namespaces_mgmt_ip_tag.obj }}"
+      no_log: True
+
+
+    - name: one list for all subnets across namespaces
+      set_fact:
+          host_subnets: "{{ host_subnets|default([]) + [ item ] }}"
+      with_items: "{{ subnets }}"
+      no_log: True
+
+
+    - name: ip/cidr 
+      set_fact:
+          host_prefix: "{{ host_prefix + [ item.ip_prefix  + '/' + item.ip_prefix_len|string ] }}"
+      with_items: "{{ host_subnets }}"
+      no_log: True
+
+    - debug: var=host_prefix
 
   roles:
    - probe_device
    - check_credentials
+
+  post_tasks:
+    - name: set output parameter
+      set_fact:
+         output: "{{ output|combine({'status':'SUCCESS','message':'Successfully discovered devices', 'results': '{{ results }}' })}}"
+    
+    - debug: var=output
