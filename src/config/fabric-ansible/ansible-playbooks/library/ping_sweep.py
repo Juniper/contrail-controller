@@ -9,12 +9,12 @@ This file contains implementation of sending ping requests to the list of
 IP addresses defined by subnet
 """
 
+__metaclass__ = type
+
 from ansible.module_utils.basic import AnsibleModule
 import subprocess
 import ipaddress
 import socket
-__metaclass__ = type
-
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
@@ -22,13 +22,29 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 
 DOCUMENTATION = '''
 ---
-'''
-EXAMPLES = '''
-'''
-RETURN = '''
+For a given subnet or a list of IPs/hosts, check if they are reachable through
+ICMP ping.
 '''
 
-result = {}
+EXAMPLES = '''
+ping_sweep:
+        subnets: List of IP Prefixes
+        hosts: List of Ip addresses / hostnames
+
+ping_sweep:
+        subnets: ["10.155.67.0/29","10.155.72.0/30"]
+OR
+
+ping_sweep:
+        hosts: ["10.155.68.2", "10.102.65.4", "10.157.3.2"]
+
+'''
+
+RETURN = '''
+Return two lists, rechable hosts and unrechable hosts.
+'''
+
+_result = {}
 
 
 def check_ping(module):
@@ -42,8 +58,8 @@ def check_ping(module):
                 ip_net = ipaddress.ip_network(unicode(subnet))
                 all_hosts.extend(list(ip_net.hosts()))
             except ValueError:
-                result['failure'] = "Subnet is not valid " + subnet
-                module.exit_json(**result)
+                _result['failure'] = "Subnet is not valid " + subnet
+                module.exit_json(**_result)
 
     if module.params['hosts']:
         for host in module.params['hosts']:
@@ -51,9 +67,9 @@ def check_ping(module):
                 ipaddr = socket.gethostbyname(host)
                 all_hosts.append(ipaddr)
             except (ValueError, Exception) as e:
-                result['failure'] = "Host not valid " + \
+                _result['failure'] = "Host not valid " + \
                     host + "Failed with exception " + str(e)
-                module.exit_json(**result)
+                module.exit_json(**_result)
 
     for ip in all_hosts:
         ping_output = subprocess.Popen(['ping', '-c', '3', str(ip)],
@@ -79,12 +95,12 @@ def main():
 
     reachable, unreachable = check_ping(module)
 
-    result['reachable_hosts'] = reachable
-    result['unreachable_hosts'] = unreachable
-    result['job_log_message'] = "Task: PING SWEEP: ping sweep completed." + \
-                                "Reachable hosts are : " + ','.join(reachable)
+    _result['reachable_hosts'] = reachable
+    _result['unreachable_hosts'] = unreachable
+    _result['job_log_message'] = "Task: PING SWEEP: ping sweep completed." + \
+        "Reachable hosts are : " + ','.join(reachable)
 
-    module.exit_json(**result)
+    module.exit_json(**_result)
 
 
 if __name__ == '__main__':

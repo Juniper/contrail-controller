@@ -1,13 +1,37 @@
-- name: discover_device
+- name: Gather fabric details and discover device
   hosts: localhost
   gather_facts: no
   connection: local
+  vars:
+     auth_token: "{{ playbook_input.auth_token }}"
+     api_server_host: "localhost"
+     output: {"status":"", "message":"", "results":""}
+     host_prefix: []
 
   pre_tasks:
     - set_fact:
-        ipaddress: []
-        credentials:  [ { "username": "root", "password": "pasword" } ]
+        fabric_fq_name: "{{ playbook_input.input.fabric_fq_name }}"
+      when: playbook_input.input.fabric_fq_name is defined
+
+    - set_fact:
+        fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+      when: playbook_input.input.fabric_uuid is defined
+
+    - set_fact:
+         tag_fq_name: "namespace=management_ip"
+
+    - set_fact:
+         api_server_host: "{{ playbook_input.api_server_host }}"
+      when: playbook_input.api_server_host is defined
 
   roles:
+   - fabric_namespace_read
    - probe_device
    - check_credentials
+
+  post_tasks:
+    - name: set output parameter
+      set_fact:
+         output: "{{ output|combine({'status':'SUCCESS','message':'Successfully discovered devices', 'results': '{{ results }}' })}}"
+    
+    - debug: var=output

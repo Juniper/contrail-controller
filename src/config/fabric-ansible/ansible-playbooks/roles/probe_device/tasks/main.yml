@@ -36,6 +36,7 @@
     - name: assign vendor family mapping
       set_fact:
           host_vendor_mapping: "{{ host_vendor_mapping|default([]) + [ item.oid_mapping ] }}"
+      when: item.oid_mapping is defined
       with_items: "{{ vendor_family.results }}"
       no_log: True
 
@@ -43,6 +44,8 @@
     - debug: var=host_vendor_mapping
 
     - name: call vnc to create physical-router
+      vars:
+         physical_router_uuids: {"failure" : False}
       vnc_db_mod:
         object_type: "physical_router"
         object_op: "create"
@@ -56,19 +59,21 @@
               "physical_router_device_family": "{{ item.family }}"
            }
         auth_token: "{{ auth_token }}"
+        api_server_host: "{{ api_server_host }}"
       register: physical_router_uuids
-      when: physical_router_uuids.failure == false
+      when: 
+        - "physical_router_uuids.failure == false"
       with_items: "{{ host_vendor_mapping }}"
       no_log: True
 
     - name: if vnc failed end play
       include_tasks: error_handler.yml
-      when: "physical_router_uuids.failure == true"
       vars:
-        op_err_message: "{{ physical_router_uuids.msg }}"
+        op_err_message: "{{ item.msg }}"
         results: ""
-        jl_err_message: "VNC error while creating PR Router " + "{{ physical_router_uuids.msg }}"
-
+        jl_err_message: "VNC error while creating PR Router  + {{ item.msg }}"
+      when: "item.failure == true"
+      with_items: "{{ physical_router_uuids.results }}"
 
     - name: PR objectlog update
       prouter_objectlog:
@@ -79,6 +84,8 @@
 
 
     - name: call vnc to update fabric
+      vars:
+        fabric_ref_update: {"failure" : False}
       vnc_db_mod:
         object_type: "fabric"
         object_op: "ref_update"
@@ -89,19 +96,23 @@
               "ref_uuid": "{{ item.uuid }}"
           }
         auth_token: "{{ auth_token }}"
+        api_server_host: "{{ api_server_host }}"
       register: fabric_ref_update
-      when: fabric_ref_update.failure == false
+      when: 
+        - "fabric_ref_update.failure == false"
       with_items: "{{ physical_router_uuids.results }}"
       no_log: True
+    
+    - debug: var=fabric_ref_update
 
     - name: if vnc failed end play
       include_tasks: error_handler.yml
-      when: "fabric_ref_update.failure == true"
       vars:
-        op_err_message: "{{ fabric_ref_update.msg }}"
+        op_err_message: "{{ item.msg }}"
         results: ""
-        jl_err_message: "VNC error while updating fabric object with PR details " + "{{ fabric_ref_update.msg }}"
-
+        jl_err_message: "VNC error while creating PR Router  + {{ item.msg }}"
+      when: "item.failure == true"
+      with_items: "{{ fabric_ref_update.results }}"
 
     - name: collating list of PR uuids
       set_fact:
