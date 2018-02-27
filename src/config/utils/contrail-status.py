@@ -597,6 +597,7 @@ def get_systemd_templated_services(svc_name):
     re_str = r'^(?P<worker_svc>{}@(?P<worker_id>\d+))\.service'.format(
         re.escape(svc_name))
     re_svc_worker = re.compile(re_str)
+    svc_workers = []
 
     try:
         with open(os.devnull, "w") as fnull:
@@ -604,7 +605,6 @@ def get_systemd_templated_services(svc_name):
     except subprocess.CalledProcessError as e:
         return svc_workers
 
-    svc_workers = []
     for svc_line in cmdout.split():
         match = re_svc_worker.match(svc_line)
         if match:
