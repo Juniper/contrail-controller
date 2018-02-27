@@ -489,7 +489,8 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
             }
         }
         if (delete_label) {
-            agent->mpls_table()->FreeLabel(path->label());
+            agent->mpls_table()->FreeLabel(path->label(),
+                                           vrf()->GetName());
             //Reset path label to invalid as it is freed
             path->set_label(MplsTable::kInvalidLabel);
         }
@@ -735,7 +736,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                               vrf()->GetName(), ToString());
         //Delete Old label, in case label has changed for same peer.
         if (old_fabric_mpls_label != fabric_peer_path->label()) {
-            agent->mpls_table()->FreeLabel(old_fabric_mpls_label);
+            agent->mpls_table()->FreeLabel(old_fabric_mpls_label,
+                                           vrf()->GetName());
         }
     }
 
