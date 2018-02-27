@@ -127,6 +127,16 @@ protected:
     virtual void InitFlowMem();
 };
 
+class KSyncUds : public KSync {
+public:
+    KSyncUds(Agent *agent);
+    virtual ~KSyncUds();
+    virtual void Init(bool create_vhost);
+    void UdsInit();
+protected:
+    virtual void InitFlowMem();
+};
+
 int GenenericNetlinkFamily();
 void GenericNetlinkInit();
 

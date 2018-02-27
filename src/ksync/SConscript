@@ -30,6 +30,7 @@ libksync = env.Library('ksync', SandeshGenSrcs + ['ksync_object.cc'])
 libksyncnl_src = ['ksync_tx_queue.cc', 'ksync_netlink.cc', 'ksync_sock.cc', 'ksync_sock_user.cc']
 if sys.platform != 'win32':
     libksyncnl_src.append('ksync_sock_tcp.cc')
+    libksyncnl_src.append('ksync_sock_uds.cc')
 libksyncnl = env.Library('ksyncnl', libksyncnl_src)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
