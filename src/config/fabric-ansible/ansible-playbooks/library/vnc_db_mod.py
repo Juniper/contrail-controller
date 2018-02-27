@@ -166,7 +166,11 @@ def vnc_crud(module):
             if obj_uuid:
                 obj = method(id=obj_uuid)
             elif obj_fq_name:
-                obj = method(fq_name=obj_fq_name)
+                if type(obj_fq_name) is list:
+                    obj = method(fq_name=obj_fq_name)
+                else:
+                    # convert str object to list
+                    obj = method(fq_name=ast.literal_eval(obj_fq_name))
             else:
                 results['msg'] = "Either uuid or fq_name should be present \
                                  for read"
@@ -182,16 +186,22 @@ def vnc_crud(module):
     elif object_op == 'list':
         filters = object_dict.get('filters')
         fields = object_dict.get('fields')
+        back_ref_id = object_dict.get('back_ref_id')
+        detail = object_dict.get('detail')
         try:
-            if filters and fields:
-                obj = method(filters=filters, fields=fields)
-            elif fields:
-                obj = method(fields=fields)
-            elif filters:
-                obj = method(filters=filters)
+            if detail == 'True':
+                obj = method(back_ref_id=back_ref_id,
+                             filters=filters,
+                             fields=fields,
+                             detail=True)
+                results['obj'] = []
+                for object in obj:
+                    results['obj'].append(vnc_lib.obj_to_dict(object))
             else:
-                obj = method()
-            results['obj'] = obj
+                obj = method(back_ref_id=back_ref_id,
+                             filters=filters,
+                             fields=fields)
+                results['obj'] = obj
         except Exception as ex:
             results['obj'] = None
             results['msg'] = str(ex)
@@ -220,7 +230,11 @@ def vnc_crud(module):
     elif object_op == 'fq_name_to_id':
         try:
             obj_type = object_type.replace('_', '-')
-            obj_fq_name = ast.literal_eval(object_dict.get('fq_name'))
+            if type(object_dict.get('fq_name')) is list:
+                obj_fq_name = object_dict.get('fq_name')
+            else:
+                # convert str object to list
+                obj_fq_name = ast.literal_eval(object_dict.get('fq_name'))
             obj_uuid = method(obj_type, obj_fq_name)
             results['uuid'] = obj_uuid
         except Exception as ex:
@@ -240,16 +254,13 @@ def vnc_crud(module):
     return results
 # end vnc_crud
 
-
 def str_to_class(input):
     return getattr(vnc_api.gen.resource_client, input, None)
 # end str_to_class
 
-
 def str_to_vnc_method(vnc_lib, method_name):
     return getattr(vnc_lib, method_name, None)
 # end str_to_vnc_method
-
 
 def main():
     # Create the module instance
@@ -288,7 +299,6 @@ def main():
 
     # Return response
     module.exit_json(**results)
-
 
 if __name__ == '__main__':
     main()
