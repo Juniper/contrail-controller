@@ -8,5 +8,5 @@ pr_family: "{{playbook_input.device_family}}"
 pr_password: "{{playbook_input.device_password}}"
 
 auth_token: "{{playbook_input.auth_token}}"
-image_uuid: "{{playbook_input.input.data.image_uuid}}"
+image_uuid: "{{playbook_input.input.image_uuid}}"
 prouter_uuid: "{{playbook_input.device_id}}"
