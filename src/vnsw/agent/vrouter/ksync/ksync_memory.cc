@@ -262,9 +262,14 @@ void KSyncMemory::GetTableSize() {
     nl_build_attr(cl, encode_len, NL_ATTR_VR_MESSAGE_PROTOCOL);
     nl_update_nlh(cl);
 
+#ifdef AGENT_DPDK_TCP
     tcp::socket socket(*(ksync_->agent()->event_manager()->io_service()));
     tcp::endpoint endpoint(ksync_->agent()->vrouter_server_ip(),
                            ksync_->agent()->vrouter_server_port());
+#else
+    boost::asio::local::stream_protocol::socket socket(*(ksync_->agent()->event_manager()->io_service()));
+    boost::asio::local::stream_protocol::endpoint endpoint("/var/run/vrouter/dpdk_netlink");
+#endif
     boost::system::error_code ec;
     socket.connect(endpoint, ec);
     if (ec) {
