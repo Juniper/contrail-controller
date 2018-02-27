@@ -284,7 +284,9 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
         // Packet going out on tunnel. Assume NH in reverse flow is same as
         // that of forward flow. It can be over-written down if route for
         // source-ip is ECMP
-        out->nh_ = in->nh_;
+        if (info->port_allocated == false) {
+            out->nh_ = in->nh_;
+        }
 
         // The NH in reverse flow can change only if ECMP-NH is used. There is
         // no ECMP for layer2 flows
@@ -965,7 +967,9 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         if (out->rt_ == NULL || rt_match_plen > out_rt_plen) {
             change = true;
         } else if (rt_match_plen == out_rt_plen) {
-            if (fip_it == fip_list.end()) {
+            if (it->port_nat()) {
+               change = false;
+            } else if (fip_it == fip_list.end()) {
                 change = true;
             } else if (rt_match->vrf()->GetName() < out->rt_->vrf()->GetName()) {
                 change = true;
