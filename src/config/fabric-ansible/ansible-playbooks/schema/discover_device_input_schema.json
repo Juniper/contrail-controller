@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "minProperties": 1,
+  "maxProperties": 1,
+  "additionalProperties": false,
+  "properties": {
+    "input": {
+      "$id": "/properties/input",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "fabric_uuid": {
+          "$id": "/properties/input/properties/fabric_uuid",
+          "format":"uuid",
+          "type": "string",
+          "title": "The Fabric_uuid Schema",
+          "description": "UUID of the fabric object created",
+          "default": "",
+          "examples": [
+            "123456789"
+          ]
+        },
+        "fabric_fq_name": {
+          "$id": "/properties/input/properties/fabric_fq_name",
+          "type": "array",
+          "items": {
+            "$id": "/properties/input/properties/fabric_fq_name/items",
+            "type": "string",
+            "title": "The Fabric_fq_name Schema",
+            "description": "FQNAME of the fabric object created",
+            "default": "",
+            "examples": [
+              "default-global-system-config","fabric01"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
