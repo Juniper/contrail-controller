@@ -4,6 +4,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import, division, print_function
 from ansible.module_utils.basic import AnsibleModule
 
 __metaclass__ = type
@@ -28,17 +29,26 @@ oid_mapping = {
     "1.3.6.1.4.1.2636.1.1.1.2.29": {"vendor": "juniper",
                                     "family": "juniper-mx",
                                     "product": "mx240"},
+    "1.3.6.1.4.1.2636.1.1.1.2.11": {"vendor": "juniper",
+                                    "family": "juniper-mx",
+                                    "product": "m10i"},
 }
+output = {'job_log_message': '', 'oid_mapping': {}}
 
+def find_vendor_family (module):
 
-def find_vendor_family(module):
     mapped_value = {}
 
     if module.params['oid'] in oid_mapping:
         mapped_value['host'] = module.params['host']
         mapped_value['hostname'] = module.params['hostname']
         mapped_value.update(oid_mapping[module.params['oid']])
+        output['job_log_message'] += "\nTask: OID MAPPING: vendor and product for the host: " + mapped_value['host'] + " is " + str(mapped_value)
+    else:
+        output['job_log_message'] += "\nTask: OID MAPPING: device with oid " + module.params['oid'] + " NOT supported"
+
     return mapped_value
+
 
 
 def main():
@@ -50,13 +60,12 @@ def main():
         ),
         supports_check_mode=True
     )
+
     mapped_value = find_vendor_family(module)
 
-    output = {}
     output['oid_mapping'] = mapped_value
 
     module.exit_json(**output)
-
 
 if __name__ == '__main__':
     main()
