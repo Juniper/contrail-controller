@@ -10,6 +10,12 @@
 
 struct PortInfo input[] = {
     {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    {"vnet2", 2, "10.1.1.1", "00:00:00:01:01:02", 1, 2}
+};
+
+IpamInfo ipam_info[] = {
+   {"1.1.1.0", 24, "1.1.1.10"},
+   {"10.1.1.0", 24, "10.1.1.10"},
 };
 
 class PortAllocationTest : public ::testing::Test {
@@ -24,7 +30,8 @@ protected:
         port_table_->UpdatePortConfig(10, 0, 0);
         client->WaitForIdle();
 
-        CreateVmportEnv(input, 1);
+        CreateVmportEnv(input, 2);
+        AddIPAM("vn1", ipam_info, 2);
         client->WaitForIdle();
 
         AddVrfWithSNat("vrf1", 1, true, true);
@@ -33,7 +40,8 @@ protected:
 
     virtual void TearDown() {
         delete port_table_;
-        DeleteVmportEnv(input, 1, true);
+        DelIPAM("vn1");
+        DeleteVmportEnv(input, 2, true);
         client->WaitForIdle();
     }
 
@@ -285,6 +293,7 @@ TEST_F(PortAllocationTest, RangeUpdate) {
         if (i == 5) {
             //Port 50005 will hold on to its index
             EXPECT_TRUE(flow->IsShortFlow() == false);
+            EXPECT_TRUE(flow->data().rpf_nh == VmPortGet(1)->flow_key_nh());
         } else {
             EXPECT_TRUE(flow == NULL);
         }
@@ -344,6 +353,17 @@ TEST_F(PortAllocationTest, PolicyFlow) {
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::FabricControlFlow));
     EXPECT_FALSE(flow->reverse_flow_entry()->
             is_flags_set(FlowEntry::FabricControlFlow));
+}
+
+TEST_F(PortAllocationTest, IntraVn) {
+    TxIpPacket(VmPortGetId(1), "1.1.1.10", "10.1.1.1", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "10.1.1.1",
+            1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
+    EXPECT_TRUE(flow->IsNatFlow() == false);
 }
 
 int main(int argc, char *argv[]) {

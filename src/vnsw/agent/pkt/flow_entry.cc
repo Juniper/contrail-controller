@@ -1159,7 +1159,7 @@ void FlowEntry::RpfInit(const AgentRoute *rt) {
 
     // The src_ip_nh can change below only for l2 flows
     // For l3-flow, rt will already be a INET route
-    if (l3_flow())
+    if (l3_flow() && data_.allocated_port_ == false)
         return;
 
     // For layer-2 flows, we use l2-route for RPF in following cases
@@ -1180,9 +1180,14 @@ void FlowEntry::RpfInit(const AgentRoute *rt) {
         return;
     }
 
+    VrfEntry *vrf = rt->vrf();
+    if (vmi && data_.allocated_port_) {
+        vrf = vmi->vrf();
+    }
+
     const InetUnicastRouteEntry *src_ip_rt =
         static_cast<InetUnicastRouteEntry *>
-        (FlowEntry::GetUcRoute(rt->vrf(), key().src_addr));
+        (FlowEntry::GetUcRoute(vrf, key().src_addr));
 
     if (src_ip_rt == NULL) {
         // For egress flow, with no l3-route then do rpf based on l2-route
