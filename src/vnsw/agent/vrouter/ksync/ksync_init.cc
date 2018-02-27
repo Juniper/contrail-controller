@@ -527,4 +527,42 @@ void KSyncTcp::Init(bool create_vhost) {
     ksync_flow_memory_.get()->Init();
     ksync_bridge_memory_.get()->Init();
 }
+
+KSyncUds::KSyncUds(Agent *agent): KSync(agent) {
+}
+
+void KSyncUds::InitFlowMem() {
+    ksync_flow_memory_.get()->MapSharedMemory();
+    ksync_bridge_memory_.get()->MapSharedMemory();
+}
+
+void KSyncUds::UdsInit() {
+    EventManager *event_mgr;
+    event_mgr = agent_->event_manager();
+    boost::asio::io_service &io = *event_mgr->io_service();
+    boost::system::error_code ec;
+
+    KSyncSockUds::Init(io, agent_->params()->ksync_thread_cpu_pin_policy());
+    KSyncSock::SetNetlinkFamilyId(24);
+
+    for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
+        KSyncSock::SetAgentSandeshContext
+            (new KSyncSandeshContext(this), i);
+    }
+}
+
+KSyncUds::~KSyncUds() { }
+
+void KSyncUds::Init(bool create_vhost) {
+    UdsInit();
+    SetHugePages();
+    InitFlowMem();
+    ResetVRouter(false);
+    interface_ksync_obj_.get()->Init();
+    for (uint16_t i = 0; i < flow_table_ksync_obj_list_.size(); i++) {
+        flow_table_ksync_obj_list_[i]->Init();
+    }
+    ksync_flow_memory_.get()->Init();
+    ksync_bridge_memory_.get()->Init();
+}
 #endif
