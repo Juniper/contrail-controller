@@ -37,8 +37,10 @@ from pprint import pformat
 from cStringIO import StringIO
 from vnc_api.utils import AAA_MODE_VALID_VALUES
 # import GreenletProfiler
-
 from cfgm_common import vnc_cgitb
+import subprocess
+import traceback
+
 from cfgm_common import has_role
 from cfgm_common import _obj_serializer_all
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
@@ -151,6 +153,8 @@ _ACTION_RESOURCES = [
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
     {'uri': '/obj-cache', 'link_name': 'obj-cache',
      'method': 'POST', 'method_name': 'dump_cache'},
+    {'uri': '/execute-job', 'link_name': 'execute-job',
+     'method': 'POST', 'method_name': 'execute_job_http_post'},
 ]
 
 _MANDATORY_PROPS = [
@@ -311,6 +315,158 @@ class VncApiServer(object):
             raise ValueError('Invalid service interface type %s. '
                              'Valid values are: management|left|right|other[0-9]*'
                               % value)
+
+
+    def validate_input_params(self, request_params):
+        device_list = None
+        job_template_id = request_params.get('job_template_id')
+
+        if job_template_id is None:
+            err_msg = "job_template_id required in request"
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+
+        # check if the job template id is a valid uuid
+        res = re.match(
+            '^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-'
+            '[89aAbB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$',
+            job_template_id)
+
+        if res is None:
+            msg = 'Invalid job-template uuid type %s. uuid type required' \
+                  % job_template_id
+            raise cfgm_common.exceptions.HttpError(400, msg)
+
+        # TODO do any required input schema validations
+
+        extra_params = request_params.get('params')
+        if extra_params is not None:
+            device_list = extra_params.get('device_list')
+            if device_list:
+                if not isinstance(device_list, list):
+                    err_msg = "malformed request param: device_list, " \
+                              "expects list"
+                    raise cfgm_common.exceptions.HttpError(400, err_msg)
+
+                for device_id in device_list:
+                    if not isinstance(device_id, basestring):
+                        err_msg = "malformed request param: device_list, " \
+                                  "expects list of string device_uuids," \
+                                  " found device_uuid %s" % device_id
+                        raise cfgm_common.exceptions.HttpError(400, err_msg)
+                    # check if the device id passed is a valid uuid
+                    res = re.match(
+                        '^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-'
+                        '[89aAbB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$',
+                        device_id)
+                    if res is None:
+                        msg = 'Invalid device uuid type %s.' \
+                              ' uuid type required' % device_id
+                        raise cfgm_common.exceptions.HttpError(400, msg)
+
+        return device_list
+
+
+    def execute_job_http_post(self):
+        ''' Payload of execute_job
+            job_template_id (Mandatory): <uuid> of the created job_template
+            input (Type json): Input Schema of the playbook under the
+            job_template_id
+            params (Type json): Extra_params for the job_manager
+            (Eg. device_list)
+            E.g. Payload:
+            {
+             "job_template_id": "<uuid>",
+             "params": {
+               "device_list": ["<device_uuid1>", "<device_uuid2>", ....
+                               "<device_uuidn>"]
+             }
+            }
+        '''
+        try:
+            self.config_log("Entered execute-job",
+                            level=SandeshLevel.SYS_NOTICE)
+            request_params = get_request().json
+            msg = "Job Input %s " % json.dumps(request_params)
+            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+            device_list = self.validate_input_params(request_params)
+
+            # TODO - pass the job manager config file from api server config
+
+            # read the device object and pass the necessary data to the job
+            if device_list:
+                self.read_device_data(device_list, request_params)
+
+            # generate the job execution id
+            execution_id = uuid.uuid4()
+            request_params.update({'job_execution_id': str(execution_id)})
+
+            # get the auth token
+            auth_token = get_request().get_header('X-Auth-Token')
+            request_params.update({'auth_token': auth_token})
+
+            # create job manager subprocess
+            job_mgr_path = os.path.dirname(
+                __file__) + "/../job_manager/job_mgr.py"
+            subprocess.Popen(["python",
+                              job_mgr_path, "-i",
+                              json.dumps(request_params)],
+                             cwd="/", close_fds=True)
+
+            self.config_log("Created job manager process. Execution id: %s" %
+                            execution_id,
+                            level=SandeshLevel.SYS_NOTICE)
+            return {'job_execution_id': str(execution_id)}
+        except cfgm_common.exceptions.HttpError as e:
+            raise
+        except Exception as e:
+            err_msg = "Error while executing job request: %s" % repr(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+            raise cfgm_common.exceptions.HttpError(500, err_msg)
+
+
+
+
+    def read_device_data(self, device_list, request_params):
+        device_data = dict()
+        for device_id in device_list:
+            db_conn = self._db_conn
+            try:
+                (ok, result) = db_conn.dbe_read(
+                    "physical-router", device_id,
+                    ['physical_router_user_credentials',
+                     'physical_router_management_ip', 'fq_name',
+                     'physical_router_device_family',
+                     'physical_router_vendor_name'])
+
+                if not ok:
+                    self.config_object_error(device_id, None,
+                                             "physical-router  ",
+                                             'execute_job', result)
+                    raise cfgm_common.exceptions.HttpError(500, result)
+            except NoIdError as e:
+                raise cfgm_common.exceptions.HttpError(404, str(e))
+
+            device_json = {"device_management_ip": result[
+                'physical_router_management_ip']}
+            device_json.update({"device_fqname": result['fq_name']})
+            user_cred = result.get('physical_router_user_credentials')
+            if user_cred:
+                device_json.update({"device_username": user_cred['username']})
+                device_json.update({"device_password":
+                                    user_cred['password']})
+            device_family = result.get("physical_router_device_family")
+            if device_family:
+                device_json.update({"device_family": device_family})
+            device_vendor_name = result.get("physical_router_vendor_name")
+            if device_vendor_name:
+                device_json.update({"device_vendor": device_vendor_name})
+
+            device_data.update({device_id: device_json})
+        if len(device_data) > 0:
+            request_params.update({"device_json": device_data})
+
+
 
     @classmethod
     def _validate_simple_type(cls, type_name, xsd_type, simple_type, value, restrictions=None):
