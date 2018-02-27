@@ -58,6 +58,10 @@ IpamInfo ipam_info[] = {
     {"10.1.1.0", 24, "10.1.1.10"}
 };
 
+IpamInfo fabric_ipam_info[] = {
+    {"10.1.1.0", 24, "10.1.1.254", true}
+};
+
 class FabricVmiTest : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -68,18 +72,25 @@ public:
         AddIPAM("vn1", ipam_info, 2);
         client->WaitForIdle();
         AddVn(agent->fabric_vn_name().c_str(), 100);
+        AddVrf(agent->fabric_policy_vrf_name().c_str(), 100);
+        AddLink("virtual-network", agent->fabric_vn_name().c_str(),
+                "routing-instance", agent->fabric_policy_vrf_name().c_str());
+        client->WaitForIdle();
+        AddIPAM(agent->fabric_vn_name().c_str(), fabric_ipam_info, 1);
         client->WaitForIdle();
     }
 
     virtual void TearDown() {
         DelIPAM("vn1");
+        DelIPAM(agent->fabric_vn_name().c_str());
         DelNode("virtual-network", agent->fabric_vn_name().c_str());
-        client->WaitForIdle();
-        DeleteBgpPeer(peer_);
+        DelLink("virtual-network", agent->fabric_vn_name().c_str(),
+                "routing-instance", agent->fabric_policy_vrf_name().c_str());
         client->WaitForIdle();
         WAIT_FOR(100, 1000, (agent->vrf_table()->Size() == 2U));
         WAIT_FOR(100, 1000, (agent->vm_table()->Size() == 0U));
         WAIT_FOR(100, 1000, (agent->vn_table()->Size() == 0U));
+        DeleteBgpPeer(peer_);
     }
 
     Agent *agent;
@@ -604,6 +615,19 @@ TEST_F(FabricVmiTest, VmWithVhostIp) {
     DelLink("virtual-network", "vn1", "virtual-network",
             agent->fabric_vn_name().c_str());
     client->WaitForIdle();
+}
+
+TEST_F(FabricVmiTest, default_route) {
+    Ip4Address ip(0);
+    EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
+    InetUnicastRouteEntry *rt = RouteGet(agent->fabric_policy_vrf_name(), ip, 0);
+    EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() & TunnelType::NativeType());
+
+    AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
+    EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() & TunnelType::NativeType());
 }
 
 int main(int argc, char **argv) {
