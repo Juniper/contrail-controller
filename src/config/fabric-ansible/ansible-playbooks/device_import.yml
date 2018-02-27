@@ -2,6 +2,8 @@
 - name: Get the Device Information by reading the Prouter object
 
   hosts: localhost
+  connection: local
+
   roles:
     - Juniper.junos
     - device_facts_uve
