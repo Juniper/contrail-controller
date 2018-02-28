@@ -233,7 +233,7 @@ struct VrouterAgent {
    /** shows whether currently port mirror is enabled or not*/
    55: optional bool port_mirror_enabled;
    /** Sub cluster identifier for vrouter */
-   56: optional string sub_cluster_id;
+   56: optional string subcluster_name;
 }
 
 /**

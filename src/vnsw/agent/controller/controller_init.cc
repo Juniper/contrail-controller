@@ -182,7 +182,7 @@ void VNController::XmppServerConnect() {
             }
             xmpp_cfg->endpoint.port(port);
             SetDscpConfig(xmpp_cfg);
-            xmpp_cfg->xmlns = agent_->sub_cluster_id();
+            xmpp_cfg->xmlns = agent_->subcluster_name();
 
             // Create Xmpp Client
             XmppClient *client = new XmppClient(agent_->event_manager(), xmpp_cfg);

@@ -638,7 +638,7 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
 
         VrouterObjectLimits vr_limits = agent_->GetVrouterObjectLimits();
         vrouter_agent.set_vr_limits(vr_limits);
-        vrouter_agent.set_sub_cluster_id(agent_->sub_cluster_id());
+        vrouter_agent.set_subcluster_name(agent_->subcluster_name());
         first = false;
         changed = true;
     }
