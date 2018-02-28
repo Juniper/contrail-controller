@@ -2334,8 +2334,18 @@ class VncApiServer(object):
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'Name ' + pformat(fq_name) + ' not found')
+            if obj_type == 'project':
+                resource_type, r_class = self._validate_resource_type(obj_type)
+                try:
+                    self._extension_mgrs['resourceApi'].map_method(
+                        'pre_%s_read_fqname' %(obj_type), fq_name)
+                    id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+                except Exception as e:
+                    raise cfgm_common.exceptions.HttpError(
+                        404, 'Name ' + pformat(fq_name) + ' not found')
+            else:
+                raise cfgm_common.exceptions.HttpError(
+                    404, 'Name ' + pformat(fq_name) + ' not found')
 
         # ensure user has access to this id
         ok, result = self._permissions.check_perms_read(bottle.request, id)
