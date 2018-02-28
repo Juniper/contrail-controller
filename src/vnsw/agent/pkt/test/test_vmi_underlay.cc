@@ -99,21 +99,31 @@ TEST_F(FlowTest, UnderlayInstanceIpToOverlayFip) {
     AddLink("floating-ip", "fip1", "virtual-machine-interface", "flow0");
     client->WaitForIdle();
 
+    //Egress Flow
+    TxTcpMplsPacket(eth->id(), "10.1.1.2", router_id_, flow0->label(),
+                   vm5_ip, "14.1.1.100", 10, 10, false, 10);
+    client->WaitForIdle();
+    FlowEntry * fe = FlowGet(0, vm1_ip, vm5_ip, IPPROTO_TCP, 10, 10,
+                             flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
+
     TxIpPacket(flow0->id(), vm1_ip, vm5_ip, 1);
     client->WaitForIdle();
 
-    FlowEntry *fe = FlowGet(0, vm1_ip, vm5_ip, IPPROTO_ICMP, 0, 0,
-                            flow0->flow_key_nh()->id());
+    fe = FlowGet(0, vm1_ip, vm5_ip, IPPROTO_ICMP, 0, 0,
+                 flow0->flow_key_nh()->id());
     EXPECT_TRUE(fe != NULL);
 
     EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
     EXPECT_FALSE(fe->IsShortFlow());
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
 
-    VrfEntry *vrf = VrfGet("default-project:vn4:vn4");
-
     VnListType vn_list;
     vn_list.insert("default-project:vn4");
+    VrfEntry *vrf = VrfGet("default-project:vn4:vn4");
 
     EXPECT_TRUE(fe->data().dest_vrf == vrf->vrf_id());
     EXPECT_TRUE(fe->data().source_vn_list == vn_list);

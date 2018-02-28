@@ -867,6 +867,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         dest_vrf = alias_vrf->vrf_id();
     }
 
+    underlay_flow = false;
     if (VrfTranslate(pkt, in, out, pkt->ip_saddr, true) == false) {
         return;
     }
