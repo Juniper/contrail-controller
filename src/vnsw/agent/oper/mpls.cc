@@ -90,13 +90,33 @@ bool MplsTable::ChangeHandler(MplsLabel *mpls, const DBRequest *req) {
         nh = static_cast<NextHop *>
             (agent()->nexthop_table()->FindActiveEntry(&key));
     }
+
+    if (mpls->IsFabricMulticastReservedLabel()) {
+        assert(data->vrf_name_.length() != 0);
+        mpls->fmg_nh_list()[data->vrf_name_] = nh;
+    }
+
     ret = ChangeNH(mpls, nh);
 
     return ret;
 }
 
 bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
+    MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
     MplsLabel *mpls = static_cast<MplsLabel *>(entry);
+
+    if (data && IsFabricMulticastLabel(mpls->label())) {
+        mpls->fmg_nh_list().erase(data->vrf_name_);
+        if (mpls->fmg_nh_list().empty() == false) {
+            if (ChangeNH(mpls, mpls->fmg_nh_list().begin()->second)) {
+                DBTablePartBase *tpart =
+                    static_cast<DBTablePartition *>(GetTablePartition(mpls));
+                tpart->Notify(mpls);
+            }
+            return false;
+        }
+    }
+
     mpls->SendObjectLog(this, AgentLogEvent::DELETE);
     return true;
 }
@@ -223,6 +243,12 @@ void MplsLabel::Delete(const Agent *agent, uint32_t label) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
+    MplsLabel *label_entry =
+        Agent::GetInstance()->mpls_table()->FindMplsLabelUsingKey(label);
+    if (agent->mpls_table()->IsFabricMulticastLabel(label))
+        assert(0);
+    if (label_entry && label_entry->GetType() == MplsLabel::MCAST_NH)
+        assert(0);
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::INVALID, label);
     req.key.reset(key);
     req.data.reset(NULL);
@@ -404,13 +430,21 @@ void MplsTable::CreateMcastLabel(uint32_t label,
     return;
 }
 
-void MplsTable::DeleteMcastLabel(uint32_t src_label) {
+void MplsTable::DeleteMcastLabel(uint32_t src_label,
+                                 const std::string &vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
+    MplsLabel *label_entry =
+        Agent::GetInstance()->mpls_table()->FindMplsLabelUsingKey(src_label);
+    if (!label_entry) {
+        return;
+    }
+
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
+    MplsLabelData *data = new MplsLabelData(vrf_name);
     req.key.reset(key);
-    req.data.reset(NULL);
+    req.data.reset(data);
 
     Process(req);
     return;
@@ -430,4 +464,9 @@ bool MplsTable::IsFabricMulticastLabel(uint32_t label) const {
             (label <= multicast_label_end_[count])) return true;
     }
     return false;
+}
+
+MplsLabel *MplsTable::FindMplsLabelUsingKey(uint32_t label) {
+    MplsLabelKey key(label);
+    return static_cast<MplsLabel *>(Find(&key, false));
 }

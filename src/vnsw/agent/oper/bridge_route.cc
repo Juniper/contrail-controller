@@ -497,6 +497,7 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
                                             const AgentPath *local_peer_path,
                                             const AgentPath *local_vm_peer_path,
                                             bool del,
+                                            const std::string &vrf_name,
                                             uint32_t *evpn_label) {
     *evpn_label = MplsTable::kInvalidLabel;
 
@@ -547,8 +548,10 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
                 local_vm_peer_path == NULL)
                 delete_label = true;
         } 
-        if (delete_label)
-            agent->mpls_table()->DeleteMcastLabel(path->label());
+        if (delete_label) {
+            agent->mpls_table()->DeleteMcastLabel(path->label(),
+                                                  vrf()->GetName());
+        }
 
         return;
     }
@@ -675,6 +678,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                          local_peer_path,
                          local_vm_peer_path,
                          del,
+                         vrf()->GetName(),
                          &evpn_label);
 
     //all paths are gone so delete multicast_peer path as well
@@ -808,7 +812,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                               vrf()->GetName());
         //Delete Old label, in case label has changed for same peer.
         if (old_fabric_mpls_label != fabric_peer_path->label()) {
-            agent->mpls_table()->DeleteMcastLabel(old_fabric_mpls_label);
+            agent->mpls_table()->DeleteMcastLabel(old_fabric_mpls_label,
+                                                  vrf()->GetName());
         }
     }
 

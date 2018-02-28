@@ -72,6 +72,9 @@ public:
                        AgentLogEvent::type event) const;
     void SyncDependentPath();
     bool IsFabricMulticastReservedLabel() const;
+    std::map<std::string, NextHop *> &fmg_nh_list() {
+        return fmg_nh_list_;
+    }
 
 private:
     const Agent *agent_;
@@ -79,6 +82,7 @@ private:
     uint32_t label_;
     bool free_label_;
     NextHopRef nh_;
+    std::map<std::string, NextHop *> fmg_nh_list_;
     friend class MplsTable;
     DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
     DISALLOW_COPY_AND_ASSIGN(MplsLabel);
@@ -119,12 +123,18 @@ public:
     MplsLabelData(COMPOSITETYPE type, bool policy,
         ComponentNHKeyList &component_nh_key_list, std::string vrf_name) :
         AgentData(), nh_key(new CompositeNHKey(type, policy,
-        component_nh_key_list, vrf_name)) {
+        component_nh_key_list, vrf_name)), vrf_name_(vrf_name) {
     }
 
     MplsLabelData(const std::string vrf_name, bool policy) :
-        AgentData(), nh_key(new VrfNHKey(vrf_name, policy, false)) {
+        AgentData(), nh_key(new VrfNHKey(vrf_name, policy, false)),
+        vrf_name_(vrf_name) {
     }
+
+    MplsLabelData(const std::string &vrf_name) :
+        AgentData(), nh_key(NULL), vrf_name_(vrf_name) {
+    }
+
     virtual ~MplsLabelData() { 
         if (nh_key) {
             delete nh_key;
@@ -132,6 +142,7 @@ public:
     };
 
     NextHopKey *nh_key;
+    std::string vrf_name_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -161,7 +172,8 @@ public:
                           COMPOSITETYPE type,
                           ComponentNHKeyList &component_nh_key_list,
                           const std::string vrf_name);
-    void DeleteMcastLabel(uint32_t src_label);
+    void DeleteMcastLabel(uint32_t src_label,
+                          const std::string &vrf_name);
 
     // Allocate and Free label from the label_table
     uint32_t AllocLabel() {
@@ -182,6 +194,7 @@ public:
         uint32_t index = label >> mpls_shift_bits_;
         label_table_.Remove(index);
     }
+    MplsLabel *FindMplsLabelUsingKey(uint32_t label);
     MplsLabel *FindMplsLabel(size_t label) {
         uint32_t index = label >> mpls_shift_bits_;
         return label_table_.At(index);
