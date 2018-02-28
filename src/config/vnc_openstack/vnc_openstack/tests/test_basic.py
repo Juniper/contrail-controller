@@ -2,6 +2,7 @@ import sys
 import json
 import re
 import mock
+import unittest
 
 from testtools import ExpectedException
 import webtest.app
@@ -376,6 +377,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_baremetal_port_bindings
 
+    @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings(self):
         """ This test tests the Logical to Physical interface binding.
 
