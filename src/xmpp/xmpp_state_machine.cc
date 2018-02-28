@@ -1347,12 +1347,14 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
 
         if (!xmpp_server->subcluster_name().empty() &&
                xmpp_server->subcluster_name() != msg->xmlns) {
+            string reason = "Subcluster mismatch: Agent subcluster " +
+                msg->xmlns + ", Control subcluster " +
+                xmpp_server->subcluster_name();
             XMPP_WARNING(XmppDeleteConnection, session->ToUVEKey(),
                 XMPP_PEER_DIR_IN,
                 "Drop new xmpp connection " + session->ToString() +
-                " as subcluster received from agent is " + msg->xmlns +
-                " which is different from configured value: " +
-                xmpp_server->subcluster_name());
+                " as " + reason);
+            session->Connection()->set_close_reason(reason);
             ProcessEvent(xmsm::EvTcpClose(session));
             delete msg;
             return;
