@@ -27,6 +27,18 @@ class GlobalVrouterConfigProvisioner(object):
             self._args.api_server_ip,
             self._args.api_server_port, '/',
             api_server_use_ssl=self._args.api_server_use_ssl)
+
+        if self._args.port_range:
+           port_range_obj = PortType(start_port=int(self._args.port_range.split('-')[0]),
+                                     end_port=int(self._args.port_range.split('-')[1]))
+        else:
+           port_range_obj = None
+
+        port_trans_pool = PortTranslationPool(protocol = self._args.protocol,
+                                              port_range = port_range_obj,
+                                              port_count = self._args.port_count)
+        port_trans_pools_obj = PortTranslationPools([port_trans_pool])
+
         try:
             current_config=self._vnc_lib.global_vrouter_config_read(
                                 fq_name=['default-global-system-config',
@@ -35,6 +47,7 @@ class GlobalVrouterConfigProvisioner(object):
             try:
                 if self._args.oper == "add":
                     conf_obj=GlobalVrouterConfig(flow_export_rate=self._args.flow_export_rate)
+                    conf_obj.set_port_translation_pools(port_trans_pools_obj)
                     result=self._vnc_lib.global_vrouter_config_create(conf_obj)
                     print 'Created.UUID is %s'%(result)
                 return
@@ -43,11 +56,12 @@ class GlobalVrouterConfigProvisioner(object):
 
         if self._args.oper != "add":
             conf_obj=GlobalVrouterConfig()
-        else :  
+        else:
             conf_obj=GlobalVrouterConfig(flow_export_rate=self._args.flow_export_rate)
+            conf_obj.set_port_translation_pools(port_trans_pools_obj)
+
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
         print 'Updated.%s'%(result)
-
     # end __init__
     
     def _parse_args(self, args_str):
@@ -58,6 +72,8 @@ class GlobalVrouterConfigProvisioner(object):
                                         --api_server_use_ssl False
                                         --flow_export_rate 10 
                                         --oper <add | delete>
+                                        --protocol tcp
+                                        --port_range 100-400
         '''
 
         # Source any specified config/ini file
@@ -73,6 +89,9 @@ class GlobalVrouterConfigProvisioner(object):
             'api_server_port': '8082',
             'api_server_use_ssl': False,
             'oper': 'add',
+            'protocol': None,
+            'port_range': None,
+            'port_count': None
         }
         ksopts = {
             'admin_user': 'user1',
@@ -115,6 +134,10 @@ class GlobalVrouterConfigProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenant name for keystone admin user")
+        parser.add_argument(
+            "--protocol", type=str, help="Protocol for distributed snat")
+        parser.add_argument(
+            "--port_range", type=str, help="Port range for distributed snat ")
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
             "--api_server_ip", help="IP address of api server")
@@ -122,7 +145,9 @@ class GlobalVrouterConfigProvisioner(object):
                             default=False,
                             help = "Connect to local api-server on admin port",
                             action="store_true")
-
+        group_new = parser.add_mutually_exclusive_group()
+        group_new.add_argument(
+            "--port_count", type=str, help="Port count for distributed snat ")
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
 
