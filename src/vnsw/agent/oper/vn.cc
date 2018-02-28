@@ -737,6 +737,14 @@ DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
 
     vn->ChangeHandler(agent(), req);
     vn->SendObjectLog(AgentLogEvent::ADD);
+
+    if (vn->name_ == agent()->fabric_vn_name()) {
+        //In case of distributes SNAT we want all
+        //interfaces to revaluated upon receiving
+        //the config
+        agent()->set_fabric_vn_uuid(key->uuid_);
+        agent()->cfg()->cfg_vm_interface_table()->NotifyAllEntries();
+    }
     return vn;
 }
 
@@ -746,6 +754,11 @@ bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     vn->UpdateVxlan(agent(), true);
     vn->ReleaseWalker();
     vn->SendObjectLog(AgentLogEvent::DEL);
+
+    if (vn->name_ == agent()->fabric_vn_name()) {
+        agent()->set_fabric_vn_uuid(nil_uuid());
+        agent()->cfg()->cfg_vm_interface_table()->NotifyAllEntries();
+    }
     return true;
 }
 

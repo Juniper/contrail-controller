@@ -1221,6 +1221,14 @@ public:
     bool global_slo_status() const {
         return global_slo_status_;
     }
+
+    void set_fabric_vn_uuid(const boost::uuids::uuid &uuid) {
+        fabric_vn_uuid_ = uuid;
+    }
+
+    const boost::uuids::uuid& fabric_vn_uuid() const {
+        return fabric_vn_uuid_;
+    }
 private:
 
     uint32_t GenerateHash(std::vector<std::string> &);
@@ -1439,6 +1447,7 @@ private:
     std::vector<std::string> active_tsn_servers_;
     bool global_slo_status_;
     // Constants
+    boost::uuids::uuid fabric_vn_uuid_;
 public:
     static const std::string config_file_;
     static const std::string log_file_;
