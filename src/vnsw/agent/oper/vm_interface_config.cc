@@ -127,12 +127,16 @@ static void AddFabricFloatingIp(Agent *agent, VmInterfaceConfigData *data) {
         return;
     }
 
+    if (agent->fabric_vn_uuid() == nil_uuid()) {
+        return;
+    }
+
     VmInterface::FloatingIp::PortMap src_port_map;
     VmInterface::FloatingIp::PortMap dst_port_map;
     data->floating_ip_list_.list_.insert
         (VmInterface::FloatingIp(agent->router_id(), 
                                  agent->fabric_policy_vrf_name(),
-                                 nil_uuid(), data->addr_,
+                                 agent->fabric_vn_uuid(), data->addr_,
                                  VmInterface::FloatingIp::DIRECTION_BOTH,
                                  false, src_port_map, dst_port_map, true));
 }

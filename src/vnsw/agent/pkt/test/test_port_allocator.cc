@@ -24,6 +24,9 @@ protected:
         port_table_->UpdatePortConfig(10, 0, 0);
         client->WaitForIdle();
 
+        AddVn(agent_->fabric_vn_name().c_str(), 100);
+        client->WaitForIdle();
+
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
 
@@ -34,6 +37,8 @@ protected:
     virtual void TearDown() {
         delete port_table_;
         DeleteVmportEnv(input, 1, true);
+        client->WaitForIdle();
+        DelVn(agent_->fabric_vn_name().c_str());
         client->WaitForIdle();
     }
 
@@ -121,6 +126,18 @@ TEST_F(PortAllocationTest, PortExhaust) {
 
 TEST_F(PortAllocationTest, FloatingIpConfig) {
     VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vmi->floating_ip_list().list_.size() == 1);
+
+    VmInterface::FloatingIpSet::const_iterator it =
+        vmi->floating_ip_list().list_.begin();
+    EXPECT_TRUE(it->vn_->GetName() == agent()->fabric_vn_name());
+
+    DelVn(agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(vmi->floating_ip_list().list_.size() == 0);
+
+    AddVn(agent()->fabric_vn_name().c_str(), 100);
+    client->WaitForIdle();
     EXPECT_TRUE(vmi->floating_ip_list().list_.size() == 1);
 
     AddVrfWithSNat("vrf1", 1, true, false);
