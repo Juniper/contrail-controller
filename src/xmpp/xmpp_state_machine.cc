@@ -1353,6 +1353,7 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
                 " as subcluster received from agent is " + msg->xmlns +
                 " which is different from configured value: " +
                 xmpp_server->subcluster_name());
+            session->Connection()->set_close_reason("Subcluster mismatch");
             ProcessEvent(xmsm::EvTcpClose(session));
             delete msg;
             return;
