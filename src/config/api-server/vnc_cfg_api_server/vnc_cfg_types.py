@@ -1535,8 +1535,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     li_obj = LogicalInterface(
                         parent_type='physical-interface', fq_name=li_fq_name,
                         logical_interface_vlan_tag=vlan_tag)
-                    ok, resp = api_server.internal_request_create('logical-interface',
-                        li_obj.serialize_to_json())
+                    try:
+                        ok, resp = api_server.internal_request_create('logical-interface',
+                            li_obj.serialize_to_json())
+                    except Exception as e:
+                        # Logical Interface should fail if no corresponding Physical
+                        # interface is available
+                        return(False,
+                               (e.status_code,
+                                'No corresponding physical interfce found %s' % e.content))
                     li_uuid = resp['logical-interface']['uuid']
                     api_server.internal_request_ref_update('logical-interface',
                                    li_uuid, 'ADD',
