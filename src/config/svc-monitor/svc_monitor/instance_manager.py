@@ -778,9 +778,9 @@ class VRouterHostedManager(InstanceManager):
                 try:
                     self._vnc_lib.ref_update('virtual-router', vr.uuid,
                                          'virtual-machine', vm.uuid, None, 'DELETE')
+                    vr.update()
                 except NoIdError:
                     continue
-                vr.update()
                 self.logger.error(
                     "vrouter %s down for vm %s" % (vr.name, vm.uuid))
                 service_up = False
