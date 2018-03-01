@@ -417,6 +417,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                                ethernet_segment_identifier=esi_id)
         pi_uuid = self._vnc_lib.physical_interface_create(pi)
         pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
+        pi_fq_name = pi_obj.get_fq_name()
 
         proj_uuid = self._vnc_lib.fq_name_to_id('project',
             fq_name=['default-domain', 'default-project'])
@@ -427,8 +428,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
                    'roles': ''}
         vnic_type = 'baremetal'
         binding_profile = {'local_link_information': [
-            {'port_id': 'ge-0/0/1', 'switch_id': 'switch-id-1',
-             'switch_info': pi_uuid}]}
+            {'port_id': pi_fq_name[2], 'switch_id': pi_fq_name[2],
+             'switch_info': pi_fq_name[1]}]}
         data = {'resource':{'network_id': vn_obj.uuid,
                             'tenant_id': proj_uuid,
                             'binding:profile': binding_profile,
