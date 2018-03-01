@@ -29,17 +29,26 @@ options:
         required: true
     user:
         description:
-            - Username string
+            - Swift Username
+        type: string
         required: true
     key:
         description:
-            - password string
+            - Swift password
+        type: string
         required: true
     tenant_name:
         description:
-            - Tenant name string.
+            - Tenant name.
+        type: string
         required: false
         default: 'admin'
+    region_name:
+        description:
+            - Swift region name.
+        type: string
+        required: false
+        default: 'sunnyvale'
     auth_version:
         description:
             - Keystone Auth version.
@@ -93,10 +102,12 @@ error_msg:
 
 import logging
 import requests
+import re
+import time
 from urlparse import urlparse
 import swiftclient
 import swiftclient.utils
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule 
 from threading import RLock
 
 connection_lock = RLock()
@@ -104,10 +115,10 @@ connection_lock = RLock()
 
 class FileSvcUtil(object):  # pragma: no cover
     def __init__(self, authtoken, authurl, user, key, tenant_name,
-                 auth_version, container_name, temp_url_key,
+                 region_name, auth_version, container_name, temp_url_key,
                  temp_url_key2, chosen_temp_url_key):
         self.requests = requests
-        self.region_name = "regional"
+        self.region_name = region_name
         self.authurl = authurl
         self.preauthtoken = authtoken
         self.user = user
@@ -206,6 +217,7 @@ def main():
             user=dict(required=True),
             key=dict(required=True),
             tenant_name=dict(required=False, default="admin"),
+            region_name=dict(required=False, default="sunnyvale"),
             auth_version=dict(required=False, default='2.0'),
             temp_url_key=dict(required=True),
             temp_url_key_2=dict(required=True),
@@ -221,6 +233,7 @@ def main():
     user = m_args['user']
     key = m_args['key']
     tenant_name = m_args['tenant_name']
+    region_name = m_args['region_name']
     auth_version = m_args['auth_version']
     temp_url_key = m_args['temp_url_key']
     temp_url_key_2 = m_args['temp_url_key_2']
@@ -234,7 +247,7 @@ def main():
     error_msg = ''
     try:
         fileutil = FileSvcUtil(authtoken, authurl, user, key, tenant_name,
-                               auth_version, container_name, temp_url_key,
+                               region_name, auth_version, container_name, temp_url_key,
                                temp_url_key_2, chosen_temp_url_key)
 
         url = fileutil.getObjTempUrl(filename, int(expirytime))

@@ -10,6 +10,7 @@
         user: "{{ lookup('ini', 'user section=DEFAULT file=conf/swift_conf.ini') }}"
         key: "{{ lookup('ini', 'key section=DEFAULT file=conf/swift_conf.ini') }}"
         tenant_name: "{{ lookup('ini', 'tenant_name section=DEFAULT file=conf/swift_conf.ini default=admin') }}"
+        region_name: "{{ lookup('ini', 'region_name section=DEFAULT file=conf/swift_conf.ini default=sunnyvale') }}"
         auth_version: "{{ lookup('ini', 'auth_version section=DEFAULT file=conf/swift_conf.ini default=2.0') }}"
         temp_url_key: "{{ lookup('ini', 'temp_url_key section=DEFAULT file=conf/swift_conf.ini default=mykey') }}"
         temp_url_key_2: "{{ lookup('ini', 'temp_url_key_2 section=DEFAULT file=conf/swift_conf.ini default=mykey2') }}"
@@ -36,6 +37,7 @@
     status_code: 201
     headers:
       Content-Type: "application/json"
+    body_format: json
     body: |
       {
         "auth": {
@@ -45,7 +47,7 @@
               "user": {
                 "name": "admin",
                 "domain": { "id": "default" },
-                "password": ""
+                "password": "{{key}}"
               }
             }
           },
