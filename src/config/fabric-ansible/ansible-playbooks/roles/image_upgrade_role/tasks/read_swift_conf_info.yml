@@ -36,6 +36,7 @@
     status_code: 201
     headers:
       Content-Type: "application/json"
+    body_format: json 
     body: |
       {
         "auth": {
@@ -45,7 +46,7 @@
               "user": {
                 "name": "admin",
                 "domain": { "id": "default" },
-                "password": ""
+                "password": "{{key}}"
               }
             }
           },
