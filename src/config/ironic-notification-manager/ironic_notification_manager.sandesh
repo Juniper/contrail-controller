@@ -36,6 +36,13 @@ struct NodeProperties {
     5: optional string capabilities
 }
 
+struct PortInfo {
+    1: optional string port_uuid
+    2: optional bool pxe_enabled
+    3: optional string mac_address
+    4: optional string create_timestamp
+}
+
 struct IronicNode {
     1: string name     (key="ObjectServerTable")
     2: optional bool    deleted
@@ -57,6 +64,8 @@ struct IronicNode {
     16: optional InstanceInfo instance_info
     /** @display_name: Ironic Node Properties Info */
     17: optional NodeProperties node_properties
+    /** @display_name: Ironic Node Port Info */
+    18: optional list<PortInfo> port_info
 }
 
 uve sandesh IronicNodeInfo{
