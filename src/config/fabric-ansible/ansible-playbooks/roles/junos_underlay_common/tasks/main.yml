@@ -1,9 +1,12 @@
 ---
+    - name: Start to generate base config
+      job_objectlog:
+        message: "Starting to generate base config."
 
     - name: Generate Base common config
       block:
         - template:
-            src: junos_common_conf.j2
+            src: junos.common.conf.j2
             dest: "{{ conf_dir }}/build_config/common_config.cfg"
           register: cmd_res
         - debug: msg={{cmd_res}}
@@ -14,4 +17,11 @@
               "message": "{{cmd_res.msg}}"
             }
         - debug: msg={{output}}
+        - name: Config generate failed
+          job_objectlog:
+            message: "Failed to generate config: {{cmd_res.msg}}"
         - meta: end_play
+
+    - name: Finish Base config
+      job_objectlog:
+        message: "Base config was successfully generated."

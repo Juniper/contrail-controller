@@ -46,9 +46,6 @@
         commit_error_message: "{{ commit_error_details.matches }}"
       when: "commit_error_details.failed==false"
 
-    #- debug: var=myvar
-    #- debug: var=err_msg
-
     - set_fact:
           parsed_res: "Reason"
 
@@ -58,11 +55,13 @@
           - "{{ load_error_message }}"
           - "{{ commit_error_message }}"
 
-    #- debug: var=example_res
+    - name: delete all generated configs
+      file:
+        state: absent
+        path: "{{ conf_dir }}"
 
-    - set_fact:
-        output: {
-          "status": "Failure",
-              "message": "{{ parsed_res }}"
-          }
-      when: "result.failed == true"
+    - name: Error handling as commit fails
+      include_tasks: error_handler.yml
+      vars:
+        op_err_message: "{{parsed_res}}"
+        jl_err_message: "Config commit failed due to errors: {{parsed_res}}."

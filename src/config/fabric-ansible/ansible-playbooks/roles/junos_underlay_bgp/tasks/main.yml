@@ -1,9 +1,12 @@
 ---
+    - name: Start to generate BGP config
+      job_objectlog:
+        message: "Starting to generate BGP config."
 
     - name: Generate BGP config
       block:
         - template:
-            src: juniper_underlay_bgp.j2
+            src: juniper.underlay.bgp.j2
             dest: "{{ conf_dir }}/build_config/underlay_config.cfg"
           register: cmd_res
         - debug: msg={{cmd_res}}
@@ -14,4 +17,11 @@
               "message": "{{cmd_res.msg}}"
             }
         - debug: msg={{output}}
+        - name: Failed to generate base config
+          job_objectlog:
+            message: "Failed to generate BGP config: {{cmd_res.msg}}"
         - meta: end_play
+
+    - name: Finish BGP config
+      job_objectlog:
+        message: "BGP config was successfully generated."
