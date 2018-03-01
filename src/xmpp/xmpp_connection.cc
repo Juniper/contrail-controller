@@ -683,13 +683,6 @@ public:
             parent_->state_machine()->Clear();
         }
 
-        if (parent_->logUVE()) {
-            XmppPeerInfoData peer_info;
-            peer_info.set_name(parent_->ToUVEKey());
-            peer_info.set_deleted(true);
-            XMPPPeerInfoSend(peer_info);
-        }
-
         XmppSession *session = NULL;
         if (parent_->state_machine()) {
             session = parent_->state_machine()->session();
