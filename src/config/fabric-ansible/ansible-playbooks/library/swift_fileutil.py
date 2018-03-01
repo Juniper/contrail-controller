@@ -96,7 +96,7 @@ import requests
 from urlparse import urlparse
 import swiftclient
 import swiftclient.utils
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule 
 from threading import RLock
 
 connection_lock = RLock()
