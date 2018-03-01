@@ -36,6 +36,23 @@ struct NodeProperties {
     5: optional string capabilities
 }
 
+struct LocalLinkConnection {
+    1: optional string switch_info
+    2: optional string port_id
+    3: optional string switch_id
+}
+
+struct PortInfo {
+    1: string name (key="ObjectServerTable")
+    2: optional bool deleted
+    3: optional bool pxe_enabled
+    4: optional string mac_address
+    5: optional string create_timestamp
+    6: optional string port_uuid
+    /** @display_name: Port Local Link Connection Info */
+    7: optional LocalLinkConnection local_link_connection
+}
+
 struct IronicNode {
     1: string name     (key="ObjectServerTable")
     2: optional bool    deleted
@@ -57,6 +74,8 @@ struct IronicNode {
     16: optional InstanceInfo instance_info
     /** @display_name: Ironic Node Properties Info */
     17: optional NodeProperties node_properties
+    /** @display_name: Ironic Node Port Info */
+    18: optional list<PortInfo> port_info
 }
 
 uve sandesh IronicNodeInfo{
