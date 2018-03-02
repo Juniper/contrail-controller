@@ -520,7 +520,7 @@ void VnswInterfaceListenerFreeBSD::RegisterAsyncReadHandler() {
 }
 
 void VnswInterfaceListenerFreeBSD::UpdateLinkLocalRoute(
-    const Ip4Address &addr, bool del_rt) {
+    const Ip4Address &addr, uint8_t plen, bool del_rt) {
 
     if (agent_->test_mode())
         return;

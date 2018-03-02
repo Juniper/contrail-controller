@@ -26,7 +26,7 @@ private:
     virtual void SyncCurrentState();
     virtual void RegisterAsyncReadHandler();
     void ReadHandler(const boost::system::error_code &, std::size_t length);
-    void UpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt);
+    void UpdateLinkLocalRoute(const Ip4Address &addr, uint8_t plen, bool del_rt);
 
 private:
     void InitNetlinkScan(uint32_t type, uint32_t seqno);

@@ -151,7 +151,8 @@ int VnswInterfaceListenerLinux::AddAttr(uint8_t *buff, int type, void *data, int
 }
 
 void VnswInterfaceListenerLinux::UpdateLinkLocalRoute(const Ip4Address &addr,
-                                                 bool del_rt) {
+                                                      uint8_t plen,
+                                                      bool del_rt) {
     struct nlmsghdr *nlh;
     struct rtmsg *rtm;
     uint32_t ipaddr;
@@ -177,7 +178,7 @@ void VnswInterfaceListenerLinux::UpdateLinkLocalRoute(const Ip4Address &addr,
     rtm->rtm_type = RTN_UNICAST;
     rtm->rtm_protocol = kVnswRtmProto;
     rtm->rtm_scope = RT_SCOPE_LINK;
-    rtm->rtm_dst_len = 32;
+    rtm->rtm_dst_len = plen;
     ipaddr = RT_TABLE_MAIN;
     AddAttr(tx_buf_, RTA_TABLE, (void *) &ipaddr, 4);
     ipaddr = htonl(addr.to_ulong());
@@ -342,7 +343,7 @@ VnswInterfaceListenerLinux::HandleNetlinkAddrMsg(struct nlmsghdr *nlh) {
         type = Event::ADD_ADDR;
     }
     return new Event(type, name, Ip4Address(ipaddr), ifa->ifa_prefixlen,
-                     ifa->ifa_flags);
+                     ifa->ifa_flags, false);
 }
 
 int VnswInterfaceListenerLinux::NlMsgDecode(struct nlmsghdr *nl,

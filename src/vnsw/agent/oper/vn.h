@@ -95,7 +95,8 @@ struct VnData : public AgentOperDBData {
            bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode,
            const boost::uuids::uuid &qos_config_uuid, bool mirror_destination,
            bool pbb_etree_enable, bool pbb_evpn_enable,
-           bool layer2_control_word, UuidList slo_list) :
+           bool layer2_control_word, UuidList slo_list,
+           bool underlay_forwarding) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -104,7 +105,8 @@ struct VnData : public AgentOperDBData {
         forwarding_mode_(forwarding_mode), qos_config_uuid_(qos_config_uuid),
         mirror_destination_(mirror_destination),
         pbb_etree_enable_(pbb_etree_enable), pbb_evpn_enable_(pbb_evpn_enable),
-        layer2_control_word_(layer2_control_word), slo_list_(slo_list) {
+        layer2_control_word_(layer2_control_word), slo_list_(slo_list),
+        underlay_forwarding_(underlay_forwarding) {
     };
     virtual ~VnData() { }
 
@@ -127,6 +129,7 @@ struct VnData : public AgentOperDBData {
     bool pbb_evpn_enable_;
     bool layer2_control_word_;
     UuidList slo_list_;
+    bool underlay_forwarding_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -204,6 +207,10 @@ public:
         return slo_list_;
     }
 
+    bool underlay_forwarding() const {
+        return underlay_forwarding_;
+    }
+
     uint32_t GetRefCount() const {
         return AgentRefCount<VnEntry>::GetRefCount();
     }
@@ -263,6 +270,7 @@ private:
     bool pbb_evpn_enable_;
     bool layer2_control_word_;
     UuidList slo_list_;
+    bool underlay_forwarding_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
