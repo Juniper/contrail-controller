@@ -108,6 +108,24 @@ class QuotaHelper(object):
         return quota_count
 
     @classmethod
+    def get_loadbalancer_member_count(cls, db_conn, proj_uuid):
+        ok, proj_dict = db_conn.dbe_read('project', proj_uuid)
+        if not ok:
+            raise cfgm_common.exceptions.NoIdError
+
+        lb_pools = proj_dict.get('loadbalancer_pools') or []
+        quota_count = 0
+        for pool in lb_pools:
+            (ok, lb_mem_list, _) = db_conn.dbe_list(
+                    'loadbalancer_member', parent_uuids=[pool.get('uuid')],
+                    is_count=True)
+            if not ok:
+                raise cfgm_common.exceptions.NoIdError
+            quota_count += lb_mem_list
+
+        return quota_count
+
+    @classmethod
     def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
 
         if obj_type+'s' in Project.children_fields:
@@ -122,6 +140,9 @@ class QuotaHelper(object):
                     db_conn, proj_uuid)
         elif obj_type == 'floating_ip_pool':
             quota_count = cls.get_floating_ip_pool_count(
+                                  db_conn, proj_uuid)
+        elif obj_type == 'loadbalancer_member':
+            quota_count = cls.get_loadbalancer_member_count(
                                   db_conn, proj_uuid)
         else:
             (ok, res_list, _) = db_conn.dbe_list(obj_type,
