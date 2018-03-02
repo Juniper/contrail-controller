@@ -747,7 +747,7 @@ private:
     void FillUveLocalRevFlowStatsInfo(FlowUveFwPolicyInfo *info, bool added)
         const;
     void FillUveFwdFlowStatsInfo(FlowUveFwPolicyInfo *info, bool added) const;
-    void RpfInit(const AgentRoute *rt);
+    void RpfInit(const AgentRoute *rt, const IpAddress &sip);
     void RpfSetRpfNhFields(const NextHop *rpf_nh);
     void RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh);
     void RpfSetSrcIpNhFields(const AgentRoute *rt, const NextHop *src_ip_nh);
