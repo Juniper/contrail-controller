@@ -165,6 +165,7 @@ class NamespaceKM(KubeDBBase):
         self.annotations = None
         self.np_annotations = None
         self.ip_fabric_forwarding = None
+        self.ip_fabric_snat = None
 
         # Status.
         self.phase = None
@@ -209,19 +210,29 @@ class NamespaceKM(KubeDBBase):
                 raise Exception(err_msg)
 
         # Cache namespace isolation directive.
-        if 'opencontrail.org/isolation' in annotations and \
-            annotations['opencontrail.org/isolation'] == "true":
-            # Namespace isolation is configured
-            self.isolated = True
+        if 'opencontrail.org/isolation' in annotations:
+            ann_val = annotations['opencontrail.org/isolation']
+            if ann_val.lower() == 'true':
+                # Namespace isolation is configured
+                self.isolated = True
         # Cache namespace ip_fabric_forwarding directive
         if 'opencontrail.org/ip_fabric_forwarding' in annotations:
             ann_val = annotations['opencontrail.org/ip_fabric_forwarding']
-            if ann_val == 'true':
+            if ann_val.lower() == 'true':
                 self.ip_fabric_forwarding = True
-            elif ann_val == 'false':
+            elif ann_val.lower() == 'false':
                 self.ip_fabric_forwarding = False
         else:
             self.ip_fabric_forwarding = None
+        # Cache namespace ip_fabric_snat directive
+        if 'opencontrail.org/ip_fabric_snat' in annotations:
+            ann_val = annotations['opencontrail.org/ip_fabric_snat']
+            if ann_val.lower() == 'true':
+                self.ip_fabric_snat = True
+            elif ann_val.lower() == 'false':
+                self.ip_fabric_snat = False
+        else:
+            self.ip_fabric_snat = None
         # Cache k8s network-policy directive.
         if 'net.beta.kubernetes.io/network-policy' in annotations:
             self.np_annotations = json.loads(
@@ -237,6 +248,9 @@ class NamespaceKM(KubeDBBase):
 
     def get_ip_fabric_forwarding(self):
         return self.ip_fabric_forwarding
+
+    def get_ip_fabric_snat(self):
+        return self.ip_fabric_snat
 
     def get_network_policy_annotations(self):
         return self.np_annotations

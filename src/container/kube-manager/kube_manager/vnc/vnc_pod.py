@@ -157,7 +157,7 @@ class VncPod(VncCommon):
 
     def _is_ip_fabric_forwarding_enabled(self, ns_name):
         ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
-        if ip_fabric_forwarding:
+        if ip_fabric_forwarding != None:
             return ip_fabric_forwarding
         else:
             return self._args.ip_fabric_forwarding
