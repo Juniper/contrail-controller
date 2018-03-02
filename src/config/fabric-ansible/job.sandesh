@@ -11,7 +11,7 @@
 //
 
 /**
- * UVE that stores the device info from device discovery or device resync. 
+ * objectlog that stores the device onboarding info
  */
 struct PRouterOnboardingLogEntry {
     /* PRouter fq_name as string joined by ':', e.g. domain-1:project-1:mx240-1. */
@@ -25,8 +25,10 @@ struct PRouterOnboardingLogEntry {
     5: optional string                  onboarding_state;
     /* Job template executed. fq_name as string joined by ':'. e.g. domain-1:project-1:job-template-1 */
     6: optional string                  job_template_fqname;
+    /* Unique id that identifies a job execution */
+    7: string                           job_execution_id (key="JobExecution");
     /* Job input json */
-    7: optional string                  job_input;
+    8: optional string                  job_input;
     // Add additional items here as needed
 }
 
@@ -68,7 +70,7 @@ struct JobExecution {
     // Add additional items here as needed
 }
 
-objectlog sandesh UvePRouterOnboardingLog {
+objectlog sandesh PRouterOnboardingLog {
     1: PRouterOnboardingLogEntry log_entry;
 }
 
