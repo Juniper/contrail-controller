@@ -35,7 +35,37 @@
  
     - set_fact:
          tag_fq_name: "namespace=as_number"
- 
+
+    - name: Read Device, update log
+      job_objectlog:
+        message: "Reading device to get basic information."
+
+    - name: call vnc to read the physical-router
+      vnc_db_mod:
+        object_type: "physical_router"
+        object_op: "read"
+        object_dict: {"uuid": "{{prouter_uuid}}" }
+        auth_token: "{{auth_token}}"
+      register: prouter_details
+
+    - set_fact:
+        output: {
+                  "status": "Failure",
+                  "message": "{{prouter_details.msg}}"
+                }
+      when: "'obj' not in prouter_details or prouter_details.failure == true"
+
+    - name: Read failed, updating log
+      job_objectlog:
+        message: "Could not find the device with uuid {{prouter_uuid}} in the DB."
+      when: "'obj' not in prouter_details or prouter_details.failure == true"
+
+    - meta: end_play
+      when: "'obj' not in prouter_details or prouter_details.failure == true"
+
+    - set_fact:
+        prouter_info: "{{prouter_details.obj}}"
+
     - name: create subfolders
       include_tasks: create_subfolders.yml
  
