@@ -55,10 +55,12 @@ class ResourceDbMixin(object):
                 proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
         elif 'parent_type' in obj_dict and obj_dict['parent_type'] == 'project':
             proj_uuid = obj_dict['parent_uuid']
-        elif obj_type == 'floating_ip_pool' and 'parent_uuid' in obj_dict:
-            ok, proj_res = cls.dbe_read(db_conn, 'virtual_network',
-                                    obj_dict['parent_uuid'],
-                                    obj_fields=['parent_uuid'])
+        elif (obj_type == 'loadbalancer_member' or
+              obj_type == 'floating_ip_pool' and 'parent_uuid' in obj_dict):
+            # loadbalancer_member and floating_ip_pool have only one parent type
+            ok, proj_res = cls.dbe_read(db_conn, cls.parent_types[0],
+                                        obj_dict['parent_uuid'],
+                                        obj_fields=['parent_uuid'])
             if not ok:
                 return proj_uuid # None
 
@@ -2763,52 +2765,6 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
     # end _check_interface_name
 
 # end class PhysicalInterfaceServer
-
-
-class LoadbalancerMemberServer(Resource, LoadbalancerMember):
-
-    @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        user_visibility = obj_dict['id_perms'].get('user_visible') or True
-        if not user_visibility:
-            return True, ""
-
-        try:
-            fq_name = obj_dict['fq_name']
-            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except cfgm_common.exceptions.NoIdError:
-            return (False, (500, 'No Project ID error : ' + proj_uuid))
-
-        ok, result = cls.dbe_read(db_conn, 'project', proj_uuid)
-        if not ok:
-            return ok, result
-
-        proj_dict = result
-        if QuotaHelper.get_quota_limit(proj_dict, 'loadbalancer_member') < 0:
-            return True, ""
-        lb_pools = proj_dict.get('loadbalancer_pools') or []
-        quota_count = 0
-
-        for pool in lb_pools:
-            ok, result = cls.dbe_read(db_conn, 'loadbalancer_pool',
-                                       pool['uuid'])
-            if not ok:
-                code, msg = result
-                if code == 404:
-                    continue
-                return ok, result
-
-            lb_pool_dict = result
-            quota_count += len(lb_pool_dict.get('loadbalancer_members') or [])
-
-        (ok, quota_limit) = QuotaHelper.check_quota_limit(
-            proj_dict, 'loadbalancer_member', quota_count)
-        if not ok:
-            return (False, (vnc_quota.QUOTA_OVER_ERROR_CODE, pformat(fq_name) + ' : ' + quota_limit))
-
-        return True, ""
-
-#end class LoadbalancerMemberServer
 
 class RouteAggregateServer(Resource, RouteAggregate):
     @classmethod
