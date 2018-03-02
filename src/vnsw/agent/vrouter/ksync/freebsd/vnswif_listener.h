@@ -23,7 +23,8 @@ private:
     virtual void SyncCurrentState();
     virtual void RegisterAsyncReadHandler();
     void ReadHandler(const boost::system::error_code &, std::size_t length);
-    virtual void UpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt);
+    virtual void UpdateLinkLocalRoute(const Ip4Address &addr, uint8_t plen,
+                                      bool del_rt);
 
     const std::string RTMTypeToString(int type);
     unsigned int

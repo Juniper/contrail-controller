@@ -52,6 +52,9 @@ void VnswInterfaceListenerBase::Init() {
     fabric_listener_id_ = agent_->fabric_inet4_unicast_table()->Register
         (boost::bind(&VnswInterfaceListenerBase::FabricRouteNotify,
                      this, _1, _2));
+    vn_listener_id_ = agent_->vn_table()->Register
+        (boost::bind(&VnswInterfaceListenerBase::VnNotify,
+                     this, _1, _2));
 
 
     /* Allocate Route Event Workqueue */
@@ -79,6 +82,7 @@ void VnswInterfaceListenerBase::Init() {
 void VnswInterfaceListenerBase::Shutdown() {
     agent_->interface_table()->Unregister(intf_listener_id_);
     agent_->fabric_inet4_unicast_table()->Unregister(fabric_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
     // Expect only one entry for vhost0 during shutdown
     assert(host_interface_table_.size() == 0);
     if (agent_->test_mode()) {
@@ -94,7 +98,6 @@ void VnswInterfaceListenerBase::Shutdown() {
 void VnswInterfaceListenerBase::Enqueue(Event *event) {
     revent_queue_->Enqueue(event);
 }
-
 
 /****************************************************************************
  * Interface DB notification handler. Triggers add/delete of link-local route
@@ -176,6 +179,89 @@ void VnswInterfaceListenerBase::FabricRouteNotify(DBTablePartBase *part,
     return;
 }
 
+void VnswInterfaceListenerBase::VnDBState::Enqueue(VnswInterfaceListenerBase *base,
+                                                   const VnIpam &entry,
+                                                   const Event::Type event) {
+    std::stringstream str;
+    str << entry.ip_prefix << entry.plen;
+
+    //If entry matches vhost subnet do nothing.
+    InetUnicastAgentRouteTable *table =
+        base->agent()->fabric_vrf()->GetInet4UnicastRouteTable();
+    InetUnicastRouteEntry *rt =
+        table->FindResolveRoute(entry.ip_prefix.to_v4());
+    if (rt && rt->plen() >= entry.plen) {
+        return;
+    }
+
+    bool enqueue = true;
+    if (event == Event::ADD_LL_ROUTE) {
+        enqueue = base->AddIpam(entry.ip_prefix.to_v4(), entry.plen);
+    } else {
+        enqueue = base->DelIpam(entry.ip_prefix.to_v4(), entry.plen);
+    }
+
+    if (enqueue) {
+        base->revent_queue_->Enqueue(new Event(event,
+                                     "", entry.ip_prefix.to_v4(),
+                                     entry.plen, 0, true));
+    }
+}
+
+void VnswInterfaceListenerBase::VnDBState::Add(VnswInterfaceListenerBase *base,
+                                               const VnEntry *vn) {
+    std::set<VnIpam> old_ipam_list = ipam_list_;
+
+    std::vector<VnIpam>::const_iterator it = vn->GetVnIpam().begin();
+    for(; it != vn->GetVnIpam().end(); it++) {
+        if (it->ip_prefix.is_v4() == false) {
+            continue;
+        }
+
+        if (ipam_list_.find(*it) != ipam_list_.end()) {
+            old_ipam_list.erase(*it);
+        } else if (ipam_list_.find(*it) != ipam_list_.end()) {
+            continue;
+        } else {
+            ipam_list_.insert(*it);
+            Enqueue(base, *it, Event::ADD_LL_ROUTE);
+        }
+    }
+
+    std::set<VnIpam>::iterator oit = old_ipam_list.begin();
+    for(; oit != old_ipam_list.end(); oit++) {
+        Enqueue(base, *oit, Event::DEL_LL_ROUTE);
+    }
+}
+
+void VnswInterfaceListenerBase::VnDBState::Delete(VnswInterfaceListenerBase *base) {
+    std::set<VnIpam>::iterator it = ipam_list_.begin();
+    for(; it != ipam_list_.end(); it++) {
+        Enqueue(base, *it, Event::DEL_LL_ROUTE);
+    }
+}
+
+void VnswInterfaceListenerBase::VnNotify(DBTablePartBase *part,
+                                         DBEntryBase *e) {
+    VnDBState *state =
+        static_cast<VnDBState *>(e->GetState(part->parent(), vn_listener_id_));
+    VnEntry *vn = static_cast<VnEntry *>(e);
+
+    if (e->IsDeleted() || vn->underlay_forwarding() == false) {
+        if (state) {
+            e->ClearState(part->parent(), vn_listener_id_);
+            state->Delete(this);
+            delete state;
+        }
+    } else if (vn->underlay_forwarding()) {
+        if (state == NULL) {
+            state = new VnDBState();
+        }
+        e->SetState(part->parent(), vn_listener_id_, state);
+        state->Add(this, vn);
+    }
+    return;
+}
 /****************************************************************************
  * Interface Event handler
  ****************************************************************************/
@@ -233,6 +319,8 @@ void VnswInterfaceListenerBase::Activate(const std::string &name,
         // link-local routes would have been deleted when vhost link was down.
         // Add all routes again on activation
         AddLinkLocalRoutes();
+        //Add IPAM routes also
+        AddIpamRoutes();
     }
     if (entry == NULL) {
         return;
@@ -402,7 +490,7 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
 
 void
 VnswInterfaceListenerBase::UpdateLinkLocalRouteAndCount(
-    const Ip4Address &addr, bool del_rt)
+    const Ip4Address &addr, uint8_t plen, bool del_rt)
 {
     if (del_rt)
         ll_del_count_++;
@@ -411,16 +499,21 @@ VnswInterfaceListenerBase::UpdateLinkLocalRouteAndCount(
     if (agent_->test_mode())
         return;
 
-    UpdateLinkLocalRoute(addr, del_rt);
+    UpdateLinkLocalRoute(addr, plen, del_rt);
 }
 
 // Handle link-local route changes resulting from ADD_LL_ROUTE or DEL_LL_ROUTE
 void VnswInterfaceListenerBase::LinkLocalRouteFromLinkLocalEvent(Event *event) {
     if (event->event_ == Event::DEL_LL_ROUTE) {
-        ll_addr_table_.erase(event->addr_);
-        UpdateLinkLocalRouteAndCount(event->addr_, true); } else {
+        if (event->ipam_ == false) {
+            ll_addr_table_.erase(event->addr_);
+        }
+        UpdateLinkLocalRouteAndCount(event->addr_, event->plen_, true);
+    } else {
+        if (event->ipam_ == false) {
             ll_addr_table_.insert(event->addr_);
-        UpdateLinkLocalRouteAndCount(event->addr_, false);
+        }
+        UpdateLinkLocalRouteAndCount(event->addr_, event->plen_, false);
     }
 }
 
@@ -436,7 +529,8 @@ void VnswInterfaceListenerBase::LinkLocalRouteFromRouteEvent(Event *event) {
         // after agent restart.
         // Delete the route
         if (event->event_ == Event::ADD_ROUTE) {
-            UpdateLinkLocalRouteAndCount(event->addr_, true);
+            UpdateLinkLocalRouteAndCount(event->addr_, Address::kMaxV4PrefixLen,
+                                         true);
         }
         return;
     }
@@ -444,18 +538,26 @@ void VnswInterfaceListenerBase::LinkLocalRouteFromRouteEvent(Event *event) {
     if ((event->event_ == Event::DEL_ROUTE) ||
         (event->event_ == Event::ADD_ROUTE
          && event->interface_ != agent_->vhost_interface_name())) {
-        UpdateLinkLocalRouteAndCount(event->addr_, false);
+        UpdateLinkLocalRouteAndCount(event->addr_, Address::kMaxV4PrefixLen,
+                                     false);
     }
 }
 
 void VnswInterfaceListenerBase::AddLinkLocalRoutes() {
     for (LinkLocalAddressTable::iterator it = ll_addr_table_.begin();
          it != ll_addr_table_.end(); ++it) {
-        UpdateLinkLocalRouteAndCount(*it, false);
+        UpdateLinkLocalRouteAndCount(*it, Address::kMaxV4PrefixLen, false);
     }
 }
 
 void VnswInterfaceListenerBase::DelLinkLocalRoutes() {
+}
+
+void VnswInterfaceListenerBase::AddIpamRoutes() {
+    IpamSubnetMap::const_iterator it = ipam_subnet_.begin();
+    for(; it != ipam_subnet_.end(); it++) {
+        UpdateLinkLocalRouteAndCount(it->first.ip_, it->first.plen_, false);
+    }
 }
 
 /****************************************************************************
