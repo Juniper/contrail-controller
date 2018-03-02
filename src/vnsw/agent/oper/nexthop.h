@@ -628,6 +628,14 @@ public:
     virtual NextHopKey *Clone() const {
         return new ReceiveNHKey(intf_key_->Clone(), policy_);
     }
+    const InterfaceKey* intf_key() const {return intf_key_.get();}
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        const ReceiveNHKey &key = static_cast<const ReceiveNHKey&>(rhs);
+        if (intf_key_->IsEqual(*key.intf_key_.get()) == false) {
+            return intf_key_->IsLess(*key.intf_key_.get());
+        }
+        return false;
+    }
 
 private:
     friend class ReceiveNH;
@@ -699,7 +707,15 @@ public:
 
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
-        return new ResolveNHKey(intf_key_->Clone(), policy_);
+        return new ResolveNHKey(intf_key_.get(), policy_);
+    }
+    const InterfaceKey* intf_key() const {return intf_key_.get();}
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        const ResolveNHKey &key = static_cast<const ResolveNHKey&>(rhs);
+        if (intf_key_->IsEqual(*key.intf_key_.get()) == false) {
+            return intf_key_->IsLess(*key.intf_key_.get());
+        }
+        return false;
     }
 private:
     friend class ResolveNH;
@@ -768,6 +784,15 @@ public:
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
         return new ArpNHKey(vrf_key_.name_, dip_, policy_);
+    }
+    const Ip4Address& dip() const { return dip_; }
+    const string& vrf_name() const { return vrf_key_.name_; }
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        const ArpNHKey &key = static_cast<const ArpNHKey &>(rhs);
+        if (vrf_key_.IsEqual(key.vrf_key_) == false) {
+            return vrf_key_.IsLess(key.vrf_key_);
+        }
+        return dip_ < key.dip_;
     }
 private:
     friend class ArpNH;
@@ -881,6 +906,11 @@ public:
     const Ip4Address dip() const {
         return dip_;
     }
+    const Ip4Address sip() const {
+        return sip_;
+    }
+    const string& vrf_name() const { return vrf_key_.name_; }
+    const uint16_t tunnel_type() const {return tunnel_type_.GetType();}
 private:
     friend class TunnelNH;
     VrfKey vrf_key_;
@@ -928,6 +958,8 @@ public:
     const MacAddress dest_bmac() const {
         return dest_bmac_;
     }
+    const uint32_t isid() const {return isid_;}
+    const string& vrf_name() const { return vrf_key_.name_;}
 private:
     friend class PBBNH;
     VrfKey vrf_key_;
@@ -1010,7 +1042,6 @@ struct InterfaceNHFlags {
         INET6 = 8
     };
 };
-
 class InterfaceNHKey : public NextHopKey {
 public:
     InterfaceNHKey(InterfaceKey *intf, bool policy, uint8_t flags,
@@ -1202,7 +1233,14 @@ public:
 
     virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
         const VrfNHKey &key = static_cast<const VrfNHKey &>(rhs);
-        return vrf_key_.IsLess(key.vrf_key_);
+        if (vrf_key_.IsEqual(key.vrf_key_) == false) {
+            return vrf_key_.IsLess(key.vrf_key_);
+        }
+
+        if (policy_ != key.policy_) {
+            return policy_ < key.policy_;
+        } 
+        return vxlan_nh_ < key.vxlan_nh_;
     }
 
     virtual NextHop *AllocEntry() const;
@@ -1210,7 +1248,8 @@ public:
         return new VrfNHKey(vrf_key_.name_, policy_, vxlan_nh_);
     }
     const std::string &GetVrfName() const { return vrf_key_.name_; }
-    const bool &GetVxlanNh() const { return vxlan_nh_; }
+    const bool GetVxlanNh() const { return vxlan_nh_; }
+    const bool GetPolicy() const { return policy_; }
 private:
     friend class VrfNH;
     VrfKey vrf_key_;
@@ -1523,6 +1562,7 @@ public:
     void CreateTunnelNHReq(Agent *agent);
     void ChangeTunnelType(TunnelType::Type tunnel_type);
     COMPOSITETYPE composite_nh_type() const {return composite_nh_type_;}
+    const string& vrf_name() const {return vrf_key_.name_;}
 private:
     friend class CompositeNH;
     bool ExpandLocalCompositeNH(Agent *agent);
@@ -1736,7 +1776,7 @@ public:
     void set_l2_receive_nh(NextHop *nh) { l2_receive_nh_ = nh; }
     NextHop *l2_receive_nh() const {return l2_receive_nh_;}
     // NextHop index managing routines
-    void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
+    void FreeInterfaceId(size_t index);
     NextHop *FindNextHop(size_t index);
     uint32_t ReserveIndex();
 
