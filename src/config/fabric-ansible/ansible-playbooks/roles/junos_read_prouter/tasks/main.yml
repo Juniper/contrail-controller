@@ -1,29 +1,44 @@
 ---
-    - name: call vnc to read the physical-router
+    - name: Read Fabric namespace, update log
+      job_objectlog:
+        message: "Reading fabric namespace to get AS number."
+
+    - name: get fabric namespaces for a tag
       vnc_db_mod:
-        object_type: "physical_router"
-        object_op: "read"
-        object_dict: {"uuid": "{{prouter_uuid}}" }
-        auth_token: "{{keystone.x_subject_token}}"
-      register: prouter_details
+         object_type: "fabric"
+         object_op: "list"
+         object_dict: |
+           {
+              "back_ref_id": "{{ prouter_uuid }}"
+           }
+         auth_token: "{{ auth_token }}"
+      register: fabric_obj
 
     - set_fact:
         output: {
                   "status": "Failure",
-                  "message": "{{prouter_details.msg}}"
+                  "message": "{{fabric_obj.msg}}"
                 }
-      when: "'obj' not in prouter_details or prouter_details.failed == 'true'"
+      when: "'obj' not in fabric_obj or fabric_obj.failure == true"
+
+    - name: Read failed, updating log
+      job_objectlog:
+        message: "Could not find the fabric with back_ref_id {{prouter_uuid}} in the DB."
+      when: "'obj' not in fabric_obj or fabric_obj.failure == true"
 
     - meta: end_play
-      when: "'obj' not in prouter_details or prouter_details.failed == 'true'"
-
+      when: "'obj' not in fabric_obj or fabric_obj.failure == true"
+ 
+    - name: get fabric uuid
+      set_fact:
+          fabric_uuid: "{{ fabric_obj.obj.fabrics[0].uuid }}"
+ 
     - set_fact:
-        prouter_info: "{{prouter_details.obj}}"
-
-    - set_fact:
-        junos_username: "{{prouter_info.physical_router_user_credentials.username}}"
-        junos_host: "{{prouter_info.physical_router_management_ip}}"
-        prouter_name: "{{prouter_info.fq_name[1]}}"
-
+         tag_fq_name: "namespace=as_number"
+ 
     - name: create subfolders
       include_tasks: create_subfolders.yml
+ 
+    - name: get fabric info
+      include_role:
+          name: fabric_namespace_read

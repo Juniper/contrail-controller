@@ -16,27 +16,29 @@ system {
         }
     }
     ntp { # NTP servers #
-        {% if input.ntp.servers %}
-        {%- for server in input.ntp.servers %}
+        {% if input.ntp.ntp_servers %}
+        {%- for server in input.ntp.ntp_servers %}
         server {{ server }};
         {% endfor -%}
         {% endif %}
         # Boot Servers #
-        {% if input.ntp.boot_servers %}
-        {%- for boot_server in input.ntp.boot_servers %}
+        {% if input.ntp.ntp_boot_servers %}
+        {%- for boot_server in input.ntp.ntp_boot_servers %}
         boot-server {{ boot_server }};
         {% endfor -%}
         {% endif %}
     }
 }
 snmp {
-    location "{{ input.snmp.location }}";
-    contact "{{ input.snmp.contact }}";
-{% for snmp in input.snmp.polling %}
-    community {{ snmp.community }} {
+    location "{{ input.snmp.snmp_location }}";
+    contact "{{ input.snmp.snmp_contact }}";
+{% if input.snmp.snmp_communities is defined %}
+{% for comm in input.snmp.snmp_communities %}
+    community {{ comm.community }} {
         authorization read-only;
     }
 {% endfor %}
+{% endif %}
 }
 
 routing-options {
@@ -48,9 +50,8 @@ routing-options {
         import-rib inet.0;
     }
   }
-  {% if input.routing_options is defined %}
-  router-id {{ input.routing_options.router_id }};
-  autonomous-system {{ input.routing_options.as_number }};
+  router-id {{ junos_host }};
+  autonomous-system {{ as_numbers }};
   {% endif %}
 }
 

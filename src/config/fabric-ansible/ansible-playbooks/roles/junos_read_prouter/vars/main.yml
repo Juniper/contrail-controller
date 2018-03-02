@@ -1,3 +1,7 @@
 ---
-prouter_uuid: 0a6a03e3-6403-4809-a073-1a4f4eea56f9
-contrail_ip: 10.155.75.3
+# vars file for read prouter
+
+junos_username: "{{playbook_input.device_username}}"
+junos_host: "{{playbook_input.device_management_ip}}"
+prouter_name: "{{playbook_input.device_fqname[1]}}"
+junos_password: "{{playbook_input.device_password}}"

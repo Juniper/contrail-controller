@@ -1,4 +1,8 @@
 ---
+    - name: Begin commit config
+      job_objectlog:
+        message: "Beginning to commit config, combining configs."
+
     - name: create subfolders
       include_tasks: create_subfolders.yml
 
@@ -9,7 +13,7 @@
         provider:
           host: "{{junos_host}}"
           username: "{{junos_username}}"
-          password: "{{input.junos_password}}"
+          password: "{{junos_password}}"
           port: 22
         confirm_commit: yes
       ignore_errors: yes
@@ -17,14 +21,15 @@
 
     - name: handle error case to extract message from device
       include_tasks: handle_error_junos.yml
-      when: "result.failed == true"
+      when: "result.failed == true" #Do not change to failure as ansible returns as 'failed'
 
-    #- name: delete all generated configs
-    #  file:
-    #    state: absent
-    #    path: "{{ conf_dir }}"
+    - name: delete all generated configs
+      file:
+        state: absent
+        path: "{{ conf_dir }}"
 
-    - meta: end_play
-      hen: "result.failed == true"
+    - name: Config commit complete
+      job_objectlog:
+        message: "Config commit was successfully completed."
 
     #- debug: msg={{output}}

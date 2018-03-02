@@ -1,5 +1,9 @@
 ---
-    - name: call vnc to create physical-router
+    - name: Begin create BGP router
+      job_objectlog:
+        message: "Begin creating BGP router in Contrail."
+
+    - name: call vnc to create bgp-router
       vnc_db_mod:
         object_type: "bgp_router"
         object_op: "create"
@@ -17,19 +21,25 @@
             ],
             "bgp_router_parameters":
             {
-              "vendor": "{{ item.physical_router_vendor_name | default('Juniper')}}",
+              "vendor": "{{ prouter_info.physical_router_vendor_name | default('Juniper')}}",
               "router_type": "router",
-              "address": "{{ item.physical_router_management_ip }}"
-              "identifier": "{{ item.physical_router_management_ip }}",
+              "address": "{{ prouter_info.physical_router_management_ip }}",
+              "identifier": "{{ prouter_info.physical_router_management_ip }}",
               "address_families": {
                 "family": ["inet-vpn", "inet6-vpn", "route-target", "e-vpn", "inet"]
               },
-              "autonomous_system": 65412
+              "autonomous_system": "{{input.as_number}}"
             }
           }
-        auth_token: "{{keystone.x_subject_token}}"
-      with_items: "{{ prouter_info }}"
+        auth_token: "{{auth_token}}"
       register: bgp_info
+
+    - name: Error handling if create BGP router fails
+      include_tasks: error_handler.yml
+      when: "bgp_info.failed == true"
+      vars:
+        op_err_message: "{{bgp_info.msg}}"
+        jl_err_message: "Create BGP router failed: {{prouter_info.fq_name[1]}}-bgp failed."
 
     - name: call vnc to update physical-router
       vnc_db_mod:
@@ -47,4 +57,16 @@
                 "{{prouter_info.fq_name[1]}}-bgp"
               ]
           }
-        auth_token: "{{keystone.x_subject_token}}"
+        auth_token: "{{auth_token}}"
+      register: ref_update_results
+
+    - name: Error handling if ref update to router fails
+      include_tasks: error_handler.yml
+      when: "ref_update_results.failed == true"
+      vars:
+        op_err_message: "{{ref_update_results.msg}}"
+        jl_err_message: "Failed to add ref to P-Router with uuid: {{prouter_info.fq_name[1]}}."
+
+    - name: Create BGP router completed
+      job_objectlog:
+        message: "BGP router was created and ref was added to the Prouter object."
