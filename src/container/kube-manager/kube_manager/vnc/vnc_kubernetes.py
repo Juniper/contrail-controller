@@ -186,7 +186,7 @@ class VncKubernetes(VncCommon):
 
     def _attach_policy(self, vn_obj, *policies):
         for policy in policies or []:
-            vn_obj.add_network_policy(policy, \
+            vn_obj.add_network_policy(policy,
                 VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
         self.vnc_lib.virtual_network_update(vn_obj)
         for policy in policies or []:
@@ -255,7 +255,7 @@ class VncKubernetes(VncCommon):
             self.vnc_lib.network_policy_create(policy)
         return policy_obj
 
-    def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj, \
+    def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj,
             pod_vn_obj, service_vn_obj):
         policy_name = vnc_kube_config.cluster_name() + \
             '-default-ip-fabric-np'
@@ -267,12 +267,12 @@ class VncKubernetes(VncCommon):
             self._create_np_vn_policy(policy_name, proj_obj, service_vn_obj)
         policy_name = vnc_kube_config.cluster_name() + \
             '-default-pod-service-np'
-        cluster_default_policy = self._create_vn_vn_policy(policy_name, \
+        cluster_default_policy = self._create_vn_vn_policy(policy_name,
             proj_obj, pod_vn_obj, service_vn_obj)
         self._attach_policy(ip_fabric_vn_obj, ip_fabric_policy)
-        self._attach_policy(pod_vn_obj, \
+        self._attach_policy(pod_vn_obj,
             ip_fabric_policy, cluster_default_policy)
-        self._attach_policy(service_vn_obj, ip_fabric_policy, \
+        self._attach_policy(service_vn_obj, ip_fabric_policy,
             cluster_service_network_policy, cluster_default_policy)
 
     def _create_project(self, project_name):
@@ -359,7 +359,7 @@ class VncKubernetes(VncCommon):
             pass
 
     def _provision_cluster(self):
-        proj_obj = self._create_project(\
+        proj_obj = self._create_project(
             vnc_kube_config.cluster_default_project_name())
 
         # Create application policy set for the cluster project.
@@ -388,11 +388,13 @@ class VncKubernetes(VncCommon):
         # Create a cluster-pod-network
         if self.args.ip_fabric_forwarding:
             cluster_pod_vn_obj = self._create_network(
-                vnc_kube_config.cluster_default_pod_network_name(), proj_obj, \
+                vnc_kube_config.cluster_default_pod_network_name(),
+                'pod-network', proj_obj,
                 ip_fabric_ipam_obj, ip_fabric_ipam_update, ip_fabric_vn_obj)
         else:
             cluster_pod_vn_obj = self._create_network(
-                vnc_kube_config.cluster_default_pod_network_name(), proj_obj, \
+                vnc_kube_config.cluster_default_pod_network_name(),
+                'pod-network', proj_obj,
                 pod_ipam_obj, pod_ipam_update, ip_fabric_vn_obj)
         # Create Service IPAM.
         ipam_name = vnc_kube_config.cluster_name() + '-service-ipam'
@@ -401,12 +403,12 @@ class VncKubernetes(VncCommon):
         self._cluster_service_ipam_fq_name = service_ipam_obj.get_fq_name()
         # Create a cluster-service-network
         cluster_service_vn_obj = self._create_network(
-            vnc_kube_config.cluster_default_service_network_name(), proj_obj, \
-            service_ipam_obj, service_ipam_update)
-        self._create_attach_policy(proj_obj, ip_fabric_vn_obj, \
+            vnc_kube_config.cluster_default_service_network_name(),
+            'service-network', proj_obj, service_ipam_obj, service_ipam_update)
+        self._create_attach_policy(proj_obj, ip_fabric_vn_obj,
             cluster_pod_vn_obj, cluster_service_vn_obj)
 
-    def _create_network(self, vn_name, proj_obj, \
+    def _create_network(self, vn_name, vn_type, proj_obj,
             ipam_obj, ipam_update, provider=None):
         # Check if the VN already exists.
         # If yes, update existing VN object with k8s config.
@@ -433,24 +435,30 @@ class VncKubernetes(VncCommon):
         vn_obj.set_virtual_network_properties(
              VirtualNetworkType(forwarding_mode='l3'))
 
-        if self.args.ip_fabric_forwarding:
-            if provider:
-                vn_obj.add_virtual_network(provider)
-        else:
-            vn_obj.set_fabric_snat(True)
+        fabric_snat = False
+        if vn_type == 'pod-network':
+            fabric_snat = True
 
-        if vn_exists:
-            # Update VN.
-            self.vnc_lib.virtual_network_update(vn_obj)
-        else:
+        if not vn_exists:
+            if self.args.ip_fabric_forwarding:
+                if provider:
+                    #enable ip_fabric_forwarding
+                    vn_obj.add_virtual_network(provider)
+            elif fabric_snat and self.args.ip_fabric_snat:
+                #enable fabric_snat
+                vn_obj.set_fabric_snat(True)
+            else:
+                #disable fabric_snat
+                vn_obj.set_fabric_snat(False)
             # Create VN.
             self.vnc_lib.virtual_network_create(vn_obj)
+        else:
+            self.vnc_lib.virtual_network_update(vn_obj)
 
-        # FIP pool creation requires a vnc object. Get it.
         vn_obj = self.vnc_lib.virtual_network_read(
             fq_name=vn_obj.get_fq_name())
-
         VirtualNetworkKM.locate(vn_obj.uuid)
+
         return vn_obj
 
     def _get_cluster_network(self):
