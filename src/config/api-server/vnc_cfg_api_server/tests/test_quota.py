@@ -31,6 +31,7 @@ class TestQuota(test_case.ApiServerTestCase):
         self._port_quota = 3
         self._fip_quota = 3
         self._fip_pool_quota = 3
+        self._lb_member_quota = 3
 
     @classmethod
     def setUpClass(cls, *args, **kwargs):
@@ -287,6 +288,55 @@ class TestQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is not changed
         self.assertEqual(vmi_quota_counter.value, 1)
     # test_update_quota_after_project_create
+
+    def test_create_lb_members_with_quota_in_parallels(self):
+        proj_name = 'admin' + self.id()
+        kwargs = {'quota':{'loadbalancer_member': self._lb_member_quota}}
+        project = Project(proj_name, **kwargs)
+        self._vnc_lib.project_create(project)
+        lb_pool = LoadbalancerPool('lb-pool-%s' %(self.id()), project)
+        self._vnc_lib.loadbalancer_pool_create(lb_pool)
+        lb_member = []
+        for i in xrange(self._lb_member_quota+1):
+            lb_member.append(LoadbalancerMember(str(uuid.uuid4()), parent_obj=lb_pool))
+            lb_member[i].uuid = lb_member[i].name
+        result = {'ok': 0, 'exception': 0}
+        def create_lb_pool_member(lb_member):
+            try:
+                self._vnc_lib.loadbalancer_member_create(lb_member)
+            except OverQuota:
+                result['exception'] +=1
+                return
+            result['ok'] +=1
+        threads_lb_members = [gevent.spawn(create_lb_pool_member, lb_member[i])
+                                     for i in xrange(self._lb_member_quota+1)]
+        gevent.joinall(threads_lb_members)
+        self.assertEqual(result['ok'], self._lb_member_quota)
+        self.assertEqual(result['exception'], 1)
+    # end test_create_lb_members_with_quota_in_parallels
+
+    def test_create_lb_members_update_quota_create_lb_member_negative(self):
+        proj_name = 'admin' + self.id()
+        project = Project(proj_name)
+        self._vnc_lib.project_create(project)
+        lb_pool = LoadbalancerPool('lb-pool-%s' %(self.id()), project)
+        self._vnc_lib.loadbalancer_pool_create(lb_pool)
+        for i in xrange(self._lb_member_quota):
+            lb_mem = LoadbalancerMember(str(uuid.uuid4()), parent_obj=lb_pool)
+            lb_mem.uuid = lb_mem.name
+            self._vnc_lib.loadbalancer_member_create(lb_mem)
+
+        # update project quota to resource count in db
+        quota = {'loadbalancer_member': self._lb_member_quota}
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+
+        # create lb member should fail with OverQuota error
+        lb_mem_obj_err = LoadbalancerMember(str(uuid.uuid4()),
+                                            parent_obj=lb_pool)
+        with ExpectedException(OverQuota) as e:
+            self._vnc_lib.loadbalancer_member_create(lb_mem_obj_err)
+    #end test_create_lb_members_update_quota_create_lb_member_negative
 # class TestQuota
 
 
