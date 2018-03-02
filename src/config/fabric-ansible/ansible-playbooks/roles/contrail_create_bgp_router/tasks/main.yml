@@ -28,7 +28,7 @@
               "address_families": {
                 "family": ["inet-vpn", "inet6-vpn", "route-target", "e-vpn", "inet"]
               },
-              "autonomous_system": "{{input.as_number}}"
+              "autonomous_system": "{{as_numbers[0]}}"
             }
           }
         auth_token: "{{auth_token}}"
