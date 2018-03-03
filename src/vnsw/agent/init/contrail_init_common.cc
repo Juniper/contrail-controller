@@ -196,6 +196,10 @@ void ContrailInitCommon::CreateInterfaces() {
     PhysicalInterfaceKey physical_key(agent()->fabric_interface_name());
     assert(table->FindActiveEntry(&physical_key));
 
+    agent()->set_router_id(agent_param()->vhost_addr());
+    agent()->set_vhost_prefix_len(agent_param()->vhost_plen());
+    agent()->set_vhost_default_gateway(agent_param()->vhost_gw());
+
     //Add the interface
     table->CreateVhost();
     //Trigger explicit change to sync the configuration
@@ -239,10 +243,6 @@ void ContrailInitCommon::CreateInterfaces() {
                                         agent()->fabric_policy_vrf_name(), 0,
                                         vmware_intf->mac(), "");
     }
-
-    agent()->set_router_id(agent_param()->vhost_addr());
-    agent()->set_vhost_prefix_len(agent_param()->vhost_plen());
-    agent()->set_vhost_default_gateway(agent_param()->vhost_gw());
 
     if (agent()->pkt()) {
         agent()->pkt()->CreateInterfaces();
