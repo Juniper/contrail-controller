@@ -202,9 +202,9 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     if (entry == NULL)
         return;
 
-    const InetInterface *vhost = 
-        static_cast<const InetInterface *>(agent_->vhost_interface());
-    string vhost_ip = vhost->ip_addr().to_string();
+    const VmInterface *vhost =
+        static_cast<const VmInterface *>(agent_->vhost_interface());
+    string vhost_ip = "1.1.1.1";
 
     // vnswif module does not know IP address yet
     EXPECT_EQ(entry->addr_.to_ulong(), 0);
@@ -215,7 +215,7 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     EXPECT_STREQ(entry->addr_.to_string().c_str(), "1.1.1.1");
 
     // Message not sent to kernel since vhost already has IP
-    EXPECT_EQ(vnswif_->vhost_update_count(), 0);
+    EXPECT_EQ(vnswif_->vhost_update_count(), 1);
 
     InterfaceAddressEvent(true, agent_->vhost_interface_name(), "2.2.2.2");
 
@@ -223,10 +223,10 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     EXPECT_STREQ(entry->addr_.to_string().c_str(), "2.2.2.2");
 
     // Message not sent to kernel since vhost already has IP
-    EXPECT_EQ(vnswif_->vhost_update_count(), 0);
+    EXPECT_EQ(vnswif_->vhost_update_count(), 1);
 
     // Ensure there is no change vhost-ip
-    EXPECT_STREQ(vhost->ip_addr().to_string().c_str(), vhost_ip.c_str());
+    EXPECT_STREQ(vhost->primary_ip_addr().to_string().c_str(), vhost_ip.c_str());
 
     InterfaceAddressEvent(false, agent_->vhost_interface_name(), "1.1.1.1");
 
@@ -234,10 +234,10 @@ TEST_F(TestVnswIf, vhost_addr_1) {
     EXPECT_STREQ(entry->addr_.to_string().c_str(), "0.0.0.0");
 
     // Message not sent to kernel since vhost already has IP
-    EXPECT_EQ(vnswif_->vhost_update_count(), 0);
+    EXPECT_EQ(vnswif_->vhost_update_count(), 1);
 
     // Ensure there is no change vhost-ip
-    EXPECT_STREQ(vhost->ip_addr().to_string().c_str(), vhost_ip.c_str());
+    EXPECT_STREQ(vhost->primary_ip_addr().to_string().c_str(), vhost_ip.c_str());
 
     InterfaceEvent(false, agent_->vhost_interface_name(), 0);
     ResetSeen(agent_->vhost_interface_name());
@@ -402,6 +402,7 @@ class SetupTask : public Task {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
+    strcpy(init_file, "controller/src/vnsw/agent/test/vnswa_no_ip_cfg.ini");
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->ksync()->VnswInterfaceListenerInit();
     Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
