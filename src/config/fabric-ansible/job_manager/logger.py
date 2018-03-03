@@ -6,16 +6,20 @@
 Job manager logger.
 """
 
+class JobLogger():
 
-from sandesh_common.vns.ttypes import Module
-from cfgm_common.vnc_logger import ConfigServiceLogger
+    def __init__(self):
+        self.job_log_file = open("/tmp/job_logs.txt", "w+")
+        self._sandesh = None
 
+    def close_logger(self):
+        self.job_log_file.close()
 
-class JobLogger(ConfigServiceLogger):
+    def error(self, message):
+        self.job_log_file.write(message + "\n")
 
-    def __init__(self, args=None, http_server_port=None):
-        module = Module.FABRIC_ANSIBLE
-        module_pkg = "job_manager"
-        self.context = "job_manager"
-        super(JobLogger, self).__init__(
-            module, module_pkg, args, http_server_port)
+    def debug(self, message):
+        self.job_log_file.write(message + "\n")
+
+    def info(self, message):
+        self.job_log_file.write(message + "\n")
