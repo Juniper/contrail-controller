@@ -270,6 +270,117 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
     # end test_multiple_policy
 
+    def test_policy_processing_time_optimization_subnet_only(self):
+        # Create VNs
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        vn2 = self.create_virtual_network(vn2_name, "10.2.1.0/24")
+
+        # Create policy
+        rules = []
+        rule1 = {"protocol": "icmp",
+                 "direction": "<>",
+                 "src": {"type": "cidr", "value": "20.2.1.2/32"},
+                 "dst": {"type": "cidr", "value": "10.2.1.2/32"},
+                 "action": "deny"
+                 }
+        rules.append(rule1)
+        np = self.create_network_policy_with_multiple_rules(rules)
+        self._vnc_lib.network_policy_update(np)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+   
+        # Attach policy to vn1
+        vn1.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+        orignal_vn_eval = config_db.VirtualNetworkST.evaluate
+        # if we dont sleep now for some time than following mock function gets picked
+        # for the above vn update
+        gevent.sleep(3)
+
+        # Mock the VirtualNetworkST evaluate function and attach the policy to vn2
+        # Test fails if vn1 evaluate funcation is hit.
+        def mock_vn_evaluate(self):
+            if vn1.get_fq_name_str() == self.name:
+                self.assertTrue(False, 'Error: Should not have run evaluate of vn1')
+            orignal_vn_eval()
+        #end evaluate
+        config_db.VirtualNetworkST.evaluate = mock_vn_evaluate
+        vn2.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn2)
+        # if we dont sleep now for some time than for the above code original vn evaluate gets
+        # picked up due to the next line 
+        gevent.sleep(3)
+        config_db.VirtualNetworkST.evaluate = orignal_vn_eval
+
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+        self.check_vn_is_deleted(uuid=vn2.uuid)
+    #end test_policy_processing_time_optimization
+
+    def test_policy_processing_time_optimization_acl_with_vn(self):
+        # Create VNs
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        vn2 = self.create_virtual_network(vn2_name, "10.2.1.0/24")
+
+        # Create policy
+        rules = []
+        rule1 = {"protocol": "icmp",
+                 "direction": "<>",
+                 "src": {"type": "vn", "value": vn1},
+                 "dst": {"type": "cidr", "value": "10.2.1.2/32"},
+                 "action": "deny"
+                 }
+        rules.append(rule1)
+        np = self.create_network_policy_with_multiple_rules(rules)
+        self._vnc_lib.network_policy_update(np)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        # Attach policy to vn1
+        vn1.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+        orignal_vn_eval = config_db.VirtualNetworkST.evaluate
+
+        # if we dont sleep now for some time than following mock function gets
+        # picked for the above vn update
+        vn1.vn_evaluate_hit = False
+        def mock_vn_evaluate(self):
+            if vn1.get_fq_name_str() == self.name:
+                vn1.vn_evaluate_hit = True
+                print "Bingo"
+            orignal_vn_eval()
+        #end evaluate
+        gevent.sleep(3)
+        config_db.VirtualNetworkST.evaluate = mock_vn_evaluate
+        vn2.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn2)
+        # if we dont sleep now for some time than for the above code original vn
+        # evaluate gets picked up due to the next line
+        gevent.sleep(3)
+        if vn1.vn_evaluate_hit == False:
+            self.assertTrue(False, 'Error: Did not execute evaluate of vn1')
+        config_db.VirtualNetworkST.evaluate = orignal_vn_eval
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+        self.check_vn_is_deleted(uuid=vn2.uuid)
+    #end test_policy_processing_time_optimization
+
     def test_policy_with_cidr(self):
         vn1_name = self.id() + 'vn1'
         vn2_name = self.id() + 'vn2'

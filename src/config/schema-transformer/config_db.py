@@ -1447,7 +1447,7 @@ class NetworkPolicyST(DBBaseST):
         self.service_instances = set()
         self.internal = False
         self.rules = []
-
+        self.has_subnet_only_rules = True
         # policies referred in this policy as src or dst
         self.referred_policies = set()
         # policies referring to this policy as src or dst
@@ -1462,6 +1462,21 @@ class NetworkPolicyST(DBBaseST):
             vn.add_policy(name, vnp)
         self.network_policys = NetworkPolicyST._network_policys.get(name, set())
     # end __init__
+
+    def skip_evaluate(self, from_type):
+        if from_type == 'virtual_network' and self.has_subnet_only_rules == True:
+            return True
+        return False
+    # end skip_evaluate
+
+    def update_subnet_only_rules(self):
+        for rule in self.rules:
+            for address in itertools.chain(rule.src_addresses,
+                                           rule.dst_addresses):
+                if (address.virtual_network not in (None, 'local') or
+                    address.network_policy):
+                    self.has_subnet_only_rules = False
+    # end update_subnet_only_rules
 
     def set_internal(self):
         self.internal = True
@@ -1532,6 +1547,7 @@ class NetworkPolicyST(DBBaseST):
                 policy.network_policys = policy_set
         self.referred_policies = np_set
         self.update_service_instances(si_set)
+        self.update_subnet_only_rules()
         return True
     # end add_rules
 
