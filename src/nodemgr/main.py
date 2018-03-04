@@ -64,7 +64,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         args, remaining_argv = node_parser.parse_known_args(args_str.split())
     except:
         usage()
-    disc_options = {'server': socket.gethostname(), 'port': 5998}
+    disc_options = {'server': socket.gethostname(), 'port': 5998, 'ssl': False}
     default = {'rules': '',
                'collectors': [],
                'hostip': '127.0.0.1',
@@ -98,8 +98,15 @@ def main(args_str=' '.join(sys.argv[1:])):
         default.update(dict(config.items('DEFAULT')))
     if 'DISCOVERY' in config.sections():
         disc_options.update(dict(config.items('DISCOVERY')))
+        if 'ssl' in config.options('DISCOVERY'):
+            disc_options['ssl'] = config.getboolean(
+                'DISCOVERY', 'ssl')
     disc_options['discovery_server'] = disc_options.pop('server')
     disc_options['discovery_port'] = disc_options.pop('port')
+    disc_options['discovery_ssl'] = disc_options.get('ssl')
+    disc_options['discovery_cert'] = disc_options.get('cert')
+    disc_options['discovery_key'] = disc_options.get('key')
+    disc_options['discovery_cacert'] = disc_options.get('cacert')
     if 'COLLECTOR' in config.sections():
         try:
             collector = config.get('COLLECTOR', 'server_list')
@@ -117,6 +124,14 @@ def main(args_str=' '.join(sys.argv[1:])):
     parser.add_argument("--discovery_port",
                         type=int,
                         help='Port of Discovery Server')
+    parser.add_argument("--discovery_cert",
+        help="Discovery Server ssl certificate")
+    parser.add_argument("--discovery_key",
+        help="Discovery Server ssl key")
+    parser.add_argument("--discovery_cacert",
+        help="Discovery Server ssl CA certificate")
+    parser.add_argument("--discovery_ssl", action="store_true",
+        help="Discovery service is configured with ssl")
     parser.add_argument("--collectors",
                         nargs='+',
                         help='Collector addresses in format' +
@@ -159,25 +174,33 @@ def main(args_str=' '.join(sys.argv[1:])):
         sys.stderr.flush()
         return
     prog = None
+    dss_kwargs = {}
+    if _args.discovery_ssl:
+        dss_kwargs = {
+            'cert' : _args.discovery_cert,
+            'key' : _args.discovery_key,
+            'cacert' : _args.discovery_cacert
+            }
     if (node_type == 'contrail-analytics'):
         prog = AnalyticsEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr)
+            discovery_port, collector_addr, **dss_kwargs)
     elif (node_type == 'contrail-config'):
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = ConfigEventManager(
             rule_file, discovery_server,
             discovery_port, collector_addr,
-            cassandra_repair_interval, cassandra_repair_logdir)
+            cassandra_repair_interval, cassandra_repair_logdir,
+            **dss_kwargs)
     elif (node_type == 'contrail-control'):
         prog = ControlEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr)
+            discovery_port, collector_addr, **dss_kwargs)
     elif (node_type == 'contrail-vrouter'):
         prog = VrouterEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr)
+            discovery_port, collector_addr, **dss_kwargs)
     elif (node_type == 'contrail-database'):
         hostip = _args.hostip
         minimum_diskgb = _args.minimum_diskgb
@@ -188,7 +211,8 @@ def main(args_str=' '.join(sys.argv[1:])):
             rule_file, discovery_server,
             discovery_port, collector_addr,
             hostip, minimum_diskgb, contrail_databases,
-	    cassandra_repair_interval, cassandra_repair_logdir)
+	    cassandra_repair_interval, cassandra_repair_logdir,
+            **dss_kwargs)
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
         return

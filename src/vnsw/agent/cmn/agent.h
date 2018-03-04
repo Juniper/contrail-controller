@@ -686,6 +686,10 @@ public:
     const uint32_t discovery_server_port() {
         return dss_port_; 
     }
+    std::string discovery_server_cert() const { return dss_cert_; }
+    std::string discovery_server_key() const { return dss_key_; }
+    std::string discovery_server_cacert() const { return dss_cacert_; }
+    bool discovery_ssl() const { return dss_ssl_enable_; }
     const int discovery_xmpp_server_instances() const {
         return dss_xs_instances_;
     }
@@ -1193,6 +1197,10 @@ private:
     // Discovery
     std::string dss_addr_;
     uint32_t dss_port_;
+    bool dss_ssl_enable_;
+    std::string dss_cert_;
+    std::string dss_key_;
+    std::string dss_cacert_;
     int dss_xs_instances_;
     std::string discovery_client_name_;
     std::string ip_fabric_intf_name_;

@@ -1544,9 +1544,18 @@ class VncApiServer(object):
         # Initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
+            dss_kwargs = {}
+            if self._args.disc_server_ssl:
+                if self._args.disc_server_cert:
+                    dss_kwargs.update({'cert' : self._args.disc_server_cert})
+                if self._args.disc_server_key:
+                    dss_kwargs.update({'key' : self._args.disc_server_key})
+                if self._args.disc_server_cacert:
+                    dss_kwargs.update({'cacert' : self._args.disc_server_cacert})
             self._disc = client.DiscoveryClient(self._args.disc_server_ip,
                                                 self._args.disc_server_port,
-                                                ModuleNames[Module.API_SERVER])
+                                                ModuleNames[Module.API_SERVER],
+                                                **dss_kwargs)
 
         # sandesh init
         self._sandesh = Sandesh()

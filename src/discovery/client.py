@@ -5,6 +5,7 @@
 # stdout as communication channel and gratitious text there will break it.
 # stderr should be fine
 
+import os
 import sys
 import gevent
 from gevent import monkey
@@ -14,6 +15,7 @@ if not 'unittest' in sys.modules:
 import requests
 import uuid
 from cfgm_common import jsonutils as json
+from cfgm_common import rest, utils
 import hashlib
 import socket
 from disc_utils import *
@@ -45,10 +47,46 @@ def str_to_class(class_name):
 def pub_sig(service, data):
     return hashlib.md5(service + json.dumps(data)).hexdigest()
 
+class DiscoveryRequest(object):
+    def _request(self, op, url, data=None, headers=None, timeout=30):
+        if (op == rest.OP_GET):
+            if self.verify:
+                resp = requests.get(
+                        url, headers=self._headers, verify=self.verify)
+            else:
+                resp = requests.get(url, headers=self._headers)
+        elif (op == rest.OP_POST):
+            if self.verify:
+                resp = requests.post(
+                        url, data=data, headers=self._headers, timeout=timeout,
+                        verify=self.verify)
+            else:
+                resp = requests.post(
+                        url, data=data, headers=self._headers, timeout=timeout)
+        elif (op == rest.OP_DELETE):
+            if self.verify:
+                resp = requests.delete(
+                        url, headers=self._headers, verify=self.verify)
+            else:
+                resp = requests.delete(url, headers=self._headers)
+        elif (op == rest.OP_PUT):
+            if self.verify:
+                resp = requests.put(
+                        url, data=data, headers=self._headers, verify=self.verify)
+            else:
+                resp = requests.put(url, data=data, headers=self._headers)
 
-class Subscribe(object):
+        return resp
+
+
+class Subscribe(DiscoveryRequest):
 
     def __init__(self, dc, service_type, count, f=None, *args, **kw):
+        super(Subscribe, self).__init__()
+        self.verify = kw.pop("verify")
+        self.protocol = "http"
+        if self.verify:
+            self.protocol = "https"
         self.dc = dc
         self.f = f
         self.kw = kw
@@ -86,7 +124,7 @@ class Subscribe(object):
         }
         self.post_body = json.dumps(self.data)
 
-        self.url = "http://%s:%s/subscribe" % (dc._server_ip, dc._server_port)
+        self.url = "%s://%s:%s/subscribe" % (self.protocol, dc._server_ip, dc._server_port)
 
         if f:
             # asynch - callback when new info is received
@@ -130,8 +168,9 @@ class Subscribe(object):
         while True:
             try:
                 self.stats['request'] += 1
-                r = requests.post(
-                    self.url, data=self.post_body, headers=self._headers, timeout=30)
+                r = self._request(
+                        rest.OP_POST, self.url, data=self.post_body,
+                        headers=self._headers, timeout=30)
                 if r.status_code == 200:
                     break
                 self.inc_stats('sc_%d' % r.status_code)
@@ -197,9 +236,12 @@ class Subscribe(object):
     def syslog(self, log_msg):
 	self.dc.syslog(log_msg)
 
-class DiscoveryClient(object):
+class DiscoveryClient(DiscoveryRequest):
+    _DEFAULT_CERT_BUNDLE="discoverycertbundle.pem"
 
-    def __init__(self, server_ip, server_port, client_type, pub_id = None):
+    def __init__(self, server_ip, server_port, client_type, pub_id=None,
+                 cert=None, key=None, cacert=None):
+        super(DiscoveryClient, self).__init__()
         self._server_ip = server_ip
         self._server_port = server_port
         self._pub_id = pub_id or socket.gethostname()
@@ -211,6 +253,11 @@ class DiscoveryClient(object):
         self.sig = None
         self.task = None
         self._sandesh = None
+
+        self._verify = False
+        self._cert = cert
+        self._key = key
+        self._cacert = cacert
 
         self.stats = {
             'client_type'    : client_type,
@@ -227,10 +274,13 @@ class DiscoveryClient(object):
         self.pub_data = {}
 
         # publish URL
-        self.puburl = "http://%s:%s/publish/%s" % (
-            self._server_ip, self._server_port, self._pub_id)
-        self.hburl = "http://%s:%s/heartbeat" % (
-            self._server_ip, self._server_port)
+        self.protocol = "http"
+        if self.verify:
+            self.protocol = "https"
+        self.puburl = "%s://%s:%s/publish/%s" % (
+            self.protocol, self._server_ip, self._server_port, self._pub_id)
+        self.hburl = "%s://%s:%s/heartbeat" % (
+            self.protocol, self._server_ip, self._server_port)
 
         # single task per publisher for heartbeats
         self.hbtask = gevent.spawn(self.heartbeat)
@@ -239,6 +289,22 @@ class DiscoveryClient(object):
         self.pub_task = None
         self._subs = []
     # end __init__
+
+    @property
+    def verify(self):
+        # bundle created already return bundle
+        if self._verify:
+            return self._verify
+        if self._cacert:
+            certs=[self._cacert]
+            if self._key and self._cert:
+                certs=[self._cert, self._key, self._cacert]
+                certbundle = os.path.join(
+                    '/tmp', self._server_ip.replace('.', '_'),
+                     DiscoveryClient._DEFAULT_CERT_BUNDLE)
+                self._verify = utils.getCertKeyCaBundle(certbundle, certs)
+
+        return self._verify
 
     @property
     def remote_addr(self):
@@ -315,8 +381,9 @@ class DiscoveryClient(object):
         cookie = None
         try:
             self.inc_pub_stats(service, 'request')
-            r = requests.post(
-                self.puburl, data=json.dumps(payload), headers=self._headers, timeout=30)
+            r = self._request(
+                    rest.OP_POST, self.puburl, data=json.dumps(payload),
+                    headers=self._headers, timeout=30)
             if r.status_code != 200:
                 self.inc_pub_stats(service, 'sc_%d' % r.status_code)
                 emsg = 'Status Code ' + str(r.status_code)
@@ -389,9 +456,9 @@ class DiscoveryClient(object):
         return None
 
     def _un_publish(self, token):
-        url = "http://%s:%s/service/%s" % (
-            self._server_ip, self._server_port, token)
-        requests.delete(url, headers=self._headers)
+        url = "%s://%s:%s/service/%s" % (
+            self.protocol, self._server_ip, self._server_port, token)
+        self._request(rest.OP_DELETE, url, headers=self._headers)
 
         # remove token and obj from records
         del self.pubdata[token]
@@ -415,6 +482,7 @@ class DiscoveryClient(object):
 
     # subscribe request without callback is synchronous
     def subscribe(self, service_type, count, f=None, *args, **kw):
+        kw.update({"verify" : self.verify})
         obj = Subscribe(self, service_type, count, f, *args, **kw)
         if f:
             self._subs.append(obj)
@@ -422,9 +490,9 @@ class DiscoveryClient(object):
 
     # retreive service information given service ID
     def get_service(self, sid):
-        url = "http://%s:%s/service/%s" % (
-            self._server_ip, self._server_port, sid)
-        r = requests.get(url, headers=self._headers)
+        url = "%s://%s:%s/service/%s" % (
+            self.protocol, self._server_ip, self._server_port, sid)
+        r = self._request(rest.OP_GET, url, headers=self._headers)
         #print 'get_service response = ', r
 
         entry = r.json()
@@ -432,10 +500,10 @@ class DiscoveryClient(object):
 
     # update service information (such as admin status)
     def update_service(self, sid, entry):
-        url = "http://%s:%s/service/%s" % (
-            self._server_ip, self._server_port, sid)
+        url = "%s://%s:%s/service/%s" % (
+            self.protocol, self._server_ip, self._server_port, sid)
         body = json.dumps(entry)
-        r = requests.put(url, data=body, headers=self._headers)
+        r = self._request(rest.OP_PUT, url, data=body, headers=self._headers)
         #print 'update_service response = ', r
         return r.status_code
     # end get_service

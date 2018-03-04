@@ -477,10 +477,17 @@ class OpServer(object):
                 self._args.sandesh_send_rate_limit)
         self.disc = None
         if self._args.disc_server_ip:
-           self.disc = discovery_client.DiscoveryClient(
-                            self._args.disc_server_ip,
-                            self._args.disc_server_port,
-                            ModuleNames[Module.OPSERVER])
+            dss_kwargs = {}
+            if self._args.disc_server_ssl:
+                dss_kwargs.update(
+                    {'cert' : self._args.disc_server_cert,
+                    'key' : self._args.disc_server_key,
+                    'cacert' : self._args.disc_server_cacert})
+            self.disc = discovery_client.DiscoveryClient(
+                             self._args.disc_server_ip,
+                             self._args.disc_server_port,
+                             ModuleNames[Module.OPSERVER],
+                             **dss_kwargs)
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'opserver_context',
@@ -851,6 +858,10 @@ class OpServer(object):
         disc_opts = {
             'disc_server_ip'     : None,
             'disc_server_port'   : 5998,
+            'disc_server_ssl'   : False,
+            'disc_server_cert'   : None,
+            'disc_server_key'   : None,
+            'disc_server_cacert'   : None,
         }
         cassandra_opts = {
             'cassandra_user'     : None,
@@ -876,6 +887,9 @@ class OpServer(object):
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
+                if 'disc_server_ssl' in config.options('DISCOVERY'):
+                    disc_opts['disc_server_ssl'] = config.getboolean(
+                        'DISCOVERY', 'disc_server_ssl')
             if 'CASSANDRA' in config.sections():
                 cassandra_opts.update(dict(config.items('CASSANDRA')))
             if 'KEYSTONE' in config.sections():
@@ -938,6 +952,14 @@ class OpServer(object):
         parser.add_argument("--disc_server_port",
             type=int,
             help="Discovery Server port")
+        parser.add_argument("--disc_server_cert",
+            help="Discovery Server ssl certificate")
+        parser.add_argument("--disc_server_key",
+            help="Discovery Server ssl key")
+        parser.add_argument("--disc_server_cacert",
+            help="Discovery Server ssl CA certificate")
+        parser.add_argument("--disc_server_ssl", action="store_true",
+            help="Discovery service is configured with ssl")
         parser.add_argument("--dup", action="store_true",
             help="Internal use")
         parser.add_argument("--redis_uve_list",
