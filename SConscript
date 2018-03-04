@@ -4,6 +4,7 @@
 
 SConscript(dirs=['lib', 'src'])
 SConscript(dirs=['../src/contrail-analytics'])
+SConscript(dirs=['../src/contrail-api-client'])
 
 env = DefaultEnvironment()
 env.Alias('controller/test', [
@@ -15,7 +16,6 @@ env.Alias('controller/test', [
     'controller/src/dns:test',
     'controller/src/ifmap:test',
     'controller/src/net:test',
-    'controller/src/schema:test',
     'controller/src/xmpp:test',
     'controller/src/api-lib:test',
     'controller/src/config/api-server:test',
@@ -25,6 +25,7 @@ env.Alias('controller/test', [
     'src/contrail-analytics/contrail-collector:test',
     'src/contrail-analytics/contrail-opserver:test',
     'src/contrail-analytics/contrail-query-engine:test',
+    'src/contrail-api-client/schema:test',
 ])
 
 env.Alias('controller/flaky-test', [

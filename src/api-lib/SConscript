@@ -20,11 +20,11 @@ autogen_infra_sources = [
                 ]
 
 autogen_sources = [
-                 '#controller/src/schema/all_cfg.xsd',
-                 '#controller/src/schema/vnc_cfg.xsd',
-                 '#controller/src/schema/bgp_schema.xsd',
-                 '#controller/src/schema/ietf-l3vpn-schema.xsd',
-                 '#controller/src/schema/smi-base.xsd',
+                 '#src/contrail-api-client/schema/all_cfg.xsd',
+                 '#src/contrail-api-client/schema/vnc_cfg.xsd',
+                 '#src/contrail-api-client/schema/bgp_schema.xsd',
+                 '#src/contrail-api-client/schema/ietf-l3vpn-schema.xsd',
+                 '#src/contrail-api-client/schema/smi-base.xsd',
                 ]
 
 autogen_script = File('#tools/generateds/generateDS.py').path
@@ -42,7 +42,7 @@ generated_files = [
 env.Append(ENV = {'HEAT_BUILDTOP' : Dir(env['TOP']).abspath})
 
 generated_rule = env.Command(generated_files,
-                             '#controller/src/schema/all_cfg.xsd',
+                             '#src/contrail-api-client/schema/all_cfg.xsd',
                              autogen_cmd + ' $SOURCE')
 
 setup_sources = [

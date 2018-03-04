@@ -15,8 +15,7 @@
     "contrail-config" : {
         "source_directories" : [
             "controller/src/api-lib",
-            "controller/src/config",
-            "controller/src/schema"
+            "controller/src/config"
         ],
         "scons_test_targets" : [
             "controller/src/config/svc_monitor:test",
@@ -25,6 +24,21 @@
             "controller/src/api-lib:test",
             "controller/src/config/api-server:test",
             "controller/src/config/vnc_openstack:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
+    "contrail-api-client" : {
+        "source_directories" : [
+            "src/contrail-api-client/schema"
+        ],
+        "scons_test_targets" : [
+            "controller/src/config/svc_monitor:test",
+            "controller/src/config/schema-transformer:test",
+            "controller/src/config/device-manager:test",
+            "controller/src/api-lib:test",
+            "controller/src/config/api-server:test",
+            "controller/src/config/vnc_openstack:test",
+            "src/contrail-api-client/schema:test"
         ],
         "misc_test_targets" : [ ]
     },
@@ -137,7 +151,7 @@
             "controller/src/route",
             "controller/src/routing-policy",
             "controller/src/sandesh",
-            "controller/src/schema",
+            "src/contrail-api-client/schema",
             "controller/src/xml",
             "tools/generateds",
             "src/contrail-common/sandesh/compiler",
@@ -151,7 +165,7 @@
             "src/contrail-common/database/cassandra/cql:test",
             "src/contrail-common/zookeeper:test",
             "controller/src/net:test",
-            "controller/src/schema:test",
+            "src/contrail-api-client/schema:test",
             "sandesh:test"
         ],
         "misc_test_targets" : [
