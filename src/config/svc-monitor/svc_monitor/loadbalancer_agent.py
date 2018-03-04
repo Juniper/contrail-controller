@@ -105,6 +105,10 @@ class LoadbalancerAgent(Agent):
                     config.set(sas.name, kvp['key'], kvp['value'])
                 if sas.ha_mode:
                     config.set(sas.name, 'ha_mode', str(sas.ha_mode))
+                self._loadbalancer_driver[sas.name] = \
+                    importutils.import_object(sas.driver, sas.name,
+                                              self._svc_mon, self._vnc_lib,
+                                              self._object_db, self._args)
                 for sa in sas.service_appliances or []:
                     saobj = ServiceApplianceSM.get(sa)
                     config.set(sas.name, 'device_ip', saobj.ip_address)
@@ -115,10 +119,10 @@ class LoadbalancerAgent(Agent):
                         if 'password' in saobj.user_credential:
                             config.set(sas.name, 'password',
                                 saobj.user_credential['password'])
-                self._loadbalancer_driver[sas.name] = \
-                    importutils.import_object(sas.driver, sas.name,
-                                              self._svc_mon, self._vnc_lib,
-                                              self._object_db, self._args)
+                    self._loadbalancer_driver[sas.name] = \
+                        importutils.import_object(sas.driver, sas.name,
+                            self._svc_mon, self._vnc_lib,
+                                self._object_db, self._args)
     # end load_drivers
 
     def audit_lb_pools(self):
