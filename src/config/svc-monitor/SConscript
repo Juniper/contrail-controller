@@ -38,6 +38,7 @@ sources = [
     'svc_monitor/services/loadbalancer/drivers/abstract_driver.py',
     'svc_monitor/services/loadbalancer/drivers/f5/__init__.py',
     'svc_monitor/services/loadbalancer/drivers/f5/f5_driver.py',
+    'svc_monitor/services/loadbalancer/drivers/f5/f5_driver_v2.py',
     'svc_monitor/services/loadbalancer/drivers/native/__init__.py',
     'svc_monitor/services/loadbalancer/drivers/native/driver.py',
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/__init__.py',
