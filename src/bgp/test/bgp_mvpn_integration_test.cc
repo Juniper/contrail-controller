@@ -428,7 +428,7 @@ TEST_P(BgpMvpnOneControllerTest, Basic) {
         ostringstream red;
         red << "red" << i;
         NextHop nexthop_red("10.1.1.2", 11, tunnel, red.str());
-        agent_xa_->AddRoute(red.str(), "192.168.1.1/32", nexthop_red, attr);
+        agent_xa_->AddRoute(red.str(), "192.168.1.0/24", nexthop_red, attr);
         task_util::WaitForIdle();
         agent_xa_->AddType5MvpnRoute(red.str(), sg.str(), "10.1.1.2");
         task_util::WaitForIdle();

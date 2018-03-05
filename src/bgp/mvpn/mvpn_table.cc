@@ -49,7 +49,9 @@ MvpnTable::MvpnTable(DB *db, const string &name)
 PathResolver *MvpnTable::CreatePathResolver() {
     if (routing_instance()->IsMasterRoutingInstance())
         return NULL;
-    return (new PathResolver(this));
+    PathResolver * path_resolver = new PathResolver(this);
+    path_resolver->set_nexthop_longest_match(true);
+    return path_resolver;
 }
 
 auto_ptr<DBEntry> MvpnTable::AllocEntry(
