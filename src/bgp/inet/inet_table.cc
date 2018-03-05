@@ -4,9 +4,13 @@
 
 #include "bgp/inet/inet_table.h"
 
+#include <boost/foreach.hpp>
+
+#include "base/task_annotations.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/l3vpn/inetvpn_route.h"
+#include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 
@@ -138,12 +142,7 @@ bool InetTable::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
 
     if (ribout->ExportPolicy().encoding == RibExportPolicy::BGP) {
         BgpAttrDB *attr_db = routing_instance()->server()->attr_db();
-        // Strip ExtCommunity.
-        if (uinfo->roattr.attr()->ext_community()) {
-            BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
-                uinfo->roattr.attr(), NULL);
-            uinfo->roattr.set_attr(this, new_attr);
-        }
+        UpdateExtendedCommunity(&uinfo->roattr);
 
         // Strip OriginVnPath.
         if (uinfo->roattr.attr()->origin_vn_path()) {
@@ -155,6 +154,179 @@ bool InetTable::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
     uinfo_slist->push_front(*uinfo);
 
     return true;
+}
+
+// Strip all extended-communities except OriginVN.
+void InetTable::UpdateExtendedCommunity(RibOutAttr *roattr) {
+    ExtCommunityPtr ext_commp = roattr->attr()->ext_community();
+    if (!ext_commp)
+        return;
+
+    // Retrieve any origin_vn already present.
+    ExtCommunity::ExtCommunityValue const *origin_vnp = NULL;
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                  ext_commp->communities()) {
+        if (!ExtCommunity::is_origin_vn(comm))
+            continue;
+        origin_vnp = &comm;
+        break;
+    }
+
+    BgpAttrDB *attr_db = routing_instance()->server()->attr_db();
+
+    // If there is no origin-vn, then remove all other extended communities.
+    if (!origin_vnp) {
+        BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
+            roattr->attr(), NULL);
+        roattr->set_attr(this, new_attr);
+        return;
+    }
+
+    // Remove all communities other than OriginVN by replacing all of the
+    // extended-community with just OriginVN.
+    if (ext_commp->communities().size() > 1) {
+        ExtCommunity::ExtCommunityList list;
+        list.push_back(*origin_vnp);
+        ExtCommunityDB *extcomm_db =
+            routing_instance()->server()->extcomm_db();
+        ext_commp = extcomm_db->AppendAndLocate(NULL, list);
+        BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
+            roattr->attr(), ext_commp);
+        roattr->set_attr(this, new_attr);
+    }
+}
+
+// Attach OriginVN extended-community from inetvpn path attribute if present
+// into inet route path attribute.
+BgpAttrPtr InetTable::UpdateAttributes(const BgpAttrPtr inetvpn_attrp,
+                                       const BgpAttrPtr inet_attrp) {
+    BgpServer *server = routing_instance()->server();
+
+    // Check if origin-vn path attribute in inet.0 table path is identical to
+    // what is in inetvpn table path.
+    ExtCommunity::ExtCommunityValue const *inetvpn_rt_origin_vn = NULL;
+    if (inetvpn_attrp && inetvpn_attrp->ext_community()) {
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                    inetvpn_attrp->ext_community()->communities()) {
+            if (!ExtCommunity::is_origin_vn(comm))
+                continue;
+            inetvpn_rt_origin_vn = &comm;
+            break;
+        }
+    }
+
+    ExtCommunity::ExtCommunityValue const *inet_rt_origin_vn = NULL;
+    if (inet_attrp && inet_attrp->ext_community()) {
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                    inet_attrp->ext_community()->communities()) {
+            if (!ExtCommunity::is_origin_vn(comm))
+                continue;
+            inet_rt_origin_vn = &comm;
+            break;
+        }
+    }
+
+    // Ignore if there is no change.
+    if (inetvpn_rt_origin_vn == inet_rt_origin_vn)
+        return inet_attrp;
+
+    // Update/Delete inet route attributes with updated OriginVn community.
+    ExtCommunityPtr new_ext_community;
+    if (!inetvpn_rt_origin_vn) {
+        new_ext_community = server->extcomm_db()->RemoveOriginVnAndLocate(
+            inet_attrp->ext_community());
+    } else {
+        new_ext_community = server->extcomm_db()->ReplaceOriginVnAndLocate(
+            inet_attrp->ext_community(), *inetvpn_rt_origin_vn);
+    }
+
+    return server->attr_db()->ReplaceExtCommunityAndLocate(inet_attrp.get(),
+                                                           new_ext_community);
+}
+
+// Given an inet prefix, update OriginVN with corresponding inetvpn route's
+// path attribute.
+BgpAttrPtr InetTable::GetAttributes(const Ip4Prefix &inet_prefix,
+                                    BgpAttrPtr inet_attrp, const IPeer *peer) {
+    CHECK_CONCURRENCY("db::DBTable");
+
+    if (!routing_instance()->IsMasterRoutingInstance())
+        return inet_attrp;
+    if (!inet_attrp || inet_attrp->source_rd().IsZero())
+        return inet_attrp;
+
+    RequestKey inet_rt_key(inet_prefix, NULL);
+    DBTablePartition *inet_partition = dynamic_cast<DBTablePartition *>(
+        GetTablePartition(&inet_rt_key));
+
+    InetVpnTable *inetvpn_table = dynamic_cast<InetVpnTable *>(
+        routing_instance()->GetTable(Address::INETVPN));
+    assert(inetvpn_table);
+    InetVpnPrefix inetvpn_prefix(inet_attrp->source_rd(),
+                                 inet_prefix.ip4_addr(),
+                                 inet_prefix.prefixlen());
+    InetVpnTable::RequestKey inetvpn_rt_key(inetvpn_prefix, NULL);
+    DBTablePartition *inetvpn_partition = dynamic_cast<DBTablePartition *>(
+        inetvpn_table->GetTablePartition(&inetvpn_rt_key));
+
+    // Assert that the partition indicies are identical. This is a MUST
+    // requirement as we need to peek into tables across different families.
+    assert(inet_partition->index() == inetvpn_partition->index());
+    InetVpnRoute *inetvpn_route = dynamic_cast<InetVpnRoute *>(
+        inetvpn_table->TableFind(inetvpn_partition, &inetvpn_rt_key));
+    if (!inetvpn_route)
+        return inet_attrp;
+    BgpPath *inetvpn_path = inetvpn_route->FindPath(peer, true);
+    if (!inetvpn_path)
+        return inet_attrp;
+    return UpdateAttributes(inetvpn_path->GetAttr(), inet_attrp);
+}
+
+// Update inet route path attributes with OriginVN from corresponding inetvpn
+// route path attribute.
+void InetTable::UpdateRoute(const InetVpnPrefix &inetvpn_prefix,
+                            const IPeer *peer, BgpAttrPtr inetvpn_attrp) {
+    CHECK_CONCURRENCY("db::DBTable");
+    assert(routing_instance()->IsMasterRoutingInstance());
+
+    // Check if a route is present in inet.0 table for this prefix.
+    Ip4Prefix inet_prefix(inetvpn_prefix.addr(), inetvpn_prefix.prefixlen());
+    InetTable::RequestKey inet_rt_key(inet_prefix, NULL);
+    DBTablePartition *inet_partition = dynamic_cast<DBTablePartition *>(
+        GetTablePartition(&inet_rt_key));
+
+    InetVpnTable *inetvpn_table = dynamic_cast<InetVpnTable *>(
+        routing_instance()->GetTable(Address::INETVPN));
+    assert(inetvpn_table);
+    InetVpnTable::RequestKey inetvpn_rt_key(inetvpn_prefix, NULL);
+    DBTablePartition *inetvpn_partition =
+        static_cast<DBTablePartition *>(inetvpn_table->GetTablePartition(
+            &inetvpn_rt_key));
+    assert(inet_partition->index() == inetvpn_partition->index());
+
+    InetRoute *inet_route = dynamic_cast<InetRoute *>(
+        TableFind(inet_partition, &inet_rt_key));
+    if (!inet_route)
+        return;
+
+    BgpPath *inet_path = inet_route->FindPath(peer);
+    if (!inet_path)
+        return;
+    BgpAttrPtr inet_attrp = inet_path->GetAttr();
+    if (!inet_attrp)
+        return;
+
+    // Bail if the RDs do not match.
+    if (!(inet_attrp->source_rd() == inetvpn_prefix.route_distinguisher())) {
+        return;
+    }
+    BgpAttrPtr new_inet_attrp = UpdateAttributes(inetvpn_attrp, inet_attrp);
+    if (new_inet_attrp == inet_attrp)
+        return;
+
+    // Update route with OriginVN path attribute.
+    inet_path->SetAttr(new_inet_attrp, inet_path->GetOriginalAttr());
+    inet_partition->Notify(inet_route);
 }
 
 PathResolver *InetTable::CreatePathResolver() {

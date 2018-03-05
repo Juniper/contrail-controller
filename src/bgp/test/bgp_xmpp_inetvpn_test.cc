@@ -156,6 +156,7 @@ static const char *config_2_control_nodes = "\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
+                <family>inet</family>\
             </address-families>\
         </session>\
     </bgp-router>\
@@ -167,6 +168,7 @@ static const char *config_2_control_nodes = "\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
+                <family>inet</family>\
             </address-families>\
         </session>\
     </bgp-router>\
@@ -176,6 +178,10 @@ static const char *config_2_control_nodes = "\
     <routing-instance name='default-domain:default-project:ip-fabric:ip-fabric'>\
         <virtual-network>default-domain:default-project:ip-fabric</virtual-network>\
         <vrf-target>target:1:100</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>\
+        <virtual-network>default-domain:default-project:ip-fabric</virtual-network>\
+        <vrf-target>target:1:200</vrf-target>\
     </routing-instance>\
     <virtual-network name='blue'>\
         <network-id>1</network-id>\
@@ -569,8 +575,10 @@ protected:
             return false;
         if (seq && rt->entry.sequence_number != seq)
             return false;
-        if (!origin_vn.empty() && rt->entry.virtual_network != origin_vn)
-            return false;
+        if (!origin_vn.empty()) {
+            if (rt->entry.virtual_network != origin_vn)
+                return false;
+        }
         if (!sgids.empty() &&
             rt->entry.security_group_list.security_group != sgids)
             return false;
@@ -689,6 +697,9 @@ protected:
         return static_cast<BgpTable *>(server->database()->FindTable(name));
     }
 
+    void FabricTestSetUp();
+    void FabricTestTearDown(const string &route_a);
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
@@ -706,6 +717,335 @@ static string BuildPrefix(uint32_t idx) {
     string prefix = string("10.1.") +
         integerToString(idx / 255) + "." + integerToString(idx % 255) + "/32";
     return prefix;
+}
+
+void BgpXmppInetvpn2ControlNodeTest::FabricTestSetUp() {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, 0);
+    agent_b_->Subscribe("blue", 1);
+    agent_b_->Subscribe(BgpConfigManager::kMasterInstance, 0);
+}
+
+void BgpXmppInetvpn2ControlNodeTest::FabricTestTearDown(const string &route_a) {
+    // Delete route from agent A from both blue and fabric.
+    agent_a_->DeleteRoute("blue", route_a);
+    task_util::WaitForIdle();
+    agent_a_->DeleteRoute(BgpConfigManager::kMasterInstance, route_a);
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a);
+    VerifyRouteNoExists(agent_b_, "blue", route_a);
+    VerifyRouteNoExists(agent_a_, BgpConfigManager::kMasterInstance, route_a);
+    VerifyRouteNoExists(agent_b_, BgpConfigManager::kMasterInstance, route_a);
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+// Add VPN route followed by fabric route with correct primary index.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_1) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // Add the same ipv4 route to fabric instance with primary table index as
+    // that of blue.
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 1);
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    FabricTestTearDown(route_a);
+}
+
+// Add VPN route followed by fabric route with incorrect primary index.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_2) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // Add the same ipv4 route to fabric instance with primary table index as
+    // that of blue with incorrect index.
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 2); // 2 is incorrect index.
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+    FabricTestTearDown(route_a);
+}
+
+// Add VPN route followed by fabric route with incorrect primary index. Update
+// the route with correct primary table index afterwards.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_3) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // Add the same ipv4 route to fabric instance with primary table index as
+    // that of blue (but index is incorrect)
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 2);
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+    // Add the same ipv4 route to fabric instance with primary table index as
+    // that of blue ,now with correct index.
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 1);
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    FabricTestTearDown(route_a);
+}
+
+// Add VPN route followed by fabric route with correct primary index. Delete VPN
+// route aftwards.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_4) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // Add the same ipv4 route to fabric instance with primary table index as
+    // that of blue.
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 1);
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+
+    // Delete VPN route.
+    agent_a_->DeleteRoute("blue", route_a);
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(agent_a_, "blue", route_a);
+    VerifyRouteNoExists(agent_b_, "blue", route_a);
+
+    // Fabric route shall remain with "blue" as the attribute. In production
+    // code, fabric route is also expected to be deleted anyways.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    FabricTestTearDown(route_a);
+}
+
+// Add Fabric route followed by VPN route with correct primary index.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_1) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+
+    // Add the ipv4 route to fabric instance with primary table index as blue
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 1);
+    task_util::WaitForIdle();
+
+    // OriginVN is not expected to be set as VPN route is not added yet.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+
+    // Add the vpn route to blue.
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // OriginVN should now be set to blue as VPN route is also added.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    FabricTestTearDown(route_a);
+}
+
+// Add Fabric route followed by VPN route with incorrect primary index.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_2) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+
+    // Add the ipv4 route to fabric instance with primary table index as junk
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 2);
+    task_util::WaitForIdle();
+
+    // OriginVN is not expected to be set as VPN route is not added yet.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+
+    // Add the vpn route to blue.
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // OriginVN should still not be set to blue as fabric route was added with
+    // incorrect primary instance index.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+    FabricTestTearDown(route_a);
+}
+
+// Add Fabric route followed by VPN route with incorrect primary index. Update
+// with correct primary instance index afterwards.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_3) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+
+    // Add the ipv4 route to fabric instance with primary table index as junk
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 2);
+    task_util::WaitForIdle();
+
+    // OriginVN is not expected to be set as VPN route is not added yet.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+
+    // Add the vpn route to blue.
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // OriginVN should still not be set to blue as fabric route was added with
+    // incorrect primary instance index.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "",
+                      BgpConfigManager::kMasterNetwork);
+
+    // Add the ipv4 route to fabric instance with primary table index as blue
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 1);
+    task_util::WaitForIdle();
+
+    // OriginVN should now be set to blue as VPN route is also added.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    FabricTestTearDown(route_a);
+}
+
+// Add Fabric route followed by VPN route with correct primary index.
+// Delete VPN route afterwards.
+TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_4) {
+    FabricTestSetUp();
+    string route_a = "10.1.1.1/32";
+
+    // Add the ipv4 route to fabric instance with primary table index as blue
+    agent_a_->AddRoute(BgpConfigManager::kMasterInstance, route_a,
+                       "192.168.1.1", 200, 0, 1);
+    task_util::WaitForIdle();
+
+    // OriginVN is not expected to be set as VPN route is not added yet.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "");
+
+    // Add the vpn route to blue.
+    agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
+                      "blue");
+
+    // OriginVN should now be set to blue as VPN route is also added.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+
+    // Delete VPN route.
+    agent_a_->DeleteRoute("blue", route_a);
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(agent_a_, "blue", route_a);
+    VerifyRouteNoExists(agent_b_, "blue", route_a);
+
+    // Fabric route shall remain with "blue" as the attribute. In production
+    // code, fabric route is also expected to be deleted anyways.
+    VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
+                      route_a, "192.168.1.1", 200, "", "blue");
+    FabricTestTearDown(route_a);
 }
 
 //
@@ -1536,9 +1876,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete1) {
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (1 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (1 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Close the sessions.
     agent_a_->SessionDown();
@@ -1634,7 +1974,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
     TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(5, peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_GE(32, peer_xy->get_socket_writes());
 
     // Close the sessions.
@@ -1790,29 +2130,29 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (1 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (1 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
     //        6 inet-vpn (3 advertise, 3 withdraw) +
-    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    //        2 end-of-rib (1 route-target, 1 inet-vpn, 1 inet)
     // Y->X : 2 route-target (1 advertise, 1 withdraw) +
-    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    //        2 end-of-rib (1 route-target, 1 inet-vpn, 1 inet)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(10, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(11, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(5, peer_yx->get_tx_update());
 
     // Verify xmpp update counters.
     const BgpXmppChannel *xc_a =
         VerifyXmppChannelExists(cm_x_.get(), "agent-a");
     const BgpXmppChannel *xc_b =
         VerifyXmppChannelExists(cm_y_.get(), "agent-b");
-    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0 + 2*kRouteCount, xc_a->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_reach());
-    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0 + 2*kRouteCount, xc_a->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
@@ -1985,9 +2325,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (1 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (1 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
@@ -1997,7 +2337,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     //        2 end-of-rib (1 route-target, 1 inet-vpn)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(5 + 3 + kRouteCount, peer_xy->get_tx_update());
     TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
 
     // Verify xmpp update counters.
@@ -2005,9 +2345,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
         VerifyXmppChannelExists(cm_x_.get(), "agent-a");
     const BgpXmppChannel *xc_b =
         VerifyXmppChannelExists(cm_y_.get(), "agent-b");
-    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0 + 2*kRouteCount, xc_a->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_reach());
-    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0 + 2*kRouteCount, xc_a->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
@@ -2353,19 +2693,19 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_unreach());
-    TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(3, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (1 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (1 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
     //        515 inet-vpn (512 advertise, 3 withdraw) +
-    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    //        2 end-of-rib (1 route-target, 1 inet-vpn, inet)
     // Y->X : 2 route-target (1 advertise, 1 withdraw) +
-    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    //        2 end-of-rib (1 route-target, 1 inet-vpn, inet)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(4 + 4 + kRouteCount, peer_xy->get_tx_update());
     TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
 
     // Verify xmpp update counters.
@@ -2373,9 +2713,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
         VerifyXmppChannelExists(cm_x_.get(), "agent-a");
     const BgpXmppChannel *xc_b =
         VerifyXmppChannelExists(cm_y_.get(), "agent-b");
-    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0 + 2*kRouteCount, xc_a->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_reach());
-    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0 + 2*kRouteCount, xc_a->get_rx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
     TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
