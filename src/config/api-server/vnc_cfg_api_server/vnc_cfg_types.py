@@ -1732,7 +1732,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 # TODO see if ref can be done in create itself
                 api_server.internal_request_ref_update('logical-interface',
                                li_uuid, 'ADD',
-                               'virtual-machine-interface', id)
+                               'virtual-machine-interface', id,
+                               relax_ref_for_delete=True)
 
         return True, ''
     # end post_dbe_update
