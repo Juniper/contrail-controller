@@ -3528,11 +3528,11 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrfAndTable1) {
     agent_a_->AddRoute("blue", "10.1.1.1/32");
     agent_a_->AddRoute("blue", "10.1.1.2/32");
     TASK_UTIL_EXPECT_EQ(6, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(8, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("blue", -1, false, false);
     TASK_UTIL_EXPECT_EQ(7, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red", -1, false, false);
     TASK_UTIL_EXPECT_EQ(8, channel()->Count());
@@ -3560,11 +3560,11 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrfAndTable2) {
     agent_a_->AddRoute("blue", "10.1.1.1/32");
     agent_a_->AddRoute("blue", "10.1.1.2/32");
     TASK_UTIL_EXPECT_EQ(6, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(8, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red", -1, false, false);
     TASK_UTIL_EXPECT_EQ(7, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("blue", -1, false, false);
     TASK_UTIL_EXPECT_EQ(8, channel()->Count());
@@ -3593,15 +3593,15 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrf1) {
     agent_a_->AddRoute("red1", "10.1.1.1/32");
     agent_a_->AddRoute("red1", "10.1.1.2/32");
     TASK_UTIL_EXPECT_EQ(9, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(6, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(12, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red1", -1, false, false);
     TASK_UTIL_EXPECT_EQ(10, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(8, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red2", -1, false, false);
     TASK_UTIL_EXPECT_EQ(11, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red3", -1, false, false);
     TASK_UTIL_EXPECT_EQ(12, channel()->Count());
@@ -3626,15 +3626,15 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrf2) {
     agent_a_->AddRoute("red1", "10.1.1.1/32");
     agent_a_->AddRoute("red1", "10.1.1.2/32");
     TASK_UTIL_EXPECT_EQ(9, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(6, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(12, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red2", -1, false, false);
     TASK_UTIL_EXPECT_EQ(10, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(8, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red1", -1, false, false);
     TASK_UTIL_EXPECT_EQ(11, channel()->Count());
-    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(channel()));
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(channel()));
 
     agent_a_->Unsubscribe("red3", -1, false, false);
     TASK_UTIL_EXPECT_EQ(12, channel()->Count());

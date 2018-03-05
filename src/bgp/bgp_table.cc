@@ -16,6 +16,7 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
+#include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -260,7 +261,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 return NULL;
 
             // Handle route-target filtering.
-            if (attr->ext_community() != NULL) {
+            if (IsVpnTable() && attr->ext_community() != NULL) {
                 server()->rtarget_group_mgr()->GetRibOutInterestedPeers(
                     ribout, attr->ext_community(), peerset, &new_peerset);
                 if (new_peerset.empty())
@@ -526,6 +527,12 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         flags = nexthop.flags_;
         label = nexthop.label_;
         l3_label = nexthop.l3_label_;
+
+        InetTable *inet_table = dynamic_cast<InetTable *>(this);
+        if (inet_table) {
+            InetRoute *inet_rt = dynamic_cast<InetRoute *>(rt);
+            attr = inet_table->GetAttributes(inet_rt->GetPrefix(), attr, peer);
+        }
     } else {
         if (!path)
             return;
