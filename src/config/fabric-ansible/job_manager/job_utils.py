@@ -41,15 +41,3 @@ class JobUtils(object):
             raise JobException(msg, self._job_execution_id)
         return job_template
 
-    def get_device_family(self, device_id):
-        try:
-            pr = self._vnc_api.physical_router_read(id=device_id)
-            self._logger.debug("Read device family as %s for device "
-                               "%s" % (pr.get_physical_router_device_family(),
-                                       device_id))
-        except Exception as e:
-            msg = "Error while reading the device family from DB for " \
-                  "device %s " % device_id
-            raise JobException(msg, self._job_execution_id)
-
-        return pr.get_physical_router_device_family()
