@@ -1,0 +1,10 @@
+- name: Postscript to execute after fabric ansible playbooks are installed
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    password: "{{password}}"
+
+  roles:
+    - load_data

@@ -1,0 +1,4 @@
+---
+# defaults file for load_data
+
+server_ip: "localhost"
