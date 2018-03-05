@@ -652,7 +652,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     data_.disable_validation = info->disable_validation;
     if (ctrl->rt_ != NULL) {
-        RpfInit(ctrl->rt_);
+        RpfInit(ctrl->rt_, pkt->ip_saddr);
     }
 
     if (info->bgp_router_service_flow) {
@@ -732,7 +732,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     data_.disable_validation = info->disable_validation;
     if (ctrl->rt_ != NULL) {
-        RpfInit(ctrl->rt_);
+        RpfInit(ctrl->rt_, pkt->ip_daddr);
     }
 
     if (info->bgp_router_service_flow) {
@@ -1146,7 +1146,7 @@ void FlowEntry::RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh) {
 //
 // In case of layer-3 flow "rt" is inet route for source-ip in source-vrf
 // In case of layer-2 flow "rt" is l2 route for smac in source-vrf
-void FlowEntry::RpfInit(const AgentRoute *rt) {
+void FlowEntry::RpfInit(const AgentRoute *rt, const IpAddress &sip) {
     // Set src_ip_nh based on rt first
     RpfSetSrcIpNhFields(rt, rt->GetActiveNextHop());
 
@@ -1187,7 +1187,7 @@ void FlowEntry::RpfInit(const AgentRoute *rt) {
 
     const InetUnicastRouteEntry *src_ip_rt =
         static_cast<InetUnicastRouteEntry *>
-        (FlowEntry::GetUcRoute(vrf, key().src_addr));
+        (FlowEntry::GetUcRoute(vrf, sip));
 
     if (src_ip_rt == NULL) {
         // For egress flow, with no l3-route then do rpf based on l2-route

@@ -782,12 +782,14 @@ void PktFlowInfo::ProcessHealthCheckFatFlow(const VmInterface *vmi,
                                              const PktInfo *pkt,
                                              PktControlInfo *in,
                                              PktControlInfo *out) {
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
     // Health check valid for IPv4 only
     if (pkt->ip_daddr.is_v4() == false || pkt->ip_saddr.is_v4() == false)
         return;
 
     // Ensure fat-flow is configured for the port first
-    if (vmi->IsFatFlow(pkt->ip_proto, pkt->sport) == false)
+    if (vmi->IsFatFlow(pkt->ip_proto, pkt->sport, &ignore_addr) ==
+        false)
         return;
 
     // Look for health-check rule
@@ -1925,9 +1927,29 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
 
     // Generate traffic seen event for path preference module
     GenerateTrafficSeen(pkt, in);
+    IpAddress sip = pkt->ip_saddr;
+    IpAddress dip = pkt->ip_daddr;
+    if (pkt->ignore_address == VmInterface::IGNORE_SOURCE) {
+        /* IGNORE_SOURCE is not supported for NAT flows */
+        if (!nat_done) {
+            if (ingress) {
+                sip = IpAddress();
+            } else {
+                dip = IpAddress();
+            }
+        }
+    } else if (pkt->ignore_address == VmInterface::IGNORE_DESTINATION) {
+        /* IGNORE_DESTINATION is not supported for NAT flows */
+        if (!nat_done) {
+            if (ingress) {
+                dip = IpAddress();
+            } else {
+                sip = IpAddress();
+            }
+        }
+    }
 
-    FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
-                pkt->sport, pkt->dport);
+    FlowKey key(in->nh_, sip, dip, pkt->ip_proto, pkt->sport, pkt->dport);
     FlowEntryPtr flow = FlowEntry::Allocate(key, flow_table);
 
     ApplyFlowLimits(in, out);
@@ -1957,8 +1979,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                      r_sport, r_dport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
     } else {
-        FlowKey rkey(out->nh_, pkt->ip_daddr, pkt->ip_saddr, pkt->ip_proto,
-                     r_sport, r_dport);
+        FlowKey rkey(out->nh_, dip, sip, pkt->ip_proto, r_sport, r_dport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
     }
 

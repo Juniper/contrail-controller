@@ -417,7 +417,6 @@ public:
 
     enum FatFlowIgnoreAddressType {
         IGNORE_NONE,
-        IGNORE_REMOTE,
         IGNORE_SOURCE,
         IGNORE_DESTINATION
     };
@@ -1222,7 +1221,8 @@ public:
     const FatFlowList &fat_flow_list() const {
         return fat_flow_list_;
     }
-    bool IsFatFlow(uint8_t protocol, uint16_t port) const;
+    bool IsFatFlow(uint8_t protocol, uint16_t port,
+                   VmInterface::FatFlowIgnoreAddressType *ignore_addr) const;
 
     const BridgeDomainList &bridge_domain_list() const {
         return bridge_domain_list_;
@@ -1430,7 +1430,6 @@ private:
     static IgnoreAddressMap InitIgnoreAddressMap() {
         IgnoreAddressMap value;
         value["none"] = IGNORE_NONE;
-        value["remote"] = IGNORE_REMOTE;
         value["source"] = IGNORE_SOURCE;
         value["destination"] = IGNORE_DESTINATION;
         return value;

@@ -748,7 +748,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             for (VmInterface::FatFlowEntrySet::const_iterator it =
                  fat_flow_list_.list_.begin(); it != fat_flow_list_.list_.end();
                  it++) {
-                fat_flow_list.push_back(it->protocol << 16 | it->port);
+                fat_flow_list.push_back(it->ignore_address << 24 |
+                                        it->protocol << 16 | it->port);
             }
             encoder.set_vifr_fat_flow_protocol_port(fat_flow_list);
         }
