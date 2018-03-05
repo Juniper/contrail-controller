@@ -74,7 +74,6 @@ for file in database_sources:
 common_sources = [
            '__init__.py',
            'common/cassandra_manager.py',
-           'common/database_event_manager.py',
            'common/docker_mem_cpu.py',
            'common/docker_process_manager.py',
            'common/event_manager.py',
