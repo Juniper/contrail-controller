@@ -1,0 +1,2754 @@
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/README b/src/vnsw/agent/services/multicast/grpmgmt/README
+index 152f530fd..5c887c432 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/README
++++ b/src/vnsw/agent/services/multicast/grpmgmt/README
+@@ -7,8 +7,7 @@ IGMP (for v4) and MLD (for v6).
+ It makes minimal assumptions about the environment in which it runs.
+ It expects memory management, timers, patricia, and the
+ doubly-linked-list data structure called "threads".
+-It also requires bcopy(), bcmp(), and bzero(), but is
+-otherwise (hopefully) devoid of unix-isms.  In particular, it does not
++It is hopefully devoid of unix-isms.  In particular, it does not
+ do any I/O, it does not assume the existence of printf() or its ilk, etc.
+ 
+ It has a complete implementation of both the host side and the router side
+@@ -204,9 +203,6 @@ Timer management:
+ 
+ Miscellaneous stuff:
+ 
+- bzero, bcmp, bcopy
+-   Standard versions.
+-
+  varargs
+    Need to be able to make procedure calls with varying numbers of
+    parameters.
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmp.h b/src/vnsw/agent/services/multicast/grpmgmt/gmp.h
+index 42bb8dc54..e25483821 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmp.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmp.h
+@@ -74,9 +74,9 @@ typedef enum {GMP_FILTER_MODE_EXCLUDE, GMP_FILTER_MODE_INCLUDE}
+  * address type is contextualized by its environment (IGMP vs. MLD).
+  */
+ typedef union gmp_addrstring_ {
+-    u_int8_t gmp_v4_addr[IPV4_ADDR_LEN]; /* IPv4 address */
+-    u_int8_t gmp_v6_addr[IPV6_ADDR_LEN]; /* IPv6 address */
+-    u_int8_t gmp_addr[0];		/* Generic address pointer */
++    uint8_t gmp_v4_addr[IPV4_ADDR_LEN]; /* IPv4 address */
++    uint8_t gmp_v6_addr[IPV6_ADDR_LEN]; /* IPv6 address */
++    uint8_t gmp_addr[1];		/* Generic address pointer */
+ } gmp_addr_string;
+ 
+ 
+@@ -86,7 +86,7 @@ typedef union gmp_addrstring_ {
+  * Passed via the gmph_set_intf_params call
+  */
+ typedef struct gmph_intf_params_ {
+-    u_int8_t gmph_version;		/* Protocol version */
++    uint8_t gmph_version;		/* Protocol version */
+ } gmph_intf_params;
+ 
+ /*
+@@ -95,14 +95,14 @@ typedef struct gmph_intf_params_ {
+  * Passed via the gmpr_set_intf_params call
+  */
+ typedef struct gmpr_intf_params_ {
+-    u_int8_t gmpr_ifparm_version;	/* Protocol version */
+-    u_int8_t gmpr_ifparm_robustness;	/* Robustness value */
+-    u_int32_t gmpr_ifparm_qivl;		/* Query interval */
+-    u_int32_t gmpr_ifparm_qrivl;	/* Query response interval */
+-    u_int32_t gmpr_ifparm_lmqi;		/* Last member query interval */
+-    u_int32_t gmpr_ifparm_chan_limit;	/* Channel limit */
+-    u_int32_t gmpr_ifparm_chan_threshold; /* Channel threshold */
+-    u_int32_t gmpr_ifparm_log_interval;  /* Time between consecutive similar limit log events */
++    uint8_t gmpr_ifparm_version;	/* Protocol version */
++    uint8_t gmpr_ifparm_robustness;	/* Robustness value */
++    uint32_t gmpr_ifparm_qivl;		/* Query interval */
++    uint32_t gmpr_ifparm_qrivl;	/* Query response interval */
++    uint32_t gmpr_ifparm_lmqi;		/* Last member query interval */
++    uint32_t gmpr_ifparm_chan_limit;	/* Channel limit */
++    uint32_t gmpr_ifparm_chan_threshold; /* Channel threshold */
++    uint32_t gmpr_ifparm_log_interval;  /* Time between consecutive similar limit log events */
+     boolean gmpr_ifparm_fast_leave;	/* Fast leaves */
+     boolean gmpr_ifparm_querier_enabled; /* Allowed to be V1 querier */
+     boolean gmpr_ifparm_passive_receive; /* Passive receive */
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmp_addrlist.c b/src/vnsw/agent/services/multicast/grpmgmt/gmp_addrlist.c
+index 3346ccbc2..6c9bd5dba 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmp_addrlist.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmp_addrlist.c
+@@ -34,9 +34,9 @@ static gmp_addr_string zero_addr;
+  * Returns TRUE if the address is all zero, or FALSE if not.
+  */
+ boolean
+-gmp_addr_is_zero (gmp_addr_string *addr, u_int addr_len)
++gmp_addr_is_zero (gmp_addr_string *addr, uint32_t addr_len)
+ {
+-    return !bcmp(addr->gmp_addr, zero_addr.gmp_addr, addr_len);
++    return !memcmp(addr->gmp_addr, zero_addr.gmp_addr, addr_len);
+ }
+ 
+ 
+@@ -70,7 +70,7 @@ gmp_init_addr_thread (gmp_addr_thread *addr_thread)
+  *
+  * Tolerates null pointers.
+  */
+-u_int32_t
++uint32_t
+ gmp_addr_thread_count (gmp_addr_thread *addr_thread)
+ {
+     if (!addr_thread)
+@@ -109,7 +109,7 @@ gmp_alloc_addr_thread (void)
+  */
+ int
+ gmp_enqueue_addr_thread_addr(gmp_addr_thread *addr_thread,
+-			     u_int8_t *addr, u_int addr_len)
++			     uint8_t *addr, uint32_t addr_len)
+ {
+     gmp_addr_thread_entry *thread_entry;
+ 
+@@ -121,7 +121,7 @@ gmp_enqueue_addr_thread_addr(gmp_addr_thread *addr_thread,
+ 
+     /* Copy in the address. */
+ 
+-    bcopy(addr, thread_entry->gmp_adth_addr.gmp_addr, addr_len);
++    memmove(thread_entry->gmp_adth_addr.gmp_addr, addr, addr_len);
+ 
+     /* Enqueue the entry. */
+ 
+@@ -291,7 +291,7 @@ gmp_destroy_addr_catalog (gmp_addr_catalog *catalog)
+  * Returns 0 if all OK, or -1 if out of memory.
+  */
+ int
+-gmp_init_addr_catalog (gmp_addr_catalog *catalog, u_int32_t addr_len)
++gmp_init_addr_catalog (gmp_addr_catalog *catalog, uint32_t addr_len)
+ {
+     /* Create the tree roots. */
+ 
+@@ -443,7 +443,7 @@ gmp_lock_adcat_entry (gmp_addr_catalog *catalog, ordinal_t ordinal)
+  * Returns a pointer to the entry, or NULL if not found.
+  */
+ gmp_addr_cat_entry *
+-gmp_lookup_addr_cat_entry (gmp_addr_catalog *catalog, const u_int8_t *addr)
++gmp_lookup_addr_cat_entry (gmp_addr_catalog *catalog, const uint8_t *addr)
+ {
+     gmpx_patnode *node;
+     gmp_addr_cat_entry *cat_entry;
+@@ -469,7 +469,7 @@ gmp_lookup_addr_cat_entry (gmp_addr_catalog *catalog, const u_int8_t *addr)
+  */
+ ordinal_t
+ gmp_lookup_create_addr_cat_entry (gmp_addr_catalog *catalog,
+-				  u_int8_t *addr)
++				  uint8_t *addr)
+ {
+     gmp_addr_cat_entry *cat_entry;
+ 
+@@ -479,26 +479,26 @@ gmp_lookup_create_addr_cat_entry (gmp_addr_catalog *catalog,
+ 
+     if (!cat_entry) {
+ 
+-	/* No entry found.  Create a new one. */
++        /* No entry found.  Create a new one. */
+ 
+-	cat_entry = gmpx_malloc_block(gmp_adcat_entry_tag);
+-	if (!cat_entry)
+-	    return ORD_BAD_ORDINAL;	/* Out of memory */
++        cat_entry = gmpx_malloc_block(gmp_adcat_entry_tag);
++        if (!cat_entry)
++            return ORD_BAD_ORDINAL;	/* Out of memory */
+ 
+-	/* Got one.  Initialize it. */
++        /* Got one.  Initialize it. */
+ 
+-	bcopy(addr, cat_entry->adcat_ent_addr.gmp_addr,
+-	      catalog->adcat_addrlen);
+-	cat_entry->adcat_ent_ord = ord_get_ordinal(catalog->adcat_ord_handle);
+-	if (cat_entry->adcat_ent_ord == ORD_BAD_ORDINAL)
+-	    return ORD_BAD_ORDINAL;	/* Out of memory */
++        memmove(cat_entry->adcat_ent_addr.gmp_addr, addr,
++            catalog->adcat_addrlen);
++        cat_entry->adcat_ent_ord = ord_get_ordinal(catalog->adcat_ord_handle);
++        if (cat_entry->adcat_ent_ord == ORD_BAD_ORDINAL)
++            return ORD_BAD_ORDINAL;	/* Out of memory */
+ 
+-	/* Add it to the patricia trees. */
++        /* Add it to the patricia trees. */
+ 
+-	gmpx_assert(gmpx_patricia_add(catalog->adcat_addr_root,
+-				      &cat_entry->adcat_ent_addr_node));
+-	gmpx_assert(gmpx_patricia_add(catalog->adcat_ord_root,
+-				      &cat_entry->adcat_ent_ord_node));
++        gmpx_assert(gmpx_patricia_add(catalog->adcat_addr_root,
++                          &cat_entry->adcat_ent_addr_node));
++        gmpx_assert(gmpx_patricia_add(catalog->adcat_ord_root,
++                          &cat_entry->adcat_ent_ord_node));
+     }
+ 
+     return cat_entry->adcat_ent_ord;
+@@ -589,7 +589,7 @@ gmp_addr_list_init (gmp_addr_list *list, gmp_addr_catalog *catalog,
+ {
+     /* Zero it out. */
+ 
+-    bzero(list, sizeof(gmp_addr_list));
++    memset(list, 0, sizeof(gmp_addr_list));
+ 
+     /* Initialize the threads. */
+ 
+@@ -1038,7 +1038,7 @@ gmp_init_addr_vector (gmp_addr_vect *vector, gmp_addr_catalog *catalog)
+  * refcount has gone to zero.
+  */
+ static boolean
+-gmp_addr_vect_clean_cb (void *context GMPX_UNUSED, u_int32_t bitnum,
++gmp_addr_vect_clean_cb (void *context GMPX_UNUSED, uint32_t bitnum,
+ 			boolean new_bitval, boolean old_bitval GMPX_UNUSED)
+ {
+     gmp_addr_catalog *catalog;
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmp_externs.h b/src/vnsw/agent/services/multicast/grpmgmt/gmp_externs.h
+index 82b62f8f7..fa83c6ce0 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmp_externs.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmp_externs.h
+@@ -52,51 +52,51 @@ typedef void (*gmp_xmit_peek_callback_func)(gmpx_intf_id intf_id,
+ 
+ /* igmp_proto.c */
+ 
+-extern u_int igmp_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
+-				   void *packet, u_int8_t *dest_addr,
+-				   u_int packet_len, void_t trace_context,
+-				   u_int32_t trace_flags);
+-extern boolean igmp_process_pkt(void *rcv_pkt, const u_int8_t *src_addr,
+-				const u_int8_t *dest_addr,
+-				u_int32_t packet_len, gmpx_intf_id intf_id,
++extern uint32_t igmp_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
++				   void *packet, uint8_t *dest_addr,
++				   uint32_t packet_len, void_t trace_context,
++				   uint32_t trace_flags);
++extern boolean igmp_process_pkt(void *rcv_pkt, const uint8_t *src_addr,
++				const uint8_t *dest_addr,
++				uint32_t packet_len, gmpx_intf_id intf_id,
+ 				gmpx_packet_attr attrib, void_t trace_context,
+-				u_int32_t trace_flags);
++				uint32_t trace_flags);
+ extern void
+-    gmp_igmp_trace_pkt(void *pkt, u_int len, const u_int8_t *addr,
++    gmp_igmp_trace_pkt(void *pkt, uint32_t len, const uint8_t *addr,
+ 		       gmpx_intf_id intf_id, boolean receive,
+-		       void_t trace_context, u_int32_t trace_flags);
++		       void_t trace_context, uint32_t trace_flags);
+ extern void
+-    gmp_igmp_trace_bad_pkt(u_int len, const u_int8_t *addr,
++    gmp_igmp_trace_bad_pkt(uint32_t len, const uint8_t *addr,
+ 			   gmpx_intf_id intf_id, void_t trace_context,
+-			   u_int32_t trace_flags);
++			   uint32_t trace_flags);
+ 
+ /* mld_proto.c */
+ 
+-extern u_int mld_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
+-				  void *packet, u_int8_t *dest_addr,
+-				  u_int packet_len, void_t trace_context,
+-				  u_int32_t trace_flags);
+-extern boolean mld_process_pkt(void *rcv_pkt, const u_int8_t *src_addr,
+-			       const u_int8_t *dest_addr, u_int32_t packet_len,
++extern uint32_t mld_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
++				  void *packet, uint8_t *dest_addr,
++				  uint32_t packet_len, void_t trace_context,
++				  uint32_t trace_flags);
++extern boolean mld_process_pkt(void *rcv_pkt, const uint8_t *src_addr,
++			       const uint8_t *dest_addr, uint32_t packet_len,
+ 			       gmpx_intf_id intf_id, gmpx_packet_attr attrib,
+-			       void_t trace_context, u_int32_t trace_flags);
+-extern void gmp_mld_trace_pkt(void *pkt, u_int len, const u_int8_t *addr,
++			       void_t trace_context, uint32_t trace_flags);
++extern void gmp_mld_trace_pkt(void *pkt, uint32_t len, const uint8_t *addr,
+ 			      gmpx_intf_id intf_id, boolean receive,
+-			      void_t trace_context, u_int32_t trace_flags);
+-extern void gmp_mld_trace_bad_pkt(u_int len, const u_int8_t *addr,
++			      void_t trace_context, uint32_t trace_flags);
++extern void gmp_mld_trace_bad_pkt(uint32_t len, const uint8_t *addr,
+ 				  gmpx_intf_id intf_id, void_t trace_context,
+-				  u_int32_t trace_flags);
++				  uint32_t trace_flags);
+ 
+ /* gmp_addrlist.c */
+ 
+ extern gmp_addr_thread *gmp_alloc_addr_thread(void);
+ extern int gmp_enqueue_addr_thread_addr(gmp_addr_thread *addr_thread,
+-					u_int8_t *addr, u_int addr_len);
++					uint8_t *addr, uint32_t addr_len);
+ extern gmp_addr_string
+     *gmp_next_addr_thread_addr(gmp_addr_thread *addr_thread,
+ 			       gmp_addr_thread_entry **entry_ptr);
+ extern void gmp_destroy_addr_thread(gmp_addr_thread *addr_thread);
+-extern u_int32_t gmp_addr_thread_count(gmp_addr_thread *addr_thread);
++extern uint32_t gmp_addr_thread_count(gmp_addr_thread *addr_thread);
+ 
+ 
+ /* gmpp_proto.c */
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmp_private.h b/src/vnsw/agent/services/multicast/grpmgmt/gmp_private.h
+index e0fd9b6f3..320ec35cf 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmp_private.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmp_private.h
+@@ -29,7 +29,7 @@
+     static inline outerstruct * procname (innerstruct *ptr) \
+     { \
+ 	if (ptr)\
+-	    return ((outerstruct *) (((u_char *) ptr) - \
++	    return ((outerstruct *) (((uint8_t *) ptr) - \
+ 				     offsetof(outerstruct, field))); \
+ 	 return NULL; \
+     }
+@@ -95,7 +95,7 @@ typedef struct gmp_addr_catalog_
+     gmpx_patroot *adcat_addr_root;	/* Root of address tree */
+     gmpx_patroot *adcat_ord_root;	/* Root of ordinal tree */
+     ordinal_handle adcat_ord_handle;	/* Ordinal space handle */
+-    u_int32_t adcat_addrlen;		/* Address length */
++    uint32_t adcat_addrlen;		/* Address length */
+ } gmp_addr_catalog;
+ 
+ typedef struct gmp_addr_cat_entry_
+@@ -245,13 +245,13 @@ THREAD_TO_STRUCT(gmp_xmit_thread_to_addr_list_entry, gmp_addr_list_entry,
+  * as the associated address catalog necessarily belongs to the client.
+  */
+ typedef struct gmp_query_packet_ {
+-    u_int32_t gmp_query_max_resp;	/* Max resp value, in msec */
++    uint32_t gmp_query_max_resp;	/* Max resp value, in msec */
+     gmp_addr_string gmp_query_group;	/* Group address */
+     void *gmp_query_group_id;		/* Opaque group ID */
+     boolean gmp_query_group_query;	/* TRUE if a group query */
+     boolean gmp_query_suppress;		/* Suppress router-side processing */
+-    u_int32_t gmp_query_qrv;		/* Querier's robustness variable */
+-    u_int32_t gmp_query_qqi;		/* Querier's query interval (msec) */
++    uint32_t gmp_query_qrv;		/* Querier's robustness variable */
++    uint32_t gmp_query_qqi;		/* Querier's query interval (msec) */
+     gmp_addr_list *gmp_query_xmit_srcs;	/* List of sources (xmit) */
+     gmp_addr_thread *gmp_query_rcv_srcs; /* Sources (receive) */
+ } gmp_query_packet;
+@@ -266,7 +266,7 @@ typedef struct gmp_query_packet_ {
+  */
+ typedef struct gmp_report_packet_ {
+     thread gmp_report_group_head;	/* Head of thread of group records */
+-    u_int32_t gmp_report_group_count;	/* Number of group records */
++    uint32_t gmp_report_group_count;	/* Number of group records */
+ } gmp_report_packet;
+ 
+ 
+@@ -343,7 +343,7 @@ struct gmp_packet_ {
+  */
+ struct gmp_addr_thread_ {
+     thread gmp_addr_thread_head;	/* Head of address thread */
+-    u_int32_t gmp_addr_thread_count;	/* Count of entries */
++    uint32_t gmp_addr_thread_count;	/* Count of entries */
+ };
+ 
+ 
+@@ -376,7 +376,7 @@ THREAD_TO_STRUCT(gmp_adth_thread_to_thread_entry, gmp_addr_thread_entry,
+  */
+ typedef gmp_packet * (*gmp_xmit_callback_func)(gmpx_intf_id intf_id,
+ 					       gmp_proto proto,
+-					       u_int buffer_len);
++					       uint32_t buffer_len);
+ 
+ 
+ /*
+@@ -417,7 +417,7 @@ typedef void (*gmp_group_done_callback_func)(void *group_id);
+  * version.
+  */
+ static inline gmp_version
+-gmp_translate_version (gmp_proto proto, u_int version)
++gmp_translate_version (gmp_proto proto, uint32_t version)
+ {
+     /* Bloody dull. */
+ 
+@@ -454,7 +454,7 @@ gmp_translate_version (gmp_proto proto, u_int version)
+  *
+  * Untranslates from generic version to protocol version number.
+  */
+-static inline u_int
++static inline uint32_t
+ gmp_untranslate_version (gmp_proto proto, gmp_version version)
+ {
+     switch (proto) {
+@@ -539,13 +539,13 @@ extern void gmp_init_addr_vector(gmp_addr_vect *vector,
+ 				 gmp_addr_catalog *catalog);
+ extern void gmp_destroy_addr_catalog(gmp_addr_catalog *catalog);
+ extern int gmp_init_addr_catalog(gmp_addr_catalog *catalog,
+-				 u_int32_t addr_len);
++				 uint32_t addr_len);
+ extern gmp_addr_cat_entry *
+ gmp_get_addr_cat_by_ordinal(gmp_addr_catalog *catalog, ordinal_t ordinal);
+ extern ordinal_t gmp_lookup_create_addr_cat_entry(gmp_addr_catalog *catalog,
+-						  u_int8_t *addr);
++						  uint8_t *addr);
+ extern gmp_addr_cat_entry *gmp_lookup_addr_cat_entry(gmp_addr_catalog *catalog,
+-						     const u_int8_t *addr);
++						     const uint8_t *addr);
+ extern void gmp_lock_adcat_entry(gmp_addr_catalog *catalog, ordinal_t ordinal);
+ extern void gmp_unlock_adcat_entry(gmp_addr_catalog *catalog,
+ 				   ordinal_t ordinal);
+@@ -572,7 +572,7 @@ extern gmp_addr_list_entry *
+ extern void gmp_move_addr_list_entry(gmp_addr_list *to_list,
+ 				     gmp_addr_list_entry *addr_entry);
+ extern boolean gmp_addr_vect_empty(gmp_addr_vect *vector);
+-extern boolean gmp_addr_is_zero(gmp_addr_string *addr, u_int addr_len);
++extern boolean gmp_addr_is_zero(gmp_addr_string *addr, uint32_t addr_len);
+ 
+ /* gmpp_proto.c */
+ 
+@@ -591,16 +591,16 @@ extern gmp_packet *gmpp_create_packet_header(gmp_version version,
+ extern void gmpp_destroy_packet(gmp_packet *packet);
+ extern gmp_report_group_record *
+     gmpp_create_group_record(gmp_report_packet *report_packet, void *group_id,
+-			     const u_int8_t *group_addr, u_int addr_len);
++			     const uint8_t *group_addr, uint32_t addr_len);
+ extern void gmpp_init(void);
+ extern gmp_packet *gmpp_next_xmit_packet(gmp_role role, gmp_proto proto,
+ 					 gmpx_intf_id intf_id,
+-					 u_int buffer_len);
++					 uint32_t buffer_len);
+ extern void gmpp_group_done(gmp_role role, gmp_proto proto, void *group_id);
+ extern void gmpp_packet_done(gmp_role role, gmp_proto proto,
+ 			     gmp_packet *packet);
+ extern void gmpp_process_rcv_packet(gmp_packet *packet, gmpx_intf_id intf_id);
+-extern u_int gmpp_max_group_count(gmp_proto proto, gmp_version version,
+-				  gmp_message_type msg_type, u_int buffer_len);
++extern uint32_t gmpp_max_group_count(gmp_proto proto, gmp_version version,
++				  gmp_message_type msg_type, uint32_t buffer_len);
+ 
+ #endif /* __GMP_PRIVATE_H__ */
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.c b/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.c
+index 79de7ece8..50c31985b 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.c
+@@ -155,8 +155,8 @@ gmpr_create_instance (gmp_proto proto, void_t inst_context,
+     /* Copy over the context block. */
+ 
+     if (cb_context) {
+-	bcopy(cb_context, &instance->rinst_cb_context,
+-	      sizeof(gmpr_instance_context));
++        memmove(&instance->rinst_cb_context, cb_context,
++            sizeof(gmpr_instance_context));
+     }
+ 
+     return instance;
+@@ -209,8 +209,8 @@ gmpr_register (gmp_instance_id instance_id, void_t client_context,
+ 
+     /* Copy over the context block. */
+ 
+-    bcopy(cb_context, &client->rclient_cb_context,
+-	  sizeof(gmpr_client_context));
++    memmove(&client->rclient_cb_context, cb_context,
++        sizeof(gmpr_client_context));
+ 
+     /* If the client supplied a host callback, turn on host tracking. */
+ 
+@@ -612,8 +612,8 @@ gmpr_add_intf_list_entry(gmpr_client_intf_list *cur_intf_list,
+  * Returns a pointer to an interface list, or NULL if out of memory.
+  */
+ gmpr_client_intf_list *
+-gmpr_get_intf_list (gmp_instance_id instance_id, u_int8_t *group_addr,
+-		    u_int8_t *source_addr, gmpr_intf_list_match match_type)
++gmpr_get_intf_list (gmp_instance_id instance_id, uint8_t *group_addr,
++		    uint8_t *source_addr, gmpr_intf_list_match match_type)
+ {
+     gmpr_instance *instance;
+     gmpr_global_group *global_group;
+@@ -739,8 +739,8 @@ gmpr_free_intf_list (gmpr_client_intf_list *intf_list)
+  */
+ boolean
+ gmpr_is_forwarding_channel (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+-			    const u_int8_t *source_addr,
+-			    const u_int8_t *group_addr, boolean exact)
++			    const uint8_t *source_addr,
++			    const uint8_t *group_addr, boolean exact)
+ {
+     gmpr_instance *instance;
+     gmpr_intf *intf;
+@@ -790,7 +790,7 @@ gmpr_is_forwarding_channel (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+  */
+ void
+ gmpr_update_intf_state (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+-			const u_int8_t *intf_addr)
++			const uint8_t *intf_addr)
+ {
+     gmpr_instance *instance;
+     gmpr_intf *intf;
+@@ -812,23 +812,21 @@ gmpr_update_intf_state (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+     if (intf_addr) {
+ 	intf->rintf_up = TRUE;
+ 
+-	if (!was_up || bcmp(intf_addr, intf->rintf_local_addr.gmp_addr,
+-			    instance->rinst_addrlen)) {
++        if (!was_up || memcmp(intf_addr, intf->rintf_local_addr.gmp_addr,
++            instance->rinst_addrlen)) {
+ 
+ 	    /* Make ourselves querier. */
+ 
+-	    bcopy(intf_addr, intf->rintf_local_addr.gmp_addr,
+-		  instance->rinst_addrlen);
++            memmove(intf->rintf_local_addr.gmp_addr, intf_addr, instance->rinst_addrlen);
+ 	    gmpr_update_querier(intf, &intf->rintf_local_addr, TRUE);
+ 	}
+ 
+     } else {
++        /* No address.  Mark the interface down and zap the querier address */
+ 
+-	/* No address.  Mark the interface down and zap the querier address */
+-
+-	intf->rintf_up = FALSE;
+-	intf->rintf_querier = FALSE;
+-	bzero(intf->rintf_local_addr.gmp_addr, instance->rinst_addrlen);
++        intf->rintf_up = FALSE;
++        intf->rintf_querier = FALSE;
++        memset(intf->rintf_local_addr.gmp_addr, 0, instance->rinst_addrlen);
+     }
+ 
+     /* If the up/down status changed, update any associated output groups. */
+@@ -961,8 +959,8 @@ gmpr_get_intf_groups (gmp_instance_id instance_id, gmpx_intf_id intf_id)
+ 
+ 	/* Set the group address and filter mode. */
+ 
+-	bcopy(group->rogroup_addr.gmp_addr, cur_group->gig_group_addr.gmp_addr,
+-	      instance->rinst_addrlen);
++        memmove(cur_group->gig_group_addr.gmp_addr, group->rogroup_addr.gmp_addr,
++            instance->rinst_addrlen);
+ 	cur_group->gig_filter_mode = group->rogroup_filter_mode;
+ 
+ 	/* If there are sources, copy them in as well. */
+@@ -1008,7 +1006,7 @@ gmpr_get_intf_groups (gmp_instance_id instance_id, gmpx_intf_id intf_id)
+ gmpr_intf_group_entry *
+ gmpr_get_host_groups (gmp_instance_id instance_id,
+                       gmpx_intf_id intf_id,
+-                      const u_int8_t *host_addr)
++                      const uint8_t *host_addr)
+ {
+     gmpr_instance *instance;
+     gmpr_intf *intf;
+@@ -1066,9 +1064,9 @@ gmpr_get_host_groups (gmp_instance_id instance_id,
+ 
+ 	/* Set the group address. */
+ 
+-	bcopy(host_group->rhgroup_addr.gmp_addr,
+-              cur_group->gig_group_addr.gmp_addr,
+-              instance->rinst_addrlen);
++        memmove(cur_group->gig_group_addr.gmp_addr,
++            host_group->rhgroup_addr.gmp_addr,
++            instance->rinst_addrlen);
+ 
+ 	/* If there are sources, copy them in as well. */
+ 
+@@ -1207,8 +1205,8 @@ gmpr_get_intf_hosts (gmp_instance_id instance_id, gmpx_intf_id intf_id)
+ 
+         /* Set the host address */
+ 
+-        bcopy(host->rhost_addr.gmp_addr, cur_host->gih_host_addr.gmp_addr,
+-              instance->rinst_addrlen);
++        memmove(cur_host->gih_host_addr.gmp_addr, host->rhost_addr.gmp_addr,
++            instance->rinst_addrlen);
+ 
+         /*
+          * Link the new entry to the list.
+@@ -1302,18 +1300,18 @@ gmpr_is_initialized (void)
+  */
+ void
+ gmpr_timeout_group_range (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+-			  const u_int8_t *group_addr, u_int pfx_len,
++			  const uint8_t *group_addr, uint32_t pfx_len,
+ 			  boolean send_query)
+ {
+     gmpr_instance *instance;
+     gmpr_intf *intf;
+     gmpr_group *group;
+     gmpr_group *next_group;
+-    u_int8_t last_byte_mask;
+-    u_int pfx_full_bytes;
+-    u_int pfx_len_bytes;
+-    u_int extra_bits;
+-    u_int bit_ix;
++    uint8_t last_byte_mask;
++    uint32_t pfx_full_bytes;
++    uint32_t pfx_len_bytes;
++    uint32_t extra_bits;
++    uint32_t bit_ix;
+ 
+     /* Get the instance and interface. */
+ 
+@@ -1346,7 +1344,7 @@ gmpr_timeout_group_range (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+ 
+ 	/* Compare the full bytes. */
+ 
+-	if (!bcmp(group_addr, group->rgroup_addr.gmp_addr, pfx_full_bytes)) {
++        if (!memcmp(group_addr, group->rgroup_addr.gmp_addr, pfx_full_bytes)) {
+ 
+ 	    /* The full bytes match.  If there's a partial byte, try that. */
+ 
+@@ -1379,7 +1377,7 @@ gmpr_timeout_group_range (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+  */
+ boolean
+ gmpr_sg_is_excluded (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+-		     const u_int8_t *group_addr, const u_int8_t *source_addr)
++		     const uint8_t *group_addr, const uint8_t *source_addr)
+ {
+     gmpr_instance *instance;
+     gmpr_intf *intf;
+@@ -1419,7 +1417,7 @@ gmpr_sg_is_excluded (gmp_instance_id instance_id, gmpx_intf_id intf_id,
+  * Update trace flags for an instance.
+  */
+ void
+-gmpr_update_trace_flags (gmp_instance_id instance_id, u_int32_t trace_flags)
++gmpr_update_trace_flags (gmp_instance_id instance_id, uint32_t trace_flags)
+ {
+     gmpr_instance *instance;
+ 
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.h b/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.h
+index 8e4ebac28..8df7c5dd4 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmp_router.h
+@@ -151,8 +151,8 @@ typedef void (*gmpr_notif_cb)(void_t cli_context);
+  */
+ typedef boolean (*gmpr_oif_map_cb)(void_t inst_context,
+ 				   gmpx_intf_id rcv_if,
+-				   u_int8_t *group_addr,
+-				   u_int8_t *source_addr,
++				   uint8_t *group_addr,
++				   uint8_t *source_addr,
+ 				   gmpx_intf_id *output_if);
+ 
+ /*
+@@ -164,8 +164,8 @@ typedef boolean (*gmpr_oif_map_cb)(void_t inst_context,
+  */
+ typedef boolean (*gmpr_policy_cb)(void_t inst_context,
+ 				  gmpx_intf_id rcv_if,
+-				  u_int8_t *group_addr,
+-				  u_int8_t *source_addr,
++				  uint8_t *group_addr,
++				  uint8_t *source_addr,
+ 				  gmpx_packet_attr attribute);
+ 
+ /*
+@@ -178,7 +178,7 @@ typedef boolean (*gmpr_policy_cb)(void_t inst_context,
+  */
+ typedef boolean (*gmpr_ssm_check_cb)(void_t inst_context,
+ 				     gmpx_intf_id rcv_if,
+-				     u_int8_t *group_addr);
++				     uint8_t *group_addr);
+ 
+ /*
+  * Querier change callback type
+@@ -186,7 +186,7 @@ typedef boolean (*gmpr_ssm_check_cb)(void_t inst_context,
+  * This defines the callback to a client when the querier status changes.
+  */
+ typedef void (*gmpr_querier_cb)(void_t cli_context, gmpx_intf_id intf,
+-				boolean querier, u_int8_t *querier_addr);
++				boolean querier, uint8_t *querier_addr);
+ 
+ /*
+  * Router-side instance context block
+@@ -287,7 +287,7 @@ typedef struct gmpr_client_host_notification_ {
+ 
+ typedef struct gmpr_client_intf_list_ {
+     struct gmpr_client_intf_list_ *gci_next; /* Next entry */
+-    u_int gci_intf_count;		/* Number of entries */
++    uint32_t gci_intf_count;		/* Number of entries */
+     gmpx_intf_id gci_intfs[GMPR_INTF_LIST_SIZE]; /* Array of entries */
+ } gmpr_client_intf_list;
+ 
+@@ -363,23 +363,23 @@ gmpr_notification_last_sg(gmpr_client_notification *notification);
+ 
+ typedef enum {INTF_LIST_LOOSE, INTF_LIST_STRICT} gmpr_intf_list_match;
+ extern gmpr_client_intf_list *gmpr_get_intf_list(gmp_instance_id instance_id,
+-						 u_int8_t *group_addr,
+-						 u_int8_t *source_addr,
++						 uint8_t *group_addr,
++						 uint8_t *source_addr,
+ 						 gmpr_intf_list_match type);
+ extern void gmpr_free_intf_list(gmpr_client_intf_list *intf_list);
+ extern boolean
+     gmpr_is_forwarding_channel(gmp_instance_id instance_id,
+ 			       gmpx_intf_id intf_id,
+-			       const u_int8_t *source_addr,
+-			       const u_int8_t *group_addr, boolean exact);
++			       const uint8_t *source_addr,
++			       const uint8_t *group_addr, boolean exact);
+ extern void gmpr_update_intf_state(gmp_instance_id instance_id,
+ 				   gmpx_intf_id intf_id,
+-				   const u_int8_t *intf_addr);
++				   const uint8_t *intf_addr);
+ extern gmpr_intf_group_entry *gmpr_get_intf_groups(gmp_instance_id instance_id,
+ 						   gmpx_intf_id intf_id);
+ extern gmpr_intf_group_entry *gmpr_get_host_groups(gmp_instance_id instance_id,
+                                                    gmpx_intf_id intf_id,
+-                                                   const u_int8_t *host_addr);
++                                                   const uint8_t *host_addr);
+ extern gmpr_intf_host_entry *gmpr_get_intf_hosts(gmp_instance_id instance_id,
+                                                  gmpx_intf_id intf_id);
+ extern void gmpr_destroy_intf_group(gmpr_intf_group_entry *group_list);
+@@ -387,14 +387,14 @@ extern void gmpr_destroy_intf_host(gmpr_intf_host_entry *host_list);
+ extern boolean gmpr_is_initialized(void);
+ extern void gmpr_timeout_group_range(gmp_instance_id instance_id,
+ 				     gmpx_intf_id intf_id,
+-				     const u_int8_t *group_addr,
+-				     u_int pfx_len, boolean send_query);
++				     const uint8_t *group_addr,
++				     uint32_t pfx_len, boolean send_query);
+ extern boolean gmpr_sg_is_excluded(gmp_instance_id instance_id,
+ 				gmpx_intf_id intf_id, 
+-				const u_int8_t *group_addr,
+-				const u_int8_t *source_addr);
++				const uint8_t *group_addr,
++				const uint8_t *source_addr);
+ extern void gmpr_update_trace_flags(gmp_instance_id instance_id,
+-				    u_int32_t trace_flags);
++				    uint32_t trace_flags);
+ extern void gmpr_force_general_queries(gmp_instance_id instance_id,
+ 				       gmpx_intf_id intf_id);
+ extern void gmpr_request_general_queries(gmp_instance_id instance_id,
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmp_trace.h b/src/vnsw/agent/services/multicast/grpmgmt/gmp_trace.h
+index 4a6cd8f8c..47902c7c4 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmp_trace.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmp_trace.h
+@@ -29,7 +29,7 @@
+  * Returns TRUE if the specified trace flag is in use, or FALSE if not.
+  */
+ static inline boolean
+-gmp_trace_set (u_int32_t traceflags, u_int32_t tracebits)
++gmp_trace_set (uint32_t traceflags, uint32_t tracebits)
+ {
+     return ((traceflags & tracebits) != 0);
+ }
+@@ -39,9 +39,9 @@ gmp_trace_set (u_int32_t traceflags, u_int32_t tracebits)
+  * 
+  * Conditionally trace.
+  */
+-#define gmp_trace(context, traceflags, flag, parms...) \
++#define gmp_trace(context, traceflags, flag, ...) \
+     if (gmp_trace_set((traceflags), (flag))) \
+-	gmpx_trace((context), parms)
++	gmpx_trace((context), __VA_ARGS__)
+ 
+ extern const char *gmp_proto_string(gmp_proto proto);
+ extern const char *gmp_filter_mode_string(gmp_filter_mode mode);
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmph_client.c b/src/vnsw/agent/services/multicast/grpmgmt/gmph_client.c
+index 5657355e6..327f5b8a2 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmph_client.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmph_client.c
+@@ -240,7 +240,7 @@ gmph_destroy_intf_client_groups (gmph_client *client, gmph_intf *intf)
+ 
+     /* Set up the key. */
+ 
+-    bzero(&key, sizeof(key));
++    memset(&key, 0, sizeof(key));
+     key.group_key_intf_id = intf->hintf_id;
+ 
+     /* Loop until we run out of client groups on this interface. */
+@@ -318,8 +318,7 @@ gmph_create_client_group (gmph_intf *intf, gmph_client *client,
+     client_group->client_group_intf_id = intf->hintf_id;
+     client_group->client_group_group = group;
+     client_group->client_filter_mode = filter_mode;
+-    bcopy(group_addr, client_group->client_group_addr.gmp_addr,
+-	  instance->hinst_addrlen);
++    memmove(client_group->client_group_addr.gmp_addr, group_addr, instance->hinst_addrlen);
+ 
+     /* Link the group entry into the client tree. */
+ 
+@@ -358,9 +357,9 @@ gmph_lookup_client_group (gmph_client *client, gmpx_intf_id intf_id,
+ 
+     /* Set up the key. */
+ 
+-    bzero(&key, sizeof(key));
++    memset(&key, 0, sizeof(key));
+     key.group_key_intf_id = intf_id;
+-    bcopy(group, key.group_key_addr.gmp_addr, instance->hinst_addrlen);
++    memmove(key.group_key_addr.gmp_addr, group, instance->hinst_addrlen);
+ 
+     /* Look up the entry. */
+ 
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmph_group.c b/src/vnsw/agent/services/multicast/grpmgmt/gmph_group.c
+index 498f973d8..840925e78 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmph_group.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmph_group.c
+@@ -133,7 +133,7 @@ gmph_group_create (gmph_intf *intf, const u_int8_t *group_addr)
+     /* Initialize it. */
+ 
+     thread_new_circular_thread(&group->hgroup_client_thread);
+-    bcopy(group_addr, group->hgroup_addr.gmp_addr, instance->hinst_addrlen);
++    memmove(group->hgroup_addr.gmp_addr, group_addr, instance->hinst_addrlen);
+ 
+     gmp_addr_list_init(&group->hgroup_src_addr_list, &instance->hinst_addr_cat,
+ 		       gmp_alloc_generic_addr_list_entry,
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpp_proto.c b/src/vnsw/agent/services/multicast/grpmgmt/gmpp_proto.c
+index 52f2f0eaa..5c33dc323 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpp_proto.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpp_proto.c
+@@ -113,7 +113,7 @@ gmpp_init (void)
+  */
+ gmp_report_group_record *
+ gmpp_create_group_record (gmp_report_packet *report_packet, void *group_id,
+-			  const u_int8_t *group_addr, u_int addr_len)
++			  const uint8_t *group_addr, uint32_t addr_len)
+ {
+     gmp_report_group_record *group_record;
+ 
+@@ -126,7 +126,7 @@ gmpp_create_group_record (gmp_report_packet *report_packet, void *group_id,
+     /* Initialize it. */
+ 
+     group_record->gmp_rpt_group_id = group_id;
+-    bcopy(group_addr, group_record->gmp_rpt_group.gmp_addr, addr_len);
++    memmove(group_record->gmp_rpt_group.gmp_addr, group_addr, addr_len);
+ 
+     /* Put it into the thread. */
+ 
+@@ -332,7 +332,7 @@ gmpp_deregister (gmp_role role)
+ 
+     /* Zap the context block. */
+ 
+-    bzero(ctx, sizeof(gmpp_context));
++    memset(ctx, 0, sizeof(gmpp_context));
+ }
+ 
+ 
+@@ -476,7 +476,7 @@ gmp_register_peek_function (gmp_role role,
+  */
+ gmp_packet *
+ gmpp_next_xmit_packet (gmp_role role, gmp_proto proto, gmpx_intf_id intf_id,
+-		       u_int buffer_len)
++		       uint32_t buffer_len)
+ {
+     gmpp_context *ctx;
+     gmp_packet *packet;
+@@ -589,13 +589,13 @@ gmpp_process_rcv_packet (gmp_packet *packet, gmpx_intf_id intf_id)
+  *
+  * If the buffer length is zero, we always return one group.
+  */
+-u_int
++uint32_t
+ gmpp_max_group_count (gmp_proto proto, gmp_version version,
+-		      gmp_message_type msg_type, u_int buffer_len)
++		      gmp_message_type msg_type, uint32_t buffer_len)
+ {
+-    u_int overhead;
+-    u_int group_len;
+-    u_int max_group_count;
++    uint32_t overhead;
++    uint32_t group_len;
++    uint32_t max_group_count;
+ 
+     /*
+      * The only packets that carry more than one group are IGMPv3/
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_client.c b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_client.c
+index 32cb2d3df..db64b65fc 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_client.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_client.c
+@@ -240,7 +240,7 @@ gmpr_destroy_instance_clients (gmpr_instance *instance)
+ boolean
+ gmpr_notifications_active (gmpr_notify_block *notify_block)
+ {
+-    u_int client_ord;
++    uint32_t client_ord;
+ 
+     /* Walk the notification array. */
+ 
+@@ -967,9 +967,9 @@ gmpr_build_delta_notification (gmpr_instance *instance,
+ 	cat_entry = gmp_get_addr_cat_by_ordinal(&instance->rinst_addr_cat,
+ 						addr_entry->addr_ent_ord);
+ 	gmpx_assert(cat_entry);
+-	bcopy(cat_entry->adcat_ent_addr.gmp_addr,
+-	      client_notif->notif_source_addr.gmp_addr,
+-	      instance->rinst_addrlen);
++	memmove(client_notif->notif_source_addr.gmp_addr,
++        cat_entry->adcat_ent_addr.gmp_addr,
++        instance->rinst_addrlen);
+ 
+ 	/*
+ 	 * Now split out in each combination of the current filter
+@@ -1193,7 +1193,7 @@ gmpr_client_get_notification (gmpr_client *client,
+     if (last_notification) {
+ 	client_notif = last_notification;
+ 	gmp_destroy_addr_thread(client_notif->notif_addr_thread);
+-	bzero(client_notif, sizeof(gmpr_client_notification));
++	memset(client_notif, 0, sizeof(gmpr_client_notification));
+     }
+ 
+     /* Note whether we're doing both kinds of notifications. */
+@@ -1235,9 +1235,9 @@ gmpr_client_get_notification (gmpr_client *client,
+ 
+     if (group) {
+ 	client_notif->notif_intf_id = group->rogroup_intf->rintf_id;
+-	bcopy(group->rogroup_addr.gmp_addr,
+-	      client_notif->notif_group_addr.gmp_addr,
+-	      instance->rinst_addrlen);
++	memmove(client_notif->notif_group_addr.gmp_addr,
++        group->rogroup_addr.gmp_addr,
++        instance->rinst_addrlen);
+ 	client_notif->notif_filter_mode = group->rogroup_filter_mode;
+     }
+ 
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_engine.c b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_engine.c
+index 955abd0f9..3c0546f0b 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_engine.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_engine.c
+@@ -247,9 +247,9 @@ static void
+ gmpr_copy_reporter (gmpr_group *group,
+ 		    gmpr_group_addr_entry *group_addr_entry)
+ {
+-    bcopy(group->rgroup_last_reporter.gmp_addr,
+-	  group_addr_entry->rgroup_addr_last_reporter.gmp_addr,
+-	  group->rgroup_intf->rintf_instance->rinst_addrlen);
++    memmove(group_addr_entry->rgroup_addr_last_reporter.gmp_addr,
++        group->rgroup_last_reporter.gmp_addr,
++        group->rgroup_intf->rintf_instance->rinst_addrlen);
+ }
+ 
+ 
+@@ -1256,7 +1256,7 @@ static void
+ gmpr_update_version_compatibility_mode (gmpr_group *group, gmp_version ver)
+ {
+     gmpr_intf *intf;
+-    u_int32_t old_host_ivl;
++    uint32_t old_host_ivl;
+ 
+     intf = group->rgroup_intf;
+ 
+@@ -1353,7 +1353,7 @@ gmpr_process_report_packet(gmpr_intf *intf, gmp_packet *packet)
+     gmp_addr_vect source_vect;
+     gmp_addr_thread_entry *thread_entry;
+     gmp_addr_string *addr;
+-    u_int8_t *group_addr;
++    uint8_t *group_addr;
+     gmpr_instance_context *ctx;
+     gmp_version group_version;
+     boolean got_sources;
+@@ -1482,9 +1482,9 @@ gmpr_process_report_packet(gmpr_intf *intf, gmp_packet *packet)
+ 
+ 		/* Note the reporter's address. */
+ 
+-		bcopy(packet->gmp_packet_src_addr.gmp_addr, 
+-		      group->rgroup_last_reporter.gmp_addr,
+-		      instance->rinst_addrlen);
++		memmove(group->rgroup_last_reporter.gmp_addr,
++            packet->gmp_packet_src_addr.gmp_addr,
++            instance->rinst_addrlen);
+  
+ 		/* See if this is a current-state or state-change record. */
+ 
+@@ -1647,8 +1647,7 @@ gmpr_send_gss_query (gmpr_group *group)
+     query_packet = &packet->gmp_packet_contents.gmp_packet_query;
+     query_packet->gmp_query_max_resp = intf->rintf_lmq_ivl;
+     query_packet->gmp_query_group_query = TRUE;
+-    bcopy(&group->rgroup_addr, &query_packet->gmp_query_group,
+-	  sizeof(gmp_addr_string));
++    memmove(&query_packet->gmp_query_group, &group->rgroup_addr, sizeof(gmp_addr_string));
+     query_packet->gmp_query_qrv = intf->rintf_robustness;
+     query_packet->gmp_query_qqi = intf->rintf_query_ivl;
+     query_packet->gmp_query_suppress = hi_timer;
+@@ -1702,8 +1701,7 @@ gmpr_send_group_query (gmpr_group *group)
+     query_packet = &packet->gmp_packet_contents.gmp_packet_query;
+     query_packet->gmp_query_max_resp = intf->rintf_lmq_ivl;
+     query_packet->gmp_query_group_query = TRUE;
+-    bcopy(&group->rgroup_addr, &query_packet->gmp_query_group,
+-	  sizeof(gmp_addr_string));
++    memmove(&query_packet->gmp_query_group, &group->rgroup_addr, sizeof(gmp_addr_string));
+     query_packet->gmp_query_qrv = intf->rintf_robustness;
+     query_packet->gmp_query_qqi = intf->rintf_query_ivl;
+     query_packet->gmp_query_group_id = group;
+@@ -1822,7 +1820,7 @@ gmpr_group_done_callback (void *group_id)
+  */
+ static gmp_packet *
+ gmpr_xmit_callback (gmpx_intf_id intf_id, gmp_proto proto,
+-		    u_int buffer_len GMPX_UNUSED)
++		    uint32_t buffer_len GMPX_UNUSED)
+ {
+     gmpr_intf *intf;
+     gmpr_group *group;
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_group.c b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_group.c
+index 516190f4c..a41a43a8c 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_group.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_group.c
+@@ -515,7 +515,7 @@ gmpr_set_notification_type (gmpr_notify_block *notify_block,
+  * Returns a pointer to the group entry, or NULL if it's not there.
+  */
+ gmpr_ogroup *
+-gmpr_ogroup_lookup (gmpr_intf *intf, const u_int8_t *group_addr)
++gmpr_ogroup_lookup (gmpr_intf *intf, const uint8_t *group_addr)
+ {
+     gmpr_ogroup *group;
+     patnode *node;
+@@ -542,7 +542,7 @@ gmpr_ogroup_lookup (gmpr_intf *intf, const u_int8_t *group_addr)
+  * Returns a pointer to the group entry, or NULL if it's not there.
+  */
+ gmpr_group *
+-gmpr_group_lookup (gmpr_intf *intf, const u_int8_t *group_addr)
++gmpr_group_lookup (gmpr_intf *intf, const uint8_t *group_addr)
+ {
+     gmpr_group *group;
+     patnode *node;
+@@ -676,8 +676,7 @@ gmpr_ogroup_create (gmpr_intf *intf, gmp_addr_string *group_addr)
+     /* Initialize it. */
+ 
+     ogroup->rogroup_intf = intf;
+-    bcopy(group_addr->gmp_addr, ogroup->rogroup_addr.gmp_addr,
+-	  instance->rinst_addrlen);
++    memmove(ogroup->rogroup_addr.gmp_addr, group_addr->gmp_addr, instance->rinst_addrlen);
+     ogroup->rogroup_filter_mode = GMP_FILTER_MODE_INCLUDE;
+     thread_new_circular_thread(&ogroup->rogroup_oif_head);
+ 
+@@ -747,8 +746,7 @@ gmpr_group_create (gmpr_intf *intf, const gmp_addr_string *group_addr)
+ 
+     group->rgroup_intf = intf;
+     intf->rintf_channel_count++;
+-    bcopy(group_addr->gmp_addr, group->rgroup_addr.gmp_addr,
+-	  instance->rinst_addrlen);
++    memmove(group->rgroup_addr.gmp_addr, group_addr->gmp_addr, instance->rinst_addrlen);
+     group->rgroup_filter_mode = GMP_FILTER_MODE_INCLUDE;
+     group->rgroup_compatibility_mode = GMP_VERSION_SOURCES;
+     thread_new_circular_thread(&group->rgroup_host_group_head);
+@@ -1124,7 +1122,7 @@ gmpr_attempt_group_free (gmpr_group *group)
+  * Returns a pointer to the global group entry, or NULL if it's not there.
+  */
+ gmpr_global_group *
+-gmpr_lookup_global_group (gmpr_instance *instance, u_int8_t *group_addr)
++gmpr_lookup_global_group (gmpr_instance *instance, uint8_t *group_addr)
+ {
+     gmpr_global_group *global_group;
+     gmpx_patnode *node;
+@@ -1160,23 +1158,23 @@ gmpr_get_global_group (gmpr_ogroup *group)
+ 					    group->rogroup_addr.gmp_addr);
+     if (!global_group) {
+ 
+-	/* Entry isn't there.  Create one. */
++        /* Entry isn't there.  Create one. */
+ 
+-	global_group = gmpx_malloc_block(gmpr_global_group_tag);
+-	if (!global_group)
+-	    return NULL;		/* Out of memory */
++        global_group = gmpx_malloc_block(gmpr_global_group_tag);
++        if (!global_group)
++            return NULL;		/* Out of memory */
+ 
+-	/* Initialize. */
++        /* Initialize. */
+ 
+-	thread_new_circular_thread(&global_group->global_group_head);
+-	bcopy(group->rogroup_addr.gmp_addr,
+-	      global_group->global_group_addr.gmp_addr,
+-	      instance->rinst_addrlen);
++        thread_new_circular_thread(&global_group->global_group_head);
++        memmove(global_group->global_group_addr.gmp_addr,
++            group->rogroup_addr.gmp_addr,
++            instance->rinst_addrlen);
+ 
+-	/* Stick it into the tree. */
++        /* Stick it into the tree. */
+ 
+-	gmpx_assert(gmpx_patricia_add(instance->rinst_global_state_root,
+-				      &global_group->global_group_node));
++        gmpx_assert(gmpx_patricia_add(instance->rinst_global_state_root,
++                          &global_group->global_group_node));
+     }
+ 
+     return global_group;
+@@ -1318,7 +1316,7 @@ gmpr_group_forwards_all_sources (gmpr_ogroup *group)
+  * FALSE if not.
+  */
+ boolean
+-gmpr_group_forwards_source (gmpr_ogroup *group, const u_int8_t *source_addr)
++gmpr_group_forwards_source (gmpr_ogroup *group, const uint8_t *source_addr)
+ {
+     gmpr_instance *instance;
+     gmp_addr_cat_entry *cat_entry;
+@@ -1772,7 +1770,7 @@ gmpr_get_current_group_oif (gmpr_group *group)
+  * no output interface.
+  */
+ static gmpr_intf *
+-gmpr_get_mapped_oif (gmpr_intf *intf, u_int8_t *group, u_int8_t *source)
++gmpr_get_mapped_oif (gmpr_intf *intf, uint8_t *group, uint8_t *source)
+ {
+     gmpr_intf *oif;
+     gmpx_intf_id oif_id;
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_host.c b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_host.c
+index 3f23d5e3d..5a9e3f413 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_host.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_host.c
+@@ -916,9 +916,9 @@ gmpr_fill_client_host_notif (gmpr_instance *instance,
+ 	cat_entry = gmp_get_addr_cat_by_ordinal(&instance->rinst_addr_cat,
+ 						addr_entry->addr_ent_ord);
+ 	gmpx_assert(cat_entry);
+-	bcopy(cat_entry->adcat_ent_addr.gmp_addr,
+-	      client_notif->host_notif_source_addr.gmp_addr,
+-	      instance->rinst_addrlen);
++	memmove(client_notif->host_notif_source_addr.gmp_addr,
++        cat_entry->adcat_ent_addr.gmp_addr,
++        instance->rinst_addrlen);
+ 	client_notif->host_notif_source_present = TRUE;
+ 
+ 	/* Set the notification type. */
+@@ -1023,7 +1023,7 @@ gmpr_client_get_host_notification (gmpr_client *client,
+     client_notif = NULL;
+     if (last_notification) {
+ 	client_notif = last_notification;
+-	bzero(client_notif, sizeof(gmpr_client_host_notification));
++	memset(client_notif, 0, sizeof(gmpr_client_host_notification));
+     }
+ 	
+     /* Dequeue the top of the notification thread. */
+@@ -1060,12 +1060,12 @@ gmpr_client_get_host_notification (gmpr_client *client,
+ 
+     intf = host->rhost_intf;
+     client_notif->host_notif_intf_id = intf->rintf_id;
+-    bcopy(host_group->rhgroup_addr.gmp_addr,
+-	  client_notif->host_notif_group_addr.gmp_addr,
+-	  instance->rinst_addrlen);
+-    bcopy(host_group->rhgroup_host->rhost_addr.gmp_addr,
+-	  client_notif->host_notif_host_addr.gmp_addr,
+-	  instance->rinst_addrlen);
++    memmove(client_notif->host_notif_group_addr.gmp_addr,
++        host_group->rhgroup_addr.gmp_addr,
++        instance->rinst_addrlen);
++    memmove(client_notif->host_notif_host_addr.gmp_addr,
++        host_group->rhgroup_host->rhost_addr.gmp_addr,
++        instance->rinst_addrlen);
+ 
+     /* Trace it. */
+ 
+@@ -1132,8 +1132,7 @@ gmpr_create_host_group (gmpr_host *host, gmp_addr_string *group_addr)
+ 
+     /* Got the block.  Initialize it. */
+ 
+-    bcopy(group_addr->gmp_addr, host_group->rhgroup_addr.gmp_addr,
+-	  instance->rinst_addrlen);
++    memmove(host_group->rhgroup_addr.gmp_addr, group_addr->gmp_addr, instance->rinst_addrlen);
+     gmp_addr_list_init(&host_group->rhgroup_addrs, &instance->rinst_addr_cat,
+ 		       gmpr_host_group_addr_alloc, gmpr_host_group_addr_free,
+ 		       host_group);
+@@ -1164,7 +1163,7 @@ gmpr_create_host_group (gmpr_host *host, gmp_addr_string *group_addr)
+  * Returns a pointer to the host entry, or NULL if not found.
+  */
+ gmpr_host *
+-gmpr_lookup_host (gmpr_intf *intf, const u_int8_t *host_addr)
++gmpr_lookup_host (gmpr_intf *intf, const uint8_t *host_addr)
+ {
+     gmpr_host *host;
+     gmpx_patnode *node;
+@@ -1186,7 +1185,7 @@ gmpr_lookup_host (gmpr_intf *intf, const u_int8_t *host_addr)
+  * Returns a pointer to the host entry, or NULL if out of memory.
+  */
+ static gmpr_host *
+-gmpr_create_host (gmpr_intf *intf, u_int8_t *host_addr)
++gmpr_create_host (gmpr_intf *intf, uint8_t *host_addr)
+ {
+     gmpr_host *host;
+     gmpr_instance *instance;
+@@ -1198,7 +1197,7 @@ gmpr_create_host (gmpr_intf *intf, u_int8_t *host_addr)
+ 
+     /* Got the block.  Initialize it. */
+ 
+-    bcopy(host_addr, host->rhost_addr.gmp_addr, instance->rinst_addrlen);
++    memmove(host->rhost_addr.gmp_addr, host_addr, instance->rinst_addrlen);
+ 
+     host->rhost_group_root =
+ 	gmpx_patroot_init(instance->rinst_addrlen,
+@@ -1430,7 +1429,7 @@ gmpr_delink_host_group (gmpr_host_group *host_group)
+  * don't care about non-null Exclude state.
+  */
+ void
+-gmpr_host_process_report (u_int8_t *src_addr, gmp_report_rectype rec_type,
++gmpr_host_process_report (uint8_t *src_addr, gmp_report_rectype rec_type,
+ 			  gmpr_group *group, gmp_addr_vect *source_vect)
+ {
+     // gmpr_instance *instance;
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_intf.c b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_intf.c
+index 47e9efdc9..7a6d6f957 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_intf.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_intf.c
+@@ -255,7 +255,7 @@ gmpr_intf_update_lmq_count (gmpr_intf *intf)
+  * Update the robustness variable.
+  */
+ void
+-gmpr_intf_update_robustness (gmpr_intf *intf, u_int32_t robustness)
++gmpr_intf_update_robustness (gmpr_intf *intf, uint32_t robustness)
+ {
+     /* If the value is zero, use the local value. */
+ 
+@@ -282,8 +282,8 @@ gmpr_intf_update_robustness (gmpr_intf *intf, u_int32_t robustness)
+ static void
+ gmpr_intf_update_query_resp_ivl (gmpr_intf *intf)
+ {
+-    u_int32_t ivl;
+-    u_int32_t ivl_target;
++    uint32_t ivl;
++    uint32_t ivl_target;
+     gmpr_instance *instance;
+ 
+     instance = intf->rintf_instance;
+@@ -326,7 +326,7 @@ gmpr_intf_update_query_resp_ivl (gmpr_intf *intf)
+  * Update the query interval variable.
+  */
+ void
+-gmpr_intf_update_query_ivl (gmpr_intf *intf, u_int32_t query_ivl)
++gmpr_intf_update_query_ivl (gmpr_intf *intf, uint32_t query_ivl)
+ {
+     /* If the value is zero, use the default value. */
+ 
+@@ -375,7 +375,7 @@ static void
+ gmpr_restart_query_timer (gmpr_intf *intf)
+ {
+     gmpr_instance *instance;
+-    u_int32_t ivl;
++    uint32_t ivl;
+     int intf_count;
+     thread *thread_ptr;
+ 
+@@ -463,7 +463,7 @@ gmpr_restart_query_timer (gmpr_intf *intf)
+  * smooth things out.)
+  */
+ static void
+-gmpr_setup_initial_query_timer_internal (gmpr_intf *intf, u_int query_count)
++gmpr_setup_initial_query_timer_internal (gmpr_intf *intf, uint32_t query_count)
+ {
+ 
+     gmpr_instance *instance;
+@@ -729,8 +729,8 @@ gmpr_intf_set_params (gmpr_instance *instance, gmpx_intf_id intf_id,
+     gmpr_group *group;
+     boolean version_changed;
+     gmp_version new_version;
+-    u_int32_t old_query_ivl;
+-    u_int old_robustness;
++    uint32_t old_query_ivl;
++    uint32_t old_robustness;
+     boolean send_query;
+ 
+     /* Get the interface. */
+@@ -963,16 +963,16 @@ gmpr_update_querier (gmpr_intf *intf, gmp_addr_string *addr, boolean querier)
+     /* Bail if nothing has changed. */
+ 
+     if (querier == intf->rintf_querier &&
+-	(!addr || !bcmp(addr->gmp_addr, intf->rintf_querier_addr.gmp_addr,
+-			instance->rinst_addrlen))) {
++        (!addr || !memcmp(addr->gmp_addr, intf->rintf_querier_addr.gmp_addr,
++            instance->rinst_addrlen))) {
+ 	return;
+     }
+ 
+     /* Update the status. */
+ 
+     intf->rintf_querier = querier;
+-    bcopy(addr->gmp_addr, intf->rintf_querier_addr.gmp_addr,
+-	  instance->rinst_addrlen);
++    memmove(intf->rintf_querier_addr.gmp_addr, addr->gmp_addr,
++        instance->rinst_addrlen);
+ 
+     /*
+      * If we're becoming querier, update the query interval to the
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_private.h b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_private.h
+index 44092735c..35b402499 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_private.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_private.h
+@@ -61,7 +61,7 @@
+  * by interface ID on little-endian machines.
+  */
+ typedef struct gmpr_instance_ {
+-    u_int32_t rinst_magic;	     	/* Magic number for robustness */
++    uint32_t rinst_magic;	     	/* Magic number for robustness */
+     thread rinst_thread;	  	/* Link on global instance thread */
+     thread rinst_client_thread;		/* Head of client thread */
+     thread rinst_startup_intf_thread;	/* Head of intfs starting up */
+@@ -69,17 +69,17 @@ typedef struct gmpr_instance_ {
+     gmpx_patroot *rinst_intfs;		/* Tree of interfaces */
+     gmpx_patroot *rinst_global_state_root; /* Root of global state tree */
+     gmp_proto rinst_proto;		/* Protocol (IGMP/MLD) */
+-    u_int rinst_addrlen;		/* Address length (v4 or v6) */
++    uint32_t rinst_addrlen;		/* Address length (v4 or v6) */
+     gmp_addr_catalog rinst_addr_cat;	/* Address catalog */
+-    u_int32_t rinst_min_max_resp;	/* Min value of max resp field */
++    uint32_t rinst_min_max_resp;	/* Min value of max resp field */
+ 
+     ordinal_handle rinst_ord_handle;	/* Handle for client ordinals */
+     void_t rinst_context;		/* Client instance context */
+     gmpr_instance_context rinst_cb_context; /* Instance callbacks */
+ 
+-    u_int32_t rinst_group_timeout;	/* Group timeout count */
++    uint32_t rinst_group_timeout;	/* Group timeout count */
+ 
+-    u_int32_t rinst_traceflags;		/* Trace flags */
++    uint32_t rinst_traceflags;		/* Trace flags */
+ 
+     gmpx_timer *rinst_smear_timer;	/* Timer for query timer smearing */
+ 
+@@ -136,9 +136,9 @@ typedef struct gmpr_intf_ {
+     gmpx_patnode rintf_inst_patnode;	/* Node on instance tree */
+     gmpx_patnode rintf_global_patnode;	/* Node on global tree */
+     gmpx_patroot *rintf_group_root;	/* Root of aggregated group records */
+-    u_int32_t rintf_group_count;	/* Number of groups */
++    uint32_t rintf_group_count;	/* Number of groups */
+     gmpx_patroot *rintf_oif_group_root;	/* Root of output group records */
+-    u_int32_t rintf_oif_group_count;	/* Number of output groups */
++    uint32_t rintf_oif_group_count;	/* Number of output groups */
+     gmpx_intf_id rintf_id;		/* Interface ID */
+     gmpx_patroot *rintf_host_root;	/* Root of host entries */
+     thread rintf_startup_thread;	/* Entry on instance startup thread */
+@@ -146,33 +146,33 @@ typedef struct gmpr_intf_ {
+     /* Query stuff */
+ 
+     gmpx_timer *rintf_query_timer;	/* General query timer */
+-    u_int32_t rintf_query_ivl;		/* General query timer interval */
+-    u_int32_t rintf_local_query_ivl;	/* Local general query interval */
+-    u_int32_t rintf_query_resp_ivl;	/* Query response interval */
+-    u_int32_t rintf_local_query_resp_ivl; /* Local query response interval */
+-    u_int32_t rintf_robustness;		/* Robustness variable */
+-    u_int32_t rintf_local_robustness;	/* Local robustness variable */
+-    u_int32_t rintf_lmq_ivl;		/* Last member query interval */
+-    u_int32_t rintf_lmq_count;		/* Last member query count */
+-    u_int32_t rintf_group_membership_ivl; /* Group membership interval */
+-    u_int32_t rintf_lmqt;		/* Last member query time */
+-    u_int32_t rintf_other_querier_ivl;	/* Other querier present interval */
++    uint32_t rintf_query_ivl;		/* General query timer interval */
++    uint32_t rintf_local_query_ivl;	/* Local general query interval */
++    uint32_t rintf_query_resp_ivl;	/* Query response interval */
++    uint32_t rintf_local_query_resp_ivl; /* Local query response interval */
++    uint32_t rintf_robustness;		/* Robustness variable */
++    uint32_t rintf_local_robustness;	/* Local robustness variable */
++    uint32_t rintf_lmq_ivl;		/* Last member query interval */
++    uint32_t rintf_lmq_count;		/* Last member query count */
++    uint32_t rintf_group_membership_ivl; /* Group membership interval */
++    uint32_t rintf_lmqt;		/* Last member query time */
++    uint32_t rintf_other_querier_ivl;	/* Other querier present interval */
+     gmpx_timer *rintf_other_querier_present; /* Other querier present timer */
+     boolean rintf_suppress_gen_query;	/* Suppress general queries */
+     boolean rintf_gen_query_requested;	/* General query seq was requested */
+     boolean rintf_first_query_pending;	/* First query in sequence ready */
+     boolean rintf_suppress_gs_query;	/* Suppress GS/GSS queries */
+ 
+-    u_int rintf_startup_query_count;	/* Count of initial queries */
++    uint32_t rintf_startup_query_count;	/* Count of initial queries */
+ 
+-    u_int32_t rintf_channel_limit;	/* Max number of channels */
+-    u_int32_t rintf_channel_threshold;  /* Percentage of maximum at which to
++    uint32_t rintf_channel_limit;	/* Max number of channels */
++    uint32_t rintf_channel_threshold;  /* Percentage of maximum at which to
+ 				           start generating warnings */
+-    u_int32_t rintf_log_interval;       /* Time between consecutive limit log msgs */
++    uint32_t rintf_log_interval;       /* Time between consecutive limit log msgs */
+     time_t last_log_time;               /* Time last group limit related message
+ 					   was logged */  
+-    u_int32_t rintf_channel_count;	/* Current channel count */
+-    u_int32_t rintf_chan_limit_drops;	/* Count of drops due to chan limit */
++    uint32_t rintf_channel_count;	/* Current channel count */
++    uint32_t rintf_chan_limit_drops;	/* Count of drops due to chan limit */
+     gmpr_limit_state_t rintf_limit_state; /* if count is above/below chan limit/threshold */   
+ 
+     /* Transmission stuff */
+@@ -287,7 +287,7 @@ typedef struct gmpr_group_ {
+ 
+     gmpx_timer *rgroup_query_timer;	/* For sending group queries */
+     gmpx_timer *rgroup_gss_query_timer;	/* For sending GSS queries */
+-    u_int8_t rgroup_query_rexmit_count;	/* Rexmit count for group queries */
++    uint8_t rgroup_query_rexmit_count;	/* Rexmit count for group queries */
+     gmp_addr_list rgroup_query_lo_timers; /* List of sources with lo timers */
+     gmp_addr_list rgroup_query_hi_timers; /* List of sources with hi timers */
+ 
+@@ -328,7 +328,7 @@ typedef struct gmpr_group_addr_entry_
+     gmp_addr_list_entry rgroup_addr_entry;	/* Address entry */
+     gmpr_group *rgroup_addr_group;	/* Owning group */
+     gmpx_timer *rgroup_addr_timer;	/* Timer */
+-    u_int8_t rgroup_addr_rexmit_count;	/* Query retransmission count */
++    uint8_t rgroup_addr_rexmit_count;	/* Query retransmission count */
+     thread rgroup_addr_oif_thread;	/* Entry on OIF thread */
+     struct gmpr_ogroup_addr_entry_ *rgroup_addr_oif_addr; /* OIF address */
+ 
+@@ -440,7 +440,7 @@ EMBEDDED_STRUCT_TO_STRUCT(gmpr_addr_entry_to_ogroup_entry,
+  * state.
+  */
+ typedef struct gmpr_client_ {
+-    u_int32_t rclient_magic;		/* Magic number for robustness */
++    uint32_t rclient_magic;		/* Magic number for robustness */
+     gmpr_instance *rclient_instance;	/* Owning instance */
+     ordinal_t rclient_ordinal;		/* Client ordinal */
+     thread rclient_thread;		/* Link on instance client thread */
+@@ -516,7 +516,7 @@ typedef struct gmpr_host_group_ {
+     gmpr_notify_block rhgroup_notify[GMPX_MAX_RTR_CLIENTS];
+ 					/* Notification block */
+     boolean rhgroup_is_deleted;		/* Deleted, but locked */
+-    u_int8_t rhgroup_lock_count;	/* Lock count */
++    uint8_t rhgroup_lock_count;	/* Lock count */
+ } gmpr_host_group;
+ 
+ THREAD_TO_STRUCT(gmpr_thread_to_host_group, gmpr_host_group, rhgroup_thread);
+@@ -604,7 +604,7 @@ static inline gmpr_ogroup *
+ gmpr_client_notification_to_group (gmpr_notify_block *notify_block,
+ 				   ordinal_t ordinal)
+ {
+-    u_int8_t *byte_ptr;
++    uint8_t *byte_ptr;
+     gmpr_ogroup *group;
+ 
+     if (!notify_block)
+@@ -620,7 +620,7 @@ gmpr_client_notification_to_group (gmpr_notify_block *notify_block,
+ 
+     /* Now back up to the start of the group. */
+ 
+-    byte_ptr = (u_int8_t *) notify_block;
++    byte_ptr = (uint8_t *) notify_block;
+     byte_ptr -= offsetof(gmpr_ogroup, rogroup_client_thread);
+ 
+     group = (gmpr_ogroup *) byte_ptr;
+@@ -641,7 +641,7 @@ static inline gmpr_ogroup_addr_entry *
+ gmpr_client_notification_to_addr_entry (gmpr_notify_block *notify_block,
+ 					ordinal_t ordinal)
+ {
+-    u_int8_t *byte_ptr;
++    uint8_t *byte_ptr;
+     gmpr_ogroup_addr_entry *group_addr;
+ 
+     gmpx_assert(ordinal < GMPX_MAX_RTR_CLIENTS);
+@@ -657,7 +657,7 @@ gmpr_client_notification_to_addr_entry (gmpr_notify_block *notify_block,
+ 
+     /* Now back up to the start of the address entry. */
+ 
+-    byte_ptr = (u_int8_t *) notify_block;
++    byte_ptr = (uint8_t *) notify_block;
+     byte_ptr -= offsetof(gmpr_ogroup_addr_entry, rogroup_addr_client_thread);
+ 
+     group_addr = (gmpr_ogroup_addr_entry *) byte_ptr;
+@@ -677,7 +677,7 @@ static inline gmpr_host_group *
+ gmpr_client_notification_to_host_group (gmpr_notify_block *notify_block,
+ 					ordinal_t ordinal)
+ {
+-    u_int8_t *byte_ptr;
++    uint8_t *byte_ptr;
+     gmpr_host_group *host_group;
+ 
+     if (!notify_block)
+@@ -693,7 +693,7 @@ gmpr_client_notification_to_host_group (gmpr_notify_block *notify_block,
+ 
+     /* Now back up to the start of the group. */
+ 
+-    byte_ptr = (u_int8_t *) notify_block;
++    byte_ptr = (uint8_t *) notify_block;
+     byte_ptr -= offsetof(gmpr_host_group, rhgroup_notify);
+ 
+     host_group = (gmpr_host_group *) byte_ptr;
+@@ -714,7 +714,7 @@ static inline gmpr_host_group_addr *
+ gmpr_client_notification_to_host_group_addr (gmpr_notify_block *notify_block,
+ 					     ordinal_t ordinal)
+ {
+-    u_int8_t *byte_ptr;
++    uint8_t *byte_ptr;
+     gmpr_host_group_addr *group_addr;
+ 
+     gmpx_assert(ordinal < GMPX_MAX_RTR_CLIENTS);
+@@ -730,7 +730,7 @@ gmpr_client_notification_to_host_group_addr (gmpr_notify_block *notify_block,
+ 
+     /* Now back up to the start of the address entry. */
+ 
+-    byte_ptr = (u_int8_t *) notify_block;
++    byte_ptr = (uint8_t *) notify_block;
+     byte_ptr -= offsetof(gmpr_host_group_addr, rhga_notify);
+ 
+     group_addr = (gmpr_host_group_addr *) byte_ptr;
+@@ -1066,8 +1066,8 @@ extern int gmpr_attach_intf_internal(gmpr_instance *instance,
+ extern int gmpr_detach_intf_internal(gmpr_instance *instance,
+ 				     gmpx_intf_id intf_id);
+ extern void gmpr_destroy_instance_intfs(gmpr_instance *instance);
+-extern void gmpr_intf_update_robustness(gmpr_intf *intf, u_int32_t robustness);
+-extern void gmpr_intf_update_query_ivl(gmpr_intf *intf, u_int32_t query_ivl);
++extern void gmpr_intf_update_robustness(gmpr_intf *intf, uint32_t robustness);
++extern void gmpr_intf_update_query_ivl(gmpr_intf *intf, uint32_t query_ivl);
+ extern void gmpr_update_querier(gmpr_intf *intf, gmp_addr_string *addr,
+ 				boolean querier);
+ extern void gmpr_setup_initial_query_timer(gmpr_intf *intf);
+@@ -1079,8 +1079,8 @@ extern gmpr_intf *gmpr_next_instance_intf(gmpr_instance *instance,
+ 
+ extern gmpr_group *gmpr_group_create(gmpr_intf *intf,
+ 				     const gmp_addr_string *group_addr);
+-extern gmpr_group *gmpr_group_lookup(gmpr_intf *intf, const u_int8_t *group);
+-extern gmpr_ogroup *gmpr_ogroup_lookup(gmpr_intf *intf, const u_int8_t *group);
++extern gmpr_group *gmpr_group_lookup(gmpr_intf *intf, const uint8_t *group);
++extern gmpr_ogroup *gmpr_ogroup_lookup(gmpr_intf *intf, const uint8_t *group);
+ extern gmpx_timer *gmpr_create_change_report_timer(gmpr_group *group);
+ extern gmpr_group *gmpr_first_group_xmit(gmpr_intf *intf);
+ extern void gmpr_dequeue_group_xmit(gmpr_group *group);
+@@ -1093,12 +1093,12 @@ extern void gmpr_init_group_addr_entry(gmpr_group *group,
+ extern gmpr_global_group *gmpr_link_global_group(gmpr_ogroup *group);
+ extern void gmpr_delink_global_group(gmpr_ogroup *group);
+ extern gmpr_global_group *gmpr_lookup_global_group(gmpr_instance *instance,
+-						   u_int8_t *group_addr);
++						   uint8_t *group_addr);
+ extern void gmpr_evaluate_group_version(gmpr_group *group);
+ extern gmp_version gmpr_group_version(gmpr_intf *intf, gmpr_group *group);
+ extern boolean gmpr_group_forwards_all_sources(gmpr_ogroup *group);
+ extern boolean gmpr_group_forwards_source(gmpr_ogroup *group,
+-					  const u_int8_t *source);
++					  const uint8_t *source);
+ extern void gmpr_timeout_group(gmpr_group *group);
+ extern void gmpr_update_group_oif(gmpr_group *group, oif_update_type type);
+ extern void gmpr_update_source_oif(gmpr_group_addr_entry *group_addr,
+@@ -1128,7 +1128,7 @@ extern void gmpr_last_host_group_ref_gone(gmpr_group *group);
+ /* gmpr_host.c */
+ 
+ extern void
+-    gmpr_host_process_report(u_int8_t *src_addr, gmp_report_rectype rec_type,
++    gmpr_host_process_report(uint8_t *src_addr, gmp_report_rectype rec_type,
+ 			     gmpr_group *group, gmp_addr_vect *source_vect);
+ extern gmpr_client_host_notification *
+     gmpr_client_get_host_notification(gmpr_client *client,
+@@ -1140,6 +1140,6 @@ extern void gmpr_client_enqueue_all_host_groups(gmpr_client *client);
+ extern void gmpr_flush_host_notifications_client(gmpr_client *client);
+ extern void gmpr_destroy_intf_hosts(gmpr_intf *intf);
+ extern void gmpr_host_notify_oif_map_change(gmpr_group *group);
+-extern gmpr_host *gmpr_lookup_host(gmpr_intf *intf, const u_int8_t *host_addr);
++extern gmpr_host *gmpr_lookup_host(gmpr_intf *intf, const uint8_t *host_addr);
+ 
+ #endif /* __GMPR_PRIVATE_H__ */
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_trace.h b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_trace.h
+index cc8eaa1a9..653500238 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/gmpr_trace.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/gmpr_trace.h
+@@ -11,21 +11,21 @@
+ /*
+  * Conditional tracing
+  */
+-#define gmpr_trace(instance, flag, parms...) \
++#define gmpr_trace(instance, flag, ...) \
+     if (instance->rinst_traceflags & (flag)) \
+-        gmpx_trace(instance->rinst_context, parms)
++        gmpx_trace(instance->rinst_context, __VA_ARGS__)
+ 
+ /*
+  * Unconditional tracing
+  */
+-#define gmpr_trace_uncond(instance, parms...) \
+-    gmpx_trace(instance->rinst_context, parms)
++#define gmpr_trace_uncond(instance, ...) \
++    gmpx_trace(instance->rinst_context, __VA_ARGS__)
+ 
+ /*
+  * Error event 
+  */
+-#define gmpr_post_event(instance, ev, parms...) \
+-    gmpx_post_event(instance->rinst_context, ev, parms)
++#define gmpr_post_event(instance, ev, ...) \
++    gmpx_post_event(instance->rinst_context, ev, __VA_ARGS__)
+ 
+ 
+ /*
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.c b/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.c
+index 725b565f9..40959f567 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.c
+@@ -19,9 +19,9 @@
+ /*
+  * Destination addresses
+  */
+-static u_int8_t igmp_all_hosts[IPV4_ADDR_LEN] = {224, 0, 0, 1};
+-static u_int8_t igmp_all_routers[IPV4_ADDR_LEN] = {224, 0, 0, 2};
+-static u_int8_t igmp_all_v3_routers[IPV4_ADDR_LEN] = {224, 0, 0, 22};
++static uint8_t igmp_all_hosts[IPV4_ADDR_LEN] = {224, 0, 0, 1};
++static uint8_t igmp_all_routers[IPV4_ADDR_LEN] = {224, 0, 0, 2};
++static uint8_t igmp_all_v3_routers[IPV4_ADDR_LEN] = {224, 0, 0, 22};
+ 
+ 
+ 
+@@ -31,7 +31,7 @@ static u_int8_t igmp_all_v3_routers[IPV4_ADDR_LEN] = {224, 0, 0, 22};
+  * Returns the IGMP packet type string given the packet type.
+  */
+ static const char *
+-igmp_packet_type_string (igmp_hdr *hdr, u_int len)
++igmp_packet_type_string (igmp_hdr *hdr, uint32_t len)
+ {
+     switch (hdr->igmp_hdr_type) {
+       case IGMP_TYPE_QUERY:
+@@ -65,10 +65,10 @@ igmp_packet_type_string (igmp_hdr *hdr, u_int len)
+  * Decodes a fix/float field (Max Resp or QQIC).  Returns the value in
+  * native units.
+  */
+-static u_int
+-igmp_decode_fixfloat (u_int8_t value)
++static uint32_t
++igmp_decode_fixfloat (uint8_t value)
+ {
+-    u_int mant, exp, result;
++    uint32_t mant, exp, result;
+ 
+     /* If the flag is set, decode the value as floating point. */
+ 
+@@ -95,7 +95,7 @@ igmp_decode_fixfloat (u_int8_t value)
+  * Also returns the generic message type.
+  */
+ static gmp_version
+-igmp_generic_version (igmp_packet *pkt, u_int pkt_len,
++igmp_generic_version (igmp_packet *pkt, uint32_t pkt_len,
+ 		      gmp_message_type *msg_type)
+ {
+     gmp_version version;
+@@ -150,9 +150,9 @@ igmp_generic_version (igmp_packet *pkt, u_int pkt_len,
+  * Returns the value of the max resp field, in standard units (100 msec.)
+  * If the value is zero, it returns the default value (for IGMP v1.)
+  */
+-static u_int igmp_max_resp_value (igmp_packet *pkt, gmp_version version)
++static uint32_t igmp_max_resp_value (igmp_packet *pkt, gmp_version version)
+ {
+-    u_int max_resp_field, value;
++    uint32_t max_resp_field, value;
+ 
+     max_resp_field =
+ 	pkt->igmp_pkt_naked.igmp_naked_header_hdr.igmp_hdr_maxresp;
+@@ -186,8 +186,8 @@ static u_int igmp_max_resp_value (igmp_packet *pkt, gmp_version version)
+  * Trace a bad IGMP packet
+  */
+ void
+-gmp_igmp_trace_bad_pkt(u_int len, const u_int8_t *addr, gmpx_intf_id intf_id,
+-		       void_t trace_context, u_int32_t trace_flags)
++gmp_igmp_trace_bad_pkt(uint32_t len, const uint8_t *addr, gmpx_intf_id intf_id,
++		       void_t trace_context, uint32_t trace_flags)
+ {
+     /* Bail if not tracing bad packets. */
+ 
+@@ -205,9 +205,9 @@ gmp_igmp_trace_bad_pkt(u_int len, const u_int8_t *addr, gmpx_intf_id intf_id,
+  * Trace an IGMP packet
+  */
+ void
+-gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
++gmp_igmp_trace_pkt (void *packet, uint32_t len, const uint8_t *addr,
+ 		    gmpx_intf_id intf_id, boolean receive,
+-		    void_t trace_context, u_int32_t trace_flags)
++		    void_t trace_context, uint32_t trace_flags)
+ {
+     const char *direction;
+     const char *op;
+@@ -218,9 +218,9 @@ gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
+     igmp_v3_rpt_rcrd *rpt_rcrd;
+     gmp_version version;
+     gmp_message_type msg_type;
+-    u_int8_t *byte_ptr;
+-    u_int source_count;
+-    u_int record_count;
++    uint8_t *byte_ptr;
++    uint32_t source_count;
++    uint32_t record_count;
+     boolean detail;
+     igmp_packet *pkt;
+ 
+@@ -331,7 +331,7 @@ gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
+ 		       rpt_rcrd->igmp_v3_rpt_group,
+ 		       gmp_report_type_string(rpt_rcrd->igmp_v3_rpt_rec_type),
+ 		       rpt_rcrd->igmp_v3_rpt_aux_len, source_count);
+-	    byte_ptr = rpt_rcrd->igmp_v3_rpt_source;
++	    byte_ptr = get_igmp_v3_rpt_source(rpt_rcrd);
+ 	    while (source_count--) {
+ 		gmpx_trace(trace_context, "      Source %a", byte_ptr);
+ 		byte_ptr += IPV4_ADDR_LEN;
+@@ -355,15 +355,15 @@ gmp_igmp_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
+  * The encoded value will be less than or equal to the provided value (since
+  * we lose granularity in the encoding.)
+  */
+-static u_int8_t
+-igmp_encode_fixfloat (u_int value)
++static uint8_t
++igmp_encode_fixfloat (uint32_t value)
+ {
+-    u_int mant, exp;
++    uint32_t mant, exp;
+ 
+     /* If the value is small enough, just use it. */
+ 
+     if (value < IGMP_FIXFLOAT_FLAG)
+-	return (u_int8_t) value;
++	return (uint8_t) value;
+ 
+     /* If the value is too big, bail. */
+ 
+@@ -399,9 +399,9 @@ igmp_encode_fixfloat (u_int value)
+  *
+  * Returns the formatted packet length, or 0 if nothing to send.
+  */
+-static u_int
++static uint32_t
+ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+-		       igmp_packet *packet, u_int packet_len)
++		       igmp_packet *packet, uint32_t packet_len)
+ {
+     igmp_v1v2_pkt *v1v2_pkt;
+     igmp_hdr *pkt_hdr;
+@@ -409,14 +409,14 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+     thread *thread_ptr;
+     gmp_report_group_record *group_record;
+     gmp_report_packet *report_pkt;
+-    u_int formatted_len;
++    uint32_t formatted_len;
+ 
+     /* Version 1 packet.  Pretty straightforward. */
+ 
+     gmpx_assert(packet_len >= sizeof(igmp_v1v2_pkt));
+     v1v2_pkt = &packet->igmp_pkt_v1v2;
+     pkt_hdr = &v1v2_pkt->igmp_v1v2_pkt_hdr;
+-    bzero(pkt_hdr, sizeof(igmp_hdr));
++    memset(pkt_hdr, 0, sizeof(igmp_hdr));
+     formatted_len = sizeof(igmp_v1v2_pkt);
+ 
+     switch (gen_packet->gmp_packet_type) {
+@@ -426,9 +426,8 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+ 
+ 	pkt_hdr->igmp_hdr_type = IGMP_TYPE_QUERY;
+ 	query_pkt = &gen_packet->gmp_packet_contents.gmp_packet_query;
+-	bzero(v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
+-	bcopy(igmp_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-	      IPV4_ADDR_LEN);
++	memset(v1v2_pkt->igmp_v1v2_pkt_group, 0, IPV4_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_hosts, IPV4_ADDR_LEN);
+ 	/*
+ 	 * Flush the source list.  We may end up here with a GSS query due
+ 	 * to a race condition while changing versions.
+@@ -461,10 +460,8 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+ 	     gmp_addr_list_empty(group_record->gmp_rpt_xmit_srcs))) {
+ 	    formatted_len = 0;
+ 	}
+-	bcopy(group_record->gmp_rpt_group.gmp_addr,
+-	      v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
+-	bcopy(group_record->gmp_rpt_group.gmp_addr,
+-	      gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
++        memmove(v1v2_pkt->igmp_v1v2_pkt_group, group_record->gmp_rpt_group.gmp_addr, IPV4_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, group_record->gmp_rpt_group.gmp_addr, IPV4_ADDR_LEN);
+ 
+ 	/* Flush the source list and flag that we're done with this group. */
+ 
+@@ -487,9 +484,9 @@ igmp_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+  *
+  * Returns the formatted packet length, or 0 if nothing to send.
+  */
+-static u_int
++static uint32_t
+ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
+-		       igmp_packet *packet, u_int packet_len)
++		       igmp_packet *packet, uint32_t packet_len)
+ {
+     igmp_v1v2_pkt *v1v2_pkt;
+     igmp_hdr *pkt_hdr;
+@@ -497,15 +494,15 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
+     gmp_report_packet *report_pkt;
+     thread *thread_ptr;
+     gmp_report_group_record *group_record;
+-    u_int32_t max_resp;
+-    u_int formatted_len;
++    uint32_t max_resp;
++    uint32_t formatted_len;
+ 
+     /* Initialize and idiot-proof. */
+ 
+     gmpx_assert(packet_len >= sizeof(igmp_v1v2_pkt));
+     v1v2_pkt = &packet->igmp_pkt_v1v2;
+     pkt_hdr = &v1v2_pkt->igmp_v1v2_pkt_hdr;
+-    bzero(pkt_hdr, sizeof(igmp_hdr));
++    memset(pkt_hdr, 0, sizeof(igmp_hdr));
+     formatted_len = sizeof(igmp_v1v2_pkt);
+ 
+     switch (gen_packet->gmp_packet_type) {
+@@ -522,14 +519,13 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
+ 	 * zero it.  Set the destination address accordingly.
+ 	 */
+ 	if (query_pkt->gmp_query_group_query) {
+-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
+-		  v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
+-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
+-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
++            memmove(v1v2_pkt->igmp_v1v2_pkt_group, query_pkt->gmp_query_group.gmp_addr,
++                IPV4_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
++                IPV4_ADDR_LEN);
+ 	} else {
+-	    bzero(v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
+-	    bcopy(igmp_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-		  IPV4_ADDR_LEN);
++            memset(v1v2_pkt->igmp_v1v2_pkt_group, 0, IPV4_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_hosts, IPV4_ADDR_LEN);
+ 	}
+ 
+ 	/* Store the max resp value. */
+@@ -575,16 +571,14 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
+ 	     group_record->gmp_rpt_type == GMP_RPT_IS_IN) &&
+ 	    gmp_addr_list_empty(group_record->gmp_rpt_xmit_srcs)) {
+ 	    pkt_hdr->igmp_hdr_type = IGMP_TYPE_V2_LEAVE;
+-	    bcopy(igmp_all_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-		  IPV4_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_routers, IPV4_ADDR_LEN);
+ 	} else {
+ 	    pkt_hdr->igmp_hdr_type = IGMP_TYPE_V2_REPORT;
+-	    bcopy(group_record->gmp_rpt_group.gmp_addr,
+-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, group_record->gmp_rpt_group.gmp_addr,
++                IPV4_ADDR_LEN);
+ 	}
+ 
+-	bcopy(group_record->gmp_rpt_group.gmp_addr,
+-	      v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
++        memmove(v1v2_pkt->igmp_v1v2_pkt_group, group_record->gmp_rpt_group.gmp_addr, IPV4_ADDR_LEN);
+ 
+ 	/* If this is a BLOCK record, don't send anything. */
+ 
+@@ -612,18 +606,18 @@ igmp_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
+  *
+  * Returns the formatted packet length, or 0 if nothing to send.
+  */
+-static u_int
++static uint32_t
+ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
+-		      igmp_packet *packet, u_int packet_len)
++		      igmp_packet *packet, uint32_t packet_len)
+ {
+     igmp_v3_query *v3_query_pkt;
+     igmp_hdr *pkt_hdr;
+     gmp_query_packet *query_pkt;
+-    u_int formatted_len;
+-    u_int source_count;
++    uint32_t formatted_len;
++    uint32_t source_count;
+     gmp_addr_list_entry *addr_entry;
+     gmp_addr_list *addr_list;
+-    u_int8_t *addr_ptr;
++    uint8_t *addr_ptr;
+     gmp_addr_cat_entry *cat_entry;
+     // boolean gss_query;
+     boolean group_done;
+@@ -633,7 +627,7 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
+     gmpx_assert(packet_len >= sizeof(igmp_v3_query) + IPV4_ADDR_LEN);
+     query_pkt = &gen_packet->gmp_packet_contents.gmp_packet_query;
+     v3_query_pkt = &packet->igmp_pkt_v3_query;
+-    bzero(v3_query_pkt, sizeof(igmp_v3_query));
++    memset(v3_query_pkt, 0, sizeof(igmp_v3_query));
+     pkt_hdr = &v3_query_pkt->igmp_v3_query_hdr;
+ 
+     /* Set up the header. */
+@@ -653,14 +647,13 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
+      * zero it.  Set the destination address accordingly.
+      */
+     if (query_pkt->gmp_query_group_query) {
+-	bcopy(query_pkt->gmp_query_group.gmp_addr,
+-	      v3_query_pkt->igmp_v3_query_group, IPV4_ADDR_LEN);
+-	bcopy(query_pkt->gmp_query_group.gmp_addr,
+-	      gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
++        memmove(v3_query_pkt->igmp_v3_query_group, query_pkt->gmp_query_group.gmp_addr,
++            IPV4_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
++            IPV4_ADDR_LEN);
+     } else {
+-	bzero(v3_query_pkt->igmp_v3_query_group, IPV4_ADDR_LEN);
+-	bcopy(igmp_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-	      IPV4_ADDR_LEN);
++        memset(v3_query_pkt->igmp_v3_query_group, 0, IPV4_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_hosts, IPV4_ADDR_LEN);
+     }
+ 
+     /* Set the S and QRV fields. */
+@@ -716,7 +709,7 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
+ 		gmp_get_addr_cat_by_ordinal(addr_list->addr_vect.av_catalog,
+ 					    addr_entry->addr_ent_ord);
+ 	    gmpx_assert(cat_entry);
+-	    bcopy(cat_entry->adcat_ent_addr.gmp_addr, addr_ptr, IPV4_ADDR_LEN);
++            memmove(addr_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV4_ADDR_LEN);
+ 
+ 	    /* Delink the address entry. */
+ 
+@@ -753,23 +746,23 @@ igmp_format_v3_query (gmp_role role, gmp_packet *gen_packet,
+  *
+  * Returns the formatted packet length, or 0 if nothing to send.
+  */
+-static u_int
++static uint32_t
+ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
+-		       igmp_packet *packet, u_int packet_len)
++		       igmp_packet *packet, uint32_t packet_len)
+ {
+     igmp_v3_report *v3_rpt_pkt;
+     igmp_v3_rpt_rcrd *v3_group_rcrd;
+     igmp_hdr *pkt_hdr;
+     gmp_report_packet *report_pkt;
+     gmp_report_group_record *group_record;
+-    u_int formatted_len;
+-    u_int source_count;
+-    u_int group_count;
+-    u_int groups_remaining;
+-    u_int group_space;
++    uint32_t formatted_len;
++    uint32_t source_count;
++    uint32_t group_count;
++    uint32_t groups_remaining;
++    uint32_t group_space;
+     gmp_addr_list_entry *addr_entry;
+     gmp_addr_list *addr_list;
+-    u_int8_t *byte_ptr;
++    uint8_t *byte_ptr;
+     gmp_addr_cat_entry *cat_entry;
+     thread *thread_ptr;
+     boolean group_done;
+@@ -780,7 +773,7 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
+ 		sizeof(igmp_v3_rpt_rcrd) + IPV4_ADDR_LEN);
+     report_pkt = &gen_packet->gmp_packet_contents.gmp_packet_report;
+     v3_rpt_pkt = &packet->igmp_pkt_v3_rpt;
+-    bzero(v3_rpt_pkt, sizeof(igmp_v3_report));
++    memset(v3_rpt_pkt, 0, sizeof(igmp_v3_report));
+     pkt_hdr = &v3_rpt_pkt->igmp_v3_report_hdr;
+ 
+     /* Set up the header. */
+@@ -836,13 +829,13 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
+ 
+ 	/* Create the group record header. */
+ 
+-	bzero(v3_group_rcrd, sizeof(igmp_v3_rpt_rcrd));
++	memset(v3_group_rcrd, 0, sizeof(igmp_v3_rpt_rcrd));
+ 	v3_group_rcrd->igmp_v3_rpt_rec_type = group_record->gmp_rpt_type;
+-	bcopy(group_record->gmp_rpt_group.gmp_addr,
+-	      v3_group_rcrd->igmp_v3_rpt_group, IPV4_ADDR_LEN);
++        memmove(v3_group_rcrd->igmp_v3_rpt_group, group_record->gmp_rpt_group.gmp_addr,
++            IPV4_ADDR_LEN);
+ 	packet_len -= sizeof(igmp_v3_rpt_rcrd);
+ 	formatted_len += sizeof(igmp_v3_rpt_rcrd);
+-	byte_ptr = v3_group_rcrd->igmp_v3_rpt_source;
++	byte_ptr = get_igmp_v3_rpt_source(v3_group_rcrd);
+ 	group_count++;
+ 
+ 	/* Now walk the sources, if any, and add them to the record. */
+@@ -876,8 +869,7 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
+ 					addr_list->addr_vect.av_catalog,
+ 					addr_entry->addr_ent_ord);
+ 		gmpx_assert(cat_entry);
+-		bcopy(cat_entry->adcat_ent_addr.gmp_addr, byte_ptr,
+-		      IPV4_ADDR_LEN);
++                memmove(byte_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV4_ADDR_LEN);
+ 
+ 		/* Delink the address entry. */
+ 
+@@ -930,8 +922,7 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
+ 
+     /* Set the destination address. */
+ 
+-    bcopy(igmp_all_v3_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-	  IPV4_ADDR_LEN);
++    memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, igmp_all_v3_routers, IPV4_ADDR_LEN);
+ 
+     /* Update the group count in the packet header. */
+ 
+@@ -948,11 +939,11 @@ igmp_format_v3_report (gmp_role role, gmp_packet *gen_packet,
+  *
+  * Returns the formatted packet length, or 0 if nothing to send.
+  */
+-static u_int
++static uint32_t
+ igmp_format_v3_packet (gmp_role role, gmp_packet *gen_packet,
+-		       igmp_packet *packet, u_int packet_len)
++		       igmp_packet *packet, uint32_t packet_len)
+ {
+-    u_int formatted_len;
++    uint32_t formatted_len;
+ 
+     /* See what kind of packet we're sending. */
+ 
+@@ -994,16 +985,16 @@ igmp_format_v3_packet (gmp_role role, gmp_packet *gen_packet,
+  *
+  * Source and destination addresses are written through the supplied pointers.
+  */
+-u_int
++uint32_t
+ igmp_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id,
+-		       void *packet, u_int8_t *dest_addr, u_int packet_len,
+-		       void_t trace_context, u_int32_t trace_flags)
++		       void *packet, uint8_t *dest_addr, uint32_t packet_len,
++		       void_t trace_context, uint32_t trace_flags)
+ {
+     gmp_packet *gen_packet;
+     igmp_packet *igmp_pkt;
+     igmp_hdr *pkt_hdr;
+-    u_int formatted_len;
+-    u_int16_t checksum;
++    uint32_t formatted_len;
++    uint16_t checksum;
+ 
+     igmp_pkt = packet;
+     formatted_len = 0;
+@@ -1067,8 +1058,7 @@ igmp_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id,
+ 	pkt_hdr = &igmp_pkt->igmp_pkt_naked.igmp_naked_header_hdr;
+ 	checksum = gmpx_calculate_cksum(packet, formatted_len);
+ 	pkt_hdr->igmp_hdr_cksum = checksum;
+-	bcopy(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr,
+-	      IPV4_ADDR_LEN);
++        memmove(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr, IPV4_ADDR_LEN);
+ 
+ 	/* Trace the packet. */
+ 
+@@ -1096,7 +1086,7 @@ igmp_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id,
+  */
+ static boolean
+ igmp_parse_v1_packet(igmp_packet *packet, gmp_packet *gen_packet,
+-		     u_int32_t packet_len GMPX_UNUSED,
++		     uint32_t packet_len GMPX_UNUSED,
+ 		     gmp_message_type msg_type)
+ {
+     gmp_query_packet *query_pkt;
+@@ -1160,14 +1150,14 @@ igmp_parse_v1_packet(igmp_packet *packet, gmp_packet *gen_packet,
+  */
+ static boolean
+ igmp_parse_v2_packet(igmp_packet *packet, gmp_packet *gen_packet,
+-		     u_int32_t packet_len GMPX_UNUSED,
++		     uint32_t packet_len GMPX_UNUSED,
+ 		     gmp_message_type msg_type)
+ {
+     gmp_query_packet *query_pkt;
+     gmp_report_packet *report_pkt;
+     gmp_report_group_record *group_rcrd;
+     igmp_v1v2_pkt *v1v2_pkt;
+-    u_int byte_offset;
++    uint32_t byte_offset;
+ 
+     /* Switch based on the message type. */
+ 
+@@ -1186,8 +1176,7 @@ igmp_parse_v2_packet(igmp_packet *packet, gmp_packet *gen_packet,
+ 
+ 	/* Copy the group address. */
+ 
+-	bcopy(v1v2_pkt->igmp_v1v2_pkt_group,
+-	      query_pkt->gmp_query_group.gmp_addr, IPV4_ADDR_LEN);
++        memmove(query_pkt->gmp_query_group.gmp_addr, v1v2_pkt->igmp_v1v2_pkt_group, IPV4_ADDR_LEN);
+ 	
+ 	/*
+ 	 * If the group address is nonzero, flag that we've got a
+@@ -1249,17 +1238,17 @@ igmp_parse_v2_packet(igmp_packet *packet, gmp_packet *gen_packet,
+  */
+ static boolean
+ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
+-			    u_int32_t packet_len)
++			    uint32_t packet_len)
+ {
+     igmp_v3_report *v3_rpt_pkt;
+     igmp_v3_rpt_rcrd *v3_rpt_rcrd;
+     gmp_report_packet *report_pkt;
+     gmp_report_group_record *group_rcrd;
+-    u_int group_count;
+-    u_int source_count;
+-    u_int record_length;
+-    u_int8_t *byte_ptr;
+-    u_int8_t *addr_ptr;
++    uint32_t group_count;
++    uint32_t source_count;
++    uint32_t record_length;
++    uint8_t *byte_ptr;
++    uint8_t *addr_ptr;
+     gmp_addr_thread *addr_thread;
+ 
+     /* Bail if the packet is too small. */
+@@ -1278,7 +1267,7 @@ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
+ 
+     packet_len -= sizeof(igmp_v3_report);
+     v3_rpt_rcrd = v3_rpt_pkt->igmp_v3_report_rcrd;
+-    byte_ptr = (u_int8_t *) v3_rpt_rcrd;
++    byte_ptr = (uint8_t *) v3_rpt_rcrd;
+     while (group_count--) {
+ 
+ 	/*
+@@ -1325,7 +1314,7 @@ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
+ 	/* If there are any sources, add them to the record. */
+ 
+ 	if (source_count) {
+-	    addr_ptr = v3_rpt_rcrd->igmp_v3_rpt_source;
++	    addr_ptr = get_igmp_v3_rpt_source(v3_rpt_rcrd);
+ 
+ 	    /* Allocate an address thread. */
+ 
+@@ -1367,14 +1356,14 @@ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
+  */
+ static boolean
+ igmp_parse_v3_query_packet(igmp_packet *packet, gmp_packet *gen_packet,
+-			   u_int32_t packet_len)
++			   uint32_t packet_len)
+ {
+     igmp_v3_query *v3_query_pkt;
+     gmp_query_packet *query_pkt;
+-    u_int byte_offset;
++    uint32_t byte_offset;
+     gmp_addr_thread *addr_thread;
+-    u_int source_count;
+-    u_int8_t *addr_ptr;
++    uint32_t source_count;
++    uint8_t *addr_ptr;
+ 
+     /* Bail if the packet is too small. */
+ 
+@@ -1391,9 +1380,8 @@ igmp_parse_v3_query_packet(igmp_packet *packet, gmp_packet *gen_packet,
+ 
+     /* Copy the group address. */
+ 
+-    bcopy(v3_query_pkt->igmp_v3_query_group,
+-	  query_pkt->gmp_query_group.gmp_addr, IPV4_ADDR_LEN);
+-	
++    memmove(query_pkt->gmp_query_group.gmp_addr, v3_query_pkt->igmp_v3_query_group, IPV4_ADDR_LEN);
++
+     /*
+      * If the group address is nonzero, flag that we've got a
+      * group query.
+@@ -1468,7 +1456,7 @@ igmp_parse_v3_query_packet(igmp_packet *packet, gmp_packet *gen_packet,
+  */
+ static boolean
+ igmp_parse_v3_packet(igmp_packet *packet, gmp_packet *gen_packet,
+-		     u_int32_t packet_len, gmp_message_type msg_type)
++		     uint32_t packet_len, gmp_message_type msg_type)
+ {
+     boolean result;
+ 
+@@ -1505,10 +1493,10 @@ igmp_parse_v3_packet(igmp_packet *packet, gmp_packet *gen_packet,
+  * Returns TRUE if the packet parsed OK, or FALSE if there was a problem.
+  */
+ boolean
+-igmp_process_pkt (void *rcv_pkt, const u_int8_t *src_addr,
+-		  const u_int8_t *dest_addr, u_int32_t packet_len,
++igmp_process_pkt (void *rcv_pkt, const uint8_t *src_addr,
++		  const uint8_t *dest_addr, uint32_t packet_len,
+ 		  gmpx_intf_id intf_id, gmpx_packet_attr attrib,
+-		  void_t trace_context, u_int32_t trace_flags)
++		  void_t trace_context, uint32_t trace_flags)
+ {
+     igmp_packet *packet;
+     gmp_packet *gen_packet;
+@@ -1545,13 +1533,11 @@ igmp_process_pkt (void *rcv_pkt, const u_int8_t *src_addr,
+     /* Set up the address fields. */
+ 
+     if (src_addr) {
+-	bcopy(src_addr, gen_packet->gmp_packet_src_addr.gmp_addr,
+-	      IPV4_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_src_addr.gmp_addr, src_addr, IPV4_ADDR_LEN);
+     }
+ 
+     if (dest_addr) {
+-	bcopy(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-	      IPV4_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr, IPV4_ADDR_LEN);
+     }
+ 
+     /* If the packet looks OK so far, parse it further. */
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.h b/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.h
+index 841a0ba5b..df20e1fcb 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/igmp_protocol.h
+@@ -23,9 +23,9 @@
+  * The IGMP header qualifies the contents of the rest of the packet.
+  */
+ typedef struct igmp_hdr_ {
+-    u_int8_t igmp_hdr_type;		/* packet type */
+-    u_int8_t igmp_hdr_maxresp;		/* Max resp code or reserved */
+-    u_int16_t igmp_hdr_cksum;		/* Checksum */
++    uint8_t igmp_hdr_type;		/* packet type */
++    uint8_t igmp_hdr_maxresp;		/* Max resp code or reserved */
++    uint16_t igmp_hdr_cksum;		/* Checksum */
+ } igmp_hdr;
+ 
+ #define IGMP_TYPE_QUERY		0x11	/* Query (all versions) */
+@@ -41,7 +41,7 @@ typedef struct igmp_hdr_ {
+  */
+ typedef struct igmp_v1v2_pkt_ {
+     igmp_hdr igmp_v1v2_pkt_hdr;		/* Packet header */
+-    u_int8_t igmp_v1v2_pkt_group[IPV4_ADDR_LEN]; /* Group address */
++    uint8_t igmp_v1v2_pkt_group[IPV4_ADDR_LEN]; /* Group address */
+ } igmp_v1v2_pkt;
+ 
+ 
+@@ -50,11 +50,11 @@ typedef struct igmp_v1v2_pkt_ {
+  */
+ typedef struct igmp_v3_query_ {
+     igmp_hdr igmp_v3_query_hdr;		/* Packet header */
+-    u_int8_t igmp_v3_query_group[IPV4_ADDR_LEN]; /* Group address */
+-    u_int8_t igmp_v3_query_s_qrv;	/* S/QRV fields */
+-    u_int8_t igmp_v3_query_qqic;	/* QQIC */
+-    u_int16_t igmp_v3_query_num_srcs;	/* Number of sources */
+-    u_int8_t igmp_v3_query_source[0];	/* Array of sources */
++    uint8_t igmp_v3_query_group[IPV4_ADDR_LEN]; /* Group address */
++    uint8_t igmp_v3_query_s_qrv;	/* S/QRV fields */
++    uint8_t igmp_v3_query_qqic;	/* QQIC */
++    uint16_t igmp_v3_query_num_srcs;	/* Number of sources */
++    uint8_t igmp_v3_query_source[0];	/* Array of sources */
+ } igmp_v3_query;
+ 
+ #define IGMP_SUPP_RTR_PROC_MASK 0x8	/* "S" bit in s_qrv field */
+@@ -67,17 +67,21 @@ typedef struct igmp_v3_query_ {
+  * Version 3 reports have one or more group records.
+  */
+ typedef struct igmp_v3_rpt_rcrd_ {
+-    u_int8_t igmp_v3_rpt_rec_type;	/* Record type */
+-    u_int8_t igmp_v3_rpt_aux_len;	/* Auxiliary data length */
+-    u_int16_t igmp_v3_rpt_num_srcs;	/* Number of sources */
+-    u_int8_t igmp_v3_rpt_group[IPV4_ADDR_LEN]; /* Group address */
+-    u_int8_t igmp_v3_rpt_source[0];	/* Array of sources */
++    uint8_t igmp_v3_rpt_rec_type;	/* Record type */
++    uint8_t igmp_v3_rpt_aux_len;	/* Auxiliary data length */
++    uint16_t igmp_v3_rpt_num_srcs;	/* Number of sources */
++    uint8_t igmp_v3_rpt_group[IPV4_ADDR_LEN]; /* Group address */
+ } igmp_v3_rpt_rcrd;
+ 
++/* Array of sources */
++static inline uint8_t* get_igmp_v3_rpt_source(igmp_v3_rpt_rcrd *ptr) {
++    return (uint8_t*)(ptr + 1);
++}
++
+ typedef struct igmp_v3_report_ {
+     igmp_hdr igmp_v3_report_hdr;	/* Packet header */
+-    u_int16_t igmp_v3_report_rsvd;	/* Reserved */
+-    u_int16_t igmp_v3_report_num_rcrds;	/* Number of records */
++    uint16_t igmp_v3_report_rsvd;	/* Reserved */
++    uint16_t igmp_v3_report_num_rcrds;	/* Number of records */
+     igmp_v3_rpt_rcrd igmp_v3_report_rcrd[0]; /* Set records */
+ } igmp_v3_report;
+ 
+@@ -136,7 +140,7 @@ typedef union igmp_packet_ {
+  * Returns TRUE if the address is multicast, or FALSE if not.
+  */
+ static inline boolean
+-igmp_addr_is_mcast (const u_int8_t *addr)
++igmp_addr_is_mcast (const uint8_t *addr)
+ {
+     return ((*addr & 0xf0) == 0xe0);
+ }
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.c b/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.c
+index 41d579872..40a358ae3 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.c
++++ b/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.c
+@@ -428,7 +428,7 @@ gmp_mld_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
+ 		       rpt_rcrd->mld_v2_rpt_group,
+ 		       gmp_report_type_string(rpt_rcrd->mld_v2_rpt_rec_type),
+ 		       rpt_rcrd->mld_v2_rpt_aux_len, source_count);
+-	    byte_ptr = rpt_rcrd->mld_v2_rpt_source;
++	    byte_ptr = get_mld_v2_rpt_source(rpt_rcrd);
+ 	    while (source_count--) {
+ 		gmpx_trace(trace_context, "      Source %a", byte_ptr);
+ 		byte_ptr += IPV6_ADDR_LEN;
+@@ -467,7 +467,7 @@ mld_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+     gmpx_assert(packet_len >= sizeof(mld_v1_pkt));
+     v1_pkt = &packet->mld_pkt_v1;
+     pkt_hdr = &v1_pkt->mld_v1_pkt_hdr;
+-    bzero(pkt_hdr, sizeof(mld_hdr));
++    memset(pkt_hdr, 0, sizeof(mld_hdr));
+     formatted_len = sizeof(mld_v1_pkt);
+ 
+     switch (gen_packet->gmp_packet_type) {
+@@ -484,14 +484,12 @@ mld_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+ 	 * zero it.  Set the destination address accordingly.
+ 	 */
+ 	if (query_pkt->gmp_query_group_query) {
+-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
+-		  v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
+-	    bcopy(query_pkt->gmp_query_group.gmp_addr,
+-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
++            memmove(v1_pkt->mld_v1_pkt_group, query_pkt->gmp_query_group.gmp_addr, IPV6_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
++                IPV6_ADDR_LEN);
+ 	} else {
+-	    bzero(v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
+-	    bcopy(mld_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-		  IPV6_ADDR_LEN);
++            memset(v1_pkt->mld_v1_pkt_group, 0, IPV6_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_hosts, IPV6_ADDR_LEN);
+ 	}
+ 
+ 	/* Store the max resp value. */
+@@ -530,16 +528,14 @@ mld_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
+ 	     group_record->gmp_rpt_type == GMP_RPT_IS_IN) &&
+ 	    gmp_addr_list_empty(group_record->gmp_rpt_xmit_srcs)) {
+ 	    pkt_hdr->mld_hdr_type = MLD_TYPE_V1_LEAVE;
+-	    bcopy(mld_all_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-		  IPV6_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_routers, IPV6_ADDR_LEN);
+ 	} else {
+ 	    pkt_hdr->mld_hdr_type = MLD_TYPE_V1_REPORT;
+-	    bcopy(group_record->gmp_rpt_group.gmp_addr,
+-		  gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
++            memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, group_record->gmp_rpt_group.gmp_addr,
++                IPV6_ADDR_LEN);
+ 	}
+ 
+-	bcopy(group_record->gmp_rpt_group.gmp_addr,
+-	      v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
++        memmove(v1_pkt->mld_v1_pkt_group, group_record->gmp_rpt_group.gmp_addr, IPV6_ADDR_LEN);
+ 
+ 	/* If this is a BLOCK record, don't send anything. */
+ 
+@@ -588,7 +584,7 @@ mld_format_v2_query (gmp_role role, gmp_packet *gen_packet,
+     gmpx_assert(packet_len >= sizeof(mld_v2_query) + IPV6_ADDR_LEN);
+     query_pkt = &gen_packet->gmp_packet_contents.gmp_packet_query;
+     v2_query_pkt = &packet->mld_pkt_v2_query;
+-    bzero(v2_query_pkt, sizeof(mld_v2_query));
++    memset(v2_query_pkt, 0, sizeof(mld_v2_query));
+     pkt_hdr = &v2_query_pkt->mld_v2_query_hdr;
+ 
+     /* Set up the header. */
+@@ -607,14 +603,13 @@ mld_format_v2_query (gmp_role role, gmp_packet *gen_packet,
+      * zero it.  Set the destination address accordingly.
+      */
+     if (query_pkt->gmp_query_group_query) {
+-	bcopy(query_pkt->gmp_query_group.gmp_addr,
+-	      v2_query_pkt->mld_v2_query_group, IPV6_ADDR_LEN);
+-	bcopy(query_pkt->gmp_query_group.gmp_addr,
+-	      gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
++        memmove(v2_query_pkt->mld_v2_query_group, query_pkt->gmp_query_group.gmp_addr,
++            IPV6_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, query_pkt->gmp_query_group.gmp_addr,
++            IPV6_ADDR_LEN);
+     } else {
+-	bzero(v2_query_pkt->mld_v2_query_group, IPV6_ADDR_LEN);
+-	bcopy(mld_all_hosts, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-	      IPV6_ADDR_LEN);
++        memset(v2_query_pkt->mld_v2_query_group, 0, IPV6_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_hosts, IPV6_ADDR_LEN);
+     }
+ 
+     /* Set the S and QRV fields. */
+@@ -670,7 +665,7 @@ mld_format_v2_query (gmp_role role, gmp_packet *gen_packet,
+ 		gmp_get_addr_cat_by_ordinal(addr_list->addr_vect.av_catalog,
+ 					    addr_entry->addr_ent_ord);
+ 	    gmpx_assert(cat_entry);
+-	    bcopy(cat_entry->adcat_ent_addr.gmp_addr, addr_ptr, IPV6_ADDR_LEN);
++            memmove(addr_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV6_ADDR_LEN);
+ 
+ 	    /* Delink the address entry. */
+ 
+@@ -734,7 +729,7 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
+ 		sizeof(mld_v2_rpt_rcrd) + IPV6_ADDR_LEN);
+     report_pkt = &gen_packet->gmp_packet_contents.gmp_packet_report;
+     v2_rpt_pkt = &packet->mld_pkt_v2_rpt;
+-    bzero(v2_rpt_pkt, sizeof(mld_v2_report));
++    memset(v2_rpt_pkt, 0, sizeof(mld_v2_report));
+     pkt_hdr = &v2_rpt_pkt->mld_v2_report_hdr;
+ 
+     /* Set up the header. */
+@@ -790,13 +785,13 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
+ 
+ 	/* Create the group record header. */
+ 
+-	bzero(v2_group_rcrd, sizeof(mld_v2_rpt_rcrd));
++	memset(v2_group_rcrd, 0, sizeof(mld_v2_rpt_rcrd));
+ 	v2_group_rcrd->mld_v2_rpt_rec_type = group_record->gmp_rpt_type;
+-	bcopy(group_record->gmp_rpt_group.gmp_addr,
+-	      v2_group_rcrd->mld_v2_rpt_group, IPV6_ADDR_LEN);
++        memmove(v2_group_rcrd->mld_v2_rpt_group, group_record->gmp_rpt_group.gmp_addr,
++            IPV6_ADDR_LEN);
+ 	packet_len -= sizeof(mld_v2_rpt_rcrd);
+ 	formatted_len += sizeof(mld_v2_rpt_rcrd);
+-	byte_ptr = v2_group_rcrd->mld_v2_rpt_source;
++	byte_ptr = get_mld_v2_rpt_source(v2_group_rcrd);
+ 	group_count++;
+ 
+ 	/* Now walk the sources, if any, and add them to the record. */
+@@ -830,8 +825,7 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
+ 					addr_list->addr_vect.av_catalog,
+ 					addr_entry->addr_ent_ord);
+ 		gmpx_assert(cat_entry);
+-		bcopy(cat_entry->adcat_ent_addr.gmp_addr, byte_ptr,
+-		      IPV6_ADDR_LEN);
++                memmove(byte_ptr, cat_entry->adcat_ent_addr.gmp_addr, IPV6_ADDR_LEN);
+ 
+ 		/* Delink the address entry. */
+ 
+@@ -884,8 +878,7 @@ mld_format_v2_report (gmp_role role, gmp_packet *gen_packet,
+ 
+     /* Set the destination address. */
+ 
+-    bcopy(mld_all_v2_routers, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-	  IPV6_ADDR_LEN);
++    memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, mld_all_v2_routers, IPV6_ADDR_LEN);
+ 
+     /* Update the group count in the packet header. */
+ 
+@@ -1012,8 +1005,7 @@ mld_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id, void *packet,
+      * source address, which is part of the v6 checksum.
+      */
+     if (formatted_len && dest_addr) {
+-	bcopy(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr,
+-	      IPV6_ADDR_LEN);
++        memmove(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr, IPV6_ADDR_LEN);
+ 
+ 	/* Trace the packet. */
+ 
+@@ -1067,8 +1059,7 @@ mld_parse_v1_packet(mld_packet *packet, gmp_packet *gen_packet,
+ 
+ 	/* Copy the group address. */
+ 
+-	bcopy(v1_pkt->mld_v1_pkt_group,
+-	      query_pkt->gmp_query_group.gmp_addr, IPV6_ADDR_LEN);
++        memmove(query_pkt->gmp_query_group.gmp_addr, v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
+ 	
+ 	/*
+ 	 * If the group address is nonzero, flag that we've got a
+@@ -1196,7 +1187,7 @@ mld_parse_v2_report_packet(mld_packet *packet, gmp_packet *gen_packet,
+ 	/* If there are any sources, add them to the record. */
+ 
+ 	if (source_count) {
+-	    addr_ptr = v2_rpt_rcrd->mld_v2_rpt_source;
++	    addr_ptr = get_mld_v2_rpt_source(v2_rpt_rcrd);
+ 
+ 	    /* Allocate an address thread. */
+ 
+@@ -1262,8 +1253,7 @@ mld_parse_v2_query_packet(mld_packet *packet, gmp_packet *gen_packet,
+ 
+     /* Copy the group address. */
+ 
+-    bcopy(v2_query_pkt->mld_v2_query_group,
+-	  query_pkt->gmp_query_group.gmp_addr, IPV6_ADDR_LEN);
++    memmove(query_pkt->gmp_query_group.gmp_addr, v2_query_pkt->mld_v2_query_group, IPV6_ADDR_LEN);
+ 	
+     /*
+      * If the group address is nonzero, flag that we've got a
+@@ -1416,12 +1406,10 @@ mld_process_pkt (void *rcv_pkt, const u_int8_t *src_addr,
+     /* Set up the address fields. */
+ 
+     if (src_addr) {
+-	bcopy(src_addr, gen_packet->gmp_packet_src_addr.gmp_addr,
+-	      IPV6_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_src_addr.gmp_addr, src_addr, IPV6_ADDR_LEN);
+     }
+     if (dest_addr) {
+-	bcopy(dest_addr, gen_packet->gmp_packet_dest_addr.gmp_addr,
+-	      IPV6_ADDR_LEN);
++        memmove(gen_packet->gmp_packet_dest_addr.gmp_addr, dest_addr, IPV6_ADDR_LEN);
+     }
+ 
+     /* If the packet looks OK so far, parse it further. */
+diff --git a/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.h b/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.h
+index 6ac337d2b..c3288cf1a 100644
+--- a/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.h
++++ b/src/vnsw/agent/services/multicast/grpmgmt/mld_proto.h
+@@ -23,9 +23,9 @@
+  * The MLD header qualifies the contents of the rest of the packet.
+  */
+ typedef struct mld_hdr_ {
+-    u_int8_t mld_hdr_type;		/* packet type */
+-    u_int8_t mld_hdr_resv;		/* Reserved */
+-    u_int16_t mld_hdr_cksum;		/* Checksum */
++    uint8_t mld_hdr_type;		/* packet type */
++    uint8_t mld_hdr_resv;		/* Reserved */
++    uint16_t mld_hdr_cksum;		/* Checksum */
+ } mld_hdr;
+ 
+ #define MLD_TYPE_QUERY		130	/* Query (all versions) */
+@@ -40,9 +40,9 @@ typedef struct mld_hdr_ {
+  */
+ typedef struct mld_v1_pkt_ {
+     mld_hdr mld_v1_pkt_hdr;		/* Packet header */
+-    u_int16_t mld_v1_max_resp;		/* Maximum Response Delay */
+-    u_int16_t mld_v1_resv;		/* Reserved */
+-    u_int8_t mld_v1_pkt_group[IPV6_ADDR_LEN]; /* Group address */
++    uint16_t mld_v1_max_resp;		/* Maximum Response Delay */
++    uint16_t mld_v1_resv;		/* Reserved */
++    uint8_t mld_v1_pkt_group[IPV6_ADDR_LEN]; /* Group address */
+ } mld_v1_pkt;
+ 
+ 
+@@ -51,13 +51,13 @@ typedef struct mld_v1_pkt_ {
+  */
+ typedef struct mld_v2_query_ {
+     mld_hdr mld_v2_query_hdr;		/* Packet header */
+-    u_int16_t mld_v2_max_resp;		/* Max resp code */
+-    u_int16_t mld_v2_resv;		/* Reserved */
+-    u_int8_t mld_v2_query_group[IPV6_ADDR_LEN]; /* Group address */
+-    u_int8_t mld_v2_query_s_qrv;	/* S/QRV fields */
+-    u_int8_t mld_v2_query_qqic;	/* QQIC */
+-    u_int16_t mld_v2_query_num_srcs;	/* Number of sources */
+-    u_int8_t mld_v2_query_source[0];	/* Array of sources */
++    uint16_t mld_v2_max_resp;		/* Max resp code */
++    uint16_t mld_v2_resv;		/* Reserved */
++    uint8_t mld_v2_query_group[IPV6_ADDR_LEN]; /* Group address */
++    uint8_t mld_v2_query_s_qrv;	/* S/QRV fields */
++    uint8_t mld_v2_query_qqic;	/* QQIC */
++    uint16_t mld_v2_query_num_srcs;	/* Number of sources */
++    uint8_t mld_v2_query_source[0];	/* Array of sources */
+ } mld_v2_query;
+ 
+ #define MLD_SUPP_RTR_PROC_MASK 0x8	/* "S" bit in s_qrv field */
+@@ -70,17 +70,21 @@ typedef struct mld_v2_query_ {
+  * Version 2 reports have one or more group records.
+  */
+ typedef struct mld_v2_rpt_rcrd_ {
+-    u_int8_t mld_v2_rpt_rec_type;	/* Record type */
+-    u_int8_t mld_v2_rpt_aux_len;	/* Auxiliary data length */
+-    u_int16_t mld_v2_rpt_num_srcs;	/* Number of sources */
+-    u_int8_t mld_v2_rpt_group[IPV6_ADDR_LEN]; /* Group address */
+-    u_int8_t mld_v2_rpt_source[0];	/* Array of sources */
++    uint8_t mld_v2_rpt_rec_type;	/* Record type */
++    uint8_t mld_v2_rpt_aux_len;	/* Auxiliary data length */
++    uint16_t mld_v2_rpt_num_srcs;	/* Number of sources */
++    uint8_t mld_v2_rpt_group[IPV6_ADDR_LEN]; /* Group address */
+ } mld_v2_rpt_rcrd;
+ 
++/* Array of sources */
++static inline uint8_t* get_mld_v2_rpt_source(mld_v2_rpt_rcrd *ptr) {
++    return (uint8_t*)(ptr + 1);
++}
++
+ typedef struct mld_v2_report_ {
+     mld_hdr mld_v2_report_hdr;	/* Packet header */
+-    u_int16_t mld_v2_report_rsvd;	/* Reserved */
+-    u_int16_t mld_v2_report_num_rcrds;	/* Number of records */
++    uint16_t mld_v2_report_rsvd;	/* Reserved */
++    uint16_t mld_v2_report_num_rcrds;	/* Number of records */
+     mld_v2_rpt_rcrd mld_v2_report_rcrd[0]; /* Set records */
+ } mld_v2_report;
+ 
+@@ -92,7 +96,7 @@ typedef struct mld_v2_report_ {
+  */
+ typedef struct mld_naked_header_ {
+     mld_hdr mld_naked_header_hdr;	/* Packet header */
+-    u_int16_t mld_naked_max_resp;	/* Max resp code */
++    uint16_t mld_naked_max_resp;	/* Max resp code */
+ } mld_naked_header;
+ 
+ 
+diff --git a/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.c b/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.c
+index 58efac8b0..6e70b700d 100644
+--- a/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.c
++++ b/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.c
+@@ -26,7 +26,7 @@ static bvx_block_tag bv_ent_tag;
+  * Index into this array with a byte of data, returns the number of bits
+  * set in the byte.
+  */
+-static const u_int8_t bitcount_array[256] =
++static const uint8_t bitcount_array[256] =
+     {0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+      1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+      1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+@@ -50,12 +50,12 @@ static const u_int8_t bitcount_array[256] =
+  *
+  * Returns the number of set bits in a vector word.
+  */
+-static u_int32_t
++static uint32_t
+ bv_bitcount (bv_word_t word)
+ {
+-    u_int32_t bitcount;
+-    u_int bytenum;
+-    u_int8_t byteval;
++    uint32_t bitcount;
++    uint32_t bytenum;
++    uint8_t byteval;
+ 
+     bitcount = 0;
+ 
+@@ -111,8 +111,8 @@ static int
+ bv_first_set (bv_word_t word)
+ {
+     int bitnum;
+-    u_int bytenum;
+-    u_int8_t byteval;
++    uint32_t bytenum;
++    uint8_t byteval;
+ 
+     /* Quick cheat.  Bail if the word is zero. */
+ 
+@@ -175,8 +175,8 @@ static int
+ bv_first_clear (bv_word_t word)
+ {
+     int bitnum;
+-    u_int bytenum;
+-    u_int8_t byteval;
++    uint32_t bytenum;
++    uint8_t byteval;
+ 
+     /* Quick cheat.  Bail if the word is all one. */
+ 
+@@ -320,7 +320,7 @@ bv_advance_entry (bit_vector *bv, bv_entry *cur_ent, bv_bitnum_t start_bitnum)
+ void
+ bv_init_vector (bit_vector *bv, boolean fast_vects)
+ {
+-    bzero(bv, sizeof(bit_vector));
++    memset(bv, 0, sizeof(bit_vector));
+     bv->bv_fastvects = fast_vects;
+     bv->bv_freed_ord = BV_BAD_BITNUM;
+     thread_new_circular_thread(&bv->bv_nonfull_head);
+@@ -359,7 +359,7 @@ bv_init_vector_tree (bit_vector *bv)
+  * will burn some CPU but still do the right thing.
+  */
+ static void
+-bv_build_key (u_int8_t key_ptr[], bv_bitnum_t bit_number)
++bv_build_key (uint8_t key_ptr[], bv_bitnum_t bit_number)
+ {
+     int key_count;
+ 
+@@ -495,7 +495,7 @@ bv_ent_lookup (bit_vector *bv, bv_bitnum_t bit_number)
+     bv_entry *result;
+     bvx_patnode *node;
+     bv_bitnum_t start_bit;
+-    u_int8_t key[sizeof(bv_bitnum_t)];
++    uint8_t key[sizeof(bv_bitnum_t)];
+ 
+     /* If there's no bit vector or patricia tree, the entry isn't here. */
+ 
+@@ -850,7 +850,7 @@ bv_bit_is_set (bit_vector *bv, bv_bitnum_t bit_number)
+ static bv_bitnum_t
+ bv_find_clear_in_ent (bv_entry *bv_ent)
+ {
+-    u_int word_offset;
++    uint32_t word_offset;
+     bv_word_t bitword;
+     int word_bitnum;
+ 
+@@ -1098,7 +1098,7 @@ bv_bitnum_t
+ bv_first_set_bit (bit_vector *bv)
+ {
+     bv_entry *bv_ent;
+-    u_int word_offset;
++    uint32_t word_offset;
+     bv_bitnum_t bitnum;
+     int word_bitnum;
+     bv_word_t bitword;
+@@ -1180,7 +1180,7 @@ bv_first_set_bit (bit_vector *bv)
+  * value, even if the destination bit is the same.
+  */
+ static int
+-bv_update_result (bit_vector *bv, bv_entry *dest_ent, u_int32_t word_index,
++bv_update_result (bit_vector *bv, bv_entry *dest_ent, uint32_t word_index,
+ 		  bv_word_t value, bv_bitnum_t word_bitnum,
+ 		  bit_vector *src_bv1, bit_vector *src_bv2,
+ 		  bv_callback callback, void *context,
+@@ -1189,9 +1189,9 @@ bv_update_result (bit_vector *bv, bv_entry *dest_ent, u_int32_t word_index,
+     bv_word_t dest_copy, value_copy;
+     bv_word_t *dest_ptr;
+     int net_set_count;
+-    u_int dest_bit, value_bit;
+-    u_int byte_ix, bit_ix;
+-    u_int8_t dest_copy_byte, value_copy_byte;
++    uint32_t dest_bit, value_bit;
++    uint32_t byte_ix, bit_ix;
++    uint8_t dest_copy_byte, value_copy_byte;
+     boolean cb_bitset;
+     boolean abort_walk;
+     bv_bitnum_t cur_bitnum;
+@@ -1369,7 +1369,7 @@ bv_clear_result_entry (bit_vector *src1, bit_vector *src2, bit_vector *result,
+ 		       bv_callback callback, void *context,
+ 		       bv_callback_option cb_opt)
+ {
+-    u_int i;
++    uint32_t i;
+     int net_set_count;
+ 
+     /* Only bother if there's an entry here. */
+@@ -1467,7 +1467,7 @@ bv_copy_result (bit_vector *src1, bit_vector *src2, bv_entry *copy_ptr,
+ {
+     int net_set_count;
+     int set_count_delta;
+-    u_int i;
++    uint32_t i;
+ 
+     /* See if the entry copied from is present. */
+ 
+@@ -1493,8 +1493,7 @@ bv_copy_result (bit_vector *src1, bit_vector *src2, bv_entry *copy_ptr,
+ 	 * copy the bits.
+ 	 */
+ 	if (result && result->bv_fastvects && !callback) {
+-	    bcopy(&copy_ptr->bv_bits, &result_ent->bv_bits,
+-		  sizeof(result_ent->bv_bits));
++            memmove(&result_ent->bv_bits, &copy_ptr->bv_bits, sizeof(result_ent->bv_bits));
+ 	    result_ent->bv_setcount = BV_UNKNOWN_COUNT;
+ 	    thread_remove(&result_ent->bv_ent_nonfull_thread);
+ 
+@@ -1583,7 +1582,7 @@ bv_vector_op (vector_op_type op_type, bit_vector *first, bit_vector *second,
+     bv_entry scratch_ent;
+     bv_entry *result_ptr;
+     bv_entry *copy_ptr;
+-    u_int i;
++    uint32_t i;
+     boolean local_result;
+ 
+     /* No null result with no callback. */
+@@ -1747,7 +1746,7 @@ bv_vector_op (vector_op_type op_type, bit_vector *first, bit_vector *second,
+ 		result_ptr = result_ent;
+ 		local_result = FALSE;
+ 	    } else {
+-		bzero(&scratch_ent, sizeof(scratch_ent));
++                memset(&scratch_ent, 0, sizeof(scratch_ent));
+ 		scratch_ent.bv_start = start_bitnum;
+ 		result_ptr = &scratch_ent;
+ 		local_result = TRUE;
+diff --git a/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.h b/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.h
+index d4fd1f568..7b7ec3c02 100644
+--- a/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.h
++++ b/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector.h
+@@ -297,9 +297,6 @@
+  *
+  * Miscellaneous stuff:
+  *
+- *   bzero(ptr, length)
+- *     Zeroes "length" bytes at the specified pointer (standard stuff).
+- *
+  *   bvx_assert(condition)
+  *     Crashes if the condition is not true.
+  *
+@@ -307,7 +304,7 @@
+  *     Used in procedure declarations after unused parameters to avoid
+  *     generating compilation warnings, e.g. "int flort(int foo BVX_UNUSED)".
+  *
+- *   u_int32_t
++ *   uint32_t
+  *     Must be typedefed to an unsigned, 32 bit scalar.
+  *
+  *   boolean, TRUE, FALSE
+@@ -328,7 +325,7 @@
+  *    A type defining the size of a scalar word.
+  *
+  *  BV_BITSIZE_LOG2 must be greater than or equal to the base 2 log of the
+- *  bit size of bv_word_t.  So if bv_word_t is typedefed as a u_int32_t,
++ *  bit size of bv_word_t.  So if bv_word_t is typedefed as a uint32_t,
+  *  BV_BITSIZE_LOG2 must be greater than or equal to 5.
+  *
+  *  BV_BITSIZE_LOG2 represents the granularity of memory allocated to maintain
+@@ -373,12 +370,12 @@
+  * number if no allocated blocks with free bits are available.
+  */
+ 
+-typedef u_int32_t bv_bitnum_t;		/* Bit number */
++typedef uint32_t bv_bitnum_t;		/* Bit number */
+ #define BV_BAD_BITNUM 0xffffffff	/* Illegal bit number */
+ 
+ typedef struct bit_vector_ {
+     bvx_patroot *bv_root;		/* Patricia root */
+-    u_int32_t bv_entry_count;		/* Number of attached entries */
++    uint32_t bv_entry_count;		/* Number of attached entries */
+     thread bv_nonfull_head;		/* Head of non-full entries */
+     bv_bitnum_t bv_callback_ord;	/* Ordinal of callback bit */
+     bv_bitnum_t bv_freed_ord;		/* Ordinal of a freed entry */
+diff --git a/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector_private.h b/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector_private.h
+index d4b32b2db..d961c59bf 100644
+--- a/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector_private.h
++++ b/src/vnsw/agent/services/multicast/stubs/bitvector/bitvector_private.h
+@@ -64,7 +64,7 @@
+ typedef struct bv_entry_ {
+     thread bv_ent_nonfull_thread;	/* Entry on non-full-entry thread */
+     bvx_patnode bv_ent_node;		/* Patricia node */
+-    u_int8_t bv_key[sizeof(bv_bitnum_t)]; /* Patricia key */
++    uint8_t bv_key[sizeof(bv_bitnum_t)]; /* Patricia key */
+     bv_bitnum_t bv_start;		/* Starting bit number */
+     int bv_setcount;			/* Number of set bits */
+     bv_word_t bv_bits[BV_WORDSIZE];	/* Actual bits */
+@@ -100,7 +100,7 @@ bv_start_bit (bv_bitnum_t bit_number)
+  * Don't worry, all that integer math should be optimized to a shift and
+  * a mask.
+  */
+-static inline u_int32_t
++static inline uint32_t
+ bv_word_offset (bv_bitnum_t bit_number)
+ {
+     return ((bit_number % (BV_BITSIZE)) / BV_BITSPERWORD);
+diff --git a/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.c b/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.c
+index f293e1c37..101e6f1d1 100644
+--- a/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.c
++++ b/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.c
+@@ -96,7 +96,7 @@ ord_destroy_context (ordinal_handle handle)
+  *
+  * Returns the ordinal, or ORD_BAD_ORDINAL if out of memory.
+  */
+-u_int32_t
++uint32_t
+ ord_get_ordinal (ordinal_handle handle)
+ {
+     ord_context *context;
+diff --git a/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.h b/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.h
+index bdff8fbf1..3f03eb331 100644
+--- a/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.h
++++ b/src/vnsw/agent/services/multicast/stubs/bitvector/ordinal.h
+@@ -89,7 +89,7 @@ typedef enum {ORD_PERFORMANCE, ORD_COMPACT} ord_compact_option;
+ 
+ extern ordinal_handle ord_create_context(ord_compact_option compact);
+ extern void ord_destroy_context(ordinal_handle handle);
+-extern u_int32_t ord_get_ordinal(ordinal_handle handle);
+-extern void ord_free_ordinal(ordinal_handle handle, u_int32_t ordinal);
++extern uint32_t ord_get_ordinal(ordinal_handle handle);
++extern void ord_free_ordinal(ordinal_handle handle, uint32_t ordinal);
+ 
+ #endif /* __ORDINAL_H__ */

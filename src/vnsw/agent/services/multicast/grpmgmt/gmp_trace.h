@@ -29,7 +29,7 @@
  * Returns TRUE if the specified trace flag is in use, or FALSE if not.
  */
 static inline boolean
-gmp_trace_set (u_int32_t traceflags, u_int32_t tracebits)
+gmp_trace_set (uint32_t traceflags, uint32_t tracebits)
 {
     return ((traceflags & tracebits) != 0);
 }
@@ -39,9 +39,9 @@ gmp_trace_set (u_int32_t traceflags, u_int32_t tracebits)
  * 
  * Conditionally trace.
  */
-#define gmp_trace(context, traceflags, flag, parms...) \
+#define gmp_trace(context, traceflags, flag, ...) \
     if (gmp_trace_set((traceflags), (flag))) \
-	gmpx_trace((context), parms)
+	gmpx_trace((context), __VA_ARGS__)
 
 extern const char *gmp_proto_string(gmp_proto proto);
 extern const char *gmp_filter_mode_string(gmp_filter_mode mode);

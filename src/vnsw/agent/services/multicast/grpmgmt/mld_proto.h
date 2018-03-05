@@ -23,9 +23,9 @@
  * The MLD header qualifies the contents of the rest of the packet.
  */
 typedef struct mld_hdr_ {
-    u_int8_t mld_hdr_type;		/* packet type */
-    u_int8_t mld_hdr_resv;		/* Reserved */
-    u_int16_t mld_hdr_cksum;		/* Checksum */
+    uint8_t mld_hdr_type;		/* packet type */
+    uint8_t mld_hdr_resv;		/* Reserved */
+    uint16_t mld_hdr_cksum;		/* Checksum */
 } mld_hdr;
 
 #define MLD_TYPE_QUERY		130	/* Query (all versions) */
@@ -40,9 +40,9 @@ typedef struct mld_hdr_ {
  */
 typedef struct mld_v1_pkt_ {
     mld_hdr mld_v1_pkt_hdr;		/* Packet header */
-    u_int16_t mld_v1_max_resp;		/* Maximum Response Delay */
-    u_int16_t mld_v1_resv;		/* Reserved */
-    u_int8_t mld_v1_pkt_group[IPV6_ADDR_LEN]; /* Group address */
+    uint16_t mld_v1_max_resp;		/* Maximum Response Delay */
+    uint16_t mld_v1_resv;		/* Reserved */
+    uint8_t mld_v1_pkt_group[IPV6_ADDR_LEN]; /* Group address */
 } mld_v1_pkt;
 
 
@@ -51,13 +51,13 @@ typedef struct mld_v1_pkt_ {
  */
 typedef struct mld_v2_query_ {
     mld_hdr mld_v2_query_hdr;		/* Packet header */
-    u_int16_t mld_v2_max_resp;		/* Max resp code */
-    u_int16_t mld_v2_resv;		/* Reserved */
-    u_int8_t mld_v2_query_group[IPV6_ADDR_LEN]; /* Group address */
-    u_int8_t mld_v2_query_s_qrv;	/* S/QRV fields */
-    u_int8_t mld_v2_query_qqic;	/* QQIC */
-    u_int16_t mld_v2_query_num_srcs;	/* Number of sources */
-    u_int8_t mld_v2_query_source[0];	/* Array of sources */
+    uint16_t mld_v2_max_resp;		/* Max resp code */
+    uint16_t mld_v2_resv;		/* Reserved */
+    uint8_t mld_v2_query_group[IPV6_ADDR_LEN]; /* Group address */
+    uint8_t mld_v2_query_s_qrv;	/* S/QRV fields */
+    uint8_t mld_v2_query_qqic;	/* QQIC */
+    uint16_t mld_v2_query_num_srcs;	/* Number of sources */
+    uint8_t mld_v2_query_source[0];	/* Array of sources */
 } mld_v2_query;
 
 #define MLD_SUPP_RTR_PROC_MASK 0x8	/* "S" bit in s_qrv field */
@@ -70,17 +70,21 @@ typedef struct mld_v2_query_ {
  * Version 2 reports have one or more group records.
  */
 typedef struct mld_v2_rpt_rcrd_ {
-    u_int8_t mld_v2_rpt_rec_type;	/* Record type */
-    u_int8_t mld_v2_rpt_aux_len;	/* Auxiliary data length */
-    u_int16_t mld_v2_rpt_num_srcs;	/* Number of sources */
-    u_int8_t mld_v2_rpt_group[IPV6_ADDR_LEN]; /* Group address */
-    u_int8_t mld_v2_rpt_source[0];	/* Array of sources */
+    uint8_t mld_v2_rpt_rec_type;	/* Record type */
+    uint8_t mld_v2_rpt_aux_len;	/* Auxiliary data length */
+    uint16_t mld_v2_rpt_num_srcs;	/* Number of sources */
+    uint8_t mld_v2_rpt_group[IPV6_ADDR_LEN]; /* Group address */
 } mld_v2_rpt_rcrd;
+
+/* Array of sources */
+static inline uint8_t* get_mld_v2_rpt_source(mld_v2_rpt_rcrd *ptr) {
+    return (uint8_t*)(ptr + 1);
+}
 
 typedef struct mld_v2_report_ {
     mld_hdr mld_v2_report_hdr;	/* Packet header */
-    u_int16_t mld_v2_report_rsvd;	/* Reserved */
-    u_int16_t mld_v2_report_num_rcrds;	/* Number of records */
+    uint16_t mld_v2_report_rsvd;	/* Reserved */
+    uint16_t mld_v2_report_num_rcrds;	/* Number of records */
     mld_v2_rpt_rcrd mld_v2_report_rcrd[0]; /* Set records */
 } mld_v2_report;
 
@@ -92,7 +96,7 @@ typedef struct mld_v2_report_ {
  */
 typedef struct mld_naked_header_ {
     mld_hdr mld_naked_header_hdr;	/* Packet header */
-    u_int16_t mld_naked_max_resp;	/* Max resp code */
+    uint16_t mld_naked_max_resp;	/* Max resp code */
 } mld_naked_header;
 
 

@@ -89,7 +89,7 @@ typedef enum {ORD_PERFORMANCE, ORD_COMPACT} ord_compact_option;
 
 extern ordinal_handle ord_create_context(ord_compact_option compact);
 extern void ord_destroy_context(ordinal_handle handle);
-extern u_int32_t ord_get_ordinal(ordinal_handle handle);
-extern void ord_free_ordinal(ordinal_handle handle, u_int32_t ordinal);
+extern uint32_t ord_get_ordinal(ordinal_handle handle);
+extern void ord_free_ordinal(ordinal_handle handle, uint32_t ordinal);
 
 #endif /* __ORDINAL_H__ */

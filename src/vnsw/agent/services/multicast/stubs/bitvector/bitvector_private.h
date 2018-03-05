@@ -64,7 +64,7 @@
 typedef struct bv_entry_ {
     thread bv_ent_nonfull_thread;	/* Entry on non-full-entry thread */
     bvx_patnode bv_ent_node;		/* Patricia node */
-    u_int8_t bv_key[sizeof(bv_bitnum_t)]; /* Patricia key */
+    uint8_t bv_key[sizeof(bv_bitnum_t)]; /* Patricia key */
     bv_bitnum_t bv_start;		/* Starting bit number */
     int bv_setcount;			/* Number of set bits */
     bv_word_t bv_bits[BV_WORDSIZE];	/* Actual bits */
@@ -100,7 +100,7 @@ bv_start_bit (bv_bitnum_t bit_number)
  * Don't worry, all that integer math should be optimized to a shift and
  * a mask.
  */
-static inline u_int32_t
+static inline uint32_t
 bv_word_offset (bv_bitnum_t bit_number)
 {
     return ((bit_number % (BV_BITSIZE)) / BV_BITSPERWORD);
