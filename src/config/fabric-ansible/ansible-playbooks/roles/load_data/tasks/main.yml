@@ -1,0 +1,55 @@
+---
+# tasks file for load_data
+
+- name: copy ansible.cfg to /etc/ansible dir
+  shell: |
+    cd /etc
+    mkdir ansible
+    cd "{{playbook_dir}}"
+    cp ansible.cfg /etc/ansible/
+
+
+- name: get Keystone Token for contrail server
+  uri:
+    url: http://{{server_ip}}:5000/v3/auth/tokens
+    method: POST
+    status_code: 201
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body: |
+      {
+        "auth": {
+          "identity": {
+            "methods": ["password"],
+            "password": {
+              "user": {
+                "name": "admin",
+                "domain": { "id": "default" },
+                "password": "{{password}}"
+              }
+            }
+          },
+          "scope": {
+            "project": {
+              "name": "admin",
+              "domain": { "id": "default" }
+            }
+          }
+        }
+      }
+  register: contr_keystone
+
+- set_fact:
+    auth_token: "{{contr_keystone.x_subject_token}}"
+
+- name: Read predefined json payloads
+  set_fact:
+    inputfile: "{{ lookup('file','conf/predef_payloads.json') | from_json }}"
+
+- name: Load each object by type from the file
+  include_tasks: load_objects_by_type.yml
+  vars:
+    object_item: "{{item}}"
+  with_items:
+    - "{{inputfile.data}}"
