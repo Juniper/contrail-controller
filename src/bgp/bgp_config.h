@@ -709,6 +709,7 @@ public:
     typedef std::pair<NeighborMap::const_iterator,
             NeighborMap::const_iterator> NeighborMapRange;
 
+    static const char *kMasterNetwork;
     static const char *kMasterInstance;
     static const char *kFabricInstance;
     static const int kDefaultPort;

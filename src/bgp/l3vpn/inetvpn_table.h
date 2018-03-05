@@ -45,10 +45,10 @@ public:
                         const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-
-private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
+
+private:
 
     DISALLOW_COPY_AND_ASSIGN(InetVpnTable);
 };

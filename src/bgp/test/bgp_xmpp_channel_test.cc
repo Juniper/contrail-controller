@@ -437,6 +437,30 @@ TEST_F(BgpXmppChannelTest, Connection) {
     EXPECT_EQ(0, Count(mgr_.get()));
 }
 
+TEST_F(BgpXmppChannelTest, GetPrimaryInstanceID) {
+    // Generate 1 channel READY event to BgpXmppChannelManagerMock
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::READY);
+    EXPECT_EQ(1, Count(mgr_.get()));
+
+    BgpXmppChannel *c = FindChannel(a.get());
+    EXPECT_NE(static_cast<BgpXmppChannel *>(NULL), c);
+
+    EXPECT_EQ(123, c->GetPrimaryInstanceID("1/1/vrf1/1.2.3.4/32/123", true));
+    EXPECT_EQ(123, c->GetPrimaryInstanceID("1/1/vrf1/1.2.3.4/32/123/f", true));
+    EXPECT_EQ(0, c->GetPrimaryInstanceID("1/1/vrf1/1.2.3.4/32/0", true));
+    EXPECT_EQ(0, c->GetPrimaryInstanceID("1/1/vrf1/1.2.3.4/32", true));
+    EXPECT_EQ(0, c->GetPrimaryInstanceID("1/1/vrf1/1.2.3.4", true));
+
+    EXPECT_EQ(24, c->GetPrimaryInstanceID("1/1/vrf1/02:de:ad:de:ad/24", false));
+    EXPECT_EQ(2, c->GetPrimaryInstanceID("1/1/vrf1/02:de:ad:de:ad/2/f", false));
+    EXPECT_EQ(0, c->GetPrimaryInstanceID("1/1/vrf1/02:de:ad:de:ad/0", false));
+    EXPECT_EQ(0, c->GetPrimaryInstanceID("1/1/vrf1/02:de:ad:de:ad", false));
+
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
+    delete FindChannel(a.get());
+    mgr_->RemoveChannel(a.get());
+}
+
 // Test for EndOfRib Send timer start logic.
 //
 // Session is closed after eor is sent.
