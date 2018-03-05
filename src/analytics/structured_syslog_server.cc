@@ -803,9 +803,11 @@ void StructuredSyslogUVESummarizeAppQoeSMV(SyslogParser::syslog_m_t v, bool summ
 }
 
 float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter) {
-    float effective_latency, r_factor, mos ;
+    float effective_latency, r_factor, mos, latency_s, jitter_s;
+    latency_s = latency/1000;  // latency in secs
+    jitter_s = jitter/1000;    //jitter in secs
     // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
-    effective_latency = (latency + (2*jitter) +10);
+    effective_latency = (latency_s + (2*jitter_s) +10);
     // Step-2: Calculate Intermediate R-Value
     if (effective_latency < 160){
         r_factor = 93.2 - (effective_latency/40);
@@ -861,7 +863,7 @@ void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool sum
         sdwanmetric.set_pkt_loss(pkt_loss);
     }
     if ((rtt != -1) && (rtt_jitter != -1) && (pkt_loss != -1)) {
-        sdwanmetric.set_score((int64_t)calculate_link_score(rtt*2, pkt_loss, rtt_jitter));
+        sdwanmetric.set_score((int64_t)calculate_link_score(rtt/2, pkt_loss, rtt_jitter));
     }
     // Map:  link_metrics_dial_traffic_type
     std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
@@ -1111,7 +1113,8 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
           }
       }
 
-      if (((end > len) || ((end == len) && (*(p + end - 1) != ']'))) && (sess_buf != NULL)) {
+      if (((end > len) || ((end == len) && ((*(p + end - 1) != ']')
+         && (*(p + end - 2) != ']')))) && (sess_buf != NULL)) {
        sess_buf->append(std::string(p + start, p + len));
        LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf);
        return true;
