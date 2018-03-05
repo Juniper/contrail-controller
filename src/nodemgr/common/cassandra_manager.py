@@ -22,17 +22,25 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 
 class CassandraManager(object):
     def __init__(self, cassandra_repair_logdir, db_name, contrail_databases,
-                 hostip, minimum_diskgb, db_port):
+                 hostip, minimum_diskgb, db_port, process_info_manager):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_name = db_name
         self.contrail_databases = contrail_databases
         self.hostip = hostip
         self.minimum_diskgb = minimum_diskgb
         self.db_port = db_port
+        self.process_info_manager = process_info_manager
         # Initialize tpstat structures
         self.cassandra_status_old = CassandraStatusData()
         self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
         self.cassandra_status_old.thread_pool_stats = []
+
+    def can_serve(self):
+        if self._db_name == 'configDb':
+            # TODO: move this logic to process_info_manager
+            return not package_installed('contrail-openstack-database') and package_installed('contrail-database-common')
+
+        return True
 
     def status(self):
         subprocess.call("contrail-cassandra-status --log-file"

@@ -27,10 +27,9 @@ class VrouterEventManager(EventManager):
             module_type = Module.COMPUTE_NODE_MGR,
             object_table = 'ObjectVRouter',
             supervisor_serverurl = supervisor_serverurl,
-            sandesh_packages = ['vrouter.loadbalancer'],
-            unit_names = unit_names)
+            sandesh_packages = ['vrouter.loadbalancer'])
         super(VrouterEventManager, self).__init__(config, type_info, rule_file,
-                sandesh_global, update_process_list=True)
+                sandesh_global, unit_names, update_process_list=True)
         self.lb_stats = LoadbalancerStatsUVE(self.logger)
     # end __init__
 

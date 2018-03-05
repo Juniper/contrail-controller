@@ -20,10 +20,9 @@ class ControlEventManager(EventManager):
         type_info = EventManagerTypeInfo(package_name = 'contrail-control',
             module_type = Module.CONTROL_NODE_MGR,
             object_table = 'ObjectBgpRouter',
-            supervisor_serverurl = supervisor_serverurl,
-            unit_names = unit_names)
+            supervisor_serverurl = supervisor_serverurl)
         super(ControlEventManager, self).__init__(config, type_info, rule_file,
-                sandesh_global)
+            sandesh_global, unit_names)
     # end __init__
 
 # end class ControlEventManager
