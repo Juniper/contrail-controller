@@ -1,9 +1,0 @@
-            <next-hop>
-              <af>1</af>
-              <address>10.1.2.2</address>
-              <label>10000</label>
-              <tunnel-encapsulation-list>
-                  <tunnel-encapsulation>gre</tunnel-encapsulation>
-                  <tunnel-encapsulation>udp</tunnel-encapsulation>
-              </tunnel-encapsulation-list>
-            </next-hop>
