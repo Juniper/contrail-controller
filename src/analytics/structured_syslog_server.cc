@@ -1111,7 +1111,8 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
           }
       }
 
-      if (((end > len) || ((end == len) && (*(p + end - 1) != ']'))) && (sess_buf != NULL)) {
+      if (((end > len) || ((end == len) && ((*(p + end - 1) != ']')
+         && (*(p + end - 2) != ']')))) && (sess_buf != NULL)) {
        sess_buf->append(std::string(p + start, p + len));
        LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf);
        return true;
