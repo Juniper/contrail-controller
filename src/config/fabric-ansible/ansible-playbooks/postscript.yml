@@ -1,0 +1,10 @@
+- name: Test vnc mod
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    password: "{{password}}"
+
+  roles:
+    - postscripts

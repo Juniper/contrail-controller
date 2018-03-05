@@ -1,0 +1,36 @@
+#- name: Print the output.
+#  debug:
+#    msg: "{{object_item}}"
+
+- name: get object type
+  set_fact:
+    ob_type: "{{object_item.object_type}}"
+
+- name: Print the object type.
+  debug:
+    msg: "{{ob_type}}"
+
+#- name: iterate over objects
+#  debug:
+#    msg: "{{line_item}}"
+#  with_items: "{{object_item.objects}}"
+#  loop_control:
+#    loop_var: line_item
+
+- name: Iterate over each object and create objects
+  include_tasks: create_objects.yml
+  vars:
+    object_data: "{{line_item}}"
+    object_type: "{{ob_type}}"
+#  vnc_db_mod:
+#    object_type: "{{ob_name}}"
+#    object_op: "create"
+#    object_dict: "{{line_item}}"
+#    auth_token: "{{contr_keystone.x_subject_token}}"
+  with_items: "{{object_item.objects}}"
+  loop_control:
+    loop_var: line_item
+#  register: resp
+
+
+
