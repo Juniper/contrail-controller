@@ -71,12 +71,25 @@ class JobHandler(object):
                                    self._execution_id)
         self._logger.debug(msg)
 
-    def find_playbook_info(self, device_family, playbook_list):
+
+    def find_playbook_info(self, device_id, playbook_list):
+
+        device_details = self._device_json.get(device_id)
+        device_vendor = device_details.get('device_vendor')
+        device_family = device_details.get('device_family')
+
         for playbook_info in playbook_list:
-            if playbook_info.device_family == device_family:
-                return playbook_info
-        msg = "Playbook info not found in the job template for %s" % \
-              device_family
+            pb_vendor_name = playbook_info.get_vendor()
+            if pb_vendor_name == device_vendor:
+                pb_device_family = playbook_info.get_device_family()
+                if pb_device_family:
+                    if (device_family == pb_device_family):
+                        return playbook_info
+                else:
+                    # device_family agnostic
+                    return playbook_info
+        msg = "Playbook info not found in the job template for " \
+              "%s and %s" % (device_vendor, device_family)
         raise JobException(msg, self._execution_id)
 
     def get_playbook_info(self, device_id=None):
@@ -84,10 +97,9 @@ class JobHandler(object):
             # get the playbook uri from the job template
             device_family = None
             if device_id:
-                device_family = self._job_utils.get_device_family(device_id)
                 playbooks = self._job_template.get_job_template_playbooks()
-                play_info = self.find_playbook_info(device_family,
-                                                    playbooks.playbook_info)
+                play_info = self.find_playbook_info(device_id,
+                                        playbooks.playbook_info)
             else:
                 playbooks = self._job_template.get_job_template_playbooks()
                 play_info = playbooks.playbook_info[0]

@@ -70,6 +70,158 @@ class TestJobManager(test_case.JobTestCase):
         jm = JobManager(logger, self._vnc_lib, job_input_json)
         jm.start_job()
 
+    # to test the case when only device vendor is passed in job_template_input
+    def test_execute_job_02(self):
+        play_info = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+                                     vendor='Juniper')
+        playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
+        job_template = JobTemplate(job_template_type='device',
+                                   job_template_job_runtime='ansible',
+                                   job_template_multi_device_job=True,
+                                   job_template_playbooks=playbooks_list,
+                                   name='Test_template_multidevice')
+        job_template_uuid = self._vnc_lib.job_template_create(job_template)
+
+        # mock the play book executor call
+        self.mock_play_book_executor()
+        execution_id = uuid.uuid4()
+
+        # Hardcoding a sample auth token since its a madatory value passed
+        # by the api server while invoking the job manager. Here since we
+        # are directly invoking the job manager, we are passing a dummy
+        # auth token for testing. This value is not used internally since
+        # the calls that use the auth token are mocked
+        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+
+        job_input_json = {"job_template_id": job_template_uuid,
+                          "input": {"playbook_data": "some playbook data"},
+                          "job_execution_id": str(execution_id),
+                          "auth_token": sample_auth_token,
+                          "params": {"device_list": ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
+                          "device_json": {"aad74e24-a00b-4eb3-8412-f8b9412925c3": {'device_vendor': 'Juniper'}}
+                         }
+        logger = JobLogger()
+        jm = JobManager(logger, self._vnc_lib, job_input_json)
+        jm.start_job()
+
+    # to test the case when device vendor and multiple device families are passed in job_template_input
+    def test_execute_job_03(self):
+        play_info_mx = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+                                     vendor='Juniper', device_family='MX')
+        play_info_qfx = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+                                     vendor='Juniper', device_family='QFX')
+
+        playbooks_list = PlaybookInfoListType(playbook_info=[play_info_qfx, play_info_mx])
+        job_template = JobTemplate(job_template_type='device',
+                                   job_template_job_runtime='ansible',
+                                   job_template_multi_device_job=True,
+                                   job_template_playbooks=playbooks_list,
+                                   name='Test_template_multidevfamilies')
+        job_template_uuid = self._vnc_lib.job_template_create(job_template)
+
+        # mock the play book executor call
+        self.mock_play_book_executor()
+        execution_id = uuid.uuid4()
+
+        # Hardcoding a sample auth token since its a madatory value passed
+        # by the api server while invoking the job manager. Here since we
+        # are directly invoking the job manager, we are passing a dummy
+        # auth token for testing. This value is not used internally since
+        # the calls that use the auth token are mocked
+        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+
+        job_input_json = {"job_template_id": job_template_uuid,
+                          "input": {"playbook_data": "some playbook data"},
+                          "job_execution_id": str(execution_id),
+                          "auth_token": sample_auth_token,
+                          "params": {"device_list": ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
+                          "device_json": {"aad74e24-a00b-4eb3-8412-f8b9412925c3": {'device_vendor': 'Juniper', 'device_family':'MX'}}
+                         }
+        logger = JobLogger()
+        jm = JobManager(logger, self._vnc_lib, job_input_json)
+        jm.start_job()
+
+    # to test the case when multiple device vendors are passed in job_template_input
+    def test_execute_job_04(self):
+        play_info_juniper_mx = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+                                     vendor='Juniper', device_family='MX')
+        play_info_juniper_qfx = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+                                     vendor='Juniper', device_family='QFX')
+        play_info_arista_df = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+                                     vendor='Arista', device_family='df')
+        playbooks_list = PlaybookInfoListType(playbook_info=[play_info_arista_df, play_info_juniper_qfx, play_info_juniper_mx])
+        job_template = JobTemplate(job_template_type='device',
+                                   job_template_job_runtime='ansible',
+                                   job_template_multi_device_job=True,
+                                   job_template_playbooks=playbooks_list,
+                                   name='Test_template_multivendors')
+        job_template_uuid = self._vnc_lib.job_template_create(job_template)
+
+        # mock the play book executor call
+        self.mock_play_book_executor()
+        execution_id = uuid.uuid4()
+
+        # Hardcoding a sample auth token since its a madatory value passed
+        # by the api server while invoking the job manager. Here since we
+        # are directly invoking the job manager, we are passing a dummy
+        # auth token for testing. This value is not used internally since
+        # the calls that use the auth token are mocked
+        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+
+        job_input_json = {"job_template_id": job_template_uuid,
+                          "input": {"playbook_data": "some playbook data"},
+                          "job_execution_id": str(execution_id),
+                          "auth_token": sample_auth_token,
+                          "params": {"device_list": ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
+                          "device_json": {"aad74e24-a00b-4eb3-8412-f8b9412925c3": {'device_vendor': 'Juniper', 'device_family':'MX'}}
+                         }
+        logger = JobLogger()
+        jm = JobManager(logger, self._vnc_lib, job_input_json)
+        resp = jm.start_job()
+
+    # error_case to test the case when no device vendor or device family match in job_template_input
+    #def test_execute_job_05(self):
+    #    play_info_juniper_qfx = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+    #                                 vendor='Juniper', device_family='QFX')
+    #    play_info_arista_df = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+    #                                 vendor='Arista', device_family='df')
+    #    playbooks_list = PlaybookInfoListType(playbook_info=[play_info_arista_df, play_info_juniper_qfx])
+    #    job_template = JobTemplate(job_template_type='device',
+    #                               job_template_job_runtime='ansible',
+    #                               job_template_multi_device_job=True,
+    #                               job_template_playbooks=playbooks_list,
+    #                               name='Test_template_errorcase')
+    #    job_template_uuid = self._vnc_lib.job_template_create(job_template)
+
+    #    # mock the play book executor call
+    #    self.mock_play_book_executor()
+    #    execution_id = uuid.uuid4()
+
+    #    # Hardcoding a sample auth token since its a madatory value passed
+    #    # by the api server while invoking the job manager. Here since we
+    #    # are directly invoking the job manager, we are passing a dummy
+    #    # auth token for testing. This value is not used internally since
+    #    # the calls that use the auth token are mocked
+    #    sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+
+    #    job_input_json = {"job_template_id": job_template_uuid,
+    #                      "input": {"playbook_data": "some playbook data"},
+    #                      "job_execution_id": str(execution_id),
+    #                      "auth_token": sample_auth_token,
+    #                      "params": {"device_list": ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
+    #                      "device_json": {"aad74e24-a00b-4eb3-8412-f8b9412925c3": {'device_vendor': 'Juniper', 'device_family':'MX'}}
+    #                     }
+    #    logger = JobLogger()
+    #    jm = JobManager(logger, self._vnc_lib, job_input_json)
+    #    try:
+    #        jm.start_job()
+    #    except HttpError, ex:
+    #        import pdb; pdb.set_trace()
+    #        self.assertEquals(ex.job_execution_id,execution_id)
+    #        #self.assertEquals(ex.msg, "Playbook info not found in the job template for " \
+    #        #  "%s and %s" % ('Juniper', 'MX'))
+
+
     def mock_play_book_executor(self):
         facts_dict = {"localhost":
                          {"output":
