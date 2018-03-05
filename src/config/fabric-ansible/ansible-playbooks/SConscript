@@ -35,6 +35,7 @@ local_sources = [
     'image_upgrade.yml',
     'error_handler.yml',
     'ansible.cfg',
+    'postscript.yml',
 ]
 
 local_sources_rules = []
