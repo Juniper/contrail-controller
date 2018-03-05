@@ -861,7 +861,7 @@ void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool sum
         sdwanmetric.set_pkt_loss(pkt_loss);
     }
     if ((rtt != -1) && (rtt_jitter != -1) && (pkt_loss != -1)) {
-        sdwanmetric.set_score((int64_t)calculate_link_score(rtt*2, pkt_loss, rtt_jitter));
+        sdwanmetric.set_score((int64_t)calculate_link_score(rtt/2, pkt_loss, rtt_jitter));
     }
     // Map:  link_metrics_dial_traffic_type
     std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
@@ -1111,7 +1111,10 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
           }
       }
 
-      if (((end > len) || ((end == len) && (*(p + end - 1) != ']'))) && (sess_buf != NULL)) {
+      // check if message delimiter ']' has arrived,
+      // if not, wait till it comes in next tcp buffer
+      if (((end > len) || ((end == len) && ((*(p + end - 1) != ']') &&
+                           (*(p + end - 2) != ']')))) && (sess_buf != NULL)) {
        sess_buf->append(std::string(p + start, p + len));
        LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf);
        return true;
