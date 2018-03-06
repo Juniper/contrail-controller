@@ -613,10 +613,10 @@ class VncNamespace(VncCommon):
                 added_labels, removed_labels =\
                     self._get_namespace(name).get_changed_labels()
                 namespace_pods = PodKM.get_namespace_pods(name)
-                if added_labels:
-                    VncPod.add_labels(namespace_pods, added_labels)
                 if removed_labels:
                     VncPod.remove_labels(namespace_pods, removed_labels)
+                if added_labels:
+                    VncPod.add_labels(namespace_pods, added_labels)
 
         elif event['type'] == 'DELETED':
             self.delete_namespace_security_policy(name)
