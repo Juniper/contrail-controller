@@ -354,8 +354,15 @@ public:
     SandeshTraceBufferPtr GetDormantTraceBuffer(const std::string &name) const;
     size_t GetRoutingInstanceActiveTraceBufSize() const;
     size_t GetRoutingInstanceDormantTraceBufSize() const;
-    size_t GetRoutingInstanceDormantTraceBufferCapacity() const;
-    size_t GetRoutingInstanceDormantTraceBufferThreshold() const;
+    size_t GetEnvRoutingInstanceDormantTraceBufferCapacity() const;
+    size_t GetEnvRoutingInstanceDormantTraceBufferThreshold() const;
+
+    size_t GetRoutingInstanceDormantTraceBufferCapacity() const {
+        return dormant_trace_buf_size_;
+    }
+    size_t GetRoutingInstanceDormantTraceBufferThreshold() const {
+        return trace_buf_threshold_;
+    }
 
     bool deleted();
     bool MayDelete() const;
