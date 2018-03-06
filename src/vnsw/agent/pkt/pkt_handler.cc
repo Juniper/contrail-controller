@@ -719,6 +719,13 @@ bool PktHandler::IgnoreFragmentedPacket(PktInfo *pkt_info) {
 }
 
 bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
+    // Do not consider source port in case we are looking at UDP tunnel header
+    if (pkt_info->dport == VXLAN_UDP_DEST_PORT ||
+        pkt_info->dport == MPLS_OVER_UDP_DEST_PORT ||
+        pkt_info->dport == IANA_MPLS_OVER_UDP_DEST_PORT) {
+        return false;
+    }
+
     if (pkt_info->dport == DHCP_SERVER_PORT || 
         pkt_info->sport == DHCP_CLIENT_PORT) {
         // we dont handle DHCPv6 coming from fabric
