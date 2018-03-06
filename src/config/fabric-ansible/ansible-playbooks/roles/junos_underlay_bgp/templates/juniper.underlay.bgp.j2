@@ -11,7 +11,7 @@ protocols {
                     loops 5;
                 }
             }
-            local-as {{ input.bgp.local_as }};
+            local-as {{ as_numbers[0] }};
             bfd-liveness-detection {
                 minimum-interval 1000;
                 multiplier 3;
