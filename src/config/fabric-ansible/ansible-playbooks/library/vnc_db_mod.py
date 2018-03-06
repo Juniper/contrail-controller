@@ -10,7 +10,110 @@ such as add, delete, update, read, list, ref-update, ref-delete,
 fqname_to_id, id_to_fqname
 """
 
-import uuid
+DOCUMENTATION = '''
+---
+Performs CRUD operation for the objects in database. Following operations are
+supported - ADD, DELETE, UPDATE, READ, LIST, REF-UPDATE, REF-DELETE,
+FQNAME_TO_ID, ID_TO_FQNAME
+
+For CREATE operation, if 'object_obj_if_present' flag is set to True (default value),
+module tries to update the existing object. If this flag is set to False, module
+will return SUCCESS with existing uuid
+
+LIST operation is supported with filters/fields/back_ref_id and detail clause
+'''
+
+EXAMPLES = '''
+CREATE operation:
+    vnc_db_mod:
+        object_type: "physical_router"
+        object_op: "create"
+        object_dict: |
+          {
+              "parent_type": "global-system-config",
+              "fq_name": ["default-global-system-config", "mx-240"],
+              "physical_router_management_ip": "172.10.68.1",
+              "physical_router_vendor_name": "Juniper",
+              "physical_router_product_name": "MX",
+              "physical_router_device_family": "juniper-mx"
+           }
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "localhost"
+
+UPDATE opreation:
+    vnc_db_mod:
+         object_type: "physical_router"
+         object_op: "update"
+         object_dict: |
+          {
+              "uuid": "{{ item[0].obj['physical-routers'][0].uuid }}",
+              "physical_router_user_credentials": {
+                  "username": "{{ item.1.username }}",
+                  "password": "{{ item.1.password }}"
+                  }
+          }
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "localhost"
+
+READ opreration:
+    vnc_db_mod:
+         object_type: "fabric"
+         object_op: "read"
+         object_dict: |
+         {
+              "fq_name": "{{ fabric_fq_name }}"
+         }
+         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+         api_server_host: "localhost"
+
+REF-UPDATE opreation:
+    vnc_db_mod:
+        object_type: "fabric"
+        object_op: "ref_update"
+        object_dict: |
+          {
+              "obj_uuid": "{{ fabric_uuid }}",
+              "ref_type": "physical_router",
+              "ref_uuid": "{{ item.uuid }}"
+          }
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "locahost"
+
+ID_TO_FQNAME operation:
+    vnc_db_mod:
+         object_type: "fabric"
+         object_op: "id_to_fq_name"
+         object_dict: |
+           {
+              "uuid": "{{ fabric_uuid }}"
+           }
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "locahost"
+
+FQNAME_TO_ID operation:
+    vnc_db_mod:
+         object_type: "tag"
+         object_op: "fq_name_to_id"
+         object_dict: |
+           {
+              "fq_name": ["{{ tag_fq_name }}"]
+           }
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "locahost"
+
+LIST with filters and detail operation:
+    vnc_db_mod:
+        object_type: "physical_router"
+        object_op: "list"
+        object_dict: |
+        {
+            "filters": {"physical_router_management_ip":"{{ item.hostname }}"},
+            "detail": "True",
+        }
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "locahost"
+'''
+
 import sys
 import requests
 import time
@@ -32,7 +135,7 @@ import logging
 def vnc_crud(module):
 
     results = {}
-    results['failure'] = False
+    results['failed'] = False
     vnc_lib = None
     retry = 10
 
@@ -43,7 +146,7 @@ def vnc_crud(module):
     auth_token = module.params['auth_token']
     update_obj = module.params['update_obj_if_present']
     api_server_host = module.params['api_server_host']
-
+ 
     # Instantiate the VNC library
     # Retry for sometime, till API server is up
     connected = False
@@ -57,7 +160,7 @@ def vnc_crud(module):
 
     if vnc_lib is None:
         results['msg'] = "Failed to instantiate vnc api"
-        results['failure'] = True
+        results['failed'] = True
         return results
 
     # Get the class name from object type
@@ -67,7 +170,7 @@ def vnc_crud(module):
     cls = str_to_class(cls_name)
     if cls is None:
         results['msg'] = "Failed to get class for %s", cls_name
-        results['failure'] = True
+        results['failed'] = True
         return results
 
     # Get the vnc method name based on the object type
@@ -82,13 +185,14 @@ def vnc_crud(module):
     method = str_to_vnc_method(vnc_lib, method_name)
     if method is None:
         results['msg'] = "Failed to get class method for %s", method_name
-        results['failure'] = True
+        results['failed'] = True
         return results
 
     # This creates an object, if not existing, else update the object
     if object_op == 'create':
         try:
-            object_dict['uuid'] = None
+            if object_dict.get('uuid') is None:
+                object_dict['uuid'] = None
             instance_obj = cls.from_dict(**object_dict)
             obj_uuid = method(instance_obj)
             results['uuid'] = obj_uuid
@@ -116,11 +220,11 @@ def vnc_crud(module):
                     obj).get(obj_name).get('uuid')
             else:
                 results['msg'] = str(ex)
-                results['failure'] = True
+                results['failed'] = False
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'update':
         try:
@@ -140,7 +244,7 @@ def vnc_crud(module):
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'delete':
         obj_uuid = object_dict.get('uuid')
@@ -157,7 +261,7 @@ def vnc_crud(module):
                 results['failure'] = True
         except Exception as ex:
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'read':
         obj_uuid = object_dict.get('uuid')
@@ -175,14 +279,14 @@ def vnc_crud(module):
             else:
                 results['msg'] = "Either uuid or fq_name should be present \
                                  for read"
-                results['failure'] = True
+                results['failed'] = True
                 return results
 
             results['obj'] = vnc_lib.obj_to_dict(obj)
         except Exception as ex:
             results['obj'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'list':
         filters = object_dict.get('filters')
@@ -206,7 +310,7 @@ def vnc_crud(module):
         except Exception as ex:
             results['obj'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'ref_update' or object_op == 'ref_delete':
         # Get the input params from the object dict
@@ -226,7 +330,7 @@ def vnc_crud(module):
             results['uuid'] = obj_uuid
         except Exception as ex:
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'fq_name_to_id':
         try:
@@ -241,7 +345,7 @@ def vnc_crud(module):
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'id_to_fq_name':
         try:
@@ -250,7 +354,7 @@ def vnc_crud(module):
             results['fq_name'] = obj_fq_name
         except Exception as ex:
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     return results
 # end vnc_crud
