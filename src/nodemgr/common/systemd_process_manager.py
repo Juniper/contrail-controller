@@ -61,6 +61,11 @@ class SystemdActiveState(object):
 # end class SystemdActiveState
 
 
+def get_unit_path(unit_name):
+    return SystemdUtils.UNIT_PATH_PREFIX + SystemdUtils.make_path(unit_name)
+# end helper function get_unit_path
+
+
 class SystemdProcessInfoManager(object):
     def __init__(self, unit_names, event_handlers, update_process_list):
         if not pydbus_present:
@@ -70,17 +75,18 @@ class SystemdProcessInfoManager(object):
         # In docker, systemd notifications via sd_notify do not
         # work, hence we will poll the process status
         self._poll = is_running_in_docker()
-        self._unit_paths = {unit_name:
-                                SystemdUtils.UNIT_PATH_PREFIX +
-                                SystemdUtils.make_path(unit_name) for unit_name in unit_names}
-        self._bus = pydbus.SystemBus()
         self._event_handlers = event_handlers
         self._update_process_list = update_process_list
-        self._units = {unit_name: self._bus.get(
-            SystemdUtils.SYSTEMD_BUS_NAME,
-            unit_path) for unit_name, unit_path in self._unit_paths.items()}
+        self._units = dict()
+        bus = pydbus.SystemBus()
+        for unit_name in unit_names:
+            self._units[unit_name] = bus.get(SystemdUtils.SYSTEMD_BUS_NAME, get_unit_path(unit_name))
         self._cached_process_infos = {}
     # end __init__
+
+    def add_unit_name(self, unit_name):
+        bus = pydbus.SystemBus()
+        self._units[unit_name] = bus.get(SystemdUtils.SYSTEMD_BUS_NAME, get_unit_path(unit_name))
 
     def get_all_processes(self):
         process_infos = []

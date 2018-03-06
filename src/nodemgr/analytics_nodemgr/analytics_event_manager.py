@@ -24,10 +24,9 @@ class AnalyticsEventManager(EventManager):
             package_name='contrail-analytics',
             module_type=Module.ANALYTICS_NODE_MGR,
             object_table='ObjectCollectorInfo',
-            supervisor_serverurl=supervisor_serverurl,
-            unit_names=unit_names)
-        super(AnalyticsEventManager, self).__init__(config, type_info,
-                                                    rule_file, sandesh_global)
+            supervisor_serverurl=supervisor_serverurl)
+        super(AnalyticsEventManager, self).__init__(config, type_info, rule_file,
+            sandesh_global, unit_names)
     # end __init__
 
 # end class AnaltyicsEventManager

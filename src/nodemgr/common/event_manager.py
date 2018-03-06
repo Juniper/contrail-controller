@@ -57,7 +57,7 @@ from utils import NodeMgrUtils, is_systemd_based,\
 class EventManagerTypeInfo(object):
     def __init__(self, package_name, module_type, object_table,
                  supervisor_serverurl, third_party_processes={},
-                 sandesh_packages=[], unit_names=[]):
+                 sandesh_packages=[]):
 
         self._package_name = package_name
         self._module_type = module_type
@@ -69,7 +69,6 @@ class EventManagerTypeInfo(object):
         self._supervisor_serverurl = supervisor_serverurl
         self._third_party_processes = third_party_processes
         self._sandesh_packages = sandesh_packages
-        self._unit_names = unit_names
     # end __init__
 
 
@@ -87,7 +86,7 @@ class EventManager(object):
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
     def __init__(self, config, type_info, rule_file, sandesh_instance,
-                 update_process_list=False):
+                 unit_names, update_process_list=False):
         self.config = config
         self.type_info = type_info
         self.stdin = sys.stdin
@@ -139,10 +138,10 @@ class EventManager(object):
         # TODO: handle difference between 'fat' containers and microservices smartly
         if DockerProcessInfoManager and (is_running_in_docker() or is_running_in_kubepod()):
             self.process_info_manager = DockerProcessInfoManager(
-                self.type_info._unit_names, event_handlers, update_process_list)
+                unit_names, event_handlers, update_process_list)
         elif is_systemd_based():
             self.process_info_manager = SystemdProcessInfoManager(
-                self.type_info._unit_names, event_handlers, update_process_list)
+                unit_names, event_handlers, update_process_list)
         elif 'SUPERVISOR_SERVER_URL' in os.environ:
             self.process_info_manager = SupervisorProcessInfoManager(
                 self.stdin, self.stdout, self.type_info._supervisor_serverurl,
@@ -156,6 +155,11 @@ class EventManager(object):
             self.send_init_info(group)
         self.third_party_process_dict = self.type_info._third_party_processes
     # end __init__
+
+    def add_unit_name(self, unit_name):
+        method = getattr(self.process_info_manager, "add_unit_name", None)
+        if method and callable(method):
+            method(unit_name)
 
     def msg_log(self, msg, level):
         self.logger.log(SandeshLogger.get_py_logger_level(
