@@ -127,16 +127,20 @@ IFMapChannel::IFMapChannel(IFMapManager *manager,
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
       username_(config_options.user), password_(config_options.password),
       state_machine_(NULL), response_state_(NONE), sequence_number_(0),
-      recv_msg_cnt_(0), sent_msg_cnt_(0), reconnect_attempts_(0),
+      recv_msg_cnt_(0), sent_msg_cnt_(0),
+      stale_timer_cnt_(0),stale_timer_updt_cnt_(0),
+      eor_timer_cnt_(0),eor_timer_updt_cnt_(0),reconnect_attempts_(0),
       connection_status_(NOCONN),
       connection_status_change_at_(UTCTimestampUsec()),
       stale_entries_cleanup_timeout_ms_(
           config_options.stale_entries_cleanup_timeout*1000), // ms
       stale_entries_cleanup_timer_(TimerManager::CreateTimer(
           *(manager->io_service()), "Stale entries cleanup timer")),
+      stale_entries_cleanup_timer_started_at_us_(0),
       end_of_rib_timeout_ms_(config_options.end_of_rib_timeout*1000), // ms
       end_of_rib_timer_(TimerManager::CreateTimer(*(manager->io_service()),
-                                                  "End of rib timer")) {
+                                                  "End of rib timer")),
+      end_of_rib_timer_started_at_us_(0) {
 
     set_start_stale_entries_cleanup(false);
     set_end_of_rib_computed(false);
@@ -602,10 +606,18 @@ int IFMapChannel::ReadPollResponse() {
     // Append the new bytes read, if any, to the stringstream
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
+    std::stringstream ostream;
+    ostream << "Stale timer count: " << stale_timer_cnt_
+        << " EOR timer count: " << eor_timer_cnt_
+        << " Stale timer update count: " << stale_timer_updt_cnt_
+        << " EOR timer update count: " << eor_timer_updt_cnt_;
     IFMAP_PEER_LOG_POLL_RESP(IFMapServerConnection,
-                   GetSizeAsString(reply_.size(), " bytes in reply_. ") +
-                   GetSizeAsString(reply_str.size(), " bytes in reply_str. ") +
-                   "PollResponse message is: \n", reply_str);
+        GetSizeAsString(reply_.size(), " bytes in reply_. ") +
+        GetSizeAsString(reply_str.size(), " bytes in reply_str. ") +
+        ostream.str() + " PollResponse message is: \n",
+        reply_str);
+
+
 
     // all possible responses, 3.7.5
     if ((reply_str.find("errorResult") != string::npos) ||
@@ -625,11 +637,19 @@ int IFMapChannel::ReadPollResponse() {
                 // If this is a reconnection, keep re-arming the stale entries
                 // cleanup timer as long as we keep receiving SearchResults.
                 StartStaleEntriesCleanupTimer();
+                stale_timer_cnt_++;
+            } else if (reply_str.find("updateResult") != string::npos) {
+                StartStaleEntriesCleanupTimer();
+                stale_timer_updt_cnt_++;
             }
             // When the daemon is coming up, as long as we are receiving
             // SearchResults, we have not received the entire db.
             if (!end_of_rib_computed()) {
                 StartEndOfRibTimer();
+                eor_timer_cnt_++;
+            } else if (reply_str.find("updateResult") != string::npos) {
+                StartEndOfRibTimer();
+                eor_timer_updt_cnt_++;
             }
         }
         string poll_string = reply_str.substr(pos);
@@ -653,12 +673,30 @@ int IFMapChannel::ReadPollResponse() {
     return 0;
 }
 
+const int IFMapChannel::ComputeTimeout(const int configured_timeout_ms,
+        const uint64_t started_at_us) const {
+    int timeout_ms;
+    const int elapsed_time_ms = (UTCTimestampUsec() - started_at_us)/1000;
+    if (elapsed_time_ms < (configured_timeout_ms - kStaleOrEorTimeoutFudgeMs)) {
+        timeout_ms = configured_timeout_ms - elapsed_time_ms;
+    } else {
+        timeout_ms = kStaleOrEorTimeoutFudgeMs;
+    }
+    return timeout_ms;
+}
+
 void IFMapChannel::StartStaleEntriesCleanupTimer() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
+    int timeout_ms;
     if (stale_entries_cleanup_timer_->running()) {
         stale_entries_cleanup_timer_->Cancel();
+        timeout_ms = ComputeTimeout(stale_entries_cleanup_timeout_ms_,
+            stale_entries_cleanup_timer_started_at_us_);
+    } else {
+        timeout_ms = stale_entries_cleanup_timeout_ms_;
+        stale_entries_cleanup_timer_started_at_us_ =  UTCTimestampUsec();
     }
-    stale_entries_cleanup_timer_->Start(stale_entries_cleanup_timeout_ms_,
+    stale_entries_cleanup_timer_->Start(timeout_ms,
         boost::bind(&IFMapChannel::ProcessStaleEntriesTimeout, this), NULL);
 }
 
@@ -666,6 +704,7 @@ void IFMapChannel::StopStaleEntriesCleanupTimer() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     if (stale_entries_cleanup_timer_->running()) {
         stale_entries_cleanup_timer_->Cancel();
+        stale_entries_cleanup_timer_started_at_us_ = 0;
     }
 }
 
@@ -675,6 +714,7 @@ bool IFMapChannel::ProcessStaleEntriesTimeout() {
                      integerToString(stale_entries_cleanup_timeout_ms_),
                      "millisecond stale cleanup timer fired");
     set_start_stale_entries_cleanup(false);
+    stale_entries_cleanup_timer_started_at_us_ = 0;
     return manager_->ifmap_server()->ProcessStaleEntriesTimeout();
 }
 
@@ -685,10 +725,16 @@ bool IFMapChannel::StaleEntriesCleanupTimerRunning() {
 
 void IFMapChannel::StartEndOfRibTimer() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
+    int timeout_ms;
     if (end_of_rib_timer_->running()) {
         end_of_rib_timer_->Cancel();
+        timeout_ms = ComputeTimeout(end_of_rib_timeout_ms_,
+            end_of_rib_timer_started_at_us_);
+    } else {
+        timeout_ms = end_of_rib_timeout_ms_;
+        end_of_rib_timer_started_at_us_ = UTCTimestampUsec();
     }
-    end_of_rib_timer_->Start(end_of_rib_timeout_ms_,
+    end_of_rib_timer_->Start(timeout_ms,
         boost::bind(&IFMapChannel::ProcessEndOfRibTimeout, this), NULL);
 }
 
@@ -696,6 +742,7 @@ void IFMapChannel::StopEndOfRibTimer() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     if (end_of_rib_timer_->running()) {
         end_of_rib_timer_->Cancel();
+        end_of_rib_timer_started_at_us_ = 0;
     }
 }
 
@@ -705,6 +752,7 @@ bool IFMapChannel::ProcessEndOfRibTimeout() {
                      integerToString(end_of_rib_timeout_ms_),
                      "millisecond end of rib timer fired");
     set_end_of_rib_computed(true);
+    end_of_rib_timer_started_at_us_ = 0;
     process::ConnectionState::GetInstance()->Update();
     return false;
 }
@@ -780,6 +828,12 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     IFMAP_PEER_DEBUG(IFMapChannelProcResp, "Http header length is",
                      header_length, "Content length is", content_len,
                      "Total bytes read are", reply_str.length());
+    std::stringstream ostream;
+    ostream << "Stale timer count: " << stale_timer_cnt_
+        << " EOR timer count: " << eor_timer_cnt_
+        << " Stale timer update count: " << stale_timer_updt_cnt_
+        << " EOR timer update count: " << eor_timer_updt_cnt_;
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "Timers:- ", ostream.str());
 
     // If both header and body are completely read, goto the next state
     if ((header_length + content_len) == reply_str.length()) {
