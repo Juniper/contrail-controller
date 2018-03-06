@@ -179,6 +179,9 @@ public:
 
     const std::string &vhost_name() const { return vhost_.name_; }
     const Ip4Address &vhost_addr() const { return vhost_.addr_; }
+    void set_vhost_addr(const Ip4Address &ip) {
+        vhost_.addr_ = ip;
+    }
     const Ip4Address &vhost_prefix() const { return vhost_.prefix_; }
     const int vhost_plen() const { return vhost_.plen_; }
     const Ip4Address &vhost_gw() const { return vhost_.gw_; }

@@ -370,7 +370,7 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
     // Check if vhost already has address. We cant handle IP address change yet
     const VmInterface *vhost =
         static_cast<const VmInterface *>(agent_->vhost_interface());
-    if (vhost->receive_route_list().list_.size() != 0) {
+    if (vhost->primary_ip_addr() != Ip4Address(0)) {
         return;
     }
 
