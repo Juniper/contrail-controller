@@ -43,7 +43,8 @@ class DependencyTracker(object):
                 refs = getattr(obj, ref_type+'s', [])
             else:
                 refs = [ref]
-
+            if obj.skip_evaluate(from_type):
+                continue
             ref_class = self._object_class_map[ref_type]
             for ref in refs:
                 ref_obj = ref_class.get(ref)
