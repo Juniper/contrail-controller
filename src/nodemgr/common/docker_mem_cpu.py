@@ -4,7 +4,6 @@
 
 import os
 import docker
-import psutil
 
 from sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
 
@@ -15,7 +14,6 @@ class DockerMemCpuUsageData(object):
         self.last_time = last_time
         self.client = docker.from_env()
         self._pid = hex(pid)[2:-1].zfill(64)
-        self._cpu_count = psutil.cpu_count()
 
     def _get_container_stats(self):
         return self.client.stats(self._pid, decode=True, stream=False)
@@ -25,12 +23,14 @@ class DockerMemCpuUsageData(object):
         last_time = self.last_time
 
         current_time = os.times()[4]
+        cpu_count = len(current_cpu["cpu_usage"]["percpu_usage"])
 
-        # tracking system/user time only
+        # docker returns current/previous cpu stats in call
+        # but it previous data can't be used cause we don't know who calls to stat previously
         interval_time = 0
         if last_cpu and (last_time != 0):
-            sys_time = current_cpu['system_cpu_usage'] - last_cpu['system_cpu_usage']
-            usr_time = current_cpu['cpu_usage']['usage_in_usermode'] - last_cpu['cpu_usage']['usage_in_usermode']
+            sys_time = float(current_cpu['cpu_usage']['usage_in_kernelmode'] - last_cpu['cpu_usage']['usage_in_kernelmode']) / 1e9
+            usr_time = float(current_cpu['cpu_usage']['usage_in_usermode'] - last_cpu['cpu_usage']['usage_in_usermode']) / 1e9
             interval_time = current_time - last_time
 
         self.last_cpu = current_cpu
@@ -39,7 +39,7 @@ class DockerMemCpuUsageData(object):
         if interval_time > 0:
             sys_percent = 100 * sys_time / interval_time
             usr_percent = 100 * usr_time / interval_time
-            cpu_share = round((sys_percent + usr_percent) / self._cpu_count, 2)
+            cpu_share = round((sys_percent + usr_percent) / cpu_count, 2)
             return cpu_share
         else:
             return 0
