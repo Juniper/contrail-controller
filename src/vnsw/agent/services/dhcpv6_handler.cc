@@ -237,10 +237,21 @@ Dhcpv6Handler::~Dhcpv6Handler() {
 }
 
 bool Dhcpv6Handler::Run() {
+    Dhcpv6Proto *dhcp_proto = agent()->dhcpv6_proto();
+    // options length = pkt length - size of headers
+    int16_t options_len = pkt_info_->len -
+                          (pkt_info_->data - (uint8_t *)pkt_info_->pkt)
+                          - DHCPV6_FIXED_LEN;
+    if (options_len < 0) {
+        dhcp_proto->IncrStatsError();
+        DHCPV6_TRACE(Error, "Improper DHCPv6 packet length; vrf = " <<
+                     pkt_info_->vrf << " ifindex = " << GetInterfaceIndex());
+        return true;
+    }
+
     dhcp_ = (Dhcpv6Hdr *) pkt_info_->data;
     option_->SetDhcpOptionPtr((uint8_t *)dhcp_->options);
     // request_.UpdateData(dhcp_->xid, ntohs(dhcp_->flags), dhcp_->chaddr);
-    Dhcpv6Proto *dhcp_proto = agent()->dhcpv6_proto();
     Interface *itf =
         agent()->interface_table()->FindInterface(GetInterfaceIndex());
     if (itf == NULL) {
@@ -266,10 +277,6 @@ bool Dhcpv6Handler::Run() {
 
     msg_type_ = dhcp_->type;
     memcpy(xid_, dhcp_->xid, 3);
-    // options length = pkt length - size of headers
-    int16_t options_len = pkt_info_->len -
-                          (pkt_info_->data - (uint8_t *)pkt_info_->pkt)
-                          - DHCPV6_FIXED_LEN;
     ReadOptions(options_len);
 
     switch (msg_type_) {
