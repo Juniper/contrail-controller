@@ -10,7 +10,26 @@ such as add, delete, update, read, list, ref-update, ref-delete,
 fqname_to_id, id_to_fqname
 """
 
-import uuid
+DOCUMENTATION = '''
+---
+Performs CRUD operation for the objects in database. Following operations are
+supported - ADD, DELETE, UPDATE, READ, LIST, REF-UPDATE, REF-DELETE,
+FQNAME_TO_ID, ID_TO_FQNAME
+
+For CREATE operation, if 'object_obj_if_present' flag is set to True (default value),
+module tries to update the existing object. If this flag is set to False, module
+will return SUCCESS with existing uuid
+
+For READ/DELETE operation, if 'no_id_err_as_success' flag is set to True, module will
+return SUCCESS for NoIDError exception. If flag is set to False (default value),
+NoIDError execption is treated as failure
+
+LIST operation is supported with filters/fields/back_ref_id and detail clause
+'''
+
+EXAMPLES = '''
+---
+
 import sys
 import requests
 import time
@@ -32,7 +51,7 @@ import logging
 def vnc_crud(module):
 
     results = {}
-    results['failure'] = False
+    results['failed'] = False
     vnc_lib = None
     retry = 10
 
@@ -43,7 +62,8 @@ def vnc_crud(module):
     auth_token = module.params['auth_token']
     update_obj = module.params['update_obj_if_present']
     api_server_host = module.params['api_server_host']
-
+    no_id_err_as_success = module.params['no_id_err_as_success']
+ 
     # Instantiate the VNC library
     # Retry for sometime, till API server is up
     connected = False
@@ -57,7 +77,7 @@ def vnc_crud(module):
 
     if vnc_lib is None:
         results['msg'] = "Failed to instantiate vnc api"
-        results['failure'] = True
+        results['failed'] = True
         return results
 
     # Get the class name from object type
@@ -67,7 +87,7 @@ def vnc_crud(module):
     cls = str_to_class(cls_name)
     if cls is None:
         results['msg'] = "Failed to get class for %s", cls_name
-        results['failure'] = True
+        results['failed'] = True
         return results
 
     # Get the vnc method name based on the object type
@@ -82,13 +102,14 @@ def vnc_crud(module):
     method = str_to_vnc_method(vnc_lib, method_name)
     if method is None:
         results['msg'] = "Failed to get class method for %s", method_name
-        results['failure'] = True
+        results['failed'] = True
         return results
 
     # This creates an object, if not existing, else update the object
     if object_op == 'create':
         try:
-            object_dict['uuid'] = None
+            if object_dict.get('uuid') is None:
+                object_dict['uuid'] = None
             instance_obj = cls.from_dict(**object_dict)
             obj_uuid = method(instance_obj)
             results['uuid'] = obj_uuid
@@ -116,11 +137,11 @@ def vnc_crud(module):
                     obj).get(obj_name).get('uuid')
             else:
                 results['msg'] = str(ex)
-                results['failure'] = True
+                results['failed'] = False
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'update':
         try:
@@ -140,7 +161,7 @@ def vnc_crud(module):
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'delete':
         obj_uuid = object_dict.get('uuid')
@@ -155,9 +176,13 @@ def vnc_crud(module):
                 results['msg'] = "Either uuid or fq_name should be present \
                                  for delete"
                 results['failure'] = True
+        except NoIDError as ex:
+            if not no_id_err_as_success:
+                results['failed'] = True
+                results['msg'] = str(ex)
         except Exception as ex:
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'read':
         obj_uuid = object_dict.get('uuid')
@@ -175,14 +200,18 @@ def vnc_crud(module):
             else:
                 results['msg'] = "Either uuid or fq_name should be present \
                                  for read"
-                results['failure'] = True
+                results['failed'] = True
                 return results
 
             results['obj'] = vnc_lib.obj_to_dict(obj)
+        except NoIDError as ex:
+            if not no_id_err_as_success:
+                results['failed'] = True
+                results['msg'] = str(ex)
         except Exception as ex:
             results['obj'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'list':
         filters = object_dict.get('filters')
@@ -206,7 +235,7 @@ def vnc_crud(module):
         except Exception as ex:
             results['obj'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'ref_update' or object_op == 'ref_delete':
         # Get the input params from the object dict
@@ -226,7 +255,7 @@ def vnc_crud(module):
             results['uuid'] = obj_uuid
         except Exception as ex:
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'fq_name_to_id':
         try:
@@ -241,7 +270,7 @@ def vnc_crud(module):
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     elif object_op == 'id_to_fq_name':
         try:
@@ -250,7 +279,7 @@ def vnc_crud(module):
             results['fq_name'] = obj_fq_name
         except Exception as ex:
             results['msg'] = str(ex)
-            results['failure'] = True
+            results['failed'] = True
 
     return results
 # end vnc_crud
@@ -292,6 +321,10 @@ def main():
                 required=False,
                 type='bool',
                 default=True),
+            no_id_err_as_success=dict(
+                required=False,
+                type='bool',
+                default=False),
             api_server_host=dict(
                 required=False,
                 default="localhost")),
