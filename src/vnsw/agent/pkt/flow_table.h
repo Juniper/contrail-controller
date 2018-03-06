@@ -830,8 +830,8 @@ private:
     void SetLocalFlowEcmpIndex(FlowEntry *fe);
     void SetRemoteFlowEcmpIndex(FlowEntry *fe);
     void UpdateEcmpInfo(FlowEntry *fe);
-
-
+    void EnqueueUveAddEvent(const FlowEntry *flow) const;
+    void EnqueueUveDeleteEvent(const FlowEntry *flow) const;
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };

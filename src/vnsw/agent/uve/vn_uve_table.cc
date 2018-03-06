@@ -122,3 +122,26 @@ void VnUveTable::Delete(const VnEntry *vn) {
     VnUveTableBase::Delete(vn);
 }
 
+void VnUveTable::IncrVnAceStats(const std::string &vn, const std::string &u) {
+    if (vn.empty() || u.empty()) {
+        return;
+    }
+    UveVnMap::iterator it = uve_vn_map_.find(vn);
+    if (it == uve_vn_map_.end()) {
+        return;
+    }
+
+    VnUveEntry * entry = static_cast<VnUveEntry *>(it->second.get());
+    entry->UpdateVnAceStats(u);
+}
+
+void VnUveTable::SendVnAceStats(VnUveEntryBase *e, const VnEntry *vn) {
+    UveVirtualNetworkAgent uve;
+    if (vn == NULL) {
+        return;
+    }
+    VnUveEntry *entry = static_cast<VnUveEntry *>(e);
+    if (entry->FrameVnAceStatsMsg(vn, uve)) {
+        DispatchVnMsg(uve);
+    }
+}

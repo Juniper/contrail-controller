@@ -47,6 +47,8 @@
 #include "uve/vm_uve_table.h"
 #include "uve/vn_uve_table.h"
 #include "uve/vrouter_uve_entry.h"
+#include "uve/flow_ace_stats_request.h"
+#include "uve/agent_uve_stats.h"
 
 using boost::assign::map_list_of;
 const std::map<FlowEntry::FlowPolicyState, const char*>
@@ -2740,6 +2742,8 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
 {
+    //Enqueue Add request to UVE module for ACE stats
+    EnqueueUveDeleteEvent(fe);
     DeleteFlow(fe);
     // Remove from AclFlowTree
     // Go to all matched ACL list and remove from all acls
@@ -2966,6 +2970,8 @@ void FlowTable::AddFlowInfo(FlowEntry *fe)
     AddVmFlowInfo(fe);
     // Add RouteFlowTree;
     AddRouteFlowInfo(fe);
+    //Enqueue Add request to UVE module for ACE stats
+    EnqueueUveAddEvent(fe);
 }
 
 void FlowTable::AddAclFlowInfo (FlowEntry *fe) 
@@ -4017,5 +4023,32 @@ void FlowTable::UpdateEcmpInfo(FlowEntry *fe) {
         SetLocalFlowEcmpIndex(fe);
     } else {
         SetRemoteFlowEcmpIndex(fe);
+    }
+}
+
+void FlowTable::EnqueueUveAddEvent(const FlowEntry *flow) const {
+    AgentUveStats *uve = dynamic_cast<AgentUveStats *>(agent_->uve());
+    if (uve) {
+        const Interface *itf = flow->intf_entry();
+        const VmInterface *vmi = dynamic_cast<const VmInterface *>(itf);
+        const VnEntry *vn = flow->vn_entry();
+        string vn_name = vn? vn->GetName() : "";
+        string itf_name = vmi? vmi->cfg_name() : "";
+        if ((!itf_name.empty() && !flow->sg_rule_uuid().empty()) ||
+            (!vn_name.empty() && !flow->nw_ace_uuid().empty())) {
+            boost::shared_ptr<FlowAceStatsRequest> req(new FlowAceStatsRequest
+                (FlowAceStatsRequest::ADD_FLOW, flow->flow_uuid(), itf_name,
+                 flow->sg_rule_uuid(), vn_name, flow->nw_ace_uuid()));
+            uve->stats_manager()->EnqueueEvent(req);
+        }
+    }
+}
+
+void FlowTable::EnqueueUveDeleteEvent(const FlowEntry *flow) const {
+    AgentUveStats *uve = dynamic_cast<AgentUveStats *>(agent_->uve());
+    if (uve) {
+        boost::shared_ptr<FlowAceStatsRequest> req(new FlowAceStatsRequest
+            (FlowAceStatsRequest::DELETE_FLOW, flow->flow_uuid()));
+        uve->stats_manager()->EnqueueEvent(req);
     }
 }

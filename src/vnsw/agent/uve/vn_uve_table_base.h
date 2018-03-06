@@ -46,6 +46,8 @@ protected:
     VnUveEntryBase* UveEntryFromVn(const VnEntry *vn);
     //The following API is made protected for UT.
     virtual void DispatchVnMsg(const UveVirtualNetworkAgent &uve);
+    virtual void SendVnAceStats(VnUveEntryBase *entry, const VnEntry *vn) {
+    }
 
     UveVnMap uve_vn_map_;
     Agent *agent_;

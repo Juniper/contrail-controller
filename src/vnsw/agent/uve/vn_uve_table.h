@@ -34,10 +34,12 @@ public:
     void SendVnStats(bool only_vrf_stats);
     void UpdateInterVnStats(const std::string &src, const std::string &dst,
                             uint64_t bytes, uint64_t pkts, bool outgoing);
+    void IncrVnAceStats(const std::string &vn, const std::string &u);
 
 protected:
     //The following API is made protected for UT.
     void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
+    void SendVnAceStats(VnUveEntryBase *entry, const VnEntry *vn);
 private:
     virtual VnUveEntryPtr Allocate(const VnEntry *vn);
     virtual VnUveEntryPtr Allocate();
