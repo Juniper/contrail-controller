@@ -187,7 +187,7 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
     vmi_type_ = VmInterface::VHOST;
 
     vrf_name_ = agent->fabric_policy_vrf_name();
-    if (agent->params()->vhost_addr() != Ip4Address(0)) {
+    if (agent->router_id() != Ip4Address(0)) {
         addr_ = agent->router_id();
         instance_ipv4_list_.list_.insert(
             VmInterface::InstanceIp(agent->router_id(), 32, false, true,
@@ -208,8 +208,8 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
 
     if (agent->params()->subnet_hosts_resolvable() == true) {
         //Add resolve route
-        subnet_ = agent->params()->vhost_addr();
-        subnet_plen_ = agent->params()->vhost_plen();
+        subnet_ = agent->router_id();
+        subnet_plen_ = agent->vhost_prefix_len();
     }
 
     physical_interface_ = agent->fabric_interface_name();
