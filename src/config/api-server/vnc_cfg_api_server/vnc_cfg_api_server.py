@@ -320,17 +320,33 @@ class VncApiServer(object):
     def validate_input_params(self, request_params):
         device_list = None
         job_template_id = request_params.get('job_template_id')
+        job_template_fq_name = request_params.get('job_template_fq_name')
 
-        if job_template_id is None:
-            err_msg = "job_template_id required in request"
+        if not (job_template_id or job_template_fq_name):
+            err_msg = "Either job_template_id or job_template_fq_name" \
+                      " required in request"
             raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         # check if the job template id is a valid uuid
-        if self.invalid_uuid(job_template_id):
-            msg = 'Invalid job-template uuid type %s. uuid type required' \
-                  % job_template_id
-            raise cfgm_common.exceptions.HttpError(400, msg)
-
+        if job_template_id:
+            if self.invalid_uuid(job_template_id):
+                msg = 'Invalid job-template uuid type %s. uuid type required' \
+                      % job_template_id
+                raise cfgm_common.exceptions.HttpError(400, msg)
+        else:
+            # check if the job template fqname is a valid fq_name
+            try:
+                job_template_id = self._db_conn.fq_name_to_uuid\
+                                  ("job_template", job_template_fq_name)
+                request_params.update({'job_template_id': job_template_id})
+            except NoIdError as no_id_exec:
+                raise cfgm_common.exceptions.HttpError(404, str(no_id_exec))
+            except Exception as e:
+                msg = 'job template fq_name format ' \
+                      '[global-system-config:job_template_name] required for ' \
+                      'job_template_fq_name: %s ' % job_template_fq_name
+                raise cfgm_common.exceptions.HttpError(400, msg)
+        
         # TODO do any required input schema validations
 
         extra_params = request_params.get('params')
@@ -359,7 +375,11 @@ class VncApiServer(object):
 
     def execute_job_http_post(self):
         ''' Payload of execute_job
-            job_template_id (Mandatory): <uuid> of the created job_template
+            job_template_id (Mandatory if no job_template_fq_name): <uuid> of
+            the created job_template
+            job_template_fq_name (Mandatory if no job_template_id): fqname in
+            the format: ["<global-system-config-name>",
+                         "<name of the job-template>"]
             input (Type json): Input Schema of the playbook under the
             job_template_id
             params (Type json): Extra_params for the job_manager
