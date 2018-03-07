@@ -276,14 +276,16 @@ SecurityLoggingObjectTable::BuildData(IFMapNode *node) const {
             const autogen::SloRateType &slo_rate = fp_slo_link->data();
             IFMapNode *fp_node = agent()->config_manager()->
                 FindAdjacentIFMapNode(adj_node, "firewall-policy");
-            uuid fp_uuid = nil_uuid();
-            autogen::FirewallPolicy *fp =
-                static_cast<autogen::FirewallPolicy *>(fp_node->GetObject());
-            autogen::IdPermsType id_perms = fp->id_perms();
-            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                       fp_uuid);
-            SloRuleInfo info(fp_uuid, slo_rate.rate);
-            slo_data->firewall_policy_list_.push_back(info);
+            if (fp_node) {
+                uuid fp_uuid = nil_uuid();
+                autogen::FirewallPolicy *fp =
+                    static_cast<autogen::FirewallPolicy *>(fp_node->GetObject());
+                autogen::IdPermsType id_perms = fp->id_perms();
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           fp_uuid);
+                SloRuleInfo info(fp_uuid, slo_rate.rate);
+                slo_data->firewall_policy_list_.push_back(info);
+            }
         }
 
         if (strcmp(adj_node->table()->Typename(),
@@ -294,14 +296,16 @@ SecurityLoggingObjectTable::BuildData(IFMapNode *node) const {
             const autogen::SloRateType &slo_rate = fr_slo_link->data();
             IFMapNode *fr_node = agent()->config_manager()->
                 FindAdjacentIFMapNode(adj_node, "firewall-rule");
-            uuid fr_uuid = nil_uuid();
-            autogen::FirewallRule *fr =
-                static_cast<autogen::FirewallRule *>(fr_node->GetObject());
-            autogen::IdPermsType id_perms = fr->id_perms();
-            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                       fr_uuid);
-            SloRuleInfo info(fr_uuid, slo_rate.rate);
-            slo_data->firewall_rule_list_.push_back(info);
+            if (fr_node) {
+                uuid fr_uuid = nil_uuid();
+                autogen::FirewallRule *fr =
+                    static_cast<autogen::FirewallRule *>(fr_node->GetObject());
+                autogen::IdPermsType id_perms = fr->id_perms();
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           fr_uuid);
+                SloRuleInfo info(fr_uuid, slo_rate.rate);
+                slo_data->firewall_rule_list_.push_back(info);
+            }
         }
     }
     return slo_data;
