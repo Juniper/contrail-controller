@@ -518,6 +518,10 @@ BgpRoute *MvpnTable::ReplicatePath(BgpServer *server, const MvpnPrefix &mprefix,
     BgpAttrPtr new_attr =
         server->attr_db()->ReplaceExtCommunityAndLocate(src_path->GetAttr(),
                                                         comm.get());
+    // Replace Nexthop with controller address, MX rejects the route if
+    // nexthop is same as neighbor address, needed for Type-7 routes
+    new_attr = server->attr_db()->ReplaceNexthopAndLocate(new_attr.get(),
+                                  Ip4Address(server->bgp_identifier()));
     // Need to strip off route targets other than sender-ip:0
     if (src_rt->GetPrefix().type() == MvpnPrefix::LeafADRoute) {
         ExtCommunity::ExtCommunityList rtarget;
