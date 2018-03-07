@@ -33,28 +33,28 @@ EXAMPLES = '''
 ssh_connection:
           hosts:[{
                   "family": "juniper-mx",
-                  "host": "10.155.67.1",
-                  "hostname": "jtme-m10-01",
+                  "host": "1.15.6.1",
+                  "hostname": "jtme-01",
                   "product": "m10i",
                   "vendor": "juniper"
                 },
                 {
                  "family": "juniper-mx",
-                 "host": "10.155.67.2",
-                 "hostname": "jtme-m10-02",
+                 "host": "1.15.6.2",
+                 "hostname": "jtme-02",
                  "product": "m10i",
                  "vendor": "juniper"
                 }]
    credentials: [{
                 "credential": {
-                   "password": "Embe1mpls",
+                   "password": "*********",
                    "username": "root"
                 },
                 "device_family": "qfx",
                 "vendor": "Juniper"
                 }, {
                 "credential": {
-                   "password": "Embe1mpls",
+                   "password": "*********",
                    "username": "root"
                 },
                 "device_family": null,
