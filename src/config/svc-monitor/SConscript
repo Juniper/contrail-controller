@@ -115,7 +115,10 @@ env.Alias('install', env.Install(
 
 test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz')
 
-# These add'l aliases is to allow retry of UT in CI
+# SetupPyTestSuite* methods don't return any targets (see review 40381)
+# so until it's merged we add the broken target here directly, by referencing
+# a target created by SetupPyTestSuite.
+test_target = env['TOP'][1:] + '/config/svc-monitor:test'
 env.Alias('controller/src/config/svc-monitor/svc_monitor:test', test_target)
 env.Alias('controller/src/config/svc_monitor:test', test_target)
 
