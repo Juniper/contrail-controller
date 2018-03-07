@@ -2033,7 +2033,7 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
 
     if (nlri->afi == BgpAf::IPv4) {
         if (nlri->safi == BgpAf::Mpls || nlri->safi == BgpAf::Unicast ||
-            nlri->safi == BgpAf::RTarget) {
+            nlri->safi == BgpAf::RTarget || nlri->safi == BgpAf::MVpn) {
             Ip4Address::bytes_type bt = { { 0 } };
             copy(nlri->nexthop.begin(),
                 nlri->nexthop.begin() + sizeof(bt), bt.begin());
