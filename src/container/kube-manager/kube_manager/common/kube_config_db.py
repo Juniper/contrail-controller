@@ -172,7 +172,8 @@ class NamespaceKM(KubeDBBase):
 
         # Config cache.
         self.isolated = False
-        self.firewall_rule_uuid = None
+        self.firewall_ingress_allow_rule_uuid = None
+        self.firewall_egress_allow_rule_uuid = None
 
         # If an object is provided, update self with contents of object.
         if obj:

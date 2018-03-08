@@ -547,31 +547,57 @@ class VncNamespace(VncCommon):
     def namespace_timer(self):
         self._sync_namespace_project()
 
-    def _get_namespace_firewall_rule_name(self, ns_name):
+    def _get_namespace_firewall_ingress_rule_name(self, ns_name):
         return "-".join([vnc_kube_config.cluster_name(),
-                         self._k8s_event_type, ns_name])
+                         self._k8s_event_type, ns_name, "ingress"])
+
+    def _get_namespace_firewall_egress_rule_name(self, ns_name):
+        return "-".join([vnc_kube_config.cluster_name(),
+                         self._k8s_event_type, ns_name, "egress"])
 
     def add_namespace_security_policy(self, k8s_namespace_uuid):
         """
         Create a firwall rule for default behavior on a namespace.
         """
         ns = self._get_namespace(k8s_namespace_uuid)
-        if ns and not ns.firewall_rule_uuid:
-            rule_name = self._get_namespace_firewall_rule_name(ns.name)
 
-            # Add custom namespace label on the namespace object.
-            self._labels.append(k8s_namespace_uuid,
-                                self._labels.get_namespace_label(ns.name))
+        if not ns:
+            return
+
+        # Add custom namespace label on the namespace object.
+        self._labels.append(k8s_namespace_uuid,
+            self._labels.get_namespace_label(ns.name))
+
+        if not ns.firewall_ingress_allow_rule_uuid:
+            ingress_rule_name = self._get_namespace_firewall_ingress_rule_name(
+                                    ns.name)
 
             # Create a rule for default allow behavior on this namespace.
-            ns.firewall_rule_uuid =\
-                VncSecurityPolicy.create_firewall_rule_allow_all(rule_name,
+            ns.firewall_ingress_allow_rule_uuid =\
+                VncSecurityPolicy.create_firewall_rule_allow_all(
+                    ingress_rule_name,
                     self._labels.get_namespace_label(ns.name))
 
             # Add default allow rule to the "global allow" firewall policy.
             VncSecurityPolicy.add_firewall_rule(
                 VncSecurityPolicy.allow_all_fw_policy_uuid,
-                ns.firewall_rule_uuid)
+                ns.firewall_ingress_allow_rule_uuid)
+
+        if not ns.firewall_egress_allow_rule_uuid:
+
+            egress_rule_name = self._get_namespace_firewall_egress_rule_name(
+                                    ns.name)
+
+            # Create a rule for default egress allow behavior on this namespace.
+            ns.firewall_egress_allow_rule_uuid =\
+                VncSecurityPolicy.create_firewall_rule_allow_all(
+                    egress_rule_name, {},
+                    self._labels.get_namespace_label(ns.name))
+
+            # Add default egress allow rule to "global allow" firewall policy.
+            VncSecurityPolicy.add_firewall_rule(
+                VncSecurityPolicy.allow_all_fw_policy_uuid,
+                ns.firewall_egress_allow_rule_uuid)
 
     def delete_namespace_security_policy(self, ns_name):
         """
@@ -579,12 +605,20 @@ class VncNamespace(VncCommon):
         namespace.
         """
         if VncSecurityPolicy.allow_all_fw_policy_uuid:
-            rule_name = self._get_namespace_firewall_rule_name(ns_name)
-            # Dis-associate the rule from namespace policy.
+            # Dis-associate and delete the ingress rule from namespace policy.
+            rule_name = self._get_namespace_firewall_ingress_rule_name(ns_name)
             rule_uuid = VncSecurityPolicy.get_firewall_rule_uuid(rule_name)
-            # Delete the rule.
             VncSecurityPolicy.delete_firewall_rule(
                 VncSecurityPolicy.allow_all_fw_policy_uuid, rule_uuid)
+
+
+            # Dis-associate and delete egress rule from namespace policy.
+            egress_rule_name = self._get_namespace_firewall_egress_rule_name(
+                                    ns_name)
+            egress_rule_uuid = VncSecurityPolicy.get_firewall_rule_uuid(
+                                   egress_rule_name)
+            VncSecurityPolicy.delete_firewall_rule(
+                VncSecurityPolicy.allow_all_fw_policy_uuid, egress_rule_uuid)
 
     def process(self, event):
         event_type = event['type']
