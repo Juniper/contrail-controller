@@ -613,10 +613,20 @@ class VncNamespace(VncCommon):
                 added_labels, removed_labels =\
                     self._get_namespace(name).get_changed_labels()
                 namespace_pods = PodKM.get_namespace_pods(name)
-                if added_labels:
-                    VncPod.add_labels(namespace_pods, added_labels)
+
+                # Remove the old label first.
+                #
+                # 'Remove' must be done before 'Add', to account for the case
+                # where, what got changed was the value for an existing label.
+                # This is especially important as, remove label code only
+                # considers the key while deleting the label.
+                #
+                # If Add is done before Remove, then the updated label that
+                # was set by 'Add', will be deleted by the 'Remove' call.
                 if removed_labels:
                     VncPod.remove_labels(namespace_pods, removed_labels)
+                if added_labels:
+                    VncPod.add_labels(namespace_pods, added_labels)
 
         elif event['type'] == 'DELETED':
             self.delete_namespace_security_policy(name)
