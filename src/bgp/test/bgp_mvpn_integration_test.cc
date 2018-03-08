@@ -51,7 +51,10 @@ private:
 
 class BgpMvpnIntegrationTest {
 public:
-    BgpMvpnIntegrationTest() : thread_(&evm_), xs_x_(NULL) { }
+    BgpMvpnIntegrationTest() :
+        thread_(&evm_), xs_x_(NULL), red_(NULL), blue_(NULL), green_(NULL),
+        red_inet_(NULL), green_inet_(NULL) {
+    }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
@@ -81,6 +84,17 @@ public:
         agent_xa_->Delete();
         agent_xb_->Delete();
         agent_xc_->Delete();
+
+        if (red_)
+            delete[] red_;
+        if (blue_)
+            delete[] blue_;
+        if (green_)
+            delete[] green_;
+        if (red_inet_)
+            delete[] red_inet_;
+        if (green_inet_)
+            delete[] green_inet_;
 
 #if !SANDESH_Y
         SandeshShutdown();
@@ -381,11 +395,6 @@ public:
     virtual void TearDown() {
         BgpMvpnIntegrationTest::SessionDown();
         BgpMvpnIntegrationTest::TearDown();
-        delete[] red_;
-        delete[] blue_;
-        delete[] green_;
-        delete[] red_inet_;
-        delete[] green_inet_;
     }
 
 };
@@ -475,6 +484,10 @@ TEST_P(BgpMvpnOneControllerTest, Basic) {
 class BgpMvpnTwoControllerTest : public BgpMvpnIntegrationTest,
                                  public ::testing::TestWithParam<int> {
 protected:
+    BgpMvpnTwoControllerTest() : BgpMvpnIntegrationTest(), red_y_(NULL),
+        blue_y_(NULL), green_y_(NULL) {
+    }
+
     virtual void Configure(const char *config_tmpl) {
         char config[8192];
         snprintf(config, sizeof(config), config_tmpl,
@@ -743,9 +756,12 @@ protected:
         sandesh_context_y_.reset();
 #endif
         BgpMvpnIntegrationTest::TearDown();
-        delete[] red_y_;
-        delete[] blue_y_;
-        delete[] green_y_;
+        if (red_y_)
+            delete[] red_y_;
+        if (blue_y_)
+            delete[] blue_y_;
+        if (green_y_)
+            delete[] green_y_;
     }
 
     virtual void Subscribe(const string net, int id) {
