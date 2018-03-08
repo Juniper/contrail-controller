@@ -9,8 +9,6 @@
 #include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/extended-community/source_as.h"
-#include "bgp/extended-community/vrf_route_import.h"
 
 using std::auto_ptr;
 using std::string;
@@ -92,20 +90,6 @@ BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
         rtp->Add(dest_route);
     } else {
         dest_route->ClearDelete();
-    }
-
-    if (!src_table->routing_instance()->IsMasterRoutingInstance()) {
-        if (server->bgp_identifier() != 0) {
-            VrfRouteImport vit(server->bgp_identifier(),
-                    src_table->routing_instance()->index());
-            community = server->extcomm_db()->ReplaceVrfRouteImportAndLocate(
-                    community.get(), vit.GetExtCommunity());
-        }
-        if (server->autonomous_system() != 0) {
-            SourceAs sas(server->autonomous_system(), 0);
-            community = server->extcomm_db()->ReplaceSourceASAndLocate(
-                    community.get(), sas.GetExtCommunity());
-        }
     }
 
     BgpAttrPtr new_attr =

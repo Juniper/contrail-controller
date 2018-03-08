@@ -26,7 +26,9 @@
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
+#include "bgp/extended-community/source_as.h"
 #include "bgp/extended-community/tag.h"
+#include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/mvpn/mvpn_table.h"
@@ -1345,6 +1347,14 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         // Process sub-protocol(route types)
         BgpAttrSubProtocol sbp(item.entry.sub_protocol);
         attrs.push_back(&sbp);
+
+        if (bgp_server_->mvpn_ipv4_enable()) {
+            VrfRouteImport vit(bgp_server_->bgp_identifier(),
+                table->routing_instance()->index());
+            ext.communities.push_back(vit.GetExtCommunityValue());
+            SourceAs sas(bgp_server_->autonomous_system(), 0);
+            ext.communities.push_back(sas.GetExtCommunityValue());
+        }
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
         req.data.reset(new BgpTable::RequestData(
