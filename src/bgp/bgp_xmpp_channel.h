@@ -179,6 +179,8 @@ public:
     XmppChannel *xmpp_channel() const { return channel_; }
     void ReceiveEndOfRIB(Address::Family family);
     void ProcessPendingSubscriptions();
+    int GetPrimaryInstanceID(const std::string &s,
+                             bool expect_prefix_len) const;
 
 protected:
     struct InstanceMembershipRequestState {
@@ -190,6 +192,7 @@ protected:
         int instance_id;
         bool no_ribout;
     };
+
 
     XmppChannel *channel_;
 
@@ -293,7 +296,7 @@ private:
         const std::string &instance) const;
 
     bool ProcessItem(std::string vrf_name, const pugi::xml_node &node,
-                     bool add_change);
+                     bool add_change, int primary_instance_id = 0);
     bool ProcessInet6Item(std::string vrf_name, const pugi::xml_node &node,
                           bool add_change);
     bool ProcessMcastItem(std::string vrf_name,

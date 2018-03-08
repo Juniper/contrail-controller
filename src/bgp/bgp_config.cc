@@ -19,6 +19,8 @@ using std::string;
 using std::swap;
 using std::vector;
 
+const char *BgpConfigManager::kMasterNetwork =
+        "default-domain:default-project:ip-fabric";
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
 const char *BgpConfigManager::kFabricInstance =

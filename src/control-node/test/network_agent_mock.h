@@ -288,7 +288,8 @@ public:
     pugi::xml_document *RouteAddXmlDoc(const std::string &network,
         const std::string &prefix,
         const NextHop &nh = NextHop(),
-        const RouteAttributes &attributes = RouteAttributes());
+        const RouteAttributes &attributes = RouteAttributes(),
+        int primary_instance_index = 0);
     pugi::xml_document *RouteDeleteXmlDoc(const std::string &network,
         const std::string &prefix);
     pugi::xml_document *LabeledInetRouteAddXmlDoc(const std::string &network,
@@ -353,7 +354,8 @@ private:
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, bool add,
             const NextHop &nh = NextHop(),
-            const RouteAttributes &attributes = RouteAttributes());
+            const RouteAttributes &attributes = RouteAttributes(),
+            int primary_instance_index = 0);
     pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, bool add,
             const NextHop &nh = NextHop(),
@@ -573,12 +575,15 @@ public:
     void SendEorMarker();
     void AddRoute(const std::string &network, const std::string &prefix,
                   const std::string nexthop = "",
-                  int local_pref = 0, int med = 0);
+                  int local_pref = 0, int med = 0,
+                  int primary_instance_index = 0);
     void AddRoute(const string &network_name, const string &prefix,
-                  const string &nexthop, const RouteAttributes &attributes);
+                  const string &nexthop, const RouteAttributes &attributes,
+                  int primary_instance_index = 0);
     void AddRoute(const std::string &network, const std::string &prefix,
                   const NextHop &nexthop,
-                  const RouteAttributes &attributes = RouteAttributes());
+                  const RouteAttributes &attributes = RouteAttributes(),
+                  int primary_instance_index = 0);
     void DeleteRoute(const std::string &network, const std::string &prefix);
     void AddLabeledInetRoute(const std::string &network,
                              const std::string &prefix,

@@ -72,7 +72,7 @@ static RouteDistinguisher GenerateDistinguisher(
 BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {
-    assert(src_table->family()  == Address::INET);
+    assert(src_table->family() == Address::INET);
 
     InetRoute *inet = dynamic_cast<InetRoute *> (src_rt);
     assert(inet);
@@ -141,6 +141,12 @@ BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
     // Always trigger notification.
     rtp->Notify(dest_route);
 
+    // Update corresponding route's extended communities in inet.0 table.
+    InetTable *inet_table =
+        dynamic_cast<InetTable *>(routing_instance()->GetTable(Address::INET));
+    InetVpnRoute *inetvpn_route = dynamic_cast<InetVpnRoute *>(dest_route);
+    inet_table->UpdateRoute(inetvpn_route->GetPrefix(), src_path->GetPeer(),
+                            new_attr);
     return dest_route;
 }
 
