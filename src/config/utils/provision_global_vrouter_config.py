@@ -27,6 +27,29 @@ class GlobalVrouterConfigProvisioner(object):
             self._args.api_server_ip,
             self._args.api_server_port, '/',
             api_server_use_ssl=self._args.api_server_use_ssl)
+
+        port_trans_pool_list = []
+        if self._args.snat_list:
+            port=None
+            protocol=None
+            for proto_port in self._args.snat_list:
+                port_count=''
+                port_range_obj=None
+                protocol = proto_port.split(':')[0]
+                port = proto_port.split(':')[1]
+                if '-' in port:
+                    port_range_obj = PortType(start_port=int(port.split('-')[0]),
+                                              end_port=int(port.split('-')[1]))
+                else:
+                    port_count = port
+
+                port_trans_pool_obj = PortTranslationPool(protocol = protocol,
+                                                          port_range = port_range_obj,
+                                                          port_count = port_count)
+                port_trans_pool_list.append(port_trans_pool_obj)
+
+        port_trans_pools_obj = PortTranslationPools(port_trans_pool_list)
+
         try:
             current_config=self._vnc_lib.global_vrouter_config_read(
                                 fq_name=['default-global-system-config',
@@ -35,6 +58,7 @@ class GlobalVrouterConfigProvisioner(object):
             try:
                 if self._args.oper == "add":
                     conf_obj=GlobalVrouterConfig(flow_export_rate=self._args.flow_export_rate)
+                    conf_obj.set_port_translation_pools(port_trans_pools_obj)
                     result=self._vnc_lib.global_vrouter_config_create(conf_obj)
                     print 'Created.UUID is %s'%(result)
                 return
@@ -43,21 +67,23 @@ class GlobalVrouterConfigProvisioner(object):
 
         if self._args.oper != "add":
             conf_obj=GlobalVrouterConfig()
-        else :  
+        else:
             conf_obj=GlobalVrouterConfig(flow_export_rate=self._args.flow_export_rate)
+            conf_obj.set_port_translation_pools(port_trans_pools_obj)
+
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
         print 'Updated.%s'%(result)
-
     # end __init__
-    
+
     def _parse_args(self, args_str):
         '''
-        Eg. python provision_global_vrouter_config.py 
+        Eg. python provision_global_vrouter_config.py
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --api_server_use_ssl False
-                                        --flow_export_rate 10 
+                                        --flow_export_rate 10
                                         --oper <add | delete>
+                                        --snat_list tcp:6000-7000 udp:500
         '''
 
         # Source any specified config/ini file
@@ -73,6 +99,7 @@ class GlobalVrouterConfigProvisioner(object):
             'api_server_port': '8082',
             'api_server_use_ssl': False,
             'oper': 'add',
+            'snat_list': None
         }
         ksopts = {
             'admin_user': 'user1',
@@ -115,6 +142,9 @@ class GlobalVrouterConfigProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenant name for keystone admin user")
+        parser.add_argument(
+            "--snat_list", help="Protocol port range or port count list for distributed snat",
+            nargs='+', type=str)
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
             "--api_server_ip", help="IP address of api server")
@@ -122,7 +152,6 @@ class GlobalVrouterConfigProvisioner(object):
                             default=False,
                             help = "Connect to local api-server on admin port",
                             action="store_true")
-
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
 
