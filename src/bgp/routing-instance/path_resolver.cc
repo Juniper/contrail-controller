@@ -937,11 +937,10 @@ static ExtCommunityPtr UpdateExtendedCommunity(ExtCommunityDB *extcomm_db,
         return ext_community;
 
     ExtCommunity::ExtCommunityList rtarget;
-    ExtCommunity::ExtCommunityValue source_as;
     ExtCommunity::ExtCommunityList sgid_list;
     ExtCommunity::ExtCommunityList encap_list;
-    ExtCommunity::ExtCommunityValue lb;
-    bool lb_is_valid = false;
+    ExtCommunity::ExtCommunityValue const *source_as = NULL;
+    ExtCommunity::ExtCommunityValue const *lb = NULL;
     BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &value,
         nh_ext_community->communities()) {
         if (ExtCommunity::is_security_group(value)) {
@@ -953,25 +952,26 @@ static ExtCommunityPtr UpdateExtendedCommunity(ExtCommunityDB *extcomm_db,
             rtarget.push_back(RouteTarget(vit.GetIPv4Address(),
                                           vit.GetNumber()).GetExtCommunity());
         } else if (ExtCommunity::is_source_as(value)) {
-            source_as = value;
-        } else if (ExtCommunity::is_load_balance(value) && !lb_is_valid) {
-            lb_is_valid = true;
-            lb = value;
+            source_as = &value;
+        } else if (ExtCommunity::is_load_balance(value) && !lb) {
+            lb = &value;
         }
     }
 
     // Replace rtarget, sgid list, encap list and load balance.
     ext_community = extcomm_db->ReplaceRTargetAndLocate(ext_community.get(),
                                                         rtarget);
-    ext_community = extcomm_db->ReplaceSourceASAndLocate(ext_community.get(),
-                                                         source_as);
     ext_community = extcomm_db->ReplaceSGIDListAndLocate(
         ext_community.get(), sgid_list);
     ext_community = extcomm_db->ReplaceTunnelEncapsulationAndLocate(
         ext_community.get(), encap_list);
-    if (lb_is_valid) {
+    if (source_as) {
+        ext_community = extcomm_db->ReplaceSourceASAndLocate(
+                ext_community.get(), *source_as);
+    }
+    if (lb) {
         ext_community = extcomm_db->ReplaceLoadBalanceAndLocate(
-            ext_community.get(), lb);
+            ext_community.get(), *lb);
     }
     return ext_community;
 }
