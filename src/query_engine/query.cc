@@ -241,8 +241,10 @@ PostProcessingQuery::PostProcessingQuery(
 
                     for (rapidjson::SizeType k = 0; k<json_filter_and.Size(); k++) {
                         filter_match_t filter;
-                        // Error if its null
+                        // Error if its null or is not an object type
                         QE_INVALIDARG_ERROR(!json_filter_and[k].IsNull());
+                        QE_INVALIDARG_ERROR(json_filter_and[k].IsObject());
+
                         QE_PARSE_ERROR((
                             json_filter_and[k].HasMember(WHERE_MATCH_NAME)
                             && json_filter_and[k].HasMember(WHERE_MATCH_VALUE)
@@ -259,6 +261,8 @@ PostProcessingQuery::PostProcessingQuery(
                         QE_INVALIDARG_ERROR
                             ((value_value.IsString() || value_value.IsNumber()));
                         QE_INVALIDARG_ERROR(op_value.IsNumber());
+                        // Error for very big numbers 
+                        QE_INVALIDARG_ERROR(op_value.IsInt());
 
                         filter.name = name_value.GetString();
                         filter.op = (match_op)op_value.GetInt();

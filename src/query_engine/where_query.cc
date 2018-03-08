@@ -486,6 +486,15 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
         for (rapidjson::SizeType j = 0; j < json_or_node.Size(); j++)
         {
+
+            QE_INVALIDARG_ERROR(!json_or_node[j].IsNull());
+            QE_INVALIDARG_ERROR(json_or_node[j].IsObject());
+
+            QE_PARSE_ERROR((
+                json_or_node[j].HasMember(WHERE_MATCH_NAME)
+                && json_or_node[j].HasMember(WHERE_MATCH_VALUE)
+                && json_or_node[j].HasMember(WHERE_MATCH_OP)));
+
             const rapidjson::Value& name_value = 
                 json_or_node[j][WHERE_MATCH_NAME];
             const rapidjson::Value&  value_value = 
@@ -498,6 +507,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             QE_INVALIDARG_ERROR
                 ((value_value.IsString() || value_value.IsNumber()));
             QE_INVALIDARG_ERROR(op_value.IsNumber());
+            QE_INVALIDARG_ERROR(op_value.IsInt());
 
             std::string name = name_value.GetString();
             QE_INVALIDARG_ERROR(m_query->is_valid_where_field(name));
