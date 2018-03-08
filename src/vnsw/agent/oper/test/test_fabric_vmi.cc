@@ -172,6 +172,8 @@ TEST_F(FabricVmiTest, basic_2) {
     InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(rt->GetActivePath()->peer() == agent->fabric_rt_export_peer());
+    EXPECT_TRUE(rt->GetActivePath()->native_vrf_id() ==
+                (uint32_t)(VrfGet("vrf1")->rd()));
     EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
                  TunnelType::NativeType()) != 0);
 
