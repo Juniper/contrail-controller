@@ -84,6 +84,9 @@ class JobHandler(object):
 
         for playbook_info in playbook_list:
             pb_vendor_name = playbook_info.get_vendor()
+            if not pb_vendor_name:
+                # device_vendor agnostic
+                return playbook_info
             if pb_vendor_name == device_vendor:
                 pb_device_family = playbook_info.get_device_family()
                 if pb_device_family:
