@@ -94,21 +94,6 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
         dest_route->ClearDelete();
     }
 
-    // Replace the extended community with the one provided.
-    if (!src_table->routing_instance()->IsMasterRoutingInstance()) {
-        if (server->bgp_identifier() != 0) {
-            VrfRouteImport vit(server->bgp_identifier(),
-                    src_table->routing_instance()->index());
-            community = server->extcomm_db()->ReplaceVrfRouteImportAndLocate(
-                    community.get(), vit.GetExtCommunity());
-        }
-        if (server->autonomous_system() != 0) {
-            SourceAs sas(server->autonomous_system(), 0);
-            community = server->extcomm_db()->ReplaceSourceASAndLocate(
-                    community.get(), sas.GetExtCommunity());
-        }
-    }
-
     BgpAttrDB *attr_db = server->attr_db();
     BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(path->GetAttr(),
                                                                 community);
@@ -262,17 +247,44 @@ BgpAttrPtr InetTable::UpdateAttributes(const BgpAttrPtr inetvpn_attrp,
                                                            new_ext_community);
 }
 
-// Given an inet prefix, update OriginVN with corresponding inetvpn route's
-// path attribute.
-BgpAttrPtr InetTable::GetAttributes(const Ip4Prefix &inet_prefix,
+BgpAttrPtr InetTable::GetAttributes(BgpRoute *rt,
                                     BgpAttrPtr inet_attrp, const IPeer *peer) {
     CHECK_CONCURRENCY("db::DBTable");
+
+    BgpAttrPtr attrp = GetFabricAttributes(rt, inet_attrp, peer);
+    return GetMvpnAttributes(attrp);
+}
+
+BgpAttrPtr InetTable::GetMvpnAttributes(BgpAttrPtr attrp) {
+    BgpServer *server = routing_instance()->server();
+    if (server->mvpn_ipv4_enable()) {
+        VrfRouteImport vit(server->bgp_identifier(),
+                           routing_instance()->index());
+        ExtCommunityPtr ext =
+            server->extcomm_db()->ReplaceVrfRouteImportAndLocate(
+                attrp->ext_community(), vit.GetExtCommunity());
+        SourceAs sas(server->autonomous_system(), 0);
+        ext = server->extcomm_db()->ReplaceSourceASAndLocate(ext.get(),
+                    sas.GetExtCommunity());
+        BgpAttrPtr new_attr =
+            server->attr_db()->ReplaceExtCommunityAndLocate(attrp.get(), ext);
+        return new_attr;
+    }
+    return attrp;
+}
+
+// Given an inet prefix, update OriginVN with corresponding inetvpn route's
+// path attribute.
+BgpAttrPtr InetTable::GetFabricAttributes(BgpRoute *rt,
+                                    BgpAttrPtr inet_attrp, const IPeer *peer) {
 
     if (!routing_instance()->IsMasterRoutingInstance())
         return inet_attrp;
     if (!inet_attrp || inet_attrp->source_rd().IsZero())
         return inet_attrp;
 
+    const InetRoute *inet_rt = dynamic_cast<InetRoute *>(rt);
+    const Ip4Prefix inet_prefix = inet_rt->GetPrefix();
     RequestKey inet_rt_key(inet_prefix, NULL);
     DBTablePartition *inet_partition = dynamic_cast<DBTablePartition *>(
         GetTablePartition(&inet_rt_key));

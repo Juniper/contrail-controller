@@ -53,8 +53,11 @@ public:
     virtual bool IsRoutingPolicySupported() const { return true; }
     virtual bool IsRouteAggregationSupported() const {
         return((family_ == Address::INETMPLS) ? false : true); }
-    BgpAttrPtr GetAttributes(const Ip4Prefix &inet_prefix, BgpAttrPtr attrp,
-                             const IPeer *peer);
+    virtual BgpAttrPtr GetAttributes(BgpRoute *rt, BgpAttrPtr attrp,
+                                     const IPeer *peer);
+    BgpAttrPtr GetFabricAttributes(BgpRoute *rt, BgpAttrPtr attrp,
+                                   const IPeer *peer);
+    BgpAttrPtr GetMvpnAttributes(BgpAttrPtr attrp);
     void UpdateRoute(const InetVpnPrefix &inetvpn_prefix, const IPeer *peer,
                      BgpAttrPtr inetvpn_attrp);
 
