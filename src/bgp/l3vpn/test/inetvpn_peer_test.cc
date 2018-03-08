@@ -196,6 +196,8 @@ protected:
         vpn_notify_count_ = 1;
         a_.reset(new BgpServerTest(&evm_, "A"));
         b_.reset(new BgpServerTest(&evm_, "B"));
+        a_->set_mvpn_ipv4_enable(true);
+        b_->set_mvpn_ipv4_enable(true);
         a_->session_manager()->Initialize(0);
         b_->session_manager()->Initialize(0);
         thread_.Start();

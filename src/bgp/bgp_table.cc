@@ -527,11 +527,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         label = nexthop.label_;
         l3_label = nexthop.l3_label_;
 
-        InetTable *inet_table = dynamic_cast<InetTable *>(this);
-        if (inet_table) {
-            InetRoute *inet_rt = dynamic_cast<InetRoute *>(rt);
-            attr = inet_table->GetAttributes(inet_rt->GetPrefix(), attr, peer);
-        }
+        attr = GetAttributes(rt, attr, peer);
     } else {
         if (!path)
             return;
