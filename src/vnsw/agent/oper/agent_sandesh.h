@@ -596,4 +596,16 @@ private:
     void Alloc();
 };
 
+class AgentCryptTunnelSandesh : public AgentSandesh {
+public:
+    AgentCryptTunnelSandesh(const std::string &context, const std::string &name);
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+    std::string remote_ip_;
+};
+
 #endif // vnsw_agent_sandesh_h_

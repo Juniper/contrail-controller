@@ -31,6 +31,7 @@
 #include <oper/security_logging_object.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
+#include <oper/crypt_tunnel.h>
 
 /////////////////////////////////////////////////////////////////////////////
 // Utility routines
@@ -1354,3 +1355,38 @@ DBTable *AgentSecurityLoggingObjectSandesh::AgentGetTable() {
 void AgentSecurityLoggingObjectSandesh::Alloc() {
     resp_ = new SLOListResp();
 }
+
+DBTable *AgentCryptTunnelSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->crypt_tunnel_table());
+}
+
+void AgentCryptTunnelSandesh::Alloc() {
+    resp_ = new CryptTunnelResp();
+}
+
+AgentCryptTunnelSandesh::AgentCryptTunnelSandesh(const std::string &context,
+                                                 const std::string &remote_ip) :
+    AgentSandesh(context, ""), remote_ip_(remote_ip) {
+}
+
+bool AgentCryptTunnelSandesh::UpdateResp(DBEntryBase *entry) {
+    CryptTunnelEntry *ent = static_cast<CryptTunnelEntry *>(entry);
+    return ent->DBEntrySandesh(resp_, remote_ip_);
+}
+
+bool AgentCryptTunnelSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("remote", remote_ip_);
+    return true;
+}
+
+bool AgentCryptTunnelSandesh::Filter(const DBEntryBase *entry) {
+    const CryptTunnelEntry *crypt_tunnel_entry =
+        dynamic_cast<const CryptTunnelEntry *>(entry);
+    assert(crypt_tunnel_entry);
+
+    if (MatchSubString(crypt_tunnel_entry->ToString(), remote_ip_) == false)
+        return false;
+    return true;
+}
+
+

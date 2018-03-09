@@ -2694,6 +2694,34 @@ void DelVDNS(const char *vdns_name) {
     ApplyXmlString(buff);
 }
 
+void AddEncryptRemoteTunnelConfig(const EncryptTunnelEndpoint *endpoints, int count,
+                                  std::string encrypt_mode) {
+    std::stringstream global_config;
+    global_config << "<encryption-mode>";
+    global_config << encrypt_mode;
+    global_config << "</encryption-mode>";
+    global_config << "<encryption-tunnel-endpoints>\n";
+    for (int i = 0; i < count; ++i) {
+        global_config << "<endpoint>\n";
+        global_config << "<tunnel-remote-ip-address>";
+        global_config << endpoints[i].ip;
+        global_config << "</tunnel-remote-ip-address>";
+        global_config << "</endpoint>";
+    }
+    global_config << "</encryption-tunnel-endpoints>";
+
+    char buf[8192];
+    int len = 0;
+    memset(buf, 0, 8192);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config",
+                  1024, global_config.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
+
 void AddLinkLocalConfig(const TestLinkLocalService *services, int count) {
     std::stringstream global_config;
     global_config << "<linklocal-services>\n";
