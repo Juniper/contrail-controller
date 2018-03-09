@@ -395,7 +395,7 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
     items = (static_cast<McastItemsType *>(xparser.get()));
     std::vector<McastItemType>::iterator items_iter;
     boost::system::error_code ec;
-    for (items_iter = items->item.begin(); items_iter != items->item.end(); 
+    for (items_iter = items->item.begin(); items_iter != items->item.end();
             items_iter++) {
 
         item = &*items_iter;
@@ -456,7 +456,7 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
     char *vrf_name =  strtok_r(NULL, "", &saveptr);
 
     VrfKey vrf_key(vrf_name);
-    VrfEntry *vrf = 
+    VrfEntry *vrf =
         static_cast<VrfEntry *>(agent_->vrf_table()->
                                 FindActiveEntry(&vrf_key));
     if (!vrf) {
@@ -473,13 +473,13 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
     }
 
     if (!rt_table) {
-        CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), vrf_name, 
+        CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), vrf_name,
                                     "VRF not found");
         return;
     }
 
     if (!pugi->IsNull(node)) {
-  
+
         pugi::xml_node node_check = pugi->FindNode("retract");
         if (!pugi->IsNull(node_check)) {
             for (node = node.first_child(); node; node = node.next_sibling()) {
@@ -519,7 +519,7 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
             }
             return;
         }
-           
+
         //Call Auto-generated Code to return struct
         auto_ptr<AutogenProperty> xparser(new AutogenProperty());
         if (ItemsType::XmlParseProperty(node, &xparser) == false) {
@@ -1705,8 +1705,8 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     if (type == Agent::INET4_UNICAST) {
         item.entry.nlri.af = BgpAf::IPv4;
     } else {
-        item.entry.nlri.af = BgpAf::IPv6; 
-    } 
+        item.entry.nlri.af = BgpAf::IPv6;
+    }
     item.entry.nlri.safi = BgpAf::Unicast;
     stringstream rstr;
     rstr << route->ToString();
@@ -1813,7 +1813,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
     SendUpdate(data_,datalen_);
-    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec(); 
+    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
 
@@ -2155,7 +2155,7 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
     SendUpdate(data_,datalen_);
-    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec(); 
+    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
 
@@ -2314,7 +2314,7 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
     SendUpdate(data_,datalen_);
-    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec(); 
+    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
 
@@ -2647,10 +2647,7 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
     string last_state_name;
     ep.address(boost::asio::ip::address::from_string(agent_->
                 controller_ifmap_xmpp_server(xs_idx_), ec));
-    uint32_t port = agent_->controller_ifmap_xmpp_port(xs_idx_);
-    if (!port) {
-        port = XMPP_SERVER_PORT;
-    }
+    uint16_t port = agent_->controller_ifmap_xmpp_port(xs_idx_);
     ep.port(port);
     const string name = agent_->xmpp_control_node_prefix() +
                         ep.address().to_string();

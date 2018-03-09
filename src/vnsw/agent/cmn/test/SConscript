@@ -12,6 +12,8 @@ cmn_test_suite = []
 cmn_flaky_test_suite = []
 test_cmn = AgentEnv.MakeTestCmdSrc(env, 'test_cmn', ['test.cc'], cmn_test_suite)
 test_subop = AgentEnv.MakeTestCmd(env, 'test_subop', cmn_test_suite)
+test_xml_srv_addr_parser = AgentEnv.MakeTestCmd(env,
+    'test_xmpp_server_address_parser', cmn_test_suite)
 
 test = env.TestSuite('agent-test', cmn_test_suite)
 env.Alias('agent:cmn', test)

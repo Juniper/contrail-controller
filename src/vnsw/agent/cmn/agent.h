@@ -264,11 +264,12 @@ class MacLearningModule;
 extern void RouterIdDepInit(Agent *agent);
 
 #define MULTICAST_LABEL_RANGE_START 1024
-#define MULTICAST_LABEL_BLOCK_SIZE 2048        
+#define MULTICAST_LABEL_BLOCK_SIZE 2048
 
 #define MIN_UNICAST_LABEL_RANGE 4098
 #define MAX_XMPP_SERVERS 2
 #define XMPP_SERVER_PORT 5269
+#define XMPP_DNS_SERVER_PORT 53
 #define METADATA_IP_ADDR ntohl(inet_addr("169.254.169.254"))
 #define METADATA_PORT 8775
 #define METADATA_NAT_PORT 80
@@ -469,12 +470,12 @@ public:
     }
 
     MplsTable *mpls_table() const { return mpls_table_;}
-    void set_mpls_table(MplsTable *table) { 
+    void set_mpls_table(MplsTable *table) {
         mpls_table_ = table;
     }
-    
+
     AclTable *acl_table() const { return acl_table_;}
-    void set_acl_table(AclTable *table) { 
+    void set_acl_table(AclTable *table) {
         acl_table_ = table;
     }
 
@@ -494,10 +495,10 @@ public:
     }
 
     VxLanTable *vxlan_table() const { return vxlan_table_;}
-    void set_vxlan_table(VxLanTable *table) { 
+    void set_vxlan_table(VxLanTable *table) {
         vxlan_table_ = table;
     }
-    
+
     ForwardingClassTable *forwarding_class_table() const {
         return forwarding_class_table_;
     }
@@ -668,10 +669,10 @@ public:
         return subcluster_name_;
     }
 
-    const uint32_t controller_ifmap_xmpp_port(uint8_t idx) const {
+    const uint16_t controller_ifmap_xmpp_port(uint8_t idx) const {
         return xs_port_[idx];
     }
-    void set_controller_ifmap_xmpp_port(uint32_t port, uint8_t idx) {
+    void set_controller_ifmap_xmpp_port(uint16_t port, uint8_t idx) {
         xs_port_[idx] = port;
     }
 
@@ -691,8 +692,8 @@ public:
     }
 
     // Config XMPP server specific
-    const int8_t &ifmap_active_xmpp_server_index() const {return xs_idx_;}
-    const std::string &ifmap_active_xmpp_server() const {return xs_cfg_addr_;}
+    const int8_t &ifmap_active_xmpp_server_index() const { return xs_idx_; }
+    const std::string &ifmap_active_xmpp_server() const { return xs_cfg_addr_; }
     void set_ifmap_active_xmpp_server(const std::string &addr,
                                       uint8_t xs_idx) {
         xs_cfg_addr_ = addr;
@@ -706,7 +707,7 @@ public:
     AgentIfMapXmppChannel *ifmap_xmpp_channel(uint8_t idx) const {
         return ifmap_channel_[idx];
     }
-    void set_ifmap_xmpp_channel(AgentIfMapXmppChannel *channel, 
+    void set_ifmap_xmpp_channel(AgentIfMapXmppChannel *channel,
                                 uint8_t idx) {
         ifmap_channel_[idx] = channel;
     }
@@ -718,7 +719,7 @@ public:
     void set_controller_xmpp_channel_setup_time(uint64_t time, uint8_t idx) {
         xs_stime_[idx] = time;
     }
- 
+
     boost::shared_ptr<AgentXmppChannel> controller_xmpp_channel_ref(uint8_t idx);
     AgentXmppChannel *controller_xmpp_channel(uint8_t idx) const {
         return (agent_xmpp_channel_[idx]).get();
@@ -768,7 +769,9 @@ public:
     }
 
     // DNS Server and port
-    const std::string &dns_server(uint8_t idx) const {return dns_addr_[idx];}
+    const std::string &dns_server(uint8_t idx) const {
+        return dns_addr_[idx];
+    }
     void set_dns_server(const std::string &addr, uint8_t idx) {
         dns_addr_[idx] = addr;
     }
@@ -777,12 +780,16 @@ public:
         dns_port_[idx] = 0;
     }
 
-    const uint32_t dns_server_port(uint8_t idx) const {return dns_port_[idx];}
-    void set_dns_server_port(uint32_t port, uint8_t idx) {
+    const uint16_t dns_server_port(uint8_t idx) const {
+        return dns_port_[idx];
+    }
+    void set_dns_server_port(uint16_t port, uint8_t idx) {
         dns_port_[idx] = port;
     }
 
-    const std::string &host_name() const {return host_name_; }
+    const std::string &host_name() const {
+        return host_name_;
+    }
     const std::string &agent_name() const {
         return agent_name_;
     }
@@ -834,7 +841,7 @@ public:
     }
 
     const std::string &pkt_interface_name() const {
-        return pkt_interface_name_; 
+        return pkt_interface_name_;
     }
     void set_pkt_interface_name(const std::string &name) {
         pkt_interface_name_ = name;
@@ -935,7 +942,7 @@ public:
     }
 
     // Agent Modules
-    AgentConfig *cfg() const; 
+    AgentConfig *cfg() const;
     void set_cfg(AgentConfig *cfg);
 
     AgentStats *stats() const;
@@ -1334,12 +1341,12 @@ private:
     PolicySetTable *policy_set_table_;
     CryptTunnelTable *crypt_tunnel_table_;
     std::auto_ptr<ConfigManager> config_manager_;
- 
+
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;
     // Interface Mirror config table
     IntfMirrorCfgTable *intf_mirror_cfg_table_;
-    
+
     Ip4Address router_id_;
     uint32_t prefix_len_;
     Ip4Address gateway_id_;
@@ -1352,7 +1359,7 @@ private:
     std::string xs_cfg_addr_;
     int8_t xs_idx_;
     std::string xs_addr_[MAX_XMPP_SERVERS];
-    uint32_t xs_port_[MAX_XMPP_SERVERS];
+    uint16_t xs_port_[MAX_XMPP_SERVERS];
     uint64_t xs_stime_[MAX_XMPP_SERVERS];
     bool xs_auth_enable_;
     std::string xs_server_cert_;
@@ -1361,7 +1368,7 @@ private:
     std::string subcluster_name_;
     int8_t xs_dns_idx_;
     std::string dns_addr_[MAX_XMPP_SERVERS];
-    uint32_t dns_port_[MAX_XMPP_SERVERS];
+    uint16_t dns_port_[MAX_XMPP_SERVERS];
     bool dns_auth_enable_;
     // Config
     std::vector<std::string>controller_list_;
