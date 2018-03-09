@@ -251,6 +251,7 @@ public:
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const = 0;
     virtual std::string ToString() const = 0;
     virtual const std::string GetAddressString() const = 0;
+    virtual const std::string GetSourceAddressString() const = 0;
     virtual bool ReComputePathDeletion(AgentPath *path) {return false;}
     virtual bool ReComputePathAdd(AgentPath *path) {return false;}
     virtual uint32_t GetActiveLabel() const;
@@ -268,7 +269,6 @@ public:
     }
     //Can be used for operations resulting from deletion of route.
     virtual void DeleteDerivedRoutes(AgentRouteTable *table) { }
-
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}
     VrfEntry *vrf() const {return vrf_;}
@@ -314,6 +314,14 @@ protected:
     void SetVrf(VrfEntry *vrf) { vrf_ = vrf; }
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
+    virtual void HandleMulticastLabel(const Agent *agent,
+                                            AgentPath *path,
+                                            const AgentPath *local_peer_path,
+                                            const AgentPath *local_vm_peer_path,
+                                            bool del, uint32_t *evpn_label);
+    virtual bool ReComputeMulticastPaths(AgentPath *path, bool del);
+    virtual void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
+    virtual Composite::Type GetMulticastCompType() { return Composite::L2COMP; }
 
 private:
     friend class AgentRouteTable;

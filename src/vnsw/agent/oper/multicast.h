@@ -76,11 +76,13 @@ public:
         local_olist_.clear();
     };     
     MulticastGroupObject(const std::string &vrf_name,
+                         const std::string &vn_name,
                          const Ip4Address &grp_addr,
-                         const Ip4Address &src_addr) : 
-        vrf_name_(vrf_name), grp_address_(grp_addr), src_address_(src_addr),
-        vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
-        dependent_mg_(this, NULL), pbb_vrf_(false), pbb_vrf_name_(""),
+                         const Ip4Address &src_addr) :
+        vrf_name_(vrf_name), grp_address_(grp_addr), vn_name_(vn_name),
+        src_address_(src_addr), vxlan_id_(0), peer_identifier_(0),
+        deleted_(false), vn_(NULL), dependent_mg_(this, NULL),
+        pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
         pbb_etree_enabled_(false), bridge_domain_(NULL) {
         local_olist_.clear();
@@ -90,24 +92,18 @@ public:
     bool CanBeDeleted() const;
 
     //Add local member is local VM in server.
-    bool AddLocalMember(const boost::uuids::uuid &intf_uuid) { 
-        if (std::find(local_olist_.begin(), local_olist_.end(), intf_uuid) !=
-            local_olist_.end()) {
-            return false;
-        }
-        local_olist_.push_back(intf_uuid); 
+    bool AddLocalMember(const boost::uuids::uuid &intf_uuid, MacAddress mac) {
+        local_olist_[intf_uuid] = mac;
         return true;
     };
 
     //Delete local member from VM list in server 
     bool DeleteLocalMember(const boost::uuids::uuid &intf_uuid) { 
-        std::list<uuid>::iterator it = std::find(local_olist_.begin(), 
-                                                 local_olist_.end(), intf_uuid);
-        if (it != local_olist_.end()) {
-            local_olist_.erase(it); 
-            return true;
+        if (local_olist_.find(intf_uuid) == local_olist_.end()) {
+            return false;
         }
-        return false;
+        local_olist_.erase(intf_uuid);
+        return true;
     };
     uint32_t GetLocalListSize() { return local_olist_.size(); };
 
@@ -120,8 +116,7 @@ public:
     const std::string &vrf_name() const { return vrf_name_; };
     const Ip4Address &GetGroupAddress() { return grp_address_; };
     const Ip4Address &GetSourceAddress() { return src_address_; };
-    const std::list<boost::uuids::uuid> &GetLocalOlist() {
-        return local_olist_;}
+    ComponentNHKeyList GetInterfaceComponentNHKeyList(uint8_t interface_flags);
     const std::string &GetVnName() { return vn_name_; };
     bool IsDeleted() { return deleted_; };
     void Deleted(bool val) { deleted_ = val; };
@@ -223,7 +218,8 @@ private:
     uint32_t vxlan_id_;
     uint64_t peer_identifier_;
     bool deleted_;
-    std::list<boost::uuids::uuid> local_olist_; /* UUID of local i/f */
+    std::map<boost::uuids::uuid, MacAddress> local_olist_; /* UUID of local i/f
+                                                              and its MAC */
     VnEntryConstRef vn_;
 
     DependencyRef<MulticastGroupObject, MulticastGroupObject> dependent_mg_;
@@ -253,6 +249,8 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MulticastTEWalker);
 };
 
+class AgentRouteData;
+
 /* Static class for handling multicast objects common functionalities */
 class MulticastHandler {
 public:
@@ -266,9 +264,10 @@ public:
     virtual ~MulticastHandler() { }
 
     MulticastGroupObject *CreateMulticastGroupObject(const string &vrf_name,
-                                                     const Ip4Address &ip_addr,
-                                                     const VnEntry *vn,
-                                                     uint32_t vxlan_id);
+                                            const string &vn_name,
+                                            const Ip4Address &src_addr,
+                                            const Ip4Address &grp_addr,
+                                            uint32_t vxlan_id);
 
     /* Called by XMPP to add ctrl node sent olist and label */
     void ModifyFabricMembers(const Peer *peer,
@@ -308,6 +307,8 @@ public:
     void TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                   const Peer *peer,
                                   const string &vrf_name,
+                                  const Ip4Address &src,
+                                  const Ip4Address &grp,
                                   const TunnelOlist &olist,
                                   uint64_t peer_identifier,
                                   bool delete_op,
@@ -325,20 +326,35 @@ public:
     MulticastGroupObject *FindFloodGroupObject(const std::string &vrf_name);
     MulticastGroupObject *FindActiveGroupObject(const std::string &vrf_name,
                                                 const Ip4Address &dip);
+    MulticastGroupObject *FindActiveGroupObject(const std::string &vrf_name,
+                                    const Ip4Address &sip,
+                                    const Ip4Address &dip);
     std::set<MulticastGroupObject *> &GetMulticastObjList() {
         return multicast_obj_list_;
     };
     MulticastGroupObject *FindGroupObject(const std::string &vrf_name,
+                                          const Ip4Address &sip,
                                           const Ip4Address &dip);
     ComponentNHKeyList GetInterfaceComponentNHKeyList(MulticastGroupObject *obj,
                                                       uint8_t flags);
+    void AddMulticastRoute(MulticastGroupObject *obj, const Peer *peer,
+                                    uint32_t ethernet_tag,
+                                    AgentRouteData *data);
+    void DeleteMulticastRoute(const Peer *peer,
+                                    const string &vrf_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr,
+                                    uint32_t ethernet_tag,
+                                    COMPOSITETYPE comp_type);
     bool FlushPeerInfo(uint64_t peer_sequence);
     void DeleteBroadcast(const Peer *peer,
                          const std::string &vrf_name,
                          uint32_t ethernet_tag,
                          COMPOSITETYPE type);
     void DeleteMulticastObject(const std::string &vrf_name,
+                               const Ip4Address &src_addr,
                                const Ip4Address &grp_addr);
+    void DeleteMulticastObject(MulticastGroupObject *obj);
 
     const Agent *agent() const {return agent_;}
     void Terminate();
@@ -347,6 +363,22 @@ public:
     const ManagedPhysicalDevicesList &physical_devices() const {
         return physical_devices_;
     }
+
+    void AddVmInterfaceToSourceGroup(const std::string &mvpn_vrf_name,
+                                    const std::string &vn_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromSourceGroup(const std::string &mvpn_vrf_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromSourceGroup(const std::string &mvpn_vrf_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromSourceGroup(const std::string &mvpn_vrf_name,
+                                    const std::string &vm_vrf_name,
+                                    const VmInterface *vm_itf);
 
 private:
     //operations on list of all objectas per group/source/vrf
@@ -384,6 +416,35 @@ private:
         this->vm_to_mcobj_list_[vm_itf_uuid].insert(obj);
     };
 
+    bool FindVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
+                                   MulticastGroupObjectList &objList) {
+        VmMulticastGroupObjectList::iterator vmi_it =
+            vm_to_mcobj_list_.find(vm_itf_uuid);
+        if (vmi_it == vm_to_mcobj_list_.end()) {
+            return false;
+        }
+
+        objList = this->vm_to_mcobj_list_[vm_itf_uuid];
+        return true;
+    }
+
+    bool FindInVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
+                                   const MulticastGroupObject *obj) {
+        VmMulticastGroupObjectList::iterator vmi_it =
+            vm_to_mcobj_list_.find(vm_itf_uuid);
+        if (vmi_it == vm_to_mcobj_list_.end()) {
+            return false;
+        }
+
+        MulticastGroupObjectList::iterator mc_it = vmi_it->second.begin();
+        for (;mc_it != vmi_it->second.end(); mc_it++) {
+            if (*mc_it == obj) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void DeleteVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
                                    const MulticastGroupObject *obj) {
         VmMulticastGroupObjectList::iterator vmi_it =
@@ -410,6 +471,21 @@ private:
     {
         return this->vm_to_mcobj_list_[uuid];
     };
+
+    void AddVmInterfaceToVrfSourceGroup(const std::string &vrf_name,
+                                    const std::string &vn_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
+                                    const VmInterface *vm_itf);
 
     MulticastDBState*
     CreateBridgeDomainMG(DBTablePartBase *p, BridgeDomainEntry *bd);

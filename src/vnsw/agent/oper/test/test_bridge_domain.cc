@@ -360,9 +360,6 @@ TEST_F(BridgeDomainTest, Test8) {
     EXPECT_TRUE(bd->vrf() != NULL);
     EXPECT_TRUE(vm_intf->bridge_domain_list().list_.size() == 1);
 
-    DelNode("bridge-domain", "bridge1");
-    client->WaitForIdle();
-
     DelLink("virtual-machine-interface-bridge-domain", input[0].name,
             "bridge-domain", "bridge1");
     DelLink("virtual-machine-interface-bridge-domain", input[0].name,

@@ -119,8 +119,9 @@ TEST_F(SandeshReadWriteUnitTest, SandesMd5_verification) {
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
-    // 4 interface nh for vmi and vhost, 1 vrf nh and 1 for bridge route
-    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 10);
+    // 5 interface nh for vmi and vhost, 1 vrf nh and 1 for bridge route
+    size_t count = (2*NH_PER_VM) + 1 + 1;
+    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == count);
     WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup",
              "contrail_interface_resource-").empty() != true);
     std::string file_name = "/tmp/backup/" +
@@ -138,7 +139,8 @@ TEST_F(SandeshReadWriteUnitTest, SandesMd5_verification) {
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
-    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 4);
+    count = 1*NH_PER_VM;
+    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == count);
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000,(Agent::GetInstance()->interface_table()->Find(&key, true)
                                 == NULL));

@@ -8,6 +8,7 @@
 #include "mcast_common.h"
 #include <time.h>
 #include "task_int.h"
+#include "task_thread_api.h"
 
 typedef struct task_timer_ task_timer;
 
@@ -18,12 +19,16 @@ typedef struct task_timer_root_ {
 } task_timer_root;
 
 typedef struct task_timer_ {
+    task *tp;
     void *agent_timer_map;
     timer_callback callback;
     int timeout;
     boolean oneshot;
     void *tdata;
+    thread deleted_entry;
 } task_timer;
+
+THREAD_TO_STRUCT(task_timer_list_entry, task_timer, deleted_entry);
 
 typedef struct utime_t_ {
     time_t ut_sec;
@@ -33,6 +38,8 @@ typedef struct utime_t_ {
 #define MSECS_PER_SEC   1000
 #define USECS_PER_MSEC  1000
 
+extern void task_timer_init(task *tp);
+extern void task_timer_cleanup_deleted(task *tp);
 extern task_timer *task_timer_create_idle_leaf(task *tp, const char *name,
                 flag_t flags, task_timer *parent,
                 timer_callback tjob, void_t data);

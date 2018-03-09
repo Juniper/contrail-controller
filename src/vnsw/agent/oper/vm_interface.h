@@ -269,6 +269,8 @@ struct NextHopState : public VmInterfaceState {
     mutable NextHopRef l3_nh_no_policy_;
     mutable uint32_t l3_label_;
 
+    mutable NextHopRef l3_mcast_nh_no_policy_;
+
     mutable NextHopRef receive_nh_;
 };
 

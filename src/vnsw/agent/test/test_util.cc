@@ -1561,6 +1561,21 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &g
     return route;
 }
 
+Inet4MulticastRouteEntry *MCRouteGet(const Peer *peer, const string &vrf_name,
+                            const Ip4Address &grp_addr,
+                            const Ip4Address &src_addr) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    Inet4MulticastRouteKey key(peer, vrf_name, grp_addr, src_addr, 0);
+    Inet4MulticastRouteEntry *route =
+        static_cast<Inet4MulticastRouteEntry *>
+        (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
+    return route;
+}
+
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
@@ -1572,6 +1587,18 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
              GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return route;
+}
+
+const NextHop* MCRouteToNextHop(const Peer *peer, const string &vrf_name,
+                            const Ip4Address &grp_addr,
+                            const Ip4Address &src_addr) {
+
+    Inet4MulticastRouteEntry* rt = MCRouteGet(peer, vrf_name, grp_addr,
+                                                src_addr);
+    if (rt == NULL)
+        return NULL;
+
+    return rt->GetActiveNextHop();
 }
 
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type) {

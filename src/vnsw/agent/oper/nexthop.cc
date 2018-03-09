@@ -511,12 +511,7 @@ bool InterfaceNH::NextHopIsLess(const DBEntry &rhs) const {
         return flags_ < a.flags_;
     }
 
-    if (flags_ == InterfaceNHFlags::INET4  ||
-        flags_ == InterfaceNHFlags::INET6) {
-        return dmac_ < a.dmac_;
-    }
-
-    return false;
+    return dmac_ < a.dmac_;
 }
 
 InterfaceNH::KeyPtr InterfaceNH::GetDBRequestKey() const {
@@ -629,15 +624,15 @@ void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
                                                const string &intf_name) {
     AddInterfaceNH(intf_uuid, dmac, (InterfaceNHFlags::INET4 |
                                      InterfaceNHFlags::MULTICAST), false,
-                   vrf_name, false, true, false, intf_name);
+                   vrf_name, false, false, false, intf_name);
 }
 
 void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                               const MacAddress &dmac,
                                                const string &intf_name) {
-    DeleteNH(intf_uuid, false, (InterfaceNHFlags::MULTICAST |
-                                InterfaceNHFlags::INET4),
-                                MacAddress::BroadcastMac(),
-                                intf_name);
+    DeleteNH(intf_uuid, false, (InterfaceNHFlags::INET4 |
+                                InterfaceNHFlags::MULTICAST),
+                                dmac, intf_name);
 }
 
 void InterfaceNH::DeleteNH(const uuid &intf_uuid, bool policy,
