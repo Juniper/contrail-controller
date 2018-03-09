@@ -3,28 +3,30 @@
  */
 
 #include <algorithm>
-#include "base/logging.h"
-#include "base/timer.h"
-#include "base/contrail_ports.h"
-#include "base/connection_info.h"
-#include "net/tunnel_encap_type.h"
+#include <base/string_util.h>
+#include <base/logging.h>
+#include <base/timer.h>
+#include <base/contrail_ports.h>
+#include <base/connection_info.h>
+#include <net/tunnel_encap_type.h>
 #include <sandesh/sandesh_trace.h>
-#include "cmn/agent_cmn.h"
-#include "xmpp/xmpp_init.h"
-#include "pugixml/pugixml.hpp"
-#include "oper/global_qos_config.h"
-#include "oper/global_system_config.h"
-#include "oper/vrf.h"
-#include "oper/peer.h"
-#include "oper/mirror_table.h"
-#include "oper/multicast.h"
-#include "controller/controller_types.h"
-#include "controller/controller_init.h"
-#include "controller/controller_timer.h"
-#include "controller/controller_peer.h"
-#include "controller/controller_ifmap.h"
-#include "controller/controller_dns.h"
-#include "controller/controller_export.h"
+#include <cmn/agent_cmn.h>
+#include <cmn/xmpp_server_address_parser.h>
+#include <xmpp/xmpp_init.h>
+#include <pugixml/pugixml.hpp>
+#include <oper/global_qos_config.h>
+#include <oper/global_system_config.h>
+#include <oper/vrf.h>
+#include <oper/peer.h>
+#include <oper/mirror_table.h>
+#include <oper/multicast.h>
+#include <controller/controller_types.h>
+#include <controller/controller_init.h>
+#include <controller/controller_timer.h>
+#include <controller/controller_peer.h>
+#include <controller/controller_ifmap.h>
+#include <controller/controller_dns.h>
+#include <controller/controller_export.h>
 
 using namespace boost::asio;
 
@@ -63,7 +65,7 @@ ControllerDelPeerData::ControllerDelPeerData(AgentXmppChannel *channel) :
     ControllerWorkQueueData(), channel_(channel) {
 }
 
-VNController::VNController(Agent *agent) 
+VNController::VNController(Agent *agent)
     : agent_(agent), multicast_sequence_number_(0),
     work_queue_(agent->task_scheduler()->GetTaskId("Agent::ControllerXmpp"), 0,
                 boost::bind(&VNController::ControllerWorkQueueProcess, this,
@@ -155,11 +157,11 @@ void VNController::XmppServerConnect() {
             AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
             if (ch) {
                 // Channel is created, do not disturb
-                CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection, 
+                CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection,
                     "XMPP Server is already present, ignore reconfig response",
                     count, ch->GetXmppServer(), "");
                 count++;
-                continue; 
+                continue;
             }
 
             boost::system::error_code ec;
@@ -176,10 +178,7 @@ void VNController::XmppServerConnect() {
                 xmpp_cfg->path_to_server_priv_key =  agent_->xmpp_server_key();
                 xmpp_cfg->path_to_ca_cert =  agent_->xmpp_ca_cert();
             }
-            uint32_t port = agent_->controller_ifmap_xmpp_port(count);
-            if (!port) {
-                port = XMPP_SERVER_PORT;
-            }
+            uint16_t port = agent_->controller_ifmap_xmpp_port(count);
             xmpp_cfg->endpoint.port(port);
             SetDscpConfig(xmpp_cfg);
             xmpp_cfg->xmlns = agent_->subcluster_name();
@@ -216,7 +215,7 @@ void VNController::XmppServerConnect() {
             bgp_peer->UpdateConnectionInfo(channel->GetPeerState());
 
             // create ifmap peer
-            AgentIfMapXmppChannel *ifmap_peer = 
+            AgentIfMapXmppChannel *ifmap_peer =
                 new AgentIfMapXmppChannel(agent_, channel, count);
 
             agent_->set_controller_xmpp_channel(bgp_peer, count);
@@ -245,7 +244,7 @@ void VNController::DnsXmppServerConnect() {
                     "DNS Server is already present, ignore reconfig response",
                     count, ch->GetXmppServer(), "");
                 count++;
-                continue; 
+                continue;
             }
 
             // XmppChannel Configuration
@@ -417,7 +416,7 @@ AgentXmppChannel *VNController::FindAgentXmppChannel(
     while (count < MAX_XMPP_SERVERS) {
         AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
         if (ch && (ch->GetXmppServer().compare(server_ip) == 0)) {
-            return ch; 
+            return ch;
         }
         count++;
     }
@@ -571,21 +570,20 @@ void VNController::ReConnect() {
 }
 
 bool VNController::ApplyControllerReConfigInternal(std::vector<string> resp) {
+    XmppServerAddressParser addressParser(XMPP_SERVER_PORT, MAX_XMPP_SERVERS);
     std::vector<string>::iterator iter;
     int8_t count = -1;
 
     /* Apply only MAX_XMPP_SERVERS from list as the list is ordered */
     int8_t min_iter = std::min(static_cast<int>(resp.size()), MAX_XMPP_SERVERS);
     for (iter = resp.begin(); ++count < min_iter; iter++) {
-        std::vector<string> srv;
-        boost::split(srv, *iter, boost::is_any_of(":"));
-        std::string server_ip = srv[0];
-        std::string server_port = srv[1];
-        uint32_t port;
-        port = strtoul(srv[1].c_str(), NULL, 0);
+        std::string server_ip;
+        uint16_t server_port;
+        addressParser.ParseAddress(*iter, &server_ip, &server_port);
+        std::string str_port = integerToString(server_port);
 
         CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection, "XMPP ReConfig Apply Server Ip",
-            count, server_ip, server_port);
+            count, server_ip, str_port);
 
         AgentXmppChannel *chnl = FindAgentXmppChannel(server_ip);
         if (chnl) {
@@ -610,12 +608,10 @@ bool VNController::ApplyControllerReConfigInternal(std::vector<string> resp) {
 
                     CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection,
                         "Set Xmpp ReConfig Channel",
-                        xs_idx, server_ip, server_port);
+                        xs_idx, server_ip, str_port);
 
-                    agent_->set_controller_ifmap_xmpp_server(
-                        server_ip, xs_idx);
-
-                    agent_->set_controller_ifmap_xmpp_port(port, xs_idx);
+                    agent_->set_controller_ifmap_xmpp_server(server_ip, xs_idx);
+                    agent_->set_controller_ifmap_xmpp_port(server_port, xs_idx);
                     break;
 
                 } else if (agent_->controller_xmpp_channel(xs_idx)) {
@@ -635,10 +631,8 @@ bool VNController::ApplyControllerReConfigInternal(std::vector<string> resp) {
                         server_ip);
 
                     DisConnectControllerIfmapServer(xs_idx);
-                    agent_->set_controller_ifmap_xmpp_server(
-                         server_ip, xs_idx);
-                    agent_->set_controller_ifmap_xmpp_port(
-                        port, xs_idx);
+                    agent_->set_controller_ifmap_xmpp_server(server_ip, xs_idx);
+                    agent_->set_controller_ifmap_xmpp_port(server_port, xs_idx);
                     break;
                 }
             }
@@ -656,7 +650,7 @@ AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
     while (count < MAX_XMPP_SERVERS) {
         AgentDnsXmppChannel *ch = agent_->dns_xmpp_channel(count);
         if (ch && (ch->GetXmppServer().compare(server_ip) == 0)) {
-            return ch; 
+            return ch;
         }
         count++;
     }
@@ -666,7 +660,7 @@ AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
 
 void VNController::DisConnectDnsServer(uint8_t idx) {
 
-    // Managed Delete of XmppClient object, which deletes the 
+    // Managed Delete of XmppClient object, which deletes the
     // dependent XmppClientConnection object and
     // scoped_ptr XmppChannel
     XmppClient *xc = agent_->dns_xmpp_client(idx);
@@ -687,22 +681,21 @@ void VNController::DisConnectDnsServer(uint8_t idx) {
 }
 
 bool VNController::ApplyDnsReConfigInternal(std::vector<string> resp) {
+    XmppServerAddressParser addressParser(XMPP_DNS_SERVER_PORT, MAX_XMPP_SERVERS);
     std::vector<string>::iterator iter;
     int8_t count = -1;
 
     /* Apply only MAX_XMPP_SERVERS from list as the list is ordered */
     int8_t min_iter = std::min(static_cast<int>(resp.size()), MAX_XMPP_SERVERS);
     for (iter = resp.begin(); ++count < min_iter; iter++) {
-        std::vector<string> srv;
-        boost::split(srv, *iter, boost::is_any_of(":"));
-        std::string server_ip = srv[0];
-        std::string server_port = srv[1];
-        uint32_t port;
-        port = strtoul(srv[1].c_str(), NULL, 0);
+        std::string server_ip;
+        uint16_t server_port;
+        addressParser.ParseAddress(*iter, &server_ip, &server_port);
+        std::string str_port = integerToString(server_port);
 
         CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection,
             "DNS Server ReConfig Apply Server Ip",
-            count, server_ip, server_port);
+            count, server_ip, str_port);
 
         AgentDnsXmppChannel *chnl = FindAgentDnsXmppChannel(server_ip);
         if (chnl) {
@@ -726,10 +719,10 @@ bool VNController::ApplyDnsReConfigInternal(std::vector<string> resp) {
 
                     CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection,
                         "Set Dns Xmpp Channel ",
-                        xs_idx, server_ip, server_port);
+                        xs_idx, server_ip, str_port);
 
                     agent_->set_dns_server(server_ip, xs_idx);
-                    agent_->set_dns_server_port(port, xs_idx);
+                    agent_->set_dns_server_port(server_port, xs_idx);
                     break;
 
                 } else if (agent_->dns_xmpp_channel(xs_idx)) {
@@ -749,7 +742,7 @@ bool VNController::ApplyDnsReConfigInternal(std::vector<string> resp) {
 
                     DisConnectDnsServer(xs_idx);
                     agent_->set_dns_server(server_ip, xs_idx);
-                    agent_->set_dns_server_port(port, xs_idx);
+                    agent_->set_dns_server_port(server_port, xs_idx);
                     break;
                }
            }
