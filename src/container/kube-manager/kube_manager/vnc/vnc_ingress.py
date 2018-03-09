@@ -60,6 +60,19 @@ class VncIngress(VncCommon):
     def _is_network_isolated(self, ns_name):
         return self._get_namespace(ns_name).is_isolated()
 
+    def _get_ip_fabric_forwarding(self, ns_name):
+        ns = self._get_namespace(ns_name)
+        if ns:
+            return ns.get_ip_fabric_forwarding()
+        return None
+
+    def _is_ip_fabric_forwarding_enabled(self, ns_name):
+        ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
+        if ip_fabric_forwarding != None:
+            return ip_fabric_forwarding
+        else:
+            return self._args.ip_fabric_forwarding
+
     def _get_network(self, ns_name):
         ns = self._get_namespace(ns_name)
         if ns.is_isolated():
@@ -77,11 +90,18 @@ class VncIngress(VncCommon):
             self._default_vn_obj = vn_obj
         return vn_obj
 
-    def _get_pod_ipam_subnet_uuid(self, vn_obj):
+    def _get_pod_ipam_subnet_uuid(self, ns_name, vn_obj):
         pod_ipam_subnet_uuid = None
-        fq_name = vnc_kube_config.pod_ipam_fq_name()
+        if self._is_network_isolated(ns_name):
+            vn_namespace = ns_name
+        else:
+            vn_namespace = 'default'
+        if self._is_ip_fabric_forwarding_enabled(vn_namespace):
+            ipam_fq_name = vnc_kube_config.ip_fabric_ipam_fq_name()
+        else:
+            ipam_fq_name = vnc_kube_config.pod_ipam_fq_name()
         vn = VirtualNetworkKM.find_by_name_or_uuid(vn_obj.get_uuid())
-        pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(fq_name)
+        pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(ipam_fq_name)
         if pod_ipam_subnet_uuid is None:
             self._logger.error("%s - %s Not Found" %(self._name, fq_name))
         return pod_ipam_subnet_uuid
@@ -275,7 +295,7 @@ class VncIngress(VncCommon):
             return None
 
         vip_address = None
-        pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(vn_obj)
+        pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(ns_name, vn_obj)
         lb_obj = self.service_lb_mgr.create(self._k8s_event_type, ns_name, uid,
                     name, proj_obj, vn_obj, vip_address, pod_ipam_subnet_uuid,
                     tags=self._labels.get_labels_dict(uid))

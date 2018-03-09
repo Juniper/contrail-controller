@@ -171,7 +171,12 @@ class VncPod(VncCommon):
             # It is possible our cache may not have the VN yet. Locate it.
             vn = VirtualNetworkKM.locate(vn_obj.get_uuid())
 
-        if self._is_ip_fabric_forwarding_enabled(pod_namespace):
+        if self._is_pod_network_isolated(pod_namespace):
+            vn_namespace = pod_namespace
+        else:
+            vn_namespace = 'default'
+
+        if self._is_ip_fabric_forwarding_enabled(vn_namespace):
             ipam_fq_name = vnc_kube_config.ip_fabric_ipam_fq_name()
         else:
             ipam_fq_name = vnc_kube_config.pod_ipam_fq_name()
