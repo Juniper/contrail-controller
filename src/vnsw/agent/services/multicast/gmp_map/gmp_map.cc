@@ -208,7 +208,7 @@ boolean gmp_process_pkt(mgm_global_data *gd, gmp_intf *gif,
     return parse_ok;
 }
 
-boolean gmp_oif_map_cb(void_t inst_context UNUSED, gmp_intf_handle *handle,
+boolean gmp_oif_map_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
                 u_int8_t *group_addr, u_int8_t *source_addr,
                 gmp_intf_handle **output_handle)
 {
@@ -216,14 +216,14 @@ boolean gmp_oif_map_cb(void_t inst_context UNUSED, gmp_intf_handle *handle,
     return TRUE;
 }
 
-boolean gmp_policy_cb(void_t inst_context UNUSED, gmp_intf_handle *handle,
+boolean gmp_policy_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
                 u_int8_t *group_addr, u_int8_t *source_addr,
                 boolean static_group)
 {
     return TRUE;
 }
 
-boolean gmp_ssm_check_cb(void_t inst_context UNUSED, gmp_intf_handle *handle,
+boolean gmp_ssm_check_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
                 u_int8_t *group_addr)
 {
     return TRUE;
@@ -342,7 +342,7 @@ void igmp_notification_ready(void *context)
      return;
 }
 
-void igmp_host_notification_ready(void_t context)
+void igmp_host_notification_ready(void *context)
 {
     gmpr_client_host_notification *gmpr_notif = NULL;
     gmp_intf *gif;
@@ -428,7 +428,7 @@ void igmp_host_notification_ready(void_t context)
     return;
 }
 
-void mgm_querier_change(void_t cli_context UNUSED, gmp_intf_handle *handle,
+void mgm_querier_change(void *cli_context UNUSED, gmp_intf_handle *handle,
                 boolean querier, u_int8_t *querier_addr)
 {
     return;

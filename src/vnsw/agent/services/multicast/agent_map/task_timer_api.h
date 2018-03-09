@@ -42,7 +42,7 @@ extern void task_timer_init(task *tp);
 extern void task_timer_cleanup_deleted(task *tp);
 extern task_timer *task_timer_create_idle_leaf(task *tp, const char *name,
                 flag_t flags, task_timer *parent,
-                timer_callback tjob, void_t data);
+                timer_callback tjob, void *data);
 extern void task_timer_delete(task_timer *timer);
 extern void task_timer_smear_auto_parent_timers(task_timer_root *root);
 extern void task_timer_uset_alt_root_auto_parent_oneshot(task_timer_root *root,

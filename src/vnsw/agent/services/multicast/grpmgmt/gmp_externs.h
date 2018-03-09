@@ -54,37 +54,37 @@ typedef void (*gmp_xmit_peek_callback_func)(gmpx_intf_id intf_id,
 
 extern uint32_t igmp_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
 				   void *packet, uint8_t *dest_addr,
-				   uint32_t packet_len, void_t trace_context,
+				   uint32_t packet_len, void *trace_context,
 				   uint32_t trace_flags);
 extern boolean igmp_process_pkt(void *rcv_pkt, const uint8_t *src_addr,
 				const uint8_t *dest_addr,
 				uint32_t packet_len, gmpx_intf_id intf_id,
-				gmpx_packet_attr attrib, void_t trace_context,
+				gmpx_packet_attr attrib, void *trace_context,
 				uint32_t trace_flags);
 extern void
     gmp_igmp_trace_pkt(void *pkt, uint32_t len, const uint8_t *addr,
 		       gmpx_intf_id intf_id, boolean receive,
-		       void_t trace_context, uint32_t trace_flags);
+		       void *trace_context, uint32_t trace_flags);
 extern void
     gmp_igmp_trace_bad_pkt(uint32_t len, const uint8_t *addr,
-			   gmpx_intf_id intf_id, void_t trace_context,
+			   gmpx_intf_id intf_id, void *trace_context,
 			   uint32_t trace_flags);
 
 /* mld_proto.c */
 
 extern uint32_t mld_next_xmit_packet(gmp_role role, gmpx_intf_id intf_id,
 				  void *packet, uint8_t *dest_addr,
-				  uint32_t packet_len, void_t trace_context,
+				  uint32_t packet_len, void *trace_context,
 				  uint32_t trace_flags);
 extern boolean mld_process_pkt(void *rcv_pkt, const uint8_t *src_addr,
 			       const uint8_t *dest_addr, uint32_t packet_len,
 			       gmpx_intf_id intf_id, gmpx_packet_attr attrib,
-			       void_t trace_context, uint32_t trace_flags);
+			       void *trace_context, uint32_t trace_flags);
 extern void gmp_mld_trace_pkt(void *pkt, uint32_t len, const uint8_t *addr,
 			      gmpx_intf_id intf_id, boolean receive,
-			      void_t trace_context, uint32_t trace_flags);
+			      void *trace_context, uint32_t trace_flags);
 extern void gmp_mld_trace_bad_pkt(uint32_t len, const uint8_t *addr,
-				  gmpx_intf_id intf_id, void_t trace_context,
+				  gmpx_intf_id intf_id, void *trace_context,
 				  uint32_t trace_flags);
 
 /* gmp_addrlist.c */

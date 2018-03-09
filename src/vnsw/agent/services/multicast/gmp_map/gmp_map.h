@@ -40,17 +40,17 @@ extern boolean gmp_process_pkt(mgm_global_data *gd, gmp_intf *gif,
                         const gmp_addr_string *src_addr,
                         const gmp_addr_string *dst_addr);
 
-extern boolean gmp_oif_map_cb (void_t inst_context UNUSED, gmp_intf_handle *handle,
+extern boolean gmp_oif_map_cb (void *inst_context UNUSED, gmp_intf_handle *handle,
                 uint8_t *group_addr, uint8_t *source_addr,
                 gmp_intf_handle **output_handle);
-extern boolean gmp_policy_cb (void_t inst_context UNUSED, gmp_intf_handle *handle,
+extern boolean gmp_policy_cb (void *inst_context UNUSED, gmp_intf_handle *handle,
                 uint8_t *group_addr, uint8_t *source_addr,
                 boolean static_group);
-extern void igmp_notification_ready (void_t context);
-extern void igmp_host_notification_ready (void_t context);
-extern void mgm_querier_change(void_t cli_context UNUSED, gmp_intf_handle *handle,
+extern void igmp_notification_ready (void *context);
+extern void igmp_host_notification_ready (void *context);
+extern void mgm_querier_change(void *cli_context UNUSED, gmp_intf_handle *handle,
                 boolean querier, uint8_t *querier_addr);
-extern boolean gmp_ssm_check_cb (void_t inst_context UNUSED, gmp_intf_handle *handle,
+extern boolean gmp_ssm_check_cb (void *inst_context UNUSED, gmp_intf_handle *handle,
                 uint8_t *group_addr);
 extern void gmp_xmit_ready(gmp_role role, gmp_proto proto, gmpx_intf_id intf_id);
 extern void gmp_static_peek(gmp_intf_handle *handle, gmp_proto proto,

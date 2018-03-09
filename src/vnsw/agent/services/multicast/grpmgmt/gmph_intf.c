@@ -396,7 +396,7 @@ gmph_attach_intf_internal (gmph_instance *instance, gmpx_intf_id intf_id)
  */
 int
 gmph_detach_intf_internal (gmph_instance *instance, gmpx_intf_id intf_id,
-			   gmph_soft_detach_callback callback, void_t context)
+			   gmph_soft_detach_callback callback, void *context)
 {
     gmph_intf *intf;
 

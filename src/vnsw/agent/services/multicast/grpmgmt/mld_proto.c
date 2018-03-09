@@ -290,7 +290,7 @@ mld_packet_type_string (mld_hdr *hdr, u_int len)
  */
 void
 gmp_mld_trace_bad_pkt(u_int len, const u_int8_t *addr, gmpx_intf_id intf_id,
-		      void_t trace_context, u_int32_t trace_flags)
+		      void *trace_context, u_int32_t trace_flags)
 {
     /* Bail if not tracing bad packets. */
 
@@ -310,7 +310,7 @@ gmp_mld_trace_bad_pkt(u_int len, const u_int8_t *addr, gmpx_intf_id intf_id,
 void
 gmp_mld_trace_pkt (void *packet, u_int len, const u_int8_t *addr,
 		   gmpx_intf_id intf_id, boolean receive,
-		   void_t trace_context, u_int32_t trace_flags)
+		   void *trace_context, u_int32_t trace_flags)
 {
     const char *direction;
     const char *op;
@@ -944,7 +944,7 @@ mld_format_v2_packet (gmp_role role, gmp_packet *gen_packet,
 u_int
 mld_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id, void *packet,
 		      u_int8_t *dest_addr, u_int packet_len,
-		      void_t trace_context, u_int32_t trace_flags)
+		      void *trace_context, u_int32_t trace_flags)
 {
     gmp_packet *gen_packet;
     mld_packet *mld_pkt;
@@ -1369,7 +1369,7 @@ boolean
 mld_process_pkt (void *rcv_pkt, const u_int8_t *src_addr,
 		 const u_int8_t *dest_addr, u_int32_t packet_len,
 		 gmpx_intf_id intf_id, gmpx_packet_attr attrib,
-		 void_t trace_context, u_int32_t trace_flags)
+		 void *trace_context, u_int32_t trace_flags)
 {
     mld_packet *packet;
     gmp_packet *gen_packet;

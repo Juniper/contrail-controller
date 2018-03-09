@@ -152,7 +152,7 @@ Timer management:
    The timer callback type.  It must be defined as:
      typedef void (*gmpx_timer_callback)(gmpx_timer *timer, void *context);
 
- gmpx_timer *gmpx_create_timer(void_t inst_context, const char *name,
+ gmpx_timer *gmpx_create_timer(void *inst_context, const char *name,
 	gmpx_timer_callback callback, void *context)
    Create a timer.  "inst_context" is the context value passed to
    gmpr_create_instance() or gmph_create_instance().  "name" is the name
@@ -163,7 +163,7 @@ Timer management:
    memory.
 
  gmpx_timer *gmpx_create_grouped_timer(gmp_timer_group group,
-	void_t inst_context, const char *name, gmpx_timer_callback callback,
+	void *inst_context, const char *name, gmpx_timer_callback callback,
 	void *context)
    Same as gmpx_create_timer(), except that it creates a timer that is
    part of a specific group of timers.  Timers are grouped so that they
@@ -243,7 +243,7 @@ Miscellaneous stuff:
  gmpx_calculate_cksum(packet, length)
    Calculate the IP checksum for a packet, returning the checksum
 
- gmpx_post_event(void_t context, gmp_event_type type, parameters...)
+ gmpx_post_event(void *context, gmp_event_type type, parameters...)
    Issue an error message.  "context" is the context value passed to
    gmpr_create_instance() or gmph_create_instance().  "type" is the
    message type.

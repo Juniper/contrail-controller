@@ -75,7 +75,7 @@ gmpr_accelerate_query_smear (gmpr_instance *instance)
  * Returns a pointer to the instance, or NULL if we're out of memory.
  */
 gmpr_instance *
-gmpr_instance_create (gmp_proto proto, void_t inst_context)
+gmpr_instance_create (gmp_proto proto, void *inst_context)
 {
     gmpr_instance *instance;
     boolean first_instance;

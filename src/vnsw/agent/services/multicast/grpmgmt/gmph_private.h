@@ -33,7 +33,7 @@ typedef struct gmph_instance_ {
     thread hinst_client_thread;		/* Head of client thread */
     gmp_addr_catalog hinst_addr_cat;	/* Address catalog */
 
-    void_t hinst_context;		/* External context */
+    void *hinst_context;		/* External context */
 
     gmpx_patroot *hinst_intfs;		/* Tree of interfaces */
     gmp_proto hinst_proto;		/* Protocol (IGMP/MLD) */
@@ -105,7 +105,7 @@ typedef struct gmph_intf_ {
 
     gmph_soft_detach_callback hintf_soft_detach_callback;
 					/* Callback after soft detach */
-    void_t hintf_soft_detach_context;	/* User-supplied context */
+    void *hintf_soft_detach_context;	/* User-supplied context */
 
     u_int32_t hintf_pending_xmit_count;	/* # of groups and srcs pending xmit */
 
@@ -422,7 +422,7 @@ extern gmpx_patroot *gmph_global_intf_tree[];
 /* gmph_instance.c */
 
 extern gmph_instance *gmph_instance_create(gmp_proto proto,
-					   void_t inst_context);
+					   void *inst_context);
 extern gmph_instance *gmph_get_instance(gmp_instance_id instance_id);
 extern void gmph_instance_destroy(gmph_instance *instance);
 
@@ -459,7 +459,7 @@ extern int gmph_attach_intf_internal(gmph_instance *instance,
 extern int gmph_detach_intf_internal(gmph_instance *instance,
 				     gmpx_intf_id intf_id,
 				     gmph_soft_detach_callback callback,
-				     void_t context);
+				     void *context);
 extern void gmph_attempt_intf_free(gmph_intf *intf);
 extern void gmph_destroy_instance_intfs(gmph_instance *instance);
 extern void gmph_start_general_query_timer(gmph_intf *intf, u_int32_t ivl, 
