@@ -23,6 +23,7 @@
 #include <cfg/cfg_mirror.h>
 #include <cmn/agent.h>
 #include <cmn/event_notifier.h>
+#include <cmn/xmpp_server_address_parser.h>
 #include <controller/controller_init.h>
 #include <controller/controller_peer.h>
 
@@ -166,7 +167,7 @@ void Agent::SetAgentTaskPolicy() {
         kAgentResourceRestoreTask,
         kTaskMacLearning
     };
-    SetTaskPolicyOne("db::DBTable", db_exclude_list, 
+    SetTaskPolicyOne("db::DBTable", db_exclude_list,
                      sizeof(db_exclude_list) / sizeof(char *));
 
     // ConfigManager task
@@ -205,7 +206,7 @@ void Agent::SetAgentTaskPolicy() {
         AGENT_INIT_TASKNAME,
         AGENT_SANDESH_TASKNAME
     };
-    SetTaskPolicyOne("sandesh::RecvQueue", sandesh_exclude_list, 
+    SetTaskPolicyOne("sandesh::RecvQueue", sandesh_exclude_list,
                      sizeof(sandesh_exclude_list) / sizeof(char *));
 
     const char *xmpp_config_exclude_list[] = {
@@ -221,7 +222,7 @@ void Agent::SetAgentTaskPolicy() {
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
-    SetTaskPolicyOne("bgp::Config", xmpp_config_exclude_list, 
+    SetTaskPolicyOne("bgp::Config", xmpp_config_exclude_list,
                      sizeof(xmpp_config_exclude_list) / sizeof(char *));
 
     const char *controller_xmpp_exclude_list[] = {
@@ -256,7 +257,7 @@ void Agent::SetAgentTaskPolicy() {
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
-    SetTaskPolicyOne("Agent::KSync", ksync_exclude_list, 
+    SetTaskPolicyOne("Agent::KSync", ksync_exclude_list,
                      sizeof(ksync_exclude_list) / sizeof(char *));
 
     const char *stats_collector_exclude_list[] = {
@@ -390,47 +391,13 @@ uint32_t Agent::GenerateHash(std::vector<std::string> &list) {
 }
 
 void Agent::InitControllerList() {
-    std::vector<string>servers;
-    if (controller_list_.size() >= 1) {
-        boost::split(servers, controller_list_[0], boost::is_any_of(":"));
-        xs_addr_[0] = servers[0];
-        if (servers.size() == 2) {
-            std::istringstream converter(servers[1]);
-            converter >> xs_port_[0];
-        } else {
-            // port not configured, set to 0 for controller init to pick
-            // default port
-            xs_port_[0] = 0;
-        }
-        if (controller_list_.size() >= 2) {
-            boost::split(servers, controller_list_[1], boost::is_any_of(":"));
-            xs_addr_[1] = servers[0];
-            if (servers.size() == 2) {
-                std::istringstream converter(servers[1]);
-                converter >> xs_port_[1];
-            } else {
-                // port not configured, set to 0 for controller init to pick
-                // default port
-                xs_port_[1] = 0;
-            }
-        }
-    }
+    XmppServerAddressParser parser(XMPP_SERVER_PORT, MAX_XMPP_SERVERS);
+    parser.ParseAddresses(controller_list_, xs_addr_, xs_port_);
 }
 
 void Agent::InitDnsList() {
-    std::vector<string>servers;
-    if (dns_list_.size() >= 1) {
-        boost::split(servers, dns_list_[0], boost::is_any_of(":"));
-        dns_addr_[0] = servers[0];
-        std::istringstream converter(servers[1]);
-        converter >> dns_port_[0];
-        if (dns_list_.size() >= 2) {
-            boost::split(servers, dns_list_[1], boost::is_any_of(":"));
-            dns_addr_[1] = servers[0];
-            std::istringstream converter2(servers[1]);
-            converter2 >> dns_port_[1];
-        }
-    }
+    XmppServerAddressParser parser(XMPP_DNS_SERVER_PORT, MAX_XMPP_SERVERS);
+    parser.ParseAddresses(dns_list_, dns_addr_, dns_port_);
 }
 
 void Agent::InitializeFilteredParams() {
@@ -701,11 +668,11 @@ Agent::Agent() :
     vxlan_table_(NULL), service_instance_table_(NULL),
     physical_device_table_(NULL), physical_device_vn_table_(NULL),
     config_manager_(), mirror_cfg_table_(NULL),
-    intf_mirror_cfg_table_(NULL), router_id_(0), prefix_len_(0), 
+    intf_mirror_cfg_table_(NULL), router_id_(0), prefix_len_(0),
     gateway_id_(0), compute_node_ip_(0), xs_cfg_addr_(""), xs_idx_(0),
     xs_addr_(), xs_port_(),
     xs_stime_(), xs_auth_enable_(false), xs_dns_idx_(0), dns_addr_(),
-    dns_port_(), dns_auth_enable_(false), 
+    dns_port_(), dns_auth_enable_(false),
     controller_chksum_(0), dns_chksum_(0), collector_chksum_(0),
     ip_fabric_intf_name_(""), crypt_intf_name_(""), 
     vhost_interface_name_(""),
