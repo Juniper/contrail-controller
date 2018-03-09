@@ -20,6 +20,7 @@
 struct KSyncIntfFatFlowInfo {
     1: u16 protocol;
     2: u16 port;
+    3: u16 ignore_address;
 }
 
 /**
