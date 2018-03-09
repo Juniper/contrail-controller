@@ -38,7 +38,7 @@ gmph_inst_master_clock_expiry (gmpx_timer *timer, void *context GMPX_UNUSED)
  * Returns a pointer to the instance, or NULL if we're out of memory.
  */
 gmph_instance *
-gmph_instance_create (gmp_proto proto, void_t inst_context)
+gmph_instance_create (gmp_proto proto, void *inst_context)
 {
     gmph_instance *instance;
     boolean first_instance;

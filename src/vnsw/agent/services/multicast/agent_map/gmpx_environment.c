@@ -115,7 +115,7 @@ gmpx_timer_expiry (task_timer *rpd_timer, time_t tm UNUSED)
  * Returns a pointer to a timer, or NULL if out of memory.
  */
 gmpx_timer *
-gmpx_create_grouped_timer (gmp_timer_group group, void_t inst_context,
+gmpx_create_grouped_timer (gmp_timer_group group, void *inst_context,
 			   const char *name, gmpx_timer_callback callback,
 			   void *timer_context)
 {
@@ -170,7 +170,7 @@ gmpx_create_grouped_timer (gmp_timer_group group, void_t inst_context,
  * Returns a pointer to a timer, or NULL if out of memory.
  */
 gmpx_timer *
-gmpx_create_timer (void_t inst_context, const char *name,
+gmpx_create_timer (void *inst_context, const char *name,
 		   gmpx_timer_callback callback, void *timer_context)
 {
     return gmpx_create_grouped_timer(GMP_TIMER_GROUP_DEFAULT, inst_context,

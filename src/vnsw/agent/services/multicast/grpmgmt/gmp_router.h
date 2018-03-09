@@ -136,7 +136,7 @@
  *
  * This defines the callback to a client when a notification is ready.
  */
-typedef void (*gmpr_notif_cb)(void_t cli_context);
+typedef void (*gmpr_notif_cb)(void *cli_context);
 
 
 /*
@@ -149,7 +149,7 @@ typedef void (*gmpr_notif_cb)(void_t cli_context);
  * interface, or FALSE if there is no output interface (it is blocked
  * by policy.)
  */
-typedef boolean (*gmpr_oif_map_cb)(void_t inst_context,
+typedef boolean (*gmpr_oif_map_cb)(void *inst_context,
 				   gmpx_intf_id rcv_if,
 				   uint8_t *group_addr,
 				   uint8_t *source_addr,
@@ -162,7 +162,7 @@ typedef boolean (*gmpr_oif_map_cb)(void_t inst_context,
  * an interface, group and (potentially) source.  It returns TRUE if the
  * report is allowed, or FALSE if not.
  */
-typedef boolean (*gmpr_policy_cb)(void_t inst_context,
+typedef boolean (*gmpr_policy_cb)(void *inst_context,
 				  gmpx_intf_id rcv_if,
 				  uint8_t *group_addr,
 				  uint8_t *source_addr,
@@ -176,7 +176,7 @@ typedef boolean (*gmpr_policy_cb)(void_t inst_context,
  * join an SSM group without a source.  It returns TRUE if the join is
  * allowed, or FALSE if not.
  */
-typedef boolean (*gmpr_ssm_check_cb)(void_t inst_context,
+typedef boolean (*gmpr_ssm_check_cb)(void *inst_context,
 				     gmpx_intf_id rcv_if,
 				     uint8_t *group_addr);
 
@@ -185,7 +185,7 @@ typedef boolean (*gmpr_ssm_check_cb)(void_t inst_context,
  *
  * This defines the callback to a client when the querier status changes.
  */
-typedef void (*gmpr_querier_cb)(void_t cli_context, gmpx_intf_id intf,
+typedef void (*gmpr_querier_cb)(void *cli_context, gmpx_intf_id intf,
 				boolean querier, uint8_t *querier_addr);
 
 /*
@@ -328,11 +328,11 @@ typedef struct gmpr_intf_host_entry_ {
  * External references
  */
 extern gmp_instance_id gmpr_create_instance(gmp_proto proto,
-					    void_t inst_context,
+					    void *inst_context,
 					    gmpr_instance_context *context);
 extern void gmpr_destroy_instance(gmp_instance_id instance_id);
 extern gmp_client_id gmpr_register(gmp_instance_id instance_id,
-				   void_t cli_context,
+				   void *cli_context,
 				   gmpr_client_context *context);
 extern void gmpr_detach(gmp_client_id client_id);
 extern void gmpr_refresh(gmp_client_id client_id, boolean flush);

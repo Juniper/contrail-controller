@@ -187,7 +187,7 @@ static uint32_t igmp_max_resp_value (igmp_packet *pkt, gmp_version version)
  */
 void
 gmp_igmp_trace_bad_pkt(uint32_t len, const uint8_t *addr, gmpx_intf_id intf_id,
-		       void_t trace_context, uint32_t trace_flags)
+		       void *trace_context, uint32_t trace_flags)
 {
     /* Bail if not tracing bad packets. */
 
@@ -207,7 +207,7 @@ gmp_igmp_trace_bad_pkt(uint32_t len, const uint8_t *addr, gmpx_intf_id intf_id,
 void
 gmp_igmp_trace_pkt (void *packet, uint32_t len, const uint8_t *addr,
 		    gmpx_intf_id intf_id, boolean receive,
-		    void_t trace_context, uint32_t trace_flags)
+		    void *trace_context, uint32_t trace_flags)
 {
     const char *direction;
     const char *op;
@@ -988,7 +988,7 @@ igmp_format_v3_packet (gmp_role role, gmp_packet *gen_packet,
 uint32_t
 igmp_next_xmit_packet (gmp_role role, gmpx_intf_id intf_id,
 		       void *packet, uint8_t *dest_addr, uint32_t packet_len,
-		       void_t trace_context, uint32_t trace_flags)
+		       void *trace_context, uint32_t trace_flags)
 {
     gmp_packet *gen_packet;
     igmp_packet *igmp_pkt;
@@ -1496,7 +1496,7 @@ boolean
 igmp_process_pkt (void *rcv_pkt, const uint8_t *src_addr,
 		  const uint8_t *dest_addr, uint32_t packet_len,
 		  gmpx_intf_id intf_id, gmpx_packet_attr attrib,
-		  void_t trace_context, uint32_t trace_flags)
+		  void *trace_context, uint32_t trace_flags)
 {
     igmp_packet *packet;
     gmp_packet *gen_packet;

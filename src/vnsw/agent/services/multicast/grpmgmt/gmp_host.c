@@ -94,7 +94,7 @@ gmph_init (void)
  * Returns an instance ID (really a pointer), or zero if out of memory.
  */
 gmp_instance_id
-gmph_create_instance (gmp_proto proto, void_t context)
+gmph_create_instance (gmp_proto proto, void *context)
 {
     gmph_instance *instance;
 
@@ -288,7 +288,7 @@ gmph_detach_intf (gmp_instance_id instance_id, gmpx_intf_id intf_id)
  */
 int
 gmph_detach_intf_soft (gmp_instance_id instance_id, gmpx_intf_id intf_id,
-		       gmph_soft_detach_callback callback, void_t context)
+		       gmph_soft_detach_callback callback, void *context)
 {
     gmph_instance *instance;
 

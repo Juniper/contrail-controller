@@ -10,7 +10,6 @@
 
 typedef unsigned int boolean;
 typedef unsigned long flag_t;
-typedef void * void_t;
 
 #define FALSE 0
 #define TRUE 1

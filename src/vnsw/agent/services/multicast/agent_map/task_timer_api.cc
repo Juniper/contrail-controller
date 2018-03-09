@@ -41,7 +41,7 @@ void task_timer_cleanup_deleted(task *tp)
 
 task_timer *task_timer_create_idle_leaf(task *tp, const char *name,
                 flag_t flags, task_timer *parent,
-                timer_callback tjob, void_t data)
+                timer_callback tjob, void *data)
 {
     task_timer *timer = (task_timer *)malloc(sizeof(task_timer));
     if (!timer) {

@@ -134,7 +134,7 @@ gmpr_init (void)
  * Returns an instance ID (really a pointer), or zero if out of memory.
  */
 gmp_instance_id
-gmpr_create_instance (gmp_proto proto, void_t inst_context,
+gmpr_create_instance (gmp_proto proto, void *inst_context,
 		      gmpr_instance_context *cb_context)
 {
     gmpr_instance *instance;
@@ -192,7 +192,7 @@ gmpr_destroy_instance (gmp_instance_id instance_id)
  * we're maxed out on clients.
  */
 gmp_client_id
-gmpr_register (gmp_instance_id instance_id, void_t client_context,
+gmpr_register (gmp_instance_id instance_id, void *client_context,
 	       gmpr_client_context *cb_context)
 {
     gmpr_client *client;

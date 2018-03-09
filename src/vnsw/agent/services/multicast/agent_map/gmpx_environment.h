@@ -92,11 +92,11 @@ struct gmpx_timer_ {
 
 extern void gmpx_start_timer(gmpx_timer *timer, uint32_t ivl,
 			     uint32_t jitter_pct);
-extern gmpx_timer *gmpx_create_timer(void_t inst_context, const char *name,
+extern gmpx_timer *gmpx_create_timer(void *inst_context, const char *name,
 				     gmpx_timer_callback callback,
 				     void *timer_context);
 extern gmpx_timer *gmpx_create_grouped_timer(gmp_timer_group group,
-					     void_t inst_context,
+					     void *inst_context,
 					     const char *name,
 					     gmpx_timer_callback callback,
 					     void *timer_context);

@@ -74,7 +74,7 @@ typedef struct gmpr_instance_ {
     uint32_t rinst_min_max_resp;	/* Min value of max resp field */
 
     ordinal_handle rinst_ord_handle;	/* Handle for client ordinals */
-    void_t rinst_context;		/* Client instance context */
+    void *rinst_context;		/* Client instance context */
     gmpr_instance_context rinst_cb_context; /* Instance callbacks */
 
     uint32_t rinst_group_timeout;	/* Group timeout count */
@@ -444,7 +444,7 @@ typedef struct gmpr_client_ {
     gmpr_instance *rclient_instance;	/* Owning instance */
     ordinal_t rclient_ordinal;		/* Client ordinal */
     thread rclient_thread;		/* Link on instance client thread */
-    void_t rclient_context;		/* Client context */
+    void *rclient_context;		/* Client context */
 
     thread rclient_notif_head;		/* Head of group notifications */
     thread rclient_host_notif_head;	/* Head of host notifications */
@@ -1019,7 +1019,7 @@ extern gmpx_patroot *gmpr_global_intf_tree[];
 /* gmpr_instance.c */
 
 extern gmpr_instance *gmpr_instance_create(gmp_proto proto,
-					   void_t inst_context);
+					   void *inst_context);
 extern gmpr_instance *gmpr_get_instance(gmp_instance_id instance_id);
 extern void gmpr_instance_destroy(gmpr_instance *instance);
 extern void gmpr_accelerate_query_smear(gmpr_instance *instance);
