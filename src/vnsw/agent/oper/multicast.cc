@@ -714,11 +714,13 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
     }
 
     uint8_t intf_flags = InterfaceNHFlags::BRIDGE;
+    Composite::Type comp_type = Composite::L2INTERFACE;
     boost::system::error_code ec;
     Ip4Address bcast_addr =
                     IpAddress::from_string("255.255.255.255", ec).to_v4();
     if (obj->GetGroupAddress() != bcast_addr) {
         intf_flags = InterfaceNHFlags::INET4 | InterfaceNHFlags::MULTICAST;
+        comp_type = Composite::L3INTERFACE;
     }
     component_nh_key_list =
         GetInterfaceComponentNHKeyList(obj, intf_flags);
@@ -736,7 +738,7 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
                                                    MplsTable::kInvalidLabel,
                                                    obj->vxlan_id(),
                                                    route_tunnel_bmap,
-                                                   Composite::L2INTERFACE,
+                                                   comp_type,
                                                    component_nh_key_list,
                                                    obj->pbb_vrf(),
                                                    obj->learning_enabled());
@@ -1009,9 +1011,16 @@ void MulticastHandler::ModifyFabricMembers(const Peer *peer,
         }
     }
 
+    Ip4Address bcast_addr =
+                    IpAddress::from_string("255.255.255.255", ec).to_v4();
+    Composite::Type comp_type = Composite::FABRIC;
+    if (grp != bcast_addr) {
+        comp_type = Composite::L3FABRIC;
+    }
+
     TriggerRemoteRouteChange(obj, peer, vrf_name, src, grp, olist,
                              peer_identifier,
-                             delete_op, Composite::FABRIC,
+                             delete_op, comp_type,
                              label, true, 0);
 
     if (obj == NULL) {
@@ -1024,7 +1033,7 @@ void MulticastHandler::ModifyFabricMembers(const Peer *peer,
             static_cast<MulticastGroupObject *>(iter.operator->());
         TriggerRemoteRouteChange(mg, peer, iter->vrf_name(), src, grp,
                                  olist, peer_identifier,
-                                 delete_op, Composite::FABRIC,
+                                 delete_op, comp_type,
                                  label, true, 0);
     }
 
@@ -1118,7 +1127,7 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
             agent->oper_db()->multicast()->DeleteMulticastRoute(peer,
                                                        vrf_name_, src_address_,
                                                        grp_address_, 0,
-                                                       Composite::FABRIC);
+                                                       Composite::L3FABRIC);
         } else {
             agent->oper_db()->multicast()->DeleteBroadcast(peer, vrf_name_, 0,
                                                        Composite::FABRIC);
@@ -1332,6 +1341,7 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                     const Ip4Address &grp_addr) {
 
     MulticastGroupObject *sg_object = NULL;
+    Composite::Type comp_type = Composite::L3INTERFACE;
 
     sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
     if (!sg_object) {
@@ -1356,7 +1366,7 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
         DeleteMulticastRoute(agent_->local_vm_peer(), sg_object->vrf_name(),
                             sg_object->GetSourceAddress(),
                             sg_object->GetGroupAddress(),
-                            0, Composite::L2INTERFACE);
+                            0, comp_type);
         DeleteMulticastObject(sg_object->vrf_name_,
                             sg_object->GetSourceAddress(),
                             sg_object->GetGroupAddress());
@@ -1385,6 +1395,8 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                     const Ip4Address &grp_addr) {
 
     MulticastGroupObjectList objList;
+    Composite::Type comp_type = Composite::L3INTERFACE;
+
     if (!FindVmToMulticastObjMap(vm_itf->GetUuid(), objList)) {
         return;
     }
@@ -1408,13 +1420,12 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
             DeleteMulticastRoute(agent_->local_vm_peer(), (*sg_it)->vrf_name(),
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress(),
-                            0, Composite::L2INTERFACE);
+                            0, comp_type);
             DeleteMulticastObject((*sg_it)->vrf_name_,
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress());
         }
         DeleteVmToMulticastObjMap(vm_itf->GetUuid(), *sg_it);
-        sg_it = objList.begin();
     }
 }
 
@@ -1435,6 +1446,7 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
     boost::system::error_code ec;
     Ip4Address bcast_addr =
                     IpAddress::from_string("255.255.255.255", ec).to_v4();
+    Composite::Type comp_type = Composite::L3INTERFACE;
 
     MulticastGroupObjectList objList;
     if (!FindVmToMulticastObjMap(vm_itf->GetUuid(), objList)) {
@@ -1460,13 +1472,12 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
             DeleteMulticastRoute(agent_->local_vm_peer(), (*sg_it)->vrf_name(),
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress(),
-                            0, Composite::L2INTERFACE);
+                            0, comp_type);
             DeleteMulticastObject((*sg_it)->vrf_name_,
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress());
         }
         DeleteVmToMulticastObjMap(vm_itf->GetUuid(), *sg_it);
-        sg_it = objList.begin();
     }
 }
 

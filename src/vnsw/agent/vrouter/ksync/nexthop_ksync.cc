@@ -815,13 +815,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_sip(0);
             encoder.set_nhr_tun_dip(0);
             if (is_bridge_) {
-                flags |= NH_FLAG_ENCAP_L2;
                 encoder.set_nhr_family(AF_BRIDGE);
             }
             if (is_mcast_nh_) {
                 flags |= NH_FLAG_MCAST;
-                encoder.set_nhr_flags(flags);
             } 
+            encoder.set_nhr_flags(flags);
             break;
 
         case NextHop::TUNNEL :
@@ -955,7 +954,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_ecmp_config_hash(SetEcmpFieldsToUse());
             /* Proto encode in Network byte order */
             switch (comp_type_) {
-            case Composite::L2INTERFACE:
+            case Composite::L2INTERFACE: {
+                flags |= NH_FLAG_COMPOSITE_ENCAP;
+                encoder.set_nhr_family(AF_BRIDGE);
+                break;
+            }
             case Composite::L3INTERFACE: {
                 flags |= NH_FLAG_COMPOSITE_ENCAP;
                 break;
@@ -969,13 +972,17 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 break;
             }
             case Composite::FABRIC: {
+                encoder.set_nhr_family(AF_BRIDGE);
+                flags |= NH_FLAG_COMPOSITE_FABRIC;
+                break;
+            }
+            case Composite::L3FABRIC: {
                 flags |= NH_FLAG_COMPOSITE_FABRIC;
                 break;
             }
             case Composite::L2COMP: {
                 encoder.set_nhr_family(AF_BRIDGE);
                 flags |= NH_FLAG_MCAST;
-                flags |= NH_FLAG_COMPOSITE_L2;
                 break;
             }
             case Composite::L3COMP: {

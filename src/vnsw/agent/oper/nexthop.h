@@ -1391,6 +1391,7 @@ struct Composite {
     enum Type {
         INVALID,
         FABRIC,
+        L3FABRIC,
         L2COMP,
         L3COMP,
         MULTIPROTO,
