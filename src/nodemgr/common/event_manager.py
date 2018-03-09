@@ -5,8 +5,7 @@
 import gevent
 import json
 import ConfigParser
-from StringIO import StringIO
-from ConfigParser import NoOptionError, NoSectionError
+from ConfigParser import NoOptionError
 import sys
 import os
 import psutil
@@ -14,11 +13,8 @@ import socket
 import time
 import subprocess
 from subprocess import Popen, PIPE
-import xmlrpclib
-import platform
 import random
 import hashlib
-import select
 import copy
 
 from buildinfo import build_info
@@ -48,25 +44,21 @@ try:
 except Exception:
     # there is no docker library. assumes that code runs not for microservices
     DockerProcessInfoManager = None
-from systemd_process_manager import SystemdProcessInfoManager
-from supervisor_process_manager import SupervisorProcessInfoManager
 
-from utils import NodeMgrUtils, is_systemd_based,\
-    is_running_in_docker, is_running_in_kubepod
+import utils
+
 
 class EventManagerTypeInfo(object):
-    def __init__(self, package_name, module_type, object_table,
-                 supervisor_serverurl, third_party_processes={},
+    def __init__(self, module_type, object_table,
+                 third_party_processes={},
                  sandesh_packages=[]):
 
-        self._package_name = package_name
         self._module_type = module_type
         self._module_name = ModuleNames[self._module_type]
         self._object_table = object_table
         self._node_type = Module2NodeType[self._module_type]
         self._node_type_name = NodeTypeNames[self._node_type]
         self._uve_node_type = UVENodeTypeNames[self._node_type]
-        self._supervisor_serverurl = supervisor_serverurl
         self._third_party_processes = third_party_processes
         self._sandesh_packages = sandesh_packages
     # end __init__
@@ -85,15 +77,13 @@ class EventManager(object):
     FAIL_STATUS_NTP_SYNC = 0x8
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
-    def __init__(self, config, type_info, rule_file, sandesh_instance,
+    def __init__(self, config, type_info, sandesh_instance,
                  unit_names, update_process_list=False):
         self.config = config
         self.type_info = type_info
         self.stdin = sys.stdin
         self.stdout = sys.stdout
         self.stderr = sys.stderr
-        self.rule_file = rule_file
-        self.rules_data = {'Rules': []}
         self.max_cores = 4
         self.max_old_cores = 3
         self.max_new_cores = 1
@@ -135,17 +125,9 @@ class EventManager(object):
             syslog_facility=self.config.syslog_facility)
         self.logger = self.sandesh_instance.logger()
 
-        # TODO: handle difference between 'fat' containers and microservices smartly
-        if DockerProcessInfoManager and (is_running_in_docker() or is_running_in_kubepod()):
+        if (DockerProcessInfoManager and (utils.is_running_in_docker() or utils.is_running_in_kubepod()):
             self.process_info_manager = DockerProcessInfoManager(
                 unit_names, event_handlers, update_process_list)
-        elif is_systemd_based():
-            self.process_info_manager = SystemdProcessInfoManager(
-                unit_names, event_handlers, update_process_list)
-        elif 'SUPERVISOR_SERVER_URL' in os.environ:
-            self.process_info_manager = SupervisorProcessInfoManager(
-                self.stdin, self.stdout, self.type_info._supervisor_serverurl,
-                event_handlers, update_process_list)
         else:
             self.msg_log('Node manager could not detect process manager',
                          SandeshLevel.SYS_ERR)
@@ -155,11 +137,6 @@ class EventManager(object):
             self.send_init_info(group)
         self.third_party_process_dict = self.type_info._third_party_processes
     # end __init__
-
-    def add_unit_name(self, unit_name):
-        method = getattr(self.process_info_manager, "add_unit_name", None)
-        if method and callable(method):
-            method(unit_name)
 
     def msg_log(self, msg, level):
         self.logger.log(SandeshLogger.get_py_logger_level(
@@ -177,14 +154,8 @@ class EventManager(object):
                 last_event_timestamp=self.process_info_manager._event_listener.supervisor_events_error_timestamp)
         supervisor_resp.response(req.context())
 
-    def load_rules_data(self):
-        if self.rule_file and os.path.isfile(self.rule_file):
-            json_file = open(self.rule_file)
-            self.rules_data = json.load(json_file)
-    # end load_rules_data
-
     def process(self):
-        self.load_rules_data()
+        pass
     # end process
 
     def get_process_name(self, process_info):
@@ -493,10 +464,7 @@ class EventManager(object):
             self.process_state_db[proc_stat.group] = {}
             send_init_uve = True
         self.process_state_db[proc_stat.group][pname] = proc_stat
-        if not (send_uve):
-            return
-
-        if (send_uve):
+        if send_uve:
             if (send_init_uve):
                 self.send_init_info(proc_stat.group)
             self.send_process_state_db([proc_stat.group])
@@ -527,16 +495,11 @@ class EventManager(object):
     # end send_nodemgr_process_status
 
     def _get_package_version(self):
-        installed_package_version = \
-            NodeMgrUtils.get_package_version(self.get_package_name())
+        installed_package_version = utils.get_package_version('contrail-nodemgr')
         if installed_package_version is None:
-            # TODO: temp for containers
-            installed_package_version = \
-                NodeMgrUtils.get_package_version('contrail-nodemgr')
-            if installed_package_version is None:
-                self.msg_log('Error getting %s package version' % (
-                    self.get_package_name()), SandeshLevel.SYS_ERR)
-                installed_package_version = "package-version-unknown"
+            self.msg_log('Error getting %s package version' % (
+                'contrail-nodemgr'), SandeshLevel.SYS_ERR)
+            installed_package_version = "package-version-unknown"
         return installed_package_version
 
     def send_init_info(self, group_name):
@@ -642,17 +605,16 @@ class EventManager(object):
 
     def get_process_state_base(self, fail_status_bits,
                                ProcessStateNames, ProcessState):
-        if fail_status_bits:
-            state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
-            description = self.get_failbits_nodespecific_desc(fail_status_bits)
-            if (description is ""):
-                if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
-                    if description != "":
-                        description += " "
-                    description += "NTP state unsynchronized."
-        else:
-            state = ProcessStateNames[ProcessState.FUNCTIONAL]
-            description = ''
+        if not fail_status_bits:
+            return ProcessStateNames[ProcessState.FUNCTIONAL], ''
+
+        state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
+        description = self.get_failbits_nodespecific_desc(fail_status_bits)
+        if not description:
+            if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
+                if description != "":
+                    description += " "
+                description += "NTP state unsynchronized."
         return state, description
     # end get_process_state_base
 
@@ -665,30 +627,11 @@ class EventManager(object):
         return ""
 
     def event_process_state(self, process_info):
-        msg = ("DBG: event_process_state:" + process_info['name'] + "," + "group:" +
-               process_info['group'] + "," + "state:" + process_info['state'])
+        msg = ("DBG: event_process_state:" + process_info['name'] + ","
+               + "group:" + process_info['group'] + "," + "state:"
+               + process_info['state'])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         self.send_process_state(process_info)
-        for rules in self.rules_data['Rules']:
-            if 'processname' in rules:
-                if ((rules['processname'] == process_info['group']) and
-                   (rules['process_state'] == process_info['state'])):
-                    msg = "got a hit with:" + str(rules)
-                    self.msg_log(msg, SandeshLevel.SYS_DEBUG)
-                    # do not make async calls
-                    try:
-                        ret_code = subprocess.call(
-                            [rules['action']], shell=True,
-                            stdout=self.stderr, stderr=self.stderr)
-                    except Exception as e:
-                        msg = ('Failed to execute action: ' + rules['action'] +
-                                 ' with err ' + str(e))
-                        self.msg_log(msg, SandeshLevel.SYS_ERR)
-                    else:
-                        if ret_code:
-                            msg = ('Execution of action ' + rules['action'] +
-                                        ' returned err ' + str(ret_code))
-                            self.msg_log(msg, SandeshLevel.SYS_ERR)
     # end event_process_state
 
     def event_process_communication(self, pdata):
@@ -696,14 +639,6 @@ class EventManager(object):
         msg = ("DBG: event_process_communication: Flag:" + flag_and_value[0] +
                " Value:" + flag_and_value[2])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
-        for rules in self.rules_data['Rules']:
-            if 'flag_name' in rules:
-                if ((rules['flag_name'] == flag_and_value[0]) and
-                   (rules['flag_value'].strip() == flag_and_value[2].strip())):
-                    msg = "got a hit with:" + str(rules)
-                    self.msg_log(msg, SandeshLevel.SYS_DEBUG)
-                    cmd_and_args = ['/usr/bin/bash', '-c', rules['action']]
-                    subprocess.Popen(cmd_and_args)
 
     def event_tick_60(self):
         self.tick_count += 1
@@ -773,11 +708,6 @@ class EventManager(object):
         self.process_info_manager.run(test)
     # end runforever
 
-    def get_package_name(self):
-        return self.type_info._package_name
-
-    # end get_package_name
-
     def nodemgr_sighup_handler(self):
         config = ConfigParser.SafeConfigParser()
         config.read(self.config_file)
@@ -785,7 +715,7 @@ class EventManager(object):
             try:
                 collector = config.get('COLLECTOR', 'server_list')
                 collector_list = collector.split()
-            except ConfigParser.NoOptionError as e:
+            except ConfigParser.NoOptionError:
                 pass
 
         if collector_list:
@@ -793,7 +723,7 @@ class EventManager(object):
             if new_chksum != self.collector_chksum:
                 self.collector_chksum = new_chksum
                 self.random_collectors = \
-                    random.sample(collector_list, len(collector_list)) 
+                    random.sample(collector_list, len(collector_list))
             # Reconnect to achieve load-balance irrespective of list
             self.sandesh_instance.reconfig_collectors(self.random_collectors)
     #end nodemgr_sighup_handler
