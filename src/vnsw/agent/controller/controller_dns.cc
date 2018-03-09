@@ -116,18 +116,18 @@ void AgentDnsXmppChannel::TimedOut() {
     std::vector<string>::iterator iter = agent_->GetDnslist().begin();
     std::vector<string>::iterator end = agent_->GetDnslist().end();
     for (; iter != end; iter++) {
-	std::vector<string> server;
-	boost::split(server, *iter, boost::is_any_of(":"));
-	if (GetXmppServer().compare(server[0]) == 0) {
-	    // Add the TIMEDOUT server to the end.
-	    if (iter+1 == end) break;
-	    std::rotate(iter, iter+1, end);
-	    update_list = true;
-	    break;
-	}
+        std::vector<string> server;
+        boost::split(server, *iter, boost::is_any_of(":"));
+        if (GetXmppServer().compare(server[0]) == 0) {
+            // Add the TIMEDOUT server to the end.
+            if (iter + 1 == end) break;
+            std::rotate(iter, iter + 1, end);
+            update_list = true;
+            break;
+        }
     }
     if (update_list) {
-	agent_->controller()->ReConnectDnsServer();
+        agent_->controller()->ReConnectDnsServer();
     }
 }
 
