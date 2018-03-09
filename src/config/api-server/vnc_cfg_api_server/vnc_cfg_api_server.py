@@ -3098,7 +3098,52 @@ class VncApiServer(object):
                                                 obj_fields=['perms2'])
         obj_dict['perms2']['global_access'] = PERMS_RX
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
+
+        # Load init data for job playbooks like JobTemplates, Tags, etc
+        self._load_init_data()
     # end _db_init_entries
+
+    # Load init data for job playbooks like JobTemplates, Tags, etc
+    def _load_init_data(self):
+        try:
+            json_data = self._load_json_data()
+            for item in json_data.get("data"):
+                object_type = item.get("object_type")
+
+                # Get the class name from object type
+                cls_name = cfgm_common.utils.CamelCase(object_type)
+
+                # Get the class object
+                cls_ob = cfgm_common.utils.str_to_class(cls_name, __name__)
+
+                # saving the objects to the database
+                for object in item.get("objects"):
+                    instance_obj = cls_ob(**object)
+                    self.create_singleton_entry(instance_obj)
+        except Exception ex:
+            self.config_log('error while loading init data: ' + str(e),
+                            level=SandeshLevel.SYS_NOTICE)
+    # end Load init data
+
+    # Load json data from fabric_ansible_playbooks/conf directory
+    def _load_json_data(self):
+        # open the json file
+        with open(self._args.fabric_ansible_dir + '/conf/predef_payloads.json') as data_file:
+            input_json = json.load(data_file)
+
+        # Loop through the json
+        for item in input_json.get("data"):
+            # This condition shoule come outside
+            if item.get("object_type") == "job_template":
+                for object in item.get("objects"):
+                    fq_name = object.get("fq_name")[-1]
+                    schema_name = fq_name.replace('template', 'schema.json')
+                    schema_file = open(os.path.join(self._args.fabric_ansible_dir + '/schema/', schema_name), 'r+')
+                    schema_json = json.load(schema_file)
+                    object["job_template_input_schema"] = schema_json.get("input_schema")
+                    object["job_template_output_schema"] = schema_json.get("output_schema")
+                return input_json
+    # end load json data
 
     # generate default rbac group rule
     def _create_default_rbac_rule(self):
@@ -3215,10 +3260,38 @@ class VncApiServer(object):
             if obj_type == 'virtual_network':
                 vn_id = self.alloc_vn_id(s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
+            if obj_type == 'tag':
+                obj_dict = self._allocate_tag_id(obj_dict)
             self._db_conn.dbe_create(obj_type, obj_id, obj_dict)
             self.create_default_children(obj_type, s_obj)
         return s_obj
     # end create_singleton_entry
+
+    # allocate tag id for tag object
+    def _allocate_tag_id(self, obj_dict):
+        type_str = obj_dict['tag_type_name']
+        value_str = obj_dict['tag_value']
+
+        ok, result = vnc_cfg_types.TagTypeServer.locate([type_str],
+                                                        id_perms=IdPermsType(user_visible=False))
+        tag_type = result
+        obj_dict['tag_type_refs'] = [
+            {
+                'uuid': tag_type['uuid'],
+                'to': tag_type['fq_name'],
+            },
+        ]
+
+        # Allocate ID for tag value. Use the all fq_name to distinguish same
+        # tag values between global and scoped
+        value_id = vnc_cfg_types.TagServer.vnc_zk_client.alloc_tag_value_id(
+            type_str, ':'.join(obj_dict['fq_name']))
+
+        # Compose Tag ID with the type ID and value ID
+        obj_dict['tag_id'] = "{}{:04x}".format(tag_type['tag_type_id'],
+                                               value_id)
+        return obj_dict
+    # end allocate tag id
 
     def _validate_page_marker(self, req_page_marker):
         # query params always appears as string
