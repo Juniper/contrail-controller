@@ -19,6 +19,7 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
     CassandraCompactionTask, DatabaseUsageStats, DatabaseUsageInfo,\
     DatabaseUsage
 
+from utils import package_installed
 
 class CassandraManager(object):
     def __init__(self, cassandra_repair_logdir, db_name, contrail_databases,
