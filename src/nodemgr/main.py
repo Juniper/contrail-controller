@@ -73,6 +73,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'collectors': [],
                'hostip': '127.0.0.1',
                'db_port': '9042',
+               'db_jmx_port': '7199',
                'minimum_diskgb': 256,
                'corefile_path': '/var/crashes',
                'contrail_databases': 'config analytics',
@@ -112,7 +113,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         try:
             collector = config.get('COLLECTOR', 'server_list')
             default['collectors'] = collector.split()
-        except ConfigParser.NoOptionError as e:
+        except ConfigParser.NoOptionError:
             pass
     SandeshConfig.update_options(sandesh_opts, config)
     parser = argparse.ArgumentParser(parents=[node_parser],
@@ -148,11 +149,13 @@ def main(args_str=' '.join(sys.argv[1:])):
         parser.add_argument("--contrail_databases",
                             nargs='+',
                             help='Contrail databases on this node' +
-                                 'in format: config analytics' )
+                                 'in format: config analytics')
         parser.add_argument("--hostip",
                             help="IP address of host")
         parser.add_argument("--db_port",
                             help="Cassandra DB cql port")
+        parser.add_argument("--db_jmx_port",
+                            help="Cassandra DB jmx port")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")
@@ -194,6 +197,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-schema.service',
                       'contrail-svc-monitor.service',
                       'contrail-device-manager.service',
+                      'contrail-database.service',
                       'contrail-config-nodemgr.service',
                       ]
         prog = ConfigEventManager(_args, rule_file, unit_names)
