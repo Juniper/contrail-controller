@@ -90,6 +90,7 @@ def parse_args(args_str):
         'object_cache_exclude_types': '', # csv of object types to *not* cache
         'db_engine': 'cassandra',
         'max_request_size': 1024000,
+        'fabric_ansible_dir': '/opt/contrail/fabric_ansible_playbooks',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -304,6 +305,8 @@ def parse_args(args_str):
         help="Database engine to use, default cassandra")
     parser.add_argument("--max_request_size", type=int,
             help="Maximum size of bottle requests served by api server")
+    parser.add_argument("--fabric_ansible_dir",
+        help="Fabric ansible directory path")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
@@ -378,3 +381,4 @@ def get_filters(data, skips=None):
         if values:
             res[key] = values
     return res
+

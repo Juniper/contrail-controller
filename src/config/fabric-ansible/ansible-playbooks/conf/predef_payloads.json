@@ -86,19 +86,21 @@
          "objects": [
             {
                 "fq_name": [
-                    "namespace=management_ip"
+                    "fabric=management_ip"
                 ],
-                "tag_type_name": "namespace",
+                "name": "fabric=management_ip",
+                "tag_type_name": "fabric",
                 "tag_value": "management_ip"
             },
            {
                 "fq_name": [
-                    "namespace=as_number"
+                    "fabric=management_ip"
                 ],
-                "tag_type_name": "namespace",
+                "name": "fabric=as_number",
+                "tag_type_name": "fabric",
                 "tag_value": "as_number"
            }
-           ]
+         ]
      }
    ]
 }
