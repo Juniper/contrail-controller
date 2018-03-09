@@ -680,6 +680,7 @@ enum TagTypeEnum {
     TIER,
     DEPLOYMENT,
     SITE,
+    FABRIC,
 }
 
 // Mapping Tag Type ID to Name
@@ -690,6 +691,7 @@ const map<TagTypeEnum, string> TagTypeIdToName = {
     TagTypeEnum.TIER: "tier",
     TagTypeEnum.DEPLOYMENT: "deployment",
     TagTypeEnum.SITE: "site",
+    TagTypeEnum.FABRIC: "fabric",
 }
 
 // Mapping Tag Type Name to ID
@@ -699,6 +701,7 @@ const map<string, TagTypeEnum> TagTypeNameToId = {
     "tier": TagTypeEnum.TIER,
     "deployment": TagTypeEnum.DEPLOYMENT,
     "site": TagTypeEnum.SITE,
+    "fabric": TagTypeEnum.FABRIC,
 }
 
 // Tag Type authorized to NOT be unique on an object
@@ -714,3 +717,4 @@ const list<TagTypeEnum> DEFAULT_MATCH_TAG_TYPE = [
 const list<string> TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP = [
     "label", //TagTypeIdToName[TagTypeEnum.LABEL],
 ]
+
