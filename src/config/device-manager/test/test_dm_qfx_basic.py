@@ -347,6 +347,187 @@ class TestQfxBasicDM(TestCommonDM):
             raise Exception("No IRB config attached to VLAN for vn: " + vrf_name)
     # end check_spine_irb_config
 
+    def security_group_create(self, sg_name, project_fq_name):
+        project_obj = self._vnc_lib.project_read(project_fq_name)
+        sg_obj = SecurityGroup(name=sg_name, parent_obj=project_obj)
+        self._vnc_lib.security_group_create(sg_obj)
+        return sg_obj
+    #end security_group_create
+
+    def _security_group_rule_append(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            rules = PolicyEntriesType([sg_rule])
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                sgr_copy = copy.copy(sgr)
+                sgr_copy.rule_uuid = sg_rule.rule_uuid
+                if sg_rule == sgr_copy:
+                    raise Exception('SecurityGroupRuleExists %s' % sgr.rule_uuid)
+            rules.add_policy_rule(sg_rule)
+
+        sg_obj.set_security_group_entries(rules)
+    #end _security_group_rule_append
+
+    def _security_group_rule_build(self, rule_info, sg_fq_name_str):
+        protocol = rule_info['protocol']
+        port_min = rule_info['port_min'] or 0
+        port_max = rule_info['port_max'] or 65535
+        direction = rule_info['direction'] or 'ingress'
+        ip_prefix = rule_info['ip_prefix']
+        ether_type = rule_info['ether_type']
+
+        if ip_prefix:
+            cidr = ip_prefix.split('/')
+            pfx = cidr[0]
+            pfx_len = int(cidr[1])
+            endpt = [AddressType(subnet=SubnetType(pfx, pfx_len))]
+        else:
+            endpt = [AddressType(security_group=sg_fq_name_str)]
+
+        local = None
+        remote = None
+        if direction == 'ingress':
+            dir = '>'
+            local = endpt
+            remote = [AddressType(security_group='local')]
+        else:
+            dir = '>'
+            remote = endpt
+            local = [AddressType(security_group='local')]
+
+        if not protocol:
+            protocol = 'any'
+        if protocol.isdigit():
+            protocol = int(protocol)
+            if protocol < 0 or protocol > 255:
+                raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
+        else:
+            if protocol not in ['any', 'tcp', 'udp', 'icmp']:
+                raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
+
+        if not ip_prefix and not sg_fq_name_str:
+            if not ether_type:
+                ether_type = 'IPv4'
+
+        sgr_uuid = str(uuid.uuid4())
+        rule = PolicyRuleType(rule_uuid=sgr_uuid, direction=dir,
+                                  protocol=protocol,
+                                  src_addresses=local,
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=remote,
+                                  dst_ports=[PortType(port_min, port_max)],
+                                  ethertype=ether_type)
+        return rule
+    #end _security_group_rule_build
+
+    @retries(5)
+    def wait_for_get_sg_id(self, sg_fq_name):
+        sg_obj = self._vnc_lib.security_group_read(sg_fq_name)
+        if sg_obj.get_security_group_id() is None:
+            raise Exception('Security Group Id is none %s' % str(sg_fq_name))
+
+    def build_acl_rule(self, pmin, pmax, direction, proto, etype):
+        rule = {}
+        rule['port_min'] = pmin
+        rule['port_max'] = pmax
+        rule['direction'] = direction
+        rule['ip_prefix'] = None
+        rule['protocol'] = proto
+        rule['ether_type'] = etype
+        return rule
+
+    def get_firewall_filters(self, sg):
+        filter_names = []
+        acls = self.get_sg_acls(sg)
+        for acl in acls or []:
+            if 'egress-' in acl.name:
+                continue
+            entries = acl.get_access_control_list_entries()
+            if not entries:
+                continue
+            rules = entries.get_acl_rule() or []
+            if not rules:
+                continue
+            for rule in rules:
+                match = rule.get_match_condition()
+                if not match:
+                    continue
+                rule_uuid = rule.get_rule_uuid()
+                ether_type_match = match.get_ethertype()
+                if "ipv6" in ether_type_match.lower():
+                    continue
+                filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
+                filter_names.append(filter_name)
+        return filter_names
+    # end get_firewall_filters
+
+    def get_sg_acls(self, sg_obj):
+        acls = sg_obj.get_access_control_lists()
+        acl = None
+        acl_list = []
+        for acl_to in acls or []:
+            acl = self._vnc_lib.access_control_list_read(id=acl_to['uuid'])
+            acl_list.append(acl)
+        return acl_list
+
+    def test_acl_config(self):
+        self.product = 'qfx5110'
+        FakeNetconfManager.set_model(self.product)
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', \
+                                            product=self.product, role='leaf')
+        pr.set_physical_router_role("leaf")
+        self._vnc_lib.physical_router_update(pr)
+        pi1 = PhysicalInterface('pi1-esi', parent_obj = pr)
+        pi_id = self._vnc_lib.physical_interface_create(pi1)
+
+        #create sg and associate egress rule and check acls
+        sg1_obj = self.security_group_create('sg-1', ['default-domain',
+                                                      'default-project'])
+        self.wait_for_get_sg_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        rule1 = self.build_acl_rule(0, 65535, 'ingress', 'any', 'IPv4')
+        sg_rule1 = self._security_group_rule_build(rule1,
+                                                   sg1_obj.get_fq_name_str())
+        self._security_group_rule_append(sg1_obj, sg_rule1)
+        self._vnc_lib.security_group_update(sg1_obj)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+
+        # associate li, vmi
+        vn1_name = 'vn-acl-' + self.id() + "-" + self.product
+        vn1_obj = VirtualNetwork(vn1_name)
+        ipam_obj = NetworkIpam('ipam-esi' + self.id() + "-" + self.product)
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+
+        vn1_obj_properties = VirtualNetworkType()
+        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_forwarding_mode('l2_l3')
+        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
+
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+        vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
+
+        fq_name = ['default-domain', 'default-project', 'vmi1-acl' + self.id()]
+        vmi1 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
+        vmi1.set_virtual_network(vn1_obj)
+        vmi1.add_security_group(sg1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi1)
+
+        li1 = LogicalInterface('li1.0', parent_obj = pi1)
+        li1.set_logical_interface_vlan_tag(100)
+        li1.set_virtual_machine_interface(vmi1)
+        li1_id = self._vnc_lib.logical_interface_create(li1)
+
+        filters = self.get_firewall_filters(sg1_obj)
+        self.check_firewall_config(filters)
+        self.check_acl_config('li1', filters)
+
+        self._vnc_lib.logical_interface_delete(fq_name=li1.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi1.get_fq_name())
+    # end test_acl_config
+
     def test_esi_config(self):
         self.product = 'qfx5110'
         FakeNetconfManager.set_model(self.product)
@@ -383,6 +564,7 @@ class TestQfxBasicDM(TestCommonDM):
         li1.set_logical_interface_vlan_tag(100)
         li1.set_virtual_machine_interface(vmi1)
         li1_id = self._vnc_lib.logical_interface_create(li1)
+
 
         self.check_esi_config('ae127', esi_value)
         self.check_esi_config('pi1-esi', esi_value, False)
@@ -486,6 +668,40 @@ class TestQfxBasicDM(TestCommonDM):
                     return
         raise Exception("vlan interface config is not correct")
     # end check_l2_evpn_vlan_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_firewall_config(self, fnames):
+        config = FakeDeviceConnect.get_xml_config()
+        fwalls = config.get_firewall()
+        if not fwalls or not fwalls.get_family() or not fwalls.get_family().get_ethernet_switching():
+            raise Exception("No eth firewalls configured")
+        ff = fwalls.get_family().get_ethernet_switching().get_filter()
+        if not ff:
+            raise Exception("No eth firewall filter configured")
+        conf_filters = [f.name for f in ff]
+        for fname in fnames:
+            if fname not in conf_filters:
+                raise Exception("firewall filter %s configured"%(fname))
+    # end check_firewall_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_acl_config(self, intf_name, input_list):
+        config = FakeDeviceConnect.get_xml_config()
+        interfaces = self.get_interfaces(config, intf_name)
+        if not interfaces:
+            raise Exception("Interface Config not generated : " + intf_name)
+        if_config = interfaces[0]
+        if not if_config.get_unit():
+            raise Exception("No Units are configured : " + intf_name)
+        unit = if_config.get_unit()[0]
+        if not unit.get_family() or not unit.get_family().get_ethernet_switching():
+            raise Exception("No Ethernet Family configured : " + intf_name)
+        eth = unit.get_family().get_ethernet_switching()
+        flist = eth.get_filter().get_input_list()
+        for iput in input_list:
+            if iput not in flist:
+                raise Exception("filter %s not attached %s"%(iput, intf_name))
+    #def check_acl_config
 
     @retries(5, hook=retry_exc_handler)
     def check_l2_evpn_native_vlan_config(self, vn_obj, vn_mode, intf_name):
