@@ -316,20 +316,33 @@ class VncApiServer(object):
                              'Valid values are: management|left|right|other[0-9]*'
                               % value)
 
-
     def validate_input_params(self, request_params):
         device_list = None
         job_template_id = request_params.get('job_template_id')
+        job_template_fq_name = request_params.get('job_template_fq_name')
 
-        if job_template_id is None:
-            err_msg = "job_template_id required in request"
+        if not (job_template_id or job_template_fq_name):
+            err_msg = "Either job_template_id or job_template_fq_name" \
+                      " required in request"
             raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         # check if the job template id is a valid uuid
-        if self.invalid_uuid(job_template_id):
-            msg = 'Invalid job-template uuid type %s. uuid type required' \
-                  % job_template_id
-            raise cfgm_common.exceptions.HttpError(400, msg)
+        if job_template_id:
+            if self.invalid_uuid(job_template_id):
+                msg = 'Invalid job-template uuid type %s. uuid type required' \
+                      % job_template_id
+                raise cfgm_common.exceptions.HttpError(400, msg)
+        else:
+            # check if the job template fqname is a valid fq_name
+            try:
+                job_template_id = self._db_conn.fq_name_to_uuid(
+                                  "job_template", job_template_fq_name)
+                request_params.update({'job_template_id': job_template_id})
+            except NoIdError as no_id_exec:
+                raise cfgm_common.exceptions.HttpError(404, str(no_id_exec))
+            except Exception as e:
+                msg = "Error while reading job_template_fqname: " + str(e)
+                raise cfgm_common.exceptions.HttpError(400, msg)
 
         # TODO do any required input schema validations
 
@@ -356,10 +369,13 @@ class VncApiServer(object):
 
         return device_list
 
-
     def execute_job_http_post(self):
         ''' Payload of execute_job
-            job_template_id (Mandatory): <uuid> of the created job_template
+            job_template_id (Mandatory if no job_template_fq_name): <uuid> of
+            the created job_template
+            job_template_fq_name (Mandatory if no job_template_id): fqname in
+            the format: ["<global-system-config-name>",
+                         "<name of the job-template>"]
             input (Type json): Input Schema of the playbook under the
             job_template_id
             params (Type json): Extra_params for the job_manager
@@ -415,9 +431,6 @@ class VncApiServer(object):
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise cfgm_common.exceptions.HttpError(500, err_msg)
 
-
-
-
     def read_device_data(self, device_list, request_params):
         device_data = dict()
         for device_id in device_list:
@@ -456,8 +469,6 @@ class VncApiServer(object):
             device_data.update({device_id: device_json})
         if len(device_data) > 0:
             request_params.update({"device_json": device_data})
-
-
 
     @classmethod
     def _validate_simple_type(cls, type_name, xsd_type, simple_type, value, restrictions=None):
