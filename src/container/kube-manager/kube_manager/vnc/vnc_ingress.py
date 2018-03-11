@@ -74,20 +74,29 @@ class VncIngress(VncCommon):
             return self._args.ip_fabric_forwarding
 
     def _get_network(self, ns_name):
+        set_default_vn = False
         ns = self._get_namespace(ns_name)
-        if ns.is_isolated():
-            vn_fq_name = ns.get_isolated_pod_network_fq_name()
-        else:
+        vn_fq_name = ns.get_annotated_network_fq_name()
+
+        if not vn_fq_name:
+            if ns.is_isolated():
+                vn_fq_name = ns.get_isolated_pod_network_fq_name()
+
+        if not vn_fq_name:
             if self._default_vn_obj:
                 return self._default_vn_obj
+            set_default_vn = True
             vn_fq_name = vnc_kube_config.cluster_default_pod_network_fq_name()
+
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:
             self._logger.error("%s - %s Not Found" %(self._name, vn_fq_name))
             return None
-        if not ns.is_isolated():
+
+        if set_default_vn:
             self._default_vn_obj = vn_obj
+
         return vn_obj
 
     def _get_pod_ipam_subnet_uuid(self, ns_name, vn_obj):
