@@ -39,14 +39,11 @@ def _convert_to_pi_event(info):
 
 class DockerProcessInfoManager(object):
     def __init__(self, unit_names, event_handlers, update_process_list):
-        self.__unit_names = [name.rsplit('.service', 1)[0] for name in unit_names]
+        self.__unit_names = unit_names
         self.__event_handlers = event_handlers
         self.__update_process_list = update_process_list
         self.__cached_process_infos = {}
         self.__client = docker.from_env()
-
-    def add_unit_name(self, unit_name):
-        self.__unit_names.append(unit_name.rsplit('.service', 1)[0])
 
     def __get_full_info(self, cid):
         try:
@@ -55,13 +52,16 @@ class DockerProcessInfoManager(object):
             return None
 
     def __get_nodemgr_name(self, container):
-        labels = container.get('Labels')
-        name = labels.get('net.juniper.nodemgr.filter.name') if labels is not None else None
-        if name is None:
-            name = container['Names'][0] if len(container['Names']) != 0 else container['Command']
-            name = name.lstrip('/')
+        labels = container.get('Labels', dict())
+        pod = labels.get('net.juniper.contrail.pod')
+        service = labels.get('net.juniper.contrail.service')
+        if not pod or not service:
+            name = labels.get('net.juniper.conrail')
+        else:
+            name = pod + '-' + service
         if name == 'nodemgr':
-            # 'nodemgr' is a special image that must be parameterized at start with NODE_TYPE env variable
+            # 'nodemgr' is a special image that must be parameterized at start
+            # with NODE_TYPE env variable
             if 'Env' not in container:
                 # list_containers does not return 'Env' information
                 info = self.__get_full_info(container['Id'])
@@ -69,7 +69,8 @@ class DockerProcessInfoManager(object):
                     container = info['Config']
             if 'Env' in container:
                 env = container.get('Env', list())
-                node_type = next(iter([i for i in env if i.startswith('NODE_TYPE=')]), None)
+                node_type = next(iter(
+                    [i for i in env if i.startswith('NODE_TYPE=')]), None)
                 if node_type:
                     node_type = node_type.split('=')[1]
                     name = 'contrail-' + node_type + '-nodemgr'
@@ -150,15 +151,11 @@ class DockerProcessInfoManager(object):
             self.__update_cache(info)
         return processes_info_list
 
-    def run(self, test):
+    def run(self):
         # TODO: probaly use subscription on events..
         while True:
             self.__poll_containers()
             gevent.sleep(seconds=5)
 
-    def get_mem_cpu_usage_data(self, pid, last_cpu, last_time):
-        return DockerMemCpuUsageData(pid, last_cpu, last_time)
-
-    def find_pid(self, name, pattern):
-        container = self.__find_container(name)
-        return container['Id'] if container is not None else None
+    def get_mem_cpu_usage_data(self, id, last_cpu, last_time):
+        return DockerMemCpuUsageData(id, last_cpu, last_time)
