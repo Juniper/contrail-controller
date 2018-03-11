@@ -32,6 +32,8 @@ public:
         EXPECT_TRUE(VmPortActive(2));
         vnet1_ = static_cast<VmInterface *>(VmPortGet(1));
         vnet2_ = static_cast<VmInterface *>(VmPortGet(2));
+        AddNode("virtual-machine-interface", "vhost0", 100);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -44,6 +46,8 @@ public:
         EXPECT_EQ(0, vnswif_->GetHostInterfaceCount());
         WAIT_FOR(1000, 100, (VmPortFindRetDel(1) == false));
         WAIT_FOR(1000, 100, (VmPortFindRetDel(2) == false));
+        DelNode("virtual-machine-interface", "vhost0");
+        client->WaitForIdle();
     }
 
     void SetSeen(const string &ifname, bool oper, uint32_t id) {
@@ -75,7 +79,8 @@ public:
 
         Ip4Address addr = Ip4Address::from_string(ip);
         vnswif_->Enqueue(new VnswInterfaceListener::Event(type, ifname,
-                                                          addr, 24, 0));
+                                                          addr, 24, 0,
+                                                          false));
         client->WaitForIdle();
     }
 
@@ -382,6 +387,122 @@ TEST_F(TestVnswIf, linklocal_2) {
                VnswInterfaceListener::kVnswRtmProto);
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (vnswif_->ll_del_count() >= (count + 1)));
+}
+
+TEST_F(TestVnswIf, FabricIpam) {
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"2.2.2.0", 24, "2.2.2.10"},
+        {"10.1.1.0", 24, "10.1.1.10"}
+    };
+
+    uint32_t id = Interface::kInvalidIndex;
+    const Interface *intf = agent_->vhost_interface();
+    if (intf) {
+        id = intf->id();
+    }
+    SetSeen(agent_->vhost_interface_name(), true, id);
+    client->WaitForIdle();
+
+    uint32_t del_count = vnswif_->ll_del_count();
+    uint32_t count = vnswif_->ll_add_count();
+
+    AddVn(agent_->fabric_vn_name().c_str(), 100);
+    AddVn("test_vn1", 101);
+    AddIPAM("test_vn1", ipam_info, 3);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vnswif_->ll_add_count() == count);
+    //VN enabled for fabric forwarding
+    //all the IPAM routes should be added
+    AddLink("virtual-network", "test_vn1", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    //Only 2 routes get added because 10.1.1.0/24 overlaps
+    //with vhost resolve route and shouldnt get added
+    EXPECT_TRUE(vnswif_->ll_add_count() == count + 2);
+
+
+    //Add another VN with same IPAM, no changes as routes
+    //are already present
+    AddVn("test_vn2", 102);
+    AddIPAM("test_vn2", ipam_info, 3);
+    AddLink("virtual-network", "test_vn2", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    //No change
+    EXPECT_TRUE(vnswif_->ll_add_count() == count + 2);
+
+    //Disabled test_vn2 from forwarding no change as
+    //test_vn1 is enabled for forwarding still
+    DelLink("virtual-network", "test_vn2", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vnswif_->ll_add_count() == count + 2);
+    EXPECT_TRUE(vnswif_->ll_del_count() == del_count);
+
+    //Delete the IPAM
+    DelIPAM("test_vn1");
+    DelIPAM("test_vn2");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vnswif_->ll_del_count() == del_count + 2);
+
+    DelLink("virtual-network", "test_vn1", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+
+    DelVn("test_vn1");
+    DelVn("test_vn2");
+    DelVn(agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    InterfaceEvent(false, agent_->vhost_interface_name(), 0);
+    ResetSeen(agent_->vhost_interface_name());
+    client->WaitForIdle();
+}
+
+TEST_F(TestVnswIf, FabricIpamLinkFlap) {
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"}
+    };
+
+    uint32_t count = vnswif_->ll_add_count();
+    uint32_t del_count = vnswif_->ll_del_count();
+
+    AddVn(agent_->fabric_vn_name().c_str(), 100);
+    AddVn("test_vn1", 101);
+    AddIPAM("test_vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vnswif_->ll_add_count() == count);
+    //VN enabled for fabric forwarding
+    //all the IPAM routes should be added
+    AddLink("virtual-network", "test_vn1", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vnswif_->ll_add_count() == count + 1);
+
+    InterfaceEvent(true, agent_->vhost_interface_name(), 0);
+    client->WaitForIdle();
+
+    InterfaceEvent(true, agent_->vhost_interface_name(), (IFF_UP|IFF_RUNNING));
+    EXPECT_TRUE(vnswif_->ll_add_count() >= count + 3);
+
+    //Delete the IPAM
+    DelIPAM("test_vn1");
+    DelLink("virtual-network", "test_vn1", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+    DelVn("test_vn1");
+    DelVn(agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(vnswif_->ll_del_count() == del_count + 1);
+
+    InterfaceEvent(false, agent_->vhost_interface_name(), 0);
+    ResetSeen(agent_->vhost_interface_name());
+    client->WaitForIdle();
 }
 
 class SetupTask : public Task {

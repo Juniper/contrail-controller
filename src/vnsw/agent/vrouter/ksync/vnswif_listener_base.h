@@ -10,6 +10,7 @@
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
 #include "interface.h"
+#include "vn.h"
 
 /****************************************************************************
  * Module responsible to keep host-os and agent in-sync
@@ -51,21 +52,22 @@ public:
 
         // Constructor for add/delete/change of link-local route
         Event(Type event, const std::string &interface, const Ip4Address &addr):
-            event_(event), interface_(interface), addr_(addr), plen_(0),
-            gw_(0), flags_(0), protocol_(0) {
+            event_(event), interface_(interface), addr_(addr),
+            plen_(Address::kMaxV4PrefixLen), gw_(0), flags_(0), protocol_(0),
+            ipam_(false) {
         }
 
         // Constructor for interface add/delete/change notification
         Event(Type event, const std::string &interface, uint32_t flags) :
             event_(event), interface_(interface), addr_(0), plen_(0),
-            gw_(0), flags_(flags), protocol_(0) {
+            gw_(0), flags_(flags), protocol_(0), ipam_(false) {
         }
 
         // Constructor for interface address add/delete/change notification 
         Event(Type event, const std::string &interface, const Ip4Address &addr,
-              uint8_t plen, uint32_t flags) :
+              uint8_t plen, uint32_t flags, bool ipam) :
             event_(event), interface_(interface), addr_(addr), plen_(plen),
-            gw_(0), flags_(flags), protocol_(0) {
+            gw_(0), flags_(flags), protocol_(0), ipam_(ipam) {
         }
 
         // Constructor for route add/delete/change notification
@@ -73,7 +75,7 @@ public:
               const std::string &interface, const Ip4Address &gw,
               uint8_t protocol, uint32_t flags) :
             event_(event), interface_(interface), addr_(addr), plen_(plen),
-            flags_(flags), protocol_(protocol) {
+            flags_(flags), protocol_(protocol), ipam_(false) {
         }
 
         Type event_;
@@ -83,6 +85,7 @@ public:
         Ip4Address gw_;
         uint32_t flags_;
         uint8_t protocol_;
+        bool ipam_;
     };
 
     struct HostInterfaceEntry {
@@ -100,9 +103,66 @@ public:
         uint32_t oper_id_;
     };
 
+    class VnDBState : public DBState {
+    public:
+        void Add(VnswInterfaceListenerBase *base, const VnEntry *vn);
+        void Delete(VnswInterfaceListenerBase *base);
+        void Enqueue(VnswInterfaceListenerBase *base, const VnIpam &entry,
+                     const Event::Type event);
+    private:
+        std::set<VnIpam> ipam_list_;
+    };
+
+    class IpSubnet {
+    public:
+        IpSubnet(const Ip4Address &ip, uint8_t plen):
+            ip_(ip), plen_(plen) {}
+
+        bool operator < (const IpSubnet &rhs) const {
+            if (ip_ != rhs.ip_) {
+                return ip_ < rhs.ip_;
+            }
+
+            return plen_ < rhs.plen_;
+        }
+
+        Ip4Address ip_;
+        uint8_t plen_;
+    };
+
+    bool AddIpam(const Ip4Address &ip, uint8_t plen) {
+        bool ret = false;
+        IpSubnet ips(ip, plen);
+        if (ipam_subnet_.find(ips) == ipam_subnet_.end()) {
+            ipam_subnet_[ips] = 0;
+            ret = true;
+        }
+        ipam_subnet_[ips]++;
+        return ret;
+    }
+
+    bool DelIpam(const Ip4Address &ip, uint8_t plen) {
+        IpSubnet ips(ip, plen);
+        if (ipam_subnet_.find(ips) == ipam_subnet_.end()) {
+            return false;
+        }
+
+        ipam_subnet_[ips]--;
+        if (ipam_subnet_[ips] == 0) {
+            ipam_subnet_.erase(ips);
+            return true;
+        }
+
+        return false;
+    }
+
+    Agent* agent() {
+        return agent_;
+    }
 protected:
     typedef std::map<std::string, HostInterfaceEntry *> HostInterfaceTable;
     typedef std::set<Ip4Address> LinkLocalAddressTable;
+    typedef std::map<IpSubnet, uint32_t> IpamSubnetMap;
 
 public:
     VnswInterfaceListenerBase(Agent *agent);
@@ -127,20 +187,24 @@ protected:
     friend class TestVnswIf;
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
     void FabricRouteNotify(DBTablePartBase *part, DBEntryBase *e);
+    void VnNotify(DBTablePartBase *part, DBEntryBase *e);
 
 // Pure firtuals to be implemented by derivative class
     virtual int CreateSocket() = 0;
     virtual void SyncCurrentState() = 0;
     virtual void RegisterAsyncReadHandler() = 0;
-    virtual void UpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt) = 0;
+    virtual void UpdateLinkLocalRoute(const Ip4Address &addr, uint8_t plen,
+                                      bool del_rt) = 0;
 
     bool ProcessEvent(Event *re);
 
-    void UpdateLinkLocalRouteAndCount(const Ip4Address &addr, bool del_rt);
+    void UpdateLinkLocalRouteAndCount(const Ip4Address &addr,
+                                      uint8_t plen, bool del_rt);
     void LinkLocalRouteFromLinkLocalEvent(Event *event);
     void LinkLocalRouteFromRouteEvent(Event *event);
     void AddLinkLocalRoutes();
     void DelLinkLocalRoutes();
+    void AddIpamRoutes();
 
     void SetSeen(const std::string &name, bool oper, uint32_t oper_idx);
     void ResetSeen(const std::string &name, bool oper);
@@ -162,6 +226,7 @@ protected:
     local::datagram_protocol::socket sock_;
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId fabric_listener_id_;
+    DBTableBase::ListenerId vn_listener_id_;
     int seqno_;
     bool vhost_intf_up_;
 
@@ -172,6 +237,7 @@ protected:
     uint32_t vhost_update_count_;
     uint32_t ll_add_count_;
     uint32_t ll_del_count_;
+    IpamSubnetMap ipam_subnet_;
 
     DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListenerBase);
 };
