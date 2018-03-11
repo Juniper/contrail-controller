@@ -39,14 +39,11 @@ def _convert_to_pi_event(info):
 
 class DockerProcessInfoManager(object):
     def __init__(self, unit_names, event_handlers, update_process_list):
-        self.__unit_names = [name.rsplit('.service', 1)[0] for name in unit_names]
+        self.__unit_names = unit_names
         self.__event_handlers = event_handlers
         self.__update_process_list = update_process_list
         self.__cached_process_infos = {}
         self.__client = docker.from_env()
-
-    def add_unit_name(self, unit_name):
-        self.__unit_names.append(unit_name.rsplit('.service', 1)[0])
 
     def __get_full_info(self, cid):
         try:
@@ -55,42 +52,41 @@ class DockerProcessInfoManager(object):
             return None
 
     def __get_nodemgr_name(self, container):
-        labels = container.get('Labels')
-        name = labels.get('net.juniper.nodemgr.filter.name') if labels is not None else None
-        if name is None:
-            name = container['Names'][0] if len(container['Names']) != 0 else container['Command']
-            name = name.lstrip('/')
-        if name == 'nodemgr':
-            # 'nodemgr' is a special image that must be parameterized at start with NODE_TYPE env variable
-            if 'Env' not in container:
-                # list_containers does not return 'Env' information
-                info = self.__get_full_info(container['Id'])
-                if info:
-                    container = info['Config']
-            if 'Env' in container:
-                env = container.get('Env', list())
-                node_type = next(iter([i for i in env if i.startswith('NODE_TYPE=')]), None)
-                if node_type:
-                    node_type = node_type.split('=')[1]
-                    name = 'contrail-' + node_type + '-nodemgr'
+        labels = container.get('Labels', dict())
+        pod = labels.get('net.juniper.contrail.pod')
+        service = labels.get('net.juniper.contrail.service')
+        if pod and service:
+            return pod + '-' + service
+
+        name = labels.get('net.juniper.conrail')
+        if name != 'nodemgr':
+            return name
+
+        # 'nodemgr' is a special image that must be parameterized at start
+        # with NODE_TYPE env variable
+        if 'Env' not in container:
+            # list_containers does not return 'Env' information
+            info = self.__get_full_info(container['Id'])
+            if info:
+                container = info['Config']
+        if 'Env' in container:
+            env = container.get('Env', list())
+            node_type = next(iter(
+                [i for i in env if i.startswith('NODE_TYPE=')]), None)
+            if node_type:
+                node_type = node_type.split('=')[1]
+                name = 'contrail-' + node_type + '-nodemgr'
         return name
 
-    def __list_containers(self, names=None):
+    def __list_containers(self, names):
         client = self.__client
-        containers = []
+        containers = dict()
         all_containers = client.containers(all=True)
-        if names is None or len(names) == 0:
-            containers = all_containers
-        else:
-            for container in all_containers:
-                name = self.__get_nodemgr_name(container)
-                if name is not None and name in names:
-                    containers.append(container)
+        for container in all_containers:
+            name = self.__get_nodemgr_name(container)
+            if name is not None and name in names:
+                containers[name] = container
         return containers
-
-    def __find_container(self, name):
-        containers = self.__list_containers(names=[name])
-        return containers[0] if len(containers) > 0 else None
 
     def __update_cache(self, info):
         name = info['name']
@@ -113,7 +109,8 @@ class DockerProcessInfoManager(object):
             start_time = info.get('Created')
         if not start_time:
             return None
-        return time.mktime(time.strptime(start_time.split('.')[0], '%Y-%m-%dT%H:%M:%S'))
+        return time.mktime(time.strptime(start_time.split('.')[0],
+                                         '%Y-%m-%dT%H:%M:%S'))
 
     def __container_to_process_info(self, container):
         info = {}
@@ -131,8 +128,9 @@ class DockerProcessInfoManager(object):
         return info
 
     def __poll_containers(self):
+        containers = self.__list_containers(self.__unit_names)
         for name in self.__unit_names:
-            container = self.__find_container(name)
+            container = containers.get(name)
             if container is not None:
                 info = self.__container_to_process_info(container)
             else:
@@ -144,13 +142,17 @@ class DockerProcessInfoManager(object):
 
     def get_all_processes(self):
         processes_info_list = []
-        for container in self.__list_containers(self.__unit_names):
+        containers = self.__list_containers(self.__unit_names)
+        for unit_name in containers:
+            container = containers[unit_name]
+            if not container:
+                continue
             info = self.__container_to_process_info(container)
             processes_info_list.append(info)
             self.__update_cache(info)
         return processes_info_list
 
-    def run(self, test):
+    def runforever(self):
         # TODO: probaly use subscription on events..
         while True:
             self.__poll_containers()
@@ -159,6 +161,15 @@ class DockerProcessInfoManager(object):
     def get_mem_cpu_usage_data(self, pid, last_cpu, last_time):
         return DockerMemCpuUsageData(pid, last_cpu, last_time)
 
-    def find_pid(self, name, pattern):
-        container = self.__find_container(name)
-        return container['Id'] if container is not None else None
+    def exec_cmd(self, unit_name, cmd):
+        containers = self.__list_containers(names=[unit_name])
+        if not len(containers):
+            raise LookupError(unit_name)
+        container = containers[0]
+        exec_op = self.__client.exec_create(container['Id'], cmd, tty=True)
+        result = self.__client.exec_start(exec_op["Id"], detach=False)
+        data = self.__clientexec_inspect(exec_op["Id"])
+        exit_code = data.get("ExitCode", 0)
+        if exit_code:
+            raise RuntimeError(result)
+        return result
