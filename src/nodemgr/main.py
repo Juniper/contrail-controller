@@ -54,6 +54,44 @@ from database_nodemgr.database_event_manager import DatabaseEventManager
 from vrouter_nodemgr.vrouter_event_manager import VrouterEventManager
 
 
+unit_names_dict = {
+    'contrail-analytics': [
+        'contrail-collector',
+        'contrail-analytics-api',
+        'contrail-snmp-collector',
+        'contrail-query-engine',
+        'contrail-alarm-gen',
+        'contrail-topology',
+        'contrail-analytics-nodemgr'
+    ],
+    'contrail-config': [
+        'contrail-api',
+        'contrail-schema',
+        'contrail-svc-monitor',
+        'contrail-device-manager',
+        'cassandra',
+        'zookeeper',
+        'contrail-config-nodemgr'
+    ],
+    'contrail-control': [
+        'contrail-control',
+        'contrail-dns',
+        'contrail-named',
+        'contrail-control-nodemgr'
+    ],
+    'contrail-vrouter': [
+        'contrail-vrouter-agent',
+        'contrail-vrouter-nodemgr'
+    ],
+    'contrail-database': [
+        'cassandra',
+        'zookeeper',
+        'kafka',
+        'contrail-database-nodemgr'
+    ]
+}
+
+
 def usage():
     print doc
     sys.exit(255)
@@ -73,6 +111,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'collectors': [],
                'hostip': '127.0.0.1',
                'db_port': '9042',
+               'db_jmx_port': '7199',
                'minimum_diskgb': 256,
                'corefile_path': '/var/crashes',
                'contrail_databases': 'config analytics',
@@ -99,10 +138,10 @@ def main(args_str=' '.join(sys.argv[1:])):
     elif (node_type == 'contrail-database'):
         config_file = '/etc/contrail/contrail-database-nodemgr.conf'
     else:
-        sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
+        sys.stderr.write("Node type" + str(node_type) + "is incorrect\n")
         return
     if (os.path.exists(config_file) == False):
-        sys.stderr.write("config file " + config_file + " is not present" + "\n")
+        sys.stderr.write("config file " + config_file + " is not present\n")
         return
     config = ConfigParser.SafeConfigParser()
     config.read([config_file])
@@ -112,7 +151,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         try:
             collector = config.get('COLLECTOR', 'server_list')
             default['collectors'] = collector.split()
-        except ConfigParser.NoOptionError as e:
+        except ConfigParser.NoOptionError:
             pass
     SandeshConfig.update_options(sandesh_opts, config)
     parser = argparse.ArgumentParser(parents=[node_parser],
@@ -148,11 +187,13 @@ def main(args_str=' '.join(sys.argv[1:])):
         parser.add_argument("--contrail_databases",
                             nargs='+',
                             help='Contrail databases on this node' +
-                                 'in format: config analytics' )
+                                 'in format: config analytics')
         parser.add_argument("--hostip",
                             help="IP address of host")
         parser.add_argument("--db_port",
                             help="Cassandra DB cql port")
+        parser.add_argument("--db_jmx_port",
+                            help="Cassandra DB jmx port")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")
@@ -162,73 +203,34 @@ def main(args_str=' '.join(sys.argv[1:])):
         _args = parser.parse_args(remaining_argv)
     except:
         usage()
-    rule_file = _args.rules
 
     # randomize collector list
     _args.chksum = ""
     if _args.collectors:
         _args.chksum = hashlib.md5("".join(_args.collectors)).hexdigest()
-        _args.random_collectors = random.sample(_args.collectors, len(_args.collectors))
+        _args.random_collectors = random.sample(_args.collectors,
+                                                len(_args.collectors))
         _args.collectors = _args.random_collectors
-
     # done parsing arguments
 
+    # TODO: restore rule_file logic somehow if needed for microservices
+    #rule_file = _args.rules
+
+    unit_names = unit_names_dict.get(node_type)
     if node_type == 'contrail-analytics':
-        if not rule_file:
-            rule_file = "/etc/contrail/supervisord_analytics_files/" + \
-                        "contrail-analytics.rules"
-        unit_names = ['contrail-collector.service',
-                      'contrail-analytics-api.service',
-                      'contrail-snmp-collector.service',
-                      'contrail-query-engine.service',
-                      'contrail-alarm-gen.service',
-                      'contrail-topology.service',
-                      'contrail-analytics-nodemgr.service',
-                      ]
-        prog = AnalyticsEventManager(_args, rule_file, unit_names)
+        prog = AnalyticsEventManager(_args, unit_names)
     elif node_type == 'contrail-config':
-        if not rule_file:
-            rule_file = "/etc/contrail/supervisord_config_files/" + \
-                        "contrail-config.rules"
-        unit_names = ['contrail-api.service',
-                      'contrail-schema.service',
-                      'contrail-svc-monitor.service',
-                      'contrail-device-manager.service',
-                      'contrail-config-nodemgr.service',
-                      ]
-        prog = ConfigEventManager(_args, rule_file, unit_names)
+        prog = ConfigEventManager(_args, unit_names)
     elif node_type == 'contrail-control':
-        if not rule_file:
-            rule_file = "/etc/contrail/supervisord_control_files/" + \
-                        "contrail-control.rules"
-        unit_names = ['contrail-control.service',
-                      'contrail-dns.service',
-                      'contrail-named.service',
-                      'contrail-control-nodemgr.service',
-                      ]
-        prog = ControlEventManager(_args, rule_file, unit_names)
+        prog = ControlEventManager(_args, unit_names)
     elif node_type == 'contrail-vrouter':
-        if not rule_file:
-            rule_file = "/etc/contrail/supervisord_vrouter_files/" + \
-                        "contrail-vrouter.rules"
-        unit_names = ['contrail-vrouter-agent.service',
-                      'contrail-vrouter-nodemgr.service',
-                      ]
-        prog = VrouterEventManager(_args, rule_file, unit_names)
+        prog = VrouterEventManager(_args, unit_names)
     elif node_type == 'contrail-database':
-        if not rule_file:
-            rule_file = "/etc/contrail/supervisord_database_files/" + \
-                        "contrail-database.rules"
-        unit_names = ['contrail-database.service',
-                      'kafka.service',
-                      'contrail-database-nodemgr.service',
-                      ]
-        prog = DatabaseEventManager(_args, rule_file, unit_names)
+        prog = DatabaseEventManager(_args, unit_names)
     else:
-        sys.stderr.write("Node type " + str(node_type) + " is incorrect" + "\n")
+        sys.stderr.write("Node type " + str(node_type) + " is incorrect\n")
         return
 
-    prog.process()
     prog.send_nodemgr_process_status()
     prog.send_process_state_db(prog.group_names)
     prog.config_file = config_file

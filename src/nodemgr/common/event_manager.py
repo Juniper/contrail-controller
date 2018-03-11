@@ -3,22 +3,15 @@
 #
 
 import gevent
-import json
 import ConfigParser
-from StringIO import StringIO
-from ConfigParser import NoOptionError, NoSectionError
-import sys
+from ConfigParser import NoOptionError
 import os
-import psutil
 import socket
 import time
 import subprocess
 from subprocess import Popen, PIPE
-import xmlrpclib
-import platform
 import random
 import hashlib
-import select
 import copy
 
 from buildinfo import build_info
@@ -48,26 +41,18 @@ try:
 except Exception:
     # there is no docker library. assumes that code runs not for microservices
     DockerProcessInfoManager = None
-from systemd_process_manager import SystemdProcessInfoManager
-from supervisor_process_manager import SupervisorProcessInfoManager
 
-from utils import NodeMgrUtils, is_systemd_based,\
-    is_running_in_docker, is_running_in_kubepod
+import utils
+
 
 class EventManagerTypeInfo(object):
-    def __init__(self, package_name, module_type, object_table,
-                 supervisor_serverurl, third_party_processes={},
-                 sandesh_packages=[]):
-
-        self._package_name = package_name
+    def __init__(self, module_type, object_table, sandesh_packages=[]):
         self._module_type = module_type
         self._module_name = ModuleNames[self._module_type]
         self._object_table = object_table
         self._node_type = Module2NodeType[self._module_type]
         self._node_type_name = NodeTypeNames[self._node_type]
         self._uve_node_type = UVENodeTypeNames[self._node_type]
-        self._supervisor_serverurl = supervisor_serverurl
-        self._third_party_processes = third_party_processes
         self._sandesh_packages = sandesh_packages
     # end __init__
 
@@ -78,22 +63,16 @@ class EventManagerTypeInfo(object):
 class EventManager(object):
     group_names = []
     process_state_db = {}
-    third_party_process_state_db = {}
     FAIL_STATUS_DUMMY = 0x1
     FAIL_STATUS_DISK_SPACE = 0x2
     FAIL_STATUS_SERVER_PORT = 0x4
     FAIL_STATUS_NTP_SYNC = 0x8
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
-    def __init__(self, config, type_info, rule_file, sandesh_instance,
+    def __init__(self, config, type_info, sandesh_instance,
                  unit_names, update_process_list=False):
         self.config = config
         self.type_info = type_info
-        self.stdin = sys.stdin
-        self.stdout = sys.stdout
-        self.stderr = sys.stderr
-        self.rule_file = rule_file
-        self.rules_data = {'Rules': []}
         self.max_cores = 4
         self.max_old_cores = 3
         self.max_new_cores = 1
@@ -109,18 +88,18 @@ class EventManager(object):
         self.new_build_info = None
         self.last_cpu = None
         self.last_time = 0
-        self.installed_package_version = None
-        SupervisorEventsReq.handle_request = self.sandesh_supervisor_handle_request
+        self.own_version = None
+        self.hostname = socket.gethostname()
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
         event_handlers['PROCESS_COMMUNICATION'] = self.event_process_communication
-        event_handlers['PROCESS_LIST_UPDATE'] = self.update_current_process
-        ConnectionState.init(self.sandesh_instance, socket.gethostname(),
+        event_handlers['PROCESS_LIST_UPDATE'] = self.update_current_processes
+        ConnectionState.init(self.sandesh_instance, self.hostname,
             self.type_info._module_name, self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus, self.type_info._object_table)
         self.sandesh_instance.init_generator(
-            self.type_info._module_name, socket.gethostname(),
+            self.type_info._module_name, self.hostname,
             self.type_info._node_type_name, self.instance_id,
             self.collector_addr, self.type_info._module_name,
             ServiceHttpPortMap[self.type_info._module_name],
@@ -135,57 +114,25 @@ class EventManager(object):
             syslog_facility=self.config.syslog_facility)
         self.logger = self.sandesh_instance.logger()
 
-        # TODO: handle difference between 'fat' containers and microservices smartly
-        if DockerProcessInfoManager and (is_running_in_docker() or is_running_in_kubepod()):
+        if DockerProcessInfoManager and (utils.is_running_in_docker()
+                                         or utils.is_running_in_kubepod()):
             self.process_info_manager = DockerProcessInfoManager(
-                unit_names, event_handlers, update_process_list)
-        elif is_systemd_based():
-            self.process_info_manager = SystemdProcessInfoManager(
-                unit_names, event_handlers, update_process_list)
-        elif 'SUPERVISOR_SERVER_URL' in os.environ:
-            self.process_info_manager = SupervisorProcessInfoManager(
-                self.stdin, self.stdout, self.type_info._supervisor_serverurl,
-                event_handlers, update_process_list)
+                type_info._module_type, unit_names, event_handlers,
+                update_process_list)
         else:
             self.msg_log('Node manager could not detect process manager',
                          SandeshLevel.SYS_ERR)
             exit(-1)
-        self.add_current_process()
+
+        self.process_state_db = self.get_current_processes()
         for group in self.process_state_db:
             self.send_init_info(group)
-        self.third_party_process_dict = self.type_info._third_party_processes
     # end __init__
-
-    def add_unit_name(self, unit_name):
-        method = getattr(self.process_info_manager, "add_unit_name", None)
-        if method and callable(method):
-            method(unit_name)
 
     def msg_log(self, msg, level):
         self.logger.log(SandeshLogger.get_py_logger_level(
                             level), msg)
     # end msg_log
-
-    def sandesh_supervisor_handle_request(self, req):
-        supervisor_resp = SupervisorEventsResp()
-        if not is_systemd_based():
-            supervisor_resp.supervisor_events = SupervisorEvents(
-                count=self.process_info_manager._event_listener.supervisor_events_ctr,
-                last_event_timestamp=self.process_info_manager._event_listener.supervisor_events_timestamp)
-            supervisor_resp.supervisor_events_error = SupervisorEvents(
-                count=self.process_info_manager._event_listener.supervisor_events_error_ctr,
-                last_event_timestamp=self.process_info_manager._event_listener.supervisor_events_error_timestamp)
-        supervisor_resp.response(req.context())
-
-    def load_rules_data(self):
-        if self.rule_file and os.path.isfile(self.rule_file):
-            json_file = open(self.rule_file)
-            self.rules_data = json.load(json_file)
-    # end load_rules_data
-
-    def process(self):
-        self.load_rules_data()
-    # end process
 
     def get_process_name(self, process_info):
         if process_info['name'] != process_info['group']:
@@ -196,42 +143,41 @@ class EventManager(object):
     # end get_process_name
 
     # Get all the current processes in the node
-    def get_current_process(self):
+    def get_current_processes(self):
         # Add all current processes to make sure nothing misses the radar
         process_state_db = {}
         # list of all processes on the node is made here
         all_processes = self.process_info_manager.get_all_processes()
-        self.msg_log("DBG: get_current_process: '%s'" % all_processes, SandeshLevel.SYS_DEBUG)
+        self.msg_log("DBG: get_current_processes: '%s'" % all_processes,
+                     SandeshLevel.SYS_DEBUG)
         for proc_info in all_processes:
             proc_name = self.get_process_name(proc_info)
             proc_pid = int(proc_info['pid'])
 
-            process_stat_ent = self.get_process_stat_object(proc_name)
-            process_stat_ent.process_state = proc_info['statename']
+            stat = ProcessStat(proc_name)
+            stat.process_state = proc_info['statename']
             if 'start' in proc_info:
-                process_stat_ent.start_time = str(proc_info['start'])
-                process_stat_ent.start_count += 1
-            process_stat_ent.pid = proc_pid
-            if process_stat_ent.group not in self.group_names:
-                self.group_names.append(process_stat_ent.group)
-            if not process_stat_ent.group in process_state_db:
-                process_state_db[process_stat_ent.group] = {}
-            process_state_db[process_stat_ent.group][proc_name] = process_stat_ent
+                stat.start_time = str(proc_info['start'])
+                stat.start_count += 1
+            stat.pid = proc_pid
+            if stat.group not in self.group_names:
+                self.group_names.append(stat.group)
+            if not stat.group in process_state_db:
+                process_state_db[stat.group] = {}
+            process_state_db[stat.group][proc_name] = stat
         return process_state_db
     # end get_current_process
 
-    # Add the current processes in the node to db
-    def add_current_process(self):
-        self.process_state_db = self.get_current_process()
-    # end add_current_process
-
     # In case the processes in the Node can change, update current processes
-    def update_current_process(self):
-        process_state_db = self.get_current_process()
-        msg = ("DBG: update_current_process: process_state_db='%s'" % process_state_db)
+    def update_current_processes(self):
+        process_state_db = self.get_current_processes()
+        msg = ("DBG: update_current_processes: process_state_db='%s'"
+               % process_state_db)
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
-        old_process_set = set(key for group in self.process_state_db for key in self.process_state_db[group])
-        new_process_set = set(key for group in process_state_db for key in process_state_db[group])
+        old_process_set = set(key for group in self.process_state_db
+                                  for key in self.process_state_db[group])
+        new_process_set = set(key for group in process_state_db
+                                  for key in process_state_db[group])
         common_process_set = new_process_set.intersection(old_process_set)
         added_process_set = new_process_set - common_process_set
         deleted_process_set = old_process_set - common_process_set
@@ -242,7 +188,7 @@ class EventManager(object):
                 if added_process in process_state_db[group]:
                     self.add_process_handler(
                         added_process, process_state_db[group][added_process])
-    # end update_current_process
+    # end update_current_processes
 
     # process is deleted, send state & remove it from db
     def delete_process_handler(self, deleted_process):
@@ -265,8 +211,9 @@ class EventManager(object):
 
     def check_ntp_status(self):
         ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
-        proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
-        (output, errout) = proc.communicate()
+        proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE,
+                     close_fds=True)
+        (_, _) = proc.communicate()
         if proc.returncode != 0:
             self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
         else:
@@ -275,32 +222,35 @@ class EventManager(object):
 
     def get_build_info(self):
         # Retrieve build_info from package/rpm and cache it
-        if self.curr_build_info is None:
-            command = "contrail-version contrail-nodemgr | grep contrail-nodemgr"
-            version = os.popen(command).read()
-            version_partials = version.split()
-            if len(version_partials) < 3:
-                self.msg_log('Not enough values to parse package version %s' % version,
-                             SandeshLevel.SYS_ERR)
-                return ""
-            else:
-                _, rpm_version, build_num = version_partials
-            self.new_build_info = build_info + '"build-id" : "' + \
-                rpm_version + '", "build-number" : "' + \
-                build_num + '"}]}'
-            if (self.new_build_info != self.curr_build_info):
-                self.curr_build_info = self.new_build_info
+        if self.curr_build_info is not None:
+            return self.curr_build_info
+
+        command = "contrail-version contrail-nodemgr | grep contrail-nodemgr"
+        version = os.popen(command).read()
+        version_partials = version.split()
+        if len(version_partials) < 3:
+            self.msg_log('Not enough values to parse package version %s'
+                             % version,
+                         SandeshLevel.SYS_ERR)
+            return ""
+        else:
+            _, rpm_version, build_num = version_partials
+        self.new_build_info = build_info + '"build-id" : "' + \
+            rpm_version + '", "build-number" : "' + \
+            build_num + '"}]}'
+        if (self.new_build_info != self.curr_build_info):
+            self.curr_build_info = self.new_build_info
         return self.curr_build_info
 
     def get_corefile_path(self):
         self.core_file_path = self.config.corefile_path
         cat_command = "cat /proc/sys/kernel/core_pattern"
-        (core_pattern, stderr) = Popen(
+        (core_pattern, _) = Popen(
                 cat_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
         if core_pattern is not None and not core_pattern.startswith('|'):
             dirname_cmd = "dirname " + core_pattern
-            (self.core_file_path, stderr) = Popen(
+            (self.core_file_path, _) = Popen(
                 dirname_cmd.split(),
                 stdout=PIPE, close_fds=True).communicate()
         return self.core_file_path.rstrip()
@@ -309,14 +259,15 @@ class EventManager(object):
         try:
             # Get the core files list in the chronological order
             ls_command = "ls -1tr " + self.get_corefile_path()
-            (corenames, stderr) = Popen(
+            (corenames, _) = Popen(
                 ls_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
         except Exception as e:
             self.msg_log('Failed to get core files: %s' % (str(e)),
                 SandeshLevel.SYS_ERR)
         else:
-            return [self.get_corefile_path() + '/' + core for core in corenames.split()]
+            return [self.get_corefile_path() + '/' + core
+                    for core in corenames.split()]
     # end get_corefiles
 
     def remove_corefiles(self, core_files):
@@ -326,8 +277,9 @@ class EventManager(object):
             try:
                 os.remove(core_file)
             except OSError as e:
-                self.msg_log('Failed to delete core file: %s - %s' % (core_file,
-                    str(e)), SandeshLevel.SYS_ERR)
+                self.msg_log('Failed to delete core file: %s - %s'
+                                 % (core_file, str(e)),
+                             SandeshLevel.SYS_ERR)
     # end remove_corefiles
 
     def update_process_core_file_list(self):
@@ -358,7 +310,7 @@ class EventManager(object):
     # end update_process_core_file_list
 
     def send_process_state_db_base(self, group_names, ProcessInfo):
-        name = socket.gethostname()
+        name = self.hostname
         for group in group_names:
             process_infos = []
             delete_status = True
@@ -391,7 +343,8 @@ class EventManager(object):
             node_status.build_info = self.get_build_info()
             node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                             data=node_status)
-            msg = 'send_process_state_db_base: Sending UVE:' + str(node_status_uve)
+            msg = ('send_process_state_db_base: Sending UVE: '
+                   + str(node_status_uve))
             self.msg_log(msg, SandeshLevel.SYS_INFO)
             node_status_uve.send()
     # end send_process_state_db_base
@@ -413,9 +366,6 @@ class EventManager(object):
         self.send_process_state_db(self.group_names)
         return True
 
-    def get_process_stat_object(self, pname):
-        return ProcessStat(pname)
-
     def send_process_state(self, process_info):
         pname = self.get_process_name(process_info)
         # update process stats
@@ -424,7 +374,7 @@ class EventManager(object):
                 if pname in self.process_state_db[group]:
                     proc_stat = self.process_state_db[group][pname]
         else:
-            proc_stat = self.get_process_stat_object(pname)
+            proc_stat = ProcessStat(pname)
 
         pstate = process_info['state']
         proc_stat.process_state = pstate
@@ -455,12 +405,12 @@ class EventManager(object):
                     (pname, process_info['pid']), SandeshLevel.SYS_ERR)
                 proc_stat.last_exit_unexpected = True
                 # check for core file for this exit
-                find_command_option = \
-                    "find " + self.get_corefile_path() + " -name core.[A-Za-z]*." + \
-                    process_info['pid'] + "*"
+                find_command_option = (
+                    "find " + self.get_corefile_path()
+                    + " -name core.[A-Za-z]*." + process_info['pid'] + "*")
                 self.msg_log('find command option for cores: %s' %
                     (find_command_option), SandeshLevel.SYS_DEBUG)
-                (corename, stderr) = Popen(
+                (corename, _) = Popen(
                     find_command_option.split(),
                     stdout=PIPE, close_fds=True).communicate()
 
@@ -493,32 +443,32 @@ class EventManager(object):
             self.process_state_db[proc_stat.group] = {}
             send_init_uve = True
         self.process_state_db[proc_stat.group][pname] = proc_stat
-        if not (send_uve):
-            return
-
-        if (send_uve):
+        if send_uve:
             if (send_init_uve):
                 self.send_init_info(proc_stat.group)
             self.send_process_state_db([proc_stat.group])
 
     def send_nodemgr_process_status_base(self, ProcessStateNames,
                                          ProcessState, ProcessStatus):
-        if (self.prev_fail_status_bits != self.fail_status_bits):
-            self.prev_fail_status_bits = self.fail_status_bits
-            fail_status_bits = self.fail_status_bits
-            state, description = self.get_process_state(fail_status_bits)
-            process_status = ProcessStatus(
-                    module_id=self.type_info._module_name, instance_id=self.instance_id,
-                    state=state, description=description)
-            process_status_list = []
-            process_status_list.append(process_status)
-            node_status = NodeStatus(name=socket.gethostname(),
-                            process_status=process_status_list)
-            node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
-                                            data=node_status)
-            msg = 'send_nodemgr_process_status_base: Sending UVE:' + str(node_status_uve)
-            self.msg_log(msg, SandeshLevel.SYS_INFO)
-            node_status_uve.send()
+        if self.prev_fail_status_bits == self.fail_status_bits:
+            return
+
+        self.prev_fail_status_bits = self.fail_status_bits
+        fail_status_bits = self.fail_status_bits
+        state, description = self.get_process_state(fail_status_bits)
+        process_status = ProcessStatus(
+            module_id=self.type_info._module_name, instance_id=self.instance_id,
+            state=state, description=description)
+        process_status_list = []
+        process_status_list.append(process_status)
+        node_status = NodeStatus(name=self.hostname,
+                        process_status=process_status_list)
+        node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
+                                        data=node_status)
+        msg = ('send_nodemgr_process_status_base: Sending UVE:'
+               + str(node_status_uve))
+        self.msg_log(msg, SandeshLevel.SYS_INFO)
+        node_status_uve.send()
     # end send_nodemgr_process_status_base
 
     def send_nodemgr_process_status(self):
@@ -527,17 +477,12 @@ class EventManager(object):
     # end send_nodemgr_process_status
 
     def _get_package_version(self):
-        installed_package_version = \
-            NodeMgrUtils.get_package_version(self.get_package_name())
-        if installed_package_version is None:
-            # TODO: temp for containers
-            installed_package_version = \
-                NodeMgrUtils.get_package_version('contrail-nodemgr')
-            if installed_package_version is None:
-                self.msg_log('Error getting %s package version' % (
-                    self.get_package_name()), SandeshLevel.SYS_ERR)
-                installed_package_version = "package-version-unknown"
-        return installed_package_version
+        own_version = utils.get_package_version('contrail-nodemgr')
+        if own_version is None:
+            self.msg_log('Error getting %s package version' % (
+                'contrail-nodemgr'), SandeshLevel.SYS_ERR)
+            own_version = "package-version-unknown"
+        return own_version
 
     def send_init_info(self, group_name):
         key = next(key for key in self.process_state_db[group_name])
@@ -555,10 +500,10 @@ class EventManager(object):
             build_info=self.get_build_info())
 
         # installed/running package version
-        installed_package_version = self._get_package_version()
-        self.installed_package_version = installed_package_version
-        node_status.installed_package_version = installed_package_version
-        node_status.running_package_version = installed_package_version
+        own_version = self._get_package_version()
+        self.own_version = own_version
+        node_status.installed_package_version = own_version
+        node_status.running_package_version = own_version
 
         node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                         data=node_status)
@@ -568,42 +513,17 @@ class EventManager(object):
         process_mem_cpu_usage = {}
         for key in self.process_state_db[group_name]:
             pstat = self.process_state_db[group_name][key]
-            if (pstat.process_state == 'PROCESS_STATE_RUNNING'):
-                try:
-                    mem_cpu_usage_data = self.process_info_manager.get_mem_cpu_usage_data(pstat.pid, pstat.last_cpu, pstat.last_time)
-                    process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
-                except psutil.NoSuchProcess:
-                    self.msg_log('NoSuchProcess: process name: %s pid:%d' % (pstat.pname, pstat.pid),
-                                 SandeshLevel.SYS_ERR)
-                else:
-                    process_mem_cpu.__key = pstat.pname
-                    process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
-                    pstat.last_cpu = mem_cpu_usage_data.last_cpu
-                    pstat.last_time = mem_cpu_usage_data.last_time
+            if pstat.process_state != 'PROCESS_STATE_RUNNING':
+                continue
+            mem_cpu_usage_data = (
+                self.process_info_manager.get_mem_cpu_usage_data(
+                    pstat.pid, pstat.last_cpu, pstat.last_time))
+            process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
+            process_mem_cpu.__key = pstat.pname
+            process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
+            pstat.last_cpu = mem_cpu_usage_data.last_cpu
+            pstat.last_time = mem_cpu_usage_data.last_time
 
-        # walk through all processes being monitored by nodemgr,
-        # not spawned by supervisord
-        for pname, pattern in self.third_party_process_dict.items():
-            pid = self.process_info_manager.find_pid(pname, pattern)
-            if pid is not None:
-                if pname in self.third_party_process_state_db:
-                    pstat = self.third_party_process_state_db[pname]
-                else:
-                    pstat = self.get_process_stat_object(pname)
-                    pstat.pid = pid
-                    self.third_party_process_state_db[pname] = pstat
-                try:
-                    mem_cpu_usage_data = self.process_info_manager.get_mem_cpu_usage_data(pstat.pid, pstat.last_cpu, pstat.last_time)
-                    process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
-                except psutil.NoSuchProcess:
-                    self.msg_log('NoSuchProcess: process name:%s pid:%d' % (pstat.pname, pstat.pid),
-                                 SandeshLevel.SYS_ERR)
-                    self.third_party_process_state_db.pop(pstat.pname)
-                else:
-                    process_mem_cpu.__key = pname
-                    process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
-                    pstat.last_cpu = mem_cpu_usage_data.last_cpu
-                    pstat.last_time = mem_cpu_usage_data.last_time
         return process_mem_cpu_usage
 
     def get_disk_usage(self):
@@ -634,7 +554,8 @@ class EventManager(object):
                     int(round((float(disk_usage_stat.partition_space_used_1k) / \
                                float(total_disk_space)) * 100))
             except ValueError:
-                self.msg_log('Failed to get local disk space usage', SandeshLevel.SYS_ERR)
+                self.msg_log('Failed to get local disk space usage',
+                             SandeshLevel.SYS_ERR)
             else:
                 disk_usage_info[partition_name] = disk_usage_stat
         return disk_usage_info
@@ -642,17 +563,15 @@ class EventManager(object):
 
     def get_process_state_base(self, fail_status_bits,
                                ProcessStateNames, ProcessState):
-        if fail_status_bits:
-            state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
-            description = self.get_failbits_nodespecific_desc(fail_status_bits)
-            if (description is ""):
-                if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
-                    if description != "":
-                        description += " "
-                    description += "NTP state unsynchronized."
-        else:
-            state = ProcessStateNames[ProcessState.FUNCTIONAL]
-            description = ''
+        if not fail_status_bits:
+            return ProcessStateNames[ProcessState.FUNCTIONAL], ''
+
+        state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
+        description = self.get_failbits_nodespecific_desc(fail_status_bits)
+        if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
+            if not description:
+                description = " "
+            description += "NTP state unsynchronized."
         return state, description
     # end get_process_state_base
 
@@ -665,30 +584,11 @@ class EventManager(object):
         return ""
 
     def event_process_state(self, process_info):
-        msg = ("DBG: event_process_state:" + process_info['name'] + "," + "group:" +
-               process_info['group'] + "," + "state:" + process_info['state'])
+        msg = ("DBG: event_process_state:" + process_info['name'] + ","
+               + "group:" + process_info['group'] + "," + "state:"
+               + process_info['state'])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         self.send_process_state(process_info)
-        for rules in self.rules_data['Rules']:
-            if 'processname' in rules:
-                if ((rules['processname'] == process_info['group']) and
-                   (rules['process_state'] == process_info['state'])):
-                    msg = "got a hit with:" + str(rules)
-                    self.msg_log(msg, SandeshLevel.SYS_DEBUG)
-                    # do not make async calls
-                    try:
-                        ret_code = subprocess.call(
-                            [rules['action']], shell=True,
-                            stdout=self.stderr, stderr=self.stderr)
-                    except Exception as e:
-                        msg = ('Failed to execute action: ' + rules['action'] +
-                                 ' with err ' + str(e))
-                        self.msg_log(msg, SandeshLevel.SYS_ERR)
-                    else:
-                        if ret_code:
-                            msg = ('Execution of action ' + rules['action'] +
-                                        ' returned err ' + str(ret_code))
-                            self.msg_log(msg, SandeshLevel.SYS_ERR)
     # end event_process_state
 
     def event_process_communication(self, pdata):
@@ -696,18 +596,10 @@ class EventManager(object):
         msg = ("DBG: event_process_communication: Flag:" + flag_and_value[0] +
                " Value:" + flag_and_value[2])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
-        for rules in self.rules_data['Rules']:
-            if 'flag_name' in rules:
-                if ((rules['flag_name'] == flag_and_value[0]) and
-                   (rules['flag_value'].strip() == flag_and_value[2].strip())):
-                    msg = "got a hit with:" + str(rules)
-                    self.msg_log(msg, SandeshLevel.SYS_DEBUG)
-                    cmd_and_args = ['/usr/bin/bash', '-c', rules['action']]
-                    subprocess.Popen(cmd_and_args)
 
     def event_tick_60(self):
         self.tick_count += 1
-        installed_package_version = None
+        own_version = None
         for group in self.process_state_db:
             key = next(key for key in self.process_state_db[group])
             # get disk usage info periodically
@@ -723,7 +615,8 @@ class EventManager(object):
             process_mem_cpu_usage = self.get_group_processes_mem_cpu_usage(group)
 
             # get system mem/cpu usage
-            system_mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu, self.last_time)
+            system_mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu,
+                                                           self.last_time)
             system_mem_usage = system_mem_cpu_usage_data.get_sys_mem_info(
                 self.type_info._uve_node_type)
             system_cpu_usage = system_mem_cpu_usage_data.get_sys_cpu_info(
@@ -734,24 +627,26 @@ class EventManager(object):
             self.last_time = system_mem_cpu_usage_data.last_time
 
             # send above encoded buffer
-            node_status = NodeStatus(name=self.process_state_db[group][key].name,
-                                     disk_usage_info=disk_usage_info,
-                                     system_mem_usage=system_mem_usage,
-                                     system_cpu_usage=system_cpu_usage,
-                                     process_mem_cpu_usage=process_mem_cpu_usage)
+            node_status = NodeStatus(
+                name=self.process_state_db[group][key].name,
+                disk_usage_info=disk_usage_info,
+                system_mem_usage=system_mem_usage,
+                system_cpu_usage=system_cpu_usage,
+                process_mem_cpu_usage=process_mem_cpu_usage)
             # encode other core file
             if self.update_all_core_file():
                 node_status.all_core_file_list = self.all_core_file_list
 
-            installed_package_version = self._get_package_version()
-            if (installed_package_version != self.installed_package_version):
-                node_status.installed_package_version = installed_package_version
+            own_version = self._get_package_version()
+            if (own_version != self.own_version):
+                node_status.own_version = own_version
             node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                             data=node_status)
 
-            self.msg_log('DBG: event_tick_60: node_status=%s' % node_status, SandeshLevel.SYS_DEBUG)
+            self.msg_log('DBG: event_tick_60: node_status=%s' % node_status,
+                         SandeshLevel.SYS_DEBUG)
             node_status_uve.send()
-        self.installed_package_version = installed_package_version
+        self.own_version = own_version
 
     def do_periodic_events(self):
         self.event_tick_60()
@@ -765,18 +660,15 @@ class EventManager(object):
             if duration < interval:
                 gevent.sleep(interval - duration)
             else:
-                self.msg_log('function %s duration exceeded %f interval (took %f)'
-                             % (function.__name__, interval, duration), SandeshLevel.SYS_ERR)
+                self.msg_log(
+                    'function %s duration exceeded %f interval (took %f)'
+                        % (function.__name__, interval, duration),
+                    SandeshLevel.SYS_ERR)
     # end run_periodically
 
-    def runforever(self, test=False):
-        self.process_info_manager.run(test)
+    def runforever(self):
+        self.process_info_manager.runforever()
     # end runforever
-
-    def get_package_name(self):
-        return self.type_info._package_name
-
-    # end get_package_name
 
     def nodemgr_sighup_handler(self):
         config = ConfigParser.SafeConfigParser()
@@ -785,7 +677,7 @@ class EventManager(object):
             try:
                 collector = config.get('COLLECTOR', 'server_list')
                 collector_list = collector.split()
-            except ConfigParser.NoOptionError as e:
+            except ConfigParser.NoOptionError:
                 pass
 
         if collector_list:
@@ -793,7 +685,7 @@ class EventManager(object):
             if new_chksum != self.collector_chksum:
                 self.collector_chksum = new_chksum
                 self.random_collectors = \
-                    random.sample(collector_list, len(collector_list)) 
+                    random.sample(collector_list, len(collector_list))
             # Reconnect to achieve load-balance irrespective of list
             self.sandesh_instance.reconfig_collectors(self.random_collectors)
     #end nodemgr_sighup_handler

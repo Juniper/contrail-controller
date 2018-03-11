@@ -8,3 +8,5 @@ gen
 *.db
 dist
 .*.sw*
+.project
+.pydevproject
