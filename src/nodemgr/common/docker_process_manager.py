@@ -45,9 +45,6 @@ class DockerProcessInfoManager(object):
         self.__cached_process_infos = {}
         self.__client = docker.from_env()
 
-    def add_unit_name(self, unit_name):
-        self.__unit_names.append(unit_name.rsplit('.service', 1)[0])
-
     def __get_full_info(self, cid):
         try:
             return self.__client.inspect_container(cid)

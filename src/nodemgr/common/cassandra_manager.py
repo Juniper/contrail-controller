@@ -3,6 +3,7 @@
 import os
 from gevent import monkey
 monkey.patch_all()
+import glob
 
 import socket
 import subprocess
@@ -19,11 +20,11 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
     CassandraCompactionTask, DatabaseUsageStats, DatabaseUsageInfo,\
     DatabaseUsage
 
-from utils import package_installed
 
 class CassandraManager(object):
     def __init__(self, cassandra_repair_logdir, db_name, contrail_databases,
-                 hostip, minimum_diskgb, db_port, process_info_manager):
+                 hostip, minimum_diskgb, db_port, db_jmx_port,
+                 process_info_manager):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_name = db_name
         self.contrail_databases = contrail_databases
@@ -36,27 +37,8 @@ class CassandraManager(object):
         self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
         self.cassandra_status_old.thread_pool_stats = []
 
-    def can_serve(self):
-        if self._db_name == 'configDb':
-            # TODO: move this logic to process_info_manager
-            return not package_installed('contrail-openstack-database') and package_installed('contrail-database-common')
-
-        return True
-
-    def status(self):
-        subprocess.call("contrail-cassandra-status --log-file"
-                        " /var/log/cassandra/status.log --debug &",
-                        shell=True, close_fds=True)
-
-    def repair(self):
-        logfile = os.path.abspath(os.path.join(self.cassandra_repair_logdir,
-                                               "repair.log"))
-        subprocess.call("contrail-cassandra-repair --log-file"
-                        " {0} --debug &".format(logfile),
-                        shell=True, close_fds=True)
-
     def _get_cassandra_config_option(self, config):
-        (linux_dist, x, y) = platform.linux_distribution()
+        (linux_dist, _, _) = platform.linux_distribution()
         if (linux_dist == 'Ubuntu'):
             yamlstream = open("/etc/cassandra/cassandra.yaml", 'r')
         else:
@@ -66,26 +48,14 @@ class CassandraManager(object):
         yamlstream.close()
         return cfg[config]
 
-    @staticmethod
-    def cassandra_old():
-        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
-        if PLATFORM.lower() == 'ubuntu':
-            if VERSION.find('12.') == 0:
-                return True
-        if PLATFORM.lower() == 'centos':
-            if VERSION.find('6.') == 0:
-                return True
-        return False
-
     def disk_space_helper(self, df_dir):
         df = subprocess.Popen(["df", df_dir],
                 stdout=subprocess.PIPE, close_fds=True)
         output = df.communicate()[0]
-        device, size, disk_space_used, disk_space_available, \
-           percent, mountpoint = output.split("\n")[1].split()
-        return (disk_space_used, disk_space_available)
+        _, _, used, available, _, _ = output.split("\n")[1].split()
+        return (used, available)
 
-    def get_tp_status(self,tp_stats_output):
+    def get_tp_status(self, tp_stats_output):
         tpstats_rows = tp_stats_output.split('\n')
         thread_pool_stats_list = []
         for row_index in range(1, len(tpstats_rows)):
@@ -106,9 +76,9 @@ class CassandraManager(object):
         return thread_pool_stats_list
     # end get_tp_status
 
-    def has_cassandra_status_changed(self,current_status, old_status):
-        if current_status.cassandra_compaction_task.pending_compaction_tasks != \
-            old_status.cassandra_compaction_task.pending_compaction_tasks :
+    def has_cassandra_status_changed(self, current_status, old_status):
+        if (current_status.cassandra_compaction_task.pending_compaction_tasks !=
+                old_status.cassandra_compaction_task.pending_compaction_tasks):
             return True
         i = 0
         if len(current_status.thread_pool_stats) != \
@@ -122,7 +92,7 @@ class CassandraManager(object):
                 current_status.thread_pool_stats[i].all_time_blocked != \
                 old_status.thread_pool_stats[i].all_time_blocked):
                 return True
-            i = i+1
+            i += 1
         return False
     # end has_cassandra_status_changed
 
@@ -134,39 +104,31 @@ class CassandraManager(object):
     # end get_pending_compaction_count
 
     def process(self, event_mgr):
-        event_mgr.load_rules_data()
         try:
             cassandra_data_dirs = self._get_cassandra_config_option("data_file_directories")
             cassandra_data_dir_exists = False
             total_disk_space_used = 0
             total_disk_space_available = 0
             for cassandra_data_dir in cassandra_data_dirs:
-                if CassandraManager.cassandra_old():
-                    analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
-                else:
-                    import glob
-                    all_analytics_dirs = glob.glob(cassandra_data_dir + '/ContrailAnalyticsCql*')
-                    if all_analytics_dirs:
-                        #for now we assume the partition for all analytics clusters is same
-                        analytics_dir = all_analytics_dirs[0]
+                all_analytics_dirs = glob.glob(cassandra_data_dir + '/ContrailAnalyticsCql*')
+                if all_analytics_dirs:
+                    #for now we assume the partition for all analytics clusters is same
+                    analytics_dir = all_analytics_dirs[0]
 
+                cdir = None
                 if self._db_name == 'analyticsDb' and os.path.exists(analytics_dir):
+                    cdir = analytics_dir
+                elif self._db_name == 'configDb' and os.path.exists(cassandra_data_dir):
+                    cdir = cassandra_data_dir
+                if cdir:
                     cassandra_data_dir_exists = True
-                    msg = "analytics_dir is " + analytics_dir
+                    msg = "dir for " + self._db_name + " is " + cdir
                     event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
-                    (disk_space_used, disk_space_available) = (self.
-                                               disk_space_helper(analytics_dir))
+                    (disk_space_used, disk_space_available) = (
+                        self.disk_space_helper(cdir))
                     total_disk_space_used += int(disk_space_used)
                     total_disk_space_available += int(disk_space_available)
-                elif os.path.exists(cassandra_data_dir) and self._db_name == 'configDb':
-                    cassandra_data_dir_exists = True
-                    msg = "cassandra_dir is " + cassandra_data_dir
-                    event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
-                    (disk_space_used, disk_space_available) = (self.
-                                               disk_space_helper(cassandra_data_dir))
-                    total_disk_space_used += int(disk_space_used)
-                    total_disk_space_available += int(disk_space_available)
-            if cassandra_data_dir_exists == False:
+            if not cassandra_data_dir_exists:
                 if ((self._db_name == 'analyticsDb' and
                           'analytics' not in self.contrail_databases) or
                     (self._db_name == 'configDb' and
@@ -178,7 +140,7 @@ class CassandraManager(object):
                 disk_space = int(total_disk_space_used) + int(total_disk_space_available)
                 if (disk_space / (1024 * 1024) < self.minimum_diskgb):
                     cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
-                    (ret_value, error_value) = subprocess.Popen(
+                    subprocess.Popen(
                         cmd_str, shell=True, stdout=subprocess.PIPE,
                         close_fds=True).communicate()
                     event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE
@@ -196,39 +158,29 @@ class CassandraManager(object):
             total_disk_space_available = 0
             total_db_size = 0
             for cassandra_data_dir in cassandra_data_dirs:
-                if CassandraManager.cassandra_old():
-                    analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
-                else:
-                    import glob
-                    all_analytics_dirs = glob.glob(cassandra_data_dir + '/ContrailAnalyticsCql*')
-                    if all_analytics_dirs:
-                        #for now we assume the partition for all analytics clusters is same
-                        analytics_dir = all_analytics_dirs[0]
+                all_analytics_dirs = glob.glob(cassandra_data_dir + '/ContrailAnalyticsCql*')
+                if all_analytics_dirs:
+                    #for now we assume the partition for all analytics clusters is same
+                    analytics_dir = all_analytics_dirs[0]
 
+                cdir = None
                 if self._db_name == 'analyticsDb' and os.path.exists(analytics_dir):
+                    cdir = analytics_dir
+                elif self._db_name == 'configDb' and os.path.exists(cassandra_data_dir):
+                    cdir = cassandra_data_dir
+                if cdir:
                     cassandra_data_dir_exists = True
-                    msg = "analytics_dir is " + analytics_dir
+                    msg = "dir for " + self._db_name + " is " + cdir
                     event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
-                    (disk_space_used, disk_space_available) = (self.
-                                               disk_space_helper(analytics_dir))
+                    (disk_space_used, disk_space_available) = (
+                        self.disk_space_helper(cdir))
                     total_disk_space_used += int(disk_space_used)
                     total_disk_space_available += int(disk_space_available)
-                    du = subprocess.Popen(["du", "-skl", analytics_dir],
+                    du = subprocess.Popen(["du", "-skl", cdir],
                             stdout=subprocess.PIPE, close_fds=True)
-                    db_size, directory = du.communicate()[0].split()
+                    db_size, _ = du.communicate()[0].split()
                     total_db_size += int(db_size)
-                elif os.path.exists(cassandra_data_dir) and self._db_name == 'configDb':
-                    cassandra_data_dir_exists = True
-                    msg = "cassandra_dir is " + cassandra_data_dir
-                    (disk_space_used, disk_space_available) = (self.
-                                               disk_space_helper(cassandra_data_dir))
-                    total_disk_space_used += int(disk_space_used)
-                    total_disk_space_available += int(disk_space_available)
-                    du = subprocess.Popen(["du", "-skl", cassandra_data_dir],
-                            stdout=subprocess.PIPE, close_fds=True)
-                    db_size, directory = du.communicate()[0].split()
-                    total_db_size += int(db_size)
-            if cassandra_data_dir_exists == False:
+            if not cassandra_data_dir_exists:
                 if ((self._db_name == 'analyticsDb' and
                           'analytics' not in self.contrail_databases) or
                     (self._db_name == 'configDb' and
@@ -261,7 +213,7 @@ class CassandraManager(object):
         cqlsh_cmd = "cqlsh " + self.hostip + " " + self.db_port + " -e quit"
         proc = subprocess.Popen(cqlsh_cmd, shell=True, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, close_fds=True)
-        (output, errout) = proc.communicate()
+        proc.communicate()
         if proc.returncode != 0:
             event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_SERVER_PORT
         else:
@@ -269,12 +221,9 @@ class CassandraManager(object):
         event_mgr.send_nodemgr_process_status()
         # Send cassandra nodetool information
         self.send_database_status(event_mgr)
-        # Record cluster status and shut down cassandra if needed
-        self.status()
     # end database_periodic
 
     def send_database_status(self, event_mgr):
-        cassandra_status_uve = CassandraStatusUVE()
         cassandra_status = CassandraStatusData()
         cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
         # Get compactionstats
