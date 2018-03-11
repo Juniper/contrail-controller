@@ -77,11 +77,8 @@ common_sources = [
            'common/docker_mem_cpu.py',
            'common/docker_process_manager.py',
            'common/event_manager.py',
-           'common/process_mem_cpu.py',
            'common/process_stat.py',
-           'common/supervisor_process_manager.py',
            'common/sys_mem_cpu.py',
-           'common/systemd_process_manager.py',
            'common/utils.py',
           ]
 common_sources_rules = []
