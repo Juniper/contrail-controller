@@ -128,19 +128,18 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
             pkt->ignore_address = ignore_addr;
             return;
         }
-        return;
-    }
+    } else {
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+            pkt->sport = 0;
+            pkt->ignore_address = ignore_addr;
+            return;
+        }
 
-    if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
-        pkt->sport = 0;
-        pkt->ignore_address = ignore_addr;
-        return;
-    }
-
-    if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
-        pkt->dport = 0;
-        pkt->ignore_address = ignore_addr;
-        return;
+        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
+            pkt->dport = 0;
+            pkt->ignore_address = ignore_addr;
+            return;
+        }
     }
     /* If Fat-flow port is 0, then both source and destination ports have to
      * be ignored */

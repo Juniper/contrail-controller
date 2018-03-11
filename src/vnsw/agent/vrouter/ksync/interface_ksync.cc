@@ -967,6 +967,7 @@ void InterfaceKSyncEntry::FillObjectLog(sandesh_op::type op,
             KSyncIntfFatFlowInfo info;
             info.set_protocol(it->protocol);
             info.set_port(it->port);
+            info.set_ignore_address(it->ignore_address);
             fat_flows.push_back(info);
         }
         info.set_fat_flows(fat_flows);
