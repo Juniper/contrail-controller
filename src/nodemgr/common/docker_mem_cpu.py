@@ -9,14 +9,14 @@ from sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
 
 
 class DockerMemCpuUsageData(object):
-    def __init__(self, pid, last_cpu, last_time):
+    def __init__(self, id, last_cpu, last_time):
         self.last_cpu = last_cpu
         self.last_time = last_time
         self.client = docker.from_env()
-        self._pid = hex(pid)[2:-1].zfill(64)
+        self._id = hex(id)[2:-1].zfill(64)
 
     def _get_container_stats(self):
-        return self.client.stats(self._pid, decode=True, stream=False)
+        return self.client.stats(self._id, decode=True, stream=False)
 
     def _get_process_cpu_share(self, current_cpu):
         last_cpu = self.last_cpu
@@ -26,11 +26,14 @@ class DockerMemCpuUsageData(object):
         cpu_count = len(current_cpu["cpu_usage"]["percpu_usage"])
 
         # docker returns current/previous cpu stats in call
-        # but it previous data can't be used cause we don't know who calls to stat previously
+        # but it previous data can't be used cause we don't know who calls
+        # stat previously
         interval_time = 0
         if last_cpu and (last_time != 0):
-            sys_time = float(current_cpu['cpu_usage']['usage_in_kernelmode'] - last_cpu['cpu_usage']['usage_in_kernelmode']) / 1e9
-            usr_time = float(current_cpu['cpu_usage']['usage_in_usermode'] - last_cpu['cpu_usage']['usage_in_usermode']) / 1e9
+            sys_time = float(current_cpu['cpu_usage']['usage_in_kernelmode'] -
+                             last_cpu['cpu_usage']['usage_in_kernelmode']) / 1e9
+            usr_time = float(current_cpu['cpu_usage']['usage_in_usermode'] -
+                             last_cpu['cpu_usage']['usage_in_usermode']) / 1e9
             interval_time = current_time - last_time
 
         self.last_cpu = current_cpu
