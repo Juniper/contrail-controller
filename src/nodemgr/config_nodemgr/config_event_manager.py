@@ -2,50 +2,29 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-import os
 from gevent import monkey
 monkey.patch_all()
-
-import os
 
 from pysandesh.sandesh_base import sandesh_global
 from sandesh_common.vns.ttypes import Module
 
 from nodemgr.common.cassandra_manager import CassandraManager
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
-from nodemgr.common.utils import package_installed
 
 
 class ConfigEventManager(EventManager):
-    def __init__(self, config, rule_file, unit_names):
-        if os.path.exists('/tmp/supervisord_config.sock'):
-            supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
-        else:
-            supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
-
-        type_info = EventManagerTypeInfo(package_name = 'contrail-config',
-            module_type = Module.CONFIG_NODE_MGR,
-            object_table = 'ObjectConfigNode',
-            supervisor_serverurl = supervisor_serverurl,
-            third_party_processes =  {
-                "cassandra" : "Dcassandra-pidfile=.*cassandra\.pid",
-                "zookeeper" : "org.apache.zookeeper.server.quorum.QuorumPeerMain"
-            },
-            sandesh_packages = ['database.sandesh'])
-        super(ConfigEventManager, self).__init__(config, type_info, rule_file,
+    def __init__(self, config, unit_names):
+        type_info = EventManagerTypeInfo(
+            module_type=Module.CONFIG_NODE_MGR,
+            object_table='ObjectConfigNode',
+            sandesh_packages=['database.sandesh'])
+        super(ConfigEventManager, self).__init__(config, type_info,
             sandesh_global, unit_names)
-        self.hostip = config.hostip
-        self.db_port = config.db_port
-        self.minimum_diskgb = config.minimum_diskgb
-        self.contrail_databases = config.contrail_databases
         self.cassandra_repair_interval = config.cassandra_repair_interval
-        self.cassandra_mgr = CassandraManager(config.cassandra_repair_logdir,
-                                              'configDb', self.contrail_databases,
-                                              self.hostip, self.minimum_diskgb,
-                                              self.db_port, self.process_info_manager)
-        if self.cassandra_mgr.can_serve():
-            self.add_unit_name('contrail-database.service')
-    # end __init__
+        self.cassandra_mgr = CassandraManager(
+            config.cassandra_repair_logdir, 'config',
+            config.contrail_databases, config.hostip, config.minimum_diskgb,
+            config.db_port, config.db_jmx_port, self.process_info_manager)
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
         description = ""
@@ -61,16 +40,8 @@ class ConfigEventManager(EventManager):
         return description
 
     def do_periodic_events(self):
-        if self.cassandra_mgr.can_serve():
-            self.cassandra_mgr.database_periodic(self)
-            # Perform nodetool repair every cassandra_repair_interval hours
-            if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
-                self.cassandra_mgr.repair()
-        self.event_tick_60()
-    # end do_periodic_events
-
-    def process(self):
-        if self.cassandra_mgr.can_serve():
-            self.cassandra_mgr.process(self)
-    # end process
-# end class ConfigEventManager
+        self.cassandra_mgr.database_periodic(self)
+        # Perform nodetool repair every cassandra_repair_interval hours
+        if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
+            self.cassandra_mgr.repair()
+        super(ConfigEventManager, self).do_periodic_events()
