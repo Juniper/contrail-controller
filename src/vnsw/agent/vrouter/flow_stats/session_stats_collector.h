@@ -350,7 +350,7 @@ private:
 
     bool HandleDeletedFlowLogging(const SessionStatsInfo &stats_info);
     bool HandleFlowLogging(const SessionStatsInfo &stats_info);
-    bool CheckSessionLogging(const SessionStatsInfo &stats_info);
+    bool CheckSessionLogging(bool changed, const SessionStatsInfo &stats_info);
     void AddSloList(const UuidList &slo_list, SessionSloRuleMap *slo_rule_map);
     void AddSloEntry(const boost::uuids::uuid &uuid,
                      SessionSloRuleMap *slo_rule_map);

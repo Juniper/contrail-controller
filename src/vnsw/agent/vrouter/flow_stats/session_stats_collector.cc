@@ -1046,6 +1046,7 @@ bool SessionStatsCollector::CheckPolicyMatch(const SessionSloRuleMap &map,
     if (!policy_uuid.empty()) {
         it = map.find(policy_uuid);
         if (it != map.end()) {
+            /* Always logging tear down session with out SLO rate checking */
             if (deleted_flag) {
                 *match = true;
                 return true;
@@ -1217,14 +1218,18 @@ bool SessionStatsCollector::HandleDeletedFlowLogging(
     bool logged = false;
     const SessionExportInfo &info = stats_info.export_info;
 
+    /*
+     * Deleted flow need to to be just checked whether SLO rules matched
+     * If SLO is macthed, it should be logged irrespective of the rate
+     */
     if (DeletedFlowLogging(stats_info,
                            info.fwd_flow,
                            &logged)) {
-        CheckFlowLogging(logged);
+        return true;
     } else if (DeletedFlowLogging(stats_info,
                                   info.rev_flow,
                                   &logged)) {
-        CheckFlowLogging(logged);
+        return true;
     }
     return false;
 }
@@ -1232,6 +1237,14 @@ bool SessionStatsCollector::HandleDeletedFlowLogging(
 bool SessionStatsCollector::HandleFlowLogging(
                             const SessionStatsInfo    &stats_info) {
     bool logged = false;
+
+    /*
+     * FWD and REV flow of the Session need to be checked for SLO
+     * separately. If FWD flow matches or logged then rev flow
+     * is not required to check for SLO match.
+     * REV flow will be checked for SLO only when FWD flow
+     * is not matched for the SLO, since SLO is per session
+     */
 
     if (FlowLogging(stats_info,
                     stats_info.fwd_flow.flow.get(),
@@ -1245,7 +1258,7 @@ bool SessionStatsCollector::HandleFlowLogging(
     return false;
 }
 
-bool SessionStatsCollector::CheckSessionLogging(
+bool SessionStatsCollector::CheckSessionLogging(bool changed,
                             const SessionStatsInfo    &stats_info) {
 
     if (!agent_uve_->agent()->global_slo_status()) {
@@ -1254,11 +1267,20 @@ bool SessionStatsCollector::CheckSessionLogging(
         return false;
     }
 
+    /*
+     * Deleted flow will be logged if SLO is configured.
+     * Normal case will be logged only when there is a change in the
+     * stats. If there is no change in the session stats, it will
+     * not be considered to SLO match and rate. This will avoid logging
+     * of each session at least once. Also, idle session will not be
+     * considered for the rate count
+     */
+
     if (stats_info.deleted) {
         if(HandleDeletedFlowLogging(stats_info)) {
             return true;
         }
-    } else if(HandleFlowLogging(stats_info)) {
+    } else if((changed) && (HandleFlowLogging(stats_info))) {
         return true;
     }
 
@@ -1734,10 +1756,11 @@ bool SessionStatsCollector::ProcessSessionEndpoint
         while (session_map_iter != session_agg_map_iter->second.session_map_.end()) {
             prev = session_map_iter;
             SessionStatsParams params;
+            bool changed = false;
             if (!session_map_iter->second.deleted &&
                 !session_map_iter->second.evicted) {
-                bool changed = SessionStatsChangedLocked(session_map_iter,
-                                                         &params);
+                changed = SessionStatsChangedLocked(session_map_iter,
+                                                    &params);
                 if (!changed && session_map_iter->second.exported_atleast_once) {
                     ++session_map_iter;
                     continue;
@@ -1748,7 +1771,7 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             if (IsSamplingEnabled()) {
                 is_sampling = SampleSession(session_map_iter, &params);
             }
-            bool is_logging = CheckSessionLogging(session_map_iter->second);
+            bool is_logging = CheckSessionLogging(changed, session_map_iter->second);
 
             /* Ignore session export if sampling & logging drop the session */
             if (!is_sampling && !is_logging) {
