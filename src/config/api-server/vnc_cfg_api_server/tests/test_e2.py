@@ -86,15 +86,6 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
         except RefsExistError:
             self._netipam_obj = \
                     self._vnc_lib.network_ipam_read(fq_name=[ipam_name])
-        """ create default e2 global-system-configs """
-        try:
-            tenant_group_name = "e2-global-system-config"
-            self._tenant_group_obj = \
-            GlobalSystemConfig(tenant_group_name, autonomous_system=64513)
-            self._vnc_lib.global_system_config_create(self._tenant_group_obj)
-        except RefsExistError:
-            self._tenant_group_obj = \
-            self._vnc_lib.global_system_config_read(fq_name=[tenant_group_name])
         """ create default e2 virtual-network """
         try:
             vn_name = "e2-vn"
@@ -122,8 +113,6 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
         self._vnc_lib.routing_instance_delete(id=self._routing_instance.uuid)
         """ remove default e2 virtual-network """
         self._vnc_lib.virtual_network_delete(id=self._vn_obj.uuid)
-        """ remove default e2 global-system-configs """
-        self._vnc_lib.global_system_config_delete(id=self._tenant_group_obj.uuid)
         """ remove default e2 network """
         self._vnc_lib.network_ipam_delete(id=self._netipam_obj.uuid)
         """ remove default e2 project """

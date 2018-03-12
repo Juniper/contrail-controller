@@ -6,35 +6,37 @@ gevent.monkey.patch_all()  # noqa
 import logging
 from testtools import ExpectedException
 
-from cfgm_common import VNID_MIN_ALLOC
+from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import PermissionDenied
+from cfgm_common import VNID_MIN_ALLOC
+from vnc_api.vnc_api import GlobalSystemConfig
+from vnc_api.vnc_api import RouteTargetList
 from vnc_api.vnc_api import VirtualNetwork
 
-import test_case
+from vnc_cfg_api_server.tests import test_case
 
 
 logger = logging.getLogger(__name__)
 
 
-class TestVirtualNetworkBase(test_case.ApiServerTestCase):
+class TestVirtualNetwork(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
-        super(TestVirtualNetworkBase, cls).setUpClass(*args, **kwargs)
+        super(TestVirtualNetwork, cls).setUpClass(*args, **kwargs)
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
-        super(TestVirtualNetworkBase, cls).tearDownClass(*args, **kwargs)
+        super(TestVirtualNetwork, cls).tearDownClass(*args, **kwargs)
 
     @property
     def api(self):
         return self._vnc_lib
 
-
-class TestVirtualNetwork(TestVirtualNetworkBase):
     def test_allocate_vn_id(self):
         mock_zk = self._api_server._db_conn._zk_db
         vn_obj = VirtualNetwork('%s-vn' % self.id())
@@ -96,3 +98,22 @@ class TestVirtualNetwork(TestVirtualNetworkBase):
         vn_obj.set_virtual_network_network_id(
             vn_obj.virtual_network_network_id)
         self.api.virtual_network_update(vn_obj)
+
+    def test_create_vn_with_configured_rt_in_system_range(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        vn = VirtualNetwork('%s-vn' % self.id())
+        rt_name = 'target:%d:%d' % (gsc.autonomous_system,
+                                    BGP_RTGT_MIN_ID + 1000)
+        vn.set_route_target_list(RouteTargetList([rt_name]))
+
+        self.assertRaises(BadRequest, self.api.virtual_network_create, vn)
+
+    def test_update_vn_with_configured_rt_in_system_range(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        vn = VirtualNetwork('%s-vn' % self.id())
+        self.api.virtual_network_create(vn)
+
+        rt_name = 'target:%d:%d' % (gsc.autonomous_system,
+                                    BGP_RTGT_MIN_ID + 1000)
+        vn.set_route_target_list(RouteTargetList([rt_name]))
+        self.assertRaises(BadRequest, self.api.virtual_network_update, vn)

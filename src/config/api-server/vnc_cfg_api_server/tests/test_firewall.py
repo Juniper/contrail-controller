@@ -12,7 +12,6 @@ from vnc_api.exceptions import BadRequest
 from vnc_api.exceptions import HttpError
 from vnc_api.exceptions import NoIdError
 from vnc_api.exceptions import RefsExistError
-from vnc_api.gen.vnc_api_client_gen import all_resource_type_tuples
 from vnc_api.vnc_api import ActionListType
 from vnc_api.vnc_api import AddressGroup
 from vnc_api.vnc_api import ApplicationPolicySet

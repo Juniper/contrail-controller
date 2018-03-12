@@ -2490,7 +2490,7 @@ class VncApiServer(object):
             # if UUID provided verify existence of the reference being added
             try:
                 ref_fq_name = self._db_conn.uuid_to_fq_name(ref_uuid)
-            except NoIdError as each:
+            except NoIdError as e:
                 raise cfgm_common.exceptions.HttpError(404, str(e))
 
         # To invoke type specific hook and extension manager
