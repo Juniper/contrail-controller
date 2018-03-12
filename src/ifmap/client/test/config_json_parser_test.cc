@@ -2559,6 +2559,39 @@ TEST_F(ConfigJsonParserTest, MissingFQNameField) {
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
 }
 
+// Verify that Draft objects are ignored
+TEST_F(ConfigJsonParserTest, ServerParserDraftObject) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/server_parser_test19.json");
+    // Create the global system configuration draft object
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc-Draft") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc-Draft")->Find(
+                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Create the vr object that is a child of the draft global system
+    // configuration draft object
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc-Draft:vr1") == NULL);
+    // Delete gsc-Draft object
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc-Draft:vr1") == NULL);
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc-Draft") == NULL);
+    // Delete virtual Router Draft that was rejected earlier, make sure nothing
+    // bad happens.
+    FeedEventsJson();
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
