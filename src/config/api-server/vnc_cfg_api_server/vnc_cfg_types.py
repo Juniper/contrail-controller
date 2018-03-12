@@ -34,21 +34,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
 
 
-def _parse_rt(rt):
-    (prefix, asn, target) = rt.split(':')
-    if prefix != 'target':
-        raise ValueError()
-    target = int(target)
-    if not asn.isdigit():
-        try:
-            IPAddress(asn)
-        except netaddr.core.AddrFormatError:
-            raise ValueError()
-    else:
-        asn = int(asn)
-    return (prefix, asn, target)
-
-
 class ResourceDbMixin(object):
 
     @classmethod
@@ -500,7 +485,25 @@ class SecurityResourceBase(Resource):
         return cls.locate(pending_fq_name, create_it=False, fields=fields)
 
 
+
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
+    _autonomous_system = None
+
+    @classmethod
+    def _get_global_system_config(cls, fields=None):
+        return cls.locate(fq_name=['default-global-system-config'],
+                          create_it=False, fields=fields)
+
+    @classmethod
+    def get_autonomous_system(cls):
+        if not cls._autonomous_system:
+            ok, result = cls._get_global_system_config(['autonomous_system'])
+            if not ok:
+                return False, result
+            cls._autonomous_system = result['autonomous_system']
+
+        return True, cls._autonomous_system
+
     @classmethod
     def _check_valid_port_range(cls, port_start, port_end):
         if int(port_start) > int(port_end):
@@ -518,10 +521,10 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         if not ok:
             return ok, msg
 
-        ok, global_sys_cfg = cls.dbe_read(db_conn, 'global_system_config',
-                                          obj_dict.get('uuid'))
+        ok, result = cls._get_global_system_config(['bgpaas_parameters'])
         if not ok:
-            return (ok, global_sys_cfg)
+            return False, result
+        global_sys_cfg = result
 
         cur_bgpaas_ports = global_sys_cfg.get('bgpaas_parameters') or\
                             {'port_start': 50000, 'port_end': 50512}
@@ -541,28 +544,37 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     # end _check_bgpaas_ports
 
     @classmethod
-    def _check_asn(cls, obj_dict, db_conn):
+    def _check_asn(cls, obj_dict):
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
-            return (True, '')
-        (ok, result, _) = db_conn.dbe_list(
-            'virtual_network', field_names=['route_target_list'])
-        if not ok:
-            return (ok, (500, 'Error in dbe_list: %s' %(result)))
+            return True, ''
 
-        for vn in result:
+        ok, result, _ = cls.db_conn.dbe_list('virtual_network',
+                                             field_names=['route_target_list'])
+        if not ok:
+            return False, (500, 'Error in dbe_list: %s' % result)
+        vn_list = result
+
+        founded_vn_using_asn = []
+        for vn in vn_list:
             rt_dict = vn.get('route_target_list', {})
             for rt in rt_dict.get('route_target', []):
-                (_, asn, target) = _parse_rt(rt)
-                if (asn == global_asn and
-                    target >= cfgm_common.BGP_RTGT_MIN_ID):
-                    return (False, (400, "Virtual network %s is configured "
-                            "with a route target with this ASN and route "
-                            "target value in the same range as used by "
-                            "automatically allocated route targets" %
-                            vn['fq_name'][-1]))
-        return (True, '')
-    # end _check_asn
+                ok, result = RouteTargetServer.is_user_defined(rt, global_asn)
+                if not ok:
+                    return False, result
+                user_defined_rt = result
+                if not user_defined_rt:
+                    founded_vn_using_asn.append((':'.join(vn['fq_name']),
+                                                vn['uuid'], rt))
+        if not founded_vn_using_asn:
+            return True, ''
+        msg = ("Virtual networks are configured with a route target with this "
+               "ASN %d and route target value in the same range as used by "
+               "automatically allocated route targets:\n" % global_asn)
+        for fq_name, id, rt in founded_vn_using_asn:
+            msg += ("\t- %s (%s) have route target %s configured\n" %
+                    (':'.join(vn['fq_name']), vn['uuid'], rt[7:]))
+        return False, (400, msg)
 
     @classmethod
     def _check_udc(cls, obj_dict, udcs):
@@ -586,21 +598,14 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        bgpaas_ports = obj_dict.get('bgpaas_parameters')
-        if bgpaas_ports:
-            ok, msg = cls._check_valid_port_range(bgpaas_ports['port_start'],
-                                                  bgpaas_ports['port_end'])
-            if not ok:
-                return ok, msg
+        ok, result = cls._get_global_system_config(['fq_name', 'uuid'])
+        if not ok:
+            return False, result
+        gsc = result
 
-        ok, result = cls._check_udc(obj_dict, [])
-        if not ok:
-            return ok, result
-        ok, result = cls._check_asn(obj_dict, db_conn)
-        if not ok:
-            return ok, result
-        return True, ''
-    # end pre_dbe_create
+        msg = ("Global System Config already exists with name %s (%s)" %
+               (':'.join(gsc['fq_name']), gsc['uuid']))
+        return False, (400, msg)
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
@@ -610,7 +615,8 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
                             'prop_collection_updates') or []))
         if not ok:
             return ok, result
-        ok, result = cls._check_asn(obj_dict, db_conn)
+
+        ok, result = cls._check_asn(obj_dict)
         if not ok:
             return ok, result
 
@@ -619,9 +625,13 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
             return ok, result
 
         return True, ''
-    # end pre_dbe_update
 
-# end class GlobalSystemConfigServer
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if 'autonomous_system' in obj_dict:
+            cls._autonomous_system = obj_dict['autonomous_system']
+
+        return True, ''
 
 
 class FloatingIpServer(Resource, FloatingIp):
@@ -2884,21 +2894,15 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def _check_route_targets(cls, obj_dict, db_conn):
-        if 'route_target_list' not in obj_dict:
-            return (True, '')
-        global_asn = db_conn.get_autonomous_system()
-        if not global_asn:
-            return (True, '')
         rt_dict = obj_dict.get('route_target_list')
         if not rt_dict:
-            return (True, '')
+            return True, ''
         for rt in rt_dict.get('route_target') or []:
-            try:
-                (prefix, asn, target) = _parse_rt(rt)
-            except ValueError:
-                 return (False, "Route target must be of the format "
-                         "'target:<asn>:<number>' or 'target:<ip>:number'")
-            if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
+            ok, result = RouteTargetServer.is_user_defined(rt)
+            if not ok:
+                return False, result
+            user_defined_rt = result
+            if not user_defined_rt:
                  return (False, "Configured route target must use ASN that is "
                          "different from global ASN or route target value must"
                          " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
@@ -5438,3 +5442,51 @@ class PolicyManagementServer(Resource, PolicyManagement):
 
 class AddressGroupServer(SecurityResourceBase, AddressGroup):
     pass
+
+
+class RouteTargetServer(Resource, RouteTarget):
+    @staticmethod
+    def _parse_route_target_name(name):
+
+        try:
+            if isinstance(name, basestring):
+                prefix, asn, target = name.split(':')
+            elif isinstance(name, list):
+                prefix, asn, target = name
+            else:
+                raise ValueError
+            if prefix != 'target':
+                raise ValueError
+            target = int(target)
+            if not asn.isdigit():
+                try:
+                    IPAddress(asn)
+                except netaddr.core.AddrFormatError:
+                    raise ValueError
+            else:
+                asn = int(asn)
+        except ValueError:
+            msg = ("Route target must be of the format "
+                   "'target:<asn>:<number>' or 'target:<ip>:number'")
+            return False, (400, msg)
+        return True, (asn, target)
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls._parse_route_target_name(obj_dict[fq_name])
+
+    @classmethod
+    def is_user_defined(cls, route_target_name, global_asn=None):
+        ok, result = cls._parse_route_target_name(route_target_name)
+        if not ok:
+            return False, result
+        asn, target = result
+        if not global_asn:
+            ok, result = GlobalSystemConfigServer.get_autonomous_system()
+            if not ok:
+                return False, result
+            global_asn = result
+
+        if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
+            return True, False
+        return True, True

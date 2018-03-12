@@ -1753,14 +1753,6 @@ class VncDbClient(object):
         return self._api_svr_mgr.get_worker_id()
     # end get_worker_id
 
-    def get_autonomous_system(self):
-        config_uuid = self.fq_name_to_uuid('global_system_config',
-                                           ['default-global-system-config'])
-        ok, config = self._object_db.object_read('global_system_config',
-                                                 [config_uuid])
-        global_asn = config[0]['autonomous_system']
-        return global_asn
-
     # Insert new perms. Called on startup when walking DB
     def update_perms2(self, obj_uuid):
         perms2 = copy.deepcopy(Provision.defaults.perms2)
