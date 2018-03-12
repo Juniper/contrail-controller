@@ -1071,6 +1071,13 @@ class LogicalRouterServer(Resource, LogicalRouter):
             api_server = db_conn.get_api_server()
             api_server.internal_request_create('virtual-network',
                                                 json.loads(vn_int_dict))
+
+            vn_int_fqname = proj_dict.get('fq_name')
+            vn_int_fqname.append(vn_int_name)
+            vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_int_fqname)
+            api_server.internal_request_ref_update('logical-router', obj_dict['uuid'], 'ADD', 
+                                                   'virtual-network', vn_int_uuid, 
+                                                   "InternalVirtualNetwork")
         return True, ''
     # end post_dbe_create
 
@@ -1089,6 +1096,10 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
             api_server = db_conn.get_api_server()
             api_server.internal_request_delete('virtual-network', vn_int_uuid)
+
+            api_server.internal_request_ref_update('logical-router', obj_dict['uuid'], 'DELETE', 
+                                                   'virtual-network', vn_int_uuid, 
+                                                   "InternalVirtualNetwork")
 
         return True,''
     # end pre_dbe_delete
