@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <global-system-config>
+        <bgp-always-compare-med>true</bgp-always-compare-med>
+        <bgpaas-parameters>
+            <port-start>11000</port-start>
+            <port-end>22000</port-end>
+        </bgpaas-parameters>
+        <rd-cluster-seed>120</rd-cluster-seed>
+        <end-of-rib-receive-time>100</end-of-rib-receive-time>
+        <graceful-restart-parameters>
+            <enable>true</enable>
+            <restart-time>120</restart-time>
+            <long-lived-restart-time>130</long-lived-restart-time>
+        </graceful-restart-parameters>
+    </global-system-config>
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
+      <bgp-router name='local'>
+          <address>127.0.0.1</address>
+          <autonomous-system>1</autonomous-system>
+      </bgp-router>
+      <bgp-router name='remote'>
+          <address>127.0.0.100</address>
+          <autonomous-system>1</autonomous-system>
+      </bgp-router>
+    </routing-instance>
+</config>
