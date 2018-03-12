@@ -365,7 +365,10 @@ void AgentParam::ParseControllerServersArguments
         boost::split(controller_server_list_, controller_server_list_[0],
                      boost::is_any_of(" "));
     }
-    GetOptValue<string>(var_map, subcluster_name_, "CONTROL-NODE.subcluster_name");
+    GetOptValue<bool>(var_map, is_controller_list_order_strict_, 
+                                    "CONTROL-NODE.is_server_list_order_strict");
+    GetOptValue<string>(var_map, subcluster_name_,
+                                "CONTROL-NODE.subcluster_name");
 }
 
 void AgentParam::ParseDnsServersArguments
@@ -1380,7 +1383,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens),
         min_aap_prefix_len_(Agent::kMinAapPrefixLen),
         vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval),
-        fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize) {
+        fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize),
+        is_controller_list_order_strict_(false) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -1412,6 +1416,9 @@ AgentParam::AgentParam(bool enable_flow_options,
          opt::value<std::vector<std::string> >()->multitoken(),
          "List of IPAddress:Port of Control node Servers")
         ("CONTROL-NODE.subcluster_name", opt::value<string>(), "Cluster identifier")
+        ("CONTROL-NODE.is_server_list_mode_strict",
+          opt::bool_switch(&is_controller_list_order_strict_), 
+          "controller list order mode")
         ("DEFAULT.collectors",
          opt::value<std::vector<std::string> >()->multitoken(),
          "Collector server list")

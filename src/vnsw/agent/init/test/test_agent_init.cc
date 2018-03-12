@@ -558,6 +558,21 @@ TEST_F(AgentParamTest, Agent_Crypt_Config) {
     EXPECT_STREQ(param.crypt_port().c_str(), "ipsec0");
 }
 
+// test case to test whether controller server list mode 
+// is populated correctly or not
+TEST_F(AgentParamTest, Agent_controller_list_mode) {
+    int argc = 1;
+    char *argv[] = {
+        (char *) "",
+    };
+
+    AgentParam param;
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-control-node.ini", 
+                                "test-param");
+    EXPECT_TRUE(param.is_controller_list_order_strict());
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();

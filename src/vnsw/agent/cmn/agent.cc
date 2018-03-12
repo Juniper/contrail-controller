@@ -448,7 +448,10 @@ void Agent::CopyFilteredParams() {
     if (new_chksum != controller_chksum_) {
         controller_chksum_ = new_chksum;
         controller_list_ = params_->controller_server_list();
-        std::random_shuffle(controller_list_.begin(), controller_list_.end());
+        if (!params_->is_controller_list_order_strict()) {
+            std::random_shuffle(controller_list_.begin(),
+                                        controller_list_.end());
+        }
     }
 
     // Dns

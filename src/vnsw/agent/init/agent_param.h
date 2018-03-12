@@ -198,6 +198,9 @@ public:
     const std::vector<std::string> controller_server_list() const {
         return controller_server_list_;
     }
+    const bool is_controller_list_order_strict()  const {
+        return is_controller_list_order_strict_;
+    }
     const std::string &subcluster_name() const { return subcluster_name_; }
     const std::vector<std::string> dns_server_list() const {
         return dns_server_list_;
@@ -787,6 +790,10 @@ private:
     uint16_t min_aap_prefix_len_;
     uint16_t vmi_vm_vn_uve_interval_;
     uint16_t fabric_snat_hash_table_size_;
+    // controller server list order mode, if it is false
+    // list will be randomly shuffled for load balancing control node
+    // connections to compute nodes
+    bool is_controller_list_order_strict_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
