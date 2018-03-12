@@ -6,6 +6,7 @@
 This file contains job manager api which involes playbook interactions
 """
 
+import sys
 import os
 import json
 from collections import namedtuple
@@ -53,24 +54,33 @@ class JobHandler(object):
         self._logger.debug(msg)
 
     def handle_device_job(self, device_id, result_handler):
-        msg = "Starting playbook for job template %s with execution " \
-              "id %s for device %s " % (self._job_template.get_uuid(),
+        try:
+            msg = "Starting playbook for job template %s with execution " \
+                  "id %s for device %s " % (self._job_template.get_uuid(),
                                         self._execution_id, device_id)
-        self._logger.debug(msg)
+            self._logger.debug(msg)
 
-        # get the playbook information from the job template
-        playbook_info = self.get_playbook_info(device_id)
+            # get the playbook information from the job template
+            playbook_info = self.get_playbook_info(device_id)
 
-        # run the playbook
-        output = self.run_playbook(playbook_info)
+            # run the playbook
+            output = self.run_playbook(playbook_info)
 
-        result_handler.update_job_status(output, device_id)
+            result_handler.update_job_status(output, device_id)
 
-        msg = "Completed playbook execution for job template %s with " \
-              "execution id %s" % (self._job_template.get_uuid(),
-                                   self._execution_id)
-        self._logger.debug(msg)
+            msg = "Completed playbook execution for job template %s with " \
+                  "execution id %s" % (self._job_template.get_uuid(),
+                                       self._execution_id)
+            self._logger.debug(msg)
 
+        except JobException as e:
+            self._logger.error("Job Exception recieved: %s" % e.msg)
+            self._logger.error("%s" % traceback.print_stack())
+            sys.exit(e.msg)
+        except Exception as e:
+            self._logger.error("Error while executing job %s " % repr(e))
+            self._logger.error("%s" % traceback.print_stack())
+            sys.exit(e.msg)
 
     def find_playbook_info(self, device_id, playbook_list):
 
@@ -84,6 +94,9 @@ class JobHandler(object):
 
         for playbook_info in playbook_list:
             pb_vendor_name = playbook_info.get_vendor()
+            if not pb_vendor_name:
+                # device_vendor agnostic
+                return playbook_info
             if pb_vendor_name == device_vendor:
                 pb_device_family = playbook_info.get_device_family()
                 if pb_device_family:
