@@ -345,10 +345,21 @@ bool DhcpHandler::Run() {
 }    
 
 bool DhcpHandler::HandleVmRequest() {
+    DhcpProto *dhcp_proto = agent()->GetDhcpProto();
+    // options length = pkt length - size of headers
+    int16_t options_len = pkt_info_->len -
+                          (pkt_info_->data - (uint8_t *)pkt_info_->pkt)
+                          - DHCP_FIXED_LEN;
+    if (options_len < 0) {
+        agent()->GetDhcpProto()->IncrStatsErrors();
+        DHCP_TRACE(Error, "Improper DHCP packet length; vrf = " <<
+                   pkt_info_->vrf << " ifindex = " << GetInterfaceIndex());
+        return true;
+    }
+
     dhcp_ = (dhcphdr *) pkt_info_->data;
     option_->SetDhcpOptionPtr(dhcp_->options);
     request_.UpdateData(dhcp_->xid, ntohs(dhcp_->flags), dhcp_->chaddr);
-    DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     Interface *itf =
         agent()->interface_table()->FindInterface(GetInterfaceIndex());
     if (itf == NULL) {
@@ -379,10 +390,6 @@ bool DhcpHandler::HandleVmRequest() {
         return true;
     }
 
-    // options length = pkt length - size of headers
-    int16_t options_len = pkt_info_->len -
-                          (pkt_info_->data - (uint8_t *)pkt_info_->pkt)
-                          - DHCP_FIXED_LEN;
     if (!ReadOptions(options_len))
         return true;
 
