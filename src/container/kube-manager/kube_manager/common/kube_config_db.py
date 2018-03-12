@@ -201,7 +201,7 @@ class NamespaceKM(KubeDBBase):
             return
 
         # Parse virtual network annotations.
-        if not self.annotated_vn_fq_name:
+        if 'opencontrail.org/network' in annotations:
             try:
                 self.annotated_vn_fq_name = self.get_vn_from_annotation(
                     annotations)
