@@ -207,6 +207,7 @@ XmppServer::XmppServer(EventManager *evm)
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       gr_helper_disable_(false),
+      dscp_value_(0),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
