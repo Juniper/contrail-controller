@@ -153,3 +153,7 @@ request sandesh ShowBgpNeighborConfigReqIterate {
 request sandesh ShowBgpRoutingPolicyConfigReqIterate {
     1: string iterate_info;
 }
+
+request sandesh ShowBgpGlobalSystemConfigReqIterate {
+    1: string iterate_info;
+}
