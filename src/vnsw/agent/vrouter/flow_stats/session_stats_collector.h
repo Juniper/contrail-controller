@@ -305,13 +305,15 @@ private:
     bool CheckPolicyMatch(const SessionSloRuleMap &map,
                           const std::string &policy_uuid,
                           const bool &deleted_flag,
-                          bool *match);
+                          bool *match,
+                          const bool  &exported_once);
     bool FindSloMatchRule(const SessionSloRuleMap &map,
                           const std::string &fw_policy_uuid,
                           const std::string &nw_policy_uuid,
                           const std::string &sg_policy_uuid,
                           const bool &deleted_flag,
-                          bool *match);
+                          bool *match,
+                          const bool  &exported_once);
 
     void GetPolicyIdFromFlow(const FlowEntry *fe,
                              std::string &fw_policy_uuid,
@@ -329,7 +331,8 @@ private:
                          const std::string& nw_policy_uuid,
                          const std::string& sg_policy_uuid,
                          const bool &deleted_flag,
-                         bool  *logged);
+                         bool  *logged,
+                         const bool  &exported_once);
 
     void BuildSloList(const SessionStatsInfo &stats_info,
                       const FlowEntry *fe,
@@ -342,11 +345,13 @@ private:
 
     bool FlowLogging(const SessionStatsInfo    &stats_info,
                      const FlowEntry *fe,
-                     bool *logged);
+                     bool *logged,
+                     const bool  &exported_once);
 
     bool DeletedFlowLogging(const SessionStatsInfo    &stats_info,
                             const SessionFlowExportInfo &flow_info,
-                            bool  *logged);
+                            bool  *logged,
+                            const bool  &exported_once);
 
     bool HandleDeletedFlowLogging(const SessionStatsInfo &stats_info);
     bool HandleFlowLogging(const SessionStatsInfo &stats_info);
