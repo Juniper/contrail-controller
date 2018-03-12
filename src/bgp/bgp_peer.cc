@@ -22,6 +22,7 @@
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_peer_types.h"
+#include "bgp/community.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/inet/inet_table.h"
@@ -33,9 +34,9 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_table.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
 #include "config-client-mgr/config_client_manager.h"
-
 using boost::assign::list_of;
 using boost::assign::map_list_of;
 using boost::system::error_code;
@@ -211,6 +212,7 @@ BgpPeerFamilyAttributes::BgpPeerFamilyAttributes(
     }
     prefix_limit = family_config.prefix_limit;
     idle_timeout = family_config.idle_timeout;
+    default_tunnel_encap_list = family_config.default_tunnel_encap_list;
 
     if (config->router_type() == "bgpaas-client") {
         if (family_config.family == "inet") {
@@ -225,16 +227,15 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
     RibExportPolicy policy;
     BgpPeerFamilyAttributes *family_attributes =
         family_attributes_list_[family];
-    if (!family_attributes ||
-        family_attributes->gateway_address.is_unspecified()) {
+    if (!family_attributes) {
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(),
             -1, cluster_id_);
     } else {
-        IpAddress nexthop = family_attributes->gateway_address;
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
-            as_override_, peer_close_->IsCloseLongLivedGraceful(), nexthop,
-            -1, cluster_id_);
+            as_override_, peer_close_->IsCloseLongLivedGraceful(),
+            family_attributes->gateway_address,
+            -1, cluster_id_, family_attributes->default_tunnel_encap_list);
     }
 
     if (private_as_action_ == "remove") {
@@ -1826,6 +1827,46 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             " reach " << reach_count << " unreach " << unreach_count);
     }
 }
+const std::vector<std::string> BgpPeer::GetDefaultTunnelEncap(
+    const Address::Family family) const {
+    if (family_attributes_list_[family] == NULL)
+        return std::vector<std::string>();
+    return family_attributes_list_[family]->default_tunnel_encap_list;
+}
+
+void BgpPeer::ProcessPathTunnelEncapsulation(const BgpPath *path, BgpAttr *attr,
+                                             ExtCommunityDB *extcomm_db,
+                                             const BgpTable *table) const {
+    if (!GetDefaultTunnelEncap(table->family()).empty()) {
+        ExtCommunityPtr ext_community = attr->ext_community();
+        bool tunnel_encap_found = false;
+        if (ext_community) {
+            for (ExtCommunity::ExtCommunityList::const_iterator iter =
+                 attr->ext_community()->communities().begin();
+                 iter != attr->ext_community()->communities().end();
+                 ++iter) {
+                if (ExtCommunity::is_tunnel_encap(*iter)) {
+                    tunnel_encap_found = true;
+                    break;
+                }
+            }
+        }
+        // Set default tunnel encap since it is not in the path
+        if (!ext_community || !tunnel_encap_found) {
+            ExtCommunity::ExtCommunityList encap_list;
+            BOOST_FOREACH(const string &encap_string,
+                          GetDefaultTunnelEncap(table->family())) {
+                TunnelEncap tunnel_encap(encap_string);
+                encap_list.push_back(tunnel_encap.GetExtCommunity());
+            }
+            ext_community =
+                extcomm_db->ReplaceTunnelEncapsulationAndLocate(
+                ext_community ? ext_community.get() : NULL, encap_list);
+            attr->set_ext_community(ext_community);
+        }
+    }
+}
+
 
 void BgpPeer::UpdatePrimaryPathCount(int count, Address::Family family) const {
     primary_path_count_ += count;

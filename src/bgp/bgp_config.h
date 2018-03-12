@@ -94,6 +94,7 @@ struct BgpFamilyAttributesConfig {
     uint8_t loop_count;
     uint32_t prefix_limit;
     uint32_t idle_timeout;
+    std::vector<std::string> default_tunnel_encap_list;
 };
 
 //
@@ -106,6 +107,8 @@ struct BgpFamilyAttributesConfigCompare {
         KEY_COMPARE(lhs.loop_count, rhs.loop_count);
         KEY_COMPARE(lhs.prefix_limit, rhs.prefix_limit);
         KEY_COMPARE(lhs.idle_timeout, rhs.idle_timeout);
+        KEY_COMPARE(lhs.default_tunnel_encap_list,
+                    rhs.default_tunnel_encap_list);
         return 0;
     }
 };

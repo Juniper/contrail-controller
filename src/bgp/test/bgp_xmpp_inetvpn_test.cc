@@ -464,6 +464,183 @@ static const char *config_2_cluster_seed_1_vn = "\
 </config>\
 ";
 
+static const char *config_2_control_nodes_default_tunnel_encap_mpls_vxlan = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to=\'Y\'>\
+            <family-attributes>\
+                  <address-family>route-target</address-family>\
+            </family-attributes>\
+            <family-attributes>\
+                <address-family>inet-vpn</address-family>\
+                <default-tunnel-encap>mpls</default-tunnel-encap>\
+                <default-tunnel-encap>vxlan</default-tunnel-encap>\
+            </family-attributes>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='default-domain:default-project:ip-fabric'>\
+        <network-id>100</network-id>\
+    </virtual-network>\
+    <routing-instance name='default-domain:default-project:ip-fabric:ip-fabric'>\
+        <virtual-network>default-domain:default-project:ip-fabric</virtual-network>\
+        <vrf-target>target:1:100</vrf-target>\
+    </routing-instance>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+
+static const char *config_2_control_nodes_default_tunnel_encap_mpls = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to=\'Y\'>\
+            <family-attributes>\
+                  <address-family>route-target</address-family>\
+            </family-attributes>\
+            <family-attributes>\
+                <address-family>inet-vpn</address-family>\
+                <default-tunnel-encap>mpls</default-tunnel-encap>\
+            </family-attributes>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='default-domain:default-project:ip-fabric'>\
+        <network-id>100</network-id>\
+    </virtual-network>\
+    <routing-instance name='default-domain:default-project:ip-fabric:ip-fabric'>\
+        <virtual-network>default-domain:default-project:ip-fabric</virtual-network>\
+        <vrf-target>target:1:100</vrf-target>\
+    </routing-instance>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+
+static const char
+*config_2_control_nodes_different_asn_default_tunnel_encap_mpls_vxlan = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <autonomous-system>64511</autonomous-system>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <router-type>external-control-node</router-type>\
+        <session to=\'Y\'>\
+            <family-attributes>\
+                  <address-family>route-target</address-family>\
+            </family-attributes>\
+            <family-attributes>\
+                <address-family>inet-vpn</address-family>\
+                <default-tunnel-encap>mpls</default-tunnel-encap>\
+                <default-tunnel-encap>vxlan</default-tunnel-encap>\
+            </family-attributes>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <autonomous-system>64512</autonomous-system>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <router-type>external-control-node</router-type>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char
+*config_2_control_nodes_different_asn_default_tunnel_encap_mpls = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <autonomous-system>64511</autonomous-system>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <router-type>external-control-node</router-type>\
+        <session to=\'Y\'>\
+            <family-attributes>\
+                  <address-family>route-target</address-family>\
+            </family-attributes>\
+            <family-attributes>\
+                <address-family>inet-vpn</address-family>\
+                <default-tunnel-encap>mpls</default-tunnel-encap>\
+            </family-attributes>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <autonomous-system>64512</autonomous-system>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <router-type>external-control-node</router-type>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+
 //
 // Control Nodes X and Y.
 // Agents A and B.
@@ -601,10 +778,10 @@ protected:
     }
 
     bool CheckEncap(autogen::TunnelEncapsulationListType &rt_encap,
-        const string &encap) {
-        if (rt_encap.tunnel_encapsulation.size() != 1)
+        const vector<string> &encap) {
+        if (rt_encap.tunnel_encapsulation.size() != encap.size())
             return false;
-        return (rt_encap.tunnel_encapsulation[0] == encap);
+        return (rt_encap.tunnel_encapsulation == encap);
     }
 
     bool CheckTagList(autogen::TagListType &rt_tag_list,
@@ -622,9 +799,9 @@ protected:
 
     bool CheckRoute(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref, int med, int seq,
-        const string &encap, const string &origin_vn, const vector<int> sgids,
-        const LoadBalance &loadBalance, const vector<string> communities,
-        const vector<int> tag_list) {
+        const vector<string> &encap, const string &origin_vn,
+        const vector<int> sgids, const LoadBalance &loadBalance,
+        const vector<string> communities, const vector<int> tag_list) {
         const autogen::ItemType *rt = agent->RouteLookup(net, prefix);
         if (!rt)
             return false;
@@ -664,13 +841,14 @@ protected:
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref, int med) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(agent, net, prefix, nexthop,
-            local_pref, med, 0, string(), string(), vector<int>(),
+            local_pref, med, 0, vector<string>(), string(), vector<int>(),
             LoadBalance(), vector<string>(), vector<int>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref = 0,
-        const string &encap = string(), const string &origin_vn = string(),
+        const vector<string> &encap = vector<string>(),
+        const string &origin_vn = string(),
         const vector<int> sgids = vector<int>(),
         const LoadBalance lb = LoadBalance()) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
@@ -682,22 +860,22 @@ protected:
         string prefix, string nexthop, const vector<int> sgids,
         const vector<int> tag_list = vector<int>()) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, 0, 0, 0, string(), string(), sgids,
-            LoadBalance(), vector<string>(), tag_list));
+            agent, net, prefix, nexthop, 0, 0, 0, vector<string>(), string(),
+            sgids, LoadBalance(), vector<string>(), tag_list));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref, int seq,
         const vector<int> sgids) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, local_pref, 0, seq, string(), string(),
-            sgids, LoadBalance(), vector<string>(), vector<int>()));
+            agent, net, prefix, nexthop, local_pref, 0, seq, vector<string>(),
+            string(), sgids, LoadBalance(), vector<string>(), vector<int>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, const LoadBalance &lb) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, 0, 0, 0, string(), string(),
+            agent, net, prefix, nexthop, 0, 0, 0, vector<string>(), string(),
             vector<int>(), lb, vector<string>(), vector<int>()));
     }
 
@@ -705,7 +883,7 @@ protected:
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, const vector<string> &communities) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
-            agent, net, prefix, nexthop, 0, 0, 0, string(), string(),
+            agent, net, prefix, nexthop, 0, 0, 0, vector<string>(), string(),
             vector<int>(), LoadBalance(), communities, vector<int>()));
     }
 
@@ -847,10 +1025,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_1) {
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // Add the same ipv4 route to fabric instance with primary table index as
     // that of blue.
@@ -858,9 +1036,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_1) {
                        "192.168.1.1", 200, 0, 1);
     task_util::WaitForIdle();
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     FabricTestTearDown(route_a);
 }
 
@@ -871,10 +1049,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_2) {
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // Add the same ipv4 route to fabric instance with primary table index as
     // that of blue with incorrect index.
@@ -882,10 +1060,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_2) {
                        "192.168.1.1", 200, 0, 2); // 2 is incorrect index.
     task_util::WaitForIdle();
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
     FabricTestTearDown(route_a);
 }
@@ -898,10 +1076,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_3) {
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // Add the same ipv4 route to fabric instance with primary table index as
     // that of blue (but index is incorrect)
@@ -909,10 +1087,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_3) {
                        "192.168.1.1", 200, 0, 2);
     task_util::WaitForIdle();
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
     // Add the same ipv4 route to fabric instance with primary table index as
     // that of blue ,now with correct index.
@@ -920,9 +1098,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_3) {
                        "192.168.1.1", 200, 0, 1);
     task_util::WaitForIdle();
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     FabricTestTearDown(route_a);
 }
 
@@ -934,10 +1112,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_4) {
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // Add the same ipv4 route to fabric instance with primary table index as
     // that of blue.
@@ -945,9 +1123,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_4) {
                        "192.168.1.1", 200, 0, 1);
     task_util::WaitForIdle();
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
 
     // Delete VPN route.
     agent_a_->DeleteRoute("blue", route_a);
@@ -958,9 +1136,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_VPNAddThenFabricAdd_4) {
     // Fabric route shall remain with "blue" as the attribute. In production
     // code, fabric route is also expected to be deleted anyways.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     FabricTestTearDown(route_a);
 }
 
@@ -976,24 +1154,24 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_1) {
 
     // OriginVN is not expected to be set as VPN route is not added yet.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
 
     // Add the vpn route to blue.
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // OriginVN should now be set to blue as VPN route is also added.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     FabricTestTearDown(route_a);
 }
 
@@ -1009,26 +1187,26 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_2) {
 
     // OriginVN is not expected to be set as VPN route is not added yet.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
 
     // Add the vpn route to blue.
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // OriginVN should still not be set to blue as fabric route was added with
     // incorrect primary instance index.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
     FabricTestTearDown(route_a);
 }
@@ -1046,26 +1224,26 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_3) {
 
     // OriginVN is not expected to be set as VPN route is not added yet.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
 
     // Add the vpn route to blue.
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // OriginVN should still not be set to blue as fabric route was added with
     // incorrect primary instance index.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "",
+                      route_a, "192.168.1.1", 200, vector<string>(),
                       BgpConfigManager::kMasterNetwork);
 
     // Add the ipv4 route to fabric instance with primary table index as blue
@@ -1075,9 +1253,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_3) {
 
     // OriginVN should now be set to blue as VPN route is also added.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     FabricTestTearDown(route_a);
 }
 
@@ -1094,24 +1272,24 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_4) {
 
     // OriginVN is not expected to be set as VPN route is not added yet.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "");
+                      route_a, "192.168.1.1", 200, vector<string>(), "");
 
     // Add the vpn route to blue.
     agent_a_->AddRoute("blue", route_a, "192.168.1.1", 200);
     task_util::WaitForIdle();
 
-    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
-    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200, "",
-                      "blue");
+    VerifyRouteExists(agent_a_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
+    VerifyRouteExists(agent_b_, "blue", route_a, "192.168.1.1", 200,
+                      vector<string>(), "blue");
 
     // OriginVN should now be set to blue as VPN route is also added.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
 
     // Delete VPN route.
     agent_a_->DeleteRoute("blue", route_a);
@@ -1122,9 +1300,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, FabricTest_FabricAddThenVPNAdd_4) {
     // Fabric route shall remain with "blue" as the attribute. In production
     // code, fabric route is also expected to be deleted anyways.
     VerifyRouteExists(agent_a_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     VerifyRouteExists(agent_b_, BgpConfigManager::kMasterInstance,
-                      route_a, "192.168.1.1", 200, "", "blue");
+                      route_a, "192.168.1.1", 200, vector<string>(), "blue");
     FabricTestTearDown(route_a);
 }
 
@@ -3074,11 +3252,12 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap1) {
     agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
     task_util::WaitForIdle();
 
+    vector<string> encap_list = list_of("udp");
     // Verify that route showed up on agents A and B.
     VerifyRouteExists(
-        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "udp");
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list);
     VerifyRouteExists(
-        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "udp");
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
@@ -3120,11 +3299,12 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap2) {
     agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
     task_util::WaitForIdle();
 
+    vector<string> encap_list = list_of("native");
     // Verify that route showed up on agents A and B.
     VerifyRouteExists(
-        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "native");
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list);
     VerifyRouteExists(
-        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "native");
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
@@ -3186,6 +3366,346 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, TagList) {
     agent_b_->SessionDown();
 }
 
+// Verify that the tunnel encapsulation on a route from the agent is
+// replaced with the ordered tunnel encapsulation list configured on the BGP
+// peer(X->Y) when advertising. The tunnel encapsulation of routes received by
+// the agent locally is not altered.
+// The tunnel encapsulation for routes received from a BGP peer(Y in this case)
+// that carry a tunnel encapsulation is also not altered.
+// Verify that changes/removal of default tunnel encapsulation configuration
+// take effect on existing routes,
+
+TEST_F(BgpXmppInetvpn2ControlNodeTest, DefaultTunnelEncapRouteWithEncap) {
+    Configure(config_2_control_nodes_default_tunnel_encap_mpls_vxlan);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A with udp encap
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    // Specify encap in nexthop
+    test::NextHop next_hop("192.168.1.1", 0, "udp");
+    agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
+    task_util::WaitForIdle();
+    // Build encap lists to verify encaps of routes received by agent A and B.
+    // Agent B should receive encaps configured on X to Peer Y, while agent A
+    // should receive the original encap send by itself
+    vector<string> encap_list_udp = list_of("udp");
+    vector<string> encap_list_mpls_vxlan = list_of("mpls")("vxlan");
+    // Verify that route shows up on agents A and B with expected encap.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_udp);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100,
+        encap_list_mpls_vxlan);
+
+    // Add route from agent B.
+    stringstream route_b;
+    route_b << "10.1.1.2/32";
+    test::NextHop next_hop2("192.168.1.2", 0, "udp");
+    agent_b_->AddRoute("blue", route_b.str(), next_hop2, 100);
+    task_util::WaitForIdle();
+
+    // Agents A and B should receive the original encap send by B. Note
+    // that the configured encap should be ignored since the received route
+    // would carry encapsulation.
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_udp);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_udp);
+
+    // Change the configuration, removing vxlan.
+    Configure(config_2_control_nodes_default_tunnel_encap_mpls);
+    task_util::WaitForIdle();
+    // Agent B should receive changed encaps as configured on X to Peer Y
+    // while others remain unchanged.
+    vector<string> encap_list_mpls = list_of("mpls");
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_udp);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_mpls);
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_udp);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_udp);
+
+    // Change the configuration on X to Y, removing default tunnel encaps.
+    Configure(config_2_control_nodes);
+    task_util::WaitForIdle();
+    // Agent B should receive the original encap for route_a while others
+    // should remain unchanged.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_udp);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_udp);
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_udp);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_udp);
+    // Delete route from agent A and B
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+    agent_b_->DeleteRoute("blue", route_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_a_, "blue", route_b.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_b.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+// Verify that a route from the agent without tunnel encapsulation is
+// replaced with the ordered tunnel encapsulation list configured on the BGP
+// peer(X->Y) when advertising.
+// The tunnel encapsulation of routes received by the agent locally will have
+//  the default system tunnel encapsulation set by the controller.
+// For routes received from a BGP peer (Y in this case) that do not carry a
+// tunnel encapsulation will be modified to contain the configred default
+// encapsulation list.
+// Verify that changes/removal of default tunnel encapsulation configuration
+// take effect on existing routes,
+TEST_F(BgpXmppInetvpn2ControlNodeTest, DefaultTunnelEncapRouteWithoutEncap) {
+    Configure(config_2_control_nodes_default_tunnel_encap_mpls_vxlan);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A without tunnel encap
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    // Do not specify encap in the nexthop.
+    test::NextHop next_hop(0, "192.168.1.1");
+    agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
+    task_util::WaitForIdle();
+    // Build encap lists to verify tunnel encaps of routes received by agent A
+    // and B.
+    // Agent B should receive tunnel encaps configured on X, to Peer Y while
+    // agent A should receive the route with the system default, gre tunnel
+    // encap.
+    vector<string> encap_list_gre = list_of("gre");
+    vector<string> encap_list_mpls_vxlan = list_of("mpls")("vxlan");
+    // Verify that route shows up on agents A and B with expected encap.
+    // Note that the controller sets the default to gre when sending the route
+    // to the agent if tunnel encapsulation is missing in the route received.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100,
+        encap_list_mpls_vxlan);
+
+    // Add route from agent B without tunnel encap.
+    stringstream route_b;
+    route_b << "10.1.1.2/32";
+    test::NextHop next_hop2(0, "192.168.1.2");
+    agent_b_->AddRoute("blue", route_b.str(), next_hop2, 100);
+    task_util::WaitForIdle();
+
+    // Agents A should receive the route with the configured tunnel
+    // encapsulation, note that the configured tunnel encapsulation is used
+    // becasue the route received will not have tunnel encapsulation
+    // specified. should receive the route with the system default, gre
+    // tunnel encap.
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100,
+        encap_list_mpls_vxlan);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+
+    // Change the configuration on X to Y, removing vxlan.
+    Configure(config_2_control_nodes_default_tunnel_encap_mpls);
+    task_util::WaitForIdle();
+    // Agent B should receive the route_a with the configured tunnel encaps on
+    // X to Peer Y, and Agent A should receive route_b also with the configured
+    // tunnel encapsulation. Other routes should remain unchanged.
+    vector<string> encap_list_mpls = list_of("mpls");
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_mpls);
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_mpls);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+
+    // Change the configuration on X to Y, removing default tunnel encaps
+    // config.
+    Configure(config_2_control_nodes);
+    task_util::WaitForIdle();
+    // Agent B should receive route_a with the system default, gre tunnel encap,
+    // and agent B should also receive route_b with the system default encap.
+    // Others should remain unchanged.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+    // Delete route from agent A and B
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+    agent_b_->DeleteRoute("blue", route_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_a_, "blue", route_b.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_b.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+// Same as the test above except that BGP routers are in different AS's
+TEST_F(BgpXmppInetvpn2ControlNodeTest,
+       DefaultTunnelEncapDiffAsnRouteWithoutEncap) {
+    Configure(
+        config_2_control_nodes_different_asn_default_tunnel_encap_mpls_vxlan);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A without tunnel encap
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    // Do not specify encap in the nexthop.
+    test::NextHop next_hop(0, "192.168.1.1");
+    agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
+    task_util::WaitForIdle();
+    // Build encap lists to verify tunnel encaps of routes received by agent A
+    // and B.
+    // Agent B should receive tunnel encaps configured on X, to Peer Y while
+    // agent A should receive the route with the system default, gre tunnel
+    // encap.
+    vector<string> encap_list_gre = list_of("gre");
+    vector<string> encap_list_mpls_vxlan = list_of("mpls")("vxlan");
+    // Verify that route shows up on agents A and B with expected encap.
+    // Note that the controller sets the default to gre when sending the route
+    // to the agent if tunnel encapsulation is missing in the route received.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100,
+        encap_list_mpls_vxlan);
+
+    // Add route from agent B without tunnel encap.
+    stringstream route_b;
+    route_b << "10.1.1.2/32";
+    test::NextHop next_hop2(0, "192.168.1.2");
+    agent_b_->AddRoute("blue", route_b.str(), next_hop2, 100);
+    task_util::WaitForIdle();
+
+    // Agents A should receive the route with the configured tunnel
+    // encapsulation, note that the configured tunnel encapsulation is used
+    // becasue the route received will not have tunnel encapsulation
+    // specified. should receive the route with the system default, gre
+    // tunnel encap.
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100,
+        encap_list_mpls_vxlan);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+
+    // Change the configuration on X to Y, removing vxlan.
+    Configure(
+        config_2_control_nodes_different_asn_default_tunnel_encap_mpls);
+    task_util::WaitForIdle();
+    // Agent B should receive the route_a with the configured tunnel encaps on
+    // X to Peer Y, and Agent A should receive route_b also with the configured
+    // tunnel encapsulation. Other routes should remain unchanged.
+    vector<string> encap_list_mpls = list_of("mpls");
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_mpls);
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_mpls);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+
+    // Change the configuration on X to Y, removing default tunnel encaps
+    // config.
+    Configure(config_2_control_nodes_different_asn);
+    task_util::WaitForIdle();
+    // Agent B should receive route_a with the system default, gre tunnel encap,
+    // and agent B should also receive route_b with the system default encap.
+    // Others should remain unchanged.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_a_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+    VerifyRouteExists(
+        agent_b_, "blue", route_b.str(), "192.168.1.2", 100, encap_list_gre);
+    // Delete route from agent A and B
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+    agent_b_->DeleteRoute("blue", route_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_a_, "blue", route_b.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_b.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
 TEST_F(BgpXmppInetvpn2ControlNodeTest, VirtualNetworkIndexChange) {
     Configure(config_2_control_nodes_no_vn_info);
     task_util::WaitForIdle();
@@ -3213,11 +3733,14 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, VirtualNetworkIndexChange) {
     agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
     task_util::WaitForIdle();
 
+    vector<string> encap_list = list_of("udp");
     // Verify the origin VN on agents A and B.
     VerifyRouteExists(
-        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "blue");
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list,
+        "blue");
     VerifyRouteExists(
-        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "unresolved");
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list,
+        "unresolved");
 
     // Update the config to include VN index.
     Configure(config_2_control_nodes);
@@ -3225,9 +3748,11 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, VirtualNetworkIndexChange) {
 
     // Verify the origin VN on agents A and B.
     VerifyRouteExists(
-        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "blue");
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, encap_list,
+        "blue");
     VerifyRouteExists(
-        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "blue");
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, encap_list,
+        "blue");
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());

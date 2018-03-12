@@ -4,6 +4,9 @@
 
 #include "bgp/bgp_rib_policy.h"
 
+using std::string;
+using std::vector;
+
 RibExportPolicy::RemovePrivatePolicy::RemovePrivatePolicy()
     : enabled(false),
       all(false),
@@ -62,17 +65,19 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
 }
 
+
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
     as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
-    int affinity, uint32_t cluster_id)
-    : type(type),
+    int affinity, uint32_t cluster_id,
+    vector<string> &default_tunnel_encap_list) : type(type),
       encoding(BGP),
       as_number(as_number),
       as_override(as_override),
       nexthop(nexthop),
       affinity(affinity),
       llgr(llgr),
-      cluster_id(cluster_id) {
+      cluster_id(cluster_id),
+      default_tunnel_encap_list(default_tunnel_encap_list) {
     assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
     assert(encoding == BGP);
 }
@@ -102,5 +107,6 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     BOOL_KEY_COMPARE(remove_private.replace, rhs.remove_private.replace);
     BOOL_KEY_COMPARE(
         remove_private.peer_loop_check, rhs.remove_private.peer_loop_check);
+    BOOL_KEY_COMPARE(default_tunnel_encap_list, rhs.default_tunnel_encap_list);
     return false;
 }

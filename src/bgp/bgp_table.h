@@ -120,6 +120,9 @@ public:
     static bool PathSelection(const Path &path1, const Path &path2);
     UpdateInfo *GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                               const RibPeerSet &peerset);
+    void ProcessDefaultTunnelEncapsulation(const RibOut *ribout,
+        ExtCommunityDB *extcomm_db, BgpAttr *attr) const;
+
     virtual void UpdateSecondaryTablesForReplication(BgpRoute *rt,
                      TableSet *secondary_tables) {
     }

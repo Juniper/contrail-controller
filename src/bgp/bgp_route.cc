@@ -58,9 +58,45 @@ void BgpRoute::InsertPath(BgpPath *path) {
     const Path *prev_front = front();
 
     BgpTable *table = static_cast<BgpTable *>(get_table());
-    if (table && table->IsRoutingPolicySupported()) {
-        RoutingInstance *rtinstance = table->routing_instance();
-        rtinstance->ProcessRoutingPolicy(this, path);
+    // 'table' is not expected to be null, suspect it is checked here because of
+    // unit tests.
+    if (table) {
+        // Default Tunnel Encapsulation processing is done if configured for
+        // the address family on the peer.
+        // If routing policy is supported on the table(family)it is handled in
+        // ProcessRoutingPolicy where other changes may be made to the
+        // attributes. Also, when there are routing policy configuration changes
+        // the attributes needs to be re-evaluated using the original attributes
+        // and Default Tunnel Encapsulation also needs to be re-applied, this
+        // will be handled seamlessly since ProcessRoutingPolicy will be called
+        // in that case.
+        // Note that currently routing policies are not supported on VPN address
+        // families, however this is ensuring that it will be handed correctly
+        // in future. Additionally, for labeled inet routes, routing policies
+        // are supported so the Default Tunnel Encapsulation needs to be handled
+        //  in ProcessRoutingPolicy.
+        // If the table(family) does not support routing policies the Default
+        // Tunnel Encapsulation processing is handled here. The original and
+        // modified attributes are saved and are not expected to be modified
+        // further. Note that the configuration is not applied if the path
+        // already has tunnel encapsulation specified.
+
+        if (table->IsRoutingPolicySupported()) {
+            RoutingInstance *rtinstance = table->routing_instance();
+            rtinstance->ProcessRoutingPolicy(this, path);
+        } else {
+            IPeer *peer = path->GetPeer();
+            if (peer) {
+                // Take snapshot of original attribute
+                BgpAttr *out_attr = new BgpAttr(*(path->GetOriginalAttr()));
+                peer->ProcessPathTunnelEncapsulation(path, out_attr,
+                    table->server()->extcomm_db(), table);
+                BgpAttrPtr modified_attr =
+                    table->server()->attr_db()->Locate(out_attr);
+                // Update the path with new set of attributes
+                path->SetAttr(modified_attr, path->GetOriginalAttr());
+            }
+        }
     }
     insert(path);
 

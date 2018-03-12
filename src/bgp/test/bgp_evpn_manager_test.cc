@@ -124,6 +124,14 @@ public:
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
+    virtual void ProcessPathTunnelEncapsulation(const BgpPath *path,
+        BgpAttr *attr, ExtCommunityDB *extcomm_db, const BgpTable *table)
+        const {
+    }
+    virtual const std::vector<std::string> GetDefaultTunnelEncap(
+        Address::Family family) const {
+        return std::vector<std::string>();
+    }
     virtual void MembershipRequestCallback(BgpTable *table) { }
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,
         BgpRoute *route, BgpPath *path) { return false; }
