@@ -1655,9 +1655,15 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
     std::string analyzer_name_;
 };
 
+class InetInterfaceOsId : public InterfaceOsId {
+public:
+    InetInterfaceOsId(const std::string& name);
+    virtual boost::optional<Interface::IfGuid> ObtainKernelIdentifier();
+};
+
 // Definition for structures when request queued from IFMap config.
 struct VmInterfaceConfigData : public VmInterfaceData {
-    VmInterfaceConfigData(Agent *agent, IFMapNode *node);
+    VmInterfaceConfigData(Agent *agent, IFMapNode *node, InterfaceOsId *os_id);
     virtual ~VmInterfaceConfigData() { }
     virtual VmInterface *OnAdd(const InterfaceTable *table,
                                const VmInterfaceKey *key) const;

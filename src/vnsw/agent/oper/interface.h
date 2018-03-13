@@ -19,6 +19,14 @@ struct InterfaceData;
 class VmInterface;
 class IFMapDependencyManager;
 
+class InterfaceOsId {
+public:
+    InterfaceOsId(const std::string& name);
+    virtual boost::optional<Interface::IfGuid> ObtainKernelIdentifier();
+protected:
+    string name_;
+};
+
 class Interface : AgentRefCount<Interface>, public AgentOperDBEntry {
 public:
     // Used on Windows as operating system identifier's type
@@ -181,6 +189,8 @@ protected:
     // Used on Windows as network interface's identifier
     boost::optional<IfGuid> os_guid_;
 
+    InterfaceOsId *os_id_;
+
 private:
     void GetOsSpecificParams(Agent *agent, const std::string &name);
 
@@ -245,7 +255,7 @@ struct InterfaceKey : public AgentOperDBKey {
 struct InterfaceData : public AgentOperDBData {
     InterfaceData(Agent *agent, IFMapNode *node,
                   Interface::Transport transport) :
-        AgentOperDBData(agent, node), transport_(transport) { }
+        AgentOperDBData(agent, node), transport_(transport), os_id_(NULL) { }
 
     void VmPortInit() { vrf_name_ = ""; }
     void EthInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
@@ -258,6 +268,8 @@ struct InterfaceData : public AgentOperDBData {
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;
     Interface::Transport transport_;
+
+    InterfaceOsId *os_id_;
 };
 
 struct InterfaceQosConfigData : public AgentOperDBData {

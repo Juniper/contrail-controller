@@ -151,6 +151,7 @@ DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     index_table_.InsertAtIndex(intf->id_, intf);
 
     intf->transport_ = data->transport_;
+    intf->os_id_ = data->os_id_;
     // Get the os-ifindex and mac of interface
     intf->GetOsParams(agent());
 
@@ -372,7 +373,8 @@ void InterfaceTable::CreateVhost() {
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                      agent()->vhost_interface_name()));
 
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    InetInterfaceOsId *os_id = new InetInterfaceOsId(agent()->vhost_interface_name());
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL, os_id);
     data->CopyVhostData(agent());
 
     data->disable_policy_ = true;
@@ -385,7 +387,7 @@ void InterfaceTable::CreateVhostReq() {
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                      agent()->vhost_interface_name()));
 
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL, NULL);
     data->CopyVhostData(agent());
 
     req.data.reset(data);
@@ -500,6 +502,10 @@ void Interface::GetOsParams(Agent *agent) {
         return;
     }
 
+    if (os_id_ == NULL) {
+        os_id_ = new InterfaceOsId(name_);
+    }
+    os_guid_ = os_id_->ObtainKernelIdentifier();
     GetOsSpecificParams(agent, name);
 }
 

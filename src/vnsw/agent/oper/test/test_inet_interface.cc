@@ -49,7 +49,7 @@ public:
         DBRequest req(DBRequest::DB_ENTRY_DELETE);
         req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
                                          "vhost0"));
-        req.data.reset(new VmInterfaceConfigData(NULL, NULL));
+        req.data.reset(new VmInterfaceConfigData(NULL, NULL, NULL));
         agent_->interface_table()->Enqueue(&req);
         client->WaitForIdle();
 

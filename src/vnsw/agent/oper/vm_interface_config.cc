@@ -1425,7 +1425,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     assert(!u.is_nil());
     // Update interface configuration
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL, NULL);
     data->SetIFMapNode(node);
 
     BuildAttributes(agent_, node, cfg, data);
@@ -1666,7 +1666,7 @@ static bool DeleteVmi(InterfaceTable *table, const uuid &u, DBRequest *req) {
         // INSTANCE type are not added by config. We only do RESYNC
         req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req->key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, ""));
-        req->data.reset(new VmInterfaceConfigData(NULL, NULL));
+        req->data.reset(new VmInterfaceConfigData(NULL, NULL, NULL));
         table->Enqueue(req);
         return false;
     } else {

@@ -196,11 +196,13 @@ PhysicalInterfaceData::PhysicalInterfaceData(Agent *agent, IFMapNode *node,
                                              const uuid &device_uuid,
                                              const string &display_name,
                                              const Ip4Address &ip,
-                                             Interface::Transport transport) :
+                                             Interface::Transport transport,
+                                             InterfaceOsId *os_id) :
     InterfaceData(agent, node, transport), subtype_(subtype), encap_type_(encap),
     no_arp_(no_arp), device_uuid_(device_uuid), display_name_(display_name),
     ip_(ip) {
     EthInit(vrf_name);
+    os_id_ = os_id;
 }
     
 /////////////////////////////////////////////////////////////////////////////
@@ -291,7 +293,8 @@ bool InterfaceTable::PhysicalInterfaceProcessConfig(IFMapNode *node,
                                              false, dev_uuid,
                                              port->display_name(),
                                              Ip4Address(0),
-                                             Interface::TRANSPORT_ETHERNET));
+                                             Interface::TRANSPORT_ETHERNET,
+                                             NULL));
     pi_ifnode_to_req_++;
     Enqueue(&req);
     return false;
@@ -311,7 +314,7 @@ void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(new PhysicalInterfaceData(NULL, NULL, vrf_name, subtype,
                                              encap, no_arp, device_uuid,
-                                             ifname, ip, transport));
+                                             ifname, ip, transport, NULL));
     table->Enqueue(&req);
 }
 
@@ -323,9 +326,11 @@ void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
                                Interface::Transport transport) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
+
+    PhysicalInterfaceOsId *os_id = new PhysicalInterfaceOsId(ifname);
     req.data.reset(new PhysicalInterfaceData(NULL, NULL, vrf_name, subtype,
                                              encap, no_arp, device_uuid,
-                                             ifname, ip, transport));
+                                             ifname, ip, transport, os_id));
     table->Process(req);
 }
 
