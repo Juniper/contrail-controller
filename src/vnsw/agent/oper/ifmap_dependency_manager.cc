@@ -808,6 +808,19 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "firewall-policy", true));
 
     AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-sub-interface",
+                               "virtual-machine-interface", true,
+                               "virtual-machine-interface-virtual-machine",
+                               "virtual-machine", true,
+                               "virtual-machine-tag", "tag", true,
+                               "application-policy-set-tag",
+                               "application-policy-set", true,
+                               "application-policy-set-firewall-policy",
+                               "application-policy-set-firewall-policy", true,
+                               "application-policy-set-firewall-policy",
+                               "firewall-policy", true));
+
+    AddDependencyPath("virtual-machine-interface",
                       MakePath("project-virtual-machine-interface",
                                "project", true,
                                "project-tag", "tag", true,
