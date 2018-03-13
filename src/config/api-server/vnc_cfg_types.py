@@ -4284,7 +4284,7 @@ class ProjectServer(Resource, Project):
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         quota_counter = cls.server.quota_counter
-        for obj_type in obj_dict['quota'].keys():
+        for obj_type in obj_dict.get('quota', {}).keys():
             path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids['uuid']
             path = path_prefix + "/" + obj_type
             if quota_counter.get(path):
