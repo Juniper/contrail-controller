@@ -30,7 +30,7 @@
     
 - name: Perform the necessary error handling
   include_tasks: error_handler.yml
-  when: "post_resp_phy.failure == true"
+  when: "post_resp_phy.failed == true"
   vars:
     op_err_message: "{{post_resp_phy.msg}}"
     jl_err_message: "Creating Physical Interface Failed on {{prouter_name}}, Imported so far: PhyInterfaces: {{phy_int_count}}, LogInterfaces: {{log_int_count}}; see result for more details"

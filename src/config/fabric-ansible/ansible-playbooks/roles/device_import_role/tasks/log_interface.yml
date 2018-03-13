@@ -8,7 +8,7 @@
 
 - name: Perform the necessary error handling
   include_tasks: error_handler.yml
-  when: "post_resp_log.failure == true"
+  when: "post_resp_log.failed == true"
   vars:
     op_err_message: "{{post_resp_log.msg}}"
     jl_err_message: "Creating Logical Interface Failed on {{prouter_name}}, Imported so far: PhyInterfaces: {{phy_int_count}}, LogInterfaces: {{log_int_count}}; see result for more details"

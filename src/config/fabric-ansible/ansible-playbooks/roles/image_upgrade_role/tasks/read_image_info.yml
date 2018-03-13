@@ -23,7 +23,7 @@
 # handle errors/exceptions and set output
 - name: Fail if image object not found
   include_tasks: error_handler.yml
-  when: "'obj' not in image_details or image_details.failure == true"
+  when: "'obj' not in image_details or image_details.failed == true"
   vars:
     op_err_message: "Image object not found. {{image_details.msg}}"
     results: |

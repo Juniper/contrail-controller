@@ -19,15 +19,15 @@
                   "status": "Failure",
                   "message": "{{fabric_obj.msg}}"
                 }
-      when: "'obj' not in fabric_obj or fabric_obj.failure == true"
+      when: "'obj' not in fabric_obj or fabric_obj.failed == true"
 
     - name: Read failed, updating log
       job_objectlog:
         message: "Could not find the fabric with back_ref_id {{prouter_uuid}} in the DB."
-      when: "'obj' not in fabric_obj or fabric_obj.failure == true"
+      when: "'obj' not in fabric_obj or fabric_obj.failed == true"
 
     - meta: end_play
-      when: "'obj' not in fabric_obj or fabric_obj.failure == true"
+      when: "'obj' not in fabric_obj or fabric_obj.failed == true"
  
     - name: get fabric uuid
       set_fact:
@@ -53,15 +53,15 @@
                   "status": "Failure",
                   "message": "{{prouter_details.msg}}"
                 }
-      when: "'obj' not in prouter_details or prouter_details.failure == true"
+      when: "'obj' not in prouter_details or prouter_details.failed == true"
 
     - name: Read failed, updating log
       job_objectlog:
         message: "Could not find the device with uuid {{prouter_uuid}} in the DB."
-      when: "'obj' not in prouter_details or prouter_details.failure == true"
+      when: "'obj' not in prouter_details or prouter_details.failed == true"
 
     - meta: end_play
-      when: "'obj' not in prouter_details or prouter_details.failure == true"
+      when: "'obj' not in prouter_details or prouter_details.failed == true"
 
     - set_fact:
         prouter_info: "{{prouter_details.obj}}"

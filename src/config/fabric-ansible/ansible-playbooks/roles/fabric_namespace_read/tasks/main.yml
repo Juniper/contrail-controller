@@ -19,7 +19,7 @@
         op_err_message: "{{ fq_name.msg }}"
         results: ""
         jl_err_message: "VNC error while reading fabric uuid  + {{ fq_name.msg }}"
-      when: "fq_name.failure == true"
+      when: "fq_name.failed == true"
 
     - set_fact:
          fabric_fq_name: "{{ fq_name.fq_name }}"
@@ -43,7 +43,7 @@
         op_err_message: "{{ device_credentials.msg }}"
         results: ""
         jl_err_message: "VNC error while reading the creds from fabric + {{ device_credentials.msg }}"
-      when: "device_credentials.failure == true"
+      when: "device_credentials.failed == true"
 
     - set_fact:
          credentials: "{{ device_credentials.obj.fabric_credentials.device_credential }}"
@@ -68,7 +68,7 @@
         op_err_message: "{{ tag_uuid.msg }}"
         results: ""
         jl_err_message: "VNC error while readin the tag obj  + {{ tag_uuid.msg }}"
-      when: "tag_uuid.failure == true"
+      when: "tag_uuid.failed == true"
 
     - set_fact:
          tag_uuid: "{{ tag_uuid.uuid }}"

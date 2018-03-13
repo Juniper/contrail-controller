@@ -51,5 +51,5 @@
          op_err_message: "{{ item.msg }}"
          results: ""
          jl_err_message: "VNC error while creating PR Router  + {{ item.msg }}"
-       when: "item.failure == true"
+       when: "item.failed == true"
        with_items: "{{ physical_router_uuids.results }}"

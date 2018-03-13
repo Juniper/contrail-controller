@@ -45,7 +45,7 @@
 
     - name: call vnc to create physical-router
       vars:
-         physical_router_uuids: {"failure" : False}
+         physical_router_uuids: {"failed" : False}
       vnc_db_mod:
         object_type: "physical_router"
         object_op: "create"
@@ -62,9 +62,11 @@
         api_server_host: "{{ api_server_host }}"
       register: physical_router_uuids
       when: 
-        - "physical_router_uuids.failure == false"
+        - "physical_router_uuids.failed == false"
       with_items: "{{ host_vendor_mapping }}"
       no_log: True
+
+    - debug: var=physical_router_uuids
 
     - name: if vnc failed end play
       include_tasks: error_handler.yml
@@ -72,7 +74,7 @@
         op_err_message: "{{ item.msg }}"
         results: ""
         jl_err_message: "VNC error while creating PR Router  + {{ item.msg }}"
-      when: "item.failure == true"
+      when: "item.failed == true"
       with_items: "{{ physical_router_uuids.results }}"
 
     - name: PR objectlog update
@@ -85,7 +87,7 @@
 
     - name: call vnc to update fabric
       vars:
-        fabric_ref_update: {"failure" : False}
+        fabric_ref_update: {"failed" : False}
       vnc_db_mod:
         object_type: "fabric"
         object_op: "ref_update"
@@ -99,7 +101,7 @@
         api_server_host: "{{ api_server_host }}"
       register: fabric_ref_update
       when: 
-        - "fabric_ref_update.failure == false"
+        - "fabric_ref_update.failed == false"
       with_items: "{{ physical_router_uuids.results }}"
       no_log: True
     
@@ -111,7 +113,7 @@
         op_err_message: "{{ item.msg }}"
         results: ""
         jl_err_message: "VNC error while creating PR Router  + {{ item.msg }}"
-      when: "item.failure == true"
+      when: "item.failed == true"
       with_items: "{{ fabric_ref_update.results }}"
 
     - name: collating list of PR uuids
