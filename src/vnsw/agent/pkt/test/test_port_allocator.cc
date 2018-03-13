@@ -361,7 +361,6 @@ TEST_F(PortAllocationTest, PolicyFlow) {
     TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 22, false);
     client->WaitForIdle();
 
-    //No port config hence short flow
     FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
             6, 100, 22, GetFlowKeyNH(1));
     EXPECT_TRUE(flow != NULL);
@@ -381,6 +380,79 @@ TEST_F(PortAllocationTest, IntraVn) {
     EXPECT_TRUE(flow != NULL);
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->IsNatFlow() == false);
+}
+
+TEST_F(PortAllocationTest, SecondaryIp) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.3");
+    std::vector<Ip4Address> v;
+    v.push_back(ip);
+    AddAap("vnet1", 1, v);
+
+    PortTableManager *pm = agent_->pkt()->get_flow_proto()->port_table_manager();
+    pm->UpdatePortConfig(IPPROTO_TCP, 0, 22, 22);
+    client->WaitForIdle();
+
+    TxTcpPacket(VmPortGetId(1), "1.1.1.3", "8.8.8.8", 100, 22, false);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.3", "8.8.8.8",
+            6, 100, 22, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
+    EXPECT_TRUE(flow->IsNatFlow() == true);
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::FabricControlFlow));
+    EXPECT_FALSE(flow->reverse_flow_entry()->
+            is_flags_set(FlowEntry::FabricControlFlow));
+    EXPECT_TRUE(flow->data().rpf_nh == VmPortGet(1)->flow_key_nh());
+}
+
+//Take a floating-ip from a network enabled for distributed SNAT
+//ensure access from VM to external world goes thru
+TEST_F(PortAllocationTest, FloatingIpWithSNATEnabled) {
+    //Disable SNAT on VRF1
+    AddVrfWithSNat("vrf1", 1, true, false);
+    client->WaitForIdle();
+
+    //Add a floating-ip in vn2 and enable VN2 for
+    //fabric SNAT
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    client->WaitForIdle();
+
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "1.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    AddVrfWithSNat("default-project:vn2:vn2", 2,  true, true);
+    client->WaitForIdle();
+
+    TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 22, false);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
+            6, 100, 22, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
+    EXPECT_TRUE(flow->IsNatFlow() == true);
+    EXPECT_TRUE(flow->reverse_flow_entry()->key().dst_addr.to_v4() ==
+                agent_->router_id());
+    EXPECT_TRUE(flow->data().rpf_nh == VmPortGet(1)->flow_key_nh());
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    DelLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    DelVrf("default-project:vn2:vn2");
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
