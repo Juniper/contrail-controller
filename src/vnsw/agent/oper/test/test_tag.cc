@@ -48,7 +48,7 @@ void RouterIdDepInit(Agent *agent) {
 
 struct PortInfo input[] = {
     {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd10::2"},
-    {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd10::2"},
+    {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2, "fd10::2"},
 };
 IpamInfo ipam_info[] = {
     {"1.1.1.0", 24, "1.1.1.10"},
@@ -739,32 +739,48 @@ TEST_F(TagTest, VmiWithCustomTag) {
 // parent VMI
 TEST_F(TagTest, InheritanceSubInterface) {
     AddTag("VmTag1", 1, 1, "application");
+    AddTag("VmTag2", 2, 2, "application");
     client->WaitForIdle();
-
 
     AddLink("virtual-machine", "vm1", "tag", "VmTag1");
     client->WaitForIdle();
-    EXPECT_TRUE(VmiCheckTagValue(1, "application", 1));
 
+    //Sub interface has a link to VM
+    //Ensure tag of directly linked VM gets picked
     AddVlan("intf2", 2, 100);
     AddLink("virtual-machine-interface", "intf1",
             "virtual-machine-interface", "intf2");
     client->WaitForIdle();
+    EXPECT_TRUE(VmiCheckTagValue(1, "application", 1));
+
+    AddLink("virtual-machine", "vm2", "tag", "VmTag2");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmiCheckTagValue(2, "application", 2));
+
+    //Delete directly linked VM, VM attribute of parent
+    //should get picked
+    DelLink("virtual-machine-interface", "intf2",
+            "virtual-machine", "vm2");
+    DelLink("virtual-machine", "vm2", "tag", "VmTag2");
+    client->WaitForIdle();
     EXPECT_TRUE(VmiCheckTagValue(2, "application", 1));
+
     DelLink("virtual-machine", "vm1", "tag", "VmTag1");
     client->WaitForIdle();
     EXPECT_FALSE(VmiCheckTagValue(2, "application", 1));
+
     AddTag("VmTag2", 2, 2, "application");
     AddLink("virtual-machine", "vm1", "tag", "VmTag2");
     client->WaitForIdle();
     EXPECT_TRUE(VmiCheckTagValue(2, "application", 2));
-    client->WaitForIdle();
+
     DelLink("virtual-machine", "vm1", "tag", "VmTag2");
     client->WaitForIdle();
     DelNode("tag", "VmTag1");
     DelNode("tag", "VmTag2");
     client->WaitForIdle();
 }
+
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
