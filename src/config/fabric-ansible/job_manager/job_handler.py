@@ -82,12 +82,20 @@ class JobHandler(object):
         device_vendor = device_details.get('device_vendor')
         device_family = device_details.get('device_family')
 
+        if not device_vendor or not device_family:
+            raise JobException(
+                "device_vendor or device_family not found for " \
+                "%s" % device_id, self._execution_id)
+
         for playbook_info in playbook_list:
             pb_vendor_name = playbook_info.get_vendor()
-            if pb_vendor_name == device_vendor:
+            if not pb_vendor_name:
+                # device_vendor agnostic
+                return playbook_info
+            if pb_vendor_name.lower() == device_vendor.lower():
                 pb_device_family = playbook_info.get_device_family()
                 if pb_device_family:
-                    if (device_family == pb_device_family):
+                    if (device_family.lower() == pb_device_family.lower()):
                         return playbook_info
                 else:
                     # device_family agnostic
