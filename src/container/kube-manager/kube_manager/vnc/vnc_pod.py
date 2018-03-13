@@ -290,6 +290,10 @@ class VncPod(VncCommon):
 
         vr_uuid = VirtualRouterKM.get_ip_addr_to_uuid(node_ip)
         if vr_uuid is None:
+            for vr in VirtualRouterKM.values():
+                if vr.name == pod_node:
+                    vr_uuid = vr.uuid
+        if vr_uuid is None:
             self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
                 %(self._name, node_ip, vm_obj.uuid))
             return
