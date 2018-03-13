@@ -372,7 +372,8 @@ void InterfaceTable::CreateVhost() {
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                      agent()->vhost_interface_name()));
 
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    InetInterfaceOsId *os_id = new InetInterfaceOsId(agent()->vhost_interface_name());
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL, os_id);
     data->CopyVhostData(agent());
 
     data->disable_policy_ = true;
@@ -385,7 +386,7 @@ void InterfaceTable::CreateVhostReq() {
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                      agent()->vhost_interface_name()));
 
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL, NULL);
     data->CopyVhostData(agent());
 
     req.data.reset(data);
@@ -500,6 +501,7 @@ void Interface::GetOsParams(Agent *agent) {
         return;
     }
 
+    os_guid_ = os_id_->ObtainKernelIdentifier();
     GetOsSpecificParams(agent, name);
 }
 

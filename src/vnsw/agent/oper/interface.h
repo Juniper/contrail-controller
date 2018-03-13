@@ -16,6 +16,7 @@
 #include <boost/optional.hpp>
 
 struct InterfaceData;
+class InterfaceOsId;
 class VmInterface;
 class IFMapDependencyManager;
 
@@ -180,6 +181,8 @@ protected:
 
     // Used on Windows as network interface's identifier
     boost::optional<IfGuid> os_guid_;
+
+    InterfaceOsId *os_id_;
 
 private:
     void GetOsSpecificParams(Agent *agent, const std::string &name);
@@ -456,6 +459,14 @@ private:
     uint32_t pi_ifnode_to_req_;
 
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
+};
+
+class InterfaceOsId {
+public:
+    InterfaceOsId(const std::string& name);
+    virtual boost::optional<Interface::IfGuid> ObtainKernelIdentifier();
+protected:
+    string name_;
 };
 
 #endif // vnsw_agent_interface_hpp

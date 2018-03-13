@@ -225,7 +225,7 @@ TEST_F(PktTest, tx_vlan_1) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
                                      "vm-itf-2"));
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(NULL, NULL);
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(NULL, NULL, NULL);
     data->addr_ = Ip4Address::from_string("1.1.1.2");
     data->vm_mac_ = "00:00:00:00:00:01";
     data->cfg_name_ = "vm-1";
@@ -248,7 +248,7 @@ TEST_F(PktTest, tx_vlan_1) {
     DBRequest req1(DBRequest::DB_ENTRY_DELETE);
     req1.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
                                      "vm-itf-2"));
-    req1.data.reset(new VmInterfaceConfigData(NULL, NULL));
+    req1.data.reset(new VmInterfaceConfigData(NULL, NULL, NULL));
     agent_->interface_table()->Enqueue(&req1);
     client->WaitForIdle();
 }

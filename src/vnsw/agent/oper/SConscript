@@ -25,9 +25,17 @@ if GetOption('with_libvirt'):
     optional_objs.append(except_env.Object('libvirt_instance_adapter.cc'))
 
 if sys.platform == 'win32':
-    os_specific_src = ['windows/interface_params.cc', 'windows/instance_task_stub.cc']
+    os_specific_src = [
+        'windows/interface_os_id.cc',
+        'windows/interface_params.cc',
+        'windows/instance_task_stub.cc',
+    ]
 else:
-    os_specific_src = ['nix/interface_params.cc', 'instance_task.cc']
+    os_specific_src = [
+        'nix/interface_os_id.cc',
+        'nix/interface_params.cc',
+        'instance_task.cc',
+    ]
 
 vnswoperdb = env.Library('vnswoperdb',
                          sandesh_objs +

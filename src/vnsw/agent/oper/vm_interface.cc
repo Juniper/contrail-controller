@@ -344,6 +344,10 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
         pbb_interface_ = false;
     }
 
+    if (os_id_ == NULL) {
+        os_id_ = new InterfaceOsId(name_);
+    }
+
     // NOTE : The updates are independnt of any state and agent-mode. They
     // must not move beyond this part
 
