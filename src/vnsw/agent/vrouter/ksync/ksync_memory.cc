@@ -89,18 +89,14 @@ void KSyncMemory::Init() {
 }
 
 void KSyncMemory::Mmap(bool unlink_node) {
-#ifndef _WIN32
     // Remove the existing /dev/ file first. We will add it again in vr_table_map
     if (unlink_node) {
-        if (unlink(table_path_.c_str()) != 0) {
-            if (errno != ENOENT) {
-                LOG(DEBUG, "Error deleting" << table_path_ << ".Error <" << errno
-                    << "> : " << strerror(errno));
-                assert(0);
-            }
+        const char *error_msg = vr_table_unlink(table_path_.c_str());
+        if (error_msg) {
+            LOG(DEBUG, "Error mapping KSync memory: " << error_msg);
+            assert(0);
         }
     }
-#endif
 
     const char *mmap_error_msg = vr_table_map(major_devid_, minor_devid_, table_path_.c_str(),
                                               table_size_, &table_);
