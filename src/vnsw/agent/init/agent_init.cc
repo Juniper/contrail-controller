@@ -415,7 +415,7 @@ void AgentInit::DeleteVhost() {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                      agent_->vhost_interface_name()));
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent_.get(), NULL);
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent_.get(), NULL, NULL);
     req.data.reset(data);
     agent_->interface_table()->Enqueue(&req);
 }

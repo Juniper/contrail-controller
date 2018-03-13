@@ -12,7 +12,6 @@ struct PhysicalInterfaceData;
 // Can be Ethernet Ports or LAG Ports
 // Name of port is used as key
 /////////////////////////////////////////////////////////////////////////////
-class PhysicalInterfaceData;
 
 class PhysicalInterface : public Interface {
 public:
@@ -93,7 +92,8 @@ struct PhysicalInterfaceData : public InterfaceData {
                           const boost::uuids::uuid &device_uuid,
                           const std::string &display_name,
                           const Ip4Address &ip,
-                          Interface::Transport transport);
+                          Interface::Transport transport,
+                          InterfaceOsId *os_id);
     PhysicalInterface::SubType subtype_;
     PhysicalInterface::EncapType encap_type_;
     bool no_arp_;
@@ -110,6 +110,12 @@ struct PhysicalInterfaceKey : public InterfaceKey {
     Interface *AllocEntry(const InterfaceTable *table,
                           const InterfaceData *data) const;
     InterfaceKey *Clone() const;
+};
+
+class PhysicalInterfaceOsId : public InterfaceOsId {
+public:
+    PhysicalInterfaceOsId(const std::string& name);
+    virtual boost::optional<Interface::IfGuid> ObtainKernelIdentifier();
 };
 
 #endif // src_vnsw_agent_oper_physical_interface_hpp
