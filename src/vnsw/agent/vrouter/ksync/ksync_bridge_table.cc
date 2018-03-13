@@ -42,7 +42,7 @@ static const uint32_t kTestBridgeTableSize = 65535;
 
 KSyncBridgeMemory::KSyncBridgeMemory(KSync *ksync, uint32_t minor_id):
     KSyncMemory(ksync, minor_id) {
-    table_path_ = "/dev/vr_bridge";
+    table_path_ = BRIDGE_TABLE_DEV;
 }
 
 KSyncBridgeMemory::~KSyncBridgeMemory() {

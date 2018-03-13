@@ -46,7 +46,7 @@ static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
 
 KSyncFlowMemory::KSyncFlowMemory(KSync *ksync, uint32_t minor_id) :
     KSyncMemory(ksync, minor_id) {
-    table_path_ = "/dev/flow";
+    table_path_ = FLOW_TABLE_DEV;
     hold_flow_counter_ = 0;
 }
 
