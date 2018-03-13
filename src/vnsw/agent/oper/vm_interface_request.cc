@@ -67,7 +67,7 @@ InterfaceKey *VmInterfaceKey::Clone() const {
 /////////////////////////////////////////////////////////////////////////////
 // VmInterfaceConfigData routines
 /////////////////////////////////////////////////////////////////////////////
-VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
+VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node, InterfaceOsId *os_id) :
     VmInterfaceData(agent, node, CONFIG, Interface::TRANSPORT_INVALID),
     addr_(0), ip6_addr_(), vm_mac_(""),
     cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
@@ -93,7 +93,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     qos_config_uuid_(), learning_enabled_(false),
     vhostuser_mode_(VmInterface::vHostUserClient), is_left_si_(false), service_mode_(VmInterface::SERVICE_MODE_ERROR),
     si_other_end_vmi_(nil_uuid()), vmi_cfg_uuid_(nil_uuid()),
-    service_intf_type_("") {
+    service_intf_type_(""),
+    os_id_(os_id) {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -138,7 +139,7 @@ bool VmInterfaceConfigData::OnDelete(const InterfaceTable *table,
     if (vmi->IsConfigurerSet(VmInterface::CONFIG) == false)
         return true;
 
-    VmInterfaceConfigData data(NULL, NULL);
+    VmInterfaceConfigData data(NULL, NULL, NULL);
     vmi->Resync(table, &data);
     vmi->ResetConfigurer(VmInterface::CONFIG);
     return true;
@@ -859,7 +860,7 @@ bool VmInterfaceNovaData::OnDelete(const InterfaceTable *table,
     if (vmi->IsConfigurerSet(VmInterface::INSTANCE_MSG) == false)
         return true;
 
-    VmInterfaceConfigData data(NULL, NULL);
+    VmInterfaceConfigData data(NULL, NULL, NULL);
     vmi->Resync(table, &data);
     vmi->ResetConfigurer(VmInterface::CONFIG);
     vmi->ResetConfigurer(VmInterface::INSTANCE_MSG);
@@ -933,7 +934,7 @@ void VmInterface::Delete(InterfaceTable *table, const uuid &intf_uuid,
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""));
 
     if (configurer == VmInterface::CONFIG) {
-        req.data.reset(new VmInterfaceConfigData(NULL, NULL));
+        req.data.reset(new VmInterfaceConfigData(NULL, NULL, NULL));
     } else if (configurer == VmInterface::INSTANCE_MSG) {
         req.data.reset(new VmInterfaceNovaData());
     } else {
@@ -1158,7 +1159,7 @@ bool VmInterfaceIfNameData::OnDelete(const InterfaceTable *table,
     if (vmi->IsConfigurerSet(VmInterface::INSTANCE_MSG) == false)
         return true;
 
-    VmInterfaceConfigData data(NULL, NULL);
+    VmInterfaceConfigData data(NULL, NULL, NULL);
     vmi->Resync(table, &data);
     vmi->ResetConfigurer(VmInterface::CONFIG);
     vmi->ResetConfigurer(VmInterface::INSTANCE_MSG);
