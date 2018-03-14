@@ -38,166 +38,24 @@ private:
     bool state_machine_restart_;
 };
 
-static string clientsConfigStr =
-"<?xml version='1.0' encoding='utf-8'?> \n"
-"<config> \n"
-"   <global-system-config>\n"
-"      <graceful-restart-parameters>\n"
-"         <enable>true</enable>\n"
-"         <restart-time>1</restart-time>\n"
-"         <long-lived-restart-time>5</long-lived-restart-time>\n"
-"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
-"         <bgp-helper-enable>true</bgp-helper-enable>\n"
-"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
-"      </graceful-restart-parameters>\n"
-"       <bgpaas-parameters>\n"
-"           <port-start>0</port-start>\n"
-"           <port-end>0</port-end>\n"
-"       </bgpaas-parameters>\n"
-"   </global-system-config>\n"
-"   <bgp-router name='bgpaas-server'> \n"
-"       <address>127.0.0.1</address> \n"
-"       <autonomous-system>64512</autonomous-system> \n"
-"       <identifier>192.168.1.1</identifier> \n"
-"       <port>__server_port__</port> \n"
-"       <session to='vm1'> \n"
-"           <family-attributes> \n"
-"               <address-family>inet</address-family> \n"
-"           </family-attributes> \n"
-"           <family-attributes> \n"
-"               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
-"       </session> \n"
-"       <session to='vm2'> \n"
-"           <family-attributes> \n"
-"               <address-family>inet</address-family> \n"
-"           </family-attributes> \n"
-"           <family-attributes> \n"
-"               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
-"       </session> \n"
-"   </bgp-router> \n"
-"   <bgp-router name='vm1'> \n"
-"       <address>127.0.0.1</address> \n"
-"       <autonomous-system>65001</autonomous-system> \n"
-"       <port>__vm1_port__</port> \n"
-"       <identifier>10.0.0.1</identifier> \n"
-"       <session to='bgpaas-server'> \n"
-"           <family-attributes> \n"
-"               <address-family>inet</address-family> \n"
-"           </family-attributes> \n"
-"           <family-attributes> \n"
-"               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
-"       </session> \n"
-"   </bgp-router> \n"
-"   <bgp-router name='vm2'> \n"
-"       <address>127.0.0.1</address> \n"
-"       <autonomous-system>65002</autonomous-system> \n"
-"       <port>__vm2_port__</port> \n"
-"       <identifier>10.0.0.2</identifier> \n"
-"       <session to='bgpaas-server'> \n"
-"           <family-attributes> \n"
-"               <address-family>inet</address-family> \n"
-"           </family-attributes> \n"
-"           <family-attributes> \n"
-"               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
-"       </session> \n"
-"   </bgp-router> \n"
-"</config> \n"
-;
+typedef std::tr1::tuple<bool, bool> TestParams;
+class BGPaaSTest : public ::testing::TestWithParam<TestParams>{
+public:
+    // Allow IBGP bgpaas sessions for this test.
+    bool ProcessSession() const { return true; }
 
-static string serverConfigStr =
-"<?xml version='1.0' encoding='utf-8'?> \n"
-"<config> \n"
-"   <global-system-config>\n"
-"      <graceful-restart-parameters>\n"
-"         <enable>true</enable>\n"
-"         <restart-time>1</restart-time>\n"
-"         <long-lived-restart-time>5</long-lived-restart-time>\n"
-"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
-"         <bgp-helper-enable>true</bgp-helper-enable>\n"
-"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
-"      </graceful-restart-parameters>\n"
-"       <bgpaas-parameters>\n"
-"           <port-start>0</port-start>\n"
-"           <port-end>0</port-end>\n"
-"       </bgpaas-parameters>\n"
-"   </global-system-config>\n"
-"   <bgp-router name='local'> \n"
-"       <address>127.0.0.1</address> \n"
-"       <autonomous-system>64512</autonomous-system> \n"
-"       <identifier>192.168.1.1</identifier> \n"
-"       <port>__server_port__</port> \n"
-"   </bgp-router> \n"
-"   <routing-instance name='test'> \n"
-"       <vrf-target>target:64512:1</vrf-target> \n"
-"       <bgp-router name='bgpaas-server'> \n"
-"           <router-type>bgpaas-server</router-type> \n"
-"           <autonomous-system>64512</autonomous-system> \n"
-"           <port>__server_port__</port> \n"
-"           <session to='vm1'> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet</address-family> \n"
-"               </family-attributes> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n"
-"           </session> \n"
-"           <session to='vm2'> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet</address-family> \n"
-"               </family-attributes> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n"
-"           </session> \n"
-"       </bgp-router> \n"
-"       <bgp-router name='vm1'> \n"
-"           <router-type>bgpaas-client</router-type> \n"
-"           <autonomous-system>65001</autonomous-system> \n"
-"           <address>127.0.0.1</address> \n"
-"           <source-port>11024</source-port> \n"
-"           <gateway-address>100.0.0.1</gateway-address>\n"
-"           <ipv6-gateway-address>::ffff:100.0.0.2</ipv6-gateway-address>\n"
-"           <session to='bgpaas-server'> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet</address-family> \n"
-"               </family-attributes> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n"
-"           </session> \n"
-"       </bgp-router> \n"
-"       <bgp-router name='vm2'> \n"
-"           <router-type>bgpaas-client</router-type> \n"
-"           <autonomous-system>65002</autonomous-system> \n"
-"           <address>127.0.0.1</address> \n"
-"           <source-port>11025</source-port> \n"
-"           <gateway-address>200.0.0.1</gateway-address>\n"
-"           <ipv6-gateway-address>beef:beef::1</ipv6-gateway-address>\n"
-"           <session to='bgpaas-server'> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet</address-family> \n"
-"               </family-attributes> \n"
-"               <family-attributes> \n"
-"                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n"
-"           </session> \n"
-"       </bgp-router> \n"
-"   </routing-instance> \n"
-"</config> \n"
-;
+    // Disable IBGP Split Horizon check for this test.
+    bool CheckSplitHorizon() const { return false; }
 
-class BGPaaSTest : public ::testing::Test {
 protected:
     BGPaaSTest() :
             server_session_manager_(NULL), vm1_session_manager_(NULL),
-            vm2_session_manager_(NULL) {
+            vm2_session_manager_(NULL), stale_count_(0) {
     }
 
     virtual void SetUp() {
+        set_local_as_ = std::tr1::get<0>(GetParam());
+        ebgp_ = std::tr1::get<1>(GetParam());
         server_.reset(new BgpServerTest(&evm_, "local"));
         vm1_.reset(new BgpServerTest(&evm_, "vm1"));
         vm2_.reset(new BgpServerTest(&evm_, "vm2"));
@@ -252,25 +110,26 @@ protected:
         agent_->SubscribeAll("test", 1);
     }
 
-    void SetUpBGPaaSPeers() {
+    void UpdateTemplates() {
         server_->set_peer_lookup_disable(true);
         vm1_->set_source_port(11024);
         vm2_->set_source_port(11025);
-        boost::replace_all(serverConfigStr, "__server_port__",
+        boost::replace_all(server_config_, "__server_port__",
             boost::lexical_cast<string>(server_session_manager_->GetPort()));
-        boost::replace_all(clientsConfigStr, "__server_port__",
-            boost::lexical_cast<string>(server_session_manager_->GetPort()));
-        boost::replace_all(clientsConfigStr, "__vm1_port__",
-            boost::lexical_cast<string>(vm1_session_manager_->GetPort()));
-        boost::replace_all(clientsConfigStr, "__vm2_port__",
-            boost::lexical_cast<string>(vm2_session_manager_->GetPort()));
-        vm1_->Configure(clientsConfigStr);
-        vm2_->Configure(clientsConfigStr);
-        task_util::WaitForIdle();
 
-        server_->Configure(serverConfigStr);
-        WaitForPeerToComeUp(vm1_.get(), "vm1");
-        WaitForPeerToComeUp(vm2_.get(), "vm2");
+        boost::replace_all(vm1_client_config_, "__server_port__",
+            boost::lexical_cast<string>(server_session_manager_->GetPort()));
+        boost::replace_all(vm1_client_config_, "__vm1_port__",
+            boost::lexical_cast<string>(vm1_session_manager_->GetPort()));
+        boost::replace_all(vm1_client_config_, "__vm2_port__",
+            boost::lexical_cast<string>(vm2_session_manager_->GetPort()));
+
+        boost::replace_all(vm2_client_config_, "__server_port__",
+            boost::lexical_cast<string>(server_session_manager_->GetPort()));
+        boost::replace_all(vm2_client_config_, "__vm1_port__",
+            boost::lexical_cast<string>(vm1_session_manager_->GetPort()));
+        boost::replace_all(vm2_client_config_, "__vm2_port__",
+            boost::lexical_cast<string>(vm2_session_manager_->GetPort()));
     }
 
     void XmppShutdown() {
@@ -395,7 +254,8 @@ protected:
 
     bool VerifyInetRoutePresenceActual(BgpServer *server,
                                        const std::string &prefix_str,
-                                       const std::string &nexthop_str) {
+                                       const std::string &nexthop_str,
+                                       const std::string &as_path = "") {
         task_util::TaskSchedulerLock lock;
         RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
             server->routing_instance_mgr()->GetRoutingInstance(
@@ -405,17 +265,28 @@ protected:
         const InetTable::RequestKey key(prefix, NULL);
         if (!table->Find(&key))
             return false;
+        if (!ebgp_)
+            return true;
         const BgpRoute *rt = dynamic_cast<const BgpRoute *>(table->Find(&key));
         const BgpPath *path = rt->FindPath(BgpPath::BGP_XMPP);
         const IpAddress nexthop = path->GetAttr()->nexthop();
-        return (nexthop_str == nexthop.to_string());
+        if (nexthop_str != nexthop.to_string())
+            return false;
+        if (!as_path.empty()) {
+            if (!path->GetAttr()->as_path())
+                return false;
+            if (as_path != path->GetAttr()->as_path()->path().ToString())
+                return false;
+        }
+        return true;
     }
 
     void VerifyInetRoutePresence(BgpServer *server,
                                  const std::string &prefix_str,
-                                 const std::string &nexthop_str) {
+                                 const std::string &nexthop_str,
+                                 const std::string &as_path = "") {
         TASK_UTIL_EXPECT_TRUE(VerifyInetRoutePresenceActual(
-            server, prefix_str, nexthop_str));
+            server, prefix_str, nexthop_str, as_path));
     }
 
     void VerifyInetRouteAbsence(BgpServer *server,
@@ -440,7 +311,8 @@ protected:
 
     bool VerifyInet6RoutePresenceActual(BgpServer *server,
                                         const std::string &prefix_str,
-                                        const std::string &nexthop_str) {
+                                        const std::string &nexthop_str,
+                                        const std::string &as_path = "") {
         task_util::TaskSchedulerLock lock;
         RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
             server->routing_instance_mgr()->GetRoutingInstance(
@@ -450,17 +322,28 @@ protected:
         const Inet6Table::RequestKey key(prefix, NULL);
         if (!table->Find(&key))
             return false;
+        if (!ebgp_)
+            return true;
         const BgpRoute *rt = dynamic_cast<const BgpRoute *>(table->Find(&key));
         const BgpPath *path = rt->FindPath(BgpPath::BGP_XMPP);
         const IpAddress nexthop = path->GetAttr()->nexthop();
-        return (nexthop_str == nexthop.to_string());
+        if (nexthop_str != nexthop.to_string())
+            return false;
+        if (!as_path.empty()) {
+            if (!path->GetAttr()->as_path())
+                return false;
+            if (as_path != path->GetAttr()->as_path()->path().ToString())
+                return false;
+        }
+        return true;
     }
 
     void VerifyInet6RoutePresence(BgpServer *server,
                                   const std::string &prefix_str,
-                                  const std::string &nexthop_str) {
+                                  const std::string &nexthop_str,
+                                  const std::string &as_path = "") {
         TASK_UTIL_EXPECT_TRUE(VerifyInet6RoutePresenceActual(
-            server, prefix_str, nexthop_str));
+            server, prefix_str, nexthop_str, as_path));
     }
 
     void VerifyInet6RouteAbsence(BgpServer *server,
@@ -544,6 +427,10 @@ protected:
             agent->Inet6RouteLookup("test", prefix));
     }
 
+    void InitializeTemplates(bool set_local_as, const string &vm1_server_as,
+                             const string &vm2_server_as);
+    void RunTest();
+
     EventManager evm_;
     boost::scoped_ptr<ServerThread> thread_;
     boost::scoped_ptr<BgpServerTest> server_;
@@ -555,12 +442,257 @@ protected:
     XmppServerTest *xmpp_server_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_;
     boost::scoped_ptr<BgpXmppChannelManager> channel_manager_;
+    bool set_local_as_;
+    bool ebgp_;
+    string vm1_client_config_;
+    string vm2_client_config_;
+    string server_config_;
+    string vm1_server_as_;
+    string vm2_server_as_;
+    size_t stale_count_;
+    string vm1_as_;
+    string vm2_as_;
 };
 
-TEST_F(BGPaaSTest, Basic) {
-    SetUpBGPaaSPeers();
-    SetUpAgent();
+void BGPaaSTest::InitializeTemplates(bool set_local_as,
+                                     const string &vm1_server_as,
+                                     const string &vm2_server_as) {
+    vm1_server_as_ = vm1_server_as;
+    vm2_server_as_ = vm2_server_as;
 
+    vm1_client_config_ =
+"<?xml version='1.0' encoding='utf-8'?> \n"
+"<config> \n"
+"   <global-system-config>\n"
+"      <graceful-restart-parameters>\n"
+"         <enable>true</enable>\n"
+"         <restart-time>1</restart-time>\n"
+"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
+"         <bgp-helper-enable>true</bgp-helper-enable>\n"
+"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
+"      </graceful-restart-parameters>\n"
+"       <bgpaas-parameters>\n"
+"           <port-start>0</port-start>\n"
+"           <port-end>0</port-end>\n"
+"       </bgpaas-parameters>\n"
+"   </global-system-config>\n"
+"   <bgp-router name='bgpaas-server'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>" + vm1_server_as_ + "</autonomous-system> \n"
+"       <identifier>192.168.1.1</identifier> \n"
+"       <port>__server_port__</port> \n"
+"       <session to='vm1'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"       <session to='vm2'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"   </bgp-router> \n"
+"   <bgp-router name='vm1'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>" + vm1_as_ + "</autonomous-system> \n"
+"       <port>__vm1_port__</port> \n"
+"       <identifier>10.0.0.1</identifier> \n"
+"       <session to='bgpaas-server'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"   </bgp-router> \n"
+"   <bgp-router name='vm2'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>" + vm2_as_ + "</autonomous-system> \n"
+"       <port>__vm2_port__</port> \n"
+"       <identifier>10.0.0.2</identifier> \n"
+"       <session to='bgpaas-server'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"   </bgp-router> \n"
+"</config> \n"
+;
+
+    vm2_client_config_ =
+"<?xml version='1.0' encoding='utf-8'?> \n"
+"<config> \n"
+"   <global-system-config>\n"
+"      <graceful-restart-parameters>\n"
+"         <enable>true</enable>\n"
+"         <restart-time>1</restart-time>\n"
+"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
+"         <bgp-helper-enable>true</bgp-helper-enable>\n"
+"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
+"      </graceful-restart-parameters>\n"
+"       <bgpaas-parameters>\n"
+"           <port-start>0</port-start>\n"
+"           <port-end>0</port-end>\n"
+"       </bgpaas-parameters>\n"
+"   </global-system-config>\n"
+"   <bgp-router name='bgpaas-server'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>" + vm2_server_as_ + "</autonomous-system> \n"
+"       <identifier>192.168.1.1</identifier> \n"
+"       <port>__server_port__</port> \n"
+"       <session to='vm1'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"       <session to='vm2'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"   </bgp-router> \n"
+"   <bgp-router name='vm1'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>" + vm1_as_ + "</autonomous-system> \n"
+"       <port>__vm1_port__</port> \n"
+"       <identifier>10.0.0.1</identifier> \n"
+"       <session to='bgpaas-server'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"   </bgp-router> \n"
+"   <bgp-router name='vm2'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>" + vm2_as_ + "</autonomous-system> \n"
+"       <port>__vm2_port__</port> \n"
+"       <identifier>10.0.0.2</identifier> \n"
+"       <session to='bgpaas-server'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"           </family-attributes> \n"
+"           <family-attributes> \n"
+"               <address-family>inet6</address-family> \n"
+"           </family-attributes> \n"
+"       </session> \n"
+"   </bgp-router> \n"
+"</config> \n"
+;
+
+    string server_vm1_as;
+    string server_vm2_as;
+    if (set_local_as) {
+        server_vm1_as = "<local-autonomous-system>" + vm1_server_as_ +
+            "</local-autonomous-system>";
+        server_vm2_as = "<local-autonomous-system>" + vm2_server_as_ +
+            "</local-autonomous-system>";
+    }
+    server_config_ =
+"<?xml version='1.0' encoding='utf-8'?> \n"
+"<config> \n"
+"   <global-system-config>\n"
+"      <graceful-restart-parameters>\n"
+"         <enable>true</enable>\n"
+"         <restart-time>1</restart-time>\n"
+"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
+"         <bgp-helper-enable>true</bgp-helper-enable>\n"
+"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
+"      </graceful-restart-parameters>\n"
+"       <bgpaas-parameters>\n"
+"           <port-start>0</port-start>\n"
+"           <port-end>0</port-end>\n"
+"       </bgpaas-parameters>\n"
+"   </global-system-config>\n"
+"   <bgp-router name='local'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>64512</autonomous-system> \n"
+"       <identifier>192.168.1.1</identifier> \n"
+"       <port>__server_port__</port> \n"
+"   </bgp-router> \n"
+"   <routing-instance name='test'> \n"
+"       <vrf-target>target:64512:1</vrf-target> \n"
+"       <bgp-router name='bgpaas-server'> \n"
+"           <router-type>bgpaas-server</router-type> \n"
+"           <autonomous-system>64512</autonomous-system> \n"
+"           <port>__server_port__</port> \n"
+"           <session to='vm1'> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet</address-family> \n"
+"               </family-attributes> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet6</address-family> \n"
+"               </family-attributes> \n" + server_vm1_as +
+"           </session> \n"
+"           <session to='vm2'> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet</address-family> \n"
+"               </family-attributes> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet6</address-family> \n"
+"               </family-attributes> \n" + server_vm2_as +
+"           </session> \n"
+"       </bgp-router> \n"
+"       <bgp-router name='vm1'> \n"
+"           <router-type>bgpaas-client</router-type> \n"
+"           <autonomous-system>" + vm1_as_ + "</autonomous-system> \n"
+"           <address>127.0.0.1</address> \n"
+"           <source-port>11024</source-port> \n"
+"           <gateway-address>100.0.0.1</gateway-address>\n"
+"           <ipv6-gateway-address>::ffff:100.0.0.2</ipv6-gateway-address>\n"
+"           <session to='bgpaas-server'> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet</address-family> \n"
+"               </family-attributes> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet6</address-family> \n"
+"               </family-attributes> \n"
+"           </session> \n"
+"       </bgp-router> \n"
+"       <bgp-router name='vm2'> \n"
+"           <router-type>bgpaas-client</router-type> \n"
+"           <autonomous-system>" + vm2_as_ + "</autonomous-system> \n"
+"           <address>127.0.0.1</address> \n"
+"           <source-port>11025</source-port> \n"
+"           <gateway-address>200.0.0.1</gateway-address>\n"
+"           <ipv6-gateway-address>beef:beef::1</ipv6-gateway-address>\n"
+"           <session to='bgpaas-server'> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet</address-family> \n"
+"               </family-attributes> \n"
+"               <family-attributes> \n"
+"                   <address-family>inet6</address-family> \n"
+"               </family-attributes> \n"
+"           </session> \n"
+"       </bgp-router> \n"
+"   </routing-instance> \n"
+"</config> \n"
+;
+    UpdateTemplates();
+}
+
+void BGPaaSTest::RunTest() {
     // Add routes with shared nexthop and also a unique one to vm1.
     AddBgpInetRoute(vm1_.get(), "20.20.20.1/32", "1.1.1.1");
     AddBgpInet6Route(vm1_.get(), "dead:1::beef/128", "::ffff:1.1.1.1");
@@ -618,13 +750,16 @@ TEST_F(BGPaaSTest, Basic) {
     // Verify that now resolved inet bgp route is indeed received by vm2 with
     // correct gateway-address as specified in the configuration.
     VerifyInetRouteCount(vm2_.get(), 2);
-    VerifyInetRoutePresence(vm2_.get(), "1.1.1.1/32", "200.0.0.1");
-    VerifyInetRoutePresence(vm2_.get(), "20.20.20.1/32", "200.0.0.1");
+    VerifyInetRoutePresence(vm2_.get(), "1.1.1.1/32", "200.0.0.1",
+                            vm2_server_as_);
+    VerifyInetRoutePresence(vm2_.get(), "20.20.20.1/32", "200.0.0.1",
+                            vm2_server_as_ + " " + vm1_as_);
     VerifyInetRouteAbsence(vm2_.get(), "20.20.20.2/32");
 
     // Verify that now resolved inet bgp route is indeed received by vm1.
     VerifyInetRouteCount(vm1_.get(), 3);
-    VerifyInetRoutePresence(vm1_.get(), "1.1.1.1/32", "100.0.0.1");
+    VerifyInetRoutePresence(vm1_.get(), "1.1.1.1/32", "100.0.0.1",
+                            vm1_server_as_);
     VerifyInetRoutePresence(vm1_.get(), "20.20.20.1/32", "1.1.1.1");
     VerifyInetRoutePresence(vm1_.get(), "20.20.20.2/32", "1.1.1.2");
 
@@ -635,7 +770,8 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify that now resolved inet6 bgp route is indeed received by vm2.
     VerifyInet6RouteCount(vm2_.get(), 1);
-    VerifyInet6RoutePresence(vm2_.get(), "dead:1::beef/128", "beef:beef::1");
+    VerifyInet6RoutePresence(vm2_.get(), "dead:1::beef/128", "beef:beef::1",
+                             vm2_server_as_ + " " + vm1_as_);
     VerifyInet6RouteAbsence(vm2_.get(), "dead:2::beef/128");
 
     VerifyInet6RouteCount(vm1_.get(), 2);
@@ -658,17 +794,24 @@ TEST_F(BGPaaSTest, Basic) {
     // correct gateway-address as specified in the configuration.
     TASK_UTIL_EXPECT_EQ(5, agent_->route_mgr_->Count());
     VerifyInetRouteCount(vm2_.get(), 5);
-    VerifyInetRoutePresence(vm2_.get(), "1.1.1.1/32", "200.0.0.1");
-    VerifyInetRoutePresence(vm2_.get(), "1.1.1.2/32", "200.0.0.1");
-    VerifyInetRoutePresence(vm2_.get(), "1.1.1.3/32", "200.0.0.1");
-    VerifyInetRoutePresence(vm2_.get(), "20.20.20.1/32", "200.0.0.1");
+    VerifyInetRoutePresence(vm2_.get(), "1.1.1.1/32", "200.0.0.1",
+                            vm2_server_as_);
+    VerifyInetRoutePresence(vm2_.get(), "1.1.1.2/32", "200.0.0.1",
+                            vm2_server_as_);
+    VerifyInetRoutePresence(vm2_.get(), "1.1.1.3/32", "200.0.0.1",
+                            vm2_server_as_);
+    VerifyInetRoutePresence(vm2_.get(), "20.20.20.1/32", "200.0.0.1",
+                            vm2_server_as_ + " " + vm1_as_);
     VerifyInetRoutePresence(vm2_.get(), "20.20.20.2/32", "200.0.0.1");
 
     // Verify that now resolved inet bgp route is indeed received by vm1.
     VerifyInetRouteCount(vm1_.get(), 5);
-    VerifyInetRoutePresence(vm1_.get(), "1.1.1.1/32", "100.0.0.1");
-    VerifyInetRoutePresence(vm1_.get(), "1.1.1.2/32", "100.0.0.1");
-    VerifyInetRoutePresence(vm1_.get(), "1.1.1.3/32", "100.0.0.1");
+    VerifyInetRoutePresence(vm1_.get(), "1.1.1.1/32", "100.0.0.1",
+                            vm1_server_as_);
+    VerifyInetRoutePresence(vm1_.get(), "1.1.1.2/32", "100.0.0.1",
+                            vm1_server_as_);
+    VerifyInetRoutePresence(vm1_.get(), "1.1.1.3/32", "100.0.0.1",
+                            vm1_server_as_);
     VerifyInetRoutePresence(vm1_.get(), "20.20.20.1/32", "1.1.1.1");
     VerifyInetRoutePresence(vm1_.get(), "20.20.20.2/32", "1.1.1.2");
 
@@ -679,7 +822,8 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify that now resolved inet6 bgp route is indeed received by vm2.
     VerifyInet6RouteCount(vm2_.get(), 2);
-    VerifyInet6RoutePresence(vm2_.get(), "dead:1::beef/128", "beef:beef::1");
+    VerifyInet6RoutePresence(vm2_.get(), "dead:1::beef/128", "beef:beef::1",
+                             vm2_server_as_ + " " + vm1_as_);
     VerifyInet6RoutePresence(vm2_.get(), "dead:2::beef/128", "beef:beef::1");
 
     VerifyInet6RouteCount(vm1_.get(), 2);
@@ -703,16 +847,21 @@ TEST_F(BGPaaSTest, Basic) {
         set_state_machine_restart(false);
 
     BgpNeighborResp resp;
-    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
-            get_peer_close_info().get_stale());
-    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
-            get_peer_close_info().get_gr_timer());
-    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
-            get_peer_close_info().get_llgr_timer());
-    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
-            get_peer_close_info().get_sweep());
+    TASK_UTIL_EXPECT_EQ(stale_count_,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_stale());
+    TASK_UTIL_EXPECT_EQ(stale_count_,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_gr_timer());
+    TASK_UTIL_EXPECT_EQ(stale_count_,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_llgr_timer());
+    TASK_UTIL_EXPECT_EQ(stale_count_ ? 1 : 0,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                                get_peer_close_info().get_sweep());
+    stale_count_++;
 
-    // Trigger graceful session closure bby faking HoldTimerExpiry.
+    // Trigger graceful session closure by faking HoldTimerExpiry.
     peer_vm1->state_machine()->HoldTimerExpired();
     TASK_UTIL_EXPECT_EQ(5, agent_->route_mgr_->Count());
     VerifyInetRouteCount(vm2_.get(), 5);
@@ -720,12 +869,19 @@ TEST_F(BGPaaSTest, Basic) {
     VerifyInet6RouteCount(vm2_.get(), 3);
 
     // Wait until peer enters LLGR state.
-    TASK_UTIL_EXPECT_EQ(1, peer_vm1->close_manager()->FillCloseInfo(&resp)->
-            get_peer_close_info().get_stale());
-    TASK_UTIL_EXPECT_EQ(1, peer_vm1->close_manager()->FillCloseInfo(&resp)->
-            get_peer_close_info().get_gr_timer());
-    TASK_UTIL_EXPECT_EQ(1, peer_vm1->close_manager()->FillCloseInfo(&resp)->
-            get_peer_close_info().get_llgr_timer());
+    TASK_UTIL_EXPECT_EQ(stale_count_,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_stale());
+    TASK_UTIL_EXPECT_EQ(stale_count_,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_gr_timer());
+    TASK_UTIL_EXPECT_EQ(stale_count_,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_llgr_timer());
+    TASK_UTIL_EXPECT_EQ(stale_count_ > 1 ? 1 : 0,
+                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                                get_peer_close_info().get_sweep());
+    stale_count_++;
 
     // Restart BGP state machine.
     static_cast<BgpPeerCloseTest *>(peer_vm1->peer_close())->
@@ -805,15 +961,20 @@ TEST_F(BGPaaSTest, Basic) {
     VerifyInetRouteAbsence(agent_.get(), "20.20.20.1/32");
 
     VerifyInetRouteCount(vm2_.get(), 3);
-    VerifyInetRoutePresence(vm2_.get(), "1.1.1.2/32", "200.0.0.1");
-    VerifyInetRoutePresence(vm2_.get(), "1.1.1.3/32", "200.0.0.1");
-    VerifyInetRoutePresence(vm2_.get(), "20.20.20.2/32", "200.0.0.1");
+    VerifyInetRoutePresence(vm2_.get(), "1.1.1.2/32", "200.0.0.1",
+                            vm2_server_as_);
+    VerifyInetRoutePresence(vm2_.get(), "1.1.1.3/32", "200.0.0.1",
+                            vm2_server_as_);
+    VerifyInetRoutePresence(vm2_.get(), "20.20.20.2/32", "200.0.0.1",
+                            vm2_server_as_ + " " + vm1_as_);
     VerifyInetRouteAbsence(vm2_.get(), "1.1.1.1/32");
     VerifyInetRouteAbsence(vm2_.get(), "20.20.20.1/32");
 
     VerifyInetRouteCount(vm1_.get(), 4);
-    VerifyInetRoutePresence(vm1_.get(), "1.1.1.2/32", "100.0.0.1");
-    VerifyInetRoutePresence(vm1_.get(), "1.1.1.3/32", "100.0.0.1");
+    VerifyInetRoutePresence(vm1_.get(), "1.1.1.2/32", "100.0.0.1",
+                            vm1_server_as_);
+    VerifyInetRoutePresence(vm1_.get(), "1.1.1.3/32", "100.0.0.1",
+                            vm1_server_as_);
     VerifyInetRoutePresence(vm1_.get(), "20.20.20.1/32", "1.1.1.1");
     VerifyInetRoutePresence(vm1_.get(), "20.20.20.2/32", "1.1.1.2");
     VerifyInetRouteAbsence(vm1_.get(), "1.1.1.1/32");
@@ -884,6 +1045,82 @@ TEST_F(BGPaaSTest, Basic) {
     VerifyInetRouteCount(vm1_.get(), 0);
     VerifyInet6RouteCount(vm1_.get(), 0);
 }
+
+TEST_P(BGPaaSTest, Basic) {
+    if (!ebgp_) {
+        if (set_local_as_) {
+            vm1_as_ = "700";
+            vm2_as_ = "800";
+        } else {
+            vm1_as_ = "64512";
+            vm2_as_ = "64512";
+        }
+    } else {
+        vm1_as_ = "65001";
+        vm2_as_ = "65002";
+    }
+
+    InitializeTemplates(set_local_as_, set_local_as_ ? "700" : "64512",
+                        set_local_as_ ? "800" : "64512");
+    vm1_->Configure(vm1_client_config_);
+    vm2_->Configure(vm2_client_config_);
+    server_->Configure(server_config_);
+    task_util::WaitForIdle();
+    SetUpAgent();
+
+    BgpPeerTest *peer_vm1 = FindPeer(server_.get(), "test",
+            BgpConfigParser::session_uuid("bgpaas-server", "vm1", 1));
+    peer_vm1->set_process_session_fnc(
+        boost::bind(&BGPaaSTest::ProcessSession, this));
+    peer_vm1->set_check_split_horizon_fnc(
+        boost::bind(&BGPaaSTest::CheckSplitHorizon, this));
+
+    BgpPeerTest *peer_vm2 = FindPeer(server_.get(), "test",
+            BgpConfigParser::session_uuid("bgpaas-server", "vm2", 1));
+    peer_vm2->set_process_session_fnc(
+        boost::bind(&BGPaaSTest::ProcessSession, this));
+    peer_vm2->set_check_split_horizon_fnc(
+        boost::bind(&BGPaaSTest::CheckSplitHorizon, this));
+
+    BgpPeerTest *vm1_peer = WaitForPeerToComeUp(vm1_.get(), "vm1");
+    int vm1_flap_count = vm1_peer->flap_count();
+    BgpPeerTest *vm2_peer = WaitForPeerToComeUp(vm2_.get(), "vm2");
+    int vm2_flap_count = vm2_peer->flap_count();
+    EXPECT_EQ(ebgp_ ? BgpProto::EBGP : BgpProto::IBGP, vm1_peer->PeerType());
+
+    RunTest();
+
+    // Set/Clear local-as and rerun the test.
+    if (!ebgp_) {
+        if (!set_local_as_) {
+            vm1_as_ = "700";
+            vm2_as_ = "800";
+        } else {
+            vm1_as_ = "64512";
+            vm2_as_ = "64512";
+        }
+    } else {
+        vm1_as_ = "65001";
+        vm2_as_ = "65002";
+    }
+    InitializeTemplates(!set_local_as_, !set_local_as_ ? "700" : "64512",
+                        !set_local_as_ ? "800" : "64512");
+    vm1_->Configure(vm1_client_config_);
+    vm2_->Configure(vm2_client_config_);
+    server_->Configure(server_config_);
+    task_util::WaitForIdle();
+
+    // Peers should flap due to change in local-as configuration.
+    EXPECT_GT(vm1_peer->flap_count(), vm1_flap_count);
+    EXPECT_GT(vm2_peer->flap_count(), vm2_flap_count);
+    WaitForPeerToComeUp(vm1_.get(), "vm1");
+    WaitForPeerToComeUp(vm2_.get(), "vm2");
+    EXPECT_EQ(ebgp_ ? BgpProto::EBGP : BgpProto::IBGP, vm1_peer->PeerType());
+    RunTest();
+}
+
+INSTANTIATE_TEST_CASE_P(BGPaaSTestWithParam, BGPaaSTest,
+                        testing::Combine(::testing::Bool(), ::testing::Bool()));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

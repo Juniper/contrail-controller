@@ -223,6 +223,9 @@ public:
     virtual bool IsInGRTimerWaitState() const = 0;
     virtual void UpdateCloseRouteStats(Address::Family family,
         const BgpPath *old_path, uint32_t path_flags) const = 0;
+    virtual bool CheckSplitHorizon() const {
+        return PeerType() == BgpProto::IBGP;
+    }
 };
 
 #endif  // SRC_BGP_IPEER_H_

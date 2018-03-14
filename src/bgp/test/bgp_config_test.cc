@@ -478,6 +478,45 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors1) {
     TASK_UTIL_EXPECT_EQ("192.168.1.2", peer2->local_bgp_identifier_string());
     TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
 
+    // Change local-asn for the bgpaas peers and verify.
+    content = FileRead("controller/src/bgp/testdata/config_test_36g.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that instance neighbors use the new values.
+    TASK_UTIL_EXPECT_EQ(400, peer1->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer1->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+    TASK_UTIL_EXPECT_EQ(500, peer2->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer2->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+
+    // Modify local-as and verify.
+    content = FileRead("controller/src/bgp/testdata/config_test_36h.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that instance neighbors use the new values.
+    TASK_UTIL_EXPECT_EQ(600, peer1->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer1->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+    TASK_UTIL_EXPECT_EQ(700, peer2->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer2->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+
+    // Remove local-as and verify.
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that instance neighbors use the new values.
+    TASK_UTIL_EXPECT_EQ(64512, peer1->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer1->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+    TASK_UTIL_EXPECT_EQ(64512, peer2->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer2->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+
     // Cleanup.
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     boost::replace_all(content, "<config>", "<delete>");
