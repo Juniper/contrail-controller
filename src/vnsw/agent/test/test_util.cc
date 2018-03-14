@@ -4597,6 +4597,7 @@ void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
 
 void SendBgpServiceConfig(const std::string &ip,
                           uint32_t source_port,
+                          uint32_t dest_port,
                           uint32_t id,
                           const std::string &vmi_name,
                           const std::string &vrf_name,
@@ -4610,6 +4611,7 @@ void SendBgpServiceConfig(const std::string &ip,
     str << "<bgp-router-parameters><identifier>" << ip << "</identifier>"
         "<address>" << ip << "</address>"
         "<source-port>" << source_port << "</source-port>"
+        "<port>" << dest_port << "</port>"
         "<router-type>" << bgp_router_type << "</router-type>"
         "</bgp-router-parameters>" << endl;
 

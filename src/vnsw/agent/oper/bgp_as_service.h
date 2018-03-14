@@ -77,6 +77,7 @@ public:
         BgpAsAServiceEntry(const BgpAsAServiceEntry &rhs);
         BgpAsAServiceEntry(const IpAddress &local_peer_ip,
                            uint32_t source_port,
+                           uint32_t dest_port,
                            bool health_check_configured,
                            const boost::uuids::uuid &health_check_uuid,
                            bool is_shared,
@@ -92,6 +93,7 @@ public:
         bool installed_;
         IpAddress local_peer_ip_;
         uint32_t source_port_;
+        uint32_t dest_port_;
         mutable bool health_check_configured_;
         mutable boost::uuids::uuid health_check_uuid_;
         // the following three are used to invoke add / delete of health check
@@ -138,7 +140,7 @@ public:
                                         const IpAddress &source,
                                         const IpAddress &dest,
                                         IpAddress *nat_server,
-                                        uint32_t *sport) const;
+                                        uint32_t *sport, uint32_t *dport) const;
     bool GetBgpHealthCheck(const VmInterface *vm_intf,
                            boost::uuids::uuid *health_check_uuid) const;
     size_t AllocateBgpVmiServicePortIndex(const uint32_t sport,
