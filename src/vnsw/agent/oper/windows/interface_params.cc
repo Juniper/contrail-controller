@@ -3,6 +3,8 @@
  */
 
 #include <oper/interface.h>
+#include <oper/vm_interface.h>
+#include <oper/physical_interface.h>
 
 #include <Iphlpapi.h>
 
@@ -65,19 +67,6 @@ static boost::optional<NET_LUID> GetPhysicalInterfaceLuidFromName(const std::str
     return boost::none;
 }
 
-static boost::optional<NET_LUID> GetInterfaceLuidFromName(const std::string& name,
-                                                   const Interface::Type intf_type) {
-    if (intf_type == Interface::VM_INTERFACE) {
-        return GetVmInterfaceLuidFromName(name);
-    } else if (intf_type == Interface::PHYSICAL || intf_type == Interface::INET) {
-        return GetPhysicalInterfaceLuidFromName(name);
-    } else {
-        LOG(ERROR, "ERROR: unsupported interface type interface=" << name
-            << ", type = " << intf_type);
-        return boost::none;
-    }
-}
-
 static boost::optional<Interface::IfGuid> GetInterfaceGuidFromLuid(const NET_LUID intf_luid) {
     GUID intf_guid;
 
@@ -91,21 +80,6 @@ static boost::optional<Interface::IfGuid> GetInterfaceGuidFromLuid(const NET_LUI
     memcpy(&result, &intf_guid, sizeof(intf_guid));
 
     return result;
-}
-
-static boost::optional<NET_LUID> GetInterfaceLuidFromGuid(const Interface::IfGuid& intf_guid) {
-    GUID win_guid;
-    assert(sizeof(win_guid) == intf_guid.size());
-    memcpy(&win_guid, &intf_guid, intf_guid.size());
-
-    NET_LUID intf_luid;
-    NETIO_STATUS status = ConvertInterfaceGuidToLuid(&win_guid, &intf_luid);
-    if (status != NO_ERROR) {
-        LOG(ERROR, "ERROR: on converting GUID to LUID:" << status);
-        return boost::none;
-    }
-
-    return intf_luid;
 }
 
 static boost::optional<NET_IFINDEX> GetInterfaceIndexFromLuid(const NET_LUID intf_luid) {
@@ -192,28 +166,36 @@ void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
         return;
     }
 
-    /* Get interface's GUID. Should only happen on first call of `GetOsParams`. */
-    if (!os_guid_) {
-        auto net_luid = GetInterfaceLuidFromName(name, type_);
-        if (!net_luid) {
-            LOG(ERROR, "Error: on querying LUID by name: name=" << name);
-            os_oper_state_ = false;
-            return;
-        }
+    os_oper_state_ = false;
 
-        os_guid_ = GetInterfaceGuidFromLuid(*net_luid);
-        if (!os_guid_) {
-            LOG(ERROR, "Error: on querying GUID by LUID: LUID="
-                << LuidToString(*net_luid));
-            os_oper_state_ = false;
+    boost::optional<NET_LUID> net_luid;
+    auto vmi = dynamic_cast<VmInterface*>(this);
+    if (vmi) {
+        if (vmi->vmi_type() == VmInterface::INSTANCE) {
+            net_luid = GetVmInterfaceLuidFromName(name);
+        } else if (vmi->vmi_type() == VmInterface::VHOST) {
+            net_luid = GetPhysicalInterfaceLuidFromName(name);
+        } else {
+            LOG(ERROR, "ERROR: unsupported VmInterface type name=" << name
+                << ", vmi_type = " << vmi->vmi_type());
             return;
         }
+    } else if (dynamic_cast<PhysicalInterface*>(this)) {
+        net_luid = GetPhysicalInterfaceLuidFromName(name);
+    } else {
+        LOG(ERROR, "ERROR: unsupported Interface type name=" << name
+            << ", type = " << type_);
+        return;
     }
 
-    auto net_luid = GetInterfaceLuidFromGuid(*os_guid_);
     if (!net_luid) {
-        LOG(ERROR, "Error: on querying LUID by GUID: GUID=" << *os_guid_);
-        os_oper_state_ = false;
+        LOG(ERROR, "Error: on querying LUID by name: name=" << name);
+        return;
+    }
+
+    os_guid_ = GetInterfaceGuidFromLuid(*net_luid);
+    if (!os_guid_) {
+        LOG(ERROR, "Error: on querying GUID by LUID: LUID=" << LuidToString(*net_luid));
         return;
     }
 
@@ -221,7 +203,6 @@ void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
     if (!os_index) {
         LOG(ERROR, "Error: on querying os_index by GUID: GUID=" << *os_guid_
             << " LUID=" << LuidToString(*net_luid));
-        os_oper_state_ = false;
         return;;
     }
 
@@ -229,7 +210,6 @@ void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
     if (!if_name) {
         LOG(ERROR, "Error: on querying if_name by GUID: GUID=" << *os_guid_
             << " LUID=" << LuidToString(*net_luid));
-        os_oper_state_ = false;
         return;
     }
 
@@ -237,7 +217,6 @@ void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
     if (!mac) {
         LOG(ERROR, "Error: on querying MAC address by GUID: GUID=" << *os_guid_
             << " LUID=" << LuidToString(*net_luid));
-        os_oper_state_ = false;
         return;
     }
 
