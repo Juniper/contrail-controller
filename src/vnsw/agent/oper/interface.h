@@ -146,6 +146,8 @@ public:
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
+    virtual void ObtainKernelspaceIdentifiers(const std::string &name);
+    virtual void ObtainUserspaceIdentifiers(const std::string &name);
 
     Type type_;
     boost::uuids::uuid uuid_;
