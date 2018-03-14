@@ -66,7 +66,8 @@ class SchemaTransformerDB(VncObjectDBClient):
         super(SchemaTransformerDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
             manager.logger.log, reset_config=self._args.reset_config,
-            credential=cred)
+            credential=cred, ssl_enabled=self._args.cassandra_use_ssl,
+            ca_certs=self._args.cassandra_ca_certs)
 
         SchemaTransformerDB._rt_cf = self._cf_dict[self._RT_CF]
         SchemaTransformerDB._sc_ip_cf = self._cf_dict[self._SC_IP_CF]

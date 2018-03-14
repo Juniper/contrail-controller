@@ -174,6 +174,12 @@ def parse_args(args_str):
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
     parser.add_argument(
+        "--cassandra_use_ssl", action="store_true",
+        help="Enable TLS for cassandra connection")
+    parser.add_argument(
+        "--cassandra_ca_certs",
+        help="Cassandra CA certs")
+    parser.add_argument(
         "--rdbms_server_list",
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
@@ -320,6 +326,7 @@ def parse_args(args_str):
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
     args_obj.sandesh_config = SandeshConfig.from_parser_arguments(args_obj)
+    args_obj.cassandra_use_ssl = (str(args_obj.cassandra_use_ssl).lower() == 'true')
 
     args_obj.conf_file = saved_conf_file
     return args_obj, remaining_argv
