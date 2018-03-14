@@ -357,7 +357,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             if (clone->med() && clone->as_path() && !clone->as_path()->empty())
                 clone->set_med(0);
 
-            as_t local_as =
+            as_t local_as = ribout->local_as() ?:
                 clone->attr_db()->server()->local_autonomous_system();
 
             // Override the peer AS with local AS in AsPath.
