@@ -319,6 +319,7 @@ public:
 
     BgpProto::BgpPeerType peer_type() const { return policy_.type; }
     as_t peer_as() const { return policy_.as_number; }
+    as_t local_as() const { return policy_.local_as_number; }
     bool as_override() const { return policy_.as_override; }
     bool llgr() const { return policy_.llgr; }
     const IpAddress &nexthop() const { return policy_.nexthop; }
