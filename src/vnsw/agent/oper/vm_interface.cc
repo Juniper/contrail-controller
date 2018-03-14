@@ -133,6 +133,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
+    intf_route_type_ = kInterface;
 }
 
 VmInterface::~VmInterface() {
