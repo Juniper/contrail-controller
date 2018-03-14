@@ -944,7 +944,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
             continue;
         }
 
-        if (pkt->ip_saddr != it->fixed_ip_) {
+        if (it->fixed_ip_ != Ip4Address(0) && (pkt->ip_saddr != it->fixed_ip_))  {
             continue;
         }
 

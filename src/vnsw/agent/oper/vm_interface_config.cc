@@ -23,6 +23,22 @@ using namespace std;
 using namespace boost::uuids;
 using namespace autogen;
 
+static void AddFabricFloatingIp(Agent *agent, VmInterfaceConfigData *data,
+                                IpAddress src_ip) {
+    if (agent->fabric_vn_uuid() == nil_uuid()) {
+        return;
+    }
+
+    VmInterface::FloatingIp::PortMap src_port_map;
+    VmInterface::FloatingIp::PortMap dst_port_map;
+    data->floating_ip_list_.list_.insert
+        (VmInterface::FloatingIp(agent->router_id(),
+                                 agent->fabric_policy_vrf_name(),
+                                 agent->fabric_vn_uuid(), src_ip,
+                                 VmInterface::FloatingIp::DIRECTION_BOTH,
+                                 false, src_port_map, dst_port_map, true));
+}
+
 // Build one VN and VRF for a floating-ip. Can reach here from 2 paths,
 // 1. floating-ip <-> floating-ip-pool <-> virtual-network <-> routing-instance
 // 2. floating-ip <-> instance-ip <-> virtual-network <-> routing-instance
@@ -84,6 +100,10 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
                 }
             }
 
+            if (ri->fabric_snat()) {
+                AddFabricFloatingIp(agent, data, fixed_ip_addr);
+            }
+
             VmInterface::FloatingIp::Direction dir =
                 VmInterface::FloatingIp::DIRECTION_BOTH;
             // Get direction
@@ -120,25 +140,6 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
         return true;
     }
     return false;
-}
-
-static void AddFabricFloatingIp(Agent *agent, VmInterfaceConfigData *data) {
-    if (data->addr_ == Ip4Address(0)) {
-        return;
-    }
-
-    if (agent->fabric_vn_uuid() == nil_uuid()) {
-        return;
-    }
-
-    VmInterface::FloatingIp::PortMap src_port_map;
-    VmInterface::FloatingIp::PortMap dst_port_map;
-    data->floating_ip_list_.list_.insert
-        (VmInterface::FloatingIp(agent->router_id(), 
-                                 agent->fabric_policy_vrf_name(),
-                                 agent->fabric_vn_uuid(), data->addr_,
-                                 VmInterface::FloatingIp::DIRECTION_BOTH,
-                                 false, src_port_map, dst_port_map, true));
 }
 
 // Build one Floating IP entry for a virtual-machine-interface
@@ -448,7 +449,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             const autogen::RoutingInstance *ri =
                 static_cast<autogen::RoutingInstance *>(vrf_node->GetObject());
             if (ri->fabric_snat()) {
-                AddFabricFloatingIp(agent, data);
+                AddFabricFloatingIp(agent, data, Ip4Address(0));
             }
         } else {
             if (!rule.service_chain_address.size() &&
