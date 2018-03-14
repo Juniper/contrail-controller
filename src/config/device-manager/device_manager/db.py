@@ -780,6 +780,39 @@ class LogicalInterfaceDM(DBBaseDM):
     # end update
 
     @classmethod
+    def get_sg_list(cls):
+        sg_list = []
+        li_dict = cls._dict
+        for li_obj in li_dict.values() or []:
+            sg_list += li_obj.get_attached_sgs()
+        return sg_list
+    # end get_sg_list
+
+    def get_attached_sgs(self):
+        sg_list = []
+        if self.virtual_machine_interface:
+            vmi = VirtualMachineInterfaceDM.get(self.virtual_machine_interface)
+            if not vmi:
+                return sg_list
+            for sg in vmi.security_groups or []:
+                sg = SecurityGroupDM.get(sg)
+                if sg:
+                    sg_list.append(sg)
+        return sg_list
+    # end get_attached_sgs
+
+    def get_attached_acls(self):
+        acl_list = []
+        sg_list = li_obj.get_attached_sgs()
+        for sg in sg_list or []:
+            for acl in sg.access_control_lists or []:
+                acl = AccessControlListDM.get(acl)
+                if acl:
+                    acl_list.append(acl)
+        return acl_list
+    # end get_attached_acls
+
+    @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
@@ -869,6 +902,69 @@ class InstanceIpDM(DBBaseDM):
 
 # end InstanceIpDM
 
+class AccessControlListDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'access_control_list'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.vnc_obj = None
+        self.security_group = None
+        self.update(obj_dict)
+        self.is_ingress = self.name.startswith('ingress-')
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj.get('fq_name')[-1]
+        self.vnc_obj = self.vnc_obj_from_dict(self.obj_type, obj)
+        if obj.get('parent_type') == "security-group":
+            self.add_to_parent(obj)
+        return obj
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        if self.security_group:
+            self.remove_from_parent()
+        del cls._dict[uuid]
+    # end delete
+
+# end AccessControlListDM
+
+class SecurityGroupDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'security_group'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.virtual_machine_interfaces = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.set_children('access_control_list', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end SecurityGroupDM
 
 class VirtualMachineInterfaceDM(DBBaseDM):
     _dict = {}
@@ -885,6 +981,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.service_interface_type = None
         self.port_tuple = None
         self.routing_instances = set()
+        self.security_groups = set()
         self.service_instance = None
         self.service_endpoint = None
         self.update(obj_dict)
@@ -906,6 +1003,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.update_single_ref('instance_ip', obj)
         self.update_single_ref('physical_interface', obj)
         self.update_multiple_refs('routing_instance', obj)
+        self.update_multiple_refs('security_group', obj)
         self.update_single_ref('port_tuple', obj)
         self.service_instance = None
         if self.port_tuple:
@@ -932,6 +1030,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         obj.update_single_ref('instance_ip', {})
         obj.update_single_ref('physical_interface', {})
         obj.update_multiple_refs('routing_instance', {})
+        obj.update_multiple_refs('security_group', {})
         obj.update_single_ref('port_tuple', {})
         obj.update_single_ref('service_endpoint', {})
         del cls._dict[uuid]
