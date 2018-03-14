@@ -52,26 +52,24 @@ struct RibExportPolicy {
     };
 
     RibExportPolicy();
-    RibExportPolicy(uint32_t cluster_id);
+    explicit RibExportPolicy(uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         int affinity, uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        as_t as_number, bool as_override, bool llgr, int affinity,
-        uint32_t cluster_id);
-    RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        as_t as_number, bool as_override, bool llgr, int affinity,
-        uint32_t cluster_id,
-        std::vector<std::string> &default_tunnel_encap_list);
+        as_t as_number, bool as_override, bool llgr,
+        int affinity, uint32_t cluster_id, as_t local_as_number = 0);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
         int affinity, uint32_t cluster_id,
-        std::vector<std::string> &default_tunnel_encap_list);
+        std::vector<std::string> &default_tunnel_encap_list,
+        as_t local_as_number = 0);
     void SetRemovePrivatePolicy(bool all, bool replace, bool peer_loop_check);
     bool operator<(const RibExportPolicy &rhs) const;
 
     BgpProto::BgpPeerType type;
     Encoding encoding;
     as_t as_number;
+    as_t local_as_number;
     bool as_override;
     IpAddress nexthop;
     int affinity;
