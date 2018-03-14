@@ -70,7 +70,9 @@ public:
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
     bool OnChange(PhysicalInterfaceData *data);
+    virtual void ObtainOsSpecificParams(const std::string &name);
     friend class PhysicalInterfaceKey;
+
 private:
     std::string GetPhysicalInterfaceName() const;
 
