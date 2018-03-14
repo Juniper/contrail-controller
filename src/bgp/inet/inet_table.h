@@ -11,9 +11,11 @@
 #include "bgp/inet/inet_route.h"
 #include "net/address.h"
 
-class Ip4Prefix;
 class BgpServer;
+class InetVpnPrefix;
+class Ip4Prefix;
 class PathResolver;
+class RibOutAttr;
 
 class InetTable : public BgpTable {
 public:
@@ -51,7 +53,14 @@ public:
 
     virtual bool IsRoutingPolicySupported() const { return true; }
     virtual bool IsRouteAggregationSupported() const { return true; }
+    BgpAttrPtr GetAttributes(const Ip4Prefix &inet_prefix, BgpAttrPtr attrp,
+                             const IPeer *peer);
+    void UpdateRoute(const InetVpnPrefix &inetvpn_prefix, const IPeer *peer,
+                     BgpAttrPtr inetvpn_attrp);
 private:
+    BgpAttrPtr UpdateAttributes(const BgpAttrPtr inetvpn_attrp,
+                                const BgpAttrPtr inet_attrp);
+    void UpdateExtendedCommunity(RibOutAttr *roattr);
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
 
