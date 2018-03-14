@@ -502,3 +502,119 @@ void ShowBgpPeeringConfigReqIterate::HandleRequest() const {
     BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
     bsc->PeeringShowReqIterateHandler(this);
 }
+
+//
+// Fill in information for an instance.
+//
+static void FillBgpGlobalSystemConfigInfo(ShowBgpGlobalSystemConfig *sbgc,
+    const BgpSandeshContext *bsc, const BgpGlobalSystemConfig *bgsc) {
+
+    sbgc->set_gr_time(bgsc->gr_time());
+    sbgc->set_llgr_time(bgsc->llgr_time());
+    sbgc->set_last_change_at(bgsc->last_change_at());
+    sbgc->set_end_of_rib_timeout(bgsc->end_of_rib_timeout());
+    sbgc->set_gr_bgp_helper(bgsc->gr_bgp_helper());
+    sbgc->set_gr_xmpp_helper(bgsc->gr_xmpp_helper());
+    sbgc->set_gr_enable(bgsc->gr_enable());
+    sbgc->set_always_compare_med(bgsc->always_compare_med());
+    sbgc->set_rd_cluster_seed(bgsc->rd_cluster_seed());
+    sbgc->set_bgpaas_port_start(bgsc->bgpaas_port_start());
+    sbgc->set_bgpaas_port_end(bgsc->bgpaas_port_end());
+}
+
+//
+//Specialization of BgpShowHandler<>::ConvertReqToData
+//
+template <>
+void BgpShowHandler<ShowBgpGlobalSystemConfigReq,
+                    ShowBgpGlobalSystemConfigReqIterate,
+                    ShowBgpGlobalSystemConfigResp,
+                    ShowBgpGlobalSystemConfig>::ConvertReqToData(
+                      const ShowBgpGlobalSystemConfigReq *req, Data *data) {
+
+    data->initialized = true;
+}
+
+//
+// Specialization of BgpShowHandler<>::CallbackCommon.
+//
+template <>
+bool BgpShowHandler<ShowBgpGlobalSystemConfigReq,
+                    ShowBgpGlobalSystemConfigReqIterate,
+                    ShowBgpGlobalSystemConfigResp,
+                    ShowBgpGlobalSystemConfig>::CallbackCommon(
+                            const BgpSandeshContext *bsc, Data *data) {
+
+   const  BgpGlobalSystemConfig *bgsc = bsc->bgp_server->global_config();
+
+   ShowBgpGlobalSystemConfig sbgc;
+   FillBgpGlobalSystemConfigInfo(&sbgc, bsc, bgsc);
+   data->show_list.push_back(sbgc);
+
+   return true;
+}
+
+//
+// Specialization of BgpShowHandler<>::FillShowList.
+//
+template <>
+void BgpShowHandler<ShowBgpGlobalSystemConfigReq,
+                    ShowBgpGlobalSystemConfigReqIterate,
+                    ShowBgpGlobalSystemConfigResp,
+                    ShowBgpGlobalSystemConfig>::FillShowList(
+                    ShowBgpGlobalSystemConfigResp *resp,
+                    const vector<ShowBgpGlobalSystemConfig> &show_list) {
+    resp->set_global_instances(show_list);
+}
+
+//
+// Handler for ShowBgpGlobalSystemConfigReq.
+//
+void ShowBgpGlobalSystemConfigReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
+        ShowBgpGlobalSystemConfigReq,
+        ShowBgpGlobalSystemConfigReqIterate,
+        ShowBgpGlobalSystemConfigResp,
+        ShowBgpGlobalSystemConfig>::Callback, _1, _2, _3, _4, _5);
+
+    s1.allocFn_ = BgpShowHandler<
+        ShowBgpGlobalSystemConfigReq,
+        ShowBgpGlobalSystemConfigReqIterate,
+        ShowBgpGlobalSystemConfigResp,
+        ShowBgpGlobalSystemConfig>::CreateData;
+    
+    s1.instances_.push_back(0);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}
+
+//
+// Handler for ShowBgpGlobalSystemConfigReqIterate.
+//
+void ShowBgpGlobalSystemConfigReqIterate::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
+        ShowBgpGlobalSystemConfigReq,
+        ShowBgpGlobalSystemConfigReqIterate,
+        ShowBgpGlobalSystemConfigResp,
+        ShowBgpGlobalSystemConfig>::CallbackIterate, _1, _2, _3, _4, _5);
+    
+    s1.allocFn_ = BgpShowHandler<
+        ShowBgpGlobalSystemConfigReq,
+        ShowBgpGlobalSystemConfigReqIterate,
+        ShowBgpGlobalSystemConfigResp,
+        ShowBgpGlobalSystemConfig>::CreateData;
+   
+    s1.instances_.push_back(0);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}

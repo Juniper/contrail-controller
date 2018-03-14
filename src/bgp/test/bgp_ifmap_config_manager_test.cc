@@ -318,6 +318,66 @@ static void ValidateShowNeighborResponse(
     *done = true;
 }
 
+static void ValidateShowGlobalSystemResponse(
+    Sandesh *sandesh, bool *done,
+    const vector<ShowBgpGlobalSystemConfig> &global_list) {
+    ShowBgpGlobalSystemConfigResp *resp =
+        dynamic_cast<ShowBgpGlobalSystemConfigResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(global_list.size(), resp->get_global_instances().size());
+
+
+    LOG(DEBUG, "************************************************************");
+    BOOST_FOREACH(const ShowBgpGlobalSystemConfig &resp_global,
+        resp->get_global_instances()) {
+        LOG(DEBUG, "Graceful Restart Time : " << resp_global.get_gr_time());
+        LOG(DEBUG, "llgr_time             : " << resp_global.get_llgr_time());
+        LOG(DEBUG, "Last Change at        : " << 
+                   resp_global.get_last_change_at());
+        LOG(DEBUG, "bgpaas_port_start     : " << 
+                   resp_global.get_bgpaas_port_start());
+        LOG(DEBUG, "bgpaas_port_end       : " << 
+                   resp_global.get_bgpaas_port_end());
+        LOG(DEBUG, "rd_cluster_seed       : " <<
+                   resp_global.get_rd_cluster_seed());
+    }
+    LOG(DEBUG, "************************************************************");
+    
+    BOOST_FOREACH(const ShowBgpGlobalSystemConfig &global, global_list) {
+        bool found = false;
+        BOOST_FOREACH(const ShowBgpGlobalSystemConfig &resp_global,
+            resp->get_global_instances()) {
+            found = true;
+            
+            EXPECT_EQ(global.get_gr_time(), resp_global.get_gr_time());
+            EXPECT_EQ(global.get_llgr_time(), resp_global.get_llgr_time());
+            EXPECT_EQ(global.get_last_change_at(),
+                      resp_global.get_last_change_at());
+            EXPECT_EQ(global.get_end_of_rib_timeout(),
+                      resp_global.get_end_of_rib_timeout());
+            EXPECT_EQ(global.get_gr_bgp_helper(),
+                      resp_global.get_gr_bgp_helper());
+            EXPECT_EQ(global.get_gr_xmpp_helper(),
+                      resp_global.get_gr_xmpp_helper());
+            EXPECT_EQ(global.get_gr_bgp_helper(),
+                      resp_global.get_gr_bgp_helper());
+            EXPECT_EQ(global.get_gr_enable(), resp_global.get_gr_enable());
+            EXPECT_EQ(global.get_always_compare_med(),
+                      resp_global.get_always_compare_med());
+            EXPECT_EQ(global.get_rd_cluster_seed(),
+                      resp_global.get_rd_cluster_seed());
+            EXPECT_EQ(global.get_bgpaas_port_start(),
+                      resp_global.get_bgpaas_port_start());
+            EXPECT_EQ(global.get_bgpaas_port_end(),
+                      resp_global.get_bgpaas_port_end());
+            continue;
+        }
+        EXPECT_TRUE(found);
+        LOG(DEBUG, "Verified BGP GlobalSystem Config ");
+    }
+    *done = true;
+}
+
 static void ValidateShowPeeringResponse(
     Sandesh *sandesh, bool *done,
     const vector<ShowBgpPeeringConfig> &peering_list) {
@@ -1627,6 +1687,53 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowInstances3) {
                     instance_list));
 
     ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpIfmapConfigManagerShowTest, ShowGlobalSystemConfig) {
+    string content = FileRead(
+            "controller/src/bgp/testdata/config_test_gsc.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, ConfigInstanceCount(config_manager_, 2));
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+    const  BgpGlobalSystemConfig *bgsc = 
+                        sandesh_context.bgp_server->global_config();
+    vector<ShowBgpGlobalSystemConfig> show_list;
+    ShowBgpGlobalSystemConfig sbgc; 
+
+    sbgc.set_gr_time(bgsc->gr_time());
+    sbgc.set_llgr_time(bgsc->llgr_time());
+    sbgc.set_last_change_at(bgsc->last_change_at());
+    sbgc.set_end_of_rib_timeout(bgsc->end_of_rib_timeout());
+    sbgc.set_gr_bgp_helper(bgsc->gr_bgp_helper());
+    sbgc.set_gr_xmpp_helper(bgsc->gr_xmpp_helper());
+    sbgc.set_gr_enable(bgsc->gr_enable());
+    sbgc.set_always_compare_med(bgsc->always_compare_med());
+    sbgc.set_rd_cluster_seed(bgsc->rd_cluster_seed());
+    sbgc.set_bgpaas_port_start(bgsc->bgpaas_port_start());
+    sbgc.set_bgpaas_port_end(bgsc->bgpaas_port_end());
+    show_list.push_back(sbgc);
+
+    bool validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowGlobalSystemResponse, _1, &validate_done,
+                    show_list));
+
+    ShowBgpGlobalSystemConfigReq *show_req = new ShowBgpGlobalSystemConfigReq;
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();

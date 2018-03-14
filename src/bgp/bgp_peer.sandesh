@@ -747,6 +747,30 @@ struct ShowBgpRouteAggregateConfig {
     2: string nexthop;
 }
 
+struct ShowBgpGlobalSystemConfig {
+    1: i16 gr_time;
+    2: i32 llgr_time;
+    7: i64 last_change_at;
+    8: i16 end_of_rib_timeout;
+    3: bool gr_bgp_helper;
+    4: bool gr_xmpp_helper;
+    11: bool gr_enable;
+    6: bool always_compare_med;
+    10: i16 rd_cluster_seed;
+    9: i16 bgpaas_port_start;
+    5: i16 bgpaas_port_end;
+}
+
+response sandesh ShowBgpGlobalSystemConfigResp {
+    1: list<ShowBgpGlobalSystemConfig> global_instances;
+    2: optional string next_batch (link="ShowBgpGlobalSystemConfigReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowBgpGlobalSystemConfigReq {
+    /** Have defaults */
+}
+
 struct ShowBgpInstanceConfig {
     1: string name;
     2: string virtual_network;
