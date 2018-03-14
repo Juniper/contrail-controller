@@ -101,7 +101,8 @@ class TestJobManager(test_case.JobTestCase):
                                      ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
                           "device_json": {
                             "aad74e24-a00b-4eb3-8412-f8b9412925c3":
-                                          {'device_vendor': 'Juniper'}
+                                          {'device_vendor': 'Juniper',
+                                           'device_family': 'MX'}
                                          }
                          }
         logger = JobLogger()
@@ -264,3 +265,4 @@ class TestJobManager(test_case.JobTestCase):
         mocked_playbook_executor.should_receive('run')
 
         flexmock(os.path).should_receive('exists').and_return(True)
+
