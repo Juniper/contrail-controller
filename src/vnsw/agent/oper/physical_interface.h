@@ -73,6 +73,7 @@ public:
     friend class PhysicalInterfaceKey;
 private:
     std::string GetPhysicalInterfaceName() const;
+    virtual void ObtainKernelspaceIdentifiers(const std::string &name);
 
     bool persistent_;
     SubType subtype_;

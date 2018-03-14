@@ -34,6 +34,9 @@ public:
     bool Delete(const DBRequest *req);
     bool OnChange(PacketInterfaceData *data);
 private:
+    virtual void ObtainKernelspaceIdentifiers(const std::string &name);
+    virtual void ObtainUserspaceIdentifiers(const std::string &name);
+
     DISALLOW_COPY_AND_ASSIGN(PacketInterface);
 };
 

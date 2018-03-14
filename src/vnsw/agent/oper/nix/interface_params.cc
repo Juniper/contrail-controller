@@ -4,7 +4,25 @@
 
 #include <oper/interface.h>
 
-void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
+void Interface::ObtainKernelspaceIdentifiers(const std::string &name) {
+    int idx = if_nametoindex(name.c_str());
+    if (idx)
+        os_index_ = idx;
+}
+
+void VmInterface::ObtainKernelspaceIdentifiers(const std::string &name) {
+    Interface::ObtainKernelspaceIdentifiers(name);
+}
+
+void PhysicalInterface::ObtainKernelspaceIdentifiers(const std::string &name) {
+    Interface::ObtainKernelspaceIdentifiers(name);
+}
+
+void PacketInterface::ObtainKernelspaceIdentifiers(const std::string &name) {
+    Interface::ObtainKernelspaceIdentifiers(name);
+}
+
+void Interface::ObtainUserspaceIdentifiers(const std::string &name) {
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, name.c_str(), IF_NAMESIZE);
@@ -18,7 +36,6 @@ void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
         close(fd);
         return;
     }
-
 
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
@@ -39,8 +56,8 @@ void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
 #elif defined(__FreeBSD__)
     mac_ = ifr.ifr_addr;
 #endif
+}
 
-    int idx = if_nametoindex(name.c_str());
-    if (idx)
-        os_index_ = idx;
+void PacketInterface::ObtainUserspaceIdentifiers(const std::string &name) {
+    Interface::ObtainUserspaceIdentifiers(name);
 }
