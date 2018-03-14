@@ -7,6 +7,47 @@ import gevent
 import time
 
 from docker_mem_cpu import DockerMemCpuUsageData
+from sandesh_common.vns.ttypes import Module
+
+
+# code calculates name from labels and then translate it to unit_name
+# the unit_name is predefined and hardcoded through all Contrail's code
+_docker_label_to_unit_name = {
+    Module.ANALYTICS_NODE_MGR: {
+        'analytics-collector': 'contrail-collector',
+        'analytics-api': 'contrail-analytics-api',
+        'analytics-snmp-collector': 'contrail-snmp-collector',
+        'analytics-query-engine': 'contrail-query-engine',
+        'analytics-alarm-gen': 'contrail-alarm-gen',
+        'analytics-topology': 'contrail-topology',
+        'nodemgr': 'contrail-analytics-nodemgr'
+    },
+    Module.CONFIG_NODE_MGR: {
+        'config-api': 'contrail-api',
+        'config-schema': 'contrail-schema',
+        'config-svc-monitor': 'contrail-svc-monitor',
+        'config-device-manager': 'contrail-device-manager',
+        'config-database-cassandra': 'cassandra',
+        'config-database-zookeeper': 'zookeeper',
+        'nodemgr': 'contrail-config-nodemgr'
+    },
+    Module.CONTROL_NODE_MGR: {
+        'control-control': 'contrail-control',
+        'control-dns': 'contrail-dns',
+        'control-named': 'contrail-named',
+        'nodemgr': 'contrail-control-nodemgr'
+    },
+    Module.COMPUTE_NODE_MGR: {
+        'vrouter-agent': 'contrail-vrouter-agent',
+        'nodemgr': 'contrail-vrouter-nodemgr'
+    },
+    Module.DATABASE_NODE_MGR: {
+        'analytics-database-cassandra': 'cassandra',
+        'analytics-database-zookeeper': 'zookeeper',
+        'analytics-database-kafka': 'kafka',
+        'nodemgr': 'contrail-database-nodemgr'
+    },
+}
 
 
 def _convert_to_process_state(state):
@@ -38,127 +79,133 @@ def _convert_to_pi_event(info):
 
 
 class DockerProcessInfoManager(object):
-    def __init__(self, unit_names, event_handlers, update_process_list):
-        self.__unit_names = [name.rsplit('.service', 1)[0] for name in unit_names]
-        self.__event_handlers = event_handlers
-        self.__update_process_list = update_process_list
-        self.__cached_process_infos = {}
-        self.__client = docker.from_env()
+    def __init__(self, module_type, unit_names, event_handlers,
+                 update_process_list):
+        self._module_type = module_type
+        self._unit_names = unit_names
+        self._event_handlers = event_handlers
+        self._update_process_list = update_process_list
+        self._cached_process_infos = {}
+        self._client = docker.from_env()
 
-    def add_unit_name(self, unit_name):
-        self.__unit_names.append(unit_name.rsplit('.service', 1)[0])
-
-    def __get_full_info(self, cid):
+    def _get_full_info(self, cid):
         try:
-            return self.__client.inspect_container(cid)
+            return self._client.inspect_container(cid)
         except docker.errors.APIError:
             return None
 
-    def __get_nodemgr_name(self, container):
-        labels = container.get('Labels')
-        name = labels.get('net.juniper.nodemgr.filter.name') if labels is not None else None
-        if name is None:
-            name = container['Names'][0] if len(container['Names']) != 0 else container['Command']
-            name = name.lstrip('/')
-        if name == 'nodemgr':
-            # 'nodemgr' is a special image that must be parameterized at start with NODE_TYPE env variable
-            if 'Env' not in container:
-                # list_containers does not return 'Env' information
-                info = self.__get_full_info(container['Id'])
-                if info:
-                    container = info['Config']
-            if 'Env' in container:
-                env = container.get('Env', list())
-                node_type = next(iter([i for i in env if i.startswith('NODE_TYPE=')]), None)
-                if node_type:
-                    node_type = node_type.split('=')[1]
-                    name = 'contrail-' + node_type + '-nodemgr'
+    def _get_name_from_labels(self, container):
+        labels = container.get('Labels', dict())
+        pod = labels.get('net.juniper.contrail.pod')
+        service = labels.get('net.juniper.contrail.service')
+        if pod and service:
+            return pod + '-' + service
+
+        name = labels.get('net.juniper.contrail')
+        if not name:
+            name = container.get('Name')
         return name
 
-    def __list_containers(self, names=None):
-        client = self.__client
-        containers = []
+    def _get_unit_name(self, container):
+        name = self._get_name_from_labels(container)
+        if not name:
+            return None
+        map = _docker_label_to_unit_name.get(self._module_type)
+        return map.get(name)
+
+    def _list_containers(self, names):
+        client = self._client
+        containers = dict()
         all_containers = client.containers(all=True)
-        if names is None or len(names) == 0:
-            containers = all_containers
-        else:
-            for container in all_containers:
-                name = self.__get_nodemgr_name(container)
-                if name is not None and name in names:
-                    containers.append(container)
+        for container in all_containers:
+            name = self._get_unit_name(container)
+            if name is not None and name in names:
+                containers[name] = container
         return containers
 
-    def __find_container(self, name):
-        containers = self.__list_containers(names=[name])
-        return containers[0] if len(containers) > 0 else None
-
-    def __update_cache(self, info):
+    def _update_cache(self, info):
         name = info['name']
-        cached_info = self.__cached_process_infos.get(name)
+        cached_info = self._cached_process_infos.get(name)
         if cached_info is None:
-            self.__cached_process_infos[name] = info
+            self._cached_process_infos[name] = info
             return True
         if info['name'] != cached_info['name'] or \
                 info['group'] != cached_info['group'] or \
                 info['pid'] != cached_info['pid'] or \
                 info['statename'] != cached_info['statename']:
-            self.__cached_process_infos[name] = info
+            self._cached_process_infos[name] = info
             return True
         return False
 
-    def __get_start_time(self, info):
+    def _get_start_time(self, info):
         state = info.get('State')
         start_time = state.get('StartedAt') if state else None
         if start_time is None:
             start_time = info.get('Created')
         if not start_time:
             return None
-        return time.mktime(time.strptime(start_time.split('.')[0], '%Y-%m-%dT%H:%M:%S'))
+        return time.mktime(time.strptime(start_time.split('.')[0],
+                                         '%Y-%m-%dT%H:%M:%S'))
 
-    def __container_to_process_info(self, container):
+    def _container_to_process_info(self, container):
         info = {}
         cid = container['Id']
-        full_info = self.__get_full_info(cid)
-        name = self.__get_nodemgr_name(full_info['Config'] if full_info else container)
+        full_info = self._get_full_info(cid)
+        name = self._get_unit_name(full_info['Config'] if full_info else
+                                   container)
         info['name'] = name
         info['group'] = name
         info['pid'] = int(cid, 16)
-        start_time = self.__get_start_time(full_info) if full_info else None
+        start_time = self._get_start_time(full_info) if full_info else None
         info['start'] = str(int(start_time * 1000000)) if start_time else None
         info['statename'] = _convert_to_process_state(container['State'])
         if info['statename'] == 'PROCESS_STATE_EXITED':
             info['expected'] = -1
         return info
 
-    def __poll_containers(self):
-        for name in self.__unit_names:
-            container = self.__find_container(name)
+    def _poll_containers(self):
+        containers = self._list_containers(self._unit_names)
+        for name in self._unit_names:
+            container = containers.get(name)
             if container is not None:
-                info = self.__container_to_process_info(container)
+                info = self._container_to_process_info(container)
             else:
                 info = _dummy_process_info(name)
-            if self.__update_cache(info):
-                self.__event_handlers['PROCESS_STATE'](_convert_to_pi_event(info))
-                if self.__update_process_list:
-                    self.__event_handlers['PROCESS_LIST_UPDATE']()
+            if self._update_cache(info):
+                self._event_handlers['PROCESS_STATE'](_convert_to_pi_event(info))
+                if self._update_process_list:
+                    self._event_handlers['PROCESS_LIST_UPDATE']()
 
     def get_all_processes(self):
         processes_info_list = []
-        for container in self.__list_containers(self.__unit_names):
-            info = self.__container_to_process_info(container)
+        containers = self._list_containers(self._unit_names)
+        for unit_name in containers:
+            container = containers.get(unit_name)
+            if not container:
+                continue
+            info = self._container_to_process_info(container)
             processes_info_list.append(info)
-            self.__update_cache(info)
+            self._update_cache(info)
         return processes_info_list
 
-    def run(self, test):
+    def runforever(self):
         # TODO: probaly use subscription on events..
         while True:
-            self.__poll_containers()
+            self._poll_containers()
             gevent.sleep(seconds=5)
 
     def get_mem_cpu_usage_data(self, pid, last_cpu, last_time):
         return DockerMemCpuUsageData(pid, last_cpu, last_time)
 
-    def find_pid(self, name, pattern):
-        container = self.__find_container(name)
-        return container['Id'] if container is not None else None
+    def exec_cmd(self, unit_name, cmd):
+        containers = self._list_containers(names=[unit_name])
+        container = containers.get(unit_name)
+        if not container:
+            raise LookupError(unit_name)
+        exec_op = self._client.exec_create(container['Id'], cmd, tty=True)
+        result = self._client.exec_start(exec_op["Id"], detach=False)
+        data = self._client.exec_inspect(exec_op["Id"])
+        exit_code = data.get("ExitCode", 0)
+        if exit_code != 0:
+            raise RuntimeError(result)
+        return result
