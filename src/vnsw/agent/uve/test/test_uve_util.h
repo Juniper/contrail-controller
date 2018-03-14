@@ -73,6 +73,7 @@ public:
         for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
             obj->GetCollector(i)->Run();
         }
+        return true;
     }
     std::string Description() const { return "FlowStatsCollectorTask"; }
 };
