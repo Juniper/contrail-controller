@@ -461,9 +461,8 @@ void Interface::GetOsParams(Agent *agent) {
     }
 
     std::string name = name_;
-    if (type_ == Interface::PHYSICAL) {
-        const PhysicalInterface *phy_intf =
-            static_cast<const PhysicalInterface *>(this);
+    const PhysicalInterface *phy_intf = dynamic_cast<const PhysicalInterface *>(this);
+    if (phy_intf) {
         name = phy_intf->display_name();
     }
 
@@ -479,8 +478,7 @@ void Interface::GetOsParams(Agent *agent) {
     //will not be present
     const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(this);
     if (transport_ == TRANSPORT_PMD) {
-        if (type_ == PHYSICAL ||
-            (vm_intf && vm_intf->vmi_type() == VmInterface::VHOST)) {
+        if (phy_intf || (vm_intf && vm_intf->vmi_type() == VmInterface::VHOST)) {
             struct ether_addr *addr = ether_aton(agent->params()->
                                       physical_interface_mac_addr().c_str());
             if (addr) {
@@ -500,7 +498,8 @@ void Interface::GetOsParams(Agent *agent) {
         return;
     }
 
-    GetOsSpecificParams(agent, name);
+    ObtainKernelspaceIdentifiers(name);
+    ObtainUserspaceIdentifiers();
 }
 
 void Interface::SetKey(const DBRequestKey *key) {
