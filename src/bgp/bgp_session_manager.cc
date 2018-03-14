@@ -270,10 +270,7 @@ bool BgpSessionManager::ProcessSession(BgpSession *session) {
         return true;
     }
 
-    // Ignore if the peer is IBGP and a BGPaaS client since we do not
-    // support that combination.
-    if (peer->PeerType() == BgpProto::IBGP &&
-        peer->router_type() == "bgpaas-client") {
+    if (!peer->ProcessSession()) {
         session->SendNotification(BgpProto::Notification::Cease,
                                   BgpProto::Notification::ConnectionRejected);
         DeleteSession(session);

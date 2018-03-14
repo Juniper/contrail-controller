@@ -18,6 +18,7 @@ RibExportPolicy::RibExportPolicy()
     : type(BgpProto::IBGP),
       encoding(BGP),
       as_number(0),
+      local_as_number(0),
       as_override(false),
       affinity(-1),
       llgr(false),
@@ -28,6 +29,7 @@ RibExportPolicy::RibExportPolicy(uint32_t cluster_id)
     : type(BgpProto::IBGP),
       encoding(BGP),
       as_number(0),
+      local_as_number(0),
       as_override(false),
       affinity(-1),
       llgr(false),
@@ -39,6 +41,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
     : type(type),
       encoding(encoding),
       as_number(0),
+      local_as_number(0),
       as_override(false),
       affinity(affinity),
       llgr(false),
@@ -51,10 +54,11 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
     as_t as_number, bool as_override, bool llgr, int affinity,
-    uint32_t cluster_id)
+    uint32_t cluster_id, as_t local_as_number)
     : type(type),
       encoding(encoding),
       as_number(as_number),
+      local_as_number(local_as_number),
       as_override(as_override),
       affinity(affinity),
       llgr(llgr),
@@ -69,9 +73,11 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
     as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
     int affinity, uint32_t cluster_id,
-    vector<string> &default_tunnel_encap_list) : type(type),
+    vector<string> &default_tunnel_encap_list, as_t local_as_number) :
+      type(type),
       encoding(BGP),
       as_number(as_number),
+      local_as_number(local_as_number),
       as_override(as_override),
       nexthop(nexthop),
       affinity(affinity),
@@ -97,6 +103,7 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     BOOL_KEY_COMPARE(encoding, rhs.encoding);
     BOOL_KEY_COMPARE(type, rhs.type);
     BOOL_KEY_COMPARE(as_number, rhs.as_number);
+    BOOL_KEY_COMPARE(local_as_number, rhs.local_as_number);
     BOOL_KEY_COMPARE(as_override, rhs.as_override);
     BOOL_KEY_COMPARE(nexthop, rhs.nexthop);
     BOOL_KEY_COMPARE(affinity, rhs.affinity);

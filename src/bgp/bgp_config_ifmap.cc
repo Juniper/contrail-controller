@@ -265,6 +265,9 @@ static void NeighborSetSessionAttributes(
         if (attributes->admin_down) {
             neighbor->set_admin_down(true);
         }
+        if (attributes->local_autonomous_system) {
+            neighbor->set_local_as(attributes->local_autonomous_system);
+        }
         if (attributes->hold_time) {
             neighbor->set_hold_time(attributes->hold_time);
         }
@@ -373,10 +376,12 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         if (err == 0) {
             neighbor->set_local_identifier(IpAddressToBgpIdentifier(localid));
         }
-        if (master_params.local_autonomous_system) {
-            neighbor->set_local_as(master_params.local_autonomous_system);
-        } else {
-            neighbor->set_local_as(master_params.autonomous_system);
+        if (!neighbor->local_as()) {
+            if (master_params.local_autonomous_system) {
+                neighbor->set_local_as(master_params.local_autonomous_system);
+            } else {
+                neighbor->set_local_as(master_params.autonomous_system);
+            }
         }
         if (instance != master_instance) {
             neighbor->set_passive(true);

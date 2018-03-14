@@ -102,6 +102,10 @@ public:
         BgpRoute *route, BgpPath *path) { return false; }
     virtual bool CanUseMembershipManager() const { return true; }
     virtual bool IsInGRTimerWaitState() const { return false; }
+    virtual bool ProcessSession() const { return true; }
+    virtual bool CheckSplitHorizon() const {
+        return PeerType() == BgpProto::IBGP;
+    }
 
 private:
     int index_;
@@ -238,8 +242,10 @@ protected:
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
-            RibExportPolicy::Encoding encoding, as_t as_number = 0) {
-        RibExportPolicy policy(type, encoding, as_number, false, false, -1, 0);
+            RibExportPolicy::Encoding encoding, as_t as_number = 0,
+            as_t local_as = 0) {
+        RibExportPolicy policy(type, encoding, as_number, false, false, -1,
+                               0, local_as);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
@@ -256,9 +262,10 @@ protected:
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
-            RibExportPolicy::Encoding encoding, as_t as_number, bool llgr) {
+            RibExportPolicy::Encoding encoding, as_t as_number,
+            as_t local_as, bool llgr) {
         RibExportPolicy policy(
-            type, encoding, as_number, false, llgr, -1, 0);
+            type, encoding, as_number, false, llgr, -1, local_as);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
@@ -411,12 +418,12 @@ protected:
         EXPECT_EQ(count, attr->as_path_count());
     }
 
-    void VerifyAttrAsPrepend() {
+    void VerifyAttrAsPrepend(as_t local_as = 0) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
         as_t my_as = server_.autonomous_system();
-        as_t my_local_as = server_.local_autonomous_system();
+        as_t my_local_as = local_as ?: server_.local_autonomous_system();
         EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
         if (my_as != my_local_as)
             EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
@@ -637,6 +644,38 @@ TEST_P(BgpTableExportParamTest1, EBgpAsPrepend2) {
     VerifyExportAccept();
     VerifyAttrLocalPref(0);
     VerifyAttrAsPrepend();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP, iBGP
+// RibOut: eBGP
+// Intent: (peer) local-as AS is prepended to AsPath for eBGP.
+// Note:   Current AsPath is non-NULL.
+//
+TEST_P(BgpTableExportParamTest1, EBgpAsPrepend3) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, 400);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrLocalPref(0);
+    VerifyAttrAsPrepend(400);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP, iBGP
+// RibOut: eBGP
+// Intent: (peer) local-as AS is prepended to AsPath for eBGP.
+// Note:   Current AsPath is non-NULL.
+//
+TEST_P(BgpTableExportParamTest1, EBgpAsPrepend4) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, 400);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrLocalPref(0);
+    VerifyAttrAsPrepend(400);
 }
 
 //
@@ -1514,7 +1553,7 @@ TEST_P(BgpTableExportParamTest6, Llgr) {
 
     // Create RibOut internal/external with peer support for LLGR (or not)
     CreateRibOut(internal_ ? BgpProto::IBGP : BgpProto::EBGP,
-                 RibExportPolicy::BGP, 300, peer_llgr_);
+                 RibExportPolicy::BGP, 300, 0, peer_llgr_);
 
     // If the attribute needs to be tagged with LLGR_STALE, do so.
     if (comm_llgr_) {

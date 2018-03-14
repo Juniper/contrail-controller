@@ -230,12 +230,13 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
     if (!family_attributes) {
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(),
-            -1, cluster_id_);
+            -1, cluster_id_, local_as_);
     } else {
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(),
             family_attributes->gateway_address,
-            -1, cluster_id_, family_attributes->default_tunnel_encap_list);
+            -1, cluster_id_, family_attributes->default_tunnel_encap_list,
+            local_as_);
     }
 
     if (private_as_action_ == "remove") {
@@ -908,7 +909,6 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     }
     ProcessEndpointConfig(config);
 
-    BgpProto::BgpPeerType old_type = PeerType();
     if (local_as_ != config->local_as()) {
         local_as_ = config->local_as();
         peer_info.set_local_asn(local_as_);
@@ -935,6 +935,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         clear_session = true;
     }
 
+    BgpProto::BgpPeerType old_type = PeerType();
     peer_type_ = (peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP;
     if (old_type != PeerType()) {
         peer_info.set_peer_type(
@@ -2538,4 +2539,10 @@ void BgpPeer::reset_flap_count() {
     peer_flap_data.set_name(ToUVEKey());
     peer_flap_data.set_flap_info(flap_info);
     PeerFlap::Send(peer_flap_data, "ObjectBgpPeer");
+}
+
+// Ignore if the peer is IBGP and a BGPaaS client since we do not support that
+// combination. i.e, allow any EBGP session or any non BGPaaS-client session.
+bool BgpPeer::ProcessSession() const {
+    return PeerType() != BgpProto::IBGP || router_type() != "bgpaas-client";
 }

@@ -347,6 +347,7 @@ public:
     virtual bool IsServerStartingUp() const;
     bool IsCloseGraceful() const;
     bool IsRouterTypeBGPaaS() const { return router_type_ == "bgpaas-client"; }
+    virtual bool ProcessSession() const;
 
 protected:
     virtual void SendEndOfRIBActual(Address::Family family);
