@@ -342,7 +342,12 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         dependant_rt_.reset(rt);
         ret = true;
         if (rt) {
-            set_tunnel_bmap(dependant_rt_->GetActivePath()->tunnel_bmap());
+            TunnelType::TypeBmap dep_bmap =
+                dependant_rt_->GetActivePath()->tunnel_bmap();
+            if (tunnel_bmap_ & 1 << TunnelType::NATIVE) {
+                dep_bmap |= (1 << TunnelType::NATIVE);
+            }
+            set_tunnel_bmap(dep_bmap);
         }
     }
     return ret;
