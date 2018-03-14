@@ -46,12 +46,12 @@
 
 - name: create the configured log interface
   include_tasks: logical_interface_configured.yml
-  when: "'family' in item"
+  when: "'unit' in phy_interface"
   with_items: "{{log_interface_list}}"
 
 - name: create the runtime log interface
   include_tasks: logical_interface_runtime.yml
-  when: "'family' not in item"
+  when: "'logical-interface' in phy_interface"
   with_items: "{{log_interface_list}}"
 
 - set_fact: 

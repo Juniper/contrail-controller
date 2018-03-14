@@ -25,10 +25,6 @@
   set_fact:
     interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
 
-- name: settings facts
-  set_fact:
-    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
-
 - name: Execute commands on a Juniper Device
   block:
     - junos_command:
