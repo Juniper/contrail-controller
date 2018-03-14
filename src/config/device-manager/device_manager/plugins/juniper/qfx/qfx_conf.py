@@ -328,6 +328,26 @@ class QfxConf(JuniperConf):
         self.ri_config = ri_config
     # end add_routing_instance
 
+    def attach_acls(self, interface, unit):
+        if self.is_spine():
+            return
+        interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.name)
+        if not interface:
+            return
+        sg_list = interface.get_attached_sgs()
+        filter_list = []
+        for sg in sg_list:
+            flist = self.get_configured_filters(sg)
+            filter_list += flist
+        if filter_list:
+            ethernet = FamilyEthernet()
+            efilter = EthernetFilter()
+            for fname in filter_list:
+                efilter.add_input_list(fname)
+            ethernet.set_filter(efilter)
+            unit.set_family(Family(ethernet_switching=ethernet))
+    # end attach_acls
+
     def build_l2_evpn_interface_config(self, interfaces_config, interfaces, vn, vlan_conf):
         ifd_map = {}
         for interface in interfaces:
@@ -344,17 +364,23 @@ class QfxConf(JuniperConf):
                         "invalid logical interfaces config for ifd %s" % (
                             ifd_name))
                     continue
-                intf.add_unit(Unit(name=interface_list[0].unit,
+                unit = Unit(name=interface_list[0].unit,
                                    comment=DMUtils.l2_evpn_intf_unit_comment(vn, False),
-                                   vlan_id="4094"))
+                                   vlan_id="4094")
+                # attach acls
+                self.attach_acls(interface_list[0], unit)
+                intf.add_unit(unit)
                 intf.set_native_vlan_id("4094")
                 vlan_conf.add_interface(Interface(name=ifd_name + ".0"))
             else:
                 for interface in interface_list:
-                    intf.add_unit(Unit(name=interface.unit,
+                    unit = Unit(name=interface.unit,
                                comment=DMUtils.l2_evpn_intf_unit_comment(vn,
                                                      True, interface.vlan_tag),
-                               vlan_id=str(interface.vlan_tag)))
+                               vlan_id=str(interface.vlan_tag))
+                    # attach acls
+                    self.attach_acls(interface, unit)
+                    intf.add_unit(unit)
                     vlan_conf.add_interface(Interface(name=ifd_name + "." + str(interface.unit)))
     # end build_l2_evpn_interface_config
 
@@ -649,6 +675,168 @@ class QfxConf(JuniperConf):
         self.interfaces_config = interfaces_config
     # end build_ae_config
 
+    def add_addr_term(self, ff, addr_match, is_src):
+        if not addr_match:
+            return None
+        subnet = addr_match.get_subnet()
+        if not subnet:
+            return None
+        subnet_ip = subnet.get_ip_prefix()
+        subnet_len = subnet.get_ip_prefix_len()
+        if not subnet_ip or not subnet_len:
+            return None
+        term = Term()
+        from_ = From()
+        term.set_from(from_)
+        if is_src:
+            term.set_name("src-addr-prefix")
+            src_prefix_list = SourcePrefixList(name=str(subnet_ip) + "/" + str(subnet_len))
+            from_.set_source_prefix_list(src_prefix_list)
+        else:
+            term.set_name("dst-addr-prefix")
+            dst_prefix_list = DestinationPrefixList(name=str(subnet_ip) + "/" + str(subnet_len))
+            from_.set_destination_prefix_list(dst_prefix_list)
+        term.set_then(Then(accept=''))
+        ff.add_term(term)
+    # end add_addr_term
+
+    def add_port_term(self, ff, port_match, is_src):
+        if not port_match:
+            return None
+        start_port = port_match.get_start_port()
+        end_port = port_match.get_end_port()
+        if not start_port or not end_port:
+            return None
+        port_str = str(start_port) + "-" + str(end_port)
+        term = Term()
+        from_ = From()
+        term.set_from(from_)
+        if is_src:
+            term.set_name("src-port")
+            from_.set_destination_port(port_str)
+        else:
+            term.set_name("dst-port")
+            from_.set_source_port(port_str)
+        term.set_then(Then(accept=''))
+        ff.add_term(term)
+    # end add_port_term
+
+    def add_protocol_term(self, ff, protocol_match):
+        if not protocol_match or protocol_match == 'any':
+            return None
+        term = Term()
+        from_ = From()
+        term.set_from(from_)
+        term.set_name("protocol")
+        from_.set_ip_protocol(protocol_match)
+        term.set_then(Then(accept=''))
+        ff.add_term(term)
+    # end add_protocol_term
+
+    def add_ether_type_term(self, ff, ether_type_match):
+        if not ether_type_match:
+            return None
+        term = Term()
+        from_ = From()
+        term.set_from(from_)
+        term.set_name("ether-type")
+        from_.set_ether_type(ether_type_match.lower())
+        term.set_then(Then(accept=''))
+        ff.add_term(term)
+    # end add_ether_type_term
+
+    def build_firewall_filters(self, sg, acl, is_egress=False):
+        if self.is_spine():
+            return
+        if not sg or not acl or not acl.vnc_obj:
+            return
+        acl = acl.vnc_obj
+        entries = acl.get_access_control_list_entries()
+        if not entries:
+            return
+        rules = entries.get_acl_rule() or []
+        if not rules:
+            return
+        firewall_config = self.firewall_config or Firewall(DMUtils.firewall_comment())
+        ff = firewall_config.get_family() or FirewallFamily()
+        firewall_config.set_family(ff)
+        eswitching = ff.get_ethernet_switching() or FirewallEthernet()
+        ff.set_ethernet_switching(eswitching)
+        for rule in rules:
+            match = rule.get_match_condition()
+            if not match:
+                continue
+            rule_uuid = rule.get_rule_uuid()
+            dst_addr_match = match.get_dst_address()
+            dst_port_match = match.get_dst_port()
+            ether_type_match = match.get_ethertype()
+            protocol_match = match.get_protocol()
+            src_addr_match = match.get_src_address()
+            src_port_match = match.get_src_port()
+            filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
+            f = FirewallFilter(name=filter_name)
+            f.set_comment(DMUtils.sg_firewall_comment(sg.name, ether_type_match, rule_uuid))
+            self.add_addr_term(f, dst_addr_match, False)
+            self.add_addr_term(f, src_addr_match, True)
+            self.add_port_term(f, dst_port_match, False)
+            self.add_port_term(f, src_port_match, False)
+            self.add_ether_type_term(f, ether_type_match)
+            self.add_protocol_term(f, protocol_match)
+            eswitching.add_filter(f)
+        self.firewall_config = firewall_config
+    # end build_firewall_filters
+
+    def build_firewall_config(self):
+        if self.is_spine():
+            return
+        sg_list = LogicalInterfaceDM.get_sg_list()
+        for sg in sg_list or []:
+            acls = sg.access_control_lists
+            for acl in acls or []:
+                acl = AccessControlListDM.get(acl)
+                if acl and acl.is_ingress:
+                    self.build_firewall_filters(sg, acl)
+    # end build_firewall_config
+
+    def get_firewall_filters(self, sg, acl, is_egress=False):
+        if not sg or not acl or not acl.vnc_obj:
+            return []
+        acl = acl.vnc_obj
+        entries = acl.get_access_control_list_entries()
+        if not entries:
+            return []
+        rules = entries.get_acl_rule() or []
+        if not rules:
+            return []
+        filter_names = []
+        for rule in rules:
+            match = rule.get_match_condition()
+            if not match:
+                continue
+            rule_uuid = rule.get_rule_uuid()
+            ether_type_match = match.get_ethertype()
+            if not ether_type_match:
+                continue
+            if 'ipv6' in ether_type_match.lower():
+                continue
+            filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
+            filter_names.append(filter_name)
+        return filter_names
+    # end get_firewall_filters
+
+    def get_configured_filters(self, sg):
+        if not sg:
+            return []
+        filter_names = []
+        acls = sg.access_control_lists
+        for acl in acls or []:
+            acl = AccessControlListDM.get(acl)
+            if acl and acl.is_ingress:
+                fnames = self.get_firewall_filters(sg, acl)
+                filter_names += fnames
+        return filter_names
+    # end get_configured_filters
+
     def build_ri_config(self):
         if not self.is_spine():
             esi_map = self.get_ae_alloc_esi_map()
@@ -728,6 +916,7 @@ class QfxConf(JuniperConf):
         self.build_ri_config()
         self.set_internal_vn_irb_config()
         self.init_evpn_config()
+        self.build_firewall_config()
         self.init_global_switch_opts()
         self.set_resolve_bgp_route_target_family_config()
         self.build_esi_config()
