@@ -34,6 +34,12 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="EthernetFilter">
+    <xsd:all>
+        <xsd:element name="input-list" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="FamilyInet">
     <xsd:choice>
         <xsd:element name="address" type="Address" maxOccurs="unbounded"/>
@@ -48,6 +54,12 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="filter" type="InetFilter"/>
         <xsd:element name="unicast"/>
     </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyEthernet">
+    <xsd:all>
+        <xsd:element name="filter" type="EthernetFilter"/>
+    </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="FamilyInetVpn">
@@ -74,6 +86,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="inet6" type="FamilyInet6"/>
         <xsd:element name="inet-vpn" type="FamilyInetVpn"/>
         <xsd:element name="inet6-vpn" type="FamilyInet6Vpn"/>
+        <xsd:element name="ethernet-switching" type="FamilyEthernet"/>
         <xsd:element name="evpn" type="FamilyEvpn"/>
         <xsd:element name="route-target" type="xsd:string"/>
         <xsd:element name="bridge"/>
@@ -340,7 +353,25 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="community" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="destination-address" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="source-address" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="destination-prefix-list" type="DestinationPrefixList"/>
+        <xsd:element name="source-prefix-list" type="SourcePrefixList"/>
+        <xsd:element name="source-port" type="xsd:string"/>
+        <xsd:element name="destination-port" type="xsd:string"/>
+        <xsd:element name="ip-protocol" type="xsd:string"/>
+        <xsd:element name="ether-type" type="xsd:string"/>
         <xsd:element name="family" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DestinationPrefixList">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="SourcePrefixList">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -390,10 +421,17 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="FirewallEthernet">
+    <xsd:all>
+        <xsd:element name="filter" type="FirewallFilter" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="FirewallFamily">
     <xsd:choice>
         <xsd:element name="inet" type="FirewallInet"/>
         <xsd:element name="inet6" type="FirewallInet"/>
+        <xsd:element name="ethernet-switching" type="FirewallEthernet"/>
     </xsd:choice>
 </xsd:complexType>
 
