@@ -40,7 +40,7 @@ snmp {
 {% endif %}
 {% if input.snmp is defined and input.snmp.snmp_communities is defined %}
     {% for comm in input.snmp.snmp_communities %}
-        community {{ comm.community }} {
+        community {{ comm }} {
             authorization read-only;
         }
     {% endfor %}
