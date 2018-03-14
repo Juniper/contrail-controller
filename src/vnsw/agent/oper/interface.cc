@@ -396,15 +396,15 @@ void InterfaceTable::CreateVhostReq() {
 /////////////////////////////////////////////////////////////////////////////
 Interface::Interface(Type type, const uuid &uuid, const string &name,
                      VrfEntry *vrf, bool state) :
-    type_(type), uuid_(uuid), name_(name),
+    type_(type), uuid_(uuid),
     vrf_(vrf, this), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true),
     ipv6_active_(false), is_hc_active_(true),
     metadata_ip_active_(true), metadata_l2_active_(true),
     l2_active_(true), id_(kInvalidIndex), dhcp_enabled_(true),
-    dns_enabled_(true), mac_(), os_index_(kInvalidIndex), os_oper_state_(state),
+    dns_enabled_(true),
     admin_state_(true), test_oper_state_(true), transport_(TRANSPORT_INVALID),
-    os_guid_() {
+    os_params_(name, kInvalidIndex, state) {
 }
 
 Interface::~Interface() {
@@ -444,27 +444,26 @@ void Interface::SetPciIndex(Agent *agent) {
     }
 
     pci >> std::hex >> function;
-    os_index_ = domain << 16 | bus << 8 | device << 3 | function;
-    os_oper_state_ = true;
+    os_params_.os_index_ = domain << 16 | bus << 8 | device << 3 | function;
+    os_params_.os_oper_state_ = true;
 }
 
 void Interface::GetOsParams(Agent *agent) {
     if (agent->test_mode()) {
         static int dummy_ifindex = 0;
-        if (os_index_ == kInvalidIndex) {
-            os_index_ = ++dummy_ifindex;
-            mac_.Zero();
-            mac_.last_octet() = os_index_;
+        if (os_params_.os_index_ == kInvalidIndex) {
+            os_params_.os_index_ = ++dummy_ifindex;
+            os_params_.mac_.Zero();
+            os_params_.mac_.last_octet() = os_params_.os_index_;
         }
-        os_oper_state_ = test_oper_state_;
+        os_params_.os_oper_state_ = test_oper_state_;
         return;
     }
 
-    std::string name = name_;
-    if (type_ == Interface::PHYSICAL) {
-        const PhysicalInterface *phy_intf =
-            static_cast<const PhysicalInterface *>(this);
-        name = phy_intf->display_name();
+    std::string lookup_name = name();
+    const PhysicalInterface *phy_intf = dynamic_cast<const PhysicalInterface *>(this);
+    if (phy_intf) {
+        lookup_name = phy_intf->display_name();
     }
 
     if (transport_ == TRANSPORT_PMD && type_ == PHYSICAL) {
@@ -479,12 +478,11 @@ void Interface::GetOsParams(Agent *agent) {
     //will not be present
     const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(this);
     if (transport_ == TRANSPORT_PMD) {
-        if (type_ == PHYSICAL ||
-            (vm_intf && vm_intf->vmi_type() == VmInterface::VHOST)) {
+        if (phy_intf || (vm_intf && vm_intf->vmi_type() == VmInterface::VHOST)) {
             struct ether_addr *addr = ether_aton(agent->params()->
                                       physical_interface_mac_addr().c_str());
             if (addr) {
-                mac_ = *addr;
+                os_params_.mac_ = *addr;
             } else {
                 LOG(ERROR,
                     "Physical interface MAC not set in DPDK vrouter agent");
@@ -495,19 +493,19 @@ void Interface::GetOsParams(Agent *agent) {
 
     if (transport_ != TRANSPORT_ETHERNET) {
         if (!agent->isVmwareMode()) {
-            os_oper_state_ = true;
+            os_params_.os_oper_state_ = true;
         }
         return;
     }
 
-    GetOsSpecificParams(agent, name);
+    ObtainOsSpecificParams(lookup_name);
 }
 
 void Interface::SetKey(const DBRequestKey *key) {
     const InterfaceKey *k = static_cast<const InterfaceKey *>(key);
     type_ = k->type_;
     uuid_ = k->uuid_;
-    name_ = k->name_;
+    os_params_.name_ = k->name_;
 }
 
 uint32_t Interface::vrf_id() const {
@@ -538,13 +536,13 @@ PacketInterface::~PacketInterface() {
 }
 
 DBEntryBase::KeyPtr PacketInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new PacketInterfaceKey(uuid_, name_);
+    InterfaceKey *key = new PacketInterfaceKey(uuid_, name());
     return DBEntryBase::KeyPtr(key);
 }
 
 void PacketInterface::PostAdd() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    InterfaceNH::CreatePacketInterfaceNh(table->agent(), name_);
+    InterfaceNH::CreatePacketInterfaceNh(table->agent(), name());
 }
 
 bool PacketInterface::Delete(const DBRequest *req) {
@@ -712,7 +710,7 @@ static string VmiTypeToString(VmInterface::VmiType type) {
 
 void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     data.set_index(id_);
-    data.set_name(name_);
+    data.set_name(name());
     data.set_uuid(UuidToString(uuid_));
 
     if (vrf_)
@@ -1211,7 +1209,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_type("invalid");
         break;
     }
-    data.set_os_ifindex(os_index_);
+    data.set_os_ifindex(os_index());
     if (admin_state_) {
         data.set_admin_state("Enabled");
     } else {
@@ -1278,7 +1276,7 @@ AgentSandeshPtr InterfaceTable::GetAgentSandesh(const AgentSandeshArguments *arg
 
 void Interface::SendTrace(const AgentDBTable *table, Trace event) const {
     InterfaceInfo intf_info;
-    intf_info.set_name(name_);
+    intf_info.set_name(name());
     intf_info.set_index(id_);
 
     switch(event) {

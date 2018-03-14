@@ -33,6 +33,8 @@ public:
     void PostAdd();
     bool Delete(const DBRequest *req);
     bool OnChange(PacketInterfaceData *data);
+    virtual void ObtainOsSpecificParams(const std::string &name);
+
 private:
     DISALLOW_COPY_AND_ASSIGN(PacketInterface);
 };
