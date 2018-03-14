@@ -185,6 +185,10 @@ public:
     void FillRibOutStatisticsInfo(
         std::vector<ShowRibOutStatistics> *sros_list) const;
 
+    virtual BgpAttrPtr GetAttributes(BgpRoute *rt, BgpAttrPtr attrp,
+                                     const IPeer *peer) {
+        return attrp;
+    };
 private:
     friend class BgpTableTest;
 
