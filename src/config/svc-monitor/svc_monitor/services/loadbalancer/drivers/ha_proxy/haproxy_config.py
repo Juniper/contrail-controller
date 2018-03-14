@@ -377,9 +377,11 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
         lconf += "\n\t".join(conf)
 
     conf = []
-    lconf = lconf[:-1]
+    if (lconf[len(lconf)-1]) == "\n":
+        lconf = lconf[:-1]
     conf.append(lconf)
-    pconf = pconf[:-2]
+    if (pconf[len(pconf)-2:]) == "\n\n":
+        pconf = pconf[:-2]
     conf.append(pconf)
 
     return "\n".join(conf)
@@ -408,7 +410,9 @@ def set_backend_v2(pool, custom_attr_dict, custom_attrs):
 
     for member_id in pool.members:
         member = LoadbalancerMemberSM.get(member_id)
-        if not member or not member.params['admin_state']:
+        if not member or \
+            'admin_state' not in member.params or \
+                not member.params['admin_state']:
             continue
         server = (('server %s %s:%s weight %s') % (member.uuid,
                   member.params['address'], member.params['protocol_port'],
@@ -423,7 +427,7 @@ def set_backend_v2(pool, custom_attr_dict, custom_attrs):
     return "\n\t".join(conf) + "\n\n"
 
 def set_health_monitor(hm):
-    if not hm.params['admin_state']:
+    if 'admin_state' not in hm.params or not hm.params['admin_state']:
         return '', []
 
     server_suffix = ' check inter %ss fall %s' % \
