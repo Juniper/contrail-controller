@@ -1365,6 +1365,8 @@ private:
     friend struct ResolveRouteState;
     friend struct VmiRouteState;
 
+    virtual void ObtainOsSpecificParams(const std::string &name);
+
     bool IsMetaDataL2Active() const;
     bool IsMetaDataIPActive() const;
     bool IsIpv4Active() const;

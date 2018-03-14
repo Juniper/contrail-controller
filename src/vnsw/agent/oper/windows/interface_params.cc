@@ -3,6 +3,9 @@
  */
 
 #include <oper/interface.h>
+#include <oper/vm_interface.h>
+#include <oper/physical_interface.h>
+#include <oper/packet_interface.h>
 
 #include <Iphlpapi.h>
 
@@ -65,20 +68,7 @@ static boost::optional<NET_LUID> GetPhysicalInterfaceLuidFromName(const std::str
     return boost::none;
 }
 
-static boost::optional<NET_LUID> GetInterfaceLuidFromName(const std::string& name,
-                                                   const Interface::Type intf_type) {
-    if (intf_type == Interface::VM_INTERFACE) {
-        return GetVmInterfaceLuidFromName(name);
-    } else if (intf_type == Interface::PHYSICAL || intf_type == Interface::INET) {
-        return GetPhysicalInterfaceLuidFromName(name);
-    } else {
-        LOG(ERROR, "ERROR: unsupported interface type interface=" << name
-            << ", type = " << intf_type);
-        return boost::none;
-    }
-}
-
-static boost::optional<Interface::IfGuid> GetInterfaceGuidFromLuid(const NET_LUID intf_luid) {
+static boost::optional<InterfaceOsParams::IfGuid> GetInterfaceGuidFromLuid(const NET_LUID intf_luid) {
     GUID intf_guid;
 
     NETIO_STATUS status = ConvertInterfaceLuidToGuid(&intf_luid, &intf_guid);
@@ -87,25 +77,10 @@ static boost::optional<Interface::IfGuid> GetInterfaceGuidFromLuid(const NET_LUI
         return boost::none;
     }
 
-    Interface::IfGuid result;
+    InterfaceOsParams::IfGuid result;
     memcpy(&result, &intf_guid, sizeof(intf_guid));
 
     return result;
-}
-
-static boost::optional<NET_LUID> GetInterfaceLuidFromGuid(const Interface::IfGuid& intf_guid) {
-    GUID win_guid;
-    assert(sizeof(win_guid) == intf_guid.size());
-    memcpy(&win_guid, &intf_guid, intf_guid.size());
-
-    NET_LUID intf_luid;
-    NETIO_STATUS status = ConvertInterfaceGuidToLuid(&win_guid, &intf_luid);
-    if (status != NO_ERROR) {
-        LOG(ERROR, "ERROR: on converting GUID to LUID:" << status);
-        return boost::none;
-    }
-
-    return intf_luid;
 }
 
 static boost::optional<NET_IFINDEX> GetInterfaceIndexFromLuid(const NET_LUID intf_luid) {
@@ -180,71 +155,78 @@ static std::string LuidToString(const NET_LUID intf_luid) {
     return ss.str();
 }
 
-void Interface::GetOsSpecificParams(Agent *agent, const std::string &name) {
-    /* In case of pkt0 interface, we assume that it is UP, set os_index to dummy value 0,
-        since on Windows this parameter is not used because interfaces are represented by named pipes.
-        Name and mac are set to constant values from agent specific for that interface */
-    if (type_ == PACKET) {
-        os_oper_state_ = true;
-        os_index_ = 0;
-        name_ = agent->pkt_interface_name();
-        mac_ = agent->pkt_interface_mac();
-        return;
-    }
+static boost::optional<InterfaceOsParams> GetRealIdsFromOptionalLuid(boost::optional<NET_LUID> net_luid) {
+    InterfaceOsParams os_params;
+    os_params.os_oper_state_ = false;
 
-    /* Get interface's GUID. Should only happen on first call of `GetOsParams`. */
-    if (!os_guid_) {
-        auto net_luid = GetInterfaceLuidFromName(name, type_);
-        if (!net_luid) {
-            LOG(ERROR, "Error: on querying LUID by name: name=" << name);
-            os_oper_state_ = false;
-            return;
-        }
-
-        os_guid_ = GetInterfaceGuidFromLuid(*net_luid);
-        if (!os_guid_) {
-            LOG(ERROR, "Error: on querying GUID by LUID: LUID="
-                << LuidToString(*net_luid));
-            os_oper_state_ = false;
-            return;
-        }
-    }
-
-    auto net_luid = GetInterfaceLuidFromGuid(*os_guid_);
     if (!net_luid) {
-        LOG(ERROR, "Error: on querying LUID by GUID: GUID=" << *os_guid_);
-        os_oper_state_ = false;
-        return;
+        LOG(ERROR, "Error: empty LUID");
+        return boost::none;
     }
+
+    os_params.os_guid_ = GetInterfaceGuidFromLuid(*net_luid);
 
     auto os_index = GetInterfaceIndexFromLuid(*net_luid);
     if (!os_index) {
-        LOG(ERROR, "Error: on querying os_index by GUID: GUID=" << *os_guid_
-            << " LUID=" << LuidToString(*net_luid));
-        os_oper_state_ = false;
-        return;;
+        LOG(ERROR, "Error: on querying os_index by LUID: LUID=" << LuidToString(*net_luid));
+        return boost::none;
     }
 
     auto if_name = GetInterfaceNameFromLuid(*net_luid);
     if (!if_name) {
-        LOG(ERROR, "Error: on querying if_name by GUID: GUID=" << *os_guid_
-            << " LUID=" << LuidToString(*net_luid));
-        os_oper_state_ = false;
-        return;
+        LOG(ERROR, "Error: on querying if_name by LUID: LUID=" << LuidToString(*net_luid));
+        return boost::none;
     }
 
     auto mac = GetMacAddressFromLuid(*net_luid);
     if (!mac) {
-        LOG(ERROR, "Error: on querying MAC address by GUID: GUID=" << *os_guid_
-            << " LUID=" << LuidToString(*net_luid));
-        os_oper_state_ = false;
+        LOG(ERROR, "Error: on querying MAC address by LUID: LUID=" << LuidToString(*net_luid));
+        return boost::none;
+    }
+
+    os_params.os_index_ = *os_index;
+    os_params.name_ = *if_name;
+    os_params.mac_ = *mac;
+
+    /* We assume that interface is UP */
+    os_params.os_oper_state_ = true;
+    
+    return os_params;
+}
+
+void Interface::ObtainOsSpecificParams(const std::string &name) {
+    LOG(ERROR, "Error: unsupported Interface type name=" << name << ", type = " << type_);
+}
+
+void VmInterface::ObtainOsSpecificParams(const std::string &name) {
+    boost::optional<NET_LUID> luid;
+
+    if (vmi_type_ == VmInterface::INSTANCE) {
+        luid = GetVmInterfaceLuidFromName(name);
+    } else if (vmi_type_ == VmInterface::VHOST) {
+        luid = GetPhysicalInterfaceLuidFromName(name);
+    } else {
+        LOG(ERROR, "Error: unsupported VmInterface type name=" << name
+            << ", vmi_type = " << vmi_type_);
         return;
     }
 
-    os_index_ = *os_index;
-    name_ = *if_name;
-    mac_ = *mac;
+    auto optional_os_params = GetRealIdsFromOptionalLuid(luid);
+    if (optional_os_params) {
+        os_params_ = *optional_os_params;
+    }
+}
 
-    /* We assume that interface is UP */
-    os_oper_state_ = true;
+void PhysicalInterface::ObtainOsSpecificParams(const std::string &name) {
+    auto luid = GetPhysicalInterfaceLuidFromName(name);
+    auto optional_os_params = GetRealIdsFromOptionalLuid(luid);
+    if (optional_os_params) {
+        os_params_ = *optional_os_params;
+    }
+}
+
+void PacketInterface::ObtainOsSpecificParams(const std::string &) {
+    /* Fake values since pkt0 on Windows is not an interface but a named pipe */
+    os_params_.os_oper_state_ = true;
+    os_params_.os_index_ = 0;
 }

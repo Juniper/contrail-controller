@@ -246,7 +246,7 @@ void InetInterface::AddHostMulticastRoutes() {
     InetUnicastAgentRouteTable *uc_rt_table =
         (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     boost::system::error_code ec;
-    InetInterfaceKey intf_key(name_);
+    InetInterfaceKey intf_key(name());
     // Add v4 route for covering multicast
     uc_rt_table->
         AddVHostRecvRoute(uc_rt_table->agent()->local_peer(),
@@ -314,7 +314,7 @@ void InetInterface::ActivateHostInterface() {
                         vn_name_);
     }
 
-    ReceiveNHKey nh_key(new InetInterfaceKey(name_), false);
+    ReceiveNHKey nh_key(new InetInterfaceKey(name()), false);
     flow_key_nh_ = static_cast<const NextHop *>(
             agent->nexthop_table()->FindActiveEntry(&nh_key));
 }
@@ -365,11 +365,11 @@ InetInterface::InetInterface(const std::string &name, SubType sub_type,
 
 bool InetInterface::CmpInterface(const DBEntry &rhs) const {
     const InetInterface &intf = static_cast<const InetInterface &>(rhs);
-    return name_ < intf.name_;
+    return name() < intf.name();
 }
 
 DBEntryBase::KeyPtr InetInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new InetInterfaceKey(name_);
+    InterfaceKey *key = new InetInterfaceKey(name());
     return DBEntryBase::KeyPtr(key);
 }
 

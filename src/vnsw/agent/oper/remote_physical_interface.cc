@@ -39,17 +39,17 @@ string RemotePhysicalInterface::ToString() const {
 bool RemotePhysicalInterface::CmpInterface(const DBEntry &rhs) const {
     const RemotePhysicalInterface &a =
         static_cast<const RemotePhysicalInterface &>(rhs);
-    return name_ < a.name_;
+    return name() < a.name();
 }
 
 void RemotePhysicalInterface::GetOsParams(Agent *agent) {
-    os_index_ = Interface::kInvalidIndex;
-    mac_.Zero();
-    os_oper_state_ = true;
+    os_params_.os_index_ = Interface::kInvalidIndex;
+    os_params_.mac_.Zero();
+    os_params_.os_oper_state_ = true;
 }
 
 DBEntryBase::KeyPtr RemotePhysicalInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new RemotePhysicalInterfaceKey(name_);
+    InterfaceKey *key = new RemotePhysicalInterfaceKey(name());
     return DBEntryBase::KeyPtr(key);
 }
 

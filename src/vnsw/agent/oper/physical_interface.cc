@@ -43,11 +43,11 @@ string PhysicalInterface::ToString() const {
 
 bool PhysicalInterface::CmpInterface(const DBEntry &rhs) const {
     const PhysicalInterface &a = static_cast<const PhysicalInterface &>(rhs);
-    return name_ < a.name_;
+    return name() < a.name();
 }
 
 DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new PhysicalInterfaceKey(name_);
+    InterfaceKey *key = new PhysicalInterfaceKey(name());
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -76,26 +76,25 @@ bool PhysicalInterface::OnChange(const InterfaceTable *table,
 
 bool PhysicalInterface::Delete(const DBRequest *req) {
     flow_key_nh_.reset();
-    InterfaceNH::DeletePhysicalInterfaceNh(name_, mac_);
+    InterfaceNH::DeletePhysicalInterfaceNh(name(), mac());
     return true;
 }
 
 std::string PhysicalInterface::GetPhysicalInterfaceName() const {
-    std::size_t pos = name_.find_last_of(":");
+    std::size_t pos = name().find_last_of(":");
     if (pos != string::npos) {
-        return name_.substr(pos + 1);
+        return name().substr(pos + 1);
     }
-    return name_;
+    return name();
 }
 
 void PhysicalInterface::PostAdd() {
-    InterfaceNH::CreatePhysicalInterfaceNh(name_, mac_);
+    InterfaceNH::CreatePhysicalInterfaceNh(name(), mac());
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
 
-    InterfaceNHKey key(new PhysicalInterfaceKey(name_), false,
-            InterfaceNHFlags::INET4, mac_);
+    InterfaceNHKey key(new PhysicalInterfaceKey(name()), false, InterfaceNHFlags::INET4, mac());
     flow_key_nh_ = static_cast<InterfaceNH *>
         (agent->nexthop_table()->FindActiveEntry(&key));
     assert(flow_key_nh_);
@@ -105,7 +104,7 @@ void PhysicalInterface::PostAdd() {
         return;
     }
 
-    std::string interface_name = name_;
+    std::string interface_name = name();
     // Interfaces in VMWARE mode and having remote VMs
     // must be put into promiscuous mode
     if (subtype_ != VMWARE) {
@@ -117,6 +116,8 @@ void PhysicalInterface::PostAdd() {
         }
     }
 
+// Not yet supported on Windows
+#ifndef _WIN32
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
 
@@ -124,8 +125,6 @@ void PhysicalInterface::PostAdd() {
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, interface_name.c_str(), IF_NAMESIZE);
 
-// Not yet supported on Windows
-#ifndef _WIN32
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
             "> setting promiscuous flag for interface <" << interface_name << ">");
@@ -142,8 +141,6 @@ void PhysicalInterface::PostAdd() {
     }
 
     close(fd);
-#else
-    closesocket(fd);
 #endif
 
 }
