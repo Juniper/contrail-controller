@@ -112,6 +112,13 @@ def main(args_str=' '.join(sys.argv[1:])):
             default['collectors'] = collector.split()
         except ConfigParser.NoOptionError as e:
             pass
+    if 'CASSANDRA' in config.sections():
+        try:
+            db_user = config.get('CASSANDRA', 'cassandra_user')
+            db_password = config.get('CASSANDRA', 'cassandra_password')
+            default['db_user'], default['db_password'] = (db_user, db_password)
+        except ConfigParser.NoOptionError as e:
+            pass
     SandeshConfig.update_options(sandesh_opts, config)
     parser = argparse.ArgumentParser(parents=[node_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -149,6 +156,10 @@ def main(args_str=' '.join(sys.argv[1:])):
                             help="IP address of host")
         parser.add_argument("--db_port",
                             help="Cassandra DB cql port")
+        parser.add_argument("--db_user",
+                            help="Cassandra DB cql username")
+        parser.add_argument("--db_password",
+                            help="Cassandra DB cql password")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")

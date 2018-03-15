@@ -42,6 +42,8 @@ class ConfigEventManager(EventManager):
                 sandesh_global)
         self.hostip = config.hostip
         self.db_port = config.db_port
+        self.db_user = config.db_user
+        self.db_password = config.db_password
         self.minimum_diskgb = config.minimum_diskgb
         self.contrail_databases = config.contrail_databases
         self.cassandra_repair_interval = config.cassandra_repair_interval
@@ -49,7 +51,7 @@ class ConfigEventManager(EventManager):
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
                                               'configDb', self.contrail_databases,
                                               self.hostip, self.minimum_diskgb,
-                                              self.db_port)
+                                              self.db_port, self.db_user, self.db_password)
     # end __init__
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
