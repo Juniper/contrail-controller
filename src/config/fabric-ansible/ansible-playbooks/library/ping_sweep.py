@@ -13,8 +13,8 @@ __metaclass__ = type
 
 from ansible.module_utils.basic import AnsibleModule
 import subprocess
-import ipaddress
 import socket
+from netaddr import IPNetwork
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
@@ -55,10 +55,11 @@ def check_ping(module):
     if module.params['subnets']:
         for subnet in module.params['subnets']:
             try:
-                ip_net = ipaddress.ip_network(unicode(subnet))
-                all_hosts.extend(list(ip_net.hosts()))
-            except ValueError:
-                _result['failure'] = "Subnet is not valid " + subnet
+               ip_net = IPNetwork(subnet)
+                all_hosts.extend(list(ip_net))
+            except (ValueError, Exception) as e:
+                _result['failure'] = "Subnet not valid " + subnet + \
+                    "Failed with exception " + str(e)
                 module.exit_json(**_result)
 
     if module.params['hosts']:
