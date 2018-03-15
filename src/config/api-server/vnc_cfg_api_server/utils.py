@@ -91,6 +91,9 @@ def parse_args(args_str):
         'db_engine': 'cassandra',
         'max_request_size': 1024000,
         'fabric_ansible_dir': '/opt/contrail/fabric_ansible_playbooks',
+        'fabric_ansible_conf_file':
+            ['/etc/contrail/contrail-keystone-auth.conf',
+             '/etc/contrail/contrail-fabric-ansible.conf'],
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -313,6 +316,10 @@ def parse_args(args_str):
             help="Maximum size of bottle requests served by api server")
     parser.add_argument("--fabric_ansible_dir",
         help="Fabric ansible directory path")
+    parser.add_argument("--fabric_ansible_conf_file",
+                        help="List of conf files required by fabric ansible"
+                             "job manager.",
+                        nargs="+")   
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
