@@ -149,6 +149,10 @@ def main(args_str=' '.join(sys.argv[1:])):
                             help="IP address of host")
         parser.add_argument("--db_port",
                             help="Cassandra DB cql port")
+        parser.add_argument("--db_user",
+                            help="Cassandra DB cql username")
+        parser.add_argument("--db_password",
+                            help="Cassandra DB cql password")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")
