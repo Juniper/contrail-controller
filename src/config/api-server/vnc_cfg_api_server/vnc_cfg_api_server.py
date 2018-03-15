@@ -317,6 +317,7 @@ class VncApiServer(object):
                               % value)
 
     def validate_input_params(self, request_params):
+
         device_list = None
         job_template_id = request_params.get('job_template_id')
         job_template_fq_name = request_params.get('job_template_fq_name')
@@ -392,7 +393,19 @@ class VncApiServer(object):
         try:
             self.config_log("Entered execute-job",
                             level=SandeshLevel.SYS_NOTICE)
+
             request_params = get_request().json
+            request_headers = get_request().headers
+ 
+            # get the auth token
+            auth_token = request_headers.get('X-Auth-Token')
+
+            # get the tenant name
+            tenant_name = request_headers.get('X-Tenant-Name')
+
+            request_params.update({'auth_token': auth_token})
+            request_params.update({'tenant_name': tenant_name})
+ 
             msg = "Job Input %s " % json.dumps(request_params)
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
@@ -407,10 +420,6 @@ class VncApiServer(object):
             # generate the job execution id
             execution_id = uuid.uuid4()
             request_params.update({'job_execution_id': str(execution_id)})
-
-            # get the auth token
-            auth_token = get_request().get_header('X-Auth-Token')
-            request_params.update({'auth_token': auth_token})
 
             # create job manager subprocess
             job_mgr_path = os.path.dirname(
