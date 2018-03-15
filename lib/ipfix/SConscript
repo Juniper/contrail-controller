@@ -1,0 +1,43 @@
+# -*- mode: python; -*-
+
+vpath = '#/third_party/libipfix_110209'
+
+env = DefaultEnvironment()
+
+version = '.1.0'
+
+libs = [ str(File('#/build/lib/libipfix' + env['LIBSUFFIX'])) ]
+
+shlibs = [ str(File('#/build/lib/libipfix' + env['SHLIBSUFFIX'] + version)) ]
+
+headers = [
+    '#/build/include/ipfix/ipfix_col_db.h',
+    '#/build/include/ipfix/ipfix_col.h',
+    '#/build/include/ipfix/ipfix_db.h',
+    '#/build/include/ipfix/ipfix_def.h',
+    '#/build/include/ipfix/ipfix_fields.h',
+    '#/build/include/ipfix/ipfix.h',
+    '#/build/include/ipfix/ipfix_reverse_fields.h',
+    '#/build/include/ipfix/ipfix_ssl.h',
+    '#/build/include/ipfix/mlog.h',
+    '#/build/include/ipfix/mpoll.h',
+]
+
+products = libs + shlibs + headers
+
+config_opts = '--prefix=' + str(Dir('#/build')) + ' --includedir=' + str(Dir('#/build')) + '/include/ipfix'
+
+cmd = ('(rm -rf ' + str(Dir('#/build')) + '/third_party/ipfix' +
+         '; cp -r ' + str(Dir(vpath)) + ' ' + str(Dir('#/build')) + '/third_party/ipfix/' +
+         '; cd ' + Dir('.').abspath + '; ' + Dir('.').abspath +
+         '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
+libipfix_cfg = env.Command(products, str(Dir(vpath)), cmd)
+
+env.SideEffect('config.status', libipfix_cfg)
+
+env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
+
+env.Alias('install',
+          env.Symlink(env['INSTALL_LIB'] + '/libipfix.so',
+                      env['INSTALL_LIB'] + '/libipfix.so' + version))
