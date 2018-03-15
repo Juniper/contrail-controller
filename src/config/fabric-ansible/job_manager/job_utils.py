@@ -5,10 +5,7 @@
 """
 Contains utility functions used by the job manager
 """
-
 from enum import Enum
-from time import gmtime, strftime
-import traceback
 
 from job_exception import JobException
 
