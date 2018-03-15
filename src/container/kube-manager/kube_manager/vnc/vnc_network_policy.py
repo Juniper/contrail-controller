@@ -618,7 +618,9 @@ class VncNetworkPolicy(VncCommon):
         deleted_np_set = sg_uuid_set - np_uuid_set
         for uuid in deleted_np_set:
             sg = SecurityGroupKM.get(uuid)
-            if not sg or sg.owner != 'k8s':
+            if not sg or\
+               sg.owner != 'k8s' or\
+               sg.cluster != vnc_kube_config.cluster_name():
                 continue
             if not sg.np_spec:
                 continue
