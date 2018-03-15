@@ -153,7 +153,7 @@ def vnc_crud(module):
     while retry and not connected:
         try:
             retry -= 1
-            vnc_lib = VncApi(api_server_host=api_server_host, auth_token=auth_token)
+            vnc_lib = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY, auth_token=auth_token)
             connected = True
         except Exception as ex:
             time.sleep(10)
