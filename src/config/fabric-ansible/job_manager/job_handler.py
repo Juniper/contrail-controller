@@ -23,7 +23,7 @@ from job_exception import JobException
 class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
-                 params, job_utils, device_json, auth_token):
+                 params, job_utils, device_json, auth_token, tenant_name):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -33,6 +33,7 @@ class JobHandler(object):
         self._job_utils = job_utils
         self._device_json = device_json
         self._auth_token = auth_token
+        self._tenant_name = tenant_name
 
     def handle_job(self, result_handler):
         msg = "Starting playbook execution for job template %s with " \
@@ -125,6 +126,7 @@ class JobHandler(object):
             extra_vars.update({'device_id': device_id})
             extra_vars.update({'device_family': device_family})
             extra_vars.update({'auth_token': self._auth_token})
+            extra_vars.update({'tenant_name': self._tenant_name})
             extra_vars.update({'job_execution_id': self._execution_id})
             extra_vars.update({'vendor': play_info.vendor})
             if self._device_json is not None:

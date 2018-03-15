@@ -6,6 +6,7 @@
   vars:
     input: "{{ playbook_input.input }}"
     auth_token: "{{ playbook_input.auth_token }}"
+    tenant_name: "{{ playbook_input.tenant_name }}"
     prouter_uuid: "{{ playbook_input.device_id}}"
     output: {"status":"", "message":"", "results":""}
     as_numbers: []

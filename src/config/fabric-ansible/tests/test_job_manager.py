@@ -61,11 +61,13 @@ class TestJobManager(test_case.JobTestCase):
         # auth token for testing. This value is not used internally since
         # the calls that use the auth token are mocked
         sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        sample_tenant_name = "default"
 
         job_input_json = {"job_template_id": job_template_uuid,
                           "input": {"playbook_data": "some playbook data"},
                           "job_execution_id": str(execution_id),
-                          "auth_token": sample_auth_token}
+                          "auth_token": sample_auth_token,
+                          "tenant_name": sample_tenant_name}
         logger = JobLogger()
         jm = JobManager(logger, self._vnc_lib, job_input_json)
         jm.start_job()
@@ -92,11 +94,13 @@ class TestJobManager(test_case.JobTestCase):
         # auth token for testing. This value is not used internally since
         # the calls that use the auth token are mocked
         sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        sample_tenant_name = "default"
 
         job_input_json = {"job_template_id": job_template_uuid,
                           "input": {"playbook_data": "some playbook data"},
                           "job_execution_id": str(execution_id),
                           "auth_token": sample_auth_token,
+                          "tenant_name": sample_tenant_name,
                           "params": {"device_list":
                                      ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
                           "device_json": {
@@ -136,11 +140,13 @@ class TestJobManager(test_case.JobTestCase):
         # auth token for testing. This value is not used internally since
         # the calls that use the auth token are mocked
         sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        sample_tenant_name = "default"
 
         job_input_json = {"job_template_id": job_template_uuid,
                           "input": {"playbook_data": "some playbook data"},
                           "job_execution_id": str(execution_id),
                           "auth_token": sample_auth_token,
+                          "tenant_name": sample_tenant_name,
                           "params": {"device_list":
                                      ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
                           "device_json": {
@@ -186,11 +192,13 @@ class TestJobManager(test_case.JobTestCase):
         # auth token for testing. This value is not used internally since
         # the calls that use the auth token are mocked
         sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        sample_tenant_name = "default"
 
         job_input_json = {"job_template_id": job_template_uuid,
                           "input": {"playbook_data": "some playbook data"},
                           "job_execution_id": str(execution_id),
                           "auth_token": sample_auth_token,
+                          "tenant_name": sample_tenant_name,
                           "params": {"device_list":
                                      ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
                           "device_json": {
@@ -233,11 +241,13 @@ class TestJobManager(test_case.JobTestCase):
         # auth token for testing. This value is not used internally since
         # the calls that use the auth token are mocked
         sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        sample_tenant_name = "default"
 
         job_input_json = {"job_template_id": job_template_uuid,
                           "input": {"playbook_data": "some playbook data"},
                           "job_execution_id": str(execution_id),
                           "auth_token": sample_auth_token,
+                          "tenant_name": sample_tenant_name,
                           "params": {"device_list":
                                     ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
                           "device_json": {

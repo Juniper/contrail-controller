@@ -38,7 +38,7 @@ CREATE operation:
               "physical_router_device_family": "juniper-mx"
            }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "localhost"
+        tenant_name: "admin"
 
 UPDATE opreation:
     vnc_db_mod:
@@ -53,7 +53,7 @@ UPDATE opreation:
                   }
           }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "localhost"
+        tenant_name: "admin"
 
 READ opreration:
     vnc_db_mod:
@@ -64,7 +64,7 @@ READ opreration:
               "fq_name": "{{ fabric_fq_name }}"
          }
          auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-         api_server_host: "localhost"
+         tenant_name: "admin"
 
 REF-UPDATE opreation:
     vnc_db_mod:
@@ -77,7 +77,7 @@ REF-UPDATE opreation:
               "ref_uuid": "{{ item.uuid }}"
           }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        tenant_name: "admin"
 
 ID_TO_FQNAME operation:
     vnc_db_mod:
@@ -88,7 +88,7 @@ ID_TO_FQNAME operation:
               "uuid": "{{ fabric_uuid }}"
            }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        tenant_name: "admin"
 
 FQNAME_TO_ID operation:
     vnc_db_mod:
@@ -99,7 +99,7 @@ FQNAME_TO_ID operation:
               "fq_name": ["{{ tag_fq_name }}"]
            }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        tenant_name: "admin"
 
 LIST with filters and detail operation:
     vnc_db_mod:
@@ -111,7 +111,7 @@ LIST with filters and detail operation:
             "detail": "True",
         }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        tenant_name: "admin"
 '''
 
 import sys
@@ -137,7 +137,6 @@ def vnc_crud(module):
     results = {}
     results['failed'] = False
     vnc_lib = None
-    retry = 10
 
     # Fetch module params
     object_type = module.params['object_type']
@@ -145,21 +144,15 @@ def vnc_crud(module):
     object_dict = module.params['object_dict']
     auth_token = module.params['auth_token']
     update_obj = module.params['update_obj_if_present']
-    api_server_host = module.params['api_server_host']
+    tenant_name = module.params['tenant_name']
  
-    # Instantiate the VNC library
-    # Retry for sometime, till API server is up
-    connected = False
-    while retry and not connected:
-        try:
-            retry -= 1
-            vnc_lib = VncApi(api_server_host=api_server_host, auth_token=auth_token)
-            connected = True
-        except Exception as ex:
-            time.sleep(10)
-
-    if vnc_lib is None:
-        results['msg'] = "Failed to instantiate vnc api"
+    # Instantiate the VNC library, retry is taken care internally
+    try:
+        vnc_lib = VncApi(auth_type='Keystone',
+                         auth_token=auth_token,
+                         tenant_name=tenant_name)
+    except Exception as ex:
+        results['msg'] = str(ex)
         results['failed'] = True
         return results
 
@@ -398,9 +391,9 @@ def main():
                 required=False,
                 type='bool',
                 default=True),
-            api_server_host=dict(
-                required=False,
-                default="localhost")),
+            tenant_name=dict(
+                required=True,
+                type='str')),
         supports_check_mode=True,
     )
 

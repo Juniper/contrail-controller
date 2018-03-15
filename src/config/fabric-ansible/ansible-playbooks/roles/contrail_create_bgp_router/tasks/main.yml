@@ -32,6 +32,7 @@
             }
           }
         auth_token: "{{auth_token}}"
+        tenant_name: "{{ tenant_name }}"
       register: bgp_info
 
     - name: Error handling if create BGP router fails
@@ -58,6 +59,7 @@
               ]
           }
         auth_token: "{{auth_token}}"
+        tenant_name: "{{ tenant_name }}"
       register: ref_update_results
 
     - name: Error handling if ref update to router fails

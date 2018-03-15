@@ -39,6 +39,7 @@ class JobManager(object):
         self.job_params = dict()
         self.device_json = None
         self.auth_token = None        
+        self.tenant_name = None
         self.parse_job_input(job_input)
         self.job_utils = JobUtils(self.job_execution_id, self.job_template_id,
                                   self._logger, self._vnc_api)
@@ -68,7 +69,7 @@ class JobManager(object):
             self._logger.debug("Device data is not passed from api server.")
 
         self.auth_token = job_input_json['auth_token']
-
+        self.tenant_name = job_input_json['tenant_name']
 
     def start_job(self):
         try:
@@ -85,7 +86,7 @@ class JobManager(object):
                                      job_template, self.job_execution_id,
                                      self.job_data, self.job_params,
                                      self.job_utils, self.device_json,
-                                     self.auth_token)
+                                     self.auth_token, self.tenant_name)
             result_handler = JobResultHandler(job_template,
                                               self.job_execution_id,
                                               self._logger, self.job_utils)
@@ -146,8 +147,10 @@ if __name__ == "__main__":
     vnc_api = None
     try:
         auth_token = job_input_json['auth_token']
-        vnc_api = VncApi(auth_token=auth_token)
-        logger.info("VNC api is initialized using the auth token passed.")
+        tenant_name = job_input_json['tenant_name']
+        vnc_api = VncApi(auth_token=auth_token, tenant_name=tenant_name)
+        logger.info("VNC api is initialized using the auth token"\
+                    " and tenant_name passed.")
     except Exception as e:
         logger.error("Caught exception when initialing vnc api: "
                      "%s" % traceback.print_stack())

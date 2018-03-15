@@ -12,6 +12,7 @@
               "back_ref_id": "{{ prouter_uuid }}"
            }
          auth_token: "{{ auth_token }}"
+         tenant_name: "{{ tenant_name }}"
       register: fabric_obj
 
     - set_fact:
@@ -46,6 +47,7 @@
         object_op: "read"
         object_dict: {"uuid": "{{prouter_uuid}}" }
         auth_token: "{{auth_token}}"
+        tenant_name: "{{ tenant_name }}"
       register: prouter_details
 
     - set_fact:
