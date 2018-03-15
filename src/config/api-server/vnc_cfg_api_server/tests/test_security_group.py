@@ -6,36 +6,34 @@ gevent.monkey.patch_all()  # noqa
 import logging
 from testtools import ExpectedException
 
-from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import PermissionDenied
+from cfgm_common import SGID_MIN_ALLOC
 from vnc_api.vnc_api import SecurityGroup
 
-import test_case
+from vnc_cfg_api_server.tests import test_case
 
 
 logger = logging.getLogger(__name__)
 
 
-class TestSecurityGroupBase(test_case.ApiServerTestCase):
+class TestSecurityGroup(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
-        super(TestSecurityGroupBase, cls).setUpClass(*args, **kwargs)
+        super(TestSecurityGroup, cls).setUpClass(*args, **kwargs)
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
-        super(TestSecurityGroupBase, cls).tearDownClass(*args, **kwargs)
+        super(TestSecurityGroup, cls).tearDownClass(*args, **kwargs)
 
     @property
     def api(self):
         return self._vnc_lib
 
-
-class TestSecurityGroup(TestSecurityGroupBase):
     def test_allocate_sg_id(self):
         mock_zk = self._api_server._db_conn._zk_db
         sg_obj = SecurityGroup('%s-sg' % self.id())

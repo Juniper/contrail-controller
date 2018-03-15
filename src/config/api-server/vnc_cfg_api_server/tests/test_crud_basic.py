@@ -13,7 +13,7 @@ import logging
 import coverage
 import random
 import netaddr
-from mock import patch
+import mock
 import tempfile
 
 import fixtures
@@ -51,6 +51,7 @@ sys.path.append('../common/tests')
 from test_utils import *
 import test_common
 import test_case
+from vnc_cfg_api_server.vnc_cfg_types import GlobalSystemConfigServer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -1592,7 +1593,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             parent_fq_name=project.fq_name)
         self.assertEqual(len(fps['%ss' % FirewallPolicy.resource_type]), 1)
 
-    def test_list_filtering_parent_fq_name_multiple_parent_types_match(self):
+    @mock.patch.object(GlobalSystemConfigServer, 'pre_dbe_create',
+                       return_value=(True, ''))
+    def test_list_filtering_parent_fq_name_multiple_parent_types_match(
+            self, pre_dbe_create_mock):
         identical_name = 'gsc-and-domain-name-%s' % self.id()
         gsc = GlobalSystemConfig(identical_name)
         self._vnc_lib.global_system_config_create(gsc)
@@ -2472,8 +2476,8 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
                  'post_dbe_create', stub)]):
             self._create_test_object()
         with ExpectedException(RefsExistError), \
-                patch('vnc_cfg_api_server.vnc_cfg_api_server'\
-                      '.VncApiServer.get_args') as get_args_patch:
+                mock.patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                           '.VncApiServer.get_args') as get_args_patch:
             get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()
         gevent.sleep(float(self.STALE_LOCK_SECS))
@@ -2495,8 +2499,8 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
             (self._api_server._db_conn, 'dbe_release', stub)]):
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         with ExpectedException(RefsExistError), \
-                patch('vnc_cfg_api_server.vnc_cfg_api_server'\
-                      '.VncApiServer.get_args') as get_args_patch:
+                mock.patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                           '.VncApiServer.get_args') as get_args_patch:
             get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()
         gevent.sleep(float(self.STALE_LOCK_SECS))
