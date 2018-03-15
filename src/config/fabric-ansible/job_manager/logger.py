@@ -6,20 +6,22 @@
 Job manager logger.
 """
 
-class JobLogger():
 
-    def __init__(self):
-        self.job_log_file = open("/tmp/job_logs.txt", "w+")
-        self._sandesh = None
+from sandesh_common.vns.ttypes import Module
+from cfgm_common.vnc_logger import ConfigServiceLogger
 
-    def close_logger(self):
-        self.job_log_file.close()
 
-    def error(self, message):
-        self.job_log_file.write(message + "\n")
+class JobLogger(ConfigServiceLogger):
 
-    def debug(self, message):
-        self.job_log_file.write(message + "\n")
+    def __init__(self, args=None, http_server_port=None):
+        module = Module.FABRIC_ANSIBLE
+        module_pkg = "job_manager"
+        self.context = "job_manager"
+        super(JobLogger, self).__init__(
+            module, module_pkg, args, http_server_port)
 
-    def info(self, message):
-        self.job_log_file.write(message + "\n")
+    def sandesh_init(self, http_server_port=None):
+        super(JobLogger, self).sandesh_init(http_server_port)
+        self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
+                                          size=1000)
+
