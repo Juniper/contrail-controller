@@ -35,6 +35,7 @@ else:
         'SimpleAmqpClient',
         'thrift',
         'openvswitch',
+        'ipfix',
     ]
 
     (distname, version, _) = platform.dist()
