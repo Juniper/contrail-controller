@@ -13,3 +13,4 @@ kombu
 bottle
 stevedore
 ansible
+timeout-decorator
