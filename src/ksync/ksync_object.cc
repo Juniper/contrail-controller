@@ -180,7 +180,7 @@ KSyncEntry *KSyncObject::Create(const KSyncEntry *key) {
     return Create(key, false);
 }
 
-KSyncEntry *KSyncObject::CreateStale(const KSyncEntry *key) {
+KSyncEntry *KSyncObject::CreateStaleInternal(const KSyncEntry *key) {
     // Should not be called without initialising stale entry
     // cleanup InitStaleEntryCleanup
     assert(stale_entry_cleanup_timer_ != NULL);
@@ -204,10 +204,14 @@ KSyncEntry *KSyncObject::CreateStale(const KSyncEntry *key) {
     entry->stale_ = true;
     stale_entry_tree_.insert(entry);
 
-    NotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
     // try starting the timer if not running already
     stale_entry_cleanup_timer_->Start(stale_entry_cleanup_intvl_,
             boost::bind(&KSyncObject::StaleEntryCleanupCb, this));
+    return entry;
+}
+KSyncEntry *KSyncObject::CreateStale(const KSyncEntry *key) {
+    KSyncEntry *entry  = static_cast<KSyncEntry *>(CreateStaleInternal(key));
+    NotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
     return entry;
 }
 
@@ -294,7 +298,7 @@ KSyncDBObject::KSyncDBObject(const std::string &name,
 }
 
 KSyncDBObject::KSyncDBObject(const std::string &name,
-                             DBTableBase *table, int max_index)
+                             DBTableBase *table, int max_index) 
     : KSyncObject(name, max_index), test_id_(-1) {
     table_ = table;
     id_ = table->Register(boost::bind(&KSyncDBObject::Notify, this, _1, _2));
@@ -492,7 +496,6 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         // ksync entry was marked as delete, sync required.
         need_sync = true;
     }
-
     if (ksync->Sync(entry) || need_sync) {
         NotifyEvent(ksync, KSyncEntry::ADD_CHANGE_REQ);
     }
@@ -1328,7 +1331,6 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
 }
 
 void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
-
     KSyncEntry::KSyncState state;
     bool dep_reval = false;
 
@@ -1655,4 +1657,11 @@ KSyncEntry *KSyncObjectManager::default_defer_entry() {
         default_defer_entry_.reset(new KSyncDummyEntry());
     }
     return default_defer_entry_.get();
+}
+// ksync restore
+KSyncRestoreData::KSyncRestoreData(KSyncDBObject *obj)
+    :ksync_object_(obj) { }
+
+
+KSyncRestoreData::~KSyncRestoreData() {
 }
