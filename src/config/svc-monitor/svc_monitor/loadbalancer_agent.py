@@ -3,6 +3,7 @@ from vnc_api.vnc_api import *
 from cfgm_common import importutils
 from cfgm_common import exceptions as vnc_exc
 from cfgm_common import svc_info
+from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 
 from agent import Agent
 from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
@@ -91,6 +92,8 @@ class LoadbalancerAgent(Agent):
         except vnc_exc.NoIdError:
             gsc_obj = self._vnc_lib.global_system_config_read(fq_name=default_gsc_fq_name)
             sa_set_obj = ServiceApplianceSet(sa_set_name, gsc_obj)
+            perms2 = PermType2('cloud-admin',  PERMS_RWX,  PERMS_RX)
+            sa_set_obj.set_perms2(perms2)
             sa_set_obj.set_service_appliance_driver(driver_name)
             sa_set_uuid = self._vnc_lib.service_appliance_set_create(sa_set_obj)
             ServiceApplianceSetSM.locate(sa_set_uuid)
