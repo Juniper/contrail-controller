@@ -40,7 +40,8 @@ class TestExecuteJob(test_case.ApiServerTestCase):
 
     def test_execute_job(self):
         # mock the call to invoke the job manager
-        flexmock(subprocess).should_receive('Popen')
+        fake_process = flexmock(pid=123)
+        flexmock(subprocess).should_receive('Popen').and_return(fake_process)
 
         # create the input json
         job_template_id = uuid.uuid4()
