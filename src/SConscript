@@ -40,7 +40,7 @@ include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#cont
 
 libpath = ['#/build/lib']
 
-libs = ['boost_system', 'boost_thread', 'log4cplus']
+libs = ['boost_system', 'boost_thread', 'log4cplus', 'ipfix']
 if sys.platform.startswith('win'):
     libs.append('windowsstubs')
 else:
