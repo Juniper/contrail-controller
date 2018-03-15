@@ -188,15 +188,6 @@ const string NHKState::FlagsToString(uint32_t flags) const {
         }
     }
 
-    if (flags & NH_FLAG_COMPOSITE_L2) {
-        if (assigned) {
-            flag_str.append("| " + l2_multicast);
-        } else {
-            flag_str.assign(l2_multicast);
-            assigned = true;
-        }
-    }
-
     if (flags & NH_FLAG_TUNNEL_SIP_COPY) {
         if (assigned) {
             flag_str.append("| " + sip_copy);

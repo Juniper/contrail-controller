@@ -1909,7 +1909,8 @@ void CompositeNH::ChangeComponentNHKeyTunnelType(
             if (composite_nh_key->composite_nh_type() == Composite::TOR) {
                 type = TunnelType::VXLAN;
             }
-            if (composite_nh_key->composite_nh_type() == Composite::FABRIC) {
+            if (composite_nh_key->composite_nh_type() == Composite::FABRIC ||
+                composite_nh_key->composite_nh_type() == Composite::L3FABRIC) {
                 type = TunnelType::ComputeType(TunnelType::MplsType());
             }
             ChangeComponentNHKeyTunnelType(
@@ -1941,7 +1942,8 @@ CompositeNH *CompositeNH::ChangeTunnelType(Agent *agent,
     if (composite_nh_type_ == Composite::TOR) {
         type = TunnelType::VXLAN;
     }
-    if (composite_nh_type_ == Composite::FABRIC) {
+    if (composite_nh_type_ == Composite::FABRIC ||
+        composite_nh_type_ == Composite::L3FABRIC) {
         type = TunnelType::ComputeType(TunnelType::MplsType());
     }
     //Create all component NH with new tunnel type
@@ -2703,6 +2705,17 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
     }
     case Composite::FABRIC: {
         comp_str << "fabric Composite"  << " sub nh count: " 
+            << comp_nh->ComponentNHCount();
+        data.set_type(comp_str.str());
+        if (comp_nh->ComponentNHCount() == 0)
+            break;
+        std::vector<McastData> data_list;
+        FillComponentNextHop(comp_nh, data_list);
+        data.set_mc_list(data_list);
+        break;
+    }
+    case Composite::L3FABRIC: {
+        comp_str << "L3 Fabric Composite"  << " sub nh count: "
             << comp_nh->ComponentNHCount();
         data.set_type(comp_str.str());
         if (comp_nh->ComponentNHCount() == 0)
