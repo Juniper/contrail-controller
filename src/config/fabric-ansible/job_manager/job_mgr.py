@@ -5,32 +5,30 @@
 """
 This file contains job manager process code and api
 """
-from gevent import monkey
-monkey.patch_socket()
-from gevent.pool import Pool
-from time import gmtime, strftime
-from gevent.greenlet import Greenlet
+import time
 import sys
 import json
 import argparse
 import traceback
 
-from vnc_api.vnc_api import *
-
 from job_handler import JobHandler
 from job_exception import JobException
+from job_log_utils import JobLogUtils
+from job_utils import JobUtils, JobStatus
 from job_result_handler import JobResultHandler
-from logger import JobLogger
-from job_utils import JobStatus, JobUtils
 
-POOL_SIZE = 20
-
-# TODO add api for use by the module callbacks
+from vnc_api.vnc_api import *
+from gevent.greenlet import Greenlet
+from gevent.pool import Pool
+from gevent import monkey
+monkey.patch_socket()
 
 
 class JobManager(object):
 
-    def __init__(self, logger, vnc_api, job_input):
+    TASK_POOL_SIZE = 20
+
+    def __init__(self, logger, vnc_api, job_input, job_log_utils):
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_template_id = None
@@ -38,10 +36,13 @@ class JobManager(object):
         self.job_data = None
         self.job_params = dict()
         self.device_json = None
-        self.auth_token = None        
+        self.auth_token = None
         self.parse_job_input(job_input)
         self.job_utils = JobUtils(self.job_execution_id, self.job_template_id,
                                   self._logger, self._vnc_api)
+        self.job_log_utils = job_log_utils
+        self.result_handler = None
+        self.args = None
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -69,14 +70,24 @@ class JobManager(object):
 
         self.auth_token = job_input_json['auth_token']
 
+        self.sandesh_args = job_input_json['args']
 
     def start_job(self):
         try:
             # create job UVE and log
             msg = "Starting execution for job with template id %s" \
-                  " and execution id %s"
+                  " and execution id %s" % (self.job_template_id,
+                                            self.job_execution_id)
             self._logger.debug(msg)
-            
+            timestamp = int(round(time.time()*1000))
+            self.job_log_utils.send_job_execution_uve(self.job_template_id,
+                                                      self.job_execution_id,
+                                                      timestamp, 0)
+            self.job_log_utils.send_job_log(self.job_template_id,
+                                            self.job_execution_id,
+                                            msg, JobStatus.STARTING.value,
+                                            timestamp=timestamp)
+
             # read the job template object
             job_template = self.job_utils.read_job_template()
 
@@ -85,27 +96,36 @@ class JobManager(object):
                                      job_template, self.job_execution_id,
                                      self.job_data, self.job_params,
                                      self.job_utils, self.device_json,
-                                     self.auth_token)
-            result_handler = JobResultHandler(job_template,
-                                              self.job_execution_id,
-                                              self._logger, self.job_utils)
+                                     self.auth_token, self.job_log_utils,
+                                     self.sandesh_args)
+            self.result_handler = JobResultHandler(job_template,
+                                                   self.job_execution_id,
+                                                   self._logger,
+                                                   self.job_utils,
+                                                   self.job_log_utils)
             if job_template.get_job_template_multi_device_job():
-                self.handle_multi_device_job(job_handler, result_handler)
+                self.handle_multi_device_job(job_handler, self.result_handler)
             else:
-                self.handle_single_job(job_handler, result_handler)
+                self.handle_single_job(job_handler, self.result_handler)
 
-            timestamp = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-            result_handler.create_job_summary_log(timestamp)
+            # create job completion log and update job UVE
+            self.result_handler.create_job_summary_log()
+
+            # in case of failures, exit the job manager process with failure
+            if self.result_handler.job_result_status == JobStatus.FAILURE:
+                sys.exit(self.result_handler.job_summary_message)
 
         except JobException as e:
             self._logger.error("Job Exception recieved: %s" % e.msg)
-            self._logger.error("%s" % traceback.print_stack())        
+            self._logger.error("%s" % traceback.print_stack())
+            sys.exit(e.msg)
         except Exception as e:
             self._logger.error("Error while executing job %s " % repr(e))
             self._logger.error("%s" % traceback.print_stack())
+            sys.exit(e.message)
 
     def handle_multi_device_job(self, job_handler, result_handler):
-        job_worker_pool = Pool(POOL_SIZE)
+        job_worker_pool = Pool(self.TASK_POOL_SIZE)
         for device_id in self.job_params['device_list']:
             job_worker_pool.start(Greenlet(job_handler.handle_device_job,
                                            device_id, result_handler))
@@ -124,8 +144,8 @@ def parse_args():
 
 if __name__ == "__main__":
 
-    # TODO the logs before the sandesh is initalized should go to some log file
-    # parse the params passed to the job manager process
+    # parse the params passed to the job manager process and initialize
+    # sandesh instance
     job_input_json = None
     try:
         job_params = parse_args()
@@ -134,8 +154,12 @@ if __name__ == "__main__":
             sys.exit("Job input data is not passed to job mgr. "
                      "Aborting job ...")
 
-        # TODO integrate with Sandesh logger
-        logger = JobLogger()
+        job_log_utils = JobLogUtils(
+            sandesh_instance_id=job_input_json['job_execution_id'],
+            args=job_input_json['args'])
+        if job_log_utils is None:
+            sys.exit("Failed to initialize Sandesh. Aborting job.")
+        logger = job_log_utils.config_logger
     except Exception as e:
         print >> sys.stderr, "Failed to initialize logger due "\
                              "to Exception: %s" % traceback.print_stack()
@@ -155,10 +179,12 @@ if __name__ == "__main__":
 
     # invoke job manager
     try:
-        job_manager = JobManager(logger, vnc_api, job_input_json)
+        job_manager = JobManager(logger, vnc_api, job_input_json,
+                                 job_log_utils)
+        logger.info("Job Manager is initialized. Starting job.")
         job_manager.start_job()
     except Exception as e:
         logger.error("Caught exception when running the job: "
                      "%s" % traceback.print_stack())
-        sys.exit("Existing job due to error: %s " % repr(e))
+        sys.exit("Exiting job due to error: %s " % repr(e))
 
