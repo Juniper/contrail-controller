@@ -2620,6 +2620,8 @@ class VncApiServer(object):
         rabbit_ha_mode = self._args.rabbit_ha_mode
         cassandra_user = self._args.cassandra_user
         cassandra_password = self._args.cassandra_password
+        cassandra_use_ssl = self._args.cassandra_use_ssl
+        cassandra_ca_certs = self._args.cassandra_ca_certs
         obj_cache_entries = int(self._args.object_cache_entries)
         obj_cache_exclude_types = \
             [t.replace('-', '_').strip() for t in
@@ -2655,7 +2657,10 @@ class VncApiServer(object):
             kombu_ssl_certfile=self._args.kombu_ssl_certfile,
             kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs,
             obj_cache_entries=obj_cache_entries,
-            obj_cache_exclude_types=obj_cache_exclude_types, connection=rdbms_connection)
+            obj_cache_exclude_types=obj_cache_exclude_types,
+            connection=rdbms_connection,
+            cassandra_use_ssl=self._args.cassandra_use_ssl,
+            cassandra_ca_certs=self._args.cassandra_ca_certs)
 
         #TODO refacter db connection management.
         self._addr_mgmt._get_db_conn()
