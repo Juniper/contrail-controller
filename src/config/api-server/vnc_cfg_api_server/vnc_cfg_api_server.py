@@ -412,6 +412,9 @@ class VncApiServer(object):
             auth_token = get_request().get_header('X-Auth-Token')
             request_params.update({'auth_token': auth_token})
 
+            # pass the required config args to job manager
+            self.read_config_params(request_params)
+
             # create job manager subprocess
             job_mgr_path = os.path.dirname(
                 __file__) + "/../job_manager/job_mgr.py"
@@ -430,6 +433,33 @@ class VncApiServer(object):
             err_msg = "Error while executing job request: %s" % repr(e)
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise cfgm_common.exceptions.HttpError(500, err_msg)
+
+    def read_config_params(self, request_params):
+        job_args = dict()
+
+        # if the collector info is not present in the API server return
+        # since Sandesh connection cannot go through without this
+        try:
+            job_args.update({'collectors': self._args.collectors})
+        except AttributeError:
+            raise cfgm_common.exceptions.HttpError(
+                "Sandesh collector information required by Job Manager"
+                " missing in the API config")
+
+        # set to a default value and check if the conf file for the updated val
+        fabric_ansible_config_file = [
+            '/etc/contrail/contrail-keystone-auth.conf',
+            '/etc/contrail/contrail-fabric-ansible.conf']
+        try:
+            fabric_ansible_config_file = self._args.fabric_ansible_conf_file
+        except AttributeError:
+            pass
+
+        job_args.update({'fabric_ansible_conf_file':
+                         fabric_ansible_config_file})
+        request_params.update({'args': json.dumps(job_args)})
+
+        return request_params
 
     def read_device_data(self, device_list, request_params):
         device_data = dict()
