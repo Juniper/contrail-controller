@@ -223,6 +223,16 @@ class VncApi(object):
     _DEFAULT_MAX_POOLS = 100
     _DEFAULT_MAX_CONNS_PER_POOL = 100
 
+    # Defined in Sandesh common headers but not importable in vnc_api lib
+    _SECURITY_OBJECT_TYPES = [
+        ApplicationPolicySet.object_type,
+        FirewallPolicy.object_type,
+        FirewallRule.object_type,
+        ServiceGroup.object_type,
+        AddressGroup.object_type,
+    ]
+    _POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT = 'draft-policy-management'
+
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host=None, api_server_port=None,
                  api_server_url=None, conf_file=None, user_info=None,
@@ -237,8 +247,11 @@ class VncApi(object):
         self._obj_serializer = self._obj_serializer_diff
         for object_type, resource_type in all_resource_type_tuples:
             for oper_str in ('_create', '_read', '_update', '_delete',
-                             's_list', '_get_default_id'):
-                method = getattr(self, '_object%s' % (oper_str))
+                             's_list', '_get_default_id', '_read_draft'):
+                if (oper_str == '_read_draft' and
+                        object_type not in self._SECURITY_OBJECT_TYPES):
+                    continue
+                method = getattr(self, '_object%s' % oper_str)
                 bound_method = functools.partial(method, resource_type)
                 functools.update_wrapper(bound_method, method)
                 if oper_str == '_get_default_id':
@@ -490,6 +503,9 @@ class VncApi(object):
 
         obj_dict = json.loads(content)[res_type]
         obj.uuid = obj_dict['uuid']
+        obj.fq_name = obj_dict['fq_name']
+        if 'parent_type' in obj_dict:
+            obj.parent_type = obj_dict['parent_type']
         if 'parent_uuid' in obj_dict:
             obj.parent_uuid = obj_dict['parent_uuid']
 
@@ -560,6 +576,35 @@ class VncApi(object):
 
         return obj
     # end _object_read
+
+    @check_homepage
+    def _object_read_draft(self, res_type, fq_name=None, fq_name_str=None,
+                           id=None, fields=None):
+        if not (fq_name or fq_name_str or id):
+            return ("To get draft version of a security resource at least "
+                    "fully qualified name or UUID is required")
+
+        if not (fq_name or fq_name_str) and id:
+            fq_name = self.id_to_fq_name(id)
+        id = None
+
+        if not fq_name and fq_name_str:
+            fq_name = fq_name_str.split(':')
+            fq_name_str = None
+
+        draft_fq_name = list(fq_name)
+        if self._POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT not in fq_name:
+            if len(fq_name) == 2:
+                draft_fq_name = [
+                    self._POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT,
+                    draft_fq_name[-1],
+                ]
+            else:
+                draft_fq_name.insert(
+                    -1, self._POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT)
+
+        return self._object_read(res_type, fq_name=draft_fq_name,
+                                 fields=fields)
 
     @check_homepage
     def _object_update(self, res_type, obj):
@@ -947,7 +992,7 @@ class VncApi(object):
                 retry_count -= 1
                 continue
 
-            if status == 200:
+            if status in [200, 202]:
                 return content
 
             # Exception Response, see if it can be resolved
@@ -1463,7 +1508,7 @@ class VncApi(object):
         return rv
 
     def set_tags(self, obj, tags_dict):
-        """Associate or disassociate one or mutliple tags to a resource
+        """Associate or disassociate one or multiple tags to a resource
 
         Adds or remove tags to a resource and also permits to set/unset
         multiple values for tags which are authorized to be set multiple time
@@ -1524,4 +1569,38 @@ class VncApi(object):
             type: None,
         }
         return self.set_tags(obj, tags_dict)
+
+    def _security_policy_draft(self, action, scope):
+        """Commit or revert pending resources on a given scope
+
+        :param action: specify action to be done: commit or revert
+        :param scope: Scope that own the pending security resource (aka. Global
+            global policy management or project)
+        """
+        if action not in ['commit', 'revert']:
+            raise ValueError("Only 'commit' or 'revert' actions are supported")
+
+        url = self._action_uri['security-policy-draft']
+        data = {
+            'scope_uuid': scope.uuid,
+            'action': action,
+        }
+        content = self._request_server(OP_POST, url, json.dumps(data))
+        return json.loads(content)
+
+    def commit_security(self, scope):
+        """Commit pending resources on a given scope
+
+        :param scope: Scope that own the pending security resource to commit
+            (aka. Global global policy management or project)
+        """
+        self._security_policy_draft('commit', scope)
+
+    def revert_security(self, scope):
+        """Revert pending resources on a given scope
+
+        :param scope: Scope that own the pending security resource to revert
+            (aka. Global global policy management or project)
+        """
+        self._security_policy_draft('revert', scope)
 # end class VncApi

@@ -543,7 +543,7 @@ class VncCassandraClient(object):
         ColumnFamily.insert = self._handle_exceptions(ColumnFamily.insert, "INSERT")
         ColumnFamily.remove = self._handle_exceptions(ColumnFamily.remove, "REMOVE")
         Mutator.send = self._handle_exceptions(Mutator.send, "SEND")
- 
+
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
         for ks, cf_dict in self._rw_keyspaces.items():
@@ -697,7 +697,9 @@ class VncCassandraClient(object):
             # non config-root child
             parent_type = obj_dict['parent_type']
             if parent_type not in obj_class.parent_types:
-                return False, (400, 'Invalid parent type: %s' % parent_type)
+                msg = ("Invalid parent type: %s not in %s" %
+                       (parent_type, obj_class.parent_types))
+                return False, (400, msg)
             parent_object_type = self._get_resource_class(
                 parent_type).object_type
             parent_fq_name = obj_dict['fq_name'][:-1]
@@ -1337,6 +1339,9 @@ class VncCassandraClient(object):
         fq_name_str = ':'.join(fq_name)
         fq_name_col = utils.encode_string(fq_name_str) + ':' + obj_uuid
         self._obj_fq_name_cf.remove(obj_type, columns = [fq_name_col])
+
+        # Purge map naming cache
+        self.cache_uuid_to_fq_name_del(obj_uuid)
 
         return (True, symmetric_ref_updates)
     # end object_delete

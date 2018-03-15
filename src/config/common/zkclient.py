@@ -20,6 +20,7 @@ from gevent.lock import BoundedSemaphore
 import datetime
 import uuid
 import sys
+import socket
 
 LOG_DIR = '/var/log/contrail/'
 
@@ -210,7 +211,7 @@ class IndexAllocator(object):
             pool_start = pool['start']
             pool_end = pool['end']
             pool_size = pool_end - pool_start + 1
-            if self._reverse: 
+            if self._reverse:
                 start_zk_idx = pool_end
                 end_zk_idx = pool_start
             else:
@@ -219,7 +220,7 @@ class IndexAllocator(object):
             start_bit_idx = self._get_bit_from_zk_index(start_zk_idx)
             end_bit_idx = self._get_bit_from_zk_index(end_zk_idx)
 
-            # if bitarray is less then start_bit_index, 
+            # if bitarray is less then start_bit_index,
             # extend bit array to start_bit_idx and use that idx
             if last_idx < start_bit_idx:
                 temp = bitarray(start_bit_idx - last_idx)
@@ -481,7 +482,7 @@ class ZookeeperClient(object):
             self._sandesh_connection_info_update(status='UP', message='')
         elif state == KazooState.LOST:
             # Lost the session with ZooKeeper Server
-            # Best of option we have is to exit the process and restart all 
+            # Best of option we have is to exit the process and restart all
             # over again
             self._sandesh_connection_info_update(status='DOWN',
                                       message='Connection to Zookeeper lost')
@@ -578,5 +579,10 @@ class ZookeeperClient(object):
 
         self._conn_state = new_conn_state
     # end _sandesh_connection_info_update
+
+    def lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+        return self._zk_client.Lock(path, identifier)
 
 # end class ZookeeperClient

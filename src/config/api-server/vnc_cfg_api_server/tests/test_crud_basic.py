@@ -13,6 +13,7 @@ import logging
 import coverage
 import random
 import netaddr
+from mock import patch
 import tempfile
 
 import fixtures
@@ -1581,6 +1582,30 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         except HttpError:
             self.fail('Malformed back-ref UUID filter was not ignored')
 
+    def test_list_filtering_parent_fq_name(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=project)
+        self._vnc_lib.firewall_policy_create(fp)
+
+        fps = self._vnc_lib.firewall_policys_list(
+            parent_fq_name=project.fq_name)
+        self.assertEqual(len(fps['%ss' % FirewallPolicy.resource_type]), 1)
+
+    def test_list_filtering_parent_fq_name_multiple_parent_types_match(self):
+        identical_name = 'gsc-and-domain-name-%s' % self.id()
+        gsc = GlobalSystemConfig(identical_name)
+        self._vnc_lib.global_system_config_create(gsc)
+        domain = Domain(identical_name)
+        self._vnc_lib.domain_create(domain)
+        gsc_aal = ApiAccessList('gsc-aal-%s' % self.id(), parent_obj=gsc)
+        self._vnc_lib.api_access_list_create(gsc_aal)
+        domain_aal = ApiAccessList('domain-aal-%s' % self.id(), parent_obj=gsc)
+        self._vnc_lib.api_access_list_create(domain_aal)
+
+        aals = self._vnc_lib.api_access_lists_list(parent_fq_name=gsc.fq_name)
+        self.assertEqual(len(aals['%ss' % ApiAccessList.resource_type]), 2)
+
     def test_create_with_wrong_type(self):
         vn_obj = VirtualNetwork('%s-bad-prop-type' %(self.id()))
         vn_obj.virtual_network_properties = 'foo' #VirtualNetworkType
@@ -2446,7 +2471,10 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
                 (self._api_server.get_resource_class('virtual-network'),
                  'post_dbe_create', stub)]):
             self._create_test_object()
-        with ExpectedException(RefsExistError) as e:
+        with ExpectedException(RefsExistError), \
+                patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                      '.VncApiServer.get_args') as get_args_patch:
+            get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()
         gevent.sleep(float(self.STALE_LOCK_SECS))
 
@@ -2466,7 +2494,10 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
         with test_common.flexmocks([
             (self._api_server._db_conn, 'dbe_release', stub)]):
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-        with ExpectedException(RefsExistError) as e:
+        with ExpectedException(RefsExistError), \
+                patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                      '.VncApiServer.get_args') as get_args_patch:
+            get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()
         gevent.sleep(float(self.STALE_LOCK_SECS))
 
@@ -4845,7 +4876,7 @@ class TestPagination(test_case.ApiServerTestCase):
             self.assertEqual(set([o.uuid for o in vmi_objs]) - set(all_vmi_ids),
                 set([]))
         # end verify_collection_walk
- 
+
         sorted_vmi_uuid = sorted([o.uuid for o in vmi_objs])
         FetchExpect = self.FetchExpect
         verify_collection_walk(fetch_expects=[
