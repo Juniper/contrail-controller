@@ -1145,7 +1145,7 @@ void MvpnManagerPartition::ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt) {
     PmsiTunnelSpec pmsi_spec;
     pmsi_spec.tunnel_flags = 0;
     pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
-    pmsi_spec.SetLabel(label, true);
+    pmsi_spec.SetLabel(label, ext_community.get());
     pmsi_spec.SetIdentifier(address);
 
     // Replicate the LeafAD path with appropriate PMSI tunnel info as part of
@@ -1248,10 +1248,10 @@ UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
             continue;
         if (pmsi->tunnel_type() != PmsiTunnelSpec::IngressReplication)
             continue;
-        uint32_t label = attr->pmsi_tunnel()->GetLabel(true);
+        const ExtCommunity *extcomm = attr->ext_community();
+        uint32_t label = attr->pmsi_tunnel()->GetLabel(extcomm);
         if (!label)
             continue;
-        const ExtCommunity *extcomm = attr->ext_community();
         BgpOListElem elem(pmsi->identifier(), label,
             extcomm ? extcomm->GetTunnelEncap() : vector<string>());
         olist_spec.elements.push_back(elem);
