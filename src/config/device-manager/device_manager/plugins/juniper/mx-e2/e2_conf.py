@@ -1265,9 +1265,6 @@ class MxE2Conf(JuniperConf):
         grpc = etree.SubElement(req_resp, "grpc")
         etree.SubElement(grpc, "clear-text")
         etree.SubElement(grpc, "skip-authentication")
-        notification = etree.SubElement(ext_services, "notification")
-        allow_clients = etree.SubElement(notification, "allow-clients")
-        etree.SubElement(allow_clients, "address").text = "0.0.0.0/0"
         self.e2_vrs_system_config = system
 
         # Routing options config
