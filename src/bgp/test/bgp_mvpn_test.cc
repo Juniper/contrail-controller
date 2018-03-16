@@ -551,7 +551,7 @@ protected:
                             attr->pmsi_tunnel());
         TASK_UTIL_EXPECT_EQ(Ip4Address::from_string(pmsi.address),
                   attr->pmsi_tunnel()->identifier());
-        TASK_UTIL_EXPECT_EQ(pmsi.label, attr->pmsi_tunnel()->label());
+        TASK_UTIL_EXPECT_EQ(pmsi.label << 4 | 1, attr->pmsi_tunnel()->label());
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
                   attr->pmsi_tunnel()->tunnel_type());
         int rtargets = 0;
