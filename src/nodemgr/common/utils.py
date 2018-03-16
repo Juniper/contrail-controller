@@ -18,10 +18,12 @@ def get_package_version(pkg):
 
 
 def is_running_in_docker():
-    with open('/proc/1/cgroup', 'rt') as ifh:
+    pid = os.getpid()
+    with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
         return 'docker' in ifh.read()
 
 
 def is_running_in_kubepod():
-    with open('/proc/1/cgroup', 'rt') as ifh:
+    pid = os.getpid()
+    with open('/proc/{}/cgroup'.format(pid), 'rt') as ifh:
         return 'kubepods' in ifh.read()
