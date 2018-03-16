@@ -22,6 +22,19 @@
 
 class MvpnPrefix {
 public:
+
+    static const size_t kRdSize;
+    static const size_t kIp4AddrSize;
+    static const size_t kIp4AddrBitSize;
+    static const size_t kAsnSize;
+    static const size_t kPrefixBytes;
+    static const size_t kIntraASPMSIADRouteSize;
+    static const size_t kInterASPMSIADRouteSize;
+    static const size_t kSPMSIADRouteSize;
+    static const size_t kLeafADRouteSize;
+    static const size_t kSourceActiveADRouteSize;
+    static const size_t kSourceTreeJoinRouteSize;
+
     enum RouteType {
         Unspecified = 0,
         IntraASPMSIADRoute = 1,

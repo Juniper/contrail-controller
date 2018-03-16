@@ -284,6 +284,13 @@ void PmsiTunnelSpec::SetLabel(uint32_t in_label, bool is_vni) {
     label = (is_vni ? in_label : (in_label << 4 | 0x01));
 }
 
+void PmsiTunnelSpec::SetLabel(uint32_t in_label, const ExtCommunity *ext) {
+    bool is_vni = false;
+    if (ext)
+        is_vni = ext->ContainsTunnelEncapVxlan();
+    label = (is_vni ? in_label : (in_label << 4 | 0x01));
+}
+
 Ip4Address PmsiTunnelSpec::GetIdentifier() const {
     if (identifier.size() < 4)
         return Ip4Address();
