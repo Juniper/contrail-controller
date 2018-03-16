@@ -22,6 +22,19 @@
 
 class MvpnPrefix {
 public:
+
+    static const size_t kRdSize;
+    static const size_t kIp4AddrSize;
+    static const size_t kIp4AddrBitSize;
+    static const size_t kAsnSize;
+    static const size_t kPrefixBytes;
+    static const size_t kIntraASPMSIADRouteSize;
+    static const size_t kInterASPMSIADRouteSize;
+    static const size_t kSPMSIADRouteSize;
+    static const size_t kLeafADRouteSize;
+    static const size_t kSourceActiveADRouteSize;
+    static const size_t kSourceTreeJoinRouteSize;
+
     enum RouteType {
         Unspecified = 0,
         IntraASPMSIADRoute = 1,
@@ -80,6 +93,11 @@ public:
                                MvpnPrefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
+    static MvpnPrefix FromString(const std::string &str,
+                                 boost::system::error_code *errorp = NULL);
+    static bool IsValid(uint8_t type);
+
+private:
     static bool GetTypeFromString(MvpnPrefix *prefix,
             const std::string &str, boost::system::error_code *errorp,
             size_t *pos1);
@@ -98,11 +116,8 @@ public:
     static bool GetGroupFromString(MvpnPrefix *prefix,
             const std::string &str, size_t pos1, size_t *pos2,
             boost::system::error_code *ec, bool last = false);
-    static MvpnPrefix FromString(const std::string &str,
-                                 boost::system::error_code *errorp = NULL);
-    static bool IsValid(uint8_t type);
-
-private:
+    static int SpmsiAdRouteFromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               MvpnPrefix *prefix, size_t rd_offset);
     uint8_t type_;
     RouteDistinguisher rd_;
     Ip4Address originator_;
