@@ -1220,7 +1220,11 @@ class LogicalRouterServer(Resource, LogicalRouter):
             if (vxlan_routing and
                 obj_dict['virtual_network_refs'] != [] and
                 obj_dict['virtual_network_refs'] != None):
-                return (False, (400, 'External Gateway not supported with VxLAN'))
+                for ref in obj_dict['virtual_network_refs']:
+                   if not(ref.get('attr',False) and \
+                          ref['attr'].get('logical_router_virtual_network_type', False) and \
+                          ref['attr']['logical_router_virtual_network_type'] == 'InternalVirtualNetwork'):
+                      return (False, (400, 'External Gateway not supported with VxLAN'))
         return (True, '')
 
     @classmethod
@@ -1316,8 +1320,13 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
             vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
             api_server = db_conn.get_api_server()
-            api_server.internal_request_create('virtual-network',
-                                                json.loads(vn_int_dict))
+            status, obj = api_server.internal_request_create('virtual-network',
+                                                            json.loads(vn_int_dict))
+            attr_obj = LogicalRouterVirtualNetworkType('InternalVirtualNetwork')
+            attr_dict = attr_obj.__dict__
+            api_server.internal_request_ref_update('logical-router', obj_dict['uuid'], 'ADD',
+                                                   'virtual-network', obj['virtual-network']['uuid'], 
+                                                   obj['virtual-network']['fq_name'], attr=attr_dict)
         return True, ''
     # end post_dbe_create
 
@@ -1335,6 +1344,11 @@ class LogicalRouterServer(Resource, LogicalRouter):
             vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_int_fqname)
 
             api_server = db_conn.get_api_server()
+            attr_obj = LogicalRouterVirtualNetworkType('InternalVirtualNetwork')
+            attr_dict = attr_obj.__dict__
+            api_server.internal_request_ref_update('logical-router', obj_dict['uuid'], 'DELETE',
+                                                   'virtual-network', vn_int_uuid, vn_int_fqname,
+                                                   attr=attr_dict)
             api_server.internal_request_delete('virtual-network', vn_int_uuid)
 
         return True,''
