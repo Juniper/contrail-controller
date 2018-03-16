@@ -14,8 +14,8 @@ from gen.vnc_api_client_gen import all_resource_types
 
 class VncRbac(object):
 
-    op_str = {'GET': 'R', 'POST': 'C', 'PUT': 'U', 'DELETE': 'D'}
-    op_str2 = {'GET': 'read', 'POST': 'create', 'PUT': 'update', 'DELETE': 'delete'}
+    op_str = {'GET': 'R', 'POST': 'C', 'PUT': 'U', 'DELETE': 'D', 'HEAD': 'R'}
+    op_str2 = {'GET': 'read', 'POST': 'create', 'PUT': 'update', 'DELETE': 'delete', 'HEAD': 'read'}
 
     def __init__(self, server_mgr, db_conn):
         self._db_conn = db_conn
@@ -219,7 +219,7 @@ class VncRbac(object):
         # other checks redundant if admin
         if is_admin:
             return (True, '')
-        if self.global_read_only_role in roles and request.method == 'GET':
+        if self.global_read_only_role in roles and (request.method == 'GET' or request.method == 'HEAD'):
             return (True, '')
 
         # rule list for project/domain of the request

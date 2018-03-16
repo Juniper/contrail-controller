@@ -33,6 +33,7 @@ sys.path.append('../common/tests')
 import test_utils
 import test_common
 import test_case
+import requests
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -726,6 +727,22 @@ class TestPermissions(test_case.ApiServerTestCase):
         # list should be non-empty because missing filter will enable sharing
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
         self.assertIn(self.vn_name, received)
+        # Test HEAD method same as GET
+        url = ('http://%s:%s/virtual-networks'
+                    %(self._api_svr_app.extra_environ['HTTP_HOST'],
+                      self._api_svr_app.extra_environ['SERVER_PORT']))
+        headers = {'X-Auth-Token':self.bob.vnc_lib.get_auth_token()}
+        val = requests.get(url, headers=headers)
+        self.assertEquals(val.status_code, 200)
+        val = requests.head(url, headers=headers)
+        self.assertEquals(val.status_code, 200)
+        url = ('http://%s:%s/virtual-machine-interfaces'
+                    %(self._api_svr_app.extra_environ['HTTP_HOST'],
+                      self._api_svr_app.extra_environ['SERVER_PORT']))
+        val = requests.get(url, headers=headers)
+        self.assertEquals(val.status_code, 403)
+        val = requests.head(url, headers=headers)
+        self.assertEquals(val.status_code, 403)
 
     def test_shared_access(self):
         logger.info('')
