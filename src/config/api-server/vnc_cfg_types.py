@@ -24,7 +24,7 @@ from vnc_quota import QuotaHelper
 from context import get_context
 from gen.resource_xsd import *
 from gen.resource_common import *
-from netaddr import IPNetwork
+from netaddr import IPNetwork, IPAddress
 from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from provision_defaults import *
@@ -1096,7 +1096,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
         except cfgm_common.exceptions.NoIdError:
             if '.' in host_id:
-                try: 
+                try:
                     vrouter_fq_name = ['default-global-system-config',host_id.split('.')[0]]
                     vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
                 except cfgm_common.exceptions.NoIdError:
@@ -3779,3 +3779,34 @@ class BgpvpnServer(Resource, Bgpvpn):
             msg += ("- bgpvpn %s (%s) associated to network %s (%s)\n" %
                     found_bgpvpn)
         return False, (400, msg[:-1])
+
+
+class RouteTargetServer(Resource, RouteTarget):
+    @staticmethod
+    def _parse_route_target_name(name):
+        try:
+            if isinstance(name, basestring):
+                prefix, asn, target = name.split(':')
+            elif isinstance(name, list):
+                prefix, asn, target = name
+            else:
+                raise ValueError
+            if prefix != 'target':
+                raise ValueError
+            target = int(target)
+            if not asn.isdigit():
+                try:
+                    IPAddress(asn)
+                except netaddr.core.AddrFormatError:
+                    raise ValueError
+            else:
+                asn = int(asn)
+        except ValueError:
+            msg = ("Route target must be of the format "
+                   "'target:<asn>:<number>' or 'target:<ip>:<number>'")
+            return False, (400, msg)
+        return True, (asn, target)
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls._parse_route_target_name(obj_dict['fq_name'][-1])
