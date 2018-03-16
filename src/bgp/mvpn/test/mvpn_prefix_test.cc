@@ -255,7 +255,7 @@ TEST_F(MvpnPrefixTest, Type4Error1) {
 // No "-" to delineate the rd.
 TEST_F(MvpnPrefixTest, Type4Error3) {
     boost::system::error_code ec;
-    string prefix_str("4:10.1.1.1:65:192.168.1.1,224.1.2.3,9.8.7.6,20.1.1.1");
+    string prefix_str("4-3:10.1.1.1:65:192.168.1.1,224.1.2.3,9.8.7.6,20.1.1.1");
     MvpnPrefix prefix = MvpnPrefix::FromString(prefix_str, &ec);
     EXPECT_NE(0, ec.value());
 }
@@ -263,7 +263,7 @@ TEST_F(MvpnPrefixTest, Type4Error3) {
 // Bad rd.
 TEST_F(MvpnPrefixTest, Type4Error4) {
     boost::system::error_code ec;
-    string prefix_str("4-10.1.1.1:65536,192.168.1.1,24.1.2.3,9.8.7.6,20.1.1.1");
+    string prefix_str("4-3-10.1.1.1:65536,192.168.1.1,24.1.2.3,9.8.7.6,20.1.1.1");
     MvpnPrefix prefix = MvpnPrefix::FromString(prefix_str, &ec);
     EXPECT_NE(0, ec.value());
 }
@@ -271,7 +271,7 @@ TEST_F(MvpnPrefixTest, Type4Error4) {
 // No "," to delineate the group.
 TEST_F(MvpnPrefixTest, Type4Error5) {
     boost::system::error_code ec;
-    string prefix_str("4-10.1.1.1:65535,192.168.1.1:24.1.2.3,9.8.7.6,20.1.1.1");
+    string prefix_str("4-3-10.1.1.1:65535,192.168.1.1:24.1.2.3,9.8.7.6,20.1.1.1");
     MvpnPrefix prefix = MvpnPrefix::FromString(prefix_str, &ec);
     EXPECT_NE(0, ec.value());
 }
@@ -279,7 +279,7 @@ TEST_F(MvpnPrefixTest, Type4Error5) {
 // Bad group address.
 TEST_F(MvpnPrefixTest, Type4Error6) {
     boost::system::error_code ec;
-    string prefix_str("4-10.1.1.1:65535,192.168.1.1,24.2.3,9.8.7.6,20.1.1.1");
+    string prefix_str("4-3-10.1.1.1:65535,192.168.1.1,24.2.3,9.8.7.6,20.1.1.1");
     MvpnPrefix prefix = MvpnPrefix::FromString(prefix_str, &ec);
     EXPECT_NE(0, ec.value());
 }
@@ -287,7 +287,15 @@ TEST_F(MvpnPrefixTest, Type4Error6) {
 // Bad source address.
 TEST_F(MvpnPrefixTest, Type4Error7) {
     boost::system::error_code ec;
-    string prefix_str("4-10.1.1.1:65535,192.1.1,24.1.2.3,9.8.7.6,20.1.1.1");
+    string prefix_str("4-3-10.1.1.1:65535,192.1.1,24.1.2.3,9.8.7,20.1.1.1");
+    MvpnPrefix prefix = MvpnPrefix::FromString(prefix_str, &ec);
+    EXPECT_NE(0, ec.value());
+}
+
+// Bad originator address.
+TEST_F(MvpnPrefixTest, Type4Error8) {
+    boost::system::error_code ec;
+    string prefix_str("4-3-10.1.1.1:65535,192.1.1,24.1.2.3,9.8.7.6,20.1.1");
     MvpnPrefix prefix = MvpnPrefix::FromString(prefix_str, &ec);
     EXPECT_NE(0, ec.value());
 }
@@ -513,8 +521,24 @@ TEST_F(MvpnRouteTest, FromProtoPrefix) {
     int result = MvpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(MvpnPrefix::SPMSIADRoute, proto_prefix.type);
-    EXPECT_EQ(22 * 8, proto_prefix.prefixlen);
-    EXPECT_EQ(22, proto_prefix.prefix.size());
+    EXPECT_EQ(MvpnPrefix::kSPMSIADRouteSize * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(MvpnPrefix::kSPMSIADRouteSize, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+}
+
+TEST_F(MvpnRouteTest, FromProtoPrefixType4) {
+    string prefix_str(
+                "4-3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1,10.10.10.1");
+    MvpnPrefix prefix1(MvpnPrefix::FromString(prefix_str));
+    MvpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    MvpnPrefix prefix2;
+    int result = MvpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(MvpnPrefix::LeafADRoute, proto_prefix.type);
+    EXPECT_EQ(28 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(28, proto_prefix.prefix.size());
     EXPECT_EQ(prefix1, prefix2);
 }
 
@@ -629,6 +653,20 @@ TEST_F(MvpnRouteTest, FromProtoPrefixError6) {
     result = MvpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_NE(0, result);
     proto_prefix.prefix[13] = 128;
+    result = MvpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(MvpnRouteTest, FromProtoPrefixType4Error) {
+    string prefix_str(
+                "4-3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1,10.1.1.1");
+    MvpnPrefix prefix1(MvpnPrefix::FromString(prefix_str));
+    MvpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    MvpnPrefix prefix2;
+    int result;
+    proto_prefix.prefix[15] = 0;
     result = MvpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_NE(0, result);
 }

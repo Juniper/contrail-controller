@@ -178,7 +178,6 @@ private:
         PmsiTunnelSpec *pmsispec = new PmsiTunnelSpec;
         pmsispec->tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
         pmsispec->tunnel_type = PmsiTunnelSpec::IngressReplication;
-        pmsispec->SetLabel(10000);
         boost::system::error_code ec;
         pmsispec->SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
         msg->path_attributes.push_back(pmsispec);
