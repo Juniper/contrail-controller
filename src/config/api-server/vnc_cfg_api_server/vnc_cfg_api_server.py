@@ -2057,6 +2057,8 @@ class VncApiServer(object):
         json_links = []
         # strip trailing '/' in url
         url = get_request().url[:-1]
+        url = url.replace('<script>', '<!--script>')
+        url = url.replace('</script>', '</script-->')
         for link in self._homepage_links:
             # strip trailing '/' in url
             json_links.append(
@@ -3613,8 +3615,10 @@ class VncApiServer(object):
     def generate_url(self, resource_type, obj_uuid):
         try:
             url_parts = get_request().urlparts
+            netloc = url_parts.netloc.replace('<script>', '<!--script>')
+            netloc = netloc.replace('</script>', '</script-->')
             return '%s://%s/%s/%s'\
-                % (url_parts.scheme, url_parts.netloc, resource_type, obj_uuid)
+                % (url_parts.scheme, netloc, resource_type, obj_uuid)
         except Exception as e:
             return '%s/%s/%s' % (self._base_url, resource_type, obj_uuid)
     # end generate_url
