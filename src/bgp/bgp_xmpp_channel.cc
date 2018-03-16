@@ -1811,7 +1811,6 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     uint32_t label = 0;
     uint32_t l3_label = 0;
     uint32_t flags = 0;
-    bool label_is_vni = false;
 
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -1873,8 +1872,6 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
                 continue;
             no_valid_tunnel_encap = false;
-            if (tun_encap.tunnel_encap() == TunnelEncapType::VXLAN)
-                label_is_vni = true;
             ext.communities.push_back(tun_encap.GetExtCommunityValue());
             if (tun_encap.tunnel_encap() == TunnelEncapType::GRE) {
                 TunnelEncap alt_tun_encap(TunnelEncapType::MPLS_O_GRE);
@@ -1977,7 +1974,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 }
                 pmsi_spec.SetIdentifier(nh_address.to_v4());
             }
-            pmsi_spec.SetLabel(label, label_is_vni);
+            ExtCommunity ext_comm(bgp_server_->extcomm_db(), ext);
+            pmsi_spec.SetLabel(label, &ext_comm);
             attrs.push_back(&pmsi_spec);
         }
 

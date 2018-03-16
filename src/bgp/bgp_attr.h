@@ -310,8 +310,8 @@ struct PmsiTunnelSpec : public BgpAttribute {
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
 
-    uint32_t GetLabel(bool is_vni = false) const;
-    void SetLabel(uint32_t label, bool is_vni = false);
+    uint32_t GetLabel(const ExtCommunity *ext) const;
+    void SetLabel(uint32_t label, const ExtCommunity *ext);
     Ip4Address GetIdentifier() const;
     void SetIdentifier(Ip4Address identifier);
 
@@ -335,9 +335,7 @@ public:
     }
 
     const PmsiTunnelSpec &pmsi_tunnel() const { return pmsi_spec_; }
-    uint32_t GetLabel(bool is_vni = false) const {
-        return (is_vni ? label_ : label_ >> 4);
-    }
+    uint32_t GetLabel(const ExtCommunity *ext) const;
 
     friend std::size_t hash_value(const PmsiTunnel &pmsi_tunnel) {
         size_t hash = 0;
