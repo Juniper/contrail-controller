@@ -147,6 +147,9 @@ public:
         return cloned_data_list_;
     }
 
+    void set_copy_local_path(bool copy_local_path) {
+        copy_local_path_ = copy_local_path;
+    }
 private:
     VnListType vn_list_;
     SecurityGroupList sg_list_;
@@ -157,6 +160,7 @@ private:
     DBRequest nh_req_;
     ClonedLocalPathList cloned_data_list_;
     Agent *agent_;
+    bool copy_local_path_;
     DISALLOW_COPY_AND_ASSIGN(ControllerEcmpRoute);
 };
 

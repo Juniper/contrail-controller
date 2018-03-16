@@ -1502,6 +1502,22 @@ void VlanNH::SendObjectLog(const NextHopTable *table,
 /////////////////////////////////////////////////////////////////////////////
 // CompositeNH routines
 /////////////////////////////////////////////////////////////////////////////
+void CompositeNHKey::ReplaceLocalNexthop(const ComponentNHKeyList &lnh) {
+    //Clear all local nexthop
+    ComponentNHKeyList::iterator it = component_nh_key_list_.begin();
+    for (uint32_t i = 0; i < component_nh_key_list_.size();) {
+        ComponentNHKeyPtr cnh = component_nh_key_list_[i];
+        if (cnh->nh_key()->GetType() == NextHop::INTERFACE) {
+            component_nh_key_list_.erase(component_nh_key_list_.begin() + i);
+        } else {
+            i++;
+        }
+    }
+
+    component_nh_key_list_.insert(component_nh_key_list_.begin(), lnh.begin(),
+                                  lnh.end());
+}
+
 bool CompositeNH::CanAdd() const {
     if (vrf_ == NULL || vrf_->IsDeleted()) {
         LOG(ERROR, "Invalid VRF in composite NH. Skip Add");
@@ -1549,7 +1565,8 @@ bool CompositeNH::HasVmInterface(const VmInterface *vmi) const {
     return false;
 }
 
-uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index) const {
+uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index,
+                                 bool ingress) const {
     uint32_t idx = kInvalidComponentNHIdx;
     size_t size = component_nh_list_.size();
     if (size == 0) {
@@ -1566,7 +1583,9 @@ uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index) const {
     idx = seed % size;
     if (component_nh_list_[idx].get() == NULL ||
         component_nh_list_[idx]->nh() == NULL ||
-        component_nh_list_[idx]->nh()->IsActive() == false) {
+        component_nh_list_[idx]->nh()->IsActive() == false ||
+        (ingress == false &&
+         component_nh_list_[idx]->nh()->GetType() == NextHop::TUNNEL)) {
 
         std::vector<uint32_t> active_list;
         for (uint32_t i = 0; i < size; i++) {
@@ -1575,7 +1594,13 @@ uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index) const {
             if (component_nh_list_[i].get() != NULL &&
                 component_nh_list_[i]->nh() != NULL &&
                 component_nh_list_[i]->nh()->IsActive()) {
-                active_list.push_back(i);
+                if (ingress == false) {
+                    if (component_nh_list_[i]->nh()->GetType() != NextHop::TUNNEL) {
+                        active_list.push_back(i);
+                    }
+                } else {
+                    active_list.push_back(i);
+                }
             }
         }
         idx = (active_list.size()) ?
@@ -2315,6 +2340,25 @@ bool CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
             //individual entries of this local composite NH
             erase(component_nh_key);
             break;
+        }
+    }
+
+    //In case of ECMP in fabric VRF there is no mpls
+    //label, hence pick policy flag from corresponding
+    //interface NH
+    if (label ==  MplsTable::kInvalidLabel &&
+        vrf_key_.IsEqual(VrfKey(agent->fabric_vrf_name()))) {
+        BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
+                component_nh_key_list_) {
+            if (component_nh_key.get() &&
+                    component_nh_key->nh_key()->GetType() == NextHop::INTERFACE) {
+                //Interface NH wouldnt have policy hence pick from VMI
+                const NextHop *nh =  static_cast<const NextHop *>(
+                    agent->nexthop_table()->FindActiveEntry(component_nh_key->nh_key()));
+                if (nh && nh->NexthopToInterfacePolicy()) {
+                    return true;
+                }
+            }
         }
     }
 

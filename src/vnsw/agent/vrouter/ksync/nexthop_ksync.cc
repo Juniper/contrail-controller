@@ -903,6 +903,16 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= NH_FLAG_TUNNEL_UDP_MPLS;
             } else if (tunnel_type_.GetType() == TunnelType::MPLS_GRE) {
                 flags |= NH_FLAG_TUNNEL_GRE;
+            } else if (tunnel_type_.GetType() == TunnelType::NATIVE) {
+                //Ideally we should have created a new type of
+                //indirect nexthop to handle NATIVE encap
+                //reusing tunnel NH as it provides most of
+                //functionality now
+                encoder.set_nhr_type(NH_ENCAP);
+                encoder.set_nhr_encap_oif_id(intf_id);
+                encoder.set_nhr_encap_family(ETHERTYPE_ARP);
+                encoder.set_nhr_tun_sip(0);
+                encoder.set_nhr_tun_dip(0);
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }

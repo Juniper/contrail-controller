@@ -1035,6 +1035,19 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
 
+void InetUnicastAgentRouteTable::ResyncRoute(const Peer *peer,
+                                             const string &vrf,
+                                             const IpAddress &addr,
+                                             uint8_t plen) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+
+    InetUnicastRouteKey *key = new InetUnicastRouteKey(peer, vrf, addr, plen);
+    key->sub_op_ = AgentKey::RESYNC;
+    req.key.reset(key);
+    req.data.reset(NULL);
+    InetUnicastTableEnqueue(Agent::GetInstance(), vrf, &req);
+}
+
 void
 InetUnicastAgentRouteTable::AddClonedLocalPathReq(const Peer *peer,
                                                   const string &vm_vrf,

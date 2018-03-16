@@ -220,6 +220,8 @@ public:
                 const std::string &intf_name,
                 bool native_encap,
                 const std::string &intf_route_type = VmInterface::kInterface);
+    void ResyncRoute(const Peer *peer, const string &vrf,
+                     const IpAddress &addr, uint8_t plen);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
