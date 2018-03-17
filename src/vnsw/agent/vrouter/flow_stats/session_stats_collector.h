@@ -202,6 +202,11 @@ public:
 protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
+    #define CheckFlowLogging(logged) { \
+        if (logged) { \
+            return true; \
+        } \
+    }
     int ComputeSloRate(int rate, SecurityLoggingObject *slo) const;
     bool FetchFlowStats(SessionFlowStatsInfo *info,
                         SessionFlowStatsParams *params) const;
@@ -294,13 +299,18 @@ private:
     uint8_t GetSessionMsgIdx();
 
     bool UpdateSloMatchRuleEntry(const boost::uuids::uuid &slo_uuid,
-                                 const std::string &match_uuid);
+                                 const std::string &match_uuid,
+                                 bool *match);
     bool CheckPolicyMatch(const SessionSloRuleMap &map,
-                          const std::string &policy_uuid);
+                          const std::string &policy_uuid,
+                          const bool &deleted_flag,
+                          bool *match);
     bool FindSloMatchRule(const SessionSloRuleMap &map,
                           const std::string &fw_policy_uuid,
                           const std::string &nw_policy_uuid,
-                          const std::string &sg_policy_uuid);
+                          const std::string &sg_policy_uuid,
+                          const bool &deleted_flag,
+                          bool *match);
 
     void GetPolicyIdFromFlow(const FlowEntry *fe,
                              std::string &fw_policy_uuid,
@@ -316,7 +326,9 @@ private:
                          const FlowEntry *fe,
                          const std::string& fw_policy_uuid,
                          const std::string& nw_policy_uuid,
-                         const std::string& sg_policy_uuid);
+                         const std::string& sg_policy_uuid,
+                         const bool &deleted_flag,
+                         bool  *logged);
 
     void BuildSloList(const SessionStatsInfo &stats_info,
                       const FlowEntry *fe,
@@ -328,11 +340,15 @@ private:
                      SessionSloRuleMap *vn_session_slo_rule_map);
 
     bool FlowLogging(const SessionStatsInfo    &stats_info,
-                     const FlowEntry *fe);
+                     const FlowEntry *fe,
+                     bool *logged);
 
     bool DeletedFlowLogging(const SessionStatsInfo    &stats_info,
-                            const SessionFlowExportInfo &flow_info);
+                            const SessionFlowExportInfo &flow_info,
+                            bool  *logged);
 
+    bool HandleDeletedFlowLogging(const SessionStatsInfo &stats_info);
+    bool HandleFlowLogging(const SessionStatsInfo &stats_info);
     bool CheckSessionLogging(const SessionStatsInfo &stats_info);
     void AddSloList(const UuidList &slo_list, SessionSloRuleMap *slo_rule_map);
     void AddSloEntry(const boost::uuids::uuid &uuid,
@@ -481,7 +497,7 @@ public:
     typedef std::map<std::string, SessionSloRuleState> SessionSloRuleStateMap;
     void DeleteSessionSloStateRuleEntry(std::string uuid);
     void UpdateSessionSloStateRuleEntry(std::string uuid, int rate);
-    bool UpdateSessionSloStateRuleRefCount(const std::string &uuid);
+    bool UpdateSessionSloStateRuleRefCount(const std::string &uuid, bool *matc);
     SessionSloState() {}
     ~SessionSloState() {
         session_rule_state_map_.clear();
