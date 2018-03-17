@@ -377,11 +377,7 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
         lconf += "\n\t".join(conf)
 
     conf = []
-    if (lconf[len(lconf)-1]) == "\n":
-        lconf = lconf[:-1]
     conf.append(lconf)
-    if (pconf[len(pconf)-2:]) == "\n\n":
-        pconf = pconf[:-2]
     conf.append(pconf)
 
     return "\n".join(conf)
