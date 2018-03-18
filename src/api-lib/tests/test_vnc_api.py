@@ -2,6 +2,7 @@ import platform
 import test_common
 import json
 import httpretty
+from urlparse import urlparse
 from requests.exceptions import ConnectionError
 
 from testtools.matchers import Contains
@@ -133,24 +134,28 @@ class TestVncApi(test_common.TestCase):
         with ExpectedException(NotImplementedError):
             self._vnc_lib = vnc_api.VncApi(auth_type='fake-auth')
 
-    def test_multiple_server_active_session(self):
+    def test_multiple_server_roundrobin_session(self):
         httpretty.register_uri(
                 httpretty.GET, "http://127.0.0.2:8082/",
                 body=json.dumps({'href': "http://127.0.0.2:8082",
                                  'links': []}))
+        api_servers = ['127.0.0.3', '127.0.0.2', '127.0.0.1']
         vnclib = vnc_api.VncApi(
-                api_server_host=['127.0.0.3', '127.0.0.2', '127.0.0.1'])
+                api_server_host=api_servers)
 
-        # Try connecting to api-server
-        # Expected to connect to 127.0.0.2 or 127.0.0.1
+        # Try connecting to api-server with one node(127.0.0.3) down
+        # Expected the connection to round robin between
+        # 127.0.0.2 and 127.0.0.1
         response = vnclib._request_server(OP_GET, url='/')
-        active_session = response['href']
-        self.assertNotEqual(active_session, 'http://127.0.0.3:8082')
-
-        # Try connecting to api-server
-        # Expected to connect to the cached active server
-        resp = vnclib._request_server(OP_GET, url='/')
-        self.assertEqual(resp['href'], active_session)
+        index = api_servers.index(urlparse(response['href']).hostname)
+        for i in range(6):
+            if index < (len(api_servers) - 1):
+                index += 1
+            else:
+                index = 1
+            response = vnclib._request_server(OP_GET, url='/')
+            self.assertEqual(
+                    response['href'], 'http://%s:8082' % api_servers[index])
     # end test_multiple_server_active_session
 
     def test_multiple_server_all_servers_down(self):
@@ -163,16 +168,19 @@ class TestVncApi(test_common.TestCase):
                 body=json.dumps({'href': "http://127.0.0.3:8082",
                                  'links': []}))
         vnclib = vnc_api.VncApi(
-                api_server_host=['127.0.0.1', '127.0.0.2', '127.0.0.3'])
+                api_server_host=['127.0.0.3', '127.0.0.2', '127.0.0.1'])
         # Connect to a server
-        # Expected to connect to one of the server
-        vnclib._request_server(OP_GET, url='/')
+        # Expected to connect to first server
+        response = vnclib._request_server(OP_GET, url='/')
+        self.assertEqual(
+                response['href'], 'http://127.0.0.2:8082')
 
         # Bring down all fake servers
         httpretty.disable()
 
         # Connect to a server
-        # Expected to raise ConnectionError
+        # Expected to connect to second server
+        # first server will used during authenticate
         with ExpectedException(ConnectionError):
             vnclib._request_server(OP_GET, url='/', retry_on_error=False)
 
@@ -180,8 +188,23 @@ class TestVncApi(test_common.TestCase):
         httpretty.enable()
 
         # Connect to a server
-        # Expected to connect to one of the server
-        vnclib._request_server(OP_GET, url='/')
+        # Expected to connect to first server
+        response = vnclib._request_server(OP_GET, url='/')
+        self.assertEqual(
+                response['href'], 'http://127.0.0.3:8082')
+        # Connect to a server
+        # Expected to connect to second server
+        response = vnclib._request_server(OP_GET, url='/')
+        self.assertEqual(
+                response['href'], 'http://127.0.0.2:8082')
+        # Expected to connect to third server
+        response = vnclib._request_server(OP_GET, url='/')
+        self.assertEqual(
+                response['href'], 'http://127.0.0.1:8082')
+        # Expected to connect to first server
+        response = vnclib._request_server(OP_GET, url='/')
+        self.assertEqual(
+                response['href'], 'http://127.0.0.3:8082')
     # end test_multiple_server_all_servers_down
 
     def test_only_security_resources_have_read_draft_method(self):

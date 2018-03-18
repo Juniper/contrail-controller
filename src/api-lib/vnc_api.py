@@ -48,6 +48,7 @@ def check_homepage(func):
         return func(self, *args, **kwargs)
     return wrapper
 
+
 def get_object_class(res_type):
     cls_name = '%s' % (CamelCase(res_type))
     return str_to_class(cls_name, __name__)
@@ -111,6 +112,22 @@ class ApiServerSession(object):
         self.create()
     # end __init__
 
+    def roundrobin(self):
+        session_hosts = self.api_server_sessions.keys()
+        if self.active_session[0] in session_hosts:
+            last_used_index = session_hosts.index(self.active_session[0])
+        else:
+            # no active session start from the first host
+            last_used_index = -1
+        # use the next host in the list
+        next_index = last_used_index + 1
+        if next_index >= len(session_hosts):
+            # reuse the first host from the list
+            next_index = 0
+        active_host = session_hosts[next_index]
+        self.active_session = (active_host,
+                               self.api_server_sessions[active_host])
+
     def create(self):
         for api_server_host in self.api_server_hosts:
             api_server_session = requests.Session()
@@ -137,6 +154,7 @@ class ApiServerSession(object):
     # end get_url
 
     def crud(self, method, url, *args, **kwargs):
+        self.roundrobin()
         active_host, active_session = self.active_session
         if active_host and active_session:
             if active_host not in url:
