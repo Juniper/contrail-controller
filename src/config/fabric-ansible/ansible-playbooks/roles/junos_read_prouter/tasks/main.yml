@@ -34,7 +34,7 @@
           fabric_uuid: "{{ fabric_obj.obj.fabrics[0].uuid }}"
  
     - set_fact:
-         tag_fq_name: "label=fabric%as_number"
+         tag_fq_name: "label=fabric-as_number"
 
     - name: Read Device, update log
       job_objectlog:

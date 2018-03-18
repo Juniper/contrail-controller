@@ -86,19 +86,19 @@
          "objects": [
             {
                 "fq_name": [
-                    "label=fabric%management_ip"
+                    "label=fabric-management_ip"
                 ],
-                "name": "label=fabric%management_ip",
+                "name": "label=fabric-management_ip",
                 "tag_type_name": "label",
-                "tag_value": "fabric%management_ip"
+                "tag_value": "fabric-management_ip"
             },
            {
                 "fq_name": [
-                    "label=fabric%management_ip"
+                    "label=fabric-management_ip"
                 ],
-                "name": "label=fabric%as_number",
+                "name": "label=fabric-as_number",
                 "tag_type_name": "label",
-                "tag_value": "fabric%as_number"
+                "tag_value": "fabric-as_number"
            }
          ]
      }
