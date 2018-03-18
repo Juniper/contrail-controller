@@ -6,6 +6,11 @@
     - name: create subfolders
       include_tasks: create_subfolders.yml
 
+    - name: Config to be deployed to device
+      debug: var=item
+      with_file:
+        - "{{ conf_dir }}/final_config/combined_config.cfg"
+
     - name: Pushing config ... please wait
       junos_config:
         src: "{{ conf_dir }}/final_config/combined_config.cfg"
