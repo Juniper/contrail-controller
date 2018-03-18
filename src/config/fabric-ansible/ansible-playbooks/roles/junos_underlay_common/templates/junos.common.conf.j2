@@ -53,7 +53,7 @@ routing-options {
     {% for static_route in input.static_routes %}
         {% if static_route.subnets is defined and static_route.nexthop is defined %}
             {% for subnet in static_route.subnets %}
-                route {{subnet}} next-hop {{ static_route.nexthop }}
+                route {{subnet}} next-hop {{ static_route.nexthop }};
             {% endfor %}
         {% endif %}
     {% endfor %}
