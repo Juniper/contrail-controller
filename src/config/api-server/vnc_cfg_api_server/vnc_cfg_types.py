@@ -4803,6 +4803,8 @@ class ProjectServer(Resource, Project):
         quota_counter = cls.server.quota_counter
         db_conn = cls.server._db_conn
         ok, proj_dict = QuotaHelper.get_project_dict_for_quota(obj_ids, db_conn)
+        if not ok:
+            raise cfgm_common.exceptions.NoIdError(pformat(proj_dict))
         for obj_type, quota_limit in proj_dict.get('quota', {}).items():
             path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids
             path = path_prefix + "/" + obj_type
