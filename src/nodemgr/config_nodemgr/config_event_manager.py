@@ -24,7 +24,9 @@ class ConfigEventManager(EventManager):
         self.cassandra_mgr = CassandraManager(
             config.cassandra_repair_logdir, 'config',
             config.contrail_databases, config.hostip, config.minimum_diskgb,
-            config.db_port, config.db_jmx_port, self.process_info_manager)
+            config.db_port, config.db_jmx_port,
+            config.db_user, config.db_password,
+            self.process_info_manager)
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
         description = ""

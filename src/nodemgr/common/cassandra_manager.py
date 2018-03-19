@@ -19,7 +19,7 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 class CassandraManager(object):
     def __init__(self, cassandra_repair_logdir, db_owner, contrail_databases,
                  hostip, minimum_diskgb, db_port, db_jmx_port,
-                 process_info_manager):
+                 db_user, db_password, process_info_manager):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_owner = db_owner
         self.contrail_databases = contrail_databases
@@ -28,6 +28,8 @@ class CassandraManager(object):
         self.minimum_diskgb = minimum_diskgb
         self.db_port = db_port
         self.db_jmx_port = db_jmx_port
+        self.db_user = db_user
+        self.db_password = db_password
         self.process_info_manager = process_info_manager
         # Initialize tpstat structures
         self.status_old = CassandraStatusData()
@@ -183,7 +185,11 @@ class CassandraManager(object):
             event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE_NA
 
         # just check connectivity
-        cqlsh_cmd = "cqlsh {} {} -e quit".format(self.hostip, self.db_port)
+        if (self.db_user and self.db_password):
+            cqlsh_cmd = "cqlsh -u {} -p {} {} {} -e quit".format(
+                self.db_user, self.db_password, self.hostip, self.db_port)
+        else:
+            cqlsh_cmd = "cqlsh {} {} -e quit".format(self.hostip, self.db_port)
         try:
             self.exec_cmd(cqlsh_cmd)
             event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_SERVER_PORT
