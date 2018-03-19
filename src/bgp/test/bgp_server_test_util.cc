@@ -175,10 +175,6 @@ bool BgpPeerTest::BgpPeerMpNlriAllowed(uint16_t afi, uint8_t safi) {
     return BgpPeer::MpNlriAllowed(afi, safi);
 }
 
-bool BgpPeerTest::BgpPeerIsReady() {
-    return BgpPeer::IsReady();
-}
-
 void BgpPeerTest::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
     BgpPeer::SetDataCollectionKey(peer_info);
     peer_info->set_ip_address(ToString());
@@ -196,6 +192,10 @@ BgpPeerTest::BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
                                        _1, _2)),
           mp_nlri_allowed_fnc_(boost::bind(&BgpPeerTest::BgpPeerMpNlriAllowed,
                                            this, _1, _2)),
+          check_split_horizon_fnc_(
+                boost::bind(&BgpPeerTest::BgpPeerCheckSplitHorizon, this)),
+          process_session_fnc_(
+                boost::bind(&BgpPeerTest::BgpPeerProcessSession, this)),
           is_ready_fnc_(boost::bind(&BgpPeerTest::BgpPeerIsReady, this)) {
 }
 

@@ -300,7 +300,6 @@ public:
         mp_nlri_allowed_fnc_ = mp_nlri_allowed_fnc;
     }
 
-    bool BgpPeerIsReady();
     void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
     virtual void SendEndOfRIB(Address::Family family) {
         SendEndOfRIBActual(family);
@@ -312,6 +311,7 @@ public:
         }
     }
 
+    bool BgpPeerIsReady() { return BgpPeer::IsReady(); }
     virtual bool IsReady() const {
         tbb::mutex::scoped_lock lock(fnc_mutex_);
         return is_ready_fnc_();
@@ -320,6 +320,29 @@ public:
     void set_is_ready_fnc(boost::function<bool()> is_ready_fnc) {
         tbb::mutex::scoped_lock lock(fnc_mutex_);
         is_ready_fnc_ = is_ready_fnc;
+    }
+
+    bool BgpPeerCheckSplitHorizon() { return BgpPeer::CheckSplitHorizon(); }
+    virtual bool CheckSplitHorizon() const {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        return check_split_horizon_fnc_();
+    }
+
+    void set_check_split_horizon_fnc(
+            boost::function<bool()> check_split_horizon_fnc) {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        check_split_horizon_fnc_ = check_split_horizon_fnc;
+    }
+
+    bool BgpPeerProcessSession() { return BgpPeer::ProcessSession(); }
+    virtual bool ProcessSession() const {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        return process_session_fnc_();
+    }
+
+    void set_process_session_fnc(boost::function<bool()> process_session_fnc) {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        process_session_fnc_ = process_session_fnc;
     }
 
     void set_vpn_tables_registered(bool flag) { vpn_tables_registered_ = flag; }
@@ -364,6 +387,8 @@ private:
     mutable tbb::mutex fnc_mutex_;
     boost::function<bool(const uint8_t *, size_t)> send_update_fnc_;
     boost::function<bool(uint16_t, uint8_t)> mp_nlri_allowed_fnc_;
+    boost::function<bool()> check_split_horizon_fnc_;
+    boost::function<bool()> process_session_fnc_;
     boost::function<bool()> is_ready_fnc_;
 };
 
