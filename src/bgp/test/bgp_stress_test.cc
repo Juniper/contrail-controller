@@ -2180,8 +2180,12 @@ void BgpStressTest::DeleteBgpPeers(int npeers) {
     }
 }
 
-void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
-    ConcurrencyScope scope("bgp::Config");
+void BgpStressTest::SetPeerAdminState(int peer_id, bool state) {
+    CHECK_CONCURRENCY("bgp::Config");
+    peers_[peer_id]->peer()->SetAdminState(state);
+}
+
+void BgpStressTest::ClearBgpPeer(const vector<int> &peer_ids) {
     map<int, bool> established;
     map<int, uint32_t> flap_count;
 
@@ -2193,7 +2197,8 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
                                     peers_[peer_id]->peer()->flap_count()));
         established.insert(make_pair(peer_id,
             peers_[peer_id]->peer()->GetState() == StateMachine::ESTABLISHED));
-        peers_[peer_id]->peer()->SetAdminState(true);
+        task_util::TaskFire(boost::bind(&BgpStressTest::SetPeerAdminState,
+                            this, peer_id, true), "bgp::Config");
     }
 
     // Verify that established peers did flap.
@@ -2203,7 +2208,7 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
         if (established[peer_id]) {
             BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::CLEAR_BGP_PEER);
             TASK_UTIL_EXPECT_TRUE(peers_[peer_id]->peer()->flap_count() >
-                                flap_count[peer_id]);
+                                  flap_count[peer_id]);
         }
     }
 
@@ -2211,7 +2216,8 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
     BOOST_FOREACH(int peer_id, peer_ids) {
         if (peer_id >= (int) peers_.size() || !peers_[peer_id])
             continue;
-        peers_[peer_id]->peer()->SetAdminState(false);
+        task_util::TaskFire(boost::bind(&BgpStressTest::SetPeerAdminState,
+                            this, peer_id, false), "bgp::Config");
     }
 
     // Wait for peers to come back up.
