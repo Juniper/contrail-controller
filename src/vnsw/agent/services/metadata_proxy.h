@@ -57,7 +57,8 @@ public:
     void ClearStats() { metadata_stats_.Reset(); }
 
 private:
-    HttpConnection *GetProxyConnection(HttpSession *session, bool conn_close);
+    HttpConnection *GetProxyConnection(HttpSession *session, bool conn_close,
+                                       std::string *nova_hostname);
     void CloseServerSession(HttpSession *session);
     void CloseClientSession(HttpConnection *conn);
     void ErrorClose(HttpSession *sesion, uint16_t error);
