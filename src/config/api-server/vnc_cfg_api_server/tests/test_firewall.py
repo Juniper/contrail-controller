@@ -22,6 +22,7 @@ from vnc_api.vnc_api import FirewallRuleMatchTagsType
 from vnc_api.vnc_api import FirewallSequence
 from vnc_api.vnc_api import FirewallServiceGroupType
 from vnc_api.vnc_api import FirewallServiceType
+from vnc_api.vnc_api import KeyValuePair
 from vnc_api.vnc_api import PolicyManagement
 from vnc_api.vnc_api import PortType
 from vnc_api.vnc_api import Project
@@ -988,6 +989,8 @@ class FirewallDraftModeBase(object):
             old_resource_name = resource.name
             new_resource_name = 'new-name-%s' % old_resource_name
             resource.display_name = new_resource_name
+            # Add list property to generate collection update call
+            resource.add_annotations(KeyValuePair(key='foo', value='bar'))
             getattr(self.api, '%s_update' % resource.object_type)(resource)
 
             # Resource was not updated
@@ -1007,6 +1010,56 @@ class FirewallDraftModeBase(object):
                 self.fail('Pending update resource %s was not created' %
                           ':'.join(pending_fq_name))
             self.assertEqual(pending_resource.display_name, new_resource_name)
+            kv = pending_resource.get_annotations().get_key_value_pair()[0]
+            self.assertEqual('foo', kv.key)
+            self.assertEqual('bar', kv.value)
+            self.assertEqual(pending_resource.parent_type,
+                             PolicyManagement.resource_type)
+            self.assertEqual(pending_fq_name[:-1], self._draft_pm_fq_name)
+
+    def test_collection_update_security_resources(self):
+        self.set_scope_instance(draft_enable=False)
+        resources = []
+        for r_class in self.SECURITY_RESOURCES:
+            resource = r_class(
+                name='%s-%s' % (r_class.resource_type, self.id()),
+                parent_obj=self._scope,
+            )
+            if r_class == FirewallRule:
+                resource.set_service(FirewallServiceType())
+            getattr(self.api, '%s_create' % r_class.object_type)(resource)
+            resources.append(resource)
+            self.assertEqual(resource.parent_type, self._scope.resource_type)
+        self._scope.enable_security_policy_draft = True
+        getattr(self.api, '%s_update' % self._scope.object_type)(self._scope)
+
+        for resource in resources:
+            resource.add_annotations(KeyValuePair(key='foo', value='bar'))
+            getattr(self.api, '%s_update' % resource.object_type)(resource)
+
+            # Resource was not updated
+            resource = getattr(
+                self.api, '%s_read' % resource.object_type)(resource.fq_name)
+            self.assertIsNone(resource.get_annotations())
+
+            # Cloned pending resource was created with updated properties and
+            # owned by dedicated policy management
+            pending_fq_name = self._draft_pm_fq_name + [resource.name]
+            try:
+                pending_resource = getattr(
+                    self.api,
+                    '%s_read' % resource.object_type,
+                )(pending_fq_name)
+            except NoIdError:
+                self.fail('Pending update resource %s was not created' %
+                          ':'.join(pending_fq_name))
+            annotations = pending_resource.get_annotations()
+            self.assertIsNotNone(annotations)
+            kvs = annotations.get_key_value_pair()
+            self.assertEqual(1, len(kvs))
+            kv = kvs[0]
+            self.assertEqual('foo', kv.key)
+            self.assertEqual('bar', kv.value)
             self.assertEqual(pending_resource.parent_type,
                              PolicyManagement.resource_type)
             self.assertEqual(pending_fq_name[:-1], self._draft_pm_fq_name)
