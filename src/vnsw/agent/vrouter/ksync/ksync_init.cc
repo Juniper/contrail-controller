@@ -17,6 +17,8 @@
 #include "vr_os.h"
 #endif
 
+#include "ksync_init.h"
+
 #include <sys/mman.h>
 #include <net/if.h>
 
@@ -33,20 +35,21 @@
 #include <ksync/ksync_sock.h>
 #include <init/agent_param.h>
 
-#include "ksync_init.h"
-#include "vrouter/ksync/bridge_route_audit_ksync.h"
-#include "vrouter/ksync/interface_ksync.h"
-#include "vrouter/ksync/route_ksync.h"
-#include "vrouter/ksync/mirror_ksync.h"
-#include "vrouter/ksync/vrf_assign_ksync.h"
-#include "vrouter/ksync/vxlan_ksync.h"
-#include "vrouter/ksync/sandesh_ksync.h"
-#include "vrouter/ksync/qos_queue_ksync.h"
-#include "vrouter/ksync/forwarding_class_ksync.h"
-#include "vrouter/ksync/qos_config_ksync.h"
-#include "nl_util.h"
-#include "vhost.h"
-#include "vr_message.h"
+#include <nl_util.h>
+#include <vhost.h>
+#include <vr_message.h>
+#include <vr_mem.h>
+
+#include "bridge_route_audit_ksync.h"
+#include "interface_ksync.h"
+#include "route_ksync.h"
+#include "mirror_ksync.h"
+#include "vrf_assign_ksync.h"
+#include "vxlan_ksync.h"
+#include "sandesh_ksync.h"
+#include "qos_queue_ksync.h"
+#include "forwarding_class_ksync.h"
+#include "qos_config_ksync.h"
 
 #define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
@@ -60,13 +63,13 @@ KSync::KSync(Agent *agent)
       vxlan_ksync_obj_(new VxLanKSyncObject(this)),
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
-      ksync_flow_memory_(new KSyncFlowMemory(this, 0)),
+      ksync_flow_memory_(new KSyncFlowMemory(this, VR_MEM_FLOW_TABLE_OBJECT)),
       ksync_flow_index_manager_(new KSyncFlowIndexManager(this)),
       qos_queue_ksync_obj_(new QosQueueKSyncObject(this)),
       forwarding_class_ksync_obj_(new ForwardingClassKSyncObject(this)),
       qos_config_ksync_obj_(new QosConfigKSyncObject(this)),
       bridge_route_audit_ksync_obj_(new BridgeRouteAuditKSyncObject(this)),
-      ksync_bridge_memory_(new KSyncBridgeMemory(this, 1)) {
+      ksync_bridge_memory_(new KSyncBridgeMemory(this, VR_MEM_BRIDGE_TABLE_OBJECT)) {
       for (uint16_t i = 0; i < kHugePages; i++) {
           huge_fd_[i] = -1;
       }

@@ -89,69 +89,28 @@ void KSyncMemory::Init() {
 }
 
 void KSyncMemory::Mmap(bool unlink_node) {
-#ifdef __linux__
-    // Remove the existing /dev/ file first. We will add it again below
+#ifndef _WIN32
+    // Remove the existing /dev/ file first. We will add it again in vr_table_map
     if (unlink_node) {
         if (unlink(table_path_.c_str()) != 0) {
             if (errno != ENOENT) {
-                LOG(DEBUG, "Error deleting" << table_path_ << ".Error <"
-                        << errno
-                        << "> : " << strerror(errno));
-                assert(0);
-            }
-        }
-
-        assert(table_size_ != 0);
-        assert(major_devid_);
-        if (mknod(table_path_.c_str(), (S_IFCHR | O_RDWR),
-                  makedev(major_devid_, minor_devid_)) < 0) {
-            if (errno != EEXIST) {
-                LOG(DEBUG, "Error creating device " << table_path_
-                        << ". Error <" << errno
-                        << "> : " << strerror(errno));
+                LOG(DEBUG, "Error deleting" << table_path_ << ".Error <" << errno
+                    << "> : " << strerror(errno));
                 assert(0);
             }
         }
     }
 #endif
 
-#ifdef _WIN32
-    PVOID pBuffer;
-    DWORD bRetur;
-
-    HANDLE hPipe = CreateFile(FLOW_PATH, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-    if (!hPipe) {
-        LOG(DEBUG, "Error opening flow pipe.");
+    const char *mmap_error_msg = vr_table_map(major_devid_, minor_devid_, table_path_.c_str(),
+                                              table_size_, &table_);
+    if (mmap_error_msg) {
+        LOG(DEBUG, "Error mapping KSync memory. Device: " << table_path_ << "; " << mmap_error_msg);
         assert(0);
     }
-
-    BOOL result = DeviceIoControl(hPipe, IOCTL_SHMEM_GET_ADDRESS, NULL, 0, &pBuffer, sizeof(pBuffer), &bRetur, NULL);
-    if (!result) {
-        LOG(DEBUG, "Error - DeviceIoControl failed.");
-        assert(0);
-    }
-
-    table_ = reinterpret_cast<vr_flow_entry*>(pBuffer);
-#else
-    int fd;
-    if ((fd = open(table_path_.c_str(), O_RDONLY | O_SYNC)) < 0) {
-        LOG(DEBUG, "Error opening device </dev/>. Error <" << errno
-            << "> : " << strerror(errno));
-        assert(0);
-    }
-
-    table_ = (void *)mmap(NULL, table_size_,
-                              PROT_READ, MAP_SHARED, fd, 0);
-    if (table_ == MAP_FAILED) {
-        LOG(DEBUG, "Error mapping  table memory. Error <" << errno
-            << "> : " << strerror(errno));
-        assert(0);
-    }
-#endif
 
     table_entries_count_ = table_size_ / get_entry_size();
     SetTableSize();
-    return;
 }
 
 // Steps to map  table entry
