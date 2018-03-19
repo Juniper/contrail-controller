@@ -82,6 +82,30 @@ public:
     virtual NextHopKey *Clone() const {
         return new MirrorNHKey(vrf_key_.name_, sip_, sport_, dip_, dport_);
     }
+    const IpAddress & sip() const {return sip_;}
+    const IpAddress & dip() const {return dip_;}
+    const uint32_t sport() const {return sport_;}
+    const uint32_t dport() const {return dport_;}
+    const string & vrf_name() const { return vrf_key_.name_ ; }
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        const MirrorNHKey &key = static_cast<const MirrorNHKey &>(rhs);
+        if (vrf_key_.IsEqual(key.vrf_key_) == false) {
+            return vrf_key_.IsLess(key.vrf_key_);
+        }
+        if (sip_ != key.sip_) {
+            return sip_ < key.sip_;
+        }
+
+        if (dip_ != key.dip_) {
+            return dip_ < key.dip_;
+        }
+
+        if (sport_ != key.sport_) {
+            return sport_ < key.sport_;
+        }
+
+        return dport_ < key.dport_;
+    }
 private:
     friend class MirrorNH;
     VrfKey vrf_key_;
