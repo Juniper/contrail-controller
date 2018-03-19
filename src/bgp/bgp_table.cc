@@ -12,6 +12,7 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
@@ -258,7 +259,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             attr->community()->ContainsValue(CommunityType::LlgrStale);
         if (ribout->peer_type() == BgpProto::IBGP) {
             // Split horizon check.
-            if (peer && peer->PeerType() == BgpProto::IBGP)
+            if (peer && peer->CheckSplitHorizon())
                 return NULL;
 
             // Handle route-target filtering.
@@ -340,7 +341,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             if (clone->med() && clone->as_path() && !clone->as_path()->empty())
                 clone->set_med(0);
 
-            as_t local_as =
+            as_t local_as = ribout->local_as() ?:
                 clone->attr_db()->server()->local_autonomous_system();
 
             // Override the peer AS with local AS in AsPath.
