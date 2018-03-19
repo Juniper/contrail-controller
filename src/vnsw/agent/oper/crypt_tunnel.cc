@@ -214,14 +214,16 @@ bool CryptTunnelTable::Delete(DBEntry *entry, const DBRequest *req) {
 }
 
 CryptTunnelTable::CryptTunnelTable(Agent *agent, DB *db, const std::string &name) :
-        AgentDBTable(db, name), vr_to_vr_crypt_(false), crypt_interface_(NULL) {
+        AgentDBTable(db, name), vr_to_vr_crypt_(false), crypt_interface_(NULL),
+    tunnel_event_queue_(agent->task_scheduler()->GetTaskId(kTaskCryptTunnel), 0,
+            boost::bind(&CryptTunnelTable::TunnelEventProcess, this, _1)) {
+    tunnel_event_queue_.set_name("CryptTunnel event queue");
     set_agent(agent);
-    tunnel_event_queue_ = new WorkQueue<CryptTunnelEvent *>(
-            agent->task_scheduler()->GetTaskId(kTaskCryptTunnel), 0,
-            boost::bind(&CryptTunnelTable::TunnelEventProcess, this, _1));
-    tunnel_event_queue_->set_name("CryptTunnel event queue");
 }
 
+CryptTunnelTable::~CryptTunnelTable() {
+    tunnel_event_queue_.Shutdown();
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Introspect routines
@@ -490,8 +492,8 @@ void CryptTunnelEntry::StopCryptTunnel() {
 }
 
 void
-CryptTunnelTable::TunnelEventEnqueue(CryptTunnelEvent *event) const {
-    tunnel_event_queue_->Enqueue(event);
+CryptTunnelTable::TunnelEventEnqueue(CryptTunnelEvent *event) {
+    tunnel_event_queue_.Enqueue(event);
 }
 
 bool CryptTunnelTable::TunnelEventProcess(CryptTunnelEvent *event) {
