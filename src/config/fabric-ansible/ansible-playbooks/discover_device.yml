@@ -18,7 +18,7 @@
       when: playbook_input.input.fabric_uuid is defined
 
     - set_fact:
-         tag_fq_name: "label=fabric%management_ip"
+         tag_fq_name: "label=fabric-management_ip"
 
     - set_fact:
          api_server_host: "{{ playbook_input.api_server_host }}"
