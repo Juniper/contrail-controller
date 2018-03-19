@@ -853,6 +853,12 @@ bool LocalVmRoute::UpdateRoute(AgentRoute *rt) {
         return false;
     }
 
+    /* Route Reflect will not have the field populated and we do not
+     * want to override the route type for reflected routes */
+    if (intf_route_type().empty()) {
+       return false;
+    }
+
     if (intf_route_type().compare(rt->intf_route_type()) != 0) {
         rt->set_intf_route_type(intf_route_type());
         return true;

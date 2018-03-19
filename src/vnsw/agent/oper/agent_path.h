@@ -564,7 +564,7 @@ public:
                  const EcmpLoadBalance &ecmp_load_balance, bool is_local,
                  bool is_health_check_service, uint64_t sequence_number,
                  bool etree_leaf, bool native_encap,
-                 const std::string &intf_route_type = VmInterface::kInterface):
+                 const std::string &intf_route_type = ""):
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
         intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
