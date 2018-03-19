@@ -133,7 +133,7 @@
     <xsd:element name='auth-data' type='AuthenticationData' required='optional' operations='CRUD'
          description='Authentication related configuration like type, keys etc.'/>
     <xsd:element name='local-autonomous-system' type='xsd:integer' required='optional' operations='CRUD'
-         description='Only for contrail control nodes, Autonomous System number if different then global AS number. Used when clusters of control nodes in same contrail system are in different locations. Currently only 16 bit AS number is supported.'/>
+         description='BgpRouter specific Autonomous System number if different from global AS number. Typically used when clusters of control nodes in same contrail system are in different locations. Currently only 16 bit AS number is supported.'/>
     <xsd:element name='router-type' type='BgpRouterType' required='optional' operations='CRUD'
          description='BGP router type.'/>
     <xsd:element name='gateway-address' type='smi:IpAddress' required='optional' operations='CRUD'
@@ -155,9 +155,8 @@
                  Replace private ASes after the first public AS with the
                  nearest public AS i.e. the last public AS seen as the AS Path
                  is processed from left to right. Replace private ASes before
-                 the first public AS with the local bgp router AS in the case
-                 of eBGP and the first public AS in the AS Path in the case of
-                 iBGP.'/>
+                 the first public AS with the local AS in the case of eBGP and
+                 the first public AS in the AS Path in the case of iBGP.'/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -230,8 +229,9 @@
     <xsd:element name='hold-time' type='BgpHoldTime' default='0' required='optional' operations='CRUD'
          description='A non-zero hold-time overrides the hold-time inherited from the bgp-router configuration. BGP hold time in seconds [0-65535], Max time to detect liveliness of peer.'/>
     <xsd:element name='loop-count' type='BgpAsPathLoopCount' default='0' required='optional' operation='CRUD'
-         description='For routing loop detection, loop-count is the number of times the local bgp-routers AS is
-            allowed in the AS_PATH attribute.'/>
+         description='For routing loop detection, loop-count is the number of times the local AS is allowed in the AS_PATH attribute.'/>
+    <xsd:element name='local-autonomous-system' type='xsd:integer' default='0' required='optional' operations='CRUD'
+         description='Local autonomous system number used for this particular session. If configured, this overrides autonomous-system number and local-autonomous-system number configured under BgpRouterParams'/>
     <xsd:element name='address-families' type='AddressFamilies' required='optional' operations='CRUD'
          description='BGP address families supported on this session.'/>
     <xsd:element name='auth-data' type='AuthenticationData' required='optional' operations='CRUD'
