@@ -20,6 +20,7 @@ void BGPaaServiceParameters::Reset() {
 void GracefulRestartParameters::Reset() {
     enable_ = true;
     end_of_rib_time_ = 0;
+    long_lived_restart_time_ = 0;
     xmpp_helper_enable_ = true;
     config_seen_ = false;
 }
@@ -44,6 +45,13 @@ void GracefulRestartParameters::Update(autogen::GlobalSystemConfig *cfg) {
         (uint32_t)cfg->graceful_restart_parameters().end_of_rib_timeout) {
         end_of_rib_time_ =
             (uint32_t)cfg->graceful_restart_parameters().end_of_rib_timeout;
+        changed = true;
+    }
+
+    if (long_lived_restart_time_ !=
+        (uint32_t)cfg->graceful_restart_parameters().long_lived_restart_time) {
+        long_lived_restart_time_ =
+            (uint32_t)cfg->graceful_restart_parameters().long_lived_restart_time;
         changed = true;
     }
 

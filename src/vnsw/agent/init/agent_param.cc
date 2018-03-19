@@ -720,6 +720,8 @@ void AgentParam::ParseLlgrArguments
                           "LLGR.end_of_rib_tx_fallback_time");
     GetOptValue<uint16_t>(var_map, llgr_params_.end_of_rib_tx_inactivity_time_,
                           "LLGR.end_of_rib_tx_inactivity_time_");
+    GetOptValue<uint32_t>(var_map, llgr_params_.llgr_stale_time_,
+                          "LLGR.llgr_stale_time");
 }
 
 void AgentParam::ParseMacLearning
@@ -1774,4 +1776,5 @@ LlgrParams::LlgrParams() {
     end_of_rib_tx_fallback_time_ = kEorTxFallbackTimeOut;
     end_of_rib_tx_inactivity_time_ = kEorTxInactivityTime;
     end_of_rib_rx_fallback_time_ = kEorRxFallbackTime;
+    llgr_stale_time_ = kLlgrStaleTime;
 }
