@@ -47,8 +47,11 @@ class SNATAgent(Agent):
         return svc_info.get_snat_service_type()
 
     def pre_create_service_vm(self, instance_index, si, st, vm):
-        for nic in si.vn_info:
+        for pos, nic in enumerate(si.vn_info):
             nic['user-visible'] = False
+            if pos > 0:
+                nic['sg-list'] = []
+                nic['port-security-enabled'] = False
         return True
 
     def _create_snat_vn(self, si_obj, vn_name):
