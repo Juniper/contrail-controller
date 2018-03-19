@@ -221,3 +221,8 @@ class VncKubernetesConfig(object):
         if cls.args().global_tags == '1':
             return True
         return False
+
+    @classmethod
+    def get_default_sg_name(cls, ns_name='default'):
+        sg_name = "-".join([cls.cluster_name(), ns_name, 'default-sg'])
+        return sg_name

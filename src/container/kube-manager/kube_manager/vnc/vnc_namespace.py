@@ -361,7 +361,7 @@ class VncNamespace(VncCommon):
             return rule
 
         # create default security group
-        sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'default-sg'])
+        sg_name = vnc_kube_config.get_default_sg_name(ns_name)
         DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
         id_perms = IdPermsType(enable=True,
                                description=DEFAULT_SECGROUP_DESCRIPTION)
@@ -496,6 +496,9 @@ class VncNamespace(VncCommon):
             for sg_uuid in security_groups:
                 sg = SecurityGroupKM.get(sg_uuid)
                 if not sg:
+                    continue
+                sg_name = vnc_kube_config.get_default_sg_name(name)
+                if sg.name != sg_name:
                     continue
                 for vmi_id in list(sg.virtual_machine_interfaces):
                     try:
