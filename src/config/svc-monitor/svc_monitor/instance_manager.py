@@ -589,6 +589,10 @@ class InstanceManager(object):
                 vmi_obj.set_interface_route_table(rt_obj)
                 vmi_updated = True
 
+        if 'port-security-enabled' in nic:
+            vmi_obj.set_port_security_enabled(nic['port-security-enabled'])
+            vmi_updated = True
+
         if vmi_create:
             if pi:
                 pi_vnc = PhysicalInterface()
