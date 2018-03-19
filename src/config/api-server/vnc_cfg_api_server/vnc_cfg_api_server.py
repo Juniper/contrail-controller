@@ -1473,6 +1473,28 @@ class VncApiServer(object):
             set_context(orig_context)
     # end internal_request_ref_update
 
+    def internal_request_prop_collection(self, obj_uuid, updates=None):
+        req_dict = {
+            'uuid': obj_uuid,
+            'updates': updates or [],
+        }
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/ref-update',
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': self.cloud_admin_role})
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                req_dict, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            self.prop_collection_http_post()
+            return True, ''
+        finally:
+            set_context(orig_context)
+
     def alloc_vn_id(self, name):
         return self._db_conn._zk_db.alloc_vn_id(name)
 
@@ -3845,7 +3867,8 @@ class VncApiServer(object):
 
         # Permit abort resource deletion and retrun 202 status code
         get_context().set_state('PENDING_DBE_UPDATE')
-        ok, result = r_class.pending_dbe_update(db_obj_dict, req_obj_dict)
+        ok, result = r_class.pending_dbe_update(db_obj_dict, req_obj_dict,
+                                                req_prop_coll_updates)
         if not ok:
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)

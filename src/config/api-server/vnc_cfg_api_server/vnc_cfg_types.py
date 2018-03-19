@@ -94,7 +94,8 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def pending_dbe_update(cls, obj_dict, delta_obj_dict={}):
+    def pending_dbe_update(cls, obj_dict, delta_obj_dict=None,
+                           prop_collection_updates=None):
         return True, ''
 
     @classmethod
@@ -359,20 +360,24 @@ class SecurityResourceBase(Resource):
         return cls._pending_update(obj_dict)
 
     @classmethod
-    def pending_dbe_update(cls, obj_dict, delta_obj_dict={}):
-        return cls._pending_update(obj_dict, delta_obj_dict)
+    def pending_dbe_update(cls, obj_dict, delta_obj_dict=None,
+                           prop_collection_updates=None):
+        return cls._pending_update(obj_dict, delta_obj_dict,
+                                   prop_collection_updates)
 
     @classmethod
     def pending_dbe_delete(cls, obj_dict):
         return cls._pending_update(obj_dict, {'pending_delete': True})
 
     @classmethod
-    def _pending_update(cls, obj_dict, delta_obj_dict={}):
+    def _pending_update(cls, obj_dict, delta_obj_dict=None,
+                        prop_collection_updates=None):
         if is_internal_request():
             # Ignore all internal calls to not pending pending actions
             return True, ''
 
-        delta_obj_dict.pop('uuid', None)
+        updating = (delta_obj_dict is not None or
+                    prop_collection_updates is not None)
 
         ok, result = cls._get_dedicated_draft_policy_management(obj_dict)
         if not ok:
@@ -411,13 +416,17 @@ class SecurityResourceBase(Resource):
             return False, (400, msg)
         scope_lock.release()
 
+        if not delta_obj_dict:
+            delta_obj_dict = {}
+        delta_obj_dict.pop('uuid', None)
+
         # if the parent is already the draft policy management, it's updating
         # the draft version of the resource. We can ignore it and let classic
         # update code operated
         if (obj_dict['fq_name'][-2] ==
                 constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
             delta_obj_dict.pop('pending_delete', None)
-            if obj_dict.get('pending_delete', False) and delta_obj_dict:
+            if updating and obj_dict.get('pending_delete', False):
                 # Cannot update a pending deleted resource
                 msg = ("%s %s is in pending delete, cannot be updated" %
                        (cls.object_type.replace('_', ' ').title(),
@@ -428,7 +437,7 @@ class SecurityResourceBase(Resource):
         # Locate draft version of the resource
         draft_fq_name = draft_pm['fq_name'] + obj_dict['fq_name'][-1:]
         # Check if it's trying to create a resource already in pending create
-        if not delta_obj_dict:
+        if not updating:
             try:
                 cls.db_conn.fq_name_to_uuid(cls.object_type, draft_fq_name)
                 msg = ("%s named %s was already created and it is pending to "
@@ -449,22 +458,27 @@ class SecurityResourceBase(Resource):
             return False, result
         draft_obj_dict = result
 
-        if delta_obj_dict:
+        if updating:
             if draft_obj_dict.get('pending_delete', False):
                 delta_obj_dict.pop('pending_delete', None)
-                if delta_obj_dict:
-                    # Cannot update a pending deleted resource
-                    msg = ("%s %s is in pending delete, cannot be updated" %
-                        (cls.object_type.replace('_', ' ').title(),
-                            ':'.join(obj_dict['fq_name'])))
-                    return False, (400, msg)
-            else:
+                # Cannot update a pending deleted resource
+                msg = ("%s %s is in pending delete, cannot be updated" %
+                       (cls.object_type.replace('_', ' ').title(),
+                        ':'.join(obj_dict['fq_name'])))
+                return False, (400, msg)
+            elif delta_obj_dict:
                 try:
                     cls.server.internal_request_update(
                         cls.resource_type,
                         draft_obj_dict['uuid'],
                         delta_obj_dict,
                     )
+                except cfgm_common.exceptions.HttpError as e:
+                    return False, (e.status_code, e.content)
+            elif prop_collection_updates:
+                try:
+                    cls.server.internal_request_prop_collection(
+                        draft_obj_dict['uuid'], prop_collection_updates)
                 except cfgm_common.exceptions.HttpError as e:
                     return False, (e.status_code, e.content)
 
@@ -1327,7 +1341,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
             attr_obj = LogicalRouterVirtualNetworkType('InternalVirtualNetwork')
             attr_dict = attr_obj.__dict__
             api_server.internal_request_ref_update('logical-router', obj_dict['uuid'], 'ADD',
-                                                   'virtual-network', obj['virtual-network']['uuid'], 
+                                                   'virtual-network', obj['virtual-network']['uuid'],
                                                    obj['virtual-network']['fq_name'], attr=attr_dict)
         return True, ''
     # end post_dbe_create
