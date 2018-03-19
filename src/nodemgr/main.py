@@ -72,6 +72,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                'collectors': [],
                'hostip': '127.0.0.1',
                'db_port': '9042',
+               'db_user': None,
+               'db_password': None,
                'minimum_diskgb': 256,
                'contrail_databases': 'config analytics',
                'cassandra_repair_interval': 24,
@@ -149,6 +151,10 @@ def main(args_str=' '.join(sys.argv[1:])):
                             help="IP address of host")
         parser.add_argument("--db_port",
                             help="Cassandra DB cql port")
+        parser.add_argument("--db_user",
+                            help="Cassandra DB cql username")
+        parser.add_argument("--db_password",
+                            help="Cassandra DB cql password")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")
