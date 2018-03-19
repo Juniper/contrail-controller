@@ -803,9 +803,11 @@ void StructuredSyslogUVESummarizeAppQoeSMV(SyslogParser::syslog_m_t v, bool summ
 }
 
 float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter) {
-    float effective_latency, r_factor, mos ;
+    float effective_latency, r_factor, mos, latency_ms, jitter_ms;
+    latency_ms = latency/1000;  // latency in milli secs
+    jitter_ms = jitter/1000;    // jitter in milli secs
     // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
-    effective_latency = (latency + (2*jitter) +10);
+    effective_latency = (latency_ms + (2*jitter_ms) +10);
     // Step-2: Calculate Intermediate R-Value
     if (effective_latency < 160){
         r_factor = 93.2 - (effective_latency/40);
