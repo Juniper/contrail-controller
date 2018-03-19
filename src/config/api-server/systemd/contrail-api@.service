@@ -5,7 +5,7 @@ After=network.target
 [Service]
 RestartSec=3s
 Type=simple
-ExecStart=/usr/bin/contrail-api --conf_file /etc/contrail/contrail-api.conf --conf_file /etc/contrail/contrail-keystone-auth.conf --conf_file /etc/contrail/contrail-database.conf --worker_id %I --listen_port 910%I --admin_port 819%I --http_server_port 828%I
+ExecStart=/usr/bin/contrail-api --conf_file /etc/contrail/contrail-api.conf --conf_file /etc/contrail/contrail-keystone-auth.conf --conf_file /etc/contrail/contrail-database.conf --log_file /var/log/contrail/contrail-api-%I.log --worker_id %I --listen_port 910%I --admin_port 819%I --http_server_port 828%I
 PIDFile=/var/run/contrail/contrail-api-%I.pid
 TimeoutStopSec=0
 Restart=always
