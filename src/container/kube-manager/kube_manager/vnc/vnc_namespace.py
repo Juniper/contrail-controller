@@ -15,7 +15,7 @@ from vnc_api.vnc_api import (
     VirtualNetworkType, VnSubnetsType, NetworkPolicy, ActionListType,
     VirtualNetworkPolicyType, SequenceType)
 from kube_manager.vnc.config_db import (
-    NetworkIpamKM, VirtualNetworkKM, ProjectKM, SecurityGroupKM)
+    NetworkIpamKM, VirtualNetworkKM, ProjectKM, SecurityGroupKM, DBBaseKM)
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM
 from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
@@ -159,7 +159,8 @@ class VncNamespace(VncCommon):
             project.ns_labels[ns_uuid] = labels
 
     def _create_isolated_ns_virtual_network(self, ns_name, vn_name,
-            vn_type, proj_obj, ipam_obj=None, provider=None):
+            vn_type, proj_obj, ipam_obj=None, provider=None,
+            enforce_policy=False):
         """
         Create/Update a virtual network for this namespace.
         """
@@ -182,6 +183,11 @@ class VncNamespace(VncCommon):
         # cluster pod ipam. Attach the cluster pod-ipam object
         # to this virtual network.
         vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
+
+        # If required, enforce security policy at virtual network level.
+        if enforce_policy:
+            self._vnc_lib.set_tags(vn_obj,
+              self._labels.get_labels_dict(VncSecurityPolicy.cluster_aps_uuid))
 
         fabric_snat = False
         if vn_type == 'pod-network':
@@ -395,6 +401,18 @@ class VncNamespace(VncCommon):
     def vnc_namespace_add(self, namespace_id, name, labels):
         isolated_ns_ann = 'True' if self._is_namespace_isolated(name) \
             else 'False'
+
+        # Check if policy enforcement is enabled at project level.
+        # If not, then security will be enforced at VN level.
+        if DBBaseKM.is_nested():
+            # In nested mode, policy is always enforced at network level.
+            # This is so that we do not enforce policy on other virtual
+            # networks that may co-exist in the current project.
+            secure_project = False
+        else:
+            secure_project = vnc_kube_config.is_secure_project_enabled()
+        secure_vn = not secure_project
+
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
         proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name)
 
@@ -433,7 +451,8 @@ class VncNamespace(VncCommon):
                 provider = None
             pod_vn = self._create_isolated_ns_virtual_network(
                     ns_name=name, vn_name=vn_name, vn_type='pod-network',
-                    proj_obj=proj_obj, ipam_obj=ipam_obj, provider=provider)
+                    proj_obj=proj_obj, ipam_obj=ipam_obj, provider=provider,
+                    enforce_policy = secure_vn)
             # Cache pod network info in namespace entry.
             self._set_namespace_pod_virtual_network(name, pod_vn.get_fq_name())
             vn_name = self._get_namespace_service_vn_name(name)
@@ -441,7 +460,8 @@ class VncNamespace(VncCommon):
             ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
             service_vn = self._create_isolated_ns_virtual_network(
                     ns_name=name, vn_name=vn_name, vn_type='service-network',
-                    ipam_obj=ipam_obj,proj_obj=proj_obj)
+                    ipam_obj=ipam_obj,proj_obj=proj_obj,
+                    enforce_policy = secure_vn)
             # Cache service network info in namespace entry.
             self._set_namespace_service_virtual_network(
                     name, service_vn.get_fq_name())
@@ -456,9 +476,12 @@ class VncNamespace(VncCommon):
         if project:
             self._update_namespace_label_cache(labels, namespace_id, project)
 
-            proj_obj = self._vnc_lib.project_read(id=project.uuid)
-            self._vnc_lib.set_tags(proj_obj,
-                self._labels.get_labels_dict(VncSecurityPolicy.cluster_aps_uuid))
+            # If requested, enforce security policy at project level.
+            if secure_project:
+                proj_obj = self._vnc_lib.project_read(id=project.uuid)
+                self._vnc_lib.set_tags(proj_obj,
+                    self._labels.get_labels_dict(
+                        VncSecurityPolicy.cluster_aps_uuid))
 
         return project
 
