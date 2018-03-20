@@ -332,6 +332,8 @@ class PhysicalRouterDM(DBBaseDM):
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
+            if not vn:
+                continue
             # dont need irb ip, gateway ip
             if vn.get_forwarding_mode() != fwd_mode:
                 continue
