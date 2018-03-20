@@ -677,6 +677,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
 bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
                                          Ip4Address *service_ip,
                                          uint16_t *service_port,
+                                         std::string *fabric_hostname,
                                          Ip4Address *fabric_ip,
                                          uint16_t *fabric_port) const {
     std::string name = boost::to_lower_copy(service_name);
@@ -688,6 +689,7 @@ bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
             *service_ip = it->first.linklocal_service_ip;
             *service_port = it->first.linklocal_service_port;
             *fabric_port = it->second.ipfabric_service_port;
+            *fabric_hostname = it->second.ipfabric_dns_service_name;
             if (it->second.ipfabric_service_ip.size()) {
                 // if there are multiple addresses, return one of them
                 int index = rand() % it->second.ipfabric_service_ip.size();
@@ -695,6 +697,8 @@ bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
                 if (*fabric_ip == kLoopBackIp) {
                     *fabric_ip = agent()->router_id();
                 }
+                if (it->second.ipfabric_dns_service_name.empty())
+                    *fabric_hostname = fabric_ip->to_string();
                 return true;
             } else if (!it->second.ipfabric_dns_service_name.empty()) {
                 return fabric_dns_resolver_->Resolve(

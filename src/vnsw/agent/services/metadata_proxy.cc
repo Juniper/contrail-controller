@@ -174,7 +174,14 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
         uri = uri.substr(1); // ignore the first "/"
     const std::string &body = request->Body();
     {
-        HttpConnection *conn = GetProxyConnection(session, conn_close);
+        std::string nova_hostname;
+        HttpConnection *conn = GetProxyConnection(session, conn_close,
+                                                  &nova_hostname);
+        if (!nova_hostname.empty()) {
+            header_options.insert(header_options.begin(),
+                                  std::string("Host: " + nova_hostname));
+        }
+
         if (conn) {
             switch(request->GetMethod()) {
                 case HTTP_GET: {
@@ -342,7 +349,8 @@ MetadataProxy::OnClientSessionEvent(HttpClientSession *session, TcpSession::Even
 }
 
 HttpConnection *
-MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close) {
+MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close,
+                                  std::string *nova_hostname) {
     SessionMap::iterator it = metadata_sessions_.find(session);
     if (it != metadata_sessions_.end()) {
         it->second.close_req = conn_close;
@@ -353,7 +361,7 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close) {
     Ip4Address nova_server, linklocal_server;
     if (!services_->agent()->oper_db()->global_vrouter()->FindLinkLocalService(
         GlobalVrouter::kMetadataService, &linklocal_server, &linklocal_port,
-        &nova_server, &nova_port))
+        nova_hostname, &nova_server, &nova_port))
         return NULL;
 
     boost::asio::ip::tcp::endpoint http_ep;

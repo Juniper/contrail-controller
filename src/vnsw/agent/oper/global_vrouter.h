@@ -132,6 +132,7 @@ public:
     void UpdateSLOConfig(IFMapNode *node);
     bool FindLinkLocalService(const std::string &service_name,
                               Ip4Address *service_ip, uint16_t *service_port,
+                              std::string *fabric_hostname,
                               Ip4Address *fabric_ip, uint16_t *fabric_port) const;
     bool FindLinkLocalService(const Ip4Address &service_ip,
                               uint16_t service_port, std::string *service_name,

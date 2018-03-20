@@ -854,9 +854,11 @@ bool FlowEntry::IsFabricControlFlow() const {
             uint16_t metadata_port = 0;
             Ip4Address local_ip(0);
             uint16_t local_port = 0;
+            std::string metadata_hostname;
             agent->oper_db()->global_vrouter()->
                 FindLinkLocalService(GlobalVrouter::kMetadataService,
                                      &local_ip, &local_port,
+                                     &metadata_hostname,
                                      &metadata_ip,
                                      &metadata_port);
             if (key_.dst_addr.to_v4() == metadata_ip &&
