@@ -49,7 +49,7 @@ class ConfigHandler(object):
             template = 'Exception {0} connecting to Config DB. Arguments:\n{1!r}'
             msg = template.format(type(e).__name__, e.args)
             self._logger.error('%s: %s' % (msg, traceback.format_exc()))
-            exit()
+            exit(2)
         self._db_cls.init(self, self._logger, self._vnc_db)
         self._sync_config_db()
     # end start
