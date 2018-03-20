@@ -103,6 +103,9 @@ public:
 
     void CreateResourceManager();
     void SetResourceManagerReady();
+    void SetKSyncRestoreDone();
+    void LlgrReady();
+    virtual void LlgrInit();
     /////////////////////////////////////////////////////////////////////////
     // Shutdown routines
     /////////////////////////////////////////////////////////////////////////
@@ -179,6 +182,9 @@ private:
     std::auto_ptr<VNController> controller_;
     std::auto_ptr<ResourceManager> resource_manager_;
     std::auto_ptr<EventNotifier> event_notifier_;
+    bool isResourceManagerReady_;
+    bool isKSyncRestoreDone_;
+    bool IsLlgrReady();
 
     DISALLOW_COPY_AND_ASSIGN(AgentInit);
 };

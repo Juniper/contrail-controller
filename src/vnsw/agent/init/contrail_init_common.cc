@@ -91,6 +91,14 @@ void ContrailInitCommon::RegisterDBClients() {
         agent()->flow_stats_manager()->RegisterDBClients();
     }
 }
+void ContrailInitCommon::LlgrInit() {
+    CreateResourceManager();
+    CreateDBTablesBase();
+    if (agent()->ksync()) {
+        agent()->ksync()->LlgrInit(create_vhost_);
+    }
+}
+
 
 void ContrailInitCommon::InitModules() {
     if (agent()->pkt()) {
@@ -104,11 +112,9 @@ void ContrailInitCommon::InitModules() {
     if (agent()->uve()) {
         agent()->uve()->Init();
     }
-
     if (agent()->ksync()) {
         agent()->ksync()->Init(create_vhost_);
     }
-
     if (agent()->mac_learning_module()) {
         agent()->mac_learning_module()->Init();
     }

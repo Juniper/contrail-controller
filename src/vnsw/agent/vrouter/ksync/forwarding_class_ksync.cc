@@ -197,3 +197,87 @@ ForwardingClassKSyncObject::DBEntryFilter(const DBEntry *entry,
     }
     return DBFilterAccept;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// ksync entry restore routines
+//////////////////////////////////////////////////////////////////////////////
+
+KSyncEntry *ForwardingClassKSyncObject::CreateStale(const KSyncEntry *key) {
+    return CreateStaleInternal(key);;
+}
+void ForwardingClassKSyncEntry::StaleTimerExpired() {
+    Delete();
+    SetState(KSyncEntry::TEMP);
+}
+
+
+ForwardingClassKSyncRestoreData::ForwardingClassKSyncRestoreData(
+                                    KSyncDBObject *obj,
+                                    KForwardingClassPtr forwardingClassInfo):
+    KSyncRestoreData(obj), fwdClassInfo_(forwardingClassInfo) {
+}
+
+ForwardingClassKSyncRestoreData::~ForwardingClassKSyncRestoreData() {
+}
+
+void ForwardingClassKSyncObject::RestoreVrouterEntriesReq(void) {
+    InitStaleEntryCleanup(*(ksync()->agent()->event_manager())->io_service(),
+                            KSyncRestoreManager::StaleEntryCleanupTimer, 
+                            KSyncRestoreManager::StaleEntryYeildTimer,
+                            KSyncRestoreManager::StaleEntryDeletePerIteration);
+    KForwardingClassReq *req = new KForwardingClassReq();
+    req->set_index(-1);
+    req->set_context(LLGR_KSYNC_RESTORE_CONTEXT);
+    Sandesh::set_response_callback(
+        boost::bind(&ForwardingClassKSyncObject::ReadVrouterEntriesResp,
+                    this, _1));
+    req->HandleRequest();
+    req->Release();
+}
+void ForwardingClassKSyncObject::ReadVrouterEntriesResp(Sandesh *sandesh) {
+    if (sandesh->context() !=  LLGR_KSYNC_RESTORE_CONTEXT) {
+        // ignore callback, if context is not relevant
+        return;
+    }
+    KForwardingClassResp *response = 
+                        dynamic_cast<KForwardingClassResp *>(sandesh);
+    if (response != NULL) {
+        for(std::vector<KForwardingClass>::const_iterator it
+                = response->get_forwarding_class_list().begin();
+                it != response->get_forwarding_class_list().end();it++) {
+            ForwardingClassKSyncRestoreData::KForwardingClassPtr 
+                        forwardingClassInfo(new KForwardingClass(*it));
+            KSyncRestoreData::Ptr restore_data(
+                        new ForwardingClassKSyncRestoreData(
+                                            this, forwardingClassInfo));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(restore_data);
+        }
+        //TODO: check errorresp
+        if (!response->get_more()) {
+            KSyncRestoreData::Ptr end_data(
+                    new KSyncRestoreEndData (this));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(end_data);
+        }
+    }
+
+
+}
+void ForwardingClassKSyncObject::ProcessVrouterEntries(
+                        KSyncRestoreData::Ptr restore_data) {
+    if(dynamic_cast<KSyncRestoreEndData *>(restore_data.get())) {
+        ksync()->ksync_restore_manager()->UpdateKSyncRestoreStatus(
+                    KSyncRestoreManager::KSYNC_TYPE_FORWARDING_CLASS);
+        return;
+    }
+    ForwardingClassKSyncRestoreData *dataPtr = 
+        dynamic_cast<ForwardingClassKSyncRestoreData *>(restore_data.get());
+    ForwardingClassKSyncEntry ksync_entry_key(this,
+                        dataPtr->GetForwardingClassEntry()->get_id());
+    ForwardingClassKSyncEntry *ksync_entry_ptr =
+        static_cast<ForwardingClassKSyncEntry *>(Find(&ksync_entry_key));
+    if (ksync_entry_ptr == NULL) {
+        ksync_entry_ptr = 
+        static_cast<ForwardingClassKSyncEntry *>(CreateStale(&ksync_entry_key));
+    }
+    
+}

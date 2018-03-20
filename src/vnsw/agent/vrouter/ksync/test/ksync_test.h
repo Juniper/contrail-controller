@@ -13,6 +13,7 @@ public:
     virtual ~KSyncTest();
 
     virtual void Init(bool create_vhost);
+    virtual void LlgrInit(bool create_vhost);
     virtual void RegisterDBClients(DB *db);
     void Shutdown();
 private:

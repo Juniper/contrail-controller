@@ -1006,11 +1006,59 @@ void KSyncUserSockContext::RouteMsgHandler(vr_route_req *req) {
 }
 
 void KSyncUserSockContext::QosConfigMsgHandler(vr_qos_map_req *req) {
-    assert(0);
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+
+    //delete from map if command is delete
+    if (req->get_h_op() == sandesh_op::DEL) {
+        sock->qos_map.erase(req->get_qmr_id());
+        KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
+        return;
+    }
+
+    if (req->get_h_op() == sandesh_op::DUMP) {
+        QosConfigDumpHandler dump;
+        dump.SendDumpResponse(GetSeqNum(), req);
+        return;
+    }
+
+    if (req->get_h_op() == sandesh_op::GET) {
+        QosConfigDumpHandler dump;
+        dump.SendGetResponse(GetSeqNum(), req->get_qmr_id());
+        return;
+    }
+
+    //store in the map
+    vr_qos_map_req qos_map_info(*req);
+    sock->qos_map[req->get_qmr_id()] = qos_map_info;
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockContext::ForwardingClassMsgHandler(vr_fc_map_req *req) {
-    assert(0);
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+
+    //delete from map if command is delete
+    if (req->get_h_op() == sandesh_op::DEL) {
+        sock->forwarding_class_map.erase(req->get_fmr_id()[0]);
+        KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
+        return;
+    }
+
+    if (req->get_h_op() == sandesh_op::DUMP) {
+        ForwardingClassDumpHandler dump;
+        dump.SendDumpResponse(GetSeqNum(), req);
+        return;
+    }
+
+    if (req->get_h_op() == sandesh_op::GET) {
+        ForwardingClassDumpHandler dump;
+        dump.SendGetResponse(GetSeqNum(), req->get_fmr_id()[0]);
+        return;
+    }
+
+    //store in the map
+    vr_fc_map_req fc_map_info(*req);
+    sock->forwarding_class_map[req->get_fmr_id()[0]] = fc_map_info;
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockContext::MirrorMsgHandler(vr_mirror_req *req) {
@@ -1506,6 +1554,96 @@ Sandesh* MirrorDumpHandler::GetNext(Sandesh *input) {
     return NULL;
 }
 
+Sandesh* QosConfigDumpHandler::Get(int idx) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_qos_config::const_iterator it;
+    static vr_qos_map_req req;
+
+    it = sock->qos_map.find(idx);
+    if (it != sock->qos_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* QosConfigDumpHandler::GetFirst(Sandesh *from_req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_qos_config::const_iterator it;
+    static vr_qos_map_req req;
+    vr_qos_map_req *orig_req;
+    orig_req = static_cast<vr_qos_map_req *>(from_req);
+    int idx;
+
+    idx = orig_req->get_qmr_marker();
+    it = sock->qos_map.upper_bound(idx);
+
+    if (it != sock->qos_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* QosConfigDumpHandler::GetNext(Sandesh *input) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_qos_config::const_iterator it;
+    static vr_qos_map_req req, *r;
+
+    r = static_cast<vr_qos_map_req *>(input);
+    it = sock->qos_map.upper_bound(r->get_qmr_id());
+
+    if (it != sock->qos_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+Sandesh* ForwardingClassDumpHandler::Get(int idx) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_forwarding_class::const_iterator it;
+    static vr_fc_map_req req;
+
+    it = sock->forwarding_class_map.find(idx);
+    if (it != sock->forwarding_class_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* ForwardingClassDumpHandler::GetFirst(Sandesh *from_req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_forwarding_class::const_iterator it;
+    static vr_fc_map_req req;
+    vr_fc_map_req *orig_req;
+    orig_req = static_cast<vr_fc_map_req *>(from_req);
+    int idx;
+
+    idx = orig_req->get_fmr_marker();
+    it = sock->forwarding_class_map.upper_bound(idx);
+
+    if (it != sock->forwarding_class_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* ForwardingClassDumpHandler::GetNext(Sandesh *input) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_forwarding_class::const_iterator it;
+    static vr_fc_map_req req, *r;
+
+    r = static_cast<vr_fc_map_req *>(input);
+    it = sock->forwarding_class_map.upper_bound(r->get_fmr_id()[0]);
+
+    if (it != sock->forwarding_class_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
 Sandesh* RouteDumpHandler::GetFirst(Sandesh *from_req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     KSyncSockTypeMap::ksync_rt_tree::const_iterator it;

@@ -22,6 +22,11 @@ QosConfigKSyncEntry::QosConfigKSyncEntry(QosConfigKSyncObject *obj,
     KSyncNetlinkDBEntry(), ksync_obj_(obj), uuid_(qc->uuid()), id_(qc->id()) {
 }
 
+QosConfigKSyncEntry::QosConfigKSyncEntry(QosConfigKSyncObject *obj,
+                                         const uint32_t id):
+    KSyncNetlinkDBEntry(), ksync_obj_(obj), id_(id) {
+}
+
 QosConfigKSyncEntry::~QosConfigKSyncEntry() {
 }
 
@@ -31,7 +36,7 @@ KSyncDBObject *QosConfigKSyncEntry::GetObject() const {
 
 bool QosConfigKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const QosConfigKSyncEntry &entry = static_cast<const QosConfigKSyncEntry &>(rhs);
-    return uuid_ < entry.uuid_;
+    return id_ < entry.id_;
 }
 
 std::string QosConfigKSyncEntry::ToString() const {
@@ -69,7 +74,10 @@ bool QosConfigKSyncEntry::CopyQosMap(KSyncQosFcMap &ksync_map,
 bool QosConfigKSyncEntry::Sync(DBEntry *e) {
     AgentQosConfig *qc = static_cast<AgentQosConfig *>(e);
     bool ret = false;
-
+    
+    if (uuid_.is_nil()) {
+        uuid_ = qc->uuid();
+    }
 
     if (CopyQosMap(dscp_map_, &(qc->dscp_map()))) {
         ret = true;
@@ -252,4 +260,84 @@ KSyncEntry *QosConfigKSyncObject::DBToKSyncEntry(const DBEntry *e) {
 void vr_qos_map_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->QosConfigMsgHandler(this);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// ksync entry restore routines
+//////////////////////////////////////////////////////////////////////////////
+
+KSyncEntry *QosConfigKSyncObject::CreateStale(const KSyncEntry *key) {
+    return CreateStaleInternal(key);;
+}
+void QosConfigKSyncEntry::StaleTimerExpired() {
+    Delete();
+    SetState(KSyncEntry::TEMP);
+}
+
+
+QosConfigKSyncRestoreData::QosConfigKSyncRestoreData(KSyncDBObject *obj,
+                                            KQosConfigPtr qos_config_info):
+    KSyncRestoreData(obj), qos_config_info_(qos_config_info) {
+}
+
+QosConfigKSyncRestoreData::~QosConfigKSyncRestoreData() {
+}
+
+void QosConfigKSyncObject::RestoreVrouterEntriesReq(void) {
+    InitStaleEntryCleanup(*(ksync()->agent()->event_manager())->io_service(),
+                            KSyncRestoreManager::StaleEntryCleanupTimer, 
+                            KSyncRestoreManager::StaleEntryYeildTimer,
+                            KSyncRestoreManager::StaleEntryDeletePerIteration);
+    KQosConfigReq *req = new KQosConfigReq();
+    req->set_index(-1);
+    req->set_context(LLGR_KSYNC_RESTORE_CONTEXT);
+    Sandesh::set_response_callback(
+        boost::bind(&QosConfigKSyncObject::ReadVrouterEntriesResp, this, _1));
+    req->HandleRequest();
+    req->Release();
+}
+void QosConfigKSyncObject::ReadVrouterEntriesResp(Sandesh *sandesh) {
+    if (sandesh->context() !=  LLGR_KSYNC_RESTORE_CONTEXT) {
+        // ignore callback, if context is not relevant
+        return;
+    }
+    KQosConfigResp *response = dynamic_cast<KQosConfigResp *>(sandesh);
+    if (response != NULL) {
+        for(std::vector<KQosConfig>::const_iterator it
+                = response->get_qos_config_list().begin();
+                it != response->get_qos_config_list().end();it++) {
+            QosConfigKSyncRestoreData::KQosConfigPtr 
+                            qos_config_info(new KQosConfig(*it));
+            KSyncRestoreData::Ptr restore_data(
+                        new QosConfigKSyncRestoreData(this, qos_config_info));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(restore_data);
+        }
+        //TODO: check errorresp
+        if (!response->get_more()) {
+            KSyncRestoreData::Ptr end_data(
+                    new KSyncRestoreEndData (this));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(end_data);
+        }
+    }
+
+
+}
+void QosConfigKSyncObject::ProcessVrouterEntries(
+                        KSyncRestoreData::Ptr restore_data) {
+    if(dynamic_cast<KSyncRestoreEndData *>(restore_data.get())) {
+        ksync()->ksync_restore_manager()->UpdateKSyncRestoreStatus(
+                    KSyncRestoreManager::KSYNC_TYPE_QOS_CONFIG);
+        return;
+    }
+    QosConfigKSyncRestoreData *dataPtr = 
+        dynamic_cast<QosConfigKSyncRestoreData *>(restore_data.get());
+    QosConfigKSyncEntry ksync_entry_key(this,
+                        dataPtr->GetQosConfigEntry()->get_id());
+    QosConfigKSyncEntry *ksync_entry_ptr =
+        static_cast<QosConfigKSyncEntry *>(Find(&ksync_entry_key));
+    if (ksync_entry_ptr == NULL) {
+        ksync_entry_ptr = 
+        static_cast<QosConfigKSyncEntry *>(CreateStale(&ksync_entry_key));
+    }
+    
 }
