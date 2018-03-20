@@ -56,7 +56,8 @@
               "physical_router_management_ip": "{{ item.host }}",
               "physical_router_vendor_name": "{{ item.vendor }}",
               "physical_router_product_name": "{{ item.product }}",
-              "physical_router_device_family": "{{ item.family }}"
+              "physical_router_device_family": "{{ item.family }}",
+              "physical_router_vnc_managed": True
            }
         auth_token: "{{ auth_token }}"
         api_server_host: "{{ api_server_host }}"

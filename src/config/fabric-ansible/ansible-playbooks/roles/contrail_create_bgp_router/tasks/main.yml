@@ -23,12 +23,12 @@
             {
               "vendor": "{{ prouter_info.physical_router_vendor_name | default('Juniper')}}",
               "router_type": "router",
-              "address": "{{ prouter_info.physical_router_management_ip }}",
-              "identifier": "{{ prouter_info.physical_router_management_ip }}",
+              "address": "{{ prouter_info.physical_router_loopback_ip }}",
+              "identifier": "{{ prouter_info.physical_router_loopback_ip }}",
               "address_families": {
-                "family": ["inet-vpn", "inet6-vpn", "route-target", "e-vpn", "inet"]
+                "family": ["inet-vpn", "inet6-vpn", "route-target", "e-vpn"]
               },
-              "autonomous_system": "{{as_numbers[0]}}"
+              "autonomous_system": {{as_numbers[0]}}
             }
           }
         auth_token: "{{auth_token}}"
