@@ -17,7 +17,7 @@ import gevent
 import ConfigParser
 
 from nodemgr.common.event_manager import EventManager, package_installed
-from nodemgr.database_nodemgr.common import CassandraManager
+from nodemgr.common.cassandra_manager import CassandraManager
 
 from ConfigParser import NoOptionError
 
@@ -28,9 +28,7 @@ from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT, UVENodeTypeNames
-from subprocess import Popen, PIPE
-from StringIO import StringIO
+    Module2NodeType, UVENodeTypeNames
 
 from nodemgr.common.sandesh.nodeinfo.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
@@ -41,6 +39,7 @@ from pysandesh.connection_info import ConnectionState
 class ConfigEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr,
+                 hostip, db_port, minimum_diskgb, contrail_databases,
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
         self.node_type = "contrail-config"
@@ -50,11 +49,21 @@ class ConfigEventManager(EventManager):
         self.module_id = ModuleNames[self.module]
         self.cassandra_repair_interval = cassandra_repair_interval
         self.cassandra_repair_logdir = cassandra_repair_logdir
-        self.cassandra_mgr = CassandraManager(cassandra_repair_logdir)
+        self.hostip = hostip
+        self.db_port = db_port
+        self.minimum_diskgb = minimum_diskgb
+        self.contrail_databases = contrail_databases
+        self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
+                                              'configDb', self.contrail_databases,
+                                              self.hostip, self.minimum_diskgb,
+                                              self.db_port)
         if os.path.exists('/tmp/supervisord_config.sock'):
             self.supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
         else:
             self.supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
+
+        self.db = package_installed('contrail-openstack-database')
+        self.config_db = package_installed('contrail-database-common')
         self.add_current_process()
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]
@@ -66,7 +75,7 @@ class ConfigEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8100, ['nodemgr.common.sandesh'], _disc)
+            self.module_id, 8100, ['database.sandesh', 'nodemgr.common.sandesh'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(),
 		self.module_id, self.instance_id,
@@ -74,6 +83,8 @@ class ConfigEventManager(EventManager):
                 NodeStatusUVE, NodeStatus, self.table)
         self.send_system_cpu_info()
         self.third_party_process_dict = {}
+        self.third_party_process_dict["cassandra"] = "Dcassandra-pidfile=.*cassandra\.pid"
+        self.third_party_process_dict["zookeeper"] = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
     # end __init__
 
     def process(self):
@@ -82,6 +93,8 @@ class ConfigEventManager(EventManager):
                 "supervisord_config_files/contrail-config.rules"
         json_file = open(self.rule_file)
         self.rules_data = json.load(json_file)
+        if not self.db and self.config_db:
+            self.cassandra_mgr.process(self)
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
@@ -99,13 +112,22 @@ class ConfigEventManager(EventManager):
             fail_status_bits, ProcessStateNames, ProcessState)
 
     def do_periodic_events(self):
-        db = package_installed('contrail-opesntack-database')
-        config_db = package_installed('contrail-database-common')
-        if not db and config_db:
-            # Record cluster status and shut down cassandra if needed
-            self.cassandra_mgr.status()
-        self.event_tick_60()
-        if not db and config_db:
+        if not self.db and self.config_db:
+            self.cassandra_mgr.database_periodic(self)
             # Perform nodetool repair every cassandra_repair_interval hours
             if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
                 self.cassandra_mgr.repair()
+        self.event_tick_60()
+
+    def get_failbits_nodespecific_desc(self, fail_status_bits):
+        description = ""
+        if fail_status_bits & self.FAIL_STATUS_DISK_SPACE:
+            description += "Disk for config db is too low," + \
+                " cassandra stopped."
+        if fail_status_bits & self.FAIL_STATUS_SERVER_PORT:
+            if description != "":
+                description += " "
+            description += "Cassandra state detected DOWN."
+        if fail_status_bits & self.FAIL_STATUS_DISK_SPACE_NA:
+            description += "Disk space for config db not retrievable."
+        return description

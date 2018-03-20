@@ -68,6 +68,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     default = {'rules': '',
                'collectors': [],
                'hostip': '127.0.0.1',
+               'db_port': '9042',
                'minimum_diskgb': 256,
                'contrail_databases': 'config analytics',
                'cassandra_repair_interval': 24,
@@ -123,8 +124,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                              'ip1:port1 ip2:port2')
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
-    if (node_type == 'contrail-database'):
-        parser.add_argument("--minimum_diskgb",
+    if (node_type == 'contrail-database' or node_type == 'contrail-config'):
+        parser.add_argument("--minimum_diskGB",
                             type=int,
                             help="Minimum disk space in GB's")
         parser.add_argument("--contrail_databases",
@@ -133,6 +134,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                                  'in format: config analytics' )
         parser.add_argument("--hostip",
                             help="IP address of host")
+        parser.add_argument("--db_port",
+                            help="Cassandra DB cql port")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")
@@ -164,11 +167,16 @@ def main(args_str=' '.join(sys.argv[1:])):
             rule_file, discovery_server,
             discovery_port, collector_addr)
     elif (node_type == 'contrail-config'):
+        hostip = _args.hostip
+        db_port = _args.db_port
+        minimum_diskgb = _args.minimum_diskgb
+        contrail_databases = _args.contrail_databases
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = ConfigEventManager(
             rule_file, discovery_server,
             discovery_port, collector_addr,
+            hostip, db_port, minimum_diskgb, contrail_databases,
             cassandra_repair_interval, cassandra_repair_logdir)
     elif (node_type == 'contrail-control'):
         prog = ControlEventManager(
@@ -180,6 +188,7 @@ def main(args_str=' '.join(sys.argv[1:])):
             discovery_port, collector_addr)
     elif (node_type == 'contrail-database'):
         hostip = _args.hostip
+        db_port = _args.db_port
         minimum_diskgb = _args.minimum_diskgb
         contrail_databases = _args.contrail_databases
         cassandra_repair_interval = _args.cassandra_repair_interval
@@ -187,7 +196,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         prog = DatabaseEventManager(
             rule_file, discovery_server,
             discovery_port, collector_addr,
-            hostip, minimum_diskgb, contrail_databases,
+            hostip, db_port, minimum_diskgb, contrail_databases,
 	    cassandra_repair_interval, cassandra_repair_logdir)
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
