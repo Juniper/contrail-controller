@@ -406,7 +406,6 @@ class TestPolicy(STTestCase, VerifyPolicy):
         def mock_vn_evaluate(self):
             if vn1.get_fq_name_str() == self.name:
                 vn1.vn_evaluate_hit = True
-                print "Bingo"
             orignal_vn_eval()
         #end evaluate
         gevent.sleep(3)
