@@ -226,3 +226,9 @@ class VncKubernetesConfig(object):
     def get_default_sg_name(cls, ns_name='default'):
         sg_name = "-".join([cls.cluster_name(), ns_name, 'default-sg'])
         return sg_name
+
+    @classmethod
+    def is_secure_project_enabled(cls):
+        if cls.args().secure_project == 'True':
+            return True
+        return False
