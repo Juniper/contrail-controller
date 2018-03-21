@@ -37,3 +37,4 @@ source .venv/bin/activate && pip install $installvenvopts -r test-requirements.t
 source .venv/bin/activate && pip install -r ansible/requirements.txt
 source .venv/bin/activate && pip install -r ansible/test/runner/requirements/units.txt
 source .venv/bin/activate && source ansible/hacking/env-setup && ansible-test units --python 2.7 junos_facts
+source .venv/bin/activate && source ansible/hacking/env-setup && ansible-test units --python 2.7 swift_fileutil
