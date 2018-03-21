@@ -4469,13 +4469,6 @@ class VncApiServer(object):
                 else:
                     msg = "Only 'commit' or 'revert' actions are supported"
                     raise cfgm_common.exceptions.HttpError(400, msg)
-                # Remove draft policy mode on the scope, that will delete
-                # dedicated policy management
-                self.internal_request_update(
-                    scope_class.resource_type,
-                    scope_uuid,
-                    {'enable_security_policy_draft': False},
-                )
             finally:
                 scope_lock.release()
         else:
@@ -4514,14 +4507,17 @@ class VncApiServer(object):
                 # Purge pending resource as we re-use the same UUID
                 self.internal_request_delete(r_class.object_type,
                                              child['uuid'])
-                if uuid and draft.get('pending_delete', False):
+                if (uuid and
+                        draft['draft_mode_state'] == 'deleted'):
                     # The resource is removed, we can purge
                     # original resource
                     actions.append(('delete', (r_class.object_type, uuid)))
-                elif uuid and not draft.get('pending_delete', False):
+                elif (uuid and
+                        draft['draft_mode_state'] == 'updated'):
                     # Update orginal resource with pending resource
                     draft.pop('fq_name', None)
                     draft.pop('uuid', None)
+                    draft.pop('draft_mode_state', None)
                     if 'id_perms' in draft:
                         draft['id_perms'].pop('uuid', None)
                     draft['parent_type'] = scope_class.resource_type
@@ -4530,10 +4526,12 @@ class VncApiServer(object):
                         scope_fq_name, pm['fq_name'], type_name, draft)
                     actions.append(('update', (r_class.resource_type, uuid,
                                                copy.deepcopy(draft))))
-                else:
+                elif (not uuid and
+                        draft['draft_mode_state'] == 'created'):
                     # Create new resource with pending values (re-use UUID)
                     draft.pop('id_perms', None)
                     draft.pop('perms2', None)
+                    draft.pop('draft_mode_state', None)
                     draft['fq_name'] = fq_name
                     draft['parent_type'] = scope_class.resource_type
                     draft['parent_uuid'] = scope_uuid
@@ -4541,6 +4539,15 @@ class VncApiServer(object):
                         scope_fq_name, pm['fq_name'], type_name, draft)
                     actions.append(('create', (r_class.resource_type,
                                                copy.deepcopy(draft))))
+                else:
+                    msg = (
+                        "Try to commit a security resource %s (%s) with "
+                        "invalid state '%s'. Ignore it." %
+                        (':'.join(draft.get('fq_name', ['FQ name unknown'])),
+                         draft.get('uuid', 'UUID unknown'),
+                         draft.get('draft_mode_state', 'No draft mode state'))
+                    )
+                    self.config_log(msg, level=SandeshLevel.SYS_WARN)
 
         actions.reverse()
         for action, args in actions:

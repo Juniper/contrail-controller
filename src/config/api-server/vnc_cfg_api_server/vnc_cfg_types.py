@@ -272,6 +272,19 @@ class SecurityResourceBase(Resource):
 
         return True, ''
 
+    @staticmethod
+    def check_draft_mode_state(obj_dict):
+        if is_internal_request():
+            # system only property
+            return True, ''
+
+        if 'draft_mode_state' in obj_dict:
+            msg = ("Security resource property 'draft_mode_state' is only "
+                   "readable")
+            return False, (400, msg)
+
+        return True, ''
+
     @classmethod
     def set_policy_management_for_security_draft(cls, scope, obj_dict,
                                                  draft_mode_enabled=False):
@@ -357,27 +370,24 @@ class SecurityResourceBase(Resource):
 
     @classmethod
     def pending_dbe_create(cls, obj_dict):
-        return cls._pending_update(obj_dict)
+        return cls._pending_update(obj_dict, 'created')
 
     @classmethod
     def pending_dbe_update(cls, obj_dict, delta_obj_dict=None,
                            prop_collection_updates=None):
-        return cls._pending_update(obj_dict, delta_obj_dict,
+        return cls._pending_update(obj_dict, 'updated', delta_obj_dict,
                                    prop_collection_updates)
 
     @classmethod
     def pending_dbe_delete(cls, obj_dict):
-        return cls._pending_update(obj_dict, {'pending_delete': True})
+        return cls._pending_update(obj_dict, 'deleted')
 
     @classmethod
-    def _pending_update(cls, obj_dict, delta_obj_dict=None,
+    def _pending_update(cls, obj_dict, draft_mode_state, delta_obj_dict=None,
                         prop_collection_updates=None):
         if is_internal_request():
             # Ignore all internal calls to not pending pending actions
             return True, ''
-
-        updating = (delta_obj_dict is not None or
-                    prop_collection_updates is not None)
 
         ok, result = cls._get_dedicated_draft_policy_management(obj_dict)
         if not ok:
@@ -409,8 +419,8 @@ class SecurityResourceBase(Resource):
             if len(contenders) > 0 and contenders[0]:
                 _, _, action_in_progress = contenders[0].partition(' ')
             msg = ("Action '%s' on %s '%s' (%s) scope is under progress. "
-                "Cannot modify %s security resource." %
-                (action_in_progress, scope_type.replace('_', ' ').title(),
+                   "Cannot modify %s security resource." %
+                   (action_in_progress, scope_type.replace('_', ' ').title(),
                     ':'.join(scope_fq_name), scope_uuid,
                     cls.object_type.replace('_', ' ').title()))
             return False, (400, msg)
@@ -420,13 +430,13 @@ class SecurityResourceBase(Resource):
             delta_obj_dict = {}
         delta_obj_dict.pop('uuid', None)
 
-        # if the parent is already the draft policy management, it's updating
+        # if the parent is already the draft policy management, its updating
         # the draft version of the resource. We can ignore it and let classic
         # update code operated
         if (obj_dict['fq_name'][-2] ==
                 constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
-            delta_obj_dict.pop('pending_delete', None)
-            if updating and obj_dict.get('pending_delete', False):
+            delta_obj_dict.pop('draft_mode_state', None)
+            if obj_dict['draft_mode_state'] == 'deleted':
                 # Cannot update a pending deleted resource
                 msg = ("%s %s is in pending delete, cannot be updated" %
                        (cls.object_type.replace('_', ' ').title(),
@@ -434,10 +444,10 @@ class SecurityResourceBase(Resource):
                 return False, (400, msg)
             return True, ''
 
-        # Locate draft version of the resource
+        # Locate draft version of the resource, if does not exits, create it
         draft_fq_name = draft_pm['fq_name'] + obj_dict['fq_name'][-1:]
         # Check if it's trying to create a resource already in pending create
-        if not updating:
+        if draft_mode_state == 'created':
             try:
                 cls.db_conn.fq_name_to_uuid(cls.object_type, draft_fq_name)
                 msg = ("%s named %s was already created and it is pending to "
@@ -453,15 +463,19 @@ class SecurityResourceBase(Resource):
         obj_dict.pop('uuid', None)
         if 'id_perms' in obj_dict:
             obj_dict['id_perms'].pop('uuid', None)
+        # Set draft mode to created, if draft resource already exists, property
+        # will be read from the DB, if not state need to be set to 'created'
+        obj_dict['draft_mode_state'] = draft_mode_state
         ok, result = cls.locate(fq_name=draft_fq_name, **obj_dict)
         if not ok:
             return False, result
         draft_obj_dict = result
 
-        if updating:
-            if draft_obj_dict.get('pending_delete', False):
-                delta_obj_dict.pop('pending_delete', None)
-                # Cannot update a pending deleted resource
+        # Allow to update pending created or updated security resources
+        if draft_mode_state == 'updated':
+            if draft_obj_dict['draft_mode_state'] == 'deleted':
+                delta_obj_dict.pop('draft_mode_state', None)
+                # Disallow to update a pending deleted security resource
                 msg = ("%s %s is in pending delete, cannot be updated" %
                        (cls.object_type.replace('_', ' ').title(),
                         ':'.join(obj_dict['fq_name'])))
@@ -2087,6 +2101,9 @@ class BridgeDomainServer(Resource, BridgeDomain):
 class ServiceGroupServer(SecurityResourceBase, ServiceGroup):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result
 
         # create protcol id
         try:
@@ -2435,6 +2452,10 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result
+
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
             obj_dict['uuid'],
             obj_dict['fq_name'],
@@ -2506,6 +2527,10 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result
+
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, AddressGroup)
         if not ok:
@@ -2575,6 +2600,10 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result
+
         return cls.check_associated_firewall_resource_in_same_scope(
             obj_dict['uuid'],
             obj_dict['fq_name'],
@@ -2584,6 +2613,10 @@ class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result
+
         return cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, FirewallRuleServer)
 
@@ -2599,6 +2632,10 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result
+
         ok, result = cls._check_all_applications_flag(obj_dict)
         if not ok:
             return False, result
@@ -2612,6 +2649,10 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.check_draft_mode_state(obj_dict)
+        if not ok:
+            return False, result
+
         ok, result = cls._check_all_applications_flag(obj_dict)
         if not ok:
             return False, result
@@ -5427,7 +5468,13 @@ class PolicyManagementServer(Resource, PolicyManagement):
 
 
 class AddressGroupServer(SecurityResourceBase, AddressGroup):
-    pass
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls.check_draft_mode_state(obj_dict)
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls.check_draft_mode_state(obj_dict)
 
 
 class RouteTargetServer(Resource, RouteTarget):
