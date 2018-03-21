@@ -654,6 +654,7 @@ void AddStaticPreference(std::string intf_name, int intf_id, uint32_t value);
 bool VnMatch(VnListType &vn_list, std::string &vn);
 void SendBgpServiceConfig(const std::string &ip,
                           uint32_t source_port,
+                          uint32_t dest_port,
                           uint32_t id,
                           const std::string &vmi_name,
                           const std::string &vrf_name,
