@@ -10,6 +10,7 @@ This file contains implementation of getting swift temp URL for image upload
 
 DOCUMENTATION = '''
 ---
+
 module: Swift file util
 author: Juniper Networks
 short_description: Private module to get swift temp url of the file
@@ -73,6 +74,7 @@ options:
             - Integer. Expiry time in seconds
         type: int
         required: true
+
 '''
 
 EXAMPLES = '''
@@ -254,3 +256,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
