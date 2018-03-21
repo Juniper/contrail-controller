@@ -99,8 +99,8 @@ void NextHopTable::FreeInterfaceId(size_t index) {
         agent()->resource_manager()->ReleaseIndex(Resource::NEXTHOP_INDEX, index);
     } else {
         agent()->resource_manager()->Release(Resource::NEXTHOP_INDEX, index);
+        index_table_.Remove(index);
     }
-    index_table_.Remove(index);
 }
 
 void NextHop::SetKey(const DBRequestKey *key) {
