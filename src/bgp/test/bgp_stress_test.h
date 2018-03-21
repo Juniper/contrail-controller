@@ -446,8 +446,9 @@ protected:
     void DeleteBgpPeer(int peer_id, bool verify_state);
     void DeleteBgpPeer(std::vector<int> peer_id, bool verify_state);
     void DeleteBgpPeers(int npeers);
-    void ClearBgpPeer(std::vector<int> peer_ids);
+    void ClearBgpPeer(const std::vector<int> &peer_ids);
     void ClearBgpPeers(int npeers);
+    void SetPeerAdminState(int peer_id, bool state);
     void AddRouteTarget(int instance_id, int target);
     void RemoveRouteTarget(int instance_id, int target);
     void AddRoutingInstance(int instance_id, int ntargets);
