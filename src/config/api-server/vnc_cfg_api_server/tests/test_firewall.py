@@ -938,6 +938,39 @@ class FirewallDraftModeBase(object):
         with ExpectedException(NoIdError):
             self.api.policy_management_read(fq_name=self._draft_pm_fq_name)
 
+    def test_cannot_set_draft_mode_state(self):
+        self.set_scope_instance(draft_enable=False)
+
+        for r_class in self.SECURITY_RESOURCES:
+            resource = r_class(
+                name='%s-%s' % (r_class.resource_type, self.id()),
+                parent_obj=self._scope,
+            )
+            if r_class == FirewallRule:
+                resource.set_service(FirewallServiceType())
+            resource.draft_mode_state = 'deleted'
+            with ExpectedException(BadRequest):
+                getattr(self.api, '%s_create' % r_class.object_type)(resource)
+
+    def test_cannot_update_draft_mode_state(self):
+        self.set_scope_instance(draft_enable=False)
+        resources = []
+        for r_class in self.SECURITY_RESOURCES:
+            resource = r_class(
+                name='%s-%s' % (r_class.resource_type, self.id()),
+                parent_obj=self._scope,
+            )
+            if r_class == FirewallRule:
+                resource.set_service(FirewallServiceType())
+            getattr(self.api, '%s_create' % r_class.object_type)(resource)
+            resources.append(resource)
+
+        for resource in resources:
+            resource.draft_mode_state = 'created'
+
+            with ExpectedException(BadRequest):
+                getattr(self.api, '%s_update' % resource.object_type)(resource)
+
     def test_create_security_resources(self):
         self.set_scope_instance()
 
@@ -968,6 +1001,7 @@ class FirewallDraftModeBase(object):
             self.assertEqual(pending_resource.parent_type,
                              PolicyManagement.resource_type)
             self.assertEqual(pending_fq_name[:-1], self._draft_pm_fq_name)
+            self.assertEqual(pending_resource.draft_mode_state, 'created')
 
     def test_update_security_resources(self):
         self.set_scope_instance(draft_enable=False)
@@ -982,6 +1016,7 @@ class FirewallDraftModeBase(object):
             getattr(self.api, '%s_create' % r_class.object_type)(resource)
             resources.append(resource)
             self.assertEqual(resource.parent_type, self._scope.resource_type)
+            self.assertIsNone(resource.draft_mode_state)
         self._scope.enable_security_policy_draft = True
         getattr(self.api, '%s_update' % self._scope.object_type)(self._scope)
 
@@ -997,6 +1032,7 @@ class FirewallDraftModeBase(object):
             resource = getattr(
                 self.api, '%s_read' % resource.object_type)(resource.fq_name)
             self.assertEqual(resource.display_name, old_resource_name)
+            self.assertIsNone(resource.draft_mode_state)
 
             # Cloned pending resource was created with updated properties and
             # owned by dedicated policy management
@@ -1016,6 +1052,7 @@ class FirewallDraftModeBase(object):
             self.assertEqual(pending_resource.parent_type,
                              PolicyManagement.resource_type)
             self.assertEqual(pending_fq_name[:-1], self._draft_pm_fq_name)
+            self.assertEqual(pending_resource.draft_mode_state, 'updated')
 
     def test_collection_update_security_resources(self):
         self.set_scope_instance(draft_enable=False)
@@ -1030,6 +1067,7 @@ class FirewallDraftModeBase(object):
             getattr(self.api, '%s_create' % r_class.object_type)(resource)
             resources.append(resource)
             self.assertEqual(resource.parent_type, self._scope.resource_type)
+            self.assertIsNone(resource.draft_mode_state)
         self._scope.enable_security_policy_draft = True
         getattr(self.api, '%s_update' % self._scope.object_type)(self._scope)
 
@@ -1041,6 +1079,7 @@ class FirewallDraftModeBase(object):
             resource = getattr(
                 self.api, '%s_read' % resource.object_type)(resource.fq_name)
             self.assertIsNone(resource.get_annotations())
+            self.assertIsNone(resource.draft_mode_state)
 
             # Cloned pending resource was created with updated properties and
             # owned by dedicated policy management
@@ -1063,6 +1102,7 @@ class FirewallDraftModeBase(object):
             self.assertEqual(pending_resource.parent_type,
                              PolicyManagement.resource_type)
             self.assertEqual(pending_fq_name[:-1], self._draft_pm_fq_name)
+            self.assertEqual(pending_resource.draft_mode_state, 'updated')
 
     def test_delete_security_resources(self):
         self.set_scope_instance(draft_enable=False)
@@ -1077,6 +1117,7 @@ class FirewallDraftModeBase(object):
             getattr(self.api, '%s_create' % r_class.object_type)(resource)
             resources.append(resource)
             self.assertEqual(resource.parent_type, self._scope.resource_type)
+            self.assertIsNone(resource.draft_mode_state)
         self._scope.enable_security_policy_draft = True
         getattr(self.api, '%s_update' % self._scope.object_type)(self._scope)
 
@@ -1091,7 +1132,7 @@ class FirewallDraftModeBase(object):
             except NoIdError:
                 self.fail("%s was deleted while the draft mode is enable." %
                           resource.object_type.replace('_', ' ').title())
-            self.assertFalse(resource.pending_delete)
+            self.assertIsNone(resource.draft_mode_state)
 
             # Cloned pending resource was created with pending delete set to
             # true and owned by dedicated policy management
@@ -1101,7 +1142,7 @@ class FirewallDraftModeBase(object):
             self.assertEqual(pending_resource.parent_type,
                              PolicyManagement.resource_type)
             self.assertEqual(pending_fq_name[:-1], self._draft_pm_fq_name)
-            self.assertTrue(pending_resource.pending_delete)
+            self.assertEqual(pending_resource.draft_mode_state, 'deleted')
 
     def test_create_security_resource_in_pending_create(self):
         self.set_scope_instance()
@@ -1365,7 +1406,7 @@ class FirewallDraftModeBase(object):
             self.assertTrue(scope_lock.acquire(blocking=False))
             scope_lock.release()
 
-    def test_draft_disabled_after_commit_done(self):
+    def test_draft_mode_still_enabled_after_commit_or_revert_done(self):
         self.set_scope_instance()
         scope_read = getattr(self.api, '%s_read' % self._scope.object_type)
         scope_update = getattr(self.api, '%s_update' % self._scope.object_type)
@@ -1374,7 +1415,7 @@ class FirewallDraftModeBase(object):
             self.assertTrue(self._scope.enable_security_policy_draft)
             getattr(self.api, '%s_security' % action)(self._scope)
             self._scope = scope_read(id=self._scope.uuid)
-            self.assertFalse(self._scope.enable_security_policy_draft)
+            self.assertTrue(self._scope.enable_security_policy_draft)
             self._scope.enable_security_policy_draft = True
             scope_update(self._scope)
 
@@ -1489,14 +1530,20 @@ class FirewallDraftModeBase(object):
         with ExpectedException(NoIdError):
             self.api.firewall_policy_read(fq_name=future_fq_name)
         try:
-            self.api.firewall_policy_read(id=fp.uuid)
+            fp_draft_from_uuid = self.api.firewall_policy_read(id=fp.uuid)
         except NoIdError:
             self.fail("Cannot read the pending created Firewall Policy")
         try:
-            self.api.firewall_policy_read_draft(fq_name=future_fq_name)
+            fp_draft_from_fq_name = self.api.firewall_policy_read_draft(
+                fq_name=future_fq_name)
         except NoIdError:
             self.fail("Cannot read the draft version of the pending created "
                       "Firewall Policy")
+        self.assertEqual(fp_draft_from_fq_name.uuid, fp_draft_from_uuid.uuid)
+        self.assertEqual(fp_draft_from_fq_name.fq_name,
+                         fp_draft_from_uuid.fq_name)
+        self.assertEqual(fp_draft_from_fq_name.draft_mode_state, 'created')
+        self.assertEqual(fp_draft_from_uuid.draft_mode_state, 'created')
 
     def test_read_draft_version_of_updated_security_resource(self):
         self.set_scope_instance(draft_enable=False)
@@ -1533,6 +1580,9 @@ class FirewallDraftModeBase(object):
         self.assertEqual(fp.display_name, old_fp_name)
         self.assertEqual(fp_draft_from_fq_name.display_name, new_fp_name)
         self.assertEqual(fp_draft_from_uuid.display_name, new_fp_name)
+        self.assertIsNone(fp.draft_mode_state)
+        self.assertEqual(fp_draft_from_fq_name.draft_mode_state, 'updated')
+        self.assertEqual(fp_draft_from_uuid.draft_mode_state, 'updated')
 
     def test_read_draft_version_of_deleted_security_resource(self):
         self.set_scope_instance(draft_enable=False)
@@ -1549,7 +1599,6 @@ class FirewallDraftModeBase(object):
         except NoIdError:
             self.fail("Cannot read the draft version of the pending deleted "
                       "Firewall Policy")
-        fp = self.api.firewall_policy_read(id=fp.uuid)
         try:
             fp_draft_from_uuid = self.api.firewall_policy_read_draft(
                 id=fp.uuid)
@@ -1563,9 +1612,9 @@ class FirewallDraftModeBase(object):
         self.assertNotEqual(fp.fq_name, fp_draft_from_uuid.fq_name)
         self.assertEqual(fp_draft_from_fq_name.fq_name,
                          fp_draft_from_uuid.fq_name)
-        self.assertFalse(fp.pending_delete)
-        self.assertTrue(fp_draft_from_fq_name.pending_delete)
-        self.assertTrue(fp_draft_from_uuid.pending_delete)
+        self.assertIsNone(fp.draft_mode_state)
+        self.assertEqual(fp_draft_from_fq_name.draft_mode_state, 'deleted')
+        self.assertEqual(fp_draft_from_uuid.draft_mode_state, 'deleted')
 
     def _setup_complex_security_environment(self):
         self.vn1 = VirtualNetwork('vn1-%s' % self.id(),
