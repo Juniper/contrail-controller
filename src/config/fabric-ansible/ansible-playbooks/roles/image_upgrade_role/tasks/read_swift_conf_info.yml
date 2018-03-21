@@ -3,15 +3,10 @@
     message: "Read swift config info"
     status: "in-progress"
 
-- name: Read swift config from conf file or etcd
+- name: Read swift config from swift_conf.ini file
   block:
     - set_fact:
-        keystoneip: "{{ lookup('ini', 'keystoneip section=DEFAULT file=conf/swift_conf.ini') }}"
-        user: "{{ lookup('ini', 'user section=DEFAULT file=conf/swift_conf.ini') }}"
-        key: "{{ lookup('ini', 'key section=DEFAULT file=conf/swift_conf.ini') }}"
-        tenant_name: "{{ lookup('ini', 'tenant_name section=DEFAULT file=conf/swift_conf.ini default=admin') }}"
-        region_name: "{{ lookup('ini', 'region_name section=DEFAULT file=conf/swift_conf.ini default=sunnyvale') }}"
-        auth_version: "{{ lookup('ini', 'auth_version section=DEFAULT file=conf/swift_conf.ini default=2.0') }}"
+        keystone_conf_path: "{{ lookup('ini', 'keystone_conf_path section=DEFAULT file=conf/swift_conf.ini default=/etc/contrail/contrail-keystone-auth.conf') }}"
         temp_url_key: "{{ lookup('ini', 'temp_url_key section=DEFAULT file=conf/swift_conf.ini default=mykey') }}"
         temp_url_key_2: "{{ lookup('ini', 'temp_url_key_2 section=DEFAULT file=conf/swift_conf.ini default=mykey2') }}"
         chosen_temp_url_key: "{{ lookup('ini', 'chosen_temp_url_key section=DEFAULT file=conf/swift_conf.ini default=temp_url_key') }}"
@@ -29,38 +24,26 @@
           }
         jl_err_message: "Error reading swift conf file: {{swift_info.msg}}"
 
-
-- name: get Keystone Token for cso server
-  uri:
-    url: http://{{keystoneip}}:5000/v3/auth/tokens
-    method: POST
-    status_code: 201
-    headers:
-      Content-Type: "application/json"
-    body_format: json
-    body: |
-      {
-        "auth": {
-          "identity": {
-            "methods": ["password"],
-            "password": {
-              "user": {
-                "name": "admin",
-                "domain": { "id": "default" },
-                "password": "{{key}}"
-              }
-            }
-          },
-          "scope": {
-            "project": {
-              "name": "admin",
-              "domain": { "id": "default" }
-            }
+- name: Read keystone config from contrail-keystone-auth.conf file
+  block:
+    - set_fact:
+        auth_url: "{{ lookup('ini', 'auth_url section=KEYSTONE file='+keystone_conf_path) }}"
+        keystoneip: "{{ lookup('ini', 'auth_host section=KEYSTONE file='+keystone_conf_path) }}"
+        user: "{{ lookup('ini', 'admin_user section=KEYSTONE file='+keystone_conf_path) }}"
+        key: "{{ lookup('ini', 'admin_password section=KEYSTONE file='+keystone_conf_path) }}"
+        tenant_name: "{{ lookup('ini', 'admin_tenant_name section=KEYSTONE default=admin file='+keystone_conf_path) }}"
+      register: keystone_info
+  rescue:
+    - include_tasks: error_handler.yml
+      vars:
+        op_err_message: "Error reading swift conf file: {{keystone_info.msg}}"
+        results: |
+          {
+            "prouter_uuid": "{{prouter_uuid}}",
+            "image_uuid": "{{image_uuid}}",
+            "msg": "Error reading keystone_info file."
           }
-        }
-      }
-  register: cso_keystone
+        jl_err_message: "Error reading swift conf file: {{keystone_info.msg}}"
 
 - set_fact:
-    authtoken: "{{cso_keystone.x_subject_token}}"
-    authurl: "http://{{keystoneip}}:35357/v2.0/"
+    auth_version: "{{auth_url.split('/')[-1].replace('v','')}}"
