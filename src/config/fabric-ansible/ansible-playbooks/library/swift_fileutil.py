@@ -10,7 +10,6 @@ This file contains implementation of getting swift temp URL for image upload
 
 DOCUMENTATION = '''
 ---
-
 module: Swift file util
 author: Juniper Networks
 short_description: Private module to get swift temp url of the file
@@ -43,17 +42,11 @@ options:
         type: string
         required: false
         default: 'admin'
-    region_name:
-        description:
-            - Swift region name.
-        type: string
-        required: false
-        default: 'sunnyvale'
     auth_version:
         description:
             - Keystone Auth version.
         required: false
-        default: '2.0'
+        default: '3.0'
     temp_url_key:
         description:
             - Temp url key
@@ -80,7 +73,6 @@ options:
             - Integer. Expiry time in seconds
         type: int
         required: true
-
 '''
 
 EXAMPLES = '''
@@ -107,7 +99,7 @@ import time
 from urlparse import urlparse
 import swiftclient
 import swiftclient.utils
-from ansible.module_utils.basic import AnsibleModule 
+from ansible.module_utils.basic import AnsibleModule
 from threading import RLock
 
 connection_lock = RLock()
@@ -115,10 +107,9 @@ connection_lock = RLock()
 
 class FileSvcUtil(object):  # pragma: no cover
     def __init__(self, authtoken, authurl, user, key, tenant_name,
-                 region_name, auth_version, container_name, temp_url_key,
+                 auth_version, container_name, temp_url_key,
                  temp_url_key2, chosen_temp_url_key):
         self.requests = requests
-        self.region_name = region_name
         self.authurl = authurl
         self.preauthtoken = authtoken
         self.user = user
@@ -149,8 +140,7 @@ class FileSvcUtil(object):  # pragma: no cover
                                                           tenant_name=self.tenant_name,
                                                           auth_version=self.auth_version,
                                                           timeout=self.conn_timeout_sec,
-                                                          insecure=True,
-                                                          os_options={'region_name': self.region_name})
+                                                          insecure=True)
                 self.swift_conn = swiftconn
                 swiftconn.get_account()
                 self.storageurl = swiftconn.url
@@ -217,8 +207,7 @@ def main():
             user=dict(required=True),
             key=dict(required=True),
             tenant_name=dict(required=False, default="admin"),
-            region_name=dict(required=False, default="sunnyvale"),
-            auth_version=dict(required=False, default='2.0'),
+            auth_version=dict(required=False, default='3.0'),
             temp_url_key=dict(required=True),
             temp_url_key_2=dict(required=True),
             chosen_temp_url_key=dict(required=False, default="temp_url_key"),
@@ -233,7 +222,6 @@ def main():
     user = m_args['user']
     key = m_args['key']
     tenant_name = m_args['tenant_name']
-    region_name = m_args['region_name']
     auth_version = m_args['auth_version']
     temp_url_key = m_args['temp_url_key']
     temp_url_key_2 = m_args['temp_url_key_2']
@@ -247,7 +235,7 @@ def main():
     error_msg = ''
     try:
         fileutil = FileSvcUtil(authtoken, authurl, user, key, tenant_name,
-                               region_name, auth_version, container_name, temp_url_key,
+                               auth_version, container_name, temp_url_key,
                                temp_url_key_2, chosen_temp_url_key)
 
         url = fileutil.getObjTempUrl(filename, int(expirytime))
@@ -266,4 +254,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
