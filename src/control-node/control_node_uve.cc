@@ -93,8 +93,14 @@ void ControlNode::StartControlNodeInfoLogger(
 }
 
 void ControlNode::Shutdown() {
+    node_info_trigger->set_disable();
+    while (node_info_trigger->IsSet())
+        usleep(100);
     node_info_trigger.reset();
     if (node_info_log_timer.get()) {
+        node_info_log_timer->Cancel();
+        while (node_info_log_timer->running() || node_info_log_timer->fired())
+            usleep(100);
         TimerManager::DeleteTimer(node_info_log_timer.get());
         node_info_log_timer.release();
     }
