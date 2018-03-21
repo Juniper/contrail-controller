@@ -93,7 +93,7 @@ public:
     typedef std::vector<std::string> TunnelEndpointList;
 
     CryptTunnelTable(Agent *agent, DB *db, const std::string &name);
-    virtual ~CryptTunnelTable() { }
+    virtual ~CryptTunnelTable();
 
     void set_vr_crypt(bool vr_crypt) { vr_to_vr_crypt_ = vr_crypt;}
     void set_crypt_interface(const Interface *interface) { crypt_interface_ = interface;}
@@ -123,14 +123,14 @@ public:
     static CryptTunnelTable *GetInstance() {return crypt_tunnel_table_;};
 
     bool TunnelEventProcess(CryptTunnelEvent *event);
-    void TunnelEventEnqueue(CryptTunnelEvent *event) const;
+    void TunnelEventEnqueue(CryptTunnelEvent *event);
 
 private:
     static CryptTunnelTable* crypt_tunnel_table_;
     bool ChangeHandler(CryptTunnelEntry *entry, const DBRequest *req);
     bool vr_to_vr_crypt_;
     InterfaceConstRef crypt_interface_;
-    WorkQueue<CryptTunnelEvent *> *tunnel_event_queue_;
+    WorkQueue<CryptTunnelEvent *> tunnel_event_queue_;
     DISALLOW_COPY_AND_ASSIGN(CryptTunnelTable);
 };
 
