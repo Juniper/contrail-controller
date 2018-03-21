@@ -5,12 +5,11 @@
 
 - name: Get swift tempurl for the image
   swift_fileutil:
-    authtoken: "{{authtoken}}"
-    authurl: "{{authurl}}"
+    authtoken: "{{auth_token}}"
+    authurl: "{{auth_url}}"
     user: "{{user}}"
     key: "{{key}}"
     tenant_name: "{{tenant_name}}"
-    region_name: "{{region_name}}"
     auth_version: "{{auth_version}}"
     temp_url_key: "{{temp_url_key}}"
     temp_url_key_2: "{{temp_url_key_2}}"
