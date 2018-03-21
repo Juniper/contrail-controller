@@ -120,14 +120,8 @@ void KSyncMemory::InitMem() {
 
     assert((cl = nl_register_client()) != NULL);
 
-#ifdef _WIN32
-    cl->cl_win_pipe = CreateFile(KSYNC_PATH, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-    assert(cl->cl_win_pipe != INVALID_HANDLE_VALUE);
-    cl->cl_recvmsg = win_nl_client_recvmsg;
-#else
     assert(nl_socket(cl, AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC) > 0);
     assert(nl_connect(cl, 0, 0) == 0);
-#endif
 
     assert(vrouter_obtain_family_id(cl) > 0);
 

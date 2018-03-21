@@ -466,9 +466,6 @@ void KSync::Shutdown() {
 }
 
 void GenericNetlinkInit() {
-#ifdef _WIN32
-    KSyncSock::SetNetlinkFamilyId(FAKE_NETLINK_FAMILY);
-#else
     struct nl_client    *cl;
     int    family;
 
@@ -480,7 +477,6 @@ void GenericNetlinkInit() {
     LOG(DEBUG, "Vrouter family is " << family);
     KSyncSock::SetNetlinkFamilyId(family);
     nl_free_client(cl);
-#endif
 }
 
 #ifndef _WIN32
