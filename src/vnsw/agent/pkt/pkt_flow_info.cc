@@ -715,6 +715,7 @@ void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
 
     const VnEntry *vn = static_cast<const VnEntry *>(vm_port->vn());
     uint32_t sport = 0;
+    uint32_t dport = 0;
     IpAddress nat_server = IpAddress();
 
     if (vn == NULL) {
@@ -728,7 +729,7 @@ void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
                                        pkt->ip_saddr.to_v4(),
                                        pkt->ip_daddr.to_v4(),
                                        &nat_server,
-                                       &sport) == false) {
+                                       &sport, &dport) == false) {
         return;
     }
 
@@ -740,7 +741,7 @@ void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     nat_ip_saddr = agent->router_id();
     nat_ip_daddr = nat_server;
     nat_sport = sport;
-    nat_dport = pkt->dport;
+    nat_dport = dport;
     if ((nat_ip_daddr == agent->router_id()) &&
         (nat_ip_daddr == nat_ip_saddr)) {
         boost::system::error_code ec;
