@@ -549,6 +549,44 @@ private:
     boost::asio::ip::udp::endpoint server_ep_;
 };
 
+//Unix domain socket class for interacting with user vrouter
+#define KSYNC_AGENT_VROUTER_SOCK_PATH "/var/run/vrouter/dpdk_netlink"
+class KSyncSockUds : public KSyncSock {
+public:
+    KSyncSockUds(boost::asio::io_service &ios);
+    virtual ~KSyncSockUds() {
+        delete rx_buff_;
+        delete rx_buff_q_;
+    }
+
+    virtual uint32_t GetSeqno(char *data);
+    virtual bool IsMoreData(char *data);
+    virtual bool BulkDecoder(char *data, KSyncBulkSandeshContext *ctxt);
+    virtual bool Decoder(char *data, AgentSandeshContext *ctxt);
+    virtual bool Validate(char *data);
+    virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
+    virtual void AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
+                             HandlerCb cb);
+    virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
+    virtual void Receive(boost::asio::mutable_buffers_1);
+    virtual bool Run(void);
+
+    static void Init(boost::asio::io_service &ios,
+                     const std::string &cpu_pin_policy);
+private:
+#ifdef _WIN32
+    //TODO: Win support?
+#else
+    boost::asio::local::stream_protocol::socket sock_;
+    boost::asio::local::stream_protocol::endpoint server_ep_;
+#endif
+    char *rx_buff_;
+    char *rx_buff_q_;
+    size_t remain_;
+    int socket_;
+    int connected_;
+};
+
 class KSyncSockTcpSessionReader : public TcpMessageReader {
 public:
      KSyncSockTcpSessionReader(TcpSession *session, ReceiveCallback callback);
