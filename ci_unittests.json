@@ -14,14 +14,13 @@
     },
     "contrail-config" : {
         "source_directories" : [
-            "controller/src/api-lib",
             "controller/src/config"
         ],
         "scons_test_targets" : [
             "controller/src/config/svc_monitor:test",
             "controller/src/config/schema-transformer:test",
             "controller/src/config/device-manager:test",
-            "controller/src/api-lib:test",
+            "src/contrail-api-client/api-lib:test",
             "controller/src/config/api-server:test",
             "controller/src/config/vnc_openstack:test"
         ],
@@ -29,13 +28,14 @@
     },
     "contrail-api-client" : {
         "source_directories" : [
+            "src/contrail-api-client/api-lib",
             "src/contrail-api-client/schema"
         ],
         "scons_test_targets" : [
             "controller/src/config/svc_monitor:test",
             "controller/src/config/schema-transformer:test",
             "controller/src/config/device-manager:test",
-            "controller/src/api-lib:test",
+            "src/contrail-api-client/api-lib:test",
             "controller/src/config/api-server:test",
             "controller/src/config/vnc_openstack:test",
             "src/contrail-api-client/schema:test"
