@@ -1,0 +1,25 @@
+- name: setting the lo0 address for check
+  set_fact:
+    lo0_address: "{{item}}"
+
+- name: check if it is not 127.0.0.1
+  set_fact:
+    lo0_address_ip: "{{lo0_address.name.split('/')[0]}}"
+    lo0_ip_found: true
+  when:
+    - lo0_address.name != "127.0.0.1/32" and not lo0_ip_found
+
+- name: update the dataplane ip
+  vnc_db_mod:
+    object_type: "physical_router"
+    object_op: "update"
+    auth_token: "{{auth_token}}"
+    object_dict: |
+      {
+        "uuid": "{{playbook_input.device_id}}",
+        "physical_router_dataplane_ip": "{{lo0_address_ip}}",
+        "physical_router_loopback_ip": "{{lo0_address_ip}}"
+      }
+  register: upd_resp_lo0
+  when:
+    - lo0_ip_found

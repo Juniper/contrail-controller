@@ -59,7 +59,7 @@ routing-options {
     {% endfor %}
     }
 {% endif %}
-    router-id {{ junos_host }};
+    router-id {{ prouter_info.physical_router_loopback_ip }};
     autonomous-system {{ as_numbers[0] }};
 }
 

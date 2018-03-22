@@ -56,12 +56,13 @@
               "physical_router_management_ip": "{{ item.host }}",
               "physical_router_vendor_name": "{{ item.vendor }}",
               "physical_router_product_name": "{{ item.product }}",
-              "physical_router_device_family": "{{ item.family }}"
+              "physical_router_device_family": "{{ item.family }}",
+              "physical_router_vnc_managed": True
            }
         auth_token: "{{ auth_token }}"
         api_server_host: "{{ api_server_host }}"
       register: physical_router_uuids
-      when: 
+      when:
         - "physical_router_uuids.failed == false"
       with_items: "{{ host_vendor_mapping }}"
       no_log: True
@@ -100,11 +101,11 @@
         auth_token: "{{ auth_token }}"
         api_server_host: "{{ api_server_host }}"
       register: fabric_ref_update
-      when: 
+      when:
         - "fabric_ref_update.failed == false"
       with_items: "{{ physical_router_uuids.results }}"
       no_log: True
-    
+
     - debug: var=fabric_ref_update
 
     - name: if vnc failed end play

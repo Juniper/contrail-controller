@@ -20,6 +20,27 @@
   when: "'family' in logical_unit and 'ethernet-switching' in logical_unit.family"
 
 - set_fact:
+    lo0_ip_found: false
+
+- name: set lo0 address list
+  set_fact:
+    lo0_address_list: []
+
+- name: extract lo0 ip
+  set_fact:
+    lo0_address_list:
+      - "{{logical_unit.family.inet.address}}"
+  when:
+    - phy_interface_name == "lo0"
+    - "'family' in logical_unit"
+    - "'inet' in logical_unit.family"
+    - "'address' in logical_unit.family.inet"
+
+- name: update data plane ip
+  include_tasks: update_dataplane_ip.yml
+  with_items: "{{ lo0_address_list }}"
+
+- set_fact:
     payload_optional: {}
 
 - set_fact:
