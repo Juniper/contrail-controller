@@ -9,20 +9,20 @@ Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 autogen_infra_sources = [
-                 '#/tools/generateds/generateDS.py',
-                 '#/tools/generateds/TypeGenerator.py',
-                 '#/tools/generateds/ccmap.py',
-                 '#/tools/generateds/idl_parser.py',
-                 '#/tools/generateds/ifmap_global.py',
-                 '#/tools/generateds/ifmap_model.py',
-                 '#/tools/generateds/ifmap_frontend.py',
+                 '#/src/contrail-api-client/generateds/generateDS.py',
+                 '#/src/contrail-api-client/generateds/TypeGenerator.py',
+                 '#/src/contrail-api-client/generateds/ccmap.py',
+                 '#/src/contrail-api-client/generateds/idl_parser.py',
+                 '#/src/contrail-api-client/generateds/ifmap_global.py',
+                 '#/src/contrail-api-client/generateds/ifmap_model.py',
+                 '#/src/contrail-api-client/generateds/ifmap_frontend.py',
                 ]
 
 autogen_sources = [
                  '#controller/src/config/device-manager/device_schema/juniper/juniper_common.xsd',
                 ]
 
-autogen_script = File('#tools/generateds/generateDS.py').path
+autogen_script = File('#src/contrail-api-client/generateds/generateDS.py').path
 autogen_cmd = '%s -f -o %s -g device-api' % (autogen_script, Dir('device_api/juniper_common').path)
 
 generated_files = [

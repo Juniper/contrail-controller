@@ -153,7 +153,7 @@
             "controller/src/sandesh",
             "src/contrail-api-client/schema",
             "controller/src/xml",
-            "tools/generateds",
+            "src/contrail-api-client/generateds",
             "src/contrail-common/sandesh/compiler",
             "src/contrail-common/sandesh/library"
         ],
