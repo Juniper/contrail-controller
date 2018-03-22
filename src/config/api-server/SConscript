@@ -9,13 +9,13 @@ Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 autogen_infra_sources = [
-                 '#/tools/generateds/generateDS.py',
-                 '#/tools/generateds/TypeGenerator.py',
-                 '#/tools/generateds/ccmap.py',
-                 '#/tools/generateds/idl_parser.py',
-                 '#/tools/generateds/ifmap_global.py',
-                 '#/tools/generateds/ifmap_model.py',
-                 '#/tools/generateds/ifmap_frontend.py',
+                 '#/src/contrail-api-client/generateds/generateDS.py',
+                 '#/src/contrail-api-client/generateds/TypeGenerator.py',
+                 '#/src/contrail-api-client/generateds/ccmap.py',
+                 '#/src/contrail-api-client/generateds/idl_parser.py',
+                 '#/src/contrail-api-client/generateds/ifmap_global.py',
+                 '#/src/contrail-api-client/generateds/ifmap_model.py',
+                 '#/src/contrail-api-client/generateds/ifmap_frontend.py',
                 ]
 
 autogen_sources = [
@@ -54,7 +54,7 @@ for file in setup_sources:
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
 
-autogen_script = File('#tools/generateds/generateDS.py').path
+autogen_script = File('#src/contrail-api-client/generateds/generateDS.py').path
 autogen_cmd = '%s -f -o %s -g ifmap-frontend' % (autogen_script, Dir('vnc_cfg_api_server/gen/resource').path)
 
 generated_files = ['vnc_cfg_api_server/gen/__init__.py']
