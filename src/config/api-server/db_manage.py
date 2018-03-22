@@ -127,6 +127,9 @@ class DatabaseManager(object):
         zk_server = self._api_args.zk_server_ip.split(',')[0]
         self._zk_client = kazoo.client.KazooClient(zk_server)
         self._zk_client.start()
+
+        # Get the system global autonomous system
+        self.global_asn = self.get_autonomous_system()
     # end __init__
 
     def _parse_args(self, args_str):
@@ -159,6 +162,17 @@ class DatabaseManager(object):
         self._api_args = utils.parse_args('-c %s %s'
             %(self._args.api_conf, ' '.join(remaining_argv)))[0]
     # end _parse_args
+
+    def get_autonomous_system(self):
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        obj_uuid_table = self._cf_dict['obj_uuid_table']
+        cols = fq_name_table.get(
+            'global_system_config',
+            column_start='default-global-system-config:',
+            column_finish='default-global-system-config;')
+        gsc_uuid = cols.popitem()[0].split(':')[-1]
+        cols = obj_uuid_table.get(gsc_uuid, columns=['prop:autonomous_system'])
+        return int(json.loads(cols['prop:autonomous_system']))
 
     def audit_subnet_uuid(self):
         ret_errors = []
@@ -227,11 +241,11 @@ class DatabaseManager(object):
         # read in route-target ids from zookeeper
         base_path = self.base_rtgt_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
-        zk_all_rtgts = {}
+        zk_all_rtgts = set()
         num_bad_rtgts = 0
         for rtgt_id in self._zk_client.get_children(base_path) or []:
             rtgt_fq_name_str = self._zk_client.get(base_path+'/'+rtgt_id)[0]
-            zk_all_rtgts[int(rtgt_id)] = rtgt_fq_name_str
+            zk_all_rtgts.add(int(rtgt_id))
             if int(rtgt_id) >= self.AUTO_RTGT_START:
                 continue # all good
 
@@ -251,28 +265,19 @@ class DatabaseManager(object):
         except pycassa.NotFoundException:
             rtgt_row = []
         rtgt_uuids = [x.split(':')[-1] for x in rtgt_row]
-        cassandra_all_rtgts = {}
-        num_bad_rtgts = 0
+        cassandra_all_rtgts = set()
         for rtgt_uuid in rtgt_uuids:
             rtgt_cols = obj_uuid_table.get(rtgt_uuid,
                 columns=['fq_name'],
                 column_count=MAX_COL)
             rtgt_fq_name_str = ':'.join(json.loads(rtgt_cols['fq_name']))
-            rtgt_id = json.loads(rtgt_cols['fq_name']).split(':')[-1]
-            if rtgt_id >= self.AUTO_RTGT_START:
-                errmsg = 'Wrong route-target range in cassandra %s' %(rtgt_id)
-                ret_errors.append(CassRTRangeError(errmsg))
-                num_bad_rtgts += 1
-            cassandra_all_rtgts[rtgt_id] = rtgt_fq_name_str
+            rtgt_asn = int(rtgt_fq_name_str.split(':')[-2])
+            rtgt_id = int(rtgt_fq_name_str.split(':')[-1])
+            # Ignore user defined RT
+            if rtgt_asn == self.global_asn and rtgt_id >= self.AUTO_RTGT_START:
+                cassandra_all_rtgts.add(rtgt_id)
 
-        logger.debug("Got %d route-targets with id in cassandra %d from wrong range",
-            len(cassandra_all_rtgts), num_bad_rtgts)
-        zk_set = set([(id, fqns) for id, fqns in zk_all_rtgts.items()])
-        cassandra_set = set([(id-self.AUTO_RTGT_START, fqns)
-            for id, fqns in cassandra_all_rtgts.items()
-            if id >= self.AUTO_RTGT_START])
-
-        return zk_set, cassandra_set, ret_errors
+        return zk_all_rtgts, cassandra_all_rtgts, ret_errors
     # end audit_route_targets_id
 
     def audit_security_groups_id(self):
@@ -796,14 +801,14 @@ class DatabaseChecker(DatabaseManager):
 
         extra_rtgt_ids = zk_set - cassandra_set
         for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
-            errmsg = 'Extra route target ID in zookeeper for RTgt %s %s' \
-                    %(rtgt_fq_name_str, rtgt_id)
+            errmsg = 'Extra route target ID in zookeeper for RTgt target:%d:%d' \
+                    %(self.global_asn, rtgt_id)
             ret_errors.append(ZkRTgtIdExtraError(errmsg))
 
         extra_rtgt_ids = cassandra_set - zk_set
         for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
-            errmsg = 'Missing route target ID in zookeeper for RTgt %s %s' \
-                    %(rtgt_fq_name_str, rtgt_id)
+            errmsg = 'Missing route target ID in zookeeper for RTgt target:%d:%d' \
+                    %(self.global_asn, rtgt_id)
             ret_errors.append(ZkRTgtIdMissingError(errmsg))
 
         # read in virtual-networks from cassandra to find user allocated rtgts
@@ -828,8 +833,9 @@ class DatabaseChecker(DatabaseManager):
                 continue
 
             for rtgt in rtgt_list:
+                rtgt_asn = int(rtgt.split(':')[-2])
                 rtgt_num = int(rtgt.split(':')[-1])
-                if rtgt_num < self.AUTO_RTGT_START:
+                if rtgt_asn != self.global_asn or rtgt_num < self.AUTO_RTGT_START:
                     num_user_rtgts += 1
                     continue # all good
 
