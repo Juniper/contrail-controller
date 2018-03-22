@@ -572,3 +572,71 @@ response sandesh Inet4FlowTreeResponse {
 
 request sandesh Inet4FlowTreeReq  {
 }
+
+/**
+ * @description: Request message for port translation pool
+ */
+request sandesh SNatPortConfigRequest {
+}
+
+struct PortConfigRange {
+    /** Start of port range to be reserved */
+    1: u16 port_start;
+    /** End of port range */
+    2: u16 port_end;
+}
+
+struct PortConfigData {
+    /** Protocol for which port is reserved */
+    1: u16 protocol;
+    /** Count of ports for this protocol */
+    2: u16 port_count;
+    /** List of port range specified per protocol */
+    3: list<PortConfigRange> port_range;
+    /** List of ports bound by agent */
+    4: list<u16> bound_port_list;
+}
+
+/**
+ * Response message for Port translation pool for
+ * distributed SNAT
+ */
+response sandesh SNatPortResponse {
+    /** User configured range of ports */
+    1: list<PortConfigData> port_config_list;
+}
+
+struct SNatFlowKey {
+    1: u32 nh;
+    2: string sip;
+    3: string dip;
+    4: u32 src_port;
+    5: u32 dst_port;
+    6: u16 protocol;
+}
+
+struct SNatPortFlow {
+    /** Protocol and port being used for NAT */
+    1: u16 protocol;
+    2: u16 port;
+    /** Flow key */
+    3: list<SNatFlowKey> flows(link = "FetchFlowRecord")
+}
+
+request sandesh NextPerPortFlowList {
+    /** flow key */
+    1: string port_key;
+}
+
+response sandesh SNatPortFlowResponse {
+    /** Per port list of flow */
+    1: list<SNatPortFlow> port_flow_list;
+    /** Metadata used to get next port and flow list */
+    2: string flow_key (link="NextPerPortFlowList");
+}
+
+request sandesh SNatPerPortFlowList {
+    /** Protocol for the port of intereset */
+    1: u16 protocol;
+    2: u16 port;
+}

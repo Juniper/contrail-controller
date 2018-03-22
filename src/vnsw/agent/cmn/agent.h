@@ -39,6 +39,7 @@ class FlowStatsManager;
 class MetaDataIpAllocator;
 class ResourceManager;
 class SecurityLoggingObjectTable;
+class PortConfig;
 namespace OVSDB {
 class OvsdbClient;
 };
@@ -398,8 +399,7 @@ public:
                        uint64_t timeout);
 
     typedef void (*PortConfigHandler)(Agent *agent,
-                       uint8_t proto, uint16_t port_count,
-                       uint16_t range_start, uint16_t range_end);
+                       uint8_t proto, const PortConfig *);
     Agent();
     virtual ~Agent();
 
