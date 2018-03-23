@@ -54,7 +54,8 @@ class VncService(VncCommon):
         # as create is not possible.
         if not self._kubernetes_api_server:
             self._create_linklocal = False
-        elif self._args.cluster_network and DBBaseKM.is_nested():
+        elif vnc_kube_config.is_cluster_network_configured() and\
+             DBBaseKM.is_nested():
             # In nested mode, if cluster network is configured, then the k8s api
             # server is in the same network as the k8s cluster. So there is no
             # need for link local.
