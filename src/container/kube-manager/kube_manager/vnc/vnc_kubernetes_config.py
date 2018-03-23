@@ -217,6 +217,16 @@ class VncKubernetesConfig(object):
         return np_fq_name
 
     @classmethod
+    def cluster_nested_underlay_policy_name(cls):
+        return cls.cluster_name() + '-nested-underlay-np'
+
+    @classmethod
+    def cluster_nested_underlay_policy_fq_name(cls):
+        np_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
+                      cls.cluster_nested_underlay_policy_name()]
+        return np_fq_name
+
+    @classmethod
     def is_global_tags(cls):
         if cls.args().global_tags == '1':
             return True

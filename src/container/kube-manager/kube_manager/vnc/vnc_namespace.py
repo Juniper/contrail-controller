@@ -43,6 +43,7 @@ class VncNamespace(VncCommon):
             virtual_network_read(fq_name=ip_fabric_fq_name)
         self._ip_fabric_policy = None
         self._cluster_service_policy = None
+        self._nested_underlay_policy = None
 
     def _get_namespace(self, ns_name):
         """
@@ -184,11 +185,6 @@ class VncNamespace(VncCommon):
         # to this virtual network.
         vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
 
-        # If required, enforce security policy at virtual network level.
-        if enforce_policy:
-            self._vnc_lib.set_tags(vn_obj,
-              self._labels.get_labels_dict(VncSecurityPolicy.cluster_aps_uuid))
-
         fabric_snat = False
         if vn_type == 'pod-network':
             if self._is_ip_fabric_snat_enabled(ns_name):
@@ -225,6 +221,14 @@ class VncNamespace(VncCommon):
                 vn_obj.set_fabric_snat(False)
             # Update VN.
             self._vnc_lib.virtual_network_update(vn_obj)
+            vn_uuid = vn_obj.get_uuid()
+
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+
+        # If required, enforce security policy at virtual network level.
+        if enforce_policy:
+            self._vnc_lib.set_tags(vn_obj,
+              self._labels.get_labels_dict(VncSecurityPolicy.cluster_aps_uuid))
 
         return vn_obj
 
@@ -260,11 +264,13 @@ class VncNamespace(VncCommon):
 
     def _attach_policy(self, vn_obj, *policies):
         for policy in policies or []:
-            vn_obj.add_network_policy(policy,
-                VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
+            if policy:
+                vn_obj.add_network_policy(policy,
+                    VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
         self._vnc_lib.virtual_network_update(vn_obj)
         for policy in policies or []:
-            self._vnc_lib.ref_relax_for_delete(vn_obj.uuid, policy.uuid)
+            if policy:
+                self._vnc_lib.ref_relax_for_delete(vn_obj.uuid, policy.uuid)
 
     def _create_policy_entry(self, src_vn_obj, dst_vn_obj):
         return PolicyRuleType(
@@ -321,14 +327,25 @@ class VncNamespace(VncCommon):
             except NoIdError:
                 return
             self._ip_fabric_policy = cluster_ip_fabric_policy
+
+        self._nested_underlay_policy = None
+        if DBBaseKM.is_nested() and not self._nested_underlay_policy:
+            try:
+                name = vnc_kube_config.cluster_nested_underlay_policy_fq_name()
+                self._nested_underlay_policy = \
+                    self._vnc_lib.network_policy_read(fq_name=name)
+            except NoIdError:
+                return
+
         policy_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'pod-service-np'])
         #policy_name = '%s-default' %ns_name
         ns_default_policy = self._create_vn_vn_policy(policy_name, proj_obj,
             pod_vn_obj, service_vn_obj)
         self._attach_policy(pod_vn_obj, ns_default_policy,
-            self._ip_fabric_policy, self._cluster_service_policy)
+            self._ip_fabric_policy, self._cluster_service_policy,
+            self._nested_underlay_policy)
         self._attach_policy(service_vn_obj, ns_default_policy,
-            self._ip_fabric_policy)
+            self._ip_fabric_policy, self._nested_underlay_policy)
 
     def _delete_policy(self, ns_name, proj_fq_name):
         policy_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'pod-service-np'])
