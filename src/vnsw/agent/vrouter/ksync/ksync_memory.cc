@@ -34,6 +34,7 @@
 #include <vr_types.h>
 #include <nl_util.h>
 #include <vr_flow.h>
+#include <ini_parser.h>
 #include <vr_genetlink.h>
 
 #include "ksync_init.h"
@@ -98,6 +99,7 @@ void KSyncMemory::Mmap(bool unlink_node) {
         }
     }
 
+    parse_ini_file();
     const char *mmap_error_msg = vr_table_map(major_devid_, minor_devid_, table_path_.c_str(),
                                               table_size_, &table_);
     if (mmap_error_msg) {
