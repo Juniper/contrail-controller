@@ -256,7 +256,7 @@ class VncKubernetes(VncCommon):
         return policy_obj
 
     def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj,
-            pod_vn_obj, service_vn_obj):
+            pod_vn_obj, service_vn_obj, cluster_vn_obj):
         policy_name = vnc_kube_config.cluster_name() + \
             '-default-ip-fabric-np'
         ip_fabric_policy = \
@@ -274,6 +274,14 @@ class VncKubernetes(VncCommon):
             ip_fabric_policy, cluster_default_policy)
         self._attach_policy(service_vn_obj, ip_fabric_policy,
             cluster_service_network_policy, cluster_default_policy)
+
+        # In nested mode, create and attach a network policy to the underlay
+        # virtual network.
+        if DBBaseKM.is_nested() and cluster_vn_obj:
+            policy_name = vnc_kube_config.cluster_nested_underlay_policy_name()
+            nested_underlay_policy = self._create_np_vn_policy(policy_name,
+                                         proj_obj, cluster_vn_obj)
+            self._attach_policy(cluster_vn_obj, nested_underlay_policy)
 
     def _create_project(self, project_name):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(project_name)
@@ -372,6 +380,15 @@ class VncKubernetes(VncCommon):
         ip_fabric_fq_name = vnc_kube_config.cluster_ip_fabric_network_fq_name()
         ip_fabric_vn_obj = self.vnc_lib. \
             virtual_network_read(fq_name=ip_fabric_fq_name)
+
+        cluster_vn_obj = None
+        if DBBaseKM.is_nested():
+            try:
+                cluster_vn_obj = self.vnc_lib.virtual_network_read(
+                    fq_name=vnc_kube_config.cluster_default_network_fq_name())
+            except NoIdError:
+                pass
+
         self._create_project('kube-system')
         # Create ip-fabric IPAM.
         ipam_name = vnc_kube_config.cluster_name() + '-ip-fabric-ipam'
@@ -406,7 +423,7 @@ class VncKubernetes(VncCommon):
             vnc_kube_config.cluster_default_service_network_name(),
             'service-network', proj_obj, service_ipam_obj, service_ipam_update)
         self._create_attach_policy(proj_obj, ip_fabric_vn_obj,
-            cluster_pod_vn_obj, cluster_service_vn_obj)
+            cluster_pod_vn_obj, cluster_service_vn_obj, cluster_vn_obj)
 
     def _create_network(self, vn_name, vn_type, proj_obj,
             ipam_obj, ipam_update, provider=None):
