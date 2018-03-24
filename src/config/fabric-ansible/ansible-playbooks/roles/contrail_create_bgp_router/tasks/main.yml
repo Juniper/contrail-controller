@@ -13,14 +13,13 @@
             "display_name": "{{prouter_info.fq_name[1]}}-bgp",
             "name": "{{prouter_info.fq_name[1]}}-bgp",
             "fq_name": [
-               "default-domain",
-               "default-project",
-               "ip-fabric",
-               "__default__",
-               "{{prouter_info.fq_name[1]}}-bgp"
+              "default-domain",
+              "default-project",
+              "ip-fabric",
+              "__default__",
+              "{{prouter_info.fq_name[1]}}-bgp"
             ],
-            "bgp_router_parameters":
-            {
+            "bgp_router_parameters": {
               "vendor": "{{ prouter_info.physical_router_vendor_name | default('Juniper')}}",
               "router_type": "router",
               "address": "{{ prouter_info.physical_router_loopback_ip }}",
@@ -28,7 +27,8 @@
               "address_families": {
                 "family": ["inet-vpn", "inet6-vpn", "route-target", "e-vpn"]
               },
-              "autonomous_system": {{as_numbers[0]}}
+              "autonomous_system": {{as_numbers[0]}},
+              "hold_time": 90
             }
           }
         auth_token: "{{auth_token}}"
@@ -47,15 +47,15 @@
         object_op: "ref_update"
         object_dict: |
           {
-              "obj_uuid": "{{ prouter_info.uuid }}",
-              "ref_type": "bgp-router",
-              "ref_fqname": [
-                "default-domain",
-                "default-project",
-                "ip-fabric",
-                "__default__",
-                "{{prouter_info.fq_name[1]}}-bgp"
-              ]
+            "obj_uuid": "{{ prouter_info.uuid }}",
+            "ref_type": "bgp-router",
+            "ref_fqname": [
+              "default-domain",
+              "default-project",
+              "ip-fabric",
+              "__default__",
+              "{{prouter_info.fq_name[1]}}-bgp"
+            ]
           }
         auth_token: "{{auth_token}}"
       register: ref_update_results
