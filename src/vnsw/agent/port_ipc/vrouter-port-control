@@ -20,6 +20,7 @@ PORT_IPC_VROUTER_AGENT_PORT = 9091
 TIMEOUT_SECS = 15
 DPDK_NETLINK_TCP_PORT = 20914
 PORT_OPEN_TIMEOUT_SECS = 120
+DPDK_NETLINK_SOCK_PATH="/var/run/vrouter/dpdk_netlink"
 
 
 class VrouterPortControl(object):
@@ -41,7 +42,7 @@ class VrouterPortControl(object):
                     sys.exit(1)
                 if not self.WaitForPortOpen(PORT_IPC_VROUTER_AGENT_PORT):
                     sys.exit(2)
-                if not self.WaitForPortOpen(DPDK_NETLINK_TCP_PORT):
+                if not self.WaitForNetlinkSocket():
                     sys.exit(3)
 
             if self._args.port_type == "NovaVMPort":
@@ -262,6 +263,17 @@ class VrouterPortControl(object):
         if os.path.isfile(filename):
             os.remove(filename)
     # end DeleteFile
+
+    def WaitForNetlinkSocket(self):
+        timeout_usecs = TIMEOUT_SECS * 1000000
+        sleep_usecs = 1000
+        for i in range(1,(timeout_usecs/sleep_usecs)):
+            if os.path.exists(DPDK_NETLINK_SOCK_PATH):
+                #TODO: need to check if the socket path is opened
+                return True
+            time.sleep(sleep_usecs/1000000.0)
+        return False
+    #end WaitForNetlinkSocket
 
     def WaitForSocketFile(self):
         timeout_usecs = TIMEOUT_SECS * 1000000
