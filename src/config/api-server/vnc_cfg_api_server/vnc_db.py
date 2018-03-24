@@ -407,8 +407,8 @@ class VncZkClient(object):
         while True:
             try:
                 self._zk_client = ZookeeperClient(client_name, zk_server_ip,
-                                                  self._sandesh,
-                                                  log_response_time=log_response_time)
+                                           self._sandesh,
+                                           log_response_time=log_response_time)
                 # set the lost callback to always reconnect
                 self._zk_client.set_lost_cb(self.reconnect_zk)
                 break
@@ -465,7 +465,8 @@ class VncZkClient(object):
     # end master_election
 
     def quota_counter(self, path, max_count=sys.maxint, default=0):
-        return self._zk_client.quota_counter(path, max_count, default)
+        return self._zk_client.quota_counter(self._zk_path_pfx + path,
+                                             max_count, default)
 
     def quota_counter_exists(self, path):
         return self._zk_client.exists(path)
