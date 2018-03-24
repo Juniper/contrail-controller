@@ -16,10 +16,11 @@
         src: "{{ conf_dir }}/final_config/combined_config.cfg"
         comment: "Applied by Ansible"
         provider:
-          host: "{{junos_host}}"
-          username: "{{junos_username}}"
-          password: "{{junos_password}}"
+          host: "{{ junos_host }}"
+          username: "{{ junos_username }}"
+          password: "{{ junos_password }}"
           port: 22
+          timeout: {{ JUNOS_COMMIT_TIMEOUT }}
         confirm_commit: yes
       ignore_errors: yes
       register: result

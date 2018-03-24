@@ -8,6 +8,7 @@
           username: "{{junos_username}}"
           password: "{{junos_password}}"
           port: 22
+          timeout: {{JUNOS_COMMAND_TIMEOUT}}
       register: interface_info
   rescue:
     - name: Perform the necessary error handling
@@ -35,6 +36,7 @@
           username: "{{junos_username}}"
           password: "{{junos_password}}"
           port: 22
+          timeout: {{JUNOS_COMMAND_TIMEOUT}}
       register: interface_info
   rescue:
     - name: Perform the necessary error handling
