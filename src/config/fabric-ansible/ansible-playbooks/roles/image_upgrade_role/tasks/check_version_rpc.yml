@@ -11,6 +11,7 @@
         passwd="{{pr_password}}"
         port=22
         rpc=get-system-information
+        timeout={{JUNOS_COMMAND_TIMEOUT}}
       register: sys_info
   rescue:
       - include_tasks: error_handler.yml
