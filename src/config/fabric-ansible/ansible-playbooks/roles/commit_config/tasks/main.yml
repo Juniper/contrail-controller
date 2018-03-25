@@ -20,7 +20,7 @@
           username: "{{ junos_username }}"
           password: "{{ junos_password }}"
           port: 22
-          timeout: {{ JUNOS_COMMIT_TIMEOUT }}
+          timeout: "{{ JUNOS_COMMIT_TIMEOUT | int }}"
         confirm_commit: yes
       ignore_errors: yes
       register: result
