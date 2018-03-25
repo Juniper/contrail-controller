@@ -21,6 +21,7 @@ setup_sources = [
            'library',
            'roles',
            'schema',
+           'group_vars',
           ]
 
 setup_sources_rules = []
