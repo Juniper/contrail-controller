@@ -93,7 +93,7 @@ class VncKubernetesConfig(object):
     @classmethod
     def get_configured_domain_name(cls):
         args = cls.args()
-        if args.cluster_network:
+        if args.cluster_network != '{}':
             return get_domain_name_from_vn_dict_string(args.cluster_network)
         if cls.is_cluster_project_configured():
             return get_domain_name_from_project_dict_string(
@@ -110,7 +110,7 @@ class VncKubernetesConfig(object):
     @classmethod
     def get_configured_project_name(cls):
         args = cls.args()
-        if args.cluster_network:
+        if args.cluster_network != '{}':
             return get_project_name_from_vn_dict_string(args.cluster_network)
         if cls.is_cluster_project_configured():
             return get_project_name_from_project_dict_string(
@@ -142,7 +142,7 @@ class VncKubernetesConfig(object):
     @classmethod
     def get_configured_network_name(cls):
         args = cls.args()
-        if args.cluster_network:
+        if args.cluster_network != '{}':
             return get_vn_name_from_vn_dict_string(args.cluster_network)
         return None
 
