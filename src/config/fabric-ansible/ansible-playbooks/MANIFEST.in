@@ -1,5 +1,6 @@
 include *.yml *.yaml *.cfg *.ini *.md
 graft conf
+graft group_vars
 graft roles
 graft schema
 graft library
