@@ -15,7 +15,6 @@
     - Juniper.junos
     - junos_read_prouter
     - junos_underlay_common
-    - junos_underlay_bgp
     - commit_config
     - contrail_create_bgp_router
 
