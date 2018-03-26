@@ -303,6 +303,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
         args_str = args_str + "--logging_conf %s " %(logconf.name)
         server = vnc_cfg_api_server.VncApiServer(args_str)
         gevent.getcurrent().api_server = server
+        server.get_resource_class('global-system-config')._autonomous_system = None
         vnc_cfg_api_server.main(args_str, server)
 # end launch_api_server
 

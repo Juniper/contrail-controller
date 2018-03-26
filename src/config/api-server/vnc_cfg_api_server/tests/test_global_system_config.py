@@ -17,7 +17,7 @@ from vnc_cfg_api_server.vnc_cfg_types import GlobalSystemConfigServer
 logger = logging.getLogger(__name__)
 
 
-class TestGlobalSystemConfigBase(test_case.ApiServerTestCase):
+class TestGlobalSystemConfig(test_case.ApiServerTestCase):
     DEFAULT_ASN = 64512
     NEW_ASN = 42
     FAKE_VN_LIST = [
@@ -37,12 +37,12 @@ class TestGlobalSystemConfigBase(test_case.ApiServerTestCase):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
-        super(TestGlobalSystemConfigBase, cls).setUpClass(*args, **kwargs)
+        super(TestGlobalSystemConfig, cls).setUpClass(*args, **kwargs)
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
-        super(TestGlobalSystemConfigBase, cls).tearDownClass(*args, **kwargs)
+        super(TestGlobalSystemConfig, cls).tearDownClass(*args, **kwargs)
 
     @property
     def api(self):
