@@ -131,13 +131,13 @@ void VmInterface::GetOsParams(Agent *agent) {
         return;
     }
 
-    os_index_ = Interface::kInvalidIndex;
-    mac_ = agent->vrrp_mac();
+    os_params_.os_index_ = Interface::kInvalidIndex;
+    os_params_.mac_ = agent->vrrp_mac();
     /* In VmWare mode, the default os_oper_state of VMI is false. It needs to be
      * explicitly enabled via REST request to agent. This needs to be done
      * only for interfaces which are not of transport_ TRANSPORT_ETHERNET */
     if (!NeedDefaultOsOperStateDisabled(agent)) {
-        os_oper_state_ = true;
+        os_params_.os_oper_state_ = true;
     }
 }
 
@@ -194,7 +194,7 @@ bool VmInterface::IsActive()  const {
         return false;
     }
 
-    if (NeedOsStateWithoutDevice() && os_oper_state_ == false) {
+    if (NeedOsStateWithoutDevice() && os_oper_state() == false) {
         return false;
     }
 
@@ -202,10 +202,10 @@ bool VmInterface::IsActive()  const {
         return true;
     }
 
-    if (os_index_ == kInvalidIndex)
+    if (os_index() == kInvalidIndex)
         return false;
 
-    if (os_oper_state_ == false)
+    if (os_oper_state() == false)
         return false;
 
     return mac_set_;
@@ -461,7 +461,7 @@ void VmInterface::AddL2InterfaceRoute(const IpAddress &ip,
     table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this, ip,
                            label, vn_name, sg_id_list,
                            tag_list, path_preference,
-                           ethernet_tag_, etree_leaf_, name_);
+                           ethernet_tag_, etree_leaf_, name());
 }
 
 // Delete EVPN route
@@ -514,7 +514,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
         (peer_.get(), vrf_name, addr, plen, GetUuid(), vn_list, label,
          sg_id_list, tag_list, communities, force_policy, path_preference,
          service_ip, ecmp_load_balance, is_local, is_health_check_service,
-         name_, native_encap, intf_route_type);
+         name(), native_encap, intf_route_type);
     return;
 }
 
@@ -977,10 +977,10 @@ bool VmInterface::CopyIpAddress(Ip4Address &addr) {
 
     if (do_dhcp_relay_) {
         // Set config_seen flag on DHCP SNoop entry
-        table->DhcpSnoopSetConfigSeen(name_);
+        table->DhcpSnoopSetConfigSeen(name());
         // IP Address not know. Get DHCP Snoop entry.
         // Also sets the config_seen_ flag for DHCP Snoop entry
-        addr = table->GetDhcpSnoopEntry(name_);
+        addr = table->GetDhcpSnoopEntry(name());
         dhcp_addr_ = addr;
     }
 
@@ -1009,7 +1009,7 @@ VmInterface * VmInterface::PortTuplePairedInterface() const {
 
 void VmInterface::SendTrace(const AgentDBTable *table, Trace event) const {
     InterfaceInfo intf_info;
-    intf_info.set_name(name_);
+    intf_info.set_name(name());
     intf_info.set_index(id_);
 
     switch(event) {

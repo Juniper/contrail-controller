@@ -19,11 +19,23 @@ struct InterfaceData;
 class VmInterface;
 class IFMapDependencyManager;
 
-class Interface : AgentRefCount<Interface>, public AgentOperDBEntry {
-public:
+struct InterfaceOsParams {
     // Used on Windows as operating system identifier's type
     typedef boost::uuids::uuid IfGuid;
 
+    InterfaceOsParams() {}
+    InterfaceOsParams(const string &name, size_t os_index, bool state) :
+        name_(name), os_index_(os_index), os_oper_state_(state) {}
+
+    std::string name_;
+    MacAddress mac_;
+    size_t os_index_;
+    bool os_oper_state_;
+    boost::optional<IfGuid> os_guid_;
+};
+
+class Interface : AgentRefCount<Interface>, public AgentOperDBEntry {
+public:
     // Type of interfaces supported
     enum Type {
         INVALID,
@@ -112,7 +124,7 @@ public:
     // Accessor methods
     Type type() const {return type_;}
     const boost::uuids::uuid &GetUuid() const {return uuid_;}
-    const std::string &name() const {return name_;}
+    const std::string &name() const {return os_params_.name_;}
     VrfEntry *vrf() const {return vrf_.get();}
     bool ipv4_active() const {return ipv4_active_;}
     bool ipv6_active() const {return ipv6_active_;}
@@ -127,9 +139,9 @@ public:
     uint32_t label() const {return label_;}
     uint32_t l2_label() const {return l2_label_;}
     bool IsL2LabelValid(uint32_t label) const { return (label_ == label);}
-    uint32_t os_index() const {return os_index_;}
-    const MacAddress &mac() const {return mac_;}
-    bool os_oper_state() const { return os_oper_state_; }
+    uint32_t os_index() const {return os_params_.os_index_;}
+    const MacAddress &mac() const {return os_params_.mac_;}
+    bool os_oper_state() const { return os_params_.os_oper_state_; }
     bool admin_state() const { return admin_state_; }
     // Used only for test code
     void set_test_oper_state(bool val) { test_oper_state_ = val; }
@@ -142,14 +154,14 @@ public:
     }
     void UpdateOperStateOfSubIntf(const InterfaceTable *table);
     bool NeedDefaultOsOperStateDisabled(Agent *agent) const;
-    boost::optional<IfGuid> os_guid() const { return os_guid_; }
+    boost::optional<InterfaceOsParams::IfGuid> os_guid() const { return os_params_.os_guid_; }
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
+    virtual void ObtainOsSpecificParams(const std::string &name);
 
     Type type_;
     boost::uuids::uuid uuid_;
-    std::string name_;
     VrfEntryRef vrf_;
     uint32_t label_;
     uint32_t l2_label_;
@@ -164,9 +176,6 @@ protected:
     size_t id_;
     bool dhcp_enabled_;
     bool dns_enabled_;
-    MacAddress mac_;
-    size_t os_index_;
-    bool os_oper_state_;
     bool admin_state_;
     // Used only for test code
     bool test_oper_state_;
@@ -177,13 +186,8 @@ protected:
     NextHopConstRef flow_key_nh_;
     Transport transport_;
     AgentQosConfigConstRef qos_config_;
-
-    // Used on Windows as network interface's identifier
-    boost::optional<IfGuid> os_guid_;
-
+    struct InterfaceOsParams os_params_;
 private:
-    void GetOsSpecificParams(Agent *agent, const std::string &name);
-
     friend class InterfaceTable;
     InterfaceTable *table_;
     DISALLOW_COPY_AND_ASSIGN(Interface);

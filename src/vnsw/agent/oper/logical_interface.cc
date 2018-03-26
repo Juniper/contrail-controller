@@ -126,9 +126,9 @@ bool LogicalInterface::Delete(const DBRequest *req) {
 }
 
 void LogicalInterface::GetOsParams(Agent *agent) {
-    os_index_ = Interface::kInvalidIndex;
-    mac_.Zero();
-    os_oper_state_ = true;
+    os_params_.os_index_ = Interface::kInvalidIndex;
+    os_params_.mac_.Zero();
+    os_params_.os_oper_state_ = true;
 }
 
 VmInterface *LogicalInterface::vm_interface() const {
@@ -185,7 +185,7 @@ VlanLogicalInterface::~VlanLogicalInterface() {
 }
 
 DBEntryBase::KeyPtr VlanLogicalInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new VlanLogicalInterfaceKey(uuid_, name_);
+    InterfaceKey *key = new VlanLogicalInterfaceKey(uuid_, name());
     return DBEntryBase::KeyPtr(key);
 }
 

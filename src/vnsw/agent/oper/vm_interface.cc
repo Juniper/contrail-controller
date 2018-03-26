@@ -158,7 +158,7 @@ bool VmInterface::IsConfigurerSet(VmInterface::Configurer type) {
 bool VmInterface::CmpInterface(const DBEntry &rhs) const {
     const VmInterface &intf=static_cast<const VmInterface &>(rhs);
     if (uuid_ == nil_uuid() && intf.uuid_ == nil_uuid()) {
-        return name_ < intf.name_;
+        return name() < intf.name();
     }
 
     return uuid_ < intf.uuid_;
@@ -169,8 +169,7 @@ string VmInterface::ToString() const {
 }
 
 DBEntryBase::KeyPtr VmInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid_,
-                                           name_);
+    InterfaceKey *key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid_, name());
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -186,7 +185,7 @@ bool VmInterface::Delete(const DBRequest *req) {
     if (configurer_) {
         return false;
     }
-    table->DeleteDhcpSnoopEntry(name_);
+    table->DeleteDhcpSnoopEntry(name());
     return true;
 }
 

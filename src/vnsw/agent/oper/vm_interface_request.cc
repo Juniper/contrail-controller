@@ -754,9 +754,9 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     }
 
     if (table) {
-        if (os_index_ == kInvalidIndex) {
+        if (os_index() == kInvalidIndex) {
             GetOsParams(table->agent());
-            if (os_index_ != kInvalidIndex)
+            if (os_index() != kInvalidIndex)
                 ret = true;
         }
     }
@@ -974,9 +974,9 @@ bool VmInterfaceIpAddressData::OnResync(const InterfaceTable *table,
                                         bool *force_update) const {
     bool ret = false;
 
-    if (vmi->os_index_ == VmInterface::kInvalidIndex) {
+    if (vmi->os_index() == VmInterface::kInvalidIndex) {
         vmi->GetOsParams(table->agent());
-        if (vmi->os_index_ != VmInterface::kInvalidIndex)
+        if (vmi->os_index() != VmInterface::kInvalidIndex)
             ret = true;
     }
 
@@ -1003,7 +1003,7 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
     bool ret = false;
     Agent *agent = table->agent();
 
-    uint32_t old_os_index = vmi->os_index_;
+    uint32_t old_os_index = vmi->os_index();
     bool old_ipv4_active = vmi->ipv4_active_;
     bool old_ipv6_active = vmi->ipv6_active_;
 
@@ -1012,12 +1012,12 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
      * is updated based on Netlink notification received from vrouter */
     if ((vmi->transport_ == Interface::TRANSPORT_PMD) ||
         vmi->NeedDefaultOsOperStateDisabled(agent)) {
-        if (vmi->os_oper_state_ != oper_state_) {
-            vmi->os_oper_state_ = oper_state_;
+        if (vmi->os_params_.os_oper_state_ != oper_state_) {
+            vmi->os_params_.os_oper_state_ = oper_state_;
             ret = true;
         }
     }
-    if (vmi->os_index_ != old_os_index)
+    if (vmi->os_index() != old_os_index)
         ret = true;
 
     vmi->ipv4_active_ = vmi->IsIpv4Active();
