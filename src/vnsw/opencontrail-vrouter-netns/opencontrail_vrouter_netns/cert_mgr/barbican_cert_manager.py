@@ -35,8 +35,8 @@ class BarbicanCertManager(object):
         elif self.auth_version == '3':
             client = v3_client
             kwargs['project_name'] = self.project_name
-            kwargs['user_domain_name'] = self.admin_user_domain
-            kwargs['project_domain_name'] = self.admin_project_domain
+            kwargs['user_domain_name'] = self.user_domain_name
+            kwargs['project_domain_name'] = self.project_domain_name
 
         try:
             kc = client.Password(**kwargs)
@@ -71,8 +71,8 @@ class BarbicanCertManager(object):
             self.auth_version = '2'
         elif (auth_version.lower() == 'v3'):
             self.auth_version = '3'
-            self.admin_user_domain = config.get('BARBICAN', 'admin_user_domain')
-            self.admin_project_domain = config.get('BARBICAN', 'admin_project_domain')
+            self.user_domain_name = config.get('BARBICAN', 'user_domain_name')
+            self.project_domain_name = config.get('BARBICAN', 'project_domain_name')
 
         try:
             self.region = config.get('BARBICAN', 'region')
