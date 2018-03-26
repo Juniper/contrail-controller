@@ -46,7 +46,7 @@ def _parse_rt(rt):
 class ResourceDbMixin(object):
 
     @classmethod
-    def get_project_id_for_resource(cls, obj_dict, db_conn):
+    def get_project_id_for_resource(cls, obj_dict, obj_type, db_conn):
         proj_uuid = None
         if 'project_refs' in obj_dict:
             proj_dict = obj_dict['project_refs'][0]
@@ -55,6 +55,14 @@ class ResourceDbMixin(object):
                 proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
         elif 'parent_type' in obj_dict and obj_dict['parent_type'] == 'project':
             proj_uuid = obj_dict['parent_uuid']
+        elif obj_type == 'floating_ip_pool' and 'parent_uuid' in obj_dict:
+            ok, proj_res = cls.dbe_read(db_conn, 'virtual_network',
+                                    obj_dict['parent_uuid'],
+                                    obj_fields=['parent_uuid'])
+            if not ok:
+                return proj_uuid # None
+
+            proj_uuid = proj_res['parent_uuid']
 
         return proj_uuid
 
@@ -64,7 +72,8 @@ class ResourceDbMixin(object):
         if not user_visible or obj_type not in QuotaType.attr_fields:
             return True, -1, None
 
-        proj_uuid = cls.get_project_id_for_resource(obj_dict, db_conn)
+        proj_uuid = cls.get_project_id_for_resource(obj_dict, obj_type, db_conn)
+
         if proj_uuid is None:
             return True, -1, None
 
