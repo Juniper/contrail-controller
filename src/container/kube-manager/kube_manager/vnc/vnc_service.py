@@ -408,14 +408,7 @@ class VncService(VncCommon):
                     if allocated_fips != external_ips:
                         self._deallocate_floating_ips(service_id)
                         self._allocate_floating_ips(service_id, external_ips)
-
-            else:  #allocated_fip is None
-                if external_ips:
-                    self._allocate_floating_ips(service_id, external_ips)
-                else:
-                    self._allocate_floating_ips(service_id)
             return
-        return
 
     def _check_service_uuid_change(self, svc_uuid, svc_name,
                                    svc_namespace, ports):

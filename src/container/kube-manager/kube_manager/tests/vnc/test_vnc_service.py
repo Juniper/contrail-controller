@@ -164,7 +164,7 @@ class VncServiceTest(KMTestCase):
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
-        self._assert_all_is_down(uuids)
+        self._assert_all_is_down(uuids, check_public_fip=True)
 
     def test_add_delete_loadbalancer_with_default_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
@@ -177,7 +177,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
 
-        self._assert_all_is_down(uuids, skip_vn=True)
+        self._assert_all_is_down(uuids, skip_vn=True, check_public_fip=True)
 
     def test_add_delete_loadbalancer_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
@@ -198,7 +198,7 @@ class VncServiceTest(KMTestCase):
         self.wait_isolated_service_vn_get_deleted(vn_fq_name)
         self._delete_project(cluster_project)
 
-        self._assert_all_is_down(uuids)
+        self._assert_all_is_down(uuids, check_public_fip=True)
 
     def test_add_delete_loadbalancer_with_isolated_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
@@ -212,7 +212,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
 
-        self._assert_all_is_down(uuids, skip_vn=True)
+        self._assert_all_is_down(uuids, skip_vn=True, check_public_fip=True)
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom-service-network'
@@ -232,7 +232,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self._delete_virtual_network(network_uuid)
 
-        self._assert_all_is_down(uuids)
+        self._assert_all_is_down(uuids, check_public_fip=True)
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
@@ -255,7 +255,7 @@ class VncServiceTest(KMTestCase):
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
-        self._assert_all_is_down(uuids)
+        self._assert_all_is_down(uuids, check_public_fip=True)
 
     def test_add_delete_kubernetes_service(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
@@ -405,12 +405,16 @@ class VncServiceTest(KMTestCase):
             id=self.pub_fip_pool_uuid, fields=['floating-ip-pool-floating-ip'])
         pub_fips = pub_fip_pool.get_floating_ips()
         #self.assertEqual(1, len(pub_fips))
-        pub_fip_objs = \
-            [self._vnc_lib.floating_ip_read(id=pub_fips[i]['uuid'])
-             for i in xrange(len(pub_fips))]
-        pub_fip_ips = [ ip.floating_ip_address for ip in pub_fip_objs ]
-        idx = pub_fip_ips.index(self.external_ip)
-        self.assertTrue(idx >= 0)
+	if pub_fips == None:
+	    self.pub_fip_obj_uuid = None
+	else:
+            pub_fip_objs = \
+                [self._vnc_lib.floating_ip_read(id=pub_fips[i]['uuid'])
+                 for i in xrange(len(pub_fips))]
+            pub_fip_ips = [ ip.floating_ip_address for ip in pub_fip_objs ]
+            idx = pub_fip_ips.index(self.external_ip)
+            self.pub_fip_obj_uuid = pub_fip_objs[idx].uuid
+            self.assertTrue(idx >= 0)
 
         return Uuids(lb_uuid=lb.uuid,
                      vmi_uuid=vmi.uuid,
@@ -418,10 +422,10 @@ class VncServiceTest(KMTestCase):
                      iip_uuid=iip.uuid,
                      fip_uuid=fip.uuid,
                      lb_listener_uuid=lb_listener.uuid,
-                     pub_fip_uuid=pub_fip_objs[idx].uuid,
+                     pub_fip_uuid=self.pub_fip_obj_uuid,
                      lb_pool_uuid=lb_pool.uuid)
 
-    def _assert_all_is_down(self, uuids, skip_vn=False):
+    def _assert_all_is_down(self, uuids, skip_vn=False, check_public_fip=False):
         self.assertRaises(NoIdError,
                           self._vnc_lib.loadbalancer_read, id=uuids.lb_uuid)
         self.assertRaises(NoIdError,
@@ -442,9 +446,12 @@ class VncServiceTest(KMTestCase):
         self.assertRaises(NoIdError,
                           self._vnc_lib.loadbalancer_pool_read,
                           id=uuids.lb_pool_uuid)
-        self.assertRaises(NoIdError,
-                          self._vnc_lib.floating_ip_pool_read,
-                          id=uuids.pub_fip_uuid)
+	if check_public_fip:
+            self.assertRaises(NoIdError,
+                              self._vnc_lib.floating_ip_pool_read,
+                              id=uuids.pub_fip_uuid)
+        else:
+            self.assertTrue(uuids.pub_fip_uuid == None)
 
     def _create_fip_pool_and_public_network(self):
         net_uuid = self._create_virtual_network(network='public')
