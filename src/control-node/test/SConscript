@@ -42,7 +42,7 @@ env.Prepend(LIBS = [
                     'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
                     'cassandra', 'gendb', 'httpc',
                     'SimpleAmqpClient', 'rabbitmq',
-                    'boost_filesystem', 'boost_program_options'
+                    'boost_filesystem', 'boost_program_options', 'boost_chrono'
                     ])
 
 if sys.platform != 'darwin':
