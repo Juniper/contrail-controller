@@ -288,10 +288,10 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
                 if (prefix->tag_ && prefix->tag_ <= kMaxVni) {
                     *label = prefix->tag_;
                 } else {
-                    *label = pmsi_tunnel->GetLabel(true);
+                    *label = pmsi_tunnel->GetLabel(extcomm);
                 }
             } else {
-                *label = pmsi_tunnel->GetLabel(false);
+                *label = pmsi_tunnel->GetLabel(extcomm);
             }
         }
         break;

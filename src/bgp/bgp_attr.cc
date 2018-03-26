@@ -270,17 +270,22 @@ std::string PmsiTunnelSpec::ToString() const {
     oss << ", flags: 0x" << std::hex << int(flags) << std::dec << ">";
     oss << " Tunnel Flags: 0x" << std::hex << int(tunnel_flags) << std::dec;
     oss << " Tunnel Type: " << int(tunnel_type);
-    oss << " Label: " << GetLabel();
+    oss << " Label: 0x" << std::hex << int(label) << std::dec;
+    oss << " (" << int(label) << ")";
     oss << " Identifier: " << GetIdentifier().to_string();
 
     return oss.str();
 }
 
-uint32_t PmsiTunnelSpec::GetLabel(bool is_vni) const {
+uint32_t PmsiTunnelSpec::GetLabel(const ExtCommunity *ext) const {
+    assert(ext);
+    bool is_vni = ext->ContainsTunnelEncapVxlan();
     return (is_vni ? label : (label >> 4));
 }
 
-void PmsiTunnelSpec::SetLabel(uint32_t in_label, bool is_vni) {
+void PmsiTunnelSpec::SetLabel(uint32_t in_label, const ExtCommunity *ext) {
+    assert(ext);
+    bool is_vni = ext->ContainsTunnelEncapVxlan();
     label = (is_vni ? in_label : (in_label << 4 | 0x01));
 }
 
@@ -363,6 +368,13 @@ PmsiTunnel::PmsiTunnel(PmsiTunnelDB *pmsi_tunnel_db,
 
 void PmsiTunnel::Remove() {
     pmsi_tunnel_db_->Delete(this);
+}
+
+uint32_t PmsiTunnel::GetLabel(const ExtCommunity *ext) const {
+    bool is_vni = false;
+    if (ext)
+        is_vni = ext->ContainsTunnelEncapVxlan();
+    return (is_vni ? label_ : label_ >> 4);
 }
 
 PmsiTunnelDB::PmsiTunnelDB(BgpServer *server) {
