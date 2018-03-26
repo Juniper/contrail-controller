@@ -384,30 +384,6 @@ TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
 }
 
 // Old State : Established
-// Event     : EvTcpClose + EvXmppMessageStreamHeader
-// New State : Idle
-// Intent    : EvXmppMessageStreamHeader should not be processed when the
-//             session is no longer associated with the connection due to
-//             processing of EvTcpClose
-TEST_F(XmppStateMachineTest,
-       Established_EvTcpClose_Then_EvXmppMessageStreamHeader) {
-    VerifyState(xmsm::ACTIVE);
-
-    EvTcpPassiveOpenFake();
-    VerifyState(xmsm::ACTIVE);
-
-    EvXmppOpen();
-
-    VerifyState(xmsm::ESTABLISHED);
-
-    EvTcpClose();
-    VerifyState(xmsm::IDLE);
-
-    EvXmppMessageStreamHeader();
-    VerifyState(xmsm::IDLE);
-}
-
-// Old State : Established
 // Event     : EvStop
 // New State : Idle
 TEST_F(XmppStateMachineTest, Established_EvStop) {
