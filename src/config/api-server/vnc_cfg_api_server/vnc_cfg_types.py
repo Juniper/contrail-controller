@@ -2299,7 +2299,11 @@ class TagServer(Resource, Tag):
         if obj_dict.get('tag_type_refs') is not None:
             # Tag can have only one tag-type reference
             tag_type_uuid = obj_dict['tag_type_refs'][0]['uuid']
-            cls.server.internal_request_delete('tag-type', tag_type_uuid)
+            try:
+                cls.server.internal_request_delete('tag-type', tag_type_uuid)
+            except cfgm_common.exceptions.HttpError as e:
+                if e.status_code != 409:
+                    return False, (e.status_code, e.content)
 
         return True, ""
 
