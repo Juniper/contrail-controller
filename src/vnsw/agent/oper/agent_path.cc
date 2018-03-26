@@ -841,6 +841,11 @@ bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    if (native_vrf_id_ != path->native_vrf_id()) {
+        path->set_native_vrf_id(native_vrf_id_);
+        ret = true;
+    }
+
     return ret;
 }
 
