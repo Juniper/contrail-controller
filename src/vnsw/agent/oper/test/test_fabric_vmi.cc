@@ -174,6 +174,8 @@ TEST_F(FabricVmiTest, basic_2) {
     InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(rt->GetActivePath()->peer() == vm_intf->peer());
+    EXPECT_TRUE(rt->GetActivePath()->native_vrf_id() ==
+                (uint32_t)(VrfGet("vrf1")->rd()));
     EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
                  TunnelType::NativeType()) != 0);
 
@@ -633,7 +635,6 @@ TEST_F(FabricVmiTest, VmWithVhostIp) {
     client->WaitForIdle();
 }
 
-<<<<<<< HEAD
 TEST_F(FabricVmiTest, default_route) {
     Ip4Address ip(0);
     EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
@@ -645,7 +646,8 @@ TEST_F(FabricVmiTest, default_route) {
 
     EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
     EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() & TunnelType::NativeType());
-=======
+}
+
 //Add 2 VMI with same IP address verify ECMP peer
 //creates a path with both nexthop
 TEST_F(FabricVmiTest, Ecmp1) {
@@ -890,7 +892,6 @@ TEST_F(FabricVmiTest, Ecmp4) {
 
     EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
     client->WaitForIdle();
->>>>>>> * Initial changes to support ECMP in fabric VRF
 }
 
 int main(int argc, char **argv) {

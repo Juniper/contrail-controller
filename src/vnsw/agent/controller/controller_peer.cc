@@ -1698,7 +1698,8 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
                              const PathPreference &path_preference,
                              bool associate,
                              Agent::RouteTableType type,
-                             const EcmpLoadBalance &ecmp_load_balance) {
+                             const EcmpLoadBalance &ecmp_load_balance,
+                             uint32_t native_vrf_id) {
 
     static int id = 0;
     ItemType item;
@@ -1785,7 +1786,10 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     ss_node << item.entry.nlri.af << "/"
             << item.entry.nlri.safi << "/"
             << route->vrf()->GetName() << "/"
-            << route->GetAddressString();
+            << route->ToString();
+    if (native_vrf_id != VrfEntry::kInvalidIndex) {
+        ss_node << "/" << native_vrf_id;
+    }
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);
     pugi->AddChildNode("item", "");
@@ -2501,7 +2505,8 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                      const CommunityList *communities,
                                      Agent::RouteTableType type,
                                      const PathPreference &path_preference,
-                                     const EcmpLoadBalance &ecmp_load_balance)
+                                     const EcmpLoadBalance &ecmp_load_balance,
+                                     uint32_t native_vrf_id)
 {
     if (!peer) return false;
 
@@ -2516,7 +2521,7 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
         ret = peer->ControllerSendV4V6UnicastRouteCommon(route, vn_list,
                                      sg_list, tag_list, communities, label,
                                      bmap, path_preference, true,
-                                     type, ecmp_load_balance);
+                                     type, ecmp_load_balance, native_vrf_id);
     }
     if (type == Agent::EVPN) {
         std::string vn;
@@ -2560,7 +2565,8 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
                                                        path_preference,
                                                        false,
                                                        type,
-                                                       ecmp_load_balance);
+                                                       ecmp_load_balance,
+                                                       VrfEntry::kInvalidIndex);
     }
     if (type == Agent::EVPN) {
         Ip4Address nh_ip(0);

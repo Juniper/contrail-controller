@@ -110,23 +110,32 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route,
     }
 
     peer_list_.insert(peer);
-    SecurityGroupList sg_list;
-    InetUnicastAgentRouteTable::AddLocalVmRoute(peer,
-                                                dest_vrf_->GetName(),
-                                                uc_rt->addr(),
-                                                uc_rt->plen(),
-                                                intf_nh->GetIfUuid(),
-                                                active_path->dest_vn_list(),
-                                                MplsTable::kInvalidExportLabel,
-                                                SecurityGroupList(),
-                                                TagList(),
-                                                CommunityList(),
-                                                false,
-                                                active_path->path_preference(),
-                                                Ip4Address(0),
-                                                EcmpLoadBalance(), false, false,
-                                                intf_nh->GetInterface()->name(),
-                                                true);
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_nh->GetIfUuid(),
+            intf_nh->GetInterface()->name());
+    LocalVmRoute *local_vm_route = NULL;
+    local_vm_route =
+        new LocalVmRoute(intf_key, MplsTable::kInvalidExportLabel,
+                         VxLanTable::kInvalidvxlan_id, false,
+                         active_path->dest_vn_list(), InterfaceNHFlags::INET4,
+                         SecurityGroupList(),
+                         TagList(),
+                         CommunityList(),
+                         active_path->path_preference(),
+                         Ip4Address(0), EcmpLoadBalance(),
+                         false, false, peer->sequence_number(),
+                         false, true);
+    local_vm_route->set_native_vrf_id(uc_rt->vrf()->rd());
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InetUnicastRouteKey(peer, dest_vrf_->GetName(),
+                                          uc_rt->addr(), uc_rt->plen()));
+    req.data.reset(local_vm_route);
+
+    AgentRouteTable *table =
+        agent_->vrf_table()->GetInet4UnicastRouteTable(dest_vrf_->GetName());
+    if (table) {
+        table->Process(req);
+    }
 }
 
 void RouteLeakState::AddCompositeRoute(const AgentRoute *route) {
