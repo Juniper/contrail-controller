@@ -366,6 +366,8 @@ class LoadbalancerAgent(Agent):
 
     def loadbalancer_health_monitor_add(self, obj):
         hm = self.hm_get_reqdict(obj)
+        if 'provider' not in hm:
+            return None
         current_pools = hm['pools'] or []
         old_pools = []
         if obj.last_sent:
@@ -642,6 +644,7 @@ class LoadbalancerAgent(Agent):
         lb = LoadbalancerSM.get(lb_id)
         if not lb:
             return
+        sandesh = self._svc_mon.logger._sandesh
         if deleted == True:
             uve_lb = UveLoadbalancerConfig(name=lb.uuid, deleted=True)
             uve_lb.listener = {}
@@ -653,7 +656,6 @@ class LoadbalancerAgent(Agent):
         uve_lb.name = lb.uuid
         uve_lb.listener = {}
         uve_lb.pool = {}
-        sandesh = self._svc_mon.logger._sandesh
         pool_found = False
         for ll_id in lb.loadbalancer_listeners:
             ll = LoadbalancerListenerSM.get(ll_id)

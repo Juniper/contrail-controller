@@ -111,13 +111,15 @@ def set_globals(uuid, custom_attr_dict, custom_attrs):
             'ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:' \
             'RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS'
 
+    logger_socket = '/var/log/contrail/lbaas/haproxy.log.sock'
+
     conf = [
         'global',
         'daemon',
         'user haproxy',
         'group haproxy',
-        'log /dev/log local0',
-        'log /dev/log local1 notice',
+        'log %s local0' % logger_socket,
+        'log %s local1 notice' % logger_socket,
         'tune.ssl.default-dh-param 2048',
         'ssl-default-bind-ciphers %s' % ssl_ciphers,
         'ulimit-n 200000',
@@ -377,11 +379,7 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
         lconf += "\n\t".join(conf)
 
     conf = []
-    if (lconf[len(lconf)-1]) == "\n":
-        lconf = lconf[:-1]
     conf.append(lconf)
-    if (pconf[len(pconf)-2:]) == "\n\n":
-        pconf = pconf[:-2]
     conf.append(pconf)
 
     return "\n".join(conf)
