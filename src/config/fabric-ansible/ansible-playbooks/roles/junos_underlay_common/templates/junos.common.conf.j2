@@ -1,3 +1,4 @@
+groups __contrail__underlay__ {
 system {
 {% if input.ntp is defined and input.ntp.time_zone is defined %}
     time-zone {{ input.ntp.time_zone }};
@@ -70,3 +71,5 @@ protocols {
     }
 }
 {% endif %}
+}
+apply-groups __contrail__underlay__
