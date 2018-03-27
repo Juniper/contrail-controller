@@ -763,6 +763,8 @@ class QfxConf(JuniperConf):
         eswitching = ff.get_ethernet_switching() or FirewallEthernet()
         ff.set_ethernet_switching(eswitching)
         for rule in rules:
+            if not self.has_terms(rule):
+                continue
             match = rule.get_match_condition()
             if not match:
                 continue
@@ -798,6 +800,13 @@ class QfxConf(JuniperConf):
                     self.build_firewall_filters(sg, acl)
     # end build_firewall_config
 
+    def has_terms(self, rule):
+        match = rule.get_match_condition()
+        if not match or match.get_protocol() == 'any':
+            return False
+        return match.get_dst_address() or match.get_dst_port() or \
+              match.get_ethertype() or match.get_src_address() or match.get_src_port()
+
     def get_firewall_filters(self, sg, acl, is_egress=False):
         if not sg or not acl or not acl.vnc_obj:
             return []
@@ -810,6 +819,8 @@ class QfxConf(JuniperConf):
             return []
         filter_names = []
         for rule in rules:
+            if not self.has_terms(rule):
+                continue
             match = rule.get_match_condition()
             if not match:
                 continue
