@@ -2200,8 +2200,72 @@ TEST_F(ConfigJsonParserTest, ServerParser18InParts) {
     TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
 }
 
+// Verify that Draft objects are ignored
+TEST_F(ConfigJsonParserTest, ServerParserDraftObject) {
+    IFMapTable *pmtable = IFMapTable::FindTable(&db_, "policy-management");
+    TASK_UTIL_EXPECT_EQ(0, pmtable->Size());
+    IFMapTable *frtable = IFMapTable::FindTable(&db_, "firewall-rule");
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
 
-//
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/server_parser_test19.json");
+    // Create the firewall-rule draft object with draft-mode-state 'created',
+    //  draft-policy-management and normal-policy-management objects.
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "draft-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4") ==
+        NULL);
+    TASK_UTIL_EXPECT_EQ(2, pmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "draft-policy-management") != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "draft-policy-management")->Find(
+        IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "normal-policy-management") != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "normal-policy-management")->Find(
+        IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Update the firewall-rule draft object with draft-mode-state "updated".
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "draft-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4") ==
+        NULL);
+
+    // Delete the firewall-rule draft object and re-add as normal object with
+    // a new parent, giving it a new FQName.
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("firewall-rule",
+        "normal-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4")
+        != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "normal-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4")->Find(
+        IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Delete the policy management objects and firewall-rule object.
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, pmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "draft-policy-management") == NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "normal-policy-management") == NULL);
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "normal-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4") ==
+        NULL);
+}
+
+// TODO(pdsouza) This test currently does not verify missing type field
 // Validate the handling of object without type field
 // Steps:
 // 1. Add the VM object

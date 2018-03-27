@@ -1,0 +1,163 @@
+[
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"draft-policy-management\"],\"type\":\"policy_management\",\"uuid\":\"0:f178bfd9-16bc-4a42-8187-9b09fa544cb1\"}",
+    "db": {
+      "f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": "[\"draft-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"17399868099456158274\",\"uuid_lslong\":\"9333599219905481905\"},\"created\":null,\"last_modified\":null}"
+      }
+    }
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"normal-policy-management\"],\"type\":\"policy_management\",\"uuid\":\"1:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
+    "db": {
+      "f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": "[\"draft-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"17399868099456158274\",\"uuid_lslong\":\"9333599219905481905\"},\"created\":null,\"last_modified\":null}"
+      },
+      "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+      "fq_name": "[\"normal-policy-management\"]",
+      "type": "\"policy_management\"",
+      "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}"
+      }
+    }
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"draft-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"],\"type\":\"firewall_rule\",\"uuid\":\"2:40fd65df-fc91-4b08-92fb-d1f57a67d99c\"}",
+    "db": {
+      "f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": "[\"draft-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"17399868099456158274\",\"uuid_lslong\":\"9333599219905481905\"},\"created\":null,\"last_modified\":null}"
+      },
+      "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+      "fq_name": "[\"normal-policy-management\"]",
+      "type": "\"policy_management\"",
+      "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}"
+      },
+      "40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": ["[\"draft-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"]", 1483451383823467],
+        "type": "\"firewall_rule\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
+        "parent:policy_management:f178bfd9-16bc-4a42-8187-9b09fa544cb1" : ["null", 1483451383823467],
+        "draft-mode-state": ["\"created\"", 1483451383823467]
+      }
+    }
+  },
+  {
+    "operation": "pause"
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":[\"draft-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"],\"type\":\"firewall_rule\",\"uuid\":\"4:40fd65df-fc91-4b08-92fb-d1f57a67d99c\"}",
+    "db": {
+      "f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": "[\"draft-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"17399868099456158274\",\"uuid_lslong\":\"9333599219905481905\"},\"created\":null,\"last_modified\":null}"
+      },
+      "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+        "fq_name": "[\"normal-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}"
+      },
+      "40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": ["[\"draft-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"]", 1483451383823467],
+        "type": "\"firewall_rule\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
+        "parent:policy_management:f178bfd9-16bc-4a42-8187-9b09fa544cb1" : ["null", 1483451383823467],
+        "draft-mode-state": ["\"updated\"", 1483451383823567]
+      }
+    }
+  },
+  {
+    "operation": "pause"
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":[\"draft-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"],\"type\":\"firewall_rule\",\"uuid\":\"6:40fd65df-fc91-4b08-92fb-d1f57a67d99c\"}",
+    "db": {
+      "f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": "[\"draft-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"17399868099456158274\",\"uuid_lslong\":\"9333599219905481905\"},\"created\":null,\"last_modified\":null}"
+      },
+      "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+      "fq_name": "[\"normal-policy-management\"]",
+      "type": "\"policy_management\"",
+      "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}"
+      }
+    }
+  },
+  {
+    "operation": "pause"
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"normal-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"],\"type\":\"firewall_rule\",\"uuid\":\"8:40fd65df-fc91-4b08-92fb-d1f57a67d99c\"}",
+    "db": {
+      "f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": "[\"draft-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"17399868099456158274\",\"uuid_lslong\":\"9333599219905481905\"},\"created\":null,\"last_modified\":null}"
+      },
+      "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+        "fq_name": "[\"normal-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}"
+      },
+      "40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": ["[\"normal-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"]", 1483451383823767],
+        "type": "\"firewall_rule\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
+        "parent:policy_management:634ae160-d3ef-4e81-b58d-d196211eb4d9" : ["null", 1483451383823767],
+        "draft-mode-state": ["", 1483451383823767]
+      }
+    }
+  },
+  {
+    "operation": "pause"
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":[\"draft-policy-management\"],\"type\":\"policy_management\",\"uuid\":\"10:f178bfd9-16bc-4a42-8187-9b09fa544cb1\"}",
+    "db": {
+      "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+        "fq_name": "[\"normal-policy-management\"]",
+        "type": "\"policy_management\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}"
+      },
+      "40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": ["[\"normal-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"]", 1483451383823767],
+        "type": "\"firewall_rule\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
+        "parent:policy_management:634ae160-d3ef-4e81-b58d-d196211eb4d9" : ["null", 1483451383823767],
+        "draft-mode-state": ["", 1483451383823767]
+      }
+    }
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":[\"normal-policy-management\"],\"type\":\"policy_management\",\"uuid\":\"11:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
+    "db": {
+      "40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": "[\"normal-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"]",
+        "type": "\"firewall_rule\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
+        "parent:policy_management:634ae160-d3ef-4e81-b58d-d196211eb4d9" : ["null", 1483451383823767],
+        "draft-mode-state": ["", 1483451383823767]
+      }
+    }
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":[\"normal-policy-management\",\"3438e2fa-bfcd-4745-bd58-52713ae27ac4\"],\"type\":\"firewall_rule\",\"uuid\":\"12:40fd65df-fc91-4b08-92fb-d1f57a67d99c\"}",
+    "db": {
+    }
+  }
+]
