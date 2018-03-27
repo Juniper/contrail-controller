@@ -341,6 +341,14 @@ public:
         layer2_control_word_ = layer2_control_word;
     }
 
+    void set_native_vrf_id(uint32_t vrf_id) {
+        native_vrf_id_ = vrf_id;
+    }
+
+    uint32_t native_vrf_id() const {
+        return native_vrf_id_;
+    }
+
     void UpdateEcmpHashFields(const Agent *agent,
                               const EcmpLoadBalance &ecmp_load_balance,
                               DBRequest &nh_req);
@@ -439,6 +447,9 @@ private:
     //if its a l2 packet or l3 packet.
     bool layer2_control_word_;
     bool inactive_;
+    //Valid for routes exported in ip-fabric:__default__ VRF
+    //Indicates the VRF from which routes was originated
+    uint32_t  native_vrf_id_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -566,7 +577,8 @@ public:
         subnet_service_ip_(subnet_service_ip),
         ecmp_load_balance_(ecmp_load_balance), is_local_(is_local),
         is_health_check_service_(is_health_check_service),
-        etree_leaf_(etree_leaf), native_encap_(native_encap) {
+        etree_leaf_(etree_leaf), native_encap_(native_encap),
+        native_vrf_id_(VrfEntry::kInvalidIndex) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -585,6 +597,12 @@ public:
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
     bool proxy_arp() const {return proxy_arp_;}
     bool etree_leaf() const { return etree_leaf_;}
+    void set_native_vrf_id(uint32_t vrf_id) {
+        native_vrf_id_ = vrf_id;
+    }
+    uint32_t native_vrf_id() const {
+        return native_vrf_id_;
+    }
 private:
     VmInterfaceKey intf_;
     uint32_t mpls_label_;
@@ -605,6 +623,7 @@ private:
     bool is_health_check_service_;
     bool etree_leaf_;
     bool native_encap_;
+    uint32_t  native_vrf_id_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 

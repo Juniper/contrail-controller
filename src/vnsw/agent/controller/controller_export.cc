@@ -226,14 +226,15 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
             state->Update(route, path);
             VnListType vn_list;
             vn_list.insert(state->vn_);
-            state->exported_ = 
-                AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer, 
-                        static_cast<AgentRoute * >(route),
-                        path->NexthopIp(table->agent()), vn_list,
-                        state->label_, path->GetTunnelBmap(),
-                        &path->sg_list(), &path->tag_list(), &path->communities(),
-                        type, state->path_preference_,
-                        state->ecmp_load_balance_);
+            state->exported_ =
+                AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer,
+                      static_cast<AgentRoute * >(route),
+                      path->NexthopIp(table->agent()), vn_list,
+                      state->label_, path->GetTunnelBmap(),
+                      &path->sg_list(), &path->tag_list(), &path->communities(),
+                      type, state->path_preference_,
+                      state->ecmp_load_balance_,
+                      path->native_vrf_id());
         }
     } else {
         if (state->exported_ == true) {
