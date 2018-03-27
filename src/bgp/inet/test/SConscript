@@ -96,6 +96,7 @@ env.Prepend(LIBS = [
                     'rabbitmq',
                     'cassandra',
                     'gendb',
+                    'boost_chrono',
                     ])
 
 if sys.platform != 'darwin':
