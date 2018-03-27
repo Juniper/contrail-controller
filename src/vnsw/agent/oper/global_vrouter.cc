@@ -117,7 +117,6 @@ void GlobalVrouter::UpdatePortConfig(autogen::GlobalVrouterConfig *cfg) {
     }
 
     ProtocolPortSet new_protocol_port_set;
-
     std::vector<autogen::PortTranslationPool>::const_iterator new_list_it =
         cfg->port_translation_pools().begin();
     for (;new_list_it != cfg->port_translation_pools().end(); new_list_it++) {
@@ -135,25 +134,38 @@ void GlobalVrouter::UpdatePortConfig(autogen::GlobalVrouterConfig *cfg) {
         std::stringstream str(new_list_it->port_count);
         str >> port_count;
 
-        agent()->port_config_handler()(agent(), proto, port_count,
-                                       new_list_it->port_range.start_port,
-                                       new_list_it->port_range.end_port);
-
         protocol_port_set_.erase(proto);
-        new_protocol_port_set.insert(proto);
+        if (new_list_it->port_range.start_port != 0 &&
+                new_list_it->port_range.end_port != 0) {
+            PortConfig::PortRange range(new_list_it->port_range.start_port,
+                                        new_list_it->port_range.end_port);
+            new_protocol_port_set[proto].port_range.push_back(range);
+        } else if (port_count != 0) {
+            new_protocol_port_set[proto].port_count = port_count;
+        }
     }
 
     ProtocolPortSet::const_iterator old_list_it = protocol_port_set_.begin();
     for (; old_list_it != protocol_port_set_.end(); old_list_it++) {
-        agent()->port_config_handler()(agent(), *old_list_it, 0, 0, 0);
+        PortConfig pc;
+        agent()->port_config_handler()(agent(), old_list_it->first, &pc);
     }
+
+    ProtocolPortSet::iterator pc_list_it = new_protocol_port_set.begin();
+    for (; pc_list_it != new_protocol_port_set.end(); pc_list_it++) {
+        pc_list_it->second.Trim();
+        agent()->port_config_handler()(agent(), pc_list_it->first,
+                                       &(pc_list_it->second));
+    }
+
     protocol_port_set_ = new_protocol_port_set;
 }
 
 void GlobalVrouter::DeletePortConfig() {
     ProtocolPortSet::const_iterator it = protocol_port_set_.begin();
     for (; it != protocol_port_set_.end(); it++) {
-        agent()->port_config_handler()(agent(), *it, 0, 0, 0);
+        PortConfig pc;
+        agent()->port_config_handler()(agent(), it->first, &pc);
     }
 
     protocol_port_set_.clear();
@@ -1060,4 +1072,79 @@ void GlobalVrouter::DeleteCryptTunnelEndpoint(const CryptTunnelsMap::iterator &i
 void GlobalVrouter::ChangeCryptTunnelEndpoint(const CryptTunnelsMap::iterator &old_it,
                                               const CryptTunnelsMap::iterator &new_it) {
     AddCryptTunnelEndpoint(new_it);
+}
+
+void PortConfig::Trim() {
+    if (port_range.size() != 0) {
+        port_count = 0;
+    }
+
+    //Only port range specified
+    //nothing more to be done
+    if (port_count != 0) {
+        return;
+    }
+
+    for (uint16_t index = 0; index < port_range.size(); index++) {
+        //Ignore invalid range
+        if (port_range[index].port_start > port_range[index].port_end) {
+            port_range[index].port_start = 0;
+            port_range[index].port_end = 0;
+        }
+
+        if (port_range[index].port_start == 0 &&
+            port_range[index].port_end == 0) {
+            continue;
+        }
+
+        //Check if given range is a subset or intersecting with any other range
+        for (uint16_t sub_index = 0; sub_index < port_range.size(); sub_index++) {
+            if (index == sub_index) {
+                continue;
+            }
+
+            //Two ranges are same
+            if (port_range[index].port_start ==
+                    port_range[sub_index].port_start &&
+                port_range[index].port_end == port_range[sub_index].port_end) {
+                port_range[index].port_start = 0;
+                port_range[index].port_end = 0;
+                break;
+            }
+
+            //Range is a subset of other range
+            if (port_range[index].port_start >=
+                    port_range[sub_index].port_start &&
+                port_range[index].port_end <= port_range[sub_index].port_end) {
+                port_range[index].port_start = 0;
+                port_range[index].port_end = 0;
+                break;
+            }
+
+            //Overlapping range with index range lesser than sub index range
+            //Ex 10-15, 15-20
+            if (port_range[index].port_start <=
+                    port_range[sub_index].port_start &&
+                port_range[index].port_end >=
+                    port_range[sub_index].port_start &&
+                port_range[index].port_end < port_range[sub_index].port_end) {
+                port_range[index].port_end = port_range[sub_index].port_start;
+                port_range[sub_index].port_start =
+                    port_range[sub_index].port_start + 1;
+            }
+        }
+    }
+
+    port_count = 0;
+    //Update count
+    std::vector<PortRange>::iterator it = port_range.begin();
+    while (it != port_range.end()) {
+        std::vector<PortRange>::iterator prev_it = it++;
+        if (prev_it->port_end == 0 &&
+            prev_it->port_start == 0) {
+            continue;
+        }
+
+        port_count += (prev_it->port_end - prev_it->port_start) + 1;
+    }
 }

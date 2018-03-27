@@ -814,3 +814,199 @@ void Inet4FlowTreeReq::HandleRequest() const {
     resp->set_more(false);
     resp->Response();
 }
+
+void SNatPortConfigRequest::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    PortTableManager *pm =
+        agent->pkt()->get_flow_proto()->port_table_manager();
+
+    SNatPortResponse *resp = new SNatPortResponse();
+    std::vector<PortConfigData> &config_list =
+        const_cast<std::vector<PortConfigData>&>(resp->get_port_config_list());
+
+    for(uint16_t protocol = 0; protocol < IPPROTO_MAX; protocol++) {
+        const PortTable *pt = pm->GetPortTable(protocol);
+        if (pt == NULL) {
+            continue;
+        }
+
+        const PortConfig *pc = pt->port_config();
+        //Only count specified
+        PortConfigData spc;
+        spc.port_count = pc->port_count;
+        spc.protocol = protocol;
+
+        std::vector<PortConfig::PortRange>::const_iterator it =
+            pc->port_range.begin();
+        for(;it != pc->port_range.end(); it++) {
+            PortConfigRange pcr;
+            pcr.port_start =  it->port_start;
+            pcr.port_end = it->port_end;
+            spc.port_range.push_back(pcr);
+        }
+
+        spc.set_bound_port_list((pt->GetPortList()));
+        config_list.push_back(spc);
+    }
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
+
+static void HandlePortFlowReq(uint16_t protocol, uint16_t port,
+                              bool match_proto, bool match_port,
+                              std::string context) {
+    Agent *agent = Agent::GetInstance();
+    PortTableManager *pm =
+        agent->pkt()->get_flow_proto()->port_table_manager();
+
+    SNatPortFlowResponse *resp = new SNatPortFlowResponse();
+    std::vector<SNatPortFlow> &list =
+        const_cast<std::vector<SNatPortFlow>&>(resp->get_port_flow_list());
+
+    uint16_t flow_count = 0;
+    uint16_t next_port = 0;
+    uint16_t proto = 0;
+    for(; proto < IPPROTO_MAX; proto++) {
+        const PortTable *pt = pm->GetPortTable(proto);
+        next_port = 0;
+        if (match_proto && proto != protocol) {
+            continue;
+        }
+
+        if (proto < protocol) {
+            continue;
+        }
+
+        if (pt == NULL) {
+            continue;
+        }
+
+        std::vector<uint16_t> ports = pt->GetPortList();
+        std::vector<uint16_t>::const_iterator it = ports.begin();
+        for(; it != ports.end(); it++) {
+            if (match_port && port != *it) {
+                continue;
+            }
+
+            if (match_port && port > *it) {
+                break;
+            }
+
+            if (port > *it) {
+                continue;
+            }
+
+            std::vector<FlowKey> flow_list;
+            pt->GetFlowKeyList(*it, flow_list);
+            flow_count += flow_list.size();
+
+            SNatPortFlow snf;
+            snf.port = *it;
+            snf.protocol = proto;
+            std::vector<FlowKey>::iterator flow_it = flow_list.begin();
+            for (; flow_it != flow_list.end(); flow_it++) {
+                SNatFlowKey flow_key;
+                flow_key.nh = flow_it->nh;
+                flow_key.sip = flow_it->src_addr.to_string();
+                flow_key.dip = flow_it->dst_addr.to_string();
+                flow_key.src_port = flow_it->src_port;
+                flow_key.dst_port = flow_it->dst_port;
+                flow_key.protocol = flow_it->protocol;
+                snf.flows.push_back(flow_key);
+            }
+
+            list.push_back(snf);
+
+            if (flow_count >= 1) {
+                break;
+            }
+        }
+
+        if (it != ports.end() && match_port == false) {
+            next_port = *it + 1;
+        }
+
+        if (match_port == false) {
+            port  = 0;
+        }
+
+        if (flow_count >= 1) {
+            break;
+        }
+    }
+
+    bool next = true;
+    if (match_proto && next_port == 0) {
+        next = false;
+    }
+
+    if (proto == IPPROTO_MAX) {
+        next = false;
+    }
+
+    if (next) {
+        std::stringstream str;
+        str << proto << ":" << next_port << ":" << match_proto
+            << ":" << match_port;
+        resp->set_flow_key(str.str());
+    }
+
+    resp->set_context(context);
+    resp->set_more(false);
+    resp->Response();
+}
+
+void SNatPerPortFlowList::HandleRequest() const {
+    bool match_proto = false;
+    if (protocol != 0) {
+        match_proto = true;
+    }
+
+    bool match_port = false;
+    if (port != 0) {
+        match_port = true;
+    }
+
+    HandlePortFlowReq(protocol, port, match_proto, match_port,
+                      context());
+}
+
+void NextPerPortFlowList::HandleRequest() const {
+    uint16_t proto = 0;
+    uint16_t port = 0;
+    bool match_proto = false;
+    bool match_port = false;
+    std::string colon;
+
+    stringstream ss(port_key);
+    string item;
+    const char ch = ':';
+
+    size_t n = std::count(port_key.begin(), port_key.end(), ch);
+    if (n != 3) {
+        goto fail;
+    }
+
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> proto;
+    }
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> port;
+    }
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> match_proto;
+    }
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> match_port;
+    }
+
+    HandlePortFlowReq(proto, port, match_proto, match_port,
+                      context());
+
+fail:
+    FlowErrorResp *resp = new FlowErrorResp();
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}

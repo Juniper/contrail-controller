@@ -25,6 +25,7 @@
 #include <pkt/pkt_flow_info.h>
 #include <pkt/flow_token.h>
 #include <sandesh/sandesh_trace.h>
+#include <oper/global_vrouter.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
@@ -964,7 +965,7 @@ public:
     }
 
     uint16_t port_count() const {
-        return port_count_;
+        return port_config_.port_count;
     }
 
     void set_timeout(uint64_t timeout) {
@@ -975,10 +976,24 @@ public:
         return mutex_;
     }
 
-    void UpdatePortConfig(uint16_t port_count, uint16_t range_start,
-                          uint16_t range_end);
+    void UpdatePortConfig(const PortConfig *port_config);
 
     uint16_t GetPortIndex(uint16_t port) const;
+    const PortConfig* port_config() const {
+        return &port_config_;
+    }
+
+    std::vector<uint16_t> GetPortList() const {
+        tbb::recursive_mutex::scoped_lock lock(mutex_);
+        std::vector<uint16_t> port_list;
+        PortToBitIndexMap::const_iterator it = port_to_bit_index_.begin();
+        for(; it != port_to_bit_index_.end(); it++) {
+            port_list.push_back(it->first);
+        }
+        return port_list;
+    }
+
+    void GetFlowKeyList(uint16_t port, std::vector<FlowKey> &key) const;
 private:
     Agent *agent_;
     PortPtr CreatePortEntry(uint16_t port_no);
@@ -988,8 +1003,7 @@ private:
     void Relocate(uint16_t port_no);
     bool IsValidPort(uint16_t port, uint16_t count);
     void DeleteAllFlow(uint16_t port, uint16_t index);
-    bool HandlePortConfig(uint16_t port_count, uint16_t range_start,
-                          uint16_t range_end);
+    bool HandlePortConfig(const PortConfig &pc);
 
     uint8_t protocol_;
     //Holds freed bit entry in table for while so that
@@ -1013,10 +1027,8 @@ private:
     PortToBitIndexMap port_to_bit_index_;
 
     //Number of port that agent can bind on
-    uint16_t port_count_;
-    uint16_t range_start_;
-    uint16_t range_end_;
-    tbb::recursive_mutex mutex_;
+    PortConfig port_config_;
+    mutable tbb::recursive_mutex mutex_;
     std::auto_ptr<TaskTrigger> task_trigger_;
 };
 
@@ -1029,11 +1041,9 @@ public:
     uint16_t Allocate(const FlowKey &key);
     void Free(const FlowKey &key, uint16_t port, bool release);
 
-    void UpdatePortConfig(uint8_t protocol, uint16_t port_count,
-                          uint16_t range_start, uint16_t range_end);
-    static void PortConfigHandler(Agent *agent, uint8_t proto,
-                                  uint16_t port_count,
-                                  uint16_t range_start, uint16_t range_end);
+    void UpdatePortConfig(uint8_t protocol, const PortConfig *config);
+    static void PortConfigHandler(Agent *agent, uint8_t protocol,
+                                  const PortConfig *pc);
     const PortTable* GetPortTable(uint8_t proto) {
         return port_table_list_[proto].get();
     }

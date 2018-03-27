@@ -35,6 +35,22 @@ struct LinkLocalDBState : DBState {
     void Delete(const Ip4Address &address) { addresses_.erase(address); }
 };
 
+struct PortConfig {
+    PortConfig() : port_count(0) {}
+
+    struct PortRange {
+        PortRange(uint16_t start, uint16_t end):
+            port_start(start), port_end(end) {}
+
+        uint16_t port_start;
+        uint16_t port_end;
+    };
+
+    void Trim();
+    uint16_t port_count;
+    std::vector<PortRange> port_range;
+};
+
 // Handle Global Vrouter configuration
 class GlobalVrouter : public OperIFMapTable {
 public:
@@ -113,7 +129,7 @@ public:
     typedef std::pair<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutPair;
 
     //Map used to audit for port pool configuration change
-    typedef std::set<uint8_t> ProtocolPortSet;
+    typedef std::map<uint8_t, PortConfig> ProtocolPortSet;
 
     GlobalVrouter(Agent *agent);
     virtual ~GlobalVrouter();
