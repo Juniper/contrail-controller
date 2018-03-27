@@ -431,7 +431,8 @@ class ZookeeperClient(object):
     # end master_election
 
     def zk_counter(self, path, max_count=sys.maxint, default=0):
-        return ZookeeperCounter(self._zk_client, path, max_count, default=default)
+        return ZookeeperCounter(self._zk_client, path, max_count,
+                                default=default)
 
     def create_node(self, path, value=None):
         try:

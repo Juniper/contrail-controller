@@ -517,7 +517,8 @@ class VncZkClient(object):
     # end master_election
 
     def zk_counter(self, path, max_count=sys.maxint, default=0):
-        return self._zk_client.zk_counter(path, max_count, default)
+        return self._zk_client.zk_counter(self._zk_path_pfx + path,
+                                          max_count,default)
 
     def _reconnect_zk(self):
         self._zk_client.connect()
