@@ -307,7 +307,8 @@ struct FlowData {
     uint32_t mirror_vrf;
     uint32_t dest_vrf;
     uint32_t component_nh_idx;
-    uint32_t bgp_as_a_service_port;
+    uint32_t bgp_as_a_service_sport;
+    uint32_t bgp_as_a_service_dport;
     boost::uuids::uuid bgp_health_check_uuid;
     uint32_t ttl;
     // In case of policy on fabric, the forwarding happens in
@@ -633,9 +634,14 @@ class FlowEntry {
     const NextHop *src_ip_nh() const { return data_.src_ip_nh.get(); }
     const NextHop *rpf_nh() const { return data_.rpf_nh.get(); }
     uint32_t GetEcmpIndex() const { return data_.component_nh_idx; }
-    const uint32_t bgp_as_a_service_port() const {
+    const uint32_t bgp_as_a_service_sport() const {
         if (is_flags_set(FlowEntry::BgpRouterService))
-            return data_.bgp_as_a_service_port;
+            return data_.bgp_as_a_service_sport;
+        return 0;
+    }
+    const uint32_t bgp_as_a_service_dport() const {
+        if (is_flags_set(FlowEntry::BgpRouterService))
+            return data_.bgp_as_a_service_dport;
         return 0;
     }
     const MatchPolicy &match_p() const { return data_.match_p; }

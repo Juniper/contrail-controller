@@ -79,22 +79,22 @@ public:
         AddIPAM("vn5", &ipam_info[4], 1);
         AddIPAM("vn6", &ipam_info[5], 1);
         client->WaitForIdle();
-        SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1",
+        SendBgpServiceConfig("1.1.1.10", 50000, 179, 1, "vnet1",
                              "vrf1", "bgpaas-client",
                              false, true);
-        SendBgpServiceConfig("2.2.2.20", 50000, 2, "vnet2",
+        SendBgpServiceConfig("2.2.2.20", 50000, 179, 2, "vnet2",
                              "vrf2", "bgpaas-client",
                              false, true);
-        SendBgpServiceConfig("3.3.3.30", 50000, 3, "vnet3",
+        SendBgpServiceConfig("3.3.3.30", 50000, 500, 3, "vnet3",
                              "vrf3", "bgpaas-client",
                              false, true);
-        SendBgpServiceConfig("4.4.4.40", 50001, 4, "vnet4",
+        SendBgpServiceConfig("4.4.4.40", 50001, 179, 4, "vnet4",
                              "vrf4", "bgpaas-client",
                              false, true);
-        SendBgpServiceConfig("5.5.5.50", 50001, 5, "vnet5",
+        SendBgpServiceConfig("5.5.5.50", 50001, 179, 5, "vnet5",
                              "vrf5", "bgpaas-client",
                              false, true);
-        SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
+        SendBgpServiceConfig("6.6.6.60", 50001, 179, 6, "vnet6",
                              "vrf6", "bgpaas-client",
                              false, true);
         client->WaitForIdle();
@@ -106,22 +106,22 @@ public:
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
         client->WaitForIdle();
-        SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1",
+        SendBgpServiceConfig("1.1.1.10", 50000, 179, 1, "vnet1",
                              "vrf1", "bgpaas-server",
                              true, true);
-        SendBgpServiceConfig("2.2.2.20", 50000, 2, "vnet2",
+        SendBgpServiceConfig("2.2.2.20", 50000, 179, 2, "vnet2",
                              "vrf2", "bgpaas-server",
                              true, true);
-        SendBgpServiceConfig("3.3.3.30", 50000, 3, "vnet3",
+        SendBgpServiceConfig("3.3.3.30", 50000, 500, 3, "vnet3",
                              "vrf3", "bgpaas-client",
                              true, true);
-        SendBgpServiceConfig("4.4.4.40", 50001, 4, "vnet4",
+        SendBgpServiceConfig("4.4.4.40", 50001, 179, 4, "vnet4",
                              "vrf4", "bgpaas-server",
                              true, true);
-        SendBgpServiceConfig("5.5.5.50", 50001, 5, "vnet5",
+        SendBgpServiceConfig("5.5.5.50", 50001, 179, 5, "vnet5",
                              "vrf5", "bgpaas-server",
                              true, true);
-        SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
+        SendBgpServiceConfig("6.6.6.60", 50001, 179, 6, "vnet6",
                              "vrf6", "bgpaas-client",
                              true, true);
         DelIPAM("vn1");
@@ -139,7 +139,6 @@ public:
     Agent *agent_;
     FlowProto *flow_proto_;
 };
-
 //TTL 1
 TEST_F(BgpServiceTest, Test_ttl_1) {
     AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
@@ -154,7 +153,7 @@ TEST_F(BgpServiceTest, Test_ttl_1) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
-    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
+    EXPECT_TRUE(fe->bgp_as_a_service_sport() == 50000);
     EXPECT_TRUE(fe->data().ttl == BGP_SERVICE_TTL_FWD_FLOW);
     EXPECT_TRUE(fe->reverse_flow_entry()->data().ttl ==
                 BGP_SERVICE_TTL_REV_FLOW);
@@ -249,7 +248,7 @@ TEST_F(BgpServiceTest, Test_2) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
-    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
+    EXPECT_TRUE(fe->bgp_as_a_service_sport() == 50000);
 
     //Explicitly call deleteall on bgp service tree.
     //agent_->pkt()->flow_mgmt_manager()->ControllerNotify(0);
@@ -274,7 +273,7 @@ TEST_F(BgpServiceTest, Test_3) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
-    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
+    EXPECT_TRUE(fe->bgp_as_a_service_sport() == 50000);
     client->WaitForIdle();
 }
 
@@ -309,7 +308,7 @@ TEST_F(BgpServiceTest, Test_4) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
-    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
+    EXPECT_TRUE(fe->bgp_as_a_service_sport() == 50000);
     client->WaitForIdle();
 }
 
@@ -347,7 +346,7 @@ TEST_F(BgpServiceTest, Test_5) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
-    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50500);
+    EXPECT_TRUE(fe->bgp_as_a_service_sport() == 50500);
 
     //Delete
     DelLink("virtual-machine-interface", "vnet1",
@@ -386,7 +385,23 @@ TEST_F(BgpServiceTest, Test_6) {
     EXPECT_TRUE(fe2 != NULL);
     EXPECT_TRUE(fe2->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe2->is_flags_set(FlowEntry::BgpRouterService));
-    EXPECT_TRUE(fe2->bgp_as_a_service_port() == 54002);
+    EXPECT_TRUE(fe2->bgp_as_a_service_sport() == 54002);
+    client->WaitForIdle();
+}
+//Test to verify dest port for nat flow
+TEST_F(BgpServiceTest, Test_7) {
+    AddAap("vnet3", 3, Ip4Address::from_string("30.30.30.30"), "00:00:03:03:03:03");
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(3)->id(), "30.30.30.30", "3.3.3.3", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(3)->flow_key_nh()->id(),
+                            "30.30.30.30", "3.3.3.3", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_dport() == 500);
     client->WaitForIdle();
 }
 int main(int argc, char *argv[]) {
