@@ -131,7 +131,7 @@ def parse_args(args_str=None):
         'kubernetes_cluster_domain' : 'default-domain',
         'cluster_name': None,
         'cluster_project' : "{}",
-        'cluster_network' : None,
+        'cluster_network' : "{}",
         'cluster_pod_network' : None,
         'cluster_service_network' : None,
         'ip_fabric_forwarding': False,

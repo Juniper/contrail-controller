@@ -84,6 +84,13 @@ class VncKubernetesConfig(object):
         return False
 
     @classmethod
+    def is_cluster_network_configured(cls):
+        args = cls.args()
+        if args.cluster_network and args.cluster_network != '{}':
+            return True
+        return False
+
+    @classmethod
     def is_public_fip_pool_configured(cls):
         args = cls.args()
         if args.public_fip_pool and args.public_fip_pool != '{}':
@@ -93,8 +100,9 @@ class VncKubernetesConfig(object):
     @classmethod
     def get_configured_domain_name(cls):
         args = cls.args()
-        if args.cluster_network:
-            return get_domain_name_from_vn_dict_string(args.cluster_network)
+        if cls.is_cluster_network_configured():
+            return get_domain_name_from_vn_dict_string(
+                       args.cluster_network)
         if cls.is_cluster_project_configured():
             return get_domain_name_from_project_dict_string(
                 args.cluster_project)
@@ -110,8 +118,9 @@ class VncKubernetesConfig(object):
     @classmethod
     def get_configured_project_name(cls):
         args = cls.args()
-        if args.cluster_network:
-            return get_project_name_from_vn_dict_string(args.cluster_network)
+        if cls.is_cluster_network_configured():
+            return get_project_name_from_vn_dict_string(
+                       args.cluster_network)
         if cls.is_cluster_project_configured():
             return get_project_name_from_project_dict_string(
                 args.cluster_project)
@@ -142,7 +151,7 @@ class VncKubernetesConfig(object):
     @classmethod
     def get_configured_network_name(cls):
         args = cls.args()
-        if args.cluster_network:
+        if cls.is_cluster_network_configured():
             return get_vn_name_from_vn_dict_string(args.cluster_network)
         return None
 
@@ -214,6 +223,16 @@ class VncKubernetesConfig(object):
     def cluster_ip_fabric_policy_fq_name(cls):
         np_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
                       cls.cluster_name() + '-default-ip-fabric-np']
+        return np_fq_name
+
+    @classmethod
+    def cluster_nested_underlay_policy_name(cls):
+        return cls.cluster_name() + '-nested-underlay-np'
+
+    @classmethod
+    def cluster_nested_underlay_policy_fq_name(cls):
+        np_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
+                      cls.cluster_nested_underlay_policy_name()]
         return np_fq_name
 
     @classmethod
