@@ -515,7 +515,6 @@ class SecurityResourceBase(Resource):
         return cls.locate(pending_fq_name, create_it=False, fields=fields)
 
 
-
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     _autonomous_system = None
 
