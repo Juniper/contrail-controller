@@ -38,7 +38,7 @@ private:
     bool state_machine_restart_;
 };
 
-typedef std::tr1::tuple<bool, bool> TestParams;
+typedef std::tr1::tuple<bool, bool, bool> TestParams;
 class BGPaaSTest : public ::testing::TestWithParam<TestParams>{
 public:
     // Allow IBGP bgpaas sessions for this test.
@@ -56,6 +56,7 @@ protected:
     virtual void SetUp() {
         set_local_as_ = std::tr1::get<0>(GetParam());
         ebgp_ = std::tr1::get<1>(GetParam());
+        set_auth_ = std::tr1::get<2>(GetParam());
         server_.reset(new BgpServerTest(&evm_, "local"));
         vm1_.reset(new BgpServerTest(&evm_, "vm1"));
         vm2_.reset(new BgpServerTest(&evm_, "vm2"));
@@ -433,7 +434,7 @@ protected:
     }
 
     void InitializeTemplates(bool set_local_as, const string &vm1_server_as,
-                             const string &vm2_server_as);
+                             const string &vm2_server_as, bool set_auth);
     void RunTest();
 
     EventManager evm_;
@@ -457,13 +458,26 @@ protected:
     size_t stale_count_;
     string vm1_as_;
     string vm2_as_;
+    bool set_auth_;
+    string auth_config_;
 };
 
 void BGPaaSTest::InitializeTemplates(bool set_local_as,
                                      const string &vm1_server_as,
-                                     const string &vm2_server_as) {
+                                     const string &vm2_server_as,
+                                     bool set_auth) {
     vm1_server_as_ = vm1_server_as;
     vm2_server_as_ = vm2_server_as;
+    if (set_auth ) {
+        auth_config_ =
+"           <auth-data> \n"
+"               <key-type>MD5</key-type> \n"
+"               <key-items> \n"
+"                   <key-id> 0 </key-id> \n"
+"                   <key>juniper</key> \n"
+"               </key-items> \n"
+"           </auth-data> \n";
+    }
 
     vm1_client_config_ =
 "<?xml version='1.0' encoding='utf-8'?> \n"
@@ -486,14 +500,14 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>" + vm1_server_as_ + "</autonomous-system> \n"
 "       <identifier>192.168.1.1</identifier> \n"
-"       <port>__server_port__</port> \n"
+"       <port>__server_port__</port> \n" + auth_config_ +
 "       <session to='vm1'> \n"
 "           <family-attributes> \n"
 "               <address-family>inet</address-family> \n"
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "       <session to='vm2'> \n"
 "           <family-attributes> \n"
@@ -501,35 +515,35 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "   </bgp-router> \n"
 "   <bgp-router name='vm1'> \n"
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>" + vm1_as_ + "</autonomous-system> \n"
 "       <port>__vm1_port__</port> \n"
-"       <identifier>10.0.0.1</identifier> \n"
+"       <identifier>10.0.0.1</identifier> \n" + auth_config_ +
 "       <session to='bgpaas-server'> \n"
 "           <family-attributes> \n"
 "               <address-family>inet</address-family> \n"
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "   </bgp-router> \n"
 "   <bgp-router name='vm2'> \n"
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>" + vm2_as_ + "</autonomous-system> \n"
 "       <port>__vm2_port__</port> \n"
-"       <identifier>10.0.0.2</identifier> \n"
+"       <identifier>10.0.0.2</identifier> \n" + auth_config_ +
 "       <session to='bgpaas-server'> \n"
 "           <family-attributes> \n"
 "               <address-family>inet</address-family> \n"
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "   </bgp-router> \n"
 "</config> \n"
@@ -556,14 +570,14 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>" + vm2_server_as_ + "</autonomous-system> \n"
 "       <identifier>192.168.1.1</identifier> \n"
-"       <port>__server_port__</port> \n"
+"       <port>__server_port__</port> \n" + auth_config_ +
 "       <session to='vm1'> \n"
 "           <family-attributes> \n"
 "               <address-family>inet</address-family> \n"
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "       <session to='vm2'> \n"
 "           <family-attributes> \n"
@@ -571,35 +585,35 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "   </bgp-router> \n"
 "   <bgp-router name='vm1'> \n"
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>" + vm1_as_ + "</autonomous-system> \n"
 "       <port>__vm1_port__</port> \n"
-"       <identifier>10.0.0.1</identifier> \n"
+"       <identifier>10.0.0.1</identifier> \n" + auth_config_ +
 "       <session to='bgpaas-server'> \n"
 "           <family-attributes> \n"
 "               <address-family>inet</address-family> \n"
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "   </bgp-router> \n"
 "   <bgp-router name='vm2'> \n"
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>" + vm2_as_ + "</autonomous-system> \n"
 "       <port>__vm2_port__</port> \n"
-"       <identifier>10.0.0.2</identifier> \n"
+"       <identifier>10.0.0.2</identifier> \n" + auth_config_ +
 "       <session to='bgpaas-server'> \n"
 "           <family-attributes> \n"
 "               <address-family>inet</address-family> \n"
 "           </family-attributes> \n"
 "           <family-attributes> \n"
 "               <address-family>inet6</address-family> \n"
-"           </family-attributes> \n"
+"           </family-attributes> \n" + auth_config_ +
 "       </session> \n"
 "   </bgp-router> \n"
 "</config> \n"
@@ -641,14 +655,14 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "       <bgp-router name='bgpaas-server'> \n"
 "           <router-type>bgpaas-server</router-type> \n"
 "           <autonomous-system>64512</autonomous-system> \n"
-"           <port>__server_port__</port> \n"
+"           <port>__server_port__</port> \n" + auth_config_ +
 "           <session to='vm1'> \n"
 "               <family-attributes> \n"
 "                   <address-family>inet</address-family> \n"
 "               </family-attributes> \n"
 "               <family-attributes> \n"
 "                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n" + server_vm1_as +
+"               </family-attributes> \n" + server_vm1_as + auth_config_ +
 "           </session> \n"
 "           <session to='vm2'> \n"
 "               <family-attributes> \n"
@@ -656,7 +670,7 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "               </family-attributes> \n"
 "               <family-attributes> \n"
 "                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n" + server_vm2_as +
+"               </family-attributes> \n" + server_vm2_as + auth_config_ +
 "           </session> \n"
 "       </bgp-router> \n"
 "       <bgp-router name='vm1'> \n"
@@ -666,13 +680,14 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "           <source-port>11024</source-port> \n"
 "           <gateway-address>100.0.0.1</gateway-address>\n"
 "           <ipv6-gateway-address>::ffff:100.0.0.2</ipv6-gateway-address>\n"
+            + auth_config_ +
 "           <session to='bgpaas-server'> \n"
 "               <family-attributes> \n"
 "                   <address-family>inet</address-family> \n"
 "               </family-attributes> \n"
 "               <family-attributes> \n"
 "                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n"
+"               </family-attributes> \n" + auth_config_ +
 "           </session> \n"
 "       </bgp-router> \n"
 "       <bgp-router name='vm2'> \n"
@@ -682,13 +697,14 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "           <source-port>11025</source-port> \n"
 "           <gateway-address>200.0.0.1</gateway-address>\n"
 "           <ipv6-gateway-address>beef:beef::1</ipv6-gateway-address>\n"
+            + auth_config_ +
 "           <session to='bgpaas-server'> \n"
 "               <family-attributes> \n"
 "                   <address-family>inet</address-family> \n"
 "               </family-attributes> \n"
 "               <family-attributes> \n"
 "                   <address-family>inet6</address-family> \n"
-"               </family-attributes> \n"
+"               </family-attributes> \n" + auth_config_ +
 "           </session> \n"
 "       </bgp-router> \n"
 "   </routing-instance> \n"
@@ -1066,7 +1082,7 @@ TEST_P(BGPaaSTest, Basic) {
     }
 
     InitializeTemplates(set_local_as_, set_local_as_ ? "700" : "64512",
-                        set_local_as_ ? "800" : "64512");
+                        set_local_as_ ? "800" : "64512", set_auth_);
     vm1_->Configure(vm1_client_config_);
     vm2_->Configure(vm2_client_config_);
     server_->Configure(server_config_);
@@ -1109,7 +1125,7 @@ TEST_P(BGPaaSTest, Basic) {
         vm2_as_ = "65002";
     }
     InitializeTemplates(!set_local_as_, !set_local_as_ ? "700" : "64512",
-                        !set_local_as_ ? "800" : "64512");
+                        !set_local_as_ ? "800" : "64512", set_auth_);
     vm1_->Configure(vm1_client_config_);
     vm2_->Configure(vm2_client_config_);
     server_->Configure(server_config_);
@@ -1125,7 +1141,8 @@ TEST_P(BGPaaSTest, Basic) {
 }
 
 INSTANTIATE_TEST_CASE_P(BGPaaSTestWithParam, BGPaaSTest,
-                        testing::Combine(::testing::Bool(), ::testing::Bool()));
+                        testing::Combine(::testing::Bool(), ::testing::Bool(),
+                                         ::testing::Bool()));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
