@@ -406,12 +406,12 @@ void BgpAsAServiceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
         return;
     const VmInterface *vm_intf =
         dynamic_cast<const VmInterface *>(flow->intf_entry());
-    if (!vm_intf || (flow->bgp_as_a_service_port() == 0))
+    if (!vm_intf || (flow->bgp_as_a_service_sport() == 0))
         return;
 
     BgpAsAServiceFlowMgmtKey *key =
         new BgpAsAServiceFlowMgmtKey(vm_intf->GetUuid(),
-                                 flow->bgp_as_a_service_port(),
+                                 flow->bgp_as_a_service_sport(),
                                  index_, NULL, NULL);
     AddFlowMgmtKey(tree, key);
 }

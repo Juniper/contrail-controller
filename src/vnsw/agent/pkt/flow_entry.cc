@@ -299,7 +299,8 @@ void FlowData::Reset() {
     rpf_vrf = VrfEntry::kInvalidIndex;
     disable_validation = false;
     vm_cfg_name = "";
-    bgp_as_a_service_port = 0;
+    bgp_as_a_service_sport = 0;
+    bgp_as_a_service_dport = 0;
     acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     qos_config_idx = AgentQosConfigTable::kInvalidIndex;
     ttl = 0;
@@ -591,10 +592,12 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     }
     if (info->bgp_router_service_flow) {
         set_flags(FlowEntry::BgpRouterService);
-        data_.bgp_as_a_service_port = info->nat_sport;
+        data_.bgp_as_a_service_sport = info->nat_sport;
+        data_.bgp_as_a_service_dport = info->nat_dport;
     } else {
         reset_flags(FlowEntry::BgpRouterService);
-        data_.bgp_as_a_service_port = 0;
+        data_.bgp_as_a_service_sport = 0;
+        data_.bgp_as_a_service_dport = 0;
     }
 
     if (info->alias_ip_flow) {

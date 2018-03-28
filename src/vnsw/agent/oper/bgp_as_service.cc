@@ -269,6 +269,7 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                 temp_bgp_as_a_service_entry_list.insert(
                                     BgpAsAServiceEntry(peer_ip,
                                         bgp_router->parameters().source_port,
+                                        bgp_router->parameters().port,
                                         health_check_configured,
                                         health_check_uuid,
                                         bgp_as_a_service->bgpaas_shared(),
@@ -294,6 +295,7 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
             }
             if (source_port) {
                 new_list.insert(BgpAsAServiceEntry(peer_ip, source_port,
+                                            bgp_router->parameters().port,
                                                    health_check_configured,
                                                    health_check_uuid,
                                                    bgp_as_a_service->bgpaas_shared(),
@@ -513,7 +515,7 @@ uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port,
 bool BgpAsAService::GetBgpRouterServiceDestination(
                     const VmInterface *vm_intf, const IpAddress &source_ip,
                     const IpAddress &dest, IpAddress *nat_server,
-                    uint32_t *sport) const {
+                    uint32_t *sport, uint32_t *dport) const {
     const VnEntry *vn = vm_intf->vn();
     if (vn == NULL) return false;
 
@@ -542,6 +544,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
+            *dport = it->dest_port_;
             return true;
         }
         if (dest == dns) {
@@ -558,6 +561,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
+            *dport = it->dest_port_;
             return true;
         }
         it++;
@@ -621,6 +625,7 @@ void BgpAsAService::UpdateBgpAsAServiceSessionInfo() {
             if (list_iter->source_port_ != source_port) {
                 BgpAsAServiceEntry temp(list_iter->local_peer_ip_,
                                     source_port,
+                                    list_iter->dest_port_,
                                     list_iter->health_check_configured_,
                                     list_iter->health_check_uuid_,
                                     list_iter->is_shared_,
@@ -650,11 +655,11 @@ void BgpAsAService::UpdateBgpAsAServiceSessionInfo() {
 ////////////////////////////////////////////////////////////////////////////
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry() :
     VmInterface::ListEntry(), installed_(false),
-    local_peer_ip_(), source_port_(0), health_check_configured_(false),
-    health_check_uuid_(), new_health_check_add_(false),
-    old_health_check_delete_(false), old_health_check_uuid_(),
-    hc_delay_usecs_(0), hc_timeout_usecs_(0), hc_retries_(0),
-    is_shared_(false) {
+    local_peer_ip_(), source_port_(0), dest_port_(0),
+    health_check_configured_(false), health_check_uuid_(),
+    new_health_check_add_(false),old_health_check_delete_(false),
+    old_health_check_uuid_(),hc_delay_usecs_(0),
+    hc_timeout_usecs_(0), hc_retries_(0), is_shared_(false) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
@@ -663,6 +668,7 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
     installed_(rhs.installed_),
     local_peer_ip_(rhs.local_peer_ip_), 
     source_port_(rhs.source_port_),
+    dest_port_(rhs.dest_port_),
     health_check_configured_(rhs.health_check_configured_),
     health_check_uuid_(rhs.health_check_uuid_),
     new_health_check_add_(rhs.new_health_check_add_),
@@ -675,7 +681,7 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
-(const IpAddress &local_peer_ip, uint32_t source_port,
+(const IpAddress &local_peer_ip, uint32_t source_port, uint32_t dest_port,
  bool health_check_configured, const boost::uuids::uuid &health_check_uuid,
  bool is_shared, uint64_t hc_delay_usecs, uint64_t hc_timeout_usecs,
  uint32_t hc_retries) :
@@ -683,6 +689,7 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
     installed_(false),
     local_peer_ip_(local_peer_ip),
     source_port_(source_port),
+    dest_port_(dest_port),
     health_check_configured_(health_check_configured),
     health_check_uuid_(health_check_uuid),
     new_health_check_add_(health_check_configured),
