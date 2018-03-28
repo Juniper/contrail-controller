@@ -240,9 +240,10 @@ protected:
         }
     }
 
-    bool CheckRoute(test::NetworkAgentMockPtr agent, string prefix,
+    bool CheckRouteActual(test::NetworkAgentMockPtr agent, string prefix,
         string nexthop, int local_pref, int med,
-        const vector<string> communities) {
+        const vector<string> communities, bool *result) {
+        *result = false;
         const autogen::ItemType *rt = FindRoute(agent, prefix);
         if (!rt)
             return false;
@@ -260,7 +261,18 @@ protected:
         if (!communities.empty() &&
             rt->entry.community_tag_list.community_tag != communities)
             return false;
+        *result = true;
         return true;
+    }
+
+    bool CheckRoute(test::NetworkAgentMockPtr agent, string prefix,
+                    string nexthop, int local_pref, int med,
+                    const vector<string> communities) {
+        bool result;
+        task_util::TaskFire(boost::bind(&BgpXmppIpTest::CheckRouteActual, this,
+            agent, prefix, nexthop, local_pref, med, communities, &result),
+                "bgp::Config");
+        return result;
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string prefix,
