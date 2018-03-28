@@ -695,35 +695,28 @@ class DatabaseManager(object):
             # end first encountering vn
 
             for sn_key in cassandra_all_vns[fq_name_str]:
-                addr_added = False
                 subnet = cassandra_all_vns[fq_name_str][sn_key]
                 if not IPAddress(ip_addr) in IPNetwork(sn_key):
                     continue
+                # gateway not locked on zk, we don't need it
+                gw = cassandra_all_vns[fq_name_str][sn_key]['gw']
+                if IPAddress(ip_addr) == IPAddress(gw):
+                    break
                 addrs = cassandra_all_vns[fq_name_str][sn_key]['addrs']
                 founded_ip_addr = [ip[0] for ip in addrs if ip[1] == ip_addr]
                 if founded_ip_addr:
                     duplicate_ips.setdefault(fq_name_str, {}).\
                         setdefault(sn_key, {}).\
                         setdefault(ip_addr, founded_ip_addr).append(ip_id)
+                    break
                 else:
                     addrs.append((ip_id, ip_addr))
-                    addr_added = True
-                break
-            # end for all subnets in vn
-
-            if not addr_added:
+                    break
+            else:
                 errmsg = 'Missing subnet for ip %s %s' % (ip_type, ip_id)
                 ret_errors.append(IpSubnetMissingError(errmsg))
             # end handled the ip
         # end for all ip_uuids
-
-        # Remove subnets without IP and network without subnets
-        for vn_fq_name_str, sn_keys in cassandra_all_vns.items():
-            for sn_key, subnet in sn_keys.items():
-                if not subnet['addrs']:
-                    del cassandra_all_vns[vn_fq_name_str][sn_key]
-            if not cassandra_all_vns[vn_fq_name_str]:
-                del cassandra_all_vns[vn_fq_name_str]
 
         return ret_errors
 
@@ -744,22 +737,22 @@ class DatabaseManager(object):
             pfx = subnet.split(':', 3)[-1]
             zk_all_vns.setdefault(vn_fq_name_str, {})
             pfxlen_path = base_path + '/' + subnet
-            pfxlen = self._zk_client.get_children(pfxlen_path)
-            if not pfxlen:
+            for pfxlen in self._zk_client.get_children(pfxlen_path):
+                subnet_key = '%s/%s' % (pfx, pfxlen)
+                zk_all_vns[vn_fq_name_str][subnet_key] = []
+                addrs = self._zk_client.get_children(
+                    '%s/%s' % (pfxlen_path, pfxlen))
+                if not addrs:
+                    continue
+                for addr in addrs:
+                    iip_uuid = self._zk_client.get(
+                        pfxlen_path + '/' + pfxlen + '/' + addr)
+                    if iip_uuid is not None:
+                        zk_all_vns[vn_fq_name_str][subnet_key].append(
+                            (iip_uuid[0], str(IPAddress(int(addr)))))
+                        num_addrs += 1
+            if not zk_all_vns[vn_fq_name_str]:
                 zk_all_vns[vn_fq_name_str][pfx] = []
-                continue
-            subnet_key = '%s/%s' % (pfx, pfxlen[0])
-            zk_all_vns[vn_fq_name_str][subnet_key] = []
-            addrs = self._zk_client.get_children(pfxlen_path + '/' + pfxlen[0])
-            if not addrs:
-                continue
-            for addr in addrs:
-                iip_uuid = self._zk_client.get(
-                    pfxlen_path + '/' + pfxlen[0] + '/' + addr)
-                if iip_uuid is not None:
-                    zk_all_vns[vn_fq_name_str].setdefault(subnet_key, []).\
-                        append((iip_uuid[0], str(IPAddress(int(addr)))))
-            num_addrs += len(zk_all_vns[vn_fq_name_str][subnet_key])
         # end for all subnet paths
         logger.debug("Got %d networks %d addresses",
                      len(zk_all_vns), num_addrs)
@@ -1089,7 +1082,12 @@ class DatabaseChecker(DatabaseManager):
                      % (str(extra_vn))
             ret_errors.append(ZkVNExtraError(errmsg))
 
-        extra_vn = set(cassandra_all_vns.keys()) - set(zk_all_vns.keys())
+        extra_vn = set()
+        # Subnet lock path is not created until an IP is allocated into it
+        for vn_key in set(cassandra_all_vns.keys()) - set(zk_all_vns.keys()):
+            for sn_key, addrs in cassandra_all_vns[vn_key].items():
+                if addrs['addrs']:
+                    extra_vn.add(vn_key)
         if extra_vn:
             errmsg = 'Missing VN in zookeeper (vs.cassandra) for %s' \
                      % (str(extra_vn))
@@ -1101,8 +1099,14 @@ class DatabaseChecker(DatabaseManager):
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
 
         cassandra_all_vn_sn = []
+        # ignore subnet without address and not lock in zk
         for vn_key, vn in cassandra_all_vns.items():
-            cassandra_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
+            for sn_key, addrs in vn.items():
+                if not addrs['addrs']:
+                    if (vn_key not in zk_all_vns or
+                            sn_key not in zk_all_vns[vn_key]):
+                        continue
+                cassandra_all_vn_sn.extend([(vn_key, sn_key)])
 
         extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
         if extra_vn_sn:
@@ -1683,8 +1687,14 @@ class DatabaseCleaner(DatabaseManager):
         for vn_key, vn in zk_all_vns.items():
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
         cassandra_all_vn_sn = []
+        # ignore subnet without address and not lock in zk
         for vn_key, vn in cassandra_all_vns.items():
-            cassandra_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
+            for sn_key, addrs in vn.items():
+                if not addrs['addrs']:
+                    if (vn_key not in zk_all_vns or
+                            sn_key not in zk_all_vns[vn_key]):
+                        continue
+                cassandra_all_vn_sn.extend([(vn_key, sn_key)])
 
         # Clean extra net in zk
         extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
@@ -1702,12 +1712,15 @@ class DatabaseCleaner(DatabaseManager):
         # Clean extra subnet in zk
         extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
         for vn, sn_key in extra_vn_sn:
-            path = '%s/%s:%s' % (self.base_subnet_zk_path, vn, sn_key)
+            cidr_path = '%s/%s:%s' % (self.base_subnet_zk_path, vn, sn_key)
+            prefix_path = '%s/%s:%s' % (self.base_subnet_zk_path, vn,
+                                        str(IPNetwork(sn_key).network))
             if not self._args.execute:
-                logger.info("Would delete zk: %s", path)
+                logger.info("Would delete zk: %s", cidr_path)
             else:
-                logger.info("Deleting zk path: %s", path)
-                self._zk_client.delete(path, recursive=True)
+                logger.info("Deleting zk path: %s", cidr_path)
+                self._zk_client.delete(cidr_path, recursive=True)
+                self._zk_client.delete(prefix_path, recursive=False)
             if vn in zk_all_vns:
                 zk_all_vns[vn].pop(sn_key, None)
 
@@ -2087,8 +2100,14 @@ class DatabaseHealer(DatabaseManager):
         for vn_key, vn in zk_all_vns.items():
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
         cassandra_all_vn_sn = []
+        # ignore subnet without address and not lock in zk
         for vn_key, vn in cassandra_all_vns.items():
-            cassandra_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
+            for sn_key, addrs in vn.items():
+                if not addrs['addrs']:
+                    if (vn_key not in zk_all_vns or
+                            sn_key not in zk_all_vns[vn_key]):
+                        continue
+                cassandra_all_vn_sn.extend([(vn_key, sn_key)])
 
         # Re-create missing vn/subnet in zk
         for vn, sn_key in set(cassandra_all_vn_sn) - set(zk_all_vn_sn):
