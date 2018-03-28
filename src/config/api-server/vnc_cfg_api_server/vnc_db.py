@@ -516,9 +516,16 @@ class VncZkClient(object):
         if subnet in self._subnet_allocators:
             self._subnet_allocators.pop(subnet, None)
         if not notify:
-            IndexAllocator.delete_all(self._zk_client,
-                        self._subnet_path+'/'+subnet+'/')
-    # end delete_subnet_allocator
+            alloc_path = "%s/%s/" % (self._subnet_path, subnet)
+            IndexAllocator.delete_all(self._zk_client, alloc_path)
+            # delete subnet prefix lock if no more subnet belongs to it
+            prefix, _, _ = subnet.rpartition('/')
+            if prefix:
+                alloc_path = "%s/%s/" % (self._subnet_path, prefix)
+                try:
+                    self._zk_client.delete_node(path, recursive=False)
+                except kazoo.exceptions.NotEmptyError:
+                    pass
 
     def _get_subnet_allocator(self, subnet):
         return self._subnet_allocators.get(subnet)
