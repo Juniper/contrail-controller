@@ -34,21 +34,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
 
 
-def _parse_rt(rt):
-    (prefix, asn, target) = rt.split(':')
-    if prefix != 'target':
-        raise ValueError()
-    target = int(target)
-    if not asn.isdigit():
-        try:
-            IPAddress(asn)
-        except netaddr.core.AddrFormatError:
-            raise ValueError()
-    else:
-        asn = int(asn)
-    return (prefix, asn, target)
-
-
 class ResourceDbMixin(object):
 
     @classmethod
@@ -318,7 +303,10 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         for vn in result:
             rt_dict = vn.get('route_target_list', {})
             for rt in rt_dict.get('route_target', []):
-                (_, asn, target) = _parse_rt(rt)
+                ok, result = RouteTargetServer.parse_route_target_name(rt)
+                if not ok:
+                    return False, result
+                asn, target = result
                 if (asn == global_asn and
                     target >= cfgm_common.BGP_RTGT_MIN_ID):
                     return (False, (400, "Virtual network %s is configured "
@@ -2528,26 +2516,26 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def _check_route_targets(cls, obj_dict, db_conn):
-        if 'route_target_list' not in obj_dict:
-            return (True, '')
-        global_asn = db_conn.get_autonomous_system()
-        if not global_asn:
-            return (True, '')
         rt_dict = obj_dict.get('route_target_list')
         if not rt_dict:
-            return (True, '')
-        for rt in rt_dict.get('route_target') or []:
-            try:
-                (prefix, asn, target) = _parse_rt(rt)
-            except ValueError:
-                 return (False, "Route target must be of the format "
-                         "'target:<asn>:<number>' or 'target:<ip>:number'")
-            if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
-                 return (False, "Configured route target must use ASN that is "
-                         "different from global ASN or route target value must"
-                         " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+            return True, ''
 
-        return (True, '')
+        global_asn = db_conn.get_autonomous_system()
+        if not global_asn:
+            return False, (400, "Failed to fetch global ASN")
+
+        for rt in rt_dict.get('route_target') or []:
+            ok, result = RouteTargetServer.parse_route_target_name(rt)
+            if not ok:
+                return False, result
+            asn, target = result
+            if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
+                msg = ("Configured route target must use ASN that is "
+                       "different from global ASN or route target value must "
+                       "be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+                return False, (400, msg)
+
+        return True, ''
     # end _check_route_targets
 
     @classmethod
@@ -2786,9 +2774,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, (return_code, result))
 
-        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        ok, error =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
-            return (False, (400, error))
+            return False, error
 
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, True)
         if not ok:
@@ -2891,9 +2879,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 obj_dict['perms2'] = result['perms2']
                 obj_dict['perms2']['global_access'] = PERMS_RWX if is_shared else 0
 
-        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        ok, error =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
-            return (False, (400, error))
+            return False, error
 
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, False)
         if not ok:
@@ -4813,7 +4801,7 @@ class BgpvpnServer(Resource, Bgpvpn):
 
 class RouteTargetServer(Resource, RouteTarget):
     @staticmethod
-    def _parse_route_target_name(name):
+    def parse_route_target_name(name):
         try:
             if isinstance(name, basestring):
                 prefix, asn, target = name.split(':')
@@ -4839,4 +4827,4 @@ class RouteTargetServer(Resource, RouteTarget):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return cls._parse_route_target_name(obj_dict['fq_name'][-1])
+        return cls.parse_route_target_name(obj_dict['fq_name'][-1])
