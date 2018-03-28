@@ -516,7 +516,7 @@ bool BgpXmppMessage::AddMvpnRoute(const BgpRoute *route,
 }
 
 const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp,
-    const string **msg_str) {
+    const string **msg_str, string *temp) {
     // Build begin line that contains message opening tag with from and to
     // attributes.
     msg_begin_.clear();
@@ -551,10 +551,10 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp,
         *msg_str = &repr_;
         return reinterpret_cast<const uint8_t *>(repr_.c_str()) + extra;
     } else {
-        string temp = msg_begin_ + string(repr_, kMaxFromToLength);
-        *lenp = temp.size();
+        *temp = msg_begin_ + string(repr_, kMaxFromToLength);
+        *lenp = temp->size();
         *msg_str = NULL;
-        return reinterpret_cast<const uint8_t *>(temp.c_str());
+        return reinterpret_cast<const uint8_t *>(temp->c_str());
     }
 }
 

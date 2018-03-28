@@ -21,7 +21,8 @@ public:
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
     virtual void Finish();
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
-                                   const std::string **msg_str);
+                                   const std::string **msg_str,
+                                   std::string *temp);
 
 private:
     virtual void Reset();

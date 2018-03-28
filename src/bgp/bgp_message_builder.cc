@@ -261,7 +261,7 @@ void BgpMessage::Finish() {
 }
 
 const uint8_t *BgpMessage::GetData(IPeerUpdate *peer, size_t *lenp,
-    const string **msg_str) {
+    const string **msg_str, string *temp) {
     *lenp = datalen_;
     return data_;
 }
