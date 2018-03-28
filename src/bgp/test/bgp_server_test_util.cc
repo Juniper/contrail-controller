@@ -190,8 +190,6 @@ void BgpPeerTest::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
 BgpPeerTest::BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
                          const BgpNeighborConfig *config)
         : BgpPeer(server, rtinst, config), id_(0),
-          work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-                      boost::bind(&BgpPeerTest::ProcessRequest, this, _1)),
           send_update_fnc_(boost::bind(&BgpPeerTest::BgpPeerSendUpdate, this,
                                        _1, _2)),
           mp_nlri_allowed_fnc_(boost::bind(&BgpPeerTest::BgpPeerMpNlriAllowed,
@@ -206,30 +204,21 @@ BgpPeerTest::BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
 BgpPeerTest::~BgpPeerTest() {
 }
 
-// Process requests and run them off bgp::Config exclusive task
-bool BgpPeerTest::ProcessRequest(Request *request) {
-    CHECK_CONCURRENCY("bgp::Config");
-    switch (request->type) {
-        case ADMIN_UP:
-            BgpPeer::SetAdminState(false, request->subcode);
-            request->result = true;
-            break;
-        case ADMIN_DOWN:
-            BgpPeer::SetAdminState(true, request->subcode);
-            request->result = true;
-            break;
-    }
+// Enable this if peer name uuid is also required in all bgp peer logs
+bool BgpPeerTest::verbose_name_ = false;
 
-    // Notify waiting caller with the result
-    tbb::mutex::scoped_lock lock(work_mutex_);
-    cond_var_.notify_all();
-    return true;
+void BgpPeerTest::SetAdminState(bool down, int subcode) {
+    if (!ConcurrencyChecker::IsInMainThr()) {
+        BgpPeer::SetAdminState(down, subcode);
+        return;
+    }
+    task_util::TaskFire(boost::bind(&BgpPeerTest::SetAdminStateActual, this,
+                                    down, subcode), "bgp::Config");
 }
 
-//
-// Enable this if peer name uuid is also required in all bgp peer logs
-//
-bool BgpPeerTest::verbose_name_ = false;
+void BgpPeerTest::SetAdminStateActual(bool down, int subcode) {
+    BgpPeer::SetAdminState(down, subcode);
+}
 
 const string &BgpPeerTest::ToString() const {
     if (to_str_.empty()) {
