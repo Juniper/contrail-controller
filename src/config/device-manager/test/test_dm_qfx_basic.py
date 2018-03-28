@@ -486,7 +486,7 @@ class TestQfxBasicDM(TestCommonDM):
                                                       'default-project'])
         self.wait_for_get_sg_id(sg1_obj.get_fq_name())
         sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
-        rule1 = self.build_acl_rule(0, 65535, 'ingress', 'any', 'IPv4')
+        rule1 = self.build_acl_rule(0, 65535, 'ingress', 'icmp', 'IPv4')
         sg_rule1 = self._security_group_rule_build(rule1,
                                                    sg1_obj.get_fq_name_str())
         self._security_group_rule_append(sg1_obj, sg_rule1)
@@ -512,7 +512,6 @@ class TestQfxBasicDM(TestCommonDM):
         fq_name = ['default-domain', 'default-project', 'vmi1-acl' + self.id()]
         vmi1 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
         vmi1.set_virtual_network(vn1_obj)
-        vmi1.add_security_group(sg1_obj)
         self._vnc_lib.virtual_machine_interface_create(vmi1)
 
         li1 = LogicalInterface('li1.0', parent_obj = pi1)
@@ -521,8 +520,13 @@ class TestQfxBasicDM(TestCommonDM):
         li1_id = self._vnc_lib.logical_interface_create(li1)
 
         filters = self.get_firewall_filters(sg1_obj)
-        self.check_firewall_config(filters)
-        self.check_acl_config('li1', filters)
+        self.check_firewall_config(filters, False)
+        self.check_acl_config('li1', filters, False)
+
+        vmi1.add_security_group(sg1_obj)
+        self._vnc_lib.virtual_machine_interface_update(vmi1)
+        self.check_firewall_config(filters, True)
+        self.check_acl_config('li1', filters, True)
 
         self._vnc_lib.logical_interface_delete(fq_name=li1.get_fq_name())
         self._vnc_lib.physical_interface_delete(fq_name=pi1.get_fq_name())
@@ -670,14 +674,22 @@ class TestQfxBasicDM(TestCommonDM):
     # end check_l2_evpn_vlan_config
 
     @retries(5, hook=retry_exc_handler)
-    def check_firewall_config(self, fnames):
+    def check_firewall_config(self, fnames, check=True):
         config = FakeDeviceConnect.get_xml_config()
         fwalls = config.get_firewall()
         if not fwalls or not fwalls.get_family() or not fwalls.get_family().get_ethernet_switching():
-            raise Exception("No eth firewalls configured")
+            if check:
+                raise Exception("No eth firewalls configured")
+            else:
+                return
         ff = fwalls.get_family().get_ethernet_switching().get_filter()
-        if not ff:
-            raise Exception("No eth firewall filter configured")
+        if check:
+            if not ff:
+                raise Exception("No eth firewall filter configured")
+        elif ff:
+            raise Exception("firewall filters still configured")
+        else:
+            return
         conf_filters = [f.name for f in ff]
         for fname in fnames:
             if fname not in conf_filters:
@@ -685,7 +697,7 @@ class TestQfxBasicDM(TestCommonDM):
     # end check_firewall_config
 
     @retries(5, hook=retry_exc_handler)
-    def check_acl_config(self, intf_name, input_list):
+    def check_acl_config(self, intf_name, input_list, check=True):
         config = FakeDeviceConnect.get_xml_config()
         interfaces = self.get_interfaces(config, intf_name)
         if not interfaces:
@@ -694,8 +706,13 @@ class TestQfxBasicDM(TestCommonDM):
         if not if_config.get_unit():
             raise Exception("No Units are configured : " + intf_name)
         unit = if_config.get_unit()[0]
-        if not unit.get_family() or not unit.get_family().get_ethernet_switching():
-            raise Exception("No Ethernet Family configured : " + intf_name)
+        if check:
+            if not unit.get_family() or not unit.get_family().get_ethernet_switching():
+                raise Exception("No Ethernet Family configured : " + intf_name)
+        elif unit.get_family() and unit.get_family().get_ethernet_switching() and eth.get_filter().get_input_list():
+            raise Exception("Filters are still configured")
+        else:
+            return
         eth = unit.get_family().get_ethernet_switching()
         flist = eth.get_filter().get_input_list()
         for iput in input_list:
