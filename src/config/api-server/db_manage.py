@@ -1961,7 +1961,7 @@ class DatabaseCleaner(DatabaseManager):
             path_no_mask = '%s/%s:%s' % (self.base_subnet_zk_path, vn,
                                          sn_key.partition('/')[0])
             if not self._args.execute:
-                logger.info("Would delete zk: %s", path)
+                logger.info("Would delete zk: %s", cidr_path)
             else:
                 logger.info("Deleting zk path: %s", path)
                 self._zk_client.delete(path, recursive=True)
