@@ -214,7 +214,9 @@ TEST_P(XmppMessageBuilderParamTest, Basic) {
             XmppTestPeer peer(peer_name);
             size_t msgsize;
             const string *msg_str = NULL;
-            const uint8_t *msg = message_->GetData(&peer, &msgsize, &msg_str);
+            string temp;
+            const uint8_t *msg = message_->GetData(&peer, &msgsize, &msg_str,
+                                                   &temp);
             peer.SendUpdate(msg, msgsize, reuse_msg_str ? msg_str : NULL);
         }
     }
@@ -249,7 +251,9 @@ TEST_P(XmppMvpnMessageBuilderParamTest, Basic) {
             XmppTestPeer peer(peer_name);
             size_t msgsize;
             const string *msg_str = NULL;
-            const uint8_t *msg = message_->GetData(&peer, &msgsize, &msg_str);
+            string temp;
+            const uint8_t *msg = message_->GetData(&peer, &msgsize, &msg_str,
+                                                   &temp);
             peer.SendUpdate(msg, msgsize, reuse_msg_str ? msg_str : NULL);
         }
     }

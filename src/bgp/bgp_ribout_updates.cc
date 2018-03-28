@@ -464,7 +464,8 @@ void RibOutUpdates::UpdateSend(int queue_id, Message *message,
         IPeerUpdate *peer = iter.Next();
         size_t msgsize = 0;
         const string *msg_str = NULL;
-        const uint8_t *data = message->GetData(peer, &msgsize, &msg_str);
+        string temp;
+        const uint8_t *data = message->GetData(peer, &msgsize, &msg_str, &temp);
         if (Sandesh::LoggingLevel() >= Sandesh::LoggingUtLevel()) {
             BGP_LOG_PEER(Message, peer, Sandesh::LoggingUtLevel(),
                 BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,

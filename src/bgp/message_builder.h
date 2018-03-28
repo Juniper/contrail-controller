@@ -26,7 +26,7 @@ public:
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr) = 0;
     virtual void Finish() = 0;
     virtual const uint8_t *GetData(IPeerUpdate *peer_update, size_t *lenp,
-        const std::string **msg_str) = 0;
+        const std::string **msg_str, std::string *temp) = 0;
     uint64_t num_reach_routes() const { return num_reach_route_; }
     uint64_t num_unreach_routes() const { return num_unreach_route_; }
 
