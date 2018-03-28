@@ -111,7 +111,8 @@ TEST_F(RibOutAttributesTest, Paths) {
 
     attr1->set_local_pref(10);
     attr1->set_nexthop(nexthop1);
-    path1 = new BgpPath(&peer1, BgpPath::BGP_XMPP, attr1, 0, 1);
+    path1 = new BgpPath(&peer1, BgpPath::BGP_XMPP,
+                        server_.attr_db()->Locate(attr1), 0, 1);
     route.InsertPath(path1);
 
     //
@@ -128,7 +129,8 @@ TEST_F(RibOutAttributesTest, Paths) {
     //
     attr2 = new BgpAttr(*attr1);
     attr2->set_nexthop(nexthop2);
-    path2 = new BgpPath(&peer2, BgpPath::BGP_XMPP, attr2, 0, 2);
+    path2 = new BgpPath(&peer2, BgpPath::BGP_XMPP,
+                        server_.attr_db()->Locate(attr2), 0, 2);
     route.InsertPath(path2);
 
     {
@@ -144,7 +146,8 @@ TEST_F(RibOutAttributesTest, Paths) {
     attr3 = new BgpAttr(*attr1);
     attr3->set_local_pref(5);
     attr3->set_nexthop(nexthop3);
-    path3 = new BgpPath(&peer3, BgpPath::BGP_XMPP, attr3, 0, 3);
+    path3 = new BgpPath(&peer3, BgpPath::BGP_XMPP,
+                        server_.attr_db()->Locate(attr3), 0, 3);
     route.InsertPath(path3);
 
     {
@@ -169,7 +172,8 @@ TEST_F(RibOutAttributesTest, Paths) {
     //
     attr2 = new BgpAttr(*attr1);
     attr2->set_nexthop(nexthop2);
-    path2 = new BgpPath(&peer2, BgpPath::BGP_XMPP, attr2, 0, 2);
+    path2 = new BgpPath(&peer2, BgpPath::BGP_XMPP,
+                        server_.attr_db()->Locate(attr2), 0, 2);
     route.InsertPath(path2);
 
     {
@@ -195,7 +199,8 @@ TEST_F(RibOutAttributesTest, Paths) {
     //
     attr3 = new BgpAttr(*attr1);
     attr3->set_nexthop(nexthop2);
-    path3 = new BgpPath(&peer3, BgpPath::BGP_XMPP, attr3, 0, 2);
+    path3 = new BgpPath(&peer3, BgpPath::BGP_XMPP,
+                        server_.attr_db()->Locate(attr3), 0, 2);
     route.InsertPath(path3);
 
     {
@@ -213,7 +218,8 @@ TEST_F(RibOutAttributesTest, Paths) {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
     EXPECT_EQ(2, ribout_attr.nexthop_list().size());
     EXPECT_EQ(attr1->nexthop(), ribout_attr.nexthop_list().at(0).address());
-    EXPECT_EQ(attr3->nexthop(), ribout_attr.nexthop_list().at(1).address());
+    EXPECT_EQ(path3->GetAttr()->nexthop(),
+              ribout_attr.nexthop_list().at(1).address());
     }
 
     //
@@ -223,7 +229,8 @@ TEST_F(RibOutAttributesTest, Paths) {
     {
     RibOutAttr ribout_attr(&route, route.BestPath()->GetAttr(), true);
     EXPECT_EQ(1, ribout_attr.nexthop_list().size());
-    EXPECT_EQ(attr3->nexthop(), ribout_attr.nexthop_list().at(0).address());
+    EXPECT_EQ(path3->GetAttr()->nexthop(),
+              ribout_attr.nexthop_list().at(0).address());
     }
 
     //

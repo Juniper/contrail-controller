@@ -139,7 +139,7 @@ public:
         size_t hash = HashCompute(attr);
 
         tbb::mutex::scoped_lock lock(mutex_[hash]);
-        set_[hash].erase(attr);
+        assert(set_[hash].erase(attr));
     }
 
     // Locate passed in attribute in the data base based on the attr ptr.

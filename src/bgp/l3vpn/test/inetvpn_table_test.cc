@@ -232,7 +232,7 @@ TEST_F(InetVpnTableTest, TableNotification) {
     BgpAttr *attr1 = new BgpAttr(db, attrs);
     attr1->set_local_pref(10);
 
-    addReq.data.reset(new InetVpnTable::RequestData(attr1, 0, 20));
+    addReq.data.reset(new InetVpnTable::RequestData(db->Locate(attr1), 0, 20));
     addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     rib_->Enqueue(&addReq);
     TASK_UTIL_EXPECT_EQ(1, adc_notification_);
@@ -251,7 +251,7 @@ TEST_F(InetVpnTableTest, TableNotification) {
     BgpAttr *attr2 = new BgpAttr(db, attrs);
     attr2->set_local_pref(5);
 
-    addReq.data.reset(new InetVpnTable::RequestData(attr2, 0, 20));
+    addReq.data.reset(new InetVpnTable::RequestData(db->Locate(attr2), 0, 20));
     addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     rib_->Enqueue(&addReq);
     TASK_UTIL_EXPECT_EQ(2, adc_notification_);
@@ -265,7 +265,7 @@ TEST_F(InetVpnTableTest, TableNotification) {
     BgpAttr *attr3 = new BgpAttr(db, attrs);
     attr3->set_local_pref(15);
 
-    addReq.data.reset(new InetVpnTable::RequestData(attr3, 0, 20));
+    addReq.data.reset(new InetVpnTable::RequestData(db->Locate(attr3), 0, 20));
     addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     rib_->Enqueue(&addReq);
     TASK_UTIL_EXPECT_EQ(3, adc_notification_);
