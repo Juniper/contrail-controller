@@ -73,7 +73,7 @@ for file in local_sources:
         env.Install("device_manager",
                     "#controller/src/config/device-manager/" + file))
 
-generateds_rule = env.Install("device_api", "../common/generatedssuper.py")
+generateds_rule = env.Install("device_api", "#src/contrail-api-client/api-lib/generatedssuper.py")
 
 dm_introspect_pkg = env.SandeshGenPy('dm_introspect.sandesh',
                                        'device_manager/sandesh/', False)
