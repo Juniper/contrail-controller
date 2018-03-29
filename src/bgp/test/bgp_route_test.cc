@@ -111,7 +111,8 @@ TEST_F(BgpRouteTest, Paths) {
 
 
     PeerMock peer;
-    BgpPath *path = new BgpPath(&peer, BgpPath::BGP_XMPP, attr, 0, 0);
+    BgpPath *path = new BgpPath(&peer, BgpPath::BGP_XMPP,
+                                server_.attr_db()->Locate(attr), 0, 0);
 
     Ip4Prefix prefix;
     InetRoute route(prefix);
@@ -119,21 +120,24 @@ TEST_F(BgpRouteTest, Paths) {
 
     BgpAttr *attr2 = new BgpAttr(*attr);
     attr2->set_med(4);
-    BgpPath *path2 = new BgpPath(&peer, BgpPath::BGP_XMPP, attr2, 0, 0);
+    BgpPath *path2 = new BgpPath(&peer, BgpPath::BGP_XMPP,
+                                 server_.attr_db()->Locate(attr2), 0, 0);
     route.InsertPath(path2);
 
     EXPECT_EQ(path2, route.FindPath(BgpPath::BGP_XMPP, &peer, 0));
 
     BgpAttr *attr3 = new BgpAttr(*attr);
     attr3->set_local_pref(20);
-    BgpPath *path3 = new BgpPath(&peer, BgpPath::BGP_XMPP, attr3, 0, 0);
+    BgpPath *path3 = new BgpPath(&peer, BgpPath::BGP_XMPP,
+                                 server_.attr_db()->Locate(attr3), 0, 0);
     route.InsertPath(path3);
 
     EXPECT_EQ(path3, route.FindPath(BgpPath::BGP_XMPP, &peer, 0));
 
     BgpAttr *attr4 = new BgpAttr(*attr);
     attr4->set_origin(BgpAttrOrigin::EGP);
-    BgpPath *path4 = new BgpPath(&peer, BgpPath::BGP_XMPP, attr4, 0, 0);
+    BgpPath *path4 = new BgpPath(&peer, BgpPath::BGP_XMPP,
+                                 server_.attr_db()->Locate(attr4), 0, 0);
     route.InsertPath(path4);
 
     EXPECT_EQ(path3, route.FindPath(BgpPath::BGP_XMPP, &peer, 0));

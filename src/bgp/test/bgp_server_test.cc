@@ -2732,14 +2732,14 @@ void BgpServerUnitTest::GRTestCommon(bool hard_reset,
     BgpAttrLocalPref local_pref(100);
     attr_spec.push_back(&local_pref);
 
-    BgpAttrPtr attr_ptr = a_.get()->attr_db()->Locate(attr_spec);
+    BgpAttrPtr attr_ptr = b_.get()->attr_db()->Locate(attr_spec);
 
     // Create 3 IPv4 prefixes and the corresponding keys.
     const Ip4Prefix prefix1(Ip4Prefix::FromString("192.168.1.0/24"));
     const InetTable::RequestKey key1(prefix1, NULL);
     DBRequest req;
 
-    // Add prefix1 to A and make sure it shows up at B.
+    // Add prefix1 to B and make sure it shows up at A.
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new InetTable::RequestKey(prefix1, NULL));
     req.data.reset(new InetTable::RequestData(attr_ptr, 0, 0));
