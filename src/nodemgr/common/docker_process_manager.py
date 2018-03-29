@@ -98,6 +98,22 @@ class DockerProcessInfoManager(object):
         labels = container.get('Labels', dict())
         pod = labels.get('net.juniper.contrail.pod')
         service = labels.get('net.juniper.contrail.service')
+
+        if not pod:
+            # try to detect pod from Env.NODE_TYPE
+            if 'Env' not in container:
+                # list_containers does not return 'Env' information
+                info = self.__get_full_info(container['Id'])
+                if info:
+                    container = info['Config']
+            if 'Env' in container:
+                env = container.get('Env', list())
+                node_type = next(iter(
+                    [i for i in env if i.startswith('NODE_TYPE=')]), None)
+                if node_type:
+                    # for now pod equals to NODE_TYPE
+                    pod = node_type.split('=')[1]
+
         if pod and service:
             return pod + '-' + service
 
