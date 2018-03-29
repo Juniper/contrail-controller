@@ -516,9 +516,14 @@ class VncZkClient(object):
         if subnet in self._subnet_allocators:
             self._subnet_allocators.pop(subnet, None)
         if not notify:
-            IndexAllocator.delete_all(self._zk_client,
-                        self._subnet_path+'/'+subnet+'/')
-    # end delete_subnet_allocator
+            # ZK store subnet lock under 2 step depth folder
+            # <vn fq_name string>:<subnet prefix>/<subnet prefix len>
+            # As we prevent subnet overlaping on a same network, the first
+            # folder can contains only one prefix len folder. So we can safely
+            # remove first folder recursively.
+            prefix, _, _ = subnet.rpartition('/')
+            prefix_path = "%s/%s/" % (self._subnet_path, prefix)
+            IndexAllocator.delete_all(self._zk_client, prefix_path)
 
     def _get_subnet_allocator(self, subnet):
         return self._subnet_allocators.get(subnet)
