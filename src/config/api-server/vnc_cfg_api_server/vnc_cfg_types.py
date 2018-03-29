@@ -298,7 +298,7 @@ class SecurityResourceBase(Resource):
             # resources, should already exist we can return it
             return PolicyManagementServer.locate(obj_dict['fq_name'],
                                                  create_it=False)
-        if scope == PolicyManagementServer.resource_type:
+        if scope == GlobalSystemConfigServer.resource_type:
             parent_type = None
             parent_uuid = None
             draft_pm_fq_name = [draft_pm_name]
@@ -336,26 +336,35 @@ class SecurityResourceBase(Resource):
     def _get_dedicated_draft_policy_management(cls, obj_dict):
         parent_type = obj_dict.get('parent_type')
         if parent_type == PolicyManagementServer.resource_type:
-            parent_class = PolicyManagementServer
-            if (obj_dict.get('fq_name')[-2] ==
+            if (obj_dict['fq_name'][-2] ==
                     constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
                 # Could be already the dedicated draft policy management, in
                 # that case it is updating an already pending resource. Return
                 # it directly
-                return parent_class.locate(
+                return PolicyManagementServer.locate(
                     fq_name=obj_dict.get('fq_name')[:-1],
                     uuid=obj_dict.get('parent_uuid'),
                     create_it=False,
                 )
+            # if not a dedicated draft policy management, it is a global
+            # security resources owned by the global policy management
+            elif obj_dict['fq_name'][:-1] == PolicyManagementServer().fq_name:
+                parent_class = GlobalSystemConfigServer
+                parent_fq_name = GlobalSystemConfigServer().fq_name
+                parent_uuid = None
+            else:
+                return True, ''
         elif parent_type == ProjectServer.resource_type:
             parent_class = ProjectServer
+            parent_fq_name = obj_dict['fq_name'][:-1]
+            parent_uuid = obj_dict.get('parent_uuid')
         else:
             return True, ''
 
         # check from parent if security draft mode is enabled
         ok, result = parent_class.locate(
-            fq_name=obj_dict.get('fq_name')[:-1],
-            uuid=obj_dict.get('parent_uuid'),
+            fq_name=parent_fq_name,
+            uuid=parent_uuid,
             create_it=False,
             fields=['enable_security_policy_draft']
         )
@@ -366,7 +375,7 @@ class SecurityResourceBase(Resource):
         # get scoped policy management dedicated to own pending security
         # resource
         return cls.set_policy_management_for_security_draft(
-            parent_type, parent_dict)
+            parent_class.resource_type, parent_dict)
 
     @classmethod
     def pending_dbe_create(cls, obj_dict):
@@ -401,11 +410,11 @@ class SecurityResourceBase(Resource):
         # if a commit or revert is on going in that scope, forbidden any
         # security resource modification in that scope
         scope_type = draft_pm.get('parent_type',
-                                  PolicyManagementServer.object_type)
+                                  GlobalSystemConfigServer.object_type)
         scope_uuid = draft_pm.get('parent_uuid', 'unknown UUID')
         scope_fq_name = draft_pm['fq_name'][:-1]
         if not scope_fq_name:
-            scope_fq_name = [PolicyManagementServer().name]
+            scope_fq_name = [GlobalSystemConfigServer().name]
         scope_lock = cls.vnc_zk_client._zk_client.lock(
             '%s/%s/%s' % (
                 cls.server.security_lock_prefix,
@@ -652,6 +661,24 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         ok, result = cls._check_bgpaas_ports(obj_dict, db_conn)
         if not ok:
             return ok, result
+
+        if 'enable_security_policy_draft' in obj_dict:
+            fields = ['fq_name', 'uuid', 'enable_security_policy_draft']
+            ok, result = cls._get_global_system_config(fields)
+            if not ok:
+                return False, result
+            db_obj_dict = result
+
+            obj_dict['fq_name'] = db_obj_dict['fq_name']
+            obj_dict['uuid'] = db_obj_dict['uuid']
+            SecurityResourceBase.server = cls.server
+            return SecurityResourceBase.\
+                set_policy_management_for_security_draft(
+                    cls.resource_type,
+                    obj_dict,
+                    draft_mode_enabled=db_obj_dict.get(
+                        'enable_security_policy_draft', False),
+                )
 
         return True, ''
 
@@ -4782,12 +4809,13 @@ class ProjectServer(Resource, Project):
             obj_dict['fq_name'] = db_obj_dict['fq_name']
             obj_dict['uuid'] = db_obj_dict['uuid']
             SecurityResourceBase.server = cls.server
-            ok, result = SecurityResourceBase.set_policy_management_for_security_draft(
-                cls.resource_type,
-                obj_dict,
-                draft_mode_enabled=
-                    db_obj_dict.get('enable_security_policy_draft', False),
-            )
+            ok, result = SecurityResourceBase.\
+                set_policy_management_for_security_draft(
+                    cls.resource_type,
+                    obj_dict,
+                    draft_mode_enabled=
+                        db_obj_dict.get('enable_security_policy_draft', False),
+                )
             if not ok:
                 return False, result
 
@@ -5440,34 +5468,9 @@ class SubClusterServer(Resource, SubCluster):
 # end class SubClusterServer
 
 
+# Just decelare here to heritate 'locate' method of Resource class
 class PolicyManagementServer(Resource, PolicyManagement):
-    @classmethod
-    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        SecurityResourceBase.server = cls.server
-        return SecurityResourceBase.set_policy_management_for_security_draft(
-            cls.resource_type, obj_dict)
-
-    @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        if 'enable_security_policy_draft' not in obj_dict:
-            return True, ''
-
-        fields = ['enable_security_policy_draft']
-        ok, result = cls.dbe_read(db_conn, cls.object_type, id,
-                                  obj_fields=fields)
-        if not ok:
-            return ok, result
-        db_obj_dict = result
-
-        obj_dict['fq_name'] = db_obj_dict['fq_name']
-        obj_dict['uuid'] = db_obj_dict['uuid']
-        SecurityResourceBase.server = cls.server
-        return SecurityResourceBase.set_policy_management_for_security_draft(
-            cls.resource_type,
-            obj_dict,
-            draft_mode_enabled=
-                db_obj_dict.get('enable_security_policy_draft', False),
-        )
+    pass
 
 
 class AddressGroupServer(SecurityResourceBase, AddressGroup):
