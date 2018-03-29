@@ -516,22 +516,10 @@ class SecurityResourceBase(Resource):
 
 
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
-    _autonomous_system = None
-
     @classmethod
     def _get_global_system_config(cls, fields=None):
         return cls.locate(fq_name=['default-global-system-config'],
                           create_it=False, fields=fields)
-
-    @classmethod
-    def get_autonomous_system(cls):
-        if not cls._autonomous_system:
-            ok, result = cls._get_global_system_config(['autonomous_system'])
-            if not ok:
-                return False, result
-            cls._autonomous_system = result['autonomous_system']
-
-        return True, cls._autonomous_system
 
     @classmethod
     def _check_valid_port_range(cls, port_start, port_end):
@@ -658,7 +646,7 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if 'autonomous_system' in obj_dict:
-            cls._autonomous_system = obj_dict['autonomous_system']
+             cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
         return True, ''
 
@@ -5517,10 +5505,10 @@ class RouteTargetServer(Resource, RouteTarget):
             return False, result
         asn, target = result
         if not global_asn:
-            ok, result = GlobalSystemConfigServer.get_autonomous_system()
-            if not ok:
-                return False, result
-            global_asn = result
+            try:
+                global_asn = cls.server.global_autonomous_system
+            except cfgm_common.exceptions.VncError as e:
+                return False, (400, str(e))
 
         if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
             return True, False
