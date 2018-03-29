@@ -3350,6 +3350,61 @@ TYPED_TEST(ServiceChainTest, ExtConnectedEcmpPaths) {
                                this->BuildPrefix("1.1.2.3", 32));
 }
 
+TYPED_TEST(ServiceChainTest, ExtConnectedEcmptoNonEcmpPaths) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add MX leaked route
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.10.1.0", 24), 100);
+
+    // Add Connected
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.0.5"));
+
+    // Check for external connected route
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.10.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
+
+    // Add Connected
+    this->AddConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3", 32),
+                            100, this->BuildNextHopAddress("2.3.1.5"));
+    vector<string> path_ids = list_of(
+        this->BuildNextHopAddress("2.3.0.5"))
+        (this->BuildNextHopAddress("2.3.1.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                path_ids, "red");
+
+    // Re-add Connected with local pref 200
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            200, this->BuildNextHopAddress("2.3.0.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
+
+    // Re-add Connected with local pref 50
+    this->AddConnectedRoute(this->peers_[0], this->BuildPrefix("1.1.2.3", 32),
+                            50, this->BuildNextHopAddress("2.3.0.5"));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                this->BuildNextHopAddress("2.3.1.5"), "red");
+
+    this->DeleteConnectedRoute(this->peers_[1], this->BuildPrefix("1.1.2.3",
+                               32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.10.1.0", 24),
+                                this->BuildNextHopAddress("2.3.0.5"), "red");
+
+    // Delete MX route
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("10.10.1.0", 24));
+
+    // Delete connected route
+    this->DeleteConnectedRoute(this->peers_[0],
+                               this->BuildPrefix("1.1.2.3", 32));
+}
 
 TYPED_TEST(ServiceChainTest, ExtConnectedMoreSpecificEcmpPaths) {
     vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
