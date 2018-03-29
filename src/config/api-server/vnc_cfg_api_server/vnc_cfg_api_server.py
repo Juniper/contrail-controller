@@ -1870,7 +1870,26 @@ class VncApiServer(object):
             '^/documentation',  # allow all documentation
             '^/$',              # allow discovery
         ]
+
+        self._global_asn = None
     # end __init__
+
+    @property
+    def global_autonomous_system(self):
+        if not self._global_asn:
+            gsc_class = self.get_resource_class(GlobalSystemConfig.object_type)
+            ok, result = gsc_class.locate(uuid=self._gsc_uuid, create_it=False,
+                                          fields=['autonomous_system'])
+            if not ok:
+                msg = ("Cannot fetch Global System Config to obtain "
+                       "autonomous system")
+                raise cfgm_common.exceptions.VncError(msg)
+            self._global_asn = result['autonomous_system']
+        return self._global_asn
+
+    @global_autonomous_system.setter
+    def global_autonomous_system(self, asn):
+        self._global_asn = asn
 
     def _extensions_transform_request(self, request):
         extensions = self._extension_mgrs.get('resourceApi')
@@ -3127,6 +3146,7 @@ class VncApiServer(object):
         # create singleton defaults if they don't exist already in db
         gsc = self.create_singleton_entry(GlobalSystemConfig(
             autonomous_system=64512, config_version=CONFIG_VERSION))
+        self._gsc_uuid = gsc.uuid
         gvc = self.create_singleton_entry(GlobalVrouterConfig(
             parent_obj=gsc))
         self.create_singleton_entry(Domain())
