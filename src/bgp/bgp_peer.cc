@@ -1167,6 +1167,7 @@ BgpSession *BgpPeer::CreateSession() {
 }
 
 void BgpPeer::SetAdminState(bool down, int subcode) {
+    CHECK_CONCURRENCY("bgp::Config");
     if (admin_down_ == down)
         return;
     admin_down_ = down;

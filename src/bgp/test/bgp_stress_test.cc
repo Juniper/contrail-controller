@@ -2181,7 +2181,6 @@ void BgpStressTest::DeleteBgpPeers(int npeers) {
 }
 
 void BgpStressTest::SetPeerAdminState(int peer_id, bool state) {
-    CHECK_CONCURRENCY("bgp::Config");
     peers_[peer_id]->peer()->SetAdminState(state);
 }
 

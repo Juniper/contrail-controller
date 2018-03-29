@@ -357,21 +357,8 @@ public:
     void set_id(int id) { id_ = id; }
 
     virtual void SetAdminState(bool down,
-                     int subcode = BgpProto::Notification::AdminShutdown) {
-        if (!ConcurrencyChecker::IsInMainThr()) {
-            BgpPeer::SetAdminState(down, subcode);
-            return;
-        }
-        tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
-
-        Request request;
-        request.type = down ? ADMIN_DOWN : ADMIN_UP;
-        request.subcode = subcode;
-        work_queue_.Enqueue(&request);
-
-        // Wait for the request to get processed.
-        cond_var_.wait(lock);
-    }
+        int subcode = BgpProto::Notification::AdminShutdown);
+    void SetAdminStateActual(bool down, int subcode);
 
     BgpTestUtil util_;
 
@@ -383,14 +370,9 @@ private:
         int         subcode;
         bool        result;
     };
-    bool ProcessRequest(Request *request);
 
     static bool verbose_name_;
     int id_;
-    WorkQueue<Request *> work_queue_;
-    tbb::mutex work_mutex_;
-    tbb::interface5::condition_variable cond_var_;
-
     mutable tbb::mutex fnc_mutex_;
     boost::function<bool(const uint8_t *, size_t)> send_update_fnc_;
     boost::function<bool(uint16_t, uint8_t)> mp_nlri_allowed_fnc_;
