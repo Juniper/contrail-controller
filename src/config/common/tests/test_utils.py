@@ -658,6 +658,13 @@ class FakeKombu(object):
         @property
         def channel_errors(self):
             return (self.ChannelException, )
+
+        @property
+        def connected(self):
+            return True
+
+        def heartbeat_check(self):
+            gevent.sleep(300)
     # end class Connection
 
     class Consumer(object):
