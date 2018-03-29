@@ -20,7 +20,7 @@ class TestSwiftFileUtilModule(TestFabricModule):
         flexmock(self.mockobj).should_receive("close").and_return(None)
 
         self.args_dict = dict(authtoken="4242", authurl="auth_url", user="admin", key="contrail", tenant_name="project",
-                              region_name="url", auth_version="3.0", temp_url_key="temp_url_key1",
+                              auth_version="3.0", temp_url_key="temp_url_key1",
                               temp_url_key_2="temp_url_key2", chosen_temp_url_key="temp_url_key",
                               container_name="container", filename="sample.txt", expirytime=3600)
 
@@ -57,3 +57,15 @@ class TestSwiftFileUtilModule(TestFabricModule):
         set_module_args(self.args_dict)
         self.assertRaises(Exception, self.execute_module())
 
+    # Testing the case where non-mandatary args are not passed and it should take default value
+    def test_fileutility06(self):
+        self.args_dict = dict(authtoken="4242", authurl="auth_url", user="admin", key="contrail",
+                              temp_url_key="temp_url_key1",
+                              temp_url_key_2="temp_url_key2",
+                              container_name="container", filename="sample.txt", expirytime=3600)
+        set_module_args(self.args_dict)
+        fake_image_url = "/v1/sample.txt"
+        flexmock(swiftclient.utils).should_receive('generate_temp_url').and_return(fake_image_url)
+        result = self.execute_module()
+        self.assertTrue(result["url"])
+        self.assertEqual(result["url"], fake_image_url)
