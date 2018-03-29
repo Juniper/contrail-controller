@@ -110,16 +110,29 @@ class DockerProcessInfoManager(object):
         name = self._get_name_from_labels(container)
         if not name:
             return None
-        map = _docker_label_to_unit_name.get(self._module_type)
-        return map.get(name)
+        names_map = _docker_label_to_unit_name.get(self._module_type)
+        return names_map.get(name)
 
     def _list_containers(self, names):
-        client = self._client
         containers = dict()
-        all_containers = client.containers(all=True)
+        all_containers = self._client.containers(all=True)
         for container in all_containers:
             name = self._get_unit_name(container)
-            if name is not None and name in names:
+            if name is None or name not in names:
+                continue
+            if name not in containers:
+                containers[name] = container
+                continue
+            # case when we already found container with same name and added
+            # it to the list. check state of both and choose container with
+            # running state.
+            cur_state = container['State']
+            if cur_state != containers[name]['State']:
+                if cur_state == 'running':
+                    containers[name] = container
+                continue
+            # if both has same state - add latest.
+            if container['Created'] > containers[name]['Created']:
                 containers[name] = container
         return containers
 
@@ -167,10 +180,8 @@ class DockerProcessInfoManager(object):
         containers = self._list_containers(self._unit_names)
         for name in self._unit_names:
             container = containers.get(name)
-            if container is not None:
-                info = self._container_to_process_info(container)
-            else:
-                info = _dummy_process_info(name)
+            info = (_dummy_process_info(name) if container is None else
+                    self._container_to_process_info(container))
             if self._update_cache(info):
                 self._event_handlers['PROCESS_STATE'](_convert_to_pi_event(info))
                 if self._update_process_list:
@@ -179,11 +190,10 @@ class DockerProcessInfoManager(object):
     def get_all_processes(self):
         processes_info_list = []
         containers = self._list_containers(self._unit_names)
-        for unit_name in containers:
-            container = containers.get(unit_name)
-            if not container:
-                continue
-            info = self._container_to_process_info(container)
+        for name in self._unit_names:
+            container = containers.get(name)
+            info = (_dummy_process_info(name) if container is None else
+                    self._container_to_process_info(container))
             processes_info_list.append(info)
             self._update_cache(info)
         return processes_info_list
