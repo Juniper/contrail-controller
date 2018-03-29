@@ -20,32 +20,32 @@ _docker_label_to_unit_name = {
         'analytics-query-engine': 'contrail-query-engine',
         'analytics-alarm-gen': 'contrail-alarm-gen',
         'analytics-topology': 'contrail-topology',
-        'nodemgr': 'contrail-analytics-nodemgr'
+        'analytics-nodemgr': 'contrail-analytics-nodemgr'
     },
     Module.CONFIG_NODE_MGR: {
         'config-api': 'contrail-api',
         'config-schema': 'contrail-schema',
         'config-svc-monitor': 'contrail-svc-monitor',
         'config-device-manager': 'contrail-device-manager',
-        'config-database-cassandra': 'cassandra',
-        'config-database-zookeeper': 'zookeeper',
-        'nodemgr': 'contrail-config-nodemgr'
+        'config-cassandra': 'cassandra',
+        'config-zookeeper': 'zookeeper',
+        'config-nodemgr': 'contrail-config-nodemgr'
     },
     Module.CONTROL_NODE_MGR: {
         'control-control': 'contrail-control',
         'control-dns': 'contrail-dns',
         'control-named': 'contrail-named',
-        'nodemgr': 'contrail-control-nodemgr'
+        'control-nodemgr': 'contrail-control-nodemgr'
     },
     Module.COMPUTE_NODE_MGR: {
         'vrouter-agent': 'contrail-vrouter-agent',
-        'nodemgr': 'contrail-vrouter-nodemgr'
+        'vrouter-nodemgr': 'contrail-vrouter-nodemgr'
     },
     Module.DATABASE_NODE_MGR: {
-        'analytics-database-cassandra': 'cassandra',
-        'analytics-database-zookeeper': 'zookeeper',
-        'analytics-database-kafka': 'kafka',
-        'nodemgr': 'contrail-database-nodemgr'
+        'database-cassandra': 'cassandra',
+        'database-zookeeper': 'zookeeper',
+        'database-kafka': 'kafka',
+        'database-nodemgr': 'contrail-database-nodemgr'
     },
 }
 
@@ -98,6 +98,22 @@ class DockerProcessInfoManager(object):
         labels = container.get('Labels', dict())
         pod = labels.get('net.juniper.contrail.pod')
         service = labels.get('net.juniper.contrail.service')
+
+        if not pod:
+            # try to detect pod from Env.NODE_TYPE
+            if 'Env' not in container:
+                # list_containers does not return 'Env' information
+                info = self.__get_full_info(container['Id'])
+                if info:
+                    container = info['Config']
+            if 'Env' in container:
+                env = container.get('Env', list())
+                node_type = next(iter(
+                    [i for i in env if i.startswith('NODE_TYPE=')]), None)
+                if node_type:
+                    # for now pod equals to NODE_TYPE
+                    pod = node_type.split('=')[1]
+
         if pod and service:
             return pod + '-' + service
 
