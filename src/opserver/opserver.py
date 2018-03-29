@@ -7,7 +7,7 @@
 #
 # Operational State Server for VNC
 #
-
+ 
 from gevent import monkey
 monkey.patch_all()
 try:
@@ -489,8 +489,8 @@ class OpServer(object):
             cfg_type = self.UveTypeToConfigObjectType[uve_type]
             return self.get_resource_list(cfg_type)
         if raise_exp:
-            raise bottle.HTTPResponse(status = 401,
-                        body = 'Authentication required',
+            raise bottle.HTTPResponse(status = 403,
+                        body = 'Operation Forbidden',
                         headers = self._reject_auth_headers())
         else:
             return []
@@ -568,8 +568,8 @@ class OpServer(object):
                 if found_uve_type:
                     return
         if not self.is_role_cloud_admin():
-            raise bottle.HTTPResponse(status = 401,
-                        body = 'Authentication required',
+            raise bottle.HTTPResponse(status = 403,
+                        body = 'Operation Forbidden',
                         headers = self._reject_auth_headers())
     #end check_perms_and_update_where_clause
 
@@ -1269,8 +1269,8 @@ class OpServer(object):
             if filters['tablefilt']:
                 for filtr in filters['tablefilt']:
                     if not filtr in config_types:
-                        raise bottle.HTTPResponse(status = 401,
-                            body = 'Authentication required',
+                        raise bottle.HTTPResponse(status = 403,
+                            body = 'Operation Forbidden',
                             headers = self._reject_auth_headers())
             else:
                 filters['tablefilt'] = config_types
@@ -1945,8 +1945,8 @@ class OpServer(object):
                 stats.sendwith()
                 yield dp
             else:
-                yield bottle.HTTPResponse(status = 401,
-                        body = 'Authentication required',
+                yield bottle.HTTPResponse(status = 403,
+                        body = 'Operation Forbidden',
                         headers = self._reject_auth_headers())
     # end dyn_http_get
 
