@@ -47,6 +47,7 @@ typedef struct gmp_intf_ {
     gmp_intf_handle gmpif_handle;   /* GMP interface handle */
     uint32_t gmpif_refcount;       /* Reference count for locking */
     void *vm_interface;
+    gmpr_intf_params params;
 } gmp_intf;
 
 PATNODE_TO_STRUCT(gmp_intf_patnode_to_intf, gmp_intf, gmpif_patnode);

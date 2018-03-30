@@ -102,7 +102,7 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     layer3_forwarding_(true), admin_state_(true), table_label_(0),
     enable_rpf_(true), flood_unknown_unicast_(false),
     forwarding_mode_(Agent::L2_L3), mirror_destination_(false),
-    underlay_forwarding_(false) {
+    underlay_forwarding_(false), igmp_enable_(false) {
 }
 
 VnEntry::~VnEntry() {
@@ -282,6 +282,11 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
     if (slo_list_ != data->slo_list_) {
         slo_list_ = data->slo_list_;
     }
+
+    if (igmp_enable_ != data->igmp_enable_) {
+        igmp_enable_ = data->igmp_enable_;
+    }
+
     return ret;
 }
 
@@ -749,7 +754,6 @@ DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
         //interfaces to revaluated upon receiving
         //the config
         agent()->set_fabric_vn_uuid(key->uuid_);
-        agent()->cfg()->cfg_vm_interface_table()->NotifyAllEntries();
     }
     return vn;
 }
@@ -1035,6 +1039,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool pbb_evpn_enable = cfg->pbb_evpn_enable();
     bool pbb_etree_enable = cfg->pbb_etree_enable();
     bool layer2_control_word = cfg->layer2_control_word();
+    bool igmp_enable = cfg->igmp_enable();
 
     Agent::ForwardingMode forwarding_mode;
     CfgForwardingFlags(node, &enable_rpf, &flood_unknown_unicast,
@@ -1046,7 +1051,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       flood_unknown_unicast, forwarding_mode,
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
                       pbb_evpn_enable, layer2_control_word, slo_list,
-                      underlay_forwarding);
+                      underlay_forwarding, igmp_enable);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -1104,7 +1109,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
                               pbb_evpn_enable, layer2_control_word, empty_list,
-                              false);
+                              false, false);
  
     req.data.reset(data);
     Enqueue(&req);
@@ -1210,6 +1215,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     std::vector<VnSandeshData> &list =
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);
+    data.set_igmp_enable(igmp_enable());
     return true;
 }
 

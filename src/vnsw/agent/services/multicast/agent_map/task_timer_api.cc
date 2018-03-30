@@ -100,8 +100,13 @@ void task_timer_uset_alt_root_auto_parent_oneshot(task_timer_root *root,
     timer->timeout = offset->ut_sec*1000 + offset->ut_usec/1000;
 
     task_timer_reset(timer);
-    agent_timer->Start(timer->timeout,
+    if (agent_timer->fired()) {
+        agent_timer->Reschedule(timer->timeout);
+        timer->rescheduled = TRUE;
+    } else {
+        agent_timer->Start(timer->timeout,
                     boost::bind(task_timer_callback, timer_map));
+    }
 
     timer->oneshot = TRUE;
 
@@ -155,8 +160,16 @@ bool task_timer_callback(void *agent_timer_map)
     task_timer *timer = (task_timer *)timer_map->timer_;
 
     timer->callback(timer, 0);
+    bool reschedule = false;
+    if (timer->rescheduled == TRUE) {
+        reschedule = true;
+        timer->rescheduled = FALSE;
+    }
+    if (!reschedule) {
+        reschedule = (!timer->oneshot ? true : false);
+    }
 
-    return !timer->oneshot ? true : false;
+    return reschedule;
 }
 
 bool task_timer_cleanup(void *data)

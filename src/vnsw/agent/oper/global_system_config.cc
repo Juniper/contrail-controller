@@ -10,6 +10,7 @@
 #include <forwarding_class.h>
 #include <global_system_config.h>
 #include <config_manager.h>
+#include <cfg/cfg_init.h>
 #include "oper/bgp_as_service.h"
 
 void BGPaaServiceParameters::Reset() {
@@ -23,6 +24,10 @@ void GracefulRestartParameters::Reset() {
     long_lived_restart_time_ = 0;
     xmpp_helper_enable_ = true;
     config_seen_ = false;
+}
+
+void IgmpConfigParameters::Reset() {
+    igmp_enable_ = false;
 }
 
 void GracefulRestartParameters::Update(autogen::GlobalSystemConfig *cfg) {
@@ -88,6 +93,7 @@ void GlobalSystemConfig::ConfigDelete(IFMapNode *node) {
 void GlobalSystemConfig::Reset() {
     bgpaas_parameters_.Reset();
     gres_parameters_.Reset();
+    igmp_parameters_.Reset();
 }
 
 void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
@@ -111,6 +117,14 @@ void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
                                 UpdateBgpAsAServiceSessionInfo();
     }
 
+    if (igmp_parameters_.igmp_enable_ != cfg->igmp_enable()) {
+
+        igmp_parameters_.igmp_enable_ = cfg->igmp_enable();
+
+        agent()->cfg()->cfg_vn_table()->NotifyAllEntries();
+        agent()->cfg()->cfg_vm_interface_table()->NotifyAllEntries();
+    }
+
     //Populate gres params
     gres_parameters_.Update(cfg);
 }
@@ -121,6 +135,10 @@ void GlobalSystemConfig::ConfigManagerEnqueue(IFMapNode *node) {
 
 GracefulRestartParameters &GlobalSystemConfig::gres_parameters() {
     return gres_parameters_;
+}
+
+bool GlobalSystemConfig::igmp_enable() const {
+    return igmp_parameters_.igmp_enable_;
 }
 
 void GlobalSystemConfig::FillSandeshInfo(GlobalSystemConfigResp *resp)

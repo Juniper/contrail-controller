@@ -210,6 +210,7 @@ struct KSyncItfSandeshData {
     32: string analyzer_name;
     33: string etree_leaf;
     34: string pbb_interface;
+    35: string igmp_enable;
 }
 
 
