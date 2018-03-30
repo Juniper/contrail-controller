@@ -10,6 +10,7 @@
 #include <forwarding_class.h>
 #include <global_system_config.h>
 #include <config_manager.h>
+#include <cfg/cfg_init.h>
 #include "oper/bgp_as_service.h"
 
 void BGPaaServiceParameters::Reset() {
@@ -88,6 +89,7 @@ void GlobalSystemConfig::ConfigDelete(IFMapNode *node) {
 void GlobalSystemConfig::Reset() {
     bgpaas_parameters_.Reset();
     gres_parameters_.Reset();
+    cfg_igmp_enable_ = false;
 }
 
 void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
@@ -111,6 +113,13 @@ void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
                                 UpdateBgpAsAServiceSessionInfo();
     }
 
+    if (cfg_igmp_enable_ != cfg->igmp_enable()) {
+
+        cfg_igmp_enable_ = cfg->igmp_enable();
+
+        agent()->cfg()->cfg_vm_interface_table()->NotifyAllEntries();
+    }
+
     //Populate gres params
     gres_parameters_.Update(cfg);
 }
@@ -123,6 +132,10 @@ GracefulRestartParameters &GlobalSystemConfig::gres_parameters() {
     return gres_parameters_;
 }
 
+bool GlobalSystemConfig::cfg_igmp_enable() const {
+    return cfg_igmp_enable_;
+}
+
 void GlobalSystemConfig::FillSandeshInfo(GlobalSystemConfigResp *resp)
 {
   BGPaaSSandeshData bgp_params;
@@ -133,8 +146,11 @@ void GlobalSystemConfig::FillSandeshInfo(GlobalSystemConfigResp *resp)
   graceful_restart.set_end_of_rib_time(gres_parameters_.end_of_rib_time());
   graceful_restart.set_xmpp_helper_enable(gres_parameters_.xmpp_helper_enable());
   graceful_restart.set_config_seen(gres_parameters_.config_seen());
+  IgmpSandeshData igmp_params;
+  igmp_params.set_cfg_igmp_enable(cfg_igmp_enable());
   resp->set_bgp_parameters(bgp_params);
   resp->set_llgr_parameters(graceful_restart);
+  resp->set_igmp_parameters(igmp_params);
 }
 
 void GlobalSystemConfigReq::HandleRequest() const {
