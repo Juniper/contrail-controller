@@ -1273,6 +1273,26 @@ static void BuildEcmpHashingIncludeFields(VirtualMachineInterface *cfg,
 
 }
 
+// Get IGMP configuration
+static void ReadIgmpConfig(Agent *agent, const IFMapNode *vn_node,
+                            const VirtualMachineInterface *cfg,
+                            VmInterfaceConfigData *data) {
+
+    const VirtualNetwork *vn = NULL;
+    if (vn_node) {
+        vn = static_cast<const VirtualNetwork *>(vn_node->GetObject());
+    }
+
+    if (cfg->IsPropertySet(VirtualMachineInterface::IGMP_ENABLE)) {
+        data->igmp_enabled_ = data->igmp_enable_ = cfg->igmp_enable();
+    } else if (vn && vn->IsPropertySet(VirtualNetwork::IGMP_ENABLE)) {
+        data->igmp_enabled_ = vn->igmp_enable();
+    } else {
+        data->igmp_enabled_ =
+                        agent->oper_db()->global_system_config()->igmp_enable();
+    }
+}
+
 static void BuildAttributes(Agent *agent, IFMapNode *node,
                             VirtualMachineInterface *cfg,
                             VmInterfaceConfigData *data) {
@@ -1597,6 +1617,10 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             }
         }
     }
+
+    // Fill IGMP data
+    ReadIgmpConfig(agent(), vn_node, cfg, data);
+
     if (parent_vmi_node && data->vm_uuid_ == nil_uuid()) {
         IFMapAgentTable *vmi_table = static_cast<IFMapAgentTable *>
                                     (parent_vmi_node->table());

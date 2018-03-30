@@ -84,6 +84,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     etree_leaf_(entry->etree_leaf_),
     pbb_interface_(entry->pbb_interface_),
     vhostuser_mode_(entry->vhostuser_mode_),
+    igmp_enable_(entry->igmp_enable_),
     os_guid_(entry->os_guid_) {
 }
 
@@ -132,6 +133,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     learning_enabled_(false), isid_(VmInterface::kInvalidIsid),
     pbb_cmac_vrf_(VrfEntry::kInvalidIndex), etree_leaf_(false),
     pbb_interface_(false), vhostuser_mode_(VmInterface::vHostUserClient),
+    igmp_enable_(false),
     os_guid_(intf->os_guid()) {
 
     if (intf->flow_key_nh()) {
@@ -348,6 +350,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
         if (etree_leaf_ != vm_port->etree_leaf()) {
             etree_leaf_ = vm_port->etree_leaf();
+            ret = true;
+        }
+
+        if (igmp_enable_ != vm_port->igmp_enabled()) {
+            igmp_enable_ = vm_port->igmp_enabled();
             ret = true;
         }
     }
@@ -678,6 +685,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         if (proxy_arp_mode_ == VmInterface::PROXY_ARP_UNRESTRICTED) {
             flags |= VIF_FLAG_MAC_PROXY;
+        }
+        if (igmp_enable_) {
+            flags |= VIF_FLAG_IGMP_ENABLED;
         }
         MacAddress mac;
         if (parent_.get() != NULL) {
@@ -1210,6 +1220,12 @@ void InterfaceKSyncEntry::SetKsyncItfSandeshData(KSyncItfSandeshData *data) cons
         data->set_pbb_interface("Enable");
     } else {
         data->set_pbb_interface("Disable");
+    }
+
+    if (igmp_enable_) {
+        data->set_igmp_enable("Enable");
+    } else {
+        data->set_igmp_enable("Disable");
     }
 }
 

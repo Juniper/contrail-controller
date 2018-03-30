@@ -749,4 +749,8 @@ void AddLrVmiPort(const char *vmi, int intf_id, const char *ip,
 void DelLrVmiPort(const char *vmi, int intf_id, const char *ip,
                const char *vrf, const char *vn,
                const char *instance_ip, int instance_uuid);
+void SetIgmpConfig(bool enable);
+void ClearIgmpConfig(void);
+void SetIgmpVnConfig(std::string vn_name, int vn_id, bool enable);
+void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool enable);
 #endif // vnsw_agent_test_cmn_util_h
