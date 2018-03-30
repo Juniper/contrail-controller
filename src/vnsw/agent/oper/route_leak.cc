@@ -13,6 +13,11 @@ void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
         static_cast<const InetUnicastRouteEntry *>(route);
     const AgentPath *active_path = uc_rt->GetActivePath();
     const TunnelNH *nh = dynamic_cast<const TunnelNH *>(active_path->nexthop());
+
+    if (nh == NULL) {
+        return;
+    }
+
     Ip4Address gw_ip = *(nh->GetDip());
 
     if (gw_ip == uc_rt->addr().to_v4() &&
