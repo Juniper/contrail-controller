@@ -5201,3 +5201,37 @@ void AddVlan(std::string intf_name, int intf_id, uint32_t vlan) {
             intf_id, cbuf);
     client->WaitForIdle();
 }
+
+void SetIgmpConfig(bool snooping, bool query) {
+
+    ostringstream str;
+
+    str << "<igmp-config>"
+        <<  "<snooping-enable>" << (snooping == true ? "true" : "false") << "</snooping-enable>"
+        <<  "<query-enable>" << (query == true ? "true" : "false") << "</query-enable>"
+        <<  "</igmp-config>";
+    AddNode("global-system-config", "system-config", 1, str.str().c_str());
+}
+
+void ClearIgmpConfig(void) {
+
+    DelNode("global-system-config", "system-config");
+}
+
+void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool snooping,
+                                    bool query) {
+
+    ostringstream str;
+
+    str << "<igmp-config>"
+        <<  "<snooping-enable>" << (snooping == true ? "true" : "false") << "</snooping-enable>"
+        <<  "<query-enable>" << (query == true ? "true" : "false") << "</query-enable>"
+        <<  "</igmp-config>";
+    AddNode("virtual-machine-interface", intf_name.c_str(), intf_id,
+            str.str().c_str());
+}
+
+void ClearIgmpIntfConfig(std::string intf_name) {
+
+    DelNode("virtual-machine-interface", intf_name.c_str());
+}

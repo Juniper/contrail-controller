@@ -458,6 +458,27 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
+    bool igmp_snooping;
+    bool igmp_querying;
+
+    igmp_snooping = agent()->oper_db()->global_system_config()->igmp_snooping();
+    if (igmp_snooping) {
+        igmp_snooping = data->igmp_snooping_;
+    }
+    if (igmp_snooping_ != igmp_snooping) {
+        igmp_snooping_ = igmp_snooping;
+        ret = true;
+    }
+
+    igmp_querying = agent()->oper_db()->global_system_config()->igmp_querying();
+    if (igmp_querying) {
+        igmp_querying = data->igmp_querying_;
+    }
+    if (igmp_querying_ != igmp_querying) {
+        igmp_querying_ = igmp_querying;
+        ret = true;
+    }
+
     if (proxy_arp_mode_ != data->proxy_arp_mode_) {
         proxy_arp_mode_ = data->proxy_arp_mode_;
         ret = true;

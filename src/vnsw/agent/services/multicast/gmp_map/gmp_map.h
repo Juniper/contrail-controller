@@ -35,6 +35,8 @@ extern gmp_intf *gmp_attach_intf(mgm_global_data *gd, void *mif_state);
 extern void gmp_detach_intf(mgm_global_data *gd, gmp_intf *gif);
 extern boolean gmp_update_intf_state(mgm_global_data *gd, gmp_intf *gif,
                                 const gmp_addr_string *intf_addr);
+extern boolean gmp_update_intf_querying(mgm_global_data *gd, gmp_intf *gif,
+                                boolean query);
 extern boolean gmp_process_pkt(mgm_global_data *gd, gmp_intf *gif,
                         void *rcv_pkt, uint32_t packet_len,
                         const gmp_addr_string *src_addr,
@@ -64,5 +66,11 @@ extern void gmp_cache_resync_notify(mgm_global_data *gd, gmp_intf *gif,
 extern void gmp_host_update(mgm_global_data *gd, gmp_intf *intf, boolean join,
                             gmp_addr_string host, gmp_addr_string source,
                             gmp_addr_string group);
+extern uint8_t *gmp_get_send_buffer(mgm_global_data *gd, gmp_intf *intf);
+extern void gmp_free_send_buffer(mgm_global_data *gd, gmp_intf *intf,
+                            uint8_t *buffer);
+extern void gmp_send_one_packet(mgm_global_data *gd, gmp_intf *intf,
+                            uint8_t *pkt, uint32_t pkt_len,
+                            gmp_addr_string dest);
 
 #endif /* vnsw_agent_gmp_map_h */

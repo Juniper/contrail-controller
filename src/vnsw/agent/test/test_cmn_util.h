@@ -730,4 +730,9 @@ void AddLocalVmRoute(Agent *agent, const std::string &vrf_name,
                      const std::string &vn, uint32_t intf_uuid,
                      const Peer *peer);
 void AddVlan(std::string intf_name, int intf_id, uint32_t vlan);
+void SetIgmpConfig(bool snooping, bool query);
+void ClearIgmpConfig(void);
+void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool snooping,
+                                    bool query);
+void ClearIgmpIntfConfig(std::string intf_name);
 #endif // vnsw_agent_test_cmn_util_h

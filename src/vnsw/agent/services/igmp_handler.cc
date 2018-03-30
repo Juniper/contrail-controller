@@ -7,6 +7,7 @@
 #include <base/logging.h>
 #include <cmn/agent_cmn.h>
 #include <pkt/pkt_init.h>
+#include <oper/vn.h>
 #include <pkt/control_interface.h>
 #include <oper/interface_common.h>
 #include <services/igmp_proto.h>
@@ -14,7 +15,11 @@
 IgmpHandler::IgmpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                          boost::asio::io_service &io)
     : ProtoHandler(agent, info, io), igmp_(pkt_info_->transp.igmp) {
-    igmp_len_ = ntohs(pkt_info_->ip->ip_len) - (pkt_info_->ip->ip_hl * 4);
+    if (pkt_info_->ip) {
+        igmp_len_ = ntohs(pkt_info_->ip->ip_len) - (pkt_info_->ip->ip_hl * 4);
+    } else {
+        igmp_len_ = 0;
+    }
 }
 
 IgmpHandler::~IgmpHandler() {
@@ -42,6 +47,15 @@ bool IgmpHandler::HandleVmIgmpPacket() {
     }
 
     VmInterface *vm_itf = static_cast<VmInterface *>(itf);
+    if (!vm_itf || vm_itf->vmi_type() == VmInterface::VHOST) {
+        igmp_proto->IncrStatsBadInterface();
+        return true;
+    }
+
+    if (!vm_itf->igmp_snooping_config()) {
+        igmp_proto->IncrStatsRejectedPkt();
+        return true;
+    }
 
     if (pkt_info_->len <
                 (sizeof(struct ether_header) + ntohs(pkt_info_->ip->ip_len))) {
@@ -65,15 +79,30 @@ bool IgmpHandler::HandleVmIgmpPacket() {
         return true;
     }
 
-    IgmpInfo::McastInterfaceState *mif_state = NULL;
+    const VnEntry *vn = vm_itf->vn();
+    IgmpInfo::VnIgmpDBState *state = NULL;
+    state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
+                                vn->get_table_partition()->parent(),
+                                igmp_proto->VnListenerId()));
+    if (!state) {
+        igmp_proto->IncrStatsBadInterface();
+        return true;
+    }
 
-    mif_state = static_cast<IgmpInfo::McastInterfaceState *>(vm_itf->GetState(
-                                vm_itf->get_table_partition()->parent(),
-                                igmp_proto->ItfListenerId()));
+    const VnIpam *ipam = vn->GetIpam(pkt_info_->ip_saddr);
+    IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
+                            state->igmp_state_map_.find(ipam->default_gw);
+    if (it == state->igmp_state_map_.end()) {
+        igmp_proto->IncrStatsBadInterface();
+        return true;
+    }
+
+    IgmpInfo::IgmpSubnetState *igmp_intf = NULL;
+    igmp_intf = it->second;
 
     if (pkt_info_->transp.igmp->igmp_type > IGMP_MAX_TYPE) {
-        if (mif_state) {
-            mif_state->IncrRxUnknown();
+        if (igmp_intf) {
+            igmp_intf->IncrRxUnknown();
         }
         igmp_proto->IncrStatsRxUnknown();
         return true;
@@ -81,21 +110,21 @@ bool IgmpHandler::HandleVmIgmpPacket() {
 
     bool parse_ok = false;
 
-    if (!mif_state) {
+    if (!igmp_intf) {
         /* No MIF.  If we didn't process the packet, whine. */
         igmp_proto->IncrStatsBadInterface();
         return true;
     }
 
     parse_ok = igmp_proto->GetGmpProto()->GmpProcessPkt(
-                        mif_state->gmp_intf_,
+                        igmp_intf->gmp_intf_,
                         (void *)pkt_info_->transp.igmp, igmplen,
                         pkt_info_->ip_saddr, pkt_info_->ip_daddr);
     /* Complain if it didn't parse. */
     if (!parse_ok) {
-        mif_state->IncrRxBadPkt(pkt_info_->transp.igmp->igmp_type);
+        igmp_intf->IncrRxBadPkt(pkt_info_->transp.igmp->igmp_type);
     } else {
-        mif_state->IncrRxOkPkt(pkt_info_->transp.igmp->igmp_type);
+        igmp_intf->IncrRxOkPkt(pkt_info_->transp.igmp->igmp_type);
     }
 
     return true;
@@ -111,13 +140,44 @@ bool IgmpHandler::CheckPacket() {
     return false;
 }
 
-void IgmpHandler::SendMessage(VmInterface *vm_intf) {
+void IgmpHandler::SendPacket(const VmInterface *vm_itf, VrfEntry *vrf,
+                                    GmpIntf *gmp_intf, GmpPacket *packet) {
 
-    uint32_t interface =
-        ((pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
-         pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex());
-    uint16_t command =
-        ((pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
-         AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH);
-    Send(interface, pkt_info_->vrf, command, PktHandler::IGMP);
+    if (pkt_info_->packet_buffer() == NULL) {
+        pkt_info_->AllocPacketBuffer(agent(), PktHandler::IGMP, 1024, 0);
+    }
+
+    char *buf = (char *)pkt_info_->packet_buffer()->data();
+    uint16_t buf_len = pkt_info_->packet_buffer()->data_len();
+    memset(buf, 0, buf_len);
+
+    MacAddress smac = vm_itf->GetVifMac(agent());
+    MacAddress dmac = vm_itf->vm_mac();
+
+    pkt_info_->vrf = vrf->vrf_id();
+    pkt_info_->eth = (struct ether_header *)buf;
+    uint16_t eth_len = 0;
+    eth_len += EthHdr(buf, buf_len, vm_itf->id(), smac, dmac, ETHERTYPE_IP);
+
+    uint16_t data_len = packet->pkt_len_;
+
+    in_addr_t src_ip = htonl(gmp_intf->get_ip_address().to_v4().to_ulong());
+    in_addr_t dst_ip = htonl(packet->dst_addr_.to_v4().to_ulong());
+
+    pkt_info_->ip = (struct ip *)(buf + eth_len);
+    pkt_info_->transp.igmp = (struct igmp *)
+                    ((uint8_t *)pkt_info_->ip + sizeof(struct ip));
+
+    data_len += sizeof(struct ip);
+    IpHdr(data_len, src_ip, dst_ip, IPPROTO_IGMP, DEFAULT_IP_ID, 1);
+
+    memcpy(((char *)pkt_info_->transp.igmp), packet->pkt_, packet->pkt_len_);
+    pkt_info_->set_len(data_len + eth_len);
+
+    Send(vm_itf->id(), pkt_info_->vrf, AgentHdr::TX_SWITCH, PktHandler::IGMP);
+
+    IgmpProto *igmp_proto = agent()->GetIgmpProto();
+    igmp_proto->IncrSendStats(vm_itf, true);
+
+    return;
 }

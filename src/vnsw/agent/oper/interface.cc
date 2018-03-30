@@ -1192,6 +1192,16 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_slo_list(slo_list);
         data.set_si_other_end_vmi(UuidToString(vintf->si_other_end_vmi()));
+        if (vintf->igmp_snooping_config()) {
+            data.set_igmp_snooping("Enable");
+        } else {
+            data.set_igmp_snooping("Disable");
+        }
+        if (vintf->igmp_querying_config()) {
+            data.set_igmp_querying("Enable");
+        } else {
+            data.set_igmp_querying("Disable");
+        }
         break;
     }
     case Interface::INET: {

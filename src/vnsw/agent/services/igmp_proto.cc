@@ -4,6 +4,7 @@
 
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
+#include "oper/global_system_config.h"
 #include "oper/vn.h"
 #include "oper/route_common.h"
 #include "oper/multicast.h"
@@ -29,9 +30,13 @@ void IgmpProto::IgmpProtoInit(void) {
     gmp_proto_ = GmpProtoManager::CreateGmpProto(GmpType::IGMP, agent_,
                                     task_name_, PktHandler::IGMP, io_);
     if (gmp_proto_) {
+        gmp_proto_->Register(
+                        boost::bind(&IgmpProto::SendIgmpPacket, this, _1, _2));
         gmp_proto_->Start();
     }
 
+    vnid_ = agent_->vn_table()->Register(
+            boost::bind(&IgmpProto::VnNotify, this, _1, _2));
     iid_ = agent_->interface_table()->Register(
             boost::bind(&IgmpProto::ItfNotify, this, _1, _2));
 
@@ -39,6 +44,8 @@ void IgmpProto::IgmpProtoInit(void) {
 }
 
 void IgmpProto::Shutdown() {
+
+    agent_->vn_table()->Unregister(vnid_);
     agent_->interface_table()->Unregister(iid_);
 
     if (gmp_proto_) {
@@ -52,7 +59,111 @@ ProtoHandler *IgmpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
     return new IgmpHandler(agent(), info, io);
 }
 
+void IgmpProto::VnNotify(DBTablePartBase *part, DBEntryBase *entry) {
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    IgmpInfo::IgmpSubnetState *igmp_intf = NULL;
+
+    IgmpInfo::VnIgmpDBState *state =
+                static_cast<IgmpInfo::VnIgmpDBState *>
+                        (entry->GetState(part->parent(), vnid_));
+
+    if (vn->IsDeleted() || !vn->GetVrf()) {
+        if (!state) {
+            return;
+        }
+        IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::iterator it =
+                            state->igmp_state_map_.begin();
+        while (it != state->igmp_state_map_.end()) {
+            igmp_intf = it->second;
+            // TODO delete VMs from the Multicast Tree.
+            igmp_intf->gmp_intf_->set_vrf_name(string(""));
+            igmp_intf->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
+            gmp_proto_->DeleteIntf(igmp_intf->gmp_intf_);
+            itf_attach_count_--;
+            delete igmp_intf;
+            state->igmp_state_map_.erase(it->first);
+            it++;
+        }
+        if (vn->IsDeleted()) {
+            entry->ClearState(part->parent(), vnid_);
+            delete state;
+        }
+        return;
+    }
+
+    if (!vn->GetVrf()) {
+        return;
+    }
+
+    if (vn->GetVrf()->GetName() == agent_->fabric_policy_vrf_name()) {
+        return;
+    }
+
+    if (state == NULL) {
+        state = new IgmpInfo::VnIgmpDBState();
+        if (!state) {
+            state = NULL;
+        }
+
+        entry->SetState(part->parent(), vnid_, state);
+    }
+
+    IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::iterator it =
+                            state->igmp_state_map_.begin();
+    while (it != state->igmp_state_map_.end()) {
+        if (vn->GetIpam(it->first) != NULL) {
+            it++;
+            continue;
+        }
+        igmp_intf = it->second;
+        // TODO delete VMs from the Multicast Tree.
+        igmp_intf->gmp_intf_->set_vrf_name(string(""));
+        igmp_intf->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
+        gmp_proto_->DeleteIntf(igmp_intf->gmp_intf_);
+        itf_attach_count_--;
+        delete igmp_intf;
+        state->igmp_state_map_.erase(it->first);
+        it++;
+    }
+
+    IpAddress zero_ip = IpAddress(Ip4Address());
+
+    const std::vector<VnIpam> &ipam = vn->GetVnIpam();
+    for (unsigned int i = 0; i < ipam.size(); ++i) {
+        if (!ipam[i].IsV4()) {
+            continue;
+        }
+        if (ipam[i].default_gw == zero_ip) {
+            continue;
+        }
+
+        IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
+                            state->igmp_state_map_.find(ipam[i].default_gw);
+        if (it == state->igmp_state_map_.end()) {
+            igmp_intf = new IgmpInfo::IgmpSubnetState;
+            igmp_intf->gmp_intf_ = gmp_proto_->CreateIntf();
+            itf_attach_count_++;
+            state->igmp_state_map_.insert(
+                          std::pair<IpAddress, IgmpInfo::IgmpSubnetState*>
+                                         (ipam[i].default_gw, igmp_intf));
+        } else {
+            igmp_intf = it->second;
+        }
+        if (igmp_intf && igmp_intf->gmp_intf_) {
+            igmp_intf->gmp_intf_->set_ip_address(ipam[i].default_gw);
+            bool querying = agent()->oper_db()
+                                   ->global_system_config()->igmp_querying();
+            igmp_intf->gmp_intf_->set_gmp_querying(querying);
+            if (vn->GetVrf()) {
+                igmp_intf->gmp_intf_->set_vrf_name(vn->GetVrf()->GetName());
+                igmp_intf->vrf_name_ = vn->GetVrf()->GetName();
+            }
+        }
+    }
+}
+
 void IgmpProto::ItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
+
     Interface *itf = static_cast<Interface *>(entry);
     if (itf->type() != Interface::VM_INTERFACE) {
         return;
@@ -63,57 +174,181 @@ void IgmpProto::ItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         return;
     }
 
-    IgmpInfo::McastInterfaceState *mif_state =
-                static_cast<IgmpInfo::McastInterfaceState *>
+    IgmpInfo::VmiIgmpDBState *vmi_state =
+                static_cast<IgmpInfo::VmiIgmpDBState *>
                         (entry->GetState(part->parent(), iid_));
 
-    if (itf->IsDeleted()) {
-        if (mif_state) {
-            gmp_proto_->DeleteIntf(mif_state->gmp_intf_);
-            if (agent_->oper_db()->multicast()) {
-                agent_->oper_db()->multicast()->DeleteVmInterfaceFromSourceGroup(
+    if (itf->IsDeleted() || !vm_itf->igmp_snooping_config()) {
+        if (!vmi_state) {
+            return;
+        }
+        if (agent_->oper_db()->multicast()) {
+            agent_->oper_db()->multicast()->DeleteVmInterfaceFromSourceGroup(
                                     agent_->fabric_policy_vrf_name(),
-                                    mif_state->vrf_name_, vm_itf);
-            }
+                                    vmi_state->vrf_name_, vm_itf);
+        }
+        if (itf->IsDeleted()) {
             entry->ClearState(part->parent(), iid_);
-            itf_attach_count_--;
-            delete mif_state;
+            delete vmi_state;
         }
         return;
     }
 
-    if (mif_state == NULL) {
-        mif_state = new IgmpInfo::McastInterfaceState();
-
-        mif_state->gmp_intf_ = gmp_proto_->CreateIntf();
-        itf_attach_count_++;
-        entry->SetState(part->parent(), iid_, mif_state);
-    }
-
-    if (mif_state && mif_state->gmp_intf_) {
-        mif_state->gmp_intf_->set_ip_address(vm_itf->primary_ip_addr());
-        if (vm_itf->vrf()) {
-            mif_state->gmp_intf_->set_vrf_name(vm_itf->vrf()->GetName());
-        }
+    if (vmi_state == NULL) {
+        vmi_state = new IgmpInfo::VmiIgmpDBState();
+        entry->SetState(part->parent(), iid_, vmi_state);
     }
 
     if (vm_itf->vrf()) {
-        mif_state->vrf_name_ = vm_itf->vrf()->GetName();
+        vmi_state->vrf_name_ = vm_itf->vrf()->GetName();
     }
+
+    return;
+}
+
+DBTableBase::ListenerId IgmpProto::VnListenerId () {
+    return vnid_;
 }
 
 DBTableBase::ListenerId IgmpProto::ItfListenerId () {
     return iid_;
 }
 
-const IgmpInfo::McastInterfaceState::IgmpIfStats &IgmpProto::GetIfStats(
-                            VmInterface *vm_itf) {
+bool IgmpProto::SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet) {
 
-    IgmpInfo::McastInterfaceState *mif_state;
+    if (!gmp_intf || !packet) {
+        return false;
+    }
 
-    mif_state = static_cast<IgmpInfo::McastInterfaceState *>(vm_itf->GetState(
-                                vm_itf->get_table_partition()->parent(), iid_));
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(
+                                    gmp_intf->get_vrf_name());
+    VnEntry *vn;
+    if (vrf) {
+        vn = vrf->vn();
+    }
 
-    return mif_state->GetIfStats();
+    if (!vrf || !vn) {
+        return false;
+    }
+
+    const VnIpam *ipam = vn->GetIpam(gmp_intf->get_ip_address());
+    if (!ipam) {
+        return false;
+    }
+
+    Ip4Address subnet = ipam->GetSubnetAddress();
+    InetUnicastAgentRouteTable *inet_table =
+                                    vrf->GetInet4UnicastRouteTable();
+    const InetUnicastRouteEntry *rt = inet_table->FindRoute(subnet);
+    if (!rt) {
+        return false;
+    }
+
+    boost::shared_ptr<PktInfo> pkt(new PktInfo(agent_, 1024, PktHandler::IGMP,
+                                    0));
+    IgmpHandler igmp_handler(agent_, pkt,
+                                    *(agent_->event_manager()->io_service()));
+
+    do {
+        const NextHop *nh = rt->GetActiveNextHop();
+        if (!nh) {
+            continue;
+        }
+        const InterfaceNH *inh = dynamic_cast<const InterfaceNH *>(nh);
+        if (!inh) {
+            continue;
+        }
+        const Interface *itf = inh->GetInterface();
+        if (!itf) {
+            continue;
+        }
+        const VmInterface *vm_itf = dynamic_cast<const VmInterface *>(itf);
+        if (!vm_itf) {
+            continue;
+        }
+        if (!vm_itf->igmp_querying_config()) {
+            IncrSendStats(vm_itf, false);
+            continue;
+        }
+
+        igmp_handler.SendPacket(vm_itf, vrf, gmp_intf, packet);
+
+    } while ((rt = inet_table->GetNext(rt)) != NULL);
+
+    return true;
 }
 
+void IgmpProto::IncrSendStats(const VmInterface *vm_itf, bool tx_done) {
+
+    IgmpProto *igmp_proto = agent()->GetIgmpProto();
+
+    const VnEntry *vn = vm_itf->vn();
+    IgmpInfo::VnIgmpDBState *state = NULL;
+    state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
+                                vn->get_table_partition()->parent(),
+                                igmp_proto->VnListenerId()));
+    const VnIpam *ipam = vn->GetIpam(vm_itf->primary_ip_addr());
+    IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
+                            state->igmp_state_map_.find(ipam->default_gw);
+    if (it == state->igmp_state_map_.end()) {
+        return;
+    }
+
+    IgmpInfo::IgmpSubnetState *igmp_intf = NULL;
+    igmp_intf = it->second;
+
+    if (tx_done) {
+        igmp_intf->IncrTxPkt();
+    } else {
+        igmp_intf->IncrTxDropPkt();
+    }
+
+    return;
+}
+
+const bool IgmpProto::GetIfStats(const VnEntry *vn, IpAddress gateway,
+                            IgmpInfo::IgmpIfStats &stats) {
+
+    const VnIpam *ipam = vn->GetIpam(gateway);
+    IgmpInfo::VnIgmpDBState *state = NULL;
+    state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
+                                vn->get_table_partition()->parent(), vnid_));
+
+    IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
+                            state->igmp_state_map_.find(ipam->default_gw);
+    if (it == state->igmp_state_map_.end()) {
+        return false;
+    }
+
+    IgmpInfo::IgmpSubnetState *igmp_intf = it->second;
+
+    stats = igmp_intf->GetIfStats();
+
+    return true;
+}
+
+void IgmpProto::ClearIfStats(const VnEntry *vn, IpAddress gateway) {
+
+    const VnIpam *ipam = vn->GetIpam(gateway);
+    if (!vn) {
+        return;
+    }
+
+    IgmpInfo::VnIgmpDBState *state = NULL;
+    state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
+                                vn->get_table_partition()->parent(), vnid_));
+    if (!state) {
+        return;
+    }
+
+    IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
+                            state->igmp_state_map_.find(ipam->default_gw);
+    if (it == state->igmp_state_map_.end()) {
+        return;
+    }
+
+    IgmpInfo::IgmpSubnetState *igmp_intf = it->second;
+    igmp_intf->ClearIfStats();
+
+    return;
+}

@@ -50,6 +50,12 @@ private:
     bool config_seen_;
 };
 
+struct IgmpConfigParameters {
+    void Reset();
+    bool igmp_snooping_;
+    bool igmp_querying_;
+};
+
 class GlobalSystemConfig : public OperIFMapTable {
 public:
     GlobalSystemConfig(Agent *agent);
@@ -64,11 +70,14 @@ public:
     }
     void Reset();
     GracefulRestartParameters &gres_parameters();
+    bool igmp_snooping();
+    bool igmp_querying();
     void FillSandeshInfo(GlobalSystemConfigResp *resp);
 
 private:
     BGPaaServiceParameters bgpaas_parameters_;
     GracefulRestartParameters gres_parameters_;
+    IgmpConfigParameters igmp_parameters_;
     DISALLOW_COPY_AND_ASSIGN(GlobalSystemConfig);
 };
 #endif

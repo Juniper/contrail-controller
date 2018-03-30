@@ -316,6 +316,8 @@ struct ItfSandeshData {
    /** If current VMI is SI VMI, then below field is uuid of VMI of other
        end of SI */
    64: string si_other_end_vmi;
+   65: string igmp_snooping;
+   66: string igmp_querying;
 }
 
 /**

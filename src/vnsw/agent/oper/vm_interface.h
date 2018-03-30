@@ -1145,6 +1145,16 @@ public:
     void set_dhcp_enable_config(bool dhcp_enable) {dhcp_enable_= dhcp_enable;}
     bool do_dhcp_relay() const { return do_dhcp_relay_; }
 
+    bool igmp_snooping_config() const { return igmp_snooping_; }
+    void set_igmp_snooping_config(bool igmp_snooping) {
+        igmp_snooping_ = igmp_snooping;
+    }
+
+    bool igmp_querying_config() const { return igmp_querying_; }
+    void set_igmp_querying_config(bool igmp_querying) {
+        igmp_querying_ = igmp_querying;
+    }
+
     ProxyArpMode proxy_arp_mode() const { return proxy_arp_mode_; }
     bool IsUnrestrictedProxyArp() const {
         return proxy_arp_mode_ == PROXY_ARP_UNRESTRICTED;
@@ -1489,6 +1499,9 @@ private:
     uint32_t local_preference_;
     // DHCP options defined for the interface
     OperDhcpOptions oper_dhcp_options_;
+    // IGMP Configuration
+    bool igmp_snooping_;
+    bool igmp_querying_;
 
     // Attributes
     std::auto_ptr<MacVmBindingState> mac_vm_binding_state_;
@@ -1696,6 +1709,9 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint32_t local_preference_;
     OperDhcpOptions oper_dhcp_options_;
     Interface::MirrorDirection mirror_direction_;
+    // IGMP Configuration
+    bool igmp_snooping_;
+    bool igmp_querying_;
 
     VmInterface::SecurityGroupEntryList sg_list_;
     VmInterface::TagEntryList tag_list_;
