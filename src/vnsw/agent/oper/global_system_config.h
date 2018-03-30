@@ -64,11 +64,13 @@ public:
     }
     void Reset();
     GracefulRestartParameters &gres_parameters();
+    bool cfg_igmp_enable() const;
     void FillSandeshInfo(GlobalSystemConfigResp *resp);
 
 private:
     BGPaaServiceParameters bgpaas_parameters_;
     GracefulRestartParameters gres_parameters_;
+    bool cfg_igmp_enable_;
     DISALLOW_COPY_AND_ASSIGN(GlobalSystemConfig);
 };
 #endif

@@ -1210,7 +1210,6 @@ void MulticastHandler::Shutdown() {
 
         if (route == NULL) {
             continue;
-            delete (obj);
         }
 
         for(Route::PathList::iterator it = route->GetPathList().begin();
