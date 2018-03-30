@@ -197,7 +197,8 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
     if (intf_nh->PolicyEnabled() != policy) {
         //Make path point to policy enabled interface
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              vm_port->GetUuid(), ""),
+                                              vm_port->GetUuid(),
+                                              vm_port->name()),
                            policy, intf_nh->GetFlags(),
                            intf_nh->GetDMac());
         nh = static_cast<NextHop *>
