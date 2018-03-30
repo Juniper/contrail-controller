@@ -54,11 +54,17 @@ options:
         required: true
     temp_url_key_2:
         description:
-            - Temp ulr key 2
+            - Temp url key 2
         required: true
+    connection_retry_count:
+        description:
+            - Connection retry count
+        type: int
+        required: false
+        default: 5
     chosen_temp_url_key:
         description:
-            - Temp ulr key 2
+            - Chosen Temp url key
         required: false
         default: 'temp_url_key'
     container_name:
@@ -110,7 +116,7 @@ connection_lock = RLock()
 class FileSvcUtil(object):  # pragma: no cover
     def __init__(self, authtoken, authurl, user, key, tenant_name,
                  auth_version, container_name, temp_url_key,
-                 temp_url_key2, chosen_temp_url_key):
+                 temp_url_key2, connection_retry_count, chosen_temp_url_key):
         self.requests = requests
         self.authurl = authurl
         self.preauthtoken = authtoken
@@ -118,21 +124,19 @@ class FileSvcUtil(object):  # pragma: no cover
         self.key = key
         self.auth_version = auth_version
         self.container_name = container_name
-        self.chunk_size = 65336
         self.temp_url_key = temp_url_key
         self.temp_url_key_2 = temp_url_key2
+        self.connection_retry_count = connection_retry_count
         self.chosen_temp_url_key = chosen_temp_url_key
         self.conn_timeout_sec = 10
         self.tenant_name = tenant_name
-
         self.generateToken()
         self.updateAccount()
 
     def generateToken(self):
-        max_retry = 5
         retry_count = 0
         incr_sleep = 10
-        while retry_count <= max_retry:
+        while retry_count <= self.connection_retry_count:
             try:
                 acquired = connection_lock.acquire()
                 swiftconn = swiftclient.client.Connection(authurl=self.authurl,
@@ -151,7 +155,7 @@ class FileSvcUtil(object):  # pragma: no cover
                 retry_count += 1
                 err_msg = e.message
                 logging.error(err_msg)
-                if retry_count == max_retry:
+                if retry_count == self.connection_retry_count:
                     raise Exception("Connection failed with swift file server: " + str(err_msg))
                 logging.error("Connection failed with swift file server, retrying to connect")
                 incr_sleep *= 2
@@ -215,6 +219,7 @@ def main():
             chosen_temp_url_key=dict(required=False, default="temp_url_key"),
             container_name=dict(required=True),
             filename=dict(required=True),
+            connection_retry_count=dict(required=False, default=5, type='int'),
             expirytime=dict(required=True, type='int')),
         supports_check_mode=False)
 
@@ -228,9 +233,9 @@ def main():
     temp_url_key = m_args['temp_url_key']
     temp_url_key_2 = m_args['temp_url_key_2']
     chosen_temp_url_key = m_args['chosen_temp_url_key']
-
     container_name = m_args['container_name']
     filename = m_args['filename']
+    connection_retry_count = m_args['connection_retry_count']
     expirytime = m_args['expirytime']
 
     url = None
@@ -238,7 +243,7 @@ def main():
     try:
         fileutil = FileSvcUtil(authtoken, authurl, user, key, tenant_name,
                                auth_version, container_name, temp_url_key,
-                               temp_url_key_2, chosen_temp_url_key)
+                               temp_url_key_2, connection_retry_count, chosen_temp_url_key)
 
         url = fileutil.getObjTempUrl(filename, int(expirytime))
 
@@ -256,4 +261,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

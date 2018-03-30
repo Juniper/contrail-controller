@@ -39,7 +39,7 @@ class TestSwiftFileUtilModule(TestFabricModule):
         set_module_args(self.args_dict)
         self.assertRaises(Exception, self.execute_module())
 
-    # Testing when generate_temp_url raises enception
+    # Testing when generate_temp_url raises exception
     def test_fileutility_03(self):
         flexmock(swiftclient.utils).should_receive('generate_temp_url').and_raise(Exception)
         set_module_args(self.args_dict)
@@ -48,6 +48,7 @@ class TestSwiftFileUtilModule(TestFabricModule):
     # #Testing the swift connection after retry
     def test_fileutility04(self):
         flexmock(swiftclient.client).should_receive('Connection').and_return(None)
+        self.args_dict['connection_retry_count'] = 1
         set_module_args(self.args_dict)
         self.assertRaises(Exception, self.execute_module())
 
@@ -57,15 +58,14 @@ class TestSwiftFileUtilModule(TestFabricModule):
         set_module_args(self.args_dict)
         self.assertRaises(Exception, self.execute_module())
 
-    # Testing the case where non-mandatary args are not passed and it should take default value
+    # Testing the case where optional args are not passed and it should take default value
     def test_fileutility06(self):
-        self.args_dict = dict(authtoken="4242", authurl="auth_url", user="admin", key="contrail",
-                              temp_url_key="temp_url_key1",
-                              temp_url_key_2="temp_url_key2",
-                              container_name="container", filename="sample.txt", expirytime=3600)
+        for e in ["tenant_name","auth_version","chosen_temp_url_key","connection_retry_count"]:
+            self.args_dict.pop(e, None)
         set_module_args(self.args_dict)
         fake_image_url = "/v1/sample.txt"
         flexmock(swiftclient.utils).should_receive('generate_temp_url').and_return(fake_image_url)
         result = self.execute_module()
         self.assertTrue(result["url"])
         self.assertEqual(result["url"], fake_image_url)
+
