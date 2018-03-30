@@ -1270,6 +1270,15 @@ class LogicalRouterSM(DBBaseSM):
         self.update_single_ref('service_instance', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_single_ref('virtual_network', obj)
+        for vn_ref in obj.get('virtual_network_refs') or []:
+            vn_ref_attr = vn_ref.get('attr')
+            if (vn_ref_attr and
+                vn_ref_attr.get('logical_router_virtual_network_type') !=
+                    'InternalVirtualNetwork'):
+                self.virtual_network = vn_ref['uuid']
+                break
+        else:
+            self.virtual_network = None
         self.name = obj['fq_name'][-1]
     # end update
 
