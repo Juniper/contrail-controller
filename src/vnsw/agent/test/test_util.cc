@@ -5201,3 +5201,36 @@ void AddVlan(std::string intf_name, int intf_id, uint32_t vlan) {
             intf_id, cbuf);
     client->WaitForIdle();
 }
+
+void SetIgmpConfig(bool enable) {
+
+    ostringstream str;
+
+    str << "<igmp-enable>"
+        << (enable == true ? "true" : "false")
+        << "</igmp-enable>";
+
+    AddNode("global-system-config", "system-config", 1, str.str().c_str());
+}
+
+void ClearIgmpConfig(void) {
+
+    DelNode("global-system-config", "system-config");
+}
+
+void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool enable) {
+
+    ostringstream str;
+
+    str << "<igmp-enable>"
+        << (enable == true ? "true" : "false")
+        << "</igmp-enable>";
+
+    AddNode("virtual-machine-interface", intf_name.c_str(), intf_id,
+            str.str().c_str());
+}
+
+void ClearIgmpIntfConfig(std::string intf_name) {
+
+    DelNode("virtual-machine-interface", intf_name.c_str());
+}

@@ -6,6 +6,7 @@
 #define vnsw_agent_igmp_handler_h_
 
 #include "pkt/proto_handler.h"
+#include "services/multicast/gmp_map/gmp_proto.h"
 
 // IGMP protocol handler
 class IgmpHandler : public ProtoHandler {
@@ -17,9 +18,10 @@ public:
     bool Run();
 
 private:
-    bool CheckPacket();
     bool HandleVmIgmpPacket();
-    void SendMessage(VmInterface *vm_intf);
+    bool CheckPacket();
+    void SendPacket(const VmInterface *vm_itf, VrfEntry *vrf,
+                                    GmpIntf *gmp_intf, GmpPacket *packet);
 
     struct igmp *igmp_;
     uint16_t igmp_len_;

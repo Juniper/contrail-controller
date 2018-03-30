@@ -11,6 +11,17 @@ class TaskMap;
 class GmpIntf;
 class GmpProto;
 
+#define GMP_TX_BUFF_LEN            512
+
+struct GmpPacket {
+    GmpPacket(uint8_t *pkt, uint32_t pkt_len, IpAddress dst_addr)
+        : pkt_(pkt), pkt_len_(pkt_len), dst_addr_(dst_addr) {}
+
+    uint8_t *pkt_;
+    uint32_t pkt_len_;
+    IpAddress dst_addr_;
+};
+
 class GmpIntf {
 public:
     GmpIntf(const GmpProto *);
@@ -18,15 +29,18 @@ public:
 
     void SetGif(gmp_intf *gif) { gif_ = gif; }
     gmp_intf *GetGif() { return gif_; }
+    const IpAddress get_ip_address() { return ip_addr_; }
     bool set_ip_address(const IpAddress &ip_addr);
     const string &get_vrf_name() { return vrf_name_; }
     bool set_vrf_name(const std::string &vrf_name);
+    bool set_gmp_querying(bool querying);
 
 private:
     const GmpProto *gmp_proto_;
     string vrf_name_;
     IpAddress ip_addr_;
     gmp_intf *gif_;
+    bool querying_;
 };
 
 struct GmpType {
@@ -39,15 +53,16 @@ struct GmpType {
 
 class GmpProto {
 public:
+    typedef boost::function<bool(GmpIntf *, GmpPacket *)> Callback;
     struct GmpStats {
         GmpStats() { Reset(); }
         void Reset() {
-            igmp_sgh_add_count_ = 0;
-            igmp_sgh_del_count_ = 0;
+            gmp_sgh_add_count_ = 0;
+            gmp_sgh_del_count_ = 0;
         }
 
-        uint32_t igmp_sgh_add_count_;
-        uint32_t igmp_sgh_del_count_;
+        uint32_t gmp_sgh_add_count_;
+        uint32_t gmp_sgh_del_count_;
     };
 
     GmpProto(GmpType::Type type, Agent *agent, const std::string &task_name, 
@@ -56,14 +71,19 @@ public:
     GmpIntf *CreateIntf();
 
     bool DeleteIntf(GmpIntf *gif);
+    void Register(Callback cb) { cb_ = cb; }
     bool Start();
     bool Stop();
     bool GmpProcessPkt(GmpIntf *gif, void *rcv_pkt, uint32_t packet_len,
                             IpAddress ip_saddr, IpAddress ip_daddr);
+    uint8_t *GmpBufferGet();
+    void GmpBufferFree(uint8_t *pkt);
     void GroupNotify(GmpIntf *gif, IpAddress source, IpAddress group, bool add);
     void ResyncNotify(GmpIntf *gif, IpAddress source, IpAddress group);
     void UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
                             IpAddress source, IpAddress group);
+    bool SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
+                            IpAddress dest);
     const GmpStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
 
@@ -76,6 +96,8 @@ private:
 
     TaskMap *task_map_;
     mgm_global_data *gd_;
+    Callback cb_;
+
     GmpStats stats_;
 
     friend class GmpIntf;

@@ -1256,6 +1256,12 @@ static void BuildEcmpHashingIncludeFields(VirtualMachineInterface *cfg,
 
 }
 
+// Get IGMP configuration
+static void ReadIgmpConfig(VirtualMachineInterface *cfg,
+                            VmInterfaceConfigData &data) {
+    data.igmp_enable_ = cfg->igmp_enable();
+}
+
 static void BuildAttributes(Agent *agent, IFMapNode *node,
                             VirtualMachineInterface *cfg,
                             VmInterfaceConfigData *data) {
@@ -1281,6 +1287,9 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
     }
     data->disable_policy_ = cfg->disable_policy();
     BuildProxyArpFlags(agent, data, cfg);
+
+    // Fill IGMP data
+    ReadIgmpConfig(cfg, *data);
 }
 
 static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {

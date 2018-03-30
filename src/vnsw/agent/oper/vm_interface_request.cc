@@ -458,6 +458,17 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
+    bool igmp_enable;
+
+    igmp_enable = agent()->oper_db()->global_system_config()->igmp_enable();
+    if (igmp_enable) {
+        igmp_enable = data->igmp_enable_;
+    }
+    if (igmp_enable_ != igmp_enable) {
+        igmp_enable_ = igmp_enable;
+        ret = true;
+    }
+
     if (proxy_arp_mode_ != data->proxy_arp_mode_) {
         proxy_arp_mode_ = data->proxy_arp_mode_;
         ret = true;

@@ -43,10 +43,16 @@ extern void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
 }
 #endif
 
-#define MAX_WAIT_COUNT 60
+#define MSECS_PER_SEC 1000
+#define MAX_WAIT_COUNT 3000
 #define BUF_SIZE 8192
+
 char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
+
+IpamInfo ipam_info[] = {
+    {"10.1.1.0", 24, "10.1.1.1", true},
+};
 
 struct PortInfo input[] = {
     {"vnet1-0", 1, "10.1.1.3", "00:00:10:01:01:03", 1, 1},
@@ -59,6 +65,15 @@ struct PortInfo input[] = {
 };
 
 char print_buf[1024*3];
+
+struct IgmpGroupSource {
+    uint32_t group;
+    uint8_t record_type;
+    uint32_t source_count;
+    uint32_t sources[10];
+};
+
+struct IgmpGroupSource igmp_gs[5];
 
 struct igmp_common {
     u_int8_t igmp_type;             /* IGMP type */
@@ -119,16 +134,17 @@ public:
         IgmpV3ModeBlockOld = 6,
     };
 
-    struct IgmpGroupSource {
-        uint32_t group;
-        uint8_t record_type;
-        uint32_t source_count;
-        uint32_t sources[10];
-    };
-
     IgmpTest() : itf_count_(0) {
+
+        rx_count = 0;
+        robust_count = 1;
+        qivl = 10000;
+        qrivl = 1000;
+        lmqi = 100;
+        lmqt = ((100 * 1)+ 100/2 + 5) * 1000;
+
         // Force timeout for IGMP faster.
-        gmp_set_def_ipv4_ivl_params(1, 10000, 1000, 100);
+        gmp_set_def_ipv4_ivl_params(robust_count, qivl, qrivl, lmqi);
         // formula from gmpr_intf_update_lmqt
 
         TestPkt0Interface *tap = (TestPkt0Interface *)
@@ -136,11 +152,38 @@ public:
         tap->RegisterCallback(
                 boost::bind(&IgmpTest::IgmpTestClientReceive, this, _1, _2));
 
+        vrfid_ = Agent::GetInstance()->vrf_table()->Register(
+                boost::bind(&IgmpTest::VrfUpdate, this, _2));
         rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&IgmpTest::ItfUpdate, this, _2));
+
+        memset(igmp_gs, 0x00, sizeof(igmp_gs));
+        igmp_gs[0].group = ntohl(inet_addr("224.1.0.10"));
+        igmp_gs[0].sources[0] = ntohl(inet_addr("100.1.0.10"));
+        igmp_gs[0].sources[1] = ntohl(inet_addr("100.1.0.20"));
+        igmp_gs[0].sources[2] = ntohl(inet_addr("100.1.0.30"));
+        igmp_gs[0].sources[3] = ntohl(inet_addr("100.1.0.40"));
+        igmp_gs[0].sources[4] = ntohl(inet_addr("100.1.0.50"));
+
+        igmp_gs[1].group = ntohl(inet_addr("224.2.0.10"));
+        igmp_gs[1].sources[0] = ntohl(inet_addr("100.2.0.10"));
+        igmp_gs[1].sources[1] = ntohl(inet_addr("100.2.0.20"));
+        igmp_gs[1].sources[2] = ntohl(inet_addr("100.2.0.30"));
+        igmp_gs[1].sources[3] = ntohl(inet_addr("100.2.0.40"));
+        igmp_gs[1].sources[4] = ntohl(inet_addr("100.2.0.50"));
+
+        igmp_gs[2].group = ntohl(inet_addr("224.3.0.10"));
+        igmp_gs[2].sources[0] = ntohl(inet_addr("100.3.0.10"));
+        igmp_gs[2].sources[1] = ntohl(inet_addr("100.3.0.20"));
+        igmp_gs[2].sources[2] = ntohl(inet_addr("100.3.0.30"));
+        igmp_gs[2].sources[3] = ntohl(inet_addr("100.3.0.40"));
+        igmp_gs[2].sources[4] = ntohl(inet_addr("100.3.0.50"));
+
+        rx_count = 0;
     }
 
     ~IgmpTest() {
+        Agent::GetInstance()->vrf_table()->Unregister(vrfid_);
         Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
@@ -148,14 +191,20 @@ public:
         agent = Agent::GetInstance();
         client->WaitForIdle();
 
-        IpamInfo ipam_info[] = {
-            {"10.1.1.0", 24, "1.1.1.200", true},
-        };
-
         CreateVmportEnv(input, sizeof(input)/sizeof(struct PortInfo), 0);
         client->WaitForIdle();
         client->Reset();
-        AddIPAM("vn1", ipam_info, 1); 
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
+
+        agent->GetIgmpProto()->ClearStats();
+        agent->GetIgmpProto()->GetGmpProto()->ClearStats();
+        client->WaitForIdle();
+
+        IpAddress gateway = IpAddress(Ip4Address::from_string(ipam_info[0].gw));
+        VmInterface *vm_itf = VmInterfaceGet(input[0].intf_id);
+        const VnEntry *vn = vm_itf->vn();
+        agent->GetIgmpProto()->ClearIfStats(vn, gateway);
         client->WaitForIdle();
     }
 
@@ -168,6 +217,14 @@ public:
         client->Reset();
         DeleteVmportEnv(input, sizeof(input)/sizeof(struct PortInfo), 1, 0);
         client->WaitForIdle();
+    }
+
+    void VrfUpdate(DBEntryBase *entry) {
+        static std::string vrf_name("");
+        VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+        if (vrf) {
+            vrf_name = vrf->GetName();
+        }
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -192,14 +249,34 @@ public:
         }
     }
 
-    uint32_t GetItfCount() { 
+    uint32_t GetItfCount() {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_count_; 
+        return itf_count_;
     }
 
-    std::size_t GetItfId(int index) { 
+    std::size_t GetItfId(int index) {
         tbb::mutex::scoped_lock lock(mutex_);
         return itf_id_[index];
+    }
+
+    bool IgmpEnable(bool enable) {
+        SetIgmpConfig(enable);
+        client->WaitForIdle();
+    }
+
+    void IgmpEnable(uint32_t idx, bool enable) {
+        SetIgmpIntfConfig(input[idx].name, input[idx].intf_id, enable);
+        client->WaitForIdle();
+    }
+
+    void IgmpClear() {
+        ClearIgmpConfig();
+        client->WaitForIdle();
+    }
+
+    void IgmpClear(uint32_t idx) {
+        ClearIgmpIntfConfig(input[idx].name);
+        client->WaitForIdle();
     }
 
     void PrintIgmp(uint8_t *buf, uint32_t len) {
@@ -360,10 +437,27 @@ public:
         tap->TxPacket(buf, len);
     }
 
-    void WaitForRxOkCount(VmInterface *vm_itf, uint32_t index,
+    bool WaitForRejPktCount(uint32_t ex_count) {
+
+        IgmpProto::IgmpStats stats;
+
+        int count = 0;
+
+        do {
+            usleep(1000);
+            client->WaitForIdle();
+            stats = Agent::GetInstance()->GetIgmpProto()->GetStats();
+            if (++count == MAX_WAIT_COUNT)
+                return false;
+        } while (stats.rejected_pkt != ex_count);
+        return true;
+    }
+
+    bool WaitForRxOkCount(uint32_t vm_idx, uint32_t index,
                                     uint32_t ex_count) {
 
-        IgmpInfo::McastInterfaceState::IgmpIfStats stats;
+        VmInterface *vm_itf = VmInterfaceGet(input[vm_idx].intf_id);
+        IgmpInfo::IgmpIfStats stats;
 
         int count = 0;
         uint32_t counter = 0;
@@ -371,14 +465,18 @@ public:
         do {
             usleep(1000);
             client->WaitForIdle();
-            stats = Agent::GetInstance()->GetIgmpProto()->GetIfStats(vm_itf);
+            const VnEntry *vn = vm_itf->vn();
+            IpAddress gateway = IpAddress(Ip4Address::from_string(ipam_info[0].gw));
+            Agent::GetInstance()->GetIgmpProto()->GetIfStats(vn, gateway,
+                                    stats);
             counter = stats.rx_okpacket[index-1];
             if (++count == MAX_WAIT_COUNT)
-                assert(0);
-        } while (counter < ex_count);
+                return false;
+        } while (counter != ex_count);
+        return true;
     }
 
-    void WaitForSghCount(bool add, uint32_t ex_count) {
+    bool WaitForSghCount(bool add, uint32_t ex_count) {
 
         GmpProto::GmpStats stats;
         int count = 0;
@@ -389,18 +487,62 @@ public:
             client->WaitForIdle();
             Agent *agent = Agent::GetInstance();
             stats = agent->GetIgmpProto()->GetGmpProto()->GetStats();
-            counter = add ? stats.igmp_sgh_add_count_ :
-                                stats.igmp_sgh_del_count_;
-            if (++count == MAX_WAIT_COUNT)
-                assert(0);
+            counter = add ? stats.gmp_sgh_add_count_ :
+                                stats.gmp_sgh_del_count_;
+            if (++count == MAX_WAIT_COUNT) {
+                return false;
+            }
         } while (counter != ex_count);
+        return true;
     }
 
-    void IgmpTestClientReceive(uint8_t *buff, std::size_t len) {
+    bool WaitForTxCount(uint32_t vm_idx, bool tx, uint32_t ex_count) {
+
+        VmInterface *vm_itf = VmInterfaceGet(input[vm_idx].intf_id);
+        IgmpInfo::IgmpIfStats stats;
+        int count = 0;
+        uint32_t counter = 0;
+
+        do {
+            usleep(1000);
+            client->WaitForIdle();
+            const VnEntry *vn = vm_itf->vn();
+            IpAddress gateway = IpAddress(Ip4Address::from_string(ipam_info[0].gw));
+            Agent::GetInstance()->GetIgmpProto()->GetIfStats(vn, gateway,
+                                    stats);
+            counter = tx ? stats.tx_packet : stats.tx_drop_packet;
+            if (++count == MAX_WAIT_COUNT)
+                return false;
+        } while (counter != ex_count);
+        return true;
+    }
+
+    void IgmpTestClientReceive(uint8_t *buf, std::size_t len) {
+
+        struct ether_header *eth = (struct ether_header *)buf;
+
+        agent_hdr *agent = (agent_hdr *)(eth + 1);
+
+        eth = (struct ether_header *) (agent + 1);
+
+        struct ip *ip = (struct ip *) (eth + 1);
+        if (ip->ip_p == IPPROTO_IGMP) {
+            rx_count++;
+        }
+
         return;
     }
 
+public:
+    uint32_t rx_count;
+    uint32_t robust_count;
+    uint32_t qivl;
+    uint32_t qrivl;
+    uint32_t lmqi;
+    uint32_t lmqt;
+
 private:
+    DBTableBase::ListenerId vrfid_;
     DBTableBase::ListenerId rid_;
     uint32_t itf_count_;
     std::vector<std::size_t> itf_id_;
@@ -508,109 +650,286 @@ TEST_F(IgmpTest, PrintPackets) {
     return;
 }
 
-TEST_F(IgmpTest, SendV3ReportAndV2Leave) {
+TEST_F(IgmpTest, SendV3Reports) {
 
+    bool ret = false;
     boost::system::error_code ec;
-    VmInterface *vm_itf;
-    IgmpInfo::McastInterfaceState::IgmpIfStats stats;
 
-    Agent *agent = Agent::GetInstance();
+    uint32_t idx = 0;
 
-    struct IgmpGroupSource igmp_gs[5];
+    uint32_t local_sgh_add_count = 0;
+    uint32_t local_sgh_del_count = 0;
+    uint32_t report_count = 0;
 
     Set_Up();
 
-    vm_itf = VmInterfaceGet(input[0].intf_id);
+    IgmpEnable(true);
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpEnable(idx, true);
+    }
 
-    memset(igmp_gs, 0x00, sizeof(igmp_gs));
-    igmp_gs[0].group = ntohl(inet_addr("224.1.0.10"));
-    igmp_gs[0].sources[0] = ntohl(inet_addr("100.1.0.10"));
-    igmp_gs[0].sources[1] = ntohl(inet_addr("100.1.0.20"));
-    igmp_gs[0].sources[2] = ntohl(inet_addr("100.1.0.30"));
-    igmp_gs[0].sources[3] = ntohl(inet_addr("100.1.0.40"));
-    igmp_gs[0].sources[4] = ntohl(inet_addr("100.1.0.50"));
-
-    igmp_gs[1].group = ntohl(inet_addr("224.2.0.10"));
-    igmp_gs[1].sources[0] = ntohl(inet_addr("100.2.0.10"));
-    igmp_gs[1].sources[1] = ntohl(inet_addr("100.2.0.20"));
-    igmp_gs[1].sources[2] = ntohl(inet_addr("100.2.0.30"));
-    igmp_gs[1].sources[3] = ntohl(inet_addr("100.2.0.40"));
-    igmp_gs[1].sources[4] = ntohl(inet_addr("100.2.0.50"));
-
-    igmp_gs[2].group = ntohl(inet_addr("224.3.0.10"));
-    igmp_gs[2].sources[0] = ntohl(inet_addr("100.3.0.10"));
-    igmp_gs[2].sources[1] = ntohl(inet_addr("100.3.0.20"));
-    igmp_gs[2].sources[2] = ntohl(inet_addr("100.3.0.30"));
-    igmp_gs[2].sources[3] = ntohl(inet_addr("100.3.0.40"));
-    igmp_gs[2].sources[4] = ntohl(inet_addr("100.3.0.50"));
-
-    uint32_t local_sgh_add_count = 0;
-
+    idx = 1;
     igmp_gs[0].record_type = 2;
     igmp_gs[0].source_count = 4;
     local_sgh_add_count += 0;
-    SendIgmp(GetItfId(0), "10.1.1.4", IgmpTypeV3Report, igmp_gs, 1);
-    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
-    WaitForSghCount(true, local_sgh_add_count);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
 
+    idx = 0;
     igmp_gs[0].record_type = 1;
     igmp_gs[0].source_count = 3;
     local_sgh_add_count += igmp_gs[0].source_count;
-    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV3Report, igmp_gs, 1);
-    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
-    WaitForSghCount(true, local_sgh_add_count);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
 
+    idx = 2;
     igmp_gs[0].record_type = 1;
     igmp_gs[0].source_count = 3;
     local_sgh_add_count += igmp_gs[0].source_count;
-    SendIgmp(GetItfId(0), "10.1.1.5", IgmpTypeV3Report, igmp_gs, 1);
-    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
-    WaitForSghCount(true, local_sgh_add_count);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
 
+    idx = 3;
     igmp_gs[0].record_type = 1;
     igmp_gs[0].source_count = 3;
     local_sgh_add_count += igmp_gs[0].source_count;
-    SendIgmp(GetItfId(0), "10.1.1.6", IgmpTypeV3Report, igmp_gs, 1);
-    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
-    WaitForSghCount(true, local_sgh_add_count);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
 
+    idx = 4;
     igmp_gs[0].record_type = 1;
     igmp_gs[0].source_count = 3;
     local_sgh_add_count += igmp_gs[0].source_count;
-    SendIgmp(GetItfId(0), "10.1.1.7", IgmpTypeV3Report, igmp_gs, 1);
-    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
-    WaitForSghCount(true, local_sgh_add_count);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
 
+    idx = 5;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
     igmp_gs[1].record_type = 1;
     igmp_gs[1].source_count = 4;
     local_sgh_add_count += igmp_gs[0].source_count;
     local_sgh_add_count += igmp_gs[1].source_count;
-    SendIgmp(GetItfId(5), "10.1.1.8", IgmpTypeV3Report, igmp_gs, 2);
-    vm_itf = VmInterfaceGet(input[5].intf_id);
-    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 2);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
-    WaitForSghCount(true, local_sgh_add_count);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
 
+    idx = 6;
     igmp_gs[2].record_type = 1;
     igmp_gs[2].source_count = 5;
     local_sgh_add_count += igmp_gs[2].source_count;
-    SendIgmp(GetItfId(6), "10.1.1.9", IgmpTypeV3Report, &igmp_gs[2], 1);
-    vm_itf = VmInterfaceGet(input[6].intf_id);
-    WaitForRxOkCount(vm_itf, IGMP_V3_MEMBERSHIP_REPORT, 1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[2], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
-    WaitForSghCount(true, local_sgh_add_count);
-
-    usleep(100000);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
 
     const NextHop *nh;
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
+
+    Ip4Address group = Ip4Address::from_string("224.1.0.10", ec);
+    Ip4Address source = Ip4Address::from_string("100.1.0.10", ec);
+
+    Agent *agent = Agent::GetInstance();
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(5, cnh->ActiveComponentNHCount());
+
+    idx = 0;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
+    local_sgh_del_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 1;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 4;
+    local_sgh_del_count += 0;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 2;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
+    local_sgh_del_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 3;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
+    local_sgh_del_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 4;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
+    local_sgh_del_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 5;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
+    igmp_gs[1].record_type = 6;
+    igmp_gs[1].source_count = 3;
+    local_sgh_del_count += igmp_gs[0].source_count + igmp_gs[1].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 2);
+    ret = WaitForRxOkCount(idx, IgmpTypeV3Report, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 6;
+    igmp_gs[2].record_type = 6;
+    igmp_gs[2].source_count = 5;
+    local_sgh_del_count += igmp_gs[2].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[2], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    EXPECT_EQ((nh == NULL), true);
+
+    usleep(lmqt);
+
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpClear(idx);
+    }
+    IgmpClear();
+
+    Tear_Down();
+    client->WaitForIdle();
+
+    return;
+}
+
+TEST_F(IgmpTest, IgmpIntfConfig) {
+
+    bool ret = false;
+    boost::system::error_code ec;
+
+    VmInterface *vm_itf = NULL;
+
+    uint32_t local_sgh_add_count = 0;
+    uint32_t local_sgh_del_count = 0;
+    uint32_t report_count = 0;
+    uint32_t rej_count = 0;
+    uint32_t idx = 0;
+
+    const NextHop *nh;
+    const CompositeNH *cnh;
+    const ComponentNH *cnh1;
+
+    Agent *agent = Agent::GetInstance();
+
+    Set_Up();
+
+    IgmpEnable(true);
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpEnable(idx, true);
+    }
+
+    idx = 0;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    local_sgh_add_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 1;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    local_sgh_add_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
 
     Ip4Address group = Ip4Address::from_string("224.1.0.10", ec);
     Ip4Address source = Ip4Address::from_string("100.1.0.10", ec);
@@ -625,61 +944,281 @@ TEST_F(IgmpTest, SendV3ReportAndV2Leave) {
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(5, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
 
-    uint32_t local_sgh_del_count = 0;
-    uint32_t leave_count = 0;
-
-    local_sgh_del_count += 3;
-    SendIgmp(GetItfId(0), "10.1.1.3", IgmpTypeV2Leave, &igmp_gs[0], 1);
-    leave_count++;
-    vm_itf = VmInterfaceGet(input[0].intf_id);
-    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, leave_count);
-    client->WaitForIdle();
-
-    local_sgh_del_count += 0;
-    SendIgmp(GetItfId(0), "10.1.1.4", IgmpTypeV2Leave, &igmp_gs[0], 1);
-    leave_count++;
-    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, leave_count);
-    client->WaitForIdle();
-
-    local_sgh_del_count += 3;
-    SendIgmp(GetItfId(0), "10.1.1.5", IgmpTypeV2Leave, &igmp_gs[0], 1);
-    leave_count++;
-    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, leave_count);
-    client->WaitForIdle();
-
-    local_sgh_del_count += 3;
-    SendIgmp(GetItfId(0), "10.1.1.6", IgmpTypeV2Leave, &igmp_gs[0], 1);
-    leave_count++;
-    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, leave_count);
-    client->WaitForIdle();
-
-    local_sgh_del_count += 3;
-    SendIgmp(GetItfId(0), "10.1.1.7", IgmpTypeV2Leave, &igmp_gs[0], 1);
-    leave_count++;
-    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, leave_count);
-    client->WaitForIdle();
-
+    idx = 0;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
     local_sgh_del_count += igmp_gs[0].source_count;
-    SendIgmp(GetItfId(5), "10.1.1.8", IgmpTypeV2Leave, igmp_gs, 1);
-    local_sgh_del_count += igmp_gs[1].source_count;
-    SendIgmp(GetItfId(5), "10.1.1.8", IgmpTypeV2Leave, &igmp_gs[1], 1);
-    leave_count = 2;
-    vm_itf = VmInterfaceGet(input[5].intf_id);
-    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, leave_count);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
 
-    local_sgh_del_count += igmp_gs[2].source_count;
-    SendIgmp(GetItfId(6), "10.1.1.9", IgmpTypeV2Leave, &igmp_gs[2], 1);
-    vm_itf = VmInterfaceGet(input[6].intf_id);
-    leave_count = 1;
-    WaitForRxOkCount(vm_itf, IGMP_GROUP_LEAVE, leave_count);
+    idx = 1;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
+    local_sgh_del_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
     client->WaitForIdle();
 
-    WaitForSghCount(false, local_sgh_del_count);
+    // Disable IGMP on idx = 0
+    idx = 0;
+    IgmpEnable(idx, false);
+    vm_itf = VmInterfaceGet(input[idx].intf_id);
+    EXPECT_EQ(vm_itf->igmp_enable_config(), false);
+
+    rej_count = 0;
+
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    rej_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    client->WaitForIdle();
+    ret = WaitForRejPktCount(rej_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 6;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    report_count++;
+    local_sgh_add_count += igmp_gs[0].source_count;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    idx = 6;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 3;
+    local_sgh_del_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    // Enable IGMP on idx = 0
+    idx = 0;
+    IgmpEnable(idx, true);
+    vm_itf = VmInterfaceGet(input[idx].intf_id);
+    EXPECT_EQ(vm_itf->igmp_enable_config(), true);
+
+    idx = 0;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    local_sgh_add_count += igmp_gs[0].source_count;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    usleep(lmqt);
+
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpClear(idx);
+    }
+    IgmpClear();
 
     Tear_Down();
+    client->WaitForIdle();
+
+    return;
+}
+
+TEST_F(IgmpTest, IgmpSystemConfig) {
+
+    bool ret = false;
+    VmInterface *vm_itf;
+
+    uint32_t local_sgh_add_count = 0;
+    uint32_t local_sgh_del_count = 0;
+    uint32_t report_count = 0;
+    uint32_t leave_count = 0;
+    uint32_t rej_count = 0;
+    uint32_t idx = 0;
+
+    Set_Up();
+
+    IgmpEnable(false);
+    idx = 0;
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpEnable(idx, true);
+    }
+
+    idx = 0;
+    IgmpEnable(idx, false);
+    vm_itf = VmInterfaceGet(input[0].intf_id);
+    EXPECT_EQ(vm_itf->igmp_enable_config(), false);
+
+    idx = 0;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    rej_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    client->WaitForIdle();
+    ret = WaitForRejPktCount(rej_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 6;
+    rej_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, &igmp_gs[2], 1);
+    client->WaitForIdle();
+    ret = WaitForRejPktCount(rej_count);
+    EXPECT_EQ(ret, true);
+
+    IgmpEnable(true);
+
+    idx = 0;
+    IgmpEnable(idx, true);
+    vm_itf = VmInterfaceGet(input[0].intf_id);
+    EXPECT_EQ(vm_itf->igmp_enable_config(), true);
+
+    idx = 0;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 3;
+    local_sgh_add_count += igmp_gs[0].source_count;
+    report_count++;
+    client->WaitForIdle();
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 0;
+    local_sgh_del_count += 3;
+    leave_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, &igmp_gs[0], 1);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
+    EXPECT_EQ(ret, true);
+    client->WaitForIdle();
+
+    usleep(lmqt);
+
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpClear(idx);
+    }
+    IgmpClear();
+
+    Tear_Down();
+    client->WaitForIdle();
+    return;
+}
+
+TEST_F(IgmpTest, IgmpQuerySend) {
+
+    bool ret = false;
+
+    Set_Up();
+    client->WaitForIdle();
+
+    IgmpEnable(true);
+    uint32_t idx = 0;
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpEnable(idx, true);
+    }
+
+    Agent::GetInstance()->GetIgmpProto()->ClearStats();
+    Agent::GetInstance()->GetIgmpProto()->GetGmpProto()->ClearStats();
+    client->WaitForIdle();
+
+    uint32_t sleep = 1;
+    uint32_t vms = sizeof(input)/sizeof(struct PortInfo);
+
+    usleep(sleep * qivl * MSECS_PER_SEC);
+    client->WaitForIdle();
+
+    idx = 0;
+    ret = WaitForTxCount(idx, true, vms*(sleep+1)); // 7 VMs and 2 queries in 10 secs
+    EXPECT_EQ(ret, true);
+
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpClear(idx);
+    }
+    IgmpClear();
+
+    Tear_Down();
+    client->WaitForIdle();
+    return;
+}
+
+TEST_F(IgmpTest, IgmpQueryDisabled) {
+
+    bool ret = false;
+
+    Set_Up();
+    client->WaitForIdle();
+
+    IgmpEnable(false);
+    uint32_t idx = 0;
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpEnable(idx, true);
+    }
+
+    Agent::GetInstance()->GetIgmpProto()->ClearStats();
+    Agent::GetInstance()->GetIgmpProto()->GetGmpProto()->ClearStats();
+    client->WaitForIdle();
+
+    uint32_t sleep = 1;
+    uint32_t vms = sizeof(input)/sizeof(struct PortInfo);
+
+    usleep(sleep * qivl * MSECS_PER_SEC);
+    client->WaitForIdle();
+
+    idx = 0;
+    ret = WaitForTxCount(idx, false, vms*(sleep+1)); // 7 VMs and 2 queries in 10 secs
+    EXPECT_EQ(ret, true);
+
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpClear(idx);
+    }
+    IgmpClear();
+
+    Tear_Down();
+    client->WaitForIdle();
     return;
 }
 
@@ -687,7 +1226,6 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
 
     client = TestInit(DEFAULT_VNSW_CONFIG_FILE, ksync_init, true, true);
-    usleep(100000);
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
