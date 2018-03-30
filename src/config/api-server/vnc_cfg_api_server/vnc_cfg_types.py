@@ -5130,7 +5130,7 @@ class BgpAsAServiceServer(Resource, BgpAsAService):
 
             if not ok:
                 return ok, result
-            if result.get('bgpaas_shared') != obj_dict['bgpaas_shared']:
+            if result.get('bgpaas_shared', False) != obj_dict['bgpaas_shared']:
                 return (False, (400, 'BGPaaS sharing cannot be modified'))
         return True, ""
     # end pre_dbe_update
