@@ -547,7 +547,7 @@ void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
                                                           vm_itf->GetUuid());
     for (std::set<MulticastGroupObject *>::iterator it = obj_list.begin(); 
          it != obj_list.end(); it++) {
-        if (((*it)->vrf_name() != vrf_name) &&
+        if (((*it)->vrf_name() != vrf_name) ||
             ((*it)->GetGroupAddress() != bcast_addr)) {
             continue;
         }
@@ -1194,7 +1194,6 @@ void MulticastHandler::Shutdown() {
 
         if (route == NULL) {
             continue;
-            delete (obj);
         }
 
         for(Route::PathList::iterator it = route->GetPathList().begin();

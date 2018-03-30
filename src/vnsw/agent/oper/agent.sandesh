@@ -316,6 +316,8 @@ struct ItfSandeshData {
    /** If current VMI is SI VMI, then below field is uuid of VMI of other
        end of SI */
    64: string si_other_end_vmi;
+   /** Enable IGMP on the VMI */
+   65: bool igmp_enable;
 }
 
 /**
@@ -402,6 +404,8 @@ struct VnSandeshData {
     19: bool layer2_control_word;
     /** List of security-logging-objects associated with virtual network */
     20: list<SecurityLoggingObjectLink> slo_list;
+    /** Enable IGMP on the VMI */
+    21: bool igmp_enable;
 }
 
 /**

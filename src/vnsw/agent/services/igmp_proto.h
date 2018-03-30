@@ -36,25 +36,29 @@ class Timer;
 class Interface;
 
 namespace IgmpInfo {
-struct McastInterfaceState : public DBState {
-public:
-    struct IgmpIfStats {
-        IgmpIfStats() { Reset(); }
-        void Reset() {
-            rx_unknown = 0;
-            memset(rx_badpacket, 0x00, sizeof(uint32_t)*IGMP_MAX_TYPE);
-            memset(rx_okpacket, 0x00, sizeof(uint32_t)*IGMP_MAX_TYPE);
-        }
-        uint32_t rx_unknown;
-        uint32_t rx_badpacket[IGMP_MAX_TYPE];
-        uint32_t rx_okpacket[IGMP_MAX_TYPE];
-    };
+struct IgmpItfStats {
+    IgmpItfStats() { Reset(); }
+    void Reset() {
+        rx_unknown = 0;
+        memset(rx_badpacket, 0x00, sizeof(uint32_t)*IGMP_MAX_TYPE);
+        memset(rx_okpacket, 0x00, sizeof(uint32_t)*IGMP_MAX_TYPE);
+        tx_packet = 0;
+        tx_drop_packet = 0;
+    }
+    uint32_t rx_unknown;
+    uint32_t rx_badpacket[IGMP_MAX_TYPE];
+    uint32_t rx_okpacket[IGMP_MAX_TYPE];
+    uint32_t tx_packet;
+    uint32_t tx_drop_packet;
+};
 
-    McastInterfaceState() : DBState() {
+struct IgmpSubnetState {
+public:
+    IgmpSubnetState() {
         gmp_intf_ = NULL;
         vrf_name_ = "";
     }
-    ~McastInterfaceState() {}
+    ~IgmpSubnetState() {}
 
     void IncrRxUnknown() {
         stats_.rx_unknown++;
@@ -74,16 +78,42 @@ public:
     uint32_t GetRxOkPkt(unsigned long index) {
         return stats_.rx_okpacket[index-1];
     }
-    const IgmpIfStats &GetIfStats() const { return stats_; }
-    void ClearIfStats() { stats_.Reset(); }
+    void IncrTxPkt() {
+        stats_.tx_packet++;
+    }
+    uint32_t GetTxPkt() {
+        return stats_.tx_packet;
+    }
+    void IncrTxDropPkt() {
+        stats_.tx_drop_packet++;
+    }
+    uint32_t GetTxDropPkt() {
+        return stats_.tx_drop_packet;
+    }
+    const IgmpInfo::IgmpItfStats &GetItfStats() const { return stats_; }
+    void ClearItfStats() { stats_.Reset(); }
 
     GmpIntf *gmp_intf_;
     std::string vrf_name_;
-    IgmpIfStats stats_;
+    IgmpInfo::IgmpItfStats stats_;
 };
-struct VrfState : public DBState {
-    VrfState() : DBState() {};
-    DBTableBase::ListenerId mc_rt_id_;
+
+struct VnIgmpDBState : public DBState {
+public:
+    VnIgmpDBState() : DBState() {
+    }
+    ~VnIgmpDBState() {}
+
+    typedef std::map<IpAddress, IgmpSubnetState*> IgmpSubnetStateMap;
+    IgmpSubnetStateMap igmp_state_map_;
+};
+
+struct VmiIgmpDBState : public DBState {
+    VmiIgmpDBState() : DBState(), vrf_name_() {
+    }
+    ~VmiIgmpDBState() {}
+
+    std::string vrf_name_;
 };
 }
 
@@ -94,7 +124,7 @@ public:
         IgmpStats() { Reset(); }
         void Reset() {
             bad_length = bad_cksum = bad_interface = not_local =
-            rx_unknown = rejected_report = 0;
+            rx_unknown = rejected_pkt = 0;
         }
 
         uint32_t bad_length;
@@ -102,7 +132,7 @@ public:
         uint32_t bad_interface;
         uint32_t not_local;
         uint32_t rx_unknown;
-        uint32_t rejected_report;
+        uint32_t rejected_pkt;
     };
 
     void Shutdown();
@@ -118,16 +148,21 @@ public:
     void IncrStatsBadInterface() { stats_.bad_interface++; }
     void IncrStatsNotLocal() { stats_.not_local++; }
     void IncrStatsRxUnknown() { stats_.rx_unknown++; }
-    void IncrStatsRejectedReport() { stats_.rejected_report++; }
+    void IncrStatsRejectedPkt() { stats_.rejected_pkt++; }
     const IgmpStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
     GmpProto *GetGmpProto() { return gmp_proto_; }
-    const IgmpInfo::McastInterfaceState::IgmpIfStats &GetIfStats(
-                            VmInterface *vm_itf);
+    bool SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet);
+    const bool GetItfStats(const VnEntry *vn, IpAddress gateway,
+                            IgmpInfo::IgmpItfStats &stats);
+    void ClearItfStats(const VnEntry *vn, IpAddress gateway);
+    void IncrSendStats(const VmInterface *vm_itf, bool tx_done);
 
-    DBTableBase::ListenerId ItfListenerId ();
+    DBTableBase::ListenerId vn_listener_id ();
+    DBTableBase::ListenerId itf_listener_id ();
 
 private:
+    void VnNotify(DBTablePartBase *part, DBEntryBase *entry);
     void ItfNotify(DBTablePartBase *part, DBEntryBase *entry);
     void Inet4McRouteTableNotify(DBTablePartBase *part, DBEntryBase *entry);
 
@@ -137,7 +172,8 @@ private:
     const std::string task_name_;
     boost::asio::io_service &io_;
 
-    DBTableBase::ListenerId iid_;
+    DBTableBase::ListenerId itf_listener_id_;
+    DBTableBase::ListenerId vn_listener_id_;
 
     GmpProto *gmp_proto_;
     IgmpStats stats_;
