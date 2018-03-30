@@ -393,6 +393,9 @@ bool ClonedLocalPath::AddChangePathExtended(Agent *agent, AgentPath *path,
     AgentPath *local_path = NULL;
     if (mpls_label_ == MplsTable::kInvalidExportLabel) {
         local_path = rt->FindPath(agent->fabric_rt_export_peer());
+        if (local_path == NULL) {
+            local_path = rt->FindLocalVmPortPath();
+        }
     } else {
         MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(mpls_label_);
         if (!mpls) {
