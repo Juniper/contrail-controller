@@ -56,16 +56,16 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
     @mock.patch.object(GlobalSystemConfigServer, 'locate',
                        return_value=(True, {'autonomous_system': DEFAULT_ASN}))
     def test_global_asn_populated(self, locate_mock):
-        self.assertEqual((True, self.DEFAULT_ASN),
-                         GlobalSystemConfigServer.get_autonomous_system())
+        self.assertEqual(self.DEFAULT_ASN,
+                         self._api_server.global_autonomous_system)
         locate_mock.assert_called_once_with(
-            fq_name=['default-global-system-config'],
+            uuid=self._api_server._gsc_uuid,
             create_it=False, fields=['autonomous_system'],
         )
 
         locate_mock.reset_mock()
-        self.assertEqual((True, self.DEFAULT_ASN),
-                         GlobalSystemConfigServer.get_autonomous_system())
+        self.assertEqual(self.DEFAULT_ASN,
+                         self._api_server.global_autonomous_system)
         locate_mock.assert_not_called()
 
     def test_update_global_asn(self):
@@ -75,7 +75,7 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
         gsc.autonomous_system = self.NEW_ASN
         gsc = self.api.global_system_config_update(gsc)
         self.assertEqual(self.NEW_ASN,
-                         GlobalSystemConfigServer._autonomous_system)
+                         self._api_server.global_autonomous_system)
 
     def test_cannot_update_global_asn_if_used_by_user(self):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
