@@ -896,126 +896,176 @@ protected:
     }
 
 
-    static void ValidateRTGroupResponse(Sandesh *sandesh,
-        const vector<string> &result) {
+    void ValidateRTGroupResponse(Sandesh *sandesh,
+                                 const vector<string> &result) const {
         ShowRtGroupResp *resp =
                 dynamic_cast<ShowRtGroupResp *>(sandesh);
-        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        if (resp == NULL) {
+            result_ = false;
+            validate_done_ = true;
+            return;
+        }
 
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_rtgroup_list().size());
+        if (result.size() != resp->get_rtgroup_list().size()) {
+            result_ = false;
+            validate_done_ = true;
+            return;
+        }
         cout << "*****************************************************" << endl;
         int i = 0;
         BOOST_FOREACH(const ShowRtGroupInfo &info, resp->get_rtgroup_list()) {
-            TASK_UTIL_EXPECT_EQ(info.get_rtarget(), result[i]);
+            if (info.get_rtarget() != result[i]) {
+                result_ = false;
+                validate_done_ = true;
+                return;
+            }
             cout << info.log() << endl;
             i++;
         }
         cout << "*****************************************************" << endl;
 
-        validate_done_ = 1;
+        result_ = true;
+        validate_done_ = true;
     }
 
-    static void ValidateRTGroupPeerResponse(Sandesh *sandesh,
-        const vector<string> &result) {
+    void ValidateRTGroupPeerResponse(Sandesh *sandesh,
+                                     const vector<string> &result) const {
         ShowRtGroupPeerResp *resp =
                 dynamic_cast<ShowRtGroupPeerResp *>(sandesh);
-        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        if (resp == NULL) {
+            result_ = false;
+            validate_done_ = true;
+            return;
+        }
 
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_rtgroup_list().size());
+        if (result.size() != resp->get_rtgroup_list().size()) {
+            result_ = false;
+            validate_done_ = true;
+            return;
+        }
+
         cout << "*****************************************************" << endl;
         int i = 0;
         BOOST_FOREACH(const ShowRtGroupInfo &info, resp->get_rtgroup_list()) {
-            TASK_UTIL_EXPECT_EQ(info.get_rtarget(), result[i]);
+            if (info.get_rtarget() != result[i]) {
+                result_ = false;
+                validate_done_ = true;
+                return;
+            }
             cout << info.log() << endl;
             i++;
         }
         cout << "*****************************************************" << endl;
 
-        validate_done_ = 1;
+        result_ = true;
+        validate_done_ = true;
     }
 
-    static void ValidateRTGroupSummaryResponse(Sandesh *sandesh,
-        const vector<string> &result) {
+    void ValidateRTGroupSummaryResponse(Sandesh *sandesh,
+                                        const vector<string> &result) const {
         ShowRtGroupSummaryResp *resp =
                 dynamic_cast<ShowRtGroupSummaryResp *>(sandesh);
-        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        if (resp == NULL) {
+            result_ = false;
+            validate_done_ = true;
+            return;
+        }
 
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_rtgroup_list().size());
+        if (result.size() != resp->get_rtgroup_list().size()) {
+            result_ = false;
+            validate_done_ = true;
+            return;
+        }
+
         cout << "*****************************************************" << endl;
         int i = 0;
         BOOST_FOREACH(const ShowRtGroupInfo &info, resp->get_rtgroup_list()) {
-            TASK_UTIL_EXPECT_EQ(info.get_rtarget(), result[i]);
+            if (info.get_rtarget() != result[i]) {
+                result_ = false;
+                validate_done_ = true;
+                return;
+            }
             cout << info.log() << endl;
             i++;
         }
         cout << "*****************************************************" << endl;
 
-        validate_done_ = 1;
+        result_ = true;
+        validate_done_ = true;
     }
 
-    void VerifyRtGroupSandesh(BgpServerTest *server, vector<string> result) {
+    bool VerifyRtGroupSandesh(BgpServerTest *server,
+                              vector<string> result) const {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
         RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
-            boost::bind(ValidateRTGroupResponse, _1, result));
+            boost::bind(&BgpXmppRTargetTest::ValidateRTGroupResponse, this, _1,
+                        result));
         ShowRtGroupReq *req = new ShowRtGroupReq;
         validate_done_ = 0;
         req->HandleRequest();
         req->Release();
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
+        return result_;
     }
 
-    void VerifyRtGroupSandesh(BgpServerTest *server, string rtarget,
-        vector<string> result) {
+    bool VerifyRtGroupSandesh(BgpServerTest *server, string rtarget,
+                              vector<string> result) const {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
         RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
-            boost::bind(ValidateRTGroupResponse, _1, result));
+            boost::bind(&BgpXmppRTargetTest::ValidateRTGroupResponse, this, _1,
+                        result));
         ShowRtGroupReq *req = new ShowRtGroupReq;
         req->set_search_string(rtarget);
         validate_done_ = 0;
         req->HandleRequest();
         req->Release();
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
+        return result_;
     }
 
-    void VerifyRtGroupPeerSandesh(BgpServerTest *server, string peer,
-        vector<string> result) {
+    bool VerifyRtGroupPeerSandesh(BgpServerTest *server, string peer,
+                                  vector<string> result) const {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
         RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
-            boost::bind(ValidateRTGroupPeerResponse, _1, result));
+            boost::bind(&BgpXmppRTargetTest::ValidateRTGroupPeerResponse, this,
+                        _1, result));
         ShowRtGroupPeerReq *req = new ShowRtGroupPeerReq;
         req->set_search_string(peer);
         validate_done_ = 0;
         req->HandleRequest();
         req->Release();
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
+        return result_;
     }
 
-    void VerifyRtGroupSummarySandesh(BgpServerTest *server,
-        vector<string> result) {
+    bool VerifyRtGroupSummarySandesh(BgpServerTest *server,
+                                     vector<string> result) const {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
         RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
-            boost::bind(ValidateRTGroupSummaryResponse, _1, result));
+            boost::bind(&BgpXmppRTargetTest::ValidateRTGroupSummaryResponse,
+                        this, _1, result));
         ShowRtGroupSummaryReq *req = new ShowRtGroupSummaryReq;
         validate_done_ = 0;
         req->HandleRequest();
         req->Release();
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
+        return result_;
     }
 
     EventManager evm_;
@@ -1031,10 +1081,9 @@ protected:
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_2_;
     boost::scoped_ptr<BgpXmppChannelManager> bgp_channel_manager_cn1_;
     boost::scoped_ptr<BgpXmppChannelManager> bgp_channel_manager_cn2_;
-    static int validate_done_;
+    mutable bool validate_done_;
+    mutable bool result_;
 };
-
-int BgpXmppRTargetTest::validate_done_;
 
 static string BuildPrefix(int idx = 1) {
     string prefix = string("10.1.1.") + integerToString(idx) + "/32";
@@ -2114,9 +2163,9 @@ TEST_F(BgpXmppRTargetTest, HTTPIntrospect1) {
         ("target:192.168.0.2:3")("target:192.168.0.2:4")
         ("target:192.168.0.2:5")("target:192.168.0.3:1")
         ("target:192.168.0.3:2");
-    VerifyRtGroupSandesh(mx_.get(), mx_result);
-    VerifyRtGroupSandesh(cn1_.get(), cn1_result);
-    VerifyRtGroupSandesh(cn2_.get(), cn2_result);
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(mx_.get(), mx_result));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(cn1_.get(), cn1_result));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(cn2_.get(), cn2_result));
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
@@ -2140,13 +2189,19 @@ TEST_F(BgpXmppRTargetTest, HTTPIntrospect2) {
     VerifyInetRouteExists(cn2_.get(), "pink", BuildPrefix());
 
     vector<string> result = list_of("target:64496:1");
-    VerifyRtGroupSandesh(mx_.get(), "target:64496:1", result);
-    VerifyRtGroupSandesh(cn1_.get(), "target:64496:1", result);
-    VerifyRtGroupSandesh(cn2_.get(), "target:64496:1", result);
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(mx_.get(), "target:64496:1",
+                                               result));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(cn1_.get(), "target:64496:1",
+                                               result));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(cn2_.get(), "target:64496:1",
+                                               result));
 
-    VerifyRtGroupSandesh(mx_.get(), "target:64496:999", vector<string>());
-    VerifyRtGroupSandesh(cn1_.get(), "target:64496:999", vector<string>());
-    VerifyRtGroupSandesh(cn2_.get(), "target:64496:999", vector<string>());
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(mx_.get(), "target:64496:999",
+                                               vector<string>()));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(cn1_.get(), "target:64496:999",
+                                               vector<string>()));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSandesh(cn2_.get(), "target:64496:999",
+                                               vector<string>()));
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
@@ -2178,7 +2233,9 @@ TEST_F(BgpXmppRTargetTest, HTTPIntrospect3) {
         ("target:192.168.0.1:4")("target:192.168.0.1:5");
     const BgpPeer *peer_cn1 = FindMatchingPeer(mx_.get(), "CN1");
     EXPECT_TRUE(peer_cn1 != NULL);
-    VerifyRtGroupPeerSandesh(mx_.get(), peer_cn1->peer_basename(), cn1_result);
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupPeerSandesh(mx_.get(),
+                                                   peer_cn1->peer_basename(),
+                                                   cn1_result));
     const BgpPeer *peer_cn2 = FindMatchingPeer(mx_.get(), "CN2");
     EXPECT_TRUE(peer_cn2 != NULL);
     vector<string> cn2_result = list_of("target:64496:1")("target:64496:2")
@@ -2186,12 +2243,18 @@ TEST_F(BgpXmppRTargetTest, HTTPIntrospect3) {
         ("target:192.168.0.2:0")("target:192.168.0.2:1")
         ("target:192.168.0.2:2")("target:192.168.0.2:3")
         ("target:192.168.0.2:4")("target:192.168.0.2:5");
-    VerifyRtGroupPeerSandesh(mx_.get(), peer_cn2->peer_basename(), cn2_result);
-    VerifyRtGroupPeerSandesh(mx_.get(), string(), vector<string>());
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupPeerSandesh(mx_.get(),
+                                                   peer_cn2->peer_basename(),
+                                                   cn2_result));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupPeerSandesh(mx_.get(), string(),
+                                                   vector<string>()));
 
-    VerifyRtGroupPeerSandesh(mx_.get(), "undefined", vector<string>());
-    VerifyRtGroupPeerSandesh(cn1_.get(), "undefined", vector<string>());
-    VerifyRtGroupPeerSandesh(cn2_.get(), "undefined", vector<string>());
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupPeerSandesh(mx_.get(), "undefined",
+                                                   vector<string>()));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupPeerSandesh(cn1_.get(), "undefined",
+                                                   vector<string>()));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupPeerSandesh(cn2_.get(), "undefined",
+                                                   vector<string>()));
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
@@ -2242,9 +2305,9 @@ TEST_F(BgpXmppRTargetTest, HTTPIntrospect4) {
         ("target:192.168.0.2:3")("target:192.168.0.2:4")
         ("target:192.168.0.2:5")("target:192.168.0.3:1")
         ("target:192.168.0.3:2");
-    VerifyRtGroupSummarySandesh(mx_.get(), mx_result);
-    VerifyRtGroupSummarySandesh(cn1_.get(), cn1_result);
-    VerifyRtGroupSummarySandesh(cn2_.get(), cn2_result);
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSummarySandesh(mx_.get(), mx_result));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSummarySandesh(cn1_.get(), cn1_result));
+    TASK_UTIL_EXPECT_TRUE(VerifyRtGroupSummarySandesh(cn2_.get(), cn2_result));
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
