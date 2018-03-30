@@ -235,11 +235,12 @@ class DeviceManager(object):
         # Retry till API server is up
         connected = False
         self.connection_state_update(ConnectionStatus.INIT)
+        api_server_list = args.api_server_ip.split(',')
         while not connected:
             try:
                 self._vnc_lib = VncApi(
                     args.admin_user, args.admin_password,
-                    args.admin_tenant_name, args.api_server_ip,
+                    args.admin_tenant_name, api_server_list,
                     args.api_server_port,
                     api_server_use_ssl=args.api_server_use_ssl)
                 connected = True
