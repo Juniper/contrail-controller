@@ -187,6 +187,46 @@ TEST_F(FabricVmiTest, NoIpam) {
     EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 32));
     client->WaitForIdle();
 }
+
+TEST_F(FabricVmiTest, PolicyChange) {
+    VnListType vn_list;
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
+    LocalVmRoute *local_vm_route =
+        new LocalVmRoute(intf_key, 17, VxLanTable::kInvalidvxlan_id,
+                         false, vn_list, InterfaceNHFlags::INET4,
+                         SecurityGroupList(), TagList(), CommunityList(),
+                         PathPreference(), Ip4Address(0), EcmpLoadBalance(),
+                         false, false, 0, false, false);
+
+    InetUnicastAgentRouteTable *table = agent->fabric_inet4_unicast_table();
+    table->AddLocalVmRouteReq(peer_, agent->fabric_policy_vrf_name(),
+                              agent->router_id(), 32,
+                              static_cast<LocalVmRoute *>(local_vm_route));
+    client->WaitForIdle();
+
+    std::stringstream str;
+    str << "<display-name>" << "vhost0" << "</display-name>";
+    str << "<virtual-machine-interface-disable-policy>";
+    str << "true";
+    str << "</virtual-machine-interface-disable-policy>";
+    AddNode("virtual-machine-interface", "vhost0", 10, str.str().c_str());
+
+    const AgentRoute *rt = RouteGet(agent->fabric_policy_vrf_name(), 
+            agent->router_id(), 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    table->ResyncRoute(peer_,agent->fabric_policy_vrf_name(),
+                       agent->router_id(), 32);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    InetUnicastAgentRouteTable::DeleteReq(peer_,
+                                          agent->fabric_policy_vrf_name(),
+                                          agent->router_id(), 32,
+                                          NULL);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
     GETUSERARGS();
