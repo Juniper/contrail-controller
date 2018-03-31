@@ -232,7 +232,7 @@ protected:
     }
 
     const autogen::ItemType *FindRoute(test::NetworkAgentMockPtr agent,
-        const string &prefix) {
+        const string &prefix) const {
         if (family_ == Address::INET) {
             return agent->RouteLookup(master_, prefix);
         } else {
@@ -240,9 +240,10 @@ protected:
         }
     }
 
-    bool CheckRoute(test::NetworkAgentMockPtr agent, string prefix,
+    bool CheckRouteActual(test::NetworkAgentMockPtr agent, string prefix,
         string nexthop, int local_pref, int med,
-        const vector<string> communities) {
+        const vector<string> communities, bool *result) const {
+        *result = false;
         const autogen::ItemType *rt = FindRoute(agent, prefix);
         if (!rt)
             return false;
@@ -260,22 +261,34 @@ protected:
         if (!communities.empty() &&
             rt->entry.community_tag_list.community_tag != communities)
             return false;
+        *result = true;
         return true;
     }
 
+    bool CheckRoute(test::NetworkAgentMockPtr agent, string prefix,
+                    string nexthop, int local_pref, int med,
+                    const vector<string> communities) const {
+        bool result;
+        task_util::TaskFire(boost::bind(&BgpXmppIpTest::CheckRouteActual, this,
+            agent, prefix, nexthop, local_pref, med, communities, &result),
+                "bgp::Config");
+        return result;
+    }
+
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string prefix,
-        string nexthop, int local_pref = 0, int med = 0) {
+        string nexthop, int local_pref = 0, int med = 0) const {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, prefix, nexthop, local_pref, med, vector<string>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string prefix,
-        string nexthop, const vector<string> &communities) {
+        string nexthop, const vector<string> &communities) const {
         TASK_UTIL_EXPECT_TRUE(
             CheckRoute(agent, prefix, nexthop, 0, 0, communities));
     }
 
-    void VerifyRouteNoExists(test::NetworkAgentMockPtr agent, string prefix) {
+    void VerifyRouteNoExists(test::NetworkAgentMockPtr agent,
+                             string prefix) const {
         TASK_UTIL_EXPECT_TRUE(FindRoute(agent, prefix) == NULL);
     }
 
