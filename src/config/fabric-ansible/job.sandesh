@@ -26,7 +26,7 @@ struct PRouterOnboardingLogEntry {
     /* Job template executed. fq_name as string joined by ':'. e.g. domain-1:project-1:job-template-1 */
     6: optional string                  job_template_fqname;
     /* Unique id that identifies a job execution */
-    7: string                           job_execution_id (key="JobExecution");
+    7: string                           job_execution_id (key="ObjectJobExecutionTable");
     /* Job input json */
     8: optional string                  job_input;
     // Add additional items here as needed
@@ -37,15 +37,15 @@ struct PRouterOnboardingLogEntry {
  */
 struct JobLogEntry {
     /* job template fq_name as string joined by ':', e.g. domain-1:project-1:job-template-1. */
-    1: string                           name (key="ObjectJobTemplate");
+    1: string                           name (key="ObjectJobTemplateTable");
     /* Unique id that identifies a job execution */
-    2: string                           execution_id (key="JobExecution");
+    2: string                           execution_id (key="ObjectJobExecutionTable");
     /* Job log timestamp */
     3: i64                              timestamp;
     /* job message which should be meaningful to the end user */
     4: string                           message;
     /* job status: 0 (starting), 1 (in-progress), 2 (completed_with_success), 3 (completed_with_error), 4 (timeout) */
-    5: u16                              status (key="JobExecution");
+    5: u16                              status (key="ObjectJobExecutionTable");
     /* job result that captures the output from the job execution. This is an optional field only in the last job log if
        job is completed with success.
        Key: job task name which could be the device id if this is multi-device job
@@ -59,9 +59,9 @@ struct JobLogEntry {
  */
 struct JobExecution {
     /* job template fq_name as string joined by ':', e.g. domain-1:project-1:job-template-1. */
-    1: string                           name (key="ObjectJobTemplate");
+    1: string                           name (key="ObjectJobTemplateTable");
     /* Unique id that identifies a job execution */
-    2: string                           execution_id (key="JobExecution");
+    2: string                           execution_id (key="ObjectJobExecutionTable");
     3: optional bool                    deleted
     /* Job start timestamp */
     4: i64                              job_start_ts;

@@ -408,24 +408,31 @@ class VncApiServer(object):
 
             # generate the job execution id
             execution_id = uuid.uuid4()
-            request_params.update({'job_execution_id': str(execution_id)})
+            request_params['job_execution_id'] = str(execution_id)
 
             # get the auth token
             auth_token = get_request().get_header('X-Auth-Token')
-            request_params.update({'auth_token': auth_token})
+            request_params['auth_token'] = auth_token
+
+            # pass the required config args to job manager
+            job_args = {'collectors': self._args.collectors,
+                        'fabric_ansible_conf_file':
+                            self._args.fabric_ansible_conf_file
+                        }
+            request_params['args'] = json.dumps(job_args)
 
             # create job manager subprocess
             job_mgr_path = os.path.dirname(
                 __file__) + "/../job_manager/job_mgr.py"
-            subprocess.Popen(["python",
-                              job_mgr_path, "-i",
-                              json.dumps(request_params)],
-                             cwd="/", close_fds=True)
+            job_process = subprocess.Popen(["python", job_mgr_path, "-i",
+                                            json.dumps(request_params)],
+                                           cwd="/", close_fds=True)
 
             self.config_log("Created job manager process. Execution id: %s" %
                             execution_id,
                             level=SandeshLevel.SYS_NOTICE)
-            return {'job_execution_id': str(execution_id)}
+            return {'job_execution_id': str(execution_id),
+                    'job_manager_process_id': str(job_process.pid)}
         except cfgm_common.exceptions.HttpError as e:
             raise
         except Exception as e:
