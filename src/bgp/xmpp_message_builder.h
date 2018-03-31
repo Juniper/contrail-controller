@@ -40,7 +40,8 @@ public:
     virtual void Finish();
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
-                                   const std::string **msg_str);
+                                   const std::string **msg_str,
+                                   std::string *temp);
 
 private:
     static const size_t kMaxFromToLength = 192;
