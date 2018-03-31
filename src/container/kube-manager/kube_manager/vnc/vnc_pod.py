@@ -197,6 +197,11 @@ class VncPod(VncCommon):
         iip_obj.add_virtual_machine_interface(vmi_obj)
 
         InstanceIpKM.add_annotations(self, iip_obj, pod_namespace, pod_name)
+        self._logger.debug("%s: Create IIP from ipam_fq_name [%s]"
+                            " pod_ipam_subnet_uuid [%s]"
+                            " vn [%s] vmi_fq_name [%s]" %\
+                            (self._name, ipam_fq_name, pod_ipam_subnet_uuid,
+                            vn.name, vmi.fq_name))
         try:
             self._vnc_lib.instance_ip_create(iip_obj)
         except RefsExistError:
@@ -477,7 +482,12 @@ class VncPod(VncCommon):
 
         self._clear_label_to_pod_cache(vm)
 
-        vm_obj = self._vnc_lib.virtual_machine_read(id=vm.uuid)
+        try:
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm.uuid)
+        except NoIdError:
+            # Unable to find VM object in cache. Cleanup local cache.
+            VirtualMachineKM.delete(vm.uuid)
+            return
 
         if vm.virtual_router:
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
@@ -491,6 +501,9 @@ class VncPod(VncCommon):
             self._vnc_lib.virtual_machine_delete(id=pod_id)
         except NoIdError:
             pass
+
+        # Cleanup local cache.
+        VirtualMachineKM.delete(pod_id)
 
     def _create_pod_event(self, event_type, pod_id, vm_obj):
         event = {}
