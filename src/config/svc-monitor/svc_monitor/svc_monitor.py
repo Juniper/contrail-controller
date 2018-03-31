@@ -881,11 +881,12 @@ def run_svc_monitor(sm_logger, args=None):
     connected = False
     monitor.logger.api_conn_status_update(ConnectionStatus.INIT)
 
+    api_server_list = args.api_server_ip.split(',')
     while not connected:
         try:
             vnc_api = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port,
+                api_server_list, args.api_server_port,
                 api_server_use_ssl=args.api_server_use_ssl)
             connected = True
             monitor.logger.api_conn_status_update(ConnectionStatus.UP)
