@@ -18,10 +18,6 @@
         op_err_message: "{{interface_info.msg}}"
         jl_err_message: "Execute 'show configuration' command on Juniper Device: {{prouter_name}} failed; see result for more details"
 
-- name: Update Job log with execute command status
-  job_objectlog:
-    message: "Execute 'show configuration' command on Juniper Device {{prouter_name}} succeeded"
-
 - name: settings facts
   set_fact:
     interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
@@ -45,11 +41,6 @@
       vars:
         op_err_message: "{{interface_info.msg}}"
         jl_err_message: "Execute 'show interfaces' command on Juniper Device: {{prouter_name}} failed; see result for more details"
-
-
-- name: Update Job log with execute command status
-  job_objectlog:
-    message: "Execute 'show interfaces' command on Juniper Device {{prouter_name}} succeeded"
 
 - set_fact:
     interface_list_new: "{{interface_info|json_query('output[0].\"rpc-reply\".\"interface-information\".\"physical-interface\"[*]')}}"

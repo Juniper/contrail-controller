@@ -21,14 +21,14 @@ struct PRouterOnboardingLogEntry {
     3: optional string                  os_version;
     /* Device serial number */
     4: optional string                  serial_num;
-    /* Device onboarding state */
-    5: optional string                  onboarding_state;
+    /* Device onboarding state: DISCOVERED, ONBOARDED, UNDERLAY_CONFIGURED, IMAGE_UPGRADED */
+    5: string                           onboarding_state;
     /* Job template executed. fq_name as string joined by ':'. e.g. domain-1:project-1:job-template-1 */
-    6: optional string                  job_template_fqname;
+    6: string                           job_template_fqname;
     /* Unique id that identifies a job execution */
     7: string                           job_execution_id (key="ObjectJobExecutionTable");
     /* Job input json */
-    8: optional string                  job_input;
+    8: string                           job_input;
     // Add additional items here as needed
 }
 

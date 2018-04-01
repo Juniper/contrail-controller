@@ -20,6 +20,7 @@ setup_sources = [
            'conf',
            'group_vars',
            'library',
+           'module_utils',
            'roles',
            'schema',
           ]
