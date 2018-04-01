@@ -67,6 +67,15 @@
         op_err_message: "{{ref_update_results.msg}}"
         jl_err_message: "Failed to add ref to P-Router with uuid: {{prouter_info.fq_name[1]}}."
 
+    - name: PR objectlog update to set onboarding state
+      prouter_objectlog:
+        prouter_name: "{{ prouter_info.fq_name }}"
+        onboarding_state: "UNDERLAY_CONFIGURED"
+        job_execution_id: "{{ job_execution_id }}"
+        job_template_fqname: "{{ job_template_fqname }}"
+        job_input: "{{ input }}"
+        config_args: "{{ config_args }}"
+
     - name: Create BGP router completed
       job_objectlog:
         message: "BGP router was created and ref was added to the Prouter object."

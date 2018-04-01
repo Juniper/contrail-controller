@@ -87,8 +87,11 @@
     message: "Device {{pr_name}} is upgraded with image: {{filename}} successfully. Device version matched Image version after upgrade"
     status: "in-progress"
 
-# update device uve
-- name: Prouter LOGS
+- name: PR objectlog update for OS version
   prouter_objectlog:
-    name: "{{pr_fqname}}"
+    prouter_name: "{{pr_fqname}}"
+    job_execution_id: "{{job_execution_id}}"
+    job_template_fqname: "{{job_template_fqname}}"
+    job_input: "{{job_input}}"
     os_version: "{{device_version}}"
+    config_args: "{{config_args}}"

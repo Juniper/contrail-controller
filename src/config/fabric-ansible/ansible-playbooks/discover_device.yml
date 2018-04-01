@@ -4,6 +4,10 @@
   connection: local
   vars:
      auth_token: "{{ playbook_input.auth_token }}"
+     job_template_fqname: "{{ playbook_input.job_template_fqname }}"
+     job_execution_id: "{{ playbook_input.job_execution_id }}"
+     config_args: "{{ playbook_input.args }}"
+     job_input: "{{ playbook_input.input }}"
      api_server_host: "localhost"
      output: {"status":"", "message":"", "results":""}
      host_prefix: []

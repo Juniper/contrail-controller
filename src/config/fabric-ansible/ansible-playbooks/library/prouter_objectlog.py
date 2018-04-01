@@ -5,67 +5,68 @@
 #
 
 """
-This file contains implementation of passing attributes for prouter
-objectlog to callbacks
-configuration manager
+This file contains implementation of creating PROUTER objectlog
+via sandesh
 """
+
+import logging
+import json
+import uuid
+import time
 from ansible.module_utils.basic import AnsibleModule
+from job_manager.job_log_utils import JobLogUtils
 
 
-DOCUMENTATION = '''
----
+def send_prouter_object_log(module):
+    results = {}
+    results['failed'] = False
 
-module: output_adapter
-author: Juniper Networks
-short_description: Private module to pass attributes for prouter objectlog
-to callbacks
-description:
-    - Pass prouter objectlog attributes to callbacks
-requirements:
-    -
-options:
-    name:
-        description:
-            - Prouter object name to send in prouter objectlog 'name' field
-              Eg: fq_name of the object
-        required: true
-    os_version:
-        description:
-            - OS version to send in prouter objectlog 'os_version' field
-        required: false
-    serial_num:
-        description:
-            - Serial number to send in prouter objectlog 'serial_num' field
-        required: false
-    onboarding_state:
-        description:
-            - Onboarding state to send in prouter objectlog 'onboarding_state'
-        required: false
-'''
+    # Fetch module params
+    prouter_name = module.params['prouter_name']
+    config_args = module.params['config_args']
+    job_execution_id = module.params['job_execution_id']
+    job_template_fqname = module.params['job_template_fqname']
+    job_input = module.params['job_input']
+    os_version = module.params['os_version']
+    serial_num = module.params['serial_num']
+    onboarding_state = module.params['onboarding_state']
 
-EXAMPLES = '''
-'''
+    try:
+        job_log_util = JobLogUtils(sandesh_instance_id=str(uuid.uuid4()),
+                                   config_args=json.dumps(config_args))
+        job_log_util.send_prouter_object_log(
+            ":".join(prouter_name),
+            job_execution_id,
+            json.dumps(job_input),
+            job_template_fqname,
+            os_version,
+            serial_num,
+            onboarding_state)
+        time.sleep(10)
+    except Exception as ex:
+        results['msg'] = str(ex)
+        results['failed'] = True
+
+    return results
 
 
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            name=dict(required=True, type=list, ),
-            os_version=dict(required=False, type=str),
-            serial_num=dict(required=False, type=str),
-            onboarding_state=dict(required=False, type=str)
+            prouter_name=dict(required=True, type=list),
+            config_args=dict(required=True, type=dict),
+            job_execution_id=dict(required=True, type=str),
+            os_version=dict(type=str),
+            serial_num=dict(type=str),
+            onboarding_state=dict(type=str),
+            job_template_fqname=dict(type=list),
+            job_input=dict(type=dict),
         ),
         supports_check_mode=True)
 
-    # Construct results to pass to callback
-    results = {}
-    results['prouter_object_name'] = ":".join(module.params['name'])
-    results['prouter_os_version'] = module.params.get('os_version')
-    results['prouter_serial_num'] = module.params.get('serial_num')
-    results['prouter_onboarding_state'] = module.params.get('onboarding_state')
+    results = send_prouter_object_log(module)
 
     module.exit_json(**results)
-
 
 if __name__ == '__main__':
     main()
