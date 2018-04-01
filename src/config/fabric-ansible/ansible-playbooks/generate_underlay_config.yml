@@ -6,6 +6,9 @@
   vars:
     input: "{{ playbook_input.input }}"
     auth_token: "{{ playbook_input.auth_token }}"
+    job_template_fqname: "{{ playbook_input.job_template_fqname }}"
+    job_execution_id: "{{ playbook_input.job_execution_id }}"
+    config_args: "{{ playbook_input.args }}"
     prouter_uuid: "{{ playbook_input.device_id}}"
     output: {"status":"", "message":"", "results":""}
     as_numbers: []
