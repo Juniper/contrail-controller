@@ -1,9 +1,4 @@
 
-- name: JOB LOGS
-  job_objectlog:
-    message: "Read Image object from vnc"
-    status: "in-progress"
-
 - name: call vnc to read image info
   vnc_db_mod:
     object_type: "device_image"
