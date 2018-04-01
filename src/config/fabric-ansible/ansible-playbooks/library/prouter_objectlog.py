@@ -5,64 +5,46 @@
 #
 
 """
-This file contains implementation of passing attributes for prouter
-objectlog to callbacks
-configuration manager
+This file contains implementation of creating PROUTER objectlog
+via sandesh
 """
+
+import logging
 from ansible.module_utils.basic import AnsibleModule
-
-
-DOCUMENTATION = '''
----
-
-module: output_adapter
-author: Juniper Networks
-short_description: Private module to pass attributes for prouter objectlog
-to callbacks
-description:
-    - Pass prouter objectlog attributes to callbacks
-requirements:
-    -
-options:
-    name:
-        description:
-            - Prouter object name to send in prouter objectlog 'name' field
-              Eg: fq_name of the object
-        required: true
-    os_version:
-        description:
-            - OS version to send in prouter objectlog 'os_version' field
-        required: false
-    serial_num:
-        description:
-            - Serial number to send in prouter objectlog 'serial_num' field
-        required: false
-    onboarding_state:
-        description:
-            - Onboarding state to send in prouter objectlog 'onboarding_state'
-        required: false
-'''
-
-EXAMPLES = '''
-'''
-
+from module_utils.sandesh_log_utils import send_prouter_object_log
 
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            name=dict(required=True, type=list, ),
-            os_version=dict(required=False, type=str),
-            serial_num=dict(required=False, type=str),
-            onboarding_state=dict(required=False, type=str)
+            prouter_fqname=dict(required=True, type=list),
+            config_args=dict(required=True, type=dict),
+            job_execution_id=dict(required=True, type=str),
+            os_version=dict(type=str),
+            serial_num=dict(type=str),
+            onboarding_state=dict(required=True, type=str),
+            job_template_fqname=dict(required=True, type=list),
+            job_input=dict(required=True, type=dict),
         ),
         supports_check_mode=True)
 
-    # Construct results to pass to callback
-    results = {}
-    results['prouter_object_name'] = ":".join(module.params['name'])
-    results['prouter_os_version'] = module.params.get('os_version')
-    results['prouter_serial_num'] = module.params.get('serial_num')
-    results['prouter_onboarding_state'] = module.params.get('onboarding_state')
+    # Fetch module params
+    prouter_fqname = module.params['prouter_fqname']
+    config_args = module.params['config_args']
+    job_execution_id = module.params['job_execution_id']
+    job_template_fqname = module.params['job_template_fqname']
+    job_input = module.params['job_input']
+    os_version = module.params['os_version']
+    serial_num = module.params['serial_num']
+    onboarding_state = module.params['onboarding_state']
+
+    results = send_prouter_object_log(prouter_fqname,
+                                      config_args,
+                                      job_execution_id,
+                                      job_template_fqname,
+                                      job_input,
+                                      os_version,
+                                      serial_num,
+                                      onboarding_state)
 
     module.exit_json(**results)
 

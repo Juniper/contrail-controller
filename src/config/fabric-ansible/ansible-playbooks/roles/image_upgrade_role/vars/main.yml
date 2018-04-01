@@ -10,3 +10,8 @@ pr_password: "{{playbook_input.device_password}}"
 auth_token: "{{playbook_input.auth_token}}"
 image_uuid: "{{playbook_input.input.image_uuid}}"
 prouter_uuid: "{{playbook_input.device_id}}"
+
+job_template_fqname: "{{ playbook_input.job_template_fqname }}"
+job_execution_id: "{{ playbook_input.job_execution_id }}"
+config_args: "{{ playbook_input.args }}"
+job_input: "{{ playbook_input.input }}"
