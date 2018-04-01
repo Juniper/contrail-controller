@@ -1,8 +1,4 @@
 ---
-    - name: Start to generate BGP config
-      job_objectlog:
-        message: "Starting to generate BGP config."
-
     - name: Generate BGP config
       block:
         - template:
@@ -17,11 +13,4 @@
               "message": "{{cmd_res.msg}}"
             }
         - debug: msg={{output}}
-        - name: Failed to generate base config
-          job_objectlog:
-            message: "Failed to generate BGP config: {{cmd_res.msg}}"
         - meta: end_play
-
-    - name: Finish BGP config
-      job_objectlog:
-        message: "BGP config was successfully generated."

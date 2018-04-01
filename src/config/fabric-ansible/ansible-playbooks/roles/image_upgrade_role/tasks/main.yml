@@ -39,19 +39,8 @@
   debug:
     var: enc_tempurl
 
-- name: JOB LOGS
-  job_objectlog:
-    message: "Encoded swift temp url: {{enc_tempurl}}"
-    status: "in-progress"
-
 - name: Do junos upgrade
   include_tasks: junos_upgrade.yml
-
-- name: JOB LOGS
-  job_objectlog:
-    message: "Device rebooting. Will wait and check netconf connectivity."
-    status: "in-progress"
-  when: "'Reboot' in junos_response.msg"
 
 # Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
 - name: Check NETCONF connectivity after reboot
@@ -81,14 +70,9 @@
           }
     jl_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
 
-# update job log
-- name: JOB LOGS
-  job_objectlog:
-    message: "Device {{pr_name}} is upgraded with image: {{filename}} successfully. Device version matched Image version after upgrade"
-    status: "in-progress"
-
-# update device uve
-- name: Prouter LOGS
+- name: PR objectlog update for OS version
   prouter_objectlog:
-    name: "{{pr_fqname}}"
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{ DEVICE_STATE.IMAGE_UPGRADED }}"
+    job_ctx: "{{job_ctx}}"
     os_version: "{{device_version}}"

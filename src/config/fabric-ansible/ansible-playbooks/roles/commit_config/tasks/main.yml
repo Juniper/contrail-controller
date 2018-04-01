@@ -1,8 +1,4 @@
 ---
-    - name: Begin commit config
-      job_objectlog:
-        message: "Beginning to commit config, combining configs."
-
     - name: create subfolders
       include_tasks: create_subfolders.yml
 
@@ -33,9 +29,3 @@
       file:
         state: absent
         path: "{{ conf_dir }}"
-
-    - name: Config commit complete
-      job_objectlog:
-        message: "Config commit was successfully completed."
-
-    #- debug: msg={{output}}

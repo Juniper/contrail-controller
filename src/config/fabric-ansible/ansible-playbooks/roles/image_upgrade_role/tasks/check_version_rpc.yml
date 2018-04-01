@@ -1,8 +1,3 @@
-- name: JOB LOGS
-  job_objectlog:
-    message: "Check version on device after device upgrade is executed and device is UP."
-    status: "in-progress"
-
 - name:  Get system info
   block:
     - juniper_junos_rpc:
@@ -33,8 +28,3 @@
 
 - name: Print device OS version
   debug: msg="{{device_version}}"
-
-- name: JOB LOGS
-  job_objectlog:
-    message: "Version on device is : {{device_version}}"
-    status: "in-progress"
