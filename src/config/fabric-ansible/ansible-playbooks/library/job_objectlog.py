@@ -5,57 +5,63 @@
 #
 
 """
-This file contains implementation of passing messages and results to callbacks
-configuration manager
+This file contains implementation of creating JOB objectlogs
+via sandesh
 """
+
+import logging
+import json
+import uuid
+import ast
+import time
 from ansible.module_utils.basic import AnsibleModule
-
-DOCUMENTATION = '''
----
-
-module: output_adapter
-author: Juniper Networks
-short_description: Private module to pass messages and results to callbacks
-description:
-    - Pass message and results to callbacks
-requirements:
-    -
-options:
-    message:
-        description:
-            - String to send in job objectlog 'message' field
-        required: true
-    status:
-        description:
-            - String to send in job objectlog 'status' field
-        required: true
-    result:
-        description:
-            - JSON formatted string to send in job objectlog 'result' field
-        required: true
-'''
+from job_manager.job_log_utils import JobLogUtils
 
 
-EXAMPLES = '''
-'''
+def send_job_object_log(module):
+    results = {}
+    results['failed'] = False
+
+    # Fetch module params
+    config_args = module.params['config_args']
+    job_execution_id = module.params['job_execution_id']
+    job_template_fqname = module.params['job_template_fqname']
+    message = module.params['message']
+    status = module.params['status']
+    result = module.params['result']
+
+    try:
+        job_log_util = JobLogUtils(sandesh_instance_id=str(uuid.uuid4()),
+                                   config_args=json.dumps(config_args))
+        job_log_util.send_job_log(
+            job_template_fqname,
+            job_execution_id,
+            message,
+            status,
+            result)
+        time.sleep(10)
+    except Exception as ex:
+        results['msg'] = str(ex)
+        results['failed'] = True
+
+    return results
 
 
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            message=dict(required=True),
-            status=dict(required=False),
-            result=dict(required=False)
+            job_template_fqname=dict(required=True, type=list),
+            config_args=dict(required=True, type=dict),
+            job_execution_id=dict(required=True, type=str),
+            message=dict(required=True, type=str),
+            status=dict(required=True, type=int),
+            result=dict(type=dict),
         ),
-        supports_check_mode=False)
+        supports_check_mode=True)
 
-    results = {}
-    results['job_log_message'] = module.params.get('message')
-    results['job_log_status'] = module.params.get('status')
-    results['job_log_result'] = module.params.get('result')
+    results = send_job_object_log(module)
 
     module.exit_json(**results)
-
 
 if __name__ == '__main__':
     main()

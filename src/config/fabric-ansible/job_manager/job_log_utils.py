@@ -158,7 +158,7 @@ class JobLogUtils(object):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if timestamp is None:
-                timestamp = int(round(time.time()*1000))
+                timestamp = int(round(time.time() * 1000))
             job_log_entry = JobLogEntry(name=job_template_fqname,
                                         execution_id=job_execution_id,
                                         timestamp=timestamp, message=message,
@@ -183,7 +183,7 @@ class JobLogUtils(object):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if timestamp is None:
-                timestamp = int(round(time.time()*1000))
+                timestamp = int(round(time.time() * 1000))
             job_exe_data = JobExecution(
                 name=job_template_fqname,
                 execution_id=job_execution_id,
@@ -197,7 +197,44 @@ class JobLogUtils(object):
                   (job_template_fqname, job_execution_id, repr(e))
             raise JobException(msg, job_execution_id)
 
+    def send_prouter_object_log(self, name, job_execution_id,
+                                job_input=None, job_template_fqname=None,
+                                os_version=None, serial_num=None,
+                                onboarding_state=None, timestamp=None):
+        try:
+            job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
+            if timestamp is None:
+                timestamp = int(round(time.time() * 1000))
+            # create the prouter object log
+            prouter_log_entry = PRouterOnboardingLogEntry(
+                name=name,
+                job_execution_id=job_execution_id,
+                os_version=os_version,
+                serial_num=serial_num,
+                onboarding_state=onboarding_state,
+                timestamp=timestamp,
+                job_template_fqname=job_template_fqname,
+                job_input=job_input)
+
+            prouter_log = PRouterOnboardingLog(log_entry=prouter_log_entry)
+            prouter_log.send(sandesh=self.config_logger._sandesh)
+            self.config_logger.debug(
+                "Created prouter object log for router: %s, "
+                " execution id: %s,  job_template: %s, os_version: "
+                "%s, serial_num: %s, onboarding_state %s" %
+                (name,
+                 job_execution_id,
+                 job_template_fqname,
+                 os_version,
+                 serial_num,
+                 onboarding_state))
+        except Exception as e:
+            msg = "Error while creating prouter object log for router " \
+                  "%s and execution id %s : %s" % (name,
+                                                   job_execution_id,
+                                                   repr(e))
+            raise JobException(msg, job_execution_id)
+
     def get_fq_name_log_str(self, fq_name):
         fq_name_log_str = ':'.join(map(str, fq_name))
         return fq_name_log_str
-

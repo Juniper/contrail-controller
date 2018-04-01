@@ -80,11 +80,13 @@
 
     - name: PR objectlog update
       prouter_objectlog:
-        name: ["default-global-system-config", "{{ item.hostname }}"]
+        prouter_name: ["default-global-system-config", "{{ item.hostname }}"]
         onboarding_state: "DISCOVERED"
+        job_execution_id: "{{ job_execution_id }}"
+        job_template_fqname: "{{ job_template_fqname }}"
+        job_input: "{{ job_input }}"
+        config_args: "{{ config_args }}"
       with_items: "{{ host_vendor_mapping }}"
-      no_log: True
-
 
     - name: call vnc to update fabric
       vars:
