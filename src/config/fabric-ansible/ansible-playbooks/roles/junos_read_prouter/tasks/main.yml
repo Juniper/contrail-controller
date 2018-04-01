@@ -1,8 +1,4 @@
 ---
-    - name: Read Fabric namespace, update log
-      job_objectlog:
-        message: "Reading fabric namespace to get AS number."
-
     - name: get fabric namespaces for a tag
       vnc_db_mod:
          object_type: "fabric"
@@ -21,11 +17,6 @@
                 }
       when: "'obj' not in fabric_obj or fabric_obj.failed == true"
 
-    - name: Read failed, updating log
-      job_objectlog:
-        message: "Could not find the fabric with back_ref_id {{prouter_uuid}} in the DB."
-      when: "'obj' not in fabric_obj or fabric_obj.failed == true"
-
     - meta: end_play
       when: "'obj' not in fabric_obj or fabric_obj.failed == true"
  
@@ -35,10 +26,6 @@
  
     - set_fact:
          tag_fq_name: "label=fabric-as_number"
-
-    - name: Read Device, update log
-      job_objectlog:
-        message: "Reading device to get basic information."
 
     - name: call vnc to read the physical-router
       vnc_db_mod:
@@ -53,11 +40,6 @@
                   "status": "Failure",
                   "message": "{{prouter_details.msg}}"
                 }
-      when: "'obj' not in prouter_details or prouter_details.failed == true"
-
-    - name: Read failed, updating log
-      job_objectlog:
-        message: "Could not find the device with uuid {{prouter_uuid}} in the DB."
       when: "'obj' not in prouter_details or prouter_details.failed == true"
 
     - meta: end_play

@@ -2,3 +2,26 @@
 JUNOS_COMMIT_TIMEOUT: 600
 JUNOS_FACTS_TIMEOUT: 120
 JUNOS_COMMAND_TIMEOUT: 120
+
+# Device states for prouter object log
+DEVICE_STATE:
+  DISCOVERED: "DISCOVERED"
+  ONBOARDED: "ONBOARDED"
+  UNDERLAY_CONFIGURED: "UNDERLAY_CONFIGURED"
+  IMAGE_UPGRADED: "IMAGE_UPGRADED"
+
+JOBLOG_STATUS:
+  STARTING: 0
+  IN_PROGRESS: 1
+  COMPLETED_WITH_SUCCESS: 2
+  COMPLETED_WITH_ERROR: 3
+  TIMEOUT: 4
+
+# Job context to be passed to ansible modules
+job_ctx:
+  job_template_fqname: "{{ playbook_input.job_template_fqname }}"
+  job_execution_id: "{{ playbook_input.job_execution_id }}"
+  config_args: "{{ playbook_input.args }}"
+  job_input: "{{ playbook_input.input }}"
+  auth_token: "{{ playbook_input.auth_token }}"
+  prouter_fqname: "{{ playbook_input.device_fqname }}"
