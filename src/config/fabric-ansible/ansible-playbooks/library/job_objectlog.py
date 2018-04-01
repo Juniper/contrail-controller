@@ -5,54 +5,74 @@
 #
 
 """
-This file contains implementation of passing messages and results to callbacks
-configuration manager
+This file contains implementation of creating JOB objectlogs
+via sandesh
 """
-from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 ---
 
-module: output_adapter
+module: job_objectlog
 author: Juniper Networks
-short_description: Private module to pass messages and results to callbacks
+short_description: private module to create job object log
 description:
-    - Pass message and results to callbacks
+    - This module invokes Sandesh API to send job object log to Contrail
+      analytics
 requirements:
-    -
+    - Contrail analytics must be reachable from API server
 options:
+    job_ctx:
+        description:
+            - job context passed from job manager
+        required: true
     message:
         description:
-            - String to send in job objectlog 'message' field
+            - 'message' field in the job object log
         required: true
     status:
         description:
-            - String to send in job objectlog 'status' field
+            - 'status' field in the job object log
         required: true
     result:
         description:
-            - JSON formatted string to send in job objectlog 'result' field
-        required: true
+            - 'result' field to capture the job result if job is completed with success
+        required: false
 '''
 
 
 EXAMPLES = '''
+    - name: Appending job log on failure to generate common config
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        message: "Failed to generate configuration 'common_config':\n{{ cmd_res.msg }}"
+        status: "{{ JOBLOG_STATUS.IN_PROCESS }}"
 '''
+
+import logging
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.sandesh_log_utils import send_job_object_log
 
 
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            message=dict(required=True),
-            status=dict(required=False),
-            result=dict(required=False)
+            job_ctx=dict(required=True, type=dict),
+            message=dict(required=True, type=str),
+            status=dict(required=True, type=int),
+            result=dict(type=dict),
         ),
-        supports_check_mode=False)
+        supports_check_mode=True)
 
-    results = {}
-    results['job_log_message'] = module.params.get('message')
-    results['job_log_status'] = module.params.get('status')
-    results['job_log_result'] = module.params.get('result')
+    # Fetch module params
+    job_ctx = module.params['job_ctx']
+    message = module.params['message']
+    status = module.params['status']
+    result = module.params['result']
+
+    results = send_job_object_log(job_ctx,
+                                  message,
+                                  status,
+                                  result)
 
     module.exit_json(**results)
 

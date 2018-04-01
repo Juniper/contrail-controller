@@ -78,13 +78,12 @@
       when: "item.failed == true"
       with_items: "{{ physical_router_uuids.results }}"
 
-    - name: PR objectlog update
+    - name: PR objectlog update to set the onboarding state
       prouter_objectlog:
-        name: ["default-global-system-config", "{{ item.hostname }}"]
-        onboarding_state: "DISCOVERED"
+        prouter_fqname: ["default-global-system-config", "{{ item.hostname }}"]
+        onboarding_state: "{{ DEVICE_STATE.DISCOVERED }}"
+        job_ctx: "{{ job_ctx }}"
       with_items: "{{ host_vendor_mapping }}"
-      no_log: True
-
 
     - name: call vnc to update fabric
       vars:

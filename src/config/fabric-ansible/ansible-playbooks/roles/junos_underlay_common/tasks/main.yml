@@ -1,8 +1,4 @@
 ---
-    - name: Start to generate base config
-      job_objectlog:
-        message: "Starting to generate base config."
-
     - name: Generate Base common config
       block:
         - template:
@@ -17,11 +13,4 @@
               "message": "{{cmd_res.msg}}"
             }
         - debug: msg={{output}}
-        - name: Config generate failed
-          job_objectlog:
-            message: "Failed to generate config: {{cmd_res.msg}}"
         - meta: end_play
-
-    - name: Finish Base config
-      job_objectlog:
-        message: "Base config was successfully generated."

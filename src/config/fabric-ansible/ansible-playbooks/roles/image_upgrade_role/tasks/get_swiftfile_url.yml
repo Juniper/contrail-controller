@@ -1,8 +1,3 @@
-- name: JOB LOGS
-  job_objectlog:
-    message: "Read swift temp url"
-    status: "in-progress"
-
 - name: Get swift tempurl for the image
   swift_fileutil:
     authtoken: "{{auth_token}}"
@@ -22,11 +17,6 @@
 - name: Print the complete response.
   debug:
     var: swift_results
-
-- name: JOB LOGS
-  job_objectlog:
-    message: "Swift results: {{swift_results}}"
-    status: "in-progress"
 
 # handle error/exception from swift and set output
 - name: Fail if swift module returned error
