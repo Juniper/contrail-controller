@@ -194,6 +194,7 @@ private:
     static const int kSessionKeepaliveInterval = 3; // in seconds
     static const int kSessionKeepaliveProbes = 5; // count
     static const int kSessionTcpUserTimeout = 45000; // in milliseconds
+    static const int kStaleOrEorTimeoutFudgeMs = 60000; // in milliseconds
 
     enum ResponseState {
         NONE = 0,
@@ -236,6 +237,8 @@ private:
     void StartEndOfRibTimer();
     void StopEndOfRibTimer();
     bool ProcessEndOfRibTimeout();
+    const int ComputeTimeout(const int configured_timeout_ms,
+        const uint64_t started_at_us) const;
 
     IFMapManager *manager_;
     boost::asio::ip::tcp::resolver resolver_;
@@ -257,6 +260,10 @@ private:
     uint64_t sequence_number_;
     uint64_t recv_msg_cnt_;
     uint64_t sent_msg_cnt_;
+    uint64_t stale_timer_cnt_;
+    uint64_t stale_timer_updt_cnt_;
+    uint64_t eor_timer_cnt_;
+    uint64_t eor_timer_updt_cnt_;
     uint64_t reconnect_attempts_;
     ConnectionStatus connection_status_;
     uint64_t connection_status_change_at_;
@@ -266,9 +273,11 @@ private:
     // default values in seconds src/control-node/contrail-control.conf
     int stale_entries_cleanup_timeout_ms_;
     Timer *stale_entries_cleanup_timer_;
+    uint64_t stale_entries_cleanup_timer_started_at_us_;
     // default values in seconds src/control-node/contrail-control.conf
     int end_of_rib_timeout_ms_;
     Timer *end_of_rib_timer_;
+    uint64_t end_of_rib_timer_started_at_us_;
     static tbb::atomic<bool> end_of_rib_computed_;
 
     std::string GetSizeAsString(size_t stream_sz, std::string log) {
