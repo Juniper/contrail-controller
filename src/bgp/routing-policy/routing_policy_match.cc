@@ -290,6 +290,27 @@ static const map<MatchProtocol::MatchProtocolType, BgpPath::PathSource>
     (MatchProtocol::ServiceInterface, BgpPath::BGP_XMPP)
     (MatchProtocol::BGPaaS, BgpPath::BGP_XMPP);
 
+static const map<MatchProtocol::MatchProtocolType, bool>
+    isSubprotocol = boost::assign::map_list_of
+    (MatchProtocol::BGP, false)
+    (MatchProtocol::XMPP, false)
+    (MatchProtocol::StaticRoute, false)
+    (MatchProtocol::ServiceChainRoute, false)
+    (MatchProtocol::AggregateRoute, false)
+    (MatchProtocol::Interface, true)
+    (MatchProtocol::InterfaceStatic, true)
+    (MatchProtocol::ServiceInterface, true)
+    (MatchProtocol::BGPaaS, true);
+
+static const bool IsSubprotocol(MatchProtocol::MatchProtocolType protocol) {
+    map<MatchProtocol::MatchProtocolType, bool>::const_iterator it =
+        isSubprotocol.find(protocol);
+    if (it != isSubprotocol.end()) {
+        return it->second;
+    }
+    return false;
+}
+
 static const string MatchProtocolToString(
                               MatchProtocol::MatchProtocolType protocol) {
     map<MatchProtocol::MatchProtocolType, string>::const_iterator it =
@@ -351,7 +372,9 @@ bool MatchProtocol::Match(const BgpRoute *route, const BgpPath *path,
                     continue;
                 if (protocol == BGP && is_xmpp)
                     continue;
-                if (attr && !attr->sub_protocol().empty()) {
+                // Check only if matching protocol is subprotocol
+                if (IsSubprotocol(protocol) &&
+                        attr && !attr->sub_protocol().empty()) {
                     std::string matchps = MatchProtocolToString(protocol);
                     if (matchps.compare(attr->sub_protocol()) != 0) {
                         continue;

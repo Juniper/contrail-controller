@@ -946,6 +946,32 @@ TEST_F(MatchProtocolTest, Match2) {
     EXPECT_TRUE(match.Match(NULL, &path5, NULL));
 }
 
+TEST_F(MatchProtocolTest, Match2_WithSubprotocol) {
+    vector<string> protocols = list_of("xmpp")("service-chain")("aggregate");
+    MatchProtocol match(protocols);
+    BgpAttrSubProtocol sbp("service-interface");
+    BgpAttrSpec spec;
+    spec.push_back(&sbp);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+
+    PeerMock peer1(false, "10.1.1.1");
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr, 0, 0);
+    EXPECT_FALSE(match.Match(NULL, &path1, NULL));
+
+    PeerMock peer2(true, "20.1.1.1");
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr, 0, 0);
+    EXPECT_TRUE(match.Match(NULL, &path2, NULL));
+
+    BgpPath path3(BgpPath::StaticRoute, attr);
+    EXPECT_FALSE(match.Match(NULL, &path3, NULL));
+
+    BgpPath path4(BgpPath::ServiceChain, attr);
+    EXPECT_TRUE(match.Match(NULL, &path4, NULL));
+
+    BgpPath path5(BgpPath::Aggregate, attr);
+    EXPECT_TRUE(match.Match(NULL, &path5, NULL));
+}
+
 TEST_F(MatchProtocolTest, Match3) {
     vector<string> protocols = list_of("interface")("interface-static") \
                                       ("service-interface")("bgpaas");
