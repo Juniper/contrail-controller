@@ -27,6 +27,7 @@ using std::sort;
 using std::string;
 using std::unique;
 using std::vector;
+using std::find;
 
 MatchCommunity::MatchCommunity(const vector<string> &communities,
     bool match_all) : match_all_(match_all) {
@@ -290,6 +291,17 @@ static const map<MatchProtocol::MatchProtocolType, BgpPath::PathSource>
     (MatchProtocol::ServiceInterface, BgpPath::BGP_XMPP)
     (MatchProtocol::BGPaaS, BgpPath::BGP_XMPP);
 
+static const vector<MatchProtocol::MatchProtocolType>
+    isSubprotocol = boost::assign::list_of(MatchProtocol::Interface)
+                                          (MatchProtocol::InterfaceStatic)
+                                          (MatchProtocol::ServiceInterface)
+                                          (MatchProtocol::BGPaaS);
+
+static bool IsSubprotocol(MatchProtocol::MatchProtocolType protocol) {
+    return (find(isSubprotocol.begin(), isSubprotocol.end(), protocol) !=
+            isSubprotocol.end());
+}
+
 static const string MatchProtocolToString(
                               MatchProtocol::MatchProtocolType protocol) {
     map<MatchProtocol::MatchProtocolType, string>::const_iterator it =
@@ -344,20 +356,25 @@ bool MatchProtocol::Match(const BgpRoute *route, const BgpPath *path,
     BgpPath::PathSource path_src = path->GetSource();
     bool is_xmpp = path->GetPeer() ? path->GetPeer()->IsXmppPeer() : false;
     BOOST_FOREACH(MatchProtocolType protocol, protocols()) {
-        BgpPath::PathSource mapped_src = PathSourceFromMatchProtocol(protocol);
-        if (mapped_src != BgpPath::None) {
-            if (mapped_src == path_src) {
-                if (protocol == XMPP && !is_xmpp)
+        if (IsSubprotocol(protocol)) {
+            // Check only if matching protocol is subprotocol
+            if (attr && !attr->sub_protocol().empty()) {
+                std::string matchps = MatchProtocolToString(protocol);
+                if (matchps.compare(attr->sub_protocol()) != 0) {
                     continue;
-                if (protocol == BGP && is_xmpp)
-                    continue;
-                if (attr && !attr->sub_protocol().empty()) {
-                    std::string matchps = MatchProtocolToString(protocol);
-                    if (matchps.compare(attr->sub_protocol()) != 0) {
-                        continue;
-                    }
                 }
-                return true;
+            }
+        } else {
+            BgpPath::PathSource mapped_src =
+                                PathSourceFromMatchProtocol(protocol);
+            if (mapped_src != BgpPath::None) {
+                if (mapped_src == path_src) {
+                    if (protocol == XMPP && !is_xmpp)
+                        continue;
+                    if (protocol == BGP && is_xmpp)
+                        continue;
+                    return true;
+                }
             }
         }
     }
