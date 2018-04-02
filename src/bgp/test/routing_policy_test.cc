@@ -3165,6 +3165,51 @@ TEST_F(RoutingPolicyTest, ProtocolMatchServiceChain) {
     DeleteRoute<InetDefinition>(peers_[0], "red.inet.0", "1.1.2.3/32");
 }
 
+TEST_F(RoutingPolicyTest, ProtocolMatchServiceChainWithSubprotocol) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0f.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "red.inet.0",
+                             "1.1.2.3/32", 100,
+                             vector<string>(), "interface");
+    AddRoute<InetDefinition>(peers_[0], "blue.inet.0",
+                             "192.168.1.1/32", 100,
+                             vector<string>(), "bgpaas");
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(2, RouteCount("red.inet.0"));
+    VERIFY_EQ(1, RouteCount("blue.inet.0"));
+
+    // Policy applied on Service Chain routes
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("red.inet.0", "192.168.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+    // Bgp routes are not altered
+    rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.2.3/32");
+    ASSERT_TRUE(rt != NULL);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 100);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    DeleteRoute<InetDefinition>(peers_[0], "blue.inet.0", "192.168.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "red.inet.0", "1.1.2.3/32");
+}
+
 TEST_F(RoutingPolicyTest, ProtocolMatchServiceChain_PolicyUpdate) {
     string content =
         FileRead("controller/src/bgp/testdata/routing_policy_0f.xml");
