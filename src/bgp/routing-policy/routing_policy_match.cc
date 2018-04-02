@@ -347,10 +347,10 @@ bool MatchProtocol::Match(const BgpRoute *route, const BgpPath *path,
         BgpPath::PathSource mapped_src = PathSourceFromMatchProtocol(protocol);
         if (mapped_src != BgpPath::None) {
             if (mapped_src == path_src) {
-                if (protocol == XMPP && !is_xmpp)
-                    continue;
-                if (protocol == BGP && is_xmpp)
-                    continue;
+                if (protocol == XMPP && is_xmpp)
+                    return true;
+                if (protocol == BGP && !is_xmpp)
+                    return true;
                 if (attr && !attr->sub_protocol().empty()) {
                     std::string matchps = MatchProtocolToString(protocol);
                     if (matchps.compare(attr->sub_protocol()) != 0) {
