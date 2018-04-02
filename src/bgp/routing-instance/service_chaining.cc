@@ -534,9 +534,6 @@ void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
         // learnt via BGP.
         new_attr = attr_db->ReplaceAsPathAndLocate(new_attr.get(), AsPathPtr());
 
-        // Strip SubProtocol which should not be carried over
-        new_attr = attr_db->ReplaceSubProtocolAndLocate(new_attr.get(), "");
-
         // If the connected path is learnt via XMPP, construct RD based on
         // the id registered with source table instead of connected table.
         // This allows chaining of multiple in-network service instances
