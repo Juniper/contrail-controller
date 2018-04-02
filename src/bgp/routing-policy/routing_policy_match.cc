@@ -351,6 +351,8 @@ bool MatchProtocol::Match(const BgpRoute *route, const BgpPath *path,
                     continue;
                 if (protocol == BGP && is_xmpp)
                     continue;
+                if (protocol == BGP || protocol == XMPP)
+                    return true;
                 if (attr && !attr->sub_protocol().empty()) {
                     std::string matchps = MatchProtocolToString(protocol);
                     if (matchps.compare(attr->sub_protocol()) != 0) {
