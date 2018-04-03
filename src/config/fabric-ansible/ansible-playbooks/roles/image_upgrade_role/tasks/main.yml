@@ -16,14 +16,15 @@
   include_tasks: error_handler.yml
   when: "pr_family != image_family"
   vars:
-    op_err_message: "Image not compatible on the physical router device. Image family is {{image_family}} and Device family is {{pr_family}}"
+    op_err_message: "Image family is {{image_family}} and Device family is {{pr_family}}"
     results: |
           {
             "prouter_uuid": "{{prouter_uuid}}",
             "image_uuid": "{{image_uuid}}",
             "msg": "Image compatibility task failed"
           }
-    jl_err_message: "Image not compatible on the physical router device. Image family is {{image_family}} and Device family is {{pr_family}}"
+    jl_err_message: "Image {{filename}} not compatible on the physical router device {{pr_fqname}} for upgrade.
+                     Image family is {{image_family}} and Device family is {{pr_family}}"
 
 - name: Read swift conf info
   include_tasks: read_swift_conf_info.yml
@@ -41,16 +42,22 @@
 
 - name: JOB LOGS
   job_objectlog:
-    message: "Encoded swift temp url: {{enc_tempurl}}"
-    status: "in-progress"
+    message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Retreived image download link: {{enc_tempurl}}"
+    status: 1
+    job_template_fqname: "{{job_template_fqname}}"
+    job_execution_id: "{{job_execution_id}}"
+    config_args: "{{config_args}}"
 
 - name: Do junos upgrade
   include_tasks: junos_upgrade.yml
 
 - name: JOB LOGS
   job_objectlog:
-    message: "Device rebooting. Will wait and check netconf connectivity."
-    status: "in-progress"
+    message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Device rebooting. This may take 15 to 20 mins."
+    status: 1
+    job_template_fqname: "{{job_template_fqname}}"
+    job_execution_id: "{{job_execution_id}}"
+    config_args: "{{config_args}}"
   when: "'Reboot' in junos_response.msg"
 
 # Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
@@ -79,13 +86,18 @@
             "image_uuid": "{{image_uuid}}",
             "msg": "Device version validation task failed"
           }
-    jl_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+    jl_err_message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}.
+                     Device version validation task failed.
+                     Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
 
 # update job log
 - name: JOB LOGS
   job_objectlog:
-    message: "Device {{pr_name}} is upgraded with image: {{filename}} successfully. Device version matched Image version after upgrade"
-    status: "in-progress"
+    message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Image upgrade validated"
+    status: 1
+    job_template_fqname: "{{job_template_fqname}}"
+    job_execution_id: "{{job_execution_id}}"
+    config_args: "{{config_args}}"
 
 # update device uve
 - name: Prouter LOGS

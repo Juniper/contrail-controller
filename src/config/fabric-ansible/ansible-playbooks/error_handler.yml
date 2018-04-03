@@ -5,9 +5,13 @@
               "results": "{{results}}"
             }
 
-- name: call job object log to log the partially completed details
+- name: call job object log to log the details
   job_objectlog:
     message: "{{jl_err_message}}"
+    status: 3
+    job_template_fqname: "{{job_template_fqname}}"
+    job_execution_id: "{{job_execution_id}}"
+    config_args: "{{config_args}}"
 
 - name: Print the output.
   debug:

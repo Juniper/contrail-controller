@@ -1,8 +1,3 @@
-- name: JOB LOGS
-  job_objectlog:
-    message: "Read swift temp url"
-    status: "in-progress"
-
 - name: Get swift tempurl for the image
   swift_fileutil:
     authtoken: "{{auth_token}}"
@@ -23,11 +18,6 @@
   debug:
     var: swift_results
 
-- name: JOB LOGS
-  job_objectlog:
-    message: "Swift results: {{swift_results}}"
-    status: "in-progress"
-
 # handle error/exception from swift and set output
 - name: Fail if swift module returned error
   include_tasks: error_handler.yml
@@ -40,7 +30,8 @@
         "image_uuid": "{{image_uuid}}",
         "msg": "Unable to get image file url from Swift."
       }
-    jl_err_message: "Unable to get image file url from Swift. {{swift_results.error_msg}}"
+    jl_err_message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}.
+                     Unable to get image file url from Swift. {{swift_results.error_msg}}"
 
 - set_fact:
     tempurl: "{{swift_results.url}}"

@@ -1,7 +1,10 @@
 - name: JOB LOGS
   job_objectlog:
-    message: "Executing junos upgrade on device"
-    status: "in-progress"
+    message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Starting image upgrade on the device. It may take 10 to 20 mins."
+    status: 1
+    job_template_fqname: "{{job_template_fqname}}"
+    job_execution_id: "{{job_execution_id}}"
+    config_args: "{{config_args}}"
 
 - name: Execute a basic Junos software upgrade.
   block:
@@ -34,8 +37,11 @@
 
 - name: JOB LOGS
   job_objectlog:
-    message: "Junos upgrade response: {{junos_response}}"
-    status: "in-progress"
+    message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Image upgrade task completed on this device: {{junos_response}}"
+    status: 1
+    job_template_fqname: "{{job_template_fqname}}"
+    job_execution_id: "{{job_execution_id}}"
+    config_args: "{{config_args}}"
 
 - name: Fail if Junos upgrade response failed
   include_tasks: error_handler.yml
@@ -49,4 +55,3 @@
         "msg": "Image upgrade task failed"
       }
     jl_err_message: "Unable to upgrade image on the device. Junos upgrade task failed."
-
