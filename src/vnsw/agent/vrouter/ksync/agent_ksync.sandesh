@@ -242,7 +242,7 @@ struct KSyncNhListSandeshData {
     8: i32 vlan_tag;
     9: string is_local_ecmp_nh;
     10: string is_bridge;
-    11: string vxlan_nh;
+    11: string bridge_nh;
     12: string flood_unknown_unicast;
     13: i32 isid;
 }

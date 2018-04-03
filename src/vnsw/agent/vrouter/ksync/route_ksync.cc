@@ -877,6 +877,10 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 void VrfKSyncObject::EvpnRouteTableNotify(DBTablePartBase *partition,
                                           DBEntryBase *e) {
     const EvpnRouteEntry *evpn_rt = static_cast<const EvpnRouteEntry *>(e);
+
+    if (evpn_rt->IsType5())
+        return;
+
     if (evpn_rt->IsDeleted()) {
         DelIpMacBinding(evpn_rt->vrf(), evpn_rt->ip_addr(),
                         evpn_rt->mac(), evpn_rt->ethernet_tag());

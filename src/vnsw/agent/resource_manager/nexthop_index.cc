@@ -120,7 +120,7 @@ void NHIndexResourceKey::Backup(ResourceData *data, uint16_t op) {
         const VrfNHKey *vrfnh_key = static_cast<const VrfNHKey *>(GetNhKey());
         backup_data.set_vrf_name(vrfnh_key->GetVrfName());
         backup_data.set_intf_policy(vrfnh_key->GetPolicy());
-        backup_data.set_vxlan_nh(vrfnh_key->GetVxlanNh());
+        backup_data.set_vxlan_nh(vrfnh_key->GetBridgeNh());
         break;
     }
     case NextHop::RECEIVE: {
