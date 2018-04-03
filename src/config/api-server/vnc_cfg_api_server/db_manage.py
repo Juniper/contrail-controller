@@ -116,9 +116,8 @@ def format_help():
     for operater in operations.keys():
         help_msg += format_line("Supported %s," % operater, 0, 2)
         for name, oper_func in operations[operater].items():
-            oper = name
-            if name in ['db_check', 'db_heal', 'db_clean']:
-                oper = name.lstrip('db_')
+            if name.startswith('db_'):
+                name = name.lstrip('db_')
             help_msg += format_line("%s" % name, 1, 1)
             help_msg += format_line("- %s" % oper_func.__doc__, 2, 1)
         help_msg += '\n'
@@ -193,8 +192,8 @@ def format_description():
 
     wiki = format_line("WIKI:", 0, 1)
     wiki += format_line(
-            "https://github.com/Juniper/contrail-controller/wiki" +
-            "Database-management-tool-to-check-and-fix-inconsistencies.", 2, 1)
+            "https://github.com/Juniper/contrail-controller/wiki/Database-"
+            "management-tool-to-check-and-fix-inconsistencies.", 2, 1)
     description = [examples, help, note, doc, wiki]
 
     return ''.join(description)
@@ -210,7 +209,7 @@ def _parse_args(args_str):
     parser.add_argument(
         "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
     parser.add_argument(
-        "--execute", help="Exceute database modifications",
+        "--execute", help="Apply database modifications",
         action='store_true', default=False)
     parser.add_argument(
         "--verbose", help="Run in verbose/INFO mode, default False",
@@ -1122,8 +1121,11 @@ class DatabaseChecker(DatabaseManager):
         for vn_key, vn in duplicate_ips.items():
             for sn_key, subnet in vn.items():
                 for ip_addr, iip_uuids in subnet.items():
-                    msg = ("IP %s from VN %s and subnet %s is duplicated: %s" %
-                           (ip_addr, vn_key, sn_key, iip_uuids))
+                    cols = self._cf_dict['obj_uuid_table'].get(
+                        iip_uuids[0], columns=['type'])
+                    type = json.loads(cols['type'])
+                    msg = ("%s %s from VN %s and subnet %s is duplicated: %s" %
+                           (type.replace('_', ' ').title(), ip_addr, vn_key, sn_key, iip_uuids))
                     ret_errors.append(IpAddressDuplicateError(msg))
         # check for differences in ip addresses
         for vn, sn_key in set(zk_all_vn_sn) & set(cassandra_all_vn_sn):
@@ -1462,11 +1464,13 @@ class DatabaseCleaner(DatabaseManager):
         ret_errors.extend(errors)
 
         for id, _ in api_set - schema_set:
-            fq_name_str = 'target:%d:%d' % (self.global_asn, id)
+            fq_name_str = 'target:%d:%d' % (
+                self.global_asn, id + RT_ID_MIN_ALLOC)
             cols = obj_fq_name_table.get(
                 'route_target',
                 column_start='%s:' % fq_name_str,
-                column_finish='%s;' % fq_name_str)
+                column_finish='%s;' % fq_name_str,
+            )
             uuid = cols.keys()[0].split(':')[-1]
             fq_name_uuid_str = '%s:%s' % (fq_name_str, uuid)
             if not self._args.execute:
@@ -1530,12 +1534,14 @@ class DatabaseCleaner(DatabaseManager):
         self._clean_zk_id_allocation(self.base_sg_id_zk_path,
                                      cassandra_set,
                                      zk_set)
-
         path = '%s/%%s' % self.base_sg_id_zk_path
         uuids_to_deallocate = set()
         for id, fq_name_uuids in duplicate_ids.items():
             id_str = "%(#)010d" % {'#': id}
-            zk_fq_name_str = self._zk_client.get(path % id_str)[0]
+            try:
+                zk_fq_name_str = self._zk_client.get(path % id_str)[0]
+            except kazoo.exceptions.NoNodeError:
+                zk_fq_name_str = None
             uuids_to_deallocate |= {uuid for fq_name_str, uuid in fq_name_uuids
                                     if fq_name_str != zk_fq_name_str}
         if not uuids_to_deallocate:
@@ -1574,7 +1580,10 @@ class DatabaseCleaner(DatabaseManager):
         uuids_to_deallocate = set()
         for id, fq_name_uuids in duplicate_ids.items():
             id_str = "%(#)010d" % {'#': id - 1}
-            zk_fq_name_str = self._zk_client.get(path % id_str)[0]
+            try:
+                zk_fq_name_str = self._zk_client.get(path % id_str)[0]
+            except kazoo.exceptions.NoNodeError:
+                zk_fq_name_str = None
             uuids_to_deallocate |= {uuid for fq_name_str, uuid in fq_name_uuids
                                     if fq_name_str != zk_fq_name_str}
         if not uuids_to_deallocate:
@@ -1720,7 +1729,8 @@ class DatabaseCleaner(DatabaseManager):
             else:
                 logger.info("Deleting zk path: %s", cidr_path)
                 self._zk_client.delete(cidr_path, recursive=True)
-                self._zk_client.delete(prefix_path, recursive=False)
+                if prefix_path != cidr_path:
+                    self._zk_client.delete(prefix_path, recursive=False)
             if vn in zk_all_vns:
                 zk_all_vns[vn].pop(sn_key, None)
 
