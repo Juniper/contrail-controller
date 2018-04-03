@@ -3182,7 +3182,7 @@ class BgpRouterST(DBBaseST):
     _dict = {}
     obj_type = 'bgp_router'
     prop_fields = ['bgp_router_parameters']
-    ref_fields = ['bgp_as_a_service']
+    ref_fields = ['bgp_as_a_service', 'sub_cluster']
 
     def __init__(self, name, obj=None):
         self.name = name
@@ -3192,6 +3192,7 @@ class BgpRouterST(DBBaseST):
         self.identifier = None
         self.router_type = None
         self.source_port = None
+        self.sub_cluster = None
         self.update(obj)
         self.update_single_ref('bgp_as_a_service', self.obj)
     # end __init__
@@ -3387,7 +3388,7 @@ class BgpRouterST(DBBaseST):
         if self.router_type in ('bgpaas-server', 'bgpaas-client'):
             return
         global_asn = int(GlobalSystemConfigST.get_autonomous_system())
-        if self.asn != global_asn:
+        if self.sub_cluster == None and self.asn != global_asn:
             return
         try:
             obj = self.read_vnc_obj(fq_name=self.name)
@@ -3400,9 +3401,9 @@ class BgpRouterST(DBBaseST):
         for router in self._dict.values():
             if router.name == self.name:
                 continue
-            if router.router_type in ('bgpaas-server', 'bgpaas-client'):
+            if router.sub_cluster != self.sub_cluster:
                 continue
-            if router.asn != global_asn:
+            if router.router_type in ('bgpaas-server', 'bgpaas-client'):
                 continue
             router_fq_name = router.name.split(':')
             if router_fq_name in peerings:
