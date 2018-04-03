@@ -2539,11 +2539,14 @@ TEST_F(IntfTest, IntfStaticRoute) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    InetUnicastRouteEntry *rt;
 
     client->Reset();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
+
+    VmInterface *vmi = dynamic_cast<VmInterface *>(VmPortGet(1));
 
    //Add a static route
    struct TestIp4Prefix static_route[] = {
@@ -2559,6 +2562,12 @@ TEST_F(IntfTest, IntfStaticRoute) {
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
+
+   rt = RouteGet("vrf1", static_route[0].addr_, static_route[0].plen_);
+
+   EXPECT_TRUE(rt->intf_route_type().compare(VmInterface::kInterfaceStatic) == 0);
+   EXPECT_TRUE(vmi->intf_route_type().compare(VmInterface::kInterface) == 0);
+
    DoInterfaceSandesh("vnet1");
    client->WaitForIdle();
 

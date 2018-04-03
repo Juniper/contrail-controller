@@ -1435,15 +1435,11 @@ bool VmInterface::InstanceIp::AddL3(const Agent *agent,
         vn_name  = agent->fabric_vn_name();
     }
 
-    if (is_service_ip_) {
-        vmi->intf_route_type_ = kServiceInterface;
-    }
-
     vmi->AddRoute(vmi->vrf()->GetName(), ip_, plen_, vn_name,
                   is_force_policy(), ecmp_,is_local_,
                   is_service_health_check_ip_, vmi->GetServiceIp(ip_),
                   tracking_ip_, CommunityList(), vmi->label(),
-                  vmi->intf_route_type());
+                  is_service_ip_ ? kServiceInterface : kInterface);
     return true;
 }
 
@@ -2034,11 +2030,10 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
             dependent_ip = vmi->primary_ip6_addr();
             ecmp = vmi->ecmp6();
         }
-        vmi->intf_route_type_ = kInterfaceStatic;
         vmi->AddRoute(vrf_->GetName(), addr_, plen_, vn_name,
                       false, ecmp, false, false, vmi->GetServiceIp(addr_),
                       dependent_ip, communities_, vmi->label(),
-                      vmi->intf_route_type());
+                      kInterfaceStatic);
     }
     return true;
 }
