@@ -87,7 +87,6 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
-    intf_route_type_ = kInterface;
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -138,7 +137,6 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
-    intf_route_type_ = kInterface;
 }
 
 VmInterface::~VmInterface() {
@@ -1216,10 +1214,11 @@ bool VmiRouteState::AddL3(const Agent *agent, VmInterface *vmi) const {
     if (vrf_ == NULL || vmi->vn() == NULL || ip_.is_unspecified())
         return false;
 
+    /* expected only for instance IP */
     vmi->AddRoute(vrf_->GetName(), ip_, 32, vmi->vn()->GetName(), false,
                   vmi->ecmp(), false, false, vmi->vm_ip_service_addr(),
                   Ip4Address(0), CommunityList(), vmi->label(),
-                  vmi->intf_route_type());
+                  VmInterface::kInterface);
     return true;
 }
 
@@ -1443,15 +1442,11 @@ bool VmInterface::InstanceIp::AddL3(const Agent *agent,
         vn_name  = agent->fabric_vn_name();
     }
 
-    if (is_service_ip_) {
-        vmi->intf_route_type_ = kServiceInterface;
-    }
-
     vmi->AddRoute(vmi->vrf()->GetName(), ip_, plen_, vn_name,
                   is_force_policy(), ecmp_,is_local_,
                   is_service_health_check_ip_, vmi->GetServiceIp(ip_),
                   tracking_ip_, CommunityList(), vmi->label(),
-                  vmi->intf_route_type());
+                  is_service_ip_ ? kServiceInterface : kInterface);
     return true;
 }
 
@@ -1669,7 +1664,7 @@ bool VmInterface::FloatingIp::AddL3(const Agent *agent,
     bool ecmp = floating_ip_.is_v4() ? vmi->ecmp() : vmi->ecmp6();
     vmi->AddRoute(vrf_.get()->GetName(), floating_ip_, plen, vn_->GetName(),
                   false, ecmp, false, false, service_ip, fixed_ip_,
-                  CommunityList(), vmi->label(), vmi->intf_route_type());
+                  CommunityList(), vmi->label(), kInterface);
 
     InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
     if (floating_ip_.is_v4() && table->update_floatingip_cb().empty()==false) {
@@ -1890,7 +1885,7 @@ bool VmInterface::AliasIp::AddL3(const Agent *agent, VmInterface *vmi) const {
         service_ip = Ip6Address();
     vmi->AddRoute(vrf_->GetName(), alias_ip_, plen, vn_->GetName(), false,
                   vmi->ecmp(), false, false, service_ip, service_ip,
-                  CommunityList(), vmi->label(), vmi->intf_route_type());
+                  CommunityList(), vmi->label(), kInterface);
     return true;
 }
 
@@ -2042,11 +2037,10 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
             dependent_ip = vmi->primary_ip6_addr();
             ecmp = vmi->ecmp6();
         }
-        vmi->intf_route_type_ = kInterfaceStatic;
         vmi->AddRoute(vrf_->GetName(), addr_, plen_, vn_name,
                       false, ecmp, false, false, vmi->GetServiceIp(addr_),
                       dependent_ip, communities_, vmi->label(),
-                      vmi->intf_route_type());
+                      kInterfaceStatic);
     }
     return true;
 }
@@ -2249,7 +2243,7 @@ bool VmInterface::AllowedAddressPair::AddL3(const Agent *agent,
     if (mac_ == MacAddress::kZeroMac || mac_ == vmi->vm_mac_) {
         vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
                       false, ecmp_, false, false, service_ip_, Ip4Address(0),
-                      CommunityList(), vmi->label(), vmi->intf_route_type());
+                      CommunityList(), vmi->label(), kInterface);
         return true;
     }
 
@@ -2285,7 +2279,7 @@ bool VmInterface::AllowedAddressPair::AddL3(const Agent *agent,
 
     vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
                   false, ecmp_, false, false, service_ip_, Ip6Address(),
-                  CommunityList(), label_, vmi->intf_route_type());
+                  CommunityList(), label_, kInterface);
     return true;
 }
 
