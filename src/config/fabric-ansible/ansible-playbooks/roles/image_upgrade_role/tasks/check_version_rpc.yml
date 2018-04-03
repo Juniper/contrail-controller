@@ -1,8 +1,3 @@
-- name: JOB LOGS
-  job_objectlog:
-    message: "Check version on device after device upgrade is executed and device is UP."
-    status: "in-progress"
-
 - name:  Get system info
   block:
     - juniper_junos_rpc:
@@ -23,7 +18,7 @@
                   "image_uuid": "{{image_uuid}}",
                   "msg": "Unable to check version on the device. Version validation task failed with an exception"
                 }
-          jl_err_message: "Unable to check version on the device. {{sys_info.msg}}"
+          jl_err_message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Unable to check version on the device. {{sys_info.msg}}"
 
 - name: Print sys info
   debug: msg="{{sys_info}}"
@@ -34,7 +29,3 @@
 - name: Print device OS version
   debug: msg="{{device_version}}"
 
-- name: JOB LOGS
-  job_objectlog:
-    message: "Version on device is : {{device_version}}"
-    status: "in-progress"
