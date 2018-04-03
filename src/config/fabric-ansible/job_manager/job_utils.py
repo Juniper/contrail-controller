@@ -8,6 +8,7 @@ Contains utility functions used by the job manager
 from enum import Enum
 
 from job_exception import JobException
+from job_error_messages import get_job_template_read_error_message
 
 
 class JobStatus(Enum):
@@ -33,8 +34,6 @@ class JobUtils(object):
             self._logger.debug("Read job template %s from "
                                "database" % self._job_template_id)
         except Exception as e:
-            msg = "Error while reading the job template %s from " \
-                  "database" % self._job_template_id
+            msg = get_job_template_read_error_message(self._job_template_id)
             raise JobException(msg, self._job_execution_id)
         return job_template
-
