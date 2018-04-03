@@ -23,16 +23,9 @@
     device_info: "{{dev_info.ansible_facts}}"
 
 - set_fact:
-    hardware_model: "{{device_info.ansible_net_model}}"
     serial_number: "{{device_info.ansible_net_serialnum}}"
     os_version: "{{device_info.ansible_net_version}}"
     hostname: "{{device_info.ansible_net_hostname}}"
-
-- prouter_objectlog:
-    name: "{{playbook_input.device_fqname}}"
-    os_version: "{{os_version}}"
-    serial_num: "{{serial_number}}"
-    onboarding_state: starting import
 
 - name: Update Job log with prouter_uve update status
   job_objectlog:

@@ -14,7 +14,18 @@
         result_dict: {"results": "{{results}}"}
     - set_fact:
         output: "{{output | combine(result_dict)}}"
-    
+   
+    - name: update prouter logs with onboarded status
+      prouter_objectlog:
+        prouter_name: "{{prouter_fqname}}"
+        onboarding_state: "{{DEVICE_STATE.ONBOARDED}}"
+        job_execution_id: "{{job_execution_id}}"
+        job_template_fqname: "{{job_template_fqname}}"
+        job_input: "{{job_input}}"
+        config_args: "{{config_args}}"
+        os_version: "{{os_version}}"
+        serial_num: "{{serial_number}}"
+ 
     - name: Update Job log with job completed status
       job_objectlog:
         message: "Import Device: {{prouter_name}} succeeded importing {{phy_int_count}} PhysicalInterfaces and {{log_int_count}} Logical Interfaces"
