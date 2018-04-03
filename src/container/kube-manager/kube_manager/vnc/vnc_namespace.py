@@ -177,13 +177,6 @@ class VncNamespace(VncCommon):
         except NoIdError:
             # VN does not exist. Create one.
             vn_obj = vn
-        # Add annotatins on this isolated virtual-network.
-        VirtualNetworkKM.add_annotations(self, vn, namespace=ns_name,
-                                         name=ns_name, isolated='True')
-        # Instance-Ip for pods on this VN, should be allocated from
-        # cluster pod ipam. Attach the cluster pod-ipam object
-        # to this virtual network.
-        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
 
         fabric_snat = False
         if vn_type == 'pod-network':
@@ -191,6 +184,13 @@ class VncNamespace(VncCommon):
                 fabric_snat = True
 
         if not vn_exists:
+            # Add annotatins on this isolated virtual-network.
+            VirtualNetworkKM.add_annotations(self, vn, namespace=ns_name,
+                                             name=ns_name, isolated='True')
+            # Instance-Ip for pods on this VN, should be allocated from
+            # cluster pod ipam. Attach the cluster pod-ipam object
+            # to this virtual network.
+            vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
             if provider:
                 # enable ip_fabric_forwarding
                 vn_obj.add_virtual_network(provider)
