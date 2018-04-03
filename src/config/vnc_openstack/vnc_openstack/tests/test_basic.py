@@ -1541,7 +1541,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             True)
         self.assertEqual(
             port_dict['binding:vif_details'].get('vhostuser_mode'),
-            "client")
+            "server")
         self.assertEqual(
             port_dict['binding:vif_type'], 'vhostuser')
 
@@ -1625,7 +1625,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             True)
         self.assertEqual(
             port_dict1['binding:vif_details'].get('vhostuser_mode'),
-            "client")
+            "server")
         self.assertEqual(
             port_dict1['binding:vif_type'], 'vhostuser')
 
@@ -1672,7 +1672,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             True)
         self.assertEqual(
             port_dict['binding:vif_details'].get('vhostuser_mode'),
-            "client")
+            "server")
         self.assertEqual(
             port_dict['binding:vif_type'], 'vhostuser')
 
