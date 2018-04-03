@@ -115,6 +115,8 @@ class ClusterPeer(object):
 
     def peer_controls_in_cluster(self, bgp_router_objs):
         for current_obj in bgp_router_objs:
+            if current_obj.router_type in ('bgpaas-server', 'bgpaas-client'):
+                continue
             bgp_addr_fams = current_obj.get_bgp_router_parameters().address_families
             bgp_sess_attrs = [BgpSessionAttributes(address_families=bgp_addr_fams)]
             bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
