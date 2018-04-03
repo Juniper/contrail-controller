@@ -994,7 +994,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     vif_type = {'key': 'vif_type',
                                 'value': cls.portbindings['VIF_TYPE_VHOST_USER']}
                     vif_params = {cls.portbindings['VHOST_USER_MODE']: \
-                                  cls.portbindings['VHOST_USER_MODE_CLIENT'],
+                                  cls.portbindings['VHOST_USER_MODE_SERVER'],
                                   cls.portbindings['VHOST_USER_SOCKET']: \
                                   cls._get_port_vhostuser_socket_name(obj_dict['uuid']),
                                   cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
@@ -1125,7 +1125,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     vif_type = {'key': 'vif_type',
                                 'value': cls.portbindings['VIF_TYPE_VHOST_USER']}
                     vif_params = {cls.portbindings['VHOST_USER_MODE']: \
-                                  cls.portbindings['VHOST_USER_MODE_CLIENT'],
+                                  cls.portbindings['VHOST_USER_MODE_SERVER'],
                                   cls.portbindings['VHOST_USER_SOCKET']: \
                                   cls._get_port_vhostuser_socket_name(id),
                                   cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
