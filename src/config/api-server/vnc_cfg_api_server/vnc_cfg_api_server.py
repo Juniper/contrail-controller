@@ -3160,6 +3160,7 @@ class VncApiServer(object):
 
         # Global and default policy resources
         pm = self.create_singleton_entry(PolicyManagement())
+        self._global_pm_uuid = pm.uuid
         aps = self.create_singleton_entry(ApplicationPolicySet(
             parent_obj=pm, all_applications=True))
         ok, result = self._db_conn.ref_update(
@@ -4465,8 +4466,17 @@ class VncApiServer(object):
         scope_class = self.get_resource_class(scope_type)
         scope_fq_name = self._db_conn.uuid_to_fq_name(scope_uuid)
         pm_fq_name = [POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]
-        if scope_class.object_type != pm_class.object_type:
+        if (scope_type == GlobalSystemConfig().object_type and
+                scope_fq_name == GlobalSystemConfig().fq_name):
+            parent_type = PolicyManagement.resource_type
+            parent_fq_name = PolicyManagement().fq_name
+            parent_uuid = self._global_pm_uuid
+        else:
             pm_fq_name = scope_fq_name + pm_fq_name
+            parent_type = scope_class.resource_type
+            parent_fq_name = scope_fq_name
+            parent_uuid = scope_uuid
+
         ok, result = pm_class.locate(
             fq_name=pm_fq_name,
             create_it=False,
@@ -4493,8 +4503,8 @@ class VncApiServer(object):
         if scope_lock.acquire(blocking=False):
             try:
                 if action == 'commit':
-                    self._security_commit_resources(scope_class, scope_fq_name,
-                                                    scope_uuid, pm)
+                    self._security_commit_resources(
+                        parent_type, parent_fq_name, parent_uuid, pm)
                 elif action == 'revert':
                     self._security_revert_resources(pm)
                 else:
@@ -4517,8 +4527,8 @@ class VncApiServer(object):
         # actions which were done during commit or revert?
         return {}
 
-    def _security_commit_resources(self, scope_class, scope_fq_name,
-                                   scope_uuid, pm):
+    def _security_commit_resources(self, parent_type, parent_fq_name,
+                                   parent_uuid, pm):
         actions = []
         for type_name in SECURITY_OBJECT_TYPES:
             r_class = self.get_resource_class(type_name)
@@ -4528,7 +4538,7 @@ class VncApiServer(object):
                 if not ok:
                     continue
                 draft = result
-                fq_name = scope_fq_name + [child['to'][-1]]
+                fq_name = parent_fq_name + [child['to'][-1]]
                 try:
                     uuid = self._db_conn.fq_name_to_uuid(r_class.object_type,
                                                          fq_name)
@@ -4551,10 +4561,10 @@ class VncApiServer(object):
                     draft.pop('draft_mode_state', None)
                     if 'id_perms' in draft:
                         draft['id_perms'].pop('uuid', None)
-                    draft['parent_type'] = scope_class.resource_type
-                    draft['parent_uuid'] = scope_uuid
+                    draft['parent_type'] = parent_type
+                    draft['parent_uuid'] = parent_uuid
                     self._update_fq_name_security_refs(
-                        scope_fq_name, pm['fq_name'], type_name, draft)
+                        parent_fq_name, pm['fq_name'], type_name, draft)
                     actions.append(('update', (r_class.resource_type, uuid,
                                                copy.deepcopy(draft))))
                 elif (not uuid and
@@ -4564,10 +4574,10 @@ class VncApiServer(object):
                     draft.pop('perms2', None)
                     draft.pop('draft_mode_state', None)
                     draft['fq_name'] = fq_name
-                    draft['parent_type'] = scope_class.resource_type
-                    draft['parent_uuid'] = scope_uuid
+                    draft['parent_type'] = parent_type
+                    draft['parent_uuid'] = parent_uuid
                     self._update_fq_name_security_refs(
-                        scope_fq_name, pm['fq_name'], type_name, draft)
+                        parent_fq_name, pm['fq_name'], type_name, draft)
                     actions.append(('create', (r_class.resource_type,
                                                copy.deepcopy(draft))))
                 else:
@@ -4591,19 +4601,19 @@ class VncApiServer(object):
                 self.internal_request_delete(*args)
 
     @staticmethod
-    def _update_fq_name_security_refs(scope_fq_name, pm_fq_name, res_type,
+    def _update_fq_name_security_refs(parent_fq_name, pm_fq_name, res_type,
                                       draft):
         for ref_type in SECURITY_OBJECT_TYPES:
             for ref in draft.get('%s_refs' % ref_type, []):
                 if ref['to'][:-1] == pm_fq_name:
-                    ref['to'] = scope_fq_name + [ref['to'][-1]]
+                    ref['to'] = parent_fq_name + [ref['to'][-1]]
 
         if res_type == 'firewall_rule':
             for ep in [draft.get('endpoint_1', {}),
                        draft.get('endpoint_2', {})]:
                 ag_fq_name = ep.get('address_group', [])
                 if ag_fq_name and ag_fq_name.split(':')[:-1] == pm_fq_name:
-                    ep['address_group'] = ':'.join(scope_fq_name + [
+                    ep['address_group'] = ':'.join(parent_fq_name + [
                         ag_fq_name.split(':')[-1]])
 
     def _security_revert_resources(self, pm):
