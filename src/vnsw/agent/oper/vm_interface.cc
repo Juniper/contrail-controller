@@ -2034,11 +2034,10 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
             dependent_ip = vmi->primary_ip6_addr();
             ecmp = vmi->ecmp6();
         }
-        vmi->intf_route_type_ = kInterfaceStatic;
         vmi->AddRoute(vrf_->GetName(), addr_, plen_, vn_name,
                       false, ecmp, false, false, vmi->GetServiceIp(addr_),
                       dependent_ip, communities_, vmi->label(),
-                      vmi->intf_route_type());
+                      kInterfaceStatic);
     }
     return true;
 }
