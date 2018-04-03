@@ -431,9 +431,6 @@ bool InetUnicastRouteEntry::ReComputePathAdd(AgentPath *path) {
     bool ret = false;
     InetUnicastAgentRouteTable *uc_rt_table =
         static_cast<InetUnicastAgentRouteTable *>(get_table());
-    if (path->peer() == uc_rt_table->agent()->evpn_routing_peer()) {
-    }
-
     if (IsHostRoute() == false)
         uc_rt_table->TraverseHostRoutesInSubnet(this,
                                                 uc_rt_table->agent()->
