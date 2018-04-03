@@ -65,8 +65,8 @@ class VncKubernetes(VncCommon):
 
         # HACK ALERT.
         # Till we have an alternate means to get config objects,  we will
-        # direcly connect to cassandra. Such a persistant connection is
-        # discouraged, but is the only option we have for now.
+        # direcly connect to cassandra and rabbitmq. Such a persistant connection
+        # is discouraged, but is the only option we have for now.
         #
         # Disable flow timeout on this connection, so the flow persists.
         #
@@ -75,6 +75,10 @@ class VncKubernetes(VncCommon):
                 cassandra_port = cassandra_server.split(':')[-1]
                 flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
                     "tcp", cassandra_port, 2147483647)
+
+            if self.args.rabbit_port:
+                flow_aging_manager.create_flow_aging_timeout_entry(
+                    self.vnc_lib, "tcp", self.args.rabbit_port, 2147483647)
 
         # init access to db
         self._db = db.KubeNetworkManagerDB(self.args, self.logger)
