@@ -25,6 +25,9 @@ from sandesh.job.ttypes import UveJobExecution
 from logger import JobLogger
 from job_exception import JobException
 from sandesh_utils import SandeshUtils
+from job_error_messages import SANDESH_INITIALIZATION_TIMEOUT_ERROR,\
+    get_send_job_log_error_message, get_send_job_exc_uve_error_message, \
+    get_send_prouter_object_log_error_message
 
 
 class JobLogUtils(object):
@@ -55,7 +58,7 @@ class JobLogUtils(object):
             sandesh_util = SandeshUtils()
             sandesh_util.wait_for_connection_establish(logger)
         except JobException:
-            raise JobException("Sandesh initialization timeout after 15s")
+            raise JobException(SANDESH_INITIALIZATION_TIMEOUT_ERROR)
         logger.info("Sandesh is initialized. Config logger instance created.")
         return logger
 
@@ -172,10 +175,8 @@ class JobLogUtils(object):
                                                           status, result,
                                                           message))
         except Exception as e:
-            msg = "Error while creating the job log for job template " \
-                  "%s and execution id %s : %s" % (job_template_fqname,
-                                                   job_execution_id,
-                                                   repr(e))
+            msg = get_send_job_log_error_message(
+                  job_template_fqname, job_execution_id, e)
             raise JobException(msg, job_execution_id)
 
     def send_job_execution_uve(self, job_template_fqname, job_execution_id,
@@ -192,12 +193,47 @@ class JobLogUtils(object):
             job_uve = UveJobExecution(data=job_exe_data)
             job_uve.send(sandesh=self.config_logger._sandesh)
         except Exception as e:
-            msg = "Error while sending the job execution UVE for job " \
-                  "template %s and execution id %s : %s" % \
-                  (job_template_fqname, job_execution_id, repr(e))
+            msg = get_send_job_exc_uve_error_message(
+                  job_template_fqname, job_execution_id, e)
+            raise JobException(msg, job_execution_id)
+
+    def send_prouter_object_log(self, prouter_fqname, job_execution_id,
+                                job_input=None, job_template_fqname=None,
+                                os_version=None, serial_num=None,
+                                onboarding_state=None, timestamp=None):
+        try:
+            job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
+            prouter_fqname = self.get_fq_name_log_str(prouter_fqname)
+            if timestamp is None:
+                timestamp = int(round(time.time() * 1000))
+            # create the prouter object log
+            prouter_log_entry = PRouterOnboardingLogEntry(
+                name=prouter_fqname,
+                job_execution_id=job_execution_id,
+                os_version=os_version,
+                serial_num=serial_num,
+                onboarding_state=onboarding_state,
+                timestamp=timestamp,
+                job_template_fqname=job_template_fqname,
+                job_input=job_input)
+
+            prouter_log = PRouterOnboardingLog(log_entry=prouter_log_entry)
+            prouter_log.send(sandesh=self.config_logger._sandesh)
+            self.config_logger.debug(
+                "Created prouter object log for router: %s, "
+                " execution id: %s,  job_template: %s, os_version: "
+                "%s, serial_num: %s, onboarding_state %s" %
+                (prouter_fqname,
+                 job_execution_id,
+                 job_template_fqname,
+                 os_version,
+                 serial_num,
+                 onboarding_state))
+        except Exception as e:
+            msg = get_send_prouter_object_log_error_message(
+                  prouter_fqname, job_execution_id, e)
             raise JobException(msg, job_execution_id)
 
     def get_fq_name_log_str(self, fq_name):
         fq_name_log_str = ':'.join(map(str, fq_name))
         return fq_name_log_str
-
