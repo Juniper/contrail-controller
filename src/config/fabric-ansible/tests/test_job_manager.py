@@ -114,7 +114,9 @@ class TestJobManager(test_case.JobTestCase):
                           "device_json": {
                               "aad74e24-a00b-4eb3-8412-f8b9412925c3":
                                   {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'}
+                                   'device_family': 'MX',
+                                   'device_username': 'username',
+                                   'device_password': 'pswd'}
                           },
                           "args": {"collectors": ['127.0.0.1:8086']}}
         args = {"collectors": ['127.0.0.1:8086']}
@@ -164,7 +166,9 @@ class TestJobManager(test_case.JobTestCase):
                           "device_json": {
                               "aad74e24-a00b-4eb3-8412-f8b9412925c3":
                                   {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'}
+                                   'device_family': 'MX',
+                                   'device_username': 'username',
+                                   'device_password': 'pswd'}
                           },
                           "args": {"collectors": ['127.0.0.1:8086']}}
         args = {"collectors": ['127.0.0.1:8086']}
@@ -220,7 +224,9 @@ class TestJobManager(test_case.JobTestCase):
                           "device_json": {
                               "aad74e24-a00b-4eb3-8412-f8b9412925c3":
                                   {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'
+                                   'device_family': 'MX',
+                                   'device_username': 'username',
+                                   'device_password': 'pswd'
                                    }
                               },
                           "args": {"collectors": ['127.0.0.1:8086']}}
@@ -274,7 +280,9 @@ class TestJobManager(test_case.JobTestCase):
                           "device_json": {
                               "aad74e24-a00b-4eb3-8412-f8b9412925c3":
                                   {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'
+                                   'device_family': 'MX',
+                                   'device_username': 'username',
+                                   'device_password': 'pswd'
                                    }
                               },
                           "args": {"collectors": ['127.0.0.1:8086']}}
@@ -304,4 +312,3 @@ class TestJobManager(test_case.JobTestCase):
         flexmock(SandeshUtils, __new__=mocked_sandesh_utils)
         mocked_sandesh_utils.should_receive('__init__')
         mocked_sandesh_utils.should_receive('wait_for_connection_establish')
-
