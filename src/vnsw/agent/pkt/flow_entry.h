@@ -473,6 +473,7 @@ class FlowEntry {
         SHORT_SAME_FLOW_RFLOW_KEY,
         SHORT_PORT_MAP_DROP,
         SHORT_NO_SRC_ROUTE_L2RPF,
+        SHORT_FAT_FLOW_NAT_CONFLICT,
         SHORT_MAX
     };
 

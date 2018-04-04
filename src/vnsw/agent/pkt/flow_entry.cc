@@ -96,8 +96,8 @@ const std::map<uint16_t, const char*>
         ((uint16_t)DROP_OUT_FIREWALL_POLICY, "Flow drop OUT Firewall Policy")
         ((uint16_t)DROP_REVERSE_FIREWALL_POLICY,     "Flow drop REVERSE Firewall Policy")
         ((uint16_t)DROP_REVERSE_OUT_FIREWALL_POLICY, "Flow drop REVERSE OUT Firewall Policy")
-        ((uint16_t)SHORT_NO_SRC_ROUTE_L2RPF,
-         "Short flow No Source route for RPF NH");
+        ((uint16_t)SHORT_NO_SRC_ROUTE_L2RPF, "Short flow No Source route for RPF NH")
+        ((uint16_t)SHORT_FAT_FLOW_NAT_CONFLICT, "Short flow Conflicting config for NAT and FAT flow");
 
 tbb::atomic<int> FlowEntry::alloc_count_;
 SecurityGroupList FlowEntry::default_sg_list_;

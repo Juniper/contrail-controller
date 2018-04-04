@@ -1706,6 +1706,15 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
+    if (nat_done && (pkt->ignore_address == VmInterface::IGNORE_SOURCE ||
+	pkt->ignore_address == VmInterface::IGNORE_DESTINATION)) {
+        /* IGNORE_SOURCE/IGNORE_DESTINATION not supported for NAT flows */
+	LogError(pkt, this, "Flow : Fat-flow and NAT cannot co-exist");
+	short_flow = true;
+	short_flow_reason = FlowEntry::SHORT_FAT_FLOW_NAT_CONFLICT;
+	return false;
+    }
+
     if (!disable_validation) {
         if (in->rt_ == NULL) {
             LogError(pkt, this, "Flow : No route for Src-IP");
@@ -1932,22 +1941,16 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     IpAddress sip = pkt->ip_saddr;
     IpAddress dip = pkt->ip_daddr;
     if (pkt->ignore_address == VmInterface::IGNORE_SOURCE) {
-        /* IGNORE_SOURCE is not supported for NAT flows */
-        if (!nat_done) {
-            if (ingress) {
-                sip = IpAddress();
-            } else {
-                dip = IpAddress();
-            }
-        }
+	if (ingress) {
+	    sip = IpAddress();
+	} else {
+	    dip = IpAddress();
+	}
     } else if (pkt->ignore_address == VmInterface::IGNORE_DESTINATION) {
-        /* IGNORE_DESTINATION is not supported for NAT flows */
-        if (!nat_done) {
-            if (ingress) {
-                dip = IpAddress();
-            } else {
-                sip = IpAddress();
-            }
+        if (ingress) {
+            dip = IpAddress();
+        } else {
+            sip = IpAddress();
         }
     }
 
