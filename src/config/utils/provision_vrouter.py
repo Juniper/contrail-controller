@@ -90,6 +90,7 @@ class VrouterProvisioner(object):
             'router_type': None,
             'dpdk_enabled': False,
             'disable_vhost_vmi': False,
+            'enable_vhost_vmi_policy': False,
             'sub_cluster_name': None,
         }
         ksopts = {
@@ -144,6 +145,8 @@ class VrouterProvisioner(object):
             "--dpdk_enabled", action="store_true", help="Whether forwarding mode on vrouter is DPDK based")
         parser.add_argument(
             "--disable_vhost_vmi", action="store_true", help="Do not create vhost0 vmi if flag is set")
+        parser.add_argument(
+            "--enable_vhost_vmi_policy", action="store_true", help="Enable vhost0 vmi policy if flag is set")
         parser.add_argument(
             "--sub_cluster_name", help="Sub cluster this vrouter to be part of")
         group = parser.add_mutually_exclusive_group(required=True)
@@ -213,19 +216,23 @@ class VrouterProvisioner(object):
             print "No vrouter object found cannot add vhost0 vmi !"
             return
 
-        vhost0_vmi_fq_name = self.vrouter_fq_name
-        vhost0_vmi_fq_name.append('vhost0')
-        vhost0_vmi_exists = True
-        vhost0_vmi =  VirtualMachineInterface(name="vhost0", parent_obj = vrouter_obj)
-        ip_fab_vn = self._vnc_lib.virtual_network_read(fq_name = [u'default-domain', u'default-project', u'ip-fabric'])
-        vhost0_vmi.set_virtual_network(ip_fab_vn)
-        # Disable policy on the vhost0 vmi
-        vhost0_vmi.set_virtual_machine_interface_disable_policy(True)
         try:
             vhost0_vmi = self._vnc_lib.virtual_machine_interface_read(
                 fq_name = vhost0_vmi_fq_name)
+            vhost0_vmi_exists = True
         except NoIdError:
             vhost0_vmi_exists = False
+            vhost0_vmi_fq_name = self.vrouter_fq_name
+            vhost0_vmi_fq_name.append('vhost0')
+            vhost0_vmi =  VirtualMachineInterface(name="vhost0", parent_obj = vrouter_obj)
+            ip_fab_vn = self._vnc_lib.virtual_network_read(fq_name = [u'default-domain', u'default-project', u'ip-fabric'])
+            vhost0_vmi.set_virtual_network(ip_fab_vn)
+
+        # Enable/Disable policy on the vhost0 vmi
+        if self._args.enable_vhost_vmi_policy:
+            vhost0_vmi.set_virtual_machine_interface_disable_policy(False)
+        else:
+            vhost0_vmi.set_virtual_machine_interface_disable_policy(True)
 
         if vhost0_vmi_exists:
            self._vnc_lib.virtual_machine_interface_update(vhost0_vmi)
