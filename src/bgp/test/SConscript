@@ -652,7 +652,6 @@ test_suite = [
     bgp_export_uplist_test,
     bgp_ip_test1,
     bgp_ip_test2,
-    bgp_membership_test,
     bgp_msg_builder_test,
     bgp_multicast_test,
     bgp_mvpn_integration_test,
@@ -764,6 +763,7 @@ env.Alias('controller/src/bgp:test', [
 ])
 
 flaky_test_suite = [
+    bgp_membership_test,
 ]
 flaky_test_suite += graceful_restart_flaky_tests
 flaky_test = env.TestSuite('bgp-flaky-test', flaky_test_suite)
