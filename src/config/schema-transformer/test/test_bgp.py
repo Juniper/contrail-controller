@@ -28,6 +28,14 @@ class VerifyBgp(VerifyRouteTarget):
         self._vnc_lib = vnc_lib
 
     @retries(5)
+    def check_no_si_in_lr(self, lr_fq_name):
+        lr = self._vnc_lib.logical_router_read(lr_fq_name)
+        si_refs = lr.get_service_instance_refs()
+        if si_refs:
+            print 'Service Instance Refs: \n\n%s\n' % si_refs
+            raise Exception("Service Instance Refs found while its not expected")
+
+    @retries(5)
     def check_ri_target(self, fq_name, rt_target=None):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
@@ -177,6 +185,9 @@ class TestBgp(STTestCase, VerifyBgp):
         # ensure no RT from LR is attached to VN
         self.assertTrue(vn_rt_refs_with_lr == vn_rt_refs,
                         msg='RT attached to VN is different after LR creation')
+
+        # check no service instance generated
+        self.check_no_si_in_lr(lr.get_fq_name())
 
         # cleanup
         lr.del_virtual_machine_interface(vmi)
