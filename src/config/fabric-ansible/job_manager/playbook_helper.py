@@ -17,6 +17,10 @@ from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 from ansible.executor.playbook_executor import PlaybookExecutor
 
+from job_error_messages import NO_PLAYBOOK_INPUT_DATA, \
+    PLAYBOOK_RETURN_WITH_ERROR, get_playbook_execute_exception_message, \
+    get_playbook_input_parsing_error_message
+
 
 class PlaybookHelper(object):
 
@@ -61,11 +65,12 @@ class PlaybookHelper(object):
             output = self.get_plugin_output(pbex)
 
             if ret_val != 0:
-                raise Exception("Playbook returned with error")
+                raise Exception(PLAYBOOK_RETURN_WITH_ERROR)
 
             return output
         except Exception as e:
-            sys.exit("Exception in playbook process %s " % repr(e))
+            msg = get_playbook_execute_exception_message(e)
+            sys.exit(msg)
 
 
 def parse_args():
@@ -83,12 +88,10 @@ if __name__ == "__main__":
         playbook_params = parse_args()
         playbook_input_json = json.loads(playbook_params.playbook_input[0])
         if playbook_input_json is None:
-            sys.exit("Playbook input data is not passed. Aborting execution.")
+            sys.exit(NO_PLAYBOOK_INPUT_DATA)
     except Exception as e:
         print >> sys.stderr, "Failed to start playbook due "\
                              "to Exception: %s" % traceback.print_stack()
-        sys.exit(
-            "Exiting due playbook input parsing error: %s" % repr(e))
+        sys.exit(get_playbook_input_parsing_error_message(e))
     playbook_helper = PlaybookHelper()
     playbook_helper.execute_playbook(playbook_input_json)
-
