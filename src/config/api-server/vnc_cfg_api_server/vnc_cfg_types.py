@@ -673,7 +673,7 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if 'autonomous_system' in obj_dict:
-             cls.server.global_autonomous_system = obj_dict['autonomous_system']
+            cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
         return True, ''
 
@@ -2433,40 +2433,54 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
     @classmethod
     def _frs_fix_endpoint_tag(cls, obj_dict, ep, db_conn):
         if ep is None or 'tags' not in ep:
-            return True, ""
+            return True, ''
 
         ep['tag_ids'] = []
-        ep_tags = ep.get('tags')
-        tag_set = set(ep_tags)
-
+        draft_pm_name = constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
+        obj_parent_type = obj_dict['parent_type']
+        obj_fq_name = obj_dict['fq_name']
         existing_refs = set([ref['uuid'] for ref in obj_dict['tag_refs']])
 
-        for tag_name in tag_set:
+        for tag_name in set(ep.get('tags')):
             # unless global, inherit project id from caller
             if "=" not in tag_name:
-                return (False, (404, 'Invalid tag name %s' % tag_name))
+                return False, (404, "Invalid tag name '%s'" % tag_name)
             if tag_name[0:7] == 'global:':
                 tag_fq_name = [tag_name[7:]]
-            elif obj_dict.get('parent_type') == "policy-management":
-                tag_fq_name = [tag_name]
+            # Owned by a policy management, could be a global resource or a
+            # global/scoped draft resource
+            elif obj_parent_type == PolicyManagementServer.resource_type:
+                # global: [default-pm:sec-res] => [tag-res]
+                # draft global: [draft-pm:sec-res] => [tag-res]
+                # draft scope: [domain:project:draft-pm:sec-res] =>
+                #              [domain:project:tag-res]
+                tag_fq_name = obj_fq_name[:-2] + [tag_name]
+            # Project scoped resource, tag have to be in same scoped
+            elif obj_parent_type == Project.resource_type:
+                # scope: [domain:project:sec-res] => [domain:project:tag-res]
+                tag_fq_name = obj_fq_name[:-1] + [tag_name]
             else:
-                tag_fq_name = copy.deepcopy(obj_dict['fq_name'])
-                tag_fq_name[-1] = tag_name
-            try:
-                tag_uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
-                (ok, tag_dict) = db_conn.dbe_read(obj_type='tag', obj_id=tag_uuid)
-            except cfgm_common.exceptions.NoIdError:
-                return (False, (404, 'No tag object found for name %s' % tag_name))
+                msg = ("Parent type '%s' which own the security resource %s "
+                       "(%s) is not supported as security resource scope" %
+                       (obj_parent_type, ':'.join(obj_fq_name),
+                        obj_dict['uuid']))
+                return False, (400, msg)
+
+            ok, result = TagServer.locate(tag_fq_name, create_it=False,
+                                          fields=['tag_id'])
+            if not ok:
+                return False, result
+            tag_dict = result
 
             ep['tag_ids'].append(int(tag_dict['tag_id'], 0))
-            if tag_uuid not in existing_refs:
+            if tag_dict['uuid'] not in existing_refs:
                 ref = {
                     'to'  : tag_fq_name,
-                    'uuid': tag_uuid
+                    'uuid': tag_dict['uuid'],
                 }
                 obj_dict['tag_refs'].append(ref)
 
-        return True, ""
+        return True, ''
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -2593,6 +2607,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
             obj_dict['tag_refs'] = []
             obj_dict['address_group_refs'] = []
             obj_dict['fq_name'] = db_obj_dict['fq_name']
+            obj_dict['parent_type'] = db_obj_dict['parent_type']
 
             for ep_name in ['endpoint_1', 'endpoint_2']:
                 ep = obj_dict.get(ep_name)
