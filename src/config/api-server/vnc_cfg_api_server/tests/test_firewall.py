@@ -1586,6 +1586,17 @@ class FirewallDraftModeBase(object):
         self.vn1 = VirtualNetwork('vn1-%s' % self.id(),
                                   parent_obj=self._project)
         self.api.virtual_network_create(self.vn1)
+        if self.global_scope:
+            self.tag1 = Tag(tag_type_name='type-%s' % self.id(),
+                            tag_value='value-%s' % self.id())
+        else:
+            self.tag1 = Tag(
+                tag_type_name='type-%s' % self.id(),
+                tag_value='value-%s' % self.id(),
+                parent_obj=self._project,
+            )
+        self.api.tag_create(self.tag1)
+        self.tag1 = self.api.tag_read(id=self.tag1.uuid)
         self.ag1 = AddressGroup(
             name='ag1-%s' % self.id(), parent_obj=self._owner)
         self.api.address_group_create(self.ag1)
@@ -1624,11 +1635,21 @@ class FirewallDraftModeBase(object):
             service=FirewallServiceType(),
         )
         self.api.firewall_rule_create(self.fr3)
+        self.fr4 = FirewallRule(
+            name='fr4-%s' % self.id(),
+            parent_obj=self._owner,
+            action_list=ActionListType(simple_action='pass'),
+            direction='<>',
+            endpoint_1=FirewallRuleEndpointType(tags=[self.tag1.name]),
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(self.fr4)
 
         self.fp1 = FirewallPolicy('fp1-%s' % self.id(), parent_obj=self._owner)
         self.fp1.add_firewall_rule(self.fr1, FirewallSequence(sequence='1.0'))
         self.fp1.add_firewall_rule(self.fr2, FirewallSequence(sequence='2.0'))
         self.fp1.add_firewall_rule(self.fr3, FirewallSequence(sequence='3.0'))
+        self.fp1.add_firewall_rule(self.fr4, FirewallSequence(sequence='4.0'))
         self.api.firewall_policy_create(self.fp1)
         self.aps1 = ApplicationPolicySet('aps1-%s' % self.id(),
                                          parent_obj=self._owner)
@@ -1637,8 +1658,8 @@ class FirewallDraftModeBase(object):
         self.api.application_policy_set_create(self.aps1)
 
         self.security_resources = {}
-        for r in [self.aps1, self.fp1, self.fr1, self.fr2, self.fr3, self.sg1,
-                  self.ag1]:
+        for r in [self.aps1, self.fp1, self.fr1, self.fr2, self.fr3, self.fr3,
+                  self.sg1, self.ag1]:
             self.security_resources[r.uuid] = r
 
     def _update_complex_security_environment(self):
@@ -1656,8 +1677,8 @@ class FirewallDraftModeBase(object):
         self.updates_security_resources.pop(self.fr3.uuid)
 
         # create a new firewall rule which uses the orphan address group
-        self.fr4 = FirewallRule(
-            name='fr4-%s' % self.id(),
+        self.fr5 = FirewallRule(
+            name='fr5-%s' % self.id(),
             parent_obj=self._owner,
             action_list=ActionListType(simple_action='pass'),
             direction='<>',
@@ -1665,13 +1686,13 @@ class FirewallDraftModeBase(object):
                 address_group=self.ag1.get_fq_name_str()),
             service=FirewallServiceType(),
         )
-        self.api.firewall_rule_create(self.fr4)
-        self.updates_security_resources[self.fr4.uuid] = self.fr4
+        self.api.firewall_rule_create(self.fr5)
+        self.updates_security_resources[self.fr5.uuid] = self.fr5
 
         # create new firewall policy which reference the new firewall rule and
         # reference it from the application policy set
         self.fp2 = FirewallPolicy('fp2-%s' % self.id(), parent_obj=self._owner)
-        self.fp2.add_firewall_rule(self.fr4, FirewallSequence(sequence='1.0'))
+        self.fp2.add_firewall_rule(self.fr5, FirewallSequence(sequence='1.0'))
         # also use existing firewall rule #1 in that new policy
         self.fp2.add_firewall_rule(self.fr1, FirewallSequence(sequence='2.0'))
         self.api.firewall_policy_create(self.fp2)
