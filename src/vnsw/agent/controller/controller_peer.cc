@@ -433,6 +433,21 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                                              addr.to_v4(), encap));
         }
 
+        IpAddress source_address =
+                IpAddress::from_string(item->entry.nlri.source_address, ec);
+        if (ec.value() != 0) {
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                            "Error parsing source-address");
+            return;
+        }
+
+        if (source_address != IpAddress(Ip4Address())) {
+            int label = item->entry.nlri.source_label;
+            olist.push_back(OlistTunnelEntry(nil_uuid(), label,
+                                            source_address.to_v4(),
+                                            TunnelType::MplsType()));
+        }
+
         agent_->oper_db()->multicast()->ModifyFabricMembers(
                 agent_->multicast_tree_builder_peer(),
                 vrf, g_address.to_v4(), s_address.to_v4(),
