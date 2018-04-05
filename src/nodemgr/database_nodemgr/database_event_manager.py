@@ -16,11 +16,11 @@ import gevent
 from nodemgr.common.event_manager import EventManager
 from nodemgr.common.cassandra_manager import CassandraManager
 
-
 from supervisor import childutils
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
+from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
@@ -31,6 +31,8 @@ from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.process_info.constants import *
 from pysandesh.connection_info import ConnectionState
+from database.sandesh.database.ttypes import \
+    CassandraStatusData, CassandraCompactionTask
 
 class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,

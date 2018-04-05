@@ -127,6 +127,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     if (node_type == 'contrail-database' or node_type == 'contrail-config'):
         parser.add_argument("--minimum_diskGB",
                             type=int,
+                            dest='minimum_diskgb',
                             help="Minimum disk space in GB's")
         parser.add_argument("--contrail_databases",
                             nargs='+',
