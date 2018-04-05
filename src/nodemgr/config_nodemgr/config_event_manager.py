@@ -25,6 +25,7 @@ from supervisor import childutils
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
+from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
@@ -88,6 +89,10 @@ class ConfigEventManager(EventManager):
         self.third_party_process_dict["cassandra"] = "Dcassandra-pidfile=.*cassandra\.pid"
         self.third_party_process_dict["zookeeper"] = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
     # end __init__
+
+    def msg_log(self, msg, level):
+        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+                            level), msg)
 
     def process(self):
         if self.rule_file is '':

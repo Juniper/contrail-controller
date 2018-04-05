@@ -76,7 +76,6 @@ class CassandraManager(object):
         return (disk_space_used, disk_space_available)
 
     def process(self, event_mgr):
-        event_mgr.load_rules_data()
         try:
             cassandra_data_dirs = self._get_cassandra_config_option("data_file_directories")
             cassandra_data_dir_exists = False
