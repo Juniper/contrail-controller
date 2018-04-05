@@ -33,6 +33,7 @@
 #include "bgp/peer_close_manager.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-policy/routing_policy_match.h"
 #include "bgp/rtarget/rtarget_table.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
@@ -1679,7 +1680,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
     if ((router_type_ == "bgpaas-client")  ||
         (router_type_ == "bgpaas-server")) {
         attr = server_->attr_db()->ReplaceSubProtocolAndLocate(attr.get(),
-                                                               "bgpaas");
+                             MatchProtocolToString(MatchProtocol::BGPaaS));
     }
 
     uint32_t reach_count = 0, unreach_count = 0;
