@@ -37,7 +37,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     vrf_id_(entry->vrf_id_), label_(entry->label_),
     interface_(entry->interface_), sip_(entry->sip_), dip_(entry->dip_),
     sport_(entry->sport_), dport_(entry->dport_), smac_(entry->smac_),
-    dmac_(entry->dmac_), valid_(entry->valid_), policy_(entry->policy_),
+    dmac_(entry->dmac_), rewrite_dmac_(entry->rewrite_dmac_),
+    valid_(entry->valid_), policy_(entry->policy_),
     is_mcast_nh_(entry->is_mcast_nh_),
     defer_(entry->defer_), component_nh_list_(entry->component_nh_list_),
     nh_(entry->nh_), vlan_tag_(entry->vlan_tag_),
@@ -61,7 +62,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), type_(nh->GetType()),
-    vrf_id_(0), interface_(NULL), valid_(nh->IsValid()),
+    vrf_id_(0), interface_(NULL), dmac_(), valid_(nh->IsValid()),
     policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
     is_vxlan_routing_(false),
@@ -127,7 +128,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
             InterfaceKSyncEntry if_ksync(crypt_interface_object, tunnel->GetCryptInterface());
             crypt_interface_ = crypt_interface_object->GetReference(&if_ksync);
         }
-        dmac_ = tunnel->rewrite_dmac();
+        rewrite_dmac_ = tunnel->rewrite_dmac();
         break;
     }
 
@@ -317,6 +318,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
         if (crypt_interface() != entry.crypt_interface()) {
             return crypt_interface() < entry.crypt_interface();
+        }
+
+        if (rewrite_dmac_ != entry.rewrite_dmac_) {
+            return rewrite_dmac_ < entry.rewrite_dmac_;
         }
 
         return tunnel_type_.IsLess(entry.tunnel_type_);
@@ -932,10 +937,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             std::vector<int8_t> rewrite_dmac;
             for (size_t i = 0 ; i < dmac_.size(); i++) {
-                rewrite_dmac.push_back(dmac_[i]);
+                rewrite_dmac.push_back(rewrite_dmac_[i]);
             }
             encoder.set_nhr_pbb_mac(rewrite_dmac);
-            if (dmac_.IsZero() == false) {
+            if (rewrite_dmac_.IsZero() == false) {
                 //TODO enable it once vrouter changes are in
                 //flags |= NH_FLAG_L3_VXLAN;
             }
