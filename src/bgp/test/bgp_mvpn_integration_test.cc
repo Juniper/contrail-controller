@@ -275,6 +275,19 @@ public:
                 source_address, other_agent.get()));
     }
 
+    bool VerifyMvpnRouteType(boost::shared_ptr<const NetworkAgentMock> agent,
+        const string &net, const string &prefix, int route_type =
+                                                 MvpnPrefix::LeafADRoute) {
+        const NetworkAgentMock::MvpnRouteEntry *mvpn_rt =
+            agent->MvpnRouteLookup(net, prefix);
+        if (mvpn_rt == NULL)
+            return false;
+
+        if (mvpn_rt->entry.nlri.route_type == route_type)
+            return true;
+        return false;
+    }
+
     void SandeshStartup();
     void SandeshShutdown();
 
@@ -464,7 +477,9 @@ TEST_P(BgpMvpnOneControllerTest, Basic) {
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_xb_->McastRouteCount()); // Receiver
         TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount()); // Sender
-        TASK_UTIL_EXPECT_EQ(0, agent_xb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_EQ((int)i, agent_xb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
+                    agent_xb_, grn.str(), sg.str()));
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.1.3",
             "192.168.0.101", agent_xb_);
         TASK_UTIL_EXPECT_EQ(0, CheckErmvpnOListSize(agent_xb_, sg.str()));
@@ -847,9 +862,9 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderGreenReceiver) {
         TASK_UTIL_EXPECT_EQ(3 + 6*instance_count_ + 4*(i-1), master_->Size());
         TASK_UTIL_EXPECT_EQ(7, green_[i-1]->Size());
 
-        ostringstream green;
-        green << "green" << i;
-        agent_yb_->AddType7MvpnRoute(green.str(), sg.str(), "10.1.2.3", "30-40");
+        ostringstream grn;
+        grn << "green" << i;
+        agent_yb_->AddType7MvpnRoute(grn.str(), sg.str(), "10.1.2.3", "30-40");
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_EQ(3*i, fabric_ermvpn_->Size());
 
@@ -864,7 +879,9 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderGreenReceiver) {
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount());
-        TASK_UTIL_EXPECT_EQ(0, agent_yb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
+                    agent_yb_, grn.str(), sg.str()));
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.3",
             "192.168.0.101", agent_yb_);
         TASK_UTIL_EXPECT_EQ(0, CheckErmvpnOListSize(agent_yb_, sg.str()));
@@ -943,7 +960,11 @@ TEST_P(BgpMvpnTwoControllerTest, MultipleReceivers) {
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_EQ((int)i, agent_ya_->MvpnRouteCount());
         TASK_UTIL_EXPECT_EQ(0, agent_yb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_EQ(0, agent_yc_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
+                    agent_ya_, red.str(), sg.str()));
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.4",
             "192.168.0.101", agent_yc_);
         TASK_UTIL_EXPECT_EQ(2, CheckErmvpnOListSize(agent_ya_, sg.str()));
@@ -1003,9 +1024,9 @@ TEST_P(BgpMvpnTwoControllerTest, Type5AfterType7) {
     for (size_t i = 1; i <= instance_count_; i++) {
         ostringstream sg;
         sg << "224." << i << "." << instance_count_ << ".3,192.168.1.1";
-        ostringstream green;
-        green << "green" << i;
-        agent_yb_->AddType7MvpnRoute(green.str(), sg.str(), "10.1.2.2", "30-40");
+        ostringstream grn;
+        grn << "green" << i;
+        agent_yb_->AddType7MvpnRoute(grn.str(), sg.str(), "10.1.2.2", "30-40");
         TASK_UTIL_EXPECT_EQ(3*i, fabric_ermvpn_->Size());
 
         // verify that nothing changes since source is not resolvable
@@ -1040,7 +1061,9 @@ TEST_P(BgpMvpnTwoControllerTest, Type5AfterType7) {
         TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount());
-        TASK_UTIL_EXPECT_EQ(0, agent_yb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
+                    agent_yb_, grn.str(), sg.str()));
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.2",
             "192.168.0.101", agent_yb_);
         TASK_UTIL_EXPECT_EQ(0, CheckErmvpnOListSize(agent_yb_, sg.str()));
@@ -1140,8 +1163,8 @@ TEST_P(BgpMvpnTwoControllerTest, ReceiverSenderLeave) {
         TASK_UTIL_EXPECT_EQ(5, red_[i-1]->Size());
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*(i -1) + 1, master_->Size());
         // Verify that type5 route is withdrawn since there are no receivers
-        TASK_UTIL_EXPECT_EQ(static_cast<NetworkAgentMock::MvpnRouteEntry *>(NULL),
-            agent_xa_->MvpnRouteLookup(red.str(), sg.str()));
+        TASK_UTIL_EXPECT_EQ(static_cast<NetworkAgentMock::MvpnRouteEntry *>
+                (NULL), agent_xa_->MvpnRouteLookup(red.str(), sg.str()));
 
         // Add the sender back
         agent_xa_->AddType5MvpnRoute(red.str(), sg.str(), nh.str());
