@@ -354,9 +354,10 @@ class VncKubernetes(VncCommon):
                     fq_name=global_vrouter_fq_name)
         except NoIdError:
             return
-        snat_port_range = PortType(start_port = 0, end_port = 0)
+        snat_port_range = PortType(start_port = 56000, end_port = 57023)
         port_pool_tcp = PortTranslationPool(
             protocol="tcp", port_count='1024', port_range=snat_port_range)
+        snat_port_range = PortType(start_port = 57024, end_port = 58047)
         port_pool_udp = PortTranslationPool(
             protocol="udp", port_count='1024', port_range=snat_port_range)
         port_pools = PortTranslationPools([port_pool_tcp, port_pool_udp])
