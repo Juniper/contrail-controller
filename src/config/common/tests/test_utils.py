@@ -1093,6 +1093,61 @@ def get_keystone_client(*args, **kwargs):
     return fake_keystone_client
 
 
+#
+# Find two consecutive free ports such that even port is greater than odd port
+# Return the even port and socket locked to the odd port
+#
+def get_free_port_pair():
+    single_port_list = []
+
+    while (1):
+        tmp_sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            tmp_sock1.bind(('', 0))
+        except:
+            #Bail out as all ports exhausted.
+            for tmp_sock in single_port_list:
+                tmp_sock.close()
+            raise
+            return None, 0
+
+        free_port1 = tmp_sock1.getsockname()[1]
+        if free_port1 % 2:
+            #We have odd port, is next even port free
+            try:
+                tmp_sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                tmp_sock2.bind(('', free_port1 + 1))
+            except:
+                single_port_list.append(tmp_sock1)
+                continue
+        else:
+            #Try to get odd port
+            try:
+                tmp_sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                tmp_sock2.bind(('', free_port1 - 1))
+            except:
+                single_port_list.append(tmp_sock1)
+                continue
+        free_port2 = tmp_sock2.getsockname()[1]
+        break
+
+    #we have our found our twin ports, release the singles now
+    for tmp_sock in single_port_list:
+        tmp_sock.close()
+
+    #keep the odd port locked and return free port
+    if free_port1 % 2:
+        odd_port, odd_sock = free_port1, tmp_sock1
+        even_port, even_sock = free_port2, tmp_sock2
+    else:
+        odd_port, odd_sock = free_port2, tmp_sock2
+        even_port, even_sock = free_port1, tmp_sock1
+
+    even_sock.close()
+    return odd_sock, even_port
+# end get_free_port_pair
+
+
 
 def get_free_port(allocated_sockets=None):
     tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

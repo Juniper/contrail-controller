@@ -214,7 +214,7 @@ def create_api_server_instance(test_id, config_knobs, db=None):
     ret_server_info = {}
     allocated_sockets = []
     ret_server_info['ip'] = socket.gethostbyname(socket.gethostname())
-    ret_server_info['service_port'] = get_free_port(allocated_sockets)
+    tmp_sock, ret_server_info['service_port'] = get_free_port_pair()      
     ret_server_info['introspect_port'] = get_free_port(allocated_sockets)
     ret_server_info['admin_port'] = get_free_port(allocated_sockets)
     ret_server_info['allocated_sockets'] = allocated_sockets
@@ -229,6 +229,7 @@ def create_api_server_instance(test_id, config_knobs, db=None):
             test_id, ret_server_info['ip'], ret_server_info['service_port'],
             ret_server_info['introspect_port'], ret_server_info['admin_port'],
             config_knobs)
+    tmp_sock.close()
     block_till_port_listened(ret_server_info['ip'],
         ret_server_info['service_port'])
     extra_env = {'HTTP_HOST': ret_server_info['ip'],
