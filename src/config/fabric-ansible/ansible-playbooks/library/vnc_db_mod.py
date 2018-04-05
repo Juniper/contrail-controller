@@ -40,7 +40,32 @@ CREATE operation:
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
         api_server_host: "localhost"
 
-UPDATE opreation:
+BULK CREATE operation:
+    vnc_db_mod:
+        object_type: "physical_router"
+        object_op: "bulk_create"
+        object_list:
+            [   {
+                  "parent_type": "global-system-config",
+                  "fq_name": ["default-global-system-config", "mx-240"],
+                  "physical_router_management_ip": "172.10.68.1",
+                  "physical_router_vendor_name": "Juniper",
+                  "physical_router_product_name": "MX",
+                  "physical_router_device_family": "juniper-mx"
+               },
+               {
+                  "parent_type": "global-system-config",
+                  "fq_name": ["default-global-system-config", "mx-240-2"],
+                  "physical_router_management_ip": "172.10.68.2",
+                  "physical_router_vendor_name": "Juniper",
+                  "physical_router_product_name": "MX",
+                  "physical_router_device_family": "juniper-mx"
+               }
+           ]
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "localhost"
+
+UPDATE operation:
     vnc_db_mod:
          object_type: "physical_router"
          object_op: "update"
@@ -52,6 +77,22 @@ UPDATE opreation:
                   "password": "{{ item.1.password }}"
                   }
           }
+        auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
+        api_server_host: "localhost"
+
+BULK UPDATE operation:
+    vnc_db_mod:
+         object_type: "physical_router"
+         object_op: "bulk_update"
+         object_list: |
+          [ {
+                  "uuid": "{{ item[0].obj['physical-routers'][0].uuid }}",
+                  "physical_router_user_credentials": {
+                      "username": "{{ item.1.username }}",
+                      "password": "{{ item.1.password }}"
+                      }
+            }
+          ]
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
         api_server_host: "localhost"
 
@@ -77,7 +118,7 @@ REF-UPDATE opreation:
               "ref_uuid": "{{ item.uuid }}"
           }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        api_server_host: "localhost"
 
 ID_TO_FQNAME operation:
     vnc_db_mod:
@@ -88,7 +129,7 @@ ID_TO_FQNAME operation:
               "uuid": "{{ fabric_uuid }}"
            }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        api_server_host: "localhost"
 
 FQNAME_TO_ID operation:
     vnc_db_mod:
@@ -99,7 +140,7 @@ FQNAME_TO_ID operation:
               "fq_name": ["{{ tag_fq_name }}"]
            }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        api_server_host: "localhost"
 
 LIST with filters and detail operation:
     vnc_db_mod:
@@ -111,7 +152,7 @@ LIST with filters and detail operation:
             "detail": "True",
         }
         auth_token: "820ac4ea583c47959c6b3d42e7b829b3"
-        api_server_host: "locahost"
+        api_server_host: "localhost"
 '''
 
 import sys
@@ -132,92 +173,119 @@ from ansible.module_utils.basic import AnsibleModule
 import logging
 
 
-def vnc_crud(module):
+class VncMod(object):
+    def __init__(self, module):
+        self.vnc_lib = None
+        retry = 10
 
-    results = {}
-    results['failed'] = False
-    vnc_lib = None
-    retry = 10
+        # Fetch module params
+        auth_token = module.params['auth_token']
+        api_server_host = module.params['api_server_host']
+        self.object_type = module.params['object_type']
+        self.object_op = module.params['object_op']
+        self.object_dict = module.params['object_dict']
+        self.object_list = module.params['object_list']
+        self.update_obj = module.params['update_obj_if_present']
 
-    # Fetch module params
-    object_type = module.params['object_type']
-    object_op = module.params['object_op']
-    object_dict = module.params['object_dict']
-    auth_token = module.params['auth_token']
-    update_obj = module.params['update_obj_if_present']
-    api_server_host = module.params['api_server_host']
- 
-    # Instantiate the VNC library
-    # Retry for sometime, till API server is up
-    connected = False
-    while retry and not connected:
+        # Instantiate the VNC library
+        # Retry for sometime, till API server is up
+        connected = False
+        while retry and not connected:
+            try:
+                retry -= 1
+                self.vnc_lib = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                                      auth_token=auth_token)
+                connected = True
+            except Exception as ex:
+                time.sleep(10)
+
+    def do_oper(self):
+        results = dict()
+        results['failed'] = False
+        if self.vnc_lib is None:
+            results['msg'] = "Failed to instantiate vnc api"
+            results['failed'] = True
+            return results
+
+        # Get the class name from object type
+        cls_name = camelize(self.object_type)
+
+        # Get the class object
+        self.cls = self.str_to_class(cls_name)
+
+        if self.cls is None:
+            results['msg'] = "Failed to get class for %s", cls_name
+            results['failed'] = True
+            return results
+
+        # Get the vnc method name based on the object type
+        if self.object_op == 'create' or self.object_op == 'delete' or \
+                        self.object_op == 'update' or self.object_op == 'read':
+            method_name = self.object_type + '_' + self.object_op
+        elif self.object_op == 'bulk_create':
+            method_name = self.object_type + '_create'
+        elif self.object_op == 'bulk_update':
+            method_name = self.object_type + '_update'
+        elif self.object_op == 'list':
+            method_name = self.object_type + 's_' + self.object_op
+        else:
+            method_name = self.object_op
+
+        self.method = self.str_to_vnc_method(method_name)
+        if self.method is None:
+            results['msg'] = "Failed to get class method for %s", \
+                                  method_name
+            results['failed'] = True
+            return results
+
+        # This creates an object, if not existing, else update the object
+        if self.object_op == 'create':
+            results = self.create_oper()
+
+        elif self.object_op == 'update':
+            results = self.update_oper()
+
+        elif self.object_op == 'bulk_create':
+            results = self.bulk_create_oper()
+
+        elif self.object_op == 'bulk_update':
+            results = self.bulk_update_oper()
+
+        elif self.object_op == 'delete':
+            results = self.delete_oper()
+
+        elif self.object_op == 'read':
+            results = self.read_oper()
+
+        elif self.object_op == 'list':
+            results = self.list_oper()
+
+        elif self.object_op == 'ref_update' or self.object_op == 'ref_delete':
+            results = self.ref_update_delete_oper()
+
+        elif self.object_op == 'fq_name_to_id':
+            results = self.fq_name_to_id_oper()
+
+        elif self.object_op == 'id_to_fq_name':
+            results = self.id_to_fq_name_oper()
+
+        return results
+
+    def _create_single(self, obj_dict):
+        results = dict()
         try:
-            retry -= 1
-            vnc_lib = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY, auth_token=auth_token)
-            connected = True
-        except Exception as ex:
-            time.sleep(10)
-
-    if vnc_lib is None:
-        results['msg'] = "Failed to instantiate vnc api"
-        results['failed'] = True
-        return results
-
-    # Get the class name from object type
-    cls_name = camelize(object_type)
-
-    # Get the class object
-    cls = str_to_class(cls_name)
-    if cls is None:
-        results['msg'] = "Failed to get class for %s", cls_name
-        results['failed'] = True
-        return results
-
-    # Get the vnc method name based on the object type
-    if object_op == 'create' or object_op == 'delete' or \
-       object_op == 'update' or object_op == 'read':
-        method_name = object_type + '_' + object_op
-    elif object_op == 'list':
-        method_name = object_type + 's_' + object_op
-    else:
-        method_name = object_op
-
-    method = str_to_vnc_method(vnc_lib, method_name)
-    if method is None:
-        results['msg'] = "Failed to get class method for %s", method_name
-        results['failed'] = True
-        return results
-
-    # This creates an object, if not existing, else update the object
-    if object_op == 'create':
-        try:
-            if object_dict.get('uuid') is None:
-                object_dict['uuid'] = None
-            instance_obj = cls.from_dict(**object_dict)
-            obj_uuid = method(instance_obj)
+            if obj_dict.get('uuid') is None:
+                obj_dict['uuid'] = None
+            instance_obj = self.cls.from_dict(**obj_dict)
+            obj_uuid = self.method(instance_obj)
             results['uuid'] = obj_uuid
         except RefsExistError as ex:
-            if update_obj:
+            if self.update_obj:
                 # Try to update the object, if already exist and
                 # 'update_obj_if_present' flag is present
-                uuid = object_dict.get('uuid')
-                fq_name = object_dict.get('fq_name')
-
-                if uuid and not fq_name:
-                    # Get the fq_name from uuid
-                    object_dict['fq_name'] = vnc_lib.id_to_fq_name(uuid)
-                elif fq_name and not uuid:
-                    object_dict['uuid'] = None
-
-                instance_obj = cls.from_dict(**object_dict)
-                method_name = object_type + '_update'
-                method = getattr(vnc_lib, method_name)
-                obj = method(instance_obj)
-                obj_name = object_type.replace('_', '-')
-                # update method return unicode object, needs to convert it into
-                # a dictionary to get uuid
-                results['uuid'] = ast.literal_eval(
-                    obj).get(obj_name).get('uuid')
+                method_name = self.object_type + '_update'
+                self.method = getattr(self.vnc_lib, method_name)
+                results = self._update_single(obj_dict)
             else:
                 # This is the case where caller does not want to update the
                 # object. Set failed to True to let caller decide
@@ -227,147 +295,200 @@ def vnc_crud(module):
             results['uuid'] = None
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    elif object_op == 'update':
+    def _update_single(self, ob_dict):
+        results = dict()
         try:
-            uuid = object_dict.get('uuid')
-            fq_name = object_dict.get('fq_name')
+            uuid = ob_dict.get('uuid')
+            fq_name = ob_dict.get('fq_name')
 
             if uuid and not fq_name:
                 # Get the fq_name from uuid
-                object_dict['fq_name'] = vnc_lib.id_to_fq_name(uuid)
+                ob_dict['fq_name'] = self.vnc_lib.id_to_fq_name(uuid)
             elif fq_name and not uuid:
-                object_dict['uuid'] = None
+                ob_dict['uuid'] = None
 
-            instance_obj = cls.from_dict(**object_dict)
-            obj = method(instance_obj)
-            obj_name = object_type.replace('_', '-')
-            results['uuid'] = ast.literal_eval(obj).get(obj_name).get('uuid')
+            instance_obj = self.cls.from_dict(**ob_dict)
+            obj = self.method(instance_obj)
+            obj_name = self.object_type.replace('_', '-')
+            results['uuid'] = ast.literal_eval(obj).get(obj_name).get(
+                'uuid')
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    elif object_op == 'delete':
-        obj_uuid = object_dict.get('uuid')
-        obj_fq_name = object_dict.get('fq_name')
+    def create_oper(self):
+        results = dict()
+        self.object_list = [self.object_dict]
+        res = self.bulk_create_oper()
+        results['uuid'] = res['list_uuids'][0] if len(res['list_uuids']) else None
+        return results
+
+    def bulk_create_oper(self):
+        results = dict()
+        results['list_uuids'] = []
+        for ob_dict in self.object_list:
+            res = self._create_single(ob_dict)
+            if res.get('failed'):
+                results['msg'] = res.get('msg')
+                break
+            else:
+                results['list_uuids'].append(res['uuid'])
+        return results
+
+    def update_oper(self):
+        results = dict()
+        self.object_list = [self.object_dict]
+        res = self.bulk_create_oper()
+        results['uuid'] = res['list_uuids'][0] if len(res['list_uuids']) else None
+        return results
+
+    def bulk_update_oper(self):
+        results = dict()
+        results['list_uuids'] = []
+        for ob_dict in self.object_list:
+            res = self._update_single(ob_dict)
+            if res.get('failed'):
+                results['msg'] = res.get('msg')
+                break
+            else:
+                results['list_uuids'].append(res['uuid'])
+        return results
+
+    def delete_oper(self):
+        results = dict()
+        obj_uuid = self.object_dict.get('uuid')
+        obj_fq_name = self.object_dict.get('fq_name')
 
         try:
             if obj_uuid:
-                method(id=obj_uuid)
+                self.method(id=obj_uuid)
             elif obj_fq_name:
-                method(fq_name=obj_fq_name)
+                self.method(fq_name=obj_fq_name)
             else:
-                results['msg'] = "Either uuid or fq_name should be present \
-                                 for delete"
+                results['msg'] = "Either uuid or fq_name should be " \
+                                      "present for delete"
                 results['failure'] = True
         except Exception as ex:
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    elif object_op == 'read':
-        obj_uuid = object_dict.get('uuid')
-        obj_fq_name = object_dict.get('fq_name')
+    def read_oper(self):
+        results = dict()
+        obj_uuid = self.object_dict.get('uuid')
+        obj_fq_name = self.object_dict.get('fq_name')
 
         try:
             if obj_uuid:
-                obj = method(id=obj_uuid)
+                obj = self.method(id=obj_uuid)
             elif obj_fq_name:
                 if type(obj_fq_name) is list:
-                    obj = method(fq_name=obj_fq_name)
+                    obj = self.method(fq_name=obj_fq_name)
                 else:
                     # convert str object to list
-                    obj = method(fq_name=ast.literal_eval(obj_fq_name))
+                    obj = self.method(fq_name=ast.literal_eval(obj_fq_name))
             else:
-                results['msg'] = "Either uuid or fq_name should be present \
-                                 for read"
+                results['msg'] = "Either uuid or fq_name should be " \
+                                      "present for read"
                 results['failed'] = True
                 return results
 
-            results['obj'] = vnc_lib.obj_to_dict(obj)
+            results['obj'] = self.vnc_lib.obj_to_dict(obj)
         except Exception as ex:
             results['obj'] = None
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    elif object_op == 'list':
-        filters = object_dict.get('filters')
-        fields = object_dict.get('fields')
-        back_ref_id = object_dict.get('back_ref_id')
-        detail = object_dict.get('detail')
+    def list_oper(self):
+        results = dict()
+        filters = self.object_dict.get('filters')
+        fields = self.object_dict.get('fields')
+        back_ref_id = self.object_dict.get('back_ref_id')
+        detail = self.object_dict.get('detail')
         try:
             if detail == 'True':
-                obj = method(back_ref_id=back_ref_id,
-                             filters=filters,
-                             fields=fields,
-                             detail=True)
+                obj = self.method(back_ref_id=back_ref_id,
+                                  filters=filters,
+                                  fields=fields,
+                                  detail=True)
                 results['obj'] = []
                 for object in obj:
-                    results['obj'].append(vnc_lib.obj_to_dict(object))
+                    results['obj'].append(self.vnc_lib.obj_to_dict(object))
             else:
-                obj = method(back_ref_id=back_ref_id,
-                             filters=filters,
-                             fields=fields)
+                obj = self.method(back_ref_id=back_ref_id,
+                                  filters=filters,
+                                  fields=fields)
                 results['obj'] = obj
         except Exception as ex:
             results['obj'] = None
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    elif object_op == 'ref_update' or object_op == 'ref_delete':
+    def ref_update_delete_oper(self):
+        results = dict()
         # Get the input params from the object dict
-        obj_type = object_type.replace('_', '-')
-        obj_uuid = object_dict.get('obj_uuid')
-        ref_type = object_dict.get('ref_type')
-        ref_uuid = object_dict.get('ref_uuid')
-        ref_fqname = object_dict.get('ref_fqname')
+        obj_type = self.object_type.replace('_', '-')
+        obj_uuid = self.object_dict.get('obj_uuid')
+        ref_type = self.object_dict.get('ref_type')
+        ref_uuid = self.object_dict.get('ref_uuid')
+        ref_fqname = self.object_dict.get('ref_fqname')
 
         try:
-            if object_op == 'ref_update':
-                obj_uuid = method(obj_type, obj_uuid, ref_type,
-                                  ref_uuid, ref_fqname, 'ADD')
+            if self.object_op == 'ref_update':
+                obj_uuid = self.method(obj_type, obj_uuid, ref_type,
+                                       ref_uuid, ref_fqname, 'ADD')
             else:
-                obj_uuid = method(obj_type, obj_uuid, ref_type,
-                                  ref_uuid, ref_fqname, 'DELETE')
-            results['uuid'] = obj_uuid
+                obj_uuid = self.method(obj_type, obj_uuid, ref_type,
+                                       ref_uuid, ref_fqname, 'DELETE')
+                results['uuid'] = obj_uuid
         except Exception as ex:
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    elif object_op == 'fq_name_to_id':
+    def fq_name_to_id_oper(self):
+        results = dict()
         try:
-            obj_type = object_type.replace('_', '-')
-            if type(object_dict.get('fq_name')) is list:
-                obj_fq_name = object_dict.get('fq_name')
+            obj_type = self.object_type.replace('_', '-')
+            if type(self.object_dict.get('fq_name')) is list:
+                obj_fq_name = self.object_dict.get('fq_name')
             else:
                 # convert str object to list
-                obj_fq_name = ast.literal_eval(object_dict.get('fq_name'))
-            obj_uuid = method(obj_type, obj_fq_name)
+                obj_fq_name = ast.literal_eval(self.object_dict.get('fq_name'))
+            obj_uuid = self.method(obj_type, obj_fq_name)
             results['uuid'] = obj_uuid
         except Exception as ex:
             results['uuid'] = None
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    elif object_op == 'id_to_fq_name':
+    def id_to_fq_name_oper(self):
+        results = dict()
         try:
-            obj_uuid = object_dict.get('uuid')
-            obj_fq_name = method(obj_uuid)
+            obj_uuid = self.object_dict.get('uuid')
+            obj_fq_name = self.method(obj_uuid)
             results['fq_name'] = obj_fq_name
         except Exception as ex:
             results['msg'] = str(ex)
             results['failed'] = True
+        return results
 
-    return results
-# end vnc_crud
+    def str_to_class(self, input):
+        return getattr(vnc_api.gen.resource_client, input, None)
 
-def str_to_class(input):
-    return getattr(vnc_api.gen.resource_client, input, None)
-# end str_to_class
+    # end str_to_class
 
-def str_to_vnc_method(vnc_lib, method_name):
-    return getattr(vnc_lib, method_name, None)
-# end str_to_vnc_method
+    def str_to_vnc_method(self, method_name):
+        return getattr(self.vnc_lib, method_name, None)
+        # end str_to_vnc_method
+
 
 def main():
     # Create the module instance
@@ -385,6 +506,8 @@ def main():
                     'delete',
                     'read',
                     'list',
+                    'bulk_create',
+                    'bulk_update',
                     'ref_update',
                     'ref_delete',
                     'fq_name_to_id',
@@ -392,6 +515,7 @@ def main():
             object_dict=dict(
                 required=False,
                 type='dict'),
+            object_list=dict(required=False, type='list'),
             auth_token=dict(
                 required=True),
             update_obj_if_present=dict(
@@ -405,10 +529,12 @@ def main():
     )
 
     logging.basicConfig(filename="/tmp/ans.log", level=logging.DEBUG)
-    results = vnc_crud(module)
+    results = VncMod(module).do_oper()
 
     # Return response
     module.exit_json(**results)
 
+
 if __name__ == '__main__':
     main()
+
