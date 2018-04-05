@@ -92,6 +92,7 @@ private:
     uint16_t dport_;
     MacAddress smac_;
     MacAddress dmac_;
+    MacAddress rewrite_dmac_;
     bool valid_;
     bool policy_;
     bool is_mcast_nh_;
