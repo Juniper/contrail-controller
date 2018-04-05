@@ -539,6 +539,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def _delete_test_object(self, obj):
         self._vnc_lib.virtual_network_delete(id=obj.uuid)
 
+    def get_cf(self, keyspace_name, cf_name):
+        return CassandraCFs.get_cf(keyspace_name, cf_name)
+
     def ifmap_has_ident(self, obj=None, id=None, type_fq_name=None):
         if obj:
             _type = obj.get_type()
