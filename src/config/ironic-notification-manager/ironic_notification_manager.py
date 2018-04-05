@@ -64,9 +64,17 @@ class IronicNotificationManager(object):
         'updated_at': 'update_timestamp',
         'created_at': 'create_timestamp',
         'driver_info': 'driver_info',
+        'port_info': 'port_info',
         'instance_info': 'instance_info',
         'properties': 'properties'}
-    sub_dict_list = ['driver_info', 'instance_info', 'properties']
+    PortInfoDictKeyMap = {
+        'uuid': 'port_uuid',
+        'pxe_enabled': 'pxe_enabled',
+        'address': 'mac_address',
+        'created_at': 'create_timestamp'
+    }
+    sub_dict_list = ['driver_info', 'instance_info', 'properties',
+                     'port_info']
     SubDictKeyMap = {
         'driver_info': ['ipmi_address', 'ipmi_password', 'ipmi_username',
                         'ipmi_terminal_port', 'deploy_kernel',
@@ -76,7 +84,9 @@ class IronicNotificationManager(object):
                           'image_checksum', 'image_source', 'image_type',
                           'image_url'],
         'properties': ['cpu_arch', 'cpus', 'local_gb', 'memory_mb',
-                       'capabilities']
+                       'capabilities'],
+        'port_info': ['port_uuid', 'pxe_enabled', 'mac_address',
+                      'local_link_connection', 'internal_info']
     }
 
     def __init__(self, inm_logger=None, args=None):
@@ -98,7 +108,8 @@ class IronicNotificationManager(object):
             'os_username': self._args.admin_user,
             'os_password': self._args.admin_password,
             'os_project_name': self._args.admin_tenant_name,
-            'os_endpoint_type': self._args.endpoint_type
+            'os_endpoint_type': self._args.endpoint_type,
+            'os_ironic_api_version': "1.19"
         }
         if 'v2.0' not in auth_url.split('/'):
             kwargs['os_user_domain_name'] = self._args.user_domain_name
@@ -115,8 +126,30 @@ class IronicNotificationManager(object):
         except Exception as e:
             raise e
 
-        node_dict_list = auth_ironic_client.node.list()
-        self.process_ironic_node_info(node_dict_list)
+        # Get and process Ironic Nodes
+        node_dict_list = auth_ironic_client.node.list(detail=True)
+        new_node_dict_list = []
+        node_port_map = {}
+        for node_dict in node_dict_list:
+            new_node_dict_list.append(node_dict.to_dict())
+            node_port_map[node_dict.to_dict()["uuid"]] = []
+        self.process_ironic_node_info(new_node_dict_list)
+
+        # Get and process Ports for all Ironic Nodes
+        port_dict_list = auth_ironic_client.port.list(detail=True)
+        new_port_dict_list = []
+        for port_dict in port_dict_list:
+            ironic_node_with_port_info = \
+              self.process_ironic_port_info(port_dict.to_dict())
+            node_port_map[ironic_node_with_port_info["name"]] +=\
+              ironic_node_with_port_info["port_info"]
+        for node_uuid in node_port_map.keys():
+            IronicNodeDict = {"name": str(node_uuid),
+                              "port_info": node_port_map[node_uuid]}
+            ironic_node_sandesh = IronicNode(**IronicNodeDict)
+            ironic_node_sandesh.name = IronicNodeDict["name"]
+            ironic_sandesh_object = IronicNodeInfo(data=ironic_node_sandesh)
+            ironic_sandesh_object.send()
 
     def sandesh_init(self):
         # Inventory node module initialization part
@@ -165,9 +198,51 @@ class IronicNotificationManager(object):
         except Exception as e:
             raise e
 
+    def process_ironic_port_info(self, data_dict, IronicNodeDict=None):
+        PortInfoDict = dict()
+        PortList = []
+        if not IronicNodeDict:
+            IronicNodeDict = dict()
+
+        for key in self.PortInfoDictKeyMap.keys():
+            if key in data_dict:
+                PortInfoDict[self.PortInfoDictKeyMap[key]] = \
+                    data_dict[key]
+
+        if "event_type" in data_dict and \
+          str(data_dict["event_type"]) == "baremetal.port.delete.end":
+            if "node_uuid" in data_dict:
+              IronicNodeDict["name"] = data_dict["node_uuid"]
+            IronicNodeDict["port_info"] = []
+            return IronicNodeDict
+
+        if "local_link_connection" in data_dict:
+            local_link_connection = \
+              LocalLinkConnection(**data_dict["local_link_connection"])
+            data_dict.pop("local_link_connection")
+            PortInfoDict["local_link_connection"] = local_link_connection
+
+        if "internal_info" in data_dict:
+            internal_info = \
+              InternalPortInfo(**data_dict["internal_info"])
+            data_dict.pop("internal_info")
+            PortInfoDict["internal_info"] = internal_info
+
+        if "node_uuid" in data_dict:
+            IronicNodeDict["name"] = data_dict["node_uuid"]
+            PortInfoDict["name"] = PortInfoDict["port_uuid"]
+            PortList.append(PortInfo(**PortInfoDict))
+            IronicNodeDict["port_info"] = PortList
+
+        return IronicNodeDict
+
     def process_ironic_node_info(self, node_dict_list):
 
         for node_dict in node_dict_list:
+
+            if not isinstance(node_dict, dict):
+                node_dict = node_dict.to_dict()
+
             IronicNodeDict = dict()
             DriverInfoDict = dict()
             InstanceInfoDict = dict()
@@ -186,20 +261,27 @@ class IronicNotificationManager(object):
                             IronicNodeDict[sub_dict][key] = \
                                 node_dict[sub_dict][key]
 
+            if "event_type" in node_dict:
+               if str(node_dict["event_type"]) == "baremetal.node.delete.end":
+                   ironic_node_sandesh = IronicNode(**IronicNodeDict)
+                   ironic_node_sandesh.deleted = True
+                   ironic_node_sandesh.name = IronicNodeDict["name"]
+                   ironic_sandesh_object = \
+                     IronicNodeInfo(data=ironic_node_sandesh)
+                   ironic_sandesh_object.send()
+                   continue
+               if "port" in str(node_dict["event_type"]):
+                   IronicNodeDict = \
+                       self.process_ironic_port_info(node_dict,
+                                                     IronicNodeDict)
+
             DriverInfoDict = IronicNodeDict.pop("driver_info", None)
             InstanceInfoDict = IronicNodeDict.pop("instance_info", None)
             NodePropertiesDict = IronicNodeDict.pop("properties", None)
+            PortInfoDictList = IronicNodeDict.pop("port_info", None)
 
             ironic_node_sandesh = IronicNode(**IronicNodeDict)
-            ironic_node_sandesh.name = node_dict["uuid"]
-
-            if "event_type" in node_dict and \
-               str(node_dict["event_type"]) == "baremetal.node.delete.end":
-                ironic_node_sandesh.deleted = True
-                ironic_sandesh_object = \
-                    IronicNodeInfo(data=ironic_node_sandesh)
-                ironic_sandesh_object.send()
-                continue
+            ironic_node_sandesh.name = IronicNodeDict["name"]
 
             if DriverInfoDict:
                 driver_info = DriverInfo(**DriverInfoDict)
@@ -210,6 +292,12 @@ class IronicNotificationManager(object):
             if NodePropertiesDict:
                 node_properties = NodeProperties(**NodePropertiesDict)
                 ironic_node_sandesh.node_properties = node_properties
+            if PortInfoDictList:
+                port_list = []
+                for PortInfoDict in PortInfoDictList:
+                    port_info = PortInfo(**PortInfoDict)
+                    port_list.append(port_info)
+                ironic_node_sandesh.port_info = port_list
 
             self._sandesh_logger.info('\nIronic Node Info: %s' %
                                       IronicNodeDict)
@@ -219,10 +307,11 @@ class IronicNotificationManager(object):
                                       InstanceInfoDict)
             self._sandesh_logger.info('\nNode Properties: %s' %
                                       NodePropertiesDict)
+            self._sandesh_logger.info('\nIronic Port Info: %s' %
+                                      PortInfoDictList)
 
             ironic_sandesh_object = IronicNodeInfo(data=ironic_node_sandesh)
             ironic_sandesh_object.send()
-
 
 def parse_args(args_str):
     '''
