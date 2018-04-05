@@ -46,6 +46,7 @@ public:
 
     // close all existing sessions and delete them.
     void ClearSessions();
+    void UpdateSessionsDscp(uint8_t dscp);
 
     // Helper function that allocates a socket and calls the virtual method
     // AllocSession. The session object is owned by the TcpServer and must
@@ -98,6 +99,7 @@ public:
                                  const std::string &md5_password);
     int SetDscpSocketOption(int fd, uint8_t value);
     uint8_t GetDscpValue(int fd) const;
+    int SetListenSocketDscp(uint8_t value);
 
 protected:
     typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;

@@ -9,8 +9,9 @@
 
 using namespace std;
 
-HttpServer::HttpServer(EventManager *evm, const SslConfig &config)
-    : SslServer(evm, boost::asio::ssl::context::tlsv1_server, config.ssl_enabled, false) {
+HttpServer::HttpServer(EventManager *evm, const SslConfig &config, uint8_t dscp)
+    : SslServer(evm, boost::asio::ssl::context::tlsv1_server,
+                config.ssl_enabled, false), dscp_value_(dscp) {
     //ctor
     if (config.ssl_enabled) {
 
@@ -79,12 +80,18 @@ SslSession *HttpServer::AllocSession(SslSocket *socket) {
 
 bool HttpServer::AcceptSession(TcpSession *session) {
     HttpSession *h_session = dynamic_cast<HttpSession *>(session);
+    if (dscp_value_) {
+        h_session->SetDscpSocketOption(dscp_value_);
+    }
     h_session->AcceptSession();
     return true;
 }
 
 bool HttpServer::AcceptSession(SslSession *session) {
     HttpSession *h_session = dynamic_cast<HttpSession *>(session);
+    if (dscp_value_) {
+        h_session->SetDscpSocketOption(dscp_value_);
+    }
     h_session->AcceptSession();
     return true;
 }
@@ -105,3 +112,9 @@ HttpServer::HttpHandlerFn HttpServer::GetHandler(const string &path) {
     return iter->second;
 }
 
+void HttpServer::UpdateDscp(uint8_t value) {
+    if (value == dscp_value_)
+        return;
+    dscp_value_ = value;
+    SetListenSocketDscp(value);
+}

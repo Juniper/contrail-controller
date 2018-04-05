@@ -157,6 +157,17 @@ void TcpServer::ClearSessions() {
     }
 }
 
+void TcpServer::UpdateSessionsDscp(uint8_t dscp) {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    for (SessionSet::iterator iter = session_ref_.begin(), next = iter;
+         iter != session_ref_.end(); iter = next) {
+        ++next;
+        TcpSession *session = iter->get();
+        session->SetDscpSocketOption(dscp);
+    }
+}
+
 TcpSession *TcpServer::CreateSession() {
     TcpSession *session = AllocSession(false);
     {
@@ -492,6 +503,14 @@ int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
     if (acceptor_) {
         retval = SetMd5SocketOption(acceptor_->native_handle(), peer_ip,
                                     md5_password);
+    }
+    return retval;
+}
+
+int TcpServer::SetListenSocketDscp(uint8_t value) {
+    int retval = 0;
+    if (acceptor_) {
+        retval = SetDscpSocketOption(acceptor_->native_handle(), value);
     }
     return retval;
 }
