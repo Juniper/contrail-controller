@@ -1229,8 +1229,19 @@ void MvpnProjectManager::GetMvpnSourceAddress(ErmVpnRoute *ermvpn_route,
                        addrp->to_string());
 }
 
+UpdateInfo *MvpnProjectManager::GetType4UpdateInfo(MvpnRoute *route) {
+    BgpAttrPtr attr = route->BestPath()->GetAttr();
+    UpdateInfo *uinfo = new UpdateInfo;
+    uinfo->roattr = RibOutAttr(table(), route, attr.get(), 0, false, true);
+    return uinfo;
+}
+
 UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
-    assert(route->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute);
+    assert((route->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute) ||
+            (route->GetPrefix().type() == MvpnPrefix::LeafADRoute));
+
+    if (route->GetPrefix().type() == MvpnPrefix::LeafADRoute)
+        return GetType4UpdateInfo(route);
     MvpnStatePtr state = GetState(route);
 
     // If there is no imported leaf-ad route, then essentially there is no
