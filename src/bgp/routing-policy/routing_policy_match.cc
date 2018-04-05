@@ -295,7 +295,8 @@ static const vector<MatchProtocol::MatchProtocolType>
     isSubprotocol = boost::assign::list_of(MatchProtocol::Interface)
                                           (MatchProtocol::InterfaceStatic)
                                           (MatchProtocol::ServiceInterface)
-                                          (MatchProtocol::BGPaaS);
+                                          (MatchProtocol::BGPaaS)
+                                          (MatchProtocol::StaticRoute);
 
 static bool IsSubprotocol(MatchProtocol::MatchProtocolType protocol) {
     return (find(isSubprotocol.begin(), isSubprotocol.end(), protocol) !=

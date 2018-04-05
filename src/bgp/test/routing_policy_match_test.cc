@@ -914,7 +914,14 @@ TEST_F(MatchProtocolTest, Match1) {
     EXPECT_FALSE(match.Match(NULL, &path2, NULL));
 
     BgpPath path3(BgpPath::StaticRoute, attr);
-    EXPECT_TRUE(match.Match(NULL, &path3, NULL));
+    EXPECT_FALSE(match.Match(NULL, &path3, attr.get()));
+
+    BgpAttrSubProtocol sbp("static");
+    BgpAttrSpec spec;
+    spec.push_back(&sbp);
+    BgpAttrPtr static_attr = attr_db_->Locate(spec);
+    BgpPath static_path3(BgpPath::StaticRoute, static_attr);
+    EXPECT_TRUE(match.Match(NULL, &static_path3, static_attr.get()));
 
     BgpPath path4(BgpPath::ServiceChain, attr);
     EXPECT_FALSE(match.Match(NULL, &path4, NULL));
@@ -936,8 +943,12 @@ TEST_F(MatchProtocolTest, Match2) {
     BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr, 0, 0);
     EXPECT_TRUE(match.Match(NULL, &path2, NULL));
 
-    BgpPath path3(BgpPath::StaticRoute, attr);
-    EXPECT_FALSE(match.Match(NULL, &path3, NULL));
+    BgpAttrSubProtocol sbp("static");
+    BgpAttrSpec spec;
+    spec.push_back(&sbp);
+    BgpAttrPtr static_attr = attr_db_->Locate(spec);
+    BgpPath path3(BgpPath::StaticRoute, static_attr);
+    EXPECT_FALSE(match.Match(NULL, &path3, static_attr.get()));
 
     BgpPath path4(BgpPath::ServiceChain, attr);
     EXPECT_TRUE(match.Match(NULL, &path4, NULL));
@@ -961,9 +972,6 @@ TEST_F(MatchProtocolTest, Match2_WithSubprotocol) {
     PeerMock peer2(true, "20.1.1.1");
     BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr, 0, 0);
     EXPECT_TRUE(match.Match(NULL, &path2, attr.get()));
-
-    BgpPath path3(BgpPath::StaticRoute, attr);
-    EXPECT_TRUE(match.Match(NULL, &path3, attr.get()));
 
     BgpPath path4(BgpPath::ServiceChain, attr);
     EXPECT_TRUE(match.Match(NULL, &path4, attr.get()));

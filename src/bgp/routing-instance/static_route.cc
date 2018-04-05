@@ -522,6 +522,10 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
             }
         }
 
+        // Populate SubProtocol for StaticRoute.
+        new_attr =
+            attr_db->ReplaceSubProtocolAndLocate(new_attr.get(), "static");
+
         BgpPath *new_path =
             new BgpPath(path_id, BgpPath::StaticRoute, new_attr.get(),
                 nexthop_route_path->GetFlags(), nexthop_route_path->GetLabel());
