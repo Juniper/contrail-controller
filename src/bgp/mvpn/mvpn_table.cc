@@ -316,6 +316,15 @@ MvpnPrefix MvpnTable::CreateType3SPMSIRoutePrefix(const MvpnRoute *type7_rt) {
     return prefix;
 }
 
+MvpnPrefix MvpnTable::CreateType7PrefixFromType4(MvpnRoute *rt) const {
+    const RouteDistinguisher rd =  RouteDistinguisher::kZeroRd;
+    Ip4Address source = rt->GetPrefix().source();
+    Ip4Address group = rt->GetPrefix().group();
+    MvpnPrefix prefix(MvpnPrefix::SourceTreeJoinRoute, rd,
+                      0, group, source);
+    return prefix;
+}
+
 MvpnPrefix MvpnTable::CreateType7SourceTreeJoinRoutePrefix(
         MvpnRoute *rt) const {
     // get the source-rd from attributes as we store type-5 route with zero-rd
@@ -370,7 +379,11 @@ MvpnRoute *MvpnTable::FindType1ADRoute() {
 }
 
 const MvpnRoute *MvpnTable::FindType7SourceTreeJoinRoute(MvpnRoute *rt) const {
-    MvpnPrefix prefix = CreateType7SourceTreeJoinRoutePrefix(rt);
+    MvpnPrefix prefix;
+    if (rt->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute)
+        prefix = CreateType7SourceTreeJoinRoutePrefix(rt);
+    if (rt->GetPrefix().type() == MvpnPrefix::LeafADRoute)
+        prefix = CreateType7PrefixFromType4(rt);
     return FindRoute(prefix);
 }
 
@@ -599,9 +612,24 @@ bool MvpnTable::Export(RibOut *ribout, Route *route,
     return true;
 }
 
+void MvpnTable::GetPeerSet(RibOut *ribout, MvpnRoute *route,
+        const RibPeerSet &peerset, RibPeerSet &new_peerset) {
+    RibOut::PeerIterator iter(ribout, peerset);
+    while (iter.HasNext()) {
+        int current_index = iter.index();
+        IPeer *peer = dynamic_cast<IPeer *>(iter.Next());
+        assert(peer);
+        if (peer == route->BestPath()->GetPeer()) {
+            new_peerset.set(current_index);
+            break;
+        }
+    }
+}
+
 UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
     const RibPeerSet &peerset) {
-    if (route->GetPrefix().type() != MvpnPrefix::SourceActiveADRoute)
+    if ((route->GetPrefix().type() != MvpnPrefix::SourceActiveADRoute) &&
+        (route->GetPrefix().type() != MvpnPrefix::LeafADRoute))
         return NULL;
     if (!route->IsUsable())
         return NULL;
@@ -618,18 +646,18 @@ UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
     }
 
     RibPeerSet new_peerset;
-    RibOut::PeerIterator iter(ribout, peerset);
-    while (iter.HasNext()) {
-        int current_index = iter.index();
-        IPeer *peer = dynamic_cast<IPeer *>(iter.Next());
-        assert(peer);
-        if (peer == route->BestPath()->GetPeer()) {
-            new_peerset.set(current_index);
-            break;
+    if (route->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute) {
+        GetPeerSet(ribout, route, peerset, new_peerset);
+    } else {
+        const MvpnRoute* type7_rt = FindType7SourceTreeJoinRoute(route);
+        if (type7_rt) {
+            GetPeerSet(ribout, const_cast<MvpnRoute *>(type7_rt), peerset,
+                       new_peerset);
         }
     }
 
     if (new_peerset.empty())
+        //new_peerset.set(0);
         return NULL;
 
     UpdateInfo *uinfo = pm->GetUpdateInfo(route);
