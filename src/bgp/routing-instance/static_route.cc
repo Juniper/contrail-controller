@@ -23,6 +23,7 @@
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/static_route_types.h"
+#include "bgp/routing-policy/routing_policy_match.h"
 #include "net/community_type.h"
 
 using boost::assign::list_of;
@@ -521,6 +522,10 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
                 continue;
             }
         }
+
+        // Populate SubProtocol for StaticRoute.
+        new_attr = attr_db->ReplaceSubProtocolAndLocate(new_attr.get(),
+                    MatchProtocolToString(MatchProtocol::StaticRoute));
 
         BgpPath *new_path =
             new BgpPath(path_id, BgpPath::StaticRoute, new_attr.get(),
