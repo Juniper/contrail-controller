@@ -6,6 +6,10 @@ gevent.monkey.patch_all()  # noqa
 import logging
 
 from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common.exceptions import BadRequest
+from vnc_api.vnc_api import GlobalSystemConfig
+from vnc_api.vnc_api import RouteTargetList
+from vnc_api.vnc_api import VirtualNetwork
 
 from tests import test_case
 from vnc_cfg_api_server.vnc_cfg_types import RouteTargetServer
@@ -47,7 +51,7 @@ class TestRouteTarget(test_case.ApiServerTestCase):
             (['target', '1', 1], True, (1, 1)),
         ]
         for rt_name, expected_succeed, expected_result in tested_values:
-            succeed, result = RouteTargetServer._parse_route_target_name(
+            succeed, result = RouteTargetServer.parse_route_target_name(
                 rt_name)
             if expected_succeed:
                 if not succeed:
@@ -55,3 +59,22 @@ class TestRouteTarget(test_case.ApiServerTestCase):
                 self.assertEqual(result, expected_result)
             if not expected_succeed and succeed:
                 self.fail("Succeed to parse route target '%s'" % rt_name)
+
+    def test_create_vn_with_configured_rt_in_system_range(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        vn = VirtualNetwork('%s-vn' % self.id())
+        rt_name = 'target:%d:%d' % (gsc.autonomous_system,
+                                    BGP_RTGT_MIN_ID + 1000)
+        vn.set_route_target_list(RouteTargetList([rt_name]))
+
+        self.assertRaises(BadRequest, self.api.virtual_network_create, vn)
+
+    def test_update_vn_with_configured_rt_in_system_range(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        vn = VirtualNetwork('%s-vn' % self.id())
+        self.api.virtual_network_create(vn)
+
+        rt_name = 'target:%d:%d' % (gsc.autonomous_system,
+                                    BGP_RTGT_MIN_ID + 1000)
+        vn.set_route_target_list(RouteTargetList([rt_name]))
+        self.assertRaises(BadRequest, self.api.virtual_network_update, vn)
