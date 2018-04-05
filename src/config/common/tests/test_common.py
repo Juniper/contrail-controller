@@ -348,7 +348,7 @@ def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port, **ex
     args_str += "--cluster_id %s " % (cluster_id)
     args_str += "--api_server_ip %s " % (api_server_ip)
     args_str += "--api_server_port %s " % (api_server_port)
-    args_str += "--http_server_port %s " % (get_free_port())
+    args_str += "--http_server_port %s " % (get_free_port(allocated_sockets))
     args_str += "--cassandra_server_list 0.0.0.0:9160 "
     args_str += "--log_local "
     args_str += "--log_file svc_monitor_%s.log " %(test_id)
@@ -386,12 +386,13 @@ def reinit_schema_transformer():
 
 def launch_schema_transformer(cluster_id, test_id, api_server_ip,
         api_server_port, extra_args=None):
+    allocated_sockets = []
     wait_for_schema_transformer_down()
     args_str = ""
     args_str = args_str + "--cluster_id %s " % (cluster_id)
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
-    args_str = args_str + "--http_server_port %s " % (get_free_port())
+    args_str = args_str + "--http_server_port %s " % (get_free_port(allocated_sockets))
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file schema_transformer_%s.log " %(test_id)
@@ -403,11 +404,12 @@ def launch_schema_transformer(cluster_id, test_id, api_server_ip,
 
 def launch_device_manager(test_id, api_server_ip, api_server_port):
     wait_for_device_manager_down()
+    allocated_sockets = []
     args_str = ""
     args_str = args_str + "--cluster_id %s " % (test_id)
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
-    args_str = args_str + "--http_server_port %s " % (get_free_port())
+    args_str = args_str + "--http_server_port %s " % (get_free_port(allocated_sockets))
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file device_manager_%s.log " %(test_id)
