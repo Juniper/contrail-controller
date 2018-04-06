@@ -21,7 +21,7 @@ class BgpProvisioner(object):
 
     def __init__(self, user, password, tenant, api_server_ip, api_server_port,
                  api_server_use_ssl=False, use_admin_api=False,
-                 sub_cluster_name=None):
+                 sub_cluster_name=None, peer_list=[]):
         self._admin_user = user
         self._admin_password = password
         self._admin_tenant_name = tenant
@@ -29,6 +29,7 @@ class BgpProvisioner(object):
         self._api_server_port = api_server_port
         self._api_server_use_ssl = api_server_use_ssl
         self._sub_cluster_name = sub_cluster_name
+        self._peer_list = peer_list
         self._vnc_lib = VncApiAdmin(
             use_admin_api, self._admin_user, self._admin_password,
             self._admin_tenant_name,
@@ -89,19 +90,19 @@ class BgpProvisioner(object):
         bgp_router_obj = BgpRouter(router_name, rt_inst_obj,
                                    bgp_router_parameters=router_params)
         bgp_router_fq_name = bgp_router_obj.get_fq_name()
+        peer_list = self._peer_list
+        fqname_peer_list = []
+        for peer in peer_list:
+            peer_router_obj = BgpRouter(peer, rt_inst_obj)
+            try:
+                vnc_lib.bgp_router_create(peer_router_obj)
+            except RefsExistError as e:
+                pass
+            finally:
+                fqname_peer_list.append(peer_router_obj.get_fq_name())
         try:
             # full-mesh with existing bgp routers
-            if not self._sub_cluster_name:
-                fq_name = rt_inst_obj.get_fq_name()
-                bgp_other_objs = vnc_lib.bgp_routers_list(
-                                                      parent_fq_name=fq_name,
-                                                      detail=True)
-                bgp_router_names = [bgp_obj.fq_name
-                   for bgp_obj in bgp_other_objs
-                           if bgp_obj.get_sub_cluster_refs() == None]
-                bgp_router_obj.set_bgp_router_list(bgp_router_names,
-                                      [bgp_peering_attrs]*len(bgp_router_names))
-            else:
+            if self._sub_cluster_name:
                 sub_cluster_obj = SubCluster(self._sub_cluster_name)
                 try:
                     sub_cluster_obj = self._vnc_lib.sub_cluster_read(
@@ -109,28 +110,22 @@ class BgpProvisioner(object):
                 except NoIdError:
                     raise RuntimeError("Sub cluster to be provisioned first")
                 bgp_router_obj.add_sub_cluster(sub_cluster_obj)
-                refs = sub_cluster_obj.get_bgp_router_back_refs()
-                if refs:
-                    bgp_router_names = [ref['to']
-                          for ref in refs if ref['uuid'] != bgp_router_obj.uuid]
-                    bgp_router_obj.set_bgp_router_list(bgp_router_names,
-                                     [bgp_peering_attrs]*len(bgp_router_names))
+            if len(fqname_peer_list):
+                bgp_router_obj.set_bgp_router_list(fqname_peer_list,
+                    [bgp_peering_attrs]*len(fqname_peer_list))
             vnc_lib.bgp_router_create(bgp_router_obj)
         except RefsExistError as e:
             print ("BGP Router " + pformat(bgp_router_fq_name) +
                    " already exists " + str(e))
-        if md5 or local_asn:
-            cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
-        changed = False
+        cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
+        cur_obj.set_bgp_router_parameters(router_params)
         if md5:
-            changed = True
             md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
             rparams = cur_obj.bgp_router_parameters
             rparams.set_auth_data(md5)
             cur_obj.set_bgp_router_parameters(rparams)
 
         if local_asn:
-            changed = True
             local_asn = int(local_asn)
             if local_asn <= 0 or local_asn > 65535:
                 raise argparse.ArgumentTypeError("local_asn %s must be in range (1..65535)" % local_asn)
@@ -138,8 +133,10 @@ class BgpProvisioner(object):
             rparams.set_local_autonomous_system(local_asn)
             cur_obj.set_bgp_router_parameters(rparams)
 
-        if changed:
-            vnc_lib.bgp_router_update(cur_obj)
+        if len(fqname_peer_list):
+            cur_obj.set_bgp_router_list(fqname_peer_list,
+                    [bgp_peering_attrs]*len(fqname_peer_list))
+        vnc_lib.bgp_router_update(cur_obj)
 
     # end add_bgp_router
 
