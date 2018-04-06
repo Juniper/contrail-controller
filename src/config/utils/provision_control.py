@@ -18,7 +18,10 @@ class ControlProvisioner(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
-
+        if self._args.peer_list:
+            peer_list = self._args.peer_list.split(',')
+        else:
+            peer_list = []
         if self._args.router_asn and not self._args.oper:
             self._vnc_lib = VncApiAdmin(
             self._args.use_admin_api,
@@ -58,7 +61,8 @@ class ControlProvisioner(object):
             self._args.api_server_ip, self._args.api_server_port,
             api_server_use_ssl=self._args.api_server_use_ssl,
             use_admin_api=self._args.use_admin_api,
-            sub_cluster_name=self._args.sub_cluster_name)
+            sub_cluster_name=self._args.sub_cluster_name,
+            peer_list=peer_list)
         if self._args.oper == 'add':
             if self._args.sub_cluster_name:
                 bp_obj.add_bgp_router('external-control-node',
@@ -145,6 +149,7 @@ class ControlProvisioner(object):
             'graceful_restart_enable': False,
             'set_graceful_restart_parameters': False,
             'sub_cluster_name': None,
+            'peer_list':None,
         }
 
         if args.conf_file:
@@ -224,6 +229,9 @@ class ControlProvisioner(object):
                             help="Set Graceful Restart Parameters")
         parser.add_argument(
             "--sub_cluster_name", help="sub cluster to associate to",
+            required=False)
+        parser.add_argument(
+            "--peer_list", help="list of control node names to peer",
             required=False)
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
