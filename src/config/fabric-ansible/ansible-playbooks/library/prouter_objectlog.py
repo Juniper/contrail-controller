@@ -9,7 +9,7 @@ This file contains implementation of passing attributes for prouter
 objectlog to callbacks
 configuration manager
 """
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 
 DOCUMENTATION = '''
@@ -48,7 +48,7 @@ EXAMPLES = '''
 
 
 def main():
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             name=dict(required=True, type=list, ),
             os_version=dict(required=False, type=str),
