@@ -4,7 +4,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 __metaclass__ = type
 
@@ -78,7 +78,7 @@ def find_vendor_family(module):
 
 
 def main():
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             oid=dict(required=True),
             host=dict(required=True),
