@@ -37,7 +37,7 @@ static void AddFabricFloatingIp(Agent *agent, VmInterfaceConfigData *data,
         (VmInterface::FloatingIp(agent->router_id(),
                                  agent->fabric_policy_vrf_name(),
                                  agent->fabric_vn_uuid(), src_ip,
-                                 VmInterface::FloatingIp::DIRECTION_BOTH,
+                                 VmInterface::FloatingIp::DIRECTION_EGRESS,
                                  false, src_port_map, dst_port_map, true));
 }
 
