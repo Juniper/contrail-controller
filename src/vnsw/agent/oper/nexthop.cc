@@ -2852,6 +2852,7 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
 void NextHop::SetNHSandeshData(NhSandeshData &data) const {
     data.set_nh_index(id());
     data.set_vxlan_flag(false);
+    data.set_intf_flags(0);
     switch (type_) {
         case DISCARD:
             data.set_type("discard");
@@ -2913,6 +2914,8 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             else
                 data.set_mcast("disabled");
             data.set_layer2_control_word(itf->layer2_control_word());
+            data.set_vxlan_flag(itf->IsVxlanRouting());
+            data.set_intf_flags(itf->GetFlags());
             break;
         }
         case TUNNEL: {

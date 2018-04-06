@@ -633,6 +633,11 @@ void VxlanRoutingManager::UpdateEvpnType5Route(Agent *agent,
                               inet_rt->addr(),
                               routing_vrf->vxlan_id(),
                               new EvpnRoutingData(nh_req,
+                                                  path->sg_list(),
+                                                  path->communities(),
+                                                  path->path_preference(),
+                                                  path->ecmp_load_balance(),
+                                                  path->tag_list(),
                                                   routing_vrf));
 }
 
@@ -696,10 +701,16 @@ bool VxlanRoutingManager::EvpnType5RouteNotify(DBTablePartBase *partition,
                      (evpn_rt->GetActiveNextHop()->GetDBRequestKey().get()))->
                      Clone());
     nh_req.data.reset(new InterfaceNHData(vrf->GetName()));
+    const AgentPath *p = evpn_rt->GetActivePath();
     inet_table->AddEvpnRoutingRoute(evpn_rt->ip_addr(),
                                     evpn_rt->GetVmIpPlen(),
                                     vrf,
                                     agent_->evpn_routing_peer(),
+                                    p->sg_list(),
+                                    p->communities(),
+                                    p->path_preference(),
+                                    p->ecmp_load_balance(),
+                                    p->tag_list(),
                                     nh_req);
     return true;
 }
@@ -732,7 +743,13 @@ void VxlanRoutingManager::DeleteInetRoute(DBTablePartBase *partition,
     inet_table->Delete(agent_->evpn_routing_peer(),
                        bridge_vrf->GetName(), ip_addr,
                        evpn_rt->GetVmIpPlen(),
-                       new EvpnRoutingData(nh_req, NULL));
+                       new EvpnRoutingData(nh_req,
+                                           SecurityGroupList(),
+                                           CommunityList(),
+                                           PathPreference(),
+                                           EcmpLoadBalance(),
+                                           TagList(),
+                                           NULL));
 }
 
 void VxlanRoutingManager::UpdateInetRoute(DBTablePartBase *partition,
@@ -740,6 +757,7 @@ void VxlanRoutingManager::UpdateInetRoute(DBTablePartBase *partition,
                                           const VrfEntry *routing_vrf) {
     EvpnRouteEntry *evpn_rt = dynamic_cast<EvpnRouteEntry *>(e);
     VrfEntry *bridge_vrf = evpn_rt->vrf();
+    const AgentPath *p = evpn_rt->GetActivePath();
 
     //Add Inet route to point to table NH in l2 vrf inet
     InetUnicastAgentRouteTable *inet_table =
@@ -751,6 +769,11 @@ void VxlanRoutingManager::UpdateInetRoute(DBTablePartBase *partition,
                                     evpn_rt->GetVmIpPlen(),
                                     routing_vrf,
                                     agent_->evpn_routing_peer(),
+                                    p->sg_list(),
+                                    p->communities(),
+                                    p->path_preference(),
+                                    p->ecmp_load_balance(),
+                                    p->tag_list(),
                                     nh_req);
 }
 
@@ -847,6 +870,11 @@ void VxlanRoutingManager::UpdateDefaultRoute(const VrfEntry *bridge_vrf,
     bridge_vrf->GetInet4UnicastRouteTable()->
         AddEvpnRoutingRoute(Ip4Address(), 0, routing_vrf,
                             agent_->evpn_routing_peer(),
+                            SecurityGroupList(),
+                            CommunityList(),
+                            PathPreference(),
+                            EcmpLoadBalance(),
+                            TagList(),
                             v4_nh_req);
     DBRequest v6_nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     v6_nh_req.key.reset(new VrfNHKey(routing_vrf->GetName(), false, false));
@@ -854,6 +882,11 @@ void VxlanRoutingManager::UpdateDefaultRoute(const VrfEntry *bridge_vrf,
     bridge_vrf->GetInet6UnicastRouteTable()->
         AddEvpnRoutingRoute(Ip6Address(), 0, routing_vrf,
                             agent_->evpn_routing_peer(),
+                            SecurityGroupList(),
+                            CommunityList(),
+                            PathPreference(),
+                            EcmpLoadBalance(),
+                            TagList(),
                             v6_nh_req);
 }
 
