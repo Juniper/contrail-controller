@@ -99,8 +99,8 @@ void NextHopTable::FreeInterfaceId(size_t index) {
         agent()->resource_manager()->ReleaseIndex(Resource::NEXTHOP_INDEX, index);
     } else {
         agent()->resource_manager()->Release(Resource::NEXTHOP_INDEX, index);
-        index_table_.Remove(index);
     }
+    index_table_.Remove(index);
 }
 
 void NextHop::SetKey(const DBRequestKey *key) {
@@ -329,26 +329,19 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
         ComponentNHKeyList::const_iterator it =
             cnh->component_nh_key_list().begin();
         for (;it != cnh->component_nh_key_list().end(); it++) {
+            cnhid_label_map cnh_label = {0};
             if ((*it) != NULL) {
                 CompositeNHKey *composite_nh_key =
                     static_cast<CompositeNHKey *>((*it)->nh_key()->Clone());
                 const NextHop *nexthop = static_cast<const NextHop *>
                     (NextHopTable::GetInstance()->FindActiveEntry(composite_nh_key));
-                cnhid_label_map cnh_label;
                 if (nexthop) {
                     cnh_label.nh_id = nexthop->id();
                     cnh_label.label = (*it)->label();
-                    nh_ids.push_back(cnh_label);
-                }
-                else {
-                    cnh_label.nh_id = 0;
-                    cnh_label.label = 0;
-                    nh_ids.push_back(cnh_label);
                 }
                 delete composite_nh_key;
-            } else {
-                continue;
             }
+            nh_ids.push_back(cnh_label);
         }
         ResourceManager::KeyPtr rkey(new NHIndexResourceKey
                                      (agent()->resource_manager(),
