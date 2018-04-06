@@ -56,19 +56,26 @@ private:
 
 class VxLanIdData : public AgentData {
 public:
-    VxLanIdData(const string &vrf_name, DBRequest &req, bool mirror_destination) :
+    VxLanIdData(const string &vrf_name,
+                DBRequest &req,
+                bool mirror_destination,
+                bool bridge) :
         vrf_name_(vrf_name) {
             nh_req_.Swap(&req);
             mirror_destination_ = mirror_destination;
+            bridge_ = bridge;
         };
     virtual ~VxLanIdData() { };
     string &vrf_name() {return vrf_name_;}
     DBRequest &nh_req() {return nh_req_;}
     bool mirror_destination() const {return mirror_destination_;}
+    bool bridge() const {return bridge_;}
+
 private:
     string vrf_name_;
     DBRequest nh_req_;
     bool mirror_destination_;
+    bool bridge_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -116,9 +123,10 @@ public:
 
     struct ConfigEntry {
         ConfigEntry(const std::string &vrf, bool flood_unknown_unicast,
-                    bool active, bool mirror_destination) :
+                    bool active, bool mirror_destination, bool bridge) :
             vrf_(vrf), flood_unknown_unicast_(flood_unknown_unicast),
-            active_(active), mirror_destination_(mirror_destination) {
+            active_(active), mirror_destination_(mirror_destination),
+            learning_enabled_(false), bridge_(bridge) {
         }
 
         std::string vrf_;
@@ -126,6 +134,7 @@ public:
         bool active_;
         bool mirror_destination_;
         bool learning_enabled_;
+        bool bridge_;
     };
     typedef std::map<ConfigKey, ConfigEntry, ConfigKey> ConfigTree;
     typedef std::map<uint32_t, ComponentNHKeyList>VxlanCompositeNHList;
@@ -149,14 +158,15 @@ public:
 
     void Create(uint32_t vxlan_id, const std::string &vrf_name,
                 bool flood_unknown_unicast, bool mirror_destination,
-                bool learning_enabled);
+                bool learning_enabled, bool bridge);
     void Delete(uint32_t vxlan_id);
 
     VxLanId *Find(uint32_t vxlan_id);
     VxLanId *FindNoLock(uint32_t vxlan_id);
     VxLanId *Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
                     const std::string &vrf, bool flood_unknown_unicast,
-                    bool mirror_destination, bool learning_enabled);
+                    bool mirror_destination, bool learning_enabled,
+                    bool bridge);
     VxLanId *Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn);
     const ConfigTree &config_tree() const { return config_tree_; }
     static DBTableBase *CreateTable(DB *db, const std::string &name);

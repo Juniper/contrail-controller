@@ -468,6 +468,8 @@ std::string NHKSyncEntry::ToString() const {
     case NextHop::TUNNEL: {
         s << "Tunnel to ";
         s << dip_.to_string();
+        s << "rewrite_dmac";
+        s << rewrite_dmac_.ToString();
         break;
     }
     case NextHop::MIRROR: {
@@ -888,8 +890,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_dip(0);
             if (is_vxlan_routing_) {
                 //Set vxlan routing flag
-                //TODO enable it once vrouter changes are in
-                //flags |= NH_FLAG_L3_VXLAN;
+                flags |= NH_FLAG_L3_VXLAN;
             }
             if (is_bridge_) {
                 encoder.set_nhr_family(AF_BRIDGE);
@@ -936,13 +937,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }
             std::vector<int8_t> rewrite_dmac;
-            for (size_t i = 0 ; i < dmac_.size(); i++) {
+            for (size_t i = 0 ; i < rewrite_dmac_.size(); i++) {
                 rewrite_dmac.push_back(rewrite_dmac_[i]);
             }
             encoder.set_nhr_pbb_mac(rewrite_dmac);
             if (rewrite_dmac_.IsZero() == false) {
-                //TODO enable it once vrouter changes are in
-                //flags |= NH_FLAG_L3_VXLAN;
+                flags |= NH_FLAG_L3_VXLAN;
             }
             break;
         }
@@ -1194,6 +1194,7 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
             info.set_crypt_intf_name("NULL");
             info.set_crypt_out_if_index(kInvalidIndex);
         }
+        info.set_rewrite_dmac(rewrite_dmac_.ToString());
         break;
     }
 
