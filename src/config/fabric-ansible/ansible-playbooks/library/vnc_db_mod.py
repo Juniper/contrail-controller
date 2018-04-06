@@ -169,7 +169,7 @@ from cfgm_common.exceptions import (
     ServiceUnavailableError,
     AuthFailed,
     ResourceExhaustionError)
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 import logging
 
 
@@ -492,7 +492,7 @@ class VncMod(object):
 
 def main():
     # Create the module instance
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             object_type=dict(
                 required=True,

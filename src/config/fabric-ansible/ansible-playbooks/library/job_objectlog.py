@@ -8,6 +8,7 @@
 This file contains implementation of creating JOB objectlogs
 via sandesh
 """
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 DOCUMENTATION = '''
 ---
@@ -54,7 +55,7 @@ from ansible.module_utils.sandesh_log_utils import send_job_object_log
 
 
 def main():
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             job_ctx=dict(required=True, type=dict),
             message=dict(required=True, type=str),
