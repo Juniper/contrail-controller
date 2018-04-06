@@ -320,7 +320,7 @@ bool VnEntry::UpdateVxlan(Agent *agent, bool op_del) {
     if (op_del == false && vrf_.get() != NULL && new_vxlan != 0) {
         vxlan_id_ref_ = agent->vxlan_table()->Locate
             (new_vxlan, uuid_, vrf_->GetName(), flood_unknown_unicast_,
-             mirror_destination_, false);
+             mirror_destination_, false, true);
         active_vxlan_id_ = new_vxlan;
     }
 

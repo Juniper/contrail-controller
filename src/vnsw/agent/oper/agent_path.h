@@ -1065,6 +1065,11 @@ private:
 class EvpnRoutingData : public AgentRouteData {
 public:
     EvpnRoutingData(DBRequest &nh_req,
+                    const SecurityGroupList &sg_list,
+                    const CommunityList &communities,
+                    const PathPreference &path_preference,
+                    const EcmpLoadBalance &ecmp_load_balance,
+                    const TagList &tag_list,
                     VrfEntryConstRef vrf_entry);
     virtual ~EvpnRoutingData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
@@ -1079,6 +1084,11 @@ public:
 
 private:
     DBRequest nh_req_;
+    const SecurityGroupList sg_list_;
+    const CommunityList communities_;
+    const PathPreference path_preference_;
+    const EcmpLoadBalance ecmp_load_balance_;
+    const TagList tag_list_;
     VrfEntryConstRef routing_vrf_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRoutingData);
 };
