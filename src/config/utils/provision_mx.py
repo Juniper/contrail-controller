@@ -17,12 +17,17 @@ class MxProvisioner(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
+        if self._args.peer_list:
+            peer_list = self._args.peer_list.split(',')
+        else:
+            peer_list = []
 
         bp_obj = BgpProvisioner(
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name, self._args.api_server_ip,
             self._args.api_server_port, self._args.api_server_use_ssl,
-            self._args.use_admin_api)
+            self._args.use_admin_api, peer_list=peer_list,
+            sub_cluster_name=self._args.sub_cluster_name)
 
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('router', self._args.router_name,
@@ -63,7 +68,9 @@ class MxProvisioner(object):
             'oper': 'add',
             'admin_user': None,
             'admin_password': None,
-            'admin_tenant_name': None
+            'admin_tenant_name': None,
+            'sub_cluster_name': None,
+            'peer_list':None,
         }
 
         if args.conf_file:
@@ -102,6 +109,12 @@ class MxProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
+        parser.add_argument(
+            "--sub_cluster_name", help="sub cluster to associate to",
+            required=False)
+        parser.add_argument(
+            "--peer_list", help="list of control node names to peer",
+            required=False)
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
             "--api_server_ip", help="IP address of api server",
