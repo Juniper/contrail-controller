@@ -295,15 +295,15 @@ static const vector<MatchProtocol::MatchProtocolType>
     isSubprotocol = boost::assign::list_of(MatchProtocol::Interface)
                                           (MatchProtocol::InterfaceStatic)
                                           (MatchProtocol::ServiceInterface)
-                                          (MatchProtocol::BGPaaS);
+                                          (MatchProtocol::BGPaaS)
+                                          (MatchProtocol::StaticRoute);
 
 static bool IsSubprotocol(MatchProtocol::MatchProtocolType protocol) {
     return (find(isSubprotocol.begin(), isSubprotocol.end(), protocol) !=
             isSubprotocol.end());
 }
 
-static const string MatchProtocolToString(
-                              MatchProtocol::MatchProtocolType protocol) {
+const string MatchProtocolToString(MatchProtocol::MatchProtocolType protocol) {
     map<MatchProtocol::MatchProtocolType, string>::const_iterator it =
         toString.find(protocol);
     if (it != toString.end()) {
