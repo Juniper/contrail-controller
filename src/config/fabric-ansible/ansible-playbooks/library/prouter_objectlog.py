@@ -8,6 +8,7 @@
 This file contains implementation of creating PROUTER objectlog
 via sandesh
 """
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 DOCUMENTATION = '''
 ---
@@ -60,8 +61,7 @@ from ansible.module_utils.sandesh_log_utils import send_prouter_object_log
 
 
 def main():
-
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             prouter_fqname=dict(required=True, type=list),
             job_ctx=dict(required=True, type=dict),
