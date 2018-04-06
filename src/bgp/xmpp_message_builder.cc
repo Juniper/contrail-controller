@@ -466,7 +466,7 @@ bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
 }
 
 void BgpXmppMessage::AddMvpnReach(const BgpRoute *route,
-                                   const RibOutAttr *roattr) {
+                                  const RibOutAttr *roattr) {
     Address::Family family = table_->family();
     autogen::MvpnItemType item;
     item.entry.nlri.af = BgpAf::FamilyToAfi(family);
@@ -477,17 +477,20 @@ void BgpXmppMessage::AddMvpnReach(const BgpRoute *route,
     item.entry.nlri.group = mvpn_route->GetPrefix().group().to_string();
     item.entry.nlri.source =  mvpn_route->GetPrefix().source().to_string();
     item.entry.nlri.route_type = mvpn_route->GetPrefix().type();
-    assert(item.entry.nlri.route_type == MvpnPrefix::SourceActiveADRoute);
+    assert((item.entry.nlri.route_type == MvpnPrefix::SourceActiveADRoute) ||
+            (item.entry.nlri.route_type == MvpnPrefix::LeafADRoute));
 
-    const BgpOList *olist = roattr->attr()->olist().get();
-    assert(olist->olist().subcode == BgpAttribute::OList);
-    BOOST_FOREACH(const BgpOListElem *elem, olist->elements()) {
-        autogen::MvpnNextHopType nh;
-        nh.af = BgpAf::IPv4;
-        nh.address = elem->address.to_string();
-        nh.label = elem->label;
-        nh.tunnel_encapsulation_list.tunnel_encapsulation = elem->encap;
-        item.entry.olist.next_hop.push_back(nh);
+    if (item.entry.nlri.route_type == MvpnPrefix::SourceActiveADRoute) {
+        const BgpOList *olist = roattr->attr()->olist().get();
+        assert(olist->olist().subcode == BgpAttribute::OList);
+        BOOST_FOREACH(const BgpOListElem *elem, olist->elements()) {
+            autogen::MvpnNextHopType nh;
+            nh.af = BgpAf::IPv4;
+            nh.address = elem->address.to_string();
+            nh.label = elem->label;
+            nh.tunnel_encapsulation_list.tunnel_encapsulation = elem->encap;
+            item.entry.olist.next_hop.push_back(nh);
+        }
     }
 
     // Using remove_child instead of reset allows memory pages allocated for
