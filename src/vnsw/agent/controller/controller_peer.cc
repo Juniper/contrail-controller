@@ -906,7 +906,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
             new LocalVmRoute(intf_key,
                              MplsTable::kInvalidLabel,
                              label, false, vn_list,
-                             InterfaceNHFlags::BRIDGE,
+                             intf_nh->GetFlags(),
                              sg_list, tag_list, CommunityList(), path_preference,
                              Ip4Address(0), ecmp_load_balance, false, false,
                              sequence_number(), item->entry.etree_leaf,
@@ -917,7 +917,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                              label,
                              VxLanTable::kInvalidvxlan_id,
                              false, vn_list,
-                             InterfaceNHFlags::BRIDGE,
+                             intf_nh->GetFlags(),
                              sg_list, tag_list, CommunityList(), path_preference,
                              Ip4Address(0), ecmp_load_balance, false, false,
                              sequence_number(), item->entry.etree_leaf,
@@ -2061,8 +2061,6 @@ bool AgentXmppChannel::BuildEvpnUnicastMessage(EnetItemType &item,
     nh.label = label;
     if (evpn_route->mac().IsZero()) {
         nh.mac = agent_->vhost_interface()->mac().ToString();
-    } else {
-        nh.mac = evpn_route->mac().ToString();
     }
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
     if (active_path) {
