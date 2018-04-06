@@ -604,6 +604,7 @@ struct NhSandeshData {
    23: optional MulticastCompositeData evpn_comp;
    /** Boolean value which indicates if vxlan is associated with vrf nh */
    24: optional bool vxlan_flag;
+   34: i32 intf_flags;    
    /** Boolean value which indicates to flood unknown unicast packets for nh */
    25: optional bool flood_unknown_unicast;
    /** I-SID identifier for bridge domain */
@@ -3487,6 +3488,13 @@ struct VxlanRoutingBridgeVrf {
     2: string bridge_vn (link="VnListReq");
 }
 
+/**
+ * routing vrf - responsible for vxlan routing
+ * logical-router-uuid - Logical router responsible for this routing vrf
+ * parent_routing_vn - VN corresponding to routing vrf
+ * bridge_vrfs - list of all bridge vrf participating in routing under the
+ * mentioned routing vrf.
+ */
 struct VxlanRoutingMap {
     /** Routing vrf */
     1: string routing_vrf (link="VrfListReq");
@@ -3498,6 +3506,11 @@ struct VxlanRoutingMap {
     4: list<VxlanRoutingBridgeVrf> bridge_vrfs;
 }
 
+/**
+ * Response Message
+ * Lists all VRF participating in vxlan routing(bridge and routing vrf).
+ * Also displays the vxlan routing state in project.
+ */
 response sandesh VxlanRoutingResp {
     /** Vxlan enabled */
     1: bool enable;
