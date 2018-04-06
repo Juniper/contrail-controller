@@ -96,7 +96,6 @@ class JobHandler(object):
     def get_playbook_info(self, device_id=None):
         try:
             # get the playbook uri from the job template
-            device_family = None
             if device_id:
                 playbooks = self._job_template.get_job_template_playbooks()
                 play_info = self.find_playbook_info(device_id,
@@ -111,7 +110,6 @@ class JobHandler(object):
                           'job_template_id': self._job_template.get_uuid(),
                           'job_template_fqname': self._job_template.fq_name,
                           'device_id': device_id,
-                          'device_family': device_family,
                           'auth_token': self._auth_token,
                           'job_execution_id': self._execution_id,
                           'vendor': play_info.vendor,
@@ -128,6 +126,8 @@ class JobHandler(object):
                         device_data.get('device_password')
                     extra_vars['device_fqname'] = \
                         device_data.get('device_fqname')
+                    extra_vars['device_family'] = \
+                        device_data.get('device_family')
                     self._logger.debug("Passing the following device "
                                        "ip to playbook %s " % device_data.get(
                                         'device_management_ip'))
