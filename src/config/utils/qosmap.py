@@ -167,7 +167,6 @@ class QosmapProv(object):
             else:
                 print "Error: No tx queues found for file paths %s " % (file_path)
                 return True
-        self.replace("/etc/contrail/agent_param", "qos_enabled=", "true")
 
 # end class QosmapProv
 
