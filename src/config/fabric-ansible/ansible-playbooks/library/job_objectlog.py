@@ -8,7 +8,7 @@
 This file contains implementation of passing messages and results to callbacks
 configuration manager
 """
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 DOCUMENTATION = '''
 ---
@@ -41,7 +41,7 @@ EXAMPLES = '''
 
 
 def main():
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             message=dict(required=True),
             status=dict(required=False),
