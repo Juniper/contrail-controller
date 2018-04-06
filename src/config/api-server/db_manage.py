@@ -79,7 +79,8 @@ exceptions = ['ZkStandaloneError', 'ZkStandaloneError', 'ZkFollowersError',
               'CassRTRangeError', 'ZkRTRangeError', 'ZkIpMissingError',
               'ZkIpExtraError', 'ZkSubnetMissingError', 'ZkSubnetExtraError',
               'ZkVNMissingError', 'ZkVNExtraError', 'CassRTgtIdExtraError',
-              'CassRTgtIdMissingError', 'OrphanResourceError']
+              'CassRTgtIdMissingError', 'OrphanResourceError',
+              'ZkSubnetPathInvalid']
 for exception_class in exceptions:
     setattr(sys.modules[__name__],
             exception_class,
@@ -575,6 +576,9 @@ class DatabaseManager(object):
                 except KeyError:
                     missing_ids.add((vn_uuid, vn_fq_name_str))
                     continue
+            if not vn_id:
+                missing_ids.add((vn_uuid, vn_fq_name_str))
+                continue
             if vn_id in first_found_vn:
                 duplicate_vn_ids.setdefault(
                     vn_id, [first_found_vn[vn_id]]).append(
@@ -726,24 +730,50 @@ class DatabaseManager(object):
 
         return ret_errors
 
+    def _subnet_path_discovery(self, ret_errors, stale_zk_path):
+        subnet_paths = set([])
+
+        def deep_path_discovery(path):
+            try:
+                IPNetwork(path.split(':', 3)[-1])
+            except AddrFormatError:
+                try:
+                    suffixes = self._zk_client.get_children(path)
+                except kazoo.exceptions.NoNodeError:
+                    self._logger.debug("ZK subnet path '%s' does not exits" %
+                                       path)
+                    return
+                if not suffixes:
+                    stale_zk_path.append(path)
+                    return
+                for suffix in suffixes:
+                    deep_path_discovery('%s/%s' % (path, suffix))
+            else:
+                subnet_paths.add(path)
+
+        deep_path_discovery(self.base_subnet_zk_path)
+        return subnet_paths
+
     def audit_subnet_addr_alloc(self):
         ret_errors = []
+        stale_zk_path = []
         logger = self._logger
 
         zk_all_vns = {}
-        base_path = self.base_subnet_zk_path
-        logger.debug("Doing recursive zookeeper read from %s", base_path)
+        logger.debug("Doing recursive zookeeper read from %s",
+                     self.base_subnet_zk_path)
         num_addrs = 0
-        try:
-            subnets = self._zk_client.get_children(base_path)
-        except kazoo.exceptions.NoNodeError:
-            subnets = []
-        for subnet in subnets:
-            vn_fq_name_str = ':'.join(subnet.split(':', 3)[:-1])
-            pfx = subnet.split(':', 3)[-1]
+        for subnet_path in self._subnet_path_discovery(
+                ret_errors, stale_zk_path):
+            if subnet_path.startswith("%s/" % self.base_subnet_zk_path):
+                vn_subnet_name = subnet_path[
+                    len("%s/" % self.base_subnet_zk_path):]
+            else:
+                vn_subnet_name = subnet_path
+            vn_fq_name_str = ':'.join(vn_subnet_name.split(':', 3)[:-1])
+            pfx = vn_subnet_name.split(':', 3)[-1]
             zk_all_vns.setdefault(vn_fq_name_str, {})
-            pfxlen_path = base_path + '/' + subnet
-            pfxlens = self._zk_client.get_children(pfxlen_path)
+            pfxlens = self._zk_client.get_children(subnet_path)
             if not pfxlens:
                 zk_all_vns[vn_fq_name_str][pfx] = []
                 continue
@@ -751,12 +781,12 @@ class DatabaseManager(object):
                 subnet_key = '%s/%s' % (pfx, pfxlen)
                 zk_all_vns[vn_fq_name_str][subnet_key] = []
                 addrs = self._zk_client.get_children(
-                    '%s/%s' % (pfxlen_path, pfxlen))
+                    '%s/%s' % (subnet_path, pfxlen))
                 if not addrs:
                     continue
                 for addr in addrs:
                     iip_uuid = self._zk_client.get(
-                        pfxlen_path + '/' + pfxlen + '/' + addr)
+                        subnet_path + '/' + pfxlen + '/' + addr)
                     if iip_uuid is not None:
                         zk_all_vns[vn_fq_name_str][subnet_key].append(
                             (iip_uuid[0], str(IPAddress(int(addr)))))
@@ -795,7 +825,8 @@ class DatabaseManager(object):
         logger.debug("Got %d networks %d addresses",
                      len(cassandra_all_vns), num_addrs)
 
-        return zk_all_vns, cassandra_all_vns, duplicate_ips, ret_errors
+        return (zk_all_vns, cassandra_all_vns, duplicate_ips, ret_errors,
+                stale_zk_path)
 
     def audit_orphan_resources(self):
         errors = []
@@ -1082,8 +1113,14 @@ class DatabaseChecker(DatabaseManager):
         """Displays inconsistencies between zk and cassandra for Ip's, Subnets
         and VN's."""
         # whether ip allocated in subnet in zk match iip+fip in cassandra
-        zk_all_vns, cassandra_all_vns, duplicate_ips, ret_errors =\
-            self.audit_subnet_addr_alloc()
+        (zk_all_vns, cassandra_all_vns, duplicate_ips,
+            ret_errors, stale_zk_path) = self.audit_subnet_addr_alloc()
+
+        # check stale ZK subnet path
+        for path in stale_zk_path:
+            msg = ("ZK subnet path '%s' does ends with a valid IP network"
+                   % path)
+            ret_errors.append(ZkSubnetPathInvalid(msg))
 
         # check for differences in networks
         extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
@@ -1215,7 +1252,10 @@ class DatabaseChecker(DatabaseManager):
         extra_rtgt_ids = schema_set - api_set
         for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
             errmsg = ("Missing route target ID in API server cassandra "
-                      "keyspace for RTgt %s %s" % (rtgt_fq_name_str, rtgt_id))
+                      "keyspace for RTgt %s %s. If that error persists after "
+                      "ran 'clean' command, that script will not fix it but "
+                      "schema-transformer will do the job when it'll "
+                      "initializing)" % (rtgt_fq_name_str, rtgt_id))
             ret_errors.append(CassRTgtIdMissingError(errmsg))
 
         # read in virtual-networks from cassandra to find user allocated rtgts
@@ -1735,8 +1775,16 @@ class DatabaseCleaner(DatabaseManager):
     def clean_subnet_addr_alloc(self):
         """Removes extra VN's, subnets and IP's from zk."""
         logger = self._logger
-        zk_all_vns, cassandra_all_vns, duplicate_ips, ret_errors =\
-            self.audit_subnet_addr_alloc()
+        (zk_all_vns, cassandra_all_vns, duplicate_ips,
+            ret_errors, stale_zk_path) = self.audit_subnet_addr_alloc()
+
+        for path in stale_zk_path:
+            if not self._args.execute:
+                logger.info("Would delete zk: %s", path)
+            else:
+                logger.info("Deleting zk path: %s", path)
+                self._zk_client.delete(path, recursive=True)
+
         zk_all_vn_sn = []
         for vn_key, vn in zk_all_vns.items():
             zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
@@ -2184,7 +2232,7 @@ class DatabaseHealer(DatabaseManager):
         """ Creates missing virtaul-networks, sunbets and instance-ips
         in zk."""
         logger = self._logger
-        zk_all_vns, cassandra_all_vns, _, ret_errors =\
+        zk_all_vns, cassandra_all_vns, _, ret_errors, _ =\
             self.audit_subnet_addr_alloc()
         zk_all_vn_sn = []
         for vn_key, vn in zk_all_vns.items():
