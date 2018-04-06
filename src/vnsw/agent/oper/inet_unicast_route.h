@@ -351,6 +351,11 @@ public:
                              uint8_t plen,
                              const VrfEntry *vrf,
                              const Peer *peer,
+                             const SecurityGroupList &sg_list,
+                             const CommunityList &communities,
+                             const PathPreference &path_preference,
+                             const EcmpLoadBalance &ecmp_load_balance,
+                             const TagList &tag_list,
                              DBRequest &nh_req);
 
 private:

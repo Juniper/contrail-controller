@@ -888,8 +888,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_dip(0);
             if (is_vxlan_routing_) {
                 //Set vxlan routing flag
-                //TODO enable it once vrouter changes are in
-                //flags |= NH_FLAG_L3_VXLAN;
+                flags |= NH_FLAG_L3_VXLAN;
             }
             if (is_bridge_) {
                 encoder.set_nhr_family(AF_BRIDGE);
@@ -936,13 +935,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }
             std::vector<int8_t> rewrite_dmac;
-            for (size_t i = 0 ; i < dmac_.size(); i++) {
+            for (size_t i = 0 ; i < rewrite_dmac_.size(); i++) {
                 rewrite_dmac.push_back(rewrite_dmac_[i]);
             }
             encoder.set_nhr_pbb_mac(rewrite_dmac);
             if (rewrite_dmac_.IsZero() == false) {
-                //TODO enable it once vrouter changes are in
-                //flags |= NH_FLAG_L3_VXLAN;
+                flags |= NH_FLAG_L3_VXLAN;
             }
             break;
         }
