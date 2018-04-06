@@ -463,7 +463,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                             list_of("firewall-rule-security-logging-object"))
         ("service-group", std::set<std::string>())
         ("address-group", list_of("address-group-tag"))
-        ("project", list_of("project-tag"))
+        ("project", list_of("project-tag")
+                           ("project-logical-router"))
         ("port-tuple", list_of("service-instance-port-tuple")
                               ("port-tuple-interface"))
         ("policy-management", std::set<std::string>());
