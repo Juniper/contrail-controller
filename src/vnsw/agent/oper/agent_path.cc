@@ -1808,8 +1808,18 @@ void EvpnRoutingPath::DeleteEvpnType5Route(Agent *agent,
 }
 
 EvpnRoutingData::EvpnRoutingData(DBRequest &nh_req,
+                                 const SecurityGroupList &sg_list,
+                                 const CommunityList &communities,
+                                 const PathPreference &path_preference,
+                                 const EcmpLoadBalance &ecmp_load_balance,
+                                 const TagList &tag_list,
                                  VrfEntryConstRef vrf_entry) :
     AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    sg_list_(sg_list),
+    communities_(communities),
+    path_preference_(path_preference),
+    ecmp_load_balance_(ecmp_load_balance),
+    tag_list_(tag_list),
     routing_vrf_(vrf_entry) {
         nh_req_.Swap(&nh_req);
 }
@@ -1843,6 +1853,31 @@ bool EvpnRoutingData::AddChangePathExtended(Agent *agent,
 
     if (path->ChangeNH(agent, nh) == true) {
         ret = true;
+    }
+
+    if (sg_list_ != path->sg_list()) {
+        path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    if (communities_ != path->communities()) {
+        path->set_communities(communities_);
+        ret =true;
+    }
+
+    if (path_preference_ != path->path_preference()) {
+        path->set_path_preference(path_preference_);
+        ret = true;
+    }
+
+    if (ecmp_load_balance_ != path->ecmp_load_balance()) {
+        path->set_ecmp_load_balance(ecmp_load_balance_);
+        ret =true;
+    }
+
+    if (tag_list_ != path->tag_list()) {
+        path->set_tag_list(tag_list_);
+        ret =true;
     }
 
     path->set_tunnel_type(TunnelType::VXLAN);
