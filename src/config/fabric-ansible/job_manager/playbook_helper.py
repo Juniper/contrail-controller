@@ -11,6 +11,11 @@ import json
 from collections import namedtuple
 import traceback
 import argparse
+from ansible import constants as C
+from fabric_display import Display as FabricDisplay
+
+verbosity = C.DEFAULT_VERBOSITY or 0
+display = FabricDisplay(verbosity)
 
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
@@ -91,4 +96,3 @@ if __name__ == "__main__":
             "Exiting due playbook input parsing error: %s" % repr(e))
     playbook_helper = PlaybookHelper()
     playbook_helper.execute_playbook(playbook_input_json)
-
