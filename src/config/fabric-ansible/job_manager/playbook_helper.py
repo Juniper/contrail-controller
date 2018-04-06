@@ -11,6 +11,17 @@ import json
 from collections import namedtuple
 import traceback
 import argparse
+from ansible import constants as CONST
+from fabric_display import Display as FabricDisplay
+
+# Overrides the default display=Display() from ansible/utils/display.py.
+# FabricDisplay() customizes log message formatting
+# Note that some internal ansible code inherits "display" from __main__,
+# which is this file.
+# Also note that CONST is from ansible.cfg
+# See fabric_display for more details
+verbosity = CONST.DEFAULT_VERBOSITY or 0
+display = FabricDisplay(verbosity)
 
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
@@ -91,4 +102,3 @@ if __name__ == "__main__":
             "Exiting due playbook input parsing error: %s" % repr(e))
     playbook_helper = PlaybookHelper()
     playbook_helper.execute_playbook(playbook_input_json)
-
