@@ -102,6 +102,7 @@ public:
 private:
     PathSourceList to_match_;
 };
+const std::string MatchProtocolToString(MatchProtocol::MatchProtocolType protocol);
 
 template <typename T1, typename T2>
 struct PrefixMatchBase {
