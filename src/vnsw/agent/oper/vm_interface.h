@@ -1335,7 +1335,6 @@ public:
         return si_other_end_vmi_;
     }
     const std::string &service_intf_type() const { return service_intf_type_; }
-    const std::string &intf_route_type() const { return intf_route_type_; }
     VmInterface * PortTuplePairedInterface() const;
 
     // Static methods
@@ -1560,7 +1559,6 @@ private:
     //In case Vhost interface, uuid_ is stored here
     boost::uuids::uuid vmi_cfg_uuid_;
     std::string service_intf_type_;
-    std::string intf_route_type_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
