@@ -1,6 +1,16 @@
 ---
+    - set_fact:
+        bgp_router_name: "{{ prouter_info.name }}-bgp"
+
+    - name: Appending job log for creating the bgp router object in the database
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        message: "Create BGP router '{{ bgp_router_name }}' for physical router '{{ prouter_info.name }}' ..."
+        status: "{{ JOBLOG_STATUS.IN_PROCESS }}"
+
     - name: call vnc to create bgp-router
       vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
         object_type: "bgp_router"
         object_op: "create"
         object_dict: |
@@ -27,18 +37,11 @@
               "hold_time": 90
             }
           }
-        auth_token: "{{auth_token}}"
       register: bgp_info
-
-    - name: Error handling if create BGP router fails
-      include_tasks: error_handler.yml
-      when: "bgp_info.failed == true"
-      vars:
-        op_err_message: "{{bgp_info.msg}}"
-        jl_err_message: "Create BGP router failed: {{prouter_info.fq_name[1]}}-bgp failed."
 
     - name: call vnc to update physical-router
       vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
         object_type: "physical_router"
         object_op: "ref_update"
         object_dict: |
@@ -53,18 +56,10 @@
               "{{prouter_info.fq_name[1]}}-bgp"
             ]
           }
-        auth_token: "{{auth_token}}"
       register: ref_update_results
-
-    - name: Error handling if ref update to router fails
-      include_tasks: error_handler.yml
-      when: "ref_update_results.failed == true"
-      vars:
-        op_err_message: "{{ref_update_results.msg}}"
-        jl_err_message: "Failed to add ref to P-Router with uuid: {{prouter_info.fq_name[1]}}."
 
     - name: PR objectlog update to set onboarding state
       prouter_objectlog:
+        job_ctx: "{{ job_ctx }}"
         prouter_fqname: "{{ prouter_info.fq_name }}"
         onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
-        job_ctx: "{{ job_ctx }}"
