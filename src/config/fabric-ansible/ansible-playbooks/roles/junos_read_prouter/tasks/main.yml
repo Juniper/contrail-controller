@@ -1,49 +1,29 @@
 ---
     - name: get fabric namespaces for a tag
       vnc_db_mod:
-         object_type: "fabric"
-         object_op: "list"
-         object_dict: |
-           {
-              "back_ref_id": "{{ prouter_uuid }}"
-           }
-         auth_token: "{{ auth_token }}"
+        job_ctx: "{{ job_ctx }}"
+        object_type: "fabric"
+        object_op: "list"
+        object_dict: |
+          {
+            "back_ref_id": "{{ prouter_uuid }}"
+          }
       register: fabric_obj
 
-    - set_fact:
-        output: {
-                  "status": "Failure",
-                  "message": "{{fabric_obj.msg}}"
-                }
-      when: "'obj' not in fabric_obj or fabric_obj.failed == true"
-
-    - meta: end_play
-      when: "'obj' not in fabric_obj or fabric_obj.failed == true"
- 
     - name: get fabric uuid
       set_fact:
-          fabric_uuid: "{{ fabric_obj.obj.fabrics[0].uuid }}"
+        fabric_uuid: "{{ fabric_obj.obj.fabrics[0].uuid }}"
  
     - set_fact:
-         tag_fq_name: "label=fabric-as_number"
+        tag_fq_name: "label=fabric-as_number"
 
     - name: call vnc to read the physical-router
       vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
         object_type: "physical_router"
         object_op: "read"
         object_dict: {"uuid": "{{prouter_uuid}}" }
-        auth_token: "{{auth_token}}"
       register: prouter_details
-
-    - set_fact:
-        output: {
-                  "status": "Failure",
-                  "message": "{{prouter_details.msg}}"
-                }
-      when: "'obj' not in prouter_details or prouter_details.failed == true"
-
-    - meta: end_play
-      when: "'obj' not in prouter_details or prouter_details.failed == true"
 
     - set_fact:
         prouter_info: "{{prouter_details.obj}}"
@@ -53,4 +33,4 @@
  
     - name: get fabric info
       include_role:
-          name: fabric_namespace_read
+        name: fabric_namespace_read

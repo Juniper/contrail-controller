@@ -6,50 +6,35 @@
           credentials: "{{ credentials }}"
        register: successful_connections
 
-     - debug: var=successful_connections.job_log_message
-
      - name: list
        vnc_db_mod:
+         job_ctx: "{{ job_ctx }}"
          object_type: "physical_router"
          object_op: "list"
          object_dict: |
            {
-              "filters": {"physical_router_management_ip":"{{ item.hostname }}"}
+             "filters": {"physical_router_management_ip":"{{ item.hostname }}"}
            }
-         auth_token: "{{ auth_token }}"
-         api_server_host: "{{ api_server_host }}"
        with_items: "{{ successful_connections.ssh_success }}"
        register: PR_url
-       no_log: True
-
 
      - name: call vnc to update physical-router
        vnc_db_mod:
+         job_ctx: "{{ job_ctx }}"
+         api_server_host: "{{ api_server_host }}"
          object_type: "physical_router"
          object_op: "update"
          object_dict: |
-          {
-              "uuid": "{{ item[0].obj['physical-routers'][0].uuid }}",
-              "physical_router_user_credentials": {
-                  "username": "{{ item.1.username }}",
-                  "password": "{{ item.1.password }}"
-                  }
-          }
-         auth_token: "{{ auth_token }}"
-         api_server_host: "{{ api_server_host }}"
+           {
+             "uuid": "{{ item[0].obj['physical-routers'][0].uuid }}",
+             "physical_router_user_credentials": {
+               "username": "{{ item.1.username }}",
+               "password": "{{ item.1.password }}"
+             }
+           }
        register: physical_router_uuids
        with_together:
-           - "{{ PR_url.results }}"
-           - "{{ successful_connections.ssh_success }}"
-       #no_log: True
+         - "{{ PR_url.results }}"
+         - "{{ successful_connections.ssh_success }}"
 
      - debug: var=physical_router_uuids
-
-     - name: if vnc failed end play
-       include_tasks: error_handler.yml
-       vars:
-         op_err_message: "{{ item.msg }}"
-         results: ""
-         jl_err_message: "VNC error while creating PR Router  + {{ item.msg }}"
-       when: "item.failed == true"
-       with_items: "{{ physical_router_uuids.results }}"

@@ -1,12 +1,9 @@
 - set_fact:
     output: {
-              "status": "Failure",
-              "message": "{{op_err_message}}",
-              "results": "{{results}}"
-            }
+       "status": "Failure",
+       "message": "{{op_err_message}}",
+       "results": "{{results}}"
+    }
 
-- name: Print the output.
-  debug:
-    var: output
-
+- debug: var=output
 - meta: end_play
