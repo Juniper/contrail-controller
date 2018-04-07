@@ -23,17 +23,13 @@
 
 - name: call vnc to create predef data
   vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
     object_type: "{{object_type}}"
     object_op: "create"
     object_dict: "{{updated_obj}}"
     update_obj_if_present: False
-    api_server_host: "{{server_ip}}"
-    auth_token: "{{contr_keystone.x_subject_token}}"
   register: vnc_details
 
 - name: Read object dict response
   debug:
     var: vnc_details
-
-
-
