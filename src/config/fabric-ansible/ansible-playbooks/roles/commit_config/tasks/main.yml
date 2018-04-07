@@ -2,10 +2,20 @@
     - name: create subfolders
       include_tasks: create_subfolders.yml
 
+    # Append a job log to record the config to be deployed
     - name: Config to be deployed to device
-      debug: var=item
+      set_fact:
+        final_cfg: "{{ item }}"
       with_file:
         - "{{ conf_dir }}/final_config/combined_config.cfg"
+
+    - debug: var=final_cfg
+
+    - name: Create a job log for deploying the config
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        message: "Deploying following config to device '{{ prouter_info.display_name }}' (it may take a while)\n{{ final_cfg }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
 
     - name: Pushing config ... please wait
       junos_config:

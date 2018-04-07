@@ -47,13 +47,13 @@
       when: "commit_error_details.failed==false"
 
     - set_fact:
-          parsed_res: "Reason"
+        parsed_res: "Reason"
 
     - set_fact:
-          parsed_res: "{{ parsed_res }}; {{ item['{urn:ietf:params:xml:ns:netconf:base:1.0}error-message'] }}"
+        parsed_res: "{{ parsed_res }}; {{ item['{urn:ietf:params:xml:ns:netconf:base:1.0}error-message'] }}"
       with_items:
-          - "{{ load_error_message }}"
-          - "{{ commit_error_message }}"
+        - "{{ load_error_message }}"
+        - "{{ commit_error_message }}"
 
     - name: delete all generated configs
       file:
