@@ -342,7 +342,7 @@ class VncMod(object):
     def update_oper(self):
         results = dict()
         self.object_list = [self.object_dict]
-        res = self.bulk_create_oper()
+        res = self.bulk_update_oper()
         results['uuid'] = res['list_uuids'][0] if len(res['list_uuids']) else None
         return results
 
