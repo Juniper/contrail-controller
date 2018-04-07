@@ -11,9 +11,9 @@
 
 - name: update the dataplane ip
   vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
     object_type: "physical_router"
     object_op: "update"
-    auth_token: "{{auth_token}}"
     object_dict: |
       {
         "uuid": "{{playbook_input.device_id}}",
