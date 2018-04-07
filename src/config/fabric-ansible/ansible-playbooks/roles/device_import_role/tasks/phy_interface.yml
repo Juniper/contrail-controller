@@ -17,6 +17,7 @@
 
 - name: call vnc to create the physical-interface
   vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
     object_type: "physical_interface"
     object_op: "create"
     object_dict: |
@@ -25,22 +26,14 @@
         "fq_name": ["default-global-system-config", "{{prouter_name}}", "{{phy_interface_name}}"],
         "display_name": "{{phy_interface.name}}"
       }
-    auth_token: "{{auth_token}}"
   register: post_resp_phy
-    
-- name: Perform the necessary error handling
-  include_tasks: error_handler.yml
-  when: "post_resp_phy.failed == true"
-  vars:
-    op_err_message: "{{post_resp_phy.msg}}"
-    jl_err_message: "Creating Physical Interface Failed on {{prouter_name}}, Imported so far: PhyInterfaces: {{phy_int_count}}, LogInterfaces: {{log_int_count}}; see result for more details"
-
+ 
 - set_fact:
     phy_int_count: "{{phy_int_count | int + 1}}"
-    
+
 - set_fact:
     phy_uuid: {"physical_interface_uuid": "{{post_resp_phy.uuid}}"}
-  
+
 - set_fact:
     log_uuid_list: []
 
@@ -54,7 +47,7 @@
   when: "'logical-interface' in phy_interface"
   with_items: "{{log_interface_list}}"
 
-- set_fact: 
+- set_fact:
     log_uuids: {"logical_interface_uuids": "{{log_uuid_list}}" }
 
 - set_fact:

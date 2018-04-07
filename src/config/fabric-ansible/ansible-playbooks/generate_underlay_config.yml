@@ -5,11 +5,9 @@
   connection: local
   vars:
     input: "{{ playbook_input.input }}"
-    auth_token: "{{ playbook_input.auth_token }}"
     prouter_uuid: "{{ playbook_input.device_id}}"
     output: {"status":"", "message":"", "results":""}
     as_numbers: []
-    api_server_host: "localhost"
 
   roles:
     - Juniper.junos
