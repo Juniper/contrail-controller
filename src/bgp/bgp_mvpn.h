@@ -445,6 +445,7 @@ private:
     void AllocPartitions();
     void FreePartitions();
     void RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry);
+    UpdateInfo *GetType4UpdateInfo(MvpnRoute *route);
 
     // Parent ErmVpn table.
     ErmVpnTable *table_;

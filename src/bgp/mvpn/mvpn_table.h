@@ -77,6 +77,7 @@ public:
     MvpnPrefix CreateType1ADRoutePrefix(const Ip4Address &originator_ip);
     MvpnPrefix CreateType1ADRoutePrefix();
     MvpnPrefix CreateType7SourceTreeJoinRoutePrefix(MvpnRoute *rt) const;
+    MvpnPrefix CreateType7PrefixFromType4(MvpnRoute *rt) const;
     MvpnRoute *FindType1ADRoute(const Ip4Address &originator_ip);
     MvpnRoute *FindType1ADRoute();
     const MvpnRoute *FindType7SourceTreeJoinRoute(MvpnRoute *rt) const;
@@ -100,6 +101,8 @@ private:
     MvpnRoute *LocateRoute(const MvpnPrefix &prefix);
     UpdateInfo *GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
                                   const RibPeerSet &peerset);
+    void GetPeerSet(RibOut *ribout, MvpnRoute *route,
+                    const RibPeerSet &peerset, RibPeerSet *new_peerset);
     BgpRoute *ReplicateType7SourceTreeJoin(BgpServer *server,
         MvpnTable *src_table, MvpnRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr ext_community);
