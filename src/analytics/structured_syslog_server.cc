@@ -801,21 +801,36 @@ void StructuredSyslogUVESummarizeAppQoeSMV(SyslogParser::syslog_m_t v, bool summ
     return;
 }
 
-float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter) {
+float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter,
+                           int64_t effective_latency_threshold, int64_t latency_factor,
+                           int64_t jitter_factor, int64_t packet_loss_factor) {
+
     float effective_latency, r_factor, mos, latency_ms, jitter_ms;
     latency_ms = latency/1000;  // latency in milli secs
     jitter_ms = jitter/1000;    // jitter in milli secs
+
+    // Setting the default values for coefficients
+    if (effective_latency_threshold == 0)
+        effective_latency_threshold = 160;
+    if (latency_factor == 0)
+        latency_factor = 100;
+    if (jitter_factor == 0)
+        jitter_factor = 200;
+    if (packet_loss_factor == 0)
+        packet_loss_factor = 250;
+
+
     // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
-    effective_latency = (latency_ms + (2*jitter_ms) +10);
+    effective_latency = ((latency_ms * (latency_factor/100.0)) + ((jitter_factor/100.0)*jitter_ms) +10);
     // Step-2: Calculate Intermediate R-Value
-    if (effective_latency < 160){
+    if (effective_latency < effective_latency_threshold) {
         r_factor = 93.2 - (effective_latency/40);
     }
     else {
         r_factor = 93.2 - (effective_latency -120)/10;
     }
     // Step-3: Adjust R-Value for PacketLoss
-    r_factor =  r_factor - (packet_loss*2.5);
+    r_factor =  r_factor - (packet_loss*packet_loss_factor/100.0);
     // Step-4: Calculate MeanOpinionScore
     if (r_factor< 0 ){
         mos = 1;
@@ -832,14 +847,18 @@ float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter)
 
 void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool summarize_user) {
     SDWANMetricsRecord sdwanmetricrecord;
+    SDWANTenantMetricsRecord sdwantenantmetricrecord;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
     const std::string link(SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
     const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    const std::string region(SyslogParser::GetMapVals(v, "region", "DEFAULT"));
     const std::string uvename = tenant + "::" + location + "::" + device_id;
+    const std::string tenantuvename = region + "::" + tenant;
     const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
     sdwanmetricrecord.set_name(uvename);
+    sdwantenantmetricrecord.set_name(tenantuvename);
     SDWANMetrics_dial sdwanmetric;
     int64_t pkt_loss = SyslogParser::GetMapVal(v, "pkt-loss", -1);
     int64_t rtt = SyslogParser::GetMapVal(v, "rtt", -1);
@@ -862,7 +881,11 @@ void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool sum
         sdwanmetric.set_pkt_loss(pkt_loss);
     }
     if ((rtt != -1) && (rtt_jitter != -1) && (pkt_loss != -1)) {
-        sdwanmetric.set_score((int64_t)calculate_link_score(rtt/2, pkt_loss, rtt_jitter));
+        sdwanmetric.set_score((int64_t)calculate_link_score(rtt/2, pkt_loss, rtt_jitter,
+                             SyslogParser::GetMapVal(v,"effective-latency-threshold",0),
+                             SyslogParser::GetMapVal(v,"latency-factor",0),
+                             SyslogParser::GetMapVal(v,"jitter-factor",0),
+                             SyslogParser::GetMapVal(v,"packet-loss-factor",0) ));
     }
     // Map:  link_metrics_dial_traffic_type
     std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
@@ -871,7 +894,15 @@ void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool sum
     link_metrics_dial_traffic_type.insert(std::make_pair(linkmap_key, sdwanmetric));
     sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
 
+    // Map: tenant_metrics_dial_sla
+    std::map<std::string, SDWANMetrics_dial> tenant_metrics_dial_sla;
+    std::string tenantmetric_key(location + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: tenant_metrics_dial_sla key :" << tenantmetric_key);
+    tenant_metrics_dial_sla.insert(std::make_pair(tenantmetric_key, sdwanmetric));
+    sdwantenantmetricrecord.set_tenant_metrics_dial_sla(tenant_metrics_dial_sla);
+
     SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
+    SDWANTenantMetrics::Send(sdwantenantmetricrecord, "ObjectCPETable");
     return;
 }
 
