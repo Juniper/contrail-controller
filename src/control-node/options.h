@@ -49,6 +49,9 @@ public:
     int ifmap_end_of_rib_timeout() const {
         return ifmap_config_options_.end_of_rib_timeout;
     }
+    int ifmap_stale_or_eor_timeout_increment() const {
+        return ifmap_config_options_.stale_or_eor_timeout_increment;
+    }
     int ifmap_peer_response_wait_time() const {
         return ifmap_config_options_.peer_response_wait_time;
     }

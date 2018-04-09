@@ -26,6 +26,7 @@ struct IFMapConfigOptions {
     std::string certs_store;
     int stale_entries_cleanup_timeout; // in seconds
     int end_of_rib_timeout; // in seconds
+    int stale_or_eor_timeout_increment; // in seconds
     int peer_response_wait_time; // in seconds
 };
 
