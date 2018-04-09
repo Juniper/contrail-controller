@@ -64,6 +64,41 @@ private:
     std::string to_str_;
 };
 
+class BgpMembershipManagerTest : public BgpMembershipManager {
+public:
+    BgpMembershipManagerTest(BgpServer *server) :
+            BgpMembershipManager(server), died_(false) {
+    }
+
+    virtual ~BgpMembershipManagerTest() {
+    }
+
+    bool AssertRegister(PeerRibState *prs, bool do_assert) {
+        died_ = !BgpMembershipManager::AssertRegister(prs, false);
+        return !died_;
+    }
+
+    bool AssertUnregister(PeerRibState *prs, bool do_assert) {
+        died_ = !BgpMembershipManager::AssertUnregister(prs, false);
+        return !died_;
+    }
+
+    bool AssertRegisterRibIn(PeerRibState *prs, IPeer *peer, bool do_assert) {
+        died_ = !BgpMembershipManager::AssertRegisterRibIn(prs, peer, false);
+        return !died_;
+    }
+
+    bool AssertWalkRibIn(PeerRibState *prs, bool do_assert) {
+        died_ = !BgpMembershipManager::AssertWalkRibIn(prs, false);
+        return !died_;
+    }
+
+    bool died() const { return died_; }
+
+private:
+    bool died_;
+};
+
 class BgpMembershipTest : public ::testing::Test {
 protected:
     virtual void SetUp() {
@@ -71,7 +106,8 @@ protected:
         evm_.reset(new EventManager());
         server_.reset(new BgpServerTest(evm_.get(), "Local"));
         server_->session_manager()->Initialize(0);
-        mgr_ = server_->membership_mgr();
+        mgr_ = dynamic_cast<BgpMembershipManagerTest *>(
+            server_->membership_mgr());
         walker_ = mgr_->walker();
 
         ConcurrencyScope scope("bgp::Config");
@@ -251,7 +287,7 @@ protected:
             "bgp::Config");
     }
 
-    BgpMembershipManager *mgr_;
+    BgpMembershipManagerTest *mgr_;
     BgpMembershipManager::Walker *walker_;
     scoped_ptr<EventManager> evm_;
     scoped_ptr<BgpServerTest> server_;
@@ -1123,8 +1159,8 @@ TEST_F(BgpMembershipTest, DuplicateRegister1DeathTest) {
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Register to blue again.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(Register(peers_[0], blue_tbl_), ".*");
+    Register(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Unregister from blue.
     Unregister(peers_[0], blue_tbl_);
@@ -1149,8 +1185,8 @@ TEST_F(BgpMembershipTest, DuplicateRegister2DeathTest) {
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Register to blue again.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(Register(peers_[0], blue_tbl_), ".*");
+    Register(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1176,8 +1212,8 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn1DeathTest) {
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Register for ribin to blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(RegisterRibIn(peers_[0], blue_tbl_), ".*");
+    RegisterRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Unregister from blue.
     Unregister(peers_[0], blue_tbl_);
@@ -1202,8 +1238,8 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn2DeathTest) {
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Register for ribin to blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(RegisterRibIn(peers_[0], blue_tbl_), ".*");
+    RegisterRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1228,8 +1264,8 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn3DeathTest) {
     TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
 
     // Register for ribin to blue again.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(RegisterRibIn(peers_[0], blue_tbl_), ".*");
+    RegisterRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Unregister from blue.
     UnregisterRibIn(peers_[0], blue_tbl_);
@@ -1256,8 +1292,8 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn4DeathTest) {
     TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
 
     // Register for ribin to blue again.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(RegisterRibIn(peers_[0], blue_tbl_), ".*");
+    RegisterRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1274,8 +1310,8 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn4DeathTest) {
 //
 TEST_F(BgpMembershipTest, UnregisterWithoutRegisterDeathTest) {
     // Unregister from blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(Unregister(peers_[0], blue_tbl_), ".*");
+    Unregister(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 }
 
 //
@@ -1295,8 +1331,8 @@ TEST_F(BgpMembershipTest, UnregisterWithPendingRegisterDeathTest) {
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Unregister from blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(Unregister(peers_[0], blue_tbl_), ".*");
+    Unregister(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1328,8 +1364,8 @@ TEST_F(BgpMembershipTest, UnregisterWithPendingUnregisterDeathTest) {
     task_util::WaitForIdle();
 
     // Unregister from blue again.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(Unregister(peers_[0], blue_tbl_), ".*");
+    Unregister(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1357,8 +1393,8 @@ TEST_F(BgpMembershipTest, UnregisterWithPendingWalkDeathTest) {
     task_util::WaitForIdle();
 
     // Unregister from blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(Unregister(peers_[0], blue_tbl_), ".*");
+    Unregister(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1374,8 +1410,8 @@ TEST_F(BgpMembershipTest, UnregisterWithPendingWalkDeathTest) {
 //
 TEST_F(BgpMembershipTest, WalkWithoutRegisterDeathTest) {
     // Walk blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(WalkRibIn(peers_[0], blue_tbl_), ".*");
+    WalkRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 }
 
 //
@@ -1395,8 +1431,8 @@ TEST_F(BgpMembershipTest, WalkWithPendingRegisterDeathTest) {
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Walk blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(WalkRibIn(peers_[0], blue_tbl_), ".*");
+    WalkRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1428,8 +1464,8 @@ TEST_F(BgpMembershipTest, WalkWithPendingUnregisterDeathTest) {
     task_util::WaitForIdle();
 
     // Walk blue.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(WalkRibIn(peers_[0], blue_tbl_), ".*");
+    WalkRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1457,8 +1493,8 @@ TEST_F(BgpMembershipTest, WalkWithPendingWalkDeathTest) {
     task_util::WaitForIdle();
 
     // Walk blue again.
-    // Note that this happens only in the cloned/forked child.
-    TASK_UTIL_EXPECT_DEATH(WalkRibIn(peers_[0], blue_tbl_), ".*");
+    WalkRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->died());
 
     // Enable membership manager.
     SetQueueDisable(false);
@@ -1475,6 +1511,8 @@ static void SetUp() {
         boost::factory<BgpTestPeer *>());
     BgpObjectFactory::Register<BgpConfigManager>(
         boost::factory<BgpIfmapConfigManager *>());
+    BgpObjectFactory::Register<BgpMembershipManager>(
+        boost::factory<BgpMembershipManagerTest *>());
     ControlNode::SetDefaultSchedulingPolicy();
 }
 
