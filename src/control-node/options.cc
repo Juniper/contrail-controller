@@ -174,6 +174,9 @@ void Options::Initialize(EventManager &evm,
              "IFMAP stale entries cleanup timeout")
         ("IFMAP.end_of_rib_timeout", opt::value<int>()->default_value(10),
              "IFMAP end of rib timeout")
+        ("IFMAP.stale_or_eor_timeout_increment",
+             opt::value<int>()->default_value(45),
+             "IFMAP stale or eor timeout increment")
         ("IFMAP.peer_response_wait_time", opt::value<int>()->default_value(60),
              "IFMAP peer response wait time")
         ;
@@ -314,6 +317,9 @@ bool Options::Process(int argc, char *argv[],
                      "IFMAP.stale_entries_cleanup_timeout");
     GetOptValue<int>(var_map, ifmap_config_options_.end_of_rib_timeout,
                      "IFMAP.end_of_rib_timeout");
+    GetOptValue<int>(var_map,
+                     ifmap_config_options_.stale_or_eor_timeout_increment,
+                     "IFMAP.stale_or_eor_timeout_increment");
     GetOptValue<int>(var_map,
                      ifmap_config_options_.peer_response_wait_time,
                      "IFMAP.peer_response_wait_time");
