@@ -118,7 +118,7 @@ public:
                 }
             }
         }
-        IFMAP_DEBUG(IFMapStaleEntriesCleanerInfo, curr_seq_num, nodes_deleted,
+        IFMAP_WARN(IFMapStaleEntriesCleanerInfo, curr_seq_num, nodes_deleted,
                     nodes_changed, links_deleted, objects_deleted);
 
         return true;

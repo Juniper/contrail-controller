@@ -141,7 +141,9 @@ IFMapChannel::IFMapChannel(IFMapManager *manager,
       end_of_rib_timeout_ms_(config_options.end_of_rib_timeout*1000), // ms
       end_of_rib_timer_(TimerManager::CreateTimer(*(manager->io_service()),
                                                   "End of rib timer")),
-      end_of_rib_timer_started_at_us_(0) {
+      end_of_rib_timer_started_at_us_(0),
+      stale_or_eor_timeout_increment_ms_(
+          config_options.stale_or_eor_timeout_increment*1000) {
 
     set_start_stale_entries_cleanup(false);
     set_end_of_rib_computed(false);
@@ -682,13 +684,15 @@ int IFMapChannel::ReadPollResponse() {
 }
 
 const int IFMapChannel::ComputeTimeout(const int configured_timeout_ms,
+        const int configured_timeout_increment_ms,
         const uint64_t started_at_us) const {
     int timeout_ms;
     const int elapsed_time_ms = (UTCTimestampUsec() - started_at_us)/1000;
-    if (elapsed_time_ms < (configured_timeout_ms - kStaleOrEorTimeoutFudgeMs)) {
+    if (elapsed_time_ms <
+            (configured_timeout_ms - configured_timeout_increment_ms)) {
         timeout_ms = configured_timeout_ms - elapsed_time_ms;
     } else {
-        timeout_ms = kStaleOrEorTimeoutFudgeMs;
+        timeout_ms = configured_timeout_increment_ms;
     }
     return timeout_ms;
 }
@@ -699,6 +703,7 @@ void IFMapChannel::StartStaleEntriesCleanupTimer() {
     if (stale_entries_cleanup_timer_->running()) {
         stale_entries_cleanup_timer_->Cancel();
         timeout_ms = ComputeTimeout(stale_entries_cleanup_timeout_ms_,
+            stale_or_eor_timeout_increment_ms_,
             stale_entries_cleanup_timer_started_at_us_);
     } else {
         timeout_ms = stale_entries_cleanup_timeout_ms_;
@@ -718,9 +723,10 @@ void IFMapChannel::StopStaleEntriesCleanupTimer() {
 
 // Called in the context of the main thread.
 bool IFMapChannel::ProcessStaleEntriesTimeout() {
-    IFMAP_PEER_DEBUG(IFMapServerConnection,
-                     integerToString(stale_entries_cleanup_timeout_ms_),
-                     "millisecond stale cleanup timer fired");
+    IFMAP_PEER_WARN(IFMapServerConnection,
+                    integerToString(UTCTimestampUsec()/1000 -
+                        stale_entries_cleanup_timer_started_at_us_),
+                    "millisecond stale cleanup timer fired");
     set_start_stale_entries_cleanup(false);
     stale_entries_cleanup_timer_started_at_us_ = 0;
     return manager_->ifmap_server()->ProcessStaleEntriesTimeout();
@@ -737,6 +743,7 @@ void IFMapChannel::StartEndOfRibTimer() {
     if (end_of_rib_timer_->running()) {
         end_of_rib_timer_->Cancel();
         timeout_ms = ComputeTimeout(end_of_rib_timeout_ms_,
+            stale_or_eor_timeout_increment_ms_,
             end_of_rib_timer_started_at_us_);
     } else {
         timeout_ms = end_of_rib_timeout_ms_;
@@ -757,8 +764,9 @@ void IFMapChannel::StopEndOfRibTimer() {
 // Called in the context of the main thread.
 bool IFMapChannel::ProcessEndOfRibTimeout() {
     IFMAP_PEER_DEBUG(IFMapServerConnection,
-                     integerToString(end_of_rib_timeout_ms_),
-                     "millisecond end of rib timer fired");
+                    integerToString(UTCTimestampUsec()/1000 -
+                        end_of_rib_timer_started_at_us_),
+                    "millisecond end of rib timer fired");
     set_end_of_rib_computed(true);
     end_of_rib_timer_started_at_us_ = 0;
     process::ConnectionState::GetInstance()->Update();
