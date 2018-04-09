@@ -941,6 +941,22 @@ class FirewallDraftModeBase(object):
         with ExpectedException(NoIdError):
             self.api.policy_management_read(fq_name=self._draft_pm_fq_name)
 
+    def test_cannot_remove_draft_mode_if_pending_security_resource(self):
+        self.set_scope_instance()
+        fp1 = FirewallPolicy('fp1-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp1)
+        fp2 = FirewallPolicy('fp2-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp2)
+        fr1 = FirewallRule('fr1-%s' % self.id(), parent_obj=self._owner)
+        fr1.set_service(FirewallServiceType())
+        self.api.firewall_rule_create(fr1)
+
+        msg_regex = (r"Cannot disable security draft mode on "
+                      "(global scope|scope .*) as some pending security "
+                      "resource\(s\) need to be reviewed:.*")
+        with self.assertRaisesRegex(RefsExistError, msg_regex):
+            self.draft_mode = False
+
     def test_cannot_set_draft_mode_state(self):
         self.set_scope_instance(draft_enable=False)
 
@@ -1300,12 +1316,6 @@ class FirewallDraftModeBase(object):
             self.api.firewall_policy_read(id=fp.uuid)
         with ExpectedException(NoIdError):
             self.api.firewall_policy_read(self._draft_pm_fq_name + [fp.name])
-
-    def test_cannot_commit_if_draft_mode_not_enabled(self):
-        self.set_scope_instance(draft_enable=False)
-
-        with ExpectedException(BadRequest):
-            self.api.commit_security(self._scope)
 
     def test_revert_pending_create_resource(self):
         self.set_scope_instance()
