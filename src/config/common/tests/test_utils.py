@@ -664,7 +664,7 @@ class FakeKombu(object):
             return True
 
         def heartbeat_check(self):
-            gevent.sleep(300)
+            gevent.sleep(0.001)
     # end class Connection
 
     class Consumer(object):
