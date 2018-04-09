@@ -217,13 +217,13 @@ class VrouterProvisioner(object):
             return
 
         try:
+            vhost0_vmi_fq_name = self.vrouter_fq_name
+            vhost0_vmi_fq_name.append('vhost0')
             vhost0_vmi = self._vnc_lib.virtual_machine_interface_read(
                 fq_name = vhost0_vmi_fq_name)
             vhost0_vmi_exists = True
         except NoIdError:
             vhost0_vmi_exists = False
-            vhost0_vmi_fq_name = self.vrouter_fq_name
-            vhost0_vmi_fq_name.append('vhost0')
             vhost0_vmi =  VirtualMachineInterface(name="vhost0", parent_obj = vrouter_obj)
             ip_fab_vn = self._vnc_lib.virtual_network_read(fq_name = [u'default-domain', u'default-project', u'ip-fabric'])
             vhost0_vmi.set_virtual_network(ip_fab_vn)
