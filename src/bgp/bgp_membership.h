@@ -127,15 +127,20 @@ public:
     uint64_t total_jobs_count() const { return total_jobs_count_; }
 
 protected:
+    class PeerRibState;
     struct Event;
 
     virtual bool EventCallbackInternal(Event *event);
+    virtual bool AssertRegister(PeerRibState *prs, bool do_assert = true);
+    virtual bool AssertUnregister(PeerRibState *prs, bool do_assert = true);
+    virtual bool AssertRegisterRibIn(PeerRibState *prs, IPeer *peer,
+                                     bool do_assert = true);
+    virtual bool AssertWalkRibIn(PeerRibState *prs, bool do_assert = true);
 
     mutable tbb::spin_rw_mutex rw_mutex_;
 
 private:
     class PeerState;
-    class PeerRibState;
     class RibState;
     class Walker;
 
