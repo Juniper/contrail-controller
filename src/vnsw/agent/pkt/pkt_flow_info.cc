@@ -1941,16 +1941,16 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     IpAddress sip = pkt->ip_saddr;
     IpAddress dip = pkt->ip_daddr;
     if (pkt->ignore_address == VmInterface::IGNORE_SOURCE) {
-	if (ingress) {
-	    sip = IpAddress();
-	} else {
-	    dip = IpAddress();
-	}
+        if (ingress) {
+            sip = FamilyToAddress(pkt->family);
+        } else {
+            dip = FamilyToAddress(pkt->family);
+        }
     } else if (pkt->ignore_address == VmInterface::IGNORE_DESTINATION) {
         if (ingress) {
-            dip = IpAddress();
+            dip = FamilyToAddress(pkt->family);
         } else {
-            sip = IpAddress();
+            sip = FamilyToAddress(pkt->family);
         }
     }
 
@@ -2095,3 +2095,10 @@ void PktFlowInfo::SetPktInfo(boost::shared_ptr<PktInfo> pkt_info) {
      family = pkt_info->family;
      pkt = pkt_info;
  }
+
+IpAddress PktFlowInfo::FamilyToAddress(Address::Family family) {
+    if (pkt->family == Address::INET6) {
+	return Ip6Address();
+    }
+    return Ip4Address();
+}

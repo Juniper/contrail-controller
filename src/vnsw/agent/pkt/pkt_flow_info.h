@@ -125,6 +125,7 @@ public:
                               PktControlInfo *in,
                               PktControlInfo *out);
 public:
+    IpAddress FamilyToAddress(Address::Family family);
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                      const IpAddress &addr, const MacAddress &mac,
                      FlowRouteRefMap &ref_map);
