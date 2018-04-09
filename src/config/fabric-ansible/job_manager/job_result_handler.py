@@ -10,6 +10,9 @@ import time
 
 from job_utils import JobStatus
 from job_exception import JobException
+from job_error_messages import JOB_SUMMARY_MESSAGE_HDR, \
+    JOB_RESULT_STATUS_NONE, JOB_MULTI_DEVICE_FAILED_MESSAGE_HDR, \
+    PLAYBOOK_RESULTS_MESSAGE, get_create_job_summary_error_message
 
 
 class JobResultHandler(object):
@@ -64,38 +67,32 @@ class JobResultHandler(object):
                                                   timestamp, 100)
 
     def create_job_summary_message(self):
-        try:
-            job_summary_message = "Job summary: \n"
+        job_summary_message = JOB_SUMMARY_MESSAGE_HDR
 
-            if self.job_result_status is None:
-                job_summary_message += "Error in getting the job completion " \
-                                       "status after job execution. \n"
-            elif self.job_result_status == JobStatus.FAILURE:
-                if len(self.failed_device_jobs) > 0:
-                    job_summary_message += "Job failed with for devices: "
-                    for failed_device in self.failed_device_jobs:
-                        msg = failed_device + ','
-                        job_summary_message += msg
-                else:
-                    job_summary_message += "Job failed. "
-                job_summary_message += "\n"
-            elif self.job_result_status == JobStatus.SUCCESS:
-                job_summary_message += "Job execution completed " \
-                                       "successfully. \n"
-            if len(self.job_result) > 0:
-                job_summary_message += "Detailed job results: \n"
-            result_summary = ""
-            for entry in self.job_result:
-                result_summary += \
-                        "%s:%s \n" % (entry, self.job_result[entry])
-            job_summary_message += result_summary
+        if self.job_result_status is None:
+            job_summary_message += JOB_RESULT_STATUS_NONE
+        elif self.job_result_status == JobStatus.FAILURE:
+            if len(self.failed_device_jobs) > 0:
+                job_summary_message += \
+                    JOB_MULTI_DEVICE_FAILED_MESSAGE_HDR
+                for failed_device in self.failed_device_jobs:
+                    msg = failed_device + ','
+                    job_summary_message += msg
+            else:
+                job_summary_message += "Job failed. "
+            job_summary_message += "\n"
+        elif self.job_result_status == JobStatus.SUCCESS:
+            job_summary_message += "Job execution completed " \
+                                   "successfully. \n"
+        if len(self.job_result) > 0:
+            job_summary_message += PLAYBOOK_RESULTS_MESSAGE
+        result_summary = ""
+        for entry in self.job_result:
+            result_summary += \
+                    "%s:%s \n" % (entry, self.job_result[entry])
+        job_summary_message += result_summary
 
-            if self.job_result_message is not None:
-                job_summary_message += self.job_result_message
+        if self.job_result_message is not None:
+            job_summary_message += self.job_result_message
 
-            return job_summary_message
-        except Exception as e:
-            msg = "Error while generating the job summary " \
-                  "message : %s" % repr(e)
-            raise JobException(msg, self._execution_id)
-
+        return job_summary_message

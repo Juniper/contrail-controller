@@ -43,8 +43,14 @@ class TestExecuteJob(test_case.ApiServerTestCase):
         fake_process = flexmock(pid=123)
         flexmock(subprocess).should_receive('Popen').and_return(fake_process)
 
-        # create the input json
-        job_template_id = uuid.uuid4()
+        # create the job_template
+        job_template_object = JobTemplate(job_template_type='device',
+                                          job_template_job_runtime='ansible',
+                                          job_template_multi_device_job=False,
+                                          job_template_fqname = ["default-global-system-config",
+                                                                 "Test_template"],
+                                          name='Test_template')
+        job_template_id = self._vnc_lib.job_template_create(job_template_object)
 
         # create test device object
         phy_router_obj = PhysicalRouter(
