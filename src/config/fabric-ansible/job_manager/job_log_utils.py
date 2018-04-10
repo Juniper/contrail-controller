@@ -34,6 +34,9 @@ class JobLogUtils(object):
     # max parallel tasks that can be executed within one job
     TASK_POOL_SIZE = 20
 
+    # PLAYBOOK TIMEOUT
+    PLAYBOOK_TIMEOUT_VALUE = 3600
+
     def __init__(self, sandesh_instance_id=None, config_args=None):
         self.sandesh_instance_id = sandesh_instance_id
         self.args = None
@@ -54,8 +57,8 @@ class JobLogUtils(object):
         logger = JobLogger(args=args,
                            sandesh_instance_id=self.sandesh_instance_id)
         try:
-            sandesh_util = SandeshUtils()
-            sandesh_util.wait_for_connection_establish(logger)
+            sandesh_util = SandeshUtils(logger)
+            sandesh_util.wait_for_connection_establish()
         except JobException:
             raise JobException("Sandesh initialization timeout after 15s")
         logger.info("Sandesh is initialized. Config logger instance created.")
@@ -78,6 +81,7 @@ class JobLogUtils(object):
             'logging_conf': '',
             'logger_class': None,
             'max_job_task': self.TASK_POOL_SIZE,
+            'playbook_timeout': self.PLAYBOOK_TIMEOUT_VALUE,
         }
 
         defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
@@ -144,6 +148,9 @@ class JobLogUtils(object):
                             help=("Maximum job tasks that can execute in "
                                   "parallel in a parent job, default: %s"
                                   % self.TASK_POOL_SIZE))
+        parser.add_argument("--playbook_timeout",
+                            help=("Playbook execution timeout value,"
+                                  " default: 60 min"))
         SandeshConfig.add_parser_arguments(parser)
         args = parser.parse_args(list())
         args.conf_file = config_args.get('fabric_ansible_conf_file')
