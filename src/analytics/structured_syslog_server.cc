@@ -823,10 +823,11 @@ float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter,
     if (packet_loss_factor == 0)
         packet_loss_factor = 250;
 
-    LOG(DEBUG, "Link score calculation coefficients, effective_latency_threshold : " << effective_latency_threshold
-                                                   << ", latency_factor : " << latency_factor
-                                                   << ", jitter_factor : " << jitter_factor
-                                                   << ", packet_loss_factor : " << packet_loss_factor);
+    LOG(DEBUG, "Link score calculation coefficients,
+                effective_latency_threshold : " << effective_latency_threshold
+             << ", latency_factor : " << latency_factor
+             << ", jitter_factor : " << jitter_factor
+             << ", packet_loss_factor : " << packet_loss_factor);
 
     // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
     effective_latency = ((latency_ms * (latency_factor/100.0)) + ((jitter_factor/100.0)*jitter_ms) +10);
