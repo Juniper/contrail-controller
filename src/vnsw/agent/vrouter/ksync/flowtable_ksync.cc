@@ -80,6 +80,12 @@ static uint16_t GetDropReason(uint16_t dr) {
         return VR_FLOW_DR_NO_MIRROR_ENTRY;
     case FlowEntry::SHORT_SAME_FLOW_RFLOW_KEY:
         return VR_FLOW_DR_SAME_FLOW_RFLOW_KEY;
+    case FlowEntry::SHORT_PORT_MAP_DROP:
+        return VR_FLOW_DR_PORT_MAP_DROP;
+    case FlowEntry::SHORT_NO_SRC_ROUTE_L2RPF:
+        return VR_FLOW_DR_NO_SRC_ROUTE_L2RPF;
+    case FlowEntry::SHORT_FAT_FLOW_NAT_CONFLICT:
+        return VR_FLOW_DR_FAT_FLOW_NAT_CONFLICT;
     case FlowEntry::DROP_POLICY:
         return VR_FLOW_DR_POLICY;
     case FlowEntry::DROP_OUT_POLICY:
