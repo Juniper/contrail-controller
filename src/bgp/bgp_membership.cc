@@ -98,55 +98,104 @@ void BgpMembershipManager::NotifyPeerRegistration(IPeer *peer, BgpTable *table,
     }
 }
 
-//
+bool BgpMembershipManager::AssertRegister(PeerRibState *prs, bool do_assert) {
+    if (prs->action() != NONE) {
+        if (do_assert)
+            assert(prs->action() == NONE);
+        return false;
+    }
+
+    if (prs->ribout_registered()) {
+        if (do_assert)
+            assert(!prs->ribout_registered());
+        return false;
+    }
+
+    return true;
+}
+
 // Register the IPeer to the BgpTable.
 // Post a REGISTER_RIB event to deal with concurrency issues with RibOut.
-//
 void BgpMembershipManager::Register(IPeer *peer, BgpTable *table,
     const RibExportPolicy &policy, int instance_id) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper",
         "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    PeerRibState *prs = LocatePeerRibState(peer, table);
+    if (!AssertRegister(prs))
+        return;
     current_jobs_count_++;
     total_jobs_count_++;
-    PeerRibState *prs = LocatePeerRibState(peer, table);
-    assert(prs->action() == NONE);
-    assert(!prs->ribout_registered());
     prs->set_ribin_registered(true);
     prs->set_action(RIBOUT_ADD);
     Event *event = new Event(REGISTER_RIB, peer, table, policy, instance_id);
     EnqueueEvent(event);
 }
 
-//
+bool BgpMembershipManager::AssertRegisterRibIn(PeerRibState *prs, IPeer *peer,
+                                               bool do_assert) {
+    if (prs->action() != NONE) {
+        if (do_assert)
+            assert(prs->action() == NONE);
+        return false;
+    }
+
+    if (prs->ribin_registered() && !peer->IsInGRTimerWaitState()) {
+        if (do_assert)
+            assert(!prs->ribin_registered() || peer->IsInGRTimerWaitState());
+        return false;
+    }
+
+    if (prs->ribout_registered()) {
+        if (do_assert)
+            assert(!prs->ribout_registered());
+        return false;
+    }
+
+    return true;
+}
+
 // Synchronously register the IPeer to the BgpTable for RIBIN.
-//
 void BgpMembershipManager::RegisterRibIn(IPeer *peer, BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper",
         "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     PeerRibState *prs = LocatePeerRibState(peer, table);
-    assert(prs->action() == NONE);
-    assert(!prs->ribin_registered() || peer->IsInGRTimerWaitState());
-    assert(!prs->ribout_registered());
+    if (!AssertRegisterRibIn(prs, peer))
+        return;
     prs->set_ribin_registered(true);
 }
 
-//
+bool BgpMembershipManager::AssertUnregister(PeerRibState *prs, bool do_assert) {
+    if (!prs || prs->action() != NONE) {
+        if (do_assert)
+            assert(prs && prs->action() == NONE);
+        return false;
+    }
+
+    if (!prs->ribin_registered()) {
+        if (do_assert)
+            assert(prs->ribin_registered());
+        return false;
+    }
+
+    return true;
+}
+
 // Unregister the IPeer from the BgpTable.
 // Post an UNREGISTER_RIB event to deal with concurrency issues with RibOut.
-//
 void BgpMembershipManager::Unregister(IPeer *peer, BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    PeerRibState *prs = FindPeerRibState(peer, table);
+    if (!AssertUnregister(prs))
+        return;
+
     current_jobs_count_++;
     total_jobs_count_++;
-    PeerRibState *prs = FindPeerRibState(peer, table);
-    assert(prs && prs->action() == NONE);
-    assert(prs->ribin_registered());
 
     if (!prs->ribout_registered()) {
         UnregisterRibInUnlocked(prs);
@@ -213,6 +262,22 @@ void BgpMembershipManager::UnregisterRibOut(IPeer *peer, BgpTable *table) {
     EnqueueEvent(event);
 }
 
+bool BgpMembershipManager::AssertWalkRibIn(PeerRibState *prs, bool do_assert) {
+    if (!prs || prs->action() != NONE) {
+        if (do_assert)
+            assert(prs && prs->action() == NONE);
+        return false;
+    }
+
+    if (!prs->ribin_registered()) {
+        if (do_assert)
+            assert(prs->ribin_registered());
+        return false;
+    }
+
+    return true;
+}
+
 //
 // Trigger a walk of IPeer's RIBIN for the BgpTable.
 // This API can be used when sweeping paths as part of graceful restart.
@@ -222,11 +287,11 @@ void BgpMembershipManager::WalkRibIn(IPeer *peer, BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    PeerRibState *prs = FindPeerRibState(peer, table);
+    if (!AssertWalkRibIn(prs))
+        return;
     current_jobs_count_++;
     total_jobs_count_++;
-    PeerRibState *prs = FindPeerRibState(peer, table);
-    assert(prs && prs->action() == NONE);
-    assert(prs->ribin_registered());
     prs->set_action(RIBIN_WALK);
     prs->WalkRibIn();
     BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
