@@ -1748,6 +1748,23 @@ class FirewallDraftModeBase(object):
             with ExpectedException(NoIdError):
                 getattr(self.api, '%s_read' % object_type)(id=uuid)
 
+    def test_reference_removed_after_commit(self):
+        self.set_scope_instance(draft_enable=False)
+        fr = FirewallRule('fr-%s' % self.id(), parent_obj=self._owner)
+        fr.set_service(FirewallServiceType())
+        self.api.firewall_rule_create(fr)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self.api.firewall_policy_create(fp)
+
+        self.draft_mode = True
+        fp.del_firewall_rule(fr)
+        self.api.firewall_policy_update(fp)
+
+        self.api.commit_security(self._scope)
+        fp = self.api.firewall_policy_read(id=fp.uuid)
+        self.assertIsNone(fp.get_firewall_rule_refs())
+
 
 class TestFirewallDraftModeGlobalScope(TestFirewallBase,
                                        FirewallDraftModeBase):
