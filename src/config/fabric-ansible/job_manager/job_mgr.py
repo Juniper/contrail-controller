@@ -16,6 +16,7 @@ from job_exception import JobException
 from job_log_utils import JobLogUtils
 from job_utils import JobUtils, JobStatus
 from job_result_handler import JobResultHandler
+from sandesh_utils import SandeshUtils
 
 from vnc_api.vnc_api import VncApi
 from gevent.greenlet import Greenlet
@@ -102,7 +103,8 @@ class JobManager(object):
                                      self.job_data, self.job_params,
                                      self.job_utils, self.device_json,
                                      self.auth_token, self.job_log_utils,
-                                     self.sandesh_args)
+                                     self.sandesh_args,
+                                     self.job_log_utils.args.playbook_timeout)
             if job_template.get_job_template_multi_device_job():
                 self.handle_multi_device_job(job_handler, self.result_handler)
             else:
@@ -128,8 +130,10 @@ class JobManager(object):
             sys.exit(e.message)
         finally:
             # need to wait for the last job log and uve update to complete
-            # via sandesh
-            time.sleep(5)
+            # via sandesh and then close sandesh connection
+            sandesh_util = SandeshUtils()
+            sandesh_util.close_sandesh_connection(self._logger)
+            self._logger.info("Closed Sandesh connection")
 
     def handle_multi_device_job(self, job_handler, result_handler):
         job_worker_pool = Pool(self.max_job_task)
