@@ -16,6 +16,7 @@ from job_exception import JobException
 from job_log_utils import JobLogUtils
 from job_utils import JobUtils, JobStatus
 from job_result_handler import JobResultHandler
+from sandesh_utils import SandeshUtils
 
 from vnc_api.vnc_api import VncApi
 from gevent.greenlet import Greenlet
@@ -73,6 +74,7 @@ class JobManager(object):
         self.max_job_task = self.job_log_utils.args.max_job_task
 
     def start_job(self):
+        job_error_msg = None
         try:
             # create job UVE and log
             msg = "Starting execution for job with template id %s" \
@@ -102,7 +104,8 @@ class JobManager(object):
                                      self.job_data, self.job_params,
                                      self.job_utils, self.device_json,
                                      self.auth_token, self.job_log_utils,
-                                     self.sandesh_args)
+                                     self.sandesh_args,
+                                     self.job_log_utils.args.playbook_timeout)
             if job_template.get_job_template_multi_device_job():
                 self.handle_multi_device_job(job_handler, self.result_handler)
             else:
@@ -113,23 +116,29 @@ class JobManager(object):
 
             # in case of failures, exit the job manager process with failure
             if self.result_handler.job_result_status == JobStatus.FAILURE:
-                sys.exit(self.result_handler.job_summary_message)
+                job_error_msg = self.result_handler.job_summary_message
         except JobException as e:
-            self._logger.error("Job Exception recieved: %s" % e.msg)
+            err_msg = "Job Exception recieved: %s " % repr(e)
+            self._logger.error(err_msg)
             self._logger.error("%s" % traceback.print_stack())
-            self.result_handler.update_job_status(JobStatus.FAILURE, e.msg)
+            self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
             self.result_handler.create_job_summary_log(job_template.fq_name)
-            sys.exit(e.msg)
+            job_error_msg = err_msg
         except Exception as e:
-            self._logger.error("Error while executing job %s " % repr(e))
+            err_msg = "Error while executing job %s " % repr(e)
+            self._logger.error(err_msg)
             self._logger.error("%s" % traceback.print_stack())
-            self.result_handler.update_job_status(JobStatus.FAILURE, e.message)
+            self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
             self.result_handler.create_job_summary_log(job_template.fq_name)
-            sys.exit(e.message)
+            job_error_msg = err_msg
         finally:
             # need to wait for the last job log and uve update to complete
-            # via sandesh
-            time.sleep(5)
+            # via sandesh and then close sandesh connection
+            sandesh_util = SandeshUtils(self._logger)
+            sandesh_util.close_sandesh_connection()
+            self._logger.info("Closed Sandesh connection")
+            if job_error_msg is not None:
+                sys.exit(job_error_msg)
 
     def handle_multi_device_job(self, job_handler, result_handler):
         job_worker_pool = Pool(self.max_job_task)
