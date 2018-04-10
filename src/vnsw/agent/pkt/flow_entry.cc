@@ -1164,7 +1164,7 @@ void FlowEntry::RpfInit(const AgentRoute *rt, const IpAddress &sip) {
 
     // The src_ip_nh can change below only for l2 flows
     // For l3-flow, rt will already be a INET route
-    if (l3_flow() && data_.allocated_port_ == false)
+    if (l3_flow())
         return;
 
     // For layer-2 flows, we use l2-route for RPF in following cases
@@ -1186,10 +1186,6 @@ void FlowEntry::RpfInit(const AgentRoute *rt, const IpAddress &sip) {
     }
 
     VrfEntry *vrf = rt->vrf();
-    if (vmi && data_.allocated_port_) {
-        vrf = vmi->vrf();
-    }
-
     const InetUnicastRouteEntry *src_ip_rt =
         static_cast<InetUnicastRouteEntry *>
         (FlowEntry::GetUcRoute(vrf, sip));
