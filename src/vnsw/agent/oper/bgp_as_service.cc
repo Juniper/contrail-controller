@@ -544,7 +544,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
-            *dport = it->dest_port_;
+            *dport = it->dest_port_?it->dest_port_:DefaultBgpPort;
             return true;
         }
         if (dest == dns) {
@@ -561,7 +561,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
-            *dport = it->dest_port_;
+            *dport = it->dest_port_?it->dest_port_:DefaultBgpPort;
             return true;
         }
         it++;
