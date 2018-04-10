@@ -8,7 +8,7 @@ This file contains job manager api which involves playbook interactions
 
 import os
 import json
-import subprocess
+import subprocess32
 import traceback
 
 from job_exception import JobException
@@ -19,7 +19,7 @@ class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
                  params, job_utils, device_json, auth_token, job_log_utils,
-                 sandesh_args):
+                 sandesh_args, playbook_timeout):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -31,6 +31,7 @@ class JobHandler(object):
         self._auth_token = auth_token
         self._job_log_utils = job_log_utils
         self._sandesh_args = sandesh_args
+        self._playbook_timeout = playbook_timeout
 
     def handle_job(self, result_handler, device_id=None):
         try:
@@ -151,20 +152,25 @@ class JobHandler(object):
         try:
             playbook_exec_path = os.path.dirname(__file__) \
                                  + "/playbook_helper.py"
-            p = subprocess.Popen(["python", playbook_exec_path, "-i",
-                                  json.dumps(playbook_info)],
-                                 close_fds=True, cwd='/')
+            p = subprocess32.Popen(["python", playbook_exec_path, "-i",
+                                   json.dumps(playbook_info)],
+                                   close_fds=True, cwd='/')
             p.wait()
-            if p.returncode != 0:
-                msg = "Playbook exited with error."
-                raise JobException(msg, self._execution_id)
-        except JobException:
-            raise
+        except subprocess32.TimeoutExpired as e:
+            if p is not None:
+                os.kill(p.pid, 9)
+            msg = "Timeout while executing the playbook " \
+                  "for %s : %s. Playbook process is aborted."\
+                  % (playbook_info['uri'], repr(e))
+            raise JobException(msg, self._execution_id)
         except Exception as e:
-            msg = "Exception in creating a playbook process " \
+            msg = "Exception in executing the playbook " \
                   "for %s : %s" % (playbook_info['uri'], repr(e))
             raise JobException(msg, self._execution_id)
-        return
+
+        if p.returncode != 0:
+            msg = "Playbook exited with error."
+            raise JobException(msg, self._execution_id)
 
     def run_playbook(self, playbook_info):
         try:

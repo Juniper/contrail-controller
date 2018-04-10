@@ -10,7 +10,7 @@ import os
 import logging
 from flexmock import flexmock
 import json
-import subprocess
+import subprocess32
 
 from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
@@ -289,9 +289,9 @@ class TestJobManager(test_case.JobTestCase):
 
     def mock_play_book_execution(self):
         # mock the call to invoke the playbook
-        fake_process = flexmock(returncode=0)
+        fake_process = flexmock(returncode=0, pid=123)
         fake_process.should_receive('wait')
-        flexmock(subprocess).should_receive('Popen').and_return(fake_process)
+        flexmock(subprocess32).should_receive('Popen').and_return(fake_process)
 
         # mock the call to invoke the playbook process
         flexmock(os.path).should_receive('exists').and_return(True)
@@ -304,4 +304,5 @@ class TestJobManager(test_case.JobTestCase):
         flexmock(SandeshUtils, __new__=mocked_sandesh_utils)
         mocked_sandesh_utils.should_receive('__init__')
         mocked_sandesh_utils.should_receive('wait_for_connection_establish')
+        mocked_sandesh_utils.should_receive('close_sandesh_connection')
 
