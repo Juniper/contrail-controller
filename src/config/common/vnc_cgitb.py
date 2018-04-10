@@ -33,6 +33,9 @@ import cgitb
 import cStringIO
 
 
+# License: Apache-2.0
+# https://github.com/openstack/deb-oslo.utils
+
 # Masking of password from openstack/common/log.py
 _SANITIZE_KEYS = ['adminPass', 'admin_pass', 'password', 'admin_password']
 
