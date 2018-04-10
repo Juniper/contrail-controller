@@ -13,6 +13,9 @@ def retry_exc_handler(tries_remaining, exception, delay):
     print >> sys.stderr, "."
 
 
+# License: MIT
+# Copyright 2012 by Jeff Laughlin Consulting LLC
+# https://gist.github.com/n1ywb/2570004
 def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,),
             hook=retry_exc_handler):
     def dec(func):
