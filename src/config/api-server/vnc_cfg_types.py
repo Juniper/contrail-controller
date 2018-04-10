@@ -2039,7 +2039,8 @@ class ProjectServer(Resource, Project):
         for obj_type, quota_limit in proj_dict.get('quota', {}).items():
             path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids['uuid']
             path = path_prefix + "/" + obj_type
-            if (quota_counter.get(path) and quota_limit == -1):
+            if (quota_counter.get(path) and (quota_limit == -1 or
+                                             quota_limit is None)):
                 # free the counter from cache for resources updated
                 # with unlimted quota
                 del quota_counter[path]

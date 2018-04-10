@@ -162,8 +162,9 @@ class QuotaHelper(object):
         for (obj_type, quota) in quota_dict.iteritems():
             path = path_prefix + "/" + obj_type
             if path in quota_counter:
-                if quota == -1 and db_conn._zk_db._zk_client.exists(path):
-                    db_conn._zk_db._zk_client.delete_node(path)
+                if ((quota == -1 or quota is None) and
+                                    db_conn._zk_db.quota_counter_exists(path)):
+                    db_conn._zk_db.delete_quota_counter(path)
                     try:
                         del quota_counter[path]
                     except KeyError:
@@ -173,10 +174,11 @@ class QuotaHelper(object):
                 else:
                     quota_counter[path].max_count = quota
             else:
-                # deb_update_notification might have freed the counter,
+                # dbe_update_notification might have freed the counter,
                 # delete node if exists.
-                if quota == -1 and db_conn._zk_db._zk_client.exists(path):
-                    db_conn._zk_db._zk_client.delete_node(path)
+                if ((quota == -1 or quota is None) and
+                                    db_conn._zk_db.quota_counter_exists(path)):
+                    db_conn._zk_db.delete_quota_counter(path)
                 else:
                     new_quota_dict[obj_type] = quota
 
