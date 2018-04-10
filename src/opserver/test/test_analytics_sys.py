@@ -661,12 +661,12 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         # for non-admin role, there should be 1 vn uve
         uves = vizd_obj.get_opserver_vns()
         assert (len(uves) == 1)
-        # 401
+        # 403
         mock_is_role_cloud_admin.return_value=False
         mock_get_resource_list_from_uve_type.side_effect=bottle.HTTPResponse(
-            status=401)
+            status=403)
         resp = vizd_obj.get_opserver_vns_response()
-        assert (resp.status_code == 401)
+        assert (resp.status_code == 403)
         return True
     # end test_16_rbac
 
