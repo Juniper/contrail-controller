@@ -639,6 +639,8 @@ void StructuredSyslogUVESummarizeAppQoeBPS(SyslogParser::syslog_m_t v, bool summ
     const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
     const std::string tt_app_dept_info = traffic_type + "(" + nested_appname + ":" + appname
                                          + "/" + app_category +  ")" + "::" + department + "::";
+    int64_t elapsed_time = SyslogParser::GetMapVal(v, "elapsed-time", 0);
+    const std::string reason = SyslogParser::GetMapVals(v, "reason", "UNKNOWN");
     //username => syslog.username or syslog.source-address
     std::string username(SyslogParser::GetMapVals(v, "username", "UNKNOWN"));
     if (boost::iequals(username, "unknown")) {
@@ -648,7 +650,9 @@ void StructuredSyslogUVESummarizeAppQoeBPS(SyslogParser::syslog_m_t v, bool summ
     sdwantenantmetricrecord.set_name(tenantuvename);
 
     SDWANMetrics_diff sdwanmetric;
-    sdwanmetric.set_session_switch_count(1);
+    if ((elapsed_time > 2) && (!(boost::iequals(reason, "session close")))){
+        sdwanmetric.set_session_switch_count(1);
+    }
 
     // Map: app_metrics_diff_sla
     std::map<std::string, SDWANMetrics_diff> app_metrics_diff_sla;
@@ -820,6 +824,10 @@ float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter,
     if (packet_loss_factor == 0)
         packet_loss_factor = 250;
 
+    LOG(DEBUG, "Link score calculation coefficients, effective_latency_threshold : " << effective_latency_threshold
+                                                   << ", latency_factor : " << latency_factor
+                                                   << ", jitter_factor : " << jitter_factor
+                                                   << ", packet_loss_factor : " << packet_loss_factor);
 
     // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
     effective_latency = ((latency_ms * (latency_factor/100.0)) + ((jitter_factor/100.0)*jitter_ms) +10);
