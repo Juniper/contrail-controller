@@ -159,7 +159,8 @@ class QuotaHelper(object):
         for (obj_type, quota) in quota_dict.iteritems():
             path = path_prefix + "/" + obj_type
             if path in quota_counter:
-                if quota == -1 and db_conn._zk_db.quota_counter_exists(path):
+                if (quota == -1 or quota == None and
+                                   db_conn._zk_db.quota_counter_exists(path)):
                     db_conn._zk_db.delete_quota_counter(path)
                     try:
                         del quota_counter[path]
@@ -170,9 +171,10 @@ class QuotaHelper(object):
                 else:
                     quota_counter[path].max_count = quota
             else:
-                # deb_update_notification might have freed the counter,
+                # dbe_update_notification might have freed the counter,
                 # delete node if exists.
-                if quota == -1 and db_conn._zk_db.quota_counter_exists(path):
+                if (quota == -1 or quota == None and
+                                  db_conn._zk_db.quota_counter_exists(path)):
                     db_conn._zk_db.delete_quota_counter(path)
                 else:
                     new_quota_dict[obj_type] = quota
