@@ -1051,6 +1051,9 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
             if (nat_sport == 0) {
                 short_flow = true;
                 short_flow_reason = FlowEntry::SHORT_PORT_MAP_DROP;
+                nat_done = false;
+                out->nh_ = in->nh_;
+                return;
             } else {
                 port_allocated = true;
             }
@@ -1428,6 +1431,17 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
             peer_vrouter = agent->router_id().to_string();
         }
     }
+
+    //In case of distributed SNAT we dont want policy to be applied based
+    //on translated FIP route. hence change ingress route to VM's actual
+    //route and also the source policy VRF
+    if (port_allocated && short_flow == false) {
+        UpdateRoute(&in->rt_, in->vrf_, pkt->ip_saddr, pkt->smac,
+                    flow_source_plen_map);
+        in->vn_ = InterfaceToVn(in->intf_);
+        src_policy_vrf = in->intf_->vrf()->vrf_id();
+    }
+
     return;
 }
 

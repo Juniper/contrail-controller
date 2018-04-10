@@ -421,6 +421,8 @@ TEST_F(PortAllocationTest, PolicyFlow) {
     EXPECT_TRUE(flow != NULL);
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->IsNatFlow() == true);
+    std::string vn1 = "vn1";
+    EXPECT_TRUE(VnMatch(flow->data().source_vn_list, vn1));
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::FabricControlFlow));
     EXPECT_FALSE(flow->reverse_flow_entry()->
             is_flags_set(FlowEntry::FabricControlFlow));
@@ -506,7 +508,7 @@ TEST_F(PortAllocationTest, FloatingIpWithSNATEnabled) {
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
-    DelLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     DelLink("virtual-network", "default-project:vn2", "routing-instance",
             "default-project:vn2:vn2");
     DelVn("default-project:vn2");
