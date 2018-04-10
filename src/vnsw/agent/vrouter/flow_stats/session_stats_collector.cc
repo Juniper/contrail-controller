@@ -1689,8 +1689,12 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
         session_ep->set_remote_prefix(it->first.remote_prefix);
     }
     session_ep->set_security_policy_rule(it->first.match_policy);
-    FillSessionTags(it->first.local_tagset, session_ep);
-    FillSessionRemoteTags(it->first.remote_tagset, session_ep);
+    if (it->first.local_tagset.size() > 0) {
+        FillSessionTags(it->first.local_tagset, session_ep);
+    }
+    if (it->first.remote_tagset.size() > 0) {
+        FillSessionRemoteTags(it->first.remote_tagset, session_ep);
+    }
     session_ep->set_vrouter_ip(
                     boost::asio::ip::address::from_string(rid, ec));
 }
