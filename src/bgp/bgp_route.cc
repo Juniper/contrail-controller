@@ -614,8 +614,6 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             srp.set_source(peer->ToString());
         }
 
-        srp.set_protocol(path->GetSourceString());
-
         const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
         if (bgp_peer) {
             srp.set_local_as(bgp_peer->local_as());
@@ -629,6 +627,12 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         }
         if (attr->edge_discovery()) {
             FillEdgeDiscoveryInfo(attr->edge_discovery(), &srp);
+        }
+        if (attr->sub_protocol().empty()) {
+            srp.set_protocol(path->GetSourceString());
+        } else {
+            const string sbp = attr->sub_protocol();
+            srp.set_protocol(path->GetSourceString() + " (" + sbp + ")");
         }
         srp.set_origin(attr->origin_string());
         if (attr->as_path() != NULL)
