@@ -634,9 +634,20 @@ UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
     if (!route->IsUsable())
         return NULL;
 
-    // Reflect Type-5 primary path back only to the sender agent.
-    if (route->BestPath()->IsReplicated())
-        return NULL;
+    if (route->BestPath()->IsReplicated()) {
+        // Reflect Type-5 primary path back only to the sender agent.
+        if (route->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute)
+            return NULL;
+        // Type 4 routes should be sent to agent even if they are copied from
+        // master table
+        if (route->GetPrefix().type() == MvpnPrefix::LeafADRoute) {
+            const BgpTable *table = dynamic_cast<const BgpSecondaryPath *>(
+                                        route->BestPath())->src_table();
+            const MvpnTable *mtable = dynamic_cast<const MvpnTable *>(table);
+            if (!mtable || !mtable->IsMaster())
+                return NULL;
+        }
+    }
 
     MvpnProjectManager *pm = GetProjectManager();
     if (!pm) {

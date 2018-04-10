@@ -904,9 +904,9 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiver) {
         sg << "224." << i << "." << instance_count_ << ".3,192.168.1.1";
         agent_xa_->AddType5MvpnRoute(red.str(), sg.str(), nh.str());
 
-        ostringstream green;
-        green << "green" << i;
-        agent_ya_->AddType7MvpnRoute(green.str(), sg.str(), "10.1.1.3", "50-60");
+        ostringstream grn;
+        grn << "green" << i;
+        agent_ya_->AddType7MvpnRoute(grn.str(), sg.str(), "10.1.1.3", "50-60");
 
         agent_yb_->AddType7MvpnRoute(red.str(), sg.str(), "10.1.2.3", "30-40");
         task_util::WaitForIdle();
@@ -917,9 +917,17 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiver) {
         // 2 + 6*instance_count_
         // For every i, 4 routes get added
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i, master_y_->Size());
-        TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i, master_->Size());
+        TASK_UTIL_EXPECT_EQ(type1_routes_ + 5*i - 1, master_->Size());
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.3",
             "192.168.0.101", agent_yb_);
+
+        // Add receivers on X and make sure that it also receives type4 route
+        TASK_UTIL_EXPECT_EQ((int)i*2-1, agent_xa_->MvpnRouteCount());
+        agent_xa_->AddType7MvpnRoute(grn.str(), sg.str(), "10.1.1.3", "70-80");
+        TASK_UTIL_EXPECT_EQ((int)i*2, agent_xa_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
+                    agent_xa_, grn.str(), sg.str()));
+        TASK_UTIL_EXPECT_EQ(10, green_[i-1]->Size());
     }
 }
 
