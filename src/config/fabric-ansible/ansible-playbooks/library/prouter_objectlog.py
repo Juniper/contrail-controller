@@ -56,7 +56,7 @@ EXAMPLES = '''
 
 import logging
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.sandesh_log_utils import send_prouter_object_log
+from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
 
 
 def main():
@@ -78,11 +78,33 @@ def main():
     serial_num = module.params['serial_num']
     onboarding_state = module.params['onboarding_state']
 
-    results = send_prouter_object_log(prouter_fqname,
-                                      job_ctx,
-                                      os_version,
-                                      serial_num,
-                                      onboarding_state)
+    results = dict()
+    results['failed'] = False
+
+    object_log = None
+    try:
+        object_log = ObjectLogUtil(job_ctx)
+        object_log.send_prouter_object_log(prouter_fqname,
+                                           os_version, serial_num,
+                                           onboarding_state)
+    except ValueError as ve:
+        results['msg'] = str(ve)
+        results['failed'] = True
+    except Exception as e:
+        msg = "Failed to create following physical router object log due to " \
+              "error: %s\n\t \
+               job name: %s\n\t \
+               job execution id: %s\n\t \
+               device name: %s\n\t \
+               onboarding_state: %s\n" \
+               % (str(e), job_ctx['job_template_fqname'],
+                 job_ctx['job_execution_id'], str(prouter_fqname),
+                 onboarding_state)
+        results['msg'] = msg
+        results['failed'] = True
+    finally:
+        if object_log:
+            object_log.close_sandesh_conn()
 
     module.exit_json(**results)
 
