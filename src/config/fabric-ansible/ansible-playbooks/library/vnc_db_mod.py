@@ -17,7 +17,7 @@ from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import VncApi
 import vnc_api
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.sandesh_log_utils import send_job_object_log
+from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
 
 DOCUMENTATION = '''
 ---
@@ -566,8 +566,18 @@ def main():
 
     if results.get('failed'):
         logging.error(results.get('msg'))
-        send_job_object_log(
-            vnc_mod.job_ctx, results.get('msg'), VncMod.JOB_IN_PROGRESS, None)
+        object_log = None
+        try:
+            object_log = ObjectLogUtil(vnc_mod.job_ctx)
+            object_log.send_job_object_log(
+                results.get('msg'), VncMod.JOB_IN_PROGRESS, None)
+        except ValueError as ve:
+            logging.error(str(ve))
+        except Exception as e:
+            logging.error("Unable to log sandesh job logs: %s", str(e))
+        finally:
+            if object_log:
+                object_log.close_sandesh_conn()
 
     # Return response
     module.exit_json(**results)
