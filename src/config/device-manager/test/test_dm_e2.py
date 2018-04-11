@@ -33,6 +33,9 @@ def retry_exc_handler(tries_remaining, exception, delay):
     print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
 
 
+# License: MIT
+# Copyright 2012 by Jeff Laughlin Consulting LLC
+# https://gist.github.com/n1ywb/2570004
 def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
     def dec(func):
         def f2(*args, **kwargs):
