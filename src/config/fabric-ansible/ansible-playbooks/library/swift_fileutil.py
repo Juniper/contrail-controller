@@ -107,7 +107,7 @@ import time
 from urlparse import urlparse
 import swiftclient
 import swiftclient.utils
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 from threading import RLock
 
 connection_lock = RLock()
@@ -206,7 +206,7 @@ class FileSvcUtil(object):  # pragma: no cover
             self.swift_conn.close()
 
 def main():
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             authtoken=dict(required=True),
             authurl=dict(required=True),
