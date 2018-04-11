@@ -50,7 +50,7 @@ EXAMPLES = '''
 
 import logging
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.sandesh_log_utils import send_job_object_log
+from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
 
 
 def main():
@@ -67,12 +67,31 @@ def main():
     job_ctx = module.params['job_ctx']
     message = module.params['message']
     status = module.params['status']
-    result = module.params['result']
+    job_result = module.params['result']
 
-    results = send_job_object_log(job_ctx,
-                                  message,
-                                  status,
-                                  result)
+    results = dict()
+    results['failed'] = False
+
+    object_log = None
+    try:
+        object_log = ObjectLogUtil(job_ctx)
+        object_log.send_job_object_log(message, status, job_result)
+    except ValueError as ve:
+        results['msg'] = str(ve)
+        results['failed'] = True
+    except Exception as e:
+        msg = "Failed to create following job log due to error: %s\n\t \
+               job name: %s\n\t \
+               job execution id: %s\n\t \
+               job status: %s\n\t, \
+               log message: %s\n" \
+               % (str(e), job_ctx['job_template_fqname'],
+                 job_ctx['job_execution_id'], status, message)
+        results['msg'] = msg
+        results['failed'] = True
+    finally:
+        if object_log:
+            object_log.close_sandesh_conn()
 
     module.exit_json(**results)
 
