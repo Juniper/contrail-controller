@@ -43,13 +43,22 @@ class TestExecuteJob(test_case.ApiServerTestCase):
         fake_process = flexmock(pid=123)
         flexmock(subprocess).should_receive('Popen').and_return(fake_process)
 
-        # create the input json
-        job_template_id = uuid.uuid4()
+        # create the job_template
+        job_template_object = JobTemplate(
+                                  job_template_type='device',
+                                  job_template_job_runtime='ansible',
+                                  job_template_multi_device_job=False,
+                                  job_template_fqname=[
+                                   "default-global-system-config",
+                                   "Test_template"],
+                                  name='Test_template')
+        job_template_id = self._vnc_lib.job_template_create(
+                                            job_template_object)
 
         # create test device object
         phy_router_obj = PhysicalRouter(
             parent_type='global-system-config',
-            fq_name=["default-global-system-config","test_device"],
+            fq_name=["default-global-system-config", "test_device"],
             physical_router_management_ip="1.1.1.1",
             physical_router_vendor_name="juniper",
             physical_router_product_name="mx240",
@@ -66,4 +75,3 @@ class TestExecuteJob(test_case.ApiServerTestCase):
 
         (code, msg) = self._http_post('/execute-job', execute_job_body)
         self.assertEqual(code, 200)
-
