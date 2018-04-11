@@ -4563,6 +4563,12 @@ class VncApiServer(object):
                         draft['id_perms'].pop('uuid', None)
                     draft['parent_type'] = parent_type
                     draft['parent_uuid'] = parent_uuid
+                    # if a ref type was purge when the draft mode is enabled,
+                    # set the ref to an empty list to ensure all refs will be
+                    # removed when resource will be updated/committed
+                    for ref_type in r_class.ref_fields:
+                        if ref_type not in draft:
+                            draft[ref_type] = []
                     self._update_fq_name_security_refs(
                         parent_fq_name, pm['fq_name'], type_name, draft)
                     actions.append(('update', (r_class.resource_type, uuid,
