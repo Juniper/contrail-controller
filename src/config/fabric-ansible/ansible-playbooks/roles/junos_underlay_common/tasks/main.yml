@@ -3,7 +3,7 @@
       block:
         - template:
             src: junos.common.conf.j2
-            dest: "{{ conf_dir }}/build_config/common_config.cfg"
+            dest: "{{ conf_dir }}/build_config/common_config.conf"
           register: cmd_res
         - debug: var=cmd_res
       rescue:
