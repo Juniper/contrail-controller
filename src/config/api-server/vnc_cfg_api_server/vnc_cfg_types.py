@@ -444,7 +444,6 @@ class SecurityResourceBase(Resource):
         # update code operated
         if (obj_dict['fq_name'][-2] ==
                 constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
-            delta_obj_dict.pop('draft_mode_state', None)
             if obj_dict['draft_mode_state'] == 'deleted':
                 # Cannot update a pending deleted resource
                 msg = ("%s %s is in pending delete, cannot be updated" %
@@ -483,7 +482,6 @@ class SecurityResourceBase(Resource):
         # Allow to update pending created or updated security resources
         if draft_mode_state == 'updated':
             if draft_obj_dict['draft_mode_state'] == 'deleted':
-                delta_obj_dict.pop('draft_mode_state', None)
                 # Disallow to update a pending deleted security resource
                 msg = ("%s %s is in pending delete, cannot be updated" %
                        (cls.object_type.replace('_', ' ').title(),
@@ -504,6 +502,13 @@ class SecurityResourceBase(Resource):
                         draft_obj_dict['uuid'], prop_collection_updates)
                 except cfgm_common.exceptions.HttpError as e:
                     return False, (e.status_code, e.content)
+        elif (draft_mode_state == 'deleted' and
+                draft_obj_dict['draft_mode_state'] == 'updated'):
+            cls.server.internal_request_update(
+                        cls.resource_type,
+                        draft_obj_dict['uuid'],
+                        {'draft_mode_state': 'deleted'},
+                    )
 
         draft_obj_dict.update(delta_obj_dict)
         return True, (202, draft_obj_dict)
