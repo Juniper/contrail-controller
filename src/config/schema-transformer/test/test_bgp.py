@@ -14,7 +14,7 @@ except ImportError:
     from schema_transformer import to_bgp
 from vnc_api.vnc_api import (BgpRouterParams, VirtualMachineInterface,
         BgpRouter, LogicalRouter, RouteTargetList, InstanceIp, BgpAsAService,
-        NoIdError)
+        NoIdError, SubCluster)
 
 from test_case import STTestCase, retries
 from test_route_target import VerifyRouteTarget
@@ -240,6 +240,61 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.logical_router_delete(id=lr.uuid)
         self.check_lr_is_deleted(uuid=lr.uuid)
         self.check_rt_is_deleted(name=lr_target)
+
+    def create_bgp_router_sub(self, name, vendor='contrail', asn=None,
+                               router_type=None, sub_cluster=None):
+        ip_fabric_ri = self._vnc_lib.routing_instance_read(
+            fq_name=['default-domain', 'default-project', 'ip-fabric', '__default__'])
+        router = BgpRouter(name, parent_obj=ip_fabric_ri)
+        params = BgpRouterParams(router_type=router_type)
+        params.vendor = 'unknown'
+        params.autonomous_system = asn
+        router.set_bgp_router_parameters(params)
+        if sub_cluster:
+            router.add_sub_cluster(sub_cluster)
+        self._vnc_lib.bgp_router_create(router)
+        return router
+
+    def test_ibgp_auto_mesh_sub(self):
+        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+                         True, "ibgp_auto_mesh_toggle_test")
+        # create subcluster
+        sub_cluster_obj = SubCluster(
+            'test-host',
+            sub_cluster_asn=64513)
+
+        self._vnc_lib.sub_cluster_create(sub_cluster_obj)
+        sub_cluster_obj = self._vnc_lib.sub_cluster_read(
+                fq_name=sub_cluster_obj.get_fq_name())
+        # create router1
+        r1_name = self.id() + 'router1'
+        router1 = self.create_bgp_router_sub(r1_name, 'contrail', asn=64513,
+                                             router_type='external-control-node',
+                                             sub_cluster=sub_cluster_obj)
+        # create router2
+        r2_name = self.id() + 'router2'
+        router2 = self.create_bgp_router_sub(r2_name, 'contrail', asn=64513,
+                                             router_type='external-control-node',
+                                             sub_cluster=sub_cluster_obj)
+        # create router3
+        r3_name = self.id() + 'router3'
+        router3 = self.create_bgp_router(r3_name, 'contrail')
+        # create router4
+        r4_name = self.id() + 'router4'
+        router4 = self.create_bgp_router(r4_name, 'contrail')
+
+        self.check_bgp_peering(router3, router4, 1)
+        self.check_bgp_peering(router1, router2, 1)
+
+
+        self._vnc_lib.bgp_router_delete(id=router1.uuid)
+        self._vnc_lib.bgp_router_delete(id=router2.uuid)
+        self._vnc_lib.bgp_router_delete(id=router3.uuid)
+        self._vnc_lib.bgp_router_delete(id=router4.uuid)
+        self._vnc_lib.sub_cluster_delete(id=sub_cluster_obj.uuid)
+        gevent.sleep(1)
+
 
     def test_ibgp_auto_mesh(self):
         config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
