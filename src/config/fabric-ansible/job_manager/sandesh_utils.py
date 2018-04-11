@@ -9,7 +9,7 @@ import time
 import timeout_decorator
 
 from job_exception import JobException
-
+from job_messages import MsgBundle
 
 class SandeshUtils(object):
 
@@ -40,8 +40,7 @@ class SandeshUtils(object):
         try:
             self.wait_for_msg_send()
         except JobException as e:
-            msg = "Error in confirming the SANDESH message send operation." \
-                  " The Job Logs might not be complete."
+            msg = MsgBundle.getMessage(MsgBundle.CLOSE_SANDESH_EXCEPTION)
             self._logger.error(msg)
             e.msg = msg
             raise e

@@ -16,7 +16,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 from ansible.executor.playbook_executor import PlaybookExecutor
-
+from job_messages import MsgBundle
 
 class PlaybookHelper(object):
 
@@ -61,11 +61,15 @@ class PlaybookHelper(object):
             output = self.get_plugin_output(pbex)
 
             if ret_val != 0:
-                raise Exception("Playbook returned with error")
+                msg = MsgBundle.getMessage(MsgBundle.
+                                           PLAYBOOK_RETURN_WITH_ERROR)
+                raise Exception(msg)
 
             return output
         except Exception as e:
-            sys.exit("Exception in playbook process %s " % repr(e))
+            msg = MsgBundle.getMessage(MsgBundle.PLAYBOOK_EXECUTE_ERROR,
+                                       exc_msg=repr(e))
+            sys.exit(msg)
 
 
 def parse_args():
@@ -83,12 +87,12 @@ if __name__ == "__main__":
         playbook_params = parse_args()
         playbook_input_json = json.loads(playbook_params.playbook_input[0])
         if playbook_input_json is None:
-            sys.exit("Playbook input data is not passed. Aborting execution.")
+            sys.exit(MsgBundle.getMessage(MsgBundle.NO_PLAYBOOK_INPUT_DATA))
     except Exception as e:
         print >> sys.stderr, "Failed to start playbook due "\
                              "to Exception: %s" % traceback.print_stack()
-        sys.exit(
-            "Exiting due playbook input parsing error: %s" % repr(e))
+        sys.exit(MsgBundle.getMessage(MsgBundle.PLAYBOOK_INPUT_PARSING_ERROR,
+                                      exc_msg=repr(e)))
     playbook_helper = PlaybookHelper()
     playbook_helper.execute_playbook(playbook_input_json)
 
