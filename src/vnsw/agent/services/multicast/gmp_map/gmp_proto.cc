@@ -261,6 +261,10 @@ void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
     }
 
     const InterfaceNH *inh = dynamic_cast<const InterfaceNH *>(nh);
+    if (!inh) {
+        return;
+    }
+
     const Interface *intf = inh->GetInterface();
     if (!intf) {
         return;
