@@ -619,9 +619,13 @@ void MvpnTable::GetPeerSet(RibOut *ribout, MvpnRoute *route,
         int current_index = iter.index();
         IPeer *peer = dynamic_cast<IPeer *>(iter.Next());
         assert(peer);
-        if (peer == route->BestPath()->GetPeer()) {
-            new_peerset->set(current_index);
-            break;
+        for (Route::PathList::const_iterator it = route->GetPathList().begin();
+             it != route->GetPathList().end(); ++it) {
+            const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+            if (path->IsFeasible() && peer == path->GetPeer()) {
+                new_peerset->set(current_index);
+                break;
+            }
         }
     }
 }
