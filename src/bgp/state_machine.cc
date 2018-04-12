@@ -1168,7 +1168,8 @@ void StateMachine::UpdateFlapCount() {
 void StateMachine::PeerClose(int code, int subcode) {
     UpdateFlapCount();
     peer_->Close(peer_->AttemptGRHelperMode(code, subcode));
-    set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
+    set_idle_hold_time(idle_hold_time() ? idle_hold_time() :
+                                          GetIdleHoldTimeMSecs());
     reset_hold_time();
 }
 
