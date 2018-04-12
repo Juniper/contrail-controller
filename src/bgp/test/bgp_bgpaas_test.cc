@@ -50,7 +50,7 @@ public:
 protected:
     BGPaaSTest() :
             server_session_manager_(NULL), vm1_session_manager_(NULL),
-            vm2_session_manager_(NULL), stale_count_(0) {
+            vm2_session_manager_(NULL) {
     }
 
     virtual void SetUp() {
@@ -455,7 +455,6 @@ protected:
     string server_config_;
     string vm1_server_as_;
     string vm2_server_as_;
-    size_t stale_count_;
     string vm1_as_;
     string vm2_as_;
     bool set_auth_;
@@ -486,7 +485,7 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "      <graceful-restart-parameters>\n"
 "         <enable>true</enable>\n"
 "         <restart-time>1</restart-time>\n"
-"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <long-lived-restart-time>2</long-lived-restart-time>\n"
 "         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
 "         <bgp-helper-enable>true</bgp-helper-enable>\n"
 "         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
@@ -556,7 +555,7 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "      <graceful-restart-parameters>\n"
 "         <enable>true</enable>\n"
 "         <restart-time>1</restart-time>\n"
-"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <long-lived-restart-time>2</long-lived-restart-time>\n"
 "         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
 "         <bgp-helper-enable>true</bgp-helper-enable>\n"
 "         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
@@ -634,7 +633,7 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "      <graceful-restart-parameters>\n"
 "         <enable>true</enable>\n"
 "         <restart-time>1</restart-time>\n"
-"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <long-lived-restart-time>2</long-lived-restart-time>\n"
 "         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
 "         <bgp-helper-enable>true</bgp-helper-enable>\n"
 "         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
@@ -868,19 +867,16 @@ void BGPaaSTest::RunTest() {
         set_state_machine_restart(false);
 
     BgpNeighborResp resp;
-    TASK_UTIL_EXPECT_EQ(stale_count_,
-                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
-                            get_peer_close_info().get_stale());
-    TASK_UTIL_EXPECT_EQ(stale_count_,
-                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
-                            get_peer_close_info().get_gr_timer());
-    TASK_UTIL_EXPECT_EQ(stale_count_,
-                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
-                            get_peer_close_info().get_llgr_timer());
-    TASK_UTIL_EXPECT_EQ(stale_count_ ? 1 : 0,
-                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
-                                get_peer_close_info().get_sweep());
-    stale_count_++;
+    size_t orig_stale_count = peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_stale();
+    size_t orig_gr_count = peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_gr_timer();
+    size_t orig_llgr_count = peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_llgr_timer();
+    size_t orig_sweep_count = peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_sweep();
+    size_t orig_delete_count = peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                            get_peer_close_info().get_deletes();
 
     // Trigger graceful session closure by faking HoldTimerExpiry.
     peer_vm1->state_machine()->HoldTimerExpired();
@@ -890,19 +886,15 @@ void BGPaaSTest::RunTest() {
     VerifyInet6RouteCount(vm2_.get(), 3);
 
     // Wait until peer enters LLGR state.
-    TASK_UTIL_EXPECT_EQ(stale_count_,
+    TASK_UTIL_EXPECT_EQ(orig_stale_count + 1,
                         peer_vm1->close_manager()->FillCloseInfo(&resp)->
                             get_peer_close_info().get_stale());
-    TASK_UTIL_EXPECT_EQ(stale_count_,
+    TASK_UTIL_EXPECT_EQ(orig_gr_count + 1,
                         peer_vm1->close_manager()->FillCloseInfo(&resp)->
                             get_peer_close_info().get_gr_timer());
-    TASK_UTIL_EXPECT_EQ(stale_count_,
+    TASK_UTIL_EXPECT_EQ(orig_llgr_count + 1,
                         peer_vm1->close_manager()->FillCloseInfo(&resp)->
                             get_peer_close_info().get_llgr_timer());
-    TASK_UTIL_EXPECT_EQ(stale_count_ > 1 ? 1 : 0,
-                        peer_vm1->close_manager()->FillCloseInfo(&resp)->
-                                get_peer_close_info().get_sweep());
-    stale_count_++;
 
     // Restart BGP state machine.
     static_cast<BgpPeerCloseTest *>(peer_vm1->peer_close())->
@@ -911,13 +903,15 @@ void BGPaaSTest::RunTest() {
         RestartStateMachine();
     BGP_WAIT_FOR_PEER_STATE(peer_vm1, StateMachine::ESTABLISHED);
 
-    // GR session would have either got refreshed or delted, based on the timer
+    // GR session would have either got refreshed or deleted, based on the timer
     // expiry and when the session comes up. Most of time time, we expect the
     // session to be swept. But add delete check to make test more stable.
-    TASK_UTIL_EXPECT_TRUE(peer_vm1->close_manager()->FillCloseInfo(&resp)->
-                              get_peer_close_info().get_sweep() ||
-                          peer_vm1->close_manager()->FillCloseInfo(&resp)->
-                              get_peer_close_info().get_deletes());
+    TASK_UTIL_EXPECT_TRUE(orig_sweep_count + 1 ==
+                              peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                                  get_peer_close_info().get_sweep() ||
+                          orig_delete_count + 1 ==
+                              peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                                  get_peer_close_info().get_deletes());
 
     // Verify that all routes remain or get re-advertised.
     TASK_UTIL_EXPECT_EQ(5, agent_->route_mgr_->Count());
