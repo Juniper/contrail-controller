@@ -201,7 +201,7 @@ const boost::uuids::uuid VxlanRoutingVrfMapper::GetLogicalRouterUuidUsingRoute
 
     const VmInterface *vmi = dynamic_cast<const VmInterface *>
         (nh->GetInterface());
-    if (!vmi) {
+    if (!vmi || !vmi->vn()) {
         return nil_uuid();
     }
 
