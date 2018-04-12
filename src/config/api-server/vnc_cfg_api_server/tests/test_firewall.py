@@ -1174,6 +1174,7 @@ class FirewallDraftModeBase(object):
         pending_fp.display_name = new_fp_name
         self.api.firewall_policy_update(pending_fp)
         pending_fp = self.api.firewall_policy_read(id=pending_fp.uuid)
+        self.assertEqual(pending_fp.draft_mode_state, 'created')
         self.assertEqual(pending_fp.display_name, new_fp_name)
         self.assertFalse(
             self.api.firewall_policys_list(
@@ -1196,6 +1197,7 @@ class FirewallDraftModeBase(object):
         self.assertEqual(fp.display_name, old_fp_name)
         pending_fp_fq_name = self._draft_pm_fq_name + [fp.name]
         pending_fp = self.api.firewall_policy_read(pending_fp_fq_name)
+        self.assertEqual(pending_fp.draft_mode_state, 'updated')
         self.assertEqual(pending_fp.display_name, new_fp_name)
 
         # Second time firewall policy modified since draft mode enabled,
@@ -1207,7 +1209,28 @@ class FirewallDraftModeBase(object):
         self.assertEqual(fp.display_name, old_fp_name)
         # Same cloned resource used
         pending_fp = self.api.firewall_policy_read(id=pending_fp.uuid)
+        self.assertEqual(pending_fp.draft_mode_state, 'updated')
         self.assertEqual(pending_fp.display_name, new_new_fp_name)
+
+    def test_delete_security_resource_in_pending_update(self):
+        self.set_scope_instance(draft_enable=False)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp)
+        self.draft_mode = True
+
+        new_fp_name = 'new-name-%s' % fp.name
+        fp.display_name = new_fp_name
+        self.api.firewall_policy_update(fp)
+        pending_fp = self.api.firewall_policy_read_draft(id=fp.uuid)
+        self.assertEqual(pending_fp.draft_mode_state, 'updated')
+        self.assertEqual(pending_fp.display_name, new_fp_name)
+
+        self.api.firewall_policy_delete(id=fp.uuid)
+        pending_fp = self.api.firewall_policy_read_draft(id=fp.uuid)
+        self.assertEqual(pending_fp.draft_mode_state, 'deleted')
+
+        self.api.commit_security(self._scope)
+        self.assertRaises(NoIdError, self.api.firewall_policy_read, id=fp.uuid)
 
     def test_update_security_resource_in_pending_delete(self):
         self.set_scope_instance(draft_enable=False)
