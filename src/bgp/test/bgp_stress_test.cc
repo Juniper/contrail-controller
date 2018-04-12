@@ -3368,14 +3368,9 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
-    std::srand(std::time(0));
-    BgpServer::Initialize();
-    ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<PeerCloseManager>(
         boost::factory<PeerCloseManagerTest *>());
-    BgpObjectFactory::Register<StateMachine>(
-        boost::factory<StateMachineTest *>());
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
         boost::factory<BgpXmppMessageBuilder *>());
     IFMapFactory::Register<IFMapXmppChannel>(
@@ -3384,8 +3379,6 @@ static void SetUp() {
         boost::factory<ConfigCassandraClientTest *>());
     ConfigFactory::Register<ConfigJsonParserBase>(
         boost::factory<ConfigJsonParser *>());
-    XmppObjectFactory::Register<XmppStateMachine>(
-        boost::factory<XmppStateMachineTest *>());
 }
 
 static void TearDown() {

@@ -13,10 +13,12 @@
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "control-node/control_node.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_table.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
+#include "xmpp/xmpp_factory.h"
 
 using boost::uuids::nil_generator;
 using namespace boost::asio;
@@ -467,10 +469,17 @@ boost::any BgpTestUtil::GetUserData(std::string key) {
 }
 
 void BgpServerTest::GlobalSetUp(void) {
+    std::srand(std::time(0));
+    BgpServer::Initialize();
+    ControlNode::SetDefaultSchedulingPolicy();
     BgpObjectFactory::Register<BgpPeer>(
         boost::factory<BgpPeerTest *>());
     BgpObjectFactory::Register<PeerManager>(
         boost::factory<PeerManagerTest *>());
     BgpObjectFactory::Register<BgpConfigManager>(
         boost::factory<BgpIfmapConfigManager *>());
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineTest *>());
+    XmppObjectFactory::Register<XmppStateMachine>(
+        boost::factory<XmppStateMachineTest *>());
 }
