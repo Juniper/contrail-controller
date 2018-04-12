@@ -19,24 +19,8 @@
             "image_uuid": "{{image_uuid}}",
             "msg": "Image upgrade task failed"
           }
-        jl_err_message: "Unable to upgrade image on the device. Junos upgrade task failed with exception. {{junos_response.msg}}"
-
-
+        jl_err_message: "Unable to upgrade image {{filename}} on the device {{pr_fqname}}. Junos upgrade task failed with exception. {{junos_response.msg}}"
 
 - name: Print the complete response.
   debug:
     var: junos_response
-
-- name: Fail if Junos upgrade response failed
-  include_tasks: error_handler.yml
-  when: "junos_response.failed == true"
-  vars:
-    op_err_message: "Unable to upgrade image on the device. Junos upgrade task failed."
-    results: |
-      {
-        "prouter_uuid": "{{prouter_uuid}}",
-        "image_uuid": "{{image_uuid}}",
-        "msg": "Image upgrade task failed"
-      }
-    jl_err_message: "Unable to upgrade image on the device. Junos upgrade task failed."
-
