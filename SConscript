@@ -2,11 +2,13 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+env = DefaultEnvironment()
+
 SConscript(dirs=['lib', 'src'])
 SConscript(dirs=['../src/contrail-analytics'])
+env['api_repo_path'] = '#/src/contrail-api-client'
 SConscript(dirs=['../src/contrail-api-client'])
 
-env = DefaultEnvironment()
 env.Alias('controller/test', [
     'controller/src/agent:test',
     'controller/src/bfd:test',
@@ -41,6 +43,8 @@ env.Alias('controller/flaky-test', [
     'src/contrail-common/database/gendb:flaky-test',
     'src/contrail-analytics/contrail-collector:flaky-test',
 ])
+
+
 
 env.Alias('test', [ 'controller/test' ])
 env.Alias('flaky-test', [ 'controller/flaky-test' ])
