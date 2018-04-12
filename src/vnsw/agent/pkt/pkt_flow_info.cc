@@ -1992,13 +1992,55 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         r_dport = pkt->sport;
     }
 
+    IpAddress r_sip = dip;
+    IpAddress r_dip = sip;
+    if (in->nh_ == out->nh_) {
+        if (pkt->fat_flow_done && (pkt->orig_dport == pkt->orig_sport)) {
+            /* When source and destination ports are same and FatFlow is
+             * configured for that port, always mask source port for both
+             * forward and reverse flows */
+            r_sport = pkt->sport;
+            r_dport = pkt->dport;
+        }
+    } else {
+        /* Local flow case (in->nh_ != out->nh_). Do fat-flow look-up on
+         * egress interface and build key for reverse flow based on fat-flow
+         * look-up */
+        r_sip = pkt->ip_daddr;
+        r_dip = pkt->ip_saddr;
+        r_sport = pkt->orig_dport;
+        r_dport = pkt->orig_sport;
+        FatFlowInfo finfo;
+        if (pkt->FetchFatFlowInfo(agent, out->nh_, pkt->ip_proto, r_sport,
+                                  r_dport, &finfo)) {
+            r_sport = finfo.sport;
+            r_dport = finfo.dport;
+            if (!nat_done) {
+                if (finfo.ignore_address == VmInterface::IGNORE_SOURCE) {
+                    if (ingress) {
+                        r_sip = FamilyToAddress(pkt->family);
+                    } else {
+                        r_dip = FamilyToAddress(pkt->family);
+                    }
+                } else if (finfo.ignore_address ==
+                           VmInterface::IGNORE_DESTINATION) {
+                    if (ingress) {
+                        r_dip = FamilyToAddress(pkt->family);
+                    } else {
+                        r_sip = FamilyToAddress(pkt->family);
+                    }
+                }
+            }
+        }
+    }
+
     // Allocate reverse flow
     if (nat_done) {
         FlowKey rkey(out->nh_, nat_ip_daddr, nat_ip_saddr, pkt->ip_proto,
-                     r_sport, r_dport);
+                     nat_dport, nat_sport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
     } else {
-        FlowKey rkey(out->nh_, dip, sip, pkt->ip_proto, r_sport, r_dport);
+        FlowKey rkey(out->nh_, r_sip, r_dip, pkt->ip_proto, r_sport, r_dport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
     }
 

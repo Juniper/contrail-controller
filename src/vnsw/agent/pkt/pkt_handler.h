@@ -350,6 +350,12 @@ private:
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };
 
+struct FatFlowInfo {
+    uint16_t sport;
+    uint16_t dport;
+    VmInterface::FatFlowIgnoreAddressType ignore_address;
+};
+
 // Info from the parsed packet
 struct PktInfo {
     PktHandler::PktModuleName module;
@@ -385,6 +391,9 @@ struct PktInfo {
     bool                l3_label;
     bool                multicast_label;
     VmInterface::FatFlowIgnoreAddressType ignore_address; //fat-flow config
+    bool                fat_flow_done;
+    uint32_t            orig_sport;
+    uint32_t            orig_dport;
 
     // Pointer to different headers in user packet
     struct ether_header *eth;
@@ -421,6 +430,9 @@ struct PktInfo {
     void reset_packet_buffer();
 
     uint32_t GetUdpPayloadLength() const;
+    bool FetchFatFlowInfo(Agent *agent, uint32_t nh_id, uint8_t ip_proto,
+                          uint16_t src_port, uint16_t dst_port,
+                          FatFlowInfo *finfo) const;
 
 private:
     PacketBufferPtr     packet_buffer_;

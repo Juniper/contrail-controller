@@ -80,14 +80,30 @@ void PktHandler::Send(const AgentHdr &hdr, const PacketBufferPtr &buff) {
 }
 
 void PktHandler::CalculatePort(PktInfo *pkt) {
+
+    FatFlowInfo finfo;
+    pkt->orig_sport = pkt->sport;
+    pkt->orig_dport = pkt->dport;
+    if (pkt->FetchFatFlowInfo(agent(), pkt->agent_hdr.nh, pkt->ip_proto,
+                              pkt->sport, pkt->dport, &finfo)) {
+        pkt->fat_flow_done = true;
+        pkt->sport = finfo.sport;
+        pkt->dport = finfo.dport;
+        pkt->ignore_address = finfo.ignore_address;
+    }
+}
+
+bool PktInfo::FetchFatFlowInfo(Agent *agent, uint32_t nh_id, uint8_t ip_proto,
+                               uint16_t src_port, uint16_t dst_port,
+                               FatFlowInfo *finfo) const {
+
+    const NextHop *nh = agent->nexthop_table()->FindNextHop(nh_id);
+    if (!nh) {
+        return false;
+    }
+
     const Interface *in = NULL;
     const VmInterface *intf = NULL;
-
-    const NextHop *nh =
-        agent()->nexthop_table()->FindNextHop(pkt->agent_hdr.nh);
-    if (!nh) {
-        return;
-    }
 
     if (nh->GetType() == NextHop::INTERFACE) {
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
@@ -102,53 +118,49 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     }
 
     if (!intf) {
-        return;
+        return false;
     }
 
     if (intf->fat_flow_list().list_.size() == 0) {
-        return;
+        return false;
     }
 
-    uint16_t sport = pkt->sport;
-    if (pkt->ip_proto == IPPROTO_ICMP ||
-        pkt->ip_proto == IPPROTO_IGMP) {
+    uint16_t sport = src_port;
+    if (ip_proto == IPPROTO_ICMP || ip_proto == IPPROTO_IGMP) {
         sport = 0;
     }
-    VmInterface::FatFlowIgnoreAddressType ignore_addr =
-        VmInterface::IGNORE_NONE;
-    if (pkt->sport < pkt->dport) {
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
-            pkt->dport = 0;
-            pkt->ignore_address = ignore_addr;
-            return;
+    finfo->sport = src_port;
+    finfo->dport = dst_port;
+    finfo->ignore_address = VmInterface::IGNORE_NONE;
+    if (src_port < dst_port) {
+        if (intf->IsFatFlow(ip_proto, sport, &finfo->ignore_address)) {
+            finfo->dport = 0;
+            return true;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
-            pkt->sport = 0;
-            pkt->ignore_address = ignore_addr;
-            return;
+        if (intf->IsFatFlow(ip_proto, dst_port, &finfo->ignore_address)) {
+            finfo->sport = 0;
+            return true;
         }
     } else {
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
-            pkt->sport = 0;
-            pkt->ignore_address = ignore_addr;
-            return;
+        if (intf->IsFatFlow(ip_proto, dst_port, &finfo->ignore_address)) {
+            finfo->sport = 0;
+            return true;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
-            pkt->dport = 0;
-            pkt->ignore_address = ignore_addr;
-            return;
+        if (intf->IsFatFlow(ip_proto, sport, &finfo->ignore_address)) {
+            finfo->dport = 0;
+            return true;
         }
     }
     /* If Fat-flow port is 0, then both source and destination ports have to
      * be ignored */
-    if (intf->IsFatFlow(pkt->ip_proto, 0, &ignore_addr)) {
-        pkt->sport = 0;
-        pkt->dport = 0;
-        pkt->ignore_address = ignore_addr;
-        return;
+    if (intf->IsFatFlow(ip_proto, 0, &finfo->ignore_address)) {
+        finfo->sport = 0;
+        finfo->dport = 0;
+        return true;
     }
+    return false;
 }
 
 bool PktHandler::IsBFDHealthCheckPacket(const PktInfo *pkt_info,
@@ -1093,8 +1105,8 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
     ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
-    l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(), arp(),
-    ip(), ip6(), packet_buffer_(buff) {
+    l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    fat_flow_done(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -1103,8 +1115,8 @@ PktInfo::PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr) :
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID),
     agent_hdr(hdr), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
     dport(), ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
-    l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(), arp(),
-    ip(), ip6(), packet_buffer_(buff) {
+    l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    fat_flow_done(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -1114,8 +1126,8 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
-    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(),
-    arp(), ip(), ip6() {
+    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    fat_flow_done(false), eth(), arp(), ip(), ip6() {
 
     packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
         (module, buff_len, mdata);
@@ -1131,8 +1143,8 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
-    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(),
-    arp(), ip(), ip6(), packet_buffer_() {
+    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    fat_flow_done(false), eth(), arp(), ip(), ip6(), packet_buffer_() {
     transp.tcp = 0;
 }
 
