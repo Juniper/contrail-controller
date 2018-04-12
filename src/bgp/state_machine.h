@@ -188,6 +188,7 @@ public:
 protected:
     virtual void OnNotificationMessage(BgpSession *session,
                                        BgpProto::BgpMessage *msg);
+    virtual const int GetIdleHoldTimeMSecs() const { return kIdleHoldTime; }
 
 private:
     friend class StateMachineTest;
