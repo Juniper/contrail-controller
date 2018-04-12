@@ -30,7 +30,7 @@
         "image_uuid": "{{image_uuid}}",
         "msg": "Unable to get image file url from Swift."
       }
-    jl_err_message: "Unable to get image file url from Swift. {{swift_results.error_msg}}"
+    jl_err_message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Unable to get image file url from Swift. {{swift_results.error_msg}}"
 
 - set_fact:
     tempurl: "{{swift_results.url}}"

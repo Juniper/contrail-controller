@@ -16,14 +16,16 @@
   include_tasks: error_handler.yml
   when: "pr_family != image_family"
   vars:
-    op_err_message: "Image not compatible on the physical router device. Image family is {{image_family}} and Device family is {{pr_family}}"
+    op_err_message: "Image family is {{image_family}} and Device family is {{pr_family}}"
     results: |
-          {
-            "prouter_uuid": "{{prouter_uuid}}",
-            "image_uuid": "{{image_uuid}}",
-            "msg": "Image compatibility task failed"
-          }
-    jl_err_message: "Image not compatible on the physical router device. Image family is {{image_family}} and Device family is {{pr_family}}"
+      {
+        "prouter_uuid": "{{prouter_uuid}}",
+        "image_uuid": "{{image_uuid}}",
+        "msg": "Image compatibility task failed"
+      }
+    jl_err_message: >
+      "Image {{filename}} is not compatible for upgrade on the physical router device {{pr_fqname}}.
+       Image family is {{image_family}} and Device family is {{pr_family}}"
 
 - name: Read swift conf info
   include_tasks: read_swift_conf_info.yml
@@ -39,8 +41,28 @@
   debug:
     var: enc_tempurl
 
+- name: Appending job log for retreiving image download link and starting image upgrade
+  job_objectlog:
+    message: >
+      Upgrade device {{pr_fqname}}, Image name {{filename}}. Retreived image download link: {{enc_tempurl}}.
+      Now starting image upgrade on the device. It may take 10 to 15 mins.
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+    job_ctx: "{{ job_ctx }}"
+
 - name: Do junos upgrade
   include_tasks: junos_upgrade.yml
+
+- name: Job logs for image upgrade task
+  job_objectlog:
+    message: >
+      {% if 'Reboot' in junos_response.msg -%}
+        Upgrade device {{pr_fqname}}, Image name:{{filename}}. Image upgrade task completed on this device: {{junos_response.msg}}. Device reboot may take 15 to 20 mins.
+      {% else -%}
+        Upgrade device {{pr_fqname}}, Image name:{{filename}}. Image upgrade task completed on this device. Same version found.
+      {%- endif %}
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+    job_ctx: "{{ job_ctx }}"
+
 
 # Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
 - name: Check NETCONF connectivity after reboot
@@ -53,6 +75,17 @@
     sleep: 60
   when: "'Reboot' in junos_response.msg"
 
+- name: Append job logs after device is up
+  job_objectlog:
+    message: >
+      {% if 'Reboot' in junos_response.msg -%}
+        Device is up after reboot. Now validating image version on device.
+      {% else -%}
+        Validating image version on device.
+      {%- endif %}
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+    job_ctx: "{{ job_ctx }}"
+
 - name: check device OS version
   include_tasks: check_version_rpc.yml
 
@@ -63,12 +96,21 @@
   vars:
     op_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
     results: |
-          {
-            "prouter_uuid": "{{prouter_uuid}}",
-            "image_uuid": "{{image_uuid}}",
-            "msg": "Device version validation task failed"
-          }
-    jl_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+      {
+        "prouter_uuid": "{{prouter_uuid}}",
+        "image_uuid": "{{image_uuid}}",
+        "msg": "Device version validation task failed"
+      }
+    jl_err_message: >
+      "Upgrade device {{pr_fqname}} Image name {{filename}}. Device version validation task failed.
+       Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+
+# update job log
+- name: Job logs for version validation status
+  job_objectlog:
+    message: Upgrade device {{pr_fqname}} Image name {{filename}}. Image upgrade version validated.
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+    job_ctx: "{{ job_ctx }}"
 
 - name: PR objectlog update for OS version
   prouter_objectlog:
@@ -76,3 +118,4 @@
     onboarding_state: "{{ DEVICE_STATE.IMAGE_UPGRADED }}"
     job_ctx: "{{job_ctx}}"
     os_version: "{{device_version}}"
+
