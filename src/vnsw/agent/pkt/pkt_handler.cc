@@ -110,8 +110,7 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     }
 
     uint16_t sport = pkt->sport;
-    if (pkt->ip_proto == IPPROTO_ICMP ||
-        pkt->ip_proto == IPPROTO_IGMP) {
+    if (pkt->ip_proto == IPPROTO_ICMP || pkt->ip_proto == IPPROTO_IGMP) {
         sport = 0;
     }
     VmInterface::FatFlowIgnoreAddressType ignore_addr =
@@ -130,6 +129,9 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
         }
     } else {
         if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+            if (pkt->dport == pkt->sport) {
+                pkt->same_port_number = true;
+            }
             pkt->sport = 0;
             pkt->ignore_address = ignore_addr;
             return;
@@ -1093,8 +1095,8 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
     ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
-    l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(), arp(),
-    ip(), ip6(), packet_buffer_(buff) {
+    l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    same_port_number(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -1103,8 +1105,8 @@ PktInfo::PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr) :
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID),
     agent_hdr(hdr), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
     dport(), ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
-    l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(), arp(),
-    ip(), ip6(), packet_buffer_(buff) {
+    l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    same_port_number(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -1114,8 +1116,8 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
-    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(),
-    arp(), ip(), ip6() {
+    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    same_port_number(false), eth(), arp(), ip(), ip6() {
 
     packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
         (module, buff_len, mdata);
@@ -1131,8 +1133,8 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
-    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE), eth(),
-    arp(), ip(), ip6(), packet_buffer_() {
+    tunnel(), l3_label(false), ignore_address(VmInterface::IGNORE_NONE),
+    same_port_number(false), eth(), arp(), ip(), ip6(), packet_buffer_() {
     transp.tcp = 0;
 }
 
