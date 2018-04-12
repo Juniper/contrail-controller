@@ -52,6 +52,11 @@ bool IgmpHandler::HandleVmIgmpPacket() {
         return true;
     }
 
+    if (pkt_info_->ip_saddr.to_v4() != vm_itf->primary_ip_addr()) {
+        igmp_proto->IncrStatsBadInterface();
+        return true;
+    }
+
     if (!vm_itf->igmp_enabled()) {
         igmp_proto->IncrStatsRejectedPkt();
         return true;
