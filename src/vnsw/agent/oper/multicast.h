@@ -70,7 +70,8 @@ public:
         vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
         dependent_mg_(this, NULL) , pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
-        pbb_etree_enabled_(false), bridge_domain_(NULL) {
+        pbb_etree_enabled_(false), bridge_domain_(NULL),
+        mvpn_registered_(false) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
@@ -84,7 +85,8 @@ public:
         deleted_(false), vn_(NULL), dependent_mg_(this, NULL),
         pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
-        pbb_etree_enabled_(false), bridge_domain_(NULL) {
+        pbb_etree_enabled_(false), bridge_domain_(NULL),
+        mvpn_registered_(false) {
         local_olist_.clear();
     };
     virtual ~MulticastGroupObject() { };
@@ -92,8 +94,9 @@ public:
     bool CanBeDeleted() const;
 
     //Add local member is local VM in server.
-    bool AddLocalMember(const boost::uuids::uuid &intf_uuid, MacAddress mac) {
-        local_olist_[intf_uuid] = mac;
+    bool AddLocalMember(const boost::uuids::uuid &intf_uuid,
+                                    const MacAddress &mac) {
+        local_olist_.insert(std::pair<uuid, MacAddress>(intf_uuid, mac));
         return true;
     };
 
@@ -105,6 +108,12 @@ public:
         local_olist_.erase(intf_uuid);
         return true;
     };
+
+    // Get list of local VMs.
+    std::map<boost::uuids::uuid, MacAddress> &GetLocalList() {
+        return local_olist_;
+    }
+
     uint32_t GetLocalListSize() { return local_olist_.size(); };
 
     //Labels for server + server list + ingress source label
@@ -208,6 +217,14 @@ public:
         pbb_etree_enabled_ = pbb_etree_enabled;
     }
 
+    bool mvpn_registered() const {
+        return mvpn_registered_;
+    }
+
+    void set_mvpn_registered(bool mvpn_registered) {
+        mvpn_registered_ = mvpn_registered;
+    }
+
     MulticastGroupObject* GetDependentMG(uint32_t isid);
 private:
     friend class MulticastHandler;
@@ -234,6 +251,7 @@ private:
     bool pbb_etree_enabled_;
     bool layer2_control_word_;
     BridgeDomainConstRef bridge_domain_;
+    bool mvpn_registered_;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
 };
 
@@ -298,6 +316,11 @@ public:
                           const TunnelOlist &olist,
                           uint32_t ethernet_tag,
                           uint64_t peer_identifier = 0);
+    void ModifyMvpnVrfRegistration(const Peer *peer,
+                             const std::string &vrf_name,
+                             const Ip4Address &group,
+                             const Ip4Address &source,
+                             bool add);
 
     //Registered for VN notification
     void ModifyVN(DBTablePartBase *partition, DBEntryBase *e);
@@ -481,6 +504,10 @@ private:
         return this->vm_to_mcobj_list_[uuid];
     };
 
+    void AddVmInterfaceToVrfSourceGroup(const std::string &vrf_name,
+                                    const std::string &vn_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
     void AddVmInterfaceToVrfSourceGroup(const std::string &vrf_name,
                                     const std::string &vn_name,
                                     const VmInterface *vm_itf,

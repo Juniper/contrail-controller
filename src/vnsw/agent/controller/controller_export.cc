@@ -297,7 +297,7 @@ bool RouteExport::MulticastRouteCanDissociate(const AgentRoute *route) {
             return true;
         const NextHop *nh = active_path ? active_path->ComputeNextHop(agent) : NULL;
         const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-        if (cnh && cnh->ComponentNHCount() == 0)
+        if (cnh && (cnh->ComponentNHCount() == 0) && can_dissociate)
             return true;
     }
     return can_dissociate;
