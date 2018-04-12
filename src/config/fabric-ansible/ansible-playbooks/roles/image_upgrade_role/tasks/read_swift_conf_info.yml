@@ -17,7 +17,7 @@
             "image_uuid": "{{image_uuid}}",
             "msg": "Error reading swift conf file."
           }
-        jl_err_message: "Error reading swift conf file: {{swift_info.msg}}"
+        jl_err_message: "Upgrade device {{pr_fqname}}, Image name {{filename}}. Error reading swift conf file: {{swift_info.msg}}"
 
 - name: Read keystone config from contrail-keystone-auth.conf file
   block:
@@ -31,14 +31,14 @@
   rescue:
     - include_tasks: error_handler.yml
       vars:
-        op_err_message: "Error reading swift conf file: {{keystone_info.msg}}"
+        op_err_message: "Error reading keystone conf file {{keystone_info.msg}}"
         results: |
           {
             "prouter_uuid": "{{prouter_uuid}}",
             "image_uuid": "{{image_uuid}}",
             "msg": "Error reading keystone_info file."
           }
-        jl_err_message: "Error reading swift conf file: {{keystone_info.msg}}"
+        jl_err_message: "Upgrade device {{pr_fqname}}, Image name {{filename}}. Error reading keystone conf file: {{keystone_info.msg}}"
 
 - set_fact:
     auth_version: "{{auth_url.split('/')[-1].replace('v','')}}"
