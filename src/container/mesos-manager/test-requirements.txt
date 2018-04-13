@@ -8,7 +8,7 @@ kombu
 gevent
 eventlet
 cfgm_common
-vnc_api
+contrail-api-client
 contrail-api-server
 urllib3
 bitstring
