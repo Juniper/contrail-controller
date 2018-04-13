@@ -1698,11 +1698,16 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
                                         comp_nh_list, vrf_name));
     nh_req.data.reset(new CompositeNHData());
 
+    TunnelType::TypeBmap tunnel_bmap = TunnelType::MplsType();
+    if (copy_local_path) {
+        tunnel_bmap = TunnelType::NativeType();
+    }
+
     VnListType vn_list;
     vn_list.insert(vn_name);
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(peer, vn_list, EcmpLoadBalance(), tag, sg,
-                                path_preference, TunnelType::MplsType(),
+                                path_preference, tunnel_bmap,
                                 nh_req, vm_ip.to_string());
     data->set_copy_local_path(copy_local_path);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
