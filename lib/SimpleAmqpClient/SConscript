@@ -31,8 +31,8 @@ cmake_flags = [
 
 if sys.platform == 'win32':
     libraries = ' '.join([
-        File('#build/lib/ssleay32.lib').abspath,
-        File('#build/lib/libeay32.lib').abspath,
+        File('#build/lib/ssl.lib').abspath,
+        File('#build/lib/crypto.lib').abspath,
         'ws2_32.lib',
         'crypt32.lib',
         'advapi32.lib',
@@ -45,6 +45,7 @@ if sys.platform == 'win32':
         '-DCMAKE_BUILD_TYPE=' + env['VS_BUILDMODE'],
         '-DBoost_USE_STATIC_LIBS=ON',
         '-DCMAKE_CXX_STANDARD_LIBRARIES=' + libraries,
+        '-DOPENSSL_INCLUDE_DIR=' + os.environ['INCLUDE'],
     ])
 
 # Header files cannot be listed in some smart way (e.g. using glob())
@@ -78,5 +79,6 @@ def build_simple_amqp_client(target, source, env):
 
 libSimpleAmqpClient = env.Command(products + header_files, Dir(vpath), build_simple_amqp_client)
 
-env.Requires(libSimpleAmqpClient, '#build/include/boost')
+env.Requires(libSimpleAmqpClient, '#build/lib/ssl.lib')
+env.Requires(libSimpleAmqpClient, '#build/lib/crypto.lib')
 env.Requires(libSimpleAmqpClient, '#build/lib/' + librabbitmq)
