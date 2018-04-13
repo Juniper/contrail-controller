@@ -271,7 +271,6 @@ string BgpPath::GetSourceString(bool combine_bgp_and_xmpp) const {
         } else {
             return "None";
         }
-        break;
     case ServiceChain:
         return "ServiceChain";
     case StaticRoute:
@@ -280,8 +279,6 @@ string BgpPath::GetSourceString(bool combine_bgp_and_xmpp) const {
         return "Aggregate";
     case Local:
         return "Local";
-    default:
-        break;
     }
     return "None";
 }
