@@ -25,7 +25,7 @@ SandeshTraceBufferPtr
     CryptTunnelTraceBuf(SandeshTraceBufferCreate("CryptTunnel", 5000));
 
 const std::string CryptTunnelTask::kCryptTunnelCmd
-("/usr/bin/contrail-crypt-tunnel.py");
+("/usr/bin/contrail_crypt_tunnel_client.py");
 
 
 CryptTunnelTable *CryptTunnelTable::crypt_tunnel_table_;
@@ -436,22 +436,17 @@ void CryptTunnelTask::UpdateTunnelTaskCommand(CommandType cmd_type) {
     switch (cmd_type) {
     case CryptTunnelTaskBase::CREATE_TUNNEL:
         {
-            cmd_str << " --create ";
-        }
-        break;
-    case CryptTunnelTaskBase::UPDATE_TUNNEL:
-        {
-            cmd_str << " --update ";
+            cmd_str << " --oper create ";
         }
         break;
     case CryptTunnelTaskBase::MONITOR_TUNNEL:
         {
-            cmd_str << " --monitor ";
+            cmd_str << " --oper status ";
         }
         break;
     case CryptTunnelTaskBase::DELETE_TUNNEL:
         {
-            cmd_str << " --delete ";
+            cmd_str << " --oper delete ";
         }
         break;
     default:
