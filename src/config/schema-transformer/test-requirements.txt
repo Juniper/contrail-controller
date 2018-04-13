@@ -9,9 +9,9 @@ webtest
 kazoo
 jsonpickle
 cfgm_common
-vnc_api
 sandesh
 sandesh-common
+contrail-api-client
 contrail-api-server
 ../../../noarch/config/svc-monitor
 junitxml
