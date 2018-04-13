@@ -10,7 +10,7 @@ This file contains implementation of checking for successful SSH connections
 
 __metaclass__ = type
 
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 import paramiko
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
@@ -156,7 +156,7 @@ def ssh_check(module):
 
 def main():
 
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             hosts=dict(required=True, type='list'),
             credentials=dict(required=True, type='list')
