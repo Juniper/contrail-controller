@@ -363,7 +363,10 @@ void UpdateLogicalRouterUuid(const VnEntry *vn,
 
 void VxlanRoutingManager::BridgeVnNotify(const VnEntry *vn,
                                          VxlanRoutingVnState *vn_state) {
-    assert(vn->logical_router_uuid() == nil_uuid());
+    if (vn->logical_router_uuid() != nil_uuid()) {
+        return;
+    }
+
     VxlanRoutingVrfMapper::VnLrSetIter it = vrf_mapper_.vn_lr_set_.find(vn);
     VxlanRoutingVrfMapper::LrVrfInfoMapIter routing_info_it =
         vrf_mapper_.lr_vrf_info_map_.end();
