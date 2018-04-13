@@ -3,8 +3,6 @@
   gather_facts: no
   connection: local
   vars:
-     auth_token: "{{ playbook_input.auth_token }}"
-     api_server_host: "localhost"
      output: {"status":"", "message":"", "results":""}
      host_prefix: []
 
@@ -19,10 +17,6 @@
 
     - set_fact:
          tag_fq_name: "label=fabric-management_ip"
-
-    - set_fact:
-         api_server_host: "{{ playbook_input.api_server_host }}"
-      when: playbook_input.api_server_host is defined
 
   roles:
    - fabric_namespace_read
