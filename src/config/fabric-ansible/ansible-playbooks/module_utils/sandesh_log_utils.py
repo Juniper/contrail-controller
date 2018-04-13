@@ -12,101 +12,56 @@ via sandesh
 import uuid
 import time
 import json
-
+import logging
 from job_manager.job_log_utils import JobLogUtils
+from job_manager.sandesh_utils import SandeshUtils
 
 
-def validate_job_ctx(job_ctx, results):
-    if job_ctx.get('config_args') is None:
-        results['msg'] = "Sandesh args not present in job_ctx"
-        results['failed'] = True
-    elif job_ctx.get('job_template_fqname') is None:
-        results['msg'] = "Job template fqname not present in job_ctx"
-        results['failed'] = True
-    elif job_ctx.get('job_execution_id') is None:
-        results['msg'] = "Job execution id not present in job_ctx"
-        results['failed'] = True
-    elif job_ctx.get('job_input') is None:
-        results['msg'] = "Job input not present in job_ctx"
-        results['failed'] = True
+class ObjectLogUtil(object):
 
-    return results
+    def __init__(self, job_ctx):
+        self.job_ctx = job_ctx
+        self.results = dict()
+        self.results['failed'] = False
+        logging.basicConfig(level=logging.INFO)
+        self.validate_job_ctx()
 
-
-def send_prouter_object_log(prouter_fqname,
-                            job_ctx,
-                            os_version,
-                            serial_num,
-                            onboarding_state):
-    results = {}
-    results['failed'] = False
-
-    results = validate_job_ctx(job_ctx, results)
-    if results['failed']:
-        return results
-
-    try:
-        job_log_util = JobLogUtils(
+        self.job_log_util = JobLogUtils(
             sandesh_instance_id=str(
                 uuid.uuid4()), config_args=json.dumps(
                 job_ctx['config_args']))
-        job_log_util.send_prouter_object_log(
+
+    def validate_job_ctx(self):
+        required_job_ctx_keys = [
+            'job_template_fqname', 'job_execution_id', 'config_args',
+            'job_input']
+        for key in required_job_ctx_keys:
+            if key not in self.job_ctx or self.job_ctx.get(key) is None:
+                raise ValueError("Missing job context param: %s" % key)
+
+    def send_prouter_object_log(self, prouter_fqname, onboarding_state,
+                                os_version, serial_num):
+        self.job_log_util.send_prouter_object_log(
             prouter_fqname,
-            job_ctx['job_execution_id'],
-            json.dumps(job_ctx['job_input']),
-            job_ctx['job_template_fqname'],
+            self.job_ctx['job_execution_id'],
+            json.dumps(self.job_ctx['job_input']),
+            self.job_ctx['job_template_fqname'],
             onboarding_state,
             os_version,
             serial_num)
-        time.sleep(10)
-    except Exception as ex:
-        msg = "Failed to create following device log due to error: %s\n\t \
-              job name: %s\n\t \
-              job execution id: %s\n\t \
-              device name: %s\n\t \
-              onboarding_state: %s\n" \
-              % (str(ex), job_ctx['job_template_fqname'],
-                 job_ctx['job_execution_id'], str(prouter_fqname),
-                 onboarding_state)
-        results['msg'] = msg
-        results['failed'] = True
 
-    return results
-
-
-def send_job_object_log(job_ctx,
-                        message,
-                        status,
-                        result):
-    results = {}
-    results['failed'] = False
-
-    results = validate_job_ctx(job_ctx, results)
-    if results['failed']:
-        return results
-
-    try:
-        job_log_util = JobLogUtils(
-            sandesh_instance_id=str(
-                uuid.uuid4()), config_args=json.dumps(
-                job_ctx['config_args']))
-        job_log_util.send_job_log(
-            job_ctx['job_template_fqname'],
-            job_ctx['job_execution_id'],
+    def send_job_object_log(self, message, status, job_result):
+        self.job_log_util.send_job_log(
+            self.job_ctx['job_template_fqname'],
+            self.job_ctx['job_execution_id'],
             message,
             status,
-            result)
-        time.sleep(10)
-    except Exception as ex:
-        msg = "Failed to create following job log due to error: %s\n\t \
-              job name: %s\n\t \
-              job execution id: %s\n\t \
-              job status: %s\n\t, \
-              log message: %s\n" \
-              % (str(ex), job_ctx['job_template_fqname'],
-                 job_ctx['job_execution_id'], status, message)
+            job_result)
 
-        results['msg'] = msg
-        results['failed'] = True
+    def close_sandesh_conn(self):
+        try:
+            sandesh_util = SandeshUtils(self.job_log_util.get_config_logger())
+            sandesh_util.close_sandesh_connection()
+        except Exception as e:
+            logging.error("Unable to close sandesh connection: %s", str(e))
 
-    return results
