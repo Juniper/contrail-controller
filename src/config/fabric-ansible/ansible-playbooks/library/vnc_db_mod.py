@@ -16,7 +16,7 @@ from inflection import camelize
 from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import VncApi
 import vnc_api
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
 
 DOCUMENTATION = '''
@@ -532,7 +532,7 @@ def main():
     """ module main """
 
     # Create the module instance
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             job_ctx=dict(type='dict', required=True),
             object_type=dict(type='str', required=True),

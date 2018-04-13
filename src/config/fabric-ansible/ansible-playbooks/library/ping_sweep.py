@@ -11,7 +11,7 @@ IP addresses defined by subnet
 
 __metaclass__ = type
 
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 import subprocess
 import socket
 from netaddr import IPNetwork
@@ -88,7 +88,7 @@ def check_ping(module):
 
 
 def main():
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             hosts=dict(type='list'),
             subnets=dict(type='list')
