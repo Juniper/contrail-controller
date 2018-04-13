@@ -604,6 +604,8 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
         path->set_label(mpls_label_);
     }
 
+    path->set_nexthop(NULL);
+
     SecurityGroupList path_sg_list;
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
