@@ -173,6 +173,7 @@ class VncMod(object):
         self.object_dict = module.params['object_dict']
         self.object_list = module.params['object_list']
         self.update_obj = module.params['update_obj_if_present']
+        self.enable_job_ctx = module.params['enable_job_ctx']
 
         # additional validation on top of argument_spec
         self._validate_params()
@@ -182,10 +183,13 @@ class VncMod(object):
     # end __init__
 
     def _validate_params(self):
-        required_job_ctx_keys = [
-            'auth_token', 'job_template_fqname', 'job_execution_id',
-            'config_args', 'job_input']
-        for key in required_job_ctx_keys:
+        if self.enable_job_ctx:
+            required_keys = [
+                'auth_token', 'job_template_fqname', 'job_execution_id',
+                'config_args', 'job_input']
+        else:
+            required_keys = ['auth_token']
+        for key in required_keys:
             if key not in self.job_ctx or self.job_ctx.get(key) is None:
                 raise ValueError("Missing job context param: %s" % key)
     # end _validate_params
@@ -549,7 +553,8 @@ def main():
             object_list=dict(type='list', required=False),
             update_obj_if_present=dict(
                 type='bool', required=False, default=True
-            )
+            ),
+            enable_job_ctx=dict(type='bool', required=False, default=True)
         ),
         supports_check_mode=True
     )
@@ -566,18 +571,22 @@ def main():
 
     if results.get('failed'):
         logging.error(results.get('msg'))
-        object_log = None
-        try:
-            object_log = ObjectLogUtil(vnc_mod.job_ctx)
-            object_log.send_job_object_log(
-                results.get('msg'), VncMod.JOB_IN_PROGRESS, None)
-        except ValueError as ve:
-            logging.error(str(ve))
-        except Exception as e:
-            logging.error("Unable to log sandesh job logs: %s", str(e))
-        finally:
-            if object_log:
-                object_log.close_sandesh_conn()
+
+        enable_job_ctx = module.params['enable_job_ctx']
+
+        # log to sandesh only when enable_job_ctx is set to true
+        if enable_job_ctx:
+            job_ctx = module.params['job_ctx']
+            object_log = None
+            try:
+                object_log = ObjectLogUtil(job_ctx)
+                object_log.send_job_object_log(
+                    results.get('msg'), VncMod.JOB_IN_PROGRESS, None)
+            except Exception as e:
+                logging.error("Unable to log sandesh job logs: %s", str(e))
+            finally:
+                if object_log:
+                    object_log.close_sandesh_conn()
 
     # Return response
     module.exit_json(**results)
@@ -585,3 +594,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
