@@ -55,13 +55,13 @@ EXAMPLES = '''
 '''
 
 import logging
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
 
 
 def main():
 
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             prouter_fqname=dict(required=True, type=list),
             job_ctx=dict(required=True, type=dict),
