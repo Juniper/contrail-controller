@@ -373,10 +373,6 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         self.check_acl_action_assign_rules(vn1_obj.get_fq_name(), vn1_obj.get_fq_name_str(),
                                   vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
-        self.check_acl_action_assign_rules(vn1_obj.get_fq_name(), vn2_obj.get_fq_name_str(),
-                                  vn1_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
-        self.check_acl_action_assign_rules(vn2_obj.get_fq_name(), vn2_obj.get_fq_name_str(),
-                                  vn1_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
         self.check_acl_action_assign_rules(vn2_obj.get_fq_name(), vn1_obj.get_fq_name_str(),
                                   vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
 
@@ -1271,9 +1267,6 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_acl_match_nets(self.get_ri_name(vn1_obj),
                                   ':'.join(vn1_obj.get_fq_name()),
                                   ':'.join(vn2_obj.get_fq_name()))
-        self.check_acl_match_nets(self.get_ri_name(vn2_obj),
-                                  ':'.join(vn2_obj.get_fq_name()),
-                                  ':'.join(vn1_obj.get_fq_name()))
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
@@ -1284,9 +1277,6 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_acl_not_match_nets(self.get_ri_name(vn1_obj),
                                       ':'.join(vn1_obj.get_fq_name()),
                                       ':'.join(vn2_obj.get_fq_name()))
-        self.check_acl_not_match_nets(self.get_ri_name(vn2_obj),
-                                      ':'.join(vn2_obj.get_fq_name()),
-                                      ':'.join(vn1_obj.get_fq_name()))
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
@@ -1333,9 +1323,6 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_acl_match_nets(self.get_ri_name(vn1_obj),
                                   ':'.join(vn1_obj.get_fq_name()),
                                   ':'.join(vn2_obj.get_fq_name()))
-        self.check_acl_match_nets(self.get_ri_name(vn2_obj),
-                                  ':'.join(vn2_obj.get_fq_name()),
-                                  ':'.join(vn1_obj.get_fq_name()))
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
@@ -1954,10 +1941,6 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                           vn1_obj.get_fq_name_str(),
                           vn3_obj.get_fq_name_str(),
                           ':'.join(self.get_ri_name(vn1_obj, si1_sc_ri_name)))
-        self.check_acl_action_assign_rules(vn1_obj.get_fq_name(),
-                          vn3_obj.get_fq_name_str(),
-                          vn1_obj.get_fq_name_str(),
-                          ':'.join(self.get_ri_name(vn1_obj, si1_sc_ri_name)))
         self.check_acl_action_assign_rules(vn3_obj.get_fq_name(),
                           vn1_obj.get_fq_name_str(),
                           vn3_obj.get_fq_name_str(),
@@ -1966,14 +1949,9 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                           vn1_obj.get_fq_name_str(),
                           vn3_obj.get_fq_name_str(),
                           ':'.join(self.get_ri_name(vn3_obj, si1_sc_ri_name)))
-
         self.check_acl_action_assign_rules(vn2_obj.get_fq_name(),
                           vn2_obj.get_fq_name_str(),
                           vn3_obj.get_fq_name_str(),
-                          ':'.join(self.get_ri_name(vn2_obj, si2_sc_ri_name)))
-        self.check_acl_action_assign_rules(vn2_obj.get_fq_name(),
-                          vn3_obj.get_fq_name_str(),
-                          vn2_obj.get_fq_name_str(),
                           ':'.join(self.get_ri_name(vn2_obj, si2_sc_ri_name)))
         self.check_acl_action_assign_rules(vn3_obj.get_fq_name(),
                           vn2_obj.get_fq_name_str(),
