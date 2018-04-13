@@ -21,7 +21,7 @@ stevedore
 testscenarios
 kazoo
 cfgm_common
-vnc_api
+contrail-api-client
 contrail-api-server
 sandesh
 sandesh-common
