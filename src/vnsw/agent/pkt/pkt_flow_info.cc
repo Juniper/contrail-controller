@@ -1998,6 +1998,13 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                      r_sport, r_dport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
     } else {
+        if (pkt->same_port_number && (in->nh_ == out->nh_)) {
+            /* When source and destination ports are same and FatFlow is
+             * configured for that port, always mask source port for both
+             * forward and reverse flows */
+            r_sport = pkt->sport;
+            r_dport = pkt->dport;
+        }
         FlowKey rkey(out->nh_, dip, sip, pkt->ip_proto, r_sport, r_dport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
     }

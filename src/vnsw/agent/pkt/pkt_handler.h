@@ -385,6 +385,7 @@ struct PktInfo {
     bool                l3_label;
     bool                multicast_label;
     VmInterface::FatFlowIgnoreAddressType ignore_address; //fat-flow config
+    bool                same_port_number;
 
     // Pointer to different headers in user packet
     struct ether_header *eth;
