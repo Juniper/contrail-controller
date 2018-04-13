@@ -1057,29 +1057,6 @@ void MulticastHandler::ModifyFabricMembers(const Peer *peer,
                                 grp.to_string(), label);
 }
 
-void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
-                                           const std::string &vrf_name,
-                                           const Ip4Address &grp,
-                                           const Ip4Address &src,
-                                           const TunnelOlist &olist,
-                                           uint64_t peer_identifier) {
-
-    MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, src, grp);
-
-    bool delete_op = false;
-    if (peer_identifier == ControllerPeerPath::kInvalidPeerIdentifier) {
-        delete_op = true;
-    } else if (obj == NULL) {
-        return;
-    }
-
-    TriggerRemoteRouteChange(obj, peer, vrf_name, src, grp,
-                             olist, peer_identifier, delete_op, Composite::EVPN,
-                             MplsTable::kInvalidLabel, false, 0);
-
-    return;
-}
-
 /*
  * Request to populate evpn olist by list of TOR NH seen by control node
  * Currently this is done only for TOR/Gateway(outside contrail vrouter network)
