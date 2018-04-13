@@ -1127,7 +1127,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
 
 class TestCompressPolicy(TestPolicy):
     def setUp(self):
-        extra_config_knobs = ("--acl_direction_comp True ")
+        extra_config_knobs = ("")
         super(TestCompressPolicy, self).setUp(extra_config_knobs=extra_config_knobs)
 
     @retries(5)
