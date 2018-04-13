@@ -4,6 +4,7 @@ tools_path=${tools_path:-$(pwd)/../../common/tests/}
 root_path=${root_path:-$(pwd)}
 fabric_module_dir=$root_path/ansible/lib/ansible/modules/network/fabric
 module_test_dir=$root_path/ansible/test/units/modules/network/fabric
+module_utils_dir=$root_path/ansible/lib/ansible/module_utils
 
 installvenvopts=
 installvenvopts="${installvenvopts} --find-links ${build_top}/config/common/dist/"
@@ -12,6 +13,7 @@ installvenvopts="${installvenvopts} --find-links ${build_top}/config/api-server/
 installvenvopts="${installvenvopts} --find-links ${build_top}/config/schema-transformer/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/tools/sandesh/library/python/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/sandesh/common/dist/"
+installvenvopts="${installvenvopts} --find-links ${build_top}/config/fabric-ansible/dist/"
 
 echo "Downlaod ansible 2.4.3 ...: $root_path"
 cd $root_path
@@ -26,6 +28,7 @@ mkdir -p $fabric_module_dir
 cp -r library/* $fabric_module_dir/
 mkdir -p $module_test_dir 
 cp -r test/units/* $module_test_dir/
+cp module_utils/* $module_utils_dir/
 
 echo "Create virtualevn .venv ..."
 cd $root_path
@@ -39,3 +42,4 @@ source .venv/bin/activate && pip install -r ansible/test/runner/requirements/uni
 source .venv/bin/activate && source ansible/hacking/env-setup && ansible-test units --python 2.7 junos_facts
 source .venv/bin/activate && source ansible/hacking/env-setup && ansible-test units --python 2.7 swift_fileutil
 source .venv/bin/activate && source ansible/hacking/env-setup && ansible-test units --python 2.7 vnc_db_mod
+
