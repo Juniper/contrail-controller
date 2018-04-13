@@ -361,8 +361,7 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                                         s_address.to_v4(), 0, olist,
                                         ControllerPeerPath::kInvalidPeerIdentifier);
                 agent_->oper_db()->multicast()->
-                    ModifyEvpnMembers(agent_->multicast_tree_builder_peer(),
-                                        vrf, g_address.to_v4(),
+                    ModifyEvpnMembers(bgp_peer_id(), vrf, g_address.to_v4(),
                                         s_address.to_v4(), olist,
                                         ControllerPeerPath::kInvalidPeerIdentifier);
             }
@@ -447,22 +446,20 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
         IpAddress source_address =
                 IpAddress::from_string(item->entry.nlri.source_address, ec);
         if (ec.value() != 0) {
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                            "Error parsing source-address");
-            return;
+            source_address = IpAddress(Ip4Address());
         }
 
+        uint64_t peer_identifier = ControllerPeerPath::kInvalidPeerIdentifier;
+        TunnelOlist sources_olist;
         if (source_address != IpAddress(Ip4Address())) {
-            TunnelOlist olist;
-            olist.push_back(OlistTunnelEntry(nil_uuid(), 0,
+            sources_olist.push_back(OlistTunnelEntry(nil_uuid(), 0,
                             source_address.to_v4(),
                             TunnelType::MplsType()));
-            agent_->oper_db()->multicast()->ModifyEvpnMembers(
-                            agent_->multicast_tree_builder_peer(),
-                            vrf, g_address.to_v4(), s_address.to_v4(),
-                            olist,
-                            agent_->controller()->multicast_sequence_number());
+            peer_identifier = agent_->controller()->multicast_sequence_number();
         }
+        agent_->oper_db()->multicast()->ModifyEvpnMembers(bgp_peer_id(),
+                            vrf, g_address.to_v4(), s_address.to_v4(),
+                            sources_olist, peer_identifier);
     }
 }
 
