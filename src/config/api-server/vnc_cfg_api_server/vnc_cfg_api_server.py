@@ -90,15 +90,14 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
 
 from provision_defaults import Provision
 from vnc_quota import *
-from gen.resource_xsd import *
-from gen.resource_common import *
-from gen.vnc_api_client_gen import all_resource_type_tuples
+from vnc_api.gen.resource_xsd import *
+from vnc_api.gen.resource_common import *
+from vnc_api.gen.vnc_api_client_gen import all_resource_type_tuples
 import cfgm_common
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.rest import LinkObject, hdr_server_tenant
 from cfgm_common.exceptions import *
 from cfgm_common.vnc_extensions import ExtensionManager
-import gen.resource_xsd
 import vnc_addr_mgmt
 import vnc_auth
 import vnc_auth_keystone

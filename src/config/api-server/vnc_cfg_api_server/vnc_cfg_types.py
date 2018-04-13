@@ -26,8 +26,8 @@ from provision_defaults import PERMS_RX
 
 from context import get_context
 from context import is_internal_request
-from gen.resource_xsd import *
-from gen.resource_common import *
+from vnc_api.gen.resource_xsd import *
+from vnc_api.gen.resource_common import *
 from netaddr import IPNetwork, IPAddress, IPRange
 from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
