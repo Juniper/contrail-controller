@@ -1,5 +1,3 @@
-# -*- mode: python; -*-
-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -7,32 +5,6 @@ import os
 
 Import('CfgmEnv')
 env = CfgmEnv.Clone()
-
-autogen_infra_sources = [
-                 '#/src/contrail-api-client/generateds/generateDS.py',
-                 '#/src/contrail-api-client/generateds/TypeGenerator.py',
-                 '#/src/contrail-api-client/generateds/ccmap.py',
-                 '#/src/contrail-api-client/generateds/idl_parser.py',
-                 '#/src/contrail-api-client/generateds/ifmap_global.py',
-                 '#/src/contrail-api-client/generateds/ifmap_model.py',
-                 '#/src/contrail-api-client/generateds/ifmap_frontend.py',
-                ]
-
-autogen_sources = [
-                 '#src/contrail-api-client/schema/all_cfg.xsd',
-                 '#src/contrail-api-client/schema/vnc_cfg.xsd',
-                 '#src/contrail-api-client/schema/bgp_schema.xsd',
-                 '#src/contrail-api-client/schema/ietf-l3vpn-schema.xsd',
-                 '#src/contrail-api-client/schema/smi-base.xsd',
-                ]
-
-generated_dependencies = [
-                  env['TOP'] + '/api-lib/vnc_api/gen/__init__.py',
-                  env['TOP'] + '/api-lib/vnc_api/gen/resource_xsd.py',
-                  env['TOP'] + '/api-lib/vnc_api/gen/resource_common.py',
-                  env['TOP'] + '/api-lib/vnc_api/gen/resource_client.py',
-                  env['TOP'] + '/api-lib/vnc_api/gen/vnc_api_client_gen.py',
-                ]
 
 setup_sources = [
     '.coveragerc',
@@ -46,7 +18,6 @@ setup_sources = [
     'test-requirements.txt',
     'tox.ini',
     'vnc_cfg_api_server',
-    'doc',
 ]
 
 setup_sources_rules = []
@@ -54,41 +25,16 @@ for file in setup_sources:
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
 
-autogen_script = File('#src/contrail-api-client/generateds/generateDS.py').path
-autogen_cmd = '%s -f -o %s -g ifmap-frontend' % (autogen_script, Dir('vnc_cfg_api_server/gen/resource').path)
+sandesh_trace_pkg = env.SandeshGenPy(
+    'traces.sandesh', 'vnc_cfg_api_server/sandesh/', False)
 
-generated_files = ['vnc_cfg_api_server/gen/__init__.py']
-env.Append(ENV = {'HEAT_BUILDTOP' : Dir(env['TOP']).abspath})
-
-generated_rule = env.Command(generated_files,
-                             '#/src/contrail-api-client/schema/all_cfg.xsd',
-                             autogen_cmd + ' $SOURCE')
-
-generateds_rule = env.Install("vnc_cfg_api_server/gen", "#src/contrail-api-client/api-lib/generatedssuper.py")
-cfixture_rule = env.Install("vnc_cfg_api_server/gen", "#src/contrail-api-client/api-lib/cfixture.py")
-
-doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
-
-sandesh_trace_pkg = env.SandeshGenPy('traces.sandesh', 'vnc_cfg_api_server/sandesh/', False)
-
-sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
-sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(doc_sources_rules)
-sdist_depends.extend(sandesh_trace_pkg)
-
+sdist_depends = setup_sources_rules + sandesh_trace_pkg
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-# TODO: deprecate
 sdist_gen = env.Command('dist/contrail-api-server-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 
-env.Default(sdist_gen)
-
-# generated files depend on autogeneration infra parts
-
-env.Depends(generated_rule, [autogen_infra_sources, autogen_sources, generated_dependencies])
-
-# install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
 
 # Documentation
 doc_files = []
@@ -119,7 +65,3 @@ env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-api/', doc_files))
 
 env.SetupPyTestSuite(sdist_gen, use_tox=True)
-
-# Local Variables:
-# mode: python
-# End:
