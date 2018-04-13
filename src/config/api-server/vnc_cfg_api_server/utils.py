@@ -7,7 +7,7 @@ Provides utility routines for modules in api-server
 import argparse
 from cfgm_common import jsonutils as json
 import ConfigParser
-import gen.resource_xsd
+import vnc_api.gen.resource_xsd
 import vnc_quota
 import cfgm_common
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
@@ -155,7 +155,7 @@ def parse_args(args_str):
                 cassandraopts.update(dict(config.items('CASSANDRA')))
         if 'RDBMS' in config.sections():
                 rdbmsopts.update(dict(config.items('RDBMS')))
-        SandeshConfig.update_options(sandeshopts, config) 
+        SandeshConfig.update_options(sandeshopts, config)
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
