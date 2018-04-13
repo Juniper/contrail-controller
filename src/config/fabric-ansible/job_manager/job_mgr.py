@@ -8,6 +8,7 @@ This file contains job manager process code and api
 import time
 import sys
 import json
+import jsonschema
 import argparse
 import traceback
 
@@ -16,6 +17,7 @@ from job_exception import JobException
 from job_log_utils import JobLogUtils
 from job_utils import JobUtils, JobStatus
 from job_result_handler import JobResultHandler
+from job_messages import MsgBundle
 from sandesh_utils import SandeshUtils
 
 from vnc_api.vnc_api import VncApi
@@ -48,10 +50,12 @@ class JobManager(object):
     def parse_job_input(self, job_input_json):
         # job input should have job_template_id and execution_id field
         if job_input_json.get('job_template_id') is None:
-            raise Exception("job_template_id is missing in the job input")
+            msg = MsgBundle.getMessage(MsgBundle.JOB_TEMPLATE_MISSING)
+            raise Exception(msg)
 
         if job_input_json.get('job_execution_id') is None:
-            raise Exception("job_execution_id is missing in the job input")
+            msg = MsgBundle.getMessage(MsgBundle.JOB_EXECUTION_ID_MISSING)
+            raise Exception(msg)
 
         self.job_template_id = job_input_json['job_template_id']
         self.job_execution_id = job_input_json['job_execution_id']
@@ -73,13 +77,32 @@ class JobManager(object):
         self.sandesh_args = job_input_json['args']
         self.max_job_task = self.job_log_utils.args.max_job_task
 
+    def validate_input_schema(self, input_schema, ip_json):
+        if not ip_json:
+            msg = MsgBundle.getMessage(
+                                MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND)
+            raise JobException(msg,
+                               self.job_execution_id)
+        try:
+            ip_schema_json = json.loads(input_schema)
+            jsonschema.validate(ip_json, ip_schema_json)
+            self._logger.debug("Input Schema Validation Successful"
+                               "for template %s" % self.job_template_id)
+        except Exception, e:
+            msg = MsgBundle.getMessage(
+                                MsgBundle.INVALID_SCHEMA,
+                                job_template_id=self.job_template_id,
+                                exc_obj=e)
+            traceback.print_stack()
+            raise JobException(msg, self.job_execution_id)
+
     def start_job(self):
         job_error_msg = None
         try:
             # create job UVE and log
-            msg = "Starting execution for job with template id %s" \
-                  " and execution id %s" % (self.job_template_id,
-                                            self.job_execution_id)
+            msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
+                                       job_template_id=self.job_template_id,
+                                       job_execution_id=self.job_execution_id)
             self._logger.debug(msg)
             self.result_handler = JobResultHandler(self.job_template_id,
                                                    self.job_execution_id,
@@ -88,7 +111,13 @@ class JobManager(object):
                                                    self.job_log_utils)
 
             # read the job template object
+            job_template = None
             job_template = self.job_utils.read_job_template()
+
+            # validate input schema if required by job_template
+            input_schema = job_template.get_job_template_input_schema()
+            if input_schema:
+                self.validate_input_schema(input_schema, self.job_data)
 
             timestamp = int(round(time.time()*1000))
             self.job_log_utils.send_job_execution_uve(
@@ -122,7 +151,9 @@ class JobManager(object):
             self._logger.error(err_msg)
             self._logger.error("%s" % traceback.print_stack())
             self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
-            self.result_handler.create_job_summary_log(job_template.fq_name)
+            if job_template:
+                self.result_handler.create_job_summary_log(
+                     job_template.fq_name)
             job_error_msg = err_msg
         except Exception as e:
             err_msg = "Error while executing job %s " % repr(e)
@@ -187,9 +218,14 @@ if __name__ == "__main__":
         vnc_api = VncApi(auth_token=auth_token)
         logger.info("VNC api is initialized using the auth token passed.")
     except Exception as e:
-        logger.error("Caught exception when initialing vnc api: "
-                     "%s" % traceback.print_stack())
-        sys.exit("Exiting due to vnc api initialization error: %s" % repr(e))
+        logger.error(MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
+                                   exc_msg=traceback.print_stack()))
+        msg = MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
+                                   exc_msg=repr(e))
+        job_log_utils.send_job_log(job_input_json['job_template_fqname'],
+                                   job_input_json['job_execution_id'],
+                                   msg, JobStatus.FAILURE)
+        sys.exit(msg)
 
     # invoke job manager
     try:
@@ -198,7 +234,11 @@ if __name__ == "__main__":
         logger.info("Job Manager is initialized. Starting job.")
         job_manager.start_job()
     except Exception as e:
-        logger.error("Caught exception when running the job: "
-                     "%s" % traceback.print_stack())
-        sys.exit("Exiting job due to error: %s " % repr(e))
-
+        logger.error(MsgBundle.getMessage(MsgBundle.JOB_ERROR,
+                                   exc_msg=traceback.print_stack()))
+        msg = MsgBundle.getMessage(MsgBundle.JOB_ERROR,
+                                   exc_msg=repr(e))
+        job_log_utils.send_job_log(job_input_json['job_template_fqname'],
+                                   job_input_json['job_execution_id'],
+                                   msg, JobStatus.FAILURE)
+        sys.exit(msg)
