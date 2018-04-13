@@ -12,8 +12,15 @@
   tasks:
     - set_fact:
         result_dict: {"results": "{{results}}"}
+
     - set_fact:
         output: "{{output | combine(result_dict)}}"
+
+    - name: Update Job log with device import job completed status
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+        message: "Import Device: {{prouter_name}} succeeded importing {{bulk_create_phy_int_resp|length}} PhysicalInterfaces and {{bulk_create_log_int_resp|length}} Logical Interfaces"
 
     - name: update prouter logs with onboarded status
       prouter_objectlog:
