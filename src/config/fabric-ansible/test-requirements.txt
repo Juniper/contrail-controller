@@ -7,9 +7,9 @@ python-keystoneclient
 webtest
 ncclient
 cfgm_common
-vnc_api
 sandesh
 sandesh_common
+contrail-api-client
 contrail-api-server
 junitxml
 pyOpenSSL

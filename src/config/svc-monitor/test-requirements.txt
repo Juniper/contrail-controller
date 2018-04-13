@@ -7,7 +7,7 @@ bitarray
 kombu
 gevent==1.1a2
 cfgm_common
-vnc_api
 sandesh
 sandesh-common
+contrail-api-client
 contrail-api-server
