@@ -64,14 +64,13 @@ generated_rule = env.Command(generated_files,
                              '#/src/contrail-api-client/schema/all_cfg.xsd',
                              autogen_cmd + ' $SOURCE')
 
-generateds_rule = env.Install("vnc_cfg_api_server/gen", "#src/contrail-api-client/api-lib/generatedssuper.py")
-cfixture_rule = env.Install("vnc_cfg_api_server/gen", "#src/contrail-api-client/api-lib/cfixture.py")
+generateds_rule = env.Install("vnc_cfg_api_server/gen", "#src/contrail-api-client/generateds/generatedssuper.py")
 
 doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
 
 sandesh_trace_pkg = env.SandeshGenPy('traces.sandesh', 'vnc_cfg_api_server/sandesh/', False)
 
-sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
+sdist_depends = [generated_rule, generateds_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(doc_sources_rules)
 sdist_depends.extend(sandesh_trace_pkg)
