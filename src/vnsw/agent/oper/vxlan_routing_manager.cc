@@ -380,7 +380,8 @@ void VxlanRoutingManager::BridgeVnNotify(const VnEntry *vn,
         update = false;
     }
 
-    if ((it->second != vn_state->logical_router_uuid_) &&
+    if (it != vrf_mapper_.vn_lr_set_.end() &&
+        (it->second != vn_state->logical_router_uuid_) &&
         (vn_state->logical_router_uuid_ != nil_uuid())) {
         withdraw = true;
     }
