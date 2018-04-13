@@ -35,7 +35,9 @@ const int StateMachine::kOpenTime = 15;                 // seconds
 const int StateMachine::kConnectInterval = 30;          // seconds
 const int StateMachine::kHoldTime = 90;                 // seconds
 const int StateMachine::kOpenSentHoldTime = 240;        // seconds
-const int StateMachine::kIdleHoldTime = 5000;           // milliseconds
+const int StateMachine::kIdleHoldTime =
+    getenv("CONTRAIL_BGP_IDLE_HOLD_TIME_MSECS") ?
+        strtol(getenv("CONTRAIL_BGP_IDLE_HOLD_TIME_MSECS"), NULL, 0) : 5000;
 const int StateMachine::kMaxIdleHoldTime = 100 * 1000;  // milliseconds
 const int StateMachine::kJitter = 10;                   // percentage
 
@@ -1168,7 +1170,8 @@ void StateMachine::UpdateFlapCount() {
 void StateMachine::PeerClose(int code, int subcode) {
     UpdateFlapCount();
     peer_->Close(peer_->AttemptGRHelperMode(code, subcode));
-    set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
+    set_idle_hold_time(idle_hold_time() ? idle_hold_time() :
+                                          GetIdleHoldTimeMSecs());
     reset_hold_time();
 }
 

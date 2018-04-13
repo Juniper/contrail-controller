@@ -157,6 +157,8 @@ public:
         hold_time_msecs_ = hold_time_msecs;
     }
 
+    virtual const int GetIdleHoldTimeMSecs() const { return 10; }
+
     virtual int keepalive_time_msecs() const {
         if (keepalive_time_msecs_)
             return keepalive_time_msecs_;
