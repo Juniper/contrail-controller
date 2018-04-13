@@ -3,7 +3,7 @@
       block:
         - template:
             src: juniper.underlay.bgp.j2
-            dest: "{{ conf_dir }}/build_config/underlay_config.cfg"
+            dest: "{{ conf_dir }}/build_config/underlay_config.conf"
           register: cmd_res
         - debug: msg={{cmd_res}}
       rescue:
