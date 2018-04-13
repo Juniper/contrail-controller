@@ -8,7 +8,6 @@ from vnc_api.gen.resource_client import *
 
 
 class TestFabricVncDbModule(TestFabricModule):
-
     module = vnc_db_mod
 
     def setUp(self):
@@ -18,20 +17,43 @@ class TestFabricVncDbModule(TestFabricModule):
         pass
 
     def test_invalid_vnc_op(self):
-        set_module_args(dict(object_type='physical_router', object_op='get',
-                             object_dict={"uuid": "1234"}, auth_token="1234"))
+        set_module_args(
+            dict(enable_job_ctx=False, object_type='physical_router',
+                 object_op='get', object_dict={"uuid": "1234"},
+                 job_ctx={"auth_token": "1234"}))
         result = self.execute_module(failed=True)
         self.assertEqual(result['failed'], True)
 
     def test_object_type_not_present(self):
-        set_module_args(dict(object_op='get',
-                             object_dict={"uuid": "1234"}, auth_token="1234"))
+        set_module_args(dict(enable_job_ctx=False, object_op='get',
+                             object_dict={"uuid": "1234"},
+                             job_ctx={"auth_token": "1234"}))
         result = self.execute_module(failed=True)
         self.assertEqual(result['failed'], True)
 
+    # test when required param auth_token not present in job_ctx
     def test_auth_token_not_present(self):
+        set_module_args(
+            dict(enable_job_ctx=False, object_type='physical_router',
+                 object_op='get',
+                 object_dict={"uuid": "1234"}, job_ctx={}))
+        result = self.execute_module(failed=True)
+        self.assertEqual(result['failed'], True)
+
+    # test when job_ctx is not present
+    def test_job_ctx_not_present(self):
+        set_module_args(
+            dict(enable_job_ctx=False, object_type='physical_router',
+                 object_op='get', object_dict={"uuid": "1234"}))
+        result = self.execute_module(failed=True)
+        self.assertEqual(result['failed'], True)
+
+    # test when enable_job_ctx is True by default and some other
+    # required params in job_ctx like job template fqname, etc are missing
+    def test_job_ctx_reqd_params_not_present(self):
         set_module_args(dict(object_type='physical_router', object_op='get',
-                             object_dict={"uuid": "1234"}))
+                             object_dict={"uuid": "1234"},
+                             job_ctx={"auth_token": "1234"}))
         result = self.execute_module(failed=True)
         self.assertEqual(result['failed'], True)
 
@@ -51,10 +73,12 @@ class TestFabricVncDbModule(TestFabricModule):
             'physical_router_read').and_return(fake_router)
         flexmock(fake_vnc_lib).should_receive(
             'obj_to_dict').and_return(fake_router_obj)
-        set_module_args(dict(object_type='physical_router', object_op='read',
-                             object_dict={"uuid": "1234"}, auth_token="1234"))
+        set_module_args(
+            dict(enable_job_ctx=False, object_type='physical_router',
+                 object_op='read', object_dict={"uuid": "1234"},
+                 job_ctx={"auth_token": "1234"}))
         result = self.execute_module()
-        self.assertEqual(result['failed'], False)
+        self.assertEqual(result.get('failed'), None)
 
     def test_vnc_create(self):
         object_dict = {"parent_type": "global-system-config",
@@ -69,10 +93,12 @@ class TestFabricVncDbModule(TestFabricModule):
         fake_router_uuid = "1ef6cf9d-c2e2-4004-810a-43d471c94dc5"
         flexmock(fake_vnc_lib).should_receive(
             'physical_router_create').and_return(fake_router_uuid)
-        set_module_args(dict(object_type='physical_router', object_op='create',
-                             object_dict=object_dict, auth_token="1234"))
+        set_module_args(
+            dict(enable_job_ctx=False, object_type='physical_router',
+                 object_op='create', object_dict=object_dict,
+                 job_ctx={"auth_token": "1234"}))
         result = self.execute_module()
-        self.assertEqual(result['failed'], False)
+        self.assertEqual(result.get('failed'), None)
 
     def test_vnc_update(self):
         object_dict = {
@@ -123,7 +149,7 @@ class TestFabricVncDbModule(TestFabricModule):
         object_list = [{"parent_type": "global-system-config",
                         "fq_name": ["default-global-system-config", "mx-240"],
                         "physical_router_management_ip": "172.10.68.1",
-                        "physical_router_vendor_name": "Juni",
+                        "physical_router_vendor_name": "Juniper",
                         "physical_router_product_name": "MX",
                         "physical_router_device_family": "junos"}]
         fake_vnc_lib = flexmock()
@@ -160,4 +186,5 @@ class TestFabricVncDbModule(TestFabricModule):
                  object_op='bulk_update', object_list=object_list,
                  job_ctx={"auth_token": "1234"}))
         result = self.execute_module()
-        self.assertEqual(result['failed'], False)
+        self.assertEqual(result.get('failed'), None)
+

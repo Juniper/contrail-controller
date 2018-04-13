@@ -4,7 +4,9 @@ flexmock
 coverage
 pyaml
 cfgm_common
+fabric_ansible
 vnc_api
 sandesh
 sandesh_common
 junitxml
+timeout-decorator
