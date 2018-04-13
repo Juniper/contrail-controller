@@ -23,7 +23,7 @@ from kube_manager.vnc.config_db import ProjectKM, VirtualRouterKM
 from kube_manager.vnc.vnc_kubernetes import VncKubernetes
 from vnc_api.gen.resource_client import VirtualNetwork, FloatingIpPool
 from vnc_api.gen.resource_xsd import IpamSubnetType, SubnetType, VnSubnetsType
-from vnc_cfg_api_server.gen.resource_client import VirtualRouter
+from vnc_api.gen.resource_client import VirtualRouter
 
 Uuids = namedtuple('Uuids', ['lb_uuid',
                              'vmi_uuid',

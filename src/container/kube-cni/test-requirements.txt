@@ -7,6 +7,6 @@ kombu
 gevent
 eventlet
 cfgm_common
-vnc_api
+contrail-api-client
 sandesh
 sandesh-common
