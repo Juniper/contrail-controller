@@ -1,16 +1,12 @@
+import os
+import sys
+
 env = DefaultEnvironment()
 
-vpath = '#third_party/openssl-1.0.2k'
-str_vpath = str(Dir(vpath).abspath)
+openssl_root = os.getenv('OPENSSL_ROOT')
+if openssl_root is None:
+    print('OPENSSL_ROOT environment variable is not set')
+    sys.exit(1)
 
-config_opts = '--prefix=' + Dir('#build').abspath
-
-cmd = ('cd ' + str_vpath + ' & ' +
-       'perl Configure debug-VC-WIN64A ' + config_opts + ' & ' +
-       r'ms\do_win64a & nmake -f ms\nt.mak & nmake -f ms\nt.mak install')
-
-products = [File('#build/lib/ssleay32.lib'), File('#build/lib/libeay32.lib'), Dir('#build/include/openssl')]
-env.Command(products, vpath, cmd)
-
-env.InstallAs('#build/lib/ssl.lib', '#build/lib/ssleay32.lib')
-env.InstallAs('#build/lib/crypto.lib', '#build/lib/libeay32.lib')
+env.InstallAs('#build/lib/ssl.lib', openssl_root + '/lib/ssleay32.lib')
+env.InstallAs('#build/lib/crypto.lib', openssl_root + '/lib/libeay32.lib')
