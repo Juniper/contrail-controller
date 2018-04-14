@@ -436,7 +436,7 @@ class VncKubernetes(VncCommon):
         # If yes, update existing VN object with k8s config.
         vn_exists = False
         vn = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
-                 address_allocation_mode='user-defined-subnet-only')
+                 address_allocation_mode='flat-subnet-only')
         try:
             vn_obj = self.vnc_lib.virtual_network_read(
                 fq_name=vn.get_fq_name())
