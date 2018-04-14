@@ -961,8 +961,8 @@ TEST_P(BgpMvpnTwoControllerTest, MultipleReceivers) {
         TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->McastRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount());
         TASK_UTIL_EXPECT_EQ((int)i, agent_ya_->MvpnRouteCount());
-        TASK_UTIL_EXPECT_EQ(0, agent_yb_->MvpnRouteCount());
-        TASK_UTIL_EXPECT_EQ(0, agent_yc_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_EQ((int)i, agent_yb_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_EQ((int)i, agent_yc_->MvpnRouteCount());
         TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
                     agent_ya_, red.str(), sg.str()));
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.4",
