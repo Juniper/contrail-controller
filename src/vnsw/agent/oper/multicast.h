@@ -279,12 +279,6 @@ public:
                              uint32_t source_label,
                              const TunnelOlist &olist,
                              uint64_t peer_identifier = 0);
-    void ModifyEvpnMembers(const Peer *peer,
-                             const std::string &vrf_name,
-                             const Ip4Address &group,
-                             const Ip4Address &source,
-                             const TunnelOlist &olist,
-                             uint64_t peer_identifier = 0);
     /* Called as a result of XMPP message received with OLIST of
      * evpn endpoints with mpls or vxlan encap
      */
