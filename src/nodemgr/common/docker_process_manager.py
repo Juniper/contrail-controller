@@ -229,9 +229,22 @@ class DockerProcessInfoManager(object):
         if not container:
             raise LookupError(unit_name)
         exec_op = self._client.exec_create(container['Id'], cmd, tty=True)
-        result = self._client.exec_start(exec_op["Id"], detach=False)
+        res = ''
+        try:
+            # string or stream result works unstable
+            # using socket with own read implementation
+            socket = self._client.exec_start(exec_op["Id"], tty=True, socket=True)
+            socket.settimeout(10.0)
+            while True:
+                part = socket.recv(1024)
+                if len(part) == 0:
+                    break
+                res += part
+        finally:
+            if socket:
+                socket.close()
         data = self._client.exec_inspect(exec_op["Id"])
         exit_code = data.get("ExitCode", 0)
         if exit_code != 0:
-            raise RuntimeError(result)
-        return result
+            raise RuntimeError("Result: {}\nExit data: {}".format(res, data))
+        return res

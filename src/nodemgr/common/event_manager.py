@@ -309,7 +309,7 @@ class EventManager(object):
         return ret_value
     # end update_process_core_file_list
 
-    def send_process_state_db_base(self, group_names, ProcessInfo):
+    def send_process_state_db(self, group_names):
         name = self.hostname
         for group in group_names:
             process_infos = []
@@ -343,15 +343,9 @@ class EventManager(object):
             node_status.build_info = self.get_build_info()
             node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                             data=node_status)
-            msg = ('send_process_state_db_base: Sending UVE: '
-                   + str(node_status_uve))
+            msg = ('send_process_state_db: Sending UVE: {}'.format(node_status_uve))
             self.msg_log(msg, SandeshLevel.SYS_INFO)
             node_status_uve.send()
-    # end send_process_state_db_base
-
-    def send_process_state_db(self, group_names):
-        self.send_process_state_db_base(
-            group_names, ProcessInfo)
     # end send_process_state_db
 
     def update_all_core_file(self):
@@ -448,8 +442,7 @@ class EventManager(object):
                 self.send_init_info(proc_stat.group)
             self.send_process_state_db([proc_stat.group])
 
-    def send_nodemgr_process_status_base(self, ProcessStateNames,
-                                         ProcessState, ProcessStatus):
+    def send_nodemgr_process_status(self):
         if self.prev_fail_status_bits == self.fail_status_bits:
             return
 
@@ -465,15 +458,10 @@ class EventManager(object):
                         process_status=process_status_list)
         node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                         data=node_status)
-        msg = ('send_nodemgr_process_status_base: Sending UVE:'
+        msg = ('send_nodemgr_process_status: Sending UVE:'
                + str(node_status_uve))
         self.msg_log(msg, SandeshLevel.SYS_INFO)
         node_status_uve.send()
-    # end send_nodemgr_process_status_base
-
-    def send_nodemgr_process_status(self):
-        self.send_nodemgr_process_status_base(
-            ProcessStateNames, ProcessState, ProcessStatus)
     # end send_nodemgr_process_status
 
     def _get_package_version(self):
@@ -561,27 +549,19 @@ class EventManager(object):
         return disk_usage_info
     # end get_disk_usage
 
-    def get_process_state_base(self, fail_status_bits,
-                               ProcessStateNames, ProcessState):
+    def get_process_state(self, fail_status_bits):
         if not fail_status_bits:
             return ProcessStateNames[ProcessState.FUNCTIONAL], ''
 
         state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
         description = self.get_failbits_nodespecific_desc(fail_status_bits)
         if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
-            if not description:
-                description = " "
-            description += "NTP state unsynchronized."
-        return state, description
-    # end get_process_state_base
-
-    def get_process_state(self, fail_status_bits):
-        return self.get_process_state_base(
-            fail_status_bits, ProcessStateNames, ProcessState)
+            description.append("NTP state unsynchronized.")
+        return state, " ".join(description)
     # end get_process_state
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
-        return ""
+        return list()
 
     def event_process_state(self, process_info):
         msg = ("DBG: event_process_state:" + process_info['name'] + ","
