@@ -874,6 +874,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         provider_vn.add_virtual_network(vn2_obj1)
         provider_vn.add_virtual_network(vn3_obj1)
         self._vnc_lib.virtual_network_update(provider_vn)
+        gevent.sleep(5)
         provider_vn = self._vnc_lib.virtual_network_read(
                 fq_name=provider_vn.get_fq_name())
         self.assertEqual(len(provider_vn.virtual_network_refs), 2)
@@ -910,6 +911,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # check adding provider vn to vn1 works
         vn1_obj1.add_virtual_network(provider_vn)
         self._vnc_lib.virtual_network_update(vn1_obj1)
+        gevent.sleep(2)
         vn1_obj2 = self._vnc_lib.virtual_network_read(
                 fq_name=vn1_obj1.get_fq_name())
         self.assertEqual(vn1_obj2.virtual_network_refs[0]['to'],
