@@ -30,6 +30,22 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
+__version__ = "1.0"
+"""
+NOTE: As that script is not self contained in a python package and as it
+supports multiple Contrail releases, it brings its own version that needs to be
+manually updated each time it is modified. We also maintain a change log list
+in that header:
+* 1.0:
+  - add check to detect duplicate FQ name
+  - add clean method to remove object not indexed in FQ name table if its
+    FQ name is already used by another object or if multiple stale object
+    use the same FQ name
+  - heal FQ name index if FQ name not already used
+  - when healing ZK ID lock path if the node already exists, update it
+    with correct value
+"""
+
 try:
     VN_ID_MIN_ALLOC = cfgm_common.VNID_MIN_ALLOC
 except AttributeError:
@@ -80,7 +96,7 @@ exceptions = ['ZkStandaloneError', 'ZkStandaloneError', 'ZkFollowersError',
               'ZkIpExtraError', 'ZkSubnetMissingError', 'ZkSubnetExtraError',
               'ZkVNMissingError', 'ZkVNExtraError', 'CassRTgtIdExtraError',
               'CassRTgtIdMissingError', 'OrphanResourceError',
-              'ZkSubnetPathInvalid']
+              'ZkSubnetPathInvalid', 'FqNameDuplicateError']
 for exception_class in exceptions:
     setattr(sys.modules[__name__],
             exception_class,
@@ -211,6 +227,8 @@ def _parse_args(args_str):
         formatter_class=argparse.RawTextHelpFormatter,
         description=format_description())
 
+    parser.add_argument('-v', '--version', action='version',
+                        version='%(prog)s ' + __version__)
     parser.add_argument('operation', help=format_help())
     help = "Path to contrail-api conf file, default /etc/contrail-api.conf"
     parser.add_argument(
@@ -867,18 +885,22 @@ class DatabaseChecker(DatabaseManager):
             try:
                 errors = func(*args, **kwargs)
                 if not errors:
-                    self._logger.info('Checker %s: Success' % func.__name__)
+                    self._logger.info('(v%s) Checker %s: Success', __version__,
+                                      func.__name__)
                 else:
                     self._logger.error(
-                        'Checker %s: Failed:\n%s\n' %
-                        (func.__name__, '\n'.join(e.msg for e in errors)))
+                        '(v%s) Checker %s: Failed:\n%s\n',
+                        __version__,
+                        func.__name__,
+                        '\n'.join(e.msg for e in errors)
+                    )
                 return errors
             except Exception as e:
                 string_buf = StringIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
-                self._logger.exception('Checker %s: Exception, %s' %
-                                       (func.__name__, err_msg))
+                self._logger.exception('(v%s) Checker %s: Exception, %s',
+                                       __version__, func.__name__, err_msg)
                 raise
         # end wrapper
 
@@ -1047,6 +1069,53 @@ class DatabaseChecker(DatabaseManager):
 
         return ret_errors
     # end check_fq_name_uuid_match
+
+    @checker
+    def check_duplicate_fq_name(self):
+        logger = self._logger
+        errors = []
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
+
+        logger.debug("Reading all objects from obj_fq_name_table")
+        logger.warning("Be careful, that check can return false positive "
+                       "errors if stale FQ names and stale resources were not "
+                       "cleaned before. Run at least commands "
+                       "'clean_obj_missing_mandatory_fields', "
+                       "'clean_orphan_resources' and 'clean_stale_fq_names' "
+                       "before.")
+        resource_map = {}
+        stale_fq_names = set([])
+        for obj_type, _ in fq_name_table.get_range(column_count=1):
+            for fq_name_str_uuid, _ in fq_name_table.xget(obj_type):
+                fq_name_str, _, uuid = fq_name_str_uuid.rpartition(':')
+                try:
+                    obj = uuid_table.get(uuid, columns=['prop:id_perms'])
+                    created_at = json.loads(obj['prop:id_perms']).get(
+                        'created', 'unknown')
+                    resource_map.setdefault(obj_type, {}).setdefault(
+                        fq_name_str, set([])).add((uuid, created_at))
+                except pycassa.NotFoundException:
+                    stale_fq_names.add(fq_name_str)
+        if stale_fq_names:
+            logger.info("Found stale fq_name index entry: %s. Use "
+                        "'clean_stale_fq_names' commands to repair that. "
+                        "Ignore it", ', '.join(stale_fq_names))
+
+        for type, type_map in resource_map.items():
+            for fq_name_str, uuids in type_map.items():
+                if len(uuids) != 1:
+                    msg = ("%s with FQ name '%s' is used by %d different "
+                           "objects: %s" % (
+                               type.replace('_', ' ').title(),
+                               fq_name_str,
+                               len(uuids),
+                               ', '.join(['%s (created at %s)' % (u, c)
+                                          for u, c in uuids]),
+                           ))
+                    errors.append(FqNameDuplicateError(msg))
+
+        return errors
 
     @checker
     def check_obj_mandatory_fields(self):
@@ -1381,18 +1450,21 @@ class DatabaseCleaner(DatabaseManager):
             try:
                 errors = func(*args, **kwargs)
                 if not errors:
-                    self._logger.info('Cleaner %s: Success' % func.__name__)
+                    self._logger.info('(v%s) Cleaner %s: Success', __version__,
+                                      func.__name__)
                 else:
                     self._logger.error(
-                        'Cleaner %s: Failed:\n%s\n' %
-                        (func.__name__, '\n'.join(e.msg for e in errors)))
+                        '(v%s) Cleaner %s: Failed:\n%s\n',
+                        __version__,
+                        func.__name__, '\n'.join(e.msg for e in errors),
+                    )
                 return errors
             except Exception as e:
                 string_buf = StringIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
-                self._logger.exception('Cleaner %s: Exception, %s' %
-                                       (func.__name__, err_msg))
+                self._logger.exception('(v%s) Cleaner %s: Exception, %s',
+                                       __version__, func.__name__, err_msg)
                 raise
         # end wrapper
 
@@ -1436,6 +1508,77 @@ class DatabaseCleaner(DatabaseManager):
         # TODO do same for zookeeper
         return ret_errors
     # end clean_stale_fq_names
+
+    @cleaner
+    def clean_stale_object(self):
+        """Delete object in obj_uuid_table of cassandra for object with FQ name
+        not correctly indexed by obj_fq_name_table."""
+        logger = self._logger
+        errors = []
+
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
+        logger.debug("Reading all objects from obj_uuid_table")
+        # dict of set, key is row-key val is set of col-names
+        fixups = {}
+        for uuid, cols in uuid_table.get_range(columns=['type', 'fq_name']):
+            type = json.loads(cols.get('type', ""))
+            fq_name = json.loads(cols.get('fq_name', ""))
+            if not type:
+                logger.info("Unknown 'type' for object %s", uuid)
+                continue
+            if not fq_name:
+                logger.info("Unknown 'fq_name' for object %s", uuid)
+                continue
+            fq_name_str = ':'.join(fq_name)
+            try:
+                fq_name_table.get(type,
+                                  columns=['%s:%s' % (fq_name_str, uuid)])
+            except pycassa.NotFoundException:
+                fixups.setdefault(type, {}).setdefault(
+                    fq_name_str, set([])).add(uuid)
+
+        for type, fq_name_uuids in fixups.items():
+            for fq_name_str, uuids in fq_name_uuids.items():
+                # Check fq_name already used
+                try:
+                    fq_name_uuid_str = fq_name_table.get(
+                        type,
+                        column_start='%s:' % fq_name_str,
+                        column_finish='%s;' % fq_name_str,
+                    )
+                    fq_name_str, _, uuid = fq_name_uuid_str.keys()[0].\
+                        rpartition(':')
+                except pycassa.NotFoundException:
+                    # fq_name index does not exists, need to be healed
+                    continue
+                # FQ name already there, check if it's a stale entry
+                try:
+                    uuid_table.get(uuid, columns=['type'])
+                    # FQ name already use by an object, remove stale object
+                    if not self._args.execute:
+                        logger.info("Would remove %s object(s) which share FQ "
+                                    "name '%s' used by '%s': %s",
+                                    type.replace('_', ' ').title(),
+                                    fq_name_str, uuid,
+                                    ', '.join(uuids))
+                    else:
+                        logger.info("Removing %s object(s) which share FQ "
+                                    "name '%s' used by '%s': %s",
+                                    type.replace('_', ' ').title(),
+                                    fq_name_str, uuid,
+                                    ', '.join(uuids))
+                        bch = uuid_table.batch()
+                        [bch.remove(uuid) for uuid in uuids]
+                        bch.send()
+                except pycassa.NotFoundException:
+                    msg = ("Stale FQ name entry '%s', please run "
+                           "'clean_stale_fq_names' before trying to clean "
+                           "objects" % fq_name_str)
+                    logger.warning(msg)
+                    continue
+
+        return errors
 
     @cleaner
     def clean_stale_back_refs(self):
@@ -1959,18 +2102,22 @@ class DatabaseHealer(DatabaseManager):
             try:
                 errors = func(*args, **kwargs)
                 if not errors:
-                    self._logger.info('Healer %s: Success' % func.__name__)
+                    self._logger.info('(v%s) Healer %s: Success', __version__,
+                                      func.__name__)
                 else:
                     self._logger.error(
-                        'Healer %s: Failed:\n%s\n' %
-                        (func.__name__, '\n'.join(e.msg for e in errors)))
+                        '(v%s) Healer %s: Failed:\n%s\n',
+                        __version__,
+                        func.__name__,
+                        '\n'.join(e.msg for e in errors),
+                    )
                 return errors
             except Exception as e:
                 string_buf = StringIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
-                self._logger.exception('Healer %s: Exception, %s' %
-                                       (func.__name__, err_msg))
+                self._logger.exception('(v%s) Healer %s: Exception, %s',
+                                       __version__, func.__name__, err_msg)
                 raise
         # end wrapper
 
@@ -1981,52 +2128,89 @@ class DatabaseHealer(DatabaseManager):
     @healer
     def heal_fq_name_index(self):
         """Creates missing rows/columns in obj_fq_name_table of cassandra for
-        all entries found in obj_uuid_table."""
+        all entries found in obj_uuid_table if fq_name not used and only one
+        founded object used that fq_name."""
         logger = self._logger
-        ret_errors = []
+        errors = []
 
-        obj_fq_name_table = self._cf_dict['obj_fq_name_table']
-        obj_uuid_table = self._cf_dict['obj_uuid_table']
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading all objects from obj_uuid_table")
         # dict of set, key is row-key val is set of col-names
         fixups = {}
-        for obj_uuid, cols in obj_uuid_table.get_range(
-                columns=['type', 'fq_name']):
-            obj_type = json.loads(cols.get('type', ""))
+        for uuid, cols in uuid_table.get_range(
+                columns=['type', 'fq_name', 'prop:id_perms']):
+            type = json.loads(cols.get('type', ""))
             fq_name = json.loads(cols.get('fq_name', ""))
-            if not obj_type:
-                logger.info("Unknown obj_type for object %s", obj_uuid)
+            created_at = json.loads(cols['prop:id_perms']).get(
+                'created', 'unknown')
+            if not type:
+                logger.info("Unknown 'type' for object %s", uuid)
                 continue
             if not fq_name:
-                logger.info("Unknown fq_name for object %s", obj_uuid)
+                logger.info("Unknown 'fq_name' for object %s", uuid)
                 continue
             fq_name_str = ':'.join(fq_name)
             try:
-                _ = obj_fq_name_table.get(obj_type,
-                                          columns=['%s:%s' % (
-                                              fq_name_str, obj_uuid)])
+                fq_name_table.get(type,
+                                  columns=['%s:%s' % (fq_name_str, uuid)])
             except pycassa.NotFoundException:
-                msg = "Found missing fq_name index: %s (%s %s)" \
-                    % (obj_uuid, obj_type, fq_name)
-                logger.info(msg)
-
-                if obj_type not in fixups:
-                    fixups[obj_type] = set([])
-                fixups[obj_type].add(
-                    '%s:%s' % (fq_name_str, obj_uuid))
+                fixups.setdefault(type, {}).setdefault(
+                    fq_name_str, set([])).add((uuid, created_at))
         # for all objects in uuid table
 
-        for obj_type in fixups:
-            cols = list(fixups[obj_type])
-            if not self._args.execute:
-                logger.info("Would insert row/columns: %s %s", obj_type, cols)
-            else:
-                logger.info("Inserting row/columns: %s %s", obj_type, cols)
-                obj_fq_name_table.insert(
-                        obj_type,
-                        columns=dict((x, json.dumps(None)) for x in cols))
+        for type, fq_name_uuids in fixups.items():
+            for fq_name_str, uuids in fq_name_uuids.items():
+                try:
+                    fq_name_uuid_str = fq_name_table.get(
+                        type,
+                        column_start='%s:' % fq_name_str,
+                        column_finish='%s;' % fq_name_str,
+                    )
+                except pycassa.NotFoundException:
+                    if len(uuids) != 1:
+                        msg = ("%s FQ name '%s' is used by %d resources and "
+                               "not indexed: %s. Script cannot decide which "
+                               "one should be heal." % (
+                                   type.replace('_', ' ').title(),
+                                   fq_name_str,
+                                   len(uuids),
+                                   ', '.join(['%s (created at %s)' % (u, c)
+                                              for u, c in uuids]),
+                               ))
+                        errors.append(FqNameDuplicateError(msg))
+                        continue
+                    fq_name_uuid_str = '%s:%s' % (fq_name_str, uuids.pop()[0])
+                    if not self._args.execute:
+                        logger.info("Would insert FQ name index: %s %s",
+                                    type, fq_name_uuid_str)
+                    else:
+                        logger.info("Inserting FQ name index: %s %s",
+                                    type, fq_name_uuid_str)
+                        cols = {fq_name_uuid_str: json.dumps(None)}
+                        fq_name_table.insert(type, cols)
+                    continue
+                # FQ name already there, check if it's a stale entry
+                uuid = fq_name_uuid_str.rpartition(':')[-1]
+                try:
+                    uuid_table.get(uuid, columns=['type'])
+                    # FQ name already use by an object, remove stale object
+                    msg = ("%s FQ name entry '%s' already used by %s, please "
+                           "run 'clean_stale_object' to remove stale "
+                           "object(s): %s" % (
+                               type.replace('_', ' ').title(),
+                               fq_name_str, uuid,
+                               ', '.join(['%s (created at %s)' % (u, c)
+                                          for u, c in uuids]),
+                           ))
+                    logger.warning(msg)
+                except pycassa.NotFoundException:
+                    msg = ("%s stale FQ name entry '%s', please run "
+                           "'clean_stale_fq_names' before trying to heal them"
+                           % (type.replace('_', ' ').title(), fq_name_str))
+                    logger.warning(msg)
 
-        return ret_errors
+        return errors
     # end heal_fq_name_index
 
     def heal_back_ref_index(self):
@@ -2220,12 +2404,28 @@ class DatabaseHealer(DatabaseManager):
                 id = eval(id_oper % id)
             id_str = "%(#)010d" % {'#': id}
             if not self._args.execute:
-                logger.info("Would add missing id %s for %s", zk_path % id_str,
-                            fq_name_str)
+                try:
+                    zk_fq_name_str = self._zk_client.get(zk_path % id_str)[0]
+                    if fq_name_str != zk_fq_name_str:
+                        logger.info("Would update id %s from %s to %s",
+                                    zk_path % id_str, zk_fq_name_str,
+                                    fq_name_str)
+                except kazoo.exceptions.NoNodeError:
+                    logger.info("Would add missing id %s for %s",
+                                zk_path % id_str, fq_name_str)
             else:
-                logger.info("Adding missing id %s for %s", zk_path % id_str,
-                            fq_name_str)
-                self._zk_client.create(zk_path % id_str, str(fq_name_str))
+                try:
+                    zk_fq_name_str = self._zk_client.get(zk_path % id_str)[0]
+                    if fq_name_str != zk_fq_name_str:
+                        logger.info("Updating id %s from %s to %s",
+                                    zk_path % id_str, zk_fq_name_str,
+                                    fq_name_str)
+                        self._zk_client.delete(zk_path % id_str)
+                        self._zk_client.set(zk_path % id_str, str(fq_name_str))
+                except kazoo.exceptions.NoNodeError:
+                    logger.info("Adding missing id %s for %s",
+                                zk_path % id_str, fq_name_str)
+                    self._zk_client.create(zk_path % id_str, str(fq_name_str))
 
     @healer
     def heal_subnet_addr_alloc(self):
@@ -2300,6 +2500,7 @@ def db_check(args, api_args):
     db_checker.check_obj_mandatory_fields()
     db_checker.check_orphan_resources()
     db_checker.check_fq_name_uuid_match()
+    db_checker.check_duplicate_fq_name()
     # ID allocation inconsistencies
     db_checker.check_subnet_uuid()
     db_checker.check_subnet_addr_alloc()
@@ -2321,6 +2522,7 @@ def db_clean(args, api_args):
     db_cleaner.clean_obj_missing_mandatory_fields()
     db_cleaner.clean_orphan_resources()
     db_cleaner.clean_stale_fq_names()
+    db_cleaner.clean_stale_object()
     db_cleaner.clean_vm_with_no_vmi()
     db_cleaner.clean_stale_route_target()
     db_cleaner.clean_stale_instance_ip()
