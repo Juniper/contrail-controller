@@ -659,6 +659,44 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
+    def test_notify_doesnt_persist(self):
+        # net/ip notify context shouldn't persist to db, should only
+        # update in-memory book-keeping
+        def_ipam = NetworkIpam()
+        ipam_obj = self._vnc_lib.network_ipam_read(
+                      fq_name=def_ipam.get_fq_name())
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([ipam_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        iip_obj = InstanceIp('iip-%s' %(self.id()))
+        iip_obj.add_virtual_network(vn_obj)
+
+        class SpyCreateNode(object):
+            def __init__(self, orig_object, method_name):
+                self._orig_method = getattr(orig_object, method_name)
+                self._invoked = 0
+            # end __init__
+
+            def __call__(self, orig_method, *args, **kwargs):
+                if self._invoked >= 1:
+                    raise Exception(
+                        "Instance IP was persisted more than once")
+
+                if args[0].startswith('/api-server/subnets'):
+                    self._invoked += 1
+                return self._orig_method(args, kwargs)
+        # end SpyCreateNode
+
+        orig_object = self._api_server._db_conn._zk_db._zk_client
+        method_name = 'create_node'
+        with test_common.patch(orig_object, method_name,
+                               SpyCreateNode(orig_object, method_name)):
+            self._vnc_lib.instance_ip_create(iip_obj)
+            self.assertTill(self.ifmap_has_ident, obj=iip_obj)
+
+    #end test_notify_doesnt_persist
  
 #end class TestIpAlloc
 
