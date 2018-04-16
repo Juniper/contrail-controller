@@ -1359,6 +1359,9 @@ def fake_zk_counter_change(self, value):
             self._value = data
         return self
 
+def fake_zk_counter_ensure_node(self):
+        self._ensured_path = True
+
 class ZookeeperClientMock(object):
 
     def __init__(self, *args, **kwargs):
