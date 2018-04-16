@@ -32,8 +32,10 @@ class JobException(Exception):
         return "JobException in execution (%s): %s" % \
                (self.job_execution_id, self.msg)
 
+    def __repr__(self):
+        return self.msg
+
 
 if __name__ == "__main__":
     import doctest
     doctest.run_docstring_examples(__str__, globals())
-
