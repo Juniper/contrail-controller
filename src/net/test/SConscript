@@ -11,6 +11,9 @@ env.Append(LIBPATH = env['TOP'] + '/net')
 
 env.Prepend(LIBS = ['gunit', 'net'])
 
+bgp_af_test = env.UnitTest('bgp_af_test', ['bgp_af_test.cc'])
+env.Alias('src/net:bgp_af_test', bgp_af_test)
+
 esi_test = env.UnitTest('esi_test', ['esi_test.cc'])
 env.Alias('src/net:esi_test', esi_test)
 
@@ -24,6 +27,7 @@ community_type_test = env.UnitTest('community_type_test', ['community_type_test.
 env.Alias('src/net:community_type_test', community_type_test)
 
 test_suite = [
+    bgp_af_test,
     community_type_test,
     esi_test,
     mac_address_test,
