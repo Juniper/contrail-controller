@@ -24,6 +24,8 @@ from job_log_utils import JobLogUtils
 from job_utils import JobStatus
 from sandesh_utils import SandeshUtils
 
+from test_job_manager_utils import TestJobManagerUtils
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -57,24 +59,9 @@ class TestJobManager(test_case.JobTestCase):
         job_template_uuid = self._vnc_lib.job_template_create(job_template)
 
         self.mock_play_book_execution()
-        self.mock_sandesh_check()
-
-        # Hardcoding a sample auth token since its a madatory value passed
-        # by the api server while invoking the job manager. Here since we
-        # are directly invoking the job manager, we are passing a dummy
-        # auth token for testing. This value is not used internally since
-        # the calls that use the auth token are mocked
-        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
-
-        execution_id = uuid.uuid4()
-        job_input_json = {"job_template_id": job_template_uuid,
-                          "input": {"playbook_data": "some playbook data"},
-                          "job_execution_id": str(execution_id),
-                          "auth_token": sample_auth_token,
-                          "args": {"collectors": ['127.0.0.1:8086']}}
-        args = {"collectors": ['127.0.0.1:8086']}
-        log_utils = JobLogUtils(sandesh_instance_id=str(execution_id),
-                                config_args=json.dumps(args))
+        TestJobManagerUtils.mock_sandesh_check()
+        job_input_json, log_utils = TestJobManagerUtils.get_min_details(
+                                        job_template_uuid)
         jm = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
         jm.start_job()
@@ -95,31 +82,9 @@ class TestJobManager(test_case.JobTestCase):
 
         # mock the play book executor call
         self.mock_play_book_execution()
-        self.mock_sandesh_check()
-        execution_id = uuid.uuid4()
+        TestJobManagerUtils.mock_sandesh_check()
 
-        # Hardcoding a sample auth token since its a madatory value passed
-        # by the api server while invoking the job manager. Here since we
-        # are directly invoking the job manager, we are passing a dummy
-        # auth token for testing. This value is not used internally since
-        # the calls that use the auth token are mocked
-        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
-
-        job_input_json = {"job_template_id": job_template_uuid,
-                          "input": {"playbook_data": "some playbook data"},
-                          "job_execution_id": str(execution_id),
-                          "auth_token": sample_auth_token,
-                          "params": {"device_list":
-                                     ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
-                          "device_json": {
-                              "aad74e24-a00b-4eb3-8412-f8b9412925c3":
-                                  {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'}
-                          },
-                          "args": {"collectors": ['127.0.0.1:8086']}}
-        args = {"collectors": ['127.0.0.1:8086']}
-        log_utils = JobLogUtils(sandesh_instance_id=str(execution_id),
-                                config_args=json.dumps(args))
+        job_input_json, log_utils = self.get_details(job_template_uuid)
         jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
                         job_input_json, log_utils)
         jm.start_job()
@@ -145,31 +110,11 @@ class TestJobManager(test_case.JobTestCase):
 
         # mock the play book executor call
         self.mock_play_book_execution()
-        self.mock_sandesh_check()
-        execution_id = uuid.uuid4()
 
-        # Hardcoding a sample auth token since its a madatory value passed
-        # by the api server while invoking the job manager. Here since we
-        # are directly invoking the job manager, we are passing a dummy
-        # auth token for testing. This value is not used internally since
-        # the calls that use the auth token are mocked
-        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        TestJobManagerUtils.mock_sandesh_check()
 
-        job_input_json = {"job_template_id": job_template_uuid,
-                          "input": {"playbook_data": "some playbook data"},
-                          "job_execution_id": str(execution_id),
-                          "auth_token": sample_auth_token,
-                          "params": {"device_list":
-                                     ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
-                          "device_json": {
-                              "aad74e24-a00b-4eb3-8412-f8b9412925c3":
-                                  {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'}
-                          },
-                          "args": {"collectors": ['127.0.0.1:8086']}}
-        args = {"collectors": ['127.0.0.1:8086']}
-        log_utils = JobLogUtils(sandesh_instance_id=str(execution_id),
-                                config_args=json.dumps(args))
+        job_input_json, log_utils = self.get_details(job_template_uuid)
+
         jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
                         job_input_json, log_utils)
         jm.start_job()
@@ -201,32 +146,11 @@ class TestJobManager(test_case.JobTestCase):
 
         # mock the play book executor call
         self.mock_play_book_execution()
-        self.mock_sandesh_check()
-        execution_id = uuid.uuid4()
 
-        # Hardcoding a sample auth token since its a madatory value passed
-        # by the api server while invoking the job manager. Here since we
-        # are directly invoking the job manager, we are passing a dummy
-        # auth token for testing. This value is not used internally since
-        # the calls that use the auth token are mocked
-        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        TestJobManagerUtils.mock_sandesh_check()
 
-        job_input_json = {"job_template_id": job_template_uuid,
-                          "input": {"playbook_data": "some playbook data"},
-                          "job_execution_id": str(execution_id),
-                          "auth_token": sample_auth_token,
-                          "params": {"device_list":
-                                     ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
-                          "device_json": {
-                              "aad74e24-a00b-4eb3-8412-f8b9412925c3":
-                                  {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'
-                                   }
-                              },
-                          "args": {"collectors": ['127.0.0.1:8086']}}
-        args = {"collectors": ['127.0.0.1:8086']}
-        log_utils = JobLogUtils(sandesh_instance_id=str(execution_id),
-                                config_args=json.dumps(args))
+        job_input_json, log_utils = self.get_details(job_template_uuid)
+
         jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
                         job_input_json, log_utils)
         jm.start_job()
@@ -254,38 +178,33 @@ class TestJobManager(test_case.JobTestCase):
         # check if the playbook is getting executed after job_manager
         # validation
         self.mock_play_book_execution()
-        self.mock_sandesh_check()
-        execution_id = uuid.uuid4()
 
-        # Hardcoding a sample auth token since its a madatory value passed
-        # by the api server while invoking the job manager. Here since we
-        # are directly invoking the job manager, we are passing a dummy
-        # auth token for testing. This value is not used internally since
-        # the calls that use the auth token are mocked
-        sample_auth_token = "6e7d7f87faa54fac96a2a28ec752336a"
+        TestJobManagerUtils.mock_sandesh_check()
 
-        job_input_json = {"job_template_id": job_template_uuid,
-                          "input": {"playbook_data": "some playbook data"},
-                          "job_execution_id": str(execution_id),
-                          "auth_token": sample_auth_token,
-                          "params": {
-                              "device_list":
-                                  ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
-                          "device_json": {
-                              "aad74e24-a00b-4eb3-8412-f8b9412925c3":
-                                  {'device_vendor': 'Juniper',
-                                   'device_family': 'MX'
-                                   }
-                              },
-                          "args": {"collectors": ['127.0.0.1:8086']}}
-        args = {"collectors": ['127.0.0.1:8086']}
-        log_utils = JobLogUtils(sandesh_instance_id=str(execution_id),
-                                config_args=json.dumps(args))
+        job_input_json, log_utils = self.get_details(job_template_uuid)
+
         jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
                         job_input_json, log_utils)
         jm.start_job()
         self.assertEqual(jm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
+
+    def get_details(self, job_template_uuid):
+
+        job_input_json, log_utils = TestJobManagerUtils.get_min_details(
+                                        job_template_uuid)
+        job_input_json.update({
+                          "params": {"device_list":
+                                     ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
+                          "device_json": {
+                              "aad74e24-a00b-4eb3-8412-f8b9412925c3":
+                                  {'device_vendor': 'Juniper',
+                                   'device_family': 'MX',
+                                   'device_username': 'username',
+                                   'device_password': 'pswd'}}
+                          })
+
+        return job_input_json, log_utils
 
     def mock_play_book_execution(self):
         # mock the call to invoke the playbook
@@ -298,11 +217,3 @@ class TestJobManager(test_case.JobTestCase):
 
         # mock sys exit call
         flexmock(sys).should_receive('exit')
-
-    def mock_sandesh_check(self):
-        mocked_sandesh_utils = flexmock()
-        flexmock(SandeshUtils, __new__=mocked_sandesh_utils)
-        mocked_sandesh_utils.should_receive('__init__')
-        mocked_sandesh_utils.should_receive('wait_for_connection_establish')
-        mocked_sandesh_utils.should_receive('close_sandesh_connection')
-
