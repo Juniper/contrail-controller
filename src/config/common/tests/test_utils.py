@@ -1184,8 +1184,17 @@ class FakeKazooClient(object):
     # end create
 
     def get(self, path):
-        return self._values[zk_scrub_path(path)]
+        try:
+            return self._values[zk_scrub_path(path)]
+        except KeyError:
+            raise kazoo.exceptions.NoNodeError()
     # end get
+
+    def set(self, path, value):
+        scrubbed_path = zk_scrub_path(path)
+        if scrubbed_path not in self._values:
+            raise kazoo.exceptions.NoNodeError()
+        self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
 
     def get_children(self, path):
         if not path:
