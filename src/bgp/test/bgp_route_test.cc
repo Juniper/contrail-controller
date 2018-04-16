@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/assign/list_of.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
@@ -1374,6 +1376,85 @@ TEST_F(BgpRouteTest, PathCompareAliased2) {
     EXPECT_EQ(-1, path2.PathCompare(path1, false));
     EXPECT_EQ(0, path1.PathCompare(path2, true));
     EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+TEST_F(BgpRouteTest, PathFlagsStringListNone) {
+    vector<string> expected = boost::assign::list_of("None");
+    EXPECT_EQ(expected, BgpPath(BgpPath::None, 0).GetFlagsStringList());
+}
+
+TEST_F(BgpRouteTest, PathFlagsStringListAll) {
+    vector<string> expected = boost::assign::list_of
+        ("AsPathLooped")
+        ("NoNeighborAs")
+        ("Stale")
+        ("NoTunnelEncap")
+        ("OriginatorIdLooped")
+        ("ResolveNexthop")
+        ("ResolvedPath")
+        ("RoutingPolicyReject")
+        ("LlgrStale")
+        ("ClusterListLooped")
+        ("AliasedPath")
+    ;
+    EXPECT_EQ(expected, BgpPath(BgpPath::None, NULL, ~0, 0, 0).
+                            GetFlagsStringList());
+}
+
+TEST_F(BgpRouteTest, GetSourceString) {
+    vector<BgpPath::PathSource> sources = boost::assign::list_of
+        (BgpPath::None)
+        (BgpPath::BGP_XMPP)
+        (BgpPath::ServiceChain)
+        (BgpPath::StaticRoute)
+        (BgpPath::Aggregate)
+        (BgpPath::Local)
+    ;
+
+    boost::system::error_code ec;
+    PeerMock peer(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BOOST_FOREACH(BgpPath::PathSource source, sources) {
+        switch (source) {
+        case BgpPath::None:
+            EXPECT_EQ("None", BgpPath(source, NULL, 0, 0, 0).
+                                  GetSourceString(true));
+            EXPECT_EQ("None", BgpPath(source, NULL, 0, 0, 0).
+                                  GetSourceString(false));
+            break;
+        case BgpPath::BGP_XMPP:
+            EXPECT_EQ("BGP_XMPP", BgpPath(source, NULL, 0, 0, 0).
+                                      GetSourceString(true));
+            EXPECT_EQ("None", BgpPath(source, NULL, 0, 0, 0).
+                                  GetSourceString(false));
+            EXPECT_EQ("BGP", BgpPath(&peer, 10111, BgpPath::BGP_XMPP, NULL, 0,
+                                     0).GetSourceString(false));
+            break;
+        case BgpPath::ServiceChain:
+            EXPECT_EQ("ServiceChain", BgpPath(source, NULL, 0, 0, 0).
+                                  GetSourceString(true));
+            EXPECT_EQ("ServiceChain", BgpPath(source, NULL, 0, 0, 0).
+                                  GetSourceString(false));
+            break;
+        case BgpPath::StaticRoute:
+            EXPECT_EQ("StaticRoute", BgpPath(source, NULL, 0, 0, 0).
+                                         GetSourceString(true));
+            EXPECT_EQ("StaticRoute", BgpPath(source, NULL, 0, 0, 0).
+                                         GetSourceString(false));
+            break;
+        case BgpPath::Aggregate:
+            EXPECT_EQ("Aggregate", BgpPath(source, NULL, 0, 0, 0).
+                                       GetSourceString(true));
+            EXPECT_EQ("Aggregate", BgpPath(source, NULL, 0, 0, 0).
+                                       GetSourceString(false));
+            break;
+        case BgpPath::Local:
+            EXPECT_EQ("Local", BgpPath(source, NULL, 0, 0, 0).
+                                   GetSourceString(true));
+            EXPECT_EQ("Local", BgpPath(source, NULL, 0, 0, 0).
+                                   GetSourceString(false));
+            break;
+        }
+    }
 }
 
 static void SetUp() {
