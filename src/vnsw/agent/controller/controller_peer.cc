@@ -360,11 +360,6 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                                         vrf, g_address.to_v4(),
                                         s_address.to_v4(), 0, olist,
                                         ControllerPeerPath::kInvalidPeerIdentifier);
-                agent_->oper_db()->multicast()->
-                    ModifyEvpnMembers(agent_->multicast_tree_builder_peer(),
-                                        vrf, g_address.to_v4(),
-                                        s_address.to_v4(), olist,
-                                        ControllerPeerPath::kInvalidPeerIdentifier);
             }
         }
         return;
@@ -438,31 +433,19 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                                              addr.to_v4(), encap));
         }
 
+        IpAddress source_address =
+                IpAddress::from_string(item->entry.nlri.source_address, ec);
+        if ((ec.value() == 0) && (source_address != IpAddress(Ip4Address()))) {
+            olist.push_back(OlistTunnelEntry(nil_uuid(), 0,
+                            source_address.to_v4(),
+                            TunnelType::MplsType()));
+        }
+
         agent_->oper_db()->multicast()->ModifyFabricMembers(
                 agent_->multicast_tree_builder_peer(),
                 vrf, g_address.to_v4(), s_address.to_v4(),
                 item->entry.nlri.source_label, olist,
                 agent_->controller()->multicast_sequence_number());
-
-        IpAddress source_address =
-                IpAddress::from_string(item->entry.nlri.source_address, ec);
-        if (ec.value() != 0) {
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                            "Error parsing source-address");
-            return;
-        }
-
-        if (source_address != IpAddress(Ip4Address())) {
-            TunnelOlist olist;
-            olist.push_back(OlistTunnelEntry(nil_uuid(), 0,
-                            source_address.to_v4(),
-                            TunnelType::MplsType()));
-            agent_->oper_db()->multicast()->ModifyEvpnMembers(
-                            agent_->multicast_tree_builder_peer(),
-                            vrf, g_address.to_v4(), s_address.to_v4(),
-                            olist,
-                            agent_->controller()->multicast_sequence_number());
-        }
     }
 }
 
