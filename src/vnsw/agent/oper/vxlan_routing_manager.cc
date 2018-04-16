@@ -569,7 +569,8 @@ void VxlanRoutingManager::VmiNotify(DBTablePartBase *partition,
         vn = vmi_state->vn_entry_;
         vn_state = dynamic_cast<VxlanRoutingVnState *>
             (vn->GetAgentDBEntryState(vn_listener_id_));
-        vn_state->DeleteVmi(vn, vmi);
+        if (vn_state)
+            vn_state->DeleteVmi(vn, vmi);
         vmi->ClearState(partition->parent(), vmi_listener_id_);
         delete vmi_state;
         return;
