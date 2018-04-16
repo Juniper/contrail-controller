@@ -1041,12 +1041,17 @@ bool SessionStatsCollector::UpdateSloMatchRuleEntry(
 bool SessionStatsCollector::CheckPolicyMatch(const SessionSloRuleMap &map,
                                              const std::string &policy_uuid,
                                              const bool &deleted_flag,
-                                             bool *match) {
+                                             bool *match,
+                                             const bool &exported_once) {
     SessionSloRuleMap::const_iterator it;
     if (!policy_uuid.empty()) {
         it = map.find(policy_uuid);
         if (it != map.end()) {
-            if (deleted_flag) {
+            /* Always logging tear down session, which is exported atleast once
+             * earlier will be logged other tear down sessions will be reported
+             * with SLO rate checking
+             */
+            if (deleted_flag && exported_once) {
                 *match = true;
                 return true;
             }
@@ -1062,14 +1067,18 @@ bool SessionStatsCollector::FindSloMatchRule(const SessionSloRuleMap &map,
                                              const std::string &nw_policy_uuid,
                                              const std::string &sg_policy_uuid,
                                              const bool &deleted_flag,
-                                             bool *match) {
+                                             bool *match,
+                                             const bool &exported_once) {
     SessionSloRuleMap::const_iterator it;
     bool fw_logged = false, nw_logged = false, sg_logged = false;
     bool fw_match = false, nw_match = false, sg_match = false;
 
-    fw_logged = CheckPolicyMatch(map, fw_policy_uuid, deleted_flag, &fw_match);
-    nw_logged = CheckPolicyMatch(map, nw_policy_uuid, deleted_flag, &nw_match);
-    sg_logged = CheckPolicyMatch(map, sg_policy_uuid, deleted_flag, &sg_match);
+    fw_logged = CheckPolicyMatch(map, fw_policy_uuid, deleted_flag,
+                                 &fw_match, exported_once);
+    nw_logged = CheckPolicyMatch(map, nw_policy_uuid, deleted_flag,
+                                 &nw_match, exported_once);
+    sg_logged = CheckPolicyMatch(map, sg_policy_uuid, deleted_flag,
+                                 &sg_match, exported_once);
 
     if (fw_match || nw_match || sg_match) {
         *match = true;
@@ -1090,7 +1099,8 @@ bool SessionStatsCollector::MatchSloForFlow(
                             const std::string &nw_policy_uuid,
                             const std::string &sg_policy_uuid,
                             const bool &deleted_flag,
-                            bool *logged) {
+                            bool *logged,
+                            const bool &exported_once) {
 
     bool is_vmi_slo_logged, is_vn_slo_logged, is_global_slo_logged;
     bool vmi_slo_match, vn_slo_match, global_slo_match;
@@ -1114,21 +1124,24 @@ bool SessionStatsCollector::MatchSloForFlow(
                                          nw_policy_uuid,
                                          sg_policy_uuid,
                                          deleted_flag,
-                                         &vmi_slo_match);
+                                         &vmi_slo_match,
+                                         exported_once);
 
     is_vn_slo_logged = FindSloMatchRule(vn_session_slo_rule_map,
                                         fw_policy_uuid,
                                         nw_policy_uuid,
                                         sg_policy_uuid,
                                         deleted_flag,
-                                        &vn_slo_match);
+                                        &vn_slo_match,
+                                        exported_once);
 
     is_global_slo_logged = FindSloMatchRule(global_session_slo_rule_map,
                                             fw_policy_uuid,
                                             nw_policy_uuid,
                                             sg_policy_uuid,
                                             deleted_flag,
-                                            &global_slo_match);
+                                            &global_slo_match,
+                                            exported_once);
     if ((is_vmi_slo_logged) ||
         (is_vn_slo_logged) ||
         (is_global_slo_logged)) {
@@ -1166,7 +1179,8 @@ void SessionStatsCollector::GetPolicyIdFromFlow(
 bool SessionStatsCollector::FlowLogging(
                             const SessionStatsInfo    &stats_info,
                             const FlowEntry *fe,
-                            bool  *logged) {
+                            bool  *logged,
+                            const bool  &exported_once) {
 
     bool matched = false, deleted_flag=false;
     std::string fw_policy_uuid = "", nw_policy_uuid = "", sg_policy_uuid = "";
@@ -1182,7 +1196,8 @@ bool SessionStatsCollector::FlowLogging(
                               nw_policy_uuid,
                               sg_policy_uuid,
                               deleted_flag,
-                              logged);
+                              logged,
+                              exported_once);
 
     return matched;
 }
@@ -1190,7 +1205,8 @@ bool SessionStatsCollector::FlowLogging(
 bool SessionStatsCollector::DeletedFlowLogging(
                             const SessionStatsInfo    &stats_info,
                             const SessionFlowExportInfo &flow_info,
-                            bool  *logged) {
+                            bool  *logged,
+                            const bool  &exported_once) {
 
     bool matched = false, deleted_flag = true;
     std::string fw_policy_uuid = "", nw_policy_uuid = "", sg_policy_uuid = "";
@@ -1206,7 +1222,8 @@ bool SessionStatsCollector::DeletedFlowLogging(
                               nw_policy_uuid,
                               sg_policy_uuid,
                               deleted_flag,
-                              logged);
+                              logged,
+                              exported_once);
 
     return matched;
 }
@@ -1217,13 +1234,19 @@ bool SessionStatsCollector::HandleDeletedFlowLogging(
     bool logged = false;
     const SessionExportInfo &info = stats_info.export_info;
 
+    /*
+     * Deleted flow need to to be just checked whether SLO rules matched
+     * If SLO is macthed, it should be logged irrespective of the rate
+     */
     if (DeletedFlowLogging(stats_info,
                            info.fwd_flow,
-                           &logged)) {
+                           &logged,
+                           stats_info.exported_atleast_once)) {
         CheckFlowLogging(logged);
     } else if (DeletedFlowLogging(stats_info,
                                   info.rev_flow,
-                                  &logged)) {
+                                  &logged,
+                                  stats_info.exported_atleast_once)) {
         CheckFlowLogging(logged);
     }
     return false;
@@ -1233,13 +1256,23 @@ bool SessionStatsCollector::HandleFlowLogging(
                             const SessionStatsInfo    &stats_info) {
     bool logged = false;
 
+    /*
+     * FWD and REV flow of the Session need to be checked for SLO
+     * separately. If FWD flow matches or logged then rev flow
+     * is not required to check for SLO match.
+     * REV flow will be checked for SLO only when FWD flow
+     * is not matched for the SLO, since SLO is per session
+     */
+
     if (FlowLogging(stats_info,
                     stats_info.fwd_flow.flow.get(),
-                    &logged)) {
+                    &logged,
+                    stats_info.exported_atleast_once)) {
         CheckFlowLogging(logged);
     } else if (FlowLogging(stats_info,
                            stats_info.rev_flow.flow.get(),
-                           &logged)) {
+                           &logged,
+                           stats_info.exported_atleast_once)) {
         CheckFlowLogging(logged);
     }
     return false;
@@ -1253,6 +1286,15 @@ bool SessionStatsCollector::CheckSessionLogging(
         flow_stats_manager_->session_global_slo_logging_drops_++;
         return false;
     }
+
+    /*
+     * Deleted flow will be logged if SLO is configured.
+     * Normal case will be logged only when there is a change in the
+     * stats. If there is no change in the session stats, it will
+     * not be considered to SLO match and rate. This will avoid logging
+     * of each session at least once. Also, idle session will not be
+     * considered for the rate count
+     */
 
     if (stats_info.deleted) {
         if(HandleDeletedFlowLogging(stats_info)) {
@@ -1737,7 +1779,7 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             if (!session_map_iter->second.deleted &&
                 !session_map_iter->second.evicted) {
                 bool changed = SessionStatsChangedLocked(session_map_iter,
-                                                         &params);
+                                                    &params);
                 if (!changed && session_map_iter->second.exported_atleast_once) {
                     ++session_map_iter;
                     continue;
