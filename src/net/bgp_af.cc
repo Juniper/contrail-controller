@@ -13,7 +13,7 @@ using std::string;
 
 string BgpAf::ToString(uint16_t afi, uint8_t safi) {
     ostringstream out;
-    switch (afi) {
+    switch (static_cast<Afi>(afi)) {
         case IPv4:
             out << "IPv4:";
             break;
@@ -23,62 +23,107 @@ string BgpAf::ToString(uint16_t afi, uint8_t safi) {
         case L2Vpn:
             out << "L2Vpn:";
             break;
-        default:
+        case UnknownAfi:
             out << "Afi=" << afi << ":";
             break;
     }
-    switch (safi) {
+
+    if (out.str().empty())
+        out << "Afi=" << afi << ":";
+
+    switch (static_cast<Safi>(safi)) {
         case Unicast:
             out << "Unicast";
-            break;
+            return out.str();
         case EVpn:
             out << "EVpn";
-            break;
+            return out.str();
         case Vpn:
             out << "Vpn";
-            break;
+            return out.str();
         case Enet:
             out << "Enet";
-            break;
+            return out.str();
         case ErmVpn:
             out << "ErmVpn";
-            break;
+            return out.str();
         case MVpn:
-            out << "Mvpn";
-            break;
+            out << "MVpn";
+            return out.str();
+        case Mcast:
+            out << "Mcast";
+            return out.str();
         case RTarget:
             out << "RTarget";
-            break;
+            return out.str();
         case Mpls:
             out << "Mpls";
-            break;
-        default:
+            return out.str();
+        case UnknownSafi:
             out << "Safi=" << int(safi);
-            break;
+            return out.str();
     }
+
+    out << "Safi=" << int(safi);
     return out.str();
 }
 
 Address::Family BgpAf::AfiSafiToFamily(uint16_t afi, uint8_t safi) {
-    if (afi == BgpAf::IPv4 && safi == BgpAf::Unicast)
-        return Address::INET;
-    if (afi == BgpAf::IPv4 && safi == BgpAf::Mpls)
-        return Address::INETMPLS;
-    if (afi == BgpAf::IPv4 && safi == BgpAf::Vpn)
-        return Address::INETVPN;
-    if (afi == BgpAf::IPv4 && safi == BgpAf::RTarget)
-        return Address::RTARGET;
-    if (afi == BgpAf::IPv4 && safi == BgpAf::ErmVpn)
-        return Address::ERMVPN;
-    if (afi == BgpAf::IPv4 && safi == BgpAf::MVpn)
-        return Address::MVPN;
-    if (afi == BgpAf::IPv6 && safi == BgpAf::Unicast)
-        return Address::INET6;
-    if (afi == BgpAf::IPv6 && safi == BgpAf::Vpn)
-        return Address::INET6VPN;
-    if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn)
-        return Address::EVPN;
-
+    switch (afi) {
+    case UnknownSafi:
+        return Address::UNSPEC;
+    case IPv4:
+        switch (safi) {
+        case Unicast:
+            return Address::INET;
+        case Mpls:
+            return Address::INETMPLS;
+        case MVpn:
+            return Address::MVPN;
+        case Vpn:
+            return Address::INETVPN;
+        case RTarget:
+            return Address::RTARGET;
+        case ErmVpn:
+            return Address::ERMVPN;
+        case UnknownSafi:
+        case EVpn:
+        case Mcast:
+        case Enet:
+            return Address::UNSPEC;
+        }
+    case IPv6:
+        switch (safi) {
+        case Unicast:
+            return Address::INET6;
+        case Vpn:
+            return Address::INET6VPN;
+        case UnknownSafi:
+        case Mpls:
+        case MVpn:
+        case RTarget:
+        case ErmVpn:
+        case EVpn:
+        case Mcast:
+        case Enet:
+            return Address::UNSPEC;
+        }
+    case L2Vpn:
+        switch (safi) {
+        case EVpn:
+            return Address::EVPN;
+        case Unicast:
+        case Vpn:
+        case UnknownSafi:
+        case Mpls:
+        case MVpn:
+        case RTarget:
+        case ErmVpn:
+        case Mcast:
+        case Enet:
+            return Address::UNSPEC;
+        }
+    }
     return Address::UNSPEC;
 }
 
@@ -102,10 +147,13 @@ pair<uint16_t, uint8_t> BgpAf::FamilyToAfiSafi(Address::Family family) {
         return make_pair(BgpAf::IPv6, BgpAf::Vpn);
     case Address::EVPN:
         return make_pair(BgpAf::L2Vpn, BgpAf::EVpn);
-    default:
-        assert(false);
+    case Address::NUM_FAMILIES:
+    case Address::UNSPEC:
         return make_pair(BgpAf::UnknownAfi, BgpAf::UnknownSafi);
     }
+
+    assert(false);
+    return make_pair(BgpAf::UnknownAfi, BgpAf::UnknownSafi);
 }
 
 BgpAf::Afi BgpAf::FamilyToAfi(Address::Family family) {
@@ -128,10 +176,13 @@ BgpAf::Afi BgpAf::FamilyToAfi(Address::Family family) {
         return BgpAf::IPv6;
     case Address::EVPN:
         return BgpAf::L2Vpn;
-    default:
-        assert(false);
+    case Address::NUM_FAMILIES:
+    case Address::UNSPEC:
         return BgpAf::UnknownAfi;
     }
+
+    assert(false);
+    return BgpAf::UnknownAfi;
 }
 
 BgpAf::Safi BgpAf::FamilyToSafi(Address::Family family) {
@@ -154,10 +205,13 @@ BgpAf::Safi BgpAf::FamilyToSafi(Address::Family family) {
         return BgpAf::Vpn;
     case Address::EVPN:
         return BgpAf::EVpn;
-    default:
-        assert(false);
+    case Address::NUM_FAMILIES:
+    case Address::UNSPEC:
         return BgpAf::UnknownSafi;
     }
+
+    assert(false);
+    return BgpAf::UnknownSafi;
 }
 
 uint8_t BgpAf::FamilyToXmppSafi(Address::Family family) {
@@ -170,5 +224,3 @@ uint8_t BgpAf::FamilyToXmppSafi(Address::Family family) {
         return static_cast<uint8_t>(BgpAf::FamilyToSafi(family));
     }
 }
-
-
