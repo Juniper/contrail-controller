@@ -29,17 +29,8 @@ class DatabaseEventManager(EventManager):
             self.process_info_manager)
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
-        description = ""
-        if fail_status_bits & self.FAIL_STATUS_DISK_SPACE:
-            description += "Disk for analytics db is too low," + \
-                " cassandra stopped."
-        if fail_status_bits & self.FAIL_STATUS_SERVER_PORT:
-            if description != "":
-                description += " "
-            description += "Cassandra state detected DOWN."
-        if fail_status_bits & self.FAIL_STATUS_DISK_SPACE_NA:
-            description += "Disk space for analytics db not retrievable."
-        return description
+        return self.cassandra_mgr.get_failbits_nodespecific_desc(
+            self, fail_status_bits)
 
     def do_periodic_events(self):
         self.cassandra_mgr.database_periodic(self)
