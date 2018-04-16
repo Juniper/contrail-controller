@@ -1688,10 +1688,18 @@ void SessionStatsCollector::FillSessionTags(const TagList &list,
                                             SessionEndpoint *ep) const {
     UveTagData tinfo(UveTagData::SET);
     agent_uve_->BuildTagNamesFromList(list, &tinfo);
-    ep->set_application(tinfo.application);
-    ep->set_tier(tinfo.tier);
-    ep->set_site(tinfo.site);
-    ep->set_deployment(tinfo.deployment);
+    if (!tinfo.application.empty()) {
+        ep->set_application(tinfo.application);
+    }
+    if (!tinfo.tier.empty()) {
+        ep->set_tier(tinfo.tier);
+    }
+    if (!tinfo.site.empty()) {
+        ep->set_site(tinfo.site);
+    }
+    if (!tinfo.deployment.empty()) {
+        ep->set_deployment(tinfo.deployment);
+    }
     if (tinfo.label_set.size() != 0) {
         ep->set_labels(tinfo.label_set);
     }
@@ -1704,10 +1712,18 @@ void SessionStatsCollector::FillSessionRemoteTags(const TagList &list,
                                                   SessionEndpoint *ep) const {
     UveTagData tinfo(UveTagData::SET);
     agent_uve_->BuildTagIdsFromList(list, &tinfo);
-    ep->set_remote_application(tinfo.application);
-    ep->set_remote_tier(tinfo.tier);
-    ep->set_remote_site(tinfo.site);
-    ep->set_remote_deployment(tinfo.deployment);
+    if (!tinfo.application.empty()){
+        ep->set_remote_application(tinfo.application);
+    }
+    if (!tinfo.tier.empty()){
+        ep->set_remote_tier(tinfo.tier);
+    }
+    if (!tinfo.site.empty()){
+        ep->set_remote_site(tinfo.site);
+    }
+    if (!tinfo.deployment.empty()){
+        ep->set_remote_deployment(tinfo.deployment);
+    }
     if (tinfo.label_set.size() != 0) {
         ep->set_remote_labels(tinfo.label_set);
     }
