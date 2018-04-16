@@ -20,8 +20,7 @@
 
   roles:
    - fabric_namespace_read
-   - probe_device
-   - check_credentials
+   - discover_device_role
 
   post_tasks:
     - name: set output parameter
