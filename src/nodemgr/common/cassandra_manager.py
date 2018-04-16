@@ -11,7 +11,7 @@ from sandesh_common.vns.ttypes import Module
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
-    CassandraStatusUVE,CassandraStatusData,CassandraThreadPoolStats,\
+    CassandraStatusUVE, CassandraStatusData, CassandraThreadPoolStats,\
     CassandraCompactionTask, DatabaseUsageStats, DatabaseUsageInfo,\
     DatabaseUsage
 
@@ -194,6 +194,8 @@ class CassandraManager(object):
             self.exec_cmd(cqlsh_cmd)
             event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_SERVER_PORT
         except:
+            msg = "Failed to connect to database by CQL: " + str(e)
+            event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
             event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_SERVER_PORT
         event_mgr.send_nodemgr_process_status()
         # Send cassandra nodetool information
@@ -237,3 +239,13 @@ class CassandraManager(object):
             event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
             status_uve.send()
     # end send_database_status
+
+    def get_failbits_nodespecific_desc(self, fail_status_bits):
+        description = []
+        if fail_status_bits & self.FAIL_STATUS_DISK_SPACE:
+            description.append("Disk for DB is too low.")
+        if fail_status_bits & self.FAIL_STATUS_SERVER_PORT:
+            description.append("Cassandra state detected DOWN.")
+        if fail_status_bits & self.FAIL_STATUS_DISK_SPACE_NA:
+            description.append("Disk space for DB not retrievable.")
+        return description
