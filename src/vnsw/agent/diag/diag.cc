@@ -18,6 +18,7 @@
 
 
 const std::string KDiagName("DiagTimeoutHandler");
+const std::string DiagTable::kDiagData = "diagshc";
 using namespace boost::posix_time; 
 ////////////////////////////////////////////////////////////////////////////////
 
