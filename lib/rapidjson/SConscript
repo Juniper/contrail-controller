@@ -40,11 +40,9 @@ rapidjson_headers = [
 
 ]
 
-rapidjson_headers = map(
-    lambda hdr: Command('#build/include/' + hdr, [], \
-                        Copy("$TARGET", \
-                             File('#third_party/rapidjson/include/' + hdr))),
-    rapidjson_headers)
+for hdr in rapidjson_headers:
+    Command('#build/include/' + hdr, [], \
+            Copy("$TARGET", File('#third_party/rapidjson/include/' + hdr)))
 
 # Local Variables:
 # mode: python
