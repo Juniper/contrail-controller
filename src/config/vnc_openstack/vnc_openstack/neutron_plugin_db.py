@@ -328,7 +328,12 @@ class DBInterface(object):
             # create object
             self._vnc_lib.virtual_machine_create(instance_obj)
         except RefsExistError as e:
-            db_instance_obj = self._vnc_lib.virtual_machine_read(id=instance_obj.uuid)
+            if instance_obj.uuid:
+                db_instance_obj = self._vnc_lib.virtual_machine_read(
+                    id=instance_obj.uuid)
+            else:
+                db_instance_obj = self._vnc_lib.virtual_machine_read(
+                    fq_name=instance_obj.fq_name)
             # In case of baremetal, multiple ports will exist on BMS.
             # so, the object may already exisit. In this case just update it
             if baremetal and db_instance_obj.get_server_type() != "baremetal-server":
