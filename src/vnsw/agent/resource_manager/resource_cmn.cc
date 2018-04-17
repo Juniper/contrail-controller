@@ -21,7 +21,6 @@ ResourceTable *Resource::Create(Type type, ResourceManager *rm) {
     case QOS_INDEX:
     case BGP_AS_SERVICE_INDEX:
     case MIRROR_INDEX:
-    case NEXTHOP_INDEX:
         return new IndexResourceTable(rm);
     default: {
         assert(0);

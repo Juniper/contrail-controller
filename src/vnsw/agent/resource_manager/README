@@ -91,12 +91,3 @@ fallback time period.
 
 Hash value will be calculated for the file content. and appended to file name.
 This Value will be used to validate while reading the file.
-
-Restoring the Nexthop indexs
----------------------------
-Maintained flat Sandesh structure to store all the nexthops
-in to file based on the type of the Key nexthop key will be retrived.
-
-Composite Nexthop Sandesh structure maintained separate
-as the nexthop resource key is represented diffrent args. Composite next hop is 
-retrieved based on the Nhid to label maps parased form CompositeNextHopKey.
