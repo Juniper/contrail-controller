@@ -292,18 +292,23 @@ class DBInterface(object):
             # create object
             self._vnc_lib.virtual_machine_create(instance_obj)
         except RefsExistError as e:
-            instance_obj = self._vnc_lib.virtual_machine_read(id=instance_obj.uuid)
+            if instance_obj.uuid:
+                instance_obj = self._vnc_lib.virtual_machine_read(
+                    id=instance_obj.uuid)
+            else:
+                instance_obj = self._vnc_lib.virtual_machine_read(
+                    fq_name=instance_obj.fq_name)
         except AuthFailed as e:
             self._raise_contrail_exception('NotAuthorized', msg=str(e))
 
         return instance_obj
-    #end _ensure_instance_exists
+    # end _ensure_instance_exists
 
     def _ensure_default_security_group_exists(self, proj_id):
         proj_id = str(uuid.UUID(proj_id))
         proj_obj = self._vnc_lib.project_read(id=proj_id, fields=['security_groups'])
         vnc_openstack.ensure_default_security_group(self._vnc_lib, proj_obj)
-    #end _ensure_default_security_group_exists
+    # end _ensure_default_security_group_exists
 
     def _get_obj_tenant_id(self, q_type, obj_uuid):
         # Seed the cache and return
