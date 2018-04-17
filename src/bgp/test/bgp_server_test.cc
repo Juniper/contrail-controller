@@ -80,6 +80,7 @@ protected:
     static void ValidateClearBgpNeighborResponse(Sandesh *sandesh,
                                                  bool success);
     static void ValidateShowBgpServerResponse(Sandesh *sandesh);
+    static void ValidateShowRibOutStatisticsResponse(Sandesh *sandesh);
 
     BgpServerUnitTest() : a_session_manager_(NULL), b_session_manager_(NULL) {
         a_asn_update_notification_cnt_ = 0;
@@ -302,6 +303,35 @@ void BgpServerUnitTest::ValidateShowBgpServerResponse(Sandesh *sandesh) {
     EXPECT_NE(0, tx_stats.calls);
     EXPECT_NE(0, tx_stats.bytes);
     EXPECT_NE(0, tx_stats.average_bytes);
+    validate_done_ = true;
+}
+
+void BgpServerUnitTest::ValidateShowRibOutStatisticsResponse(Sandesh *sandesh) {
+    ShowRibOutStatisticsResp *resp =
+        dynamic_cast<ShowRibOutStatisticsResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(2, resp->get_ribouts().size());
+
+    EXPECT_EQ("inet.0", resp->get_ribouts()[0].table);
+    EXPECT_EQ("BGP", resp->get_ribouts()[0].encoding);
+    EXPECT_EQ(64512, resp->get_ribouts()[0].peer_as);
+    EXPECT_EQ("BULK", resp->get_ribouts()[0].queue);
+    EXPECT_EQ(1, resp->get_ribouts()[0].peers);
+
+    EXPECT_EQ("inet.0", resp->get_ribouts()[1].table);
+    EXPECT_EQ("BGP", resp->get_ribouts()[1].encoding);
+    EXPECT_EQ(64512, resp->get_ribouts()[1].peer_as);
+    EXPECT_EQ("UPDATE", resp->get_ribouts()[1].queue);
+    EXPECT_EQ(1, resp->get_ribouts()[1].peers);
+
+    // Updates are sent out either as bulk as as individual updates.
+    EXPECT_TRUE(resp->get_ribouts()[0].reach || resp->get_ribouts()[1].reach);
+    EXPECT_TRUE(resp->get_ribouts()[0].unreach ||
+                resp->get_ribouts()[1].unreach);
+    EXPECT_TRUE(resp->get_ribouts()[0].messages_built ||
+                resp->get_ribouts()[1].messages_built);
+    EXPECT_TRUE(resp->get_ribouts()[0].messages_sent ||
+                resp->get_ribouts()[1].messages_sent);
     validate_done_ = true;
 }
 
@@ -3587,6 +3617,18 @@ TEST_P(BgpServerUnitTest, BasicAdvertiseWithdraw) {
     BGP_VERIFY_ROUTE_PRESENCE(table_b, &key1);
     BGP_VERIFY_ROUTE_PRESENCE(table_b, &key2);
     BGP_VERIFY_ROUTE_PRESENCE(table_b, &key3);
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRibOutStatisticsResponse, _1));
+    ShowRibOutStatisticsReq *show_req = new ShowRibOutStatisticsReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
 
     // Delete all the prefixes from A and make sure they are gone from B.
     req.oper = DBRequest::DB_ENTRY_DELETE;
