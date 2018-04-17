@@ -31,7 +31,7 @@ env.Prepend(CPPPATH = env['TOP'] + '/tools/sandesh/library/common')
 
 # Function to append TOP level directory
 def AddTopDir(list):
-    return map(lambda x: Dir(env['TOP'] + '/' + x).abspath, list)
+    return [Dir(env['TOP'] + '/' + x).abspath for x in list]
 
 cpppath = [
     '',
@@ -63,7 +63,7 @@ env.Prepend(CPPPATH = AddTopDir(cpppath))
 # Build LIBPATH
 ##########################################################################
 def MapBuildDir(list):
-    return map(lambda x: Dir('../../' + x).abspath, list)
+    return [Dir('../../' + x).abspath for x in list]
 
 env.Append(LIBPATH = MapBuildDir([
     'base',

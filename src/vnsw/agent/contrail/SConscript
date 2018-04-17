@@ -29,7 +29,7 @@ buildinfo_dep_libs = [
 ]
 
 def MapBuildCmnLib(list):
-    return map(lambda x: File('../../../' + x).abspath, list)
+    return [File('../../../' + x).abspath for x in list]
 
 # Common contrail libraries
 buildinfo_dep_libs += MapBuildCmnLib([
@@ -55,7 +55,7 @@ buildinfo_dep_libs += MapBuildCmnLib([
 ])
 
 def MapBuildAgentLib(list):
-    return map(lambda x: File('../' + x).abspath, list)
+    return [File('../' + x).abspath for x in list]
 
 # agent libraries
 buildinfo_dep_libs += MapBuildAgentLib([
@@ -84,7 +84,7 @@ env.GenerateBuildInfoCode(
     target = ['buildinfo.h', 'buildinfo.cc'],
     source = [],
     path=str(Dir('.').abspath))
-build_obj = map(lambda x : env.Object(x), ['buildinfo.cc'])
+build_obj = [env.Object('buildinfo.cc')]
 
 # Add contrail-vrouter-agent specific libraries
 env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])

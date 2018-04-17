@@ -16,7 +16,7 @@ env = AgentEnv.Clone()
 AgentEnv.MakeTestEnv(env)
 
 targets = env.IFMapAutogen('test_cfg.xsd')
-lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib_srcs = [x for x in targets if re.match(r'(.*)\.cc$', x.abspath)]
 env.Library('ifmap_test', lib_srcs)
 env.Library('control_node_mock', 'control_node_mock.cc');
 env.Library('agent_test_buildinfo', 'test_buildinfo.cc')
