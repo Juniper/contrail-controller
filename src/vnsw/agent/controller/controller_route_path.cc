@@ -196,6 +196,9 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
         } else {
             encap = agent_->controller()->GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
+            if (vrf_name == agent_->fabric_vrf_name()) {
+                encap = TunnelType::NativeType();
+            }
             MacAddress mac = agent_->controller()->GetTunnelMac
                 (item->entry.next_hops.next_hop[i]);
             TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
@@ -214,6 +217,9 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
     if (item->entry.next_hops.next_hop.size()) {
         tunnel_bmap_ = agent_->controller()->GetTypeBitmap
             (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
+         if (vrf_name == agent_->fabric_vrf_name()) {
+             tunnel_bmap_ = TunnelType::NativeType();
+         }
     }
 
     // Build the NH request and then create route data to be passed

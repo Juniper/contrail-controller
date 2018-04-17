@@ -45,6 +45,8 @@ TunnelType::Type TunnelType::ComputeType(TunnelType::TypeBmap bmap) {
         return MPLS_UDP;
     else if (bmap & (1 << VXLAN))
         return VXLAN;
+    else if (bmap & (1 << NATIVE))
+        return NATIVE;
 
     return DefaultType();
 }
