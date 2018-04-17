@@ -66,6 +66,7 @@ void SegmentHealthCheckPkt::FillDiagHeader(AgentDiagPktData *data) const {
     data->op_ = htonl(AgentDiagPktData::DIAG_REQUEST);
     data->key_ = htons(key_);
     data->seq_no_ = htonl(seq_no_);
+    strcpy(data->data_, DiagTable::kDiagData.c_str());
 }
 
 void SegmentHealthCheckPkt::SendRequest() {
@@ -112,7 +113,8 @@ void SegmentHealthCheckPkt::SendRequest() {
             return;
         }
 
-        if (service_mode == VmInterface::ROUTED_MODE) {
+        if ((service_mode == VmInterface::ROUTED_MODE) ||
+            (service_mode == VmInterface::ROUTED_NAT_MODE)) {
             l3_mode = true;
             dest_mac = (static_cast<VmInterface *>(interface.get()))->vm_mac();
         }

@@ -384,6 +384,7 @@ struct PktInfo {
     TunnelInfo          tunnel;
     bool                l3_label;
     bool                multicast_label;
+    bool                is_segment_hc_pkt;
     VmInterface::FatFlowIgnoreAddressType ignore_address; //fat-flow config
     bool                same_port_number;
 

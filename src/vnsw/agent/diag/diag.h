@@ -76,9 +76,13 @@ struct AgentDiagPktData {
         DIAG_REPLY
     };
 
+    AgentDiagPktData() {
+        memset(data_, 0, sizeof(data_));
+    }
     uint32_t op_;
     DiagEntry::DiagKey key_;
     uint32_t seq_no_;
+    char data_[8];
     boost::posix_time::ptime rtt_;
 };
 
@@ -100,6 +104,7 @@ struct DiagEntryOp {
 class DiagTable {
 public:
     typedef std::map<DiagEntry::DiagKey, DiagEntry *> DiagEntryTree;
+    static const std::string kDiagData;
     DiagTable(Agent *agent);
     ~DiagTable();
     void Add(DiagEntry *);
