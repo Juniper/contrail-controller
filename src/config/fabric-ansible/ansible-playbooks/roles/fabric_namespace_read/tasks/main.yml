@@ -30,7 +30,7 @@
     - set_fact:
          credentials: "{{ device_credentials.obj.fabric_credentials.device_credential }}"
 
-    - debug: var=credentials
+    - debug: var=credentials verbosity=1
 
     - name: get tag uuid
       vnc_db_mod:
@@ -46,7 +46,7 @@
     - set_fact:
          tag_uuid: "{{ tag_uuid.uuid }}"
 
-    - debug: var=tag_uuid
+    - debug: var=tag_uuid verbosity=1
 
     - name: get fabric namespaces for a tag
       vnc_db_mod:
@@ -80,7 +80,7 @@
       with_items: "{{ host_subnets }}"
       when: host_subnets is defined
 
-    - debug: var=host_prefix
+    - debug: var=host_prefix verbosity=1
       when: host_subnets is defined
 
     - name: get as numbers from namespaces that match the fabric fq_name

@@ -24,3 +24,4 @@
 - name: Print the complete response.
   debug:
     var: junos_response
+    verbosity: 1

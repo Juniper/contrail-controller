@@ -5,7 +5,7 @@
         subnets: "{{ host_prefix }}"
       register: hosts
 
-    - debug: var=hosts
+    - debug: var=hosts verbosity=1
 
     - name: get snmp info
       snmp_facts:
@@ -35,7 +35,7 @@
       when: item.oid_mapping is defined
       with_items: "{{ vendor_family.results }}"
 
-    - debug: var=host_vendor_mapping
+    - debug: var=host_vendor_mapping verbosity=1
 
     - name: call vnc to create physical-router
       vars:
@@ -59,7 +59,7 @@
         - "physical_router_uuids.failed == false"
       with_items: "{{ host_vendor_mapping }}"
 
-    - debug: var=physical_router_uuids
+    - debug: var=physical_router_uuids verbosity=1
 
     - name: if vnc failed end play
       include_tasks: error_handler.yml
