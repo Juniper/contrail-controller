@@ -1731,7 +1731,7 @@ class VncApiServer(object):
             LinkObject('action', self._base_url,  '/set-tag', 'set-tag',
                        'POST'))
 
-         # Commit or revert prending security policy
+         # Commit or discard draft security policy
         self.route('/security-policy-draft', 'POST',
                    self.security_policy_draft)
         self._homepage_links.append(
@@ -4505,10 +4505,10 @@ class VncApiServer(object):
                 if action == 'commit':
                     self._security_commit_resources(
                         parent_type, parent_fq_name, parent_uuid, pm)
-                elif action == 'revert':
-                    self._security_revert_resources(pm)
+                elif action == 'discard':
+                    self._security_discard_resources(pm)
                 else:
-                    msg = "Only 'commit' or 'revert' actions are supported"
+                    msg = "Only 'commit' or 'discard' actions are supported"
                     raise cfgm_common.exceptions.HttpError(400, msg)
             finally:
                 scope_lock.release()
@@ -4524,7 +4524,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(400, msg)
 
         # TODO(ethuleau): we could return some stats or type/uuid resources
-        # actions which were done during commit or revert?
+        # actions which were done during commit or discard?
         return {}
 
     def _security_commit_resources(self, parent_type, parent_fq_name,
@@ -4622,7 +4622,7 @@ class VncApiServer(object):
                     ep['address_group'] = ':'.join(parent_fq_name + [
                         ag_fq_name.split(':')[-1]])
 
-    def _security_revert_resources(self, pm):
+    def _security_discard_resources(self, pm):
         for type_name in SECURITY_OBJECT_TYPES:
             r_class = self.get_resource_class(type_name)
             for child in pm.get('%ss' % r_class.object_type, []):
