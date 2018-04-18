@@ -16,6 +16,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
 #include "net/community_type.h"
+#include "bgp/l3vpn/inetvpn_route.h"
 
 
 using std::string;
@@ -1424,6 +1425,43 @@ TEST_F(BgpRouteTest, PathSameNeighborAs) {
 
     EXPECT_FALSE(path5.PathSameNeighborAs(path6));
     EXPECT_TRUE(path5.PathSameNeighborAs(path7));
+}
+
+TEST_F(BgpRouteTest, GetSourceRouteDistinguisher) {
+    BgpAttrDB *db = server_.attr_db();
+    BgpAttrSpec attr_spec1;
+    RouteDistinguisher rd1 = RouteDistinguisher::FromString("10.1.1.1:1");
+    BgpAttrSourceRd rd_spec(rd1);
+    attr_spec1.push_back(&rd_spec);
+    BgpAttrPtr attr1 = db->Locate(attr_spec1);
+    BgpPath path1(BgpPath::None, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    EXPECT_EQ(rd1, path1.GetSourceRouteDistinguisher());
+
+    BgpAttrSpec attr_spec2;
+    string source_rd_str = "";
+    BgpAttrSourceRd source_rd = BgpAttrSourceRd(
+                   RouteDistinguisher::FromString(source_rd_str));
+    attr_spec2.push_back(&source_rd);
+    BgpAttrPtr attr2 = db->Locate(attr_spec2);
+    BgpPath path2(BgpPath::None, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(RouteDistinguisher::kZeroRd,
+                   path2.GetSourceRouteDistinguisher());
+
+    BgpSecondaryPath path(NULL, 1, BgpPath::BGP_XMPP, attr2, 0, 0);
+    InetRoute route1(Ip4Prefix::FromString("10.1.1.2/32"));
+    path.SetReplicateInfo(&table_, &route1);
+
+    EXPECT_EQ(RouteDistinguisher::kZeroRd,
+                   path.GetSourceRouteDistinguisher());
+
+    string prefix_str("10.1.1.1:2:192.168.1.1/32");
+    RouteDistinguisher rd2 = RouteDistinguisher::FromString("10.1.1.1:2");
+    InetVpnRoute route2(InetVpnPrefix::FromString(prefix_str));
+    path.SetReplicateInfo(&table_, &route2);
+
+    EXPECT_EQ(rd2, path.GetSourceRouteDistinguisher());
 }
 
 TEST_F(BgpRouteTest, PathFlagsStringListNone) {
