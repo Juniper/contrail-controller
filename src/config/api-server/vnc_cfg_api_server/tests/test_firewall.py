@@ -884,7 +884,7 @@ class FirewallDraftModeBase(object):
         ServiceGroup,
         AddressGroup,
     ]
-    ACTIONS = set(['commit', 'revert'])
+    ACTIONS = set(['commit', 'discard'])
 
     @abc.abstractmethod
     def set_scope_instance(self, draft_enable=True):
@@ -1340,7 +1340,7 @@ class FirewallDraftModeBase(object):
         with ExpectedException(NoIdError):
             self.api.firewall_policy_read(self._draft_pm_fq_name + [fp.name])
 
-    def test_revert_pending_create_resource(self):
+    def test_discard_pending_create_resource(self):
         self.set_scope_instance()
         fp_name = 'fp-%s' % self.id()
         fp = FirewallPolicy(fp_name, parent_obj=self._owner)
@@ -1348,13 +1348,13 @@ class FirewallDraftModeBase(object):
 
         self.assertEqual(fp.fq_name[-2],
                          constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT)
-        self.api.revert_security(self._scope)
+        self.api.discard_security(self._scope)
         with ExpectedException(NoIdError):
             fp = self.api.firewall_policy_read(fp.fq_name)
         with ExpectedException(NoIdError):
             fp = self.api.firewall_policy_read(self._scope.fq_name + [fp_name])
 
-    def test_revert_pending_update_resource(self):
+    def test_discard_pending_update_resource(self):
         self.set_scope_instance(draft_enable=False)
         fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
         self.api.firewall_policy_create(fp)
@@ -1367,36 +1367,36 @@ class FirewallDraftModeBase(object):
 
         fp = self.api.firewall_policy_read(id=fp.uuid)
         self.assertEqual(fp.display_name, old_fp_name)
-        self.api.revert_security(self._scope)
+        self.api.discard_security(self._scope)
         fp = self.api.firewall_policy_read(id=fp.uuid)
         self.assertEqual(fp.display_name, old_fp_name)
         with ExpectedException(NoIdError):
             self.api.firewall_policy_read(self._draft_pm_fq_name + [fp.name])
 
-    def test_revert_pending_delete_resource(self):
+    def test_discard_pending_delete_resource(self):
         self.set_scope_instance(draft_enable=False)
         fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
         self.api.firewall_policy_create(fp)
         self.draft_mode = True
 
         self.api.firewall_policy_delete(id=fp.uuid)
-        self.api.revert_security(self._scope)
+        self.api.discard_security(self._scope)
         try:
             self.api.firewall_policy_read(id=fp.uuid)
         except NoIdError:
             self.fail("Firewall Policy removed while pending delete was "
-                      "reverted")
+                      "discarded")
         with ExpectedException(NoIdError):
             self.api.firewall_policy_read(self._draft_pm_fq_name + [fp.name])
 
-    def test_cannot_revert_or_commit_if_draft_mode_not_enabled(self):
+    def test_cannot_discard_or_commit_if_draft_mode_not_enabled(self):
         self.set_scope_instance(draft_enable=False)
 
         for action in self.ACTIONS:
             with ExpectedException(BadRequest):
                 getattr(self.api, '%s_security' % action)(self._scope)
 
-    def test_lock_during_commit_or_revert_action_is_in_progress(self):
+    def test_lock_during_commit_or_discard_action_is_in_progress(self):
         self.set_scope_instance()
 
         for action in self.ACTIONS:
@@ -1423,7 +1423,7 @@ class FirewallDraftModeBase(object):
             self.assertTrue(scope_lock.acquire(blocking=False))
             scope_lock.release()
 
-    def test_draft_mode_still_enabled_after_commit_or_revert_done(self):
+    def test_draft_mode_still_enabled_after_commit_or_discard_done(self):
         self.set_scope_instance()
         scope = self._scope
         scope_read = getattr(self.api, '%s_read' % scope.object_type)
@@ -1743,11 +1743,11 @@ class FirewallDraftModeBase(object):
             r = getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
             self.assertEqual(r.parent_uuid, self._owner.uuid)
 
-    def test_revert_complex_scenario(self):
+    def test_discard_complex_scenario(self):
         self.set_scope_instance()
         self._setup_complex_security_environment()
 
-        self.api.revert_security(self._scope)
+        self.api.discard_security(self._scope)
         for r in self.security_resources.values():
             with ExpectedException(NoIdError):
                 getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
@@ -1763,13 +1763,13 @@ class FirewallDraftModeBase(object):
             r = getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
             self.assertEqual(r.parent_uuid, self._owner.uuid)
 
-    def test_revert_updated_complex_scenario(self):
+    def test_discard_updated_complex_scenario(self):
         self.set_scope_instance(draft_enable=False)
         self._setup_complex_security_environment()
         self.draft_mode = True
 
         self._update_complex_security_environment()
-        self.api.revert_security(self._scope)
+        self.api.discard_security(self._scope)
 
         for r in self.security_resources.values():
             r = getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
@@ -1817,7 +1817,7 @@ class TestFirewallDraftModeGlobalScope(TestFirewallBase,
             self.lock_path)
         scope_lock.destroy()
         try:
-            self.api.revert_security(self._scope)
+            self.api.discard_security(self._scope)
         except BadRequest:
             # Draft mode not enabled
             pass
