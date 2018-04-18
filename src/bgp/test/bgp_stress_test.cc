@@ -3382,6 +3382,8 @@ static void SetUp() {
         boost::factory<IFMapXmppChannelTest *>());
     ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
+    ConfigFactory::Register<ConfigCassandraPartition>(
+        boost::factory<ConfigCassandraPartitionTest *>());
     ConfigFactory::Register<ConfigJsonParserBase>(
         boost::factory<ConfigJsonParser *>());
 }

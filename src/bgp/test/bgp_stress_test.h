@@ -49,15 +49,20 @@ public:
     virtual int HashUUID(const string &uuid_str) const {
         return ConfigCassandraClient::HashUUID(uuid_str);
     }
+};
 
-    virtual void HandleObjectDelete(const std::string &uuid) {
-        ConfigCassandraClient::HandleObjectDelete(uuid, false);
+class ConfigCassandraPartitionTest : public ConfigCassandraPartition {
+public:
+    ConfigCassandraPartitionTest(ConfigCassandraClient *client, size_t idx) :
+        ConfigCassandraPartition(client, idx) {
     }
-
-    virtual bool ProcessObjUUIDTableEntry(const string &uuid_key,
+    virtual void HandleObjectDelete(const string &uuid, bool add_change) {
+        ConfigCassandraPartition::HandleObjectDelete(uuid, add_change);
+    }
+    virtual bool ProcessObjUUIDTableEntry(const std::string &uuid_key,
                                           const GenDb::ColList &col_list) {
-        return ConfigCassandraClient::ProcessObjUUIDTableEntry(uuid_key,
-                                                               col_list);
+        return ConfigCassandraPartition::ProcessObjUUIDTableEntry(uuid_key,
+                                                                  col_list);
     }
 };
 
@@ -176,7 +181,9 @@ public:
         ConfigCassandraClientTest *cassandra_client =
             dynamic_cast<IFMapServerTest *>(ifmap_server_)->cassandra_client();
         if (!action.compare("unsubscribe")) {
-            cassandra_client->HandleObjectDelete(uuid_key);
+            dynamic_cast<ConfigCassandraPartitionTest*>
+                (cassandra_client->GetPartition(uuid_key))->HandleObjectDelete(
+                    uuid_key, false);
             return;
         }
 
@@ -219,7 +226,9 @@ public:
         col_list.columns_.push_back(
             new GenDb::NewCol(names3, values3, 100, timestamps3));
 
-        cassandra_client->ProcessObjUUIDTableEntry(uuid_key, col_list);
+        dynamic_cast<ConfigCassandraPartitionTest*>
+            (cassandra_client->GetPartition(
+                uuid_key))->ProcessObjUUIDTableEntry(uuid_key, col_list);
     }
 
 private:

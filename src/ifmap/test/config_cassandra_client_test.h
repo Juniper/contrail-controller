@@ -6,7 +6,11 @@
 
 #include <boost/foreach.hpp>
 #include <fstream>
+#include <map>
+#include <set>
 #include <sstream>
+#include <string>
+#include <vector>
 #include "config-client-mgr/config_amqp_client.h"
 #include "config-client-mgr/config_cass2json_adapter.h"
 #include "config-client-mgr/config_cassandra_client.h"
@@ -28,17 +32,6 @@ public:
         return (ss.str());
     }
 
-    virtual void HandleObjectDelete(const std::string &uuid, bool add_change) {
-        std::vector<std::string> tokens;
-        boost::split(tokens, uuid, boost::is_any_of(":"));
-        std::string u;
-        if (tokens.size() == 2) {
-            u = tokens[1];
-        } else {
-            u = uuid;
-        }
-        ConfigCassandraClient::HandleObjectDelete(u, add_change);
-    }
 
     virtual void AddFQNameCache(const std::string &uuid,
                                 const std::string &obj_type,
@@ -61,57 +54,6 @@ public:
             u = uuid.substr(from_front_pos+1);
         }
         return ConfigCassandraClient::HashUUID(u);
-    }
-
-    virtual bool ReadObjUUIDTable(std::set<std::string> *uuid_list) {
-        BOOST_FOREACH(std::string uuid_key, *uuid_list) {
-            vector<string> tokens;
-            boost::split(tokens, uuid_key, boost::is_any_of(":"));
-            int index = atoi(tokens[0].c_str());
-            std::string u = tokens[1];
-            assert((*events())[index].IsObject());
-            int idx = HashUUID(u);
-            curr_db_idx_ = index;
-            db_index_[idx].insert(make_pair(u, index));
-            ProcessObjUUIDTableEntry(u, GenDb::ColList());
-        }
-        return true;
-    }
-
-    void ParseObjUUIDTableEntry(const std::string &uuid,
-            const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
-            ConfigCassandraParseContext &context) {
-        // Retrieve event index prepended to uuid, to get to the correct db.
-        int idx = HashUUID(uuid);
-        UUIDIndexMap::iterator it = db_index_[idx].find(uuid);
-        int index = it->second;
-
-        if (!(*events())[contrail_rapidjson::SizeType(index)]["db"].HasMember(
-                    uuid.c_str()))
-            return;
-        for (contrail_rapidjson::Value::ConstMemberIterator k =
-             (*events())[contrail_rapidjson::SizeType(index)]["db"]
-                [uuid.c_str()].MemberBegin();
-             k != (*events())[contrail_rapidjson::SizeType(index)]["db"]
-                [uuid.c_str()].MemberEnd();
-             ++k) {
-            const char *k1 = k->name.GetString();
-            const char *v1;
-            uint64_t  ts=0;
-            if (k->value.IsArray()) {
-                v1 = k->value[contrail_rapidjson::SizeType(0)].GetString();
-                if(k->value.Size() > 1) {
-                    ts = k->value[contrail_rapidjson::SizeType(1)].GetUint64();
-                }
-            }
-            else {
-                v1 = k->value.GetString();
-            }
-
-            ParseObjUUIDTableEachColumnBuildContext(uuid, k1, v1, ts,
-                                                    cass_data_vec, context);
-        }
-        db_index_[idx].erase(it);
     }
 
     std::string GetUUID(const std::string &key) const {
@@ -238,6 +180,8 @@ public:
     }
 
 private:
+    friend class ConfigCassandraPartitionTest;
+    friend class ConfigCassandraPartitionTest2;
     typedef std::map<std::string, int> UUIDIndexMap;
     std::vector<UUIDIndexMap> db_index_;
     int curr_db_idx_;
@@ -246,4 +190,79 @@ private:
     size_t cevent_;
 };
 
-#endif // ctrlplane_config_cassandra_client_test_h
+class ConfigCassandraPartitionTest : public ConfigCassandraPartition {
+public:
+    ConfigCassandraPartitionTest(ConfigCassandraClient *client, size_t idx)
+        : ConfigCassandraPartition(client, idx) {
+    }
+
+    virtual void HandleObjectDelete(const std::string &uuid, bool add_change) {
+        std::vector<std::string> tokens;
+        boost::split(tokens, uuid, boost::is_any_of(":"));
+        std::string u;
+        if (tokens.size() == 2) {
+            u = tokens[1];
+        } else {
+            u = uuid;
+        }
+        ConfigCassandraPartition::HandleObjectDelete(u, add_change);
+    }
+
+    virtual bool ReadObjUUIDTable(const std::set<std::string> &uuid_list) {
+        ConfigCassandraClientTest *test_client =
+            dynamic_cast<ConfigCassandraClientTest *>(client());
+        BOOST_FOREACH(std::string uuid_key, uuid_list) {
+            vector<string> tokens;
+            boost::split(tokens, uuid_key, boost::is_any_of(":"));
+            int index = atoi(tokens[0].c_str());
+            std::string u = tokens[1];
+            assert((*test_client->events())[index].IsObject());
+            int idx = test_client->HashUUID(u);
+            test_client->curr_db_idx_ = index;
+            test_client->db_index_[idx].insert(make_pair(u, index));
+            ProcessObjUUIDTableEntry(u, GenDb::ColList());
+        }
+        return true;
+    }
+
+    virtual void ParseObjUUIDTableEntry(const std::string &uuid,
+                                const GenDb::ColList &col_list,
+                                CassColumnKVVec *cass_data_vec,
+                                ConfigCassandraParseContext &context) {
+        // Retrieve event index prepended to uuid, to get to the correct db.
+        ConfigCassandraClientTest *test_client =
+            dynamic_cast<ConfigCassandraClientTest *>(client());
+        int idx = test_client->HashUUID(uuid);
+        ConfigCassandraClientTest::UUIDIndexMap::iterator it =
+        test_client->db_index_[idx].find(uuid);
+        int index = it->second;
+
+        contrail_rapidjson::Document *events = test_client->events();
+        if (!(*events)[contrail_rapidjson::SizeType(index)]["db"].HasMember(
+            uuid.c_str()))
+            return;
+        for (contrail_rapidjson::Value::ConstMemberIterator k =
+             (*events)[contrail_rapidjson::SizeType(index)]["db"][
+             uuid.c_str()].MemberBegin();
+             k != (*events)[contrail_rapidjson::SizeType(index)]["db"][
+              uuid.c_str()].MemberEnd();
+             ++k) {
+            const char *k1 = k->name.GetString();
+            const char *v1;
+            uint64_t  ts = 0;
+            if (k->value.IsArray()) {
+                v1 = k->value[contrail_rapidjson::SizeType(0)].GetString();
+                if (k->value.Size() > 1) {
+                    ts = k->value[contrail_rapidjson::SizeType(1)].GetUint64();
+                }
+            } else {
+                v1 = k->value.GetString();
+            }
+
+            ParseObjUUIDTableEachColumnBuildContext(uuid, k1, v1, ts,
+                                                    cass_data_vec, context);
+        }
+        test_client->db_index_[idx].erase(it);
+    }
+};
+#endif  // ctrlplane_config_cassandra_client_test_h
