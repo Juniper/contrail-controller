@@ -145,15 +145,38 @@ void GlobalVrouter::UpdatePortConfig(autogen::GlobalVrouterConfig *cfg) {
         }
     }
 
+    struct rlimit rl;
+    int result = getrlimit(RLIMIT_NOFILE, &rl);
+    int avail_count = 0;
+    if (result == 0) {
+        avail_count = rl.rlim_max - Agent::kMaxOtherOpenFds;
+        if (avail_count < 0) {
+            avail_count = 0;
+        }
+    }
+
+
     ProtocolPortSet::const_iterator old_list_it = protocol_port_set_.begin();
     for (; old_list_it != protocol_port_set_.end(); old_list_it++) {
         PortConfig pc;
         agent()->port_config_handler()(agent(), old_list_it->first, &pc);
     }
 
+    int total_port_count = 0;
     ProtocolPortSet::iterator pc_list_it = new_protocol_port_set.begin();
     for (; pc_list_it != new_protocol_port_set.end(); pc_list_it++) {
         pc_list_it->second.Trim();
+        total_port_count += pc_list_it->second.port_count;
+    }
+
+    float avail_percent = 1;
+    if (total_port_count > avail_count) {
+        avail_percent = (float)avail_count / (float)total_port_count;
+    }
+
+    pc_list_it = new_protocol_port_set.begin();
+    for (; pc_list_it != new_protocol_port_set.end(); pc_list_it++) {
+        pc_list_it->second.port_count *= avail_percent;
         agent()->port_config_handler()(agent(), pc_list_it->first,
                                        &(pc_list_it->second));
     }
