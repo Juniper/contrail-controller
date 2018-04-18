@@ -26,23 +26,25 @@ import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
 
+from cfgm_common.ifmap.client import client as ifmap_client
+from cfgm_common.ifmap.request import NewSessionRequest
+from cfgm_common.ifmap.response import newSessionResult
+from cfgm_common.imid import ifmap_read, parse_search_result
+
 try:
     from vnc_db import VncServerCassandraClient
 except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-from cfgm_common.ifmap.client import client as ifmap_client
-from cfgm_common.ifmap.request import NewSessionRequest
-from cfgm_common.ifmap.response import newSessionResult
-from cfgm_common.imid import ifmap_read, parse_search_result
-
-__version__ = "1.0"
+__version__ = "1.1"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.1:
+  - Fix RT duplicate detection from schema cassandra DB
 * 1.0:
   - add check to detect duplicate FQ name
   - add clean method to remove object not indexed in FQ name table if its
@@ -442,23 +444,23 @@ class DatabaseManager(object):
                              "schema transformer is not contained in the "
                              "system range", rtgt_id, fq_name_str)
             try:
+                rtgt_fq_name_str = 'target:%d:%d' % (
+                    self.get_autonomous_system(), rtgt_id)
                 rtgt_cols = fq_name_table.get(
                     'route_target',
-                    column_start='%s:' % fq_name_str,
-                    column_finish='%s;' % fq_name_str)
+                    column_start='%s:' % rtgt_fq_name_str,
+                    column_finish='%s;' % rtgt_fq_name_str)
                 rtgt_uuid = rtgt_cols.keys()[0].split(':')[-1]
             except pycassa.NotFoundException:
                 rtgt_uuid = 'UUID not found'
+            rtgt_id = rtgt_id - RT_ID_MIN_ALLOC
             if rtgt_id in first_found_rt:
                 cassandra_schema_duplicate_rtgts.setdefault(
-                    rtgt_id - RT_ID_MIN_ALLOC,
-                    [first_found_rt[rtgt_id]]).append(
+                    rtgt_id, [first_found_rt[rtgt_id]]).append(
                         (fq_name_str, rtgt_uuid))
             else:
-                cassandra_schema_all_rtgts[rtgt_id - RT_ID_MIN_ALLOC] =\
-                    fq_name_str
-                first_found_rt[rtgt_id - RT_ID_MIN_ALLOC] =\
-                    (fq_name_str, rtgt_uuid)
+                cassandra_schema_all_rtgts[rtgt_id] = fq_name_str
+                first_found_rt[rtgt_id] = (fq_name_str, rtgt_uuid)
 
         # read in route-targets from API server cassandra keyspace
         logger.debug("Reading route-target objects from cassandra API server "
