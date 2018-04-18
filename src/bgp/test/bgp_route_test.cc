@@ -1378,6 +1378,54 @@ TEST_F(BgpRouteTest, PathCompareAliased2) {
     EXPECT_EQ(0, path2.PathCompare(path1, true));
 }
 
+TEST_F(BgpRouteTest, PathSameNeighborAs) {
+    boost::system::error_code ec;
+
+    BgpPath path1(BgpPath::None, 0);
+    BgpPath path2(BgpPath::None, 0);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path3(&peer1, BgpPath:: BGP_XMPP, 0, 0, 0);
+    PeerMock peer2(BgpProto::EBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path4(&peer2, BgpPath:: BGP_XMPP, 0, 0, 0);
+
+    // Null peer and IBGP peer are ignored
+    EXPECT_FALSE(path1.PathSameNeighborAs(path2));
+    EXPECT_FALSE(path3.PathSameNeighborAs(path2));
+    EXPECT_FALSE(path4.PathSameNeighborAs(path2));
+    EXPECT_FALSE(path4.PathSameNeighborAs(path3));
+
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    AsPathSpec as_path1;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps1->path_segment.push_back(20);
+    as_path1.path_segments.push_back(ps1);
+    spec1.push_back(&as_path1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    BgpPath path5(&peer2, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    AsPathSpec as_path2;
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps2->path_segment.push_back(100);
+    ps2->path_segment.push_back(20);
+    as_path2.path_segments.push_back(ps2);
+    spec2.push_back(&as_path2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    BgpPath path6(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    BgpAttrSpec spec3;
+    spec3.push_back(&as_path1);
+    BgpAttrPtr attr3 = db->Locate(spec3);
+    BgpPath path7(&peer2, BgpPath::BGP_XMPP, attr3, 0, 0);
+
+    EXPECT_FALSE(path5.PathSameNeighborAs(path6));
+    EXPECT_TRUE(path5.PathSameNeighborAs(path7));
+}
+
 TEST_F(BgpRouteTest, PathFlagsStringListNone) {
     vector<string> expected = boost::assign::list_of("None");
     EXPECT_EQ(expected, BgpPath(BgpPath::None, 0).GetFlagsStringList());
