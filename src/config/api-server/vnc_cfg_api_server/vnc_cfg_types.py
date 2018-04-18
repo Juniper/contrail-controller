@@ -307,6 +307,7 @@ class SecurityResourceBase(Resource):
             parent_uuid = obj_dict['uuid']
             draft_pm_fq_name = obj_dict['fq_name'] + [draft_pm_name]
 
+        # Disabling draft mode
         if not draft_mode_set and draft_mode_enabled:
             try:
                 draft_pm_uuid = cls.db_conn.fq_name_to_uuid(
@@ -319,8 +320,44 @@ class SecurityResourceBase(Resource):
                 cls.server.internal_request_delete(
                     PolicyManagementServer.resource_type, draft_pm_uuid)
             except cfgm_common.exceptions.HttpError as e:
-                if e.status_code != 404:
+                if e.status_code == 404:
+                    pass
+                elif e.status_code == 409:
+                    ok, result = PolicyManagementServer.locate(
+                        uuid=draft_pm_uuid, create_it=False)
+                    if not ok:
+                        return False, result
+                    draft_pm = result
+                    if scope == GlobalSystemConfigServer.resource_type:
+                        msg = ("Cannot disable security draft mode on global "
+                               "scope as some pending security resource(s) "
+                               "need to be reviewed:\n")
+                    else:
+                        msg = ("Cannot disable security draft mode on scope "
+                               "%s (%s) as some pending security resource(s) "
+                               "need to be reviewed:\n" % (
+                                    ':'.join(obj_dict['fq_name']),
+                                    parent_uuid))
+                    children_left = []
+                    for type in ['%ss' % type for type in
+                                       constants.SECURITY_OBJECT_TYPES]:
+                        children = ["%s (%s)" % (':'.join(c['to']), c['uuid'])
+                                    for c in draft_pm.get(type, [])]
+                        if children:
+                            children_left.append(
+                                "\t- %s: %s" % (
+                                    type.replace('_', ' ').title(),
+                                    ', '.join(children),
+                                ),
+                            )
+                    if children_left:
+                        msg += '\n'.join(children_left)
+                        return False, (409, msg)
+                    else:
+                        return False, (e.status_code, e.content)
+                else:
                     return False, (e.status_code, e.content)
+        # Enabling draft mode
         elif draft_mode_set and not draft_mode_enabled:
             attrs = {
                 'parent_type': parent_type,
