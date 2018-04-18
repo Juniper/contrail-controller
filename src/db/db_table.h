@@ -34,6 +34,7 @@ public:
 
 struct DBRequest {
     typedef enum {
+        DB_ENTRY_INVALID = 0,
         DB_ENTRY_ADD_CHANGE = 1,
         DB_ENTRY_DELETE = 2,
         DB_ENTRY_NOTIFY = 3,

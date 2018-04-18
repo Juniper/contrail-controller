@@ -655,7 +655,7 @@ void PeerCloseManager::UpdateRouteStats(Address::Family family,
 bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
                                               BgpRoute *rt, BgpPath *path) {
     CHECK_CONCURRENCY("db::DBTable");
-    DBRequest::DBOperation oper;
+    DBRequest::DBOperation oper = DBRequest::DB_ENTRY_INVALID;
     BgpAttrPtr attrs;
 
     BgpTable *table = static_cast<BgpTable *>(root->parent());
