@@ -351,16 +351,16 @@ class TestPolicy(STTestCase, VerifyPolicy):
 
         # Mock the VirtualNetworkST evaluate function and attach the policy to vn2
         # Test fails if vn1 evaluate funcation is hit.
-        def mock_vn_evaluate(self):
-            if vn1.get_fq_name_str() == self.name:
+        def mock_vn_evaluate(vn_obj):
+            if vn1.get_fq_name_str() == vn_obj.name:
                 self.assertTrue(False, 'Error: Should not have run evaluate of vn1')
-            orignal_vn_eval()
-        #end evaluate
+            orignal_vn_eval(vn_obj)
+        # end evaluate
         config_db.VirtualNetworkST.evaluate = mock_vn_evaluate
         vn2.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn2)
         # if we dont sleep now for some time than for the above code original vn evaluate gets
-        # picked up due to the next line 
+        # picked up due to the next line
         gevent.sleep(3)
         config_db.VirtualNetworkST.evaluate = orignal_vn_eval
 
@@ -404,11 +404,11 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # if we dont sleep now for some time than following mock function gets
         # picked for the above vn update
         vn1.vn_evaluate_hit = False
-        def mock_vn_evaluate(self):
-            if vn1.get_fq_name_str() == self.name:
+        def mock_vn_evaluate(vn_obj):
+            if vn1.get_fq_name_str() == vn_obj.name:
                 vn1.vn_evaluate_hit = True
-            orignal_vn_eval()
-        #end evaluate
+            orignal_vn_eval(vn_obj)
+        # end evaluate
         gevent.sleep(3)
         config_db.VirtualNetworkST.evaluate = mock_vn_evaluate
         vn2.set_network_policy(np, vnp)
