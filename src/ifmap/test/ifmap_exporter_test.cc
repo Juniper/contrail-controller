@@ -11,7 +11,6 @@
 #include "db/db_graph.h"
 #include "io/event_manager.h"
 #include "io/test/event_manager_test.h"
-#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"

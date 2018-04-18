@@ -16,7 +16,6 @@
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_client.h"
-#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_exporter.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"

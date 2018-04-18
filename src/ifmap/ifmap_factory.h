@@ -15,7 +15,6 @@ using cass::cql::CqlIf;
 
 class EventManager;
 class IFMapChannelManager;
-class IFMapConfigOptions;
 class IFMapServer;
 class IFMapXmppChannel;
 class XmppChannel;
