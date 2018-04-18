@@ -459,8 +459,9 @@ class OpencontrailLoadbalancerDriver(
         lb = LoadbalancerSM.get(lb_id)
         if not lb:
             return
-        self.update_vmi_fat_flows(lb.virtual_machine_interface,
-            self.get_port_list_v2(lb))
+        if not lb.device_owner or lb.device_owner != 'K8S:LOADBALANCER':
+            self.update_vmi_fat_flows(lb.virtual_machine_interface,
+                self.get_port_list_v2(lb))
         conf = haproxy_config.get_config_v2(lb)
         self.set_haproxy_config(lb.service_instance, 'v2', lb.uuid, conf, lb.device_owner)
         return conf
