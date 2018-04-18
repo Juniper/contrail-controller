@@ -45,6 +45,7 @@ local_sources = [
     'job_manager/job_log_utils.py',
     'job_manager/playbook_helper.py',
     'job_manager/sandesh_utils.py',
+    'job_manager/job_messages.py',
 ]
 
 local_sources_rules = []
