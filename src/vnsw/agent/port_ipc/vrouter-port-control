@@ -98,6 +98,25 @@ class VrouterPortControl(object):
                     ret_code = 1
             except ConnectionError:
                 pass
+        elif self._args.oper == "enable":
+            url = base_url + "/enable-port/" + self._args.uuid
+            try:
+                r = requests.put(url, data=None, headers=headers)
+                if r.status_code != 200:
+                    print "Request failed: %s" % r.text
+                    ret_code = 1
+            except ConnectionError:
+                pass
+        elif self._args.oper == "disable":
+            url = base_url + "/disable-port/" + self._args.uuid
+            try:
+                r = requests.put(url, data=None, headers=headers)
+                if r.status_code != 200:
+                    print "Request failed: %s" % r.text
+                    ret_code = 1
+            except ConnectionError:
+                pass
+
         sys.exit(ret_code)
     # end __init__
 
@@ -182,7 +201,7 @@ class VrouterPortControl(object):
             if self._args.no_persist:
                 self._args.no_persist = True
 
-        oper_list = ['add', 'delete']
+        oper_list = ['add', 'delete', 'enable', 'disable']
         if self._args.oper not in oper_list:
             print "Invalid argument for oper %s" % (self._args.oper)
             sys.exit(1)
