@@ -444,7 +444,7 @@ class SecurityResourceBase(Resource):
             return True, ''
         draft_pm = result
 
-        # if a commit or revert is on going in that scope, forbidden any
+        # if a commit or discard is on going in that scope, forbidden any
         # security resource modification in that scope
         scope_type = draft_pm.get('parent_type',
                                   GlobalSystemConfigServer.object_type)
@@ -496,9 +496,9 @@ class SecurityResourceBase(Resource):
             try:
                 cls.db_conn.fq_name_to_uuid(cls.object_type, draft_fq_name)
                 msg = ("%s named %s was already created and it is pending to "
-                       "be committed or reverted. You cannot create it again" %
-                       (cls.object_type.replace('_', ' ').title(),
-                        ':'.join(obj_dict['fq_name'])))
+                       "be committed or discarded. You cannot create it again"
+                       % (cls.object_type.replace('_', ' ').title(),
+                          ':'.join(obj_dict['fq_name'])))
                 return False, (400, msg)
             except cfgm_common.exceptions.NoIdError as e:
                 pass
