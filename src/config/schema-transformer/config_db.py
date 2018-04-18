@@ -323,7 +323,8 @@ class VirtualNetworkST(DBBaseST):
     ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
                   'bgpvpn', 'network_ipam', 'virtual_network', 'routing_policy']
     prop_fields = ['virtual_network_properties', 'route_target_list',
-                   'multi_policy_service_chains_enabled', 'is_provider_network']
+                   'multi_policy_service_chains_enabled', 'is_provider_network',
+                   'fabric_snat']
 
     def me(self, name):
         return name in (self.name, 'any')
@@ -355,7 +356,7 @@ class VirtualNetworkST(DBBaseST):
                 self.acl = acl_obj
             elif acl_obj.name == 'dynamic':
                 self.dynamic_acl = acl_obj
-
+        self.fabric_snat = False
         self.ipams = {}
         self._route_target = None
         self.rt_list = set()
@@ -1248,7 +1249,8 @@ class VirtualNetworkST(DBBaseST):
         dynamic_acl_entries = None
         # add a static acl in case of provider-network
         if (not self.network_policys and
-            (self.is_provider_network or self.virtual_networks)):
+            (self.is_provider_network or self.virtual_networks or \
+             (self.fabric_snat == True))):
             static_acl_entries = AclEntriesType(dynamic=False)
 
         for policy_name in self.network_policys:
@@ -1326,6 +1328,33 @@ class VirtualNetworkST(DBBaseST):
             action = ActionListType("pass")
             acl = AclRuleType(match, action, RULE_IMPLICIT_ALLOW_UUID)
             acl_list.append(acl)
+
+            # Block fbaric snat enabled VNs to access other VNs.
+            # Allow this-vn to fab-vn and block this-vn to any-other-vn traffic
+            if self.fabric_snat == True:
+                # Allow this-vn to fab-vn trffic
+                this_vn_to_provider_acl = self.add_acl_rule(
+                                AddressType(virtual_network=self.name),
+                                PortType(),
+                                AddressType(virtual_network='default-domain:default-project:ip-fabric'),
+                                PortType(),
+                                "any",
+                                RULE_IMPLICIT_ALLOW_UUID,
+                                ActionListType(simple_action='pass'),
+                                '<>')
+
+                # Deny any-vn to any-vn trffic
+                this_vn_to_any_vn = self.add_acl_rule(
+                                AddressType(virtual_network=self.name),
+                                PortType(),
+                                AddressType(virtual_network="any"),
+                                PortType(),
+                                "any",
+                                RULE_IMPLICIT_DENY_UUID,
+                                ActionListType("deny"),
+                                '<>')
+                acl_list.append(this_vn_to_provider_acl)
+                acl_list.append(this_vn_to_any_vn)
 
             if self._manager._args.logical_routers_enabled:
                 for rule in static_acl_entries.get_acl_rule():
