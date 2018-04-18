@@ -478,7 +478,7 @@ void BgpXmppMessage::AddMvpnReach(const BgpRoute *route,
     item.entry.nlri.source =  mvpn_route->GetPrefix().source().to_string();
     item.entry.nlri.route_type = mvpn_route->GetPrefix().type();
     assert((item.entry.nlri.route_type == MvpnPrefix::SourceActiveADRoute) ||
-            (item.entry.nlri.route_type == MvpnPrefix::LeafADRoute));
+            (item.entry.nlri.route_type == MvpnPrefix::SourceTreeJoinRoute));
 
     if (item.entry.nlri.route_type == MvpnPrefix::SourceActiveADRoute) {
         const BgpOList *olist = roattr->attr()->olist().get();

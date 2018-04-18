@@ -277,7 +277,7 @@ public:
 
     bool VerifyMvpnRouteType(boost::shared_ptr<const NetworkAgentMock> agent,
         const string &net, const string &prefix, int route_type =
-                                                 MvpnPrefix::LeafADRoute) {
+                                                 MvpnPrefix::SourceTreeJoinRoute) {
         const NetworkAgentMock::MvpnRouteEntry *mvpn_rt =
             agent->MvpnRouteLookup(net, prefix);
         if (mvpn_rt == NULL)

@@ -633,7 +633,7 @@ void MvpnTable::GetPeerSet(RibOut *ribout, MvpnRoute *route,
 UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
     const RibPeerSet &peerset) {
     if ((route->GetPrefix().type() != MvpnPrefix::SourceActiveADRoute) &&
-        (route->GetPrefix().type() != MvpnPrefix::LeafADRoute))
+        (route->GetPrefix().type() != MvpnPrefix::SourceTreeJoinRoute))
         return NULL;
     if (!route->IsUsable())
         return NULL;
@@ -650,15 +650,7 @@ UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
     }
 
     RibPeerSet new_peerset;
-    if (route->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute) {
-        GetPeerSet(ribout, route, peerset, &new_peerset);
-    } else {
-        const MvpnRoute* type7_rt = FindType7SourceTreeJoinRoute(route);
-        if (type7_rt) {
-            GetPeerSet(ribout, const_cast<MvpnRoute *>(type7_rt), peerset,
-                       &new_peerset);
-        }
-    }
+    GetPeerSet(ribout, route, peerset, &new_peerset);
 
     if (new_peerset.empty())
         return NULL;
