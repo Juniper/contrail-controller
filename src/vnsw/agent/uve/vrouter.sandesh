@@ -494,12 +494,10 @@ struct VrouterStatsAgent {
      * Exponentially Weighed Mean
      */
     52: optional map<string,derived_stats_results.EWMResult> in_bps_ewm
-                     (mstats="phy_band_in_bps:DSEWM:0.1")
     /** Anomaly Detection for egress bandwidth of physical interface using
      * Exponentially Weighed Mean
      */
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm
-                     (mstats="phy_band_out_bps:DSEWM:0.1")
 
     /** @display_name:Physical Interface Flow Setup and teardown Statistics*/
     68: optional map<string, VrouterFlowRate> phy_flow_rate  (tags="name:.__key")
@@ -507,36 +505,31 @@ struct VrouterStatsAgent {
      * Exponentially Weighed Mean$
      */
     69: optional map<string, derived_stats_results.AnomalyResult> phy_added_flows_ewm
-                     (mstats="phy_flow_rate.added_flows:DSAnomaly:EWM:0.1")
     /** Anomaly Detection for deleted flows count of physical interface using
      * Exponentially Weighed Mean$
      */
     70: optional map<string, derived_stats_results.AnomalyResult> phy_deleted_flows_ewm
-                     (mstats="phy_flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
     /** Anomaly Detection for active flows count of physical interface using
      * Exponentially Weighed Mean$
      */
     71: optional map<string, derived_stats_results.AnomalyResult> phy_active_flows_ewm
-                     (mstats="phy_flow_rate.active_flows:DSAnomaly:EWM:0.1")
     /** Statistics for physical interface */
     72: optional map<string, PhyIfStats> raw_phy_if_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter Physical Interface Traffic Statistics*/
-    73: optional map<string, PhyIfStats> phy_if_stats (mstats="raw_phy_if_stats:DSNon0:", tags="name:.__key")
+    73: optional map<string, PhyIfStats> phy_if_stats (tags="name:.__key")
     /** Anomaly Detection for Ingress packet count of physical interface using
      * Exponentially Weighed Mean$
      */
     74: optional map<string, derived_stats_results.AnomalyResult> in_pkts_ewm
-                     (mstats="raw_phy_if_stats.in_pkts:DSAnomaly:EWM:0.1")
     /** Anomaly Detection for Egress packet count of physical interface using
      * Exponentially Weighed Mean$
      */
     75: optional map<string, derived_stats_results.AnomalyResult> out_pkts_ewm
-                     (mstats="raw_phy_if_stats.out_pkts:DSAnomaly:EWM:0.1")
 
     81: optional map<string, AgentDropStats> raw_phy_if_drop_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter Physical Interface Drop Statistics*/
-    82: optional map<string, AgentDropStats> phy_if_drop_stats (mstats="raw_phy_if_drop_stats:DSNon0:", tags="")
-    83: optional map<string, AgentDropStats> phy_if_drop_stats_1h (mstats="raw_phy_if_drop_stats:DSSum:3600")
+    82: optional map<string, AgentDropStats> phy_if_drop_stats (tags="")
+    83: optional map<string, AgentDropStats> phy_if_drop_stats_1h 
 }
 
 /**
@@ -619,21 +612,19 @@ struct VrouterControlStats {
     /** @display_name:Vrouter Agent XMPP Statistics*/
     3: optional map<string, AgentXmppStats> raw_xmpp_stats (metric="agg", hidden="yes")
     /** XMPP statistics */
-    4: optional map<string, AgentXmppStats> xmpp_stats (mstats="raw_xmpp_stats:DSChange:")
+    4: optional map<string, AgentXmppStats> xmpp_stats 
 
     /** @display_name:Vrouter Agent IFMAP Parse Error Statistics*/
     5: optional map<string, u64> raw_ifmap_stats (metric="agg", hidden="yes")
     /** IFMAP parse error statistics */
     6: optional map<string, u64> ifmap_stats
-                     (mstats="raw_ifmap_stats:DSNon0:")
     /** IFMAP parse error statistics for last 1 hour */
     7: optional map<string, u64> ifmap_stats_1h
-                     (mstats="raw_ifmap_stats:DSSum:3600")
 
     /** List of routing-instances along with the sizes of each of its tables */
     8: optional map<string, RouteTableSize> raw_rt_table_size (metric="agg", hidden="yes")
     /** List of routing-instances along with the sizes of each of its tables */
-    9: optional map<string, RouteTableSize> rt_table_size (mstats="raw_rt_table_size:DSChange:")
+    9: optional map<string, RouteTableSize> rt_table_size 
 }
 
 /**
