@@ -85,10 +85,14 @@ int CfgFilter::GetIdPermsPropertyId(DBTable *table) const {
         return autogen::SecurityLoggingObject::ID_PERMS;
     if (table == agent_cfg_->cfg_port_tuple_table())
         return autogen::PortTuple::ID_PERMS;
+    if (table == agent_cfg_->cfg_policy_set_table())
+        return autogen::ApplicationPolicySet::ID_PERMS;
     if (table == agent_cfg_->cfg_firewall_policy_table())
-        return autogen::PortTuple::ID_PERMS;
+        return autogen::FirewallPolicy::ID_PERMS;
     if (table == agent_cfg_->cfg_firewall_rule_table())
-        return autogen::PortTuple::ID_PERMS;
+        return autogen::FirewallRule::ID_PERMS;
+    if (table == agent_cfg_->cfg_tag_table())
+        return autogen::Tag::ID_PERMS;
     return -1;
 }
 
@@ -187,6 +191,18 @@ void CfgFilter::Init() {
 
     agent_cfg_->cfg_port_tuple_table()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
+    agent_cfg_->cfg_policy_set_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
+    agent_cfg_->cfg_firewall_policy_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
+    agent_cfg_->cfg_firewall_rule_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
+    agent_cfg_->cfg_tag_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 }
 
 void CfgFilter::Shutdown() {
@@ -206,4 +222,8 @@ void CfgFilter::Shutdown() {
     agent_cfg_->cfg_bridge_domain_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_slo_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_port_tuple_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_policy_set_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_firewall_policy_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_firewall_rule_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_tag_table()->RegisterPreFilter(NULL);
 }
