@@ -12,6 +12,22 @@ from collections import namedtuple
 import traceback
 import argparse
 
+from fabric_logger import fabric_ansible_logger
+logger = fabric_ansible_logger("ansible")
+
+from ansible import constants as CONST
+import ansible.utils.display as default_display
+from ansible.utils.display import Display
+
+# Overrides the default logger from ansible/utils/display.py.
+# fabric_ansible_logger customizes log message formatting
+# Note that some internal ansible code inherits "display" from __main__,
+# which is this file.
+# Also note that CONST is from ansible.cfg
+verbosity = CONST.DEFAULT_VERBOSITY or 0
+default_display.logger = logger
+display = Display(verbosity)
+
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
