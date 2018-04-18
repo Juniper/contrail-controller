@@ -43,7 +43,7 @@ using contrail_rapidjson::Value;
 class IFMapVmUuidMapperTest : public ::testing::Test {
 public:
     void ValidateIFMapPendingVmRegResponse(Sandesh* sandesh,
-                                           vector<string>& result) {
+                                           const vector<string>& result) {
         const IFMapPendingVmRegResp* resp =
             dynamic_cast<const IFMapPendingVmRegResp*>(sandesh);
         TASK_UTIL_EXPECT_TRUE(resp != NULL);
@@ -80,7 +80,7 @@ public:
     }
 
     void ValidateIFMapNodeToUuidMappingResponse(
-        Sandesh* sandesh, vector<string> name_to_uuid_list ,int num_entries,
+        Sandesh* sandesh, vector<string> name_to_uuid_list, int num_entries,
         bool expect_next_batch) {
         const IFMapNodeToUuidMappingResp* resp =
             dynamic_cast<const IFMapNodeToUuidMappingResp*>(sandesh);
@@ -93,16 +93,17 @@ public:
                 resp->get_node_to_uuid_map()[i].get_node_name() + ':'
                 + resp->get_node_to_uuid_map()[i].get_uuid();
             for (uint32_t j = 0; j < name_to_uuid_list.size(); ++j) {
-                if(name_to_uuid_list[j] == name_to_uuid) {
-                    match=true;
+                if (name_to_uuid_list[j] == name_to_uuid) {
+                    match = true;
                     break;
                 }
             }
             TASK_UTIL_EXPECT_TRUE(match);
         }
         string next_batch_null;
-        std::cout << "resp->get_next_batch:" <<  resp->get_next_batch()  << std::endl;
-        if(expect_next_batch) {
+        std::cout << "resp->get_next_batch:" <<  resp->get_next_batch()
+            << std::endl;
+        if (expect_next_batch) {
             TASK_UTIL_EXPECT_NE(next_batch_null, resp->get_next_batch());
         } else {
             TASK_UTIL_EXPECT_EQ(next_batch_null, resp->get_next_batch());
@@ -120,7 +121,7 @@ protected:
                                                    "config-test",
                                                    config_options_)),
         ifmap_sandesh_context_(new IFMapSandeshContext(server_.get())),
-        validate_subsequent_and_final_response_(false),validate_done_(false) {
+        validate_subsequent_and_final_response_(false), validate_done_(false) {
         config_cassandra_client_ = dynamic_cast<ConfigCassandraClientTest*>(
             config_client_manager_->config_db_client());
     }
@@ -153,7 +154,8 @@ protected:
         ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
         IFMapLinkTable_Init(server_->database(), server_->graph());
         ConfigJsonParser *config_json_parser =
-         static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+         static_cast<ConfigJsonParser *>
+            (config_client_manager_->config_json_parser());
         config_json_parser->ifmap_server_set(server_.get());
         vnc_cfg_JsonParserInit(config_json_parser);
         vnc_cfg_Server_ModuleInit(server_->database(), server_->graph());
@@ -175,7 +177,8 @@ protected:
         IFMapLinkTable_Clear(&db_);
         IFMapTable::ClearTables(&db_);
         ConfigJsonParser *config_json_parser =
-         static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+         static_cast<ConfigJsonParser *>
+            (config_client_manager_->config_json_parser());
         config_json_parser->MetadataClear("vnc_cfg");
         SandeshTearDown();
         evm_.Shutdown();
@@ -210,8 +213,8 @@ protected:
         ConfigCassandraClientTest::FeedEventsJson(config_client_manager_.get());
     }
 
-    void ValidateNodeToUuidMapEntries(vector<string>& name_to_uuid_list,
-            string &first_uuid) {
+    void ValidateNodeToUuidMapEntries(const vector<string>& name_to_uuid_list,
+            string* first_uuid) {
        uint32_t count = 0;
 
        for (IFMapVmUuidMapper::NodeUuidMap::const_iterator iter =
@@ -222,11 +225,12 @@ protected:
            bool match = false;
            for (uint32_t j = 0; j < name_to_uuid_list.size(); ++j) {
                IFMapNode* node = static_cast<IFMapNode*>(iter->first);
-               if(name_to_uuid_list[j] == node->ToString() + ':' + iter->second) {
-                   if(first_uuid.empty()) {
-                       first_uuid = iter->second;
+               if (name_to_uuid_list[j] == node->ToString() + ':' +
+                   iter->second) {
+                   if (first_uuid->empty()) {
+                       *first_uuid = iter->second;
                    }
-                   match=true;
+                   match = true;
                    break;
               }
            }
@@ -288,7 +292,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
     TASK_UTIL_EXPECT_TRUE(
         c1.NodeExists("virtual-router",
-                      "default-global-system-config:a1s27.contrail.juniper.net"));
+        "default-global-system-config:a1s27.contrail.juniper.net"));
     TASK_UTIL_EXPECT_FALSE(c1.NodeExists("virtual-network",
                                          "default-domain:demo:vn28"));
     EXPECT_EQ(3, vm_uuid_mapper_->UuidMapperCount());
@@ -304,7 +308,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
 
 // Add all the config, verify IFMapUuidToNodeMapping (Req)introspect,
 TEST_F(IFMapVmUuidMapperTest , ShowIFMapUuidToNodeMappingReq) {
-    ParseEventsJson("controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
     FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -324,8 +329,7 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapUuidToNodeMappingReq) {
     string uuid_list[] = { "2d308482-c7b3-4e05-af14-e732b7b50117",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a",
         "93e76278-1990-4905-a472-8e9188f41b2c" };
-    string name_list[] =
-    {
+    string name_list[] = {
         "virtual-machine:vm_with_a_name1",
         "virtual-machine:vm_with_a_name2",
         "virtual-machine:vm_with_a_name3"
@@ -339,9 +343,11 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapUuidToNodeMappingReq) {
             vm->Find(IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
         EXPECT_EQ(name_list[idx], vm->ToString());
     };
-    std::vector<string> uuid_to_node_expected_results = list_of(
+    std::vector<string> uuid_to_node_expected_results =
+        list_of(
         "virtual-machine:vm_with_a_name1:2d308482-c7b3-4e05-af14-e732b7b50117")
-        ("virtual-machine:vm_with_a_name2:43d086ab-52c4-4a1f-8c3d-63b321e36e8a");
+        ("virtual-machine:vm_with_a_name2:"
+         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a");
 
     string next_batch = "43d086ab-52c4-4a1f-8c3d-63b321e36e8a";
         validate_done_ = false;
@@ -358,7 +364,8 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapUuidToNodeMappingReq) {
 
 // Add all the config, verify IFMapUuidToNodeMapping (Iterate) introspect,
 TEST_F(IFMapVmUuidMapperTest , ShowIFMapUuidToNodeMappingIterate) {
-    ParseEventsJson("controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
     FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -379,8 +386,7 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapUuidToNodeMappingIterate) {
     string uuid_list[] = { "2d308482-c7b3-4e05-af14-e732b7b50117",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a",
         "93e76278-1990-4905-a472-8e9188f41b2c" };
-    string name_list[] =
-    {
+    string name_list[] = {
         "virtual-machine:vm_with_a_name1",
         "virtual-machine:vm_with_a_name2",
         "virtual-machine:vm_with_a_name3" };
@@ -395,7 +401,8 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapUuidToNodeMappingIterate) {
     };
     std::vector<string> uuid_to_node_expected_results = list_of(
         "virtual-machine:vm_with_a_name2:43d086ab-52c4-4a1f-8c3d-63b321e36e8a")
-        ("virtual-machine:vm_with_a_name3:93e76278-1990-4905-a472-8e9188f41b2c");
+        ("virtual-machine:vm_with_a_name3:"
+         "93e76278-1990-4905-a472-8e9188f41b2c");
     string next_batch;
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
@@ -487,7 +494,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
 // followed by processing revival of the node.
 // As a last step verify IFMapNodeToUuidMapping Introspect (Req)
 TEST_F(IFMapVmUuidMapperTest , ShowIFMapNodeToUuidReq) {
-    ParseEventsJson("controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
     FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -549,13 +557,15 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapNodeToUuidReq) {
     EXPECT_EQ(3, vm_uuid_mapper_->NodeUuidMapCount());
     EXPECT_EQ(0, vm_uuid_mapper_->PendingVmRegCount());
     vector<string> name_to_uuid_list =
-        list_of("virtual-machine:vm_with_a_name1:2d308482-c7b3-4e05-af14-e732b7b50117")
+        list_of(
+         "virtual-machine:vm_with_a_name1:2d308482-c7b3-4e05-af14-e732b7b50117")
         ("virtual-machine:vm_with_a_name2:43d086ab-52c4-4a1f-8c3d-63b321e36e8a")
-        ("virtual-machine:vm_with_a_name3:93e76278-1990-4905-a472-8e9188f41b2c");
+        ("virtual-machine:vm_with_a_name3:"
+         "93e76278-1990-4905-a472-8e9188f41b2c");
 
     string first_uuid;
     IFMapVmUuidMapperTest::ValidateNodeToUuidMapEntries(name_to_uuid_list,
-            first_uuid);
+            &first_uuid);
     vector<string> uuid_list =
         list_of("2d308482-c7b3-4e05-af14-e732b7b50117")
         ("43d086ab-52c4-4a1f-8c3d-63b321e36e8a")
@@ -589,7 +599,8 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapNodeToUuidReq) {
 
 // Verify IFMapNodeToUuidMapping Introspect (ReqIterate)
 TEST_F(IFMapVmUuidMapperTest , ShowIFMapNodeToUuidReqIterate) {
-    ParseEventsJson("controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
     FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -603,13 +614,15 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapNodeToUuidReqIterate) {
     EXPECT_EQ(0, vm_uuid_mapper_->PendingVmRegCount());
 
     vector<string> name_to_uuid_list =
-        list_of("virtual-machine:vm_with_a_name1:2d308482-c7b3-4e05-af14-e732b7b50117")
+        list_of(
+         "virtual-machine:vm_with_a_name1:2d308482-c7b3-4e05-af14-e732b7b50117")
         ("virtual-machine:vm_with_a_name2:43d086ab-52c4-4a1f-8c3d-63b321e36e8a")
-        ("virtual-machine:vm_with_a_name3:93e76278-1990-4905-a472-8e9188f41b2c");
+        ("virtual-machine:vm_with_a_name3:"
+         "93e76278-1990-4905-a472-8e9188f41b2c");
 
     string first_uuid;
     IFMapVmUuidMapperTest::ValidateNodeToUuidMapEntries(name_to_uuid_list,
-            first_uuid);
+            &first_uuid);
 
     vector<string> uuid_list =
         list_of("2d308482-c7b3-4e05-af14-e732b7b50117")
@@ -634,7 +647,7 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapNodeToUuidReqIterate) {
     Sandesh::set_response_callback(
         boost::bind(
             &IFMapVmUuidMapperTest::ValidateIFMapNodeToUuidMappingResponse,
-            this, _1, name_to_uuid_list,2, false));
+            this, _1, name_to_uuid_list, 2, false));
     IFMapNodeToUuidMappingReqIterate* req =
         new IFMapNodeToUuidMappingReqIterate;
     req->set_uuid_info(first_uuid);
@@ -736,9 +749,12 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapPendingVmRegOneShot) {
     EXPECT_EQ(3, vm_uuid_mapper_->PendingVmRegCount());
 
     vector<string> pending_vm_reg_expected_entries = list_of(
-        "default-global-system-config:a1s27.contrail.juniper.net:2d308482-c7b3-4e05-af14-e732b7b50117")
-        ("default-global-system-config:a1s27.contrail.juniper.net:43d086ab-52c4-4a1f-8c3d-63b321e36e8a")
-        ("default-global-system-config:a1s27.contrail.juniper.net:93e76278-1990-4905-a472-8e9188f41b2c");
+        "default-global-system-config:a1s27.contrail."
+        "juniper.net:2d308482-c7b3-4e05-af14-e732b7b50117")
+        ("default-global-system-config:a1s27.contrail."
+         "juniper.net:43d086ab-52c4-4a1f-8c3d-63b321e36e8a")
+        ("default-global-system-config:a1s27.contrail."
+         "juniper.net:93e76278-1990-4905-a472-8e9188f41b2c");
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(3);
     Sandesh::set_response_callback(
@@ -749,7 +765,8 @@ TEST_F(IFMapVmUuidMapperTest , ShowIFMapPendingVmRegOneShot) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 
-    ParseEventsJson("controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
     FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -801,7 +818,8 @@ TEST_F(IFMapVmUuidMapperTest, ShowIFMapPendingVmRegTwoStepResponse) {
     EXPECT_EQ(3, vm_uuid_mapper_->PendingVmRegCount());
 
     vector<string> pending_vm_reg_expected_entries = list_of(
-        "default-global-system-config:a1s27.contrail.juniper.net:93e76278-1990-4905-a472-8e9188f41b2c");
+        "default-global-system-config:a1s27.contrail.juniper.net"
+        ":93e76278-1990-4905-a472-8e9188f41b2c");
     validate_done_ = false;
     validate_subsequent_and_final_response_ = true;
     ifmap_sandesh_context_->set_page_limit(2);
@@ -813,7 +831,8 @@ TEST_F(IFMapVmUuidMapperTest, ShowIFMapPendingVmRegTwoStepResponse) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 
-    ParseEventsJson("controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json");
     FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -970,7 +989,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, CfgSubUnsub) {
                                          "default-domain:demo:vn28"));
     TASK_UTIL_EXPECT_TRUE(
         c1.NodeExists("virtual-router",
-                      "default-global-system-config:a1s27.contrail.juniper.net"));
+                      "default-global-system-config:a1s27."
+                      "contrail.juniper.net"));
     TASK_UTIL_EXPECT_EQ(3, c1.NodeKeyCount("virtual-machine"));
     TASK_UTIL_EXPECT_TRUE(c1.NodeExists("virtual-network",
                                         "default-domain:demo:vn27"));
@@ -1089,10 +1109,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeConfigUnsub) {
 
 // Receive vm-sub first, then vm-unsub - no config received
 TEST_P(IFMapVmUuidMapperTestWithParam1, SubUnsub) {
-
     // Data based on src/ifmap/testdata/cli1_vn1_vm3_add.xml
     // and src/ifmap/testdata/cli1_vn1_vm3_add_vmname.xml
-
     // VM Subscribe
     IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
@@ -1197,7 +1215,6 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddCfgdel) {
 }
 
 TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
-
     IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_->AddClient(&c1);
@@ -1230,9 +1247,9 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
                               "93e76278-1990-4905-a472-8e9188f41b2c"));
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
                               "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
-    TASK_UTIL_EXPECT_EQ(4, c1.node_count()); // vr and 3 vm's
-    TASK_UTIL_EXPECT_EQ(3, c1.link_count()); // 3 links
-    TASK_UTIL_EXPECT_EQ(7, c1.count()); // node+link
+    TASK_UTIL_EXPECT_EQ(4, c1.node_count());  // vr and 3 vm's
+    TASK_UTIL_EXPECT_EQ(3, c1.link_count());  // 3 links
+    TASK_UTIL_EXPECT_EQ(7, c1.count());  // node+link
     TASK_UTIL_EXPECT_EQ(3, vm_uuid_mapper_->UuidMapperCount());
     TASK_UTIL_EXPECT_EQ(3, vm_uuid_mapper_->NodeUuidMapCount());
     TASK_UTIL_EXPECT_EQ(0, vm_uuid_mapper_->PendingVmRegCount());
@@ -1327,9 +1344,9 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
 
     size_t cli_index = static_cast<size_t>(c1.index());
 
-    TASK_UTIL_EXPECT_EQ(4, c1.node_count()); // vr and 3 vm's
-    TASK_UTIL_EXPECT_EQ(3, c1.link_count()); // 3 links
-    TASK_UTIL_EXPECT_EQ(7, c1.count()); // node+link
+    TASK_UTIL_EXPECT_EQ(4, c1.node_count());  // vr and 3 vm's
+    TASK_UTIL_EXPECT_EQ(3, c1.link_count());  // 3 links
+    TASK_UTIL_EXPECT_EQ(7, c1.count());  // node+link
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
                               "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -1469,9 +1486,9 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
 
     size_t cli_index = static_cast<size_t>(c1.index());
 
-    TASK_UTIL_EXPECT_EQ(4, c1.node_count()); // vr and 3 vm's
-    TASK_UTIL_EXPECT_EQ(3, c1.link_count()); // 3 links
-    TASK_UTIL_EXPECT_EQ(7, c1.count()); // node+link
+    TASK_UTIL_EXPECT_EQ(4, c1.node_count());  // vr and 3 vm's
+    TASK_UTIL_EXPECT_EQ(3, c1.link_count());  // 3 links
+    TASK_UTIL_EXPECT_EQ(7, c1.count());  // node+link
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
                               "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -1528,9 +1545,9 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     EXPECT_FALSE(vm3->IsDeleted());
     CheckNodeBits(vm3, cli_index, true, true);
 
-    TASK_UTIL_EXPECT_EQ(8, c1.node_count()); // vr and 3 vm's
-    TASK_UTIL_EXPECT_EQ(3, c1.link_count()); // 3 links
-    TASK_UTIL_EXPECT_EQ(11, c1.count()); // node+link
+    TASK_UTIL_EXPECT_EQ(8, c1.node_count());  // vr and 3 vm's
+    TASK_UTIL_EXPECT_EQ(3, c1.link_count());  // 3 links
+    TASK_UTIL_EXPECT_EQ(11, c1.count());  // node+link
     TASK_UTIL_EXPECT_EQ(3, vm_uuid_mapper_->UuidMapperCount());
     TASK_UTIL_EXPECT_EQ(3, vm_uuid_mapper_->NodeUuidMapCount());
     TASK_UTIL_EXPECT_EQ(0, vm_uuid_mapper_->PendingVmRegCount());
@@ -1592,6 +1609,8 @@ int main(int argc, char** argv) {
     ConfigAmqpClient::set_disable(true);
     ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest*>());
+    ConfigFactory::Register<ConfigCassandraPartition>(
+        boost::factory<ConfigCassandraPartitionTest*>());
     ConfigFactory::Register<ConfigJsonParserBase>(
         boost::factory<ConfigJsonParser *>());
     bool success = RUN_ALL_TESTS();

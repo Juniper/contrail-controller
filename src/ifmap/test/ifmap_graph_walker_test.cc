@@ -572,6 +572,8 @@ int main(int argc, char **argv) {
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
+    ConfigFactory::Register<ConfigCassandraPartition>(
+        boost::factory<ConfigCassandraPartitionTest *>());
     ConfigFactory::Register<ConfigJsonParserBase>(
         boost::factory<ConfigJsonParser *>());
     bool success = RUN_ALL_TESTS();
