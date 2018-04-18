@@ -29,13 +29,15 @@
       with_items: "{{ snmp_output.results }}"
       register: vendor_family
 
+    - name: initialize host_vendor_mapping
+      set_fact:
+        host_vendor_mapping: []
+
     - name: assign vendor family mapping
       set_fact:
         host_vendor_mapping: "{{ host_vendor_mapping|default([]) + [ item.oid_mapping ] }}"
       when: item.oid_mapping is defined
       with_items: "{{ vendor_family.results }}"
-
-    - debug: var=host_vendor_mapping
 
     - name: call vnc to create physical-router
       vars:
