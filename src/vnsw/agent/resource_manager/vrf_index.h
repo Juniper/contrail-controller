@@ -17,7 +17,7 @@ class ResourceKey;
 
 class VrfIndexResourceKey : public IndexResourceKey {
 public:
-    VrfIndexResourceKey(ResourceManager *rm, 
+    VrfIndexResourceKey(ResourceManager *rm,
                         const string &vrf_name);
     virtual ~VrfIndexResourceKey() {};
     virtual void Backup(ResourceData *data, uint16_t op);

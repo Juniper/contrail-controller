@@ -55,7 +55,7 @@ public:
             key_(key), context_(context) {
         }
         PageRequest(const PageRequest &req) :
-            key_(req.key_), context_(req.context_) { 
+            key_(req.key_), context_(req.context_) {
         }
         ~PageRequest() { }
 
@@ -274,8 +274,8 @@ public:
         dump_table_ = true;
     }
     AgentInet4UcRtSandesh(VrfEntry *vrf, std::string context,
-                          Ip4Address addr, uint8_t plen, bool stale) 
-        : AgentSandesh(context, ""), vrf_(vrf), addr_(addr), plen_(plen), 
+                          Ip4Address addr, uint8_t plen, bool stale)
+        : AgentSandesh(context, ""), vrf_(vrf), addr_(addr), plen_(plen),
         stale_(stale) {
         dump_table_ = false;
     }
@@ -294,8 +294,8 @@ private:
 
 class AgentInet4McRtSandesh : public AgentSandesh {
 public:
-    AgentInet4McRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
-                          bool stale) 
+    AgentInet4McRtSandesh(VrfEntry *vrf, std::string context, std::string name,
+                          bool stale)
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {
         dump_table_ = true;
     }
@@ -336,8 +336,8 @@ private:
 
 class AgentBridgeRtSandesh : public AgentSandesh {
 public:
-    AgentBridgeRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
-                         bool stale) 
+    AgentBridgeRtSandesh(VrfEntry *vrf, std::string context, std::string name,
+                         bool stale)
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
 
 private:
@@ -366,13 +366,13 @@ private:
 
 class AgentInet6UcRtSandesh : public AgentSandesh {
 public:
-    AgentInet6UcRtSandesh(VrfEntry *vrf, std::string context, bool stale) : 
+    AgentInet6UcRtSandesh(VrfEntry *vrf, std::string context, bool stale) :
         AgentSandesh(context, ""), vrf_(vrf), stale_(stale) {
         dump_table_ = true;
     }
     AgentInet6UcRtSandesh(VrfEntry *vrf, std::string context,
-                          Ip6Address addr, uint8_t plen, bool stale) : 
-        AgentSandesh(context, ""), vrf_(vrf), addr_(addr), plen_(plen), 
+                          Ip6Address addr, uint8_t plen, bool stale) :
+        AgentSandesh(context, ""), vrf_(vrf), addr_(addr), plen_(plen),
             stale_(stale) {
         dump_table_ = false;
     }

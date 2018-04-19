@@ -7,7 +7,7 @@
 
 class MirrorKState: public KState {
 public:
-    MirrorKState(KMirrorResp *obj, const std::string &resp_ctx, 
+    MirrorKState(KMirrorResp *obj, const std::string &resp_ctx,
                  vr_mirror_req &req, int id);
     virtual void SendResponse();
     virtual void Handler();

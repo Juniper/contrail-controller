@@ -236,13 +236,13 @@ public:
         if (comp_nh->GetType() != NextHop::COMPOSITE)
             return;
         comp_nh_notify_++;
-        std::vector<const NextHop *>::iterator it = 
+        std::vector<const NextHop *>::iterator it =
             std::find(comp_nh_list_.begin(), comp_nh_list_.end(), comp_nh);
         if (e->IsDeleted()) {
             comp_nh_del_notify_++;
             if (it != comp_nh_list_.end())
                 comp_nh_list_.erase(it);
-        } else { 
+        } else {
             if (it == comp_nh_list_.end()) {
                 comp_nh_list_.push_back(comp_nh);
             }
@@ -281,9 +281,9 @@ public:
     }
     void CompositeNHReset() {comp_nh_list_.clear();};
     void MplsReset() {mpls_notify_ = mpls_del_notify_ = 0;};
-    void Reset() {vrf_notify_ = acl_notify_ = port_notify_ = vn_notify_ = 
-        vm_notify_ = cfg_notify_ = port_del_notify_ =  
-        vm_del_notify_ = vn_del_notify_ = vrf_del_notify_ = 
+    void Reset() {vrf_notify_ = acl_notify_ = port_notify_ = vn_notify_ =
+        vm_notify_ = cfg_notify_ = port_del_notify_ =
+        vm_del_notify_ = vn_del_notify_ = vrf_del_notify_ =
         nh_notify_ = nh_del_notify_ = comp_nh_notify_ = comp_nh_del_notify_ = 0;};
     uint32_t acl_notify() { return acl_notify_;}
 
@@ -456,7 +456,7 @@ public:
         EXPECT_EQ(port_count, port_del_notify_);
         return (port_del_notify_ == port_count);
     }
-    
+
     bool VmDelNotifyWait(int count) {
         int i = 0;
 
@@ -530,7 +530,7 @@ public:
         WAIT_FOR(100, 10000, (mpls_notify_ >= mpls_count));
         return (mpls_notify_ >= mpls_count);
     }
-    
+
     bool NotifyWait(int port_count, int vn_count, int vm_count) {
         bool vn_ret = VnNotifyWait(vn_count);
         bool vm_ret = VmNotifyWait(vm_count);
@@ -562,21 +562,21 @@ public:
     }
 
     void Init() {
-        Agent::GetInstance()->vn_table()->Register(boost::bind(&TestClient::VnNotify, 
+        Agent::GetInstance()->vn_table()->Register(boost::bind(&TestClient::VnNotify,
                                                    this, _1, _2));
-        Agent::GetInstance()->vm_table()->Register(boost::bind(&TestClient::VmNotify, 
+        Agent::GetInstance()->vm_table()->Register(boost::bind(&TestClient::VmNotify,
                                                    this, _1, _2));
-        Agent::GetInstance()->interface_table()->Register(boost::bind(&TestClient::PortNotify, 
+        Agent::GetInstance()->interface_table()->Register(boost::bind(&TestClient::PortNotify,
                                                    this, _1, _2));
-        Agent::GetInstance()->acl_table()->Register(boost::bind(&TestClient::AclNotify, 
+        Agent::GetInstance()->acl_table()->Register(boost::bind(&TestClient::AclNotify,
                                                    this, _1, _2));
-        Agent::GetInstance()->vrf_table()->Register(boost::bind(&TestClient::VrfNotify, 
+        Agent::GetInstance()->vrf_table()->Register(boost::bind(&TestClient::VrfNotify,
                                                    this, _1, _2));
         Agent::GetInstance()->nexthop_table()->Register(boost::bind(&TestClient::CompositeNHNotify,
                                                    this, _1, _2));
         Agent::GetInstance()->nexthop_table()->Register(boost::bind(&TestClient::NHNotify,
                                                    this, _1, _2));
-        Agent::GetInstance()->mpls_table()->Register(boost::bind(&TestClient::MplsNotify, 
+        Agent::GetInstance()->mpls_table()->Register(boost::bind(&TestClient::MplsNotify,
                                                    this, _1, _2));
     };
     TestAgentInit *agent_init() { return agent_init_.get(); }
@@ -608,7 +608,7 @@ public:
     AgentParam param_;
 };
 
-TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 
+TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false,
                      bool pkt_init = true, bool services_init = true,
                      bool uve_init = true,
                      int agent_stats_interval = AgentParam::kAgentStatsInterval,

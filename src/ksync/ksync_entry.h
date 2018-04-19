@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_ksync_entry_h 
-#define ctrlplane_ksync_entry_h 
+#ifndef ctrlplane_ksync_entry_h
+#define ctrlplane_ksync_entry_h
 
 #include <boost/intrusive_ptr.hpp>
 #include <boost/intrusive/set.hpp>
@@ -101,24 +101,24 @@ public:
     // Convert KSync to String
     virtual std::string ToString() const = 0;
 
-    // Create handler. 
+    // Create handler.
     // Return true if operation is complete
     // Return false if operation asynchronously
     virtual bool Add() = 0;
 
-    // Change handler. 
+    // Change handler.
     // Return true if operation is complete
     // Return false if operation asynchronously
     virtual bool Change() = 0;
 
-    // Delete handler. 
+    // Delete handler.
     // Return true if operation is complete
     // Return false if operation asynchronously
     virtual bool Delete() = 0;
 
     // KSyncObject for this entry. Used to release the index
     virtual KSyncObject *GetObject() const = 0;
-    // Get an unresolved reference. 
+    // Get an unresolved reference.
     // This entry will be added into resolveq_ of unresolved-entry
     virtual KSyncEntry *UnresolvedReference() = 0;
     virtual bool ShouldReEvalBackReference() const { return true; }
@@ -155,7 +155,7 @@ public:
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};
     bool del_add_pending() const {return del_add_pending_;}
-    uint32_t GetRefCount() const {return refcount_;} 
+    uint32_t GetRefCount() const {return refcount_;}
     bool Seen() const {return seen_;}
     bool stale() const {return stale_;}
     void SetSeen() {seen_ = true;}
@@ -201,7 +201,7 @@ private:
 
 // Implementation of KSyncEntry with with DBTable. Must be used along
 // with KSyncDBObject.
-// Registers with DBTable and drives state-machine based on DBTable 
+// Registers with DBTable and drives state-machine based on DBTable
 // notifications
 // Applications are not needed to generate any events to the state-machine
 class KSyncDBEntry : public KSyncEntry, public DBState {
@@ -227,4 +227,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(KSyncDBEntry);
 };
 
-#endif // ctrlplane_ksync_entry_h 
+#endif // ctrlplane_ksync_entry_h

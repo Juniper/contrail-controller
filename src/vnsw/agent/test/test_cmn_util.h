@@ -98,7 +98,7 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
                    const char *add_subnet_tags = NULL);
 void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id);
 void DelNodeString(char *buff, int &len, const char *node_name, const char *name);
-void ApplyXmlString(const char *buff); 
+void ApplyXmlString(const char *buff);
 string GetMetadata(const char *node1, const char *node2,
                    const char *mdata = NULL);
 void AddLink(const char *node_name1, const char *name1, const char *node_name2,
@@ -176,10 +176,10 @@ bool VmPortFloatingIpCount(int id, unsigned int count);
 bool VmPortAliasIpCount(int id, unsigned int count);
 bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts);
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts);
-bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts, 
+bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
                              uint32_t obytes, uint32_t opkts);
 InetInterface *InetInterfaceGet(const char *ifname);
-bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts, 
+bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts,
                   uint64_t out_bytes, uint64_t out_pkts);
 bool VmPortInactive(int id);
 std::string VmPortGetAnalyzerName(int id);
@@ -362,7 +362,7 @@ void DelIPAM(const char *name, const char *vdns_name = NULL);
 void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
 void AddEncryptRemoteTunnelConfig(const EncryptTunnelEndpoint *endpoints, int count,
-  	                          std::string encrypt_mode);
+                                std::string encrypt_mode);
 void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
 void DelLinkLocalConfig();
 void DeleteGlobalVrouterConfig();
@@ -386,7 +386,7 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id =
 void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
-                     const char *vn = NULL, const char *vrf = NULL, 
+                     const char *vn = NULL, const char *vrf = NULL,
                      const char *vm_interface_attr = NULL, bool l2_vn = false,
                      bool with_ip = false, bool ecmp = false,
                      bool vn_admin_state = true, bool with_ip6 = false,
@@ -434,13 +434,13 @@ FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
                    uint16_t sport, uint16_t dport);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
-             std::string svn, std::string dvn, uint32_t hash_id, 
+             std::string svn, std::string dvn, uint32_t hash_id,
              int nh_id, int rev_nh_id = -1);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
-             std::string svn, std::string dvn, uint32_t hash_id, bool fwd, 
+             std::string svn, std::string dvn, uint32_t hash_id, bool fwd,
              bool nat, int nh_id, int rev_nh_id = -1);
-bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
+bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
              int reverse_hash_id, int nh_id, int rev_nh_id = -1);
 FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
@@ -462,8 +462,8 @@ PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip, const char *out_dip,
                          uint32_t label, const char *sip, const char *dip,
                          int proto, int hash_idx = 0);
 PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
-                            const char *out_dip, uint32_t label, 
-                            const char *sip, const char *dip, 
+                            const char *out_dip, uint32_t label,
+                            const char *sip, const char *dip,
                             int sport, int dport, int hash_idx = 0);
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
@@ -520,7 +520,7 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
                            int count, const char *nexthop);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
-                           int count, const char *nexthop, 
+                           int count, const char *nexthop,
                            const std::vector<std::string> &communities);
 void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *addr,
                               int count);

@@ -42,7 +42,7 @@ class XmppConnection;
 class ConfigCassandraClientTest : public ConfigCassandraClient {
 public:
     ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
-        const ConfigClientOptions &options, int num_workers) 
+        const ConfigClientOptions &options, int num_workers)
               : ConfigCassandraClient(mgr, evm, options, num_workers) {
     }
 

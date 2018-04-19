@@ -25,9 +25,9 @@ class RouteKSyncObject;
 
 class RouteKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry, 
+    RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry,
                     uint32_t index);
-    RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *route); 
+    RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *route);
     virtual ~RouteKSyncEntry();
 
     uint32_t prefix_len() const { return prefix_len_; }
@@ -37,7 +37,7 @@ public:
     bool flood_dhcp() const { return flood_dhcp_; }
     bool wait_for_traffic() const { return wait_for_traffic_; }
     MacAddress mac() const { return mac_; }
-    NHKSyncEntry* nh() const { 
+    NHKSyncEntry* nh() const {
         return static_cast<NHKSyncEntry *>(nh_.get());
     }
     void set_prefix_len(uint32_t len) { prefix_len_ = len; }

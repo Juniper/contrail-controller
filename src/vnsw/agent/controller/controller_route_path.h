@@ -71,7 +71,7 @@ public:
         ecmp_suppressed_(ecmp_suppressed), ecmp_load_balance_(ecmp_load_balance),
         etree_leaf_(etree_leaf), rewrite_dmac_(rewrite_dmac)
         {nh_req_.Swap(&req);}
-    // Data passed in case of delete from BGP peer, to validate 
+    // Data passed in case of delete from BGP peer, to validate
     // the request at time of processing.
     ControllerVmRoute(const BgpPeer *peer) : ControllerPeerPath(peer) { }
     virtual ~ControllerVmRoute() { }

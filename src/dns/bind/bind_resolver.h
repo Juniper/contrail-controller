@@ -25,7 +25,7 @@ public:
         uint16_t port_;
     };
 
-    BindResolver(boost::asio::io_service &io, 
+    BindResolver(boost::asio::io_service &io,
                  const std::vector<DnsServer> &dns_servers,
                  uint16_t client_port, Callback cb, uint8_t dscp);
     virtual ~BindResolver();

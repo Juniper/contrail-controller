@@ -143,7 +143,7 @@ struct FlowKey {
         dst_port(dport_p) {
     }
 
-    FlowKey(const FlowKey &key) : 
+    FlowKey(const FlowKey &key) :
         family(key.family), nh(key.nh), src_addr(key.src_addr),
         dst_addr(key.dst_addr), protocol(key.protocol), src_port(key.src_port),
         dst_port(key.dst_port) {
@@ -649,11 +649,11 @@ class FlowEntry {
     const MatchPolicy &match_p() const { return data_.match_p; }
 
     bool ActionSet(TrafficAction::Action action) const {
-        return ((data_.match_p.action_info.action & 
+        return ((data_.match_p.action_info.action &
                  (1 << action)) ? true : false);
     }
-    bool ImplicitDenyFlow() const { 
-        return ((data_.match_p.action_info.action & 
+    bool ImplicitDenyFlow() const {
+        return ((data_.match_p.action_info.action &
                  (1 << TrafficAction::IMPLICIT_DENY)) ? true : false);
     }
     bool deleted() { return deleted_; }
@@ -832,7 +832,7 @@ private:
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };
- 
+
 void intrusive_ptr_add_ref(FlowEntry *fe);
 void intrusive_ptr_release(FlowEntry *fe);
 
@@ -978,7 +978,7 @@ public:
     void set_timeout(uint64_t timeout) {
         cache_.set_timeout(timeout);
     }
-    
+
     tbb::recursive_mutex& mutex() {
         return mutex_;
     }

@@ -73,11 +73,11 @@ struct Range {
     }
 };
 
-typedef boost::intrusive::member_hook<Range, 
-                                      boost::intrusive::slist_member_hook<>, 
+typedef boost::intrusive::member_hook<Range,
+                                      boost::intrusive::slist_member_hook<>,
                                       &Range::node
                                      > RangeNode;
-typedef boost::intrusive::slist<Range, 
+typedef boost::intrusive::slist<Range,
                                 RangeNode,
                                 boost::intrusive::cache_last<true>
                                > RangeSList;

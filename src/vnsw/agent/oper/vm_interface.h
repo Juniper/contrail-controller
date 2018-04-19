@@ -809,7 +809,7 @@ public:
     struct VrfAssignRule : ListEntry {
         VrfAssignRule();
         VrfAssignRule(const VrfAssignRule &rhs);
-        VrfAssignRule(uint32_t id, 
+        VrfAssignRule(uint32_t id,
                       const autogen::MatchConditionType &match_condition_,
                       const std::string &vrf_name, bool ignore_acl);
         ~VrfAssignRule();
@@ -1281,7 +1281,7 @@ public:
         return slo_list_;
     }
 
-    const std::string GetAnalyzer() const; 
+    const std::string GetAnalyzer() const;
     bool IsL2Active() const;
     bool IsIpv6Active() const;
 
@@ -1464,7 +1464,7 @@ private:
     // to agent or if it would flood the request in the VN.
     bool dhcp_enable_;
     // true if IP is to be obtained from DHCP Relay and not learnt from fabric
-    bool do_dhcp_relay_; 
+    bool do_dhcp_relay_;
     // Proxy ARP mode for interface
     ProxyArpMode proxy_arp_mode_;
     // VM-Name. Used by DNS
@@ -1571,7 +1571,7 @@ struct VmInterfaceKey : public InterfaceKey {
     virtual ~VmInterfaceKey() { }
 
     Interface *AllocEntry(const InterfaceTable *table) const;
-    Interface *AllocEntry(const InterfaceTable *table, 
+    Interface *AllocEntry(const InterfaceTable *table,
                           const InterfaceData *data) const;
     InterfaceKey *Clone() const;
 };
@@ -1580,7 +1580,7 @@ struct VmInterfaceKey : public InterfaceKey {
 // The base class for different type of InterfaceData used for VmInterfaces.
 //
 // Request for VM-Interface data are of 3 types
-// - ADD_DEL_CHANGE 
+// - ADD_DEL_CHANGE
 //   Message for ADD/DEL/CHANGE of an interface
 // - MIRROR
 //   Data for mirror enable/disable

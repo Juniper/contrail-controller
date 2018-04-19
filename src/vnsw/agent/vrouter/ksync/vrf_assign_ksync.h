@@ -21,7 +21,7 @@ class VrfAssignKSyncObject;
 
 class VrfAssignKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    VrfAssignKSyncEntry(VrfAssignKSyncObject* obj, 
+    VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
                         const VrfAssignKSyncEntry *entry, uint32_t index);
     VrfAssignKSyncEntry(VrfAssignKSyncObject* obj, const VrfAssign *rule);
     virtual ~VrfAssignKSyncEntry();

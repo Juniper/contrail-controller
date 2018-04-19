@@ -55,7 +55,7 @@ struct MirrorEntryData : public AgentData {
 
 class MirrorEntry : AgentRefCount<MirrorEntry>, public AgentDBEntry {
 public:
-    MirrorEntry(std::string analyzer_name) : 
+    MirrorEntry(std::string analyzer_name) :
            analyzer_name_(analyzer_name), vrf_(NULL, this), nh_(NULL),
            vrf_name_(""), createdvrf_(false) { };
     virtual ~MirrorEntry() { };
@@ -185,7 +185,7 @@ public:
     static MirrorEntryData::MirrorEntryFlags
         DecodeMirrorFlag (const std::string &nh_mode, bool juniper_header);
     void DeleteMirrorVrf(MirrorEntry *entry);
-    bool IsConfigured(); 
+    bool IsConfigured();
 private:
     std::auto_ptr<boost::asio::ip::udp::socket> udp_sock_;
     static MirrorTable *mirror_table_;

@@ -23,7 +23,7 @@ namespace xmps {
         CONFIG = 1,
         BGP = 2,
         DNS = 3,
-        OTHER = 4 
+        OTHER = 4
     } PeerId;
 
     std::string PeerIdToName(PeerId id);
@@ -31,7 +31,7 @@ namespace xmps {
 
 class XmppChannel {
 public:
-    typedef boost::function<void(const boost::system::error_code &)> 
+    typedef boost::function<void(const boost::system::error_code &)>
         SendReadyCb;
     typedef boost::function<
         void(const XmppStanza::XmppMessage *, xmps::PeerState state)

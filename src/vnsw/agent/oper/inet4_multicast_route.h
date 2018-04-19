@@ -43,9 +43,9 @@ public:
                                   const Ip4Address &grp_addr,
                                   uint32_t ethernet_tag,
                                   AgentRouteData *data);
-    static void DeleteMulticastRoute(const string &vrf_name, 
+    static void DeleteMulticastRoute(const string &vrf_name,
                                      const Ip4Address &src_addr,
-                                     const Ip4Address &grp_addr); 
+                                     const Ip4Address &grp_addr);
     static void DeleteMulticastRoute(const Peer *peer,
                                      const string &vrf_name,
                                      const Ip4Address &src_addr,
@@ -61,7 +61,7 @@ private:
 
 class Inet4MulticastRouteEntry : public AgentRoute {
 public:
-    Inet4MulticastRouteEntry(VrfEntry *vrf, const Ip4Address &dst, 
+    Inet4MulticastRouteEntry(VrfEntry *vrf, const Ip4Address &dst,
                              const Ip4Address &src) :
         AgentRoute(vrf, true), dst_addr_(dst), src_addr_(src) {
     }
@@ -107,7 +107,7 @@ public:
         AgentRouteKey(peer, vrf_name),
         dip_(dip), sip_(sip), ethernet_tag_(ethernet_tag) {
     }
-    Inet4MulticastRouteKey(const string &vrf_name,const Ip4Address &dip, 
+    Inet4MulticastRouteKey(const string &vrf_name,const Ip4Address &dip,
                            const Ip4Address &sip) :
         AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name),
         dip_(dip), sip_(sip) {
@@ -115,12 +115,12 @@ public:
     }
     Inet4MulticastRouteKey(const string &vrf_name, const Ip4Address &dip) :
         AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name),
-        dip_(dip) { 
+        dip_(dip) {
         boost::system::error_code ec;
         sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         ethernet_tag_ = 0;
     }
-    Inet4MulticastRouteKey(const string &vrf_name) : 
+    Inet4MulticastRouteKey(const string &vrf_name) :
         AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name) {
             boost::system::error_code ec;
             dip_ =  IpAddress::from_string("255.255.255.255", ec).to_v4();

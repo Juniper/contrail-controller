@@ -76,7 +76,7 @@ struct dns_flags {
     uint8_t op:4;          // opcode
     uint8_t req:1;         // request / response
     uint8_t ret:4;         // return code
-    uint8_t cd:1;          // checking disabled 
+    uint8_t cd:1;          // checking disabled
     uint8_t ad:1;          // answer authenticated
     uint8_t res:1;         // reserved
     uint8_t ra:1;          // recursion available
@@ -122,8 +122,8 @@ struct DnsSOAData {
     DnsSOAData() : ns_plen(0), ns_offset(0), mailbox_plen(0), mailbox_offset(0),
                    serial(0), refresh(0), retry(0), expiry(0), ttl(0) {}
     bool operator ==(const DnsSOAData &rhs) const {
-        if (primary_ns == rhs.primary_ns && mailbox == rhs.mailbox && 
-            serial == rhs.serial && refresh == rhs.refresh && 
+        if (primary_ns == rhs.primary_ns && mailbox == rhs.mailbox &&
+            serial == rhs.serial && refresh == rhs.refresh &&
             retry == rhs.retry && expiry == rhs.expiry && ttl == rhs.ttl)
             return true;
         return false;
@@ -163,7 +163,7 @@ struct DnsItem {
     std::string ToString() const;
 
     bool operator ==(const DnsItem &rhs) const {
-        if (eclass == rhs.eclass && type == rhs.type && 
+        if (eclass == rhs.eclass && type == rhs.type &&
             name == rhs.name && data == rhs.data && soa == rhs.soa)
             return true;
         return false;
@@ -203,7 +203,7 @@ struct DnsUpdateData {
     mutable DnsItems items;
 
     DnsUpdateData() {}
-    DnsUpdateData(const std::string &vdns, const std::string &z) 
+    DnsUpdateData(const std::string &vdns, const std::string &z)
                 : virtual_dns(vdns), zone(z) {}
 
     struct Compare {
@@ -240,7 +240,7 @@ struct DnsUpdateData {
         }
         return change;
     }
-};  
+};
 
 struct Subnet {
     boost::asio::ip::address_v4 prefix;
@@ -249,7 +249,7 @@ struct Subnet {
 
     enum DnsConfigFlags {
         DeleteMarked = 1 << 0,
-    };  
+    };
 
     Subnet() : plen(0), flags(0) {}
     Subnet(std::string addr, uint32_t len) : plen(len), flags(0) {
@@ -296,22 +296,22 @@ public:
                                  DnsItems &ans, DnsItems &auth, DnsItems &add);
     static bool ParseDnsUpdate(uint8_t *dns, uint16_t dnslen,
                                DnsUpdateData &data);
-    static int BuildDnsQuery(uint8_t *buf, uint16_t xid, 
+    static int BuildDnsQuery(uint8_t *buf, uint16_t xid,
                              const std::string &domain,
                              const DnsItems &items);
-    static int BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid, 
-                              const std::string &domain, 
-                              const std::string &zone, 
+    static int BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid,
+                              const std::string &domain,
+                              const std::string &zone,
                               const DnsItems &items);
-    static uint8_t *AddQuestionSection(uint8_t *ptr, const std::string &name, 
-                                       uint16_t type, uint16_t cl, 
+    static uint8_t *AddQuestionSection(uint8_t *ptr, const std::string &name,
+                                       uint16_t type, uint16_t cl,
                                        uint16_t &length);
-    static uint8_t *AddAnswerSection(uint8_t *ptr, const DnsItem &item, 
+    static uint8_t *AddAnswerSection(uint8_t *ptr, const DnsItem &item,
                                      uint16_t &length);
     static uint8_t *AddUpdate(uint8_t *ptr, const DnsItem &item,
                              uint16_t cl, uint32_t ttl, uint16_t &length);
-    static void BuildDnsHeader(dnshdr *dns, uint16_t xid, DnsReq req, 
-                               DnsOpcode op, bool rd, bool ra, uint8_t ret, 
+    static void BuildDnsHeader(dnshdr *dns, uint16_t xid, DnsReq req,
+                               DnsOpcode op, bool rd, bool ra, uint8_t ret,
                                uint16_t ques_count);
 
     static inline uint16_t DataLength(uint16_t plen, uint16_t offset,
@@ -322,7 +322,7 @@ public:
     static void GetReverseZones(const Subnet &subnet, ZoneList &zones);
     static void GetReverseZone(uint32_t addr, uint32_t plen, std::string &zone);
     static bool GetAddrFromPtrName(std::string &ptr_name, uint32_t &mask);
-    static std::string GetFQDN(const std::string &name, const std::string &domain, 
+    static std::string GetFQDN(const std::string &name, const std::string &domain,
                                const std::string &match);
     static bool HasSpecialChars(const std::string &name);
     static void RemoveSpecialChars(std::string &name);
@@ -381,11 +381,11 @@ private:
 
         return ptr;
     }
-    static uint8_t *AddData(uint8_t *ptr, const DnsItem &item, 
+    static uint8_t *AddData(uint8_t *ptr, const DnsItem &item,
                             uint16_t &length);
-    static uint8_t *AddAdditionalSection(uint8_t *ptr, const std::string name, 
-                                         uint16_t type, uint16_t cl, 
-                                         uint32_t ttl, const std::string &data, 
+    static uint8_t *AddAdditionalSection(uint8_t *ptr, const std::string name,
+                                         uint16_t type, uint16_t cl,
+                                         uint32_t ttl, const std::string &data,
                                          uint16_t &length);
     static bool ReadName(uint8_t *dns, uint16_t dnslen, int *remlen,
                          std::string &name, uint16_t &plen, uint16_t &offset);
@@ -408,7 +408,7 @@ public:
 
     DnsNameEncoder() {};
     virtual ~DnsNameEncoder() {};
-    void AddName(std::string &name, uint16_t curr_msg_offset, 
+    void AddName(std::string &name, uint16_t curr_msg_offset,
                  uint16_t &name_plen, uint16_t &name_offset);
 
 private:

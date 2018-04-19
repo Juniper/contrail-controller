@@ -34,7 +34,7 @@ extern SandeshTraceBufferPtr DnsConfigTraceBuf;
 #define DNS_TRACE(Obj, ...)                                                   \
 do {                                                                          \
     Obj::TraceMsg(DnsConfigTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);      \
-} while (false)  
+} while (false)
 
 typedef boost::shared_ptr<IFMapNodeProxy> IFMapNodeProxyRef;
 
@@ -107,7 +107,7 @@ public:
     void Terminate();
 
     IFMapNode *FindTarget(IFMapNode *node, std::string link_name);
-    IFMapNode *FindTarget(IFMapNode *node, std::string link_name, 
+    IFMapNode *FindTarget(IFMapNode *node, std::string link_name,
                           std::string node_type);
 private:
     typedef std::vector<ConfigDelta> ChangeList;

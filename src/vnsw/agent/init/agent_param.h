@@ -13,7 +13,7 @@ class Agent;
 class VirtualGatewayConfigTable;
 
 struct LlgrParams {
-public:    
+public:
     //In seconds
     static const int kStaleConfigCleanupTime = 100;
     static const int kConfigPollTime = 5;
@@ -43,14 +43,14 @@ public:
      */
     uint16_t config_inactivity_time() const {
         return config_inactivity_time_;
-    } 
+    }
     /*
      * config_fallback_time_ - Maximum time to wait for silence. In case
      * silence is never seen use this time to conclude end of config.
      */
     uint16_t config_fallback_time() const {
         return config_fallback_time_;
-    } 
+    }
 
     /*
      * end_of_rib_tx_poll_time_ - End of rib timer poll time.
@@ -89,7 +89,7 @@ public:
         return llgr_stale_time_;
     }
 
-private:    
+private:
     friend class AgentParam;
 
     /** stale config cleanup time */
@@ -107,7 +107,7 @@ private:
     uint32_t llgr_stale_time_;
 };
 
-// Class handling agent configuration parameters from config file and 
+// Class handling agent configuration parameters from config file and
 // arguments
 class AgentParam  {
 public:
@@ -153,7 +153,7 @@ public:
     };
 
     struct PortInfo {
-        PortInfo() : 
+        PortInfo() :
             name_(""), vrf_(""), addr_(0), prefix_(0), plen_(0), gw_(0) {}
         ~PortInfo() { };
 
@@ -188,7 +188,7 @@ public:
     const Ip4Address &vhost_gw() const { return vhost_.gw_; }
 
     const std::string &xen_ll_name() const { return xen_ll_.name_; }
-    const void set_xen_ll_name(const std::string &name) { 
+    const void set_xen_ll_name(const std::string &name) {
         xen_ll_.name_ = name;
     }
     const Ip4Address &xen_ll_addr() const { return xen_ll_.addr_; }
@@ -310,7 +310,7 @@ public:
     void set_subnet_hosts_resolvable(bool val) {
         subnet_hosts_resolvable_ = val;
     }
-    VirtualGatewayConfigTable *vgw_config_table() const { 
+    VirtualGatewayConfigTable *vgw_config_table() const {
         return vgw_config_table_.get();
     }
     const std::string &vmware_physical_port() const {
@@ -567,7 +567,7 @@ protected:
                       Ip4Address *server, uint16_t *port);
     bool ParseServerList(const std::string &key, Ip4Address *server1,
                          uint16_t *port1, Ip4Address *server2, uint16_t *port2);
-    void ParseIpArgument(const boost::program_options::variables_map &var_map, 
+    void ParseIpArgument(const boost::program_options::variables_map &var_map,
                          Ip4Address &server, const std::string &key);
     bool ParseServerListArguments
     (const boost::program_options::variables_map &var_map, Ip4Address &server1,

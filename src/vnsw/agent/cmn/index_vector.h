@@ -11,7 +11,7 @@
 #include <base/logging.h>
 
 // Index management + Vector holding a pointer at allocated index
-template <typename EntryType> 
+template <typename EntryType>
 class IndexVector {
 public:
     static const size_t kGrowSize = 32;
@@ -22,7 +22,7 @@ public:
     ~IndexVector() {
         // Make sure the bitmap is empty
         if (bitmap_.count() != bitmap_.size()) {
-            LOG(ERROR, "IndexVector has " << bitmap_.size() - bitmap_.count() 
+            LOG(ERROR, "IndexVector has " << bitmap_.size() - bitmap_.count()
                 << " entries in destructor");
         }
         bitmap_.clear();

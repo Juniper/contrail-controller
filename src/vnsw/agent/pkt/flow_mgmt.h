@@ -76,7 +76,7 @@
 //    - Operational entry to list of dependent flows
 //    - Flow entry to list of operational-entries it is dependent on
 // 4. DBClient module registers to DBTables of interest and tracks changes to
-//    operational-db entries 
+//    operational-db entries
 // 5. Flow Table module will enqueue a message to Flow Management queue on
 //    add/delete/change of operational entries
 // 6. The action in flow-management module for operational entry events will
@@ -753,7 +753,7 @@ public:
         }
 
         return NULL;
-    } 
+    }
 
     bool Match(const IpAddress &match_ip) const {
         if (ip_.is_v4()) {

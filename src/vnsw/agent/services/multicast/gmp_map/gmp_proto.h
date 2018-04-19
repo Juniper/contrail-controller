@@ -50,7 +50,7 @@ public:
         uint32_t igmp_sgh_del_count_;
     };
 
-    GmpProto(GmpType::Type type, Agent *agent, const std::string &task_name, 
+    GmpProto(GmpType::Type type, Agent *agent, const std::string &task_name,
                             int instance, boost::asio::io_service &io);
     ~GmpProto();
     GmpIntf *CreateIntf();
