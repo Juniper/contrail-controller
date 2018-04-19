@@ -14,7 +14,7 @@ env = AgentEnv.Clone()
 
 # Function to append TOP level directory
 def AddTopDir(list):
-    return map(lambda x: Dir('./' + x).abspath, list)
+    return [Dir('./' + x).abspath for x in list]
 
     asdf
 cpppath = [
