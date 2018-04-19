@@ -14,7 +14,6 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_xmpp.h"
 #include "ifmap/test/config_cassandra_client_test.h"

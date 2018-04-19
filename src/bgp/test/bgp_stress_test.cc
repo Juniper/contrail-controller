@@ -27,7 +27,6 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
-#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "xmpp/xmpp_sandesh.h"
 

@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "ifmap/client/config_json_parser.h"
-#include "ifmap/ifmap_config_options.h"
 
 class BgpServer;
 class BgpServerTest;
