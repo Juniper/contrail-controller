@@ -79,35 +79,52 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
     # end test_configured_targets
 
-    def test_db_manage_zk_route_target_missing(self):
-        # create  vn
-        vn_name = 'vn_' + self.id()
-        vn_obj = self.create_virtual_network(vn_name, '10.0.0.0/24')
+    @retries(5)
+    def wait_for_route_target(self, vn_obj):
         ri_obj = self._vnc_lib.routing_instance_read(
                 vn_obj.get_routing_instances()[0]['to'])
-        rt_obj = self._vnc_lib.route_target_read(
+        return self._vnc_lib.route_target_read(
                 ri_obj.get_route_target_refs()[0]['to'])
+
+    def test_db_manage_zk_route_target_missing(self):
+        vn_obj = self.create_virtual_network('vn_' + self.id(), '10.0.0.0/24')
+        ri_fq_name = vn_obj.fq_name + [vn_obj.fq_name[-1]]
+        rt_obj = self.wait_for_route_target(vn_obj)
         rt_id_str = "%(#)010d" % {
-                '#': int(rt_obj.get_fq_name_str().split(':')[-1])}
+            '#': int(rt_obj.get_fq_name_str().split(':')[-1])}
         db_checker = db_manage.DatabaseChecker(
             *db_manage._parse_args('check --cluster_id %s' % self._cluster_id))
-        db_healer = db_manage.DatabaseHealer(
-            *db_manage._parse_args('--execute heal --cluster_id %s' % self._cluster_id))
+        db_cleaner = db_manage.DatabaseCleaner(
+            *db_manage._parse_args('--execute clean --cluster_id %s' %
+                                   self._cluster_id))
         path = '%s%s/%s' % (
-                self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH, rt_id_str)
-        print "make sure node exists in zk"
-        self.assertIsNotNone(db_checker._zk_client.get(path))
-        print "Remove node from zk"
+            self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH, rt_id_str)
+        self.assertEqual(db_checker._zk_client.get(path)[0],
+                         ':'.join(ri_fq_name))
         with db_checker._zk_client.patch_path(path):
-            print "check for node to be missing in zk"
             errors = db_checker.check_route_targets_id()
             error_types = [type(x) for x in errors]
-            self.assertIn(db_manage.ZkRTgtIdMissingError, error_types)
-            print "heal missing node in zk"
-            db_healer.heal_route_targets_id()
-            print "check for node to be re-created in zk by heal"
+            self.assertIn(db_manage.SchemaRTgtIdExtraError, error_types)
+            self.assertIn(db_manage.ConfigRTgtIdExtraError, error_types)
+
+            db_cleaner.clean_stale_route_target_id()
             errors = db_checker.check_route_targets_id()
             self.assertEqual([], errors)
+            self.assertIsNone(db_checker._zk_client.exists(path))
+            self.assertRaises(NoIdError, self._vnc_lib.route_target_read,
+                              id=rt_obj.uuid)
+
+            test_common.reinit_schema_transformer()
+            new_rt_obj = self.wait_for_route_target(vn_obj)
+            new_rt_id_str = "%(#)010d" % {
+                '#': int(new_rt_obj.get_fq_name_str().split(':')[-1])}
+            new_path = '%s%s/%s' % (
+                self._cluster_id,
+                db_checker.BASE_RTGT_ID_ZK_PATH,
+                new_rt_id_str,
+            )
+            self.assertEqual(db_checker._zk_client.get(new_path)[0],
+                             ':'.join(ri_fq_name))
     # test_db_manage_zk_route_target_missing
 
 # end class TestRouteTarget
