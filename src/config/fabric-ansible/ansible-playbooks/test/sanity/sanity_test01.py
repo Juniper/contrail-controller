@@ -5,11 +5,12 @@
 #
 
 """
-This file containamespace sanity test for all major workflows supported by
+This file contains sanity test for all major workflows supported by
 fabric ansible
 """
 
 from sanity_base import SanityBase
+import config
 
 
 # pylint: disable=E1101
@@ -21,19 +22,22 @@ class SanityTest01(SanityBase):
      - device underlay config
     """
 
-    def __init__(self, prouter_ip, prouter_password, vnc_password):
-        SanityBase.__init__(self, "sanity_test_01", vnc_password)
-        self._prouter_ip = prouter_ip
-        self._prouter_password = prouter_password
+    def __init__(self, cfg):
+        SanityBase.__init__(self, cfg, 'sanity_test_01')
+        self._prouter = cfg['prouter']
+        self._asn = cfg['asn']
     # end __init__
 
     def _validate_discovered_prouters(self, prouters):
-        assert len(prouters) == 1
-        assert prouters[0].physical_router_management_ip == self._prouter_ip
-        assert prouters[0].physical_router_user_credentials.username == 'root'
-        assert prouters[0].physical_router_vendor_name == 'juniper'
-        assert prouters[0].physical_router_product_name
-        assert prouters[0].physical_router_device_family
+        assert len(prouters) == len(self._prouter['ips'])
+        for i in range(len(prouters)):
+            assert prouters[i].physical_router_management_ip\
+                   == self._prouter['ips'][i]
+            assert prouters[i].physical_router_user_credentials.username\
+                   == 'root'
+            assert prouters[i].physical_router_vendor_name == 'juniper'
+            assert prouters[i].physical_router_product_name
+            assert prouters[i].physical_router_device_family
     # end _validate_discovered_prouters
 
     def _validate_imported_prouters(self, prouters):
@@ -53,9 +57,9 @@ class SanityTest01(SanityBase):
     def test(self):
         try:
             self.cleanup_fabric('fab01')
-            fabric = self.create_fabric('fab01', [self._prouter_password])
-            self.add_mgmt_ip_namespace(fabric, self._prouter_ip + '/32')
-            self.add_asn_namespace(fabric, 64512)
+            fabric = self.create_fabric('fab01', self._prouter['passwords'])
+            self.add_mgmt_ip_namespace(fabric, self._prouter['cidr'])
+            self.add_asn_namespace(fabric, self._asn)
 
             prouters = self.discover_fabric_device(fabric)
             self._validate_discovered_prouters(prouters)
@@ -73,5 +77,5 @@ class SanityTest01(SanityBase):
 
 
 if __name__ == "__main__":
-    SanityTest01('10.155.67.5', 'Embe1mpls', 'contrail123').test()
+    SanityTest01(config.load('config/test_config.yml')).test()
 # end __main__
