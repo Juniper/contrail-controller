@@ -1238,9 +1238,9 @@ UpdateInfo *MvpnProjectManager::GetType4UpdateInfo(MvpnRoute *route) {
 
 UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
     assert((route->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute) ||
-            (route->GetPrefix().type() == MvpnPrefix::LeafADRoute));
+            (route->GetPrefix().type() == MvpnPrefix::SourceTreeJoinRoute));
 
-    if (route->GetPrefix().type() == MvpnPrefix::LeafADRoute)
+    if (route->GetPrefix().type() == MvpnPrefix::SourceTreeJoinRoute)
         return GetType4UpdateInfo(route);
     MvpnStatePtr state = GetState(route);
 
