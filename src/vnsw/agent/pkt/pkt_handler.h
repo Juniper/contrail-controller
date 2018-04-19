@@ -381,6 +381,7 @@ struct PktInfo {
     TunnelInfo          tunnel;
     bool                l3_label;
     bool                multicast_label;
+    bool                is_segment_hc_pkt;
 
     // Pointer to different headers in user packet
     struct ether_header *eth;

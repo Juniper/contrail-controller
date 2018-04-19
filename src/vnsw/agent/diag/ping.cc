@@ -37,6 +37,7 @@ Ping::FillAgentHeader(AgentDiagPktData *ad) {
     ad->key_ = htons(key_);
     ad->seq_no_ = htonl(seq_no_);
     ad->rtt_ = microsec_clock::universal_time();
+    memset(ad->data_, 0, sizeof(ad->data_));
 }
 
 DiagPktHandler*
