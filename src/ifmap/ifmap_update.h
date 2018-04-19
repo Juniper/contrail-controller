@@ -137,7 +137,7 @@ public:
     void InterestOr(const BitSet &bset) { interest_ |= bset; }
     void SetInterest(const BitSet &bset) { interest_ = bset; }
     void InterestReset(const BitSet &set) { interest_.Reset(set); }
-    
+
     void AdvertisedOr(const BitSet &set) { advertised_ |= set; }
     void AdvertisedReset(const BitSet &set) { advertised_.Reset(set); }
 

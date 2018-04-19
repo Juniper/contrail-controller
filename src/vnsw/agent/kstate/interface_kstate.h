@@ -7,7 +7,7 @@
 
 class InterfaceKState: public KState {
 public:
-    InterfaceKState(KInterfaceResp *obj, const std::string &resp_ctx, 
+    InterfaceKState(KInterfaceResp *obj, const std::string &resp_ctx,
                     vr_interface_req &encoder, int id);
     virtual void SendResponse();
     virtual void Handler();

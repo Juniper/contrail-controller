@@ -51,9 +51,9 @@ public:
 
     void ClearCounters();
     uint64_t msgs_sent() const;
-    std::string VrSubscribeGetVrName(const std::string &iqnode, 
+    std::string VrSubscribeGetVrName(const std::string &iqnode,
                                      bool *valid_message);
-    std::string VmSubscribeGetVmUuid(const std::string &iqnode, 
+    std::string VmSubscribeGetVmUuid(const std::string &iqnode,
                                      bool *valid_message);
     bool MustProcessChannelNotReady();
 
@@ -124,7 +124,7 @@ public:
     }
 
     uint64_t get_unknown_subscribe_messages() {
-        return unknown_subscribe_messages; 
+        return unknown_subscribe_messages;
     }
     uint64_t get_unknown_unsubscribe_messages() {
         return unknown_unsubscribe_messages;

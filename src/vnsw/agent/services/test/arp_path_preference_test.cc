@@ -89,7 +89,7 @@ protected:
     Agent *agent;
 };
 
-//Check EVPN route and IP route list has 
+//Check EVPN route and IP route list has
 //interface ID
 TEST_F(ArpPathPreferenceTest, Test1) {
     uint32_t vrf_id = VrfGet("vrf1")->vrf_id();
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
     client = TestInit(init_file, ksync_init, true, true);
     usleep(100000);
     client->WaitForIdle();
-    
+
     int ret = RUN_ALL_TESTS();
     TestShutdown();
     delete client;

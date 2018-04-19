@@ -22,7 +22,7 @@ public:
                 return ip_ < rhs.ip_;
 
             return (plen_ < rhs.plen_);
-        } 
+        }
 
         Ip4Address ip_;
         uint8_t plen_;
@@ -36,7 +36,7 @@ public:
                          const std::string &vrf_name,
                          const SubnetList &subnets,
                          const SubnetList &routes,
-                         uint32_t version) : 
+                         uint32_t version) :
         interface_name_(interface_name), vrf_name_(vrf_name),
         subnets_(subnets), routes_(routes), version_(version) {}
     VirtualGatewayConfig(const VirtualGatewayConfig &rhs) :
@@ -132,7 +132,7 @@ public:
     bool ProcessRequest(boost::shared_ptr<VirtualGatewayData> request);
 
 private:
-    void BuildSubnetList(const std::string &subnets, 
+    void BuildSubnetList(const std::string &subnets,
                          VirtualGatewayConfig::SubnetList &results);
     bool AddVgw(VirtualGatewayInfo &vgw, uint32_t version);
     bool DeleteVgw(const std::string &interface_name);

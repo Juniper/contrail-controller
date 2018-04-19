@@ -64,7 +64,7 @@ public:
 
     // Invoked from XmppServer when a session is accepted.
     virtual bool AcceptSession(XmppSession *session);
-    virtual void ReceiveMsg(XmppSession *session, const std::string &); 
+    virtual void ReceiveMsg(XmppSession *session, const std::string &);
 
     virtual boost::asio::ip::tcp::endpoint endpoint() const;
     virtual boost::asio::ip::tcp::endpoint local_endpoint() const;

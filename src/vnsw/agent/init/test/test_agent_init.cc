@@ -39,14 +39,14 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
               Ip4Address::from_string("10.1.1.254").to_ulong());
     EXPECT_STREQ(param.eth_port().c_str(), "vnet0");
 
-    EXPECT_EQ(param.controller_server_list().size(), 1); 
+    EXPECT_EQ(param.controller_server_list().size(), 1);
     std::vector<string>servers;
-    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":")); 
-    EXPECT_STREQ("127.0.0.1", servers[0].c_str()); 
+    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":"));
+    EXPECT_STREQ("127.0.0.1", servers[0].c_str());
 
     EXPECT_EQ(param.dns_server_list().size(), 1);
-    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":")); 
-    EXPECT_STREQ("127.0.0.1", servers[0].c_str()); 
+    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":"));
+    EXPECT_STREQ("127.0.0.1", servers[0].c_str());
 
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
@@ -60,7 +60,7 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_EQ(param.flow_cache_timeout(), 30);
     EXPECT_EQ(param.stale_interface_cleanup_timeout(), 120);
-    EXPECT_STREQ(param.config_file().c_str(), 
+    EXPECT_STREQ(param.config_file().c_str(),
                  "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
@@ -108,19 +108,19 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.max_vm_flows(), 100);
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
-    
+
     std::vector<string>servers;
     EXPECT_EQ(param.controller_server_list().size(), 2);
-    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":")); 
-    EXPECT_STREQ("11.1.1.1", servers[0].c_str()); 
-    boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":")); 
-    EXPECT_STREQ("12.1.1.1", servers[0].c_str()); 
-  
+    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":"));
+    EXPECT_STREQ("11.1.1.1", servers[0].c_str());
+    boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":"));
+    EXPECT_STREQ("12.1.1.1", servers[0].c_str());
+
     EXPECT_EQ(param.dns_server_list().size(), 2);
-    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":")); 
-    EXPECT_STREQ("13.1.1.1", servers[0].c_str()); 
-    boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":")); 
-    EXPECT_STREQ("14.1.1.1", servers[0].c_str()); 
+    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":"));
+    EXPECT_STREQ("13.1.1.1", servers[0].c_str());
+    boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":"));
+    EXPECT_STREQ("14.1.1.1", servers[0].c_str());
 
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_EQ(param.dhcp_relay_mode(), false);
@@ -284,7 +284,7 @@ TEST_F(AgentParamTest, Agent_Param_1) {
     int argc = 24;
     char *argv[] = {
         (char *) "",
-        (char *) "--config_file", 
+        (char *) "--config_file",
                         (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
         (char *) "--DEFAULT.collectors",     (char *)"1.1.1.1:1000",
         (char *) "--DEFAULT.derived_stats",  (char *)"DSStruct.dsattr:dsparam",
@@ -332,7 +332,7 @@ TEST_F(AgentParamTest, Agent_Arg_Override_Config_1) {
         (char *) "",
         (char *) "--config_file",
                         (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
-        (char *) "--HYPERVISOR.type",    (char *)"xen", 
+        (char *) "--HYPERVISOR.type",    (char *)"xen",
         (char *) "--HYPERVISOR.xen_ll_interface",   (char *)"xenport",
         (char *) "--HYPERVISOR.xen_ll_ip", (char *)"1.1.1.2/16",
     };
@@ -341,7 +341,7 @@ TEST_F(AgentParamTest, Agent_Arg_Override_Config_1) {
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
-    EXPECT_STREQ(param.config_file().c_str(), 
+    EXPECT_STREQ(param.config_file().c_str(),
                  "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_EQ(param.mode(), AgentParam::MODE_XEN);
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenport");
@@ -356,7 +356,7 @@ TEST_F(AgentParamTest, Agent_Arg_Override_Config_2) {
     int argc = 7;
     char *argv[] = {
         (char *) "",
-        (char *) "--CONTROL-NODE.servers",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
+        (char *) "--CONTROL-NODE.servers",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001",
         (char *) "--DNS.servers",   (char *)"22.1.1.1:53", (char *)"23.1.1.1:53",
     };
 
@@ -366,16 +366,16 @@ TEST_F(AgentParamTest, Agent_Arg_Override_Config_2) {
 
     std::vector<string>servers;
     EXPECT_EQ(param.controller_server_list().size(), 2);
-    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":")); 
-    EXPECT_STREQ("20.1.1.1", servers[0].c_str()); 
-    boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":")); 
-    EXPECT_STREQ("21.1.1.1", servers[0].c_str()); 
-  
+    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":"));
+    EXPECT_STREQ("20.1.1.1", servers[0].c_str());
+    boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":"));
+    EXPECT_STREQ("21.1.1.1", servers[0].c_str());
+
     EXPECT_EQ(param.dns_server_list().size(), 2);
-    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":")); 
-    EXPECT_STREQ("22.1.1.1", servers[0].c_str()); 
-    boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":")); 
-    EXPECT_STREQ("23.1.1.1", servers[0].c_str()); 
+    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":"));
+    EXPECT_STREQ("22.1.1.1", servers[0].c_str());
+    boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":"));
+    EXPECT_STREQ("23.1.1.1", servers[0].c_str());
 }
 
 /* Some command line args have default values. If user has not passed these
@@ -431,8 +431,8 @@ TEST_F(AgentParamTest, Default_Cmdline_arg2) {
     EXPECT_TRUE(param.log_local());
 }
 
-/* Some command line args have default values. If user has explicitly passed 
- * values for these command line args and has also specified values in config 
+/* Some command line args have default values. If user has explicitly passed
+ * values for these command line args and has also specified values in config
  * file, then values specified on command line should be taken */
 TEST_F(AgentParamTest, Default_Cmdline_arg3) {
     int argc = 11;

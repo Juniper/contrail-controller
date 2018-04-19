@@ -309,7 +309,7 @@ public:
     virtual DBEntry *OperDBAdd(const DBRequest *req);
     virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
-    virtual bool OperDBResync(DBEntry *entry, const DBRequest *req); 
+    virtual bool OperDBResync(DBEntry *entry, const DBRequest *req);
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
@@ -349,7 +349,7 @@ private:
                          const std::string &ipam_name,
                          std::vector<VnIpam> *vn_ipam);
     VnData *BuildData(IFMapNode *node);
-    IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
+    IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node,
                           std::string node_type);
     DBTable::DBTableWalkRef walk_ref_;
 
@@ -391,7 +391,7 @@ public:
     typedef std::map<std::string, autogen::VirtualDnsType> VdnsDomainConfigMap;
     typedef std::pair<std::string, autogen::VirtualDnsType> VdnsDomainConfigPair;
     typedef boost::function<void(IFMapNode *)> Callback;
-    
+
     DomainConfig(Agent *);
     virtual ~DomainConfig();
     void Init();

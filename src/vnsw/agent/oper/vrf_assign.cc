@@ -25,7 +25,7 @@ std::auto_ptr<DBEntry> VrfAssignTable::AllocEntry(const DBRequestKey *k) const {
 }
 
 VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
-    const VrfAssign::VrfAssignKey *key = 
+    const VrfAssign::VrfAssignKey *key =
         static_cast<const VrfAssign::VrfAssignKey *>(k);
     VrfAssign *assign = NULL;
 
@@ -35,7 +35,7 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
 
     switch (key->type_) {
     case VrfAssign::VLAN: {
-        VlanVrfAssign *vlan_assign = 
+        VlanVrfAssign *vlan_assign =
             new VlanVrfAssign(intrface, key->vlan_tag_);
         assign = static_cast<VrfAssign *>(vlan_assign);
     }
@@ -50,7 +50,7 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
 }
 
 DBEntry *VrfAssignTable::Add(const DBRequest *req) {
-    const VrfAssign::VrfAssignKey *key = 
+    const VrfAssign::VrfAssignKey *key =
         static_cast<const VrfAssign::VrfAssignKey *>(req->key.get());
     VrfAssign *rule = AllocWithKey(key);
     if (rule->interface_.get() == NULL) {
@@ -168,7 +168,7 @@ bool VrfAssign::IsLess(const DBEntry &rhs) const {
 
 bool VrfAssign::Change(const DBRequest *req) {
     bool ret = false;
-    VrfAssign::VrfAssignData *data = 
+    VrfAssign::VrfAssignData *data =
         static_cast<VrfAssign::VrfAssignData *>(req->data.get());
 
     VrfEntry *vrf = VrfAssignTable::GetInstance()->FindVrf(data->vrf_name_);

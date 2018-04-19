@@ -91,7 +91,7 @@ protected:
         task_util::WaitForIdle();
         db_util::Clear(&db_);
     }
-    void DnsIpamCallback(const Subnet &subnet, const VirtualDnsConfig *c,  
+    void DnsIpamCallback(const Subnet &subnet, const VirtualDnsConfig *c,
                            DnsConfig::DnsConfigEvent ev) {
         counts_[DNS_NETWORK_IPAM][ev]++;
     }
@@ -117,10 +117,10 @@ protected:
                     Subnets &subnets = (*vnni_it)->GetSubnets();
                     counts_[DNS_NETWORK_IPAM][ev] += subnets.size();
                 }
-            }   
-        }   
+            }
+        }
         if (ev == DnsConfig::CFG_DELETE) {
-            counts_[DNS_VIRT_DOMAIN_RECORD][ev] += 
+            counts_[DNS_VIRT_DOMAIN_RECORD][ev] +=
                 c->virtual_dns_records_.size();
         }
     }
@@ -143,7 +143,7 @@ protected:
                 counts_[i][j] = 0;
     }
     void Register() {
-        DnsConfig::VdnsCallback = 
+        DnsConfig::VdnsCallback =
             boost::bind(&DnsConfigManagerTest::VDnsCallback, this, _1, _2);
         DnsConfig::VdnsRecordCallback =
             boost::bind(&DnsConfigManagerTest::VDnsRecCallback, this, _1, _2);

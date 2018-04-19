@@ -589,7 +589,7 @@ bool AgentUtXmlMulticastTorValidate::Validate() {
         }
         //Add multicast tor olist
         TunnelOlist olist;
-        olist.push_back(OlistTunnelEntry(nil_uuid(), 10, 
+        olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::VxlanType()));
         AgentPath *path = NULL;

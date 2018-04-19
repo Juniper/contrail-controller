@@ -34,7 +34,7 @@ AclEntry::~AclEntry() {
         delete(*it);
     }
     matches_.clear();
-    
+
     // Clean up Actions
     ActionList::iterator ial;
     for (ial = actions_.begin(); ial != actions_.end(); ial++) {
@@ -112,7 +112,7 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     if (acl_entry_spec.protocol.size() > 0) {
         ProtocolMatch *proto = new ProtocolMatch();
         std::vector<RangeSpec>::const_iterator it;
-        for (it = acl_entry_spec.protocol.begin(); 
+        for (it = acl_entry_spec.protocol.begin();
              it != acl_entry_spec.protocol.end(); it++) {
             proto->SetProtocolRange((*it).min, (*it).max);
         }
@@ -122,7 +122,7 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     if (acl_entry_spec.dst_port.size() > 0) {
         DstPortMatch *port = new DstPortMatch();
         std::vector<RangeSpec>::const_iterator it;
-        for (it = acl_entry_spec.dst_port.begin(); 
+        for (it = acl_entry_spec.dst_port.begin();
              it != acl_entry_spec.dst_port.end(); it++) {
             port->SetPortRange((*it).min, (*it).max);
         }
@@ -132,7 +132,7 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     if (acl_entry_spec.src_port.size() > 0) {
         SrcPortMatch *port = new SrcPortMatch();
         std::vector<RangeSpec>::const_iterator it;
-        for (it = acl_entry_spec.src_port.begin(); 
+        for (it = acl_entry_spec.src_port.begin();
              it != acl_entry_spec.src_port.end(); it++) {
             port->SetPortRange((*it).min, (*it).max);
         }
@@ -221,7 +221,7 @@ bool AclEntry::ResyncQosConfigEntries() {
     return ret;
 }
 
-void AclEntry::set_mirror_entry(MirrorEntryRef me) { 
+void AclEntry::set_mirror_entry(MirrorEntryRef me) {
         mirror_entry_ = me;
 }
 
@@ -369,7 +369,7 @@ void AddressMatch::SetSource(const bool src)
 
 bool AddressMatch::SGMatch(const SecurityGroupList *sg_l, int id) const
 {
-    if (!sg_l) { 
+    if (!sg_l) {
         return false;
     }
 
@@ -514,7 +514,7 @@ bool AddressMatch::Match(const PacketHeader *pheader,
         } else if (addr_type_ == ADDRESS_GROUP) {
             return AddressGroupMatch(pheader->src_ip, pheader->src_tags_);
         }
-    } else { 
+    } else {
         if (addr_type_ == IP_ADDR) {
             return SubnetMatch(ip_list_, pheader->dst_ip);
         } else if (addr_type_ == NETWORK_ID) {
@@ -665,7 +665,7 @@ void AddressMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 
 }
 
-void ProtocolMatch::SetProtocolRange(const uint16_t min_protocol, 
+void ProtocolMatch::SetProtocolRange(const uint16_t min_protocol,
                                      const uint16_t max_protocol)
 {
     Range *protocol_range = new Range(min_protocol, max_protocol);
@@ -697,7 +697,7 @@ bool ProtocolMatch::Compare(const AclEntryMatch &rhs) const {
 bool ProtocolMatch::Match(const PacketHeader *packet_header,
                           FlowPolicyInfo *info) const
 {
-    for (RangeSList::const_iterator it = protocol_ranges_.begin(); 
+    for (RangeSList::const_iterator it = protocol_ranges_.begin();
          it != protocol_ranges_.end(); it++) {
         if(packet_header->protocol < (*it).min ||
            packet_header->protocol > (*it).max) {
@@ -711,7 +711,7 @@ bool ProtocolMatch::Match(const PacketHeader *packet_header,
 
 void ProtocolMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 {
-    for (RangeSList::const_iterator it = protocol_ranges_.begin(); 
+    for (RangeSList::const_iterator it = protocol_ranges_.begin();
          it != protocol_ranges_.end(); it++) {
         class SandeshRange proto;
         proto.min = (*it).min;
@@ -904,7 +904,7 @@ bool SrcPortMatch::Match(const PacketHeader *packet_header,
         return true;
     }
 
-    for (RangeSList::const_iterator it = port_ranges_.begin(); 
+    for (RangeSList::const_iterator it = port_ranges_.begin();
          it != port_ranges_.end(); it++) {
         if(packet_header->src_port < (*it).min ||
            packet_header->src_port > (*it).max) {
@@ -918,7 +918,7 @@ bool SrcPortMatch::Match(const PacketHeader *packet_header,
 
 void SrcPortMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 {
-    for (RangeSList::const_iterator it = port_ranges_.begin(); 
+    for (RangeSList::const_iterator it = port_ranges_.begin();
          it != port_ranges_.end(); it++) {
         class SandeshRange port;
         port.min = (*it).min;
@@ -936,7 +936,7 @@ bool DstPortMatch::Match(const PacketHeader *packet_header,
         return true;
     }
 
-    for (RangeSList::const_iterator it = port_ranges_.begin(); 
+    for (RangeSList::const_iterator it = port_ranges_.begin();
          it != port_ranges_.end(); it++) {
         if(packet_header->dst_port < (*it).min ||
            packet_header->dst_port > (*it).max) {
@@ -950,7 +950,7 @@ bool DstPortMatch::Match(const PacketHeader *packet_header,
 
 void DstPortMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 {
-    for (RangeSList::const_iterator it = port_ranges_.begin(); 
+    for (RangeSList::const_iterator it = port_ranges_.begin();
          it != port_ranges_.end(); it++) {
         class SandeshRange port;
         port.min = (*it).min;

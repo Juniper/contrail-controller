@@ -33,7 +33,7 @@ struct DnsConfig {
         CFG_CHANGE,
         CFG_DELETE,
     };
-    
+
     enum DnsConfigFlags {
         DnsConfigValid = 1 << 0,        // DnsManager received the config
         DnsConfigNotified = 1 << 1,     // DnsManager installed the config
@@ -64,7 +64,7 @@ struct DnsConfig {
     static Callback VdnsRecordCallback;
     static ZoneCallback VdnsZoneCallback;
     static const std::string EventString[];
-    static const std::string &ToEventString(DnsConfigEvent ev) { 
+    static const std::string &ToEventString(DnsConfigEvent ev) {
         return EventString[ev];
     }
 
@@ -121,8 +121,8 @@ struct IpamConfig : public DnsConfig {
     bool GetObject(IFMapNode *node, autogen::IpamType &data);
     void AddVnni(VnniConfig *vnni) { vnni_list_.insert(vnni); }
     void DelVnni(VnniConfig *vnni) { vnni_list_.erase(vnni); }
-    std::string &GetVirtualDnsName() { 
-        return rec_.ipam_dns_server.virtual_dns_server_name; 
+    std::string &GetVirtualDnsName() {
+        return rec_.ipam_dns_server.virtual_dns_server_name;
     }
     VirtualDnsConfig *GetVirtualDns() { return virtual_dns_; }
     const VnniList &GetVnniList() const { return vnni_list_; }

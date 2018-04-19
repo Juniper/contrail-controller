@@ -31,9 +31,9 @@ std::auto_ptr<DBEntry> IFMapLinkTable::AllocEntry(
     return entry;
 }
 
-// Generate an unique name for the link node and it should 
+// Generate an unique name for the link node and it should
 // be independent of the order in which the right and left nodes are specified
-std::string IFMapLinkTable::LinkKey(const string &metadata, 
+std::string IFMapLinkTable::LinkKey(const string &metadata,
                                         IFMapNode *left, IFMapNode *right) {
     ostringstream oss;
     if (left->ToString() < right->ToString()) {
@@ -95,7 +95,7 @@ void IFMapLinkTable::DeleteLink(IFMapLink *link) {
     link->ClearNodes();
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
-    partition->Delete(edge);    
+    partition->Delete(edge);
 }
 
 void IFMapLinkTable::DeleteLink(IFMapLink *link, const IFMapOrigin &origin) {

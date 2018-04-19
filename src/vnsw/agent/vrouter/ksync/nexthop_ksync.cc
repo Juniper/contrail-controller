@@ -616,7 +616,7 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             interface = interface_object->GetReference(&if_ksync);
             dmac = arp_nh->GetMac();
         } else if (active_nh->GetType() == NextHop::INTERFACE) {
-            const InterfaceNH *intf_nh = 
+            const InterfaceNH *intf_nh =
                 static_cast<const InterfaceNH *>(active_nh);
             const Interface *oper_intf = intf_nh->GetInterface();
             InterfaceKSyncObject *interface_object =
@@ -873,8 +873,8 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     switch (type_) {
         case NextHop::VLAN:
-        case NextHop::ARP: 
-        case NextHop::INTERFACE : 
+        case NextHop::ARP:
+        case NextHop::INTERFACE :
             encoder.set_nhr_type(NH_ENCAP);
             if (if_ksync) {
                 intf_id = if_ksync->interface_id();
@@ -896,7 +896,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             if (is_mcast_nh_) {
                 flags |= NH_FLAG_MCAST;
-            } 
+            }
             encoder.set_nhr_flags(flags);
             break;
 
@@ -1134,10 +1134,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     return encode_len;
 }
 
-void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) 
+void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
     const {
     info.set_index(nh_id());
-    
+
     if (op == sandesh_op::ADD) {
         info.set_operation("ADD/CHANGE");
     } else {
@@ -1218,7 +1218,7 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
         info.set_dip(dip_.to_string());
         info.set_vrf(vrf_id_);
         std::vector<KSyncComponentNHLog> sub_nh_list;
-        for (KSyncComponentNHList::const_iterator it = 
+        for (KSyncComponentNHList::const_iterator it =
                 component_nh_list_.begin();
              it != component_nh_list_.end(); it++) {
             KSyncComponentNH component_nh = *it;
@@ -1252,7 +1252,7 @@ int NHKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncNhInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(NH, GetObject(), info);
- 
+
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
@@ -1348,7 +1348,7 @@ KSyncEntry *NHKSyncEntry::UnresolvedReference() {
     }
 
     case NextHop::COMPOSITE: {
-        for (KSyncComponentNHList::const_iterator it = 
+        for (KSyncComponentNHList::const_iterator it =
                                 component_nh_list_.begin();
              it != component_nh_list_.end(); it++) {
             KSyncComponentNH component_nh = *it;
@@ -1400,8 +1400,8 @@ void NHKSyncEntry::SetEncap(InterfaceKSyncEntry *if_ksync,
     if (type_ == NextHop::VLAN) {
         smac = &smac_;
     } else if ((type_ == NextHop::INTERFACE || type_ == NextHop::ARP)
-					&& if_ksync) {
-	    smac = &if_ksync->mac();
+                    && if_ksync) {
+        smac = &if_ksync->mac();
 
     } else {
         Agent *agent = ksync_obj_->ksync()->agent();

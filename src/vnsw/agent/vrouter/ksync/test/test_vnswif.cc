@@ -86,7 +86,7 @@ public:
 
     void RouteEvent(bool add, const string &ifname, Ip4Address addr,
                     uint8_t plen, uint32_t protocol) {
-                    
+
         VnswInterfaceListener::Event::Type type;
         if (add) {
             type = VnswInterfaceListener::Event::ADD_ROUTE;
@@ -132,7 +132,7 @@ TEST_F(TestVnswIf, intf_delete) {
 // Validate that link-local address is added back if route deleted from kernel
 TEST_F(TestVnswIf, host_route_del) {
     uint32_t count = vnswif_->ll_add_count();
-    VnswInterfaceListener::Event *event = 
+    VnswInterfaceListener::Event *event =
         new VnswInterfaceListener::Event(VnswInterfaceListener::Event::DEL_ROUTE,
                                          vnet1_->mdata_ip_addr(), 32, "",
                                          Ip4Address(0),
@@ -370,7 +370,7 @@ TEST_F(TestVnswIf, linklocal_1) {
 
     uint32_t count = vnswif_->ll_add_count();
     // Delete mdata-ip. agent should add it again
-    RouteEvent(false, "vnet1", vnet1_->mdata_ip_addr(), 32, 
+    RouteEvent(false, "vnet1", vnet1_->mdata_ip_addr(), 32,
                VnswInterfaceListener::kVnswRtmProto);
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (vnswif_->ll_add_count() >= (count + 1)));
@@ -383,7 +383,7 @@ TEST_F(TestVnswIf, linklocal_2) {
 
     uint32_t count = vnswif_->ll_del_count();
     // Add a dummy route with kVnswRtmProto as protocol. Agent should delete it
-    RouteEvent(true, "vnet1", Ip4Address::from_string("169.254.1.1"), 32, 
+    RouteEvent(true, "vnet1", Ip4Address::from_string("169.254.1.1"), 32,
                VnswInterfaceListener::kVnswRtmProto);
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (vnswif_->ll_del_count() >= (count + 1)));

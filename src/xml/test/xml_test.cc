@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//  
+//
 //  xmpp_xml_test.cc
 //  Test code for xml_base.h implementation
 
@@ -30,7 +30,7 @@ protected:
         file.close();
         return content;
     }
- 
+
     virtual void SetUp() {
         doc_ = XmppXmlImplFactory::Instance()->GetXmlImpl();
         data_doc_ = XmppXmlImplFactory::Instance()->GetXmlImpl();
@@ -56,7 +56,7 @@ TEST_F(XmlBaseTest, XmlDecode) {
 
      std::string key("iq");
      const char *val = doc_->ReadNode(key);
-     val = doc_->ReadFirstAttrib(); 
+     val = doc_->ReadFirstAttrib();
      ASSERT_STREQ(val, "set");
      val = doc_->ReadNextAttrib();
      ASSERT_STREQ(val, "01020304abcd@domain.org");
@@ -86,7 +86,7 @@ TEST_F(XmlBaseTest, XmlDecode) {
 
      doc_->RewindDoc();
      val = doc_->ReadChildNode();
-     val = doc_->ReadFirstAttrib(); 
+     val = doc_->ReadFirstAttrib();
      ASSERT_STREQ(val, "set");
 
      doc_->ReadChildNode();
@@ -99,7 +99,7 @@ TEST_F(XmlBaseTest, XmlDecode) {
      doc_->ReadChildNode();
      val = doc_->ReadFirstAttrib();
      ASSERT_STREQ(val, "01020304abcd:vpn-ip-address/32");
-     
+
      key = "nlri";
      val = doc_->ReadNode(key);
      ASSERT_STREQ(val, "10.1.2.1/32");
@@ -110,38 +110,38 @@ TEST_F(XmlBaseTest, XmlDecode) {
      doc_->RewindDoc();
      val = doc_->ReadChildNodeName();
      ASSERT_STREQ(val, "iq");
-     
+
      val = doc_->ReadChildNodeName();
      ASSERT_STREQ(val, "pubsub");
-    
+
      val = doc_->ReadChildNodeName();
      ASSERT_STREQ(val, "publish");
- 
+
      val = doc_->ReadChildNodeName();
      ASSERT_STREQ(val, "item");
-   
+
      val = doc_->ReadChildNodeName();
      ASSERT_STREQ(val, "entry");
-   
+
      val = doc_->ReadChildNodeName();
      ASSERT_STREQ(val, "nlri");
      val = doc_->ReadNodeValue();
      ASSERT_STREQ(val, "10.1.2.1/32");
      val = doc_->ReadFirstAttrib();
      ASSERT_STREQ(val, "1");
-    
+
      val = doc_->ReadChildNode();
      ASSERT_STREQ(val, "10.1.2.1/32");
-    
+
      val = doc_->ReadParentName();
      ASSERT_STREQ(val, "nlri");
-   
+
      val = doc_->ReadNextNodeName();
      ASSERT_STREQ(val, "next-hop");
 
      val = doc_->ReadNextNodeName();
      ASSERT_STREQ(val, "version");
-   
+
      val = doc_->ReadNextNodeName();
      ASSERT_STREQ(val, "label");
 
@@ -163,7 +163,7 @@ TEST_F (XmlBaseTest, XmlEncode) {
     doc_->AddAttribute("attrib3", "ex3");
     doc_->AddNode("child2", "10.1.1.1");
 
-    stringstream ss; 
+    stringstream ss;
     doc_->PrintDoc(ss);
     string encode = ss.str();
 
@@ -175,7 +175,7 @@ TEST_F (XmlBaseTest, XmlEncode) {
 
 TEST_F (XmlBaseTest, XmlIqEncode) {
     EXPECT_FALSE(doc_ == NULL);
-    string result = "<iq type=\"set\" from=\"01020304abcd@domain.org\" to=\"network-control.domain.org\" id=\"sub1\"><pubsub xmlns=\"http://jabber.org/protocol/pubsub\"><subscribe node=\"vpn-customer-name\"/></pubsub></iq>";  
+    string result = "<iq type=\"set\" from=\"01020304abcd@domain.org\" to=\"network-control.domain.org\" id=\"sub1\"><pubsub xmlns=\"http://jabber.org/protocol/pubsub\"><subscribe node=\"vpn-customer-name\"/></pubsub></iq>";
 
     doc_->LoadDoc(xmls_);
     doc_->AddNode("iq", "");
@@ -190,7 +190,7 @@ TEST_F (XmlBaseTest, XmlIqEncode) {
     doc_->AddChildNodeAfter("pubsub", "subscribe", "");
     doc_->AddAttribute("node", "vpn-customer-name");
 
-    stringstream ss; 
+    stringstream ss;
     doc_->PrintDoc(ss);
     string encode = ss.str();
 
@@ -201,8 +201,8 @@ TEST_F (XmlBaseTest, XmlIqEncode) {
 
 TEST_F (XmlBaseTest, XmlAppendDoc) {
     EXPECT_FALSE(doc_ == NULL);
-    string result = "<iq type=\"set\" from=\"01020304abcd@domain.org\" to=\"network-control.domain.org\" id=\"sub1\"><pubsub xmlns=\"http://jabber.org/protocol/pubsub\" /><publish node=\"01020304abcd:vpn-ip-address/32\"><item><entry xmlns=\"http://ietf.org/protocol/bgpvpn\" /></item></publish></iq>";  
-    string msg1 = "<iq type=\"set\" from=\"01020304abcd@domain.org\" to=\"network-control.domain.org\" id=\"sub1\"><pubsub xmlns=\"http://jabber.org/protocol/pubsub\"></pubsub></iq>";  
+    string result = "<iq type=\"set\" from=\"01020304abcd@domain.org\" to=\"network-control.domain.org\" id=\"sub1\"><pubsub xmlns=\"http://jabber.org/protocol/pubsub\" /><publish node=\"01020304abcd:vpn-ip-address/32\"><item><entry xmlns=\"http://ietf.org/protocol/bgpvpn\" /></item></publish></iq>";
+    string msg1 = "<iq type=\"set\" from=\"01020304abcd@domain.org\" to=\"network-control.domain.org\" id=\"sub1\"><pubsub xmlns=\"http://jabber.org/protocol/pubsub\"></pubsub></iq>";
     string msg2 = "<publish node=\"01020304abcd:vpn-ip-address/32\"><item><entry xmlns=\"http://ietf.org/protocol/bgpvpn\"></entry></item></publish>";
 
     doc_->LoadDoc(msg1);
@@ -210,7 +210,7 @@ TEST_F (XmlBaseTest, XmlAppendDoc) {
 
     doc_->AppendDoc("pubsub", data_doc_);
 
-    stringstream ss; 
+    stringstream ss;
     doc_->PrintDoc(ss);
     string encode = ss.str();
 

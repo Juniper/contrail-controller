@@ -70,7 +70,7 @@ protected:
     DeleteFlowEventQueue *delete_queue_;
 };
 
-// Validate SG rule. This is basic test to ensure SG and and ACL rules 
+// Validate SG rule. This is basic test to ensure SG and and ACL rules
 // Subsequent tests are based on this
 TEST_F(FlowUpdateTest, sg_basic_1) {
     AclDBEntry *acl = AclGet(10);
@@ -320,14 +320,14 @@ TEST_F(FlowTest, Flow_with_encap_change) {
             TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
                     remote_router_ip, flow0->label()),
             {}
-        }   
+        }
     };
 
     CreateFlow(flow, 1);
     // Add reverse flow
     CreateFlow(flow + 1, 1);
 
-    FlowEntry *fe = 
+    FlowEntry *fe =
         FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
                 GetFlowKeyNH(input[0].intf_id));
     const NextHop *nh = fe->data().rpf_nh.get();
@@ -434,7 +434,7 @@ TEST_F(FlowTest, Layer2PrefixManipulation) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = 
+    client =
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10),
                  (3 * 60 * 1000));
     if (vm.count("config")) {

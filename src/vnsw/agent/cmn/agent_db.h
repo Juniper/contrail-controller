@@ -79,7 +79,7 @@ struct AgentDBState : DBState {
 /////////////////////////////////////////////////////////////////////////////
 class AgentDBTablePartition: public DBTablePartition {
 public:
-    AgentDBTablePartition(DBTable *parent, int index) : 
+    AgentDBTablePartition(DBTable *parent, int index) :
         DBTablePartition(parent, index) { };
     virtual ~AgentDBTablePartition() {};
     virtual void Add(DBEntry *entry);

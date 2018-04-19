@@ -25,7 +25,7 @@ FlowKState::FlowKState(Agent *agent, const string &resp_ctx, int idx) :
     flow_iteration_key_(0), agent_(agent) {
 }
 
-FlowKState::FlowKState(Agent *agent, const string &resp_ctx, 
+FlowKState::FlowKState(Agent *agent, const string &resp_ctx,
                        const string &iter_idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
             0), response_context_(resp_ctx), flow_idx_(-1), evicted_(0),
@@ -177,8 +177,8 @@ void FlowKState::SetFlowHandle(KFlowResp *resp, const uint32_t idx) const {
     }
 }
 
-void FlowKState::SetFlowData(vector<KFlowInfo> &list, 
-                             const vr_flow_entry *k_flow, 
+void FlowKState::SetFlowData(vector<KFlowInfo> &list,
+                             const vr_flow_entry *k_flow,
                              const int index) const {
     KFlowInfo data;
     bool action_drop = false;
@@ -313,7 +313,7 @@ bool FlowKState::Run() {
     }
     uint32_t idx = flow_iteration_key_;
     uint32_t max_flows = ksync_obj->table_entries_count();
-    
+
     resp = new KFlowResp();
     vector<KFlowInfo> &list = const_cast<std::vector<KFlowInfo>&>
                                   (resp->get_flow_list());

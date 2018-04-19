@@ -20,7 +20,7 @@ using namespace boost::asio;
 class ServerTest;
 class XmppBgpMockPeer : public XmppSamplePeer {
 public:
-    XmppBgpMockPeer(XmppChannel *channel) : 
+    XmppBgpMockPeer(XmppChannel *channel) :
         XmppSamplePeer(channel), count_(0) {
     }
     virtual ~XmppBgpMockPeer() { }
@@ -78,7 +78,7 @@ private:
 
 class XmppPeerManagerMock : public XmppPeerManager {
 public:
-    XmppPeerManagerMock(XmppServer *server, ServerTest *test) : 
+    XmppPeerManagerMock(XmppServer *server, ServerTest *test) :
         XmppPeerManager(server, NULL), test_(test) { }
 
     virtual void XmppHandleConnectionEvent(XmppChannel *ch, xmps::PeerState st) {
@@ -97,9 +97,9 @@ private:
 
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
 #define XMPP_CONTROL_NODE   "bgp-node.contrail.com"
-#define XMPP_SERVER_PORT    5288 
+#define XMPP_SERVER_PORT    5288
 
-ServerTest::ServerTest(XmppServer *server) 
+ServerTest::ServerTest(XmppServer *server)
     : mock_peer_(NULL), count_(0),
       timer_(TimerManager::CreateTimer(*server->event_manager()->io_service(),
                                        "Server timer")),
@@ -117,7 +117,7 @@ bool ServerTest::SendTimerExpire() {
     } else {
         string data = FileRead("controller/src/xmpp/testdata/pubsub_sub.xml");
         uint8_t buf[4096];
-        memcpy(buf, data.data(), data.size()); 
+        memcpy(buf, data.data(), data.size());
         bool ret = mock_peer_->SendUpdate(buf, data.size());
         if (ret == false) {
             LOG(DEBUG, "send failed");

@@ -52,18 +52,18 @@ public:
         uint8_t data[2048];
 
         //EncodeStream
-        auto_ptr<XmlBase> open_doc(XmppXmlImplFactory::Instance()->GetXmlImpl()); 
+        auto_ptr<XmlBase> open_doc(XmppXmlImplFactory::Instance()->GetXmlImpl());
         if (out_of_bound == true) {
             if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_GOOD) == -1) {
                 return false;
             }
         } else if(send_bad_open == true) {
-            if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_BAD) == -1) { 
+            if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_BAD) == -1) {
                 return false;
             }
             send_bad_open = false;
         } else {
-            if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_GOOD) == -1) { 
+            if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_GOOD) == -1) {
                 return false;
             }
         }
@@ -81,7 +81,7 @@ public:
         uint8_t *buf = data;
         int len = 0;
         //Returns byte encoded in the doc
-        if (send_write_doc) { 
+        if (send_write_doc) {
             len = open_doc->WriteDoc(buf);
         } else {
             len = open_doc->WriteRawDoc(buf);
@@ -123,7 +123,7 @@ protected:
         init_.reset(new XmppInit());
 
         init_->InitServer(a_, 0, false);
-      
+
         LOG(DEBUG, "Created server at port: " << a_->GetPort());
         thread_->Start();
     }
@@ -205,7 +205,7 @@ protected:
     }
 
     void TearDownConnection() {
-        
+
         cconnection_->ManagedDelete();
         task_util::WaitForIdle();
 
@@ -228,21 +228,21 @@ TEST_F(XmppStreamMessageTest, Connection) {
     // server connection
     XmppConnection *sconnection_bad;
     TASK_UTIL_EXPECT_TRUE(
-	    (sconnection_bad = a_->FindConnection(SUB_ADDR)) != NULL);
+        (sconnection_bad = a_->FindConnection(SUB_ADDR)) != NULL);
 
     TASK_UTIL_EXPECT_TRUE(cconnection_->open_count == 2);
 
     // server connection
     XmppConnection *sconnection_good;
     TASK_UTIL_EXPECT_TRUE(
-	    (sconnection_good = a_->FindConnection(SUB_ADDR)) != NULL);
+        (sconnection_good = a_->FindConnection(SUB_ADDR)) != NULL);
 
     // Check for server, client connection is established. Wait upto 1 sec
     TASK_UTIL_EXPECT_TRUE(
-	    sconnection_good->GetStateMcState() == xmsm::ESTABLISHED);
+        sconnection_good->GetStateMcState() == xmsm::ESTABLISHED);
 
     TASK_UTIL_EXPECT_TRUE(
-	    cconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
+        cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
 
     TearDownConnection();
 }
@@ -253,14 +253,14 @@ TEST_F(XmppStreamMessageTest, WriteDoc_Connection) {
     // server connection
     XmppConnection *sconnection;
     TASK_UTIL_EXPECT_TRUE(
-	    (sconnection = a_->FindConnection(SUB_ADDR)) != NULL);
+        (sconnection = a_->FindConnection(SUB_ADDR)) != NULL);
 
     // Check for server, client connection is established. Wait upto 1 sec
     TASK_UTIL_EXPECT_TRUE(
-	    sconnection->GetStateMcState() == xmsm::ESTABLISHED);
+        sconnection->GetStateMcState() == xmsm::ESTABLISHED);
 
     TASK_UTIL_EXPECT_TRUE(
-	    cconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
+        cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
 
     TearDownConnection();
 }

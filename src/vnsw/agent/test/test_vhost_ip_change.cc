@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, false);
     IpChangeTest::TestSetup(ksync_init);
-    
+
     int ret = RUN_ALL_TESTS();
     TestShutdown();
     delete client;

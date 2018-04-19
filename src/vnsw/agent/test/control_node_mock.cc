@@ -22,7 +22,7 @@ using namespace autogen;
 namespace test {
 
 ControlNodeMock::ControlNodeMock(EventManager *evm, string address) :
-                    evm_(evm), address_(address), 
+                    evm_(evm), address_(address),
                     channel_(NULL) {
 
     xs = new XmppServer(evm_, XmppInit::kControlNodeJID);
@@ -85,7 +85,7 @@ ControlNodeMock::VrfEntry* ControlNodeMock::AddVrf(const string &vrf) {
     }
 
     return ent;
-    
+
 }
 
 void ControlNodeMock::SubscribeVrf(const string &vrf) {
@@ -122,8 +122,8 @@ void ControlNodeMock::UnSubscribeVrf(const string &vrf) {
 
 }
 
-ControlNodeMock::RouteEntry* 
-ControlNodeMock::InsertRoute(string &vrf_name, string &address, 
+ControlNodeMock::RouteEntry*
+ControlNodeMock::InsertRoute(string &vrf_name, string &address,
                              string &nh, int label, string &vn) {
 
     VrfEntry *vrf = AddVrf(vrf_name);
@@ -136,7 +136,7 @@ ControlNodeMock::InsertRoute(string &vrf_name, string &address,
     ent->address = address;
     ent->vn = vn;
 
-    //Populate the nexthop 
+    //Populate the nexthop
     NHEntry nh_entry;
     nh_entry.nh = nh;
     nh_entry.label = label;
@@ -159,9 +159,9 @@ ControlNodeMock::InsertRoute(string &vrf_name, string &address,
     return ent;
 }
 
-ControlNodeMock::RouteEntry* 
-ControlNodeMock::RemoveRoute(string &vrf_name, string &address, 
-                             string &nh, int label, string &vn, 
+ControlNodeMock::RouteEntry*
+ControlNodeMock::RemoveRoute(string &vrf_name, string &address,
+                             string &nh, int label, string &vn,
                              bool &send_delete) {
 
     VrfEntry *vrf = AddVrf(vrf_name);
@@ -174,7 +174,7 @@ ControlNodeMock::RemoveRoute(string &vrf_name, string &address,
     ent->address = address;
     ent->vn = vn;
 
-    //Populate the nexthop 
+    //Populate the nexthop
     NHEntry nh_entry;
     nh_entry.nh = nh;
     nh_entry.label = label;
@@ -220,7 +220,7 @@ void ControlNodeMock::GetRoutes(string vrf, const XmppStanza::XmppMessage *msg) 
                 add = true;
             }
 
-            RouteEntry *rt = InsertRoute(vrf, item.entry.nlri.address, 
+            RouteEntry *rt = InsertRoute(vrf, item.entry.nlri.address,
                                  item.entry.next_hops.next_hop[0].address,
                                  item.entry.next_hops.next_hop[0].label,
                                  item.entry.virtual_network);
@@ -249,7 +249,7 @@ void ControlNodeMock::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
 void ControlNodeMock::XmppChannelEvent(XmppChannel *channel,
                                         xmps::PeerState state) {
     if (state == xmps::READY) {
-        channel_ = channel; 
+        channel_ = channel;
         channel_->RegisterReceive(xmps::BGP,
                    boost::bind(&ControlNodeMock::ReceiveUpdate, this, _1));
     } else if (state == xmps::NOT_READY) {
@@ -296,7 +296,7 @@ bool ControlNodeMock::IsEstablished() {
 }
 
 
-void ControlNodeMock::AddRoute(string vrf, string address, 
+void ControlNodeMock::AddRoute(string vrf, string address,
                                string nh, int label, string vn)  {
 
     RouteEntry *rt = InsertRoute(vrf, address, nh, label, vn);
@@ -310,7 +310,7 @@ void ControlNodeMock::AddRoute(string vrf, string address,
 
 }
 
-void ControlNodeMock::DeleteRoute(string vrf, string address, 
+void ControlNodeMock::DeleteRoute(string vrf, string address,
                                string nh, int label, string vn)  {
 
     bool send_delete = false;
@@ -332,7 +332,7 @@ void ControlNodeMock::SendRoute(string vrf, RouteEntry *rt, bool add) {
     xml_node items = event.append_child("items");
     stringstream nodestr;
     nodestr << BgpAf::IPv4 << "/" << BgpAf::Unicast << "/" << vrf.c_str();
-    items.append_attribute("node") = nodestr.str().c_str();  
+    items.append_attribute("node") = nodestr.str().c_str();
 
     autogen::ItemType item;
 

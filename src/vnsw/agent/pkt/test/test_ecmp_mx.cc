@@ -47,7 +47,7 @@ class EcmpTest : public ::testing::Test {
         vm1_label = vmi->label();
         eth_intf_id = EthInterfaceGet("vnet0")->id();
     }
- 
+
     virtual void TearDown() {
         DeleteVmportEnv(input1, 1, true);
         client->WaitForIdle();
@@ -114,7 +114,7 @@ public:
 //Verify component index is set and correspnding
 //rpf nexthop
 TEST_F(EcmpTest, EcmpTest_1) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
 
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
     client->WaitForIdle();
@@ -129,7 +129,7 @@ TEST_F(EcmpTest, EcmpTest_1) {
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
@@ -144,7 +144,7 @@ TEST_F(EcmpTest, EcmpTest_1) {
 //    Reverse flow is ECMP. ECMP Index is not set
 //    Reverse flow rpf next is Composite NH
 TEST_F(EcmpTest, EcmpTest_2) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
 
     TxIpMplsPacket(eth_intf_id, MX_2, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
@@ -175,7 +175,7 @@ TEST_F(EcmpTest, EcmpTest_2) {
 //Send packet from MX3 to VM
 //Verify that index are set fine
 TEST_F(EcmpTest, EcmpTest_3) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
 
     TxIpMplsPacket(eth_intf_id, MX_3, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
@@ -206,7 +206,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
 //Send one more flow setup message from MX2 to VM
 //verify that component index gets update
 TEST_F(EcmpTest, EcmpTest_4) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
 
     TxIpMplsPacket(eth_intf_id, MX_0, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
@@ -232,7 +232,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
 
     TxIpMplsPacket(eth_intf_id, MX_2, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
-    client->WaitForIdle(); 
+    client->WaitForIdle();
 
     EXPECT_EQ(2, flow_proto_->FlowCount());
     EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());
@@ -328,7 +328,7 @@ TEST_F(EcmpTest, EcmpTest_6) {
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
@@ -385,7 +385,7 @@ TEST_F(EcmpTest, EcmpTest_7) {
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
@@ -536,11 +536,11 @@ TEST_F(EcmpTest, FabricVmi) {
         dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
 
-	//Create PHYSICAL interface to receive GRE packets on it.
-	PhysicalInterfaceKey key(agent_->fabric_interface_name());
-	Interface *intf = static_cast<Interface *>
-		(agent_->interface_table()->FindActiveEntry(&key));
-	EXPECT_TRUE(intf != NULL);
+    //Create PHYSICAL interface to receive GRE packets on it.
+    PhysicalInterfaceKey key(agent_->fabric_interface_name());
+    Interface *intf = static_cast<Interface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
 
     for (uint32_t i = 0; i < 100; i++) {
         TxTcpPacket(0, "2.1.1.1", "1.1.1.10", i, i, false, i, 0);

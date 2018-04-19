@@ -29,7 +29,7 @@ public:
 
     IFMapAgentParser(DB *db) : db_(db) { reset_statistics(); } ;
 
-    typedef boost::function< IFMapObject *(const pugi::xml_node, DB *, 
+    typedef boost::function< IFMapObject *(const pugi::xml_node, DB *,
                                                std::string *id_name) > NodeParseFn;
     typedef std::map<std::string, NodeParseFn> NodeParseMap;
     void NodeRegister(const std::string &node, NodeParseFn parser);

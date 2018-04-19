@@ -244,7 +244,7 @@ void AgentRouteWalker::StartRouteWalk(VrfEntry *vrf) {
 }
 
 /*
- * VRF entry notification handler 
+ * VRF entry notification handler
  */
 bool AgentRouteWalker::VrfWalkNotify(DBTablePartBase *partition,
                                      DBEntryBase *e) {
@@ -393,8 +393,8 @@ void AgentRouteWalker::WalkDoneCallback(WalkDone cb) {
     walk_done_cb_ = cb;
 }
 
-/* 
- * Callback is registered to notify walk complete of all route tables for 
+/*
+ * Callback is registered to notify walk complete of all route tables for
  * a VRF.
  */
 void AgentRouteWalker::RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb) {

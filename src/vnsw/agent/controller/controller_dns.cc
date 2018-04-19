@@ -43,10 +43,10 @@ void AgentDnsXmppChannel::RegisterXmppChannel(XmppChannel *channel) {
 }
 
 bool AgentDnsXmppChannel::SendMsg(uint8_t *msg, std::size_t len) {
-    if (!channel_ || channel_->GetPeerState() != xmps::READY) 
+    if (!channel_ || channel_->GetPeerState() != xmps::READY)
         return false;
 
-    return channel_->Send((const uint8_t *)msg, len, xmps::DNS, 
+    return channel_->Send((const uint8_t *)msg, len, xmps::DNS,
             boost::bind(&AgentDnsXmppChannel::WriteReadyCb, this, _1));
 }
 
@@ -55,7 +55,7 @@ void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
         std::auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
-        pugi->LoadXmlDoc(msg_pugi->doc()); //Verify Xmpp message format 
+        pugi->LoadXmlDoc(msg_pugi->doc()); //Verify Xmpp message format
         boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
                                                                           xmps::UNKNOWN,
                                                                           xs_idx_,

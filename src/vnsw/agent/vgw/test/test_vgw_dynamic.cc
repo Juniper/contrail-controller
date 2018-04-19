@@ -94,14 +94,14 @@ std::string MakeVgwDeleteList(uint32_t count) {
 }
 
 void ValidateVirtualGatewayConfigTable(uint32_t count, uint32_t route_count) {
-    VirtualGatewayConfigTable *table = 
+    VirtualGatewayConfigTable *table =
         Agent::GetInstance()->params()->vgw_config_table();
 
     for (uint32_t i = 0; i < count; ++i) {
         std::stringstream str;
         str << "vgw" << i;
 
-        VirtualGatewayConfigTable::Table::iterator it = 
+        VirtualGatewayConfigTable::Table::iterator it =
             table->table().find(VirtualGatewayConfig(str.str()));
         EXPECT_TRUE(it != table->table().end());
 
@@ -177,7 +177,7 @@ static void ValidateVgwInterface(InetUnicastRouteEntry *route,
     if (nh->GetType() != NextHop::INTERFACE)
         return;
 
-    const Interface *intf = 
+    const Interface *intf =
         static_cast<const InterfaceNH *>(nh)->GetInterface();
     EXPECT_TRUE(intf != NULL);
     if (intf == NULL)
@@ -228,7 +228,7 @@ void ValidateVgwRoute(uint32_t count, uint32_t route_count) {
 
 void ValidateVgwDelete(uint32_t count, uint32_t route_count,
                        bool vrf_delete = true) {
-    VirtualGatewayConfigTable *table = 
+    VirtualGatewayConfigTable *table =
         Agent::GetInstance()->params()->vgw_config_table();
 
     for (uint32_t i = 0; i < count; ++i) {
@@ -237,7 +237,7 @@ void ValidateVgwDelete(uint32_t count, uint32_t route_count,
         std::stringstream inst;
         inst << "default-domain:admin:public" << i << ":public" << i;
 
-        VirtualGatewayConfigTable::Table::iterator it = 
+        VirtualGatewayConfigTable::Table::iterator it =
             table->table().find(VirtualGatewayConfig(str.str()));
         EXPECT_TRUE(it == table->table().end());
 
@@ -282,7 +282,7 @@ TEST_F(DynamicVgwTest, VgwAddDelete) {
     ValidateSubnetReceiveRoute(1);
     ValidateVgwRoute(1, 0);
 
-    // Delete 
+    // Delete
     json = MakeVgwDeleteList(1);
     pih.DelVgwFromJson(json, err_msg);
     client->WaitForIdle();
@@ -333,7 +333,7 @@ TEST_F(DynamicVgwTest, VgwChange) {
     ValidateSubnetReceiveRoute(4);
     ValidateVgwRoute(4, 0);
 
-    // Delete 
+    // Delete
     json = MakeVgwDeleteList(4);
     pih.DelVgwFromJson(json, err_msg);
     client->WaitForIdle();
@@ -343,8 +343,8 @@ TEST_F(DynamicVgwTest, VgwChange) {
 
 // create a VM, add VGW to the same VRF, delete VM, check that VRF isnt deleted
 TEST_F(DynamicVgwTest, ExistingVrfAddVgw) {
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
     CreateVmportEnv(input, 1, 0, NULL, "default-domain:admin:public0:public0");
     client->WaitForIdle();
@@ -392,8 +392,8 @@ TEST_F(DynamicVgwTest, ExistingVgwAddVrf) {
     ValidateSubnetReceiveRoute(1);
     ValidateVgwRoute(1, 0);
 
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
     CreateVmportEnv(input, 1, 0, NULL, "default-domain:admin:public0:public0");
     client->WaitForIdle();

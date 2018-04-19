@@ -43,7 +43,7 @@ int KState::VrResponseMsgHandler(vr_response *r) {
         st->Release();
         return 0;
     }
-    
+
     if (code < 0) {
         InternalErrResp *resp = new InternalErrResp();
         resp->set_context(st->response_context());
@@ -216,7 +216,7 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
     data.set_ref_cnt(r->get_nhr_ref_cnt());
     data.set_flags(nhst->FlagsToString(r->get_nhr_flags()));
     const vector<signed char> &encap = r->get_nhr_encap();
-    /* Kernel does not return encap len via r->get_nhr_encap_len() 
+    /* Kernel does not return encap len via r->get_nhr_encap_len()
      * We need to fill it via the encap vector's size. */
     if (encap.size()) {
         data.set_encap_len(encap.size());
@@ -344,7 +344,7 @@ void KState::MirrorMsgHandler(vr_mirror_req *r) {
     data.set_mirr_vni(r->get_mirr_vni());
 
     list.push_back(data);
-    
+
     int mirror_id = r->get_mirr_index();
     UpdateContext(reinterpret_cast<void *>(mirror_id));
 }
@@ -354,7 +354,7 @@ void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
     VrfAssignKState *state;
 
     state = static_cast<VrfAssignKState *>(this);
-    KVrfAssignResp *resp = 
+    KVrfAssignResp *resp =
         static_cast<KVrfAssignResp *>(state->response_object());
 
     vector<KVrfAssignInfo> &list =
@@ -366,9 +366,9 @@ void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
     data.set_nh_id(r->get_var_nh_id());
     list.push_back(data);
 
-    // Update the last interface and tag seen. 
+    // Update the last interface and tag seen.
     // Will be used to send next request to kernel
-    VrfAssignContext *ctx = 
+    VrfAssignContext *ctx =
         static_cast<VrfAssignContext *>(state->more_context());
     if (!ctx) {
         ctx = new VrfAssignContext;
@@ -383,7 +383,7 @@ void KState::VrfStatsMsgHandler(vr_vrf_stats_req *r) {
     VrfStatsKState *state;
 
     state = static_cast<VrfStatsKState *>(this);
-    KVrfStatsResp *resp = 
+    KVrfStatsResp *resp =
         static_cast<KVrfStatsResp *>(state->response_object());
 
     vector<KVrfStatsInfo> &list =
@@ -445,7 +445,7 @@ void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
     DropStatsKState *state;
 
     state = static_cast<DropStatsKState *>(this);
-    KDropStatsResp *resp = 
+    KDropStatsResp *resp =
         static_cast<KDropStatsResp *>(state->response_object());
     resp->set_ds_rid(req->get_vds_rid());
     resp->set_ds_discard(req->get_vds_discard());

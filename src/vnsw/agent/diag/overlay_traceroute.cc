@@ -33,7 +33,7 @@ OverlayTraceRoute::~OverlayTraceRoute() {
 }
 
 
-void OverlayTraceRoute::SendRequest() 
+void OverlayTraceRoute::SendRequest()
 {
     Agent *agent = diag_table_->agent();
     Ip4Address tunneldst;
@@ -47,7 +47,7 @@ void OverlayTraceRoute::SendRequest()
     if (!vxlan)
         return;
 
-    BridgeRouteEntry *rt = OverlayPing::L2RouteGet(vxlan, 
+    BridgeRouteEntry *rt = OverlayPing::L2RouteGet(vxlan,
                                                    remote_vm_mac_.ToString(), agent);
     if (!rt)
         return;
@@ -83,7 +83,7 @@ void OverlayTraceRoute::SendRequest()
     pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(tunnelsrc.to_ulong()),
                        ntohl(tunneldst.to_ulong()), IPPROTO_UDP,
                        DEFAULT_IP_ID, ttl_);
-   // Fill VxLan Header  
+   // Fill VxLan Header
     VxlanHdr *vxlanhdr = (VxlanHdr *)(buf + sizeof(udphdr)+ sizeof(struct ip)
                                    + sizeof(struct ether_header));
     vxlanhdr->vxlan_id =  ntohl(vxlan_id << 8);
@@ -99,10 +99,10 @@ void OverlayTraceRoute::SendRequest()
     Ip4Address dip = Ip4Address::from_string("127.0.0.1", ec);
     pkt_info->transp.udp = (struct udphdr *)(pkt_info->ip + 1);
     len = data_len+sizeof(struct udphdr);
-    pkt_handler->UdpHdr(len, sip_.to_v4().to_ulong(), sport_, 
+    pkt_handler->UdpHdr(len, sip_.to_v4().to_ulong(), sport_,
                         dip.to_ulong(), VXLAN_UDP_DEST_PORT);
     pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(sip_.to_v4().to_ulong()),
-                       ntohl(dip.to_ulong()), proto_, 
+                       ntohl(dip.to_ulong()), proto_,
                        DEFAULT_IP_ID, DEFAULT_IP_TTL);
     //pkt_handler->SetDiagChkSum();
     pkt_handler->pkt_info()->set_len(len_);
@@ -110,7 +110,7 @@ void OverlayTraceRoute::SendRequest()
     Interface *intf = static_cast<Interface *>
                 (agent->interface_table()->Find(&key1, true));
     pkt_handler->Send(intf->id(), agent->fabric_vrf()->vrf_id(),
-                      AgentHdr::TX_SWITCH, CMD_PARAM_PACKET_CTRL, 
+                      AgentHdr::TX_SWITCH, CMD_PARAM_PACKET_CTRL,
                       CMD_PARAM_1_DIAG, PktHandler::DIAG);
 
     delete pkt_handler;
@@ -161,20 +161,20 @@ void OverlayTraceReq::HandleRequest() const {
 
         int vxlan_id = vn->GetVxLanId();
         VxLanId* vxlan = agent->vxlan_table()->Find(vxlan_id);
-    
+
         if (!vxlan) {
             err_str = "Invalid vxlan segment";
             goto error;
         }
 
-        BridgeRouteEntry *rt = OverlayPing::L2RouteGet(vxlan, 
+        BridgeRouteEntry *rt = OverlayPing::L2RouteGet(vxlan,
                                                        get_vm_remote_mac(), agent);
         if (!rt) {
             err_str = "Invalid remote mac";
             goto error;
         }
     }
-    overlaytraceroute = new OverlayTraceRoute(this, 
+    overlaytraceroute = new OverlayTraceRoute(this,
                                               Agent::GetInstance()->diag_table());
     overlaytraceroute->Init();
     overlaytraceroute->ReplyLocalHop();
@@ -208,7 +208,7 @@ void OverlayTraceRoute::HandleReply(DiagPktHandler *handler) {
     }
     struct ip *ip = handler->pkt_info()->tunnel.ip;
     IpAddress saddr = IpAddress(Ip4Address(ntohl(ip->ip_src.s_addr)));
-    TraceRoute::SendSandeshReply(saddr.to_v4().to_string(), context_, 
+    TraceRoute::SendSandeshReply(saddr.to_v4().to_string(), context_,
                                  !handler->IsDone());
     IncrementTtl();
 }

@@ -30,7 +30,7 @@ using namespace std;
 
 class XmppBgpMockPeer : public XmppSamplePeer {
 public:
-    XmppBgpMockPeer(XmppChannel *channel) : 
+    XmppBgpMockPeer(XmppChannel *channel) :
         XmppSamplePeer(channel) , count_(0) {
     }
     virtual ~XmppBgpMockPeer() {
@@ -98,7 +98,7 @@ protected:
         }
     }
 
-    XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port, 
+    XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
                                             const string &from,
                                             const string &to, bool isClient) {
         XmppChannelConfig *cfg = new XmppChannelConfig(isClient);
@@ -125,9 +125,9 @@ protected:
 
 class XmppPeerManagerMock : public XmppPeerManager {
 public:
-    XmppPeerManagerMock(XmppServer *x, void *b, XmppServerTest *ptr) : 
+    XmppPeerManagerMock(XmppServer *x, void *b, XmppServerTest *ptr) :
         XmppPeerManager(x, b), ptr_(ptr), count(0) { }
-    virtual void XmppHandleConnectionEvent(XmppChannel *channel, 
+    virtual void XmppHandleConnectionEvent(XmppChannel *channel,
             xmps::PeerState state) {
         ptr_->XmppConnectionEventCb(channel, state);
         XmppPeerManager::XmppHandleConnectionEvent(channel, state);
@@ -144,7 +144,7 @@ namespace {
 TEST_F(XmppServerTest, Connection) {
 
     xmpp_peer_manager_.reset(new XmppPeerManagerMock(a_, NULL, this));
-                             
+
     // create a pair of Xmpp channel in server A and client B.
     XmppConfigData *cfg_b = new XmppConfigData;
     LOG(DEBUG, "Create client");
@@ -158,7 +158,7 @@ TEST_F(XmppServerTest, Connection) {
 
     TASK_UTIL_EXPECT_NE(static_cast<XmppBgpMockPeer *>(NULL), peer_);
     xmpp_peer_manager_->VisitPeers(
-            boost::bind(&XmppPeerManagerMock::XmppVisit, 
+            boost::bind(&XmppPeerManagerMock::XmppVisit,
                 xmpp_peer_manager_.get(), _1));
     TASK_UTIL_EXPECT_EQ(1, xmpp_peer_manager_->count);
     // reset the count for VisitPeers
@@ -166,7 +166,7 @@ TEST_F(XmppServerTest, Connection) {
 
     // server channels
     XmppConnection *sconnection;
-    // Wait for connection on server. 
+    // Wait for connection on server.
     TASK_UTIL_EXPECT_NE(static_cast<XmppConnection *>(NULL),
             (sconnection = a_->FindConnection(SUB_ADDR)));
     // Check for server, client connection is established. Wait upto 1 sec
@@ -184,7 +184,7 @@ TEST_F(XmppServerTest, Connection) {
 
     // Config update will close the peer from client side
     // which will generate server side close event and
-    // callback XmppConnectionEventCb will be called. 
+    // callback XmppConnectionEventCb will be called.
     TASK_UTIL_EXPECT_EQ(static_cast<XmppBgpMockPeer *>(NULL), peer_);
 }
 

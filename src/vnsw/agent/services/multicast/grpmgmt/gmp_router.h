@@ -59,7 +59,7 @@
  * sources for the group must be discarded.  Once the mode is
  * established, ALLOW and BLOCK calls are used to modify the source
  * address set.
- * 
+ *
  * Note that an ADD_INCL notification is guaranteed to be followed by
  * at least one ALLOW; group deletions are handled by GROUP_DELETE,
  * and there are no null Includes.  The client can create group state
@@ -150,10 +150,10 @@ typedef void (*gmpr_notif_cb)(void *cli_context);
  * by policy.)
  */
 typedef boolean (*gmpr_oif_map_cb)(void *inst_context,
-				   gmpx_intf_id rcv_if,
-				   uint8_t *group_addr,
-				   uint8_t *source_addr,
-				   gmpx_intf_id *output_if);
+                   gmpx_intf_id rcv_if,
+                   uint8_t *group_addr,
+                   uint8_t *source_addr,
+                   gmpx_intf_id *output_if);
 
 /*
  * Policy callback type
@@ -163,10 +163,10 @@ typedef boolean (*gmpr_oif_map_cb)(void *inst_context,
  * report is allowed, or FALSE if not.
  */
 typedef boolean (*gmpr_policy_cb)(void *inst_context,
-				  gmpx_intf_id rcv_if,
-				  uint8_t *group_addr,
-				  uint8_t *source_addr,
-				  gmpx_packet_attr attribute);
+                  gmpx_intf_id rcv_if,
+                  uint8_t *group_addr,
+                  uint8_t *source_addr,
+                  gmpx_packet_attr attribute);
 
 /*
  * SSM check callback type
@@ -177,8 +177,8 @@ typedef boolean (*gmpr_policy_cb)(void *inst_context,
  * allowed, or FALSE if not.
  */
 typedef boolean (*gmpr_ssm_check_cb)(void *inst_context,
-				     gmpx_intf_id rcv_if,
-				     uint8_t *group_addr);
+                     gmpx_intf_id rcv_if,
+                     uint8_t *group_addr);
 
 /*
  * Querier change callback type
@@ -186,14 +186,14 @@ typedef boolean (*gmpr_ssm_check_cb)(void *inst_context,
  * This defines the callback to a client when the querier status changes.
  */
 typedef void (*gmpr_querier_cb)(void *cli_context, gmpx_intf_id intf,
-				boolean querier, uint8_t *querier_addr);
+                boolean querier, uint8_t *querier_addr);
 
 /*
  * Router-side instance context block
  */
 typedef struct gmpr_instance_context_ {
-    gmpr_oif_map_cb rctx_oif_map_cb;	/* OIF mapping callback */
-    gmpr_policy_cb rctx_policy_cb;	/* Multicast policy callback */
+    gmpr_oif_map_cb rctx_oif_map_cb;    /* OIF mapping callback */
+    gmpr_policy_cb rctx_policy_cb;    /* Multicast policy callback */
     gmpr_ssm_check_cb rctx_ssm_check_cb; /* SSM check callback */
 } gmpr_instance_context;
 
@@ -207,11 +207,11 @@ typedef struct gmpr_instance_context_ {
  * At least one of these must be set.
  */
 typedef struct gmpr_client_context_ {
-    gmpr_notif_cb rctx_notif_cb;	/* Notification callback */
-    gmpr_notif_cb rctx_host_notif_cb;	/* Host notification callback */
-    gmpr_querier_cb rctx_querier_cb;	/* Querier change callback */
-    boolean rctx_delta_notifications;	/* TRUE if client wants deltas */
-    boolean rctx_full_notifications;	/* TRUE if client wants full state */
+    gmpr_notif_cb rctx_notif_cb;    /* Notification callback */
+    gmpr_notif_cb rctx_host_notif_cb;    /* Host notification callback */
+    gmpr_querier_cb rctx_querier_cb;    /* Querier change callback */
+    boolean rctx_delta_notifications;    /* TRUE if client wants deltas */
+    boolean rctx_full_notifications;    /* TRUE if client wants full state */
 } gmpr_client_context;
 
 
@@ -229,22 +229,22 @@ typedef struct gmpr_client_context_ {
  * delvered in a GROUP_STATE notification.
  */
 typedef enum {
-    GMPR_NOTIF_GROUP_DELETE,		/* Delete group */
-    GMPR_NOTIF_GROUP_ADD_EXCL,		/* Add group in Exclude mode */
-    GMPR_NOTIF_GROUP_ADD_INCL,		/* Add group in Include mode */
-    GMPR_NOTIF_ALLOW_SOURCE,		/* Allow traffic for source */
-    GMPR_NOTIF_BLOCK_SOURCE,		/* Block traffic to source */
-    GMPR_NOTIF_REFRESH_END,		/* End of refresh stream */
-    GMPR_NOTIF_GROUP_STATE,		/* Complete group state */
+    GMPR_NOTIF_GROUP_DELETE,        /* Delete group */
+    GMPR_NOTIF_GROUP_ADD_EXCL,        /* Add group in Exclude mode */
+    GMPR_NOTIF_GROUP_ADD_INCL,        /* Add group in Include mode */
+    GMPR_NOTIF_ALLOW_SOURCE,        /* Allow traffic for source */
+    GMPR_NOTIF_BLOCK_SOURCE,        /* Block traffic to source */
+    GMPR_NOTIF_REFRESH_END,        /* End of refresh stream */
+    GMPR_NOTIF_GROUP_STATE,        /* Complete group state */
 } gmpr_client_notification_type;
 
 typedef struct gmpr_client_notification_ {
-    gmpx_intf_id notif_intf_id;		/* Interface ID */
-    gmp_addr_string notif_group_addr;	/* Group address */
-    gmpr_client_notification_type notif_type;	/* Notification type */
-    gmp_addr_string notif_source_addr;	/* Source address if applicable */
-    gmp_filter_mode notif_filter_mode;	/* Current group filter mode */
-    gmp_addr_thread *notif_addr_thread;	/* Address thread if GROUP_STATE */
+    gmpx_intf_id notif_intf_id;        /* Interface ID */
+    gmp_addr_string notif_group_addr;    /* Group address */
+    gmpr_client_notification_type notif_type;    /* Notification type */
+    gmp_addr_string notif_source_addr;    /* Source address if applicable */
+    gmp_filter_mode notif_filter_mode;    /* Current group filter mode */
+    gmp_addr_thread *notif_addr_thread;    /* Address thread if GROUP_STATE */
     boolean notif_last_sg;              /* Last (s,g) for the same group? */
 } gmpr_client_notification;
 
@@ -259,19 +259,19 @@ typedef struct gmpr_client_notification_ {
  * is enabled.
  */
 typedef enum {
-    GMPR_NOTIF_HOST_UNKNOWN,		/* We don't know yet */
-    GMPR_NOTIF_HOST_JOIN,		/* Join a *,G or S,G */
-    GMPR_NOTIF_HOST_LEAVE,		/* Leave a *,G or S,G */
-    GMPR_NOTIF_HOST_TIMEOUT,		/* Leave due to a host timeout */
-    GMPR_NOTIF_HOST_IFDOWN,		/* Leave due to interface down */
+    GMPR_NOTIF_HOST_UNKNOWN,        /* We don't know yet */
+    GMPR_NOTIF_HOST_JOIN,        /* Join a *,G or S,G */
+    GMPR_NOTIF_HOST_LEAVE,        /* Leave a *,G or S,G */
+    GMPR_NOTIF_HOST_TIMEOUT,        /* Leave due to a host timeout */
+    GMPR_NOTIF_HOST_IFDOWN,        /* Leave due to interface down */
 } gmpr_client_host_notification_type;
 
 typedef struct gmpr_client_host_notification_ {
     gmpr_client_host_notification_type host_notif_type; /* Notification type */
-    gmpx_intf_id host_notif_intf_id;	/* Interface ID */
+    gmpx_intf_id host_notif_intf_id;    /* Interface ID */
     gmp_addr_string host_notif_group_addr; /* Group address */
     gmp_addr_string host_notif_source_addr; /* Source address or 0 */
-    boolean host_notif_source_present;	/* TRUE if source address present */
+    boolean host_notif_source_present;    /* TRUE if source address present */
     gmp_addr_string host_notif_host_addr; /* Host address */
 } gmpr_client_host_notification;
 
@@ -283,11 +283,11 @@ typedef struct gmpr_client_host_notification_ {
  * by gmpr_free_intf_list() when it is processed.
  */
 
-#define GMPR_INTF_LIST_SIZE 10		/* Number of interfaces per entry */
+#define GMPR_INTF_LIST_SIZE 10        /* Number of interfaces per entry */
 
 typedef struct gmpr_client_intf_list_ {
     struct gmpr_client_intf_list_ *gci_next; /* Next entry */
-    uint32_t gci_intf_count;		/* Number of entries */
+    uint32_t gci_intf_count;        /* Number of entries */
     gmpx_intf_id gci_intfs[GMPR_INTF_LIST_SIZE]; /* Array of entries */
 } gmpr_client_intf_list;
 
@@ -303,9 +303,9 @@ typedef struct gmpr_client_intf_list_ {
  */
 typedef struct gmpr_intf_group_entry_ {
     struct gmpr_intf_group_entry_ *gig_next; /* Next entry */
-    gmp_addr_string gig_group_addr;	/* Group address */
-    gmp_filter_mode gig_filter_mode;	/* Filter mode */
-    gmp_addr_thread *gig_sources;	/* Source list, or NULL */
+    gmp_addr_string gig_group_addr;    /* Group address */
+    gmp_filter_mode gig_filter_mode;    /* Filter mode */
+    gmp_addr_thread *gig_sources;    /* Source list, or NULL */
 } gmpr_intf_group_entry;
 
 
@@ -320,7 +320,7 @@ typedef struct gmpr_intf_group_entry_ {
  */
 typedef struct gmpr_intf_host_entry_ {
     struct gmpr_intf_host_entry_ *gih_next; /* Next entry */
-    gmp_addr_string gih_host_addr;	/* Host address */
+    gmp_addr_string gih_host_addr;    /* Host address */
 } gmpr_intf_host_entry;
 
 
@@ -328,55 +328,55 @@ typedef struct gmpr_intf_host_entry_ {
  * External references
  */
 extern gmp_instance_id gmpr_create_instance(gmp_proto proto,
-					    void *inst_context,
-					    gmpr_instance_context *context);
+                        void *inst_context,
+                        gmpr_instance_context *context);
 extern void gmpr_destroy_instance(gmp_instance_id instance_id);
 extern gmp_client_id gmpr_register(gmp_instance_id instance_id,
-				   void *cli_context,
-				   gmpr_client_context *context);
+                   void *cli_context,
+                   gmpr_client_context *context);
 extern void gmpr_detach(gmp_client_id client_id);
 extern void gmpr_refresh(gmp_client_id client_id, boolean flush);
 extern void gmpr_refresh_intf(gmp_client_id client_id, gmpx_intf_id intf_id,
-			      boolean flush);
+                  boolean flush);
 extern void gmpr_refresh_host_state(gmp_client_id client_id);
 extern int gmpr_attach_intf(gmp_instance_id instance_id, gmpx_intf_id intf_id);
 extern int gmpr_detach_intf(gmp_instance_id instance_id,
-			     gmpx_intf_id intf_id);
+                 gmpx_intf_id intf_id);
 extern int gmpr_set_intf_params(gmp_instance_id instance_id,
-				gmpx_intf_id intf_id,
-				gmpr_intf_params *params);
-extern void gmpr_chk_grp_limit(gmp_instance_id instance_id, 
+                gmpx_intf_id intf_id,
+                gmpr_intf_params *params);
+extern void gmpr_chk_grp_limit(gmp_instance_id instance_id,
                                gmpx_intf_id intf_id);
 extern int gmpr_disable_host_tracking(gmp_instance_id instance_id,
-				      gmpx_intf_id intf_id);
+                      gmpx_intf_id intf_id);
 extern gmpr_client_notification *
 gmpr_get_notification(gmp_client_id client_id,
-		      gmpr_client_notification *last_notification);
+              gmpr_client_notification *last_notification);
 extern void gmpr_return_notification(gmpr_client_notification *notification);
 extern gmpr_client_host_notification *
     gmpr_get_host_notification(gmp_client_id client_id,
-		       gmpr_client_host_notification *last_notification);
+               gmpr_client_host_notification *last_notification);
 extern void gmpr_return_host_notification(
-				  gmpr_client_host_notification *host_notif);
+                  gmpr_client_host_notification *host_notif);
 extern boolean
 gmpr_notification_last_sg(gmpr_client_notification *notification);
 
 typedef enum {INTF_LIST_LOOSE, INTF_LIST_STRICT} gmpr_intf_list_match;
 extern gmpr_client_intf_list *gmpr_get_intf_list(gmp_instance_id instance_id,
-						 uint8_t *group_addr,
-						 uint8_t *source_addr,
-						 gmpr_intf_list_match type);
+                         uint8_t *group_addr,
+                         uint8_t *source_addr,
+                         gmpr_intf_list_match type);
 extern void gmpr_free_intf_list(gmpr_client_intf_list *intf_list);
 extern boolean
     gmpr_is_forwarding_channel(gmp_instance_id instance_id,
-			       gmpx_intf_id intf_id,
-			       const uint8_t *source_addr,
-			       const uint8_t *group_addr, boolean exact);
+                   gmpx_intf_id intf_id,
+                   const uint8_t *source_addr,
+                   const uint8_t *group_addr, boolean exact);
 extern void gmpr_update_intf_state(gmp_instance_id instance_id,
-				   gmpx_intf_id intf_id,
-				   const uint8_t *intf_addr);
+                   gmpx_intf_id intf_id,
+                   const uint8_t *intf_addr);
 extern gmpr_intf_group_entry *gmpr_get_intf_groups(gmp_instance_id instance_id,
-						   gmpx_intf_id intf_id);
+                           gmpx_intf_id intf_id);
 extern gmpr_intf_group_entry *gmpr_get_host_groups(gmp_instance_id instance_id,
                                                    gmpx_intf_id intf_id,
                                                    const uint8_t *host_addr);
@@ -386,23 +386,23 @@ extern void gmpr_destroy_intf_group(gmpr_intf_group_entry *group_list);
 extern void gmpr_destroy_intf_host(gmpr_intf_host_entry *host_list);
 extern boolean gmpr_is_initialized(void);
 extern void gmpr_timeout_group_range(gmp_instance_id instance_id,
-				     gmpx_intf_id intf_id,
-				     const uint8_t *group_addr,
-				     uint32_t pfx_len, boolean send_query);
+                     gmpx_intf_id intf_id,
+                     const uint8_t *group_addr,
+                     uint32_t pfx_len, boolean send_query);
 extern boolean gmpr_sg_is_excluded(gmp_instance_id instance_id,
-				gmpx_intf_id intf_id, 
-				const uint8_t *group_addr,
-				const uint8_t *source_addr);
+                gmpx_intf_id intf_id,
+                const uint8_t *group_addr,
+                const uint8_t *source_addr);
 extern void gmpr_update_trace_flags(gmp_instance_id instance_id,
-				    uint32_t trace_flags);
+                    uint32_t trace_flags);
 extern void gmpr_force_general_queries(gmp_instance_id instance_id,
-				       gmpx_intf_id intf_id);
+                       gmpx_intf_id intf_id);
 extern void gmpr_request_general_queries(gmp_instance_id instance_id,
-					 gmpx_intf_id intf_id);
+                     gmpx_intf_id intf_id);
 extern void gmpr_force_one_general_query(gmp_instance_id instance_id,
-					 gmpx_intf_id intf_id);
+                     gmpx_intf_id intf_id);
 extern void gmpr_request_one_general_query(gmp_instance_id instance_id,
-					   gmpx_intf_id intf_id);
+                       gmpx_intf_id intf_id);
 extern void gmpr_notify_oif_map_change (gmp_proto proto, gmpx_intf_id intf_id);
 
 #endif /* __GMP_ROUTER_H__ */

@@ -17,7 +17,7 @@ public:
              bool policy, TunnelType type, const MacAddress &rewrite_dmac);
     virtual ~TunnelNH();
 
-    virtual std::string ToString() const { 
+    virtual std::string ToString() const {
         return "Tunnel to " + dip_.to_string() +
             " rewrite mac " + rewrite_dmac_.ToString();
     }
@@ -37,7 +37,7 @@ public:
     const MacAddress &rewrite_dmac() const {return rewrite_dmac_;}
     const TunnelType &GetTunnelType() const {return tunnel_type_;};
     const Interface *GetCryptInterface() const {return crypt_interface_.get();};
-    bool GetCrypt() const {return crypt_;}; 
+    bool GetCrypt() const {return crypt_;};
     bool GetCryptTunnelAvailable() const {return crypt_tunnel_available_;};
     virtual void SendObjectLog(const NextHopTable *table,
                                AgentLogEvent::type event) const;

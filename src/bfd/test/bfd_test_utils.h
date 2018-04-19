@@ -50,7 +50,7 @@ class TestCommunicatorManager {
     explicit TestCommunicatorManager(boost::asio::io_service *io_service)
             : io_service(io_service) {}
 
-    
+
     static void processPacketAndFreeActual(const callback &cb,
                                      const ControlPacket *controlPacket) {
         cb(controlPacket);

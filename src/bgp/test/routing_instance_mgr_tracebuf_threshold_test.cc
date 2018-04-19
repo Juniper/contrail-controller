@@ -91,12 +91,12 @@ protected:
 TEST_F(RoutingInstanceMgrTraceBuffThresholdTest,
         RoutingInstanceTraceBuffThreshold_Test) {
     bool   set_log_disable = false;
-    size_t dormant_tracebuf_capacity = 
+    size_t dormant_tracebuf_capacity =
         GetRoutingInstanceDormantTraceBufferCapacity();
 
-    size_t env_dormant_tracebuf_capacity = 
+    size_t env_dormant_tracebuf_capacity =
         GetEnvRoutingInstanceDormantTraceBufferCapacity();
-    
+
     TASK_UTIL_EXPECT_EQ(4, env_dormant_tracebuf_capacity);
     TASK_UTIL_EXPECT_EQ(4, dormant_tracebuf_capacity);
 
@@ -140,7 +140,7 @@ TEST_F(RoutingInstanceMgrTraceBuffThresholdTest,
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#3"));
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#4"));
-    TASK_UTIL_EXPECT_EQ((active_tracebuf_count - 4), 
+    TASK_UTIL_EXPECT_EQ((active_tracebuf_count - 4),
                               GetRoutingInstanceActiveTraceBufSize());
     TASK_UTIL_EXPECT_EQ(4, GetRoutingInstanceDormantTraceBufSize());
     // With the following delete, exceeding the Dormant capacity
@@ -170,9 +170,9 @@ static void SetUp() {
 
     ControlNode::SetDefaultSchedulingPolicy();
 
-    // Intialize the environmental variables for this test prior to 
+    // Intialize the environmental variables for this test prior to
     // the creation of the Routing Instance Manager
-    
+
     char   value[100];
     size_t dormant_trace_buf_size = TEST_DORMANT_TRACE_BUFFER_SIZE;
     snprintf(value, sizeof(value), "%zu", dormant_trace_buf_size);

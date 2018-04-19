@@ -6,7 +6,7 @@
 #define vnsw_agent_packet_interface_hpp
 
 /////////////////////////////////////////////////////////////////////////////
-// Implementation of Pkt Interface. Interface is used to exchange packets 
+// Implementation of Pkt Interface. Interface is used to exchange packets
 // between vrouter to agent
 /////////////////////////////////////////////////////////////////////////////
 

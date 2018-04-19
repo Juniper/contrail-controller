@@ -78,7 +78,7 @@ public:
     uint8_t plen() const { return plen_; }
     void set_plen(int plen) { plen_ = plen; }
 
-    //Key for patricia node lookup 
+    //Key for patricia node lookup
     class Rtkey {
       public:
           static std::size_t BitLength(const AgentRoute *key) {
@@ -153,10 +153,10 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return type_;
     }
-    virtual void ProcessAdd(AgentRoute *rt) { 
+    virtual void ProcessAdd(AgentRoute *rt) {
         tree_.Insert(static_cast<InetUnicastRouteEntry *>(rt));
     }
-    virtual void ProcessDelete(AgentRoute *rt) { 
+    virtual void ProcessDelete(AgentRoute *rt) {
         tree_.Remove(static_cast<InetUnicastRouteEntry *>(rt));
     }
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
@@ -246,7 +246,7 @@ public:
                                const TagList &tag_list,
                                const PathPreference &path_preference);
     InetUnicastRouteEntry *FindResolveRoute(const Ip4Address &ip);
-    static InetUnicastRouteEntry *FindResolveRoute(const string &vrf_name, 
+    static InetUnicastRouteEntry *FindResolveRoute(const string &vrf_name,
                                                    const Ip4Address &ip);
     static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip,
                                   const Interface *intf,

@@ -55,7 +55,7 @@ Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table) const {
 
 Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table,
                                         const InterfaceData *data)const {
-    const InetInterfaceData *vhost_data  = 
+    const InetInterfaceData *vhost_data  =
         static_cast<const InetInterfaceData *>(data);
 
     VrfKey key(data->vrf_name_);
@@ -63,7 +63,7 @@ Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table,
         (table->agent()->vrf_table()->FindActiveEntry(&key));
     assert(vrf);
 
-	Interface *xconnect = NULL;
+    Interface *xconnect = NULL;
     if (vhost_data->sub_type_ == InetInterface::VHOST) {
         PhysicalInterfaceKey key(vhost_data->xconnect_);
         xconnect = static_cast<Interface *>
@@ -403,7 +403,7 @@ bool InetInterface::Delete(const DBRequest *req) {
     return true;
 }
 
-// Interface Activate cannot be done in AllocEntry. It must be done in PostAdd 
+// Interface Activate cannot be done in AllocEntry. It must be done in PostAdd
 // Activating an interface results in adding Interface Nexthops. Creating of
 // Interface NH from AllocEntry will fail since the interface is not yet added
 // in DB Table PartitionInterface. So, Activate an interface in PostAdd

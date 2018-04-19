@@ -24,7 +24,7 @@ public:
     virtual int AddAttribute(const std::string &key, const std::string &value);
     virtual int DeleteAttribute(const std::string &key);
     virtual int ModifyAttribute(const std::string &key, const std::string &value);
- 
+
     // Read methods
     virtual const char *ReadNode(const std::string &name);
     virtual const char *ReadNodeName(const std::string &name);
@@ -35,7 +35,7 @@ public:
     virtual const char *ReadNextNodeName();
     virtual void RewindNode();
 
-    virtual const char *ReadAttrib(const std::string &str); 
+    virtual const char *ReadAttrib(const std::string &str);
     virtual const char *ReadFirstAttrib();
     virtual const char *ReadNextAttrib();
     virtual void RewindAttrib();
@@ -54,15 +54,15 @@ public:
 
     struct xmpp_buf_write : pugi::xml_writer {
         xmpp_buf_write(XmlPugi *arg) : ref(arg) {}
-        virtual void write(const void *data, size_t sz); 
+        virtual void write(const void *data, size_t sz);
         XmlPugi *ref;
     };
 
     void SetBuf(const void *buf, size_t sz);
 
     bool IsNull(pugi::xml_node &node) { return node.type() == pugi::node_null; }
-    bool IsNull(pugi::xml_attribute &attr) { 
-        return attr == NULL; 
+    bool IsNull(pugi::xml_attribute &attr) {
+        return attr == NULL;
     }
     void LoadXmlDoc(const pugi::xml_document &doc) {doc_.reset(doc);}
     const pugi::xml_document &doc() {return doc_;}
@@ -83,7 +83,7 @@ private:
             return (strcmp(attr.name(), tmp_.c_str()) == 0);
         }
         bool operator()(pugi::xml_node node) const {
-            return (strcmp(node.name(), tmp_.c_str()) == 0); 
+            return (strcmp(node.name(), tmp_.c_str()) == 0);
         }
         PugiPredicate(const std::string &name) : tmp_(name) { }
         std::string tmp_;
@@ -91,7 +91,7 @@ private:
 
     static pugi::xml_attribute GAttr;
     static pugi::xml_node GNode;
-    void SetContext(pugi::xml_node node = GNode, 
+    void SetContext(pugi::xml_node node = GNode,
                     pugi::xml_attribute atrib = GAttr);
 
 };

@@ -39,7 +39,7 @@
         (stats.icmpv6_neighbor_advert_unsolicited_);                             \
     list.push_back(entry);
 
-std::map<uint16_t, std::string> g_ip_protocol_map = 
+std::map<uint16_t, std::string> g_ip_protocol_map =
                     boost::assign::map_list_of<uint16_t, std::string>
                             (1, "icmp")
                             (2, "igmp")
@@ -82,7 +82,7 @@ std::map<uint32_t, std::string> g_dhcpv6_msg_types =
 
 void ServicesSandesh::MacToString(const unsigned char *mac, std::string &mac_str) {
     char mstr[32];
-    snprintf(mstr, 32, "%02x:%02x:%02x:%02x:%02x:%02x", 
+    snprintf(mstr, 32, "%02x:%02x:%02x:%02x:%02x:%02x",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     mac_str.assign(mstr);
 }
@@ -164,7 +164,7 @@ void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
 
 void ServicesSandesh::DhcpStatsSandesh(std::string ctxt, bool more) {
     DhcpStats *dhcp = new DhcpStats();
-    const DhcpProto::DhcpStats &dstats = 
+    const DhcpProto::DhcpStats &dstats =
                 Agent::GetInstance()->GetDhcpProto()->GetStats();
     dhcp->set_dhcp_discover(dstats.discover);
     dhcp->set_dhcp_request(dstats.request);
@@ -500,7 +500,7 @@ ServicesSandesh::FillOptionInteger(uint32_t data, std::string msg) {
     return str.str();
 }
 
-std::string 
+std::string
 ServicesSandesh::FillOptionIp(uint32_t data, std::string msg) {
     Ip4Address addr(data);
     return msg + addr.to_string() + "; ";
@@ -562,7 +562,7 @@ void ServicesSandesh::FillDhcpv4Options(Dhcpv4Options *opt, std::string &resp,
 
             case DHCP_OPTION_DOMAIN_NAME:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionString((char *)opt->data, opt->len, 
+                    resp += FillOptionString((char *)opt->data, opt->len,
                                              "Domain Name : ");
                 break;
 
@@ -637,7 +637,7 @@ void ServicesSandesh::FillDhcpv4Hdr(dhcphdr *dhcp, Dhcpv4Hdr &resp,
     resp.hops = dhcp->hops;
     resp.xid = IntToHexString(dhcp->xid);
     resp.secs = ntohs(dhcp->secs);
-    resp.flags = 
+    resp.flags =
         (ntohs(dhcp->flags) & DHCP_BCAST_FLAG) ? "broadcast" : "unicast";
     Ip4Address ciaddr(ntohl(dhcp->ciaddr));
     Ip4Address yiaddr(ntohl(dhcp->yiaddr));
@@ -674,7 +674,7 @@ void ServicesSandesh::FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen) {
         resp.flags += "truncated; ";
     if (dns->flags.auth)
         resp.flags += "authoritative answer; ";
-    resp.flags += (!dns->flags.op) ? "query; " : 
+    resp.flags += (!dns->flags.op) ? "query; " :
                   ((dns->flags.op == DNS_OPCODE_UPDATE)? "update; " :
                    "other op; ");
     if (dns->flags.req) {
@@ -908,7 +908,7 @@ void ServicesSandesh::MetadataHandleRequest(std::string ctxt, bool more = false)
     MetadataResponse *resp = new MetadataResponse();
     resp->set_metadata_server_port(
           Agent::GetInstance()->metadata_server_port());
-    const MetadataProxy::MetadataStats &stats = 
+    const MetadataProxy::MetadataStats &stats =
           Agent::GetInstance()->services()->metadataproxy()->metadatastats();
     resp->set_metadata_requests(stats.requests);
     resp->set_metadata_responses(stats.responses);
@@ -1036,7 +1036,7 @@ void PktTraceInfo::HandleRequest() const {
 void ShowDnsEntries::HandleRequest() const {
     AgentDnsEntries *resp = new AgentDnsEntries();
     std::vector<VmDnsSandesh> dns_list;
-    const DnsProto::DnsUpdateSet &dns_update_set = 
+    const DnsProto::DnsUpdateSet &dns_update_set =
                     Agent::GetInstance()->GetDnsProto()->update_set();
     for (DnsProto::DnsUpdateSet::const_iterator it = dns_update_set.begin();
          it != dns_update_set.end(); ++it) {

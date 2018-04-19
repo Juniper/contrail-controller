@@ -153,7 +153,7 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
         }
 
         // ...else its an update or delete
- 
+
         IFMapUpdate *update = static_cast<IFMapUpdate *>(curr);
         BitSet send_set = update->advertise() & marker->mask;
         if (send_set.empty()) {
@@ -263,7 +263,7 @@ void IFMapUpdateSender::SendUpdate(BitSet send_set, BitSet *blocked_set) {
         // Send the string version of the message to the client.
         send_result = client->SendUpdate(message_->get_string());
 
-        // Keep track of all the clients whose buffers are full. 
+        // Keep track of all the clients whose buffers are full.
         if (!send_result) {
             blocked_set->set(i);
             send_blocked_.set(i);

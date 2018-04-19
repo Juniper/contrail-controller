@@ -29,7 +29,7 @@ SandeshTraceBufferPtr MetadataTraceBuf(SandeshTraceBufferCreate("Metadata", 500)
 SandeshTraceBufferPtr BfdTraceBuf(SandeshTraceBufferCreate("Bfd", 500));
 SandeshTraceBufferPtr IgmpTraceBuf(SandeshTraceBufferCreate("Igmp", 500));
 
-ServicesModule::ServicesModule(Agent *agent, const std::string &metadata_secret) 
+ServicesModule::ServicesModule(Agent *agent, const std::string &metadata_secret)
     : agent_(agent), metadata_secret_key_(metadata_secret), dhcp_proto_(NULL),
       dhcpv6_proto_(NULL), dns_proto_(NULL), arp_proto_(NULL), bfd_proto_(NULL),
       icmp_proto_(NULL), icmpv6_proto_(NULL), igmp_proto_(NULL), metadata_proxy_(NULL) {

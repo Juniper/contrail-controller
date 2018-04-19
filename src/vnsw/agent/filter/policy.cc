@@ -16,7 +16,7 @@ void PolicyData::Init(const PolicyConfigSpec &policy_cfg) {
     acl_id_ = policy_cfg.acl_id;
 }
 
-Policy::Policy(const uuid id) : policy_id_(id) 
+Policy::Policy(const uuid id) : policy_id_(id)
 {
     std::stringstream ss;
     ss << policy_id_;
@@ -141,7 +141,7 @@ DBEntryBase::KeyPtr Policy::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void Policy::SetKey(const DBRequestKey *key) { 
+void Policy::SetKey(const DBRequestKey *key) {
     const PolicyKey *k = static_cast<const PolicyKey *>(key);
     LOG(DEBUG, "Policy::SetKey");
     policy_id_ = k->id_;

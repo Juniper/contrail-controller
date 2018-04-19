@@ -147,7 +147,7 @@ public:
 
     bool empty() const {
         tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-        return callbacks_.empty(); 
+        return callbacks_.empty();
     }
 
     size_t size() const {
@@ -507,7 +507,7 @@ size_t DBTable::Size() const {
 
 void DBTable::Input(DBTablePartition *tbl_partition, DBClient *client,
                     DBRequest *req) {
-    DBRequestKey *key = 
+    DBRequestKey *key =
         static_cast<DBRequestKey *>(req->key.get());
     DBEntry *entry = NULL;
 

@@ -73,9 +73,9 @@ bool ShowIFMapXmppClientInfo::BufferStage(const Sandesh *sr,
                                      const RequestPipeline::PipeSpec ps,
                                      int stage, int instNum,
                                      RequestPipeline::InstData *data) {
-    const IFMapXmppClientInfoShowReq *request = 
+    const IFMapXmppClientInfoShowReq *request =
         static_cast<const IFMapXmppClientInfoShowReq *>(ps.snhRequest_.get());
-    IFMapSandeshContext *sctx = 
+    IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     IFMapServer* server = sctx->ifmap_server();
 
@@ -86,9 +86,9 @@ bool ShowIFMapXmppClientInfo::BufferStage(const Sandesh *sr,
 
     for (IFMapServer::ClientMap::iterator iter = client_map.begin();
          iter != client_map.end(); ++iter) {
-	IFMapXmppClientInfo dest;
+    IFMapXmppClientInfo dest;
         IFMapClient *src = iter->second;
-	CopyNode(&dest, src);
+    CopyNode(&dest, src);
         show_data->send_buffer.push_back(dest);
     }
 
@@ -101,7 +101,7 @@ bool ShowIFMapXmppClientInfo::SendStage(const Sandesh *sr,
                                    int stage, int instNum,
                                    RequestPipeline::InstData *data) {
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapXmppClientInfo::ShowData &show_data = 
+    const ShowIFMapXmppClientInfo::ShowData &show_data =
         static_cast<const ShowIFMapXmppClientInfo::ShowData &>
                                                        (prev_stage_data->at(0));
 
@@ -129,7 +129,7 @@ bool ShowIFMapXmppClientInfo::SendStage(const Sandesh *sr,
     } else {
         more = false;
     }
-    const IFMapXmppClientInfoShowReq *request = 
+    const IFMapXmppClientInfoShowReq *request =
         static_cast<const IFMapXmppClientInfoShowReq *>(ps.snhRequest_.get());
     IFMapXmppClientInfoShowResp *response = new IFMapXmppClientInfoShowResp();
     response->set_client_stats(dest_buffer);

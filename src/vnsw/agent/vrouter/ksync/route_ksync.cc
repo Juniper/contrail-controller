@@ -34,13 +34,13 @@
 #include "vr_os.h"
 #endif
 
-RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, 
-                                 const RouteKSyncEntry *entry, 
+RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
+                                 const RouteKSyncEntry *entry,
                                  uint32_t index) :
-    KSyncNetlinkDBEntry(index), ksync_obj_(obj), 
-    rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_), 
-    addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
-    prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_), 
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj),
+    rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_),
+    addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_),
+    prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_),
     proxy_arp_(false), flood_dhcp_(entry->flood_dhcp_),
     address_string_(entry->address_string_),
     tunnel_type_(entry->tunnel_type_),
@@ -51,7 +51,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
 }
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
-    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
     vrf_id_(rt->vrf_id()), mac_(), nh_(NULL), label_(0), proxy_arp_(false),
     flood_dhcp_(false), tunnel_type_(TunnelType::DefaultType()),
     wait_for_traffic_(false), local_vm_peer_route_(false),
@@ -76,7 +76,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           break;
     }
     case Agent::INET4_MULTICAST: {
-          const Inet4MulticastRouteEntry *mc_rt = 
+          const Inet4MulticastRouteEntry *mc_rt =
               static_cast<const Inet4MulticastRouteEntry *>(rt);
           addr_ = mc_rt->dest_ip_addr();
           src_addr_ = mc_rt->src_ip_addr();
@@ -132,7 +132,7 @@ bool RouteKSyncEntry::McIsLess(const KSyncEntry &rhs) const {
 
 bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
     const RouteKSyncEntry &entry = static_cast<const RouteKSyncEntry &>(rhs);
- 
+
     if (vrf_id_ != entry.vrf_id_) {
         return vrf_id_ < entry.vrf_id_;
     }
@@ -491,7 +491,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     return ret;
 }
 
-void RouteKSyncEntry::FillObjectLog(sandesh_op::type type, 
+void RouteKSyncEntry::FillObjectLog(sandesh_op::type type,
                                     KSyncRouteInfo &info) const {
     if (type == sandesh_op::ADD) {
         info.set_operation("ADD/CHANGE");
@@ -659,7 +659,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
         key.set_prefix_len(plen);
         found = GetObject()->Find(&key);
-        
+
         if (found) {
             route = static_cast<RouteKSyncEntry *>(found);
             if (route->IsResolved()) {
@@ -850,7 +850,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
                           GetBridgeRouteTable());
         state->bridge_route_table_ = new RouteKSyncObject(ksync_, rt_table);
 
-        //Now for multicast table. Ksync object for multicast table is 
+        //Now for multicast table. Ksync object for multicast table is
         //not maintained in vrf list
         //TODO Enhance ksyncobject for UC/MC, currently there is only one entry
         //in MC so just use the UC object for time being.
@@ -931,7 +931,7 @@ void vr_route_req::Process(SandeshContext *context) {
  * between IP <-> MAC in ip_mac_binding_ tree. The table is built based on
  * Evpn routes.
  *
- * When an Inet route is notified, if it needs MAC Stitching, the MAC to 
+ * When an Inet route is notified, if it needs MAC Stitching, the MAC to
  * stitch is found from the ip_mac_binding_ tree
  *
  * Any change to ip_mac_binding_ tree will also result in re-evaluation of

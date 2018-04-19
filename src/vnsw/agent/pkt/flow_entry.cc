@@ -749,7 +749,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_source_plen_map = info->flow_dest_plen_map;
     data_.flow_dest_plen_map = info->flow_source_plen_map;
     data_.vrf = info->dest_vrf;
-    
+
     if (!info->nat_done) {
         data_.dest_vrf = info->flow_source_vrf;
     } else {
@@ -1537,7 +1537,7 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
     // Reset old values first
     ResetPolicy();
 
-    // Short flows means there is some information missing for the flow. Skip 
+    // Short flows means there is some information missing for the flow. Skip
     // getting policy information for short flow. When the information is
     // complete, GetPolicyInfo is called again
     if (is_flags_set(FlowEntry::ShortFlow)) {
@@ -1551,7 +1551,7 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
     if  (data_.intf_entry->type() != Interface::VM_INTERFACE)
         return;
 
-    // Get Network policy/mirror cfg policy/mirror policies 
+    // Get Network policy/mirror cfg policy/mirror policies
     GetPolicy(vn, rflow);
 
     // Get Sg list
@@ -1790,7 +1790,7 @@ void FlowEntry::GetApplicationPolicySet(const Interface *intf,
 // The direction stored in flow is defined with vrouter as reference point
 //      Ingress : Packet to Vrouter from VM
 //      Egress  : Packet from Vrouter to VM
-// 
+//
 // Function takes care of copying right rules
 static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
                           std::list<MatchAclParams> &list) {
@@ -1809,7 +1809,7 @@ static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
             ret = true;
         }
         MatchAclParams acl;
-        // As per definition above, 
+        // As per definition above,
         //      get EgressACL if flow direction is Ingress
         //      get IngressACL if flow direction is Egress
         if (ingress_acl) {
@@ -1988,7 +1988,7 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
 
     // PASS default GW traffic, if it is ICMP or DNS
     if ((hdr.protocol == IPPROTO_ICMP ||
-         (hdr.protocol == IPPROTO_UDP && 
+         (hdr.protocol == IPPROTO_UDP &&
           (hdr.src_port == DNS_SERVER_PORT ||
            hdr.dst_port == DNS_SERVER_PORT))) &&
         (pkt_handler->IsGwPacket(data_.intf_entry.get(), hdr.dst_ip) ||
@@ -2257,27 +2257,27 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
 //     both the ports. sg_policy.m_acl_l will contain ACL for port in forward flow and
 //     sg_policy.m_out_acl_l will have ACL from other port
 //
-//     If forward flow goes thru NAT, the key for matching ACL in 
+//     If forward flow goes thru NAT, the key for matching ACL in
 //     sg_policy.m_out_acl_l can potentially change. The routine SetOutPacketHeader
 //     takes care of forming header after NAT
 //
 // Rules applied are based on flow type
 // Non-Local Forward Flow
-//      Network Policy. 
+//      Network Policy.
 //      Out-Network Policy will be empty
 //      SG
 //      Out-SG will be empty
 // Non-Local Reverse Flow
-//      Network Policy. 
+//      Network Policy.
 //      Out-Network Policy will be empty
 //      SG and out-SG from forward flow
 // Local Forward Flow
-//      Network Policy. 
+//      Network Policy.
 //      Out-Network Policy
 //      SG
-//      Out-SG 
+//      Out-SG
 // Local Reverse Flow
-//      Network Policy. 
+//      Network Policy.
 //      Out-Network Policy
 //      SG and out-SG from forward flow
 bool FlowEntry::DoPolicy() {
@@ -2342,7 +2342,7 @@ bool FlowEntry::DoPolicy() {
         SessionMatch(&data_.match_p.aps_policy, r_aps_policy, false);
     } else {
         // SG is reflexive ACL. For reverse-flow, copy SG action from
-        // forward flow 
+        // forward flow
         UpdateReflexiveAction();
     }
 
@@ -2479,7 +2479,7 @@ bool FlowEntry::ActionRecompute() {
     action &= ~(1 << TrafficAction::VRF_TRANSLATE);
     action |= data_.match_p.vrf_assign_acl_action;
 
-    if (action & (1 << TrafficAction::VRF_TRANSLATE) && 
+    if (action & (1 << TrafficAction::VRF_TRANSLATE) &&
         data_.match_p.action_info.vrf_translate_action_.ignore_acl() == true) {
         //In case of multi inline service chain, match condition generated on
         //each of service instance interface takes higher priority than
@@ -2922,7 +2922,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) const {
     info.set_mirror_vrf(data_.mirror_vrf);
     info.set_implicit_deny(ImplicitDenyFlow());
     info.set_short_flow(is_flags_set(FlowEntry::ShortFlow));
-    if (is_flags_set(FlowEntry::EcmpFlow) && 
+    if (is_flags_set(FlowEntry::EcmpFlow) &&
             data_.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
         info.set_ecmp_index(data_.component_nh_idx);
     }
@@ -2962,7 +2962,7 @@ static void SetAclListAceId(const AclDBEntry *acl,
             continue;
         }
         AclEntryIDList::const_iterator ait;
-        for (ait = (*ma_it).ace_id_list.begin(); 
+        for (ait = (*ma_it).ace_id_list.begin();
              ait != (*ma_it).ace_id_list.end(); ++ ait) {
             AceId ace_id;
             ace_id.id = ait->id_;
@@ -2995,7 +2995,7 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_dest_vn_list(data_.DestinationVnList());
     std::vector<uint32_t> v;
     SecurityGroupList::const_iterator it;
-    for (it = data_.source_sg_id_l.begin(); 
+    for (it = data_.source_sg_id_l.begin();
             it != data_.source_sg_id_l.end(); it++) {
         v.push_back(*it);
     }
@@ -3045,7 +3045,7 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
                                      "yes" : "no");
     fe_sandesh_data.set_nat(is_flags_set(FlowEntry::NatFlow) ? "yes" : "no");
     fe_sandesh_data.set_implicit_deny(ImplicitDenyFlow() ? "yes" : "no");
-    fe_sandesh_data.set_short_flow(is_flags_set(FlowEntry::ShortFlow) ? 
+    fe_sandesh_data.set_short_flow(is_flags_set(FlowEntry::ShortFlow) ?
                                    "yes" : "no");
     fe_sandesh_data.set_l3_flow(l3_flow_);
     fe_sandesh_data.set_smac(data_.smac.ToString());

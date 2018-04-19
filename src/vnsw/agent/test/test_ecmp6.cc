@@ -211,7 +211,7 @@ TEST_F(EcmpV6Test, EcmpNH_2) {
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
-    //Verify that mpls label allocated for ECMP route, points 
+    //Verify that mpls label allocated for ECMP route, points
     //to the same composite NH
     uint32_t composite_nh_mpls_label = rt->GetActiveLabel();
     mpls = GetActiveLabel(composite_nh_mpls_label);
@@ -261,7 +261,7 @@ TEST_F(EcmpV6Test, EcmpNH_2) {
     DelIPAM("vn1");
     client->WaitForIdle();
     EXPECT_FALSE(RouteFindV6("vrf1", addr, 128));
-    
+
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(composite_nh_mpls_label));
 

@@ -21,7 +21,7 @@ void KStateIoContext::ErrorHandler(int err) {
     KSYNC_ERROR(VRouterError, "VRouter query operation failed. Error <", err,
                 ":", strerror(err), ">. Object <", "N/A", ">. State <", "N/A",
                 ">. Message number :", GetSeqno());
-    LOG(ERROR, "Error reading kstate. Error <" << err << ": " 
+    LOG(ERROR, "Error reading kstate. Error <" << err << ": "
         << strerror(err) << ": Sequence No : " << GetSeqno());
 
 }

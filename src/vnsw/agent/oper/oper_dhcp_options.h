@@ -35,7 +35,7 @@ public:
             return prefix_ == rhs.prefix_ && plen_ == rhs.plen_ &&
                    gw_ == rhs.gw_;
         }
-        std::string ToString() const { 
+        std::string ToString() const {
             char len[32];
             snprintf(len, sizeof(len), "%u", plen_);
             return prefix_.to_string() + "/" + std::string(len) +

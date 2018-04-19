@@ -15,7 +15,7 @@ SandeshTraceBufferPtr AgentXmppTraceBuf(SandeshTraceBufferCreate("Xmpp", 500));
 std::size_t
 DnsAgentXmpp::DnsAgentXmppEncode(XmppChannel *channel,
                                  XmppType type,
-                                 uint32_t trans_id, 
+                                 uint32_t trans_id,
                                  uint32_t response_code,
                                  DnsUpdateData *xmpp_data,
                                  uint8_t *data) {
@@ -24,8 +24,8 @@ DnsAgentXmpp::DnsAgentXmppEncode(XmppChannel *channel,
 
     std::auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-    std::string iq_type = 
-        (type == DnsQuery) ? "get" : 
+    std::string iq_type =
+        (type == DnsQuery) ? "get" :
         (type == Update) ? "set" : "result";
 
     pugi->AddNode("iq", "");
@@ -46,7 +46,7 @@ DnsAgentXmpp::DnsAgentXmppEncode(XmppChannel *channel,
     code << response_code;
     pugi::xml_node node;
     switch (type) {
-        case Update:  
+        case Update:
             pugi->AddChildNode("update", "");
             node = pugi->FindNode("update");
             break;
@@ -58,7 +58,7 @@ DnsAgentXmpp::DnsAgentXmppEncode(XmppChannel *channel,
             node = pugi->FindNode("update");
             break;
 
-        case DnsQuery: 
+        case DnsQuery:
             pugi->AddChildNode("query", "");
             node = pugi->FindNode("query");
             break;
@@ -77,8 +77,8 @@ DnsAgentXmpp::DnsAgentXmppEncode(XmppChannel *channel,
     EncodeDnsData(&node, xmpp_data);
     return XmppProto::EncodeMessage(impl.get(), data, sizeof(data));
 }
- 
-void 
+
+void
 DnsAgentXmpp::EncodeDnsData(pugi::xml_node *node, DnsUpdateData *xmpp_data) {
     pugi::xml_node node_c;
 
@@ -95,7 +95,7 @@ DnsAgentXmpp::EncodeDnsData(pugi::xml_node *node, DnsUpdateData *xmpp_data) {
     }
 }
 
-void 
+void
 DnsAgentXmpp::EncodeDnsItem(pugi::xml_node *node, DnsItem &item) {
     pugi::xml_node node_c;
 
@@ -124,8 +124,8 @@ DnsAgentXmpp::EncodeDnsItem(pugi::xml_node *node, DnsItem &item) {
     }
 }
 
-bool 
-DnsAgentXmpp::DnsAgentXmppDecode(const pugi::xml_node dns, 
+bool
+DnsAgentXmpp::DnsAgentXmppDecode(const pugi::xml_node dns,
                                  XmppType &type, uint32_t &xid,
                                  uint16_t &resp_code, DnsUpdateData *data) {
     std::stringstream id(dns.attribute("transid").value());
@@ -140,10 +140,10 @@ DnsAgentXmpp::DnsAgentXmppDecode(const pugi::xml_node dns,
         return DecodeDns(resp, type, false, data);
 }
 
-bool 
-DnsAgentXmpp::DecodeDns(const pugi::xml_node node, 
-                              XmppType &type, 
-                              bool is_resp, 
+bool
+DnsAgentXmpp::DecodeDns(const pugi::xml_node node,
+                              XmppType &type,
+                              bool is_resp,
                               DnsUpdateData *data) {
     if (strcmp(node.name(), "update") == 0) {
         type = is_resp ? UpdateResponse : Update;
@@ -153,15 +153,15 @@ DnsAgentXmpp::DecodeDns(const pugi::xml_node node,
         return DecodeDnsItems(node, data);
     }
 
-    DNS_XMPP_TRACE(DnsXmppTrace, "Dns XMPP response : unknown tag : " << 
+    DNS_XMPP_TRACE(DnsXmppTrace, "Dns XMPP response : unknown tag : " <<
                    node.name());
     return false;
 }
 
-bool 
-DnsAgentXmpp::DecodeDnsItems(const pugi::xml_node dnsdata, 
+bool
+DnsAgentXmpp::DecodeDnsItems(const pugi::xml_node dnsdata,
                                    DnsUpdateData *data) {
-    for (pugi::xml_node node = dnsdata.first_child(); node; 
+    for (pugi::xml_node node = dnsdata.first_child(); node;
          node = node.next_sibling()) {
         if (strcmp(node.name(), "virtual-dns") == 0) {
             data->virtual_dns = node.child_value();
@@ -169,7 +169,7 @@ DnsAgentXmpp::DecodeDnsItems(const pugi::xml_node dnsdata,
             data->zone = node.child_value();
         } else if (strcmp(node.name(), "entry") == 0) {
             DnsItem item;
-            for (pugi::xml_node entry = node.first_child(); entry; 
+            for (pugi::xml_node entry = node.first_child(); entry;
                  entry = entry.next_sibling()) {
                 if (strcmp(entry.name(), "class") == 0) {
                     std::stringstream cl(entry.child_value());
@@ -188,8 +188,8 @@ DnsAgentXmpp::DecodeDnsItems(const pugi::xml_node dnsdata,
                     std::stringstream prio(entry.child_value());
                     prio >> item.priority;
                 } else {
-                    DNS_XMPP_TRACE(DnsXmppTrace, 
-                                   "Dns XMPP response : unknown tag : " << 
+                    DNS_XMPP_TRACE(DnsXmppTrace,
+                                   "Dns XMPP response : unknown tag : " <<
                                    node.name());
                     return false;
                 }

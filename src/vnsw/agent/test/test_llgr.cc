@@ -114,7 +114,7 @@ protected:
         AgentXmppChannel *channel = bgp_peer_->GetAgentXmppChannel();
         AgentIfMapXmppChannel *ifmap_channel =
             new AgentIfMapXmppChannel(agent_, channel->GetXmppChannel(),
-                                      channel->GetXmppServerIdx()); 
+                                      channel->GetXmppServerIdx());
         agent_->set_ifmap_xmpp_channel(ifmap_channel,
                                        channel->GetXmppServerIdx());
         agent_->set_ifmap_active_xmpp_server("127.0.0.1",
@@ -133,7 +133,7 @@ protected:
                           const Ip4Address &server_ip,
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any other peer than localvmpeer
-        Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, ip_addr, 32, server_ip, 
+        Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, ip_addr, 32, server_ip,
                             bmap, label+1, vrf_name_,
                             SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
@@ -143,7 +143,7 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                  agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),

@@ -109,13 +109,13 @@ struct PktType {
 };
 
 struct sctphdr {
-	 u_int16_t th_sport;
+     u_int16_t th_sport;
          u_int16_t th_dport;
          u_int32_t vtag;
 };
 
 struct AgentHdr {
-    // Packet commands between agent and vrouter. The values must be in-sync 
+    // Packet commands between agent and vrouter. The values must be in-sync
     // with vrouter/include/vr_defs.h
     enum PktCommand {
         TX_SWITCH = AGENT_CMD_SWITCH,
@@ -277,7 +277,7 @@ public:
     bool ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item);
 // identify pkt type and send to the registered handler
     void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
-    void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
+    void SendMessage(PktModuleName mod, InterTaskMsg *msg);
 
     bool IsGwPacket(const Interface *intf, const IpAddress &dst_ip);
 
@@ -413,7 +413,7 @@ struct PktInfo {
     const AgentHdr &GetAgentHdr() const;
     void UpdateHeaderPtr();
     std::size_t hash(const Agent *agent,
-		     const EcmpLoadBalance &ecmp_has_fields_to_use) const;
+             const EcmpLoadBalance &ecmp_has_fields_to_use) const;
 
     PacketBuffer *packet_buffer() const { return packet_buffer_.get(); }
     PacketBufferPtr packet_buffer_ptr() const { return packet_buffer_; }

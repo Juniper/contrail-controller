@@ -22,7 +22,7 @@
     gmpx_trace(instance->rinst_context, __VA_ARGS__)
 
 /*
- * Error event 
+ * Error event
  */
 #define gmpr_post_event(instance, ev, ...) \
     gmpx_post_event(instance->rinst_context, ev, __VA_ARGS__)
@@ -34,8 +34,8 @@
  * Beware that the low order bits are defined in gmp_trace.h!
  */
 
-#define GMPR_TRACE_GROUP	0x00000100 /* Group activity */
-#define GMPR_TRACE_HOST_NOTIFY	0x00000200 /* Host notification */
+#define GMPR_TRACE_GROUP    0x00000100 /* Group activity */
+#define GMPR_TRACE_HOST_NOTIFY    0x00000200 /* Host notification */
 #define GMPR_TRACE_CLIENT_NOTIFY 0x00000400 /* Client notification */
 
 extern const char *

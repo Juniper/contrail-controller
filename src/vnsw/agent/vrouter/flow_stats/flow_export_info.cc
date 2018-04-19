@@ -3,7 +3,7 @@
 
 FlowExportInfo::FlowExportInfo() :
     flow_(), teardown_time_(0), last_modified_time_(0),
-    bytes_(0), packets_(0), 
+    bytes_(0), packets_(0),
     delete_enqueue_time_(0), evict_enqueue_time_(0),
     gen_id_(0),
     flow_handle_(FlowEntry::kInvalidFlowHandle) {
@@ -11,16 +11,16 @@ FlowExportInfo::FlowExportInfo() :
 
 FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe) :
     flow_(fe), teardown_time_(0), last_modified_time_(0),
-    bytes_(0), packets_(0), 
+    bytes_(0), packets_(0),
     delete_enqueue_time_(0), evict_enqueue_time_(0),
     gen_id_(0),
     flow_handle_(FlowEntry::kInvalidFlowHandle) {
 }
 
 FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe, uint64_t setup_time) :
-    flow_(fe), 
+    flow_(fe),
     teardown_time_(0), last_modified_time_(setup_time),
-    bytes_(0), packets_(0), 
+    bytes_(0), packets_(0),
     delete_enqueue_time_(0), evict_enqueue_time_(0),
     gen_id_(0),
     flow_handle_(FlowEntry::kInvalidFlowHandle) {

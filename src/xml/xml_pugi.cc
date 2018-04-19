@@ -8,7 +8,7 @@
 #include "base/logging.h"
 
 // This is internal implementation detail specific to this lib to make
-// exposed methods efficient. 
+// exposed methods efficient.
 
 //XmlPugi::tmp_("");
 pugi::xml_attribute XmlPugi::GAttr;
@@ -38,9 +38,9 @@ const char *XmlPugi::ReadNode(const std::string &name) {
         for (node = node.first_child(); node; node = node.next_sibling()) {
             // traverse to first plain character data or char data,
             // skipping XML comments
-            if (node.type() == pugi::node_pcdata || 
+            if (node.type() == pugi::node_pcdata ||
                 node.type() == pugi::node_cdata)
-               break; 
+               break;
         }
     }
 
@@ -66,14 +66,14 @@ const char *XmlPugi::ReadNodeName(const std::string &name) {
 
 const char *XmlPugi::ReadNodeValue() {
     pugi::xml_node node = node_;
-    
+
     if (node.type() != pugi::node_pi) {
         for (node = node.first_child(); node; node = node.next_sibling()) {
             // traverse to first plain character data or char data,
             // skipping XML comments
-            if (node.type() == pugi::node_pcdata || 
+            if (node.type() == pugi::node_pcdata ||
                 node.type() == pugi::node_cdata)
-               break; 
+               break;
         }
     }
     return node.value();
@@ -174,8 +174,8 @@ int XmlPugi::LoadDoc(const std::string &document) {
     RewindDoc();
     doc_.reset();
 
-    pugi::xml_parse_result ret = doc_.load_buffer(document.c_str(), document.size(), 
-                                                 pugi::parse_default, 
+    pugi::xml_parse_result ret = doc_.load_buffer(document.c_str(), document.size(),
+                                                 pugi::parse_default,
                                                  pugi::encoding_utf8);
     if (ret == false) {
         LOG(DEBUG, "XML doc load failed, code: " << ret << " " << ret.description());
@@ -208,7 +208,7 @@ void XmlPugi::AppendDoc(const std::string &node_name, XmlBase *a_doc) {
     }
 
 }
-    
+
 int XmlPugi::AddNode(const std::string &key, const std::string &value) {
     pugi::xml_node node;
 
@@ -227,7 +227,7 @@ int XmlPugi::AddNode(const std::string &key, const std::string &value) {
 
 int XmlPugi::DeleteNode(const std::string &key) {
     PugiPredicate p1(key);
-    pugi::xml_node node = doc_.find_node(p1); 
+    pugi::xml_node node = doc_.find_node(p1);
     if (IsNull(node))
         return -1;
 
@@ -237,13 +237,13 @@ int XmlPugi::DeleteNode(const std::string &key) {
 
 int XmlPugi::ModifyNode(const std::string &key, const std::string &value) {
     PugiPredicate p1(key);
-    pugi::xml_node node = doc_.find_node(p1); 
+    pugi::xml_node node = doc_.find_node(p1);
     if (IsNull(node))
         return -1;
 
     node.text().set(value.c_str());
 
-    SetContext(node); 
+    SetContext(node);
     return 0;
 }
 
@@ -263,8 +263,8 @@ int XmlPugi::AddChildNode(const std::string &key, const std::string &value) {
     return 0;
 }
 
-int XmlPugi::AddChildNodeAfter(const std::string &node_name, 
-                               const std::string &key, 
+int XmlPugi::AddChildNodeAfter(const std::string &node_name,
+                               const std::string &key,
                                const std::string &value) {
 
     PugiPredicate p1(node_name);
@@ -280,15 +280,15 @@ int XmlPugi::AddChildNodeAfter(const std::string &node_name,
 
 
 int XmlPugi::AddAttribute(const std::string &key, const std::string &value) {
-    if (IsNull(node_)) 
+    if (IsNull(node_))
         return -1;
 
-    pugi::xml_attribute attrib; 
+    pugi::xml_attribute attrib;
 
     if (IsNull(attrib_) ) {
         attrib = node_.append_attribute(key.c_str()) = value.c_str();
     } else {
-        attrib = 
+        attrib =
             node_.insert_attribute_after(key.c_str(), attrib_) = value.c_str();
     }
 

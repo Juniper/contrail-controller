@@ -274,7 +274,7 @@ private:
                             reverse_flow_info.set_sampled_bytes(reverse_pkts *
                                 mgen_->dBytesPerPacket(mgen_->rgen_));
                             sess_agg_info.set_sampled_forward_pkts(
-                                sess_agg_info.get_sampled_forward_pkts() + 
+                                sess_agg_info.get_sampled_forward_pkts() +
                                     forward_pkts);
                             sess_agg_info.set_sampled_forward_bytes(
                                 sess_agg_info.get_sampled_forward_bytes() +
@@ -591,7 +591,7 @@ int main(int argc, char *argv[]) {
         instance_id, http_server_port, start_vn, end_vn, other_vn,
         num_networks, instance_iterations, collectors, ip_vns, start_ip_index,
         num_vrouter_error_messages_per_sec,
-        num_sessions_per_instance, num_session_samples_per_sec, 
+        num_sessions_per_instance, num_session_samples_per_sec,
         num_session_samples_in_message, &evm);
     mock_generator.Run();
     evm.Run();

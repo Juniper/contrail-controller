@@ -631,7 +631,7 @@ void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
                 /*
                  * existing flow should match with the incoming add flow
                  */
-		assert(session.fwd_flow.uuid == fe_fwd->uuid());
+        assert(session.fwd_flow.uuid == fe_fwd->uuid());
             }
         }
     }
@@ -1119,7 +1119,7 @@ bool SessionStatsCollector::MatchSloForFlow(
      * Match each type of policy for the given flow against the slo list
      */
 
-    is_vmi_slo_logged = FindSloMatchRule(vmi_session_slo_rule_map, 
+    is_vmi_slo_logged = FindSloMatchRule(vmi_session_slo_rule_map,
                                          fw_policy_uuid,
                                          nw_policy_uuid,
                                          sg_policy_uuid,

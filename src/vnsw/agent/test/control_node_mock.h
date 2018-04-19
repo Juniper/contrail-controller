@@ -23,7 +23,7 @@ public:
         std::string nh;
         int label;
     } NHEntry;
- 
+
     typedef struct RouteEntry_ {
         std::string address;
         std::string vn;
@@ -39,7 +39,7 @@ public:
     ControlNodeMock(EventManager *evm, std::string address);
     ~ControlNodeMock();
     void AddRoute(std::string vrf, std::string address, std::string nh, int, std::string vn);
-    void DeleteRoute(std::string vrf, std::string address, std::string nh, 
+    void DeleteRoute(std::string vrf, std::string address, std::string nh,
                      int label, std::string vn);
     void SubscribeVrf(const std::string &vrf);
     void UnSubscribeVrf(const std::string &vrf);
@@ -48,14 +48,14 @@ public:
     void Shutdown();
     void Clear();
 
-private: 
+private:
     pugi::xml_node AddXmppHdr();
     void SendUpdate(xmps::PeerId id);
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
     void XmppChannelEvent(XmppChannel *channel, xmps::PeerState state);
-    RouteEntry* InsertRoute(std::string &vrf, std::string &address, 
+    RouteEntry* InsertRoute(std::string &vrf, std::string &address,
             std::string &nh, int label, std::string &vn);
-    RouteEntry* RemoveRoute(std::string &vrf, std::string &address, 
+    RouteEntry* RemoveRoute(std::string &vrf, std::string &address,
             std::string &nh, int label, std::string &vn, bool &send_delete);
     void GetRoutes(std::string vrf, const XmppStanza::XmppMessage *msg);
     void WriteReadyCb(const boost::system::error_code &ec);

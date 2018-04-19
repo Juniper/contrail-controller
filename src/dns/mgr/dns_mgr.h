@@ -36,7 +36,7 @@ public:
         uint32_t retransmit_count;
 
         PendingList(uint16_t id, const std::string &v, const std::string &z,
-                    const DnsItems &it, BindUtil::Operation o, 
+                    const DnsItems &it, BindUtil::Operation o,
                     uint32_t recount = 0) {
             xid = id;
             view = v;
@@ -107,7 +107,7 @@ private:
     friend class DnsBindTest;
     friend class DnsManagerTest;
 
-    bool SendRecordUpdate(BindUtil::Operation op, 
+    bool SendRecordUpdate(BindUtil::Operation op,
                           const VirtualDnsRecordConfig *config);
     bool PendingDone(uint16_t xid);
     bool ResendRecordsinBatch();
@@ -142,7 +142,7 @@ private:
 
     tbb::mutex mutex_;
     BindStatus bind_status_;
-    DnsConfigManager config_mgr_;    
+    DnsConfigManager config_mgr_;
     ConfigClientManager *config_client_manager_;
     static uint16_t g_trans_id_;
     PendingListMap pending_map_;

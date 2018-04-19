@@ -159,7 +159,7 @@ TEST_F(ServiceVlanTest, FloatingIp_2) {
     AddVmPortVrf("ser1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    // Add links // vmi-routing-instance node <-> vmi and 
+    // Add links // vmi-routing-instance node <-> vmi and
     // Add link vmi-routing-instance <-> routing-instanace
     char buff[2048];
     int len = 0;
@@ -167,7 +167,7 @@ TEST_F(ServiceVlanTest, FloatingIp_2) {
     AddNodeString(buff, len, "routing-instance", "vrf2", 2);
     AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "virtual-machine-interface", "vnet1");
-    AddLinkString(buff, len, "virtual-machine-interface-routing-instance", 
+    AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "routing-instance", "vrf2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
@@ -203,7 +203,7 @@ TEST_F(ServiceVlanTest, FloatingIp_3) {
     AddVmPortVrf("ser1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    // Add links // vmi-routing-instance node <-> vmi and 
+    // Add links // vmi-routing-instance node <-> vmi and
     // Add link vmi-routing-instance <-> routing-instanace
     char buff[2048];
     int len = 0;
@@ -211,7 +211,7 @@ TEST_F(ServiceVlanTest, FloatingIp_3) {
     AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "virtual-machine-interface", "vnet1");
     AddNodeString(buff, len, "routing-instance", "vrf2", 2);
-    AddLinkString(buff, len, "virtual-machine-interface-routing-instance", 
+    AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "routing-instance", "vrf2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);

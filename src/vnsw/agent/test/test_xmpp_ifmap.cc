@@ -67,10 +67,10 @@ public:
 
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         rx_count_++;
-    }    
+    }
 
     bool SendUpdate(uint8_t *msg, size_t size) {
-        if (channel_ && 
+        if (channel_ &&
             (channel_->GetPeerState() == xmps::READY)) {
             return channel_->Send(msg, size, xmps::CONFIG,
                    boost::bind(&ControlNodeMockIFMapXmppPeer::WriteReadyCb, this, _1));
@@ -265,7 +265,7 @@ protected:
             ((sconnection = xs->FindConnection(
               boost::asio::ip::host_name())) != NULL));
 
-        //Create control-node bgp mock peer 
+        //Create control-node bgp mock peer
         mock_ifmap_peer.reset(new ControlNodeMockIFMapXmppPeer(sconnection->ChannelMux()));
     }
 
@@ -463,7 +463,7 @@ TEST_F(AgentIFMapXmppUnitTest, vn_vm_vrf_test) {
     VnEntry *oper_vn = VnGet(1);
     VrfEntry *oper_vrf = VrfGet("vrf2");
     EXPECT_EQ(oper_vn->GetVrf(), oper_vrf);
-    
+
     // Delete the VN to RI linka
     xml_document doc;
     xitems = MessageHeader(&doc, false);

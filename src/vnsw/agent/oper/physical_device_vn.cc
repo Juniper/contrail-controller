@@ -209,7 +209,7 @@ bool PhysicalDeviceVnTable::DeleteConfigEntry(const boost::uuids::uuid &vmi,
         return false;
 
     config_tree_.erase(PhysicalDeviceVnToVmi(dev, vn, vmi));
-    // Dont delete physical-device-vn entry if there are more entries in 
+    // Dont delete physical-device-vn entry if there are more entries in
     // config-tree with given dev and vn
     ConfigTree::iterator it =
         config_tree_.upper_bound(PhysicalDeviceVnToVmi(dev, vn, nil_uuid()));
@@ -220,7 +220,7 @@ bool PhysicalDeviceVnTable::DeleteConfigEntry(const boost::uuids::uuid &vmi,
         del_entry = true;
     else if (it->vn_ != vn)
         del_entry = true;
-       
+
     if (del_entry) {
         agent()->config_manager()->DelPhysicalDeviceVn(dev, vn);
         DBRequest req(DBRequest::DB_ENTRY_DELETE);

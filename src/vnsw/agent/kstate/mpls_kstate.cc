@@ -5,7 +5,7 @@
 #include "kstate.h"
 #include "mpls_kstate.h"
 
-MplsKState::MplsKState(KMplsResp *obj, const std::string &resp_ctx, 
+MplsKState::MplsKState(KMplsResp *obj, const std::string &resp_ctx,
                        vr_mpls_req &req, int id) : KState(resp_ctx, obj) {
     req.set_mr_label(id);
     if (id >= 0) {
@@ -29,7 +29,7 @@ void MplsKState::Handler() {
     KMplsResp *resp = static_cast<KMplsResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
-            /* There are more labels in Kernel. We need to query them from 
+            /* There are more labels in Kernel. We need to query them from
              * Kernel and send it to Sandesh.
              */
             SendResponse();

@@ -48,7 +48,7 @@ public:
     BgpServerTest *bgp_server();
     XmppServer *xmpp_server();
     BgpXmppChannelManager *xmpp_channel_manager();
-    
+
     void Shutdown();
 
 private:

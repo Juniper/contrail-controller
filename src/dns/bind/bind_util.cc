@@ -61,7 +61,7 @@ DnsResponseMap g_dns_response_map = map_list_of<uint16_t, std::string>
 std::string DnsItem::ToString() const {
     return BindUtil::DnsClass(eclass) + "/" +
            BindUtil::DnsType(type) + "/" + name + "/" + data + ";";
-}   
+}
 
 uint16_t BindUtil::DnsClass(const std::string &cl) {
     if (cl == "IN")
@@ -97,7 +97,7 @@ const std::string &BindUtil::DnsResponseCode(uint16_t code) {
     return iter->second;
 }
 
-uint8_t *BindUtil::AddName(uint8_t *ptr, const std::string &addr, 
+uint8_t *BindUtil::AddName(uint8_t *ptr, const std::string &addr,
                            uint16_t plen, uint16_t offset, uint16_t &length) {
     std::size_t size = addr.size();
     std::size_t cur_pos = 0;
@@ -129,8 +129,8 @@ uint8_t *BindUtil::AddName(uint8_t *ptr, const std::string &addr,
     return ptr;
 }
 
-uint8_t *BindUtil::AddQuestionSection(uint8_t *ptr, const std::string &name, 
-                                      uint16_t type, uint16_t cl, 
+uint8_t *BindUtil::AddQuestionSection(uint8_t *ptr, const std::string &name,
+                                      uint16_t type, uint16_t cl,
                                       uint16_t &length) {
     ptr = AddName(ptr, name, 0, 0, length);
     ptr = WriteShort(ptr, type);
@@ -140,7 +140,7 @@ uint8_t *BindUtil::AddQuestionSection(uint8_t *ptr, const std::string &name,
     return ptr;
 }
 
-uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item, 
+uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
                            uint16_t &length) {
     boost::system::error_code ec;
 
@@ -151,7 +151,7 @@ uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
         length += 2 + 4;
     } else if (item.type == DNS_AAAA_RECORD) {
         ptr = WriteShort(ptr, 16);
-        boost::asio::ip::address_v6 addr = 
+        boost::asio::ip::address_v6 addr =
                 boost::asio::ip::address_v6::from_string(item.data, ec);
         if (ec.value()) {
             memset(ptr, 0, 16);
@@ -163,7 +163,7 @@ uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
     } else if(item.type == DNS_TYPE_SOA) {
         uint16_t data_len = DataLength(item.soa.ns_plen, item.soa.ns_offset,
                                        item.soa.primary_ns.size()) +
-                            DataLength(item.soa.mailbox_plen, 
+                            DataLength(item.soa.mailbox_plen,
                                        item.soa.mailbox_offset,
                                        item.soa.mailbox.size()) + 20;
         ptr = WriteShort(ptr, data_len);
@@ -222,7 +222,7 @@ uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
     return ptr;
 }
 
-uint8_t *BindUtil::AddAnswerSection(uint8_t *ptr, const DnsItem &item, 
+uint8_t *BindUtil::AddAnswerSection(uint8_t *ptr, const DnsItem &item,
                                     uint16_t &length) {
     ptr = AddName(ptr, item.name, item.name_plen, item.name_offset, length);
     ptr = WriteShort(ptr, item.type);
@@ -234,9 +234,9 @@ uint8_t *BindUtil::AddAnswerSection(uint8_t *ptr, const DnsItem &item,
     return ptr;
 }
 
-uint8_t *BindUtil::AddAdditionalSection(uint8_t *ptr, const std::string name, 
-                                        uint16_t type, uint16_t cl, 
-                                        uint32_t ttl, const std::string &data, 
+uint8_t *BindUtil::AddAdditionalSection(uint8_t *ptr, const std::string name,
+                                        uint16_t type, uint16_t cl,
+                                        uint32_t ttl, const std::string &data,
                                         uint16_t &length) {
     ptr = AddQuestionSection(ptr, name, type, cl, length);
     ptr = WriteWord(ptr, ttl);
@@ -512,7 +512,7 @@ bool BindUtil::ParseDnsUpdate(uint8_t *dns, uint16_t dnslen,
     uint16_t xid = ntohs(hdr->xid);
 
     if (zone_count != 1) {
-        DNS_BIND_TRACE(DnsBindError, 
+        DNS_BIND_TRACE(DnsBindError,
                        "Invalid zone count in Update request : " << zone_count);
         return false;
     }
@@ -559,7 +559,7 @@ error:
     return false;
 }
 
-void BindUtil::BuildDnsHeader(dnshdr *dns, uint16_t xid, DnsReq req, 
+void BindUtil::BuildDnsHeader(dnshdr *dns, uint16_t xid, DnsReq req,
                               DnsOpcode op, bool rd, bool ra, uint8_t ret,
                               uint16_t ques_count) {
     dns->xid = htons(xid);
@@ -579,11 +579,11 @@ void BindUtil::BuildDnsHeader(dnshdr *dns, uint16_t xid, DnsReq req,
     dns->add_rrcount = 0;
 }
 
-int BindUtil::BuildDnsQuery(uint8_t *buf, uint16_t xid, 
+int BindUtil::BuildDnsQuery(uint8_t *buf, uint16_t xid,
                             const std::string &domain,
                             const DnsItems &items) {
     dnshdr *dns = (dnshdr *) buf;
-    BuildDnsHeader(dns, xid, DNS_QUERY_REQUEST, DNS_OPCODE_QUERY, 
+    BuildDnsHeader(dns, xid, DNS_QUERY_REQUEST, DNS_OPCODE_QUERY,
                    1, 0, 0, items.size());
 
     // TODO : can be optimised to reuse any names using offsets
@@ -604,9 +604,9 @@ int BindUtil::BuildDnsQuery(uint8_t *buf, uint16_t xid,
     return len;
 }
 
-int BindUtil::BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid, 
-                             const std::string &domain, 
-                             const std::string &zone, 
+int BindUtil::BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid,
+                             const std::string &domain,
+                             const std::string &zone,
                              const DnsItems &items) {
     dnshdr *dns = (dnshdr *) buf;
     BuildDnsHeader(dns, xid, DNS_QUERY_REQUEST, DNS_OPCODE_UPDATE, 0, 0, 0, 1);
@@ -624,14 +624,14 @@ int BindUtil::BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid,
     switch (op) {
         case ADD_UPDATE:
         case CHANGE_UPDATE:
-            for (DnsItems::const_iterator it = items.begin(); 
+            for (DnsItems::const_iterator it = items.begin();
                  it != items.end(); ++it) {
                 ptr = AddUpdate(ptr, *it, (*it).eclass, (*it).ttl, len);
             }
             break;
 
         case DELETE_UPDATE:
-            for (DnsItems::const_iterator it = items.begin(); 
+            for (DnsItems::const_iterator it = items.begin();
                  it != items.end(); ++it) {
                 ptr = AddUpdate(ptr, *it, DNS_CLASS_NONE, 0, len);
             }
@@ -643,14 +643,14 @@ int BindUtil::BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid,
 
     // Add Additional RRs
     std::string view = "view=" + domain;
-    ptr = AddAdditionalSection(ptr, "view", DNS_TXT_RECORD, DNS_CLASS_IN, 
+    ptr = AddAdditionalSection(ptr, "view", DNS_TXT_RECORD, DNS_CLASS_IN,
                                 0, view, len);
 
     return len;
 }
 
 bool BindUtil::IsIPv4(std::string name, uint32_t &addr) {
-    boost::system::error_code ec; 
+    boost::system::error_code ec;
     boost::asio::ip::address_v4 address(boost::asio::ip::address_v4::
                                         from_string(name, ec));
     if (!ec.value()) {
@@ -678,7 +678,7 @@ void BindUtil::GetReverseZones(const Subnet &subnet, ZoneList &zones) {
         return;
     }
     for (int j = 0; j <= (0xFF >> plen); j++) {
-        // when prefix len is not a multiple of 8, add reverse zones for all 
+        // when prefix len is not a multiple of 8, add reverse zones for all
         // addresses upto the nearest 8 byte boundary for the prefix len. For
         // example, a /22 prefix results in 4 reverse zones.
         uint32_t last = (addr >> 24) + j;
@@ -760,7 +760,7 @@ void BindUtil::RemoveSpecialChars(std::string &name) {
     }
 }
 
-void DnsNameEncoder::AddName(std::string &name, uint16_t curr_msg_offset, 
+void DnsNameEncoder::AddName(std::string &name, uint16_t curr_msg_offset,
                              uint16_t &name_plen, uint16_t &name_offset) {
     name_plen = 0;
     name_offset = 0;

@@ -307,9 +307,9 @@ TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(4, type4_rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(rt->GetPrefix().source(),
-	    type4_rt->GetPrefix().source());
+        type4_rt->GetPrefix().source());
     TASK_UTIL_EXPECT_EQ(rt->GetPrefix().group(),
-	    type4_rt->GetPrefix().group());
+        type4_rt->GetPrefix().group());
 
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();
@@ -351,11 +351,11 @@ TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(3, type3_rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(rt->GetPrefix().source(),
-	    type3_rt->GetPrefix().source());
+        type3_rt->GetPrefix().source());
     TASK_UTIL_EXPECT_EQ(rt->GetPrefix().group(),
-	    type3_rt->GetPrefix().group());
+        type3_rt->GetPrefix().group());
     TASK_UTIL_EXPECT_EQ(blue_->server()->bgp_identifier(),
-	    rt->GetPrefix().originator().to_ulong());
+        rt->GetPrefix().originator().to_ulong());
 
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();
@@ -384,7 +384,7 @@ TEST_F(MvpnTableTest, CreateType2RoutePrefix) {
     TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(2, rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(blue_->server()->autonomous_system(),
-	    rt->GetPrefix().asn());
+        rt->GetPrefix().asn());
 
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();
@@ -406,7 +406,7 @@ TEST_F(MvpnTableTest, CreateType1RoutePrefix) {
     TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(1, rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(blue_->server()->bgp_identifier(),
-	    rt->GetPrefix().originator().to_ulong());
+        rt->GetPrefix().originator().to_ulong());
 
     DelRoute(blue_, prefix_str);
     task_util::WaitForIdle();

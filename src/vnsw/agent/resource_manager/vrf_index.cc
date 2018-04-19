@@ -16,7 +16,7 @@
 VrfIndexResourceKey::VrfIndexResourceKey (ResourceManager *rm,
         const string& vrf_name):IndexResourceKey(rm, Resource::VRF_INDEX),
         vrf_name_(vrf_name) {
-    
+
 }
 
 void VrfIndexResourceKey::Backup(ResourceData *data, uint16_t op){

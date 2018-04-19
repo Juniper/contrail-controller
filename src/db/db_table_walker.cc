@@ -18,7 +18,7 @@ int DBTableWalker::max_iteration_to_yield_ = kIterationToYield;
 class DBTableWalker::Walker {
 public:
     Walker(WalkId id, DBTableWalker *wkmgr, DBTable *table,
-           const DBRequestKey *key, WalkFn walker, 
+           const DBRequestKey *key, WalkFn walker,
            WalkCompleteFn walk_done, bool postpone_walk);
 
     void StopWalk() {
@@ -63,7 +63,7 @@ public:
 
 class DBTableWalker::Worker : public Task {
 public:
-    Worker(Walker *walker, int db_partition_id, const DBRequestKey *key) 
+    Worker(Walker *walker, int db_partition_id, const DBRequestKey *key)
         : Task(walker->task_id(), db_partition_id), walker_(walker),
           key_start_(key) {
         tbl_partition_ = static_cast<DBTablePartition *>(
@@ -135,7 +135,7 @@ bool DBTableWalker::Worker::Run() {
         next = tbl_partition_->GetNext(entry);
         // Check whether Walker was requested to be cancelled
         if (walker_->should_stop_) {
-            break; 
+            break;
         }
         if (count == GetIterationToYield()) {
             // store the context
@@ -178,7 +178,7 @@ DBTableWalker::Walker::Walker(WalkId id, DBTableWalker *wkmgr,
                               WalkFn walker, WalkCompleteFn walk_done,
                               bool postpone_walk)
     : id_(id), wkmgr_(wkmgr), table_(table),
-      key_start_(const_cast<DBRequestKey *>(key)), 
+      key_start_(const_cast<DBRequestKey *>(key)),
       walker_fn_(walker), done_fn_(walk_done) {
     int num_worker = table->PartitionCount();
     should_stop_ = false;
@@ -201,9 +201,9 @@ DBTableWalker::DBTableWalker(int task_id) : task_id_(task_id) {
     }
 }
 
-DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table, 
-                                               const DBRequestKey *key_start, 
-                                               WalkFn walkerfn , 
+DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
+                                               const DBRequestKey *key_start,
+                                               WalkFn walkerfn ,
                                                WalkCompleteFn walk_complete,
                                                bool postpone_walk) {
     table->incr_walk_request_count();
@@ -211,7 +211,7 @@ DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
     size_t i = walker_map_.find_first();
     if (i == walker_map_.npos) {
         i = walkers_.size();
-        Walker *walker = new Walker(i, this, table, key_start, 
+        Walker *walker = new Walker(i, this, table, key_start,
                                     walkerfn, walk_complete, postpone_walk);
         walkers_.push_back(walker);
     } else {
@@ -219,7 +219,7 @@ DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
         if (walker_map_.none()) {
             walker_map_.clear();
         }
-        Walker *walker = new Walker(i, this, table, key_start, 
+        Walker *walker = new Walker(i, this, table, key_start,
                                     walkerfn, walk_complete, postpone_walk);
         walkers_[i] = walker;
     }

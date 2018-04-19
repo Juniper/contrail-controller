@@ -159,7 +159,7 @@ void ContrailInitCommon::ProcessComputeAddress(AgentParam *param) {
 
     // If compute_node_address are specified, it will mean user wants
     // to run services such as metadata on an IP different than vhost.
-    // Set compute_node_ip_ to vhost_addr if no compute_node_address are 
+    // Set compute_node_ip_ to vhost_addr if no compute_node_address are
     // specified. Else, pick first address to run in compute_node_address_list
     //
     // The compute_node_ip is used only in adding Flow NAT rules.

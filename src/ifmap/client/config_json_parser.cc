@@ -319,7 +319,7 @@ void ConfigJsonParser::InsertRequestIntoQ(IFMapOrigin::Origin origin,
         const string &metaname, auto_ptr<AutogenProperty > pvalue,
         const IFMapTable::RequestKey &key, bool add_change,
         RequestList *req_list) const {
-    
+
     IFMapServerTable::RequestData *data =
         new IFMapServerTable::RequestData(origin, neigh_type, neigh_name);
     data->metadata = metaname;

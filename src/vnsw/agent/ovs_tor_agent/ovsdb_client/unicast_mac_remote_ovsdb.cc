@@ -177,7 +177,7 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
 
     const NextHop *nh = entry->GetActiveNextHop();
     const TunnelNH *tunnel = NULL;
-    /* 
+    /*
      * TOR Agent will not have any local VM so only tunnel nexthops
      * are to be looked into
      */

@@ -77,10 +77,10 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     TASK_UTIL_EXPECT_VECTOR_EQ(default_rabbitmq_server_list_,
-                               options_.rabbitmq_server_list()); 
+                               options_.rabbitmq_server_list());
     TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
                                options_.config_db_server_list());
-     
+
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
@@ -126,7 +126,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     TASK_UTIL_EXPECT_VECTOR_EQ(default_rabbitmq_server_list_,
-                               options_.rabbitmq_server_list()); 
+                               options_.rabbitmq_server_list());
     TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
                                options_.config_db_server_list());
     EXPECT_EQ(options_.test_mode(), false);

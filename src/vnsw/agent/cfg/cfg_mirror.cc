@@ -163,7 +163,7 @@ update_acl:
         ace_id = ++va_it->second.ace_id_latest;
         str = UpdateAclEntry(dyn_acl_uuid, false, entry, ace_id);
     }
-    
+
     if (str != NULL) {
         delete entry;
         return str;
@@ -259,7 +259,7 @@ const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
     AclKey *key = new AclKey(uuid);
     AclData *data = new AclData(agent_cfg_->agent(), NULL, acl_spec);
     data->ace_add = true;
-    LOG(DEBUG, "Ace add: " << data->ace_add << ", Ace spec id:" 
+    LOG(DEBUG, "Ace add: " << data->ace_add << ", Ace spec id:"
         << ace_spec.id.id_);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -292,7 +292,7 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
         areq.key.reset(akey);
         areq.data.reset(adata);
         agent_cfg_->agent()->acl_table()->Enqueue(&areq);
-        
+
         // delete entry from mv map
         delete entry;
         mc_tree_.erase(it);
@@ -335,8 +335,8 @@ const uuid MirrorCfgTable::GetMirrorUuid(const string &vn_name) const {
      return va_it->second.id;
 }
 
-void MirrorCfgTable::SetMirrorCfgSandeshData(std::string &handle, 
-					     MirrorCfgDisplayResp &resp) {
+void MirrorCfgTable::SetMirrorCfgSandeshData(std::string &handle,
+                         MirrorCfgDisplayResp &resp) {
     MirrorCfgTree::iterator it;
 
     std::vector<MirrorCfgSandesh> mc_l;
@@ -369,7 +369,7 @@ void MirrorCfgTable::SetMirrorCfgSandeshData(std::string &handle,
 }
 
 void MirrorCfgTable::SetMirrorCfgVnSandeshData(std::string &vn_name,
-					       MirrorCfgVnInfoResp &resp) {
+                           MirrorCfgVnInfoResp &resp) {
     VnAclMap::iterator it;
     std::vector<VnAclInfo> vn_l;
     for (it = vn_acl_map_.begin(); it != vn_acl_map_.end(); ++it) {
@@ -391,7 +391,7 @@ void MirrorCreateReq::HandleRequest() const {
     resp->set_context(context());
     if (str == NULL) {
         str = "Success";
-    } 
+    }
     resp->set_resp(str);
     resp->Response();
     return;
@@ -441,7 +441,7 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
     if (key.handle.empty()) {
         return "Invalid Handle";
     }
-    
+
     IntfMirrorCfgTree::iterator it;
     it = intf_mc_tree_.find(key);
     if (it != intf_mc_tree_.end()) {
@@ -543,7 +543,7 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
     if (it == intf_mc_tree_.end()) {
         return;
     }
-    IntfMirrorCfgEntry *entry = it->second;    
+    IntfMirrorCfgEntry *entry = it->second;
     MirrorTable::DelMirrorEntry(entry->key.handle);
 
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
@@ -573,7 +573,7 @@ void IntfMirrorCreateReq::HandleRequest() const {
     resp->set_context(context());
     if (str == NULL) {
         str = "Success";
-    } 
+    }
     resp->set_resp(str);
     resp->Response();
     return;
@@ -590,7 +590,7 @@ void IntfMirrorDeleteReq::HandleRequest() const {
     return;
 }
 
-void IntfMirrorCfgTable::SetIntfMirrorCfgSandeshData(std::string &handle, 
+void IntfMirrorCfgTable::SetIntfMirrorCfgSandeshData(std::string &handle,
                                             IntfMirrorCfgDisplayResp &resp) {
     IntfMirrorCfgTree::iterator it;
     std::vector<IntfMirrorCfgSandesh> mc_l;

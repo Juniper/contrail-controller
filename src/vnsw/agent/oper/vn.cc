@@ -61,10 +61,10 @@ VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
 
 Ip4Address VnIpam::GetBroadcastAddress() const {
     if (ip_prefix.is_v4()) {
-        Ip4Address broadcast(ip_prefix.to_v4().to_ulong() | 
+        Ip4Address broadcast(ip_prefix.to_v4().to_ulong() |
                              ~(0xFFFFFFFF << (32 - plen)));
         return broadcast;
-    } 
+    }
     return Ip4Address(0);
 }
 
@@ -85,7 +85,7 @@ Ip6Address VnIpam::GetV6SubnetAddress() const {
 bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
     if (ip_prefix.is_v4() && ip.is_v4()) {
         return ((ip_prefix.to_v4().to_ulong() |
-                 ~(0xFFFFFFFF << (32 - plen))) == 
+                 ~(0xFFFFFFFF << (32 - plen))) ==
                 (ip.to_v4().to_ulong() | ~(0xFFFFFFFF << (32 - plen))));
     } else if (ip_prefix.is_v6() && ip.is_v6()) {
         return IsIp6SubnetMember(ip.to_v6(), ip_prefix.to_v6(), plen);
@@ -124,7 +124,7 @@ DBEntryBase::KeyPtr VnEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(new VnKey(uuid_));
 }
 
-void VnEntry::SetKey(const DBRequestKey *key) { 
+void VnEntry::SetKey(const DBRequestKey *key) {
     const VnKey *k = static_cast<const VnKey *>(key);
     uuid_ = k->uuid_;
 }
@@ -202,7 +202,7 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
     }
 
     // Recompute the forwarding modes in VN
-    // Must rebake the routes if any change in forwarding modes 
+    // Must rebake the routes if any change in forwarding modes
     bool resync_routes = false;
     resync_routes = UpdateForwardingMode(agent);
     ret |= resync_routes;
@@ -478,11 +478,11 @@ bool VnEntry::HandleIpamChange(Agent *agent, VnIpam *old_ipam,
     if (old_ipam->dhcp_enable != new_ipam->dhcp_enable) {
         changed = true;
     }
-    
+
     return changed;
 }
 
-void VnEntry::UpdateHostRoute(Agent *agent, const IpAddress &old_address, 
+void VnEntry::UpdateHostRoute(Agent *agent, const IpAddress &old_address,
                               const IpAddress &new_address,
                               bool policy) {
     if (vrf_.get() && (vrf_->GetName() != agent->linklocal_vrf_name())) {
@@ -674,11 +674,11 @@ bool VnEntry::GetIpamVdnsData(const IpAddress &vm_addr,
         !agent_->domain_config_table()->GetIpam(ipam_name, ipam_type) ||
         ipam_type->ipam_dns_method != "virtual-dns-server")
         return false;
-    
+
     if (!agent_->domain_config_table()->GetVDns(
                 ipam_type->ipam_dns_server.virtual_dns_server_name, vdns_type))
         return false;
-        
+
     return true;
 }
 
@@ -831,17 +831,17 @@ void VnTable::GlobalVrouterConfigChanged() {
  * situation needs to be handled.
  * This is a temporary solution in which all VRF other than primary VRF
  * is ignored.
- * Example: 
+ * Example:
  * VN name: domain:vn1
  * VRF 1: domain:vn1:vn1 ----> Primary
  * VRF 2: domain:vn1:service-vn1_vn2 ----> Second vrf linked to vn1
  * Break the VN and VRF name into tokens based on ':'
- * So in primary vrf last and second-last token will be same and will be 
+ * So in primary vrf last and second-last token will be same and will be
  * equal to last token of VN name. Keep this VRF.
  * The second VRF last and second-last token are not same so it will be ignored.
  *
  */
-bool IsVRFServiceChainingInstance(const string &vn_name, const string &vrf_name) 
+bool IsVRFServiceChainingInstance(const string &vn_name, const string &vrf_name)
 {
     vector<string> vn_token_result;
     vector<string> vrf_token_result;
@@ -851,17 +851,17 @@ bool IsVRFServiceChainingInstance(const string &vn_name, const string &vrf_name)
     split(vrf_token_result, vrf_name, is_any_of(":"), token_compress_on);
     vrf_token_result_size = vrf_token_result.size();
 
-    /* 
+    /*
      * This check is to handle test cases where vrf and vn name
      * are single word without discriminator ':'
      * e.g. vrf1 or vn1. In these cases we dont ignore and use
-     * the VRF 
+     * the VRF
      */
     if (vrf_token_result_size == 1) {
         return false;
-    } 
+    }
     if ((vrf_token_result.at(vrf_token_result_size - 1) ==
-        vrf_token_result.at(vrf_token_result_size - 2)) && 
+        vrf_token_result.at(vrf_token_result_size - 2)) &&
         (vn_token_result.at(vn_token_result.size() - 1) ==
          vrf_token_result.at(vrf_token_result_size - 1))) {
         return false;
@@ -869,12 +869,12 @@ bool IsVRFServiceChainingInstance(const string &vn_name, const string &vrf_name)
     return true;
 }
 
-IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node, 
+IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
                                std::string node_type) {
     for (DBGraphVertex::adjacency_iterator it = node->begin(table->GetGraph());
          it != node->end(table->GetGraph()); ++it) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
-        if (adj_node->table()->Typename() == node_type) 
+        if (adj_node->table()->Typename() == node_type)
             return adj_node;
     }
     return NULL;
@@ -889,7 +889,7 @@ int VnTable::GetCfgVnId(VirtualNetwork *cfg_vn) {
 
 int VnTable::ComputeCfgVxlanId(IFMapNode *node) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
-    if (Agent::GetInstance()->vxlan_network_identifier_mode() == 
+    if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
         Agent::CONFIGURED) {
         return cfg->properties().vxlan_network_identifier;
     } else {
@@ -1138,7 +1138,7 @@ bool VnTable::ProcessConfig(IFMapNode *node, DBRequest &req,
 }
 
 void VnTable::AddVn(const uuid &vn_uuid, const string &name,
-                    const uuid &acl_id, const string &vrf_name, 
+                    const uuid &acl_id, const string &vrf_name,
                     const std::vector<VnIpam> &ipam,
                     const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
                     int vxlan_id, bool admin_state, bool enable_rpf,
@@ -1148,14 +1148,14 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
     UuidList empty_list;
     req.key.reset(new VnKey(vn_uuid));
     bool mirror_destination = false;
-    VnData *data = new VnData(agent(), NULL, name, acl_id, vrf_name, nil_uuid(), 
+    VnData *data = new VnData(agent(), NULL, name, acl_id, vrf_name, nil_uuid(),
                               nil_uuid(), ipam, vn_ipam_data,
                               vxlan_id, vn_id, admin_state, enable_rpf,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
                               pbb_evpn_enable, layer2_control_word, empty_list,
                               false, false, nil_uuid(), false);
- 
+
     req.data.reset(data);
     Enqueue(&req);
 }
@@ -1491,7 +1491,7 @@ bool DomainConfig::GetIpam(const std::string &name, autogen::IpamType *ipam) {
     return true;
 }
 
-bool DomainConfig::GetVDns(const std::string &vdns, 
+bool DomainConfig::GetVDns(const std::string &vdns,
                            autogen::VirtualDnsType *vdns_type) {
     VdnsDomainConfigMap::iterator it = vdns_config_.find(vdns);
     if (it == vdns_config_.end())
