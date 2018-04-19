@@ -116,14 +116,14 @@ void VnniConfig::FindSubnets(IFMapNode *node, Subnets &subnets) {
     if (!node || node->IsDeleted())
         return;
 
-    autogen::VirtualNetworkNetworkIpam *vnni = 
+    autogen::VirtualNetworkNetworkIpam *vnni =
         static_cast<autogen::VirtualNetworkNetworkIpam *> (node->GetObject());
     if (!vnni)
         return;
 
     const autogen::VnSubnetsType &subnets_type = vnni->data();
     for (unsigned int i = 0; i < subnets_type.ipam_subnets.size(); ++i) {
-        Subnet subnet(subnets_type.ipam_subnets[i].subnet.ip_prefix, 
+        Subnet subnet(subnets_type.ipam_subnets[i].subnet.ip_prefix,
                subnets_type.ipam_subnets[i].subnet.ip_prefix_len);
         subnets.push_back(subnet);
     }
@@ -151,15 +151,15 @@ bool VnniConfig::NotifySubnets(Subnets &old_nets, Subnets &new_nets,
             // no change in entry
             it_old++;
             it_new++;
-        }   
-    }   
+        }
+    }
 
     // delete remaining old entries
     for (; it_old != old_nets.end(); ++it_old) {
         it_old->MarkDelete();
         VdnsZoneCallback(*it_old, vdns, DnsConfig::CFG_DELETE);
         change = true;
-    }   
+    }
 
     // add remaining new entries
     for (; it_new != new_nets.end(); ++it_new) {
@@ -181,7 +181,7 @@ VnniConfig *VnniConfig::Find(std::string name) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-IpamConfig::IpamConfig(IFMapNode *node) 
+IpamConfig::IpamConfig(IFMapNode *node)
     : DnsConfig(node->name()), virtual_dns_(NULL) {
     GetObject(node, rec_);
     ipam_config_.insert(DataPair(GetName(), this));
@@ -283,7 +283,7 @@ void IpamConfig::AssociateIpamVdns(VirtualDnsConfig *vdns) {
         IpamConfig *ipam = iter->second;
         if (!ipam->GetVirtualDns() &&
             ipam->GetVirtualDnsName() == vdns->GetName()) {
-            ipam->virtual_dns_ = vdns; 
+            ipam->virtual_dns_ = vdns;
             vdns->AddIpam(ipam);
         }
     }
@@ -393,7 +393,7 @@ bool VirtualDnsConfig::GetSubnet(uint32_t addr, Subnet &subnet) const {
              vnni_it != vnni.end(); ++vnni_it) {
             Subnets &subnets = (*vnni_it)->GetSubnets();
             for (unsigned int i = 0; i < subnets.size(); i++) {
-                uint32_t mask = 
+                uint32_t mask =
                     subnets[i].plen ? (0xFFFFFFFF << (32 - subnets[i].plen)) : 0;
                 if ((addr & mask) == (subnets[i].prefix.to_ulong() & mask)) {
                     subnet = subnets[i];
@@ -451,19 +451,19 @@ void VirtualDnsConfig::Trace(const std::string &ev) {
     DNS_TRACE(VirtualDnsTrace, ev, rec);
 }
 
-std::string VirtualDnsConfig::GetViewName() const { 
+std::string VirtualDnsConfig::GetViewName() const {
     std::string name(GetName());
     BindUtil::RemoveSpecialChars(name);
-    return name; 
+    return name;
 }
 
-std::string VirtualDnsConfig::GetNextDns() const { 
+std::string VirtualDnsConfig::GetNextDns() const {
     std::string name(rec_.next_virtual_DNS);
     BindUtil::RemoveSpecialChars(name);
-    return name; 
-}   
+    return name;
+}
 
-bool VirtualDnsConfig::DynamicUpdatesEnabled() const { 
+bool VirtualDnsConfig::DynamicUpdatesEnabled() const {
     return rec_.dynamic_records_from_client;
 }
 
@@ -485,7 +485,7 @@ VirtualDnsRecordConfig::VirtualDnsRecordConfig(IFMapNode *node)
     UpdateVdns(node);
 }
 
-VirtualDnsRecordConfig::VirtualDnsRecordConfig(const std::string &name, 
+VirtualDnsRecordConfig::VirtualDnsRecordConfig(const std::string &name,
                                                const std::string &vdns_name,
                                                const DnsItem &item)
       : DnsConfig(name), rec_(item), virt_dns_(NULL),
@@ -625,7 +625,7 @@ bool VirtualDnsRecordConfig::OnlyTtlChange(DnsItem &rhs) {
     return false;
 }
 
-autogen::VirtualDnsType VirtualDnsRecordConfig::GetVDns() const { 
+autogen::VirtualDnsType VirtualDnsRecordConfig::GetVDns() const {
     autogen::VirtualDnsType data;
     data.dynamic_records_from_client = false;
     data.default_ttl_seconds = 0;
@@ -634,9 +634,9 @@ autogen::VirtualDnsType VirtualDnsRecordConfig::GetVDns() const {
     return data;
 }
 
-std::string VirtualDnsRecordConfig::GetViewName() const { 
+std::string VirtualDnsRecordConfig::GetViewName() const {
     if (virt_dns_) {
-        return virt_dns_->GetViewName(); 
+        return virt_dns_->GetViewName();
     } else
         return "";
 }

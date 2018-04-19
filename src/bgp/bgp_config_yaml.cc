@@ -602,7 +602,7 @@ bool BgpYamlConfigManager::Resolve(Configuration *candidate,
 
 void BgpYamlConfigManager::UpdateProtocol(
     Configuration *current, Configuration *next) {
-    BgpProtocolConfig *curr_proto = current->GetProtocolConfig(); 
+    BgpProtocolConfig *curr_proto = current->GetProtocolConfig();
     BgpProtocolConfig *next_proto = next->GetProtocolConfig();
     if (curr_proto->CompareTo(*next_proto) == 0) {
         Notify(next_proto, CFG_CHANGE);

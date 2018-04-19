@@ -28,7 +28,7 @@ public:
         strcpy(vnet_addr, vnet->primary_ip_addr().to_string().c_str());
 
         boost::system::error_code ec;
-        Inet4TunnelRouteAdd(NULL, "vrf1", 
+        Inet4TunnelRouteAdd(NULL, "vrf1",
                             Ip4Address::from_string("5.0.0.0", ec),
                             8, Ip4Address::from_string("1.1.1.2", ec),
                             TunnelType::AllType(), 16, "TestVn",
@@ -41,7 +41,7 @@ public:
 
     virtual void TearDown() {
         int count = flow_proto_->FlowCount();
-        
+
         client->EnqueueFlowFlush();
         WAIT_FOR(count, 10000, (0 == flow_proto_->FlowCount()));
         int a = count / 500;

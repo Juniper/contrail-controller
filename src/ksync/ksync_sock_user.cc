@@ -57,7 +57,7 @@ void KSyncSockTypeMap::AddNetlinkTxBuff(struct nl_client *cl) {
 //process sandesh messages that are being sent from the agent
 //this is used to store a local copy of what is being send to kernel
 //Also handles bulk request messages.
-void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len, 
+void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len,
                                       KSyncUserSockContext *ctx) {
     int decode_len;
     uint8_t *decode_buf;
@@ -104,7 +104,7 @@ void KSyncSockTypeMap::PurgeTxBuffer() {
         count++;
     }
 
-    // If there are more than one NETLINK messages, we need to add 
+    // If there are more than one NETLINK messages, we need to add
     struct nlmsghdr nlh;
     if (count > 1) {
         //Send Netlink-Done message NLMSG_DONE at end
@@ -463,7 +463,7 @@ void KSyncSockTypeMap::VxlanDelete(int id) {
     }
 }
 
-void KSyncSockTypeMap::IfStatsUpdate(int idx, int ibytes, int ipkts, int ierrors, 
+void KSyncSockTypeMap::IfStatsUpdate(int idx, int ibytes, int ipkts, int ierrors,
                                      int obytes, int opkts, int oerrors) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     vr_interface_req req = sock->if_map[idx];
@@ -476,7 +476,7 @@ void KSyncSockTypeMap::IfStatsUpdate(int idx, int ibytes, int ipkts, int ierrors
     sock->if_map[idx] = req;
 }
 
-void KSyncSockTypeMap::IfStatsSet(int idx, int ibytes, int ipkts, int ierrors, 
+void KSyncSockTypeMap::IfStatsSet(int idx, int ibytes, int ipkts, int ierrors,
                                   int obytes, int opkts, int oerrors) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     vr_interface_req req = sock->if_map[idx];
@@ -513,7 +513,7 @@ int KSyncSockTypeMap::VxLanCount() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     return sock->vxlan_map.size();
 }
- 
+
 uint32_t KSyncSockTypeMap::GetSeqno(char *data) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
     return nlh->nlmsg_seq;
@@ -539,7 +539,7 @@ bool KSyncSockTypeMap::Decoder(char *data, AgentSandeshContext *context) {
 bool KSyncSockTypeMap::Validate(char *data) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
     if (nlh->nlmsg_type == NLMSG_ERROR) {
-        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq 
+        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq
                         << " len " << nlh->nlmsg_len);
         assert(0);
         return true;
@@ -814,7 +814,7 @@ void KSyncUserSockIfContext::Process() {
         vr_interface_req if_info(*req_);
         sock->if_map[req_->get_vifr_idx()] = if_info;
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockContext::IfMsgHandler(vr_interface_req *req) {
@@ -869,7 +869,7 @@ void KSyncUserSockFlowContext::Process() {
                 req_->set_fr_index(fwd_flow_idx);
                 req_->set_fr_gen_id((fwd_flow_idx % 255));
             }
-        }          
+        }
 
         if (fwd_flow_idx != 0xFFFFFFFF) {
             //store info from binary sandesh message
@@ -956,7 +956,7 @@ void KSyncUserSockMplsContext::Process() {
         vr_mpls_req mpls_info(*req_);
         sock->mpls_map[req_->get_mr_label()] = mpls_info;
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockContext::MplsMsgHandler(vr_mpls_req *req) {
@@ -989,7 +989,7 @@ void KSyncUserSockRouteContext::Process() {
     } else {
         sock->RouteAdd(*req_);
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockContext::RouteMsgHandler(vr_route_req *req) {
@@ -1065,7 +1065,7 @@ void KSyncUserSockVxLanContext::Process() {
 
 void KSyncUserSockContext::VxLanMsgHandler(vr_vxlan_req *req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    KSyncUserSockVxLanContext *vxlanctx = 
+    KSyncUserSockVxLanContext *vxlanctx =
         new KSyncUserSockVxLanContext(GetSeqNum(), req);
 
     if (sock->IsBlockMsgProcessing()) {
@@ -1124,12 +1124,12 @@ void KSyncUserSockVrfAssignContext::Process() {
             assert(ret.second == true);
         }
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
 }
 
 void KSyncUserSockContext::VrfAssignMsgHandler(vr_vrf_assign_req *req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    KSyncUserSockVrfAssignContext *ctx = 
+    KSyncUserSockVrfAssignContext *ctx =
         new KSyncUserSockVrfAssignContext(GetSeqNum(), req);
 
     if (sock->IsBlockMsgProcessing()) {
@@ -1202,7 +1202,7 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
         ret_code &= ~VR_MESSAGE_DUMP_INCOMPLETE;
         KSyncSockTypeMap::SimulateResponse(seq_num, ret_code, 0);
         return;
-    } 
+    }
     Sandesh *req = GetFirst(from_req);
     if (req != NULL) {
         nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
@@ -1236,7 +1236,7 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
     }
 
     if (error) {
-        KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 
+        KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0);
         nl_free(&cl);
         return;
     }
@@ -1267,8 +1267,8 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     uint32_t buf_len = 0, encode_len = 0;
     struct nlmsghdr *nlh;
 
-    /* To simulate error code return the test code has to call 
-     * KSyncSockTypeMap::set_error_code() with required error code and 
+    /* To simulate error code return the test code has to call
+     * KSyncSockTypeMap::set_error_code() with required error code and
      * invoke get request */
     if (KSyncSockTypeMap::error_code()) {
         int ret_code = -KSyncSockTypeMap::error_code();
@@ -1278,7 +1278,7 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     }
     Sandesh *req = Get(idx);
     if (req == NULL) {
-        KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 
+        KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0);
         return;
     }
     nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
@@ -1297,7 +1297,7 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
 
     encode_len = req->WriteBinary(buf, buf_len, &error);
     if (error) {
-        KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 
+        KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0);
         nl_free(&cl);
         return;
     }

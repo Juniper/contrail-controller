@@ -110,11 +110,11 @@ protected:
         commspec->communities.push_back(tgt.GetExtCommunityValue());
         attr_spec.push_back(commspec);
 
-	if (add_leaf_req) {
+    if (add_leaf_req) {
             PmsiTunnelSpec *pmsi_spec(new PmsiTunnelSpec());
             pmsi_spec->tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
             attr_spec.push_back(pmsi_spec);
-	}
+    }
 
         BgpAttrPtr attr = bs_x_->attr_db()->Locate(attr_spec);
         STLDeleteValues(&attr_spec);

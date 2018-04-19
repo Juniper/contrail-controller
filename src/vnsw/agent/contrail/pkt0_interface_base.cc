@@ -170,7 +170,7 @@ void Pkt0Socket::ShutdownControlInterface() {
 void Pkt0Socket::AsyncRead() {
     read_buff_ = new uint8_t[kMaxPacketSize];
     socket_.async_receive(
-            boost::asio::buffer(read_buff_, kMaxPacketSize), 
+            boost::asio::buffer(read_buff_, kMaxPacketSize),
             boost::bind(&Pkt0Socket::ReadHandler, this,
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));

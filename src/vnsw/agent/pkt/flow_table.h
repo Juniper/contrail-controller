@@ -201,7 +201,7 @@ public:
         return flow_entry_map_.begin();
     }
     FlowTable::FlowEntryMap::iterator end() {
-        return flow_entry_map_.end(); 
+        return flow_entry_map_.end();
     }
 
     const LinkLocalFlowInfoMap &linklocal_flow_info_map() {
@@ -214,11 +214,11 @@ public:
     static const char *TaskName() { return kTaskFlowEvent; }
     // Sandesh routines
     void Copy(FlowEntry *lhs, FlowEntry *rhs, bool update);
-    void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
+    void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
                                const int last_count);
-    void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
+    void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
                            int ace_id);
-   
+
     void RecomputeFlow(FlowEntry *flow);
     void DeleteMessage(FlowEntry *flow);
 

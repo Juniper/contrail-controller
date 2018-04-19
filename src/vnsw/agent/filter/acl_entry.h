@@ -93,7 +93,7 @@ public:
 
     typedef std::list<TrafficAction *> ActionList;
     static ActionList kEmptyActionList;
-    AclEntry() : 
+    AclEntry() :
         id_(0), type_(TERMINAL), matches_(), actions_(), mirror_entry_(NULL),
         uuid_() {}
 
@@ -102,7 +102,7 @@ public:
         uuid_() {}
 
     ~AclEntry();
-    
+
     // Create the entry
     void PopulateAclEntry(const AclEntrySpec &acl_entry_spec);
     // Set Mirror ref

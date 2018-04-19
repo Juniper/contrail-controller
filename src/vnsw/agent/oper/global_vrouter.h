@@ -106,7 +106,7 @@ public:
         }
     };
 
-    typedef std::string CryptTunnelKey;    
+    typedef std::string CryptTunnelKey;
     struct CryptTunnel {
         CryptMode mode;
         CryptTunnel(CryptMode cmode): mode(cmode) {};
@@ -185,7 +185,7 @@ private:
     void ChangeLinkLocalService(const LinkLocalServicesMap::iterator &old_it,
                                 const LinkLocalServicesMap::iterator &new_it);
 
-    void UpdateCryptTunnelEndpointConfig(const EncryptionTunnelEndpointList &endpoint_list, 
+    void UpdateCryptTunnelEndpointConfig(const EncryptionTunnelEndpointList &endpoint_list,
                                          const std::string encrypt_mode_str);
     void DeleteCryptTunnelEndpointConfig();
     bool ChangeNotifyCryptTunnels(CryptTunnelsMap *old_value,

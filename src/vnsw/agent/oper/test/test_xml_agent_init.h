@@ -16,7 +16,7 @@ class TestClient;
 
 TestClient *PhysicalDeviceTestInit(const char *init_file, bool ksync_init);
 
-// The class to drive agent initialization. 
+// The class to drive agent initialization.
 // Defines control parameters used to enable/disable agent features
 class TestXmlAgentInit : public TestAgentInit {
 public:

@@ -83,7 +83,7 @@ bool KSyncNetlinkEntry::Delete() {
 bool KSyncNetlinkDBEntry::Add() {
     int len = MsgLen();
     char *msg = (char *)malloc(len);
-    int  msg_len = AddMsg(msg, len); 
+    int  msg_len = AddMsg(msg, len);
     assert(msg_len <= len);
     if (msg_len == 0) {
         free(msg);

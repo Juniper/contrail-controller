@@ -70,7 +70,7 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     SgEntry *sg = static_cast<SgEntry *>(entry);
     SgData *data = static_cast<SgData *>(req->data.get());
-    
+
     if (sg->sg_id_ != data->sg_id_) {
         sg->sg_id_ = data->sg_id_;
         ret = true;

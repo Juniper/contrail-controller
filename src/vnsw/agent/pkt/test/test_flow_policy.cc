@@ -939,7 +939,7 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
         return;
     }
     TestFlow flow[] = {
-        {  TestFlowPkt(Address::INET, vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5", 
+        {  TestFlowPkt(Address::INET, vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5",
                        flow0->id()),
         {}
         }
@@ -1200,7 +1200,7 @@ TEST_F(FlowTest, FlowPolicyUuid_20) {
     AddSgEntry("sg_e", "sg_acl_e", 10, 6, "deny", EGRESS,
                "fe6a4dcb-dde4-48e6-8957-856a7aacb2d2", "0");
     AddLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
-    
+
     AddSgEntry("sg_i", "sg_acl_i", 13, 6, "pass", INGRESS,
                "fe6a4dcb-dde4-48e6-8957-856a7aacb2e3", "0");
     AddLink("virtual-machine-interface", "flow5", "security-group", "sg_i");
@@ -1812,7 +1812,7 @@ TEST_F(FlowTest, FlowPolicyUuid_Subnet_8) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = 
+    client =
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10), (3 * 60 * 1000));
     if (vm.count("config")) {
         eth_itf = Agent::GetInstance()->fabric_interface_name();

@@ -32,7 +32,7 @@ public:
     struct DhcpStats {
         DhcpStats() { Reset(); }
         void Reset() {
-            solicit = advertise = request = confirm = renew = 
+            solicit = advertise = request = confirm = renew =
             rebind = reply = release = decline = reconfigure =
             information_request = error = 0;
         }

@@ -5,9 +5,9 @@
 #include "kstate.h"
 #include "vrf_assign_kstate.h"
 
-VrfAssignKState::VrfAssignKState(KVrfAssignResp *obj, 
+VrfAssignKState::VrfAssignKState(KVrfAssignResp *obj,
                                  const std::string &resp_ctx,
-                                 vr_vrf_assign_req &req, int id) : 
+                                 vr_vrf_assign_req &req, int id) :
     KState(resp_ctx, obj) {
 
     req.set_h_op(sandesh_op::DUMP);
@@ -30,7 +30,7 @@ void VrfAssignKState::Handler() {
     KVrfAssignResp *resp = static_cast<KVrfAssignResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
-            /* There are more labels in Kernel. We need to query them from 
+            /* There are more labels in Kernel. We need to query them from
              * Kernel and send it to Sandesh.
              */
             SendResponse();

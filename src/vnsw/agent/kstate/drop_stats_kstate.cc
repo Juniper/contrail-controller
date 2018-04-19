@@ -10,12 +10,12 @@
 
 using namespace std;
 
-DropStatsKState::DropStatsKState(KDropStatsResp *obj, 
+DropStatsKState::DropStatsKState(KDropStatsResp *obj,
                                  const std::string &resp_ctx,
-                                 vr_drop_stats_req &req) 
+                                 vr_drop_stats_req &req)
     : KState(resp_ctx, obj) {
     req.set_h_op(sandesh_op::GET);
-    req.set_vds_rid(0);    
+    req.set_vds_rid(0);
 }
 
 void DropStatsKState::Handler() {

@@ -158,7 +158,7 @@ void PortIpcHandler::ProcessFile(const string &file, bool check_port,
     tmp<<f.rdbuf();
     string json = tmp.str();
     f.close();
-    
+
     if (vm_vn_ports == false)
         AddPortFromJson(json, check_port, err_msg, false);
     else

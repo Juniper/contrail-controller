@@ -9,9 +9,9 @@
 #include "base/logging.h"
 #include "xml/xml_pugi.h"
 
-XmppSamplePeer::XmppSamplePeer(XmppChannel *channel) 
+XmppSamplePeer::XmppSamplePeer(XmppChannel *channel)
     : channel_(channel) {
-        channel_->RegisterReceive(xmps::OTHER, 
+        channel_->RegisterReceive(xmps::OTHER,
                 boost::bind(&XmppSamplePeer::ReceiveInternal, this, _1));
 }
 
@@ -26,7 +26,7 @@ XmppSamplePeer::~XmppSamplePeer() {
 
 bool XmppSamplePeer::SendUpdate(const uint8_t *msg, size_t size) {
     if (!channel_) return false;
-    return channel_->Send(msg, size, 
+    return channel_->Send(msg, size,
          xmps::OTHER, boost::bind(&XmppSamplePeer::WriteReadyCb, this, _1));
 }
 
@@ -47,7 +47,7 @@ void XmppSamplePeer::WriteReadyCb(const boost::system::error_code &ec) {
 
 XmppPeerManager::XmppPeerManager(XmppServer *xmpp_server, void *server) {
      xmpp_server->RegisterConnectionEvent(xmps::BGP,
-         boost::bind(&XmppPeerManager::XmppHandleConnectionEvent, 
+         boost::bind(&XmppPeerManager::XmppHandleConnectionEvent,
                      this, _1, _2));
 }
 

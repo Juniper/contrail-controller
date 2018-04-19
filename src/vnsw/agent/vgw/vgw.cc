@@ -54,7 +54,7 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *en
 
     bool active = intf->ipv4_active();
     VirtualGatewayConfig cfg(intf->name());
-    VirtualGatewayConfigTable::Table::iterator it = 
+    VirtualGatewayConfigTable::Table::iterator it =
         vgw_config_table_->table().find(cfg);
     if (it == vgw_config_table_->table().end())
         return;
@@ -70,7 +70,7 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *en
 
     state->active_ = active;
 
-    // Add gateway routes in virtual-network. 
+    // Add gateway routes in virtual-network.
     // BGP will export the route to other compute nodes
     VirtualGatewayConfig::SubnetList empty_list;
     if (active) {
@@ -83,7 +83,7 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *en
 
     if (active) {
         // Packets received on fabric vrf and destined to IP address in
-        // "public" network must reach kernel. Add a route in "fabric" VRF 
+        // "public" network must reach kernel. Add a route in "fabric" VRF
         // inside vrouter to trap packets destined to "public" network
         SubnetUpdate(it->vrf_name(), rt_table, it->subnets(), empty_list);
     } else {

@@ -46,11 +46,11 @@ public:
     }
 
     virtual void TearDown() {
-		DelIPAM(DEFAULT_VN);
-		DelVn(DEFAULT_VN);
-		DelLink("virtual-machine-interface", "vhost0",
-				"virtual-network", DEFAULT_VN);
-		client->WaitForIdle();
+        DelIPAM(DEFAULT_VN);
+        DelVn(DEFAULT_VN);
+        DelLink("virtual-machine-interface", "vhost0",
+                "virtual-network", DEFAULT_VN);
+        client->WaitForIdle();
 
         client->agent()->flow_stats_manager()->set_delete_short_flow(true);
         client->EnqueueFlowFlush();
@@ -487,7 +487,7 @@ void Teardown() {
     DelNode("routing-instance", "vrf1");
     DelNode("access-control-list", "acl1");
     client->WaitForIdle();
-    
+
     DeleteRoute("vrf1", "1.1.1.10", 32, bgp_peer_);
     client->WaitForIdle();
 
@@ -535,7 +535,7 @@ static bool NatValidateFlow(int flow_id, const char *vrf, const char *sip,
 TEST_F(FlowTest, Mdata_FabricToVm_1) {
     // Packet from fabric to VM using private addresses
     // No route for dst-ip. Pkt to be dropped
-    TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
+    TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "1.1.1.2",
                    vnet[1]->mdata_ip_addr().to_string().c_str(), 1);
     client->WaitForIdle();
@@ -558,7 +558,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     // Packet from fabric to Server using MData service addresses
     SetupMetadataService();
     client->WaitForIdle();
-    TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
+    TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "1.1.1.10", "169.254.169.254", 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
@@ -573,12 +573,12 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
                          "169.254.169.254", 1, 0, 0,
                          vnet[1]->flow_key_nh()->id()));
 
-    TxTcpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
+    TxTcpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "1.1.1.10", "169.254.169.254", 1001, 80,
                    false);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
-                        "169.254.169.254", IPPROTO_TCP, 1001, 80, false, 
+                        "169.254.169.254", IPPROTO_TCP, 1001, 80, false,
                         "", "", 1, true, false,
                         vnet[1]->flow_key_nh()->id()));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), "1.1.1.10",
@@ -649,7 +649,7 @@ TEST_F(FlowTest, ServerToVm_1) {
     // Packet with no route for IP-DA
     TxIpPacketUtil(vhost->id(), vhost_addr, "80.80.80.80", 1, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowGet(forwarding_vrf->GetName(), vhost_addr, "80.80.80.80", 
+    EXPECT_TRUE(FlowGet(forwarding_vrf->GetName(), vhost_addr, "80.80.80.80",
                         1, 0, 0, false, agent_->fabric_vn_name().c_str(),
                         "__UNKNOWN__", 1,
                         true, false, vhost->flow_key_nh()->id()));
@@ -658,7 +658,7 @@ TEST_F(FlowTest, ServerToVm_1) {
                            1, 0, 0, vhost->flow_key_nh()->id()));
 
     client->WaitForIdle();
-    EXPECT_TRUE(FlowFail(forwarding_vrf->GetName(), vhost_addr, "80.80.80.80", 
+    EXPECT_TRUE(FlowFail(forwarding_vrf->GetName(), vhost_addr, "80.80.80.80",
                          1, 0, 0, vhost->flow_key_nh()->id()));
 
     // Ping from server to vnet1
@@ -777,7 +777,7 @@ TEST_F(FlowTest, VmToServer_1) {
 
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], "169.254.169.254",
-                                IPPROTO_TCP, 10000, 80, 1, 
+                                IPPROTO_TCP, 10000, 80, 1,
                                 forwarding_vrf->GetName().c_str(),
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 vhost_addr, 10000, MEDATA_NAT_DPORT,
@@ -790,7 +790,7 @@ TEST_F(FlowTest, VmToServer_1) {
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "169.254.169.254",
                 10, 20, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), vnet_addr[1], 
+    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), vnet_addr[1],
                         "169.254.169.254", IPPROTO_UDP, 10, 20, false,
                         unknown_vn_.c_str(), unknown_vn_.c_str(), 1, false,
                         false, vnet[1]->flow_key_nh()->id()));
@@ -806,7 +806,7 @@ TEST_F(FlowTest, VmToServer_1) {
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], "169.254.169.254",
                 10, 20, false);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), vnet_addr[1], 
+    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), vnet_addr[1],
                         "169.254.169.254", IPPROTO_TCP, 10, 20, false,
                         unknown_vn_.c_str(), unknown_vn_.c_str(), 1, false,
                         false, vnet[1]->flow_key_nh()->id()));
@@ -974,7 +974,7 @@ TEST_F(FlowTest, LocalVmToFipVm_1) {
 
     TxTcpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.100", 1000, 80, false);
     EXPECT_TRUE(NatValidateFlow(1, vnet[3]->vrf()->GetName().c_str(),
-                                vnet_addr[3], "2.1.1.100", IPPROTO_TCP, 1000, 
+                                vnet_addr[3], "2.1.1.100", IPPROTO_TCP, 1000,
                                 80, 1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[3], vnet_addr[1], 1000, 80,
                                 "default-project:vn2", "default-project:vn2",
@@ -983,7 +983,7 @@ TEST_F(FlowTest, LocalVmToFipVm_1) {
 
     TxUdpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.100", 1000, 80);
     EXPECT_TRUE(NatValidateFlow(1, vnet[3]->vrf()->GetName().c_str(),
-                                vnet_addr[3], "2.1.1.100", IPPROTO_UDP, 1000, 
+                                vnet_addr[3], "2.1.1.100", IPPROTO_UDP, 1000,
                                 80, 1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[3], vnet_addr[1], 1000, 80,
                                 "default-project:vn2", "default-project:vn2",
@@ -993,7 +993,7 @@ TEST_F(FlowTest, LocalVmToFipVm_1) {
 
 // FloatingIP test for traffic from VM to local VM
 TEST_F(FlowTest, FipFabricToVm_1) {
-    TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
+    TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), vnet_addr[3], "2.1.1.100", 1);
 
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
@@ -1004,7 +1004,7 @@ TEST_F(FlowTest, FipFabricToVm_1) {
                                 vnet[1]->flow_key_nh()->id(),
                                 vnet[1]->flow_key_nh()->id()));
 
-    TxTcpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
+    TxTcpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                     vnet[1]->label(), vnet_addr[3], "2.1.1.100", 1000, 80,
                     false);
 
@@ -1016,7 +1016,7 @@ TEST_F(FlowTest, FipFabricToVm_1) {
                                 vnet[1]->flow_key_nh()->id(),
                                 vnet[1]->flow_key_nh()->id()));
 
-    TxUdpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
+    TxUdpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                     vnet[1]->label(), vnet_addr[3], "2.1.1.100", 1000, 80);
 
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
@@ -1056,7 +1056,7 @@ TEST_F(FlowTest, FlowAging_1) {
 
     agent_->flow_stats_manager()->
         default_flow_stats_collector_obj()->SetFlowAgeTime(10 * AGE_TIME);
-    
+
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1, 2);
     client->WaitForIdle();
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 10, 20, false, 5);
@@ -1089,7 +1089,7 @@ TEST_F(FlowTest, FlowAging_1) {
         default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
 }
 
-// Duplicate Nat-Flow test 
+// Duplicate Nat-Flow test
 TEST_F(FlowTest, DuplicateFlow_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.10", 1);
     client->WaitForIdle();
@@ -1112,7 +1112,7 @@ TEST_F(FlowTest, Nat2NonNat) {
     client->WaitForIdle();
 
     //Verify Nat Flow creation
-    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
+    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
                    vnet_addr[3], 1, 0, 0, "default-project:vn2",
                    "default-project:vn2", 1, vnet[3]->vrf()->GetName().c_str(),
                    "2.1.1.100", vnet_addr[3], 0, 0, vnet[1]->flow_key_nh()->id(),
@@ -1135,12 +1135,12 @@ TEST_F(FlowTest, Nat2NonNat) {
     client->WaitForIdle();
 
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
-                vnet_addr[3], 1, 0, 0, true, "vn1", 
+                vnet_addr[3], 1, 0, 0, true, "vn1",
                 unknown_vn_.c_str(), 1, false, false,
                 vnet[1]->flow_key_nh()->id(), vnet[1]->flow_key_nh()->id()));
 
     //Delete the flow
-    if (FlowDelete(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
+    if (FlowDelete(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
                    vnet_addr[3], 1, 0, 0,
                    vnet[1]->flow_key_nh()->id()) == false) {
         client->WaitForIdle();
@@ -1149,7 +1149,7 @@ TEST_F(FlowTest, Nat2NonNat) {
 
     //Verify flow deletion
     client->WaitForIdle();
-    if (FlowFail(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
+    if (FlowFail(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
                  vnet_addr[3], 1, 0, 0,
                  vnet[1]->flow_key_nh()->id()) == false) {
         EXPECT_STREQ("", "Error deleting forward flow");
@@ -1187,7 +1187,7 @@ TEST_F(FlowTest, NonNat2Nat) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
+    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
                         vnet_addr[3], 1, 0, 0, false, "vn1",
                         "default-project:vn2", 1, true, false,
                         vnet[1]->flow_key_nh()->id()));
@@ -1236,10 +1236,10 @@ TEST_F(FlowTest, TwoFloatingIp) {
     client->WaitForIdle();
 
     //Verify Nat Flow creation
-    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
+    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
                    vnet_addr[3], 1, 0, 0, "default-project:vn2",
                    "default-project:vn2", 1,
-                   vnet[3]->vrf()->GetName().c_str(), 
+                   vnet[3]->vrf()->GetName().c_str(),
                    "2.1.1.100", vnet_addr[3], 0, 0, vnet[1]->flow_key_nh()->id(),
                    vnet[3]->flow_key_nh()->id()) == false) {
         EXPECT_STREQ("", "Error quering flow");
@@ -1259,10 +1259,10 @@ TEST_F(FlowTest, TwoFloatingIp) {
     EXPECT_EQ(3U, list2.list_.size());
 
     //Verify that Nat-flow still exists
-    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
+    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
                    vnet_addr[3], 1, 0, 0, "default-project:vn2",
                    "default-project:vn2", 1,
-                   vnet[3]->vrf()->GetName().c_str(), 
+                   vnet[3]->vrf()->GetName().c_str(),
                    "2.1.1.100", vnet_addr[3], 0, 0, vnet[1]->flow_key_nh()->id(),
                    vnet[3]->flow_key_nh()->id()) == false) {
         EXPECT_STREQ("", "Error quering flow");
@@ -1275,10 +1275,10 @@ TEST_F(FlowTest, TwoFloatingIp) {
     client->WaitForIdle();
 
     //Verify that Nat-flow still exists
-    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
+    if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1],
                    vnet_addr[3], 1, 0, 0, "default-project:vn2",
                    "default-project:vn2", -1,
-                   vnet[3]->vrf()->GetName().c_str(), 
+                   vnet[3]->vrf()->GetName().c_str(),
                    "2.1.1.103", vnet_addr[3], 0, 0,
                    vnet[1]->flow_key_nh()->id(),
                    vnet[3]->flow_key_nh()->id()) == false) {
@@ -1307,7 +1307,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     SetupMetadataService();
     client->WaitForIdle();
     //Add a flow from vhost interface to VM metadata address
-    TxTcpPacket(vhost->id(), vhost_addr, 
+    TxTcpPacket(vhost->id(), vhost_addr,
                 vnet[7]->mdata_ip_addr().to_string().c_str(), 100, 100, false, 2);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(forwarding_vrf->GetName(), vhost_addr,
@@ -1317,14 +1317,14 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
                 "7.1.1.10", vnet_addr[7], 100, 100,
                 vhost->flow_key_nh()->id(), vnet[7]->flow_key_nh()->id()));
 
-    TxTcpPacket(vnet[7]->id(), vnet_addr[7], 
+    TxTcpPacket(vnet[7]->id(), vnet_addr[7],
                 "169.254.169.254", 10, 80, false, 3);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vnet[7]->vrf()->GetName(), vnet_addr[7],
                 "169.254.169.254", 6, 10, 80,
-                "vn7", agent_->fabric_vn_name(), 3, 
+                "vn7", agent_->fabric_vn_name(), 3,
                 forwarding_vrf->GetName().c_str(),
-                vnet[7]->mdata_ip_addr().to_string().c_str(), vhost_addr, 10, 
+                vnet[7]->mdata_ip_addr().to_string().c_str(), vhost_addr, 10,
                 MEDATA_NAT_DPORT, vnet[7]->flow_key_nh()->id(),
                 vhost->flow_key_nh()->id()));
     char mdata_ip[32];
@@ -1359,7 +1359,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
     char mdata_ip[32];
     strcpy(mdata_ip, vnet[8]->mdata_ip_addr().to_string().c_str());
 
-    TxTcpPacket(vhost->id(), vhost_addr, 
+    TxTcpPacket(vhost->id(), vhost_addr,
                 vnet[8]->mdata_ip_addr().to_string().c_str(), 100, 100, false, 2);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(forwarding_vrf->GetName(), vhost_addr, mdata_ip,
@@ -1368,7 +1368,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
                            vhost->flow_key_nh()->id(),
                            vnet[8]->flow_key_nh()->id()));
 
-    TxTcpPacket(vnet[8]->id(), vnet_addr[8], 
+    TxTcpPacket(vnet[8]->id(), vnet_addr[8],
                 "169.254.169.254", 10, 80, false, 3);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat("vrf8", vnet_addr[8], "169.254.169.254", 6, 10, 80,
@@ -1393,7 +1393,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
     client->WaitForIdle();
 }
 
-//Ping from floating IP to local interface route, 
+//Ping from floating IP to local interface route,
 //which was leaked due to policy
 TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     //Leak a route from default-project:vn3:vn3 to default-project:vn2:vn2
@@ -1401,7 +1401,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     vn_list.insert(vnet[5]->vn()->GetName());
     vnet_table[2]->AddLocalVmRouteReq(bgp_peer_, "default-project:vn2:vn2",
                                       vnet[5]->primary_ip_addr(), 32,
-                                      vnet[5]->GetUuid(), 
+                                      vnet[5]->GetUuid(),
                                       vn_list,
                                       vnet[5]->label(), SecurityGroupList(),
                                       TagList(), CommunityList(), 0,
@@ -1415,7 +1415,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     client->WaitForIdle();
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], vnet_addr[5], IPPROTO_TCP, 10000,
-                                80, 1, vnet[5]->vrf()->GetName().c_str(), 
+                                80, 1, vnet[5]->vrf()->GetName().c_str(),
                                 "2.1.1.100", vnet_addr[5],
                                 10000, 80, "default-project:vn2",
                                 "default-project:vn3",

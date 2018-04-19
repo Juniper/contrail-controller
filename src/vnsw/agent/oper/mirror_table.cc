@@ -21,7 +21,7 @@ using namespace std;
 using namespace boost::asio;
 MirrorTable *MirrorTable::mirror_table_;
 
-MirrorTable::~MirrorTable() { 
+MirrorTable::~MirrorTable() {
     boost::system::error_code err;
     if (udp_sock_.get()) {
         udp_sock_->close(err);
@@ -396,7 +396,7 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
-    MirrorEntryData *data = new MirrorEntryData(vrf_name, sip, 
+    MirrorEntryData *data = new MirrorEntryData(vrf_name, sip,
                                                 sport, dip, dport, 1, 0 ,
                                                 MacAddress::ZeroMac(), false);
     req.key.reset(key);
@@ -555,13 +555,13 @@ void MirrorTable::ReadHandler(const boost::system::error_code &ec,
                               size_t bytes_transferred) {
 
     if (ec) {
-        LOG(ERROR, "Error reading from Mirror sock. Error : " << 
+        LOG(ERROR, "Error reading from Mirror sock. Error : " <<
             boost::system::system_error(ec).what());
         return;
     }
 
-    udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)), 
-                           boost::bind(&MirrorTable::ReadHandler, this, 
+    udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)),
+                           boost::bind(&MirrorTable::ReadHandler, this,
                                        boost::asio::placeholders::error,
                                        boost::asio::placeholders::bytes_transferred));
 }
@@ -591,8 +591,8 @@ void MirrorTable::MirrorSockInit(void) {
     assert(ec.value() == 0);
     agent()->set_mirror_port(sock_ep.port());
 
-    udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)), 
-                             boost::bind(&MirrorTable::ReadHandler, this, 
+    udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)),
+                             boost::bind(&MirrorTable::ReadHandler, this,
                                          boost::asio::placeholders::error,
                                          boost::asio::placeholders::bytes_transferred));
 }
@@ -641,7 +641,7 @@ bool MirrorEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 
     MirrorEntrySandeshData data;
     set_mirror_entrySandeshData(data);
-    std::vector<MirrorEntrySandeshData> &list =  
+    std::vector<MirrorEntrySandeshData> &list =
         const_cast<std::vector<MirrorEntrySandeshData>&>
         (resp->get_mirror_entry_list());
     list.push_back(data);

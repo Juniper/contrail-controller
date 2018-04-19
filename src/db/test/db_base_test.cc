@@ -33,11 +33,11 @@ class Vlan : public DBEntryBase {
 public:
     boost::intrusive::avl_set_member_hook<> node_;
     Vlan(unsigned short tag) : vlan_tag(tag) { }
-    Vlan(unsigned short tag, std::string desc) 
+    Vlan(unsigned short tag, std::string desc)
     : vlan_tag(tag), description(desc) { }
-    friend bool operator< (const Vlan &a, const Vlan &b) {   
-        return a.vlan_tag < b.vlan_tag;  
-    }   
+    friend bool operator< (const Vlan &a, const Vlan &b) {
+        return a.vlan_tag < b.vlan_tag;
+    }
 
     ~Vlan() {
     }
@@ -74,16 +74,16 @@ public:
         boost::intrusive::avl_set_member_hook<>,
         &Vlan::node_> VlanSetMember;
     typedef boost::intrusive::avltree<Vlan, VlanSetMember> Tree;
-    
+
     VlanTablePart(VlanTable *parent, int index);
 
     virtual void Process(DBClient *client, DBRequest *req);
-    
+
     void Add(Vlan *entry) {
         tree_.insert_unique(*entry);
         Notify(entry);
     }
- 
+
     void Change(Vlan *entry) {
         Notify(entry);
     }
@@ -93,7 +93,7 @@ public:
         tree_.erase(*vlan);
         delete vlan;
     }
-    
+
     Vlan *Find(const Vlan &key) {
         Tree::iterator loc = tree_.find(key);
         if (loc != tree_.end()) {
@@ -110,15 +110,15 @@ public:
         }
         return NULL;
     }
-    
+
     virtual DBEntryBase *GetFirst() {
         Tree::iterator it = tree_.begin();
         if (it == tree_.end()) {
             return NULL;
         }
-        return it.operator->();        
+        return it.operator->();
     }
-    
+
     virtual DBEntryBase *GetNext(const DBEntryBase *entry) {
         const Vlan *vlan = static_cast<const Vlan *> (entry);
         Tree::const_iterator it = tree_.iterator_to(*vlan);
@@ -141,7 +141,7 @@ public:
             partitions_.push_back(new VlanTablePart(this, i));
         }
     }
-    ~VlanTable() { 
+    ~VlanTable() {
         STLDeleteValues(&partitions_);
     }
 
@@ -166,7 +166,7 @@ public:
     }
 
     virtual int GetPartitionId(const DBRequestKey *req) {
-        const VlanTableReqKey *vlanreq = 
+        const VlanTableReqKey *vlanreq =
             dynamic_cast<const VlanTableReqKey *>(req);
         int value = boost::hash_value(vlanreq->tag);
         return value % DB::PartitionCount();
@@ -179,7 +179,7 @@ public:
     }
 
     virtual std::auto_ptr<const DBEntryBase> GetEntry(const DBRequestKey *req) const {
-        const VlanTableReqKey *vlanreqkey = 
+        const VlanTableReqKey *vlanreqkey =
             static_cast<const VlanTableReqKey *>(req);
         Vlan *vlan = new Vlan(vlanreqkey->tag);
         return std::auto_ptr<const DBEntryBase>(vlan);
@@ -187,13 +187,13 @@ public:
 
     // Input handler
     virtual void Input(VlanTablePart *root, DBClient *client, DBRequest *req) {
-        VlanTableReqKey *vlanreq = 
+        VlanTableReqKey *vlanreq =
             static_cast<VlanTableReqKey *>(req->key.get());
         Vlan *vlan = NULL;
 
         vlan = Find(vlanreq);
         if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-            VlanTableReqData *vlandata = 
+            VlanTableReqData *vlandata =
                 static_cast<VlanTableReqData *>(req->data.get());
             if (vlan) {
                 // The entry may currently be marked as deleted.
@@ -212,7 +212,7 @@ public:
     // Perform a Vlan lookup.
     Vlan *Find(const DBRequestKey *vlanreq) {
         VlanTablePart *rtp = partitions_[GetPartitionId(vlanreq)];
-        const VlanTableReqKey *vlanreqkey = 
+        const VlanTableReqKey *vlanreqkey =
             static_cast<const VlanTableReqKey *>(vlanreq);
         Vlan vlan(vlanreqkey->tag);
         return rtp->Find(vlan);
@@ -234,7 +234,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
 
-VlanTablePart::VlanTablePart(VlanTable *parent, int index) 
+VlanTablePart::VlanTablePart(VlanTable *parent, int index)
     : DBTablePartBase(parent, index) {
 }
 

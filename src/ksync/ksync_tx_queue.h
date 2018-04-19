@@ -4,7 +4,7 @@
 
 // ksync_tx_queue.h
 //
-// Implmentation of a shared transmit queue between agent and KSync. 
+// Implmentation of a shared transmit queue between agent and KSync.
 //
 // KSync i/o operations are done on KSync Netlink socket. Even if the socket is
 // set to non-blocking mode, the KSync socket i/o call will block till VRouter

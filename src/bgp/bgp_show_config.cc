@@ -587,7 +587,7 @@ void ShowBgpGlobalSystemConfigReq::HandleRequest() const {
         ShowBgpGlobalSystemConfigReqIterate,
         ShowBgpGlobalSystemConfigResp,
         ShowBgpGlobalSystemConfig>::CreateData;
-    
+
     s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
@@ -607,13 +607,13 @@ void ShowBgpGlobalSystemConfigReqIterate::HandleRequest() const {
         ShowBgpGlobalSystemConfigReqIterate,
         ShowBgpGlobalSystemConfigResp,
         ShowBgpGlobalSystemConfig>::CallbackIterate, _1, _2, _3, _4, _5);
-    
+
     s1.allocFn_ = BgpShowHandler<
         ShowBgpGlobalSystemConfigReq,
         ShowBgpGlobalSystemConfigReqIterate,
         ShowBgpGlobalSystemConfigResp,
         ShowBgpGlobalSystemConfig>::CreateData;
-   
+
     s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);

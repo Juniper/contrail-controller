@@ -12,7 +12,7 @@
 #include "mirror_index.h"
 #include "resource_manager/resource_manager_types.h"
 #include "resource_manager/resource_backup.h"
-    
+
 MirrorIndexResourceKey::MirrorIndexResourceKey (ResourceManager *rm,
     const string& analyzer_name):IndexResourceKey(rm, Resource::MIRROR_INDEX),
     analyzer_name_(analyzer_name) {

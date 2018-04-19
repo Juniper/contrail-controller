@@ -285,7 +285,7 @@ public:
             sport_end, dest_ip.c_str(), dest_plen, dport_start, dport_end);
         return std::string(buff);
     }
-    void AddIpAcl(std::string name, uint32_t id, std::string source_ip, 
+    void AddIpAcl(std::string name, uint32_t id, std::string source_ip,
                   uint32_t source_plen, std::string dest_ip, uint32_t dest_plen,
                   std::string proto, uint32_t sport_start, uint32_t sport_end,
                   uint32_t dport_start, uint32_t dport_end, std::string action) {
@@ -303,10 +303,10 @@ public:
         AddAcl(name, id, buff);
     }
 
-    void AddIpAcl(std::string name, uint32_t id, std::string source_ip, 
+    void AddIpAcl(std::string name, uint32_t id, std::string source_ip,
                   uint32_t source_plen, std::string dest_ip, uint32_t dest_plen,
                   std::string action) {
-        AddIpAcl(name, id, source_ip, source_plen, dest_ip, dest_plen, "all", 
+        AddIpAcl(name, id, source_ip, source_plen, dest_ip, dest_plen, "all",
                  0, 65535, 0, 65535, "pass");
     }
 

@@ -164,7 +164,7 @@ void DnsConfigManager::ProcessGlobalQosConfig(const ConfigDelta &delta) {
     ProcessNode(delta, global_qos_config_, obs_.global_qos);
 }
 
-IFMapNode *DnsConfigManager::FindTarget(IFMapNode *node, 
+IFMapNode *DnsConfigManager::FindTarget(IFMapNode *node,
                                         std::string link_name) {
     for (DBGraphVertex::edge_iterator iter = node->edge_list_begin(graph());
          iter != node->edge_list_end(graph()); ++iter) {
@@ -176,7 +176,7 @@ IFMapNode *DnsConfigManager::FindTarget(IFMapNode *node,
 }
 
 IFMapNode *DnsConfigManager::FindTarget(IFMapNode *node,
-                                        std::string link_name, 
+                                        std::string link_name,
                                         std::string node_type) {
     for (DBGraphVertex::edge_iterator iter = node->edge_list_begin(graph());
          iter != node->edge_list_end(graph()); ++iter) {
@@ -185,7 +185,7 @@ IFMapNode *DnsConfigManager::FindTarget(IFMapNode *node,
             IFMapNode *targ_node = static_cast<IFMapNode *>(iter.target());
             if (targ_node->table()->Typename() == node_type)
                 return targ_node;
-        }       
+        }
     }
     return NULL;
 }

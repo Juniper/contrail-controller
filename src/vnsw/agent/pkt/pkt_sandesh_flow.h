@@ -22,7 +22,7 @@ public:
     void SendResponse(SandeshResponse *resp);
     bool SetFlowKey(std::string key);
     static std::string GetFlowKey(const FlowKey &key, uint16_t partition_id);
-    
+
     virtual bool Run();
     std::string Description() const { return "PktSandeshFlow"; }
     void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe,

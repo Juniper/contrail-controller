@@ -9,7 +9,7 @@
 
 void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
     InetUnicastAgentRouteTable *table = dest_vrf_->GetInet4UnicastRouteTable();
-    const InetUnicastRouteEntry *uc_rt = 
+    const InetUnicastRouteEntry *uc_rt =
         static_cast<const InetUnicastRouteEntry *>(route);
     const AgentPath *active_path = uc_rt->GetActivePath();
     const TunnelNH *nh = dynamic_cast<const TunnelNH *>(active_path->nexthop());
@@ -52,7 +52,7 @@ void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
 
 void RouteLeakState::AddInterfaceRoute(const AgentRoute *route,
                                        const AgentPath *path) {
-    const InetUnicastRouteEntry *uc_rt = 
+    const InetUnicastRouteEntry *uc_rt =
         static_cast<const InetUnicastRouteEntry *>(route);
     const AgentPath *active_path = path;
 
@@ -213,7 +213,7 @@ bool RouteLeakState::CanAdd(const InetUnicastRouteEntry *rt) {
 }
 
 void RouteLeakState::AddRoute(const AgentRoute *route) {
-    const InetUnicastRouteEntry *uc_rt = 
+    const InetUnicastRouteEntry *uc_rt =
         static_cast<const InetUnicastRouteEntry *>(route);
 
     if (CanAdd(uc_rt) == false) {
@@ -273,12 +273,12 @@ void RouteLeakState::DeleteRoute(const AgentRoute *route,
     }
 }
 
-RouteLeakVrfState::RouteLeakVrfState(VrfEntry *source_vrf, 
+RouteLeakVrfState::RouteLeakVrfState(VrfEntry *source_vrf,
                                      VrfEntry *dest_vrf):
     source_vrf_(source_vrf), dest_vrf_(dest_vrf), deleted_(false) {
 
     AgentRouteTable *table = source_vrf->GetInet4UnicastRouteTable();
-    route_listener_id_ =  table->Register(boost::bind(&RouteLeakVrfState::Notify, 
+    route_listener_id_ =  table->Register(boost::bind(&RouteLeakVrfState::Notify,
                                                       this, _1, _2));
 
     //Walker would be used to address change of dest VRF table
@@ -349,7 +349,7 @@ bool RouteLeakVrfState::Notify(DBTablePartBase *partition, DBEntryBase *entry) {
     }
 
     if (state == NULL && dest_vrf_) {
-        state = new RouteLeakState(dest_vrf_->GetInet4UnicastRouteTable()->agent(), 
+        state = new RouteLeakState(dest_vrf_->GetInet4UnicastRouteTable()->agent(),
                                    NULL);
         route->SetState(partition->parent(), route_listener_id_, state);
     }
@@ -397,8 +397,8 @@ RouteLeakManager::~RouteLeakManager() {
 
 void RouteLeakManager::Notify(DBTablePartBase *partition, DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    RouteLeakVrfState *state = 
-        static_cast<RouteLeakVrfState *>(entry->GetState(partition->parent(), 
+    RouteLeakVrfState *state =
+        static_cast<RouteLeakVrfState *>(entry->GetState(partition->parent(),
                                                          vrf_listener_id_));
 
     if (vrf->IsDeleted()) {

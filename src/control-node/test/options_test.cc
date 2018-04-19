@@ -82,7 +82,7 @@ TEST_F(OptionsTest, NoArguments) {
                      options_.rabbitmq_server_list());
     TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
                      options_.config_db_server_list());
-  
+
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
@@ -538,7 +538,7 @@ TEST_F(OptionsTest, DISABLED_UnresolvableHostName) {
 }
 
 TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
-    int argc = 9; 
+    int argc = 9;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";

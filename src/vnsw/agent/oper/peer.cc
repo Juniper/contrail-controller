@@ -113,7 +113,7 @@ BgpPeer::BgpPeer(AgentXmppChannel *channel, const Ip4Address &server_ip,
 
 BgpPeer::~BgpPeer() {
     const Agent *agent = route_walker()->agent();
-    // TODO verify if this unregister can be done in walkdone callback 
+    // TODO verify if this unregister can be done in walkdone callback
     // for delpeer
     if ((id_ != -1) && agent->vrf_table()) {
         agent->vrf_table()->Unregister(id_);
@@ -158,7 +158,7 @@ void BgpPeer::StopPeerNotifyRoutes() {
 }
 
 void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
-    route_walker()->Start(ControllerRouteWalker::NOTIFYMULTICAST, associate, 
+    route_walker()->Start(ControllerRouteWalker::NOTIFYMULTICAST, associate,
                           NULL);
 }
 
@@ -225,7 +225,7 @@ ControllerRouteWalker *BgpPeer::delete_stale_walker() const {
 /*
  * Get the VRF state and unregister from all route table using
  * rt_export listener id. This will be called for active and non active bgp
- * peers. In case of active bgp peers send unsubscribe to control node(request 
+ * peers. In case of active bgp peers send unsubscribe to control node(request
  * came via vrf delete).
  */
 void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
@@ -241,7 +241,7 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
 
     for (uint8_t table_type = (Agent::INVALID + 1);
          table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
-        if (vrf_state->rt_export_[table_type]) 
+        if (vrf_state->rt_export_[table_type])
             vrf_state->rt_export_[table_type]->Unregister();
     }
 
@@ -252,7 +252,7 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
         if (SkipAddChangeRequest() == false) {
             AgentXmppChannel::ControllerSendSubscribe(GetAgentXmppChannel(),
                                                       vrf,
-                                                      false); 
+                                                      false);
         }
     }
 
@@ -263,16 +263,16 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
 }
 
 // For given peer return the dbstate for given VRF and partition
-DBState *BgpPeer::GetVrfExportState(DBTablePartBase *partition, 
+DBState *BgpPeer::GetVrfExportState(DBTablePartBase *partition,
                                     DBEntryBase *entry) {
     DBTableBase::ListenerId id = GetVrfExportListenerId();
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    return (static_cast<VrfExport::State *>(vrf->GetState(partition->parent(), 
+    return (static_cast<VrfExport::State *>(vrf->GetState(partition->parent(),
                                                           id)));
 }
 
 // For given route return the dbstate for given partiton
-DBState *BgpPeer::GetRouteExportState(DBTablePartBase *partition, 
+DBState *BgpPeer::GetRouteExportState(DBTablePartBase *partition,
                                       DBEntryBase *entry) {
     AgentRoute *route = static_cast<AgentRoute *>(entry);
     VrfEntry *vrf = route->vrf();
@@ -281,7 +281,7 @@ DBState *BgpPeer::GetRouteExportState(DBTablePartBase *partition,
         GetTablePartition(vrf);
 
     VrfExport::State *vs = static_cast<VrfExport::State *>
-        (GetVrfExportState(vrf_partition, vrf)); 
+        (GetVrfExportState(vrf_partition, vrf));
 
     if (vs == NULL)
         return NULL;

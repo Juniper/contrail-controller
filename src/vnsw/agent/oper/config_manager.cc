@@ -376,7 +376,7 @@ void ConfigManager::Start() {
 bool ConfigManager::TimerRun() {
     int count = Run();
     process_config_count_[timeout_] += count;
-    
+
     if (Size() == 0) {
         timeout_ = kMinTimeout;
         return false;

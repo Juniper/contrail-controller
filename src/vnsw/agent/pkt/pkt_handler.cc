@@ -311,7 +311,7 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
     boost::shared_ptr<PacketBufferEnqueueItem>
         info(new PacketBufferEnqueueItem(hdr, buff));
     work_queue_.Enqueue(info);
- 
+
 }
 
 bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) {
@@ -326,7 +326,7 @@ bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) 
 }
 
 void PktHandler::PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
-                                  boost::shared_ptr<PktInfo> pkt_info, 
+                                  boost::shared_ptr<PktInfo> pkt_info,
                                   uint8_t * pkt) {
     pkt_info->packet_buffer()->set_module(mod);
     stats_.PktRcvd(mod);
@@ -763,7 +763,7 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
-    
+
     // If packet is an IP fragment and not flow trap, ignore it
     if (IgnoreFragmentedPacket(pkt_info)) {
         agent_->stats()->incr_pkt_fragments_dropped();
@@ -870,7 +870,7 @@ bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
         return false;
     }
 
-    if (pkt_info->dport == DHCP_SERVER_PORT || 
+    if (pkt_info->dport == DHCP_SERVER_PORT ||
         pkt_info->sport == DHCP_CLIENT_PORT) {
         // we dont handle DHCPv6 coming from fabric
         return true;
@@ -1020,7 +1020,7 @@ bool PktHandler::IsFlowPacket(const AgentHdr &agent_hdr) {
 
 bool PktHandler::IsDiagPacket(PktInfo *pkt_info) {
     if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ZERO_TTL ||
-        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR 
+        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR
         || pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ROUTER_ALERT)
         return true;
     return false;
@@ -1197,7 +1197,7 @@ std::size_t PktInfo::hash(const Agent *agent,
     //
     // On Compute-1, the hash computation uses same 5-tuple and will always
     // result in even number. As a result, flows from Compute-1 will go to
-    // even-numbered ECMP members and never odd-numbered members. 
+    // even-numbered ECMP members and never odd-numbered members.
     // If Compute-2 happens to have only 2 members, all flows go to ecmp-index
     // 0 and never to 1
     //

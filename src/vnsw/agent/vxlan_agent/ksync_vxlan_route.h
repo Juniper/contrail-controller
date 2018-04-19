@@ -11,13 +11,13 @@ class KSyncVxlanVrfObject;
 /****************************************************************************
  * File contains KSync objects to manage FDB Route table for Vxlan bridge.
  ****************************************************************************/
-  
+
 /****************************************************************************
  * In Contrail, each Virtual-Network defines a broadcast domain. Each
  * Virtual-Network has a VRF associated with it. The FDB Table for a
  * Virtual-Network is got from the VRF for it.
  *
- * KSyncVxlanVrfObject listens to VRF entries being created and in-turn 
+ * KSyncVxlanVrfObject listens to VRF entries being created and in-turn
  * create a KSyncVxlanRouteObject for Bridge Route Table in the VRF
  ****************************************************************************/
 class KSyncVxlanVrfObject {
@@ -55,7 +55,7 @@ private:
 
 /****************************************************************************
  * KSync Object to manage Vxlan FDB Table. A KSyncVxlanRouteObject is created
- * for every Bridge Route Table. 
+ * for every Bridge Route Table.
  *
  * Registers as client to Bridge Route DBTable
  ****************************************************************************/

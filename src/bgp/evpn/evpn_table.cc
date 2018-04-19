@@ -151,10 +151,10 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     }
 
     if (evpn_prefix.type() == EvpnPrefix::AutoDiscoveryRoute) {
-	    if (IsMaster() || evpn_prefix.tag() != EvpnPrefix::kMaxTag)
-	        return NULL;
-	    community = server->extcomm_db()->ReplaceRTargetAndLocate(
-	        community.get(), ExtCommunity::ExtCommunityList());
+        if (IsMaster() || evpn_prefix.tag() != EvpnPrefix::kMaxTag)
+            return NULL;
+        community = server->extcomm_db()->ReplaceRTargetAndLocate(
+            community.get(), ExtCommunity::ExtCommunityList());
     }
     if (evpn_prefix.type() == EvpnPrefix::SegmentRoute)
         return NULL;

@@ -45,7 +45,7 @@ void IFMapAgentParser::NodeParse(xml_node &node, DBRequest::DBOperation oper, ui
         node_parse_errors_[msg_type]++;
         return;
     }
-           
+
     IFMapObject *obj;
     IFMapTable::RequestKey *req_key = new IFMapTable::RequestKey;
 
@@ -79,7 +79,7 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
     const char *name2;
     IFMapTable *table;
     IFMapAgentLinkTable *link_table;
-  
+
     int msg_type;
     if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
         msg_type = UPDATE;
@@ -88,7 +88,7 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
 
     link_table = static_cast<IFMapAgentLinkTable *>(
         db_->FindTable(IFMAP_AGENT_LINK_DB_NAME));
- 
+
     assert(link_table);
 
     // Get both first and second node and its corresponding tables
@@ -174,15 +174,15 @@ void IFMapAgentParser::ConfigParse(const xml_node config, const uint64_t seq) {
         if (strcmp(node.name(), "update") == 0) {
             oper = DBRequest::DB_ENTRY_ADD_CHANGE;
             msg_type = UPDATE;
-	    } else if (strcmp(node.name(), "delete") == 0) { 
+        } else if (strcmp(node.name(), "delete") == 0) {
             oper = DBRequest::DB_ENTRY_DELETE;
             msg_type = DEL;
-	    } else {
+        } else {
             continue;
         }
 
         for(xml_node chld = node.first_child(); chld; chld = chld.next_sibling()) {
- 
+
             // Handle the links between the nodes
             if (strcmp(chld.name(), "link") == 0) {
                 links_processed_[msg_type]++;
@@ -194,6 +194,6 @@ void IFMapAgentParser::ConfigParse(const xml_node config, const uint64_t seq) {
                 nodes_processed_[msg_type]++;
                 NodeParse(chld, oper, seq);
             }
-        }        
+        }
     }
 }

@@ -43,7 +43,7 @@ public:
         open->opt_params.push_back(opt_param);
     }
 
-    static void GenerateUpdateMessage(BgpProto::Update *update, uint16_t afi, 
+    static void GenerateUpdateMessage(BgpProto::Update *update, uint16_t afi,
                                       uint8_t safi) {
         char p[] = {0x1, 0x2, 0x3};
         BgpProtoPrefix *prefix = new BgpProtoPrefix;

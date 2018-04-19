@@ -19,9 +19,9 @@ class MirrorKSyncObject;
 class MirrorKSyncEntry : public KSyncNetlinkDBEntry {
 public:
     MirrorKSyncEntry(MirrorKSyncObject *obj, const MirrorEntry *);
-    MirrorKSyncEntry(MirrorKSyncObject *obj, const MirrorKSyncEntry *entry, 
+    MirrorKSyncEntry(MirrorKSyncObject *obj, const MirrorKSyncEntry *entry,
                      uint32_t index);
-    MirrorKSyncEntry(MirrorKSyncObject *obj, const uint32_t vrf_id, 
+    MirrorKSyncEntry(MirrorKSyncObject *obj, const uint32_t vrf_id,
                      IpAddress dip, uint16_t dport);
     MirrorKSyncEntry(MirrorKSyncObject *obj, std::string &analyzer_name);
     virtual ~MirrorKSyncEntry();

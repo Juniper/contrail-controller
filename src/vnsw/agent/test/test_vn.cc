@@ -102,7 +102,7 @@ TEST_F(CfgTest, VnBasic_1) {
     //Test for no node and link present
     memset(buff, 0, 4096);
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "virtual-network", "vn1", 1); 
+    AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddNodeString(buff, len, "virtual-machine", "vm1", 1);
     AddNodeString(buff, len, "virtual-machine-interface", "vnet2", 1);
     AddLinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet3");
@@ -112,11 +112,11 @@ TEST_F(CfgTest, VnBasic_1) {
     AddLinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
-    
+
     CheckVnAdd(1, 1);
     //Try changing key of VN
     VnEntry *vn = VnGet(1);
-    VnKey *oldKey = 
+    VnKey *oldKey =
            new VnKey((static_cast<VnKey*>((vn->GetDBRequestKey()).get()))->uuid_);
     VnKey *newKey = new VnKey(MakeUuid(200));
     string s1;
@@ -134,7 +134,7 @@ TEST_F(CfgTest, VnBasic_1) {
     // Send updated Ipam
     memset(buff, 0, 4096);
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "virtual-network", "vn1", 1); 
+    AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddNodeString(buff, len, "virtual-network-network-ipam", "default-network-ipam,vn1", ipam_updated_info, 3);
     AddLinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
     AddXmlTail(buff, len);
@@ -186,7 +186,7 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     AddNodeString(buff, len, "routing-instance", "vrf6", 1);
     AddNodeString(buff, len, "access-control-list", "acl1", 1);
     AddLinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf6");
-    AddLinkString(buff, len, "access-control-list", "acl1", "virtual-network", 
+    AddLinkString(buff, len, "access-control-list", "acl1", "virtual-network",
                   "vn1");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
@@ -305,7 +305,7 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
     client->WaitForIdle();
     EXPECT_TRUE(vn->GetVxLanId() == 1);
 
-    //Set to configured and then delete node 
+    //Set to configured and then delete node
     str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
     client->WaitForIdle();
@@ -356,7 +356,7 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config_sandesh) {
     EXPECT_TRUE(vn->GetVxLanId() == 1);
     vxlan_req = new VxLanReq();
     std::vector<int> result_after_delete = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, 
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1,
                                                result_after_delete));
     vxlan_req->HandleRequest();
     client->WaitForIdle();
@@ -387,7 +387,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_0) {
     client->WaitForIdle();
 
     client->Reset();
-    DelIPAM("vn1"); 
+    DelIPAM("vn1");
     client->WaitForIdle();
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
@@ -480,7 +480,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
 
     client->Reset();
-    DelIPAM("vn1"); 
+    DelIPAM("vn1");
     client->WaitForIdle();
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
@@ -583,7 +583,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
     client->Reset();
 
-    DelIPAM("vn1"); 
+    DelIPAM("vn1");
     client->WaitForIdle();
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
@@ -690,7 +690,7 @@ TEST_F(CfgTest, change_in_gateway) {
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
-	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
 
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
@@ -732,7 +732,7 @@ TEST_F(CfgTest, change_in_gatewaywith_no_vrf) {
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
-	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
 
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
@@ -958,7 +958,7 @@ TEST_F(CfgTest, multicast_fabric_routes) {
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
-	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
 
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
@@ -1008,7 +1008,7 @@ TEST_F(CfgTest, flat_subnet_config) {
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
-	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
 
     AddIPAM("vn1", ipam_info, 1, ipam_attr);
     client->WaitForIdle();

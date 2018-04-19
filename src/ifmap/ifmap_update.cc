@@ -7,17 +7,17 @@
 #include "base/time_util.h"
 #include "ifmap/ifmap_node.h"
 
-IFMapObjectPtr::IFMapObjectPtr() 
+IFMapObjectPtr::IFMapObjectPtr()
     : type(NIL) {
       u.ptr = NULL;
 }
 
-IFMapObjectPtr::IFMapObjectPtr(IFMapNode *node) 
+IFMapObjectPtr::IFMapObjectPtr(IFMapNode *node)
     : type(NODE) {
       u.node = node;
 }
 
-IFMapObjectPtr::IFMapObjectPtr(IFMapLink *link) 
+IFMapObjectPtr::IFMapObjectPtr(IFMapLink *link)
     : type(LINK) {
       u.link = link;
 }

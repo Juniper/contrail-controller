@@ -203,7 +203,7 @@ DBEntry *DBTablePartition::GetFirst() {
     if (it == tree_.end()) {
         return NULL;
     }
-    return it.operator->();        
+    return it.operator->();
 }
 
 // Returns the next entry (Doesn't search). Threaded walk

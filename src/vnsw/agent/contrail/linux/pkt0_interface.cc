@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
- 
+
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -109,7 +109,7 @@ void Pkt0Interface::InitControlInterface() {
             "> getting tx-buffer size");
         assert(0);
     }
-    
+
     uint32_t qlen = pkt_handler()->agent()->params()->pkt0_tx_buffer_count();
     if (ifr.ifr_qlen < (int)qlen) {
         ifr.ifr_qlen = qlen;
@@ -119,7 +119,7 @@ void Pkt0Interface::InitControlInterface() {
             assert(0);
         }
     }
-    
+
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
     if (ioctl(raw, SIOCGIFFLAGS, (void *)&ifr) < 0) {

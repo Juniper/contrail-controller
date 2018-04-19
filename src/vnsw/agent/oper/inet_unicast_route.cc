@@ -226,7 +226,7 @@ bool InetUnicastAgentRouteTable::ResyncSubnetRoutes
 //3) Skip all the host routes present under this subnet belonging to a better
 //   subnet(better subnet is the one which comes under subnet being added).
 //   e.g. 1.1.1.10/24 is a better subnet in 1.1.1.10/16 while supernet can be
-//   1.1.1.0/8   
+//   1.1.1.0/8
 void
 InetUnicastAgentRouteTable::TraverseHostRoutesInSubnet(InetUnicastRouteEntry *rt,
                                                        const Peer *peer)
@@ -273,7 +273,7 @@ InetUnicastAgentRouteTable::TraverseHostRoutesInSubnet(InetUnicastRouteEntry *rt
         //Proceed only for host route
         //Resync will ensure that subnet route is added to lpm host route
         //dependant rt(gw_ip).
-        lpm_rt->EnqueueRouteResync(); 
+        lpm_rt->EnqueueRouteResync();
     }
 }
 
@@ -362,9 +362,9 @@ DBEntryBase::KeyPtr InetUnicastRouteEntry::GetDBRequestKey() const {
 }
 
 void InetUnicastRouteEntry::SetKey(const DBRequestKey *key) {
-    Agent *agent = 
+    Agent *agent =
         (static_cast<InetUnicastAgentRouteTable *>(get_table()))->agent();
-    const InetUnicastRouteKey *k = 
+    const InetUnicastRouteKey *k =
         static_cast<const InetUnicastRouteKey*>(key);
     SetVrf(agent->vrf_table()->FindVrfFromName(k->vrf_name()));
     IpAddress tmp(k->addr());
@@ -414,7 +414,7 @@ InetUnicastRouteEntry::GetIpamSuperNetRoute() const {
         InetUnicastRouteEntry key(vrf(), addr_, plen, false);
         // Find next highest matching route
         InetUnicastRouteEntry *supernet_rt = table->FindRouteUsingKey(key);
-        
+
         if (supernet_rt == NULL)
             return NULL;
 
@@ -541,10 +541,10 @@ bool Inet4UnicastArpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     bool ret = true;
 
     ArpNHKey key(vrf_name_, addr_, policy_);
-    NextHop *nh = 
+    NextHop *nh =
         static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_unresolved(false);
-    
+
     if (path->dest_vn_list() != vn_list_) {
         path->set_dest_vn_list(vn_list_);
         ret = true;
@@ -581,7 +581,7 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
     InetUnicastAgentRouteTable *table = NULL;
     table = static_cast<InetUnicastAgentRouteTable *>
         (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_));
-    InetUnicastRouteEntry *rt = table->FindRoute(gw_ip_); 
+    InetUnicastRouteEntry *rt = table->FindRoute(gw_ip_);
     if (rt == NULL || rt->plen() == 0) {
         path->set_unresolved(true);
     } else if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
@@ -833,7 +833,7 @@ void UnresolvedRoute::HandleRequest() const {
 }
 
 void Inet4UcRouteReq::HandleRequest() const {
-    VrfEntry *vrf = 
+    VrfEntry *vrf =
         Agent::GetInstance()->vrf_table()->FindVrfFromId(get_vrf_index());
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
@@ -905,7 +905,7 @@ InetUnicastAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
 }
 
 // Inline delete request
-void 
+void
 InetUnicastAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
                                    const IpAddress &addr, uint8_t plen) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
@@ -914,7 +914,7 @@ InetUnicastAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
     InetUnicastTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
-void 
+void
 InetUnicastAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
                                    const IpAddress &addr, uint8_t plen,
                                    AgentRouteData *data) {
@@ -926,7 +926,7 @@ InetUnicastAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
 
 // Utility function to create a route to trap packets to agent.
 // Assumes that Interface-NH for "HOST Interface" is already present
-void 
+void
 InetUnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
                                          const IpAddress &addr,
                                          uint8_t plen,
@@ -946,7 +946,7 @@ InetUnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
 }
 
 // Create Route with VLAN NH
-void 
+void
 InetUnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                               const string &vm_vrf,
                                               const IpAddress &addr,
@@ -1076,7 +1076,7 @@ InetUnicastAgentRouteTable::AddClonedLocalPathReq(const Peer *peer,
 
 // Create Route for a local VM
 // Assumes that Interface-NH for "VM Port" is already present
-void 
+void
 InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             const string &vm_vrf,
                                             const IpAddress &addr,
@@ -1114,8 +1114,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
-void 
-InetUnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer, 
+void
+InetUnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                 const string &vm_vrf,
                                                 const IpAddress &vm_addr,
                                                 uint8_t plen,
@@ -1127,7 +1127,7 @@ InetUnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     req.data.reset(data);
     InetUnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
- 
+
 void
 InetUnicastAgentRouteTable::AddArpReq(const string &route_vrf_name,
                                       const Ip4Address &ip,
@@ -1194,7 +1194,7 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
 
     case DBRequest::DB_ENTRY_DELETE: {
         VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(route_vrf_name);
-        InetUnicastRouteEntry *rt = 
+        InetUnicastRouteEntry *rt =
             static_cast<InetUnicastRouteEntry *>(vrf->
                           GetInet4UnicastRouteTable()->Find(rt_key));
         assert(resolved==false);
@@ -1245,7 +1245,7 @@ InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
 
 void InetUnicastAgentRouteTable::AddResolveRoute(const Peer *peer,
                                                  const string &vrf_name,
-                                                 const Ip4Address &ip, 
+                                                 const Ip4Address &ip,
                                                  const uint8_t plen,
                                                  const InterfaceKey &intf,
                                                  const uint32_t label,

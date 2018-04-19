@@ -36,7 +36,7 @@ public:
     };
 
     struct VrfAssignData : public AgentData {
-        VrfAssignData(const std::string vrf_name) : 
+        VrfAssignData(const std::string vrf_name) :
             AgentData(), vrf_name_(vrf_name) { };
         virtual ~VrfAssignData() { };
 

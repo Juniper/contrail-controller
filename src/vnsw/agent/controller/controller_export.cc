@@ -15,11 +15,11 @@
 
 #include <controller/controller_vrf_export.h>
 #include <controller/controller_init.h>
-#include <controller/controller_export.h> 
+#include <controller/controller_export.h>
 #include <controller/controller_peer.h>
 #include <controller/controller_types.h>
 
-RouteExport::State::State() : 
+RouteExport::State::State() :
     DBState(), exported_(false), ingress_replication_exported_(false),
     fabric_multicast_exported_(false),
     force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(), sg_list_(),
@@ -83,7 +83,7 @@ void RouteExport::State::Update(const AgentRoute *route, const AgentPath *path) 
 }
 
 RouteExport::RouteExport(AgentRouteTable *rt_table):
-    rt_table_(rt_table), marked_delete_(false), 
+    rt_table_(rt_table), marked_delete_(false),
     table_delete_ref_(this, rt_table->deleter()) {
     walk_ref_ = rt_table->AllocWalker(
             boost::bind(&RouteExport::DeleteState, this, _1, _2),
@@ -106,14 +106,14 @@ void RouteExport::ManagedDelete() {
 void RouteExport::Notify(const Agent *agent,
                          AgentXmppChannel *bgp_xmpp_peer,
                          bool associate,
-                         Agent::RouteTableType type, 
+                         Agent::RouteTableType type,
                          DBTablePartBase *partition,
                          DBEntryBase *e) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
 
     // Primitive checks for non-delete notification
     if (!route->IsDeleted()) {
-        // If there is no active BGP peer attached to channel, ignore 
+        // If there is no active BGP peer attached to channel, ignore
         // non-delete notification for this channel
         if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer))
             return;
@@ -126,12 +126,12 @@ void RouteExport::Notify(const Agent *agent,
         // bgp peers as well as decommisioned BGP peers(if they exist). Active
         // and decommisoned BGP peer can co-exist till cleanup timer is fired.
         // During this interval ignore notification for decommisioned bgp peer
-        // listener id  
+        // listener id
         VrfEntry *vrf = route->vrf();
         BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->
                                                    bgp_peer_id());
         DBTableBase::ListenerId vrf_id = bgp_peer->GetVrfExportListenerId();
-        VrfExport::State *vs = 
+        VrfExport::State *vs =
             static_cast<VrfExport::State *>(vrf->GetState(vrf->get_table(),
                                                           vrf_id));
         // If VRF state is not present then listener has not been added.
@@ -167,7 +167,7 @@ void RouteExport::Notify(const Agent *agent,
     }
 }
 
-void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
+void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                                 DBTablePartBase *partition, DBEntryBase *e,
                                 Agent::RouteTableType type) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
@@ -311,7 +311,7 @@ void RouteExport::SubscribeFabricMulticast(const Agent *agent,
     //Agent running as tor(simulate_evpn_tor) - dont subscribe
     //Route has path with peer OVS_PEER i.e. TOR agent mode - dont subscribe
     //Subscribe condition:
-    //first time subscription or force change 
+    //first time subscription or force change
     if (!(agent->simulate_evpn_tor()) &&
         (active_path->peer()->GetType() != Peer::OVS_PEER) &&
         ((state->fabric_multicast_exported_ == false) ||
@@ -340,9 +340,9 @@ void RouteExport::SubscribeFabricMulticast(const Agent *agent,
 // TSN).
 //
 // For Tor-agent its a route with tunnel NH and there is no subscription.
-void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, 
+void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                                   bool associate,
-                                  DBTablePartBase *partition, 
+                                  DBTablePartBase *partition,
                                   DBEntryBase *e) {
     Agent *agent = bgp_xmpp_peer->agent();
     AgentRoute *route = static_cast<AgentRoute *>(e);
@@ -358,7 +358,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
     //Handle withdraw for following cases:
     //- Route is not having any active multicast exportable path or is deleted.
-    //- associate(false): Bgp Peer has gone down and state needs to be removed. 
+    //- associate(false): Bgp Peer has gone down and state needs to be removed.
     if (route_can_be_dissociated || !associate) {
         if (state == NULL) {
             return;
@@ -422,7 +422,7 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
     bool bridging = false;
     if (route->vrf() && route->vrf()->vn() && route->vrf()->vn()->bridging())
         bridging = true;
- 
+
     const AgentPath *active_path = GetMulticastExportablePath(agent, route);
     //Sending ff:ff:ff:ff:ff:ff for evpn replication
     TunnelType::Type old_tunnel_type = state->tunnel_type_;
@@ -441,7 +441,7 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
         if (old_tunnel_type == TunnelType::VXLAN) {
             if ((new_tunnel_type != TunnelType::VXLAN) ||
                 (old_label != new_label)) {
-                withdraw_label = old_label; 
+                withdraw_label = old_label;
                 withdraw = true;
             }
         } else if (new_tunnel_type == TunnelType::VXLAN) {
@@ -540,7 +540,7 @@ void RouteExport::Unregister() {
     rt_table_->WalkTable(walk_ref_);
 }
 
-RouteExport* RouteExport::Init(AgentRouteTable *table, 
+RouteExport* RouteExport::Init(AgentRouteTable *table,
                                AgentXmppChannel *bgp_xmpp_peer) {
     RouteExport *rt_export = new RouteExport(table);
     bool associate = true;

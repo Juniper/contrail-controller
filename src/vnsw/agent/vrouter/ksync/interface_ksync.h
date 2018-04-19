@@ -41,7 +41,7 @@ public:
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
     virtual ~InterfaceKSyncEntry();
 
-	const MacAddress &mac() const {
+    const MacAddress &mac() const {
         if (parent_.get() == NULL) {
             return mac_;
         } else {

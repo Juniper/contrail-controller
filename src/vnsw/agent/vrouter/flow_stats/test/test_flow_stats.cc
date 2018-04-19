@@ -32,7 +32,7 @@ void RouterIdDepInit(Agent *agent) {
 
 class FlowStatsTest : public ::testing::Test {
 public:
-    FlowStatsTest() : response_count_(0), type_specific_response_count_(0), 
+    FlowStatsTest() : response_count_(0), type_specific_response_count_(0),
     num_entries_(0), agent_(Agent::GetInstance()), util_() {
         flow_proto_ = agent_->pkt()->get_flow_proto();
     }
@@ -147,7 +147,7 @@ TEST_F(FlowStatsTest, SandeshFlowEntries) {
     FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(rfe != NULL);
-    
+
     ClearCount();
     FlowEntriesGet();
     client->WaitForIdle();
@@ -162,7 +162,7 @@ TEST_F(FlowStatsTest, SandeshFlowEntries) {
 }
 
 //Verify that flow_tree maitained by FlowStatsCollector is inserted/erased on
-//flow add/delete 
+//flow add/delete
 TEST_F(FlowStatsTest, FlowTreeSize) {
     FlowSetup();
     TestFlow flow[] = {
@@ -191,7 +191,7 @@ TEST_F(FlowStatsTest, FlowTreeSize) {
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     EXPECT_EQ(2U, col->Size());
-    
+
     ClearCount();
     FlowEntriesGet();
     client->WaitForIdle();
@@ -277,7 +277,7 @@ TEST_F(FlowStatsTest, FlowAddVerify) {
 int main(int argc, char *argv[]) {
     int ret;
     GETUSERARGS();
-    
+
     client = TestInit(init_file, ksync_init, true, false,
                       true, (10 * 60 * 1000), (10 * 60 * 1000),
                       true, true, (10 * 60 * 1000));

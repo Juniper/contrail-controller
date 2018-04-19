@@ -125,7 +125,7 @@ void IFMapGraphWalker::LinkRemove(const BitSet &bset) {
     link_delete_walk_trigger_->Set();
 }
 
-// Check if the neighbor or link to neighbor should be filtered. Returns true 
+// Check if the neighbor or link to neighbor should be filtered. Returns true
 // if rnode or link to rnode should be filtered.
 bool IFMapGraphWalker::FilterNeighbor(IFMapNode *lnode, IFMapLink *link) {
     IFMapNode *rnode = link->left();
@@ -333,11 +333,11 @@ const IFMapTypenameWhiteList &IFMapGraphWalker::get_traversal_white_list()
     return *traversal_white_list_.get();
 }
 
-// The nodes listed below and the nodes in 
-// IFMapGraphTraversalFilterCalculator::CreateNodeBlackList() are mutually 
+// The nodes listed below and the nodes in
+// IFMapGraphTraversalFilterCalculator::CreateNodeBlackList() are mutually
 // exclusive
 void IFMapGraphWalker::AddNodesToWhitelist() {
-    traversal_white_list_->include_vertex = map_list_of<std::string, std::set<std::string> > 
+    traversal_white_list_->include_vertex = map_list_of<std::string, std::set<std::string> >
         ("virtual-router",
          list_of("physical-router-virtual-router")
                 ("virtual-router-virtual-machine")
@@ -350,7 +350,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          list_of("virtual-machine-service-instance")
                 ("virtual-machine-interface-virtual-machine")
                 ("virtual-machine-tag"))
-        ("bgp-router", 
+        ("bgp-router",
          list_of("instance-bgp-router")
                 ("physical-router-bgp-router"))
         ("global-system-config",

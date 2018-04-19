@@ -12,8 +12,8 @@
 #include <cmn/agent_cmn.h>
 
 void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
-		  const char *dip, int proto, int hash_id, int cmd, int vrf,
-		  bool fragment) {
+          const char *dip, int proto, int hash_id, int cmd, int vrf,
+          bool fragment) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, cmd, hash_id, vrf) ;
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
@@ -23,10 +23,10 @@ void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
     }
 }
 
-void TxIpPacket(int ifindex, const char *sip, const char *dip, 
-		   int proto, int hash_id, int vrf) {
+void TxIpPacket(int ifindex, const char *sip, const char *dip,
+           int proto, int hash_id, int vrf) {
     PktGen *pkt = new PktGen();
-    MakeIpPacket(pkt, ifindex, sip, dip, proto, hash_id, AgentHdr::TRAP_FLOW_MISS, 
+    MakeIpPacket(pkt, ifindex, sip, dip, proto, hash_id, AgentHdr::TRAP_FLOW_MISS,
                  vrf);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
@@ -37,7 +37,7 @@ void TxIpPacket(int ifindex, const char *sip, const char *dip,
 
 void TxL2Packet(int ifindex, const char *smac, const char *dmac,
                 const char *sip, const char *dip,
-		        int proto, int hash_id, int vrf,
+                int proto, int hash_id, int vrf,
                 uint16_t sport, uint16_t dport) {
     PktGen *pkt = new PktGen();
 
@@ -60,8 +60,8 @@ void TxL2Packet(int ifindex, const char *smac, const char *dmac,
 }
 
 void MakeUdpPacket(PktGen *pkt, int ifindex, const char *sip,
-		   const char *dip, uint16_t sport, uint16_t dport,
-		   int hash_id, uint32_t vrf_id) {
+           const char *dip, uint16_t sport, uint16_t dport,
+           int hash_id, uint32_t vrf_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, vrf_id);
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
@@ -69,8 +69,8 @@ void MakeUdpPacket(PktGen *pkt, int ifindex, const char *sip,
     pkt->AddUdpHdr(sport, dport, 64);
 }
 
-void TxUdpPacket(int ifindex, const char *sip, const char *dip, 
-		    uint16_t sport, uint16_t dport, int hash_id, uint32_t vrf_id) {
+void TxUdpPacket(int ifindex, const char *sip, const char *dip,
+            uint16_t sport, uint16_t dport, int hash_id, uint32_t vrf_id) {
     PktGen *pkt = new PktGen();
     MakeUdpPacket(pkt, ifindex, sip, dip, sport, dport, hash_id, vrf_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
@@ -91,8 +91,8 @@ void MakeSctpPacket(PktGen *pkt, int ifindex, const char *sip,
 }
 
 void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
-		   const char *dip, uint16_t sport, uint16_t dport, bool ack,
-		   int hash_id, uint32_t vrf_id, int ttl) {
+           const char *dip, uint16_t sport, uint16_t dport, bool ack,
+           int hash_id, uint32_t vrf_id, int ttl) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, vrf_id);
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
@@ -101,8 +101,8 @@ void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
 
 }
 
-void TxTcpPacket(int ifindex, const char *sip, const char *dip, 
-		    uint16_t sport, uint16_t dport, bool ack, int hash_id,
+void TxTcpPacket(int ifindex, const char *sip, const char *dip,
+            uint16_t sport, uint16_t dport, bool ack, int hash_id,
             uint32_t vrf_id, int ttl) {
     PktGen *pkt = new PktGen();
     MakeTcpPacket(pkt, ifindex, sip, dip, sport, dport, ack, hash_id, vrf_id,
@@ -115,9 +115,9 @@ void TxTcpPacket(int ifindex, const char *sip, const char *dip,
 }
 
 void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
-		      const char *out_dip, uint32_t label,
-		      const char *sip, const char *dip, uint8_t proto,
-		      int hash_id) {
+              const char *out_dip, uint32_t label,
+              const char *sip, const char *dip, uint8_t proto,
+              int hash_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id,
                      MplsToVrfId(label), label);
@@ -280,7 +280,7 @@ void MakeIp6Packet(PktGen *pkt, int ifindex, const char *sip, const char *dip,
 void TxIp6Packet(int ifindex, const char *sip, const char *dip, int proto,
                  int hash_id, int vrf) {
     PktGen *pkt = new PktGen();
-    MakeIp6Packet(pkt, ifindex, sip, dip, proto, hash_id, AGENT_TRAP_FLOW_MISS, 
+    MakeIp6Packet(pkt, ifindex, sip, dip, proto, hash_id, AGENT_TRAP_FLOW_MISS,
                   vrf);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
@@ -290,8 +290,8 @@ void TxIp6Packet(int ifindex, const char *sip, const char *dip, int proto,
 }
 
 void MakeUdp6Packet(PktGen *pkt, int ifindex, const char *sip,
-		   const char *dip, uint16_t sport, uint16_t dport,
-		   int hash_id, uint32_t vrf_id) {
+           const char *dip, uint16_t sport, uint16_t dport,
+           int hash_id, uint32_t vrf_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, vrf_id);
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IPV6);
@@ -299,8 +299,8 @@ void MakeUdp6Packet(PktGen *pkt, int ifindex, const char *sip,
     pkt->AddUdpHdr(sport, dport, 64);
 }
 
-void TxUdp6Packet(int ifindex, const char *sip, const char *dip, 
-		    uint16_t sport, uint16_t dport, int hash_id, uint32_t vrf_id) {
+void TxUdp6Packet(int ifindex, const char *sip, const char *dip,
+            uint16_t sport, uint16_t dport, int hash_id, uint32_t vrf_id) {
     PktGen *pkt = new PktGen();
     MakeUdp6Packet(pkt, ifindex, sip, dip, sport, dport, hash_id, vrf_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
@@ -321,8 +321,8 @@ void MakeTcp6Packet(PktGen *pkt, int ifindex, const char *sip,
 
 }
 
-void TxTcp6Packet(int ifindex, const char *sip, const char *dip, 
-		    uint16_t sport, uint16_t dport, bool ack, int hash_id,
+void TxTcp6Packet(int ifindex, const char *sip, const char *dip,
+            uint16_t sport, uint16_t dport, bool ack, int hash_id,
             uint32_t vrf_id) {
     PktGen *pkt = new PktGen();
     MakeTcp6Packet(pkt, ifindex, sip, dip, sport, dport, ack, hash_id, vrf_id);
@@ -334,9 +334,9 @@ void TxTcp6Packet(int ifindex, const char *sip, const char *dip,
 }
 
 void MakeIp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
-		      const char *out_dip, uint32_t label,
-		      const char *sip, const char *dip, uint8_t proto,
-		      int hash_id) {
+              const char *out_dip, uint32_t label,
+              const char *sip, const char *dip, uint8_t proto,
+              int hash_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
@@ -425,7 +425,7 @@ void TxTcp6MplsPacket(int ifindex, const char *out_sip,
 
 void TxL2Ip6Packet(int ifindex, const char *smac, const char *dmac,
                 const char *sip, const char *dip,
-		        int proto, int hash_id, int vrf,
+                int proto, int hash_id, int vrf,
                 uint16_t sport, uint16_t dport) {
     PktGen *pkt = new PktGen();
 

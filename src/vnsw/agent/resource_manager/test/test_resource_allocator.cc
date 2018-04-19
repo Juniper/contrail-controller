@@ -56,9 +56,9 @@ protected:
     }
     // Restore the Data  from file and delete it.
    void SandeshReadProcess() {
-        WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup", 
+        WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup",
                 "contrail_vrf_resource-").empty() != true);
-        agent->resource_manager()->backup_mgr()->Init(); 
+        agent->resource_manager()->backup_mgr()->Init();
         client->WaitForIdle();
         NextHopKey *nh_key = new VrfNHKey("vrf1", false, false);
         ResourceManager::KeyPtr key
@@ -126,7 +126,7 @@ TEST_F(SandeshReadWriteUnitTest, SandesMd5_verification) {
              "contrail_interface_resource-").empty() != true);
     std::string file_name = "/tmp/backup/" +
         BackUpResourceTable::FindFile("/tmp/backup",
-                "contrail_interface_resource-"); 
+                "contrail_interface_resource-");
     struct stat st;
     EXPECT_TRUE(stat(file_name.c_str(), &st) != -1);
     uint32_t size_with_port = (uint32_t)st.st_size;

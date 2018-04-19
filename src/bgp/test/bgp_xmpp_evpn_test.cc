@@ -746,18 +746,18 @@ TEST_F(BgpXmppEvpnTest1, 2AgentMultipleRoutes1) {
 
     // Add routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
-	    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
+        agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
     }
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream eroute_b;
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
-	    eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
-	    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+        stringstream eroute_b;
+        eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
+        agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
     }
     task_util::WaitForIdle();
 
@@ -769,9 +769,9 @@ TEST_F(BgpXmppEvpnTest1, 2AgentMultipleRoutes1) {
 
     // Delete routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
-	    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
+        agent_a_->DeleteEnetRoute("blue", eroute_a.str());
     }
     task_util::WaitForIdle();
 
@@ -783,9 +783,9 @@ TEST_F(BgpXmppEvpnTest1, 2AgentMultipleRoutes1) {
 
     // Delete route from agent B.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
-	    eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
-	    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+        stringstream eroute_b;
+        eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
+        agent_b_->DeleteEnetRoute("blue", eroute_b.str());
     }
     task_util::WaitForIdle();
 
@@ -827,18 +827,18 @@ TEST_F(BgpXmppEvpnTest1, 2AgentMultipleRoutes2) {
 
     // Add routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
-	    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
+        agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
     }
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream eroute_b;
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
-	    eroute_b << "bb:00:00:00:00:01" << ",10.1.2." << idx << "/32";
-	    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+        stringstream eroute_b;
+        eroute_b << "bb:00:00:00:00:01" << ",10.1.2." << idx << "/32";
+        agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
     }
     task_util::WaitForIdle();
 
@@ -850,9 +850,9 @@ TEST_F(BgpXmppEvpnTest1, 2AgentMultipleRoutes2) {
 
     // Delete routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
-	    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
+        agent_a_->DeleteEnetRoute("blue", eroute_a.str());
     }
     task_util::WaitForIdle();
 
@@ -864,9 +864,9 @@ TEST_F(BgpXmppEvpnTest1, 2AgentMultipleRoutes2) {
 
     // Delete route from agent B.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
-	    eroute_b << "bb:00:00:00:00:01" << ",10.1.2." << idx << "/32";
-	    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+        stringstream eroute_b;
+        eroute_b << "bb:00:00:00:00:01" << ",10.1.2." << idx << "/32";
+        agent_b_->DeleteEnetRoute("blue", eroute_b.str());
     }
     task_util::WaitForIdle();
 
@@ -2940,18 +2940,18 @@ TEST_F(BgpXmppEvpnTest2, MultipleRoutes1) {
 
     // Add routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
-	    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
+        agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
     }
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream eroute_b;
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
-	    eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
-	    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+        stringstream eroute_b;
+        eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
+        agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
     }
     task_util::WaitForIdle();
 
@@ -2963,9 +2963,9 @@ TEST_F(BgpXmppEvpnTest2, MultipleRoutes1) {
 
     // Delete routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
-	    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
+        agent_a_->DeleteEnetRoute("blue", eroute_a.str());
     }
     task_util::WaitForIdle();
 
@@ -2977,9 +2977,9 @@ TEST_F(BgpXmppEvpnTest2, MultipleRoutes1) {
 
     // Delete route from agent B.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
-	    eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
-	    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+        stringstream eroute_b;
+        eroute_b << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
+        agent_b_->DeleteEnetRoute("blue", eroute_b.str());
     }
     task_util::WaitForIdle();
 
@@ -3020,18 +3020,18 @@ TEST_F(BgpXmppEvpnTest2, MultipleRoutes2) {
 
     // Add routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
-	    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
+        agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
     }
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream eroute_b;
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
-	    eroute_b << "bb:00:00:00:00:01" << ",10.1.2." << idx << "/32";
-	    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+        stringstream eroute_b;
+        eroute_b << "bb:00:00:00:00:01" << ",10.1.2." << idx << "/32";
+        agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
     }
     task_util::WaitForIdle();
 
@@ -3043,9 +3043,9 @@ TEST_F(BgpXmppEvpnTest2, MultipleRoutes2) {
 
     // Delete routes from agent A.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_a;
-	    eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
-	    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+        stringstream eroute_a;
+        eroute_a << "aa:00:00:00:00:01" << ",10.1.1." << idx << "/32";
+        agent_a_->DeleteEnetRoute("blue", eroute_a.str());
     }
     task_util::WaitForIdle();
 
@@ -3057,9 +3057,9 @@ TEST_F(BgpXmppEvpnTest2, MultipleRoutes2) {
 
     // Delete route from agent B.
     for (int idx = 1; idx <= 4;  idx++) {
-	    stringstream eroute_b;
+        stringstream eroute_b;
             eroute_b << "bb:00:00:00:00:01" << ",10.1.2." << idx << "/32";
-	    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+        agent_b_->DeleteEnetRoute("blue", eroute_b.str());
     }
     task_util::WaitForIdle();
 

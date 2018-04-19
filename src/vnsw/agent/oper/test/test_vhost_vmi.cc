@@ -63,7 +63,7 @@ public:
     virtual void SetUp() {
         agent = Agent::GetInstance();
         client->WaitForIdle();
-        
+
         AddVn(DEFAULT_VN, 1);
         AddIPAM(DEFAULT_VN, ipam_info, 1);
 
@@ -80,7 +80,7 @@ public:
     virtual void TearDown() {
         DelIPAM(DEFAULT_VN);
         DelVn(DEFAULT_VN);
-        //DelNode("virtual-machine-interface", "vhost0"); 
+        //DelNode("virtual-machine-interface", "vhost0");
         DelLink("virtual-machine-interface", "vhost0",
                 "virtual-network", DEFAULT_VN);
         client->WaitForIdle();
@@ -97,7 +97,7 @@ public:
 };
 
 TEST_F(FabricVmiTest, CrossConnect) {
-    const VmInterface *vm_intf = 
+    const VmInterface *vm_intf =
         static_cast<const VmInterface *>(VhostGet("vhost0"));
     EXPECT_TRUE(vm_intf->parent()->name() == "vnet0");
     EXPECT_TRUE(vm_intf->vmi_type() == VmInterface::VHOST);
@@ -211,7 +211,7 @@ TEST_F(FabricVmiTest, PolicyChange) {
     str << "</virtual-machine-interface-disable-policy>";
     AddNode("virtual-machine-interface", "vhost0", 10, str.str().c_str());
 
-    const AgentRoute *rt = RouteGet(agent->fabric_policy_vrf_name(), 
+    const AgentRoute *rt = RouteGet(agent->fabric_policy_vrf_name(),
             agent->router_id(), 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 

@@ -43,7 +43,7 @@
 
 #include "linux_vxlan_agent_init.h"
 
-LinuxVxlanAgentInit::LinuxVxlanAgentInit() 
+LinuxVxlanAgentInit::LinuxVxlanAgentInit()
     : ksync_vxlan_(NULL) {
 }
 

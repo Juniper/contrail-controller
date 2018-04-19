@@ -133,7 +133,7 @@ public:
     }
 
     void GetAgentStatsResponse(Sandesh *sandesh) {
-        if (memcmp(sandesh->Name(), "AgentStatsIntervalResp_InSeconds", 
+        if (memcmp(sandesh->Name(), "AgentStatsIntervalResp_InSeconds",
                    strlen("AgentStatsIntervalResp_InSeconds")) == 0) {
             success_responses_++;
             AgentStatsIntervalResp_InSeconds *resp = static_cast
@@ -152,7 +152,7 @@ public:
     }
 
     void GetFlowStatsResponse(Sandesh *sandesh) {
-        if (memcmp(sandesh->Name(), "FlowStatsIntervalResp_InSeconds", 
+        if (memcmp(sandesh->Name(), "FlowStatsIntervalResp_InSeconds",
                    strlen("FlowStatsIntervalResp_InSeconds")) == 0) {
             success_responses_++;
             FlowStatsIntervalResp_InSeconds *resp = static_cast
@@ -227,7 +227,7 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     client->VnDelNotifyWait(2);
     client->PortDelNotifyWait(2);
-    
+
     WAIT_FOR(100, 1000, (PortSubscribeSize(agent_) == 0));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
@@ -367,13 +367,13 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 10000, (VrfFind("vrf11")== true));
     EXPECT_TRUE(DBTableFind("vrf11.uc.route.0"));
- 
+
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf11");
     EXPECT_TRUE(vrf != NULL);
     int vrf11_id = vrf->vrf_id();
 
     vr_vrf_stats_req zero_stats;
-    //Verify that vrf_stats entry is added vrf_stats_tree of 
+    //Verify that vrf_stats entry is added vrf_stats_tree of
     //agent_stats_collector
     EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, zero_stats));
 
@@ -383,7 +383,7 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     WAIT_FOR(100, 10000, (VrfFind("vrf11")== false));
     EXPECT_FALSE(DBTableFind("vrf11.uc.route.0"));
 
-    //Verify that vrf_stats entry is not removed from vrf_stats_tree of 
+    //Verify that vrf_stats entry is not removed from vrf_stats_tree of
     //agent_stats_collector after deletion of vrf
     EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, zero_stats));
 
@@ -391,7 +391,7 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     VrfAddReq("vrf21");
     client->WaitForIdle();
     EXPECT_TRUE(DBTableFind("vrf21.uc.route.0"));
- 
+
     vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf21");
     EXPECT_TRUE(vrf != NULL);
     int vrf21_id = vrf->vrf_id();

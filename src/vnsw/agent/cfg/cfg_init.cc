@@ -55,7 +55,7 @@ AgentConfig::AgentConfig(Agent *agent)
     agent_->set_interface_mirror_cfg_table(cfg_intf_mirror_table_.get());
 }
 
-AgentConfig::~AgentConfig() { 
+AgentConfig::~AgentConfig() {
     cfg_filter_.reset();
     cfg_parser_.reset();
     cfg_graph_.reset();
@@ -72,7 +72,7 @@ void AgentConfig::CreateDBTables(DB *db) {
     bgp_schema_Agent_ParserInit(db, cfg_parser_.get());
     IFMapAgentLinkTable_Init(db, cfg_graph_.get());
     agent_->set_ifmap_parser(cfg_parser_.get());
-    IFMapAgentStaleCleaner *cl = 
+    IFMapAgentStaleCleaner *cl =
         new IFMapAgentStaleCleaner(db, cfg_graph_.get());
     agent_->set_ifmap_stale_cleaner(cl);
 
@@ -103,7 +103,7 @@ void AgentConfig::RegisterDBClients(DB *db) {
 
     cfg_sg_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "security-group")));
-    assert(cfg_sg_table_);         
+    assert(cfg_sg_table_);
 
     cfg_vrf_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "routing-instance")));
@@ -134,12 +134,12 @@ void AgentConfig::RegisterDBClients(DB *db) {
     assert(cfg_network_ipam_table_);
 
     cfg_vn_network_ipam_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), 
+        (IFMapTable::FindTable(agent_->db(),
                                "virtual-network-network-ipam")));
     assert(cfg_vn_network_ipam_table_);
 
     cfg_vm_port_vrf_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), 
+        (IFMapTable::FindTable(agent_->db(),
                                "virtual-machine-interface-routing-instance")));
     assert(cfg_vm_port_vrf_table_);
 

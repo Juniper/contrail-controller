@@ -20,7 +20,7 @@ class Timer;
 
 class DnsHandler : public ProtoHandler {
 public:
-    typedef boost::function<void(const boost::system::error_code&, 
+    typedef boost::function<void(const boost::system::error_code&,
                                 boost_udp::resolver::iterator)> ResolveHandler;
     typedef std::vector<boost_udp::resolver *> ResolvList;
     static const uint32_t max_items_per_xmpp_msg = 20;

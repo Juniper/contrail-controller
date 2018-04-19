@@ -24,7 +24,7 @@ class AgentStatsCollectorTest : public AgentStatsCollector {
 public:
     AgentStatsCollectorTest(boost::asio::io_service &io, Agent *agent) :
         AgentStatsCollector(io, agent), interface_stats_responses_(0),
-        vrf_stats_responses_(0), drop_stats_responses_(0), 
+        vrf_stats_responses_(0), drop_stats_responses_(0),
         interface_stats_errors_(0), vrf_stats_errors_(0), drop_stats_errors_(0) {
     }
     virtual ~AgentStatsCollectorTest() {
@@ -43,8 +43,8 @@ public:
 
 class InterfaceStatsIoContextTest: public InterfaceStatsIoContext {
 public:
-    InterfaceStatsIoContextTest(int msg_len, char *msg, uint32_t seqno, 
-                                AgentStatsSandeshContext *ctx, 
+    InterfaceStatsIoContextTest(int msg_len, char *msg, uint32_t seqno,
+                                AgentStatsSandeshContext *ctx,
                                 IoContext::Type type)
         : InterfaceStatsIoContext(msg_len, msg, seqno, ctx, type) {}
     virtual ~InterfaceStatsIoContextTest() {}
@@ -56,9 +56,9 @@ private:
 
 class VrfStatsIoContextTest: public VrfStatsIoContext {
 public:
-    VrfStatsIoContextTest(int msg_len, char *msg, uint32_t seqno, 
-                          AgentStatsSandeshContext *ctx, 
-                          IoContext::Type type) 
+    VrfStatsIoContextTest(int msg_len, char *msg, uint32_t seqno,
+                          AgentStatsSandeshContext *ctx,
+                          IoContext::Type type)
         : VrfStatsIoContext(msg_len, msg, seqno, ctx, type) {}
     virtual ~VrfStatsIoContextTest() {}
     void Handler();
@@ -69,8 +69,8 @@ private:
 
 class DropStatsIoContextTest: public DropStatsIoContext {
 public:
-    DropStatsIoContextTest(int msg_len, char *msg, uint32_t seqno, 
-                           AgentStatsSandeshContext *ctx, 
+    DropStatsIoContextTest(int msg_len, char *msg, uint32_t seqno,
+                           AgentStatsSandeshContext *ctx,
                            IoContext::Type type)
         : DropStatsIoContext(msg_len, msg, seqno, ctx, type) {}
     virtual ~DropStatsIoContextTest() {}

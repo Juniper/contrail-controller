@@ -10,7 +10,7 @@
 class XmlBase {
 
 public:
-    // Set new xml doc. Null string means reset to new doc. 
+    // Set new xml doc. Null string means reset to new doc.
     // Resets previous doc
     virtual int LoadDoc(const std::string &doc) = 0;
 
@@ -71,14 +71,14 @@ public:
     // Moves node context to immediate parent
     virtual void RewindNode() = 0;
 
-    virtual const char *ReadAttrib(const std::string &str) = 0; 
+    virtual const char *ReadAttrib(const std::string &str) = 0;
     virtual const char *ReadFirstAttrib() = 0;
     virtual const char *ReadNextAttrib() = 0;
     virtual void RewindAttrib() = 0;
 
     // Get Parent node. Move node context to parent
     virtual const char *ReadParentName() = 0;
-    
+
     virtual void RewindDoc() = 0;
     virtual void AppendDoc(const std::string &str, XmlBase *a_doc) = 0;
 
@@ -90,7 +90,7 @@ struct XmppXmlImplFactory {
 public:
 
     XmlBase *GetXmlImpl() ;
-    void ReleaseXmlImpl(XmlBase *tmp); 
+    void ReleaseXmlImpl(XmlBase *tmp);
 
     static XmppXmlImplFactory *Instance();
 

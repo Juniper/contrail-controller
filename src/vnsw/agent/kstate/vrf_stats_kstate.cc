@@ -11,11 +11,11 @@
 using namespace std;
 
 VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, const std::string &resp_ctx,
-                               vr_vrf_stats_req &req, int id) : 
+                               vr_vrf_stats_req &req, int id) :
                                KState(resp_ctx, obj) {
     if (id >= 0) {
         req.set_h_op(sandesh_op::GET);
-        req.set_vsr_vrf(id);    
+        req.set_vsr_vrf(id);
         req.set_vsr_family(AF_INET);
     } else {
         InitDumpRequest(req);
@@ -33,7 +33,7 @@ void VrfStatsKState::Handler() {
     KVrfStatsResp *resp = static_cast<KVrfStatsResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
-            /* There are more interfaces in Kernel. We need to query them from 
+            /* There are more interfaces in Kernel. We need to query them from
              * Kernel and send it to Sandesh.
              */
             SendResponse();

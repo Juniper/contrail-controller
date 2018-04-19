@@ -560,7 +560,7 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
     if (err.value() != 0) {
         return;
     }
- 
+
     if (ip->secondary() != true && ip->service_instance_ip() != true &&
         ip->service_health_check_ip() != true) {
         is_primary = true;
@@ -1628,7 +1628,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         //iterate through links for paremt VMI for VM
         for (DBGraphVertex::adjacency_iterator vmi_iter = parent_vmi_node->begin(vmi_graph);
              vmi_iter != parent_vmi_node->end(vmi_graph); ++vmi_iter) {
-        
+
             IFMapNode *vm_node = static_cast<IFMapNode *>(vmi_iter.operator->());
             if (agent_->config_manager()->SkipNode(vm_node, agent_->cfg()->cfg_vm_table())) {
                 continue;

@@ -332,23 +332,23 @@ static void ValidateShowGlobalSystemResponse(
         resp->get_global_instances()) {
         LOG(DEBUG, "Graceful Restart Time : " << resp_global.get_gr_time());
         LOG(DEBUG, "llgr_time             : " << resp_global.get_llgr_time());
-        LOG(DEBUG, "Last Change at        : " << 
+        LOG(DEBUG, "Last Change at        : " <<
                    resp_global.get_last_change_at());
-        LOG(DEBUG, "bgpaas_port_start     : " << 
+        LOG(DEBUG, "bgpaas_port_start     : " <<
                    resp_global.get_bgpaas_port_start());
-        LOG(DEBUG, "bgpaas_port_end       : " << 
+        LOG(DEBUG, "bgpaas_port_end       : " <<
                    resp_global.get_bgpaas_port_end());
         LOG(DEBUG, "rd_cluster_seed       : " <<
                    resp_global.get_rd_cluster_seed());
     }
     LOG(DEBUG, "************************************************************");
-    
+
     BOOST_FOREACH(const ShowBgpGlobalSystemConfig &global, global_list) {
         bool found = false;
         BOOST_FOREACH(const ShowBgpGlobalSystemConfig &resp_global,
             resp->get_global_instances()) {
             found = true;
-            
+
             EXPECT_EQ(global.get_gr_time(), resp_global.get_gr_time());
             EXPECT_EQ(global.get_llgr_time(), resp_global.get_llgr_time());
             EXPECT_EQ(global.get_last_change_at(),
@@ -1710,10 +1710,10 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowGlobalSystemConfig) {
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = &server_;
     Sandesh::set_client_context(&sandesh_context);
-    const  BgpGlobalSystemConfig *bgsc = 
+    const  BgpGlobalSystemConfig *bgsc =
                         sandesh_context.bgp_server->global_config();
     vector<ShowBgpGlobalSystemConfig> show_list;
-    ShowBgpGlobalSystemConfig sbgc; 
+    ShowBgpGlobalSystemConfig sbgc;
 
     sbgc.set_gr_time(bgsc->gr_time());
     sbgc.set_llgr_time(bgsc->llgr_time());

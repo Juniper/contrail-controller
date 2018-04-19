@@ -81,7 +81,7 @@ static string AddAclXmlString(const char *node_name, const char *name, int id) {
 static string AddNodeXmlString(const char *node_name, const char *name, int id) {
     char buff[1024];
 
-    sprintf(buff, 
+    sprintf(buff,
             "<?xml version=\"1.0\"?>\n"
             "<config>\n"
             "   <update>\n"
@@ -121,7 +121,7 @@ void AddAclFromFile() {
     pugi::xml_parse_result result =
             xdoc_.load_file("controller/src/vnsw/agent/filter/test/acl_cfg_test.xml");
     EXPECT_TRUE(result);
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);    
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
 }
 
 // Create and delete ACEs
@@ -138,7 +138,7 @@ TEST_F(AclTest, Basic) {
     AclEntrySpec ae_spec;
     ae_spec.id = 10;
     acl_spec.acl_entry_specs_.push_back(ae_spec);
-    
+
     DBRequest req;
     AclKey *key = new AclKey(acl_id);
     AclData *pd = new AclData(Agent::GetInstance(), NULL, acl_spec);
@@ -160,7 +160,7 @@ TEST_F(AclTest, Basic) {
     action.simple_action = TrafficAction::PASS;
     ae_spec1.action_l.push_back(action);
     acl_spec1.acl_entry_specs_.push_back(ae_spec1);
-    
+
     DBRequest req1;
     AclKey *key1 = new AclKey(acl_id);
     AclData *pd1 = new AclData(Agent::GetInstance(), NULL, acl_spec1);
@@ -170,7 +170,7 @@ TEST_F(AclTest, Basic) {
     req1.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     table->Enqueue(&req1);
     client->WaitForIdle();
-    
+
     AclKey key_1 = AclKey(acl_id);
     EXPECT_TRUE(NULL != table->FindActiveEntry(&key_1));
 
@@ -201,7 +201,7 @@ TEST_F(AclTest, Basic1) {
     action.simple_action = TrafficAction::DENY;
     ae_spec.action_l.push_back(action);
     acl_spec.acl_entry_specs_.push_back(ae_spec);
-    
+
 
     AclEntrySpec ae_spec1;
     ae_spec1.id = 10;
@@ -287,7 +287,7 @@ TEST_F(AclTest, PacketMatching) {
 TEST_F(AclTest, Config) {
     pugi::xml_document xdoc_;
     xdoc_.load_file("controller/src/vnsw/agent/filter/test/acl_cfg_test.xml");
-    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);    
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     client->WaitForIdle();
 
     AclTable *table = Agent::GetInstance()->acl_table();

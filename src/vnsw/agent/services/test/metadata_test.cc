@@ -168,16 +168,16 @@ public:
         std::stringstream global_config;
         global_config << "<linklocal-services>\n"
                       << "<linklocal-service-entry>\n"
-	              << "<linklocal-service-name>metadata</linklocal-service-name>\n"
-	              << "<linklocal-service-ip>169.254.169.254</linklocal-service-ip>\n"
-	              << "<linklocal-service-port>80</linklocal-service-port>\n"
-	              << "<ip-fabric-DNS-service-name></ip-fabric-DNS-service-name>\n"
-	              << "<ip-fabric-service-port>"
+                  << "<linklocal-service-name>metadata</linklocal-service-name>\n"
+                  << "<linklocal-service-ip>169.254.169.254</linklocal-service-ip>\n"
+                  << "<linklocal-service-port>80</linklocal-service-port>\n"
+                  << "<ip-fabric-DNS-service-name></ip-fabric-DNS-service-name>\n"
+                  << "<ip-fabric-service-port>"
                       << nova_api_proxy_->GetPort()
                       << "</ip-fabric-service-port>\n"
-	              << "<ip-fabric-service-ip>127.0.0.1</ip-fabric-service-ip>\n"
-	              << "</linklocal-service-entry>\n"
-	              << "</linklocal-services>";
+                  << "<ip-fabric-service-ip>127.0.0.1</ip-fabric-service-ip>\n"
+                  << "</linklocal-service-entry>\n"
+                  << "</linklocal-services>";
 
         char buf[BUF_SIZE];
         int len = 0;
@@ -531,7 +531,7 @@ TEST_F(MetadataTest, MetadataReqTest_services_ip) {
     EXPECT_TRUE(rflow->key().dst_addr.to_v4() == intf->mdata_ip_addr());
     client->Reset();
     StopHttpClient();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     ClearLinkLocalConfig();

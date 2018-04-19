@@ -259,7 +259,7 @@ TEST_F(DBGraphTest, GraphWithFilterTraversal) {
     test_filter.include_vertex.push_back("d");
 
     GraphVisitor test_visitor;
-    test_visitor.clear();   
+    test_visitor.clear();
     graph_.Visit(vertices_[0],
                  boost::bind(&GraphVisitor::VertexVisitor, &test_visitor, _1),
                  boost::bind(&GraphVisitor::EdgeVisitor, &test_visitor, _1),
@@ -270,6 +270,6 @@ TEST_F(DBGraphTest, GraphWithFilterTraversal) {
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);
-    
+
     return RUN_ALL_TESTS();
 }

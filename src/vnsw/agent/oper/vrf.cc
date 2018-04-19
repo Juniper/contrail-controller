@@ -37,11 +37,11 @@ VrfTable *VrfTable::vrf_table_;
 
 class VrfEntry::DeleteActor : public LifetimeActor {
   public:
-    DeleteActor(VrfEntry *vrf) : 
+    DeleteActor(VrfEntry *vrf) :
         LifetimeActor((static_cast<VrfTable *>(vrf->get_table()))->
                       agent()->lifetime_manager()), table_(vrf, this) {
     }
-    virtual ~DeleteActor() { 
+    virtual ~DeleteActor() {
     }
     virtual bool MayDelete() const {
         //No table present, then this VRF can be deleted
@@ -58,7 +58,7 @@ class VrfEntry::DeleteActor : public LifetimeActor {
     VrfEntryRef table_;
 };
 
-VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) : 
+VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         name_(name), id_(kInvalidIndex), flags_(flags),
         walkid_(DBTableWalker::kInvalidWalkerId), deleter_(NULL),
         rt_table_db_(), delete_timeout_timer_(NULL),
@@ -163,7 +163,7 @@ void VrfEntry::DeleteRouteTables() {
 void VrfEntry::PostAdd() {
     VrfTable *table = static_cast<VrfTable *>(get_table());
     Agent *agent = table->agent();
-    // get_table() would return NULL in Add(), so move dependent functions and 
+    // get_table() would return NULL in Add(), so move dependent functions and
     // initialization to PostAdd
     deleter_.reset(new DeleteActor(this));
     if (route_resync_walker_.get() == NULL) {
@@ -222,7 +222,7 @@ DBEntryBase::KeyPtr VrfEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void VrfEntry::SetKey(const DBRequestKey *key) { 
+void VrfEntry::SetKey(const DBRequestKey *key) {
     const VrfKey *k = static_cast<const VrfKey *>(key);
     name_ = k->name_;
 }
@@ -357,7 +357,7 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
             RDInstanceId(table->agent()->tor_agent_enabled());
         data.set_RD(rd.str());
 
-        std::vector<VrfSandeshData> &list = 
+        std::vector<VrfSandeshData> &list =
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
         data.set_vxlan_id(vxlan_id_);
         data.set_mac_aging_time(mac_aging_time_);
@@ -417,7 +417,7 @@ void VrfEntry::StartDeleteTimer() {
     delete_timeout_timer_ = TimerManager::CreateTimer(
                                 *(agent->event_manager())->io_service(),
                                 "VrfDeleteTimer");
-    delete_timeout_timer_->Start(kDeleteTimeout, 
+    delete_timeout_timer_->Start(kDeleteTimeout,
                                  boost::bind(&VrfEntry::DeleteTimeout,
                                  this));
 }
@@ -525,7 +525,7 @@ public:
         return false;
     }
 
-    static void WalkDone(VrfDeleteWalker *walker) { 
+    static void WalkDone(VrfDeleteWalker *walker) {
         walker->mgr()->ReleaseWalker(walker);
         walker->agent()->vrf_table()->reset_vrf_delete_walker();
     }
@@ -604,7 +604,7 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
     bool resync_routes = false;
-    
+
     if (vn != vrf->vn_.get()) {
         resync_routes = true;
         vrf->vn_.reset(vn);
@@ -759,7 +759,7 @@ DBTableBase *VrfTable::CreateTable(DB *db, const std::string &name) {
 
 VrfEntry *VrfTable::FindVrfFromName(const string &name) {
     VrfNameTree::const_iterator it;
-    
+
     it = name_tree_.find(name);
     if (it == name_tree_.end()) {
         return NULL;
@@ -808,7 +808,7 @@ InetUnicastAgentRouteTable *VrfTable::GetInet6UnicastRouteTable
 AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
                                          uint8_t table_type) {
     VrfDbTree::const_iterator it;
-    
+
     it = dbtree_[table_type].find(vrf_name);
     if (it == dbtree_[table_type].end()) {
         return NULL;
@@ -1084,7 +1084,7 @@ public:
 
     //Override route notification
     bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
-        AgentRoute *rt = static_cast<AgentRoute *>(e); 
+        AgentRoute *rt = static_cast<AgentRoute *>(e);
         for(Route::PathList::const_iterator it = rt->GetPathList().begin();
             it != rt->GetPathList().end(); ) {
             const AgentPath *path =

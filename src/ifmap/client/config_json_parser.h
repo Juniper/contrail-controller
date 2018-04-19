@@ -31,7 +31,7 @@ public:
     > MetadataParseFn;
     typedef std::map<std::string, MetadataParseFn> MetadataParseMap;
     typedef std::list<struct DBRequest *> RequestList;
-    
+
     ConfigJsonParser();
     ~ConfigJsonParser();
 

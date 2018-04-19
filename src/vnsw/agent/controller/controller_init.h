@@ -136,7 +136,7 @@ public:
     void increment_multicast_sequence_number() {multicast_sequence_number_++;}
     uint64_t multicast_sequence_number() {return multicast_sequence_number_;}
 
-    //Peer maintenace routines 
+    //Peer maintenace routines
     uint8_t ActiveXmppConnectionCount();
     AgentXmppChannel *GetActiveXmppChannel();
 

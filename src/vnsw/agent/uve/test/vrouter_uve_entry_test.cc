@@ -27,9 +27,9 @@
 #include "xmpp/test/xmpp_test_util.h"
 
 VrouterUveEntryTest::VrouterUveEntryTest(Agent *agent)
-        : VrouterUveEntry(agent), first_uve_dispatched_(false), 
-        vrouter_msg_count_(0), vrouter_stats_msg_count_(0), 
-        compute_state_send_count_(0), last_sent_vrouter_stats_(), 
+        : VrouterUveEntry(agent), first_uve_dispatched_(false),
+        vrouter_msg_count_(0), vrouter_stats_msg_count_(0),
+        compute_state_send_count_(0), last_sent_vrouter_stats_(),
         last_sent_vrouter_(), first_vrouter_uve_() {
 }
 

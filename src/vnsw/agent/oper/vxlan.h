@@ -24,7 +24,7 @@ public:
     virtual string ToString() const { return "vxlan_id"; };
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
-    
+
     uint32_t vxlan_id() const {return vxlan_id_;};
     const NextHop *nexthop() const {return nh_.get();};
 
@@ -57,10 +57,10 @@ private:
 class VxLanIdData : public AgentData {
 public:
     VxLanIdData(const string &vrf_name, DBRequest &req, bool mirror_destination) :
-        vrf_name_(vrf_name) { 
+        vrf_name_(vrf_name) {
             nh_req_.Swap(&req);
             mirror_destination_ = mirror_destination;
-        }; 
+        };
     virtual ~VxLanIdData() { };
     string &vrf_name() {return vrf_name_;}
     DBRequest &nh_req() {return nh_req_;}

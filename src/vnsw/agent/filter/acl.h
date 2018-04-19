@@ -35,7 +35,7 @@ struct FlowPolicyInfo {
 };
 
 struct FlowAction {
-    FlowAction(): 
+    FlowAction():
         action(0), mirror_l() {};
     ~FlowAction() { };
 
@@ -65,7 +65,7 @@ struct AclKey : public AgentOperDBKey {
     AclKey(const uuid &id) : AgentOperDBKey(), uuid_(id) {} ;
     virtual ~AclKey() {};
 
-    uuid uuid_;    
+    uuid uuid_;
 };
 
 struct AclData: public AgentOperDBData {
@@ -94,10 +94,10 @@ struct AclResyncQosConfigData : public AgentOperDBData {
 class AclDBEntry : AgentRefCount<AclDBEntry>, public AgentOperDBEntry {
 public:
     typedef boost::intrusive::member_hook<AclEntry,
-            boost::intrusive::list_member_hook<>, 
+            boost::intrusive::list_member_hook<>,
             &AclEntry::acl_list_node> AclEntryNode;
     typedef boost::intrusive::list<AclEntry, AclEntryNode> AclEntries;
-    
+
     AclDBEntry(const uuid &id) :
         AgentOperDBEntry(), uuid_(id), dynamic_acl_(false) {
     }
@@ -186,9 +186,9 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     TrafficAction::Action ConvertActionString(std::string action) const;
-    static void AclFlowResponse(const std::string acl_uuid_str, 
+    static void AclFlowResponse(const std::string acl_uuid_str,
                                 const std::string ctx, const int last_count);
-    static void AclFlowCountResponse(const std::string acl_uuid_str, 
+    static void AclFlowCountResponse(const std::string acl_uuid_str,
                                      const std::string ctx,
                                      const std::string &ace_id);
     void set_ace_flow_sandesh_data_cb(FlowAceSandeshDataFn fn);
@@ -198,7 +198,7 @@ public:
     void AddUnresolvedEntry(AclDBEntry *entry);
     void DeleteUnresolvedEntry(AclDBEntry *entry);
 private:
-    static const AclDBEntry* GetAclDBEntry(const std::string uuid_str, 
+    static const AclDBEntry* GetAclDBEntry(const std::string uuid_str,
                                            const std::string ctx,
                                            SandeshResponse *resp);
     void AddImplicitRule(AclSpec &acl_spec, AclEntrySpec &ace_spec,

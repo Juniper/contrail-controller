@@ -15,7 +15,7 @@ public:
         family_(family), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
         dport_(dport), ifindex_(ifindex), mpls_(0), hash_(0),
         allow_wait_for_idle_(true) {
-        vrf_ = 
+        vrf_ =
           Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
         if (ifindex_) {
             nh_id_ =
@@ -34,7 +34,7 @@ public:
         family_(family), sip_(sip), dip_(dip), proto_(proto),sport_(sport),
         dport_(dport), ifindex_(ifindex), mpls_(0), hash_(hash),
         allow_wait_for_idle_(true) {
-         vrf_ = 
+         vrf_ =
           Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
          if (ifindex_) {
              nh_id_ =
@@ -53,7 +53,7 @@ public:
         family_(family), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
         dport_(dport), ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0),
         allow_wait_for_idle_(true) {
-        vrf_ = 
+        vrf_ =
          Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
         if (ifindex_) {
             nh_id_ =
@@ -72,7 +72,7 @@ public:
         family_(family), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
         dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash),
         allow_wait_for_idle_(true) {
-         vrf_ = 
+         vrf_ =
           Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
          if (ifindex_) {
              nh_id_ =
@@ -135,7 +135,7 @@ public:
 
         std::string self_server = Agent::GetInstance()->router_id().to_string();
         //Populate ethernet interface id
-        uint32_t eth_intf_id = 
+        uint32_t eth_intf_id =
             EthInterfaceGet(Agent::GetInstance()->
                     fabric_interface_name().c_str())->id();
         switch(proto_) {
@@ -145,7 +145,7 @@ public:
                                 self_server.c_str(), mpls_, sip_.c_str(),
                                 dip_.c_str(), sport_, dport_, false, hash_);
             } else {
-                TxTcp6MplsPacket(eth_intf_id, outer_sip_.c_str(), 
+                TxTcp6MplsPacket(eth_intf_id, outer_sip_.c_str(),
                                  self_server.c_str(), mpls_, sip_.c_str(),
                                  dip_.c_str(), sport_, dport_, false, hash_);
             }
@@ -154,11 +154,11 @@ public:
         case IPPROTO_UDP:
             if (family_ == Address::INET) {
                 TxUdpMplsPacket(eth_intf_id, outer_sip_.c_str(),
-                                self_server.c_str(), mpls_, sip_.c_str(), 
+                                self_server.c_str(), mpls_, sip_.c_str(),
                                 dip_.c_str(), sport_, dport_, hash_);
             } else {
-                TxUdp6MplsPacket(eth_intf_id, outer_sip_.c_str(), 
-                                 self_server.c_str(), mpls_, sip_.c_str(), 
+                TxUdp6MplsPacket(eth_intf_id, outer_sip_.c_str(),
+                                 self_server.c_str(), mpls_, sip_.c_str(),
                                  dip_.c_str(), sport_, dport_, hash_);
             }
             break;
@@ -166,11 +166,11 @@ public:
         default:
             if (family_ == Address::INET) {
                 TxIpMplsPacket(eth_intf_id, outer_sip_.c_str(),
-                               self_server.c_str(), mpls_, sip_.c_str(), 
+                               self_server.c_str(), mpls_, sip_.c_str(),
                                dip_.c_str(), proto_, hash_);
             } else {
                 TxIp6MplsPacket(eth_intf_id, outer_sip_.c_str(),
-                                self_server.c_str(), mpls_, sip_.c_str(), 
+                                self_server.c_str(), mpls_, sip_.c_str(),
                                 dip_.c_str(), proto_, hash_);
             }
             break;
@@ -200,7 +200,7 @@ public:
 
         WAIT_FOR(1000, 3000, FlowStatus(true));
 
-        //Get flow 
+        //Get flow
         FlowEntry * fe = FlowFetch();
         EXPECT_TRUE(fe != NULL);
         return fe;
@@ -263,7 +263,7 @@ private:
     uint32_t       ifindex_;
     uint32_t       mpls_;
     std::string    outer_sip_;
-    uint32_t       hash_; 
+    uint32_t       hash_;
     bool           allow_wait_for_idle_;
     uint32_t       nh_id_;
 };
@@ -396,11 +396,11 @@ public:
     virtual ~VerifyVrf() {};
 
     void Verify(FlowEntry *fe) {
-        const VrfEntry *src_vrf = 
+        const VrfEntry *src_vrf =
             Agent::GetInstance()->vrf_table()->FindVrfFromName(src_vrf_);
         EXPECT_TRUE(src_vrf != NULL);
 
-        const VrfEntry *dest_vrf = 
+        const VrfEntry *dest_vrf =
             Agent::GetInstance()->vrf_table()->FindVrfFromName(dest_vrf_);
         EXPECT_TRUE(dest_vrf != NULL);
 

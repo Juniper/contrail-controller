@@ -121,7 +121,7 @@ class InstanceTaskMethod : public InstanceTask {
  public:
     pid_t pid() const {
         return 0;
-    } 
+    }
 };
 
 class InstanceTaskQueue {

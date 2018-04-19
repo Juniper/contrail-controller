@@ -30,7 +30,7 @@ using namespace std;
 
 class XmppBgpMockPeer : public XmppSamplePeer {
 public:
-    XmppBgpMockPeer(XmppChannelMux *channel) : 
+    XmppBgpMockPeer(XmppChannelMux *channel) :
         XmppSamplePeer(channel) {
     }
 
@@ -74,7 +74,7 @@ protected:
     }
 
     virtual void TearDown() {
-	evm_->Shutdown();
+    evm_->Shutdown();
         if (thread_.get() != NULL) {
             thread_->Join();
         }

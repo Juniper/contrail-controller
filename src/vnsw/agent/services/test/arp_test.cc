@@ -166,8 +166,8 @@ public:
     PhysicalInterfaceKey key(Agent::GetInstance()->fabric_interface_name());
     Interface *eth = static_cast<Interface *>
         (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
-        ArpProto::ArpIpc *ipc = 
-                new ArpProto::ArpIpc(type, addr, 
+        ArpProto::ArpIpc *ipc =
+                new ArpProto::ArpIpc(type, addr,
                     Agent::GetInstance()->vrf_table()->
                     FindVrfFromName(Agent::GetInstance()->fabric_vrf_name()), eth);
         Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
@@ -489,7 +489,7 @@ TEST_F(ArpTest, GratArpSendTest) {
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->FindGratiousArpEntry(key) != NULL);
 
     Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
-                                                    Agent::GetInstance()->local_peer(), 
+                                                    Agent::GetInstance()->local_peer(),
                                                     Agent::GetInstance()->fabric_vrf_name(),
                                                     ip1, 32, NULL);
     client->WaitForIdle();
@@ -502,7 +502,7 @@ TEST_F(ArpTest, GratArpSendTest) {
     ArpKey key1(ip2.to_ulong(), vrf);
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->FindGratiousArpEntry(key1) != NULL);
     Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
-                                                    Agent::GetInstance()->local_peer(), 
+                                                    Agent::GetInstance()->local_peer(),
                                                     Agent::GetInstance()->fabric_vrf_name(),
                                                     ip2, 32, NULL);
     client->WaitForIdle();
@@ -713,7 +713,7 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithoutPolicy) {
     const ArpNH *arp_nh = static_cast<const ArpNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(arp_nh->GetInterface() == vintf);
     EXPECT_TRUE(arp_nh->PolicyEnabled() == false);
-    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1"); 
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
 
     DelLink("virtual-machine-interface", input1[0].name,
             "subnet", "subnet");
@@ -822,7 +822,7 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithPolicyUpdate) {
     client->WaitForIdle();
     WAIT_FOR(500, 1000, arp_nh->GetResolveState() == true);
     EXPECT_TRUE(arp_nh->PolicyEnabled() == false);
-    
+
     //Change policy of interface
     AddAcl("acl1", 1);
     AddLink("virtual-network", "vn1", "access-control-list", "acl1");

@@ -122,7 +122,7 @@ bool FlowHandler::Run() {
         pkt_info_->vrf = fe->data().vrf;
         info.l3_flow = fe->l3_flow();
         info.out_component_nh_idx = fe->data().component_nh_idx;
-    } 
+    }
 
     if (info.Process(pkt_info_.get(), &in, &out) == false) {
         info.short_flow = true;

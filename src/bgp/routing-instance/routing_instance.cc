@@ -713,7 +713,7 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     }
 }
 
-SandeshTraceBufferPtr RoutingInstanceMgr::LocateTraceBuffer( 
+SandeshTraceBufferPtr RoutingInstanceMgr::LocateTraceBuffer(
         const std::string &name) {
     SandeshTraceBufferPtr trace_buf;
 
@@ -730,15 +730,15 @@ SandeshTraceBufferPtr RoutingInstanceMgr::GetTraceBuffer(
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     SandeshTraceBufferPtr trace_buf;
     RoutingInstanceTraceBufferMap::iterator iter;
-    
+
     iter = trace_buffer_active_.find(name);
     if (iter != trace_buffer_active_.end()) {
         return iter->second;
     }
-    
+
     iter = trace_buffer_dormant_.find(name);
     if (iter != trace_buffer_dormant_.end()) {
-        // tracebuf was created for this RoutingInstance in its prior 
+        // tracebuf was created for this RoutingInstance in its prior
         // incarnation
         trace_buf = iter->second;
         trace_buffer_dormant_.erase(iter);
@@ -751,7 +751,7 @@ SandeshTraceBufferPtr RoutingInstanceMgr::GetTraceBuffer(
     trace_buf = SandeshTraceBufferCreate(
                                   name + RTINSTANCE_TRACE_BUF, 1000);
     trace_buffer_active_.insert(make_pair(name, trace_buf));
-    
+
     return trace_buf;
 }
 
@@ -772,7 +772,7 @@ void RoutingInstanceMgr::DisableTraceBuffer(const std::string &name) {
             // Move to Dormant map.
             if (trace_buffer_dormant_.size() >= dormant_trace_buf_size_) {
                 // Make room in the Dormant map, so creating by:
-                // 1. Delete oldest entries in dormant map 
+                // 1. Delete oldest entries in dormant map
                 // 2. Insert the new entry.
                 size_t del_count = std::min(trace_buffer_dormant_list_.size(),
                                                trace_buf_threshold_);
@@ -799,10 +799,10 @@ void RoutingInstanceMgr::DisableTraceBuffer(const std::string &name) {
     return;
 }
 
-SandeshTraceBufferPtr 
+SandeshTraceBufferPtr
 RoutingInstanceMgr::GetActiveTraceBuffer(const std::string &name) const {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-    RoutingInstanceTraceBufferMap::const_iterator iter = 
+    RoutingInstanceTraceBufferMap::const_iterator iter =
                                          trace_buffer_active_.find(name);
 
     if (iter != trace_buffer_active_.end()) {
@@ -815,9 +815,9 @@ RoutingInstanceMgr::GetActiveTraceBuffer(const std::string &name) const {
 SandeshTraceBufferPtr
 RoutingInstanceMgr::GetDormantTraceBuffer(const std::string &name) const {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-    RoutingInstanceTraceBufferMap::const_iterator iter = 
+    RoutingInstanceTraceBufferMap::const_iterator iter =
                                          trace_buffer_dormant_.find(name);
- 
+
     if (iter != trace_buffer_dormant_.end()) {
         return iter->second;
     } else {
@@ -828,16 +828,16 @@ RoutingInstanceMgr::GetDormantTraceBuffer(const std::string &name) const {
 bool RoutingInstanceMgr::HasRoutingInstanceActiveTraceBuf(const std::string
                                                           &name) const {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-    RoutingInstanceTraceBufferMap::const_iterator iter = 
+    RoutingInstanceTraceBufferMap::const_iterator iter =
                                           trace_buffer_active_.find(name);
- 
+
     return (iter != trace_buffer_active_.end());
 }
 
-bool RoutingInstanceMgr::HasRoutingInstanceDormantTraceBuf(const std::string 
+bool RoutingInstanceMgr::HasRoutingInstanceDormantTraceBuf(const std::string
                                                            &name) const {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-    RoutingInstanceTraceBufferMap::const_iterator iter = 
+    RoutingInstanceTraceBufferMap::const_iterator iter =
                                           trace_buffer_dormant_.find(name);
     return (iter != trace_buffer_dormant_.end());
 }
@@ -850,7 +850,7 @@ RoutingInstanceMgr::GetEnvRoutingInstanceDormantTraceBufferCapacity() const {
     if (buffer_capacity_str) {
         size_t env_buffer_capacity = strtoul(buffer_capacity_str, NULL, 0);
         return env_buffer_capacity;
-    } 
+    }
     return 0;
 }
 
@@ -861,7 +861,7 @@ RoutingInstanceMgr::GetEnvRoutingInstanceDormantTraceBufferThreshold() const {
     if (buffer_threshold_str) {
         size_t env_buffer_threshold = strtoul(buffer_threshold_str, NULL, 0);
         return env_buffer_threshold;
-    } 
+    }
     return ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD_1K;
 }
 

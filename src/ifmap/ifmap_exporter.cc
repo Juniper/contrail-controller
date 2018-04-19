@@ -242,7 +242,7 @@ bool IFMapExporter::UpdateRemove(ObjectType *obj, IFMapState *state,
         update = new IFMapUpdate(obj, false);
         state->Insert(update);
     }
-    
+
     update->SetAdvertise(rm_set);
     queue()->Enqueue(update);
     sender()->QueueActive();
@@ -255,7 +255,7 @@ void IFMapExporter::EnqueueDelete(ObjectType *obj, IFMapState *state) {
     if (update != NULL) {
         queue()->Dequeue(update);
         state->Remove(update);
-        delete update;        
+        delete update;
     }
 
     update = state->GetUpdate(IFMapListEntry::DEL);
@@ -282,7 +282,7 @@ IFMapLinkState *IFMapExporter::LinkStateLookup(IFMapLink *link) {
         return NULL;
     IFMapLinkState *state = static_cast<IFMapLinkState *>(
         link->GetState(link_table_, tinfo->id()));
-    return state;    
+    return state;
 }
 
 void IFMapExporter::MoveDependentLinks(IFMapNodeState *state) {
@@ -394,7 +394,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
         rm_set.BuildComplement(state->advertised(), state->interest());
 
         bool change = ConfigChanged(node);
-        
+
         // enqueue update
         // If there is a previous update in the queue, if that update has
         // been seen by any of receivers, we need to move the update to
@@ -507,7 +507,7 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         }
 
         UpdateAddChange(link, state, add_set, rm_set, false);
-            
+
         bool move = UpdateRemove(link, state, rm_set);
         if (move) {
             MoveAdjacentNode(s_left);
