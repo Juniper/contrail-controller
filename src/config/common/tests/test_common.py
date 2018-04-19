@@ -708,7 +708,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return vn_obj
     # end create_virtual_network
 
-    def _create_service(self, vn_list, si_name, auto_policy, 
+    def _create_service(self, vn_list, si_name, auto_policy,
                         create_right_port=True, **kwargs):
         sa_set = None
         if kwargs.get('service_virtualization_type') == 'physical-device':
