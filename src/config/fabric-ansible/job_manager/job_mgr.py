@@ -77,14 +77,13 @@ class JobManager(object):
         self.sandesh_args = job_input_json['args']
         self.max_job_task = self.job_log_utils.args.max_job_task
 
-    def _validate_job_input(self, input_schema, ip_json):
+    def _validate_job_input(self, ip_schema_json, ip_json):
         if not ip_json:
             msg = MsgBundle.getMessage(
                                 MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND)
             raise JobException(msg,
                                self.job_execution_id)
         try:
-            ip_schema_json = json.loads(input_schema)
             jsonschema.validate(ip_json, ip_schema_json)
             self._logger.debug("Input Schema Validation Successful"
                                "for template %s" % self.job_template_id)
