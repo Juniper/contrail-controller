@@ -16,3 +16,5 @@ pyOpenSSL
 ansible
 timeout-decorator
 subprocess32
+behave
+requests

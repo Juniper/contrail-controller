@@ -1,18 +1,18 @@
 #!/usr/bin/python
 
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
 """
-This file containamespace sanity test for all major workflows supported by
-fabric ansible
+This file contains base class to support tests for all major workflows
+supported by fabric ansible
 """
 import logging
 import pprint
 import time
-import os
 import sys
+import requests
 
 from cfgm_common.exceptions import (
     RefsExistError,
@@ -28,12 +28,12 @@ class SanityBase(object):
     """Base class for fabric ansible sanity tests"""
 
     @staticmethod
-    def _init_logging(name):
+    def _init_logging(log_dir, name):
         logger = logging.getLogger('sanity_test')
         logger.setLevel(logging.DEBUG)
 
         file_handler = logging.FileHandler(
-            '/var/log/fabric_ansibile_%s.log' % name, mode='w')
+            '%s/fabric_ansibile_%s.log' % (log_dir, name), mode='w')
         file_handler.setLevel(logging.DEBUG)
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
@@ -53,40 +53,47 @@ class SanityBase(object):
         """Override this method in the derived class"""
         pass
 
-    def __init__(self, name, password):
-        if password is None:
-            raise KeyError("Missing required args: password")
+    def __init__(self, cfg, name):
+        if cfg is None:
+            raise KeyError("Missing required args: cfg")
+        if name is None:
+            raise KeyError("Missing required args: name")
 
+        self._max_retries = cfg['max_retries']
         self._name = name
-        self._logger = SanityBase._init_logging(name)
+        self._logger = SanityBase._init_logging(cfg['log_dir'], name)
+        self._api_server = cfg['api_server']
         self._api = VncApi(
-            username='admin', password=password, tenant_name='admin')
+            api_server_host=self._api_server['host'],
+            api_server_port=self._api_server['port'],
+            username=self._api_server['username'],
+            password=self._api_server['password'],
+            tenant_name=self._api_server['tenant'])
     # end __init__
 
     def create_fabric(self, fab_name, prouter_passwords):
         """create fabric with list of device passwords"""
-        fab = None
+        self._logger.info('Creating fabric: %s', fab_name)
+        fq_name = ['default-global-system-config', fab_name]
+        fab = Fabric(
+            name=fab_name,
+            fq_name=fq_name,
+            parent_type='global-system-config',
+            fabric_credentials={
+                'device_credential': [{
+                    'credential': {
+                        'username': 'root', 'password': passwd
+                    },
+                    'vendor': 'Juniper',
+                    'device_family': None
+                } for passwd in prouter_passwords]
+            }
+        )
         try:
-            self._logger.info('Creating fabric: %s', fab_name)
-            fq_name = ['default-global-system-config', fab_name]
-            fab = Fabric(
-                name=fab_name,
-                fq_name=fq_name,
-                parent_type='global-system-config',
-                fabric_credentials={
-                    'device_credential': [{
-                        'credential': {
-                            'username': 'root', 'password': passwd
-                        },
-                        'vendor': 'Juniper',
-                        'device_family': None
-                    } for passwd in prouter_passwords]
-                }
-            )
             fab_uuid = self._api.fabric_create(fab)
             fab = self._api.fabric_read(id=fab_uuid)
         except RefsExistError:
-            self._logger.warn("Fabric '%s' alread exists", fab_name)
+            self._logger.warn("Fabric '%s' already exists", fab_name)
             fab = self._api.fabric_read(fq_name=fq_name)
 
         self._logger.debug(
@@ -97,34 +104,34 @@ class SanityBase(object):
 
     def add_mgmt_ip_namespace(self, fab, mgmt_ipv4_cidr):
         """add management ip prefixes as fabric namespace"""
-        try:
-            ns_name = 'mgmt_ip-' + mgmt_ipv4_cidr
-            self._logger.info(
-                'Adding management ip namespace "%s" to fabric "%s" ...',
-                ns_name, fab.name)
+        ns_name = 'mgmt_ip-' + mgmt_ipv4_cidr
+        self._logger.info(
+            'Adding management ip namespace "%s" to fabric "%s" ...',
+            ns_name, fab.name)
 
-            ip_prefix = mgmt_ipv4_cidr.split('/')
-            ns_fq_name = fab.fq_name + [ns_name]
-            namespace = FabricNamespace(
-                name=ns_name,
-                fq_name=ns_fq_name,
-                parent_type='fabric',
-                fabric_namespace_type='IPV4-CIDR',
-                fabric_namespace_value={
-                    'ipv4_cidr': {
-                        'subnet': [{
-                            'ip_prefix': ip_prefix[0],
-                            'ip_prefix_len': ip_prefix[1]
-                        }]
-                    },
-                }
-            )
-            namespace.set_tag_list([{'to': ['label=fabric-management_ip']}])
+        ip_prefix = mgmt_ipv4_cidr.split('/')
+        ns_fq_name = fab.fq_name + [ns_name]
+        namespace = FabricNamespace(
+            name=ns_name,
+            fq_name=ns_fq_name,
+            parent_type='fabric',
+            fabric_namespace_type='IPV4-CIDR',
+            fabric_namespace_value={
+                'ipv4_cidr': {
+                    'subnet': [{
+                        'ip_prefix': ip_prefix[0],
+                        'ip_prefix_len': ip_prefix[1]
+                    }]
+                },
+            }
+        )
+        namespace.set_tag_list([{'to': ['label=fabric-management_ip']}])
+        try:
             ns_uuid = self._api.fabric_namespace_create(namespace)
             namespace = self._api.fabric_namespace_read(id=ns_uuid)
         except RefsExistError:
             self._logger.warn(
-                "Fabric namespace '%s' alread exists", ns_name)
+                "Fabric namespace '%s' already exists", ns_name)
             namespace = self._api.fabric_namespace_read(fq_name=ns_fq_name)
 
         self._logger.debug(
@@ -135,30 +142,30 @@ class SanityBase(object):
 
     def add_asn_namespace(self, fab, asn):
         """add AS number as fabric namespace"""
-        try:
-            ns_name = "asn_%d" % asn
-            self._logger.info(
-                'Adding ASN namespace "%s" to fabric "%s" ...',
-                ns_name, fab.name)
+        ns_name = "asn_%d" % asn
+        self._logger.info(
+            'Adding ASN namespace "%s" to fabric "%s" ...',
+            ns_name, fab.name)
 
-            ns_fq_name = fab.fq_name + [ns_name]
-            namespace = FabricNamespace(
-                name=ns_name,
-                fq_name=ns_fq_name,
-                parent_type='fabric',
-                fabric_namespace_type='ASN',
-                fabric_namespace_value={
-                    'asn': {
-                        'asn': [asn]
-                    }
+        ns_fq_name = fab.fq_name + [ns_name]
+        namespace = FabricNamespace(
+            name=ns_name,
+            fq_name=ns_fq_name,
+            parent_type='fabric',
+            fabric_namespace_type='ASN',
+            fabric_namespace_value={
+                'asn': {
+                    'asn': [asn]
                 }
-            )
-            namespace.set_tag_list([{'to': ['label=fabric-as_number']}])
+            }
+        )
+        namespace.set_tag_list([{'to': ['label=fabric-as_number']}])
+        try:
             ns_uuid = self._api.fabric_namespace_create(namespace)
             namespace = self._api.fabric_namespace_read(id=ns_uuid)
         except RefsExistError:
             self._logger.warn(
-                "Fabric namespace '%s' alread exists", ns_name)
+                "Fabric namespace '%s' already exists", ns_name)
             namespace = self._api.fabric_namespace_read(fq_name=ns_fq_name)
 
         self._logger.debug(
@@ -224,13 +231,52 @@ class SanityBase(object):
             self._api.bgp_router_delete(bgp_router_ref.get('to'))
     # end _delete_prouter
 
-    def _wait_for_job_to_finish(self, job_name, job_pid):
-        try:
-            while True:
-                time.sleep(1)
-                os.kill(int(job_pid), 0)
-        except OSError:
-            self._logger.debug("%s job '%s' finished", job_name, job_pid)
+    @staticmethod
+    def _get_job_status_query_payload(job_execution_id, status):
+        return {
+            'start_time': 'now-5m',
+            'end_time': 'now',
+            'select_fields': ['MessageTS', 'Messagetype'],
+            'table': 'ObjectJobExecutionTable',
+            'where': [
+                [
+                    {
+                        'name': 'ObjectId',
+                        'value': "%s:%d" % (job_execution_id, status),
+                        'op': 1
+                    }
+                ]
+            ]
+        }
+    # end _get_job_status_query_payload
+
+    def _wait_for_job_to_finish(self, job_name, job_execution_id):
+        completed = 2
+        failed = 3
+        completed_payload = self._get_job_status_query_payload(job_execution_id, completed)
+        failed_payload = self._get_job_status_query_payload(job_execution_id, failed)
+        url = "http://%s:%d/analytics/query" %\
+              (self._api_server['host'], self._api_server['analytics_port'])
+        retry_count = 0
+        while True:
+            # check if job completed successfully
+            r = requests.post(url, json=completed_payload)
+            response = r.json()
+            if len(response['value']) > 0:
+                assert response['value'][0]['Messagetype'] == 'JobLog'
+                self._logger.debug("%s job '%s' finished", job_name, job_execution_id)
+                break
+            # check if job failed
+            r = requests.post(url, json=failed_payload)
+            response = r.json()
+            if len(response['value']) > 0:
+                assert response['value'][0]['Messagetype'] == 'JobLog'
+                self._logger.debug("%s job '%s' failed", job_name, job_execution_id)
+                raise Exception("%s job '%s' failed" % (job_name, job_execution_id))
+            if retry_count > self._max_retries:
+                raise Exception("Timed out waiting for '%s' job to complete" % job_name)
+            retry_count += 1
+            time.sleep(15)
     # end _wait_for_job_to_finish
 
     def discover_fabric_device(self, fab):
@@ -243,10 +289,10 @@ class SanityBase(object):
             job_input={'fabric_uuid': fab.uuid}
         )
 
-        job_pid = job_execution_info.get('job_manager_process_id')
+        job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
-            "Device discovery job started with execution id: %s", job_pid)
-        self._wait_for_job_to_finish('Device discovery', job_pid)
+            "Device discovery job started with execution id: %s", job_execution_id)
+        self._wait_for_job_to_finish('Device discovery', job_execution_id)
 
         fab = self._api.fabric_read(fab.fq_name)
         discovered_prouter_refs = fab.get_physical_router_refs()
@@ -277,10 +323,10 @@ class SanityBase(object):
             device_list=[prouter.uuid for prouter in prouters]
         )
 
-        job_pid = job_execution_info.get('job_manager_process_id')
+        job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
-            "device import job started with execution id: %s", job_pid)
-        self._wait_for_job_to_finish('Device discovery', job_pid)
+            "Device import job started with execution id: %s", job_execution_id)
+        self._wait_for_job_to_finish('Device discovery', job_execution_id)
 
         for prouter in prouters:
             ifd_refs = self._api.physical_interfaces_list(
@@ -302,10 +348,10 @@ class SanityBase(object):
             device_list=[prouter.uuid for prouter in prouters]
         )
 
-        job_pid = job_execution_info.get('job_manager_process_id')
+        job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
-            "device import job started with execution id: %s", job_pid)
-        self._wait_for_job_to_finish('Device discovery', job_pid)
+            "Device import job started with execution id: %s", job_execution_id)
+        self._wait_for_job_to_finish('Device discovery', job_execution_id)
     # end underlay_config
 
     def _exit_with_error(self, errmsg):
@@ -313,4 +359,5 @@ class SanityBase(object):
         sys.exit(1)
     # end _exit_with_error
 
-#end SanityBase class
+# end SanityBase class
+

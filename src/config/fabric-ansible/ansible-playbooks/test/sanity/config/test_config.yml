@@ -1,0 +1,8 @@
+api_server:
+  host: 10.155.75.131
+  username: admin
+  password: c0ntrail123
+  tenant: admin
+prouter:
+  ip: 10.155.67.5
+  password: Embe1mpls

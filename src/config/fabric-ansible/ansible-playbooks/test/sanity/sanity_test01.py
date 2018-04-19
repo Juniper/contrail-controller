@@ -5,11 +5,12 @@
 #
 
 """
-This file containamespace sanity test for all major workflows supported by
+This file contains sanity test for all major workflows supported by
 fabric ansible
 """
 
 from sanity_base import SanityBase
+import config
 
 
 # pylint: disable=E1101
@@ -21,10 +22,10 @@ class SanityTest01(SanityBase):
      - device underlay config
     """
 
-    def __init__(self, prouter_ip, prouter_password, vnc_password):
-        SanityBase.__init__(self, "sanity_test_01", vnc_password)
-        self._prouter_ip = prouter_ip
-        self._prouter_password = prouter_password
+    def __init__(self, cfg):
+        SanityBase.__init__(self, cfg, "sanity_test_01")
+        self._prouter_ip = cfg['prouter']['ip']
+        self._prouter_password = cfg['prouter']['password']
     # end __init__
 
     def _validate_discovered_prouters(self, prouters):
@@ -73,5 +74,5 @@ class SanityTest01(SanityBase):
 
 
 if __name__ == "__main__":
-    SanityTest01('10.155.67.5', 'Embe1mpls', 'contrail123').test()
+    SanityTest01(config.load('config/test_config.yml')).test()
 # end __main__

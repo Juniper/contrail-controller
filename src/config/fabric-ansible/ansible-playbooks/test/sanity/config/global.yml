@@ -1,0 +1,5 @@
+log_dir: /var/log
+max_retries: 15
+api_server:
+  port: 8082
+  analytics_port: 8081
