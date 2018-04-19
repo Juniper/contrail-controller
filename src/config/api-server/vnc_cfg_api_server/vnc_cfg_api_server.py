@@ -318,7 +318,7 @@ class VncApiServer(object):
                              'Valid values are: management|left|right|other[0-9]*'
                               % value)
 
-    def validate_input_params(self, request_params):
+    def validate_execute_job_input_params(self, request_params):
         device_list = None
         job_template_id = request_params.get('job_template_id')
         job_template_fq_name = request_params.get('job_template_fq_name')
@@ -334,19 +334,26 @@ class VncApiServer(object):
                 msg = 'Invalid job-template uuid type %s. uuid type required' \
                       % job_template_id
                 raise cfgm_common.exceptions.HttpError(400, msg)
+            try:
+                job_template_fqname = self._db_conn.uuid_to_fq_name(
+                              job_template_id)
+                request_params['job_template_fqname'] = job_template_fqname
+            except NoIdError as no_id_exec:
+                raise cfgm_common.exceptions.HttpError(404, str(no_id_exec))
+            except Exception as e:
+                msg = "Error while reading job_template_id: " + str(e)
+                raise cfgm_common.exceptions.HttpError(400, msg)
         else:
             # check if the job template fqname is a valid fq_name
             try:
                 job_template_id = self._db_conn.fq_name_to_uuid(
                                   "job_template", job_template_fq_name)
-                request_params.update({'job_template_id': job_template_id})
+                request_params['job_template_id'] = job_template_id
             except NoIdError as no_id_exec:
                 raise cfgm_common.exceptions.HttpError(404, str(no_id_exec))
             except Exception as e:
                 msg = "Error while reading job_template_fqname: " + str(e)
                 raise cfgm_common.exceptions.HttpError(400, msg)
-
-        # TODO do any required input schema validations
 
         extra_params = request_params.get('params')
         if extra_params is not None:
@@ -398,7 +405,7 @@ class VncApiServer(object):
             msg = "Job Input %s " % json.dumps(request_params)
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-            device_list = self.validate_input_params(request_params)
+            device_list = self.validate_execute_job_input_params(request_params)
 
             # TODO - pass the job manager config file from api server config
 
