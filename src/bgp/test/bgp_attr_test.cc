@@ -1091,6 +1091,16 @@ TEST_F(BgpAttrTest, ClusterListLoop) {
     }
 }
 
+TEST_F(BgpAttrTest, ClusterListToString) {
+    ClusterListSpec spec;
+    std::ostringstream oss;
+    for (int idx = 1; idx < 5; idx++)
+        spec.cluster_list.push_back(100 * idx);
+    oss << "CLUSTER_LIST <code: 10, flags: 0x80> : ";
+    oss << "0.0.0.100 0.0.0.200 0.0.1.44 0.0.1.144";
+    EXPECT_EQ(oss.str(), spec.ToString());
+}
+
 TEST_F(BgpAttrTest, CommunityCompare1) {
     CommunitySpec spec1;
     for (int idx = 1; idx < 5; idx++)
@@ -2691,6 +2701,30 @@ TEST_F(BgpAttrTest, BgpOList4b) {
     BgpOListPtr olist2 = olist_db_->Locate(olist_spec2);
     EXPECT_EQ(2, olist_db_->Size());
     EXPECT_NE(olist1, olist2);
+}
+
+TEST_F(BgpAttrTest, BgpOList5) {
+    BgpOListSpec olist_spec(BgpAttribute::OList);
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        std::vector<std::string> encap = list_of("gre")("udp");
+        BgpOListElem elem(
+            Ip4Address::from_string(addr_str, ec), 1000 * idx, encap);
+        olist_spec.elements.push_back(elem);
+    }
+    EXPECT_EQ("OList <subcode: 1>"
+              "OList[0] = (address: 10.1.1.1, label: 1000, encap-list: gre udp)"
+              "OList[1] = (address: 10.1.1.2, label: 2000, encap-list: gre udp)",
+               olist_spec.ToString());
+}
+
+TEST_F(BgpAttrTest, BgpOList6) {
+    BgpOListSpec olist_spec1;
+    BgpOListSpec olist_spec2;
+    EXPECT_EQ(0, olist_spec1.CompareTo(olist_spec1));
+    EXPECT_EQ(0, olist_spec1.CompareTo(olist_spec2));
+    EXPECT_EQ(0, olist_spec2.CompareTo(olist_spec1));
 }
 
 TEST_F(BgpAttrTest, EdgeForwarding1) {
