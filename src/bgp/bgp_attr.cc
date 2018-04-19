@@ -16,6 +16,7 @@
 
 using std::sort;
 using std::vector;
+using std::string;
 
 int BgpAttrOrigin::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
@@ -28,11 +29,11 @@ void BgpAttrOrigin::ToCanonical(BgpAttr *attr) {
     attr->set_origin(static_cast<BgpAttrOrigin::OriginType>(origin));
 }
 
-std::string BgpAttrOrigin::ToString() const {
+string BgpAttrOrigin::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "ORIGIN <code: %d, flags: %02x> : %02x",
              code, flags, origin);
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrNextHop::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -51,11 +52,11 @@ void BgpAttrNextHop::ToCanonical(BgpAttr *attr) {
     }
 }
 
-std::string BgpAttrNextHop::ToString() const {
+string BgpAttrNextHop::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "NEXTHOP <code: %d, flags: %02x> : %04x",
              code, flags, nexthop);
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrMultiExitDisc::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -68,11 +69,11 @@ void BgpAttrMultiExitDisc::ToCanonical(BgpAttr *attr) {
     attr->set_med(med);
 }
 
-std::string BgpAttrMultiExitDisc::ToString() const {
+string BgpAttrMultiExitDisc::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "MED <code: %d, flags: %02x> : %d",
              code, flags, med);
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrLocalPref::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -86,22 +87,22 @@ void BgpAttrLocalPref::ToCanonical(BgpAttr *attr) {
     attr->set_local_pref(local_pref);
 }
 
-std::string BgpAttrLocalPref::ToString() const {
+string BgpAttrLocalPref::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "LOCAL_PREF <code: %d, flags: %02x> : %d",
              code, flags, local_pref);
-    return std::string(repr);
+    return string(repr);
 }
 
 void BgpAttrAtomicAggregate::ToCanonical(BgpAttr *attr) {
     attr->set_atomic_aggregate(true);
 }
 
-std::string BgpAttrAtomicAggregate::ToString() const {
+string BgpAttrAtomicAggregate::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "ATOMIC_AGGR <code: %d, flags: %02x>",
              code, flags);
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrAggregator::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -117,12 +118,12 @@ void BgpAttrAggregator::ToCanonical(BgpAttr *attr) {
     attr->set_aggregator(as_num, Ip4Address(address));
 }
 
-std::string BgpAttrAggregator::ToString() const {
+string BgpAttrAggregator::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr),
              "Aggregator <code: %d, flags: %02x> : %d:%08x",
              code, flags, as_num, address);
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrOriginatorId::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -137,11 +138,11 @@ void BgpAttrOriginatorId::ToCanonical(BgpAttr *attr) {
     attr->set_originator_id(Ip4Address(originator_id));
 }
 
-std::string BgpAttrOriginatorId::ToString() const {
+string BgpAttrOriginatorId::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "OriginatorId <code: %d, flags: 0x%02x> : %s",
              code, flags, Ip4Address(originator_id).to_string().c_str());
-    return std::string(repr);
+    return string(repr);
 }
 
 ClusterListSpec::ClusterListSpec(uint32_t cluster_id,
@@ -166,15 +167,14 @@ void ClusterListSpec::ToCanonical(BgpAttr *attr) {
     attr->set_cluster_list(this);
 }
 
-std::string ClusterListSpec::ToString() const {
+string ClusterListSpec::ToString() const {
     std::stringstream repr;
-    repr << "CLUSTER_LIST <code: " << std::dec << code;
+    repr << "CLUSTER_LIST <code: " << int(code);
     repr << ", flags: 0x" << std::hex << int(flags) << "> :";
     for (vector<uint32_t>::const_iterator iter = cluster_list.begin();
          iter != cluster_list.end(); ++iter) {
         repr << " " << Ip4Address(*iter).to_string();
     }
-    repr << std::endl;
     return repr.str();
 }
 
@@ -226,7 +226,7 @@ size_t BgpMpNlri::EncodeLength() const {
                 1 /* NlriNextHopLength */ +
                 1 /* Reserved */;
     sz += nexthop.size();
-    for (std::vector<BgpProtoPrefix*>::const_iterator iter = nlri.begin();
+    for (vector<BgpProtoPrefix*>::const_iterator iter = nlri.begin();
          iter != nlri.end(); ++iter) {
         size_t bytes = 0;
         if (afi == BgpAf::L2Vpn &&
@@ -264,7 +264,7 @@ void PmsiTunnelSpec::ToCanonical(BgpAttr *attr) {
     attr->set_pmsi_tunnel(this);
 }
 
-std::string PmsiTunnelSpec::ToString() const {
+string PmsiTunnelSpec::ToString() const {
     std::ostringstream oss;
     oss << "PmsiTunnel <code: " << int(code);
     oss << ", flags: 0x" << std::hex << int(flags) << std::dec << ">";
@@ -301,7 +301,7 @@ void PmsiTunnelSpec::SetIdentifier(Ip4Address in_identifier) {
     std::copy(bytes.begin(), bytes.begin() + 4, identifier.begin());
 }
 
-std::string PmsiTunnelSpec::GetTunnelTypeString() const {
+string PmsiTunnelSpec::GetTunnelTypeString() const {
     switch (tunnel_type) {
     case RsvpP2mpLsp:
         return "RsvpP2mpLsp";
@@ -327,7 +327,7 @@ std::string PmsiTunnelSpec::GetTunnelTypeString() const {
     return oss.str();
 }
 
-std::string PmsiTunnelSpec::GetTunnelArTypeString() const {
+string PmsiTunnelSpec::GetTunnelArTypeString() const {
     switch (tunnel_flags & AssistedReplicationType) {
     case RegularNVE:
         return "RegularNVE";
@@ -341,8 +341,8 @@ std::string PmsiTunnelSpec::GetTunnelArTypeString() const {
     return "Unknown";
 }
 
-std::vector<std::string> PmsiTunnelSpec::GetTunnelFlagsStrings() const {
-    std::vector<std::string> flags;
+vector<string> PmsiTunnelSpec::GetTunnelFlagsStrings() const {
+    vector<string> flags;
     if (tunnel_flags & LeafInfoRequired) {
         flags.push_back("LeafInfoRequired");
     }
@@ -447,7 +447,7 @@ void EdgeDiscoverySpec::ToCanonical(BgpAttr *attr) {
     attr->set_edge_discovery(this);
 }
 
-std::string EdgeDiscoverySpec::ToString() const {
+string EdgeDiscoverySpec::ToString() const {
     std::ostringstream oss;
     oss << "EdgeDiscovery <code: " << int(code);
     oss << ", flags: 0x" << std::hex << int(flags) << std::dec << ">";
@@ -597,7 +597,7 @@ void EdgeForwardingSpec::ToCanonical(BgpAttr *attr) {
     attr->set_edge_forwarding(this);
 }
 
-std::string EdgeForwardingSpec::ToString() const {
+string EdgeForwardingSpec::ToString() const {
     std::ostringstream oss;
     oss << "EdgeForwarding <code: " << int(code);
     oss << ", flags: 0x" << std::hex << int(flags) << std::dec << ">";
@@ -704,11 +704,26 @@ void BgpOListSpec::ToCanonical(BgpAttr *attr) {
     }
 }
 
-std::string BgpOListSpec::ToString() const {
-    char repr[80];
-    snprintf(repr, sizeof(repr), "OList <subcode: %d> : %p",
-             subcode, this);
-    return std::string(repr);
+string BgpOListSpec::ToString() const {
+    std::ostringstream oss;
+    oss << "OList <subcode: " << int(subcode) << ">";
+    int idx = 0;
+    for (Elements::const_iterator it = elements.begin();
+         it != elements.end(); ++it, ++idx) {
+        BgpOListElem *elem = new BgpOListElem(*it);
+        oss << "OList[" << idx << "] = (";
+        oss << "address: " << elem->address << ", ";
+        oss << "label: " << elem->label << ", ";
+        oss << "encap-list:";
+        int eid = 0;
+        for (vector<string>::const_iterator e_it =
+                                                elem->encap.begin();
+             e_it != elem->encap.end(); ++e_it, ++eid) {
+             oss << " " << *e_it;
+        }
+        oss << ")";
+    }
+    return (oss.str());
 }
 
 BgpOList::BgpOList(BgpOListDB *olist_db, const BgpOListSpec &olist_spec)
@@ -762,11 +777,11 @@ void BgpAttrLabelBlock::ToCanonical(BgpAttr *attr) {
     attr->set_label_block(label_block);
 }
 
-std::string BgpAttrLabelBlock::ToString() const {
+string BgpAttrLabelBlock::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "LabelBlock <subcode: %d> : %d-%d",
              subcode, label_block->first(), label_block->last());
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrSourceRd::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -781,11 +796,11 @@ void BgpAttrSourceRd::ToCanonical(BgpAttr *attr) {
     attr->set_source_rd(source_rd);
 }
 
-std::string BgpAttrSourceRd::ToString() const {
+string BgpAttrSourceRd::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "SourceRd <subcode: %d> : %s",
              subcode, source_rd.ToString().c_str());
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrEsi::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -799,11 +814,11 @@ void BgpAttrEsi::ToCanonical(BgpAttr *attr) {
     attr->set_esi(esi);
 }
 
-std::string BgpAttrEsi::ToString() const {
+string BgpAttrEsi::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "Esi <subcode: %d> : %s",
              subcode, esi.ToString().c_str());
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrParams::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -817,11 +832,11 @@ void BgpAttrParams::ToCanonical(BgpAttr *attr) {
     attr->set_params(params);
 }
 
-std::string BgpAttrParams::ToString() const {
+string BgpAttrParams::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "Params <subcode: %d> : 0x%016jx",
              subcode, params);
-    return std::string(repr);
+    return string(repr);
 }
 
 int BgpAttrSubProtocol::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -835,11 +850,11 @@ void BgpAttrSubProtocol::ToCanonical(BgpAttr *attr) {
     attr->set_sub_protocol(sbp);
 }
 
-std::string BgpAttrSubProtocol::ToString() const {
+string BgpAttrSubProtocol::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "SubProtocol <subcode: %d> : %s",
              subcode, sbp.c_str());
-    return std::string(repr);
+    return string(repr);
 }
 
 BgpAttr::BgpAttr()
@@ -863,7 +878,7 @@ BgpAttr::BgpAttr(BgpAttrDB *attr_db, const BgpAttrSpec &spec)
       atomic_aggregate_(false),
       aggregator_as_num_(0), aggregator_address_(), params_(0) {
     refcount_ = 0;
-    for (std::vector<BgpAttribute *>::const_iterator it = spec.begin();
+    for (vector<BgpAttribute *>::const_iterator it = spec.begin();
          it < spec.end(); it++) {
         (*it)->ToCanonical(this);
     }
@@ -994,7 +1009,7 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
     }
 }
 
-std::string BgpAttr::OriginToString(BgpAttrOrigin::OriginType origin) {
+string BgpAttr::OriginToString(BgpAttrOrigin::OriginType origin) {
     switch (origin) {
     case BgpAttrOrigin::IGP:
         return "igp";
@@ -1010,7 +1025,7 @@ std::string BgpAttr::OriginToString(BgpAttrOrigin::OriginType origin) {
 }
 
 BgpAttrOrigin::OriginType BgpAttr::OriginFromString(
-        const std::string &bgp_origin_type) {
+        const string &bgp_origin_type) {
     if(bgp_origin_type ==  "IGP"){
         return BgpAttrOrigin::IGP;
     } else if( bgp_origin_type ==  "EGP") {
@@ -1019,7 +1034,7 @@ BgpAttrOrigin::OriginType BgpAttr::OriginFromString(
     return BgpAttrOrigin::INCOMPLETE;
 }
 
-std::string BgpAttr::origin_string() const {
+string BgpAttr::origin_string() const {
     return OriginToString(origin());
 }
 
@@ -1271,7 +1286,7 @@ BgpAttrPtr BgpAttrDB::ReplaceLeafOListAndLocate(const BgpAttr *attr,
 
 // Return a clone of attribute with updated sub-protocol.
 BgpAttrPtr BgpAttrDB::ReplaceSubProtocolAndLocate(const BgpAttr *attr,
-    const std::string &sbp) {
+    const string &sbp) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_sub_protocol(sbp);
     return Locate(clone);
