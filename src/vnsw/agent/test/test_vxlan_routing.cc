@@ -91,9 +91,9 @@ protected:
         CreateVmportEnv(input1, 2);
         CreateVmportEnv(input2, 1);
         AddLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
-                    "instance_ip_1", 1); 
+                    "instance_ip_1", 1);
         AddLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
-                    "instance_ip_2", 2); 
+                    "instance_ip_2", 2);
         client->WaitForIdle(5);
     }
 
@@ -104,9 +104,9 @@ protected:
         DeleteVmportEnv(input1, 2, true);
         DeleteVmportEnv(input2, 1, true);
         DelLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
-                    "instance_ip_1", 1); 
+                    "instance_ip_1", 1);
         DelLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
-                    "instance_ip_2", 2); 
+                    "instance_ip_2", 2);
         DeleteBgpPeer(bgp_peer_);
         client->WaitForIdle(5);
         EXPECT_TRUE(VrfGet("vrf1") == NULL);

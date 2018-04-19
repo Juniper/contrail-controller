@@ -14,12 +14,12 @@
 
 MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsKSyncEntry *me,
                                uint32_t index) :
-    KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(me->label_), 
-    nh_(NULL)  { 
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(me->label_),
+    nh_(NULL)  {
 }
 
 MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *mpls) :
-    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
     label_(mpls->label()), nh_(NULL) {
 }
 
@@ -58,7 +58,7 @@ bool MplsKSyncEntry::Sync(DBEntry *e) {
         assert(0);
     }
     NHKSyncEntry next_hop(nh_object, mpls->nexthop());
-    NHKSyncEntry *old_nh = nh(); 
+    NHKSyncEntry *old_nh = nh();
 
     nh_ = nh_object->GetReference(&next_hop);
     if (old_nh != nh()) {
@@ -84,7 +84,7 @@ int MplsKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     return encode_len;
 }
 
-void MplsKSyncEntry::FillObjectLog(sandesh_op::type op, 
+void MplsKSyncEntry::FillObjectLog(sandesh_op::type op,
                                    KSyncMplsInfo &info) const {
     info.set_label(label_);
     info.set_nh(nh()->nh_id());
@@ -108,7 +108,7 @@ int MplsKSyncEntry::ChangeMsg(char *buf, int buf_len){
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Mpls, GetObject(), info);
- 
+
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
@@ -116,19 +116,19 @@ int MplsKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::DEL, info);
     KSYNC_TRACE(Mpls, GetObject(), info);
- 
+
     return Encode(sandesh_op::DEL, buf, buf_len);
 }
 
 KSyncEntry *MplsKSyncEntry::UnresolvedReference() {
-    NHKSyncEntry *next_hop = nh(); 
+    NHKSyncEntry *next_hop = nh();
     if (!next_hop->IsResolved()) {
         return next_hop;
     }
     return NULL;
 }
 
-MplsKSyncObject::MplsKSyncObject(KSync *ksync) : 
+MplsKSyncObject::MplsKSyncObject(KSync *ksync) :
     KSyncDBObject("KSync Mpls"), ksync_(ksync) {
 }
 

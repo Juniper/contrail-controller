@@ -34,7 +34,7 @@ void MirrorKState::Handler() {
     KMirrorResp *resp = static_cast<KMirrorResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
-            /* There are more nexthops in Kernel. We need to query them from 
+            /* There are more nexthops in Kernel. We need to query them from
              * Kernel and send it to Sandesh.
              */
             SendResponse();

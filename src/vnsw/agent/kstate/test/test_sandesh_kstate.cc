@@ -31,8 +31,8 @@ void RouterIdDepInit(Agent *agent) {
 
 class KStateSandeshTest : public ::testing::Test {
 public:
-    KStateSandeshTest() : response_count_(0), type_specific_response_count_(0), 
-    num_entries_(0), error_response_count_(0), internal_error_response_count_(0), 
+    KStateSandeshTest() : response_count_(0), type_specific_response_count_(0),
+    num_entries_(0), error_response_count_(0), internal_error_response_count_(0),
     peer_(NULL), next_flow_handle_() {
     }
 
@@ -71,7 +71,7 @@ public:
         DeleteBgpPeer(peer_);
     }
 
-    void CreateRemoteRoute(const char *vrf, const char *remote_vm, 
+    void CreateRemoteRoute(const char *vrf, const char *remote_vm,
                            const char *serv, int label, const char *vn) {
         boost::system::error_code ec;
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
@@ -482,7 +482,7 @@ TEST_F(KStateSandeshTest, InterfaceTest_MultiResponse) {
     for(int i = 30; i < 80; i++) {
         KSyncSockTypeMap::InterfaceAdd(i);
     }
-    
+
     //Send Interface DUMP request
     ClearCount();
     InterfaceGet(-1);
@@ -507,7 +507,7 @@ TEST_F(KStateSandeshTest, NhTest) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_nexthops = num_entries_;
-    
+
     //Create 2 vrfs in mock Kernel
     KSyncSockTypeMap::NHAdd(18);
     KSyncSockTypeMap::NHAdd(19);
@@ -555,7 +555,7 @@ TEST_F(KStateSandeshTest, NhTest_flags) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_nexthops = num_entries_;
-    
+
     //Create 18 nexthops in mock Kernel with different flags
     int flags = NH_FLAG_VALID|NH_FLAG_POLICY_ENABLED;
     KSyncSockTypeMap::NHAdd(201, flags);
@@ -650,7 +650,7 @@ TEST_F(KStateSandeshTest, MplsTest) {
     KSyncSockTypeMap::MplsAdd(9);
     KSyncSockTypeMap::MplsAdd(10);
 
-    //Send Mpls GET request for label 9 
+    //Send Mpls GET request for label 9
     ClearCount();
     MplsGet(9);
     client->WaitForIdle();
@@ -712,7 +712,7 @@ TEST_F(KStateSandeshTest, MirrorTest) {
     KSyncSockTypeMap::MirrorAdd(9);
     KSyncSockTypeMap::MirrorAdd(10);
 
-    //Send Mpls GET request for label 9 
+    //Send Mpls GET request for label 9
     ClearCount();
     MirrorGet(9);
     client->WaitForIdle();
@@ -1034,7 +1034,7 @@ TEST_F(KStateSandeshTest, VrfStatsTest_MultiResponse) {
 }
 
 TEST_F(KStateSandeshTest, DropStatsTest) {
-    //Send Drop Stats request 
+    //Send Drop Stats request
     ClearCount();
     DropStatsGet();
     client->WaitForIdle();
@@ -1118,7 +1118,7 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
     for (int i = 0; i < total_flows; i++) {
         Ip4Address dip(0x1010101 + i);
         //Add route for all of them
-        CreateRemoteRoute("vrf5", dip.to_string().c_str(), remote_router_ip, 
+        CreateRemoteRoute("vrf5", dip.to_string().c_str(), remote_router_ip,
                 10, "vn5");
         TestFlow flow[]=  {
             {
@@ -1135,7 +1135,7 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
         client->WaitForIdle(2);
         CreateFlow(flow, 2);
     }
-    EXPECT_EQ((total_flows * 2), 
+    EXPECT_EQ((total_flows * 2),
             Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
 
     //Fetch all the flows using index as -1
@@ -1148,7 +1148,7 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
     EXPECT_EQ(100U, num_entries_);
     EXPECT_EQ(0U, error_response_count_);
 
-    //Fetch the next set of flows 
+    //Fetch the next set of flows
     ClearCount();
     FlowGetNext();
     client->WaitForIdle();
@@ -1165,7 +1165,7 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
 int main(int argc, char *argv[]) {
     int ret;
     GETUSERARGS();
-    
+
     /* Supported only with non-ksync mode for now */
     ksync_init = false;
 

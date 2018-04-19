@@ -77,10 +77,10 @@ public:
 TEST_F(FlowQosTest, Test_1) {
     TestFlow flow[] = {
         //Send an ICMP flow from VM1 to VM2
-        {   
+        {
             TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
                         intf1->id()),
-            {   
+            {
                 new VerifyVn("vn1", "vn1"),
                 new VerifyQosAction("qos_config1", "qos_config1")
             }
@@ -100,10 +100,10 @@ TEST_F(FlowQosTest, Test_2) {
 
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
-        {   
+        {
             TestFlowPkt(Address::INET, "1.1.1.3", "1.1.1.1", 1, 0, 0, "vrf1",
                         "10.1.1.1", intf1->label()),
-            {   
+            {
                 new VerifyVn("vn1", "vn1"),
                 new VerifyQosAction("qos_config1", "qos_config1")
             }
@@ -120,10 +120,10 @@ TEST_F(FlowQosTest, Test_2) {
 TEST_F(FlowQosTest, Test_3) {
     TestFlow tflow[] = {
         //Send an ICMP flow from VM1 to VM2
-        {   
+        {
             TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
                         intf1->id()),
-            {   
+            {
                 new VerifyVn("vn1", "vn1"),
                 new VerifyQosAction("qos_config1", "qos_config1")
             }
@@ -147,10 +147,10 @@ TEST_F(FlowQosTest, Test_3) {
 TEST_F(FlowQosTest, Test_4) {
     TestFlow tflow[] = {
         //Send an ICMP flow from VM1 to VM2
-        {   
+        {
             TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
                     intf1->id()),
-            {   
+            {
                 new VerifyVn("vn1", "vn1"),
                 new VerifyQosAction("qos_config1", "qos_config1")
             }
@@ -161,7 +161,7 @@ TEST_F(FlowQosTest, Test_4) {
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(0, "1.1.1.1", "1.1.1.2", 1, 0, 0, 
+    FlowEntry *flow = FlowGet(0, "1.1.1.1", "1.1.1.2", 1, 0, 0,
                               intf1->flow_key_nh()->id());
     EXPECT_TRUE(flow->data().qos_config_idx == AgentQosConfigTable::kInvalidIndex);
     EXPECT_TRUE(flow->data().qos_config_idx == AgentQosConfigTable::kInvalidIndex);

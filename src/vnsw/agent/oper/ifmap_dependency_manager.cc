@@ -3,7 +3,7 @@
  */
 
 #include <cmn/agent_cmn.h>
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <agent_types.h>
 
 #include "oper/oper_db.h"
@@ -272,7 +272,7 @@ void IFMapDependencyManager::PropogateNodeAndLinkChange(IFMapNode *node) {
 
     trigger_->Set();
 }
-                                          
+
 void IFMapDependencyManager::LinkObserver(
     DBTablePartBase *root, DBEntryBase *db_entry) {
     IFMapLink *link = static_cast<IFMapLink *>(db_entry);

@@ -24,7 +24,7 @@
  *    RouteWalkNotify() - This should be overriden to listen and act on route
  *    entry notifications. By default it ignores the request.
  * 4) Only VRF walk - Use API StartVRFWalk and override VrfWalkNotify() to not
- *    start route table walk. In this way only VRF entries can be traversed 
+ *    start route table walk. In this way only VRF entries can be traversed
  *    without route walks issued.
  *
  * Multiple objects of this class can have separate parallel walks.

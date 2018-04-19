@@ -27,7 +27,7 @@ public:
         AclDBEntryConstRef mcacl_;
         bool enable_rpf_;
         bool flood_unknown_unicast_;
-        VnFlowHandlerState(const AclDBEntry *acl, 
+        VnFlowHandlerState(const AclDBEntry *acl,
                            const AclDBEntry *macl,
                            const AclDBEntry *mcacl, bool enable_rpf,
                            bool flood_unknown_unicast) :

@@ -16,7 +16,7 @@ class XmppConnection;
 
 class XmppChannelMux : public XmppChannel {
 public:
-    explicit XmppChannelMux(XmppConnection *); 
+    explicit XmppChannelMux(XmppConnection *);
     virtual ~XmppChannelMux();
 
     virtual void Close();

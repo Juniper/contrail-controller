@@ -7,7 +7,7 @@
 
 class KStateIoContext: public IoContext {
 public:
-    KStateIoContext(int msg_len, char *msg, uint32_t seqno, 
+    KStateIoContext(int msg_len, char *msg, uint32_t seqno,
                     AgentSandeshContext *obj)
         : IoContext(msg, msg_len, seqno, obj, IoContext::IOC_KSYNC) {}
     void Handler();

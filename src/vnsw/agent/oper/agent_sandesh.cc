@@ -4,7 +4,7 @@
 
 #include <cmn/agent_cmn.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <agent_types.h>
 
 #include <oper/peer.h>

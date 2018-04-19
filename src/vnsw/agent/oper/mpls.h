@@ -61,7 +61,7 @@ public:
 
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
-    
+
     virtual uint32_t GetRefCount() const;
     virtual bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
 

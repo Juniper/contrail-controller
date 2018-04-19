@@ -28,29 +28,29 @@
  * by interface ID on little-endian machines.
  */
 typedef struct gmph_instance_ {
-    u_int32_t hinst_magic;	     	/* Magic number for robustness */
-    thread hinst_thread;		/* Link on global instance thread */
-    thread hinst_client_thread;		/* Head of client thread */
-    gmp_addr_catalog hinst_addr_cat;	/* Address catalog */
+    u_int32_t hinst_magic;             /* Magic number for robustness */
+    thread hinst_thread;        /* Link on global instance thread */
+    thread hinst_client_thread;        /* Head of client thread */
+    gmp_addr_catalog hinst_addr_cat;    /* Address catalog */
 
-    void *hinst_context;		/* External context */
+    void *hinst_context;        /* External context */
 
-    gmpx_patroot *hinst_intfs;		/* Tree of interfaces */
-    gmp_proto hinst_proto;		/* Protocol (IGMP/MLD) */
-    u_int hinst_addrlen;		/* Address length (v4 or v6) */
-    gmpx_timer *hinst_master_clock;	/* Timer for timekeeping */
+    gmpx_patroot *hinst_intfs;        /* Tree of interfaces */
+    gmp_proto hinst_proto;        /* Protocol (IGMP/MLD) */
+    u_int hinst_addrlen;        /* Address length (v4 or v6) */
+    gmpx_timer *hinst_master_clock;    /* Timer for timekeeping */
 } gmph_instance;
 
 THREAD_TO_STRUCT(gmph_thread_to_instance, gmph_instance, hinst_thread);
 
-#define GMPH_INSTANCE_MAGIC 0x48696E73	/* 'Hins' */
+#define GMPH_INSTANCE_MAGIC 0x48696E73    /* 'Hins' */
 
 
 /* An enum to define report types. */
 
 typedef enum {
-    GMP_CHANGE_RECORD,			/* Change record */
-    GMP_CURRENT_STATE			/* Current state */
+    GMP_CHANGE_RECORD,            /* Change record */
+    GMP_CURRENT_STATE            /* Current state */
 } gmph_report_type;
 
 
@@ -79,45 +79,45 @@ typedef enum {
  * definition of gmph_group about how this works.
  */
 typedef struct gmph_intf_ {
-    gmph_instance *hintf_instance;	/* Owning instance */
-    gmpx_patnode hintf_inst_patnode;	/* Node on instance tree */
-    gmpx_patnode hintf_global_patnode;	/* Node on global tree */
-    gmpx_intf_id hintf_id;		/* Interface ID */
-    gmp_addr_string hintf_local_addr;	/* Local interface address */
+    gmph_instance *hintf_instance;    /* Owning instance */
+    gmpx_patnode hintf_inst_patnode;    /* Node on instance tree */
+    gmpx_patnode hintf_global_patnode;    /* Node on global tree */
+    gmpx_intf_id hintf_id;        /* Interface ID */
+    gmp_addr_string hintf_local_addr;    /* Local interface address */
 
-    thread hintf_xmit_head;		/* Head of xmit groups */
+    thread hintf_xmit_head;        /* Head of xmit groups */
     gmph_report_type hintf_last_report_type; /* Last report type sent */
 
-    gmp_version hintf_ver;		/* GMP version running */
-    gmp_version hintf_cfg_ver;		/* Configured max version */
-    u_int8_t hintf_robustness;		/* Robustness variable */
+    gmp_version hintf_ver;        /* GMP version running */
+    gmp_version hintf_cfg_ver;        /* Configured max version */
+    u_int8_t hintf_robustness;        /* Robustness variable */
 
-    u_int32_t hintf_unsol_rpt_ivl;	/* Unsolicited report ivl (msec) */
+    u_int32_t hintf_unsol_rpt_ivl;    /* Unsolicited report ivl (msec) */
 
-    gmpx_patroot *hintf_group_root;	/* Root of aggregated group records */
+    gmpx_patroot *hintf_group_root;    /* Root of aggregated group records */
 
-    gmpx_timer *hintf_gen_query_timer;	/* General query response timer */
+    gmpx_timer *hintf_gen_query_timer;    /* General query response timer */
     gmpx_timer *hintf_basic_querier;    /* Basic version querier present */
     gmpx_timer *hintf_leaves_querier;   /* Leaves version querier present */
     gmpx_timer *hintf_soft_detach_timer; /* Deferral for soft detach */
 
-    u_int32_t hintf_last_query_time;	/* Time of last query */
+    u_int32_t hintf_last_query_time;    /* Time of last query */
 
     gmph_soft_detach_callback hintf_soft_detach_callback;
-					/* Callback after soft detach */
-    void *hintf_soft_detach_context;	/* User-supplied context */
+                    /* Callback after soft detach */
+    void *hintf_soft_detach_context;    /* User-supplied context */
 
-    u_int32_t hintf_pending_xmit_count;	/* # of groups and srcs pending xmit */
+    u_int32_t hintf_pending_xmit_count;    /* # of groups and srcs pending xmit */
 
-    boolean hintf_suppress_reports;	/* TRUE if report suppression is on */
-    boolean hintf_xmit_pending;		/* TRUE if we have a pending xmit */
-    boolean hintf_passive;		/* TRUE if passive (no xmits) */
+    boolean hintf_suppress_reports;    /* TRUE if report suppression is on */
+    boolean hintf_xmit_pending;        /* TRUE if we have a pending xmit */
+    boolean hintf_passive;        /* TRUE if passive (no xmits) */
 } gmph_intf;
 
 GMPX_PATNODE_TO_STRUCT(gmph_inst_patnode_to_intf, gmph_intf,
-		       hintf_inst_patnode);
+               hintf_inst_patnode);
 GMPX_PATNODE_TO_STRUCT(gmph_global_patnode_to_intf, gmph_intf,
-		       hintf_global_patnode);
+               hintf_global_patnode);
 
 
 /*
@@ -130,13 +130,13 @@ GMPX_PATNODE_TO_STRUCT(gmph_global_patnode_to_intf, gmph_intf,
  */
 typedef struct gmph_rpt_msg_addr_entry_
 {
-    gmp_addr_list_entry msg_addr_entry;	/* Address entry */
-    u_int msg_rexmit_count;		/* Retransmission count */
+    gmp_addr_list_entry msg_addr_entry;    /* Address entry */
+    u_int msg_rexmit_count;        /* Retransmission count */
 } gmph_rpt_msg_addr_entry;
 
 EMBEDDED_STRUCT_TO_STRUCT(gmph_addr_list_to_group_list,
-			  gmph_rpt_msg_addr_entry, gmp_addr_list_entry,
-			  msg_addr_entry);
+              gmph_rpt_msg_addr_entry, gmp_addr_list_entry,
+              msg_addr_entry);
 
 
 /*
@@ -168,7 +168,7 @@ EMBEDDED_STRUCT_TO_STRUCT(gmph_addr_list_to_group_list,
  * hgroup_block_list
  *    Same as hintf_allow_list, except for BLOCK or TO_EX records.
  *
- * hgroup_query_list 
+ * hgroup_query_list
  *    The list of addresses being queried by the querier.  The transmit
  *    thread represents sources to be contained in replies to GSS
  *    queries.  The address entries are generic.
@@ -176,13 +176,13 @@ EMBEDDED_STRUCT_TO_STRUCT(gmph_addr_list_to_group_list,
  *
  * Flags
  *
- * hgroup_change_msg_due 
+ * hgroup_change_msg_due
  *    This flag indicates that a change message is due now for a
  *    group.  The flag is set when the change timer expires for the
  *    group, and is cleared when all sources have been put into an
  *    outgoing packet for the group (if there are many sources, they
  *    may be split across multiple packets).
- * 
+ *
  * hgroup_reply_due
  *    This flag indicates that a reply to a query is due now for a group.
  *    The flag is set when the query response timer expires for the group,
@@ -233,50 +233,50 @@ typedef struct gmph_group_ {
 
     /* Linkages */
 
-    thread hgroup_client_thread;	/* Head of thread of client groups */
-    gmph_intf *hgroup_intf;		/* Pointer back to interface */
-    gmpx_patnode hgroup_intf_patnode;	/* Node on interface tree of groups */
+    thread hgroup_client_thread;    /* Head of thread of client groups */
+    gmph_intf *hgroup_intf;        /* Pointer back to interface */
+    gmpx_patnode hgroup_intf_patnode;    /* Node on interface tree of groups */
 
     /* Group state */
 
-    gmp_addr_string hgroup_addr;	/* Group address */
-    gmp_filter_mode hgroup_filter_mode;	/* Include/Exclude */
-    gmp_addr_list hgroup_src_addr_list;	/* Source address list */
+    gmp_addr_string hgroup_addr;    /* Group address */
+    gmp_filter_mode hgroup_filter_mode;    /* Include/Exclude */
+    gmp_addr_list hgroup_src_addr_list;    /* Source address list */
 
     /* State-change report stuff */
 
-    gmp_addr_list hgroup_allow_list;	/* List of Allow entries to send */
-    gmp_addr_list hgroup_block_list;	/* List of Block entries to send */
+    gmp_addr_list hgroup_allow_list;    /* List of Allow entries to send */
+    gmp_addr_list hgroup_block_list;    /* List of Block entries to send */
 
     gmpx_timer *hgroup_change_rpt_timer; /* Timer for sending change reports */
     u_int hgroup_mode_change_rexmit_count; /* Mode change retransmit count */
 
     /* Query reply stuff */
 
-    gmpx_timer *hgroup_query_timer;	/* For replying to group queries */
-    gmp_addr_list hgroup_query_list;	/* Addresses to which we must reply */
-    boolean hgroup_last_reporter;	/* TRUE if we were last to report */
+    gmpx_timer *hgroup_query_timer;    /* For replying to group queries */
+    gmp_addr_list hgroup_query_list;    /* Addresses to which we must reply */
+    boolean hgroup_last_reporter;    /* TRUE if we were last to report */
 
     /* Transmission stuff */
 
-    thread hgroup_xmit_thread;		/* Entry on intf transmit list */
-    boolean hgroup_change_msg_due;	/* TRUE if we need to send chg msg  */
-    boolean hgroup_reply_due;		/* TRUE if we need to send a reply */
-    boolean hgroup_gss_reply_due;	/* TRUE if sending a GSS reply */
-    boolean hgroup_xmit_pending;	/* TRUE if pending transmission */
+    thread hgroup_xmit_thread;        /* Entry on intf transmit list */
+    boolean hgroup_change_msg_due;    /* TRUE if we need to send chg msg  */
+    boolean hgroup_reply_due;        /* TRUE if we need to send a reply */
+    boolean hgroup_gss_reply_due;    /* TRUE if sending a GSS reply */
+    boolean hgroup_xmit_pending;    /* TRUE if pending transmission */
 
     /* Ref counting */
-    boolean hgroup_is_deleted;		/* Deleted, but locked */
-    u_int8_t hgroup_lock_count;		/* Lock count */
+    boolean hgroup_is_deleted;        /* Deleted, but locked */
+    u_int8_t hgroup_lock_count;        /* Lock count */
 } gmph_group;
 
 GMPX_PATNODE_TO_STRUCT(gmph_intf_patnode_to_group, gmph_group,
-		       hgroup_intf_patnode);
+               hgroup_intf_patnode);
 THREAD_TO_STRUCT(gmph_xmit_thread_to_group, gmph_group, hgroup_xmit_thread);
 
-#define GMPH_INITIAL_REPORT_JITTER 0	/* Percent jitter for initial packet */
-#define GMPH_REPORT_REXMIT_JITTER 100	/* Percent jitter for retransmission */
-#define GMPH_QUERY_REPLY_JITTER 100	/* Percent jitter for replies */
+#define GMPH_INITIAL_REPORT_JITTER 0    /* Percent jitter for initial packet */
+#define GMPH_REPORT_REXMIT_JITTER 100    /* Percent jitter for retransmission */
+#define GMPH_QUERY_REPLY_JITTER 100    /* Percent jitter for replies */
 
 
 /*
@@ -285,9 +285,9 @@ THREAD_TO_STRUCT(gmph_xmit_thread_to_group, gmph_group, hgroup_xmit_thread);
  * This block contains the context for address list set operations.
  */
 typedef struct gmph_group_set_context_ {
-    gmph_group *ctx_group;		/* Group pointer */
-    gmp_addr_list *ctx_add_list;	/* List to add to */
-    gmp_addr_list *ctx_del_list;	/* List to delete from */
+    gmph_group *ctx_group;        /* Group pointer */
+    gmp_addr_list *ctx_add_list;    /* List to add to */
+    gmp_addr_list *ctx_del_list;    /* List to delete from */
 } gmph_group_set_context;
 
 
@@ -301,15 +301,15 @@ typedef struct gmph_group_set_context_ {
  * ID on little-endian machines.
  */
 typedef struct gmph_client_ {
-    u_int32_t hclient_magic;		/* Magic number for robustness */
-    gmph_instance *hclient_instance;	/* Owning instance */
-    thread hclient_thread;		/* Link on instance client thread */
-    gmpx_patroot *hclient_group_root;	/* Root of client group requests */
+    u_int32_t hclient_magic;        /* Magic number for robustness */
+    gmph_instance *hclient_instance;    /* Owning instance */
+    thread hclient_thread;        /* Link on instance client thread */
+    gmpx_patroot *hclient_group_root;    /* Root of client group requests */
 } gmph_client;
 
 THREAD_TO_STRUCT(gmph_thread_to_client, gmph_client, hclient_thread);
 
-#define GMPH_CLIENT_MAGIC 0x48636A69	/* 'Hcli' */
+#define GMPH_CLIENT_MAGIC 0x48636A69    /* 'Hcli' */
 
 
 /*
@@ -326,24 +326,24 @@ THREAD_TO_STRUCT(gmph_thread_to_client, gmph_client, hclient_thread);
  * The set of addresses is represented by a bit vector.
  */
 typedef struct gmph_client_group_key_ {
-    gmpx_intf_id group_key_intf_id;	/* Interface ID */
-    gmp_addr_string group_key_addr;	/* Group address */
+    gmpx_intf_id group_key_intf_id;    /* Interface ID */
+    gmp_addr_string group_key_addr;    /* Group address */
 } gmph_client_group_key;
 
 typedef struct gmph_client_group_ {
-    gmph_client *client_group_client;	/* Pointer back to owning client */
-    gmph_group *client_group_group;	/* Pointer to group entry */
-    gmpx_patnode client_group_node;	/* Node on client tree of groups */
-    thread client_group_thread;	  	/* Node on group thread of cli grps */
+    gmph_client *client_group_client;    /* Pointer back to owning client */
+    gmph_group *client_group_group;    /* Pointer to group entry */
+    gmpx_patnode client_group_node;    /* Node on client tree of groups */
+    thread client_group_thread;          /* Node on group thread of cli grps */
     gmph_client_group_key client_group_key; /* Patricia key */
     gmp_filter_mode client_filter_mode; /* Include/Exclude */
-    gmp_addr_vect client_addr_vect;	/* Source address vector */
+    gmp_addr_vect client_addr_vect;    /* Source address vector */
 } gmph_client_group;
 
 GMPX_PATNODE_TO_STRUCT(gmph_patnode_to_client_group, gmph_client_group,
-		       client_group_node);
+               client_group_node);
 THREAD_TO_STRUCT(gmph_thread_to_client_group, gmph_client_group,
-		 client_group_thread);
+         client_group_thread);
 
 #define client_group_intf_id client_group_key.group_key_intf_id
 #define client_group_addr client_group_key.group_key_addr
@@ -361,10 +361,10 @@ gmph_client_group_key_len (gmph_instance *instance)
     u_int length;
 
     if (instance->hinst_proto == GMP_PROTO_IGMP)
-	length = sizeof(gmph_client_group_key) -
-	    (IPV6_ADDR_LEN - IPV4_ADDR_LEN);
+    length = sizeof(gmph_client_group_key) -
+        (IPV6_ADDR_LEN - IPV4_ADDR_LEN);
     else
-	length = sizeof(gmph_client_group_key);
+    length = sizeof(gmph_client_group_key);
 
     return length;
 }
@@ -381,12 +381,12 @@ gmph_group_is_active (gmph_group *group)
     /* Active if in Exclude mode. */
 
     if (group->hgroup_filter_mode == GMP_FILTER_MODE_EXCLUDE)
-	return TRUE;
+    return TRUE;
 
     /* Active if there are any sources. */
 
     if (!gmp_addr_list_empty(&group->hgroup_src_addr_list))
-	return TRUE;
+    return TRUE;
 
     return FALSE;
 }
@@ -422,7 +422,7 @@ extern gmpx_patroot *gmph_global_intf_tree[];
 /* gmph_instance.c */
 
 extern gmph_instance *gmph_instance_create(gmp_proto proto,
-					   void *inst_context);
+                       void *inst_context);
 extern gmph_instance *gmph_get_instance(gmp_instance_id instance_id);
 extern void gmph_instance_destroy(gmph_instance *instance);
 
@@ -432,17 +432,17 @@ extern gmph_client *gmph_create_client(gmph_instance *instance);
 extern gmph_client *gmph_get_client(gmp_client_id client_id);
 extern void gmph_destroy_client(gmph_client *client);
 extern gmph_client_group *gmph_lookup_client_group(gmph_client *client,
-						   gmpx_intf_id intf_id,
-						   const u_int8_t *group);
+                           gmpx_intf_id intf_id,
+                           const u_int8_t *group);
 extern void gmph_destroy_client_group(gmph_client_group *client_group,
-				      boolean evaluate_group);
+                      boolean evaluate_group);
 extern void gmph_destroy_intf_client_groups(gmph_client *client,
-					    gmph_intf *intf);
+                        gmph_intf *intf);
 extern gmph_client_group *
 gmph_create_client_group(gmph_intf *intf, gmph_client *client,
-			 gmph_group *group, const u_int8_t *group_addr,
-			 gmp_filter_mode filter_mode,
-			 gmp_addr_thread *addr_thread);
+             gmph_group *group, const u_int8_t *group_addr,
+             gmp_filter_mode filter_mode,
+             gmp_addr_thread *addr_thread);
 extern void gmph_destroy_group_client_groups(gmph_group *group);
 extern void gmph_destroy_instance_clients(gmph_instance *instance);
 
@@ -450,20 +450,20 @@ extern void gmph_destroy_instance_clients(gmph_instance *instance);
 
 extern void gmph_intf_evaluate_version(gmph_intf *intf);
 extern gmph_intf *gmph_intf_lookup(gmph_instance *instance,
-				   gmpx_intf_id intf_id);
+                   gmpx_intf_id intf_id);
 extern gmph_intf *gmph_intf_lookup_global(gmp_proto proto,
-					  gmpx_intf_id intf_id);
+                      gmpx_intf_id intf_id);
 extern void gmph_kick_xmit(gmph_intf *intf);
 extern int gmph_attach_intf_internal(gmph_instance *instance,
-				     gmpx_intf_id intf_id);
+                     gmpx_intf_id intf_id);
 extern int gmph_detach_intf_internal(gmph_instance *instance,
-				     gmpx_intf_id intf_id,
-				     gmph_soft_detach_callback callback,
-				     void *context);
+                     gmpx_intf_id intf_id,
+                     gmph_soft_detach_callback callback,
+                     void *context);
 extern void gmph_attempt_intf_free(gmph_intf *intf);
 extern void gmph_destroy_instance_intfs(gmph_instance *instance);
-extern void gmph_start_general_query_timer(gmph_intf *intf, u_int32_t ivl, 
-					   u_int jitter_pct);
+extern void gmph_start_general_query_timer(gmph_intf *intf, u_int32_t ivl,
+                       u_int jitter_pct);
 extern void gmph_intf_increment_pending_xmit_count(gmph_intf *);
 extern void gmph_intf_decrement_pending_xmit_count(gmph_intf *);
 
@@ -471,7 +471,7 @@ extern void gmph_intf_decrement_pending_xmit_count(gmph_intf *);
 
 extern int gmph_reevaluate_group(gmph_group *group);
 extern gmph_group *gmph_group_lookup_create(gmph_intf *,
-					    const u_int8_t *group);
+                        const u_int8_t *group);
 extern gmph_group *gmph_group_lookup(gmph_intf *intf, const u_int8_t *group);
 extern gmph_group *gmph_group_lookup_first(gmph_intf *intf);
 extern gmph_group *gmph_group_create(gmph_intf *intf, const u_int8_t *group);
@@ -485,15 +485,15 @@ extern void gmph_destroy_intf_groups(gmph_intf *intf);
 extern void gmph_enqueue_group_xmit(gmph_group *group);
 extern boolean gmph_group_xmit_pending(gmph_group *group);
 extern void gmph_set_report_entry_rexmit(gmph_group *group,
-					 gmp_addr_list_entry *addr_entry);
+                     gmp_addr_list_entry *addr_entry);
 extern boolean gmph_group_source_requested(gmph_group *group,
-					   const u_int8_t *source_addr);
+                       const u_int8_t *source_addr);
 extern void gmph_mark_pending_group_xmit(gmph_group *group);
 extern void gmph_unmark_pending_group_xmit(gmph_group *group, boolean force);
 extern void gmph_start_change_rpt_timer(gmph_group *group, u_int32_t ivl,
-					u_int jitter_pct);
+                    u_int jitter_pct);
 extern void gmph_start_query_timer(gmph_group *group, u_int32_t ivl,
-				   u_int jitter_pct);
+                   u_int jitter_pct);
 
 extern void gmph_lock_group (gmph_group *group);
 extern boolean gmph_unlock_group (gmph_group *group);
@@ -504,7 +504,7 @@ extern void gmph_register_packet_handler(void);
 extern void gmph_version_changed(gmph_instance *instance, gmph_intf *intf);
 extern void gmph_group_general_query_timer_expiry(gmph_group *group);
 extern void gmph_group_change_report_timer_expiry(gmpx_timer *timer,
-						  void *context);
+                          void *context);
 extern void gmph_group_query_timer_expiry(gmpx_timer *timer, void *context);
 
 #endif /* __GMPH_PRIVATE_H__ */

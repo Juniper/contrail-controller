@@ -17,7 +17,7 @@
 #include <controller/controller_init.h>
 #include <controller/controller_types.h>
 
-VrfExport::State::State() : DBState(), exported_(false), 
+VrfExport::State::State() : DBState(), exported_(false),
     force_chg_(false), rt_export_(), last_sequence_number_(0) {
 };
 
@@ -26,7 +26,7 @@ VrfExport::State::~State() {
 
 bool VrfExport::State::IsExportable(uint64_t sequence_number) {
     // Sequence number passed in argument is of channel to which this state
-    // belongs. Once channel sends the vrf subscription after flap/fresh 
+    // belongs. Once channel sends the vrf subscription after flap/fresh
     // connection, state's sequence number will be updated to that of channel.
     // After this all routes in this VRF become eligible for export.
     // This is needed as control-node mandates that VRF is subscribed before any
@@ -64,8 +64,8 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
         if (!AgentXmppChannel::IsXmppChannelActive(agent, bgp_xmpp_peer)) {
             return;
         }
-        if (bgp_peer) { 
-            CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(), 
+        if (bgp_peer) {
+            CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
                              "VRF deleted, remove state");
             bgp_peer->DeleteVrfState(partition, e);
         }
@@ -107,12 +107,12 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
 
     if (send_subscribe && ((state->exported_ == false) ||
                           (state->force_chg_ == true))) {
-        if (AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer, vrf, 
+        if (AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer, vrf,
                                                       true)) {
             CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
                              "Subscribe");
 
-            state->exported_ = true; 
+            state->exported_ = true;
             if (state->force_chg_ == true) {
                 bgp_peer->route_walker()->StartRouteWalk(vrf, true,
                                           ControllerRouteWalker::NOTIFYALL);

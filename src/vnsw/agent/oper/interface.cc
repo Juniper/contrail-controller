@@ -66,7 +66,7 @@ InterfaceTable::InterfaceTable(DB *db, const std::string &name) :
                                   this, _1, _2));
 }
 
-void InterfaceTable::Init(OperDB *oper) { 
+void InterfaceTable::Init(OperDB *oper) {
     operdb_ = oper;
     agent_ = oper->agent();
 }
@@ -155,7 +155,7 @@ bool InterfaceTable::ProcessConfig(IFMapNode *node, DBRequest &req,
 
 std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
     const InterfaceKey *key = static_cast<const InterfaceKey *>(k);
-    
+
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>
                                   (key->AllocEntry(this)));
 }
@@ -942,9 +942,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             reason += " >";
             data.set_l2_active(reason);
         }
-        
+
         std::vector<FloatingIpSandeshList> fip_list;
-        VmInterface::FloatingIpSet::const_iterator it = 
+        VmInterface::FloatingIpSet::const_iterator it =
             vintf->floating_ip_list().list_.begin();
         while (it != vintf->floating_ip_list().list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
@@ -1004,7 +1004,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_fip_list(fip_list);
 
         std::vector<AliasIpSandeshList> aip_list;
-        VmInterface::AliasIpSet::const_iterator a_it = 
+        VmInterface::AliasIpSet::const_iterator a_it =
             vintf->alias_ip_list().list_.begin();
         while (a_it != vintf->alias_ip_list().list_.end()) {
             const VmInterface::AliasIp &ip = *a_it;
@@ -1030,7 +1030,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         // Add Service VLAN list
         std::vector<ServiceVlanSandeshList> vlan_list;
-        VmInterface::ServiceVlanSet::const_iterator vlan_it = 
+        VmInterface::ServiceVlanSet::const_iterator vlan_it =
             vintf->service_vlan_list().list_.begin();
         while (vlan_it != vintf->service_vlan_list().list_.end()) {
             const VmInterface::ServiceVlan *vlan = vlan_it.operator->();
@@ -1162,7 +1162,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         VmInterface::SecurityGroupEntrySet::const_iterator sgit;
         std::vector<VmIntfSgUuid> intf_sg_uuid_l;
         const VmInterface::SecurityGroupEntryList &sg_uuid_l = vintf->sg_list();
-        for (sgit = sg_uuid_l.list_.begin(); sgit != sg_uuid_l.list_.end(); 
+        for (sgit = sg_uuid_l.list_.begin(); sgit != sg_uuid_l.list_.end();
              ++sgit) {
             VmIntfSgUuid sg_id;
             sg_id.set_sg_uuid(UuidToString(sgit->uuid_));

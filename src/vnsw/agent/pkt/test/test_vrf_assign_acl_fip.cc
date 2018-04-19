@@ -34,9 +34,9 @@ protected:
         fip_dest_ip = Ip4Address::from_string("2.1.1.1");
         remote_server = Ip4Address::from_string("10.10.10.10");
         Ip4Address fip_src_ip = Ip4Address::from_string("2.1.1.100");
- 
+
         EXPECT_EQ(0U, flow_proto_->FlowCount());
-        
+
         CreateVmportFIpEnv(input, 1);
         CreateVmportFIpEnv(input1, 1);
         client->WaitForIdle();
@@ -48,7 +48,7 @@ protected:
         EXPECT_TRUE(VmPortActive(1));
         EXPECT_TRUE(VmPortActive(2));
         client->WaitForIdle();
-        
+
         AddVrf("__internal__");
         client->WaitForIdle();
 
@@ -57,7 +57,7 @@ protected:
         VnListType vn_list;
         vn_list.insert("default-project:vn2");
         agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(vm_intf->peer(),
-                std::string("__internal__"), fip_src_ip, 32, vm_intf->GetUuid(), 
+                std::string("__internal__"), fip_src_ip, 32, vm_intf->GetUuid(),
                 vn_list, vm_intf->label(), SecurityGroupList(),
                 TagList(), CommunityList(),
                 false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
@@ -79,7 +79,7 @@ protected:
         AddLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
         client->WaitForIdle();
 
-        AddVrfAssignNetworkAcl("Acl", 10, "default-project:vn2", 
+        AddVrfAssignNetworkAcl("Acl", 10, "default-project:vn2",
                                "default-project:vn2", "pass", "__internal__");
         AddLink("virtual-network", "default-project:vn2", "access-control-list",
                 "Acl");
@@ -126,7 +126,7 @@ protected:
 //Fwd flow from VM via floating-ip to external compute node destination
 TEST_F(TestVrfAssignAclFlowFip, VrfAssignAcl1) {
     TestFlow flow[] = {
-        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
                        10, 20, "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new VerifyVn("default-project:vn2", "default-project:vn2"),
@@ -167,7 +167,7 @@ TEST_F(TestVrfAssignAclFlowFip, VrfAssignAcl2) {
     CreateFlow(flow, 1);
 }
 
-//Verify that interface VRF assign rule doesnt get 
+//Verify that interface VRF assign rule doesnt get
 //applied on floating-ip packets
 TEST_F(TestVrfAssignAclFlowFip, VrfAssignAcl3) {
     AddVrf("__invalid__");

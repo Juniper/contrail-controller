@@ -131,7 +131,7 @@ public:
 };
 
 class Test : public ::testing::Test {
-public:    
+public:
     Test() {
         default_tunnel_type_ = TunnelType::MPLS_GRE;
         vrf_name_1_ = "vrf1";
@@ -147,7 +147,7 @@ public:
         agent_->oper_db()->agent_route_walk_manager()->
             RegisterWalker(static_cast<AgentRouteWalker *>(walker_.get()));
     };
-    ~Test() { 
+    ~Test() {
     }
 
     void SetupEnvironment(int num_vrfs) {

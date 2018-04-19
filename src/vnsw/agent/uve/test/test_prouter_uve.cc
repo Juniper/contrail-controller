@@ -784,7 +784,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_2) {
 
     WAIT_FOR(1000, 500, (pr->last_sent_uve().get_physical_interface_list().
                          size() == 1U));
-    
+
     uint32_t send_count = pr->send_count();
     //Disassociate VMI from logical-interface
     DelLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");

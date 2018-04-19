@@ -174,7 +174,7 @@
  *     with optional callback.  (A "clear" operation clears any bit
  *     that is set in the second vector.)
  *
- *   int bv_copy_vector(bit_vector *src, bit_vector *dest, 
+ *   int bv_copy_vector(bit_vector *src, bit_vector *dest,
  *                      bv_callback callback, void *context,
  *                      bv_callback_option cb_opt)
  *     Copies the contents of vector "src" to vector "dest", with optional
@@ -370,18 +370,18 @@
  * number if no allocated blocks with free bits are available.
  */
 
-typedef uint32_t bv_bitnum_t;		/* Bit number */
-#define BV_BAD_BITNUM 0xffffffff	/* Illegal bit number */
+typedef uint32_t bv_bitnum_t;        /* Bit number */
+#define BV_BAD_BITNUM 0xffffffff    /* Illegal bit number */
 
 typedef struct bit_vector_ {
-    bvx_patroot *bv_root;		/* Patricia root */
-    uint32_t bv_entry_count;		/* Number of attached entries */
-    thread bv_nonfull_head;		/* Head of non-full entries */
-    bv_bitnum_t bv_callback_ord;	/* Ordinal of callback bit */
-    bv_bitnum_t bv_freed_ord;		/* Ordinal of a freed entry */
-    boolean bv_fastvects;		/* Perform fast vector operations */
-    boolean bv_cb_result;		/* TRUE if vector is callback result */
-    boolean bv_cb_source;		/* TRUE if vector is callback source */
+    bvx_patroot *bv_root;        /* Patricia root */
+    uint32_t bv_entry_count;        /* Number of attached entries */
+    thread bv_nonfull_head;        /* Head of non-full entries */
+    bv_bitnum_t bv_callback_ord;    /* Ordinal of callback bit */
+    bv_bitnum_t bv_freed_ord;        /* Ordinal of a freed entry */
+    boolean bv_fastvects;        /* Perform fast vector operations */
+    boolean bv_cb_result;        /* TRUE if vector is callback result */
+    boolean bv_cb_source;        /* TRUE if vector is callback source */
 } bit_vector;
 
 /*
@@ -393,7 +393,7 @@ typedef struct bit_vector_ {
  * save time in some situations.
  */
 typedef boolean (*bv_callback)(void *context, bv_bitnum_t bit_number,
-			       boolean new_bit_value, boolean old_bit_value);
+                   boolean new_bit_value, boolean old_bit_value);
 
 
 
@@ -401,8 +401,8 @@ typedef boolean (*bv_callback)(void *context, bv_bitnum_t bit_number,
  * Definitions of bit result callback options.
  */
 typedef enum {
-    BV_CALL_CHANGE,			/* Call back if result bit changed */
-    BV_CALL_SET			 	/* Call back if result bit is set */
+    BV_CALL_CHANGE,            /* Call back if result bit changed */
+    BV_CALL_SET                 /* Call back if result bit is set */
 } bv_callback_option;
 
 /* Externals */
@@ -413,27 +413,27 @@ extern boolean bv_clear_bit(bit_vector *bv, bv_bitnum_t bit_number);
 extern boolean bv_bit_is_set(bit_vector *bv, bv_bitnum_t bit_number);
 extern void bv_init_vector(bit_vector *bv, boolean fast_vects);
 extern int bv_and_vectors(bit_vector *first, bit_vector *second,
-			  bit_vector *result, bv_callback callback,
-			  void *context, bv_callback_option cb_opt);
+              bit_vector *result, bv_callback callback,
+              void *context, bv_callback_option cb_opt);
 extern int bv_or_vectors(bit_vector *first, bit_vector *second,
-			 bit_vector *result, bv_callback callback,
-			 void *context, bv_callback_option cb_opt);
+             bit_vector *result, bv_callback callback,
+             void *context, bv_callback_option cb_opt);
 extern int bv_xor_vectors(bit_vector *first, bit_vector *second,
-			  bit_vector *result, bv_callback callback,
-			  void *context, bv_callback_option cb_opt);
+              bit_vector *result, bv_callback callback,
+              void *context, bv_callback_option cb_opt);
 extern int bv_clear_vectors(bit_vector *first, bit_vector *second,
-			    bit_vector *result, bv_callback callback,
-			    void *context, bv_callback_option cb_opt);
+                bit_vector *result, bv_callback callback,
+                void *context, bv_callback_option cb_opt);
 extern int bv_copy_vector(bit_vector *src, bit_vector *dest,
-			  bv_callback callback, void *context,
-			  bv_callback_option cb_opt);
+              bv_callback callback, void *context,
+              bv_callback_option cb_opt);
 extern int bv_walk_vector(bit_vector *vect, bv_callback callback,
-			  void *context);
+              void *context);
 extern bv_bitnum_t bv_first_set_bit(bit_vector *bv);
 extern boolean bv_empty(bit_vector *bv);
 extern bv_bitnum_t bv_first_clear_bit(bit_vector *bv);
 extern bv_bitnum_t bv_find_clear_bit(bit_vector *bv);
 extern void bv_clear_all_bits(bit_vector *bv, bv_callback callback,
-			      void *context, bv_callback_option cb_opt);
+                  void *context, bv_callback_option cb_opt);
 
 #endif /* __BITVECTOR_H__ */

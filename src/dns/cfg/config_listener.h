@@ -35,7 +35,7 @@ private:
     typedef std::map<std::string, DBTable::ListenerId> TableMap;
     typedef std::set<std::string> ChangeSet;
     class DependencyTracker;
-    
+
     void NodeObserver(DBTablePartBase *root, DBEntryBase *db_entry);
     void LinkObserver(DBTablePartBase *root, DBEntryBase *db_entry);
 

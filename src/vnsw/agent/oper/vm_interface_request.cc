@@ -89,7 +89,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     tx_vlan_id_(VmInterface::kInvalidVlanId),
     logical_interface_(nil_uuid()), ecmp_load_balance_(),
     service_health_check_ip_(), service_ip_(0),
-    service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
+    service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false),
     qos_config_uuid_(), learning_enabled_(false),
     vhostuser_mode_(VmInterface::vHostUserClient), is_left_si_(false), service_mode_(VmInterface::SERVICE_MODE_ERROR),
     si_other_end_vmi_(nil_uuid()), vmi_cfg_uuid_(nil_uuid()),
@@ -244,7 +244,7 @@ bool VmInterface::CopyIp6Address(const Ip6Address &addr) {
     return ret;
 }
 
-// Copies configuration from DB-Request data. The actual applying of 
+// Copies configuration from DB-Request data. The actual applying of
 // configuration, like adding/deleting routes must be done with ApplyConfig()
 bool VmInterface::CopyConfig(const InterfaceTable *table,
                              const VmInterfaceConfigData *data,
@@ -589,9 +589,9 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     SecurityGroupEntrySet &old_sg_list = sg_list_.list_;
     const SecurityGroupEntrySet &new_sg_list = data->sg_list_.list_;
     *sg_changed =
-	    AuditList<SecurityGroupEntryList, SecurityGroupEntrySet::iterator>
-	    (sg_list_, old_sg_list.begin(), old_sg_list.end(),
-	     new_sg_list.begin(), new_sg_list.end());
+        AuditList<SecurityGroupEntryList, SecurityGroupEntrySet::iterator>
+        (sg_list_, old_sg_list.begin(), old_sg_list.end(),
+         new_sg_list.begin(), new_sg_list.end());
     if (*sg_changed) {
         ret = true;
     }

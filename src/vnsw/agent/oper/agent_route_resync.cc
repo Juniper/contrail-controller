@@ -4,7 +4,7 @@
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <agent_types.h>
 
 #include <cmn/agent_db.h>
@@ -30,9 +30,9 @@ bool AgentRouteResync::RouteWalkNotify(DBTablePartBase *partition,
 }
 
 void AgentRouteResync::Update() {
-    StartVrfWalk(); 
+    StartVrfWalk();
 }
 
 void AgentRouteResync::UpdateRoutesInVrf(VrfEntry *vrf) {
-    StartRouteWalk(vrf); 
+    StartRouteWalk(vrf);
 }

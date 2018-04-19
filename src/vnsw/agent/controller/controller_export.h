@@ -59,16 +59,16 @@ public:
     bool MulticastRouteCanDissociate(const AgentRoute *route);
     static void Walkdone(DBTable::DBTableWalkRef walk_ref, DBTableBase *table,
                          RouteExport *rt);
-    static RouteExport* Init(AgentRouteTable *table, 
+    static RouteExport* Init(AgentRouteTable *table,
                              AgentXmppChannel *bgp_xmpp_peer);
-private:    
+private:
     DBTableBase::ListenerId id_;
     AgentRouteTable *rt_table_;
     bool marked_delete_;
     uint32_t state_added_;
     void MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
                 DBTablePartBase *partition, DBEntryBase *e);
-    void UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
+    void UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 DBTablePartBase *partition, DBEntryBase *e,
                 Agent::RouteTableType type);
     void SubscribeFabricMulticast(const Agent *agent,

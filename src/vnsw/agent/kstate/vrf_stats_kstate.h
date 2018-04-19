@@ -7,7 +7,7 @@
 
 class VrfStatsKState: public KState {
 public:
-    VrfStatsKState(KVrfStatsResp *obj, const std::string &resp_ctx, 
+    VrfStatsKState(KVrfStatsResp *obj, const std::string &resp_ctx,
                    vr_vrf_stats_req &encoder, int id);
     virtual void SendResponse();
     virtual void Handler();

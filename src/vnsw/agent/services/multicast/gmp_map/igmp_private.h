@@ -11,7 +11,7 @@
 #define IGMP_QUERY_LASTMEMBER_INTERVAL  (1   * MSECS_PER_SEC)
 
 #define IGMP_VERSION_1      1
-#define IGMP_VERSION_2      2       
+#define IGMP_VERSION_2      2
 #define IGMP_VERSION_3      3
 
 #endif /* vnsw_agent_igmp_private_hpp */

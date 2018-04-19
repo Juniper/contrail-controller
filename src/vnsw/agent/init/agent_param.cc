@@ -221,13 +221,13 @@ std::map<string, std::map<string, string> >
 AgentParam::ParseDerivedStats(const std::vector<std::string> &dsvec) {
     std::map<string, std::map<string, string> > dsmap;
     std::map<string, std::map<string, string> >::iterator dsiter;
-    
+
     for (size_t idx=0; idx!=dsvec.size(); idx++) {
         size_t pos = dsvec[idx].find(':');
         assert(pos != string::npos);
         string dsfull = dsvec[idx].substr(0,pos);
         string dsarg = dsvec[idx].substr(pos+1, string::npos);
-        
+
         size_t dpos = dsfull.find('.');
         assert(dpos != string::npos);
         string dsstruct = dsfull.substr(0,dpos);
@@ -237,7 +237,7 @@ AgentParam::ParseDerivedStats(const std::vector<std::string> &dsvec) {
         std::map<string, string> dselem;
         if (dsiter!=dsmap.end()) dselem = dsiter->second;
         dselem[dsattr] = dsarg;
-        
+
         dsmap[dsstruct] = dselem;
     }
     return dsmap;
@@ -502,7 +502,7 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<bool>(var_map, xmpp_dns_auth_enable_,
                       "DEFAULT.xmpp_dns_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
-    GetOptValue<string>(var_map, xmpp_server_key_, 
+    GetOptValue<string>(var_map, xmpp_server_key_,
                         "DEFAULT.xmpp_server_key");
     GetOptValue<string>(var_map, xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert");
 
@@ -830,7 +830,7 @@ void AgentParam::ReInitFromConfig() {
     }
     config_file_in.close();
     LOG(DEBUG, "Config file re-parsing completed. \n");
-    
+
     return;
 }
 
@@ -1104,7 +1104,7 @@ void AgentParam::LogFilteredConfig() const {
     }
     LOG(DEBUG, "COLLECTOR Servers                 : " << concat_servers);
 }
- 
+
 void AgentParam::LogConfig() const {
     LOG(DEBUG, "vhost interface name        : " << vhost_.name_);
     LOG(DEBUG, "vhost IP Address            : " << vhost_.addr_.to_string()
@@ -1117,7 +1117,7 @@ void AgentParam::LogConfig() const {
     std::vector<string>::iterator iter;
     for (iter = list.begin();
          iter != list.end(); iter++) {
-         concat_servers += *iter + " "; 
+         concat_servers += *iter + " ";
     }
     LOG(DEBUG, "Xmpp Servers                : " << concat_servers);
     LOG(DEBUG, "Xmpp Authentication         : " << xmpp_auth_enable_);
@@ -1131,7 +1131,7 @@ void AgentParam::LogConfig() const {
     concat_servers.clear();
     list = dns_server_list();
     for (iter = list.begin();
-         iter != list.end(); iter++) { 
+         iter != list.end(); iter++) {
          concat_servers += *iter + " ";
     }
     LOG(DEBUG, "DNS Servers                 : " << concat_servers);
@@ -1148,7 +1148,7 @@ void AgentParam::LogConfig() const {
     concat_servers.clear();
     list = tsn_server_list();
     for (iter = list.begin();
-         iter != list.end(); iter++) { 
+         iter != list.end(); iter++) {
          concat_servers += *iter + " ";
     }
     LOG(DEBUG, "TSN Servers                 : " << concat_servers);
@@ -1156,7 +1156,7 @@ void AgentParam::LogConfig() const {
 
     list = collector_server_list();
     for (iter = list.begin();
-         iter != list.end(); iter++) { 
+         iter != list.end(); iter++) {
          concat_servers += *iter + " ";
     }
     LOG(DEBUG, "COLLECTOR Servers                 : " << concat_servers);
@@ -1309,7 +1309,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         subcluster_name_(),
         dns_client_port_(0), dns_timeout_(3000),
         dns_max_retries_(2), mirror_client_port_(0),
-        mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
+        mgmt_ip_(), hypervisor_mode_(MODE_KVM),
         xen_ll_(), tunnel_type_(), metadata_shared_secret_(),
         metadata_proxy_port_(0), metadata_use_ssl_(false),
         metadata_client_cert_(""), metadata_client_cert_type_("PEM"),

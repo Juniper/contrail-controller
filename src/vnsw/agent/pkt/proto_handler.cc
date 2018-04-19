@@ -238,7 +238,7 @@ uint16_t ProtoHandler::Csum(uint16_t *ptr, std::size_t len, uint32_t sum) {
     return ~sum;
 }
 
-uint16_t ProtoHandler::UdpCsum(in_addr_t src, in_addr_t dest, 
+uint16_t ProtoHandler::UdpCsum(in_addr_t src, in_addr_t dest,
                                std::size_t len, udphdr *udp) {
     uint32_t sum = 0;
     PseudoUdpHdr phdr(src, dest, IPPROTO_UDP, htons(len));

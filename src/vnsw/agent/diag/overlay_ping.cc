@@ -7,7 +7,7 @@
 #include "diag/diag.h"
 #include "diag/overlay_ping.h"
 #include <oper/route_common.h>
-#include <oper/vrf_assign.h>  
+#include <oper/vrf_assign.h>
 #include <oper/tunnel_nh.h>
 
 using namespace boost::posix_time;
@@ -20,9 +20,9 @@ OverlayPing::OverlayPing(const OverlayPingReq *ping_req, DiagTable *diag_table):
             ping_req->get_protocol(), ping_req->get_source_port(),
             ping_req->get_dest_port(), Agent::GetInstance()->fabric_vrf_name(),
             ping_req->get_interval() * 100, ping_req->get_count(), diag_table),
-            vn_uuid_(StringToUuid(ping_req->get_vn_uuid())), 
+            vn_uuid_(StringToUuid(ping_req->get_vn_uuid())),
             remote_vm_mac_(ping_req->get_vm_remote_mac()),
-            data_len_(ping_req->get_packet_size()), 
+            data_len_(ping_req->get_packet_size()),
             context_(ping_req->context()),
             pkt_lost_count_(0) {
 
@@ -30,7 +30,7 @@ OverlayPing::OverlayPing(const OverlayPingReq *ping_req, DiagTable *diag_table):
 /*
  * Get the L2 Route entry to find the Tunnel NH
  */
-BridgeRouteEntry * 
+BridgeRouteEntry *
 OverlayPing::L2RouteGet(VxLanId* vxlan, string remotemac, Agent *agent)
 {
     string vrf_name;
@@ -40,7 +40,7 @@ OverlayPing::L2RouteGet(VxLanId* vxlan, string remotemac, Agent *agent)
         vrf = const_cast<VrfEntry*> (vrf_nh->GetVrf());
         if (!vrf || vrf->IsDeleted()) {
             return NULL;
-        } else {  
+        } else {
             vrf_name = vrf->GetName();
         }
     } else {
@@ -97,7 +97,7 @@ void OverlayPingReq::HandleRequest() const {
 
     int vxlan_id = vn->GetVxLanId();
     VxLanId* vxlan = agent->vxlan_table()->Find(vxlan_id);
-    
+
     if (!vxlan) {
         err_str = "Invalid vxlan segment";
         goto error;
@@ -130,7 +130,7 @@ OverlayPing::~OverlayPing() {
  * Set the Route alert bit to indicate Overlay OAM packet
  */
 void OverlayPing::SendRequest() {
-    // Create VxLan packet 
+    // Create VxLan packet
     Agent *agent = diag_table_->agent();
     Ip4Address tunneldst;
     Ip4Address tunnelsrc;
@@ -179,7 +179,7 @@ void OverlayPing::SendRequest() {
     pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(tunnelsrc.to_ulong()),
                        ntohl(tunneldst.to_ulong()), IPPROTO_UDP,
                        DEFAULT_IP_ID, DEFAULT_IP_TTL );
-   // Fill VxLan Header  
+   // Fill VxLan Header
     VxlanHdr *vxlanhdr = (VxlanHdr *)(buf + sizeof(udphdr)+ sizeof(struct ip)
                                    + sizeof(struct ether_header));
     vxlanhdr->vxlan_id =  ntohl(vxlan_id << 8);
@@ -198,7 +198,7 @@ void OverlayPing::SendRequest() {
     pkt_handler->UdpHdr(len, sip_.to_v4().to_ulong(), sport_, dip.to_ulong(),
                         VXLAN_UDP_DEST_PORT);
     pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(sip_.to_v4().to_ulong()),
-                       ntohl(dip.to_ulong()), proto_, 
+                       ntohl(dip.to_ulong()), proto_,
                        DEFAULT_IP_ID, DEFAULT_IP_TTL);
     //pkt_handler->SetDiagChkSum();
     pkt_handler->pkt_info()->set_len(len_);
@@ -217,12 +217,12 @@ void OverlayPing::HandleReply(DiagPktHandler *handler) {
     PingResp *resp = new PingResp();
     OverlayOamPktData *pktdata = (OverlayOamPktData*) handler->GetData();
     resp->set_seq_no(ntohl(pktdata->seq_no_));
-    boost::posix_time::ptime time = microsec_clock::universal_time(); 
+    boost::posix_time::ptime time = microsec_clock::universal_time();
     boost::posix_time::time_duration rtt = time - senttime_;
     avg_rtt_ += rtt;
     std::string rtt_str;
     time_duration_to_string(rtt, rtt_str);
-    resp->set_rtt(rtt_str); 
+    resp->set_rtt(rtt_str);
     resp->set_resp("Success");
     resp->set_context(context_);
     resp->set_more(true);

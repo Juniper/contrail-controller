@@ -34,7 +34,7 @@ using namespace std;
 class XmppMockConnection;
 class XmppBgpMockPeer : public XmppSamplePeer {
 public:
-    XmppBgpMockPeer(XmppChannelMux *channel) : 
+    XmppBgpMockPeer(XmppChannelMux *channel) :
         XmppSamplePeer(channel) , count_(0) {
     }
 
@@ -69,7 +69,7 @@ public:
         return (byte_count == byte && msg_count == msg);
     }
 
-    bool VerifyPacketCount(XmppStanza::XmppMessageType type, 
+    bool VerifyPacketCount(XmppStanza::XmppMessageType type,
                            uint64_t packets) const {
         const XmppSession *session = this->session();
         if (!session) return false;
@@ -166,7 +166,7 @@ protected:
         TASK_UTIL_EXPECT_TRUE(
                 sconnection_->GetStateMcState() == xmsm::ESTABLISHED);
         TASK_UTIL_EXPECT_TRUE(
-                cconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
+                cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
         cconnection_->ResetStats();
         bgp_server_peer_ = new XmppBgpMockPeer(sconnection_->ChannelMux());
     }
@@ -179,7 +179,7 @@ protected:
         sconnection_ = NULL;
     }
 
-    void SendAndVerify(const char *msg, size_t sendlen, 
+    void SendAndVerify(const char *msg, size_t sendlen,
                        size_t receivelen, size_t no_of_msg) {
         bgp_server_peer_->SendUpdate((const uint8_t *)msg, sendlen);
         LOG(DEBUG, "Sent bytes: " << sendlen);
@@ -190,7 +190,7 @@ protected:
     }
 
     // Verify that we received n packets of given xmpp type
-    void VerifyPacketTypeStats(XmppStanza::XmppMessageType type, 
+    void VerifyPacketTypeStats(XmppStanza::XmppMessageType type,
                                uint64_t packets) {
         TASK_UTIL_EXPECT_TRUE(cconnection_->VerifyPacketCount(type, packets));
     }
@@ -330,7 +330,7 @@ TEST_F(XmppSessionTest, Garbage1) {
     SetupConnection();
 
     uint64_t ws_stats = PacketTypeStats(XmppStanza::WHITESPACE_MESSAGE_STANZA);
-    string iq_ok("<iq> blah blah </iq>"); 
+    string iq_ok("<iq> blah blah </iq>");
     string garb("   abc<i"); // 3 space and garbage
     string iq = iq_ok + garb;
     // Expect to receive 1 iq and 1 whitespace
@@ -364,9 +364,9 @@ TEST_F(XmppSessionTest, SendClose) {
     // In Established state ensure SendClose is not processed
     sconnection_->SendClose(sconnection_->session());
 
-    ASSERT_TRUE(sconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
-    ASSERT_TRUE(cconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
-    
+    ASSERT_TRUE(sconnection_->GetStateMcState() == xmsm::ESTABLISHED);
+    ASSERT_TRUE(cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
+
     TearDownConnection();
 }
 
@@ -383,8 +383,8 @@ TEST_F(XmppSessionTest, KeepAlive) {
     sleep(4);
 
     //ping-pong of KeepAlive shud keep session up.
-    ASSERT_TRUE(sconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
-    ASSERT_TRUE(cconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
+    ASSERT_TRUE(sconnection_->GetStateMcState() == xmsm::ESTABLISHED);
+    ASSERT_TRUE(cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
 
     sconnection_->StopKeepAliveTimer();
     cconnection_->StopKeepAliveTimer();
@@ -393,7 +393,7 @@ TEST_F(XmppSessionTest, KeepAlive) {
     sleep(4);
 
     //No keepalives, hence server side state-machine set to IDLE.
-    ASSERT_TRUE(sconnection_->GetStateMcState() == xmsm::IDLE); 
+    ASSERT_TRUE(sconnection_->GetStateMcState() == xmsm::IDLE);
 
     TearDownConnection();
 

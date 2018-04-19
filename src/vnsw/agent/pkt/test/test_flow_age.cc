@@ -24,14 +24,14 @@ TEST_F(FlowTest, FlowAge_1) {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
-            { 
+            {
                 new VerifyVn("vn5", "vn5"),
             }
         },
         {
             TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                     flow1->id(), 2),
-            { 
+            {
                 new VerifyVn("vn5", "vn5"),
             }
         }
@@ -45,7 +45,7 @@ TEST_F(FlowTest, FlowAge_1) {
     // Sleep for age-time
     usleep(tmp_age_time + 10);
 
-    //Trigger flow-aging and make sure they are not removed because 
+    //Trigger flow-aging and make sure they are not removed because
     //of difference in stats between oper flow and Kernel flow
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -111,7 +111,7 @@ TEST_F(FlowTest, FlowAge_3) {
     CreateFlow(flow, 4);
     EXPECT_EQ(8U, get_flow_proto()->FlowCount());
 
-    // Flow entries are created with #pkts = 1. 
+    // Flow entries are created with #pkts = 1.
     // Do first sleep for aging to work correctly below
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -194,7 +194,7 @@ TEST_F(FlowTest, Flow_introspect_delete_all) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = 
+    client =
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10), (3 * 60 * 1000));
     if (vm.count("config")) {
         eth_itf = Agent::GetInstance()->fabric_interface_name();

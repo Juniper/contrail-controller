@@ -16,7 +16,7 @@
 QosIndexResourceKey::QosIndexResourceKey(ResourceManager *rm,
         const boost::uuids::uuid &uuid):IndexResourceKey(rm,
         Resource::QOS_INDEX), uuid_(uuid) {
-    
+
 }
 
 void QosIndexResourceKey::Backup(ResourceData *data, uint16_t op){

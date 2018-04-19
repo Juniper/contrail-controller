@@ -20,10 +20,10 @@
 
 #include "xml/xml_pugi.h"
 
-#include "controller/controller_peer.h" 
-#include "controller/controller_export.h" 
-#include "controller/controller_vrf_export.h" 
-#include "controller/controller_types.h" 
+#include "controller/controller_peer.h"
+#include "controller/controller_export.h"
+#include "controller/controller_vrf_export.h"
+#include "controller/controller_types.h"
 #include "controller/controller_route_path.h"
 
 using namespace pugi;
@@ -83,7 +83,7 @@ public:
 
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         rx_count_++;
-    }    
+    }
 
     void HandleXmppChannelEvent(XmppChannel *channel,
                                 xmps::PeerState state) {
@@ -107,7 +107,7 @@ public:
     }
 
     bool SendUpdate(uint8_t *msg, size_t size) {
-        if (channel_ && 
+        if (channel_ &&
             (channel_->GetPeerState() == xmps::READY)) {
             return channel_->Send(msg, size, xmps::BGP,
                    boost::bind(&ControlNodeMockBgpXmppPeer::WriteReadyCb, this, _1));
@@ -127,13 +127,13 @@ private:
 };
 
 
-class AgentXmppUnitTest : public ::testing::Test { 
+class AgentXmppUnitTest : public ::testing::Test {
 protected:
     AgentXmppUnitTest() : thread_(&evm_), agent_(Agent::GetInstance()) {}
- 
+
     virtual void SetUp() {
         //TestInit initilaizes the controller and xmpp, so disconnect that
-        //and again spawn a new one. Its required since the receive path 
+        //and again spawn a new one. Its required since the receive path
         //is overridden by mock class.
         //TODO later use the agent initializer
         Agent::GetInstance()->controller()->Cleanup();
@@ -147,14 +147,14 @@ protected:
         xmpp_init = new XmppInit();
 
         xs->Initialize(0, false);
-        
+
         thread_.Start();
         client->WaitForIdle();
     }
 
     virtual void TearDown() {
         xs->Shutdown();
-        bgp_peer.reset(); 
+        bgp_peer.reset();
         client->WaitForIdle();
         Agent::GetInstance()->reset_controller_xmpp_channel(0);
         agent_->set_controller_ifmap_xmpp_client(NULL, 0);
@@ -209,7 +209,7 @@ protected:
             cout << "State:" << list[i].state << endl;
         }
         cout << "*******************************************************"<<endl;
-#endif       
+#endif
     }
 
     void SendDocument(const pugi::xml_document &xdoc, ControlNodeMockBgpXmppPeer *peer) {
@@ -225,7 +225,7 @@ protected:
     xml_node MessageHeader(xml_document *xdoc, std::string vrf) {
         xml_node msg = xdoc->append_child("message");
         msg.append_attribute("type") = "set";
-        msg.append_attribute("from") = XmppInit::kAgentNodeJID; 
+        msg.append_attribute("from") = XmppInit::kAgentNodeJID;
         string str(XmppInit::kControlNodeJID);
         str += "/";
         str += XmppInit::kBgpPeer;
@@ -243,7 +243,7 @@ protected:
     xml_node L2MessageHeader(xml_document *xdoc, std::string vrf) {
         xml_node msg = xdoc->append_child("message");
         msg.append_attribute("type") = "set";
-        msg.append_attribute("from") = XmppInit::kAgentNodeJID; 
+        msg.append_attribute("from") = XmppInit::kAgentNodeJID;
         string str(XmppInit::kControlNodeJID);
         str += "/";
         str += XmppInit::kBgpPeer;
@@ -260,7 +260,7 @@ protected:
     }
 
     void SendRouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
-                          std::string address, int label, 
+                          std::string address, int label,
                           const char *vn = "vn1") {
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf);
@@ -269,7 +269,7 @@ protected:
         item_nexthop.af = BgpAf::IPv4;
         item_nexthop.address = Agent::GetInstance()->router_id().to_string();;
         item_nexthop.label = label;
-        
+
         autogen::ItemType item;
         item.entry.next_hops.next_hop.push_back(item_nexthop);
         item.entry.nlri.af = BgpAf::IPv4;
@@ -286,7 +286,7 @@ protected:
     }
 
     void SendRouteMessageSg(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
-                          std::string address, int label, 
+                          std::string address, int label,
                           const char *vn = "vn1") {
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf);
@@ -295,7 +295,7 @@ protected:
         item_nexthop.af = BgpAf::IPv4;
         item_nexthop.address = Agent::GetInstance()->router_id().to_string();;
         item_nexthop.label = label;
-        
+
         autogen::ItemType item;
         item.entry.nlri.af = BgpAf::IPv4;
         item.entry.nlri.safi = BgpAf::Unicast;
@@ -314,7 +314,7 @@ protected:
     }
 
     void SendL2RouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
-                          std::string mac_string, std::string address, int label, 
+                          std::string mac_string, std::string address, int label,
                           int ethernet_tag, const char *vn = "vn1",
                           bool is_vxlan = false, const char *peer_ip = NULL) {
         xml_document xdoc;
@@ -322,7 +322,7 @@ protected:
 
         autogen::EnetNextHopType item_nexthop;
         item_nexthop.af = 1;
-        if (peer_ip == NULL) 
+        if (peer_ip == NULL)
             item_nexthop.address = Agent::GetInstance()->router_id().to_string();
         else
             item_nexthop.address = peer_ip;
@@ -333,7 +333,7 @@ protected:
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
         }
-        
+
         autogen::EnetItemType item;
         item.entry.nlri.af = 25;
         item.entry.nlri.safi = 242;
@@ -345,7 +345,7 @@ protected:
 
         xml_node node = xitems.append_child("item");
         stringstream ss;
-        ss << mac_string.c_str() << "," << address.c_str(); 
+        ss << mac_string.c_str() << "," << address.c_str();
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
         item.Encode(&node);
@@ -355,12 +355,12 @@ protected:
         WAIT_FOR(1000, 100, (bgp_peer.get()->Count() > count));
         client->WaitForIdle();
     }
-    
+
     void SendL2RouteMessage(ControlNodeMockBgpXmppPeer *peer,
                             const string &vrf, const string &mac_string,
                             const string &address, int ethernet_tag) {
         stringstream ss;
-        ss << mac_string.c_str() << "," << address.c_str(); 
+        ss << mac_string.c_str() << "," << address.c_str();
         SendRouteDeleteMessage(peer, vrf, ss.str().c_str());
     }
 
@@ -388,7 +388,7 @@ protected:
         xml_node xitems = L2MessageHeader(&xdoc, vrf);
         xml_node node = xitems.append_child("retract");
         stringstream ss;
-        ss << mac_string.c_str() << "," << address.c_str(); 
+        ss << mac_string.c_str() << "," << address.c_str();
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
 
@@ -400,29 +400,29 @@ protected:
         Agent::GetInstance()->controller()->increment_multicast_sequence_number();
         Agent::GetInstance()->set_cn_mcast_builder(NULL);
 
-        //Create control-node bgp mock peer 
+        //Create control-node bgp mock peer
         mock_peer.reset(new ControlNodeMockBgpXmppPeer());
-	xs->RegisterConnectionEvent(xmps::BGP,
-	    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent, 
+    xs->RegisterConnectionEvent(xmps::BGP,
+        boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent,
                         mock_peer.get(), _1, _2));
 
         LOG(DEBUG, "Create xmpp agent client");
-	xmppc_cfg = new XmppConfigData;
-	xmppc_cfg->AddXmppChannelConfig(CreateXmppChannelCfg("127.0.0.1", 
-					xs->GetPort(),
-					XmppInit::kAgentNodeJID, 
-					XmppInit::kControlNodeJID, true));
-	xc->ConfigUpdate(xmppc_cfg);
+    xmppc_cfg = new XmppConfigData;
+    xmppc_cfg->AddXmppChannelConfig(CreateXmppChannelCfg("127.0.0.1",
+                    xs->GetPort(),
+                    XmppInit::kAgentNodeJID,
+                    XmppInit::kControlNodeJID, true));
+    xc->ConfigUpdate(xmppc_cfg);
 
-	// client connection
-	cchannel = xc->FindChannel(XmppInit::kControlNodeJID);
-	//Create agent bgp peer
+    // client connection
+    cchannel = xc->FindChannel(XmppInit::kControlNodeJID);
+    //Create agent bgp peer
     bgp_peer.reset(new AgentBgpXmppPeerTest(
                    Agent::GetInstance()->controller_ifmap_xmpp_server(0), 0));
     bgp_peer.get()->RegisterXmppChannel(cchannel);
-	xc->RegisterConnectionEvent(xmps::BGP,
-	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
-			bgp_peer.get(), _2));
+    xc->RegisterConnectionEvent(xmps::BGP,
+        boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent,
+            bgp_peer.get(), _2));
     agent_->set_controller_xmpp_channel(bgp_peer.get(), 0);
     agent_->set_controller_ifmap_xmpp_client(xc, 0);
     agent_->set_controller_ifmap_xmpp_init(xmpp_init, 0);
@@ -466,7 +466,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     AgentXmppConnectionStatusReq  *xmpp_req = new AgentXmppConnectionStatusReq();
     std::vector<std::string> result_beg;
     result_beg.push_back("127.0.0.1");
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result_beg)); 
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result_beg));
     xmpp_req->HandleRequest();
     client->WaitForIdle();
     xmpp_req->Release();
@@ -482,7 +482,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     result.push_back("127.0.0.1");
     result.push_back("Yes");
     result.push_back("Established");
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result)); 
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     xmpp_req->HandleRequest();
     client->WaitForIdle();
     xmpp_req->Release();
@@ -955,7 +955,7 @@ TEST_F(AgentXmppUnitTest, CfgServerSelection) {
     result.push_back("127.0.0.1");
     result.push_back("Yes");
     result.push_back("Established");
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result)); 
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     xmpp_req->HandleRequest();
     client->WaitForIdle();
     xmpp_req->Release();
@@ -974,7 +974,7 @@ TEST_F(AgentXmppUnitTest, CfgServerSelection) {
     result2.push_back("127.0.0.1");
     result2.push_back("No");
     result2.push_back("Established");
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result2)); 
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result2));
     xmpp_req->HandleRequest();
     client->WaitForIdle();
     xmpp_req->Release();
@@ -999,7 +999,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     result.push_back("127.0.0.1");
     result.push_back("Yes");
     result.push_back("Established");
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result)); 
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     xmpp_req->HandleRequest();
     client->WaitForIdle();
     xmpp_req->Release();
@@ -1009,7 +1009,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
-    // Create vm-port in vn1 
+    // Create vm-port in vn1
     struct PortInfo input[] = {
         {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
     };
@@ -1070,7 +1070,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     result2.push_back("127.0.0.1");
     result2.push_back("No");
     result2.push_back("Established");
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result2)); 
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result2));
     xmpp_req->HandleRequest();
     client->WaitForIdle();
     xmpp_req->Release();

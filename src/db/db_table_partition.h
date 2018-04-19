@@ -18,9 +18,9 @@ class DBTable;
 class DBTablePartBase {
 public:
     static const int kMaxIterations = 256;
-    typedef boost::intrusive::member_hook<DBEntryBase, 
-            boost::intrusive::list_member_hook<>, 
-            &DBEntryBase::chg_list_> ChangeListMember; 
+    typedef boost::intrusive::member_hook<DBEntryBase,
+            boost::intrusive::list_member_hook<>,
+            &DBEntryBase::chg_list_> ChangeListMember;
 
     typedef boost::intrusive::list<DBEntryBase, ChangeListMember> ChangeList;
 
@@ -69,7 +69,7 @@ public:
         boost::intrusive::set_member_hook<>,
         &DBEntry::node_> SetMember;
     typedef boost::intrusive::set<DBEntry, SetMember> Tree;
-    
+
     DBTablePartition(DBTable *parent, int index);
 
     ///////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ public:
     virtual DBEntry *GetNext(const DBEntryBase *entry);
 
     virtual DBEntry *GetFirst();
-    
+
     ///////////////////////////////////////////////////////////
     // Methods used in implementing DBTablePartition
     ///////////////////////////////////////////////////////////
@@ -94,7 +94,7 @@ public:
     // Generate Change notification for an entry
     virtual void Change(DBEntry *entry);
 
-    // Remove an entry from DB Table. Entry will not be accessible from 
+    // Remove an entry from DB Table. Entry will not be accessible from
     // DB anymore
     virtual void Remove(DBEntryBase *entry);
 

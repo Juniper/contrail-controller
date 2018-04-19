@@ -269,7 +269,7 @@ void KSyncObject::Free(KSyncEntry *entry) {
     delete entry;
 }
 
-void KSyncObject::SafeNotifyEvent(KSyncEntry *entry, 
+void KSyncObject::SafeNotifyEvent(KSyncEntry *entry,
                                   KSyncEntry::KSyncEvent event) {
     tbb::recursive_mutex::scoped_lock lock(lock_);
     NotifyEvent(entry, event);
@@ -702,13 +702,13 @@ void intrusive_ptr_release(KSyncEntry *p) {
 // ADD_DEFER    : Object deferred since it has some unmet constraints.
 //                Ex: Obj-A refers to Obj-B. Obj-B is not yet added to kernel.
 //                    Obj-A will get to ADD_DEFER state
-//                    Obj-A goes into BackRefTree for Obj-B. 
+//                    Obj-A goes into BackRefTree for Obj-B.
 //                    Creation of Obj-B will take Obj-A out of this state
-// CHANGE_DEFER : Object already added to kernel, subsequent change deferred 
+// CHANGE_DEFER : Object already added to kernel, subsequent change deferred
 //                since it has some unmet constraints.
 //                Ex: Obj-A refers to Obj-B. Obj-B is not yet added to kernel.
 //                    Obj-A will get to ADD_DEFER state
-//                    Obj-A goes into BackRefTree for Obj-B. 
+//                    Obj-A goes into BackRefTree for Obj-B.
 //                    Add of Obj-B will take Obj-A out of this state
 // IN_SYNC      : Object in-sync with kernel
 // SYNC_WAIT    : Add or Change sent to kernel. Waiting for ACK from Kernel
@@ -724,9 +724,9 @@ void intrusive_ptr_release(KSyncEntry *p) {
 //                Can get renewed if there is request to ADD in this case
 // RENEW_WAIT   : Object being renewed. Waiting for ACK of delete to renew the
 //                object
-// FREE_WAIT    : Object marked to be freed at the end of this function call. 
+// FREE_WAIT    : Object marked to be freed at the end of this function call.
 //                Can only be a temporary state
-// 
+//
 // Brief description of Events:
 // ADD_CHANGE_REQ   : Request to Add or Change an entry
 // ADD_ACK,         : Ack from kernel for ADD request
@@ -734,7 +734,7 @@ void intrusive_ptr_release(KSyncEntry *p) {
 // DEL_REQ          : Request to DEL an entry
 // DEL_ADD_REQ      : Request to DEL an entry followed by ADD for the same
 // DEL_ACK          : Ack from kernel for DEL request
-// RE_EVAL          : Event to re-evaluate dependencies. 
+// RE_EVAL          : Event to re-evaluate dependencies.
 //                    Ex: If Obj-A is added into Obj-B back-ref tree
 //                        When Obj-B is created, RE_EVAL is sent to Obj-A
 ///////////////////////////////////////////////////////////////////////////////
@@ -776,9 +776,9 @@ KSyncEntry::KSyncState KSyncSM_Change(KSyncObject *obj, KSyncEntry *entry) {
 
 // Utility function to handle Delete of KSyncEntry.
 // If there are more references to the object, then move it to DEL_DEFER
-// state. Object will be deleted when all references drop. If object is 
+// state. Object will be deleted when all references drop. If object is
 // still not seen by Kernel yet we don't have to delete it.
-// 
+//
 // If operation is complete, move state to IN_SYNC. Else move to SYNC_WAIT
 KSyncEntry::KSyncState KSyncSM_Delete(KSyncEntry *entry) {
     if (entry->GetRefCount() > 1) {
@@ -799,7 +799,7 @@ KSyncEntry::KSyncState KSyncSM_Delete(KSyncEntry *entry) {
 // Utility function to handle Delete followed by ADD of KSyncEntry.
 // delete is triggered irrespective of the references to the object
 // followed by ADD of the object
-// 
+//
 // If operation is complete, move state to IN_SYNC. Else move to SYNC_WAIT
 KSyncEntry::KSyncState KSyncSM_DeleteAdd(KSyncObject *obj, KSyncEntry *entry) {
     // DeleteAdd operation is not supported/defined for stale entries
@@ -821,12 +821,12 @@ KSyncEntry::KSyncState KSyncSM_DeleteAdd(KSyncObject *obj, KSyncEntry *entry) {
 
 //
 //
-// ADD_CHANGE_REQ : 
+// ADD_CHANGE_REQ :
 //      If entry has unresolved references, move it to ADD_DEFER
 //      Else, send ADD message and move to SYNC_WAIT state
 //
 // No other events are expected in this state
-KSyncEntry::KSyncState KSyncSM_Init(KSyncObject *obj, KSyncEntry *entry, 
+KSyncEntry::KSyncState KSyncSM_Init(KSyncObject *obj, KSyncEntry *entry,
                                     KSyncEntry::KSyncEvent event) {
     KSyncEntry::KSyncState state = KSyncEntry::INIT;
 
@@ -844,7 +844,7 @@ KSyncEntry::KSyncState KSyncSM_Init(KSyncObject *obj, KSyncEntry *entry,
     return state;
 }
 
-// ADD_CHANGE_REQ : 
+// ADD_CHANGE_REQ :
 //      ADD_CHANGE_REQ event for an entry in TEMP state.
 //      If entry has unresolved references, move it to ADD_DEFER
 //      Else, send ADD message and move to SYNC_WAIT state
@@ -852,7 +852,7 @@ KSyncEntry::KSyncState KSyncSM_Init(KSyncObject *obj, KSyncEntry *entry,
 // DEL_REQ :
 //      DEL_REQ event for an entry in TEMP state. Can happen only when reference
 //      for the TEMP entry is dropped
-//      
+//
 //      Explicit DEL_REQ event is not expected. This is enforced by checking
 //      ref-count
 //
@@ -886,9 +886,9 @@ KSyncEntry::KSyncState KSyncSM_Temp(KSyncObject *obj, KSyncEntry *entry,
     return state;
 }
 
-// ADD_CHANGE_REQ : 
+// ADD_CHANGE_REQ :
 //  ADD_CHANGE_REQ event for an entry in ADD_DEFER state.
-//  Remove the old dependency constraint. 
+//  Remove the old dependency constraint.
 //  Re-evaluate to see if there are any further unmet dependencies
 //
 // RE_EVAL:
@@ -943,11 +943,11 @@ KSyncEntry::KSyncState KSyncSM_AddDefer(KSyncObject *obj, KSyncEntry *entry,
     return state;
 }
 
-// ADD_CHANGE_REQ : 
+// ADD_CHANGE_REQ :
 //  ADD_CHANGE_REQ event for an entry in CHANGE_DEFER state.
-//  Remove the old dependency constraint. 
+//  Remove the old dependency constraint.
 //  Re-evaluate to see if there are any further unmet dependencies
-// 
+//
 // RE_EVAL:
 //  Triggred from back-ref tree when KSyncEntry waited on is added to Kernel
 //  Entry would already be removed from backref tree
@@ -992,7 +992,7 @@ KSyncEntry::KSyncState KSyncSM_ChangeDefer(KSyncObject *obj, KSyncEntry *entry,
 
 // Object state IN-SYNC with kernel
 //
-// ADD_CHANGE_REQ : 
+// ADD_CHANGE_REQ :
 // Invoke Change on the object
 //
 // DEL_REQ :
@@ -1494,7 +1494,7 @@ void KSyncObject::BackRefReEval(KSyncEntry *key) {
     std::vector<KSyncEntry *> buf;
     KSyncBackReference node(key, NULL);
 
-    for (BackRefTree::iterator it = back_ref_tree_.upper_bound(node); 
+    for (BackRefTree::iterator it = back_ref_tree_.upper_bound(node);
          it != back_ref_tree_.end(); ) {
         BackRefTree::iterator it_work = it++;
 
@@ -1580,7 +1580,7 @@ void KSyncObjectManager::Enqueue(KSyncObjectEvent *event) {
 }
 
 void KSyncObjectManager::Unregister(KSyncObject *table) {
-    KSyncObjectEvent *event = new KSyncObjectEvent(table, 
+    KSyncObjectEvent *event = new KSyncObjectEvent(table,
                                       KSyncObjectEvent::UNREGISTER);
     singleton_->Enqueue(event);
 }

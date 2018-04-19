@@ -210,7 +210,7 @@ TEST_F(EcmpTest, EcmpTest_2) {
 //Send packet from MX3 to VM
 //Verify that index are set fine
 TEST_F(EcmpTest, EcmpTest_3) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
 
     TxIpMplsPacket(eth_intf_id, MX_3, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
@@ -241,7 +241,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
 //Send one more flow setup message from MX2 to VM
 //verify that component index gets update
 TEST_F(EcmpTest, EcmpTest_4) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
 
     TxIpMplsPacket(eth_intf_id, MX_0, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
@@ -267,7 +267,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
 
     TxIpMplsPacket(eth_intf_id, MX_2, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
-    client->WaitForIdle(); 
+    client->WaitForIdle();
 
     EXPECT_EQ(2, flow_proto_->FlowCount());
     EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());

@@ -8,10 +8,10 @@
 class FlowKState : public Task {
  public:
     FlowKState(Agent *agent, const std::string &resp_ctx, int idx);
-    FlowKState(Agent *agent, const std::string &resp_ctx, 
+    FlowKState(Agent *agent, const std::string &resp_ctx,
                const std::string &iter_idx);
     virtual void SendResponse(KFlowResp *resp) const;
-    
+
     virtual bool Run();
     std::string Description() const { return "FlowKState"; }
     void SetFlowData(std::vector<KFlowInfo> &list, const vr_flow_entry *k_flow,

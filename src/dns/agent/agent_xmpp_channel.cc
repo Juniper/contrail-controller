@@ -20,8 +20,8 @@
 #include "sandesh/sandesh_trace.h"
 #include "cmn/dns_types.h"
 
-DnsAgentXmppChannel:: DnsAgentXmppChannel(XmppChannel *channel, 
-                                          DnsAgentXmppChannelManager *mgr) 
+DnsAgentXmppChannel:: DnsAgentXmppChannel(XmppChannel *channel,
+                                          DnsAgentXmppChannelManager *mgr)
                                         : channel_(channel), mgr_(mgr) {
     channel_->RegisterReceive(xmps::DNS,
                      boost::bind(&DnsAgentXmppChannel::ReceiveReq, this, _1));
@@ -67,7 +67,7 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
     DataSet::iterator it = update_data_.find(data);
     if (it != update_data_.end()) {
         DnsUpdateData *xmpp_data = *it;
-        for (DnsItems::iterator iter = data->items.begin(); 
+        for (DnsItems::iterator iter = data->items.begin();
              iter != data->items.end();) {
             bool change;
             BindUtil::Operation op = BindUtil::ADD_UPDATE;
@@ -98,7 +98,7 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
             delete xmpp_data;
         }
     } else {
-        for (DnsItems::iterator iter = data->items.begin(); 
+        for (DnsItems::iterator iter = data->items.begin();
              iter != data->items.end();) {
             if ((*iter).IsDelete())
                 data->items.erase(iter++);
@@ -118,7 +118,7 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
 }
 
 void DnsAgentXmppChannel::UpdateDnsRecords(BindUtil::Operation op) {
-    for (DataSet::iterator it = update_data_.begin(); 
+    for (DataSet::iterator it = update_data_.begin();
          it != update_data_.end(); ++it) {
         for (DnsItems::const_iterator item = (*it)->items.begin();
              item != (*it)->items.end(); ++item) {
@@ -141,13 +141,13 @@ std::string DnsAgentXmppChannel::GetDnsRecordName(std::string &vdns_name,
 void DnsAgentXmppChannel::GetAgentDnsData(AgentDnsData &data) {
     data.set_agent(channel_->connection()->endpoint().address().to_string());
     std::vector<AgentDnsDataItem> items;
-    for (DataSet::iterator it = update_data_.begin(); 
+    for (DataSet::iterator it = update_data_.begin();
          it != update_data_.end(); ++it) {
         AgentDnsDataItem item;
         item.set_virtual_dns((*it)->virtual_dns);
         item.set_zone((*it)->zone);
         std::vector<VirtualDnsRecordTraceData> records;
-        for (DnsItems::iterator iter = (*it)->items.begin(); 
+        for (DnsItems::iterator iter = (*it)->items.begin();
              iter != (*it)->items.end(); ++iter) {
             VirtualDnsRecordTraceData record;
             record.rec_name = (*iter).name;
@@ -211,7 +211,7 @@ DnsAgentXmppChannelManager::DnsAgentXmppChannelManager::FindChannel(
     return it->second;
 }
 
-void 
+void
 DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
                                                    xmps::PeerState state) {
     tbb::mutex::scoped_lock lock(mutex_);
@@ -219,7 +219,7 @@ DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
 
     if (state == xmps::READY) {
         if (it == channel_map_.end()) {
-            DnsAgentXmppChannel *agent_xmpp_channel = 
+            DnsAgentXmppChannel *agent_xmpp_channel =
                             new DnsAgentXmppChannel(channel, this);
             channel_map_.insert(std::make_pair(channel, agent_xmpp_channel));
             ConfigClientManager *config_manager =
@@ -236,7 +236,7 @@ DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
             agent_xmpp_channel->Close();
             delete agent_xmpp_channel;
         } else {
-            DNS_XMPP_TRACE(DnsXmppTrace, 
+            DNS_XMPP_TRACE(DnsXmppTrace,
                            "Peer not found on channel not ready event");
         }
     }
@@ -255,7 +255,7 @@ uint8_t DnsAgentXmppChannelManager::ChannelToDscp(const XmppChannel *xc) const {
 
 void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
     tbb::mutex::scoped_lock lock(mutex_);
-    for (ChannelMap::iterator iter = channel_map_.begin(); 
+    for (ChannelMap::iterator iter = channel_map_.begin();
          iter != channel_map_.end(); ++iter) {
         const XmppChannel *channel = iter->first;
         AgentData agent_data;
@@ -275,7 +275,7 @@ void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
 
 void DnsAgentXmppChannelManager::GetAgentDnsData(std::vector<AgentDnsData> &dt) {
     tbb::mutex::scoped_lock lock(mutex_);
-    for (ChannelMap::iterator iter = channel_map_.begin(); 
+    for (ChannelMap::iterator iter = channel_map_.begin();
          iter != channel_map_.end(); ++iter) {
         DnsAgentXmppChannel *ch = iter->second;
         AgentDnsData data;

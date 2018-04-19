@@ -28,10 +28,10 @@
 #define EMBEDDED_STRUCT_TO_STRUCT(procname, outerstruct, innerstruct, field) \
     static inline outerstruct * procname (innerstruct *ptr) \
     { \
-	if (ptr)\
-	    return ((outerstruct *) (((uint8_t *) ptr) - \
-				     offsetof(outerstruct, field))); \
-	 return NULL; \
+    if (ptr)\
+        return ((outerstruct *) (((uint8_t *) ptr) - \
+                     offsetof(outerstruct, field))); \
+     return NULL; \
     }
 
 /*
@@ -40,18 +40,18 @@
  * protocol version numbers that correspond to the same functionality.
  */
 typedef enum {
-    GMP_VERSION_INVALID = 0,		/* Invalid version */
-    GMP_VERSION_BASIC,			/* Joins only */
-    GMP_VERSION_LEAVES,			/* Joins and leaves */
-    GMP_VERSION_SOURCES			/* Source information */
+    GMP_VERSION_INVALID = 0,        /* Invalid version */
+    GMP_VERSION_BASIC,            /* Joins only */
+    GMP_VERSION_LEAVES,            /* Joins and leaves */
+    GMP_VERSION_SOURCES            /* Source information */
 } gmp_version;
 
-#define GMP_VERSION_DEFAULT GMP_VERSION_SOURCES	/* Default version */
-#define GMP_ROBUSTNESS_DEFAULT 2	/* Retransmission count */
-#define GMP_UNSOL_RPT_IVL_DEFAULT 1000	/* Unsolicited report delay (msec) */
+#define GMP_VERSION_DEFAULT GMP_VERSION_SOURCES    /* Default version */
+#define GMP_ROBUSTNESS_DEFAULT 2    /* Retransmission count */
+#define GMP_UNSOL_RPT_IVL_DEFAULT 1000    /* Unsolicited report delay (msec) */
 
 #ifndef MSECS_PER_SEC
-#define MSECS_PER_SEC 1000		/* Milliseconds per second */
+#define MSECS_PER_SEC 1000        /* Milliseconds per second */
 #endif
 
 
@@ -92,25 +92,25 @@ typedef void
  */
 typedef struct gmp_addr_catalog_
 {
-    gmpx_patroot *adcat_addr_root;	/* Root of address tree */
-    gmpx_patroot *adcat_ord_root;	/* Root of ordinal tree */
-    ordinal_handle adcat_ord_handle;	/* Ordinal space handle */
-    uint32_t adcat_addrlen;		/* Address length */
+    gmpx_patroot *adcat_addr_root;    /* Root of address tree */
+    gmpx_patroot *adcat_ord_root;    /* Root of ordinal tree */
+    ordinal_handle adcat_ord_handle;    /* Ordinal space handle */
+    uint32_t adcat_addrlen;        /* Address length */
 } gmp_addr_catalog;
 
 typedef struct gmp_addr_cat_entry_
 {
-    gmpx_patnode adcat_ent_addr_node;	/* Address tree node */
-    gmpx_patnode adcat_ent_ord_node;	/* Ordinal tree node */
-    gmp_addr_string adcat_ent_addr;	/* The address itself */
-    ordinal_t adcat_ent_ord;		/* Address ordinal */
-    int32_t adcat_ent_refcount;		/* Reference count */
+    gmpx_patnode adcat_ent_addr_node;    /* Address tree node */
+    gmpx_patnode adcat_ent_ord_node;    /* Ordinal tree node */
+    gmp_addr_string adcat_ent_addr;    /* The address itself */
+    ordinal_t adcat_ent_ord;        /* Address ordinal */
+    int32_t adcat_ent_refcount;        /* Reference count */
 } gmp_addr_cat_entry;
 
 GMPX_PATNODE_TO_STRUCT(gmp_addr_patnode_to_addr_cat_entry, gmp_addr_cat_entry,
-		       adcat_ent_addr_node);
+               adcat_ent_addr_node);
 GMPX_PATNODE_TO_STRUCT(gmp_ord_patnode_to_addr_cat_entry, gmp_addr_cat_entry,
-		       adcat_ent_ord_node);
+               adcat_ent_ord_node);
 
 
 /*
@@ -130,8 +130,8 @@ GMPX_PATNODE_TO_STRUCT(gmp_ord_patnode_to_addr_cat_entry, gmp_addr_cat_entry,
  */
 typedef struct gmp_addr_vect_
 {
-    bit_vector av_vector;		/* Bit vector of addresses */
-    gmp_addr_catalog *av_catalog;	/* Address catalog */
+    bit_vector av_vector;        /* Bit vector of addresses */
+    gmp_addr_catalog *av_catalog;    /* Address catalog */
 } gmp_addr_vect;
 
 
@@ -145,7 +145,7 @@ static inline bit_vector *
 gmp_addr_vector (gmp_addr_vect *addr_vect)
 {
     if (addr_vect)
-	return &addr_vect->av_vector;
+    return &addr_vect->av_vector;
     return NULL;
 }
 
@@ -191,32 +191,32 @@ gmp_addr_vector (gmp_addr_vect *addr_vect)
 
 typedef struct gmp_addr_list_ {
     gmp_addr_list_alloc_func addr_alloc; /* Allocation routine */
-    gmp_addr_list_free_func addr_free;	/* Free function */
-    void *addr_context;			/* Context for alloc/free */
-    gmp_addr_vect addr_vect;		/* Address vector */
-    gmpx_patroot *addr_list_root;	/* Root of patricia tree */
-    thread addr_list_head;		/* Head of address thread */
-    int addr_count;			/* Number of addresses in list */
-    thread addr_list_xmit_head;		/* Head of transmit list */
-    int xmit_addr_count;		/* Number of addresses in xmit list */
+    gmp_addr_list_free_func addr_free;    /* Free function */
+    void *addr_context;            /* Context for alloc/free */
+    gmp_addr_vect addr_vect;        /* Address vector */
+    gmpx_patroot *addr_list_root;    /* Root of patricia tree */
+    thread addr_list_head;        /* Head of address thread */
+    int addr_count;            /* Number of addresses in list */
+    thread addr_list_xmit_head;        /* Head of transmit list */
+    int xmit_addr_count;        /* Number of addresses in xmit list */
 } gmp_addr_list;
 
 /* Address list entry */
 
 typedef struct gmp_addr_list_entry_ {
-    gmp_addr_list *addr_ent_list;	/* Pointer to owning address list */
-    gmpx_patnode addr_ent_patnode;	/* Patricia tree node */
-    thread addr_ent_thread;		/* Entry on list thread */
-    thread addr_ent_xmit_thread;	/* Entry on transmit thread */
-    ordinal_t addr_ent_ord;		/* Address ordinal */
+    gmp_addr_list *addr_ent_list;    /* Pointer to owning address list */
+    gmpx_patnode addr_ent_patnode;    /* Patricia tree node */
+    thread addr_ent_thread;        /* Entry on list thread */
+    thread addr_ent_xmit_thread;    /* Entry on transmit thread */
+    ordinal_t addr_ent_ord;        /* Address ordinal */
 } gmp_addr_list_entry;
 
 GMPX_PATNODE_TO_STRUCT(gmp_patnode_to_addr_list_entry, gmp_addr_list_entry,
-		       addr_ent_patnode);
+               addr_ent_patnode);
 THREAD_TO_STRUCT(gmp_thread_to_addr_list_entry, gmp_addr_list_entry,
-		 addr_ent_thread);
+         addr_ent_thread);
 THREAD_TO_STRUCT(gmp_xmit_thread_to_addr_list_entry, gmp_addr_list_entry,
-		 addr_ent_xmit_thread);
+         addr_ent_xmit_thread);
 
 
 /*
@@ -245,14 +245,14 @@ THREAD_TO_STRUCT(gmp_xmit_thread_to_addr_list_entry, gmp_addr_list_entry,
  * as the associated address catalog necessarily belongs to the client.
  */
 typedef struct gmp_query_packet_ {
-    uint32_t gmp_query_max_resp;	/* Max resp value, in msec */
-    gmp_addr_string gmp_query_group;	/* Group address */
-    void *gmp_query_group_id;		/* Opaque group ID */
-    boolean gmp_query_group_query;	/* TRUE if a group query */
-    boolean gmp_query_suppress;		/* Suppress router-side processing */
-    uint32_t gmp_query_qrv;		/* Querier's robustness variable */
-    uint32_t gmp_query_qqi;		/* Querier's query interval (msec) */
-    gmp_addr_list *gmp_query_xmit_srcs;	/* List of sources (xmit) */
+    uint32_t gmp_query_max_resp;    /* Max resp value, in msec */
+    gmp_addr_string gmp_query_group;    /* Group address */
+    void *gmp_query_group_id;        /* Opaque group ID */
+    boolean gmp_query_group_query;    /* TRUE if a group query */
+    boolean gmp_query_suppress;        /* Suppress router-side processing */
+    uint32_t gmp_query_qrv;        /* Querier's robustness variable */
+    uint32_t gmp_query_qqi;        /* Querier's query interval (msec) */
+    gmp_addr_list *gmp_query_xmit_srcs;    /* List of sources (xmit) */
     gmp_addr_thread *gmp_query_rcv_srcs; /* Sources (receive) */
 } gmp_query_packet;
 
@@ -265,8 +265,8 @@ typedef struct gmp_query_packet_ {
  * Each group record includes an address list of sources (if any.)
  */
 typedef struct gmp_report_packet_ {
-    thread gmp_report_group_head;	/* Head of thread of group records */
-    uint32_t gmp_report_group_count;	/* Number of group records */
+    thread gmp_report_group_head;    /* Head of thread of group records */
+    uint32_t gmp_report_group_count;    /* Number of group records */
 } gmp_report_packet;
 
 
@@ -277,15 +277,15 @@ typedef struct gmp_report_packet_ {
  * use those protocol values as our internal form as well.
  */
 typedef enum {
-    GMP_RPT_INVALID = 0,		/* Invalid type */
-    GMP_RPT_IS_IN = 1,			/* MODE_IS_INCLUDE */
-    GMP_RPT_IS_EX = 2,			/* MODE_IS_EXCLUDE */
-    GMP_RPT_TO_IN = 3,			/* CHANGE_TO_INCLUDE_MODE */
-    GMP_RPT_TO_EX = 4,			/* CHANGE_TO_EXCLUDE_MODE */
-    GMP_RPT_ALLOW = 5,			/* ALLOW_NEW_SOURCES */
-    GMP_RPT_BLOCK = 6,			/* BLOCK_OLD_SOURCES */
-    GMP_RPT_MIN = GMP_RPT_IS_IN,	/* Minimum value */
-    GMP_RPT_MAX = GMP_RPT_BLOCK,	/* Maximum value */
+    GMP_RPT_INVALID = 0,        /* Invalid type */
+    GMP_RPT_IS_IN = 1,            /* MODE_IS_INCLUDE */
+    GMP_RPT_IS_EX = 2,            /* MODE_IS_EXCLUDE */
+    GMP_RPT_TO_IN = 3,            /* CHANGE_TO_INCLUDE_MODE */
+    GMP_RPT_TO_EX = 4,            /* CHANGE_TO_EXCLUDE_MODE */
+    GMP_RPT_ALLOW = 5,            /* ALLOW_NEW_SOURCES */
+    GMP_RPT_BLOCK = 6,            /* BLOCK_OLD_SOURCES */
+    GMP_RPT_MIN = GMP_RPT_IS_IN,    /* Minimum value */
+    GMP_RPT_MAX = GMP_RPT_BLOCK,    /* Maximum value */
 } gmp_report_rectype;
 
 
@@ -296,21 +296,21 @@ typedef enum {
  * set of sources on transmit, and an address thread on receive.
  */
 typedef struct gmp_report_group_record_ {
-    void *gmp_rpt_group_id;		/* Opaque group ID */
-    thread gmp_rpt_thread;		/* Entry on thread */
-    gmp_report_rectype gmp_rpt_type;	/* Record type */
-    gmp_addr_string gmp_rpt_group;	/* Group address */
-    gmp_addr_list *gmp_rpt_xmit_srcs;	/* List of source addresses (xmit) */
-    gmp_addr_thread *gmp_rpt_rcv_srcs;	/* List of source addresses (rcv) */
+    void *gmp_rpt_group_id;        /* Opaque group ID */
+    thread gmp_rpt_thread;        /* Entry on thread */
+    gmp_report_rectype gmp_rpt_type;    /* Record type */
+    gmp_addr_string gmp_rpt_group;    /* Group address */
+    gmp_addr_list *gmp_rpt_xmit_srcs;    /* List of source addresses (xmit) */
+    gmp_addr_thread *gmp_rpt_rcv_srcs;    /* List of source addresses (rcv) */
 } gmp_report_group_record;
 
 THREAD_TO_STRUCT(gmp_thread_to_report_group_record, gmp_report_group_record,
-		 gmp_rpt_thread);
+         gmp_rpt_thread);
 
 
 typedef enum {
-    GMP_QUERY_PACKET,			/* Query */
-    GMP_REPORT_PACKET,			/* Report */
+    GMP_QUERY_PACKET,            /* Query */
+    GMP_REPORT_PACKET,            /* Report */
     GMP_NUM_PACKET_TYPES
 } gmp_message_type;
 
@@ -321,15 +321,15 @@ typedef enum {
  * be determined by the message type.
  */
 struct gmp_packet_ {
-    gmp_version gmp_packet_version;	/* Packet version (generic) */
-    gmp_message_type gmp_packet_type;	/* Packet type */
+    gmp_version gmp_packet_version;    /* Packet version (generic) */
+    gmp_message_type gmp_packet_type;    /* Packet type */
     gmp_addr_string gmp_packet_src_addr; /* Source address */
     gmp_addr_string gmp_packet_dest_addr; /* Destination address */
-    gmp_proto gmp_packet_proto;		/* Protocol (IGMP/MLD) */
-    gmpx_packet_attr gmp_packet_attr;	/* Opaque attribute */
+    gmp_proto gmp_packet_proto;        /* Protocol (IGMP/MLD) */
+    gmpx_packet_attr gmp_packet_attr;    /* Opaque attribute */
     union {
-	gmp_query_packet gmp_packet_query; /* Query packet */
-	gmp_report_packet gmp_packet_report; /* Report packet */
+    gmp_query_packet gmp_packet_query; /* Query packet */
+    gmp_report_packet gmp_packet_report; /* Report packet */
     } gmp_packet_contents;
 };
 
@@ -342,8 +342,8 @@ struct gmp_packet_ {
  * routines use it as well.
  */
 struct gmp_addr_thread_ {
-    thread gmp_addr_thread_head;	/* Head of address thread */
-    uint32_t gmp_addr_thread_count;	/* Count of entries */
+    thread gmp_addr_thread_head;    /* Head of address thread */
+    uint32_t gmp_addr_thread_count;    /* Count of entries */
 };
 
 
@@ -353,11 +353,11 @@ struct gmp_addr_thread_ {
  * An entry in an address thread.
  */
 struct gmp_addr_thread_entry_ {
-    thread gmp_adth_thread;		/* Entry on address thread */
-    gmp_addr_string gmp_adth_addr;	/* Address */
+    thread gmp_adth_thread;        /* Entry on address thread */
+    gmp_addr_string gmp_adth_addr;    /* Address */
 };
 THREAD_TO_STRUCT(gmp_adth_thread_to_thread_entry, gmp_addr_thread_entry,
-		 gmp_adth_thread);
+         gmp_adth_thread);
 
 
 /*
@@ -375,8 +375,8 @@ THREAD_TO_STRUCT(gmp_adth_thread_to_thread_entry, gmp_addr_thread_entry,
  * unknown at that point.)
  */
 typedef gmp_packet * (*gmp_xmit_callback_func)(gmpx_intf_id intf_id,
-					       gmp_proto proto,
-					       uint32_t buffer_len);
+                           gmp_proto proto,
+                           uint32_t buffer_len);
 
 
 /*
@@ -423,29 +423,29 @@ gmp_translate_version (gmp_proto proto, uint32_t version)
 
     switch (proto) {
       case GMP_PROTO_IGMP:
-	switch (version) {
-	  case GMP_IGMP_VERSION_1:
-	    return GMP_VERSION_BASIC;
-	  case GMP_IGMP_VERSION_2:
-	    return GMP_VERSION_LEAVES;
-	  case GMP_IGMP_VERSION_3:
-	    return GMP_VERSION_SOURCES;
-	  default:
-	    return GMP_VERSION_INVALID;
-	}
+    switch (version) {
+      case GMP_IGMP_VERSION_1:
+        return GMP_VERSION_BASIC;
+      case GMP_IGMP_VERSION_2:
+        return GMP_VERSION_LEAVES;
+      case GMP_IGMP_VERSION_3:
+        return GMP_VERSION_SOURCES;
+      default:
+        return GMP_VERSION_INVALID;
+    }
 
       case GMP_PROTO_MLD:
-	switch (version) {
-	  case GMP_MLD_VERSION_1:
-	    return GMP_VERSION_LEAVES;
-	  case GMP_MLD_VERSION_2:
-	    return GMP_VERSION_SOURCES;
-	  default:
-	    return GMP_VERSION_INVALID;
-	}
+    switch (version) {
+      case GMP_MLD_VERSION_1:
+        return GMP_VERSION_LEAVES;
+      case GMP_MLD_VERSION_2:
+        return GMP_VERSION_SOURCES;
+      default:
+        return GMP_VERSION_INVALID;
+    }
 
       default:
-	return GMP_VERSION_INVALID;
+    return GMP_VERSION_INVALID;
     }
 }
 
@@ -459,29 +459,29 @@ gmp_untranslate_version (gmp_proto proto, gmp_version version)
 {
     switch (proto) {
     case GMP_PROTO_IGMP:
-	switch (version) {
-	case GMP_VERSION_BASIC:
-	    return GMP_IGMP_VERSION_1;
-	case GMP_VERSION_LEAVES:
-	    return GMP_IGMP_VERSION_2;
-	case GMP_VERSION_SOURCES:
-	    return GMP_IGMP_VERSION_3;
-	default:
-	    return GMP_IGMP_VERSION_UNSPEC;
-	}
-	break;
-    case GMP_PROTO_MLD:
-	switch (version) {
-	case GMP_VERSION_LEAVES:
-	    return GMP_MLD_VERSION_1;
-	case GMP_VERSION_SOURCES:
-	    return GMP_MLD_VERSION_2;
-	default:
-	    return GMP_MLD_VERSION_UNSPEC;
-	}
-	break;
+    switch (version) {
+    case GMP_VERSION_BASIC:
+        return GMP_IGMP_VERSION_1;
+    case GMP_VERSION_LEAVES:
+        return GMP_IGMP_VERSION_2;
+    case GMP_VERSION_SOURCES:
+        return GMP_IGMP_VERSION_3;
     default:
-	break;
+        return GMP_IGMP_VERSION_UNSPEC;
+    }
+    break;
+    case GMP_PROTO_MLD:
+    switch (version) {
+    case GMP_VERSION_LEAVES:
+        return GMP_MLD_VERSION_1;
+    case GMP_VERSION_SOURCES:
+        return GMP_MLD_VERSION_2;
+    default:
+        return GMP_MLD_VERSION_UNSPEC;
+    }
+    break;
+    default:
+    break;
     }
 
     /* Shouldn't reach here */
@@ -503,27 +503,27 @@ gmp_addr_in_list (gmp_addr_list *addr_list, ordinal_t ordinal)
 
 /*
  * Externals
- */ 
+ */
 
 /* gmp_addrlist.c */
 
 extern void gmp_common_init(void);
 extern int gmp_addr_vect_fill(gmp_addr_vect *addr_vect,
-			      gmp_addr_thread *addr_thread);
+                  gmp_addr_thread *addr_thread);
 extern void gmp_addr_list_clean(gmp_addr_list *addr_list);
 extern void
     gmp_free_generic_addr_list_entry(gmp_addr_list_entry *addr_entry);
 extern void gmp_flush_addr_list(gmp_addr_list *addr_list);
 extern int gmp_add_addr_list_entry(gmp_addr_list *addr_list,
-				   gmp_addr_list_entry *addr_entry);
+                   gmp_addr_list_entry *addr_entry);
 extern gmp_addr_list_entry *gmp_lookup_addr_entry(gmp_addr_list *addr_list,
-						  ordinal_t ordinal);
-extern gmp_addr_list_entry 
+                          ordinal_t ordinal);
+extern gmp_addr_list_entry
     *gmp_addr_list_next_entry(gmp_addr_list *list, gmp_addr_list_entry *prev);
 extern void gmp_addr_list_init(gmp_addr_list *list, gmp_addr_catalog *catalog,
-			       gmp_addr_list_alloc_func alloc_func,
-			       gmp_addr_list_free_func free_func,
-			       void *context);
+                   gmp_addr_list_alloc_func alloc_func,
+                   gmp_addr_list_free_func free_func,
+                   void *context);
 extern void gmp_enqueue_xmit_addr_entry(gmp_addr_list_entry *addr_entry);
 extern void gmp_dequeue_xmit_addr_entry(gmp_addr_list_entry *addr_entry);
 extern gmp_addr_list_entry *
@@ -536,71 +536,71 @@ extern boolean gmp_xmit_addr_list_empty(gmp_addr_list *list);
 extern int gmp_addr_vect_set(gmp_addr_vect *vector, gmp_addr_string *addr);
 extern void gmp_addr_vect_clean(gmp_addr_vect *vector);
 extern void gmp_init_addr_vector(gmp_addr_vect *vector,
-				 gmp_addr_catalog *catalog);
+                 gmp_addr_catalog *catalog);
 extern void gmp_destroy_addr_catalog(gmp_addr_catalog *catalog);
 extern int gmp_init_addr_catalog(gmp_addr_catalog *catalog,
-				 uint32_t addr_len);
+                 uint32_t addr_len);
 extern gmp_addr_cat_entry *
 gmp_get_addr_cat_by_ordinal(gmp_addr_catalog *catalog, ordinal_t ordinal);
 extern ordinal_t gmp_lookup_create_addr_cat_entry(gmp_addr_catalog *catalog,
-						  uint8_t *addr);
+                          uint8_t *addr);
 extern gmp_addr_cat_entry *gmp_lookup_addr_cat_entry(gmp_addr_catalog *catalog,
-						     const uint8_t *addr);
+                             const uint8_t *addr);
 extern void gmp_lock_adcat_entry(gmp_addr_catalog *catalog, ordinal_t ordinal);
 extern void gmp_unlock_adcat_entry(gmp_addr_catalog *catalog,
-				   ordinal_t ordinal);
+                   ordinal_t ordinal);
 extern int gmp_addr_vect_inter(gmp_addr_vect *src1, gmp_addr_vect *src2,
-			       gmp_addr_vect *dest, bv_callback callback,
-			       void *context, bv_callback_option cb_opt);
+                   gmp_addr_vect *dest, bv_callback callback,
+                   void *context, bv_callback_option cb_opt);
 extern int gmp_addr_vect_union(gmp_addr_vect *src1, gmp_addr_vect *src2,
-			       gmp_addr_vect *dest, bv_callback callback,
-			       void *context, bv_callback_option cb_opt);
+                   gmp_addr_vect *dest, bv_callback callback,
+                   void *context, bv_callback_option cb_opt);
 extern int gmp_addr_vect_minus(gmp_addr_vect *src1, gmp_addr_vect *src2,
-			       gmp_addr_vect *dest, bv_callback callback,
-			       void *context, bv_callback_option cb_opt);
+                   gmp_addr_vect *dest, bv_callback callback,
+                   void *context, bv_callback_option cb_opt);
 extern int gmp_addr_vect_compare (gmp_addr_vect *src1, gmp_addr_vect *src2,
-				  bv_callback callback, void *context);
+                  bv_callback callback, void *context);
 extern int gmp_addr_vect_walk(gmp_addr_vect *vect, bv_callback callback,
-			      void *context);
+                  void *context);
 extern int gmp_build_addr_list(gmp_addr_list *addr_list,
-			       gmp_addr_vect *vector);
+                   gmp_addr_vect *vector);
 extern boolean gmp_addr_list_copy_cb(void *context, bv_bitnum_t bitnum,
-				     boolean new_val, boolean old_val);
+                     boolean new_val, boolean old_val);
 extern gmp_addr_list_entry *gmp_alloc_generic_addr_list_entry(void *context);
 extern gmp_addr_list_entry *
     gmp_create_addr_list_entry(gmp_addr_list *addr_list, ordinal_t ordinal);
 extern void gmp_move_addr_list_entry(gmp_addr_list *to_list,
-				     gmp_addr_list_entry *addr_entry);
+                     gmp_addr_list_entry *addr_entry);
 extern boolean gmp_addr_vect_empty(gmp_addr_vect *vector);
 extern boolean gmp_addr_is_zero(gmp_addr_string *addr, uint32_t addr_len);
 
 /* gmpp_proto.c */
 
 extern void gmpp_start_xmit(gmp_role role, gmp_proto proto,
-			    gmpx_intf_id intf_id);
+                gmpx_intf_id intf_id);
 extern void gmpp_register(gmp_role role, gmp_xmit_callback_func xmit_callback,
-			  gmp_rcv_callback_func rcv_callback,
-			  gmp_group_done_callback_func group_done_callback,
-			  gmp_packet_free_callback_func packet_free_callback);
+              gmp_rcv_callback_func rcv_callback,
+              gmp_group_done_callback_func group_done_callback,
+              gmp_packet_free_callback_func packet_free_callback);
 extern void gmpp_deregister(gmp_role role);
 extern void gmpp_enab_disab_proto(gmp_role role, gmp_proto proto,
-				  boolean enabled);
+                  boolean enabled);
 extern gmp_packet *gmpp_create_packet_header(gmp_version version,
-					     gmp_message_type message_type,
-					     gmp_proto proto);
+                         gmp_message_type message_type,
+                         gmp_proto proto);
 extern void gmpp_destroy_packet(gmp_packet *packet);
 extern gmp_report_group_record *
     gmpp_create_group_record(gmp_report_packet *report_packet, void *group_id,
-			     const uint8_t *group_addr, uint32_t addr_len);
+                 const uint8_t *group_addr, uint32_t addr_len);
 extern void gmpp_init(void);
 extern gmp_packet *gmpp_next_xmit_packet(gmp_role role, gmp_proto proto,
-					 gmpx_intf_id intf_id,
-					 uint32_t buffer_len);
+                     gmpx_intf_id intf_id,
+                     uint32_t buffer_len);
 extern void gmpp_group_done(gmp_role role, gmp_proto proto, void *group_id);
 extern void gmpp_packet_done(gmp_role role, gmp_proto proto,
-			     gmp_packet *packet);
+                 gmp_packet *packet);
 extern void gmpp_process_rcv_packet(gmp_packet *packet, gmpx_intf_id intf_id);
 extern uint32_t gmpp_max_group_count(gmp_proto proto, gmp_version version,
-				  gmp_message_type msg_type, uint32_t buffer_len);
+                  gmp_message_type msg_type, uint32_t buffer_len);
 
 #endif /* __GMP_PRIVATE_H__ */

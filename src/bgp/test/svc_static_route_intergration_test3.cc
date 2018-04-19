@@ -33,7 +33,7 @@ TYPED_TEST(ServiceChainIntegrationTest, BidirectionalChain) {
     this->AddTableConnectedRoute(blue_conn_table, false,
         this->BuildPrefix("1.1.2.3", 32),
         this->BuildNextHopAddress("88.88.88.88"));
-    this->AddTableConnectedRoute(red_conn_table, false, 
+    this->AddTableConnectedRoute(red_conn_table, false,
         this->BuildPrefix("1.1.2.1", 32),
         this->BuildNextHopAddress("66.66.66.66"));
     task_util::WaitForIdle();

@@ -56,7 +56,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         request_queue_(agent_uve_->agent()->task_scheduler()->
                        GetTaskId(kTaskFlowStatsCollector),
                        instance_id,
-                       boost::bind(&FlowStatsCollector::RequestHandler, 
+                       boost::bind(&FlowStatsCollector::RequestHandler,
                                    this, _1)),
         flow_aging_key_(*key), instance_id_(instance_id),
         flow_stats_manager_(aging_module), parent_(obj), ageing_task_(NULL),
@@ -786,7 +786,7 @@ bool FlowStatsCollector::Run() {
     }
     return true;
 }
-  
+
 bool FlowStatsCollector::RunAgeingTask() {
     // Run ageing per task
     uint32_t count = RunAgeing(kFlowsPerTask);

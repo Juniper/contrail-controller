@@ -128,7 +128,7 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
     route->BuildBgpProtoNextHop(nh, attr->nexthop());
 
     BgpMpNlri *nlri = new BgpMpNlri(
-        BgpAttribute::MPReachNlri, BgpAf::FamilyToAfi(family), 
+        BgpAttribute::MPReachNlri, BgpAf::FamilyToAfi(family),
         BgpAf::FamilyToSafi(family), nh);
     update.path_attributes.push_back(nlri);
 
@@ -157,7 +157,7 @@ bool BgpMessage::StartUnreach(const BgpRoute *route) {
     Address::Family family = table_->family();
 
     BgpMpNlri *nlri =
-        new BgpMpNlri(BgpAttribute::MPUnreachNlri, 
+        new BgpMpNlri(BgpAttribute::MPUnreachNlri,
         BgpAf::FamilyToAfi(family), BgpAf::FamilyToSafi(family));
     update.path_attributes.push_back(nlri);
 

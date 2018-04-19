@@ -727,9 +727,9 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet2");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
-    DelLink("virtual-machine-interface", input[0].name, "instance-ip", 
+    DelLink("virtual-machine-interface", input[0].name, "instance-ip",
             "instance0");
-    DelLink("virtual-machine-interface", input[1].name, "instance-ip", 
+    DelLink("virtual-machine-interface", input[1].name, "instance-ip",
             "instance1");
 
     // Delete config vm entry - no-op for oper-db. Port is active
@@ -891,9 +891,9 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet2");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
-    DelLink("virtual-machine-interface", input[0].name, "instance-ip", 
+    DelLink("virtual-machine-interface", input[0].name, "instance-ip",
             "instance0");
-    DelLink("virtual-machine-interface", input[1].name, "instance-ip", 
+    DelLink("virtual-machine-interface", input[1].name, "instance-ip",
             "instance1");
     client->WaitForIdle();
 
@@ -926,7 +926,7 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    WAIT_FOR(100, 1000, 
+    WAIT_FOR(100, 1000,
              (3U == Agent::GetInstance()->interface_table()->Size()));
     EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
@@ -1074,7 +1074,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     client->WaitForIdle();
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
-    DelLink("virtual-machine-interface", input[0].name, "instance-ip", 
+    DelLink("virtual-machine-interface", input[0].name, "instance-ip",
             "instance1");
     client->WaitForIdle();
 
@@ -1117,7 +1117,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     IntfCfgDel(input, 0);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(input, 0));
- 
+
 
 #if 0
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
@@ -1306,7 +1306,7 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     DelLink("instance-ip", "instance0", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
-    
+
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "routing-instance", "default-project:vn5:vn5");
@@ -1380,7 +1380,7 @@ TEST_F(CfgTest, Basic_2) {
 
     table = static_cast<InetUnicastAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable("vrf1"));
-    rt = table->FindRoute(addr); 
+    rt = table->FindRoute(addr);
 
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {

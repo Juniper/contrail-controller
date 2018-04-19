@@ -53,7 +53,7 @@ private:
     void SendUpdate(BitSet send_set, BitSet *blocked_set);
 
     IFMapMarker* ProcessMarker(IFMapMarker *marker, IFMapMarker *next_marker,
-                               bool *done); 
+                               bool *done);
     void ProcessUpdate(IFMapUpdate *update, const BitSet &base_send_set);
 
     void GetSendScheduled(BitSet *current);

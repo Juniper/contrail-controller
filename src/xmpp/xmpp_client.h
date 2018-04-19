@@ -29,7 +29,7 @@ public:
 
     void Shutdown();
 
-    typedef boost::function<void(XmppChannelMux *, xmps::PeerState)> 
+    typedef boost::function<void(XmppChannelMux *, xmps::PeerState)>
         ConnectionEventCb;
     void RegisterConnectionEvent(xmps::PeerId, ConnectionEventCb);
     void UnRegisterConnectionEvent(xmps::PeerId);
@@ -58,9 +58,9 @@ protected:
 
 private:
     class DeleteActor;
-    friend class XmppSessionTest; 
-    friend class XmppStreamMessageTest; 
-    friend class DeleteActor; 
+    friend class XmppSessionTest;
+    friend class XmppStreamMessageTest;
+    friend class DeleteActor;
 
     typedef std::map<Endpoint, XmppClientConnection *> ConnectionMap;
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;

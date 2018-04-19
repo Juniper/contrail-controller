@@ -17,7 +17,7 @@ using pugi::xml_parse_result;
 IFMapClientMock::IFMapClientMock(const string &addr)
     : identifier_(addr), count_(0) {
 }
-    
+
 const string &IFMapClientMock::identifier() const {
     return identifier_;
 }
@@ -111,7 +111,7 @@ static pair<string, string> NodeIdentifier(const xml_node &node) {
     string name = node.child("name").child_value();
     return make_pair(type, name);
 }
-    
+
 void IFMapClientMock::NodeParse(const xml_node &node, bool update) {
     string type, name;
     boost::tie(type, name) = NodeIdentifier(node);

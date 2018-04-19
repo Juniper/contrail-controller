@@ -9,7 +9,7 @@
 #include <route/route.h>
 #include <init/agent_param.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <agent_types.h>
 
 #include <filter/acl.h>
@@ -205,7 +205,7 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
             (agent->nexthop_table()->FindActiveEntry(&key));
         // If NH is not found, point route to discard NH
         if (nh == NULL) {
-            LOG(DEBUG, "Interface NH for <" 
+            LOG(DEBUG, "Interface NH for <"
                 << boost::lexical_cast<std::string>(vm_port->GetUuid())
                 << " : policy = " << policy);
             nh = agent->nexthop_table()->discard_nh();
@@ -558,13 +558,13 @@ bool HostRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
 
     return ret;
-} 
+}
 
 bool HostRoute::UpdateRoute(AgentRoute *rt) {
     InetUnicastRouteEntry *uc_rt =
         static_cast<InetUnicastRouteEntry *>(rt);
     AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
-    if ((table->GetTableType() != Agent::INET4_UNICAST) && 
+    if ((table->GetTableType() != Agent::INET4_UNICAST) &&
         (table->GetTableType() != Agent::INET6_UNICAST))
         return false;
 
@@ -617,7 +617,7 @@ bool L2ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 
 bool InetInterfaceRoute::UpdateRoute(AgentRoute *rt) {
     AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
-    if ((table->GetTableType() != Agent::INET4_UNICAST) && 
+    if ((table->GetTableType() != Agent::INET4_UNICAST) &&
         (table->GetTableType() != Agent::INET6_UNICAST))
         return false;
 
@@ -1058,7 +1058,7 @@ bool ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 
 bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
     AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
-    if ((table->GetTableType() != Agent::INET4_UNICAST) && 
+    if ((table->GetTableType() != Agent::INET4_UNICAST) &&
         (table->GetTableType() != Agent::INET6_UNICAST))
         return false;
 
@@ -1261,7 +1261,7 @@ bool IpamSubnetRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
                                     FindActiveEntry(nh_req_.key.get()));
     assert(nh);
-    
+
     bool ret = false;
 
     if (path->ChangeNH(agent, nh) == true) {
@@ -1278,7 +1278,7 @@ bool IpamSubnetRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 
     //Resync of subnet route is needed for identifying if arp flood flag
     //needs to be enabled for all the smaller subnets present w.r.t. this subnet
-    //route. 
+    //route.
     AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
     assert((table->GetTableType() == Agent::INET4_UNICAST) ||
            (table->GetTableType() == Agent::INET6_UNICAST));
@@ -1298,9 +1298,9 @@ bool IpamSubnetRoute::UpdateRoute(AgentRoute *rt) {
 }
 
 ///////////////////////////////////////////////
-// Sandesh routines below (route_sandesh.cc) 
+// Sandesh routines below (route_sandesh.cc)
 //////////////////////////////////////////////
-//TODO make it generic 
+//TODO make it generic
 void UnresolvedNH::HandleRequest() const {
 
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromId(0);
@@ -1310,9 +1310,9 @@ void UnresolvedNH::HandleRequest() const {
         resp->Response();
         return;
     }
-   
+
     int count = 0;
-    std::string empty(""); 
+    std::string empty("");
     AgentRouteTable *rt_table = static_cast<AgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable());
     NhListResp *resp = new NhListResp();
@@ -1338,7 +1338,7 @@ void UnresolvedNH::HandleRequest() const {
 }
 
 //TODO IMplement filltrace in path class
-void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event, 
+void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
                            const AgentPath *path) const {
     Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
     rt_info.set_ip(ToString());
@@ -1431,7 +1431,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
             rt_info.set_nh_type("COMPOSITE");
             break;
         }
- 
+
         case NextHop::L2_RECEIVE: {
             rt_info.set_nh_type("L2_RECEIVE");
             break;

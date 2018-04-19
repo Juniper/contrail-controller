@@ -180,7 +180,7 @@ public:
 private:
     Agent *agent_;
     std::auto_ptr<CfgFilter> cfg_filter_;
-    std::auto_ptr<IFMapAgentParser> cfg_parser_; 
+    std::auto_ptr<IFMapAgentParser> cfg_parser_;
     std::auto_ptr<DBGraph> cfg_graph_;
     std::auto_ptr<InterfaceCfgClient> cfg_interface_client_;
     std::auto_ptr<MirrorCfgTable> cfg_mirror_table_;

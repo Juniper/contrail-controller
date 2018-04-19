@@ -15,7 +15,7 @@
 #include <services/icmpv6_proto.h>
 
 
-extern SandeshTraceBufferPtr Icmpv6TraceBuf; 
+extern SandeshTraceBufferPtr Icmpv6TraceBuf;
 
 Icmpv6ErrorHandler::Icmpv6ErrorHandler(Agent *agent, Icmpv6ErrorProto *proto,
                                        boost::shared_ptr<PktInfo> info,
@@ -51,9 +51,9 @@ bool Icmpv6ErrorHandler::Run() {
 
 // Generate ICMP error
 bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
-    
-    char *buff = (char *)pkt_info_->pkt;                                        
-    uint16_t buff_len = pkt_info_->packet_buffer()->data_len();                 
+
+    char *buff = (char *)pkt_info_->pkt;
+    uint16_t buff_len = pkt_info_->packet_buffer()->data_len();
     char data[ICMPV6_PAYLOAD_LEN];
     int len = ntohs(pkt_info_->ip6->ip6_plen);
 
@@ -74,7 +74,7 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
     if (source_address.is_unspecified())
         source_address = Ip6Address::v4_mapped(agent()->router_id());
 
-    uint32_t interface = 
+    uint32_t interface =
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
         pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
 
@@ -84,16 +84,16 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
                               ETHERTYPE_IPV6);
 
     pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
-    Ip6Hdr(pkt_info_->ip6, len+ICMP_UNREACH_HDR_LEN, IPV6_ICMP_NEXT_HEADER, 
+    Ip6Hdr(pkt_info_->ip6, len+ICMP_UNREACH_HDR_LEN, IPV6_ICMP_NEXT_HEADER,
            255, source_address.to_bytes().data(),
            pkt_info_->ip_saddr.to_v6().to_bytes().data());
 
-    icmp6_hdr *icmp = pkt_info_->transp.icmp6 = 
-        (icmp6_hdr *)(pkt_info_->pkt + eth_len 
+    icmp6_hdr *icmp = pkt_info_->transp.icmp6 =
+        (icmp6_hdr *)(pkt_info_->pkt + eth_len
                       + sizeof(ip6_hdr));
     icmp->icmp6_type = ICMP6_PACKET_TOO_BIG;
     icmp->icmp6_code = 0;
-    icmp->icmp6_mtu = htonl(pkt_info_->agent_hdr.mtu); 
+    icmp->icmp6_mtu = htonl(pkt_info_->agent_hdr.mtu);
     icmp->icmp6_cksum = 0;
     memcpy(buff + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN, data, len);
     icmp->icmp6_cksum =
@@ -101,11 +101,11 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
                    icmp, len + ICMP_UNREACH_HDR_LEN);
     pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN);
- 
+
     uint16_t command =
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
         (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
-  
+
     Send(GetInterfaceIndex(), pkt_info_->vrf, command,
          PktHandler::ICMPV6);
     return true;

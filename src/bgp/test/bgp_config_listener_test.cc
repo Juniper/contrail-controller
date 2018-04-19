@@ -1987,7 +1987,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
 }
 
 //
-// Validate that routing instance is added to change list when associated 
+// Validate that routing instance is added to change list when associated
 // route-aggregate object is updated
 //
 TEST_F(BgpConfigListenerTest, RouteAggregate_0) {

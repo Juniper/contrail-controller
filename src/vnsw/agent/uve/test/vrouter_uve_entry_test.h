@@ -22,7 +22,7 @@ public:
     uint32_t vrouter_stats_msg_count() const {
         return vrouter_stats_msg_count_;
     }
-    uint32_t compute_state_send_count() const 
+    uint32_t compute_state_send_count() const
         { return compute_state_send_count_; }
     const VrouterStatsAgent &last_sent_stats() const {
         return last_sent_vrouter_stats_;

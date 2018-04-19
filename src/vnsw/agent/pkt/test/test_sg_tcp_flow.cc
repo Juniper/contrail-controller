@@ -116,7 +116,7 @@ static char *AclName(const char *name, AclDirection direction) {
 }
 
 static void AddSgIdAcl(const char *name, int id, int proto,
-                       int src_sg_id, int dest_sg_id, const char *action, 
+                       int src_sg_id, int dest_sg_id, const char *action,
                        AclDirection direction) {
     std::string s = AddSgIdAclXmlString("access-control-list",
                                         AclName(name, direction), id, proto,
@@ -134,7 +134,7 @@ static void DelAclEntry(const char *name, AclDirection direction) {
 }
 
 static void AddSgEntry(const char *sg_name, const char *name, int id,
-                       int proto, const char *action, uint32_t sg_id, 
+                       int proto, const char *action, uint32_t sg_id,
                        uint32_t src_sg_id, uint32_t dest_sg_id,
                        AclDirection direction) {
     std::stringstream str;
@@ -490,7 +490,7 @@ TEST_F(SgTcpAckTest, icmp_acl_2) {
                                intf1->flow_key_nh()->id()));
 }
 
-// Packet from fabric to VM. ACL : Ingress allow TCP 
+// Packet from fabric to VM. ACL : Ingress allow TCP
 TEST_F(SgTcpAckTest, ingress_tcp_acl_1) {
     // TCP Non-ACK from network to VM - PASS
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf2->label(),
@@ -563,7 +563,7 @@ TEST_F(SgTcpAckTest, ingress_tcp_acl_2) {
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
                                "3.3.3.2", 6, 5, 6, TrafficAction::PASS,
                                intf2->flow_key_nh()->id()));
-    EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2", 
+    EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
                                intf2_fip_addr, 6, 6, 5, TrafficAction::PASS,
                                intf2->flow_key_nh()->id()));
 
@@ -617,7 +617,7 @@ TEST_F(SgTcpAckTest, egress_tcp_acl_1) {
                                intf2->flow_key_nh()->id()));
 }
 
-// Packet from VM to fabric. ACL : Egress allow TCP 
+// Packet from VM to fabric. ACL : Egress allow TCP
 TEST_F(SgTcpAckTest, egress_tcp_acl_2) {
     DelLink("virtual-machine-interface", "vnet2", "security-group",
             "sg_tcp_i");
@@ -639,7 +639,7 @@ TEST_F(SgTcpAckTest, egress_tcp_acl_2) {
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
                                "3.3.3.2", 6, 2, 3, TrafficAction::PASS,
                                intf2->flow_key_nh()->id()));
-    EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2", 
+    EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
                                intf2_fip_addr, 6, 3, 2, TrafficAction::PASS,
                                intf2->flow_key_nh()->id()));
 
@@ -656,7 +656,7 @@ TEST_F(SgTcpAckTest, egress_tcp_acl_2) {
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
                                "3.3.3.2", 6, 5, 6, TrafficAction::PASS,
                                intf2->flow_key_nh()->id()));
-    EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2", 
+    EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
                                intf2_fip_addr, 6, 6, 5, TrafficAction::PASS,
                                intf2->flow_key_nh()->id()));
 }
@@ -858,8 +858,8 @@ TEST_F(SgTcpAckTest, fip_local_vm_egress_tcp_acl_1) {
 }
 
 // Local-VM Non-TCP-ACK Packet between VM1 and VM2.
-// ACL : vnet1 - Ingress allow TCP 
-//     : vnet2 - Engress allow TCP 
+// ACL : vnet1 - Ingress allow TCP
+//     : vnet2 - Engress allow TCP
 TEST_F(SgTcpAckTest, local_vm_ingress_egress_acl_1) {
     DelLink("virtual-machine-interface", "vnet1", "security-group",
             "sg_icmp_i");
@@ -889,8 +889,8 @@ TEST_F(SgTcpAckTest, local_vm_ingress_egress_acl_1) {
 }
 
 // Local-VM Non-TCP-ACK Packet between VM1 and VM2.
-// ACL : vnet1 - Ingress allow TCP 
-//     : vnet2 - Engress allow TCP 
+// ACL : vnet1 - Ingress allow TCP
+//     : vnet2 - Engress allow TCP
 TEST_F(SgTcpAckTest, fip_local_vm_ingress_egress_acl_1) {
     DelLink("virtual-machine-interface", "vnet2", "security-group",
             "sg_tcp_i");
@@ -924,8 +924,8 @@ TEST_F(SgTcpAckTest, fip_local_vm_ingress_egress_acl_1) {
 }
 
 // Local-VM TCP-ACK Packet between VM1 and VM2.
-// ACL : vnet1 - Ingress allow TCP 
-//     : vnet2 - Engress allow TCP 
+// ACL : vnet1 - Ingress allow TCP
+//     : vnet2 - Engress allow TCP
 TEST_F(SgTcpAckTest, local_vm_ingress_egress_acl_2) {
     DelLink("virtual-machine-interface", "vnet1", "security-group",
             "sg_icmp_i");
@@ -955,8 +955,8 @@ TEST_F(SgTcpAckTest, local_vm_ingress_egress_acl_2) {
 }
 
 // Local-VM TCP-ACK Packet between VM1 and VM2.
-// ACL : vnet1 - Ingress allow TCP 
-//     : vnet2 - Engress allow TCP 
+// ACL : vnet1 - Ingress allow TCP
+//     : vnet2 - Engress allow TCP
 TEST_F(SgTcpAckTest, fip_local_vm_ingress_egress_acl_2) {
     DelLink("virtual-machine-interface", "vnet2", "security-group",
             "sg_tcp_i");

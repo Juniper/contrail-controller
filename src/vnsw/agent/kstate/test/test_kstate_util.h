@@ -53,7 +53,7 @@ public:
 
 class DumpIntfKState: public InterfaceKState {
 public:
-    DumpIntfKState(KInterfaceResp *obj, std::string resp_ctx, vr_interface_req &encoder, int id): 
+    DumpIntfKState(KInterfaceResp *obj, std::string resp_ctx, vr_interface_req &encoder, int id):
                  InterfaceKState(obj, resp_ctx, encoder, id) {}
     virtual void SendResponse() {
         //Update the response_object_ with empty list
@@ -66,7 +66,7 @@ public:
         KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
-            vector<KInterfaceInfo> &list = 
+            vector<KInterfaceInfo> &list =
                 const_cast<std::vector<KInterfaceInfo>&>(resp->get_if_list());
             for (vector<KInterfaceInfo>::iterator it = list.begin();
                  it != list.end(); ++it) {
@@ -89,7 +89,7 @@ public:
         vr_interface_req req;
         KInterfaceResp *resp = new KInterfaceResp();
 
-        // The following object is deleted in KStateIoContext::Handler() 
+        // The following object is deleted in KStateIoContext::Handler()
         // after the Handler is invoked.
         DumpIntfKState *kstate = new DumpIntfKState(resp, "dummy", req, -1);
         kstate->table_ = table;
@@ -170,7 +170,7 @@ public:
         KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
-            vector<KRouteInfo> &list = 
+            vector<KRouteInfo> &list =
                 const_cast<std::vector<KRouteInfo>&>(resp->get_rt_list());
             for (vector<KRouteInfo>::iterator it = list.begin();
                  it != list.end(); ++it) {
@@ -239,7 +239,7 @@ public:
 
 class DumpNhKState: public NHKState {
 public:
-    DumpNhKState(KNHResp *obj, std::string resp_ctx, vr_nexthop_req &encoder, int id): 
+    DumpNhKState(KNHResp *obj, std::string resp_ctx, vr_nexthop_req &encoder, int id):
                  NHKState(obj, resp_ctx, encoder, id) {}
     virtual void SendResponse() {
         //Update the response_object_ with empty list
@@ -252,7 +252,7 @@ public:
         KNHResp *resp = static_cast<KNHResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
-            vector<KNHInfo> &list = 
+            vector<KNHInfo> &list =
                 const_cast<std::vector<KNHInfo>&>(resp->get_nh_list());
             for (vector<KNHInfo>::iterator it = list.begin();
                  it != list.end(); ++it) {
@@ -277,7 +277,7 @@ public:
         vr_nexthop_req req;
         KNHResp *resp = new KNHResp();
 
-        // The following object is deleted in KStateIoContext::Handler() 
+        // The following object is deleted in KStateIoContext::Handler()
         // after the Handler is invoked.
         DumpNhKState *kstate = new DumpNhKState(resp, "dummy", req, -1);
         kstate->table_ = table;
@@ -319,7 +319,7 @@ public:
 
 class DumpMplsKState: public MplsKState {
 public:
-    DumpMplsKState(KMplsResp *obj, std::string resp_ctx, vr_mpls_req &encoder, int id): 
+    DumpMplsKState(KMplsResp *obj, std::string resp_ctx, vr_mpls_req &encoder, int id):
                  MplsKState(obj, resp_ctx, encoder, id) {}
     virtual void SendResponse() {
         //Update the response_object_ with empty list
@@ -332,7 +332,7 @@ public:
         KMplsResp *resp = static_cast<KMplsResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
-            vector<KMplsInfo> &list = 
+            vector<KMplsInfo> &list =
                 const_cast<std::vector<KMplsInfo>&>(resp->get_mpls_list());
             for (vector<KMplsInfo>::iterator it = list.begin();
                  it != list.end(); ++it) {
@@ -357,7 +357,7 @@ public:
         vr_mpls_req req;
         KMplsResp *resp = new KMplsResp();
 
-        // The following object is deleted in KStateIoContext::Handler() 
+        // The following object is deleted in KStateIoContext::Handler()
         // after the Handler is invoked.
         DumpMplsKState *kstate = new DumpMplsKState(resp, "dummy", req, -1);
         kstate->table_ = table;

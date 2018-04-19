@@ -127,7 +127,7 @@ Ping::CreateUdpPkt(Agent *agent) {
         pkt_handler->UdpHdr(data_len_+ sizeof(udphdr), sip_.to_v4().to_ulong(), sport_,
                             dip_.to_v4().to_ulong(), dport_);
         pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(struct ip),
-                           ntohl(sip_.to_v4().to_ulong()), 
+                           ntohl(sip_.to_v4().to_ulong()),
                            ntohl(dip_.to_v4().to_ulong()), IPPROTO_UDP,
                            DEFAULT_IP_ID, DEFAULT_IP_TTL);
         pkt_handler->EthHdr(agent->vhost_interface()->mac(),

@@ -54,7 +54,7 @@ public:
     ResourceManager *resource_manager() {return resource_manager_;}
     bool WorkQueueBackUpProcess(ResourceBackupReqPtr backup_data);
     void BackupResource(ResourceManager::KeyPtr key,
-                        ResourceManager::DataPtr data, 
+                        ResourceManager::DataPtr data,
                         ResourceBackupReq::Op op);
     void AuditDone();
 

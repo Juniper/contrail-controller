@@ -16,7 +16,7 @@
 
 using namespace std;
 
-VxLanId::~VxLanId() { 
+VxLanId::~VxLanId() {
     if (vxlan_id_ == VxLanTable::kInvalidvxlan_id) {
         return;
     }
@@ -27,7 +27,7 @@ DBEntryBase::KeyPtr VxLanId::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void VxLanId::SetKey(const DBRequestKey *k) { 
+void VxLanId::SetKey(const DBRequestKey *k) {
     const VxLanIdKey *key = static_cast<const VxLanIdKey *>(k);
     vxlan_id_ = key->vxlan_id();
 }
@@ -359,7 +359,7 @@ void VxLanId::SendObjectLog(const AgentDBTable *table,
                             AgentLogEvent::type event) const {
     VxLanObjectLogInfo info;
     string str, nh_type;
-    
+
     info.set_vxlan_id((int)vxlan_id_);
     switch (event) {
         case AgentLogEvent::ADD:
@@ -382,11 +382,11 @@ void VxLanId::SendObjectLog(const AgentDBTable *table,
         //const VrfNH *vrf_nh;
         switch(nh->GetType()) {
             case NextHop::VRF: {
-                nh_type.assign("VRF"); 
-                const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);   
+                nh_type.assign("VRF");
+                const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);
                 info.set_vrf_name(vrf_nh->GetVrf()->GetName());
                 break;
-            }    
+            }
             default:
                 nh_type.assign("unknown");
                 break;

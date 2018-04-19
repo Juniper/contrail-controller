@@ -160,7 +160,7 @@ AgentUtXmlValidationNode::AgentUtXmlValidationNode(const string &name,
 
 AgentUtXmlValidationNode::~AgentUtXmlValidationNode() {
 }
-                                                   
+
 bool AgentUtXmlValidationNode::ReadCmnXml() {
     std::string str;
     if (GetStringAttribute(node_, "present", &str)) {

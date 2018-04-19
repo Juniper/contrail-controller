@@ -79,7 +79,7 @@ class RESTServer {
     void ClientIPAddressHandlerDelete(const struct RESTData&);
     void ClientMonitorHandler(const struct RESTData&);
 
-    ClientMap client_sessions_;   
+    ClientMap client_sessions_;
     Server *bfd_server_;
     tbb::mutex mutex_;
 };

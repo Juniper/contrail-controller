@@ -681,10 +681,10 @@ AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries
             break;
         }
     }
-    
+
     AclEntry *entry = new AclEntry();
     entry->PopulateAclEntry(acl_entry_spec);
-    
+
     std::vector<ActionSpec>::const_iterator it;
     for (it = acl_entry_spec.action_l.begin(); it != acl_entry_spec.action_l.end();
          ++it) {
@@ -739,31 +739,31 @@ void AclDBEntry::DeleteAllAclEntries()
 }
 
 bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
-			                 MatchAclParams &m_acl, FlowPolicyInfo *info) const
+                             MatchAclParams &m_acl, FlowPolicyInfo *info) const
 {
     AclEntries::const_iterator iter;
     bool ret_val = false;
     m_acl.terminal_rule = false;
-	m_acl.action_info.action = 0;
+    m_acl.action_info.action = 0;
 
     for (iter = acl_entries_.begin();
          iter != acl_entries_.end();
          ++iter) {
         const AclEntry::ActionList &al = iter->PacketMatch(packet_header, info);
-	AclEntry::ActionList::const_iterator al_it;
-	for (al_it = al.begin(); al_it != al.end(); ++al_it) {
-	     TrafficAction *ta = static_cast<TrafficAction *>(*al_it.operator->());
-	     m_acl.action_info.action |= 1 << ta->action();
-	     if (ta->action_type() == TrafficAction::MIRROR_ACTION) {
-	         MirrorAction *a = static_cast<MirrorAction *>(*al_it.operator->());
+    AclEntry::ActionList::const_iterator al_it;
+    for (al_it = al.begin(); al_it != al.end(); ++al_it) {
+         TrafficAction *ta = static_cast<TrafficAction *>(*al_it.operator->());
+         m_acl.action_info.action |= 1 << ta->action();
+         if (ta->action_type() == TrafficAction::MIRROR_ACTION) {
+             MirrorAction *a = static_cast<MirrorAction *>(*al_it.operator->());
                  MirrorActionSpec as;
-		 as.ip = a->GetIp();
-		 as.port = a->GetPort();
+         as.ip = a->GetIp();
+         as.port = a->GetPort();
                  as.vrf_name = a->vrf_name();
                  as.analyzer_name = a->GetAnalyzerName();
                  as.encap = a->GetEncap();
                  m_acl.action_info.mirror_l.push_back(as);
-	     }
+         }
          if (ta->action_type() == TrafficAction::VRF_TRANSLATE_ACTION) {
              const VrfTranslateAction *a =
                  static_cast<VrfTranslateAction *>(*al_it.operator->());
@@ -793,7 +793,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                  info->acl_name = GetName();
              }
          }
-	}
+    }
         if (!(al.empty())) {
             ret_val = true;
             m_acl.ace_id_list.push_back(iter->id());

@@ -71,7 +71,7 @@ public:
 
     // Determine the table partition depending on the record key.
     virtual DBTablePartBase *GetTablePartition(const DBRequestKey *key) = 0;
-    // Determine the table partition depending on the Entry 
+    // Determine the table partition depending on the Entry
     virtual DBTablePartBase *GetTablePartition(const DBEntryBase *entry) = 0;
     // Determine the table partition for given index
     virtual DBTablePartBase *GetTablePartition(const int index) = 0;
@@ -161,7 +161,7 @@ private:
 // DBTableBase directly.
 // Derive directly from DBTableBase only if there is a strong reason to do so
 //
-// Additionally, provides a set of virtual functions to override the default 
+// Additionally, provides a set of virtual functions to override the default
 // functionality
 class DBTable : public DBTableBase {
 public:
@@ -201,7 +201,7 @@ public:
     // Override if *really* necessary
     virtual DBTablePartition *AllocPartition(int index);
 
-    // Input processing implemented by derived class. Default 
+    // Input processing implemented by derived class. Default
     // implementation takes care of Add/Delete/Change.
     // Override if *really* necessary
     virtual void Input(DBTablePartition *tbl_partition, DBClient *client,

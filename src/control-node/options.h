@@ -51,14 +51,14 @@ public:
     std::vector<std::string> rabbitmq_server_list() const {
         return configdb_options_.rabbitmq_server_list;
     }
-    std::string rabbitmq_user() const { 
-        return configdb_options_.rabbitmq_user; 
+    std::string rabbitmq_user() const {
+        return configdb_options_.rabbitmq_user;
     }
     std::string rabbitmq_password() const {
         return configdb_options_.rabbitmq_password;
     }
-    bool rabbitmq_ssl_enabled() const { 
-        return configdb_options_.rabbitmq_use_ssl; 
+    bool rabbitmq_ssl_enabled() const {
+        return configdb_options_.rabbitmq_use_ssl;
     }
     const ConfigClientOptions &configdb_options() const {
         return configdb_options_;

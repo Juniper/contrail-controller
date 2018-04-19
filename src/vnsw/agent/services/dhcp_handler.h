@@ -9,7 +9,7 @@
 
 #define DHCP_PKT_SIZE                 1024
 
-// Magic cookie for DHCP Options 
+// Magic cookie for DHCP Options
 #define DHCP_OPTIONS_COOKIE "\143\202\123\143"
 
 // Supported DHCP options
@@ -215,7 +215,7 @@ struct dhcphdr {
      uint8_t  op;
      uint8_t  htype;
      uint8_t  hlen;
-     uint8_t  hops;  // # of relay agent hops 
+     uint8_t  hops;  // # of relay agent hops
      uint32_t xid;
      uint16_t secs;
      uint16_t flags;
@@ -232,7 +232,7 @@ struct dhcphdr {
 struct Dhcpv4Options {
     void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t *optlen) {
         code = c;
-        len = l; 
+        len = l;
         memcpy(data, (uint8_t *)d, l);
         *optlen += 2 + l;
     }

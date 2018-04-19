@@ -22,7 +22,7 @@
 #include <netinet/icmp6.h>
 #include "services/icmpv6_handler.h"
 
-using namespace boost::posix_time; 
+using namespace boost::posix_time;
 void DiagPktHandler::SetReply() {
     AgentDiagPktData *ad = (AgentDiagPktData *)pkt_info_->data;
     ad->op_ = htonl(AgentDiagPktData::DIAG_REPLY);
@@ -111,7 +111,7 @@ bool DiagPktHandler::HandleTraceRoutePacket() {
         }
 
         if (rabit) {
-           SendOverlayResponse(); 
+           SendOverlayResponse();
         } else {
             if (pkt_info_->ether_type == ETHERTYPE_IP) {
                 SendTimeExceededPacket();
@@ -253,7 +253,7 @@ bool DiagPktHandler::HandleTraceRouteResponse() {
     // if it is Overlay packet get the key from Oam data
     if (IsOverlayPingPacket()) {
         OverlayOamPktData *oamdata = (OverlayOamPktData *) pkt_info_->data;
-        key = ntohs(oamdata->org_handle_); 
+        key = ntohs(oamdata->org_handle_);
     } else {
         if (!ParseIcmpData(data, len, (uint16_t *)&key, is_v4))
             return true;
@@ -287,7 +287,7 @@ bool DiagPktHandler::ParseIcmpData(const uint8_t *data, uint16_t data_len,
     struct ip *ip_hdr = (struct ip *)(data);
     *key = ntohs(ip_hdr->ip_id);
     uint16_t len = sizeof(struct ip);
-    uint8_t protocol; 
+    uint8_t protocol;
 
     if (ip_hdr->ip_src.s_addr == htonl(agent()->router_id().to_ulong()) ||
         ip_hdr->ip_dst.s_addr == htonl(agent()->router_id().to_ulong())) {
@@ -362,7 +362,7 @@ bool DiagPktHandler::Run() {
     bool isoverlay_packet = IsOverlayPingPacket();
     AgentDiagPktData *ad = NULL;
     AgentDiagPktData tempdata;
-    
+
     if (IsTraceRoutePacket()) {
         return HandleTraceRoutePacket();
     }
@@ -378,7 +378,7 @@ bool DiagPktHandler::Run() {
         } else if (oamdata->msg_type_ == OverlayOamPktData::OVERLAY_ECHO_REPLY) {
             ad->op_ = htonl(AgentDiagPktData::DIAG_REPLY);
         }
-        
+
         ad->key_ = oamdata->org_handle_;
     } else {
         ad = (AgentDiagPktData *)pkt_info_->data;
@@ -402,7 +402,7 @@ bool DiagPktHandler::Run() {
             // Reply packet with after setting the TLV content.
             SendOverlayResponse();
             return true;
-        } 
+        }
         if (segment_hc_pkt) {
             SegmentHealthCheckReply();
         } else {
@@ -432,7 +432,7 @@ bool DiagPktHandler::Run() {
     } else {
         entry->Retry();
     }
-    
+
     return true;
 }
 
@@ -625,11 +625,11 @@ void DiagPktHandler::SetReturnCode(OverlayOamPktData *oamdata) {
 
 void DiagPktHandler::TunnelHdrSwap() {
     struct ether_header *eth = pkt_info_->tunnel.eth;
-    EthHdr((char *)eth, sizeof(struct ether_header), MacAddress(eth->ether_dhost), 
-           MacAddress(eth->ether_shost), ntohs(eth->ether_type), 
+    EthHdr((char *)eth, sizeof(struct ether_header), MacAddress(eth->ether_dhost),
+           MacAddress(eth->ether_shost), ntohs(eth->ether_type),
            VmInterface::kInvalidVlanId);
     struct ip *ip = pkt_info_->tunnel.ip;
-    IpHdr((char *)ip, sizeof(struct ip), ntohs(ip->ip_len),ip->ip_dst.s_addr, 
+    IpHdr((char *)ip, sizeof(struct ip), ntohs(ip->ip_len),ip->ip_dst.s_addr,
             ip->ip_src.s_addr, ip->ip_p, DEFAULT_IP_ID, DEFAULT_IP_TTL);
 }
 

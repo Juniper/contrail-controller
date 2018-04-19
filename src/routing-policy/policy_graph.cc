@@ -30,7 +30,7 @@ void PolicyGraph::RemoveNode(PolicyGraphVertex *entry) {
     remove_vertex(entry->vertex(), root_);
 }
 
-PolicyGraph::Edge 
+PolicyGraph::Edge
 PolicyGraph::Link(PolicyGraphVertex *lhs, PolicyGraphVertex *rhs) {
     PolicyGraph::Edge edge_id;
     bool added;
@@ -94,11 +94,11 @@ PolicyGraphVertex *PolicyGraph::GetRoot() const {
 }
 
 void PolicyGraph::open_vertex_reverse_iterator::increment() {
-    PolicyGraphEdge *edge = open_->in_edge(graph_); 
+    PolicyGraphEdge *edge = open_->in_edge(graph_);
     open_ = edge->source(graph_);
 }
 
-bool 
+bool
 PolicyGraph::open_vertex_reverse_iterator::equal(
                          const open_vertex_reverse_iterator &rhs) const {
     if (graph_ == NULL) {
@@ -112,14 +112,14 @@ PolicyGraph::open_vertex_reverse_iterator::equal(
     return open_ == rhs.open_;
 }
 
-PolicyGraph::OpenVertexPathPair 
+PolicyGraph::OpenVertexPathPair
 PolicyGraph::open_vertex_reverse_iterator::dereference() const {
     if (graph_ == NULL || open_ == NULL) {
         return make_pair((PolicyGraphVertex *)0, (PolicyGraphEdge *)0);
     }
     PolicyGraphVertex *vertex = NULL;
     PolicyGraphEdge *edge = NULL;
-    edge = open_->in_edge(graph_); 
+    edge = open_->in_edge(graph_);
     vertex = edge->source(graph_);
     return std::make_pair(vertex, edge);
 }

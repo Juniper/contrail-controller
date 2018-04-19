@@ -37,7 +37,7 @@ public:
         SetAll();
     }
     virtual ~EcmpLoadBalance() { }
-    
+
     const std::string &source_ip_str() const {
         return HashingFieldsStr[(uint8_t)EcmpLoadBalance::SOURCE_IP];
     }
@@ -165,7 +165,7 @@ public:
 
     bool UpdateFields
         (const autogen::EcmpHashingIncludeFields &ecmp_hashing_fields) {
-        bool ret = false;    
+        bool ret = false;
 
         if (hash_fields_to_use_[SOURCE_IP] != ecmp_hashing_fields.source_ip) {
             hash_fields_to_use_[SOURCE_IP] = ecmp_hashing_fields.source_ip;
@@ -196,7 +196,7 @@ public:
         return ret;
     }
 
-private:    
+private:
     bool hash_fields_to_use_[NUM_HASH_FIELDS];
 };
 

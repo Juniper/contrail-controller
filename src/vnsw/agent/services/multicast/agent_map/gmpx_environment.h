@@ -15,7 +15,7 @@
 #define gmpx_patricia_lookup_least patricia_lookup_least
 #define gmpx_patricia_lookup_geq patricia_lookup_geq
 #define gmpx_patroot_init(keylen, offset) \
-	patricia_root_init(NULL, FALSE, (keylen), (offset))
+    patricia_root_init(NULL, FALSE, (keylen), (offset))
 #define GMPX_PATRICIA_OFFSET STRUCT_OFFSET
 #define gmpx_patricia_add patricia_add
 #define gmpx_patroot_destroy patricia_root_delete
@@ -26,9 +26,9 @@
 /* Interface index. */
 
 typedef struct gmp_intf_handle_ *gmpx_intf_id;
-#define GMPX_MANY_INTFS 50		/* Intf count before changing
-					 * general query strategy
-					 */
+#define GMPX_MANY_INTFS 50        /* Intf count before changing
+                     * general query strategy
+                     */
 
 /* Memory stuff. */
 
@@ -47,13 +47,13 @@ typedef struct gmp_intf_handle_ *gmpx_intf_id;
 
 #define GMPX_UNUSED UNUSED
 
-#define GMPX_MAX_RTR_CLIENTS 2		/* Should be enough */
+#define GMPX_MAX_RTR_CLIENTS 2        /* Should be enough */
 
 /*
  * Packet attribute.  For now it's just a boolean, with TRUE meaning that
  * the packet represents statically defined groups.
  */
-typedef boolean gmpx_packet_attr;	/* Packet attribute */
+typedef boolean gmpx_packet_attr;    /* Packet attribute */
 
 /* Tracing */
 
@@ -80,26 +80,26 @@ typedef struct gmpx_timer_ gmpx_timer;
 typedef void (*gmpx_timer_callback)(gmpx_timer *timer, void *context);
 
 struct gmpx_timer_ {
-    task_timer *gmpxt_timer;		/* rpd's timer */
-    void *gmpxt_context;		/* timer context */
-    gmpx_timer_callback gmpxt_callback;	/* Callback address */
-    gmp_timer_group gmpxt_group;	/* Timer group */
-    gmp_proto gmpxt_proto;		/* Associated protocol */
+    task_timer *gmpxt_timer;        /* rpd's timer */
+    void *gmpxt_context;        /* timer context */
+    gmpx_timer_callback gmpxt_callback;    /* Callback address */
+    gmp_timer_group gmpxt_group;    /* Timer group */
+    gmp_proto gmpxt_proto;        /* Associated protocol */
 };
 
 
 /* gmpx_environment.c */
 
 extern void gmpx_start_timer(gmpx_timer *timer, uint32_t ivl,
-			     uint32_t jitter_pct);
+                 uint32_t jitter_pct);
 extern gmpx_timer *gmpx_create_timer(void *inst_context, const char *name,
-				     gmpx_timer_callback callback,
-				     void *timer_context);
+                     gmpx_timer_callback callback,
+                     void *timer_context);
 extern gmpx_timer *gmpx_create_grouped_timer(gmp_timer_group group,
-					     void *inst_context,
-					     const char *name,
-					     gmpx_timer_callback callback,
-					     void *timer_context);
+                         void *inst_context,
+                         const char *name,
+                         gmpx_timer_callback callback,
+                         void *timer_context);
 extern void gmpx_destroy_timer(gmpx_timer *timer);
 extern uint32_t gmpx_timer_time_remaining(gmpx_timer *timer);
 extern boolean gmpx_timer_running(gmpx_timer *timer);

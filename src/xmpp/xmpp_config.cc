@@ -30,16 +30,16 @@ int XmppChannelConfig::CompareTo(const XmppChannelConfig &rhs) const {
 }
 
 void XmppConfigManager::PeerConfigDiff(PeerDiffObserver obs) const {
-    const XmppConfigData::XmppChannelConfigMap &n_current = 
+    const XmppConfigData::XmppChannelConfigMap &n_current =
         current_->neighbors();
     if (future_.get() == NULL) {
         return;
     }
     const XmppConfigData::XmppChannelConfigMap &n_future = future_->neighbors();
 
-    XmppConfigData::XmppChannelConfigMap::const_iterator icurr = 
+    XmppConfigData::XmppChannelConfigMap::const_iterator icurr =
         n_current.begin();
-    XmppConfigData::XmppChannelConfigMap::const_iterator inext = 
+    XmppConfigData::XmppChannelConfigMap::const_iterator inext =
         n_future.begin();
 
     while (icurr != n_current.end() && inext != n_future.end()) {

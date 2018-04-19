@@ -14,7 +14,7 @@ class MetadataClient;
 class MetadataProxy {
 public:
     struct SessionData {
-        SessionData(HttpConnection *c, bool conn_close) 
+        SessionData(HttpConnection *c, bool conn_close)
             : conn(c), content_len(0), data_sent(0),
               close_req(conn_close), header_end(false) {}
 

@@ -40,7 +40,7 @@
 
 #include "xml/xml_pugi.h"
 
-#include "controller/controller_ifmap.h" 
+#include "controller/controller_ifmap.h"
 
 using namespace pugi;
 const char *init_file_local;
@@ -65,10 +65,10 @@ public:
 
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         rx_count_++;
-    }    
+    }
 
     bool SendUpdate(uint8_t *msg, size_t size) {
-        if (channel_ && 
+        if (channel_ &&
             (channel_->GetPeerState() == xmps::READY)) {
             return channel_->Send(msg, size, xmps::CONFIG,
                    boost::bind(&ControlNodeMockIFMapXmppPeer::WriteReadyCb, this, _1));
@@ -86,7 +86,7 @@ private:
 };
 
 
-class AgentIFMapXmppUnitTest : public ::testing::Test { 
+class AgentIFMapXmppUnitTest : public ::testing::Test {
 protected:
 
     virtual void SetUp() {
@@ -182,7 +182,7 @@ protected:
             WAIT_FOR(100, 10000, ((sconnection[id] =
                 xs[id]->FindConnection(boost::asio::ip::host_name())) != NULL));
 
-            mock_ifmap_peer[id].reset(new 
+            mock_ifmap_peer[id].reset(new
                 ControlNodeMockIFMapXmppPeer(sconnection[id]->ChannelMux()));
         }
 
@@ -265,7 +265,7 @@ TEST_F(AgentIFMapXmppUnitTest, LinkTest) {
     VnEntry *oper_vn = VnGet(4);
     VrfEntry *oper_vrf = VrfGet("vrf4");
     EXPECT_EQ(oper_vn->GetVrf(), oper_vrf);
-    
+
     //DeleteVmportEnv(input2, 2, 0);
     client->WaitForIdle();
 

@@ -19,11 +19,11 @@ public:
 
     Pkt0Interface(const std::string &name, boost::asio::io_service *io);
     virtual ~Pkt0Interface();
-    
+
     virtual void InitControlInterface();
     virtual void IoShutdownControlInterface();
     virtual void ShutdownControlInterface();
-    
+
     const std::string &Name() const { return name_; }
     int Send(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt);
     const unsigned char *mac_address() const { return mac_address_; }

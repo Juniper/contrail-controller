@@ -9,11 +9,11 @@
 #include <ksync/ksync_sock.h>
 #include "vr_mirror.h"
 
-MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
+MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    const MirrorKSyncEntry *entry,
-                                   uint32_t index) : 
-    KSyncNetlinkDBEntry(index), ksync_obj_(obj), vrf_id_(entry->vrf_id_), 
-    sip_(entry->sip_), sport_(entry->sport_), dip_(entry->dip_), 
+                                   uint32_t index) :
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), vrf_id_(entry->vrf_id_),
+    sip_(entry->sip_), sport_(entry->sport_), dip_(entry->dip_),
     dport_(entry->dport_), analyzer_name_(entry->analyzer_name_),
     mirror_flag_(entry->mirror_flag_), vni_(entry->vni_),
     nic_assisted_mirroring_(entry->nic_assisted_mirroring_),
@@ -21,18 +21,18 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     mirror_index_(entry->mirror_index_) {
 }
 
-MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
+MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    const uint32_t vrf_id, IpAddress dip,
                                    uint16_t dport) :
-    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), vrf_id_(vrf_id), 
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), vrf_id_(vrf_id),
     dip_(dip), dport_(dport) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    const MirrorEntry *mirror_entry) :
-    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    vrf_id_(mirror_entry->vrf_id()), sip_(*mirror_entry->GetSip()), 
-    sport_(mirror_entry->GetSPort()), dip_(*mirror_entry->GetDip()), 
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
+    vrf_id_(mirror_entry->vrf_id()), sip_(*mirror_entry->GetSip()),
+    sport_(mirror_entry->GetSPort()), dip_(*mirror_entry->GetDip()),
     dport_(mirror_entry->GetDPort()), nh_(NULL),
     analyzer_name_(mirror_entry->GetAnalyzerName()),
     mirror_flag_(mirror_entry->GetMirrorFlag()), vni_(mirror_entry->GetVni()),
@@ -176,7 +176,7 @@ KSyncEntry *MirrorKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-MirrorKSyncObject::MirrorKSyncObject(KSync *ksync) : 
+MirrorKSyncObject::MirrorKSyncObject(KSync *ksync) :
     KSyncDBObject("KSync Mirror", kMirrorIndexCount), ksync_(ksync) {
 }
 
@@ -188,7 +188,7 @@ void MirrorKSyncObject::RegisterDBClients() {
 }
 
 KSyncEntry *MirrorKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
-    const MirrorKSyncEntry *mirror_entry = 
+    const MirrorKSyncEntry *mirror_entry =
         static_cast<const MirrorKSyncEntry *>(entry);
     MirrorKSyncEntry *ksync = new MirrorKSyncEntry(this, mirror_entry, index);
     return static_cast<KSyncEntry *>(ksync);

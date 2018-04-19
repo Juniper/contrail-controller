@@ -92,7 +92,7 @@ protected:
 TEST_F(TestControlWord, InterfaceNH) {
     VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
     EXPECT_TRUE(vm_intf->layer2_control_word() == false);
-    const InterfaceNH *l3_no_policy = 
+    const InterfaceNH *l3_no_policy =
         static_cast<const InterfaceNH *>(vm_intf->l3_interface_nh_no_policy());
     const InterfaceNH *l2_policy =
         static_cast<const InterfaceNH *>(vm_intf->l2_interface_nh_policy());
@@ -128,13 +128,13 @@ TEST_F(TestControlWord, RemoteBridgeRoute) {
 
     MacAddress smac(0x00, 0x00, 0x00, 0x01, 0x01, 0xaa);
     Ip4Address server_ip(0x10101010);
-    BridgeTunnelRouteAdd(bgp_peer_ptr, 
+    BridgeTunnelRouteAdd(bgp_peer_ptr,
                         "vrf1", TunnelType::AllType(), server_ip,
                         (MplsTable::kStartLabel + 60), smac,
                         Ip4Address::from_string("0.0.0.0"), 32);
     client->WaitForIdle();
 
-    AgentRoute *rt = L2RouteGet("vrf1", smac); 
+    AgentRoute *rt = L2RouteGet("vrf1", smac);
     EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
 
     ChangeControlWord("vn1", true);
@@ -143,7 +143,7 @@ TEST_F(TestControlWord, RemoteBridgeRoute) {
     ChangeControlWord("vn1", false);
     EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
 
-    EvpnAgentRouteTable::DeleteReq(bgp_peer_ptr, "vrf1", smac, 
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_ptr, "vrf1", smac,
                                    Ip4Address(0), 0, NULL);
     client->WaitForIdle();
     DeleteBgpPeer(bgp_peer_ptr);
@@ -155,7 +155,7 @@ TEST_F(TestControlWord, CompositeNH) {
 
     AgentRoute *rt = L2RouteGet("vrf1", smac);
     EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
-    const CompositeNH *comp_nh = 
+    const CompositeNH *comp_nh =
         dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->layer2_control_word() == false);
 
@@ -180,30 +180,30 @@ TEST_F(TestControlWord, BridgeDomain) {
     AgentRoute *rt = L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
                                 smac);
     EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
-    const CompositeNH *comp_nh = 
+    const CompositeNH *comp_nh =
         dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->layer2_control_word() == false);
 
-	MplsLabel *mpls =
-		agent_->mpls_table()->FindMplsLabel(bd->vrf()->table_label());
-	EXPECT_TRUE(mpls->nexthop()->GetType() == NextHop::VRF);
-	const VrfNH *vrf_nh = dynamic_cast<const VrfNH *>(mpls->nexthop());
-	EXPECT_TRUE(vrf_nh->layer2_control_word() == false);
-	EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
+    MplsLabel *mpls =
+        agent_->mpls_table()->FindMplsLabel(bd->vrf()->table_label());
+    EXPECT_TRUE(mpls->nexthop()->GetType() == NextHop::VRF);
+    const VrfNH *vrf_nh = dynamic_cast<const VrfNH *>(mpls->nexthop());
+    EXPECT_TRUE(vrf_nh->layer2_control_word() == false);
+    EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
 
-	ChangeControlWord("vn1", true);
-	EXPECT_TRUE(vrf_nh->layer2_control_word() == true);
-	EXPECT_TRUE(comp_nh->layer2_control_word() == true);
-	EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == true);
+    ChangeControlWord("vn1", true);
+    EXPECT_TRUE(vrf_nh->layer2_control_word() == true);
+    EXPECT_TRUE(comp_nh->layer2_control_word() == true);
+    EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == true);
 
-	ChangeControlWord("vn1", false);
-	EXPECT_TRUE(vrf_nh->layer2_control_word() == false);
-	EXPECT_TRUE(comp_nh->layer2_control_word() == false);
-	EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
+    ChangeControlWord("vn1", false);
+    EXPECT_TRUE(vrf_nh->layer2_control_word() == false);
+    EXPECT_TRUE(comp_nh->layer2_control_word() == false);
+    EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
 
     DelNode("bridge-domain", "bridge1");
-	DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
-	client->WaitForIdle();
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

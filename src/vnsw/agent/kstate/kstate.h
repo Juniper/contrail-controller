@@ -22,7 +22,7 @@
 class KState : public AgentSandeshContext {
 public:
     static const int kMaxEntriesPerResponse = 100;
-    KState(const std::string &s, Sandesh *obj) : response_context_(s), 
+    KState(const std::string &s, Sandesh *obj) : response_context_(s),
         response_object_(obj), vr_response_code_(0), more_context_(NULL) {}
 
     void EncodeAndSend(Sandesh &encoder);

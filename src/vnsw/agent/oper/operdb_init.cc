@@ -77,7 +77,7 @@ T *DBTableCreate(DB *db, Agent *agent, OperDB *oper,
 void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.interface.0", &InterfaceTable::CreateTable);
     DB::RegisterFactory("db.nexthop.0", &NextHopTable::CreateTable);
-    DB::RegisterFactory("db.crypttunnel.0", 
+    DB::RegisterFactory("db.crypttunnel.0",
                         boost::bind(&CryptTunnelTable::CreateTable,
                                     agent_, _1, _2));
     DB::RegisterFactory("uc.route.0",

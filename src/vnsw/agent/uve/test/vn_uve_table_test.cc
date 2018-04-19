@@ -79,8 +79,8 @@ UveVirtualNetworkAgent* VnUveTableTest::VnUveObject(const string &vn) {
     return uve->uve_info();
 }
 
-void VnUveTableTest::DispatchVnMsg(const UveVirtualNetworkAgent &uve) { 
-    send_count_++; 
+void VnUveTableTest::DispatchVnMsg(const UveVirtualNetworkAgent &uve) {
+    send_count_++;
     if (uve.get_deleted()) {
         delete_count_++;
     }
