@@ -1496,7 +1496,7 @@ void KSyncObject::BackRefReEval(KSyncEntry *key) {
 
     for (BackRefTree::iterator it = back_ref_tree_.upper_bound(node); 
          it != back_ref_tree_.end(); ) {
-        BackRefTree::iterator it_work = it++;
+        BackRefTree::iterator it_work = it;
 
         KSyncBackReference *entry = it_work.operator->();
         if (entry->key_ != key) {
@@ -1505,6 +1505,7 @@ void KSyncObject::BackRefReEval(KSyncEntry *key) {
         KSyncEntry *back_ref = entry->back_reference_;
         buf.push_back(back_ref);
         BackRefDel(entry->back_reference_);
+        it = back_ref_tree_.upper_bound(node);
     }
 
     std::vector<KSyncEntry *>::iterator it = buf.begin();
