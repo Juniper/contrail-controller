@@ -168,13 +168,12 @@ void ClusterListSpec::ToCanonical(BgpAttr *attr) {
 
 std::string ClusterListSpec::ToString() const {
     std::stringstream repr;
-    repr << "CLUSTER_LIST <code: " << std::dec << code;
+    repr << "CLUSTER_LIST <code: " << int(code);
     repr << ", flags: 0x" << std::hex << int(flags) << "> :";
     for (vector<uint32_t>::const_iterator iter = cluster_list.begin();
          iter != cluster_list.end(); ++iter) {
         repr << " " << Ip4Address(*iter).to_string();
     }
-    repr << std::endl;
     return repr.str();
 }
 
@@ -705,10 +704,24 @@ void BgpOListSpec::ToCanonical(BgpAttr *attr) {
 }
 
 std::string BgpOListSpec::ToString() const {
-    char repr[80];
-    snprintf(repr, sizeof(repr), "OList <subcode: %d> : %p",
-             subcode, this);
-    return std::string(repr);
+    std::ostringstream oss;
+    oss << "OList <subcode: " << int(subcode) << ">";
+    int idx = 0;
+    for (Elements::const_iterator it = elements.begin();
+         it != elements.end(); ++it, ++idx) {
+        BgpOListElem *elem = new BgpOListElem(*it);
+        oss << " OList[" << idx << "] = (" << elem->address << ", ";
+        oss << elem->label << ", ";
+        oss << "encap-list :";
+        int eid = 0;
+        for (std::vector<std::string>::const_iterator e_it =
+                                                elem->encap.begin();
+             e_it != elem->encap.end(); ++e_it, ++eid) {
+             oss << " " << *e_it;
+        }
+        oss << ")";
+    }
+    return (oss.str());
 }
 
 BgpOList::BgpOList(BgpOListDB *olist_db, const BgpOListSpec &olist_spec)
