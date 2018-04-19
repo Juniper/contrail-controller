@@ -10,3 +10,5 @@ sandesh
 sandesh_common
 junitxml
 timeout-decorator
+requests
+yaml
