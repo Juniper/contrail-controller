@@ -13,7 +13,7 @@ class RouteTargetTest : public ::testing::Test {
 
 TEST_F(RouteTargetTest, ByteArrayType0_1) {
     RouteTarget::bytes_type data =
-	    { { 0x00, 0x02, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04 } };
+        { { 0x00, 0x02, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04 } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(0, rtarget.Type());
@@ -23,7 +23,7 @@ TEST_F(RouteTargetTest, ByteArrayType0_1) {
 
 TEST_F(RouteTargetTest, ByteArrayType0_2) {
     RouteTarget::bytes_type data =
-	    { { 0x00, 0x02, 0xff, 0x84, 0x04, 0x03, 0x02, 0x01 } };
+        { { 0x00, 0x02, 0xff, 0x84, 0x04, 0x03, 0x02, 0x01 } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(0, rtarget.Type());
@@ -33,7 +33,7 @@ TEST_F(RouteTargetTest, ByteArrayType0_2) {
 
 TEST_F(RouteTargetTest, ByteArrayType0_3) {
     RouteTarget::bytes_type data =
-	    { { 0x00, 0x02, 0xff, 0x84, 0x00, 0x00, 0x00, 0x00 } };
+        { { 0x00, 0x02, 0xff, 0x84, 0x00, 0x00, 0x00, 0x00 } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(0, rtarget.Type());
@@ -43,7 +43,7 @@ TEST_F(RouteTargetTest, ByteArrayType0_3) {
 
 TEST_F(RouteTargetTest, ByteArrayType0_4) {
     RouteTarget::bytes_type data =
-	    { { 0x00, 0x02, 0xff, 0x84, 0xFF, 0xFF, 0xFF, 0xFF } };
+        { { 0x00, 0x02, 0xff, 0x84, 0xFF, 0xFF, 0xFF, 0xFF } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(0, rtarget.Type());
@@ -53,7 +53,7 @@ TEST_F(RouteTargetTest, ByteArrayType0_4) {
 
 TEST_F(RouteTargetTest, ByteArrayType1_1) {
     RouteTarget::bytes_type data =
-	    { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0x12, 0x34 } };
+        { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0x12, 0x34 } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(1, rtarget.Type());
@@ -63,7 +63,7 @@ TEST_F(RouteTargetTest, ByteArrayType1_1) {
 
 TEST_F(RouteTargetTest, ByteArrayType1_2) {
     RouteTarget::bytes_type data =
-	    { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0x43, 0x21 } };
+        { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0x43, 0x21 } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(1, rtarget.Type());
@@ -73,7 +73,7 @@ TEST_F(RouteTargetTest, ByteArrayType1_2) {
 
 TEST_F(RouteTargetTest, ByteArrayType1_3) {
     RouteTarget::bytes_type data =
-	    { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0x00, 0x00 } };
+        { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0x00, 0x00 } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(1, rtarget.Type());
@@ -83,7 +83,7 @@ TEST_F(RouteTargetTest, ByteArrayType1_3) {
 
 TEST_F(RouteTargetTest, ByteArrayType1_4) {
     RouteTarget::bytes_type data =
-	    { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0xFF, 0xFF } };
+        { { 0x01, 0x02, 0x0a, 0x01, 0x01, 0x01, 0xFF, 0xFF } };
     RouteTarget rtarget(data);
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(1, rtarget.Type());

@@ -136,7 +136,7 @@ public:
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
 
-    void CreateRemoteRoute(const char *vrf, const char *remote_vm, 
+    void CreateRemoteRoute(const char *vrf, const char *remote_vm,
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
@@ -228,7 +228,7 @@ public:
             WAIT_FOR(1000, 100, (flow->match_p().m_out_acl_l.size() == 0U));
             WAIT_FOR(1000, 100,
                     (flow->match_p().sg_policy.m_out_acl_l.size() == 0U));
-            if ((flow->match_p().m_out_acl_l.size() != 0) || 
+            if ((flow->match_p().m_out_acl_l.size() != 0) ||
                 (flow->match_p().sg_policy.m_out_acl_l.size() != 0)) {
                 ret = false;
             }
@@ -354,7 +354,7 @@ public:
         EXPECT_FALSE(VmPortFind(tap2, 0));
         EXPECT_FALSE(VmPortFind(tap3, 0));
 
-        WAIT_FOR(1000, 100, 
+        WAIT_FOR(1000, 100,
                  (Agent::GetInstance()->interface_table()->Size() == 3));
         WAIT_FOR(1000, 100, (PortSubscribeSize(Agent::GetInstance()) == 0));
         WAIT_FOR(1000, 100, (Agent::GetInstance()->vm_table()->Size() == 0));

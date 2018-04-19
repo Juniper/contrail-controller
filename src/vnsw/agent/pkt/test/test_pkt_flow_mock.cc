@@ -24,7 +24,7 @@ protected:
 };
 
 static void TxIpPacket(int ifindex, const char *sip, const char *dip,
-			  int proto, int hash_id) {
+              int proto, int hash_id) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id);
@@ -57,25 +57,25 @@ void ProcessExceptionPackets() {
     int hash_id = 10;
     for (it = excep_p_l.begin(); it != excep_p_l.end(); ++it) {
          ExceptionPacket ep = *it;
-	 Vn *vn = FindVn(ep.vn);
-	 if (vn == NULL) {
-	     LOG(ERROR, "Vn doesn't exist");
-	     return;
-	 }
-	 Vm *vm = FindVm(*vn, ep.vm);
-	 if (vm == NULL) {
-	     LOG(ERROR, "Vm:" << ep.vm << " doesn't exist in the Vn:" << vn->name);
-	     return;
-	 }
-	 
-	 VmInterface *intf = VmInterfaceGet(vm->pinfo.intf_id);
-	 if (intf == NULL) {
-	   LOG(ERROR, "Interface is not found");
-	   return;
-	 }
-	 LOG(DEBUG, "Interface ID:" << intf->id());
-	 TxIpPacket(intf->id(), ep.sip.c_str(), ep.dip.c_str(),
-	            strtoul((ep.proto).c_str(), NULL, 0), hash_id);
+     Vn *vn = FindVn(ep.vn);
+     if (vn == NULL) {
+         LOG(ERROR, "Vn doesn't exist");
+         return;
+     }
+     Vm *vm = FindVm(*vn, ep.vm);
+     if (vm == NULL) {
+         LOG(ERROR, "Vm:" << ep.vm << " doesn't exist in the Vn:" << vn->name);
+         return;
+     }
+
+     VmInterface *intf = VmInterfaceGet(vm->pinfo.intf_id);
+     if (intf == NULL) {
+       LOG(ERROR, "Interface is not found");
+       return;
+     }
+     LOG(DEBUG, "Interface ID:" << intf->id());
+     TxIpPacket(intf->id(), ep.sip.c_str(), ep.dip.c_str(),
+                strtoul((ep.proto).c_str(), NULL, 0), hash_id);
          client->WaitForIdle();
          AclTable *table = Agent::GetInstance()->acl_table();
          KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
@@ -108,7 +108,7 @@ void CreateNodeNetwork(Vn &vn, bool del_op) {
 
     std::vector<Vm>::iterator iter;
     for (iter = vn.vm_l.begin(); iter != vn.vm_l.end();
-	 ++iter) {
+     ++iter) {
          Vm vm = *iter;
          if (del_op) {
              DelVm(vm.name.c_str());
@@ -123,7 +123,7 @@ void CreateNodeNetwork(Vn &vn, bool del_op) {
         return;
     }
     for (iter = vn.vm_l.begin(); iter != vn.vm_l.end();
-	 ++iter) {
+     ++iter) {
          Vm vm = *iter;
          EXPECT_TRUE(VmPortActive(&(vm.pinfo), 0));
          EXPECT_TRUE(VmPortPolicyEnable(&(vm.pinfo), 0));
@@ -136,8 +136,8 @@ void CreateNodeNetworks(bool del_op) {
     std::vector<Vn>::iterator iter;
     for (iter = vn_l.begin(); iter !=vn_l.end(); ++iter) {
          Vn vn = *iter;
-	 CreateNodeNetwork(vn, del_op);
-    }      
+     CreateNodeNetwork(vn, del_op);
+    }
 }
 
 void LoadAcl() {
@@ -145,7 +145,7 @@ void LoadAcl() {
     xdoc.load_file("data.xml");
     Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc.first_child(), 0);
 }
-  
+
 TEST_F(AclFlowTest, Setup) {
     string str;
     if (setup_file[0] == '\0') {
@@ -194,7 +194,7 @@ int main (int argc, char **argv) {
     LOG(DEBUG, "Config File:" << config_file);
 
     client = TestInit(config_file, false, true, false, true);
-	Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();

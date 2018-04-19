@@ -1174,9 +1174,9 @@ TEST_F(ShowRouteTest2, MatchingPrefix14) {
         "168.1[1-3].0/24"
     };
     const vector<int> result[] = {
-	list_of(3)(1)(3),
-	list_of(3)(3),
-	list_of(3)(3)
+    list_of(3)(1)(3),
+    list_of(3)(3),
+    list_of(3)(3)
     };
     int i = 0;
     BOOST_FOREACH(const char *prefix, prefix_formats) {
@@ -1188,7 +1188,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix14) {
         show_req->HandleRequest();
         show_req->Release();
         TASK_UTIL_EXPECT_EQ(true, validate_done_);
-	i++;
+    i++;
     }
 }
 

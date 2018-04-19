@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
     ConfigFactory::Register<ConfigJsonParserBase>(
                           boost::factory<ConfigJsonParser *>());
     ConfigClientManager *config_client_manager =
-        new ConfigClientManager(Dns::GetEventManager(), options.hostname(), 
+        new ConfigClientManager(Dns::GetEventManager(), options.hostname(),
                   module_name, options.configdb_options());
     ConfigJsonParser *json_parser =
       static_cast<ConfigJsonParser *>(config_client_manager->config_json_parser());

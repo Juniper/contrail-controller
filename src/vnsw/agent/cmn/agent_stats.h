@@ -31,7 +31,7 @@ public:
         xmpp_config_in_msgs_(), sandesh_reconnects_(0U),
         sandesh_in_msgs_(0U), sandesh_out_msgs_(0U),
         sandesh_http_sessions_(0U), nh_count_(0U), pkt_exceptions_(0U),
-        pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U), 
+        pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U),
         pkt_no_handler_(0U), pkt_fragments_dropped_(0U), pkt_dropped_(0U),
         max_flow_count_(0),
         flow_drop_due_to_max_limit_(0), flow_drop_due_to_linklocal_limit_(0),

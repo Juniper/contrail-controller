@@ -97,7 +97,7 @@ std::string auth_data[MAX_ITEMS] = {"8.8.8.254",
 
 class DnsTest : public ::testing::Test {
 public:
-    DnsTest() { 
+    DnsTest() {
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
         Agent::GetInstance()->set_ifmap_active_xmpp_server("127.0.0.1", 0);
         rid_ = Agent::GetInstance()->interface_table()->Register(
@@ -144,7 +144,7 @@ public:
             add_items[i].soa.expiry = add_items[i].soa.ttl = 1000;
         }
     }
-    ~DnsTest() { 
+    ~DnsTest() {
         Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
@@ -162,9 +162,9 @@ public:
         }
     }
 
-    uint32_t GetItfCount() { 
+    uint32_t GetItfCount() {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_count_; 
+        return itf_count_;
     }
 
     void WaitForItfUpdate(unsigned int expect_count) {
@@ -176,9 +176,9 @@ public:
         }
     }
 
-    std::size_t GetItfId(int index) { 
+    std::size_t GetItfId(int index) {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_id_; 
+        return itf_id_;
     }
 
     void CHECK_STATS(DnsProto::DnsStats &stats, uint32_t req, uint32_t res,
@@ -284,7 +284,7 @@ public:
         while (!Agent::GetInstance()->GetDnsProto()->IsDnsQueryInProgress(g_xid))
             g_xid++;
         dnshdr *dns = (dnshdr *) buf;
-        BindUtil::BuildDnsHeader(dns, g_xid, DNS_QUERY_RESPONSE, 
+        BindUtil::BuildDnsHeader(dns, g_xid, DNS_QUERY_RESPONSE,
                                  DNS_OPCODE_QUERY, 0, 0, 0, 0);
         if (flag) {
             dns->flags.ret = DNS_ERR_NO_SUCH_NAME;
@@ -296,8 +296,8 @@ public:
         len = sizeof(dnshdr);
         uint8_t *ptr = (uint8_t *) (dns + 1);
         for (int i = 0; i < numQues; i++)
-            ptr = BindUtil::AddQuestionSection(ptr, items[i].name, 
-                                               items[i].type, items[i].eclass, 
+            ptr = BindUtil::AddQuestionSection(ptr, items[i].name,
+                                               items[i].type, items[i].eclass,
                                                len);
         for (int i = 0; i < numQues; i++)
             ptr = BindUtil::AddAnswerSection(ptr, items[i], len);
@@ -326,7 +326,7 @@ public:
 
     void CheckSendXmppUpdate() {
         // Call the SendXmppUpdate directly and check that all items are done
-        AgentDnsXmppChannel *tmp_xmpp_channel = 
+        AgentDnsXmppChannel *tmp_xmpp_channel =
             new AgentDnsXmppChannel(Agent::GetInstance(), "server", 0);
         Agent *agent = Agent::GetInstance();
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
@@ -446,7 +446,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
         {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
-    char vdns_attr[] = 
+    char vdns_attr[] =
         "<virtual-DNS-data>\
             <domain-name>test.contrail.juniper.net</domain-name>\
             <dynamic-records-from-client>true</dynamic-records-from-client>\
@@ -586,7 +586,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     client->Reset();
     DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
-    DelVDNS("vdns1"); 
+    DelVDNS("vdns1");
     client->WaitForIdle();
 }
 
@@ -976,7 +976,7 @@ TEST_F(DnsTest, VirtualDnsLinkLocalReqTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     IntfCfgDel(input, 0);
@@ -1002,7 +1002,7 @@ TEST_F(DnsTest, DnsXmppTest) {
         {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
-    char vdns_attr[] = 
+    char vdns_attr[] =
         "<virtual-DNS-data>\
             <domain-name>test.contrail.juniper.net</domain-name>\
             <dynamic-records-from-client>true</dynamic-records-from-client>\
@@ -1046,13 +1046,13 @@ TEST_F(DnsTest, DnsXmppTest) {
     CheckSendXmppUpdate();
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
-    DelVDNS("vdns1"); 
+    DelVDNS("vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDnsProto()->ClearStats();
@@ -1261,11 +1261,11 @@ TEST_F(DnsTest, DnsDropTest) {
     CHECK_STATS(stats, 2, 0, 0, 0, 1, 1);
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     IntfCfgDel(input, 0);

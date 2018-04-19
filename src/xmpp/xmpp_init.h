@@ -32,12 +32,12 @@ public:
     void InitClient(XmppClient *);
     bool InitServer(XmppServer *, int port, bool logUVE);
 
-    void AddXmppChannelConfig(XmppChannelConfig *); 
+    void AddXmppChannelConfig(XmppChannelConfig *);
     XmppChannelConfig *AllocChannelConfig(const std::string &peer_ip, int port,
-                                          const std::string &from, 
-                                          const std::string &to, 
-                                          const std::string &node, 
-                                          bool isClient); 
+                                          const std::string &from,
+                                          const std::string &to,
+                                          const std::string &node,
+                                          bool isClient);
 private:
     XmppServer *g_server_;
     XmppClient *g_client_;

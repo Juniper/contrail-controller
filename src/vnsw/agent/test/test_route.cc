@@ -31,7 +31,7 @@
 #include "kstate/test/test_kstate_util.h"
 #include "vr_types.h"
 #include "net/bgp_af.h"
-#include <controller/controller_export.h> 
+#include <controller/controller_export.h>
 
 using namespace boost::assign;
 
@@ -138,7 +138,7 @@ protected:
     }
 
     void AddVhostRoute() {
-        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, 
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE,
                                  nil_uuid(), "vhost0");
         agent_->fabric_inet4_unicast_table()->AddVHostRecvRouteReq
             (agent_->local_peer(), agent_->fabric_vrf_name(), vhost_key,
@@ -146,8 +146,8 @@ protected:
         client->WaitForIdle();
     }
 
-    void AddRemoteVmRoute(const Ip4Address &remote_vm_ip, 
-                          const Ip4Address &server_ip, uint32_t plen, 
+    void AddRemoteVmRoute(const Ip4Address &remote_vm_ip,
+                          const Ip4Address &server_ip, uint32_t plen,
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Passing vn name as vrf name itself
         Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip, plen, server_ip,
@@ -156,15 +156,15 @@ protected:
         client->WaitForIdle();
     }
 
-    void AddRemoteVmRoute(const Ip4Address &remote_vm_ip, 
-                          const Ip4Address &server_ip, uint32_t plen, 
+    void AddRemoteVmRoute(const Ip4Address &remote_vm_ip,
+                          const Ip4Address &server_ip, uint32_t plen,
                           uint32_t label) {
         AddRemoteVmRoute(remote_vm_ip, server_ip, plen, label,
                          TunnelType::AllType());
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                       agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute
             (agent_->local_peer(), agent_->fabric_vrf_name(), server_ip, plen,
@@ -172,7 +172,7 @@ protected:
         client->WaitForIdle();
     }
 
-    void AddGatewayRoute(const std::string &vrf_name, 
+    void AddGatewayRoute(const std::string &vrf_name,
                          const Ip4Address &ip, int plen,
                          const Ip4Address &server) {
         VnListType vn_list;
@@ -198,18 +198,18 @@ protected:
         client->WaitForIdle();
     }
 
-    void DeleteRoute(const Peer *peer, const std::string &vrf_name, 
+    void DeleteRoute(const Peer *peer, const std::string &vrf_name,
                      const Ip4Address &addr, uint32_t plen) {
         AgentRoute *rt = RouteGet(vrf_name, addr, plen);
         uint32_t path_count = rt->GetPathList().size();
         agent_->fabric_inet4_unicast_table()->DeleteReq(peer, vrf_name, addr,
                                                         plen, NULL);
         client->WaitForIdle(5);
-        WAIT_FOR(1000, 10000, ((RouteFind(vrf_name, addr, plen) != true) || 
+        WAIT_FOR(1000, 10000, ((RouteFind(vrf_name, addr, plen) != true) ||
                                (rt->GetPathList().size() == (path_count - 1))));
     }
 
-    bool IsSameNH(const Ip4Address &ip1, uint32_t plen1, const Ip4Address &ip2, 
+    bool IsSameNH(const Ip4Address &ip1, uint32_t plen1, const Ip4Address &ip2,
                   uint32_t plen2, const string vrf_name) {
         InetUnicastRouteEntry *rt1 = RouteGet(vrf_name, ip1, plen1);
         const NextHop *nh1 = rt1->GetActiveNextHop();
@@ -450,8 +450,8 @@ TEST_F(RouteTest, VhostRecvRoute_1) {
     //Add and delete recv route on fabric VRF
     AddVhostRoute();
     EXPECT_TRUE(RouteFind(agent_->fabric_vrf_name(), secondary_vhost_ip_, 32));
-    
-    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), 
+
+    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(),
                 secondary_vhost_ip_, 32);
     EXPECT_FALSE(RouteFind(agent_->fabric_vrf_name(), secondary_vhost_ip_, 32));
 }
@@ -545,7 +545,7 @@ TEST_F(RouteTest, RemoteVmRoute_3) {
 TEST_F(RouteTest, RemoteVmRoute_4) {
     //Add resolve route
     AddResolveRoute(server1_ip_, 24);
- 
+
     //Add a remote VM route pointing to server in same
     //subnet, tunnel NH will trigger ARP resolution
     AddRemoteVmRoute(remote_vm_ip_, server1_ip_, 32, MplsTable::kStartLabel, 0);
@@ -628,7 +628,7 @@ TEST_F(RouteTest, RemoteVmRoute_5) {
     EXPECT_TRUE(addr_nh->IsValid() == false);
 
     //Resolve ARP for gw
-    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
+    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f",
            eth_name_.c_str());
     client->WaitForIdle();
     addr_nh = addr_rt->GetActiveNextHop();
@@ -687,7 +687,7 @@ TEST_F(RouteTest, RemoteVmRoute_no_gw) {
         EXPECT_TRUE(addr_nh->IsValid() == false);
 
         //Resolve ARP for gw
-        AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
+        AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f",
                 eth_name_.c_str());
         client->WaitForIdle();
         EXPECT_TRUE(addr_nh->IsValid() == true);
@@ -761,7 +761,7 @@ TEST_F(RouteTest, GatewayRoute_1) {
     EXPECT_TRUE(RouteFind(agent_->fabric_vrf_name(), server2_ip_, 32));
 
     //Resolve ARP for subnet gateway route
-    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
+    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f",
            eth_name_.c_str());
     client->WaitForIdle();
     EXPECT_TRUE(IsSameNH(server2_ip_, 32, fabric_gw_ip_, 32,
@@ -1020,13 +1020,13 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
 
     MacAddress vm_mac = MacAddress::FromString("00:00:00:01:01:01");
     // Add state to NextHop so that entry is not freed on delete
-    DBTableBase::ListenerId id = 
+    DBTableBase::ListenerId id =
         agent_->nexthop_table()->Register(boost::bind(&RouteTest::NhListener,
                                                       this, _1, _2));
     InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                           MakeUuid(1), ""),
                        false, InterfaceNHFlags::INET4, vm_mac);
-    NextHop *nh = 
+    NextHop *nh =
         static_cast<NextHop *>(agent_->nexthop_table()->FindActiveEntry(&key));
     TestNhState *state = new TestNhState();
     nh->SetState(agent_->nexthop_table(), id, state);
@@ -1219,7 +1219,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
 }
 
 TEST_F(RouteTest, RtEntryReuse) {
-    DBTableBase::ListenerId id = 
+    DBTableBase::ListenerId id =
         agent_->fabric_inet4_unicast_table()->Register
         (boost::bind(&RouteTest::RtListener, this, _1, _2));
 
@@ -1273,7 +1273,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_2) {
     uint32_t repeat = kScaleCount;
     uint32_t i = 0;
     for (i = 0; i < repeat; i++) {
-        AddRemoteVmRoute(remote_vm_ip_, fabric_gw_ip_, 32, 
+        AddRemoteVmRoute(remote_vm_ip_, fabric_gw_ip_, 32,
                          MplsTable::kStartLabel);
         if (i != (repeat - 1)) {
             InetUnicastAgentRouteTable::DeleteReq
@@ -1311,8 +1311,8 @@ TEST_F(RouteTest, ScaleRouteAddDel_3) {
     }
 
     SecurityGroupList sg_id_list;
-    for (uint32_t i = 0; i < kScaleCount; i++) {    
-        EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, 
+    for (uint32_t i = 0; i < kScaleCount; i++) {
+        EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32,
                            comp_nh_list, false, "test", sg_id_list,
                            TagList(), PathPreference());
         client->WaitForIdle();
@@ -1345,8 +1345,8 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
     uint32_t repeat = kScaleCount;
     SecurityGroupList sg_id_list;
     sg_id_list.push_back(1);
-    for (uint32_t i = 0; i < repeat; i++) {    
-        EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, 
+    for (uint32_t i = 0; i < repeat; i++) {
+        EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32,
                            comp_nh_list, -1, "test", sg_id_list,
                            TagList(), PathPreference());
         client->WaitForIdle(5);
@@ -1720,7 +1720,7 @@ TEST_F(RouteTest, SubnetRoute_Flood_2) {
     };
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
-    
+
     //Now add remote route
     AddRemoteVmRoute(remote_subnet_ip_, fabric_gw_ip_, 29, MplsTable::kStartLabel);
 
@@ -1795,7 +1795,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
                                             Ip4Address::from_string("1.1.1.1"),
                                             32);
     //In ksync binding decides if flood flag i.e. ipam_subnet_route needs to be
-    //enabled or not. 
+    //enabled or not.
     EXPECT_FALSE(uc_rt->ipam_subnet_route());
     EXPECT_FALSE(uc_rt->proxy_arp());
 
@@ -1979,7 +1979,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     EXPECT_FALSE(rt6->ipam_host_route());
     DeleteRoute(bgp_peer_, vrf_name_, subnet_vm_ip_non_ipam_3, 16);
     client->WaitForIdle();
-    
+
 
     client->Reset();
     DelIPAM("vn1");
@@ -2282,13 +2282,13 @@ TEST_F(RouteTest, EcmpTest_1) {
 
     agent_->mpls_table()->Enqueue(&req);
     //Now add ecmp tunnel add request
-    EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, 
+    EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32,
                        comp_nh_list, false, "test", sg_id_list,
                        TagList(), PathPreference());
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Start();
 
-    //DeleteRoute(vrf_name_.c_str(), remote_vm_ip_, 32, peer); 
+    //DeleteRoute(vrf_name_.c_str(), remote_vm_ip_, 32, peer);
     agent_->fabric_inet4_unicast_table()->
         DeleteReq(bgp_peer_, vrf_name_.c_str(), remote_vm_ip_, 32,
                   new ControllerVmRoute(bgp_peer_));

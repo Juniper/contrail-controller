@@ -18,7 +18,7 @@ struct MirrorCfgKey {
 };
 
 struct MirrorCfgData {
-    MirrorCfgData() : 
+    MirrorCfgData() :
         apply_vn(), src_vn(), src_ip_prefix(), src_ip_prefix_len(0),
         dst_vn(), dst_ip_prefix(), dst_ip_prefix_len(0), start_src_port(0),
         end_src_port(0), start_dst_port(0), end_dst_port(0), protocol(0),
@@ -49,7 +49,7 @@ struct MirrorCfgData {
     int protocol;
 
     // Mirror destination
-    std::string ip;   
+    std::string ip;
     int udp_port;
     // Time period for mirroring in seconds
     int time_period;
@@ -95,7 +95,7 @@ public:
 
     void Shutdown();
     void Init();
-    void SetMirrorCfgSandeshData(std::string &handle, 
+    void SetMirrorCfgSandeshData(std::string &handle,
                                  MirrorCfgDisplayResp &resp);
     void SetMirrorCfgVnSandeshData(std::string &vn_name,
                                    MirrorCfgVnInfoResp &resp);
@@ -119,7 +119,7 @@ struct MirrorDestination {
     IpAddress sip;
     uint16_t sport;
     // Mirror destination
-    IpAddress dip;   
+    IpAddress dip;
     uint16_t dport;
     // Time period for mirroring in seconds
     int time_period;
@@ -148,7 +148,7 @@ public:
     IntfMirrorCfgTable *CreateIntfMirrorCfgTable();
     void Init();
     void Shutdown();
-    void SetIntfMirrorCfgSandeshData(std::string &handle, 
+    void SetIntfMirrorCfgSandeshData(std::string &handle,
                                      IntfMirrorCfgDisplayResp &resp);
 private:
     AgentConfig *agent_cfg_;

@@ -43,7 +43,7 @@ void NamedConfig::Shutdown() {
     delete singleton_;
 }
 
-// Reset bind config 
+// Reset bind config
 void NamedConfig::Reset() {
     reset_flag_ = true;
     CreateRndcConf();
@@ -263,7 +263,7 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
         std::string next_dns = curr_vdns->GetNextDns();
         if (!next_dns.empty()) {
             boost::system::error_code ec;
-            boost::asio::ip::address_v4 
+            boost::asio::ip::address_v4
                 next_addr(boost::asio::ip::address_v4::from_string(next_dns, ec));
             if (!ec.value()) {
                 file_ << "    forwarders {" << next_addr.to_string() << ";};" << endl;
@@ -293,7 +293,7 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
 }
 
 void NamedConfig::WriteDefaultView(ZoneViewMap &zone_view_map) {
-    // Create a default view first for any requests which do not have 
+    // Create a default view first for any requests which do not have
     // view name TXT record
     file_ << "view \"_default_view_\" {" << endl;
     file_ << "    match-clients {any;};" << endl;
@@ -302,7 +302,7 @@ void NamedConfig::WriteDefaultView(ZoneViewMap &zone_view_map) {
     if (!default_forwarders_.empty()) {
         file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
     }
-    for (ZoneViewMap::iterator it = zone_view_map.begin(); 
+    for (ZoneViewMap::iterator it = zone_view_map.begin();
          it != zone_view_map.end(); ++it) {
         WriteZone(it->second, it->first, false, false, "");
     }
@@ -338,7 +338,7 @@ void NamedConfig::AddZoneFiles(ZoneList &zones, const VirtualDnsConfig *vdns) {
     }
 }
 
-void NamedConfig::RemoveZoneFiles(const VirtualDnsConfig *vdns, 
+void NamedConfig::RemoveZoneFiles(const VirtualDnsConfig *vdns,
                                   ZoneList &zones) {
     for (unsigned int i = 0; i < zones.size(); i++) {
         RemoveZoneFile(vdns, zones[i]);
@@ -379,7 +379,7 @@ string NamedConfig::GetZoneMXName(const string domain_name) {
     return (NamedZoneMXPrefix + "." + domain_name);
 }
 
-void NamedConfig::CreateZoneFile(std::string &zone_name, 
+void NamedConfig::CreateZoneFile(std::string &zone_name,
                                  const VirtualDnsConfig *vdns, bool ns) {
     ofstream zfile;
     string ns_name;
@@ -393,7 +393,7 @@ void NamedConfig::CreateZoneFile(std::string &zone_name,
         zfile << "$TTL " << Defaults::GlobalTTL << endl;
     }
     zfile << left << setw(NameWidth) << zone_name << " IN  SOA " <<
-                GetZoneNSName(vdns->GetDomainName()) << "  " << 
+                GetZoneNSName(vdns->GetDomainName()) << "  " <<
                 GetZoneMXName(vdns->GetDomainName()) << " (" << endl;
     zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Serial << endl;
     zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Refresh << endl;
@@ -402,11 +402,11 @@ void NamedConfig::CreateZoneFile(std::string &zone_name,
     zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Minimum << endl;
     zfile << setw(NameWidth + 8) << "" << ")" << endl;
     /* NS records are mandatory in zone file. They are required for the following reasons
-       1. Name servers returns NS RR in responses to queries, in the authority section 
+       1. Name servers returns NS RR in responses to queries, in the authority section
           of the DNS message.
        2. Name servers use the NS records to determine where to send NOTIFY messages.
      */
-    zfile << setw(NameWidth + 4) << "" << setw(TypeWidth) << " NS " << 
+    zfile << setw(NameWidth + 4) << "" << setw(TypeWidth) << " NS " <<
                 setw(NameWidth) << GetZoneNSName(vdns->GetDomainName()) << endl;
     zfile << "$ORIGIN " << zone_name << endl;
     //Write the NS record
@@ -492,7 +492,7 @@ void NamedConfig::GetDefaultForwarders() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-BindStatus::BindStatus(BindEventHandler handler) 
+BindStatus::BindStatus(BindEventHandler handler)
     : named_pid_(-1), handler_(handler), change_timeout_(true) {
     status_timer_ = TimerManager::CreateTimer(
                     *Dns::GetEventManager()->io_service(), "BindStatusTimer",

@@ -124,7 +124,7 @@ protected:
                           const Ip4Address &server_ip,
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any other peer than localvmpeer
-        Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, ip_addr, 32, server_ip, 
+        Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, ip_addr, 32, server_ip,
                             bmap, label+1, vrf_name_,
                             SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
@@ -134,7 +134,7 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                  agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),
@@ -565,12 +565,12 @@ TEST_F(ForwardingModeTest, default_forwarding_mode_l2_add_aap) {
     /* Adding AAP entry */
     AddAap("vnet1", 1, Ip4Address::from_string("11.11.11.11"), mac.ToString());
     VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
-    client->WaitForIdle();    
+    client->WaitForIdle();
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
     BridgeRouteEntry* aap_l2_rt = L2RouteGet("vrf1", mac);
     EXPECT_TRUE(aap_l2_rt != NULL);
     AddAap("vnet1", 1, Ip4Address(0), zero_mac.ToString());
-    client->WaitForIdle();    
+    client->WaitForIdle();
     aap_l2_rt = L2RouteGet("vrf1", mac);
     EXPECT_TRUE(aap_l2_rt == NULL);
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);

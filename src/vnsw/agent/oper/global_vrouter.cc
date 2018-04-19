@@ -264,9 +264,9 @@ public:
             ResolveMap::iterator it = address_map_.find(name);
             if (it != address_map_.end()) {
                 address_map_.erase(it);
-                new_addr_map.insert(ResolvePair(name, it->second)); 
+                new_addr_map.insert(ResolvePair(name, it->second));
             } else {
-                new_addr_map.insert(ResolvePair(name, empty_addr_list)); 
+                new_addr_map.insert(ResolvePair(name, empty_addr_list));
             }
         }
         address_map_.swap(new_addr_map);
@@ -328,7 +328,7 @@ private:
         request_count_++;
     }
 
-    // called in asio context, handle resolve response 
+    // called in asio context, handle resolve response
     void ResolveHandler(const boost::system::error_code& error,
                         boost_udp::resolver::iterator resolve_it,
                         std::string &name, boost_udp::resolver *resolver) {
@@ -367,7 +367,7 @@ private:
 // Also, add / delete receive routes for link local addresses in different VRFs
 class GlobalVrouter::LinkLocalRouteManager {
 public:
-    LinkLocalRouteManager(GlobalVrouter *vrouter) 
+    LinkLocalRouteManager(GlobalVrouter *vrouter)
         : global_vrouter_(vrouter), vn_id_(DBTableBase::kInvalidId){
     }
 
@@ -510,7 +510,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
     VrfEntry *vrf_entry = vn_entry->GetVrf();
     Agent *agent = global_vrouter_->agent();
     if (vn_entry->IsDeleted() || !vn_entry->layer3_forwarding() || !vrf_entry) {
-        LinkLocalDBState *state = static_cast<LinkLocalDBState *> 
+        LinkLocalDBState *state = static_cast<LinkLocalDBState *>
             (vn_entry->GetState(partition->parent(), vn_id_));
         if (!state)
             return true;
@@ -630,7 +630,7 @@ void GlobalVrouter::UpdateSLOConfig(IFMapNode *node) {
 
 // Handle incoming global vrouter configuration
 void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
-    Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
+    Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode =
                                             Agent::AUTOMATIC;
     bool resync_vn = false; //resync_vn walks internally calls VMI walk.
     bool resync_route = false;
@@ -638,7 +638,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     if (node->IsDeleted() == false) {
         UpdateSLOConfig(node);
 
-        autogen::GlobalVrouterConfig *cfg = 
+        autogen::GlobalVrouterConfig *cfg =
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
 
         agent()->set_global_slo_status(cfg->enable_security_logging());
@@ -649,7 +649,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
-        UpdateCryptTunnelEndpointConfig(cfg->encryption_tunnel_endpoints(), 
+        UpdateCryptTunnelEndpointConfig(cfg->encryption_tunnel_endpoints(),
                                         cfg->encryption_mode());
 
         //Take the forwarding mode if its set, else fallback to l2_l3.
@@ -686,7 +686,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         DeletePortConfig();
     }
 
-    if (cfg_vxlan_network_identifier_mode !=                             
+    if (cfg_vxlan_network_identifier_mode !=
         agent()->vxlan_network_identifier_mode()) {
         agent()->set_vxlan_network_identifier_mode
             (cfg_vxlan_network_identifier_mode);
@@ -866,7 +866,7 @@ void GlobalVrouter::UpdateLinkLocalServiceConfig(
 void GlobalVrouter::DeleteLinkLocalServiceConfig() {
     std::vector<std::string> dns_name_list;
     LinkLocalServicesMap linklocal_services_map;
-    
+
     linklocal_services_map_.swap(linklocal_services_map);
     fabric_dns_resolver_->ResolveList(dns_name_list);
     ChangeNotify(&linklocal_services_map, &linklocal_services_map_);
@@ -1027,7 +1027,7 @@ void GlobalVrouter::UpdateCryptTunnelEndpointConfig(
         if (it->tunnel_remote_ip_address.compare(agent()->router_id().to_string()) == 0) {
             continue;
         }
-        crypt_tunnels_map.insert(CryptTunnelsPair(CryptTunnelKey(it->tunnel_remote_ip_address), 
+        crypt_tunnels_map.insert(CryptTunnelsPair(CryptTunnelKey(it->tunnel_remote_ip_address),
                                                   CryptTunnel(mode)));
     }
     crypt_tunnels_map_.swap(crypt_tunnels_map);

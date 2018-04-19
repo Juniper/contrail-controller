@@ -24,14 +24,14 @@ class NHKSyncObject;
 class NHKSyncEntry : public KSyncNetlinkDBEntry {
 public:
     static const int kDefaultNhMsgSize = 4096;
-    NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry, 
+    NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
                  uint32_t index);
     NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh);
     virtual ~NHKSyncEntry();
 
     const NextHop *nh() { return nh_; }
     NextHop::Type type() const {return type_;}
-    InterfaceKSyncEntry *interface() const { 
+    InterfaceKSyncEntry *interface() const {
         return static_cast<InterfaceKSyncEntry *>(interface_.get());
     }
     InterfaceKSyncEntry *crypt_interface() const {

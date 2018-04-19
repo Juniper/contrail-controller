@@ -48,7 +48,7 @@ static bool InterfaceExists(std::string if_name) {
 void Pkt0Interface::InitControlInterface() {
     unsigned int flags;
     pkt_handler()->agent()->set_pkt_interface_name(name_);
-    
+
     // Create a socket for the TAP device
     int socket_fd = socket(AF_LOCAL, SOCK_DGRAM, 0);
     if (socket_fd < 0) {
@@ -145,12 +145,12 @@ void Pkt0Interface::InitControlInterface() {
             strerror(errno) << "> setting fcntl on " << name_ );
         assert(0);
     }
-    
+
     boost::system::error_code ec;
     input_.assign(tap_fd_, ec);
     assert(ec == 0);
-    
-    VrouterControlInterface::InitControlInterface();  
+
+    VrouterControlInterface::InitControlInterface();
     AsyncRead();
 }
 

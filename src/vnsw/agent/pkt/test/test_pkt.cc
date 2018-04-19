@@ -91,7 +91,7 @@ static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
     return;
 }
 
-static void TxIpPacket(int ifindex, const char *sip, const char *dip, 
+static void TxIpPacket(int ifindex, const char *sip, const char *dip,
                             int proto) {
     PktGen *pkt = new PktGen();
     MakeIpPacket(pkt, ifindex, sip, dip, proto);
@@ -103,8 +103,8 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
 }
 
 static void MakeMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
-                            const char *out_dip, uint32_t label, 
-                            const char *sip, const char *dip, 
+                            const char *out_dip, uint32_t label,
+                            const char *sip, const char *dip,
                             int proto) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS);
@@ -116,8 +116,8 @@ static void MakeMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 }
 
 static void TxMplsPacket(int ifindex, const char *out_sip,
-                            const char *out_dip, uint32_t label, 
-                            const char *sip, const char *dip, 
+                            const char *out_dip, uint32_t label,
+                            const char *sip, const char *dip,
                             int proto) {
     PktGen *pkt = new PktGen();
     MakeMplsPacket(pkt, ifindex, out_sip, out_dip, label, sip, dip, proto);
@@ -157,7 +157,7 @@ TEST_F(PktTest, FlowAdd_1) {
                              Ip4Address(0), Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
-    
+
     TxMplsPacket(2, "1.1.1.3", "10.1.1.1", 0, "2.2.2.3", "3.3.3.4", 1);
     TxMplsPacket(2, "1.1.1.4", "10.1.1.1", 0, "2.2.2.4", "3.3.3.5", 1);
     TxMplsPacket(2, "1.1.1.5", "10.1.1.1", 0, "2.2.2.5", "3.3.3.6", 1);

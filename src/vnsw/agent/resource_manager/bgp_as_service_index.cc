@@ -12,11 +12,11 @@
 #include "bgp_as_service_index.h"
 #include "resource_manager/resource_manager_types.h"
 #include "resource_manager/resource_backup.h"
-    
+
 BgpAsServiceIndexResourceKey::BgpAsServiceIndexResourceKey(ResourceManager *rm,
         const boost::uuids::uuid &uuid):IndexResourceKey(rm,
         Resource::BGP_AS_SERVICE_INDEX), uuid_(uuid) {
-    
+
 }
 
 void BgpAsServiceIndexResourceKey::Backup(ResourceData *data, uint16_t op){

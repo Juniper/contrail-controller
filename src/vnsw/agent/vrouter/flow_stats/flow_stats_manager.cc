@@ -367,7 +367,7 @@ void FlowStatsManager::FlowStatsReqHandler(Agent *agent,
                 FlowAgingTableKey(protocol, port));
     } else {
         agent->flow_stats_manager()->Add(
-                FlowAgingTableKey(protocol, port), 
+                FlowAgingTableKey(protocol, port),
                 agent->params()->flow_stats_interval(), timeout);
     }
 }

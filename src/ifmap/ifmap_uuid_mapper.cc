@@ -25,7 +25,7 @@ void IFMapUuidMapper::SetUuid(uint64_t ms_long, uint64_t ls_long,
     }
 }
 
-std::string IFMapUuidMapper::UuidToString(const boost::uuids::uuid &id) {   
+std::string IFMapUuidMapper::UuidToString(const boost::uuids::uuid &id) {
     std::stringstream uuid_str;
     uuid_str << id;
     return uuid_str.str();
@@ -126,7 +126,7 @@ void IFMapVmUuidMapper::VmNodeProcess(DBTablePartBase *partition,
                                                         (object);
         if (vm->IsPropertySet(autogen::VirtualMachine::ID_PERMS)) {
             autogen::UuidType uuid = vm->id_perms().uuid;
-            std::string vm_uuid = 
+            std::string vm_uuid =
                 uuid_mapper_.Add(uuid.uuid_mslong, uuid.uuid_lslong, vm_node);
 
             // Insert into the node-uuid-map

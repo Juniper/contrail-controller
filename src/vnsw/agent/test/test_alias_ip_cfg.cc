@@ -212,9 +212,9 @@ TEST_F(CfgTest, AliasIp_1) {
             "vnet2");
     DelLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet2");
 
-    DelLink("virtual-machine-interface", input[0].name, "instance-ip", 
+    DelLink("virtual-machine-interface", input[0].name, "instance-ip",
             "instance0");
-    DelLink("virtual-machine-interface", input[1].name, "instance-ip", 
+    DelLink("virtual-machine-interface", input[1].name, "instance-ip",
             "instance1");
 
     DelLink("virtual-machine-interface", "vnet1", "alias-ip", "aip2");

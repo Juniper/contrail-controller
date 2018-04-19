@@ -57,7 +57,7 @@ public:
     struct ArpStats {
         ArpStats() { Reset(); }
         void Reset() {
-            arp_req = arp_replies = arp_gratuitous = 
+            arp_req = arp_replies = arp_gratuitous =
             resolved = max_retries_exceeded = errors = 0;
             arp_invalid_packets = arp_invalid_interface = arp_invalid_vrf =
                 arp_invalid_address = vm_arp_req = vm_garp_req = 0;

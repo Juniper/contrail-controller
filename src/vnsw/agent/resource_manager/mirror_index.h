@@ -16,7 +16,7 @@ class ResourceKey;
 
 class MirrorIndexResourceKey : public IndexResourceKey {
 public:
-    MirrorIndexResourceKey(ResourceManager *rm, 
+    MirrorIndexResourceKey(ResourceManager *rm,
                         const string &analyzer_name);
     virtual ~MirrorIndexResourceKey() {};
     virtual void Backup(ResourceData *data, uint16_t op);

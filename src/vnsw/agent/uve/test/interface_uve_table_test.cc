@@ -15,7 +15,7 @@ InterfaceUveTableTest::InterfaceUveTableTest(Agent *agent, uint32_t intvl) :
 }
 
 void InterfaceUveTableTest::DispatchInterfaceMsg(const UveVMInterfaceAgent &u) {
-    send_count_++; 
+    send_count_++;
     if (u.get_deleted()) {
         delete_count_++;
     }
@@ -72,7 +72,7 @@ const InterfaceUveTable::FloatingIp *InterfaceUveTableTest::GetVmIntfFip
     return NULL;
 }
 
-InterfaceUveTable::UveInterfaceEntry* 
+InterfaceUveTable::UveInterfaceEntry*
 InterfaceUveTableTest::GetUveInterfaceEntry(const string &name) {
     InterfaceMap::iterator it = interface_tree_.find(name);
     if (it == interface_tree_.end()) {

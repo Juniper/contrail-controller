@@ -751,7 +751,7 @@ void NextHopBackUpResourceTable::RestoreResource() {
             case NextHop::TUNNEL: {
                 TunnelType type ((TunnelType::Type)sandesh_key.get_tunnel_type());
                 TunnelNHKey *tunnel_nh_key =
-                    new TunnelNHKey(sandesh_key.get_vrf_name(), 
+                    new TunnelNHKey(sandesh_key.get_vrf_name(),
                                     Ip4Address(sandesh_key.get_sip()),
                                     Ip4Address(sandesh_key.get_dip()),
                                     sandesh_key.get_policy(),
@@ -847,7 +847,7 @@ ResourceSandeshMaps::ResourceSandeshMaps(ResourceBackupManager *manager) :
     vlan_mpls_index_table_(manager), route_mpls_index_table_(manager),
     vm_interface_index_table_(manager), vrf_index_table_ (manager),
     qos_index_table_ (manager), bgp_as_service_index_table_(manager),
-    mirror_index_table_(manager), nexthop_index_table_(manager), 
+    mirror_index_table_(manager), nexthop_index_table_(manager),
     compositenh_index_table_(manager) {
 }
 

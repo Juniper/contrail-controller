@@ -38,8 +38,8 @@ VmUveTable::VmUveEntryPtr VmUveTableTest::Allocate(const VmEntry *vm) {
     return uve;
 }
 
-void VmUveTableTest::DispatchVmMsg(const UveVirtualMachineAgent &uve) { 
-    send_count_++; 
+void VmUveTableTest::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
+    send_count_++;
     if (uve.get_deleted()) {
         delete_count_++;
     }

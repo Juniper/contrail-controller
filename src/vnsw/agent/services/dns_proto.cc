@@ -658,7 +658,7 @@ void DnsProto::SendDnsUpdateIpc(AgentDnsXmppChannel *channel) {
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
 }
 
-void DnsProto::AddDnsQuery(uint16_t xid, DnsHandler *handler) { 
+void DnsProto::AddDnsQuery(uint16_t xid, DnsHandler *handler) {
     dns_query_map_.insert(DnsBindQueryPair(xid, handler));
 }
 

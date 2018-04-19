@@ -8,7 +8,7 @@
 struct InetInterfaceData;
 
 /////////////////////////////////////////////////////////////////////////////
-// Implementation of inet interfaces created in host-os. 
+// Implementation of inet interfaces created in host-os.
 //
 // Example interfaces:
 // vhost0 : A L3 interface between host-os and vrouter. Used in KVM mode
@@ -89,7 +89,7 @@ struct InetInterfaceKey : public InterfaceKey {
 };
 
 struct InetInterfaceData : public InterfaceData {
-    InetInterfaceData(InetInterface::SubType sub_type, 
+    InetInterfaceData(InetInterface::SubType sub_type,
                       const std::string &vrf_name, const Ip4Address &addr,
                       int plen, const Ip4Address &gw,
                       const std::string &xconnect, const std::string vn_name,

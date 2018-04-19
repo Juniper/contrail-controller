@@ -301,7 +301,7 @@ public:
                                  NextHopResource data);
     void DeleteNextHopResourceEntry(uint32_t index);
 
-    void AddCompositeNHResourceEntry(uint32_t index, 
+    void AddCompositeNHResourceEntry(uint32_t index,
                                      CompositeNHIndexResource data);
     void DeleteCompositeNHResourceEntry(uint32_t index);
 
@@ -346,7 +346,7 @@ public:
     }
 
     ComposteNHBackUpResourceTable& compositenh_index_table() {
-        return compositenh_index_table_; 
+        return compositenh_index_table_;
     }
 
 private:

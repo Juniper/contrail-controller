@@ -37,7 +37,7 @@ public:
     virtual const std::string &name() const = 0;
 private:
     Edge edge_id_;
-    
+
     DISALLOW_COPY_AND_ASSIGN(DBGraphEdge);
 };
 

@@ -42,7 +42,7 @@ public:
     typedef std::map<std::string, CfgTableListenerInfo> CfgListenerMap;
     // Map of IFNode to listener callback info
     typedef std::map<std::string, CfgListenerInfo> CfgListenerCbMap;
-    
+
     void NodeListener(DBTablePartBase *partition, DBEntryBase *dbe);
     void LinkListener(DBTablePartBase *partition, DBEntryBase *dbe);
     void NodeCallback(DBTablePartBase *partition, DBEntryBase *dbe);

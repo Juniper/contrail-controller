@@ -40,7 +40,7 @@ private:
     bool BuildPhysicalInterfaceBandwidth(std::vector<AgentIfBandwidth> &list,
                                          uint8_t mins) const;
     bool BuildPhysicalInterfaceBandwidth(map<string,uint64_t> &imp,
-                                         map<string,uint64_t> &omp, 
+                                         map<string,uint64_t> &omp,
                                          uint8_t mins, double &in_util,
                                          double &out_util) const;
     bool BuildPhysicalInterfaceFlowRate(std::map<std::string,

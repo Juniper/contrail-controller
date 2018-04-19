@@ -51,7 +51,7 @@
 #include "forwarding_class_ksync.h"
 #include "qos_config_ksync.h"
 
-#define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
+#define    VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
 KSync::KSync(Agent *agent)
     : agent_(agent), interface_ksync_obj_(new InterfaceKSyncObject(this)),

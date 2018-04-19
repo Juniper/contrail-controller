@@ -22,7 +22,7 @@ class VxLanKSyncObject;
 
 class VxLanIdKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    VxLanIdKSyncEntry(VxLanKSyncObject *obj, const VxLanIdKSyncEntry *entry, 
+    VxLanIdKSyncEntry(VxLanKSyncObject *obj, const VxLanIdKSyncEntry *entry,
                       uint32_t index);
     VxLanIdKSyncEntry(VxLanKSyncObject *obj, const VxLanId *label);
     virtual ~VxLanIdKSyncEntry();

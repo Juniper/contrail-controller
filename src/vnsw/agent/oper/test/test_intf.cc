@@ -505,8 +505,8 @@ TEST_F(IntfTest, ActivateInactivate_vn) {
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
 
-    //Delete VM, and delay deletion of nova 
-    //message (BGP connection drop case) 
+    //Delete VM, and delay deletion of nova
+    //message (BGP connection drop case)
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet8");
     client->WaitForIdle();
     // Interface is active even if VM is deleted
@@ -3493,7 +3493,7 @@ TEST_F(IntfTest, GwIntfAdd) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
- 
+
     //Verify that route is pointing to resolve NH
     //and the route points to table NH
     Ip4Address addr = Ip4Address::from_string("8.1.1.0");
@@ -3506,7 +3506,7 @@ TEST_F(IntfTest, GwIntfAdd) {
         EXPECT_TRUE(rt->GetActiveLabel() != MplsTable::kInvalidLabel);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
     }
-   
+
     DelLink("virtual-machine-interface", input1[0].name,
              "subnet", "subnet");
     DelLink("physical-router", agent->host_name().c_str(), "physical-interface", "pi1");
@@ -3521,7 +3521,7 @@ TEST_F(IntfTest, GwIntfAdd) {
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
-    
+
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
@@ -3554,7 +3554,7 @@ TEST_F(IntfTest, GwSubnetChange) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
- 
+
     //Verify that route is pointing to resolve NH
     //and the route points to table NH
     Ip4Address addr = Ip4Address::from_string("8.1.1.0");
@@ -3594,7 +3594,7 @@ TEST_F(IntfTest, GwSubnetChange) {
     EXPECT_FALSE(RouteFind("vrf1", "9.1.1.0", 24));
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
-    
+
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)

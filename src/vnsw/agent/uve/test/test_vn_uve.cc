@@ -148,8 +148,8 @@ TEST_F(UveVnUveTest, VnAddDel_1) {
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (vnut->send_count() >= 1U));
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
-    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size());
+    EXPECT_EQ(0U, uve1->get_interface_list().size());
 
     //Delete VN
     util_.VnDelete(1);
@@ -183,8 +183,8 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     WAIT_FOR(1000, 500, (vnut->VnUveObject("vn1") != NULL));
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
-    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size());
+    EXPECT_EQ(0U, uve1->get_interface_list().size());
 
     // Nova Port add message
     util_.NovaPortAdd(input);
@@ -222,8 +222,8 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     client->WaitForIdle();
     //Verify UVE
     WAIT_FOR(1000, 500, (vnut->send_count() >= 2U));
-    EXPECT_EQ(1U, uve1->get_virtualmachine_list().size()); 
-    EXPECT_EQ(1U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_virtualmachine_list().size());
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
@@ -297,8 +297,8 @@ TEST_F(UveVnUveTest, VnChange_1) {
 
     WAIT_FOR(1000, 500, (vnut->VnUveObject("vn1") != NULL));
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
-    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(0U, uve1->get_virtualmachine_list().size());
+    EXPECT_EQ(0U, uve1->get_interface_list().size());
     EXPECT_TRUE((uve1->get_acl().compare(string("acl1")) != 0));
 
     //Associate an ACL with VN
@@ -622,7 +622,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5",
                         remote_router_ip, intf->label(), 1),
-            { 
+            {
                 new VerifyVn("vn3", "vn5"),
             }
         },
@@ -743,10 +743,10 @@ TEST_F(UveVnUveTest, FipCount) {
     //Trigger VN UVE send
     vnut->SendVnStats();
 
-    //Verify UVE 
+    //Verify UVE
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
     EXPECT_TRUE(uve1 != NULL);
-    EXPECT_EQ(0, uve1->get_associated_fip_count()); 
+    EXPECT_EQ(0, uve1->get_associated_fip_count());
 
     //Create a VN for floating-ip
     client->Reset();
@@ -776,7 +776,7 @@ TEST_F(UveVnUveTest, FipCount) {
     vnut->SendVnStats();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     WAIT_FOR(1000, 500, (uve1->get_associated_fip_count() == 1U));
 
     //Add one more floating IP
@@ -789,7 +789,7 @@ TEST_F(UveVnUveTest, FipCount) {
     vnut->SendVnStats();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     WAIT_FOR(1000, 500, (uve1->get_associated_fip_count() == 2U));
 
     //Delete one of the floating-IP
@@ -801,7 +801,7 @@ TEST_F(UveVnUveTest, FipCount) {
     //Trigger VN UVE send
     vnut->SendVnStats();
 
-    //Verify UVE 
+    //Verify UVE
     WAIT_FOR(1000, 500, (uve1->get_associated_fip_count() == 1U));
 
     //Delete the other floating-IP
@@ -813,7 +813,7 @@ TEST_F(UveVnUveTest, FipCount) {
     //Trigger VN UVE send
     vnut->SendVnStats();
 
-    //Verify UVE 
+    //Verify UVE
     WAIT_FOR(1000, 500, (uve1->get_associated_fip_count() == 0));
 
     //cleanup
@@ -895,7 +895,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
 
     //Verify vrf stats list in UVE
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn3");
-    EXPECT_EQ(0U, uve1->get_vrf_stats_list().size()); 
+    EXPECT_EQ(0U, uve1->get_vrf_stats_list().size());
 
     //Add VRF and associate it with VN
     util_.VrfAdd(input[0].vn_id);
@@ -906,7 +906,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     vnut->SendVnStats();
 
     //Verify vrf stats list in UVE
-    EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
+    EXPECT_EQ(1U, uve1->get_vrf_stats_list().size());
 
     //Disassociate VN from VRF
     DelLink("virtual-network", "vn3", "routing-instance", "vrf3");
@@ -916,7 +916,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     vnut->SendVnStats();
 
     //Verify vrf stats list in UVE
-    EXPECT_EQ(0U, uve1->get_vrf_stats_list().size()); 
+    EXPECT_EQ(0U, uve1->get_vrf_stats_list().size());
 
     //Reassociate VN with VRF
     AddLink("virtual-network", "vn3", "routing-instance", "vrf3");
@@ -926,7 +926,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     vnut->SendVnStats();
 
     //Verify vrf stats list in UVE
-    EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
+    EXPECT_EQ(1U, uve1->get_vrf_stats_list().size());
 
     //cleanup
     DelLink("virtual-network", "vn3", "routing-instance", "vrf3");
@@ -1010,7 +1010,7 @@ TEST_F(UveVnUveTest, LinkLocalVn_Xen) {
 
     //Verify UVE
     EXPECT_EQ(1U, uve1->get_virtualmachine_list().size());
-    EXPECT_EQ(1U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vnet1",

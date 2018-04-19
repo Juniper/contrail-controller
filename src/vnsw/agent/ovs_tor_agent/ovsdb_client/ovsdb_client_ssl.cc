@@ -169,7 +169,7 @@ OvsdbClientSslSession::OvsdbClientSslSession(Agent *agent,
         bool async_ready) : OvsdbClientSession(agent, manager),
     SslSession(server, sock, async_ready), status_("Init") {
 
-    reader_ = new OvsdbClientTcpSessionReader(this, 
+    reader_ = new OvsdbClientTcpSessionReader(this,
             boost::bind(&OvsdbClientSslSession::RecvMsg, this, _1, _2));
 
     // Process session events in KSync workqueue task context,

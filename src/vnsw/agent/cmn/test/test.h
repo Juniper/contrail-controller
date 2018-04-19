@@ -37,9 +37,9 @@ class EntryA : AgentRefCount<EntryA>, public AgentDBEntry {
 public:
     EntryA(int id) :
         id_(id), data_(-1), ref_() { };
-    virtual ~EntryA() { 
+    virtual ~EntryA() {
         if (data_ >= 0) {
-            LOG(DEBUG, __PRETTY_FUNCTION__ << ": <" << id_ << " : " 
+            LOG(DEBUG, __PRETTY_FUNCTION__ << ": <" << id_ << " : "
                 << data_ << ">");
             free_count_++;
         }
@@ -110,9 +110,9 @@ class EntryB : AgentRefCount<EntryB>, public AgentDBEntry {
 public:
     EntryB(int id) :
         id_(id), data_(-1) { };
-    virtual ~EntryB() { 
+    virtual ~EntryB() {
         if (data_ >= 0) {
-            LOG(DEBUG, __PRETTY_FUNCTION__ << ": <" << id_ << " : " 
+            LOG(DEBUG, __PRETTY_FUNCTION__ << ": <" << id_ << " : "
                 << data_ << ">");
             free_count_++;
         }

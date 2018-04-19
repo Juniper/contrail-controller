@@ -1911,7 +1911,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     BOOST_FOREACH(BgpPeerTest *peer, n_down_from_peers_) {
         FireGRTimer(bgp_server_peers_[peer->id()]);
     }
-    
+
     GR_TEST_LOG("8. Verify that " << integerToString(total_xmpp_routes + total_bgp_routes) <<
                 "  Xmpp routes are received in agent in each instance");
     VerifyReceivedXmppRoutes(total_xmpp_routes + total_bgp_routes);

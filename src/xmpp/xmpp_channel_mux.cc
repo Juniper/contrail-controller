@@ -13,7 +13,7 @@
 using namespace std;
 using namespace xmsm;
 
-XmppChannelMux::XmppChannelMux(XmppConnection *connection) 
+XmppChannelMux::XmppChannelMux(XmppConnection *connection)
     : connection_(connection), rx_message_trace_cb_(NULL),
       tx_message_trace_cb_(NULL) {
         last_received_ = 0;
@@ -159,19 +159,19 @@ std::string XmppChannelMux::PeerAddress() const {
 }
 
 inline bool MatchCallback(string to, xmps::PeerId peer) {
-    if ((to.find(XmppInit::kBgpPeer) != string::npos) && 
+    if ((to.find(XmppInit::kBgpPeer) != string::npos) &&
         (peer == xmps::BGP)) {
         return true;
     }
-    if ((to.find(XmppInit::kConfigPeer) != string::npos) && 
+    if ((to.find(XmppInit::kConfigPeer) != string::npos) &&
         (peer == xmps::CONFIG)) {
         return true;
     }
-    if ((to.find(XmppInit::kDnsPeer) != string::npos) && 
+    if ((to.find(XmppInit::kDnsPeer) != string::npos) &&
         (peer == xmps::DNS)) {
         return true;
     }
-    if ((to.find(XmppInit::kOtherPeer) != string::npos) && 
+    if ((to.find(XmppInit::kOtherPeer) != string::npos) &&
         (peer == xmps::OTHER)) {
         return true;
     }
@@ -193,7 +193,7 @@ void XmppChannelMux::HandleStateEvent(xmsm::XmState state) {
     CHECK_CONCURRENCY("xmpp::StateMachine");
     xmps::PeerState st = xmps::NOT_READY;
     if (state == xmsm::ESTABLISHED) {
-        st = xmps::READY; 
+        st = xmps::READY;
     } else if (state == xmsm::ACTIVE) {
         st = xmps::TIMEDOUT;
     }

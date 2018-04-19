@@ -50,7 +50,7 @@ public:
 
     class XmppMessage {
     public:
-        explicit XmppMessage(XmppMessageType type) : 
+        explicit XmppMessage(XmppMessageType type) :
             type(type), from(""), to("") {
         }
         virtual ~XmppMessage(){ }
@@ -77,7 +77,7 @@ public:
             FEATURE_SASL = 3,
             FEATURE_TLS = 4,
             FEAUTRE_COMPRESS_LZW = 5,
-            CLOSE_STREAM = 6 
+            CLOSE_STREAM = 6
         };
 
         enum XmppStreamSASL {
@@ -95,20 +95,20 @@ public:
     };
 
     enum XmppMessageStateType {
-        STATE_NONE = 0, STATE_ACTIVE = 1, STATE_COMPOSING = 2, 
+        STATE_NONE = 0, STATE_ACTIVE = 1, STATE_COMPOSING = 2,
         STATE_PAUSED = 3, STATE_INACTIVE = 4, STATE_GONE = 5
     };
 
 
     struct XmppChatMessage : public XmppMessage {
-        explicit XmppChatMessage(XmppMessageStateType stype): 
+        explicit XmppChatMessage(XmppMessageStateType stype):
             XmppMessage(MESSAGE_STANZA), state(stype) {
         };
         enum XmppMessageSubtype {
             NORMAL = 1,
             CHAT = 2,
             GROUPCHAT = 3,
-            HEADLINE = 4, 
+            HEADLINE = 4,
             ERROR = 5
         };
 
@@ -175,14 +175,14 @@ public:
 
     static XmppStanza::XmppMessage *Decode(const XmppConnection *connection,
                                            const std::string &ts);
-    static int EncodeStream(const XmppStreamMessage &str, std::string &to, 
+    static int EncodeStream(const XmppStreamMessage &str, std::string &to,
                             std::string &from, const std::string &xmlns,
                             uint8_t *data, size_t size);
     static int EncodeStream(const XmppMessage &str, uint8_t *data, size_t size);
     static int EncodeMessage(const XmppChatMessage *, uint8_t *data, size_t size);
     static int EncodeMessage(XmlBase *, uint8_t *data, size_t size);
     static int EncodePresence(uint8_t *data, size_t size);
-    static int EncodeIq(const XmppMessageIq *iq, XmlBase *doc, 
+    static int EncodeIq(const XmppMessageIq *iq, XmlBase *doc,
                         uint8_t *data, size_t size);
 
 private:
@@ -210,7 +210,7 @@ private:
 
     static XmppStanza::XmppMessage *DecodeInternal(
             const XmppConnection *connection, const std::string &ts,
-            XmlBase *impl); 
+            XmlBase *impl);
 
     static std::auto_ptr<XmlBase> open_doc_;
 

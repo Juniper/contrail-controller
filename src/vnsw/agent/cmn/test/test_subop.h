@@ -32,7 +32,7 @@ class EntryC : AgentRefCount<EntryC>, public AgentDBEntry {
 public:
     EntryC(int id) :
         id_(id), data_(-1) { };
-    virtual ~EntryC() { 
+    virtual ~EntryC() {
         free_count_++;
     };
 
@@ -48,7 +48,7 @@ public:
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
-	return AgentRefCount<EntryC>::GetRefCount();
+        return AgentRefCount<EntryC>::GetRefCount();
     };
     static void ClearCount() {free_count_ = 0;};
 

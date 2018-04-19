@@ -236,8 +236,8 @@ bool VirtualGatewayConfigTable::FindChange(
             // no change in entry
             it_old++;
             it_new++;
-        }   
-    }   
+        }
+    }
 
     // delete remaining old entries
     for (; it_old != old_subnets.end(); ++it_old) {

@@ -49,7 +49,7 @@ TEST_F(CfgTest, DbNodeWithoutIdPerms_1) {
 
     // Send VN Node without ID Perms. No entry should be created
     AddXmlHdr(buff, len);
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <node type=\"virtual-network\">\n"
             "           <name>vn1</name>\n"
             "       </node>\n");
@@ -61,7 +61,7 @@ TEST_F(CfgTest, DbNodeWithoutIdPerms_1) {
 
     // Send VN Node with ID Perms. VN Entry must be created
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "virtual-network", "vn1", 1); 
+    AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
@@ -106,7 +106,7 @@ TEST_F(CfgTest, LinkWithoutIdPerms_1) {
 
     // Send VM Node with ID Perms. VM must be created
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "virtual-network", "vn1", 1); 
+    AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
@@ -120,7 +120,7 @@ TEST_F(CfgTest, LinkWithoutIdPerms_1) {
 
     // Create VN
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "access-control-list", "acl1", 1); 
+    AddNodeString(buff, len, "access-control-list", "acl1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
@@ -128,7 +128,7 @@ TEST_F(CfgTest, LinkWithoutIdPerms_1) {
 
     // Resend VM node. Link between VN and VM should be created
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "access-control-list", "acl1", 1); 
+    AddNodeString(buff, len, "access-control-list", "acl1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
@@ -158,7 +158,7 @@ TEST_F(CfgTest, NonDbNodeWithoutIdPerms_1) {
 
     // Send VN Node without ID Perms. No entry should be created
     AddXmlHdr(buff, len);
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <node type=\"network-ipam\">\n"
             "           <name>ipam1</name>\n"
             "       </node>\n");
@@ -170,7 +170,7 @@ TEST_F(CfgTest, NonDbNodeWithoutIdPerms_1) {
 
     // Send VN Node with ID Perms. VN Entry must be created
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "network-ipam", "ipam1", 1); 
+    AddNodeString(buff, len, "network-ipam", "ipam1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
@@ -215,7 +215,7 @@ TEST_F(CfgTest, NonDbLinkWithoutIdPerms_1) {
 
     // Send VN Node with ID Perms. VN must be created
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "virtual-network", "vn1", 1); 
+    AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
@@ -231,7 +231,7 @@ TEST_F(CfgTest, NonDbLinkWithoutIdPerms_1) {
 
     // Create network-ipam with ID-PERMS
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "network-ipam", "ipam1", 1); 
+    AddNodeString(buff, len, "network-ipam", "ipam1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
@@ -239,13 +239,13 @@ TEST_F(CfgTest, NonDbLinkWithoutIdPerms_1) {
 
     // Resend VN node. Link between VN and network-ipam should be created
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "virtual-network", "vn1", 1); 
+    AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     client->WaitForIdle();
     EXPECT_TRUE(VnFind(1));
     EXPECT_EQ(notify_count_, 1);
-    
+
     // Delete entries
     DelLink("virtual-network", "vn1", "network-ipam", "ipam1");
     client->WaitForIdle();

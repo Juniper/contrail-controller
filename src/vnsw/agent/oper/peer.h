@@ -166,7 +166,7 @@ public:
 
     // For testing
     void SetVrfListenerId(DBTableBase::ListenerId id) { id_ = id; }
-    DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
+    DBTableBase::ListenerId GetVrfExportListenerId() { return id_; }
 
     // Table Walkers
     //Notify walker
@@ -213,7 +213,7 @@ private:
 };
 
 // Peer for local-vm-port paths. There can be multiple VMs with same IP.
-// They are all added as different path. ECMP path will consolidate all 
+// They are all added as different path. ECMP path will consolidate all
 // local-vm-port paths
 class LocalVmPortPeer : public Peer {
 public:
@@ -224,7 +224,7 @@ public:
     virtual ~LocalVmPortPeer() { }
 
     bool Compare(const Peer *rhs) const {
-        const LocalVmPortPeer *local = 
+        const LocalVmPortPeer *local =
             static_cast<const LocalVmPortPeer *>(rhs);
         return handle_ < local->handle_;
     }

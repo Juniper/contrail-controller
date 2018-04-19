@@ -26,7 +26,7 @@ DBEntryBase::KeyPtr EntryA::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void EntryA::SetKey(const DBRequestKey *k) { 
+void EntryA::SetKey(const DBRequestKey *k) {
     const EntryKey *key = static_cast<const EntryKey *>(k);
     id_ = key->id_;
 }
@@ -40,7 +40,7 @@ DBEntryBase::KeyPtr EntryB::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void EntryB::SetKey(const DBRequestKey *k) { 
+void EntryB::SetKey(const DBRequestKey *k) {
     const EntryKey *key = static_cast<const EntryKey *>(k);
     id_ = key->id_;
 }
@@ -169,7 +169,7 @@ public:
     void Init(DB *db) {
         table_ = static_cast<TableA *>(db->FindTable("db.tablea.0"));
         assert(table_);
-        listener_id_ = table_->Register(boost::bind(&ClientA::DBTestListener, 
+        listener_id_ = table_->Register(boost::bind(&ClientA::DBTestListener,
                                                     this, _1, _2));
     };
 
@@ -196,7 +196,7 @@ public:
     void Init(DB *db) {
         table_ = static_cast<TableA *>(db->FindTable("db.tableb.0"));
         assert(table_);
-        listener_id_ = table_->Register(boost::bind(&ClientB::DBTestListener, 
+        listener_id_ = table_->Register(boost::bind(&ClientB::DBTestListener,
                                                     this, _1, _2));
     };
 
@@ -341,7 +341,7 @@ bool ValidateA(int id, int refcount, int del_count, int free_count,
     return ret;
 }
 
-bool ValidateB(int id, int refcount, int del_count, int free_count, 
+bool ValidateB(int id, int refcount, int del_count, int free_count,
                int adc_notify_count, int del_notify_count) {
     EntryB *entryb;
     bool ret = true;
@@ -513,7 +513,7 @@ TEST_F(DBTest, TestRef_RemoveQ_2) {
     WaitForIdle();
     EXPECT_TRUE(FindA(1, true) != NULL);
 
-    // Enqueue request to table-b. It will remove 
+    // Enqueue request to table-b. It will remove
     AddEnqueueTableC(table_c_, 1, 0);
     for (int i = 0; i < 40; i++) {
         DelEnqueue(table_a_, 1, 1, 1);

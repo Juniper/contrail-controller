@@ -72,7 +72,7 @@ public:
 
         SetTaskSchedulingPolicy();
     }
-    
+
 private:
     static void SetTaskSchedulingPolicy();
 

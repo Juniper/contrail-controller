@@ -159,7 +159,7 @@ TEST_F(DBTest, Basic) {
     EXPECT_EQ(itbl, db_.FindTable("db.test.vlan.0"));
     uint32_t retry_delete_count = itbl->retry_delete_count();
 
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -168,8 +168,8 @@ TEST_F(DBTest, Basic) {
     retry_delete_count = itbl->retry_delete_count();
 
     for (int i = 0; i < 15; i++) {
-        tid_ = 
-            itbl->Register(boost::bind(&DBTest::DBTestListener, 
+        tid_ =
+            itbl->Register(boost::bind(&DBTest::DBTestListener,
                         this, _1, _2));
         EXPECT_EQ(tid_, i);
     }
@@ -178,7 +178,7 @@ TEST_F(DBTest, Basic) {
     // There are pending registers. retry_delete_count is not incremented
     EXPECT_EQ(itbl->retry_delete_count(), retry_delete_count);
 
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 7);
 
@@ -200,7 +200,7 @@ TEST_F(DBTest, Basic) {
 
 TEST_F(DBTest, DBEntryBase) {
     // Register a client for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -254,7 +254,7 @@ TEST_F(DBTest, AddSuppression) {
     del_notification = 0;
 
     // Register a client for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -293,7 +293,7 @@ TEST_F(DBTest, AddSuppression) {
 
 
 // To Test:
-// Verify that DBState is stored as per client 
+// Verify that DBState is stored as per client
 // Delete entry stays in DB till all DBState is removed
 // Verify the DBentry is removed from the tree on last DBState removal
 // Verify that DBEntry is not removed in notification path on removal of last DBState
@@ -303,7 +303,7 @@ TEST_F(DBTest, TestState) {
     del_notification = 0;
 
     // Register a client for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -348,11 +348,11 @@ TEST_F(DBTest, TestState) {
     itbl->Unregister(tid_);
 
     // Test set/delete of mydata in Notification
-    tid_1_ = 
+    tid_1_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener_1, this, _1, _2));
     EXPECT_EQ(tid_1_, 0);
 
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 1);
 
@@ -405,7 +405,7 @@ TEST_F(DBTest, DBentryReUse) {
     del_notification = 0;
 
     // Register a client for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -499,7 +499,7 @@ TEST_F(DBTest, JWalker) {
     del_notification = 0;
 
     // Register a client for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -631,7 +631,7 @@ TEST_F(DBTest, WalkerStats) {
 TEST_F(DBTest, Bulk) {
     int bulk_count = 10;
     // Register a client for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -697,7 +697,7 @@ TEST_F(DBTest, Bulk) {
 TEST_F(DBTest, ReqInNotifyPath) {
     int req_count = 5;
     // Register a client for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestListener_2, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
@@ -747,12 +747,12 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
     notify_yield = true;
 
     // Register client1 for notification
-    tid_ = 
+    tid_ =
         itbl->Register(boost::bind(&DBTest::DBTestYieldListener1, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
     // Register client2 for notification
-    tid_1_ = 
+    tid_1_ =
         itbl_1->Register(boost::bind(&DBTest::DBTestYieldListener2, this, _1, _2));
     EXPECT_EQ(tid_1_, 0);
 
@@ -811,7 +811,7 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
     itbl->Unregister(tid_);
     itbl_1->Unregister(tid_1_);
 
-    // Clear stats at end 
+    // Clear stats at end
     add_notification_client1 = 0;
     add_notification_client2 = 0;
     del_notification_client1 = 0;

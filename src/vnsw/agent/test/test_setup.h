@@ -116,44 +116,44 @@ void ConstructAce(Ace &ace, string &astr) {
 
 void ReadAcl(ptree &config) {
      for (ptree::const_iterator cfg_iter = config.begin(); cfg_iter != config.end();
-	  ++cfg_iter) {
+      ++cfg_iter) {
          if (cfg_iter->first != "acl") {
-	    continue;
-	 }
-	 ptree acl_tree = cfg_iter->second;
-	 int i = 0;
-	 Acl acl;
-	 acl.name = acl_tree.get<string>("name");
-	 acl.id = acl_tree.get<string>("id");
-	 int id = strtoul((acl.id).c_str(), NULL, 0);
-	 LOG(DEBUG, "Acl name:" << acl.name);
-	 for (ptree::const_iterator iter = acl_tree.begin(); iter != acl_tree.end();
-	      ++iter, ++i) {
-	     if (iter->first == "ace") {
-	         string astr = iter->second.data();
-		 LOG(DEBUG, "Ace :" << astr);
-		 Ace ace;
-		 ConstructAce(ace, astr);
-		 LOG(DEBUG, "Source  :" << ace.src);
-		 LOG(DEBUG, "Dest    :" << ace.dst);	
-		 LOG(DEBUG, "SP Start:" << ace.sp_s);
-		 LOG(DEBUG, "SP End  :" << ace.sp_e);
-		 LOG(DEBUG, "DP Start:" << ace.dp_s);
-		 LOG(DEBUG, "DP End  :" << ace.dp_e);
-		 LOG(DEBUG, "Proto   :" << ace.protocol);
-		 LOG(DEBUG, "Action  :" << ace.action);
-		 acl.ace_l.push_back(ace);
-	     }
-	     ++i;
-	 }
-      
-	 map<int, Acl>::iterator it;
-	 it = acl_l.find(id);
-	 if (it != acl_l.end()) {
-	     LOG(DEBUG, "Modifying existing Acl" << id);
-	     acl_l.erase(id);
-	 }
-	 acl_l.insert(pair<int, Acl>(id, acl));
+        continue;
+     }
+     ptree acl_tree = cfg_iter->second;
+     int i = 0;
+     Acl acl;
+     acl.name = acl_tree.get<string>("name");
+     acl.id = acl_tree.get<string>("id");
+     int id = strtoul((acl.id).c_str(), NULL, 0);
+     LOG(DEBUG, "Acl name:" << acl.name);
+     for (ptree::const_iterator iter = acl_tree.begin(); iter != acl_tree.end();
+          ++iter, ++i) {
+         if (iter->first == "ace") {
+             string astr = iter->second.data();
+         LOG(DEBUG, "Ace :" << astr);
+         Ace ace;
+         ConstructAce(ace, astr);
+         LOG(DEBUG, "Source  :" << ace.src);
+         LOG(DEBUG, "Dest    :" << ace.dst);
+         LOG(DEBUG, "SP Start:" << ace.sp_s);
+         LOG(DEBUG, "SP End  :" << ace.sp_e);
+         LOG(DEBUG, "DP Start:" << ace.dp_s);
+         LOG(DEBUG, "DP End  :" << ace.dp_e);
+         LOG(DEBUG, "Proto   :" << ace.protocol);
+         LOG(DEBUG, "Action  :" << ace.action);
+         acl.ace_l.push_back(ace);
+         }
+         ++i;
+     }
+
+     map<int, Acl>::iterator it;
+     it = acl_l.find(id);
+     if (it != acl_l.end()) {
+         LOG(DEBUG, "Modifying existing Acl" << id);
+         acl_l.erase(id);
+     }
+     acl_l.insert(pair<int, Acl>(id, acl));
      }
      return;
 }
@@ -175,10 +175,10 @@ void ReadVmPort(Vn &vn, string &vm_str)
      strncpy(vm.pinfo.addr, ip_address.c_str(), sizeof(vm.pinfo.addr));
      sprintf(vm.pinfo.mac, "00:00:00:00:00:%02x", vm.pinfo.intf_id);
      vn.vm_l.push_back(vm);
-     
+
      LOG(DEBUG, "VM id:" << vm.id);
      LOG(DEBUG, "VN id:" << vn.id);
-     LOG(DEBUG, "VRF  :" << vn.vrf);  
+     LOG(DEBUG, "VRF  :" << vn.vrf);
      LOG(DEBUG, "VM name   :" << vm.name);
      LOG(DEBUG, "VM Port id:" << vm.pinfo.intf_id);
      LOG(DEBUG, "VM PortName:" << vm.pinfo.name);
@@ -192,19 +192,19 @@ void ReadVmPort(Vn &vn, string &vm_str)
 
 static int vn_id = 1;
 void ReadVn(ptree &vn_tree, Vn &vn) {
-    for (ptree::iterator iter = vn_tree.begin(); 
-	 iter != vn_tree.end(); ++iter) {
+    for (ptree::iterator iter = vn_tree.begin();
+     iter != vn_tree.end(); ++iter) {
          if (iter->first == "vn-name") {
-	     vn.name = iter->second.data();
-	     vn.id = vn_id++;
-	 } else if (iter->first == "vrf-name") {
-	     vn.vrf = iter->second.data();
-	 } else if (iter->first == "vm") {
-	     string pstr =  iter->second.data();
-	     ReadVmPort(vn, pstr);
-	 } else if (iter->first == "acl-id") {
-	     vn.acl_id = strtoul((iter->second.data()).c_str(), NULL, 0);
-	 }
+         vn.name = iter->second.data();
+         vn.id = vn_id++;
+     } else if (iter->first == "vrf-name") {
+         vn.vrf = iter->second.data();
+     } else if (iter->first == "vm") {
+         string pstr =  iter->second.data();
+         ReadVmPort(vn, pstr);
+     } else if (iter->first == "acl-id") {
+         vn.acl_id = strtoul((iter->second.data()).c_str(), NULL, 0);
+     }
     }
     LOG(DEBUG, "No of VMs:" << vn.vm_l.size());
     LOG(DEBUG, "");
@@ -229,16 +229,16 @@ void ReadExceptionPacket(string &str) {
     LOG(DEBUG, "protocol:" << ep.proto);
     tokens >> ep.act;
     LOG(DEBUG, "action:" << ep.act);
-    excep_p_l.push_back(ep);    
+    excep_p_l.push_back(ep);
 }
 
 void ReadExceptionPackets(ptree &config) {
     ptree pkt_tree = config.get_child("exception-packet");
     for (ptree::iterator iter = pkt_tree.begin();
-	 iter != pkt_tree.end(); ++iter) {
+     iter != pkt_tree.end(); ++iter) {
          if (iter->first == "packet") {
-	     ReadExceptionPacket(iter->second.data());
-	 }
+         ReadExceptionPacket(iter->second.data());
+     }
     }
 }
 
@@ -246,13 +246,13 @@ void ReadVn(ptree &ccfg) {
     for (ptree::iterator iter = ccfg.begin(); iter != ccfg.end();
          ++iter) {
         if (iter->first == "vn") {
-	   Vn vn;
-	   ReadVn(iter->second, vn);
-	   vn_l.push_back(vn);
-	   LOG(DEBUG, "Vn Name:" << vn.name);
-	   LOG(DEBUG, "Vn id:" << vn.id);
+       Vn vn;
+       ReadVn(iter->second, vn);
+       vn_l.push_back(vn);
+       LOG(DEBUG, "Vn Name:" << vn.name);
+       LOG(DEBUG, "Vn id:" << vn.id);
            LOG(DEBUG, "");
-	}
+    }
     }
 }
 
@@ -286,8 +286,8 @@ Vn *FindVn(string &str) {
    std::vector<Vn>::iterator it;
    for (it = vn_l.begin(); it != vn_l.end(); ++it) {
         if (((*it).name.compare(str)) == 0) {
-	    return &(*it);
-	}
+        return &(*it);
+    }
    }
    return NULL;
 }
@@ -296,8 +296,8 @@ Vm *FindVm(Vn &vn, string &str) {
    std::vector<Vm>::iterator it;
    for (it = vn.vm_l.begin(); it != vn.vm_l.end(); ++it) {
         if ((*it).name.compare(str) == 0) {
-	    return &(*it);
-	}
+        return &(*it);
+    }
    }
    return NULL;
 }
@@ -388,7 +388,7 @@ void CreateIdPermXmlNode(xml_node &xn, Acl &acl) {
     uuid_ms.append_child(node_pcdata).set_value("0");
     xml_node uuid_ls = uuid_n.append_child("uuid-lslong");
     uuid_ls.append_child(node_pcdata).set_value(acl.id.c_str());
-    
+
     //enable
     xml_node enable = perm.append_child("enable");
     enable.append_child(node_pcdata).set_value("true");
@@ -407,14 +407,14 @@ void CreateAclXmlNode(xml_node &xn, Acl &acl) {
     for (it = acl.ace_l.begin(); it != acl.ace_l.end(); ++it) {
       CreateAceXmlNode(acl_xml_node, *it);
     }
-    CreateIdPermXmlNode(node, acl);    
+    CreateIdPermXmlNode(node, acl);
 }
 
 void ConstructAclXmlDoc() {
     xml_document xdoc;
     xml_node msg = xdoc.append_child("config");
     xml_node update = msg.append_child("update");
-    
+
     map<int, Acl>::iterator it;
     for (it = acl_l.begin(); it != acl_l.end(); ++it) {
         CreateAclXmlNode(update, (it->second));

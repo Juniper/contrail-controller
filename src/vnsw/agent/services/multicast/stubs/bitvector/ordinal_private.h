@@ -16,8 +16,8 @@
  * track of the ordinal space.
  */
 typedef struct ord_context_ {
-    bit_vector ord_vector;		/* Bit vector */
-    ord_compact_option ord_compact;	/* Compact mode */
+    bit_vector ord_vector;        /* Bit vector */
+    ord_compact_option ord_compact;    /* Compact mode */
 } ord_context;
 
 #endif /* __ORDINAL_PRIVATE_H__ */

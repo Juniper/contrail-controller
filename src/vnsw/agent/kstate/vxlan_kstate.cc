@@ -5,7 +5,7 @@
 #include "kstate.h"
 #include "vxlan_kstate.h"
 
-VxLanKState::VxLanKState(KVxLanResp *obj, const std::string &resp_ctx, 
+VxLanKState::VxLanKState(KVxLanResp *obj, const std::string &resp_ctx,
                          vr_vxlan_req &req, int id) : KState(resp_ctx, obj) {
     req.set_vxlanr_vnid(id);
     if (id >= 0) {
@@ -29,7 +29,7 @@ void VxLanKState::Handler() {
     KVxLanResp *resp = static_cast<KVxLanResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
-            /* There are more labels in Kernel. We need to query them from 
+            /* There are more labels in Kernel. We need to query them from
              * Kernel and send it to Sandesh.
              */
             SendResponse();

@@ -33,7 +33,7 @@ using boost::system::error_code;
 const char *XmppConnection::kAuthTypeNil = "NIL";
 const char *XmppConnection::kAuthTypeTls = "TLS";
 
-XmppConnection::XmppConnection(TcpServer *server, 
+XmppConnection::XmppConnection(TcpServer *server,
                                const XmppChannelConfig *config)
     : server_(server),
       session_(NULL),
@@ -47,7 +47,7 @@ XmppConnection::XmppConnection(TcpServer *server,
                   GetTaskInstance(config->ClientOnly()))),
       is_client_(config->ClientOnly()),
       log_uve_(config->logUVE),
-      admin_down_(false), 
+      admin_down_(false),
       disable_read_(false),
       from_(config->FromAddr),
       to_(config->ToAddr),
@@ -441,7 +441,7 @@ bool XmppConnection::KeepAliveTimerExpired() {
     // Start the timer again, by returning true
     //
     return true;
-}   
+}
 
 void XmppConnection::KeepaliveTimerErrorHanlder(string error_name,
                                                 string error_message) {
@@ -587,7 +587,7 @@ XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
     }
 
     if (minfo->type == XmppStanza::IQ_STANZA) {
-        const XmppStanza::XmppMessageIq *iq = 
+        const XmppStanza::XmppMessageIq *iq =
             static_cast<const XmppStanza::XmppMessageIq *>(minfo.get());
 
 
@@ -598,7 +598,7 @@ XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
 
         if (iq->action.compare("collection") == 0) {
             if (last_msg_.get() != NULL) {
-                XmppStanza::XmppMessageIq *last_iq = 
+                XmppStanza::XmppMessageIq *last_iq =
                     static_cast<XmppStanza::XmppMessageIq *>(last_msg_.get());
 
                 if (last_iq->node.compare(iq->as_node) == 0) {
@@ -704,7 +704,7 @@ private:
 
 XmppServerConnection::XmppServerConnection(XmppServer *server,
     const XmppChannelConfig *config)
-    : XmppConnection(server, config), 
+    : XmppConnection(server, config),
       duplicate_(false),
       on_work_queue_(false),
       conn_endpoint_(NULL),
@@ -845,7 +845,7 @@ private:
 
 XmppClientConnection::XmppClientConnection(XmppClient *server,
     const XmppChannelConfig *config)
-    : XmppConnection(server, config), 
+    : XmppConnection(server, config),
       flap_count_(0),
       deleter_(new DeleteActor(server, this)),
       server_delete_ref_(this, server->deleter()) {

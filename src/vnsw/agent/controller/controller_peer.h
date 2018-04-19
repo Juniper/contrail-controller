@@ -35,7 +35,7 @@ class ControllerEcmpRoute;
 class AgentXmppChannel {
 public:
     AgentXmppChannel(Agent *agent,
-                     const std::string &xmpp_server, 
+                     const std::string &xmpp_server,
                      const std::string &label_range, uint8_t xs_idx);
     virtual ~AgentXmppChannel();
 
@@ -52,7 +52,7 @@ public:
     static bool IsXmppChannelActive(const Agent *agent, AgentXmppChannel *peer);
     static bool IsBgpPeerActive(const Agent *agent, AgentXmppChannel *peer);
     static bool SetConfigPeer(AgentXmppChannel *peer);
-    static void SetMulticastPeer(AgentXmppChannel *old_peer, 
+    static void SetMulticastPeer(AgentXmppChannel *old_peer,
                                  AgentXmppChannel *new_peer);
     static void CleanConfigStale(AgentXmppChannel *agent_xmpp_channel);
     static void XmppClientChannelEvent(AgentXmppChannel *peer,

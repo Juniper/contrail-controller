@@ -8,7 +8,7 @@
 
 void AgentDBEntry::SetRefState() const {
     AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
-    // Force calling SetState on a const object. 
+    // Force calling SetState on a const object.
     // Ideally, SetState should be 'const method' and StateMap mutable
     AgentDBEntry *entry = (AgentDBEntry *)this;
     entry->SetState(table, table->GetRefListenerId(), new AgentDBState(this));
@@ -16,7 +16,7 @@ void AgentDBEntry::SetRefState() const {
 
 void AgentDBEntry::ClearRefState() const {
     AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
-    // Force calling SetState on a const object. 
+    // Force calling SetState on a const object.
     // Ideally, ClearState should be 'const method' and StateMap mutable
     AgentDBEntry *entry = (AgentDBEntry *)this;
     table->OnZeroRefcount(entry);

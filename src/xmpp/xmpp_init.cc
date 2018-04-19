@@ -21,11 +21,11 @@ const char *XmppInit::kDnsNodeJID =
     "network-dns@contrailsystems.com";
 const char *XmppInit::kPubSubNS =
     "http://jabber.org/protocol/pubsub";
-const char *XmppInit::kJIDControlBgp = 
+const char *XmppInit::kJIDControlBgp =
     "network-control@contrailsystems.com/bgp-peer";
-const char *XmppInit::kJIDControlDns = 
+const char *XmppInit::kJIDControlDns =
     "network-control@contrailsystems.com/dns-peer";
-const char *XmppInit::kFqnPrependAgentNodeJID = 
+const char *XmppInit::kFqnPrependAgentNodeJID =
     "default-global-system-config:";
 const char *XmppInit::kConfigPeer = "config";
 const char *XmppInit::kBgpPeer = "bgp-peer";
@@ -36,7 +36,7 @@ const char *XmppInit::kOtherPeer = "other-peer";
 SandeshTraceBufferPtr XmppMessageTraceBuf(SandeshTraceBufferCreate(XMPP_MESSAGE_TRACE_BUF, 5000));
 SandeshTraceBufferPtr XmppTraceBuf(SandeshTraceBufferCreate(XMPP_TRACE_BUF, 1000));
 
-XmppInit::XmppInit() 
+XmppInit::XmppInit()
    : g_server_(NULL), g_client_(NULL), cfg_(new XmppConfigData) {
 }
 
@@ -78,7 +78,7 @@ bool XmppInit::InitServer(XmppServer *server, int port, bool logUVE) {
 }
 
 XmppChannelConfig *XmppInit::AllocChannelConfig(
-    const string &peer_ip, int port, const string &from, const string &to, 
+    const string &peer_ip, int port, const string &from, const string &to,
     const string &node, bool isClient) {
     boost::system::error_code ec;
     boost::asio::ip::address peer_addr =

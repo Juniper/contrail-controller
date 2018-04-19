@@ -43,7 +43,7 @@ protected:
         ConfigCass2JsonAdapter::set_assert_on_parse_error(false);
         ConfigJsonParser *config_json_parser_ =
           static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
-        config_json_parser_->ifmap_server_set(&map_server_); 
+        config_json_parser_->ifmap_server_set(&map_server_);
         vnc_cfg_JsonParserInit(config_json_parser_);
         bgp_schema_JsonParserInit(config_json_parser_);
         task_util::WaitForIdle();
@@ -90,8 +90,8 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
                         manager->GetInstanceByTarget(tgt1));
     const RoutingInstance *rti = manager->GetInstanceByTarget(tgt1);
     if (rti != NULL) {
-	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
-	        0, 1000, 10000, "Wait for vn index..");
+        TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+            0, 1000, 10000, "Wait for vn index..");
         string netname = rti->GetVirtualNetworkName();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
@@ -106,8 +106,8 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
                         manager->GetInstanceByTarget(tgt2));
     rti = manager->GetInstanceByTarget(tgt2);
     if (rti != NULL) {
-	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
-	        0, 1000, 10000, "Wait for vn index..");
+        TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+            0, 1000, 10000, "Wait for vn index..");
         string netname = rti->GetVirtualNetworkName();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
@@ -130,8 +130,8 @@ TEST_F(NetworkConfigTest, SoapMessage2) {
                         manager->GetInstanceByTarget(tgt1));
     const RoutingInstance *rti = manager->GetInstanceByTarget(tgt1);
     if (rti != NULL) {
-	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
-	        0, 1000, 10000, "Wait for vn index..");
+        TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+            0, 1000, 10000, "Wait for vn index..");
         string netname = rti->GetVirtualNetworkName();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {

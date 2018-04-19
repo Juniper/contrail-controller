@@ -115,7 +115,7 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
                 "OVSDB Client TCP reconnect Timer",
                 agent->task_scheduler()->GetTaskId("Agent::KSync"), 0)) {
 
-    reader_ = new OvsdbClientTcpSessionReader(this, 
+    reader_ = new OvsdbClientTcpSessionReader(this,
             boost::bind(&OvsdbClientTcpSession::RecvMsg, this, _1, _2));
 
     // Process session events in KSync workqueue task context,
@@ -260,7 +260,7 @@ bool OvsdbClientTcpSession::ReconnectTimerCb() {
 }
 
 OvsdbClientTcpSessionReader::OvsdbClientTcpSessionReader(
-    TcpSession *session, ReceiveCallback callback) : 
+    TcpSession *session, ReceiveCallback callback) :
     TcpMessageReader(session, callback) {
 }
 

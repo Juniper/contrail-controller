@@ -17,8 +17,8 @@ class ResourceKey;
 // Vm interface backup.
 class VmInterfaceIndexResourceKey : public IndexResourceKey {
 public:
-    VmInterfaceIndexResourceKey(ResourceManager *rm, 
-                                const boost::uuids::uuid &uuid, 
+    VmInterfaceIndexResourceKey(ResourceManager *rm,
+                                const boost::uuids::uuid &uuid,
                                 const std::string &interface_name);
     virtual ~VmInterfaceIndexResourceKey() {};
     virtual void Backup(ResourceData *data, uint16_t op);

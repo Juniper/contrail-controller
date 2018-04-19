@@ -78,7 +78,7 @@ xml_node MulticastMessageHeader(xml_document *xdoc, std::string vrf) {
 xml_node L2MessageHeader(xml_document *xdoc, std::string vrf) {
     xml_node msg = xdoc->append_child("message");
     msg.append_attribute("type") = "set";
-    msg.append_attribute("from") = XmppInit::kAgentNodeJID; 
+    msg.append_attribute("from") = XmppInit::kAgentNodeJID;
     string str(XmppInit::kControlNodeJID);
     str += "/";
     str += XmppInit::kBgpPeer;
@@ -153,7 +153,7 @@ public:
         peer_skip_route_list_.clear();
     }
 
-    void ReflectIpv4Route(string vrf_name, const pugi::xml_node &node, 
+    void ReflectIpv4Route(string vrf_name, const pugi::xml_node &node,
                           bool add_change) {
         autogen::ItemType item;
         item.Clear();
@@ -167,7 +167,7 @@ public:
         if (add_change) {
             EXPECT_TRUE(!item.entry.next_hops.next_hop.empty());
             //Assuming one interface NH has come
-            SendRouteMessage(vrf_name, item.entry.nlri.address, 
+            SendRouteMessage(vrf_name, item.entry.nlri.address,
                              item.entry.next_hops.next_hop[0].label, false);
         } else {
             SendRouteDeleteMessage(vrf_name, item.entry.nlri.address);
@@ -191,7 +191,7 @@ public:
             uint32_t src_label = label1_++;
             uint32_t tunnel_label_1 = label1_++;
             uint32_t tunnel_label_2 = label1_++;
-            SendBcastRouteMessage(vrf_name, item.entry.nlri.group, src_label, 
+            SendBcastRouteMessage(vrf_name, item.entry.nlri.group, src_label,
                                   "127.0.0.1", tunnel_label_1, tunnel_label_2);
         } else {
             SendBcastRouteDelete(vrf_name, item.entry.nlri.group, "127.0.0.1");
@@ -211,12 +211,12 @@ public:
         if (add_change) {
             EXPECT_TRUE(!item.entry.next_hops.next_hop.empty());
             //Assuming one interface NH has come
-            SendL2RouteMessage(vrf_name, item.entry.nlri.mac, 
-                               item.entry.nlri.address, 
+            SendL2RouteMessage(vrf_name, item.entry.nlri.mac,
+                               item.entry.nlri.address,
                                item.entry.next_hops.next_hop[0].label);
         } else {
             //TODO check why retract parsing fails
-            //SendL2RouteDeleteMessage(item.entry.nlri.mac, vrf_name, 
+            //SendL2RouteDeleteMessage(item.entry.nlri.mac, vrf_name,
             //                         item.entry.nlri.address);
         }
     }
@@ -350,7 +350,7 @@ public:
         xml_node xitems = MessageHeader(&xdoc, vrf);
         xml_node node = xitems.append_child("retract");
         stringstream ss;
-        ss << address.c_str() << "/32"; 
+        ss << address.c_str() << "/32";
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
 
@@ -363,15 +363,15 @@ public:
         xml_node xitems = L2MessageHeader(&xdoc, vrf);
         xml_node node = xitems.append_child("retract");
         stringstream ss;
-        ss << mac_string.c_str() << "," << address.c_str(); 
+        ss << mac_string.c_str() << "," << address.c_str();
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
 
         SendDocument(xdoc);
     }
 
-    void SendBcastRouteMessage(std::string vrf, std::string subnet_addr, 
-                               int src_label, std::string agent_addr, 
+    void SendBcastRouteMessage(std::string vrf, std::string subnet_addr,
+                               int src_label, std::string agent_addr,
                                int dest_label1, int dest_label2) {
         xml_document xdoc;
         xml_node xitems = MulticastMessageHeader(&xdoc, vrf);
@@ -386,9 +386,9 @@ public:
         autogen::McastNextHopType nh;
         nh.af = item.entry.nlri.af;
         nh.address = "127.0.0.2"; // agent-b, does not exist
-        stringstream label1;       
+        stringstream label1;
         label1 << dest_label1;
-        nh.label = label1.str(); 
+        nh.label = label1.str();
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh);
@@ -396,9 +396,9 @@ public:
         autogen::McastNextHopType nh2;
         nh2.af = item.entry.nlri.af;
         nh2.address = "127.0.0.3"; // agent-c, does not exist
-        stringstream label2;       
+        stringstream label2;
         label2 << dest_label2;
-        nh2.label = label2.str(); 
+        nh2.label = label2.str();
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh2);
@@ -406,22 +406,22 @@ public:
         xml_node node = xitems.append_child("item");
         //Route-Distinguisher
         stringstream ss;
-        ss << agent_addr.c_str() << ":" << "65535:" << subnet_addr.c_str() << ",0.0.0.0"; 
+        ss << agent_addr.c_str() << ":" << "65535:" << subnet_addr.c_str() << ",0.0.0.0";
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
         item.Encode(&node);
 
         SendDocument(xdoc);
     }
-    void SendBcastRouteDelete(std::string vrf, std::string addr, 
+    void SendBcastRouteDelete(std::string vrf, std::string addr,
                               std::string agent_addr) {
         xml_document xdoc;
         xml_node xitems = MulticastMessageHeader(&xdoc, vrf);
         xml_node node = xitems.append_child("retract");
         //Route-Distinguisher
         stringstream ss;
-        ss << agent_addr.c_str() << ":" << "65535:" << addr.c_str() 
-                                        << "," << "0.0.0.0"; 
+        ss << agent_addr.c_str() << ":" << "65535:" << addr.c_str()
+                                        << "," << "0.0.0.0";
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
 
@@ -476,7 +476,7 @@ public:
                 }
             }
         }
-    }    
+    }
 
     void HandleXmppChannelEvent(XmppChannel *channel,
                                 xmps::PeerState state) {
@@ -500,7 +500,7 @@ public:
     }
 
     bool SendUpdate(uint8_t *msg, size_t size) {
-        if (channel_ && 
+        if (channel_ &&
             (channel_->GetPeerState() == xmps::READY)) {
             return channel_->Send(msg, size, xmps::BGP,
                    boost::bind(&ControlNodeMockBgpXmppPeer::WriteReadyCb, this, _1));
@@ -509,7 +509,7 @@ public:
     }
 
     //TODO need to be moved to use gateway
-    void AddRemoteV4Routes(int num_routes, std::string vrf_name, std::string vn_name, 
+    void AddRemoteV4Routes(int num_routes, std::string vrf_name, std::string vn_name,
                            std::string ip_prefix) {
         uint32_t label = 6000;
         Ip4Address addr = Ip4Address::from_string(ip_prefix);
@@ -525,7 +525,7 @@ public:
         Ip4Address addr = Ip4Address::from_string(ip_prefix);
         for (int i = 0; i < num_routes; i++) {
             addr = IncrementIpAddress(addr);
-            SendRouteDeleteMessage(vrf_name, addr.to_string()); 
+            SendRouteDeleteMessage(vrf_name, addr.to_string());
         }
     }
 
@@ -552,7 +552,7 @@ class AgentBasicScaleTest : public ::testing::Test {
 protected:
     AgentBasicScaleTest() : thread_(&evm_), agent_(Agent::GetInstance())  {
     }
- 
+
     virtual void SetUp() {
         for (int i = 0; i < num_ctrl_peers; i++) {
             xs[i] = new XmppServer(&evm_, XmppInit::kControlNodeJID);
@@ -560,7 +560,7 @@ protected:
 
             xs[i]->Initialize(0, false);
         }
-        
+
         thread_.Start();
     }
 
@@ -576,7 +576,7 @@ protected:
             xc[i]->ConfigUpdate(new XmppConfigData());
             client->WaitForIdle(5);
             xs[i]->Shutdown();
-            bgp_peer[i].reset(); 
+            bgp_peer[i].reset();
             client->WaitForIdle();
             xc[i]->Shutdown();
             client->WaitForIdle();
@@ -589,7 +589,7 @@ protected:
         client->WaitForIdle();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
-        WAIT_FOR(1000, 1000, (Agent::GetInstance()->controller()->DecommissionedPeerListSize() 
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->controller()->DecommissionedPeerListSize()
                               == 0));
 
         for (int i = 0; i < num_ctrl_peers; i++) {
@@ -602,7 +602,7 @@ protected:
     }
 
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const char *local_address, 
+                                            const char *local_address,
                                             const string &from, const string &to,
                                             bool isclient) {
         XmppChannelConfig *cfg = new XmppChannelConfig(isclient);
@@ -619,7 +619,7 @@ protected:
         XmppConnection *sconnection_l = sconnection[i];
 
         WAIT_FOR(100, 10000,
-                 ((sconnection_l = xs_l->FindConnection(XmppInit::kAgentNodeJID)) 
+                 ((sconnection_l = xs_l->FindConnection(XmppInit::kAgentNodeJID))
                   != NULL));
         assert(sconnection_l);
         //wait for connection establishment
@@ -643,13 +643,13 @@ protected:
             mock_peer[i].reset(new ControlNodeMockBgpXmppPeer());
             xs[i]->RegisterConnectionEvent(xmps::BGP,
                    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent,
-                               mock_peer[i].get(), _1, _2));                        
+                               mock_peer[i].get(), _1, _2));
             LOG(DEBUG, "Create xmpp agent clien - t" << i);
             //New config data for this channel and peer
             xmppc_cfg[i] = new XmppConfigData;
             xmppc_cfg[i]->AddXmppChannelConfig(CreateXmppChannelCfg(addr.to_string().c_str(),
                                                xs[i]->GetPort(), addr.to_string().c_str(),
-                                               XmppInit::kAgentNodeJID, 
+                                               XmppInit::kAgentNodeJID,
                                                XmppInit::kControlNodeJID, true));
             xc[i]->ConfigUpdate(xmppc_cfg[i]);
             cchannel[i] = xc[i]->FindChannel(XmppInit::kControlNodeJID);
@@ -659,7 +659,7 @@ protected:
                                   Agent::GetInstance()->controller()->fabric_multicast_label_range(i).fabric_multicast_label_range_str, i));
             bgp_peer[i].get()->RegisterXmppChannel(cchannel[i]);
             xc[i]->RegisterConnectionEvent(xmps::BGP,
-                           boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
+                           boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent,
                                        bgp_peer[i].get(), _2));
             Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer[i].get(), i);
 
@@ -680,14 +680,14 @@ protected:
         for (uint32_t vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
             stringstream ip_addr;
             ip_addr << vn_cnt << ".1.1.0";
-            Ip4Address addr = 
+            Ip4Address addr =
                 IncrementIpAddress(Ip4Address::from_string(ip_addr.str()));
             for (uint32_t vm_cnt = 0; vm_cnt < num_vms_per_vn; vm_cnt++) {
                 stringstream name;
                 stringstream mac;
                 int cnt = intf_id - 1;
                 name << "vnet" << intf_id;
-                mac << "00:00:00:00:" << std::hex << vn_cnt << ":" << 
+                mac << "00:00:00:00:" << std::hex << vn_cnt << ":" <<
                     std::hex << (vm_cnt + 1);
                 memcpy(&(input[cnt].name), name.str().c_str(), 32);
                 input[cnt].intf_id = intf_id;
@@ -699,9 +699,9 @@ protected:
                 addr = IncrementIpAddress(addr);
             }
         }
-        //Create vn,vrf,vm,vm-port and route entry in vrf1 
+        //Create vn,vrf,vm,vm-port and route entry in vrf1
         CreateVmportEnv(input, (intf_id - 1));
-        WAIT_FOR(10000, 10000, (agent_->interface_table()->Size() == 
+        WAIT_FOR(10000, 10000, (agent_->interface_table()->Size() ==
                                 ((num_vns * num_vms_per_vn) + 3)));
         VerifyVmPortActive(true);
         VerifyRoutes(false);
@@ -856,4 +856,4 @@ protected:
         strncpy(init_file, vm["config"].as<string>().c_str(), (sizeof(init_file) - 1) ); \
     } else {                                    \
         strcpy(init_file, DEFAULT_VNSW_CONFIG_FILE); \
-    }                                           
+    }

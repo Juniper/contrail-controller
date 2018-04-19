@@ -228,7 +228,7 @@ void FlowMgmtDbClient::VnNotify(DBTablePartBase *part, DBEntryBase *e) {
     }
 
     bool changed = false;
-    if (state != NULL) { 
+    if (state != NULL) {
         acl = state->acl_;
         macl = state->macl_;
         mcacl = state->mcacl_;
@@ -241,7 +241,7 @@ void FlowMgmtDbClient::VnNotify(DBTablePartBase *part, DBEntryBase *e) {
     const AclDBEntry *new_mcacl = vn->GetMirrorCfgAcl();
     bool new_enable_rpf = vn->enable_rpf();
     bool new_flood_unknown_unicast = vn->flood_unknown_unicast();
-    
+
     if (state == NULL) {
         state = new VnFlowHandlerState(new_acl, new_macl, new_mcacl,
                                        new_enable_rpf,
@@ -582,7 +582,7 @@ bool FlowMgmtDbClient::HandleTrackingIpChange(const AgentRoute *rt,
             }
         }
     }
-    
+
     //Check if any path has been deleted
     RouteFlowHandlerState::FixedIpMap::const_iterator old_it =
         state->fixed_ip_map_.begin();

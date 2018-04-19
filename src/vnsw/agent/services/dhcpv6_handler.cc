@@ -354,8 +354,8 @@ bool Dhcpv6Handler::Run() {
 
     if (FindLeaseData()) {
         SendDhcpResponse();
-        DHCPV6_TRACE(Trace, "DHCP response sent; message = " << 
-                     ServicesSandesh::Dhcpv6MsgType(out_msg_type_) << 
+        DHCPV6_TRACE(Trace, "DHCP response sent; message = " <<
+                     ServicesSandesh::Dhcpv6MsgType(out_msg_type_) <<
                      "; ip = " << config_.ip_addr.to_string());
     }
 
@@ -495,7 +495,7 @@ bool Dhcpv6Handler::FindLeaseData() {
             if (!ipam[i].IsV6()) {
                 continue;
             }
-            if (IsIp6SubnetMember(ip, ipam[i].ip_prefix.to_v6(), 
+            if (IsIp6SubnetMember(ip, ipam[i].ip_prefix.to_v6(),
                                   ipam[i].plen)) {
                 Ip6Address default_gw;
                 if (ipam[i].default_gw.is_v6()) {
@@ -709,7 +709,7 @@ uint16_t Dhcpv6Handler::FillDhcpResponse(const MacAddress &dest_mac,
 void Dhcpv6Handler::SendDhcpResponse() {
     UpdateStats();
     // In TSN, the source address for DHCP response should be the address
-    // in the subnet reserved for service node. Otherwise, it will be the 
+    // in the subnet reserved for service node. Otherwise, it will be the
     // GW address. dns_addr field has this address, use it as the source IP.
     FillDhcpResponse(MacAddress(pkt_info_->eth->ether_shost),
                      config_.dns_addr.to_v6(),

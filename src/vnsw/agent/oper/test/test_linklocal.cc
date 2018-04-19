@@ -81,9 +81,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
 
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
-    };  
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
     client->Reset();
@@ -96,9 +96,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
 
-    struct PortInfo new_input[] = { 
-        {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2}, 
-    };  
+    struct PortInfo new_input[] = {
+        {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2},
+    };
     CreateVmportEnv(new_input, 1, 0);
     client->WaitForIdle();
     client->Reset();
@@ -151,9 +151,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     client->Reset();
     DelIPAM("ipam1");
     client->WaitForIdle();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
-    DeleteVmportEnv(new_input, 1, 1, 0); 
+    DeleteVmportEnv(new_input, 1, 1, 0);
     client->WaitForIdle();
 }
 
@@ -163,9 +163,9 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
 
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
-    };  
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
     client->Reset();
@@ -219,7 +219,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     local_rt = RouteGet("vrf1", Ip4Address::from_string("169.254.100.100"), 32);
     EXPECT_TRUE(local_rt == NULL);
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 }
 
@@ -229,9 +229,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
 
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
-    };  
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
     client->Reset();
@@ -244,9 +244,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
 
-    struct PortInfo new_input[] = { 
-        {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2}, 
-    };  
+    struct PortInfo new_input[] = {
+        {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2},
+    };
     CreateVmportEnv(new_input, 1, 0);
     client->WaitForIdle();
     client->Reset();
@@ -292,9 +292,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     client->Reset();
     DelIPAM("ipam1");
     client->WaitForIdle();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
-    DeleteVmportEnv(new_input, 1, 1, 0); 
+    DeleteVmportEnv(new_input, 1, 1, 0);
     client->WaitForIdle();
 }
 

@@ -56,7 +56,7 @@ public:
         str << "<display-name>" << "vhost0" << "</display-name>";
 
         AddNode("virtual-machine-interface", "vhost0", 10, str.str().c_str());
-        AddLink("virtual-machine-interface", "vhost0", 
+        AddLink("virtual-machine-interface", "vhost0",
                 "virtual-network", DEFAULT_VN);
         AddAcl("Acl", 1, DEFAULT_VN, "vn1", "pass");
         AddLink("virtual-network", DEFAULT_VN, "access-control-list", "Acl");
@@ -90,7 +90,7 @@ public:
 
 TEST_F(VhostVmi, VhostToRemoteVhost) {
     //Add a route to destination Vhost
-    AddArp("10.1.1.10", "00:00:01:01:01:01", 
+    AddArp("10.1.1.10", "00:00:01:01:01:01",
            agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
@@ -106,7 +106,7 @@ TEST_F(VhostVmi, VhostToRemoteVhost) {
 
 TEST_F(VhostVmi, RemoteVhostToVhost) {
     //Add a route to destination Vhost
-    AddArp("10.1.1.10", "00:00:01:01:01:01", 
+    AddArp("10.1.1.10", "00:00:01:01:01:01",
            agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
@@ -169,8 +169,8 @@ TEST_F(VhostVmi, RemoteVhostToVhostWithDenyAcl) {
 
     FlowEntry *fe = FlowGet(0, "10.1.1.10", "10.1.1.1", 6, 10000, 20,
                             vnet0_->flow_key_nh()->id());
-    WAIT_FOR(1000, 10000, 
-             fe->match_p().action_info.action == 
+    WAIT_FOR(1000, 10000,
+             fe->match_p().action_info.action ==
              (1 << TrafficAction::IMPLICIT_DENY | 1 << TrafficAction::DENY));
 
     DeleteRoute(DEFAULT_POLICY_VRF, "10.1.1.10", 32, peer);
@@ -229,14 +229,14 @@ TEST_F(VhostVmi, VmiToLocalVhost) {
     client->WaitForIdle();
 
     Ip4Address sip = Ip4Address::from_string("10.1.1.1");
-	VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
+    VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
 
-	InetUnicastAgentRouteTable *table =
-		static_cast<InetUnicastAgentRouteTable *>(
-				agent_->fabric_vrf()->GetInet4UnicastRouteTable());
-	table->AddVHostRecvRoute(peer, "vrf1", vmi_key, sip,
-                             32, agent_->fabric_vn_name(), 
-                             false); 
+    InetUnicastAgentRouteTable *table =
+        static_cast<InetUnicastAgentRouteTable *>(
+                agent_->fabric_vrf()->GetInet4UnicastRouteTable());
+    table->AddVHostRecvRoute(peer, "vrf1", vmi_key, sip,
+                             32, agent_->fabric_vn_name(),
+                             false);
     client->WaitForIdle();
 
     const Interface *vm_intf = VmPortGet(1);
@@ -256,8 +256,8 @@ TEST_F(VhostVmi, VmiToLocalVhost) {
     //Packet VRF doesnt change hence VRF change also doenst happen
     //EXPECT_TRUE(fe->data().dest_vrf == vm_intf->vrf()->vrf_id());
 
-	DeleteRoute("vrf1", "10.1.1.1", 32, peer);
-	client->WaitForIdle();
+    DeleteRoute("vrf1", "10.1.1.1", 32, peer);
+    client->WaitForIdle();
 }
 #endif
 

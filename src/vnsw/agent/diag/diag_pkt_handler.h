@@ -23,7 +23,7 @@ struct PseudoTcpHdr {
     uint8_t   res;
     uint8_t   prot;
     uint16_t  len;
-    PseudoTcpHdr(in_addr_t s, in_addr_t d, uint16_t l) : 
+    PseudoTcpHdr(in_addr_t s, in_addr_t d, uint16_t l) :
         src(s), dest(d), res(0), prot(6), len(l) { }
 };
 

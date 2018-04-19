@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
 
     LoggingInit();
     Sandesh::SetLocalLogging(true);
-    Sandesh::SetLoggingLevel(SandeshLevel::UT_DEBUG); 
+    Sandesh::SetLoggingLevel(SandeshLevel::UT_DEBUG);
 
     Agent::GetInstance()->set_headless_agent_mode(false);
     int ret = RUN_ALL_TESTS();

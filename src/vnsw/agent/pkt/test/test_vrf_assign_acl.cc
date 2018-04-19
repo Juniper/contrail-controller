@@ -188,7 +188,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
     client->agent()->flow_stats_manager()->set_delete_short_flow(true);
 }
 
-//Add a VRF translate ACL to send all ssh traffic to "2.1.1.1" 
+//Add a VRF translate ACL to send all ssh traffic to "2.1.1.1"
 //via default-project:vn2 with ignore acl option set, add an ACL
 //to deny all traffic from default-project:vn1 to default-project:vn2
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
@@ -511,7 +511,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror2) {
                            false, false, false);
 
     client->WaitForIdle();
-    // pushing more DB Request so just before addin mirror entry 
+    // pushing more DB Request so just before addin mirror entry
     // so its creation gets delayed
     for (int i =0; i<500; i++) {
         std::ostringstream stream;

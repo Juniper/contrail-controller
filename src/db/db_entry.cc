@@ -86,7 +86,7 @@ void DBEntryBase::ClearState(DBTableBase *tbl_base, ListenerId listener) {
 
 bool DBEntryBase::is_state_empty(DBTablePartBase *tpart) {
     tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), false);
-    return state_.empty(); 
+    return state_.empty();
 }
 
 bool DBEntryBase::is_state_empty_unlocked(DBTablePartBase *tpart) {
@@ -101,15 +101,15 @@ void DBEntryBase::set_last_change_at(uint64_t time) {
     last_change_at_ = time;
 }
 
-void DBEntryBase::set_table_partition(DBTablePartBase *tpart) { 
-    tpart_ = tpart; 
+void DBEntryBase::set_table_partition(DBTablePartBase *tpart) {
+    tpart_ = tpart;
 }
 
-DBTablePartBase *DBEntryBase::get_table_partition() const { 
-    return tpart_; 
+DBTablePartBase *DBEntryBase::get_table_partition() const {
+    return tpart_;
 }
 
-DBTableBase *DBEntryBase::get_table() const { 
+DBTableBase *DBEntryBase::get_table() const {
     return (tpart_ ? tpart_->parent() : NULL);
 }
 

@@ -27,7 +27,7 @@ MplsLabel::MplsLabel(Agent *agent, uint32_t label) :
     agent_(agent), label_(label), free_label_(false) {
 }
 
-MplsLabel::~MplsLabel() { 
+MplsLabel::~MplsLabel() {
     if (free_label_)
         agent_->resource_manager()->Release(Resource::MPLS_INDEX, label_);
 }
@@ -46,7 +46,7 @@ DBEntryBase::KeyPtr MplsLabel::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void MplsLabel::SetKey(const DBRequestKey *k) { 
+void MplsLabel::SetKey(const DBRequestKey *k) {
     const MplsLabelKey *key = static_cast<const MplsLabelKey *>(k);
     label_ = key->label();
 }
@@ -159,7 +159,7 @@ void MplsLabel::SendObjectLog(const AgentDBTable *table,
     info.set_event(str);
     const NextHop *nh = nexthop();
     const Interface *intf = NULL;
-    /* Mpls is not expected to have any other nexthop apart from Interface 
+    /* Mpls is not expected to have any other nexthop apart from Interface
        or Vlan */
     if (nh != NULL) {
         string policy_str("Disabled");
@@ -183,7 +183,7 @@ void MplsLabel::SendObjectLog(const AgentDBTable *table,
             info.set_vlan_tag(vlan_nh->GetVlanTag());
             break;
         case NextHop::COMPOSITE:
-            nh_type.assign("Composite");    
+            nh_type.assign("Composite");
             break;
         default:
             nh_type.assign("unknown");

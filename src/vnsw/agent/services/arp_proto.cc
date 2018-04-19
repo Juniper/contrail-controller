@@ -361,7 +361,7 @@ void ArpDBState::Update(const AgentRoute *rt) {
     bool policy = ip_rt->GetActiveNextHop()->PolicyEnabled();
     const SecurityGroupList sg = ip_rt->GetActivePath()->sg_list();
     const TagList tag = ip_rt->GetActivePath()->tag_list();
-    
+
 
     if (policy_ != policy || sg != sg_list_ || tag != tag_list_ ||
         vn_list_ != ip_rt->GetActivePath()->dest_vn_list()) {
@@ -694,10 +694,10 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
         ArpNH *arp_nh = (static_cast<ArpNH *>(nh));
         if (arp_nh->IsDeleted()) {
             SendArpIpc(ArpProto::ARP_DELETE, arp_nh->GetIp()->to_ulong(),
-                       arp_nh->GetVrf(), arp_nh->GetInterface()); 
+                       arp_nh->GetVrf(), arp_nh->GetInterface());
         } else if (arp_nh->IsValid() == false && arp_nh->GetInterface()) {
             SendArpIpc(ArpProto::ARP_RESOLVE, arp_nh->GetIp()->to_ulong(),
-                       arp_nh->GetVrf(), arp_nh->GetInterface()); 
+                       arp_nh->GetVrf(), arp_nh->GetInterface());
         }
         break;
     }

@@ -37,9 +37,9 @@
  * in the vector is defined by bv_word_t.  All are defined in the
  * environment file.
  */
-#define BV_BITSPERWORD	(sizeof(bv_word_t) * 8)	/* Bits per word */
-#define BV_BITSIZE	(1 << (BV_BITSIZE_LOG2)) /* Number of bits per entry */
-#define BV_WORDSIZE	((BV_BITSIZE + BV_BITSPERWORD - 1) / BV_BITSPERWORD)
+#define BV_BITSPERWORD    (sizeof(bv_word_t) * 8)    /* Bits per word */
+#define BV_BITSIZE    (1 << (BV_BITSIZE_LOG2)) /* Number of bits per entry */
+#define BV_WORDSIZE    ((BV_BITSIZE + BV_BITSPERWORD - 1) / BV_BITSPERWORD)
 
 
 /*
@@ -62,19 +62,19 @@
  * to flag this case.
  */
 typedef struct bv_entry_ {
-    thread bv_ent_nonfull_thread;	/* Entry on non-full-entry thread */
-    bvx_patnode bv_ent_node;		/* Patricia node */
+    thread bv_ent_nonfull_thread;    /* Entry on non-full-entry thread */
+    bvx_patnode bv_ent_node;        /* Patricia node */
     uint8_t bv_key[sizeof(bv_bitnum_t)]; /* Patricia key */
-    bv_bitnum_t bv_start;		/* Starting bit number */
-    int bv_setcount;			/* Number of set bits */
-    bv_word_t bv_bits[BV_WORDSIZE];	/* Actual bits */
+    bv_bitnum_t bv_start;        /* Starting bit number */
+    int bv_setcount;            /* Number of set bits */
+    bv_word_t bv_bits[BV_WORDSIZE];    /* Actual bits */
 } bv_entry;
 
 BVX_PATNODE_TO_STRUCT(bv_patnode_to_bv_entry, bv_entry, bv_ent_node);
 THREAD_TO_STRUCT(bv_thread_to_bv_entry, bv_entry, bv_ent_nonfull_thread);
 
-#define BV_UNKNOWN_COUNT -1	 	/* bv_setcount unknown */
-#define BV_ALLSET ((bv_word_t)(~0))	/* All-ones constant */
+#define BV_UNKNOWN_COUNT -1         /* bv_setcount unknown */
+#define BV_ALLSET ((bv_word_t)(~0))    /* All-ones constant */
 #define BV_MAX_BITNUM ((0x7fffffff - BV_BITSIZE) + 1) /* Max bit num + 1 */
 
 

@@ -16,7 +16,7 @@
 class IFMapLink : public DBGraphEdge {
 public:
     struct LinkOriginInfo {
-        explicit LinkOriginInfo() : 
+        explicit LinkOriginInfo() :
             origin(IFMapOrigin::UNKNOWN), sequence_number(0) {
         }
         explicit LinkOriginInfo(IFMapOrigin origin, uint64_t seq_num) :
@@ -29,34 +29,34 @@ public:
     IFMapLink(const std::string &name);
     const std::string &link_name() const { return link_name_; }
     virtual const std::string &name() const { return metadata_; }
-    
+
     // Initialize the link.
     void SetProperties(IFMapNode *left, IFMapNode *right,
                        const std::string &metadata, uint64_t sequence_number,
                        const IFMapOrigin &origin);
     // Update some fields
-    void UpdateProperties(const IFMapOrigin &in_origin, 
+    void UpdateProperties(const IFMapOrigin &in_origin,
                           uint64_t sequence_number);
     // Called by IFMapLinkTable when the node is deleted.
     void ClearNodes();
-    
+
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *genkey);
     virtual std::string ToString() const;
     virtual bool IsLess(const DBEntry &rgen) const;
-    
+
     // Return the left node. If the link is deleted, the node is retrieved
     // by doing a database table lookup iff db in non-NULL. If db is NULL,
     // the method returns NULL. The actual node may have already been deleted.
     IFMapNode *LeftNode(DB *db);
     const IFMapNode *LeftNode(DB *db) const;
-    
+
     // Return the right node. As with the corresponding Left methods these
     // return the cached value if the node is not deleted and perform a DB
     // lookup (when the parameter db is non-NULL) when the node is deleted.
     IFMapNode *RightNode(DB *db);
     const IFMapNode *RightNode(DB *db) const;
-    
+
     IFMapNode *left() { return left_node_; }
     const IFMapNode *left() const { return left_node_; }
     IFMapNode *right() { return right_node_; }
@@ -64,7 +64,7 @@ public:
 
     const IFMapNode::Descriptor &left_id() const { return left_id_; }
     const IFMapNode::Descriptor &right_id() const { return right_id_; }
-    
+
     const std::string &metadata() const { return metadata_; }
 
     void AddOriginInfo(const IFMapOrigin &in_origin, uint64_t seq_num);

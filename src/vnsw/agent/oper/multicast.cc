@@ -40,8 +40,8 @@ SandeshTraceBufferPtr MulticastTraceBuf(SandeshTraceBufferCreate("Multicast",
 const Ip4Address MulticastHandler::kBroadcast = Ip4Address(0xFFFFFFFF);
 /*
  * Registeration for notification
- * VM - Looking for local VM added 
- * VN - Looking for subnet information from VN 
+ * VM - Looking for local VM added
+ * VN - Looking for subnet information from VN
  * Enable trace print messages
  */
 void MulticastHandler::Register() {
@@ -128,7 +128,7 @@ void MulticastHandler::DeleteBroadcast(const Peer *peer,
 }
 
 void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
-    if (vn->IsDeleted() || !vn->GetVrf()) 
+    if (vn->IsDeleted() || !vn->GetVrf())
         return;
 
     MulticastGroupObject *obj =
@@ -467,7 +467,7 @@ bool MulticastHandler::FilterVmi(const VmInterface *vm_itf) {
 }
 
 /* Registered call for VM */
-void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition, 
+void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
                                          DBEntryBase *e)
 {
     Interface *intf = static_cast<Interface *>(e);
@@ -561,19 +561,19 @@ void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
                     IpAddress::from_string("255.255.255.255", ec).to_v4();
     std::set<MulticastGroupObject *> &obj_list = this->GetVmToMulticastObjMap(
                                                           vm_itf->GetUuid());
-    for (std::set<MulticastGroupObject *>::iterator it = obj_list.begin(); 
+    for (std::set<MulticastGroupObject *>::iterator it = obj_list.begin();
          it != obj_list.end(); it++) {
         if (((*it)->vrf_name() != vrf_name) ||
             ((*it)->GetGroupAddress() != bcast_addr)) {
             continue;
         }
-        // When IPAM/VN goes off first than VM then it marks mc obj 
+        // When IPAM/VN goes off first than VM then it marks mc obj
         // for deletion. Cleanup of related data structures like vm-mcobj
         // happens when VM goes off. So dont trigger any notify at same time.
         // However if all local VMs are gone then route will be deleted only
-        // when VN/IPAM goes off. At that time notify xmpp to unsubscribe 
-        //Deletelocalmember removes vm from mc obj 
-        if (((*it)->DeleteLocalMember(vm_itf->GetUuid()) == true) && 
+        // when VN/IPAM goes off. At that time notify xmpp to unsubscribe
+        //Deletelocalmember removes vm from mc obj
+        if (((*it)->DeleteLocalMember(vm_itf->GetUuid()) == true) &&
             ((*it)->IsDeleted() == false) &&
             ((*it)->GetLocalListSize() != 0)) {
             TriggerLocalRouteChange(*it, agent_->local_vm_peer());
@@ -681,7 +681,7 @@ MulticastGroupObject *MulticastHandler::FindActiveGroupObject(
                                                     const Ip4Address &dip) {
     MulticastGroupObject *obj = FindGroupObject(vrf_name, sip, dip);
     if ((obj == NULL) || obj->IsDeleted()) {
-        MCTRACE(LogSG, "Multicast object deleted ", vrf_name, 
+        MCTRACE(LogSG, "Multicast object deleted ", vrf_name,
                 sip.to_string(), dip.to_string(), 0);
         return NULL;
     }
@@ -955,7 +955,7 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf,
     bool add_route = false;
     std::string vn_name = vn->GetName();
 
-    //TODO Push every thing via multi proto and remove multi proto check 
+    //TODO Push every thing via multi proto and remove multi proto check
     //All broadcast addition 255.255.255.255
     all_broadcast = this->FindGroupObject(vrf_name, Ip4Address(), broadcast);
     if (all_broadcast == NULL) {
@@ -975,7 +975,7 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf,
         if (TunnelType::ComputeType(TunnelType::AllType()) ==
             TunnelType::VXLAN) {
             all_broadcast->set_vxlan_id(vn->GetVxLanId());
-        } 
+        }
         TriggerLocalRouteChange(all_broadcast, agent_->local_vm_peer());
     }
 }
@@ -1129,7 +1129,7 @@ void MulticastHandler::ModifyTorMembers(const Peer *peer,
 }
 
 // Helper to delete fabric nh
-// For internal delete it uses invalid identifier. 
+// For internal delete it uses invalid identifier.
 // For delete via control node it uses the sequence sent.
 void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
                                             const Peer *peer,
@@ -1166,8 +1166,8 @@ MulticastHandler::MulticastHandler(Agent *agent) :
 }
 
 bool MulticastHandler::FlushPeerInfo(uint64_t peer_sequence) {
-    for (std::set<MulticastGroupObject *>::iterator it = 
-         GetMulticastObjList().begin(); it != GetMulticastObjList().end(); 
+    for (std::set<MulticastGroupObject *>::iterator it =
+         GetMulticastObjList().begin(); it != GetMulticastObjList().end();
          it++) {
         //Delete all control node given paths
         (*it)->FlushAllPeerInfo(agent_, agent_->multicast_tree_builder_peer(),

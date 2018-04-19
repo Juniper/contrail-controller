@@ -44,7 +44,7 @@
 #include <cmn/agent_db.h>
 #include <cmn/event_notifier.h>
 
-static inline bool UnregisterDBTable(DBTable *table, 
+static inline bool UnregisterDBTable(DBTable *table,
                                      DBTableBase::ListenerId id) {
     table->Unregister(id);
     return true;
@@ -52,7 +52,7 @@ static inline bool UnregisterDBTable(DBTable *table,
 
 static inline TaskTrigger *SafeDBUnregister(DBTable *table,
                                             DBTableBase::ListenerId id) {
-    TaskTrigger *trigger = 
+    TaskTrigger *trigger =
            new TaskTrigger(boost::bind(&UnregisterDBTable, table, id),
                TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
     trigger->Set();

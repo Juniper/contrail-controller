@@ -114,7 +114,7 @@ public:
         WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, true);
         if (if_count) {
-	    unsigned int oper_if_count = num_ports + if_count;
+        unsigned int oper_if_count = num_ports + if_count;
             WAIT_FOR(1000, 1000, ((oper_if_count) ==
                                 Agent::GetInstance()->interface_table()->Size()));
         }
@@ -137,12 +137,12 @@ public:
                 // without policy, one multicast NH without policy)
                 //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs
                 //i.e. TOR CNH, EVPN CNH, Fabric CNH)
-                WAIT_FOR(1000, 1000, ((nh_count + 
+                WAIT_FOR(1000, 1000, ((nh_count +
                                      (num_ports * NH_PER_VM) + 4) ==
                                     (uint32_t)KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
-                WAIT_FOR(1000, 1000, ((rt_count + 
+                WAIT_FOR(1000, 1000, ((rt_count +
                                     (port_with_vhost_count * 2) + 1) ==
                                     (uint32_t)KSyncSockTypeMap::RouteCount()));
             }
@@ -506,7 +506,7 @@ TEST_F(KStateTest, DISABLED_FlowDumpTest) {
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    WAIT_FOR(1000, 1000, 
+    WAIT_FOR(1000, 1000,
              (0 == Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount()));
     DeletePortsWithPolicy();
 }

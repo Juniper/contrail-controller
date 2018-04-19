@@ -47,7 +47,7 @@ IFMapXmppClientMock::~IFMapXmppClientMock() {
 void IFMapXmppClientMock::RegisterWithXmpp() {
     XmppChannel *xmpp_channel = FindChannel(xmpp_server_name_);
     assert(xmpp_channel);
-    xmpp_channel->RegisterReceive(xmps::CONFIG, 
+    xmpp_channel->RegisterReceive(xmps::CONFIG,
         boost::bind(&IFMapXmppClientMock::ReceiveUpdate, this, _1));
 }
 
@@ -60,7 +60,7 @@ void IFMapXmppClientMock::UnRegisterWithXmpp() {
 bool IFMapXmppClientMock::IsEstablished() {
     XmppConnection *xmpp_connection = FindConnection(xmpp_server_name_);
     if (xmpp_connection) {
-        return (xmpp_connection->GetStateMcState() == xmsm::ESTABLISHED); 
+        return (xmpp_connection->GetStateMcState() == xmsm::ESTABLISHED);
     }
     return false;
 }
@@ -240,7 +240,7 @@ bool IFMapXmppClientMock::OutputFileCompare(string master_file_path) {
     if (set1 == set2) {
         return true;
     } else {
-        cout << "Error: File compare mismatch. set1 is " 
+        cout << "Error: File compare mismatch. set1 is "
              << set1.size() << " set2 is " << set2.size() << endl;
         return false;
     }

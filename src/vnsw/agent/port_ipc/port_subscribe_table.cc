@@ -314,7 +314,7 @@ void PortSubscribeTable::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         node->ClearState(partition->parent(), vmi_config_listener_id_);
         delete state;
         return;
-    } 
+    }
 
     // Allocate DBState
     if (state == NULL) {
@@ -323,7 +323,7 @@ void PortSubscribeTable::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     }
 
     boost::uuids::uuid u;
-    VirtualMachineInterface *cfg = 
+    VirtualMachineInterface *cfg =
         static_cast <VirtualMachineInterface *> (node->GetObject());
     if (cfg != NULL) {
         autogen::IdPermsType id_perms = cfg->id_perms();

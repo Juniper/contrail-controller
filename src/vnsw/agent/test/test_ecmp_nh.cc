@@ -177,7 +177,7 @@ TEST_F(EcmpNhTest, EcmpNH_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
-    
+
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(mpls_label));
 }
@@ -285,14 +285,14 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
-    //Verify that mpls label allocated for ECMP route, points 
+    //Verify that mpls label allocated for ECMP route, points
     //to the same composite NH
     uint32_t composite_nh_mpls_label = rt->GetActiveLabel();
     mpls = GetActiveLabel(composite_nh_mpls_label);
     EXPECT_TRUE(mpls->nexthop() == comp_nh);
 
 
-    //Delete couple of interface and verify composite NH also get 
+    //Delete couple of interface and verify composite NH also get
     //deleted
     DeleteVmportEnv(input2, 1, false);
     DeleteVmportEnv(input4, 1, false);
@@ -336,7 +336,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
-    
+
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(composite_nh_mpls_label));
 
@@ -450,13 +450,13 @@ TEST_F(EcmpNhTest, EcmpNH_3) {
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
-    //Verify that mpls label allocated for ECMP route, points 
+    //Verify that mpls label allocated for ECMP route, points
     //to the same composite NH
     uint32_t composite_mpls_label = rt->GetActiveLabel();
     mpls = GetActiveLabel(composite_mpls_label);
     EXPECT_TRUE(mpls->nexthop() == comp_nh);
 
-    //Delete couple of interface and verify composite NH also get 
+    //Delete couple of interface and verify composite NH also get
     //deleted
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
@@ -507,7 +507,7 @@ TEST_F(EcmpNhTest, EcmpNH_3) {
 
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(composite_mpls_label));
- 
+
     DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip1");
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default-project:vn2");
     client->WaitForIdle();
@@ -551,7 +551,7 @@ TEST_F(EcmpNhTest, EcmpNH_4) {
 }
 
 //Create a remote route first pointing to tunnel NH
-//Change the route to point to composite NH with old tunnel NH 
+//Change the route to point to composite NH with old tunnel NH
 //and a new tunnel NH, and make sure
 //preexiting NH gets slot 0 in composite NH
 TEST_F(EcmpNhTest, EcmpNH_5) {
@@ -775,7 +775,7 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
-    //Delete couple of interface and verify composite NH also get 
+    //Delete couple of interface and verify composite NH also get
     //deleted
     DeleteVmportEnv(input1, 1, false);
     client->WaitForIdle();
@@ -987,7 +987,7 @@ TEST_F(EcmpNhTest, EcmpNH_10) {
 
     Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
-            comp_nh_list2, false, "vn1", sg_id_list, 
+            comp_nh_list2, false, "vn1", sg_id_list,
             TagList(), PathPreference());
     client->WaitForIdle();
 
@@ -1209,7 +1209,7 @@ TEST_F(EcmpNhTest, EcmpNH_13) {
     client->WaitForIdle();
     client->CompositeNHWait(1);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
- 
+
     //Delete all the routes and make sure nexthop is also deleted
     DeleteRoute("vrf1", "100.1.1.1", 32, bgp_peer);
     client->WaitForIdle();
@@ -1438,7 +1438,7 @@ TEST_F(EcmpNhTest, EcmpNH_16) {
     comp_nh_list.push_back(nh_data1);
     SecurityGroupList sg_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_list, 
+                       comp_nh_list, -1, "vn2", sg_list,
                        TagList(), PathPreference());
     client->WaitForIdle();
 

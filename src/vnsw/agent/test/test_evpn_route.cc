@@ -135,7 +135,7 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                                  agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),

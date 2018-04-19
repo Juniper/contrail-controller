@@ -45,7 +45,7 @@ const char *VmInterface::kInterfaceStatic = "interface-static";
 /////////////////////////////////////////////////////////////////////////////
 // VM-Interface entry routines
 /////////////////////////////////////////////////////////////////////////////
-VmInterface::VmInterface(const boost::uuids::uuid &uuid, 
+VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          const std::string &name,
                          bool os_oper_state,
                          const boost::uuids::uuid &logical_router_uuid) :
@@ -297,7 +297,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     // Compute service-ip for the interface
     vm_ip_service_addr_ = GetServiceIp(primary_ip_addr()).to_v4();
 
-    // Add/Update L2 
+    // Add/Update L2
     if (l2_active_) {
         UpdateL2();
     }
@@ -643,18 +643,18 @@ bool VmInterface::SecurityGroupEntryList::UpdateList
     return true;
 }
 
-VmInterface::SecurityGroupEntry::SecurityGroupEntry() : 
+VmInterface::SecurityGroupEntry::SecurityGroupEntry() :
     ListEntry(), VmInterfaceState(), uuid_(nil_uuid()) {
 }
 
 VmInterface::SecurityGroupEntry::SecurityGroupEntry
-(const SecurityGroupEntry &rhs) : 
+(const SecurityGroupEntry &rhs) :
     ListEntry(rhs.del_pending_),
     VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
     uuid_(rhs.uuid_) {
 }
 
-VmInterface::SecurityGroupEntry::SecurityGroupEntry(const uuid &u) : 
+VmInterface::SecurityGroupEntry::SecurityGroupEntry(const uuid &u) :
     ListEntry(), VmInterfaceState(), uuid_(u) {
 }
 
@@ -666,7 +666,7 @@ bool VmInterface::SecurityGroupEntry::operator ==
     return uuid_ == rhs.uuid_;
 }
 
-bool VmInterface::SecurityGroupEntry::operator() 
+bool VmInterface::SecurityGroupEntry::operator()
     (const SecurityGroupEntry &lhs, const SecurityGroupEntry &rhs) const {
     return lhs.IsLess(&rhs);
 }
@@ -820,7 +820,7 @@ bool VrfTableLabelState::AddL3(const Agent *agent, VmInterface *vmi) const {
 // L2 nexthops:
 // These L2 nexthop are used by multicast and bridge. Presence of multicast
 // forces it to be present in ipv4 mode(l3-only).
-// 
+//
 // L3 nexthops:
 // Also creates L3 interface NH, if layer3_forwarding is set.
 // It does not depend on oper state of ip forwarding.
@@ -1064,7 +1064,7 @@ VmInterfaceState::Op ResolveRouteState::GetOpL3(const Agent *agent,
     if (vrf_ != vmi->forwarding_vrf() || subnet_ != vmi->subnet() ||
         plen_ != vmi->subnet_plen())
         return VmInterfaceState::DEL_ADD;
-        
+
     return VmInterfaceState::ADD;
 }
 
@@ -1191,7 +1191,7 @@ VmInterfaceState::Op VmiRouteState::GetOpL3
 
     if (vrf_ != vmi->vrf())
         return VmInterfaceState::DEL_ADD;
-        
+
     if (ip_ != vmi->dhcp_addr())
         return VmInterfaceState::DEL_ADD;
 
@@ -1249,7 +1249,7 @@ bool VmiRouteState::AddL2(const Agent *agent, VmInterface *vmi) const {
     if (vrf_ == NULL || vmi->vn() == NULL)
         return false;
 
-    vmi->AddL2InterfaceRoute(Ip4Address(), vmi->vm_mac(), Ip4Address(0)); 
+    vmi->AddL2InterfaceRoute(Ip4Address(), vmi->vm_mac(), Ip4Address(0));
     return true;
 }
 
@@ -1527,7 +1527,7 @@ bool VmInterface::FloatingIpList::UpdateList(const Agent *agent,
     return true;
 }
 
-VmInterface::FloatingIp::FloatingIp() : 
+VmInterface::FloatingIp::FloatingIp() :
     ListEntry(), VmInterfaceState(), floating_ip_(), vn_(NULL),
     vrf_(NULL, this), vrf_name_(""), vn_uuid_(),
     fixed_ip_(), direction_(DIRECTION_BOTH), port_map_enabled_(false),
@@ -2129,7 +2129,7 @@ VmInterface::AllowedAddressPair::~AllowedAddressPair() {
 }
 
 bool VmInterface::AllowedAddressPair::operator() (const AllowedAddressPair &lhs,
-                                                  const AllowedAddressPair &rhs) 
+                                                  const AllowedAddressPair &rhs)
                                                   const {
     return lhs.IsLess(&rhs);
 }
@@ -2335,7 +2335,7 @@ bool VmInterface::ServiceVlanList::UpdateList
             if (prev->del_pending_) {
                 list_.erase(prev);
             }
-        } 
+        }
     }
 
     it = list_.begin();
