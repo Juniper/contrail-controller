@@ -145,7 +145,7 @@ class VncServiceTest(KMTestCase):
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
-        self._assert_all_is_down(uuids)
+        self._assert_all_is_down(uuids, skip_vn=False, check_public_fip=True)
 
     def test_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
@@ -269,7 +269,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
 
-        self._assert_all_is_down(uuids, skip_vn=True)
+        self._assert_all_is_down(uuids, skip_vn=True, check_public_fip=True)
 
     def test_delete_add_service_after_kube_manager_is_killed(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
@@ -295,7 +295,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
 
-        self._assert_all_is_down(uuids, skip_vn=True)
+        self._assert_all_is_down(uuids, skip_vn=True, check_public_fip=True)
 
     def test_service_add_scaling(self):
         ServiceData = namedtuple(

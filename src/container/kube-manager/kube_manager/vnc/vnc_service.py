@@ -443,6 +443,12 @@ class VncService(VncCommon):
                         self._allocate_floating_ips(service_id,
                                                     specified_fip_pool_fq_name_str,
                                                     external_ips)
+            else:  #allocated_fip is None
+                if external_ips:
+                    specified_fip_pool_fq_name_str = None
+                    self._allocate_floating_ips(service_id,
+                                                specified_fip_pool_fq_name_str,
+                                                external_ips)
             return
 
     def _check_service_uuid_change(self, svc_uuid, svc_name,
