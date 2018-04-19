@@ -107,6 +107,18 @@ class VncService(VncCommon):
             self.logger.error("%s - %s Not Found" %(self._name, fq_name))
         return service_ipam_subnet_uuid
 
+    def _get_specified_fip_pool(self, specified_fip_pool_fq_name_str):
+        if specified_fip_pool_fq_name_str == None:
+            return None
+
+        fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
+            specified_fip_pool_fq_name_str)
+        try:
+            fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
+        except NoIdError:
+            return None
+        return fip_pool_obj
+
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
             return self._fip_pool_obj
@@ -263,7 +275,7 @@ class VncService(VncCommon):
 
         return floating_ips
 
-    def _allocate_floating_ips(self, service_id, external_ips=set()):
+    def _allocate_floating_ips(self, service_id, specified_fip_pool_fq_name_str, external_ips=set()):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return None
@@ -283,7 +295,11 @@ class VncService(VncCommon):
         if vmi_obj is None:
             return None
 
-        fip_pool = self._get_public_fip_pool()
+        fip_pool = None
+        if specified_fip_pool_fq_name_str != None:
+            fip_pool = self._get_specified_fip_pool(specified_fip_pool_fq_name_str)
+        if fip_pool is None:
+            fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
             self.logger.warning("public_fip_pool doesn't exists")
             return None
@@ -358,7 +374,7 @@ class VncService(VncCommon):
                                % (service_namespace, service_name, external_ips));
 
     def _update_service_public_ip(self, service_id, service_name,
-                        service_namespace, service_type, external_ips, loadBalancerIp):
+                        service_namespace, service_type, external_ips, loadBalancerIp, specified_fip_pool_fq_name_str):
         allocated_fips = self._read_allocated_floating_ips(service_id)
 
         if service_type in ["LoadBalancer"]:
@@ -370,30 +386,45 @@ class VncService(VncCommon):
                 # if None specficied, then let contrail allocate a floating-ip and
                 #     update the allocated fip to kubernetes
                 if loadBalancerIp:
-                    allocated_fip = self._allocate_floating_ips(service_id, set([loadBalancerIp]))
+                    allocated_fip = self._allocate_floating_ips(service_id,
+                                                                specified_fip_pool_fq_name_str,
+                                                                set([loadBalancerIp]))
                     if allocated_fip:
-                        self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                        self._update_service_external_ip(service_namespace,
+                                                         service_name,
+                                                         allocated_fip)
                 elif external_ips:
-                    allocated_fips = self._allocate_floating_ips(service_id, external_ips)
+                    allocated_fips = self._allocate_floating_ips(service_id,
+                                                                 specified_fip_pool_fq_name_str,
+                                                                 external_ips)
                 else:
-                    allocated_fip = self._allocate_floating_ips(service_id)
+                    allocated_fip = self._allocate_floating_ips(service_id,
+                                                                specified_fip_pool_fq_name_str)
                     if allocated_fip:
-                        self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                        self._update_service_external_ip(service_namespace,
+                                                         service_name,
+                                                         allocated_fip)
 
                 return
 
             if len(allocated_fips):
                 if loadBalancerIp and loadBalancerIp in allocated_fips:
                     self._deallocate_floating_ips(service_id)
-                    self._allocate_floating_ips(service_id, set([loadBalancerIp]))
-                    self._update_service_external_ip(service_namespace, service_name, loadBalancerIp)
+                    self._allocate_floating_ips(service_id,
+                                                specified_fip_pool_fq_name_str,
+                                                set([loadBalancerIp]))
+                    self._update_service_external_ip(service_namespace,
+                                                     service_name,
+                                                     loadBalancerIp)
                     return
 
                 if external_ips and external_ips != allocated_fips:
                     # If Service's EXTERNAL-IP is not same as allocated floating-ip,
                     # update kube-api server with allocated fip as the EXTERNAL-IP
                     self._deallocate_floating_ips(service_id)
-                    self._allocate_floating_ips(service_id, external_ips)
+                    self._allocate_floating_ips(service_id,
+                                                specified_fip_pool_fq_name_str,
+                                                external_ips)
                     return
 
                 if not external_ips :
@@ -408,7 +439,10 @@ class VncService(VncCommon):
                 else:
                     if allocated_fips != external_ips:
                         self._deallocate_floating_ips(service_id)
-                        self._allocate_floating_ips(service_id, external_ips)
+                        specified_fip_pool_fq_name_str = None
+                        self._allocate_floating_ips(service_id,
+                                                    specified_fip_pool_fq_name_str,
+                                                    external_ips)
             return
 
     def _check_service_uuid_change(self, svc_uuid, svc_name,
@@ -426,7 +460,8 @@ class VncService(VncCommon):
 
     def vnc_service_add(self, service_id, service_name,
                         service_namespace, service_ip, selectors, ports,
-                        service_type, externalIps, loadBalancerIp):
+                        service_type, externalIps, loadBalancerIp,
+                        specified_fip_pool_fq_name_str):
         ingress_update = False
         lb = LoadbalancerKM.get(service_id)
         if not lb:
@@ -446,7 +481,9 @@ class VncService(VncCommon):
                 service_ip, ports)
 
         self._update_service_public_ip(service_id, service_name,
-                        service_namespace, service_type, externalIps, loadBalancerIp)
+                                       service_namespace, service_type,
+                                       externalIps, loadBalancerIp,
+                                       specified_fip_pool_fq_name_str)
 
         if ingress_update:
             self._ingress_mgr.update_ingress_backend(
@@ -570,6 +607,11 @@ class VncService(VncCommon):
         service_type  = event['object']['spec'].get('type')
         loadBalancerIp  = event['object']['spec'].get('loadBalancerIP', None)
         externalIps  = event['object']['spec'].get('externalIPs', [])
+        annotations = event['object']['metadata'].get('annotations')
+        specified_fip_pool_fq_name_str = None
+        if annotations:
+            if 'opencontrail.org/fip-pool' in annotations:
+                specified_fip_pool_fq_name_str = annotations['opencontrail.org/fip-pool']
 
         print("%s - Got %s %s %s:%s:%s"
               %(self._name, event_type, kind,
@@ -585,7 +627,8 @@ class VncService(VncCommon):
 
             self.vnc_service_add(service_id, service_name,
                 service_namespace, service_ip, selectors, ports,
-                    service_type, externalIps, loadBalancerIp)
+                    service_type, externalIps, loadBalancerIp,
+                    specified_fip_pool_fq_name_str)
         elif event['type'] == 'DELETED':
             self.vnc_service_delete(service_id, service_name,
                                     service_namespace, ports)
