@@ -4,7 +4,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 __metaclass__ = type
 
@@ -53,7 +53,10 @@ oid_mapping = {
                                     "product": "m10i"},
     "1.3.6.1.4.1.2636.1.1.1.2.57": {"vendor": "juniper",
                                     "family": "juniper-mx",
-                                    "product": "mx80"}
+                                    "product": "mx80"},
+    "1.3.6.1.4.1.2636.1.1.1.4.82.10": {"vendor": "juniper",
+                                      "family": "juniper-qfx",
+                                      "product": "qfx10002-36q"}
 }
 _output = {'job_log_message': '', 'oid_mapping': {}}
 
@@ -69,16 +72,16 @@ def find_vendor_family(module):
         _output['job_log_message'] += "\nTask: OID MAPPING: " + \
             "vendor and product for the host: " + \
             mapped_value['host'] + " is " + str(mapped_value)
+        return mapped_value
     else:
         _output['job_log_message'] += "\nTask: OID MAPPING: " + \
             "device with oid " + \
             module.params['oid'] + " NOT supported"
-
-    return mapped_value
+        return None
 
 
 def main():
-    module = AnsibleModule(
+    module = FabricAnsibleModule(
         argument_spec=dict(
             oid=dict(required=True),
             host=dict(required=True),
@@ -88,11 +91,12 @@ def main():
     )
 
     mapped_value = find_vendor_family(module)
-
-    _output['oid_mapping'] = mapped_value
+    if mapped_value:
+        _output['oid_mapping'] = mapped_value
 
     module.exit_json(**_output)
 
 
 if __name__ == '__main__':
     main()
+
