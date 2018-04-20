@@ -630,12 +630,12 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnProjectManagerDetail) {
     AddMvpnRoute(master, prefix, "target:1:1", true);
 
     // Verify that all routes are added once.
-    TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 3,
+    TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 2,
                         GetVrfTableSize(bs_x_, "blue"));
 
     // Verify that all routes are added once.
-    TASK_UTIL_EXPECT_EQ(4, master->Size());
-    TASK_UTIL_EXPECT_EQ(4, blue->Size());
+    TASK_UTIL_EXPECT_EQ(3, master->Size());
+    TASK_UTIL_EXPECT_EQ(3, blue->Size());
 
     // Verify multicast manager detail via sandesh.
     BgpSandeshContext sandesh_context;

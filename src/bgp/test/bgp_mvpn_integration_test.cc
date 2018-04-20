@@ -161,22 +161,39 @@ public:
 "";
 
         os <<
+"  <virtual-network name='default-domain:default-project:ip-fabric:ip-fabric'>"
+"      <network-id>101</network-id>"
+"  </virtual-network>"
 "  <routing-instance name='default-domain:default-project:ip-fabric:ip-fabric'>"
+"       <virtual-network>default-domain:default-project:ip-fabric:ip-fabric"
+       "</virtual-network>"
 "       <vrf-target>target:127.0.0.1:60000</vrf-target>"
 "   </routing-instance>";
 
         for (size_t i = 1; i <= instance_count_; i++) {
             os <<
+"  <virtual-network name='red" << i << "'>"
+"      <network-id>" << 200+i << "</network-id>"
+"  </virtual-network>"
 "   <routing-instance name='red" << i << "'>"
+"       <virtual-network>red" << i << "</virtual-network>"
 "       <vrf-target>" << getRouteTarget(i, "1") << "</vrf-target>"
 "       <vrf-target>"
 "           <import-export>import</import-export>" << getRouteTarget(i, "3") <<
 "       </vrf-target>"
 "   </routing-instance>"
+"  <virtual-network name='blue" << i << "'>"
+"      <network-id>" << 300+i << "</network-id>"
+"  </virtual-network>"
 "   <routing-instance name='blue" << i << "'>"
+"       <virtual-network>blue" << i << "</virtual-network>"
 "       <vrf-target>" << getRouteTarget(i, "2") << "</vrf-target>"
 "   </routing-instance>"
+"  <virtual-network name='green" << i << "'>"
+"      <network-id>" << 400+i << "</network-id>"
+"  </virtual-network>"
 "   <routing-instance name='green" << i << "'>"
+"       <virtual-network>green" << i << "</virtual-network>"
 "       <vrf-target>" << getRouteTarget(i, "3") << "</vrf-target>"
 "       <vrf-target>"
 "           <import-export>import</import-export>" << getRouteTarget(i, "1") <<
@@ -277,7 +294,7 @@ public:
 
     bool VerifyMvpnRouteType(boost::shared_ptr<const NetworkAgentMock> agent,
         const string &net, const string &prefix, int route_type =
-                                                 MvpnPrefix::SourceTreeJoinRoute) {
+                                             MvpnPrefix::SourceTreeJoinRoute) {
         const NetworkAgentMock::MvpnRouteEntry *mvpn_rt =
             agent->MvpnRouteLookup(net, prefix);
         if (mvpn_rt == NULL)
@@ -606,22 +623,39 @@ protected:
 "";
 
         os <<
+"  <virtual-network name='default-domain:default-project:ip-fabric:ip-fabric'>"
+"      <network-id>101</network-id>"
+"  </virtual-network>"
 "  <routing-instance name='default-domain:default-project:ip-fabric:ip-fabric'>"
+"       <virtual-network>default-domain:default-project:ip-fabric:ip-fabric"
+       "</virtual-network>"
 "       <vrf-target>target:127.0.0.1:60000</vrf-target>"
-"   </routing-instance>";
+"  </routing-instance>";
 
         for (size_t i = 1; i <= instance_count_; i++) {
             os <<
+"   <virtual-network name='red" << i << "'>"
+"      <network-id>" << 200+i << "</network-id>"
+"   </virtual-network>"
 "   <routing-instance name='red" << i << "'>"
+"       <virtual-network>red" << i << "</virtual-network>"
 "       <vrf-target>" << getRouteTarget(i, "1") << "</vrf-target>"
 "       <vrf-target>"
 "           <import-export>import</import-export>" << getRouteTarget(i, "3") <<
 "       </vrf-target>"
 "   </routing-instance>"
+"   <virtual-network name='blue" << i << "'>"
+"       <network-id>" << 300+i << "</network-id>"
+"   </virtual-network>"
 "   <routing-instance name='blue" << i << "'>"
+"       <virtual-network>blue" << i << "</virtual-network>"
 "       <vrf-target>" << getRouteTarget(i, "2") << "</vrf-target>"
 "   </routing-instance>"
+"   <virtual-network name='green" << i << "'>"
+"       <network-id>" << 400+i << "</network-id>"
+"   </virtual-network>"
 "   <routing-instance name='green" << i << "'>"
+"       <virtual-network>green" << i << "</virtual-network>"
 "       <vrf-target>" << getRouteTarget(i, "3") << "</vrf-target>"
 "       <vrf-target>"
 "           <import-export>import</import-export>" << getRouteTarget(i, "1") <<
@@ -920,6 +954,17 @@ TEST_P(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiver) {
         TASK_UTIL_EXPECT_EQ(type1_routes_ + 4*i, master_->Size());
         VerifyOListAndSource(agent_xa_, red.str(), sg.str(), 1, "10.1.2.3",
             "192.168.0.101", agent_yb_);
+
+        // Add receivers on X and make sure that it also receives type7 route
+        TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount());
+        agent_xa_->AddType7MvpnRoute(grn.str(), sg.str(), "10.1.3.3", "70-80");
+        TASK_UTIL_EXPECT_EQ((int)i+1, agent_xa_->MvpnRouteCount());
+        TASK_UTIL_EXPECT_TRUE(VerifyMvpnRouteType(
+                    agent_xa_, grn.str(), sg.str()));
+        TASK_UTIL_EXPECT_EQ(9, green_[i-1]->Size());
+        agent_xa_->DeleteMvpnRoute(grn.str(), sg.str(), 7);
+        agent_xa_->DeleteMcastRoute(kFabricInstance, sg.str());
+        TASK_UTIL_EXPECT_EQ((int)i, agent_xa_->MvpnRouteCount());
     }
 }
 
