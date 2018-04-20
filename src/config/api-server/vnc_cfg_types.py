@@ -114,7 +114,8 @@ class FloatingIpServer(FloatingIpServerGen):
             return (False, (403, 'Ip address already in use'))
         try:
             fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
-                                                  asked_ip_addr=req_ip)
+                                                  asked_ip_addr=req_ip,
+                                                  alloc_id=obj_dict['uuid'])
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['floating_ip_address'] = fip_addr
@@ -153,7 +154,8 @@ class FloatingIpServer(FloatingIpServerGen):
         if req_ip is None:
             return True, ""
         try:
-            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
+            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip,
+                                       alloc_id=obj_dict['uuid'])
         except Exception as e:
             return (False, (500, str(e)))
         db_conn.config_log('AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure'
@@ -246,7 +248,8 @@ class InstanceIpServer(InstanceIpServerGen):
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, vn_dict=vn_dict, sub=sub, asked_ip_addr=req_ip,
-                asked_ip_version=req_ip_version)
+                asked_ip_version=req_ip_version,
+                alloc_id=obj_dict['uuid'])
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
@@ -281,13 +284,13 @@ class InstanceIpServer(InstanceIpServerGen):
             # Ignore ip-fabric and link-local address allocations
             return True,  ""
 
-        try:
-            ip_addr = obj_dict['instance_ip_address']
-        except KeyError:
-            db_conn.config_log('AddrMgmt: IP Not allocated to iip = %s, vn=%s'
-                           % (id, vn_fq_name),
-                           level=SandeshLevel.SYS_DEBUG)
+        ip_addr = obj_dict.get('instance_ip_address')
+        if not ip_addr:
+            db_conn.config_log('instance_ip_address missing for object %s'
+                           % (obj_dict['uuid']),
+                           level=SandeshLevel.SYS_NOTICE)
             return True, ""
+
         db_conn.config_log('AddrMgmt: free IP %s, vn=%s'
                            % (ip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
@@ -307,7 +310,8 @@ class InstanceIpServer(InstanceIpServerGen):
         if req_ip is None:
             return True, ""
         try:
-            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
+            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip,
+                                       alloc_id=obj_dict['uuid'])
         except Exception as e:
             return (False, (500, str(e)))
         db_conn.config_log('AddrMgmt: alloc %s for vn=%s to recover DELETE failure'
@@ -560,12 +564,12 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not ok:
             return (ok, (409, result))
 
+        db_conn.update_subnet_uuid(obj_dict)
+
         try:
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
         except Exception as e:
             return (False, (500, str(e)))
-
-        db_conn.update_subnet_uuid(obj_dict)
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
@@ -607,7 +611,8 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count):
-        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_name)
+        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_name,
+                                              alloc_id='user-opaque-alloc')
                    for i in range(count)]
         msg = 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
             % (count, vn_fq_name, subnet_name if subnet_name else '', ip_list)
