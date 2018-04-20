@@ -488,6 +488,7 @@ class OpServer(object):
     def __init__(self, args_str=' '.join(sys.argv[1:])):
         self.gevs = []
         self._args = None
+        self._usecache = True
         self._parse_args(args_str)
         print args_str
  
@@ -907,6 +908,7 @@ class OpServer(object):
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
             'api_server_use_ssl': False,
+            'use_aggregated_uve_db' : 'true',
         }
         defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
         redis_opts = {
@@ -1055,6 +1057,8 @@ class OpServer(object):
             help="Port with local auth for admin access")
         parser.add_argument("--api_server_use_ssl",
             help="Use SSL to connect with API server")
+        parser.add_argument("--use_aggregated_uve_db",
+            help="enable/disbale read uve from aggregated uve db")
         SandeshConfig.add_parser_arguments(parser)
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
@@ -1085,6 +1089,9 @@ class OpServer(object):
         auth_conf_info['admin_port'] = self._args.admin_port
         auth_conf_info['api_servers'] = self._args.api_server
         self._args.auth_conf_info = auth_conf_info
+        if self._args.use_aggregated_uve_db.lower() == 'false' or\
+           self._args.use_aggregated_uve_db.lower() == '0':
+            self._usecache = False
         self._args.conf_file = args.conf_file
         self._args.sandesh_config = \
             SandeshConfig.from_parser_arguments(self._args)
@@ -2566,10 +2573,11 @@ class OpServer(object):
         return self.agp
 
     def run(self):
-        self._uvedbstream.start()
+        if self._usecache:
+            self._uvedbstream.start()
+            self.gevs.append(self._uvedbstream)
 
         self.gevs += [
-            self._uvedbstream,
             gevent.spawn(self.start_webserver),
             gevent.spawn(self.start_uve_server),
             ]
