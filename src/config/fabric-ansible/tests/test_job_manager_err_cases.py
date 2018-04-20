@@ -735,7 +735,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         jm = JobManager(log_utils.get_config_logger(),
                         mock_vnc, job_input_json, log_utils)
 
-        e = Exception("u'name' is a required property")
+        e = Exception("'name' is a required property")
 
         fake_schema = TestJobManagerUtils.fake_schema
 
