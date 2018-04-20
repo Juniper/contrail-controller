@@ -48,6 +48,7 @@ void TraceRoute::FillHeader(AgentDiagPktData *data) {
     data->op_ = htonl(AgentDiagPktData::DIAG_REQUEST);
     data->key_ = htons(key_);
     data->seq_no_ = htonl(seq_no_);
+    memset(data->data_, 0, sizeof(data->data_));
     // data->rtt_ = microsec_clock::universal_time();
 }
 
