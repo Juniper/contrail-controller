@@ -4,6 +4,7 @@
 import abc
 import logging
 import six
+from unittest import skip
 
 from gevent import monkey
 monkey.patch_all()  # noqa
@@ -1797,6 +1798,53 @@ class FirewallDraftModeBase(object):
         self.api.commit_security(self._scope)
         fp = self.api.firewall_policy_read(id=fp.uuid)
         self.assertIsNone(fp.get_firewall_rule_refs())
+
+    def test_commit_two_pending_deleted_and_referenced_resources(self):
+        self.set_scope_instance(draft_enable=False)
+        fr = FirewallRule('fr-%s' % self.id(), parent_obj=self._owner)
+        fr.set_service(FirewallServiceType())
+        self.api.firewall_rule_create(fr)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self.api.firewall_policy_create(fp)
+
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp.uuid)
+        self.api.firewall_rule_delete(id=fr.uuid)
+        self.api.commit_security(self._scope)
+
+    def test_pending_delete_does_not_have_reference(self):
+        self.set_scope_instance(draft_enable=False)
+        fr = FirewallRule('fr-%s' % self.id(), parent_obj=self._owner)
+        fr.set_service(FirewallServiceType())
+        self.api.firewall_rule_create(fr)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self.api.firewall_policy_create(fp)
+
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp.uuid)
+        draft_pm = self.api.firewall_policy_read_draft(id=fp.uuid)
+        for ref_field in FirewallPolicy.ref_fields:
+            self.assertIsNone(getattr(draft_pm, 'get_%s' % ref_field)())
+
+    def test_cannot_delete_referenced_resource(self):
+        self.set_scope_instance(draft_enable=False)
+        fr = FirewallRule('fr-%s' % self.id(), parent_obj=self._owner)
+        fr.set_service(FirewallServiceType())
+        self.api.firewall_rule_create(fr)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self.api.firewall_policy_create(fp)
+
+        # In classic mode not allowed
+        self.assertRaises(RefsExistError, self.api.firewall_rule_delete,
+                          id=fr.uuid)
+
+        # But same behavior when draft mode enabled
+        self.draft_mode = True
+        self.assertRaises(RefsExistError, self.api.firewall_rule_delete,
+                          id=fr.uuid)
 
 
 class TestFirewallDraftModeGlobalScope(TestFirewallBase,
