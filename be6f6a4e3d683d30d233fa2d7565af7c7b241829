@@ -2,6 +2,29 @@
   "comments": [
     {
       "key": {
+        "uuid": "5f2577a7_3b36b552",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/config/test_config.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2018-04-20T22:10:38Z",
+      "side": 1,
+      "message": "we could have multiple CIDRs for a given fabric-namespace.\nwould need to add support for it.\neg:\n\"fabric_namespace_type\": \"IPV4-CIDR\",                  \n\t    \"fabric_namespace_value\": {\n\t    \t\"ipv4_cidr\": {\n\t\t    \t\"subnet\": [\n\t\t    \t\t{\n\t\t    \t\t\t\"ip_prefix\": \"10.155.67.0\",\n\t\t    \t\t\t\"ip_prefix_len\": 29\n\t\t    \t\t},\n\t\t    \t\t{\n\t\t    \t\t\t\"ip_prefix\": \"10.155.72.0\",\n\t\t    \t\t\t\"ip_prefix_len\": 30\n\t\t    \t\t}\n\t\t    \t]\n\t    \t}\n    \t}",
+      "range": {
+        "startLine": 16,
+        "startChar": 14,
+        "endLine": 16,
+        "endChar": 15
+      },
+      "revId": "be6f6a4e3d683d30d233fa2d7565af7c7b241829",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5f2577a7_9ba369b2",
         "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
         "patchSetId": 2
