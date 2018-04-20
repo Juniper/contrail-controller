@@ -6,19 +6,19 @@
 # specific to type of resource. For eg. allocation of mac/ip-addr for a port
 # during its creation.
 import copy
+from functools import wraps
+import itertools
+import re
+import socket
+import netaddr
+import uuid
+
 from cfgm_common import jsonutils as json
 from cfgm_common import get_lr_internal_vn_name
 from cfgm_common import _obj_serializer_all
-
-import re
-import itertools
-import socket
-
 import cfgm_common
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 import cfgm_common.exceptions
-import netaddr
-import uuid
 import vnc_quota
 from vnc_quota import QuotaHelper
 from provision_defaults import PERMS_RWX
@@ -231,6 +231,29 @@ class Resource(ResourceDbMixin):
         return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
 
 
+def if_draft_mode_enabled(func):
+    @wraps(func)
+    def wrapper(cls, obj_dict, *args, **kwargs):
+        if cls.object_type not in constants.SECURITY_OBJECT_TYPES:
+            return True, ''
+
+        if is_internal_request():
+            # Ignore all internal calls to not pending pending actions
+            return True, ''
+
+        ok, result = cls._get_dedicated_draft_policy_management(obj_dict)
+        if not ok:
+            return False, result
+        # if nothing returned without error, that means security draft mode
+        # is  NOT enabled
+        if result == '':
+            return True, ''
+        draft_pm = result
+
+        return func(cls, draft_pm, obj_dict, *args, **kwargs)
+    return wrapper
+
+
 class SecurityResourceBase(Resource):
     @classmethod
     def check_associated_firewall_resource_in_same_scope(cls, id, fq_name,
@@ -340,7 +363,7 @@ class SecurityResourceBase(Resource):
                                     parent_uuid))
                     children_left = []
                     for type in ['%ss' % type for type in
-                                       constants.SECURITY_OBJECT_TYPES]:
+                                 constants.SECURITY_OBJECT_TYPES]:
                         children = ["%s (%s)" % (':'.join(c['to']), c['uuid'])
                                     for c in draft_pm.get(type, [])]
                         if children:
@@ -415,35 +438,82 @@ class SecurityResourceBase(Resource):
             parent_class.resource_type, parent_dict)
 
     @classmethod
-    def pending_dbe_create(cls, obj_dict):
-        return cls._pending_update(obj_dict, 'created')
+    @if_draft_mode_enabled
+    def pending_dbe_create(cls, draft_pm, obj_dict):
+        return cls._pending_update(draft_pm, obj_dict, 'created')
 
     @classmethod
-    def pending_dbe_update(cls, obj_dict, delta_obj_dict=None,
+    @if_draft_mode_enabled
+    def pending_dbe_update(cls, draft_pm, obj_dict, delta_obj_dict=None,
                            prop_collection_updates=None):
-        return cls._pending_update(obj_dict, 'updated', delta_obj_dict,
-                                   prop_collection_updates)
+        return cls._pending_update(draft_pm, obj_dict, 'updated',
+                                   delta_obj_dict, prop_collection_updates)
 
     @classmethod
-    def pending_dbe_delete(cls, obj_dict):
-        return cls._pending_update(obj_dict, 'deleted')
+    @if_draft_mode_enabled
+    def pending_dbe_delete(cls, draft_pm, obj_dict):
+        uuid = obj_dict['uuid']
+        exist_refs = set()
+        relaxed_refs = set(cls.db_conn.dbe_get_relaxed_refs(id))
+
+        for backref_field in cls.backref_fields:
+            ref_type, _, is_derived = cls.backref_field_types[backref_field]
+            if is_derived:
+                continue
+            exist_refs = {(ref_type, backref['uuid'])
+                          for backref in obj_dict.get(backref_field, [])
+                          if backref['uuid'] not in relaxed_refs}
+
+        ref_exits_error = set()
+        for ref_type, ref_uuid in exist_refs:
+            ref_class = cls.server.get_resource_class(ref_type)
+            ref_field = '%s_refs' % cls.object_type
+            ok, result = ref_class.locate(
+                uuid=ref_uuid,
+                create_it=False,
+                fields=['fq_name', 'parent_type', 'draft_mode_state',
+                        ref_field],
+            )
+            if not ok:
+                return False, result
+            ref = result
+            if (ref['fq_name'][-2] !=
+                    constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
+                ok, result = ref_class.get_pending_resource(
+                    ref, fields=['draft_mode_state', ref_field])
+                if ok and result == '':
+                    # no draft version of the back-referenced resource,
+                    # draft mode not enabled, abandon and let classic code
+                    # operate
+                    return True, ''
+                elif not ok and isinstance(result, tuple) and result[0] == 404:
+                    # draft mode enabled, but no draft version of the
+                    # back-referenced resource, resource still referenced
+                    # cannot delete it
+                    ref_exits_error.add((ref_type, ref_uuid))
+                    continue
+                elif not ok:
+                    return False, result
+                draft_ref = result
+            else:
+                draft_ref = ref
+            if draft_ref['draft_mode_state'] in ['create', 'updated']:
+                if uuid in {r['uuid'] for r in draft_ref[ref_field]}:
+                    # draft version of the back-referenced resource still
+                    # referencing resource, cannot delete it
+                    ref_exits_error.add((ref_type, ref_uuid))
+                    continue
+            # draft version of the back-referenced resource is in pending
+            # delete, resource be delete it
+
+        if ref_exits_error:
+            return False, (409, ref_exits_error)
+
+        return cls._pending_update(draft_pm, obj_dict, 'deleted')
 
     @classmethod
-    def _pending_update(cls, obj_dict, draft_mode_state, delta_obj_dict=None,
-                        prop_collection_updates=None):
-        if is_internal_request():
-            # Ignore all internal calls to not pending pending actions
-            return True, ''
-
-        ok, result = cls._get_dedicated_draft_policy_management(obj_dict)
-        if not ok:
-            return False, result
-        # if nothing returned without error, that means security draft mode is
-        # NOT enabled
-        if result == '':
-            return True, ''
-        draft_pm = result
-
+    def _pending_update(cls, draft_pm, obj_dict, draft_mode_state,
+                        delta_obj_dict=None, prop_collection_updates=None):
         # if a commit or discard is on going in that scope, forbidden any
         # security resource modification in that scope
         scope_type = draft_pm.get('parent_type',
@@ -511,6 +581,10 @@ class SecurityResourceBase(Resource):
         # Set draft mode to created, if draft resource already exists, property
         # will be read from the DB, if not state need to be set to 'created'
         obj_dict['draft_mode_state'] = draft_mode_state
+        if draft_mode_state == 'deleted':
+            # remove all resource references
+            [obj_dict.pop(ref_field, None) for ref_field in cls.ref_fields]
+
         ok, result = cls.locate(fq_name=draft_fq_name, **obj_dict)
         if not ok:
             return False, result
@@ -4878,8 +4952,8 @@ class ProjectServer(Resource, Project):
             pass
         if draft_pm_uuid is not None:
             try:
-                # If pending security modification, it fails to delete the draft
-                # PM
+                # If pending security modifications, it fails to delete the
+                # draft PM
                 cls.server.internal_request_delete(
                     PolicyManagementServer.resource_type, draft_pm_uuid)
             except cfgm_common.exceptions.HttpError as e:

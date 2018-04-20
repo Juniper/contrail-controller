@@ -1140,19 +1140,25 @@ class VncApiServer(object):
             self.config_object_error(id, None, obj_type, 'http_delete', msg)
             raise cfgm_common.exceptions.HttpError(code, msg)
 
-        fq_name = read_result['fq_name']
-
         # Permit abort resource deletion and retrun 202 status code
         get_context().set_state('PENDING_DBE_DELETE')
         ok, result = r_class.pending_dbe_delete(read_result)
-        if not ok:
-            code, msg = result
-            raise cfgm_common.exceptions.HttpError(code, msg)
-        if ok and isinstance(result, tuple) and result[0] == 202:
+        if (not ok and isinstance(result, tuple) and result[0] == 409 and
+                isinstance(result[1], set)):
+            # Found back reference to existing enforced or draft resource
+            exist_hrefs = [self.generate_url(type, uuid)
+                           for type, uuid in result[1]]
+            msg = "Delete when resource still referred: %s" % exist_hrefs
+            self.config_object_error(id, None, obj_type, 'http_delete', msg)
+            raise cfgm_common.exceptions.HttpError(409, msg)
+        elif ok and isinstance(result, tuple) and result[0] == 202:
             # Deletion accepted but not applied, pending delete
             # return 202 HTTP OK code to aware clients
             bottle.response.status = 202
             return
+        elif not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         # fail if non-default children or non-derived backrefs exist
         for child_field in r_class.children_fields:
@@ -4555,13 +4561,10 @@ class VncApiServer(object):
                 # Purge pending resource as we re-use the same UUID
                 self.internal_request_delete(r_class.object_type,
                                              child['uuid'])
-                if (uuid and
-                        draft['draft_mode_state'] == 'deleted'):
-                    # The resource is removed, we can purge
-                    # original resource
+                if uuid and draft['draft_mode_state'] == 'deleted':
+                    # The resource is removed, we can purge original resource
                     actions.append(('delete', (r_class.object_type, uuid)))
-                elif (uuid and
-                        draft['draft_mode_state'] == 'updated'):
+                elif uuid and draft['draft_mode_state'] == 'updated':
                     # Update orginal resource with pending resource
                     draft.pop('fq_name', None)
                     draft.pop('uuid', None)
@@ -4580,8 +4583,7 @@ class VncApiServer(object):
                         parent_fq_name, pm['fq_name'], type_name, draft)
                     actions.append(('update', (r_class.resource_type, uuid,
                                                copy.deepcopy(draft))))
-                elif (not uuid and
-                        draft['draft_mode_state'] == 'created'):
+                elif not uuid and draft['draft_mode_state'] == 'created':
                     # Create new resource with pending values (re-use UUID)
                     draft.pop('id_perms', None)
                     draft.pop('perms2', None)
@@ -4609,6 +4611,7 @@ class VncApiServer(object):
             # referenced
             if action != 'delete':
                 getattr(self, 'internal_request_%s' % action)(*args)
+        actions.reverse()
         for action, args in actions:
             if action == 'delete':
                 self.internal_request_delete(*args)
