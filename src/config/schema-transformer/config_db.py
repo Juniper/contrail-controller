@@ -4149,7 +4149,7 @@ class LogicalRouterST(DBBaseST):
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
         self.delete_route_targets([self.route_target])
-        self._object_db.free_route_target_by_number(rtgt_num)
+        self._object_db.free_route_target(self.name)
     # end delete_obj
 
     def update_virtual_networks(self):
