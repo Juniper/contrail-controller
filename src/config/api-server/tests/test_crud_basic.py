@@ -690,9 +690,8 @@ class TestCrud(test_case.ApiServerTestCase):
     # end test_create_using_rest_api
 
     def test_user_defined_log_statistics_crud(self):
-        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
-                                       self._vnc_lib))
-        gsc = gsc_fixt._obj
+        gsc = self._vnc_lib.global_system_config_read(
+                                      fq_name=['default-global-system-config'])
         gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test01',
                     '.*[ab][0-9]s1.*'))
         gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test02',
@@ -708,9 +707,8 @@ class TestCrud(test_case.ApiServerTestCase):
     #end test_user_defined_log_statistics_crud
 
     def test_user_defined_log_statistics_bad_add(self):
-        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
-                                       self._vnc_lib))
-        gsc = gsc_fixt._obj
+        gsc = self._vnc_lib.global_system_config_read(
+                                      fq_name=['default-global-system-config'])
         gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test01',
                     '.*[ab][0-9]s1.*'))
         # bad regex
@@ -721,9 +719,8 @@ class TestCrud(test_case.ApiServerTestCase):
     #end test_user_defined_log_statistics_bad_add
 
     def test_user_defined_log_statistics_set(self):
-        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
-                                       self._vnc_lib))
-        gsc = gsc_fixt._obj
+        gsc = self._vnc_lib.global_system_config_read(
+                                      fq_name=['default-global-system-config'])
         sl = UserDefinedLogStatList()
         sl.add_statlist(UserDefinedLogStat('Test01', '.*[ab][0-9]s1.*'))
         sl.add_statlist(UserDefinedLogStat('Test02', '127.0.0.1'))
@@ -740,9 +737,8 @@ class TestCrud(test_case.ApiServerTestCase):
     #end test_user_defined_log_statistics_set
 
     def test_user_defined_log_statistics_bad_set(self):
-        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
-                                       self._vnc_lib))
-        gsc = gsc_fixt._obj
+        gsc = self._vnc_lib.global_system_config_read(
+                                      fq_name=['default-global-system-config'])
         sl = UserDefinedLogStatList()
         sl.add_statlist(UserDefinedLogStat('Test01', '.*[ab][0-9]s1.*'))
         sl.add_statlist(UserDefinedLogStat('Test02', '127.0.0.1'))
@@ -925,9 +921,8 @@ class TestCrud(test_case.ApiServerTestCase):
     # end test_allowed_address_pair_prefix_len
 
     def test_bgpaas_ports_shrunk(self):
-        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
-                                       self._vnc_lib))
-        gsc = gsc_fixt._obj
+        gsc = self._vnc_lib.global_system_config_read(
+                                      fq_name=['default-global-system-config'])
         bgpaas_param = BGPaaServiceParametersType('2','500')
         gsc.set_bgpaas_parameters(bgpaas_param)
         self._vnc_lib.global_system_config_update(gsc)
