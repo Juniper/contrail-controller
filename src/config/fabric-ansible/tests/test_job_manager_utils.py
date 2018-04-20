@@ -16,19 +16,25 @@ class TestJobManagerUtils(object):
     playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
     execution_id = "6d69febf-82da-4998-8ba9-dbff8f6e7a5b"
     args = {"collectors": ['127.0.0.1:8086']}
-    fake_schema = '{' \
-                  '"$schema": ' \
-                  '"http://json-schema.org/draft-04/schema#", ' \
-                  '"required": ["name", "price"], "type": "object", ' \
-                  '"properties": ' \
-                  '{' \
-                  '"sku": {"type": "integer", "description": ' \
-                  '"Stock Keeping Unit"}, ' \
-                  '"price": {"minimum": 0, "type": "number"}, ' \
-                  '"name": {"type": "string"}' \
-                  '},' \
-                  '"title": "InventoryItem"' \
-                  '}'
+    fake_schema = {
+                   "$schema": "http://json-schema.org/draft-04/schema#",
+                   "title": "InventoryItem",
+                   "type": "object",
+                   "properties": {
+                     "name": {
+                       "type": "string"
+                     },
+                     "price": {
+                       "type": "number",
+                       "minimum": 0
+                     },
+                     "sku": {
+                       "description": "Stock Keeping Unit",
+                       "type": "integer"
+                     }
+                   },
+                   "required": ["name", "price"]
+                  }
 
     @classmethod
     def get_min_details(cls, job_template_id):
