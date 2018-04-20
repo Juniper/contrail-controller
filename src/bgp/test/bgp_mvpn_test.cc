@@ -488,11 +488,11 @@ protected:
             if (source_rd)
                 attr_spec.push_back(source_rd);
 
-	    if (add_leaf_req) {
+            if (add_leaf_req) {
                 PmsiTunnelSpec *pmsi_spec(new PmsiTunnelSpec());
                 pmsi_spec->tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
                 attr_spec.push_back(pmsi_spec);
-	    }
+            }
 
             BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
             if (source_rd)
@@ -698,16 +698,21 @@ protected:
 
     string prefix5(int index, int gindex = 1) const {
         ostringstream os;
-        os << "5-0.0.0.0:" << index << ",224.1.2." << gindex << ",9.8.7.6";
+        os << "5-0.0.0.0:" << index << ",9.8.7.6,224.1.2." << gindex;
         return os.str();
     }
 
     string prefix7(int index, int gindex = 1) const {
         ostringstream os;
-        os << "7-10.1.1.1:" << index << ",1,224.1.2." << gindex << ",9.8.7.6";
+        os << "7-10.1.1.1:" << index << ",1,9.8.7.6,224.1.2." << gindex;
         return os.str();
     }
 
+    string native_prefix7(int gindex = 1) const {
+        ostringstream os;
+        os << "7-0:0,0,9.8.7.6,224.1.2." << gindex;
+        return os.str();
+    }
     string ermvpn_prefix(int index, int gindex = 1) const {
         ostringstream os;
         os << "2-10.1.1.1:" << index << "-192.168.1.1,224.1.2." << gindex;

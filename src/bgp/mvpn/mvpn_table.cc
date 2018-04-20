@@ -316,7 +316,7 @@ MvpnPrefix MvpnTable::CreateType3SPMSIRoutePrefix(const MvpnRoute *type7_rt) {
     return prefix;
 }
 
-MvpnPrefix MvpnTable::CreateType7PrefixFromType4(MvpnRoute *rt) const {
+MvpnPrefix MvpnTable::CreateLocalType7Prefix(MvpnRoute *rt) const {
     const RouteDistinguisher rd =  RouteDistinguisher::kZeroRd;
     Ip4Address source = rt->GetPrefix().source();
     Ip4Address group = rt->GetPrefix().group();
@@ -382,8 +382,9 @@ const MvpnRoute *MvpnTable::FindType7SourceTreeJoinRoute(MvpnRoute *rt) const {
     MvpnPrefix prefix;
     if (rt->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute)
         prefix = CreateType7SourceTreeJoinRoutePrefix(rt);
-    if (rt->GetPrefix().type() == MvpnPrefix::LeafADRoute)
-        prefix = CreateType7PrefixFromType4(rt);
+    if (rt->GetPrefix().type() == MvpnPrefix::SPMSIADRoute) {
+        prefix = CreateLocalType7Prefix(rt);
+    }
     return FindRoute(prefix);
 }
 
