@@ -1067,6 +1067,11 @@ void MvpnManagerPartition::ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt) {
     if (!spmsi_rt->BestPath()->IsReplicated())
         return;
 
+    // Don't send Type 4 route if there is no receiver in this vrf
+    const MvpnRoute *join_rt = table()->FindType7SourceTreeJoinRoute(spmsi_rt);
+    if (!join_rt || !join_rt->IsUsable())
+        return;
+
     // A valid S-PMSI path has been imported to a table. Originate a new
     // LeafAD path, if GlobalErmVpnTreeRoute is available to stitch.
     // TODO(Ananth) If LeafInfoRequired bit is not set in the S-PMSI route,
@@ -1229,7 +1234,7 @@ void MvpnProjectManager::GetMvpnSourceAddress(ErmVpnRoute *ermvpn_route,
                        addrp->to_string());
 }
 
-UpdateInfo *MvpnProjectManager::GetType4UpdateInfo(MvpnRoute *route) {
+UpdateInfo *MvpnProjectManager::GetType7UpdateInfo(MvpnRoute *route) {
     BgpAttrPtr attr = route->BestPath()->GetAttr();
     UpdateInfo *uinfo = new UpdateInfo;
     uinfo->roattr = RibOutAttr(table(), route, attr.get(), 0, false, true);
@@ -1241,7 +1246,7 @@ UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
             (route->GetPrefix().type() == MvpnPrefix::SourceTreeJoinRoute));
 
     if (route->GetPrefix().type() == MvpnPrefix::SourceTreeJoinRoute)
-        return GetType4UpdateInfo(route);
+        return GetType7UpdateInfo(route);
     MvpnStatePtr state = GetState(route);
 
     // If there is no imported leaf-ad route, then essentially there is no
