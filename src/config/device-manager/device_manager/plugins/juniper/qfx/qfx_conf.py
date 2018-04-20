@@ -785,6 +785,8 @@ class QfxConf(JuniperConf):
             self.add_ether_type_term(f, ether_type_match)
             self.add_protocol_term(f, protocol_match)
             eswitching.add_filter(f)
+        if not eswitching.get_filter():
+            ff.set_ethernet_switching(None)
         self.firewall_config = firewall_config
     # end build_firewall_filters
 
