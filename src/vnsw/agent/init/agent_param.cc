@@ -284,6 +284,8 @@ void AgentParam::set_gateway_mode(const std::string &mode) {
         gateway_mode_ = SERVER;
     else if (gateway_mode == "vcpe")
         gateway_mode_ = VCPE;
+    else if (gateway_mode == "pbb")
+        gateway_mode_ = PBB;
     else
         gateway_mode_ = NONE;
 }
@@ -1204,6 +1206,8 @@ void AgentParam::LogConfig() const {
         LOG(DEBUG, "Gateway Mode                : Server");
     else if (gateway_mode_ == VCPE)
         LOG(DEBUG, "Gateway Mode                : vCPE");
+    else if (gateway_mode_ == PBB)
+        LOG(DEBUG, "Gateway Mode                : PBB node");
     else if (gateway_mode_ == NONE)
         LOG(DEBUG, "Gateway Mode                : None");
 

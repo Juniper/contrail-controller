@@ -128,6 +128,7 @@ public:
     enum GatewayMode {
         VCPE,
         SERVER, // also has VMs on a remote server & vrouter maps vlans to VMIs
+        PBB,
         NONE
     };
 
@@ -374,6 +375,7 @@ public:
     }
     bool isServerGatewayMode() const { return gateway_mode_ == SERVER; }
     bool isVcpeGatewayMode() const { return gateway_mode_ == VCPE; }
+    bool isPbbGatewayMode() const { return gateway_mode_ == PBB; }
     GatewayMode gateway_mode() const { return gateway_mode_; }
 
     const AddressList &compute_node_address_list() const {
