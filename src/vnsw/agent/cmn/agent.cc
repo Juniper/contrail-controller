@@ -487,6 +487,7 @@ void Agent::CopyConfig(AgentParam *params) {
     forwarding_enabled_ = params_->IsForwardingEnabled();
     server_gateway_mode_ = params_->isServerGatewayMode();
     vcpe_gateway_mode_ = params_->isVcpeGatewayMode();
+    pbb_gateway_mode_ = params_->isPbbGatewayMode();
     flow_thread_count_ = params_->flow_thread_count();
     flow_trace_enable_ = params_->flow_trace_enable();
     flow_add_tokens_ = params_->flow_add_tokens();
@@ -698,7 +699,7 @@ Agent::Agent() :
     simulate_evpn_tor_(false), tsn_no_forwarding_enabled_(false),
     tsn_enabled_(false),
     tor_agent_enabled_(false), forwarding_enabled_(true),
-    server_gateway_mode_(false),
+    server_gateway_mode_(false), pbb_gateway_mode_(false),
     flow_table_size_(0), flow_thread_count_(0), flow_trace_enable_(true),
     max_vm_flows_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),
