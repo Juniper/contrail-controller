@@ -983,14 +983,14 @@ class VncCassandraClient(object):
                         bch, obj_uuid, prop_name, new_props)
 
             if self._is_prop_list(col_name):
-                (_, prop_name, prop_elem_position) = col_name.split(':')
+                (_, prop_name, prop_elem_position) = col_name.split(':', 2)
                 if prop_name in new_props:
                     # delete all old values of prop list
                     self._delete_from_prop_list(
                         bch, obj_uuid, prop_name, prop_elem_position)
 
             if self._is_prop_map(col_name):
-                (_, prop_name, prop_elem_position) = col_name.split(':')
+                (_, prop_name, prop_elem_position) = col_name.split(':', 2)
                 if prop_name in new_props:
                     # delete all old values of prop list
                     self._delete_from_prop_map(
