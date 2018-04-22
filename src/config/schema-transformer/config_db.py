@@ -2287,7 +2287,7 @@ class RoutingInstanceST(DBBaseST):
                 self.stale_route_targets = [':'.join(rt_ref['to'])
                         for rt_ref in self.obj.get_route_target_refs() or []]
                 if rt_key not in self.stale_route_targets:
-                    self.obj.set_route_target(rtgt_obj, InstanceTargetType())
+                    self.obj.add_route_target(rtgt_obj, InstanceTargetType())
                     update_ri = True
                 else:
                     self.stale_route_targets.remove(rt_key)
