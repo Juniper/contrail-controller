@@ -971,6 +971,10 @@ class VncSecurityPolicy(VncCommon):
     @classmethod
     def delete_firewall_rule(cls, fw_policy_uuid, fw_rule_uuid):
 
+        # If policy or rule info is not provided, then there is nothing to do.
+        if not fw_policy_uuid or not fw_rule_uuid:
+            return
+
         try:
             fw_policy_obj = cls.vnc_lib.firewall_policy_read(id=fw_policy_uuid)
         except NoIdError:
