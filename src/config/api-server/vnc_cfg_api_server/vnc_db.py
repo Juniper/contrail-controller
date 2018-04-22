@@ -1402,11 +1402,16 @@ class VncDbClient(object):
                                                      new_obj_dict)
 
         if ok:
-            # publish to message bus (rabbitmq)
-            fq_name = self.uuid_to_fq_name(obj_uuid)
-            self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name,
-                                     extra_dict=attr_to_publish)
-            self._dbe_publish_update_implicit(obj_type, result)
+            try:
+                # publish to message bus (rabbitmq)
+                fq_name = self.uuid_to_fq_name(obj_uuid)
+                self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name,
+                                         extra_dict=attr_to_publish)
+                self._dbe_publish_update_implicit(obj_type, result)
+            except NoIdError as e:
+                # Object might have disappeared after the update. Return Success
+                # to the user.
+                return (ok, result)
         return (ok, result)
     # end dbe_update
 
