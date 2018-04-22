@@ -372,6 +372,10 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
             if (vmi_type_ != VmInterface::VHOST) {
                 multicast_vrf_id = intf->vrf_id();
+                if (pbb_interface_ && l2_active_) {
+                    multicast_vrf_id =  vm_port->GetPbbVrf();;
+                }
+
                 if (multicast_vrf_id == VrfEntry::kInvalidIndex) {
                     multicast_vrf_id = VIF_VRF_INVALID;
                 }
@@ -783,7 +787,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         if (subtype_ == PhysicalInterface::VMWARE ||
-            ksync_obj_->ksync()->agent()->server_gateway_mode()) {
+            ksync_obj_->ksync()->agent()->server_gateway_mode() ||
+            ksync_obj_->ksync()->agent()->pbb_gateway_mode()) {
             flags |= VIF_FLAG_PROMISCOUS;
         }
         if (subtype_ == PhysicalInterface::CONFIG) {
