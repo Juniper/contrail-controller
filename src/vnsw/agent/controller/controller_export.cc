@@ -257,9 +257,6 @@ done:
 static const AgentPath *GetMulticastExportablePath(const Agent *agent,
                                                    const AgentRoute *route) {
     const AgentPath *active_path = route->FindPath(agent->local_vm_peer());
-    if (!active_path && (route->GetTableType() == Agent::INET4_MULTICAST)) {
-        return NULL;
-    }
 
     //OVS peer path
     if (active_path == NULL) {
@@ -287,8 +284,15 @@ bool RouteExport::MulticastRouteCanDissociate(const AgentRoute *route) {
     Agent *agent = static_cast<AgentRouteTable*>(route->get_table())->
         agent();
     const AgentPath *local_path = route->FindPath(agent->local_peer());
-    if (local_path && !agent->tor_agent_enabled() &&
-            (route->GetTableType() != Agent::INET4_MULTICAST)) {
+    if (route->GetTableType() == Agent::INET4_MULTICAST) {
+        const AgentPath *active_path = route->FindPath(agent->local_vm_peer());
+        if (!active_path) {
+            return true;
+        }
+        return can_dissociate;
+    }
+
+    if (local_path && !agent->tor_agent_enabled()) {
         return can_dissociate;
     }
     if (route->is_multicast()) {
