@@ -100,8 +100,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
     map<string, PhyIfInfo> phy_if_info;
     map<string, AgentDropStats> phy_if_ds;
     BuildPhysicalInterfaceList(phy_if_list, phy_if_info, phy_if_ds);
-    stats.set_raw_phy_if_stats(phy_if_list);
-    stats.set_raw_phy_if_drop_stats(phy_if_ds);
 
     if (prev_stats_.get_phy_if_info() != phy_if_info) {
         stats.set_phy_if_info(phy_if_info);
@@ -194,8 +192,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
     DispatchVrouterStatsMsg(stats);
     first = false;
 
-    //Send VrouterControlStats UVE
-    SendVrouterControlStats();
     return true;
 }
 
@@ -480,7 +476,6 @@ void VrouterUveEntry::UpdateBitmap(uint8_t proto, uint16_t sport,
 
 void VrouterUveEntry::VrfWalkDone(DBTableBase *base, RouteTableSizeMapPtr list){
     vrf_walk_id_ = DBTableWalker::kInvalidWalkerId;
-    BuildAndSendVrouterControlStats(list);
 }
 
 bool VrouterUveEntry::AppendVrf(DBTablePartBase *part, DBEntryBase *entry,
@@ -512,30 +507,4 @@ bool VrouterUveEntry::StartVrfWalk() {
     return true;
 }
 
-void VrouterUveEntry::DispatchVrouterControlStats
-    (const VrouterControlStats &uve) const {
-    VrouterControlStatsTrace::Send(uve);
-}
 
-void VrouterUveEntry::SendVrouterControlStats() {
-    /* We do VRF walk to collect route table sizes. In Walk Done API we trigger
-     * building of all attributes of VrouterControlStats UVE and send it*/
-    StartVrfWalk();
-}
-
-void VrouterUveEntry::BuildAndSendVrouterControlStats(RouteTableSizeMapPtr
-                                                      list) {
-    VrouterControlStats stats;
-    stats.set_name(agent_->agent_name());
-
-    std::map<std::string, AgentXmppStats> xstats;
-    BuildXmppStatsList(&xstats);
-    stats.set_raw_xmpp_stats(xstats);
-
-    AgentUve::DerivedStatsMap ifmap_stats;
-    FetchIFMapStats(&ifmap_stats);
-    stats.set_raw_ifmap_stats(ifmap_stats);
-
-    stats.set_raw_rt_table_size(*(list.get()));
-    DispatchVrouterControlStats(stats);
-}

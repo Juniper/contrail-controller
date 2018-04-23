@@ -21,7 +21,6 @@ public:
     L4PortBitmap port_bitmap() { return port_bitmap_; }
 
     virtual bool SendVrouterMsg();
-    void SendVrouterControlStats();
     void UpdateBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
 
 protected:
@@ -29,7 +28,6 @@ protected:
     L4PortBitmap port_bitmap_;
     FlowRateComputeInfo flow_info_;
 private:
-    void DispatchVrouterControlStats(const VrouterControlStats &uve) const;
     void InitPrevStats() const;
     void FetchDropStats(AgentDropStats &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
@@ -55,7 +53,6 @@ private:
     bool AppendVrf(DBTablePartBase *part, DBEntryBase *entry,
                    RouteTableSizeMapPtr list);
     bool StartVrfWalk();
-    void BuildAndSendVrouterControlStats(RouteTableSizeMapPtr list);
 
     uint64_t start_time_;
     DBTableWalker::WalkId vrf_walk_id_;
