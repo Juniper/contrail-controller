@@ -1129,7 +1129,10 @@ class DBInterface(object):
         else:
             sg_q_dict['name'] = sg_obj.display_name
 
+        # If description is not specified by the user, assign empty string
         sg_q_dict['description'] = sg_obj.get_id_perms().get_description()
+        if not sg_q_dict['description']:
+            sg_q_dict['description'] = ""
 
         # get security group rules
         sg_q_dict['security_group_rules'] = []
@@ -1149,6 +1152,7 @@ class DBInterface(object):
     def _security_group_neutron_to_vnc(self, sg_q, oper):
         if oper == CREATE:
             project_obj = self._get_project_obj(sg_q)
+
             id_perms = IdPermsType(enable=True,
                                    description=sg_q.get('description'))
             sg_vnc = SecurityGroup(name=sg_q['name'],
