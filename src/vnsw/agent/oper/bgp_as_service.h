@@ -93,7 +93,7 @@ public:
         bool installed_;
         IpAddress local_peer_ip_;
         uint32_t source_port_;
-        uint32_t dest_port_;
+        mutable uint32_t dest_port_;
         mutable bool health_check_configured_;
         mutable boost::uuids::uuid health_check_uuid_;
         // the following three are used to invoke add / delete of health check
