@@ -31,8 +31,8 @@ cmake_flags = [
 
 if sys.platform == 'win32':
     libraries = ' '.join([
-        File('#build/lib/ssl.lib').abspath,
-        File('#build/lib/crypto.lib').abspath,
+        File('#build/lib/ssleay32.lib').abspath,
+        File('#build/lib/libeay32.lib').abspath,
         'ws2_32.lib',
         'crypt32.lib',
         'advapi32.lib',
@@ -78,8 +78,5 @@ def build_simple_amqp_client(target, source, env):
 
 libSimpleAmqpClient = env.Command(products + header_files, Dir(vpath), build_simple_amqp_client)
 
-if sys.platform == 'win32':
-    env.Requires(libSimpleAmqpClient, '#build/lib/ssl.lib')
-    env.Requires(libSimpleAmqpClient, '#build/lib/crypto.lib')
-
+env.Requires(libSimpleAmqpClient, '#build/include/boost')
 env.Requires(libSimpleAmqpClient, '#build/lib/' + librabbitmq)
