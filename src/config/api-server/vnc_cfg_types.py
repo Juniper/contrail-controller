@@ -1092,6 +1092,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
+    portbindings['VNIC_TYPE_VIRTIO_FORWARDER'] = 'virtio-forwarder'
     portbindings['PORT_FILTER'] = True
     portbindings['VIF_TYPE_VHOST_USER'] = 'vhostuser'
     portbindings['VHOST_USER_MODE'] = 'vhostuser_mode'
@@ -1437,19 +1438,23 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvps = bindings['key_value_pair']
             kvp_dict = cls._kvp_to_dict(kvps)
 
-            if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_DIRECT']:
-                if not 'provider_properties' in  vn_dict:
-                    msg = 'No provider details in direct port'
-                    return (False, (400, msg))
-                kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
-                vif_type = {'key': 'vif_type',
-                            'value': cls.portbindings['VIF_TYPE_HW_VEB']}
-                kvps.append(vif_type)
-                vlan = vn_dict['provider_properties']['segmentation_id']
-                vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
-                              'vlan': str(vlan)}
-                vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
-                kvps.append(vif_details)
+            if (kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_DIRECT'] or
+               kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER']):
+                if 'provider_properties' in vn_dict:
+                    kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_HW_VEB']}
+                    vlan = vn_dict['provider_properties']['segmentation_id']
+                    vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
+                                  'vlan': str(vlan)}
+                    vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                    kvps.append(vif_details)
+                    kvps.append(vif_type)
+                else:
+                    # An offloaded port is requested
+                    vnic_type = {'key': 'vnic_type',
+                                 'value': kvp_dict.get('vnic_type')}
+                    kvps.append(vnic_type)
 
             if 'vif_type' not in kvp_dict:
                 vif_type = {'key': 'vif_type',
