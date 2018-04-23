@@ -1351,16 +1351,23 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
                    (node->GetObject());
     const std::vector<KeyValuePair> &bindings  = cfg->bindings();
+    bool vnic_type_direct = false;
+    bool vif_type_hw_veb = false;
     for (std::vector<KeyValuePair>::const_iterator it = bindings.begin();
          it != bindings.end(); ++it) {
         KeyValuePair kvp = *it;
         if ((kvp.key == "vnic_type") && (kvp.value == "direct")) {
-            data->device_type_ = VmInterface::VM_SRIOV;
-            data->vmi_type_ = VmInterface::SRIOV;
-            return;
+            vnic_type_direct = true;
+        } else if ((kvp.key == "vif_type") && (kvp.value == "hw_veb")) {
+            vif_type_hw_veb = true;
         }
     }
 
+    if (vnic_type_direct && vif_type_hw_veb) {
+        data->device_type_ = VmInterface::VM_SRIOV;
+        data->vmi_type_ = VmInterface::SRIOV;
+        return;
+    }
 
     data->device_type_ = VmInterface::DEVICE_TYPE_INVALID;
     data->vmi_type_ = VmInterface::VMI_TYPE_INVALID;
