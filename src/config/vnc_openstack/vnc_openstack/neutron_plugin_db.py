@@ -4429,8 +4429,8 @@ class DBInterface(object):
             for vmi_obj in self._virtual_machine_interface_list(
                     obj_uuids=filters.get('id'),
                     back_ref_id=back_ref_ids):
-                for device_ref in vmi_obj.get_virtual_machine_refs() or [] +\
-                        vmi_obj.get_logical_router_back_refs() or []:
+                for device_ref in (vmi_obj.get_virtual_machine_refs() or []) +\
+                        (vmi_obj.get_logical_router_back_refs() or []):
                     # check if the device-id matches and if the network-id
                     # filter is set
                     if device_ref['uuid'] in filters.get('device_id') and \
