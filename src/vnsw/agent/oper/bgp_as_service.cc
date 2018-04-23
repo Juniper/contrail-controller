@@ -102,6 +102,7 @@ void BgpAsAService::BgpAsAServiceList::Insert(const BgpAsAServiceEntry *rhs) {
 
 void BgpAsAService::BgpAsAServiceList::Update(const BgpAsAServiceEntry *lhs,
                                               const BgpAsAServiceEntry *rhs) {
+    lhs->dest_port_ = rhs->dest_port_;
     if (rhs->health_check_configured_) {
         if (lhs->hc_delay_usecs_ != rhs->hc_delay_usecs_ ||
             lhs->hc_timeout_usecs_ != rhs->hc_timeout_usecs_ ||
