@@ -9,9 +9,11 @@ import logging
 
 
 class ICCassandraInfo():
-    def __init__(self, addr_info, db_prefix,
+    def __init__(self, addr_info, user, password, db_prefix,
                  issu_info, keyspace_info, logger):
         self.addr_info = addr_info
+        self.user = user
+        self.password = password
         self.db_prefix = db_prefix
         self.issu_info = issu_info
         self.keyspace_info = keyspace_info
@@ -26,6 +28,7 @@ class ICCassandraClient():
     # end
 
     def __init__(self, oldversion_server_list, newversion_server_list,
+                 old_user, old_password, new_user, new_password,
                  odb_prefix, ndb_prefix, issu_info, logger):
         self._oldversion_server_list = oldversion_server_list
         self._newversion_server_list = newversion_server_list
@@ -36,6 +39,20 @@ class ICCassandraClient():
         self._ks_issu_func_info = {}
         self._nkeyspaces = {}
         self._okeyspaces = {}
+
+        self._old_creds = None
+        if old_user and old_password:
+            self._old_creds = {
+                'username': old_user,
+                'password': old_password,
+            }
+        self._new_creds = None
+        if new_user and new_password:
+            self._new_creds = {
+                'username': new_user,
+                'password': new_password,
+            }
+
         self._logger(
             "Issu contrail cassandra initialized...",
             level=SandeshLevel.SYS_INFO,
@@ -60,13 +77,16 @@ class ICCassandraClient():
             self._okeyspaces.update(oks)
             self._ks_issu_func_info.update(ks_issu_func_info)
 
+
         self._oldversion_handle = VncCassandraClient(
             self._oldversion_server_list, self._odb_prefix,
-            None, self._okeyspaces, self._logger)
+            None, self._okeyspaces, self._logger,
+            credential=self._old_creds)
 
         self._newversion_handle = VncCassandraClient(
             self._newversion_server_list, self._ndb_prefix,
-            self._nkeyspaces, None, self._logger)
+            self._nkeyspaces, None, self._logger,
+            credential=self._new_creds)
     # end
 
     def _fetch_issu_func(self, ks):
