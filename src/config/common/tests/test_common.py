@@ -383,6 +383,8 @@ def kill_mesos_manager(glet):
     mesos_manager.MesosNetworkManager.destroy_instance()
 
 def reinit_schema_transformer():
+    for obj_cls in to_bgp.DBBaseST.get_obj_type_map().values():
+        obj_cls.reset()
     to_bgp.transformer.reinit()
 
 def launch_schema_transformer(cluster_id, test_id, api_server_ip,
