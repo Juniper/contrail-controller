@@ -155,6 +155,19 @@ void Options::Initialize(EventManager &evm,
               opt::value<uint32_t>()->default_value(
               Sandesh::get_send_rate_limit()),
               "Sandesh send rate limit in messages/sec")
+        ("DATABASE.disable_all_writes",
+            opt::bool_switch(&disable_all_db_writes_),
+           "Disable all writes to the database")
+        ("DATABASE.disable_statistics_writes",
+            opt::bool_switch(&disable_db_stats_writes_),
+            "Disable statistics writes to the database")
+        ("DATABASE.disable_message_writes",
+            opt::bool_switch(&disable_db_messages_writes_),
+            "Disable message writes to the database")
+        ("DATABASE.enable_message_keyword_writes",
+            opt::bool_switch(&enable_db_messages_keyword_writes_)->
+                default_value(false),
+            "Enable message keyword writes to the database")
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
              "Port of Discovery Server")

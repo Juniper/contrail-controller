@@ -85,6 +85,10 @@ public:
     void ResetDbQueueWaterMarkInfo();
     void SetSmQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetSmQueueWaterMarkInfo();
+    void DisableAllWrites(bool disable);
+    void DisableStatisticsWrites(bool disable);
+    void DisableMessagesWrites(bool disable);
+    void DisableMessagesKeywordWrites(bool disable);
     void StartDbifReinit();
     virtual DbHandler *GetDbHandler() { return db_handler_.get (); }
 

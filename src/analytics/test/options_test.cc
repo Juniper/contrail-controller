@@ -83,6 +83,10 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
+    EXPECT_EQ(options_.disable_all_db_writes(), false);
+    EXPECT_EQ(options_.disable_db_statistics_writes(), false);
+    EXPECT_EQ(options_.disable_db_messages_writes(), false);
+    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -126,6 +130,10 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
+    EXPECT_EQ(options_.disable_all_db_writes(), false);
+    EXPECT_EQ(options_.disable_db_statistics_writes(), false);
+    EXPECT_EQ(options_.disable_db_messages_writes(), false);
+    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -257,6 +265,11 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "server=1.2.3.4\n"
         "port=200\n"
         "\n"
+        "[DATABASE]\n"
+        "disable_all_writes=1\n"
+        "enable_message_keyword_writes=true\n"
+        "disable_statistics_writes=false\n"
+        "\n"
     ;
 
     ofstream config_file;
@@ -310,6 +323,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3333);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.disable_all_db_writes(), true);
+    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), true);
+    EXPECT_EQ(options_.disable_db_statistics_writes(), false);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {

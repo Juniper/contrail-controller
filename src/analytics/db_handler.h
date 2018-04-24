@@ -84,7 +84,9 @@ public:
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        std::string name, const TtlMap& ttl_map);
+        std::string name, const TtlMap& ttl_map,
+        bool disable_all_writes, bool disable_stats_writes,
+        bool disable_messages_writes, bool disable_messages_keyword_writes);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -144,6 +146,14 @@ public:
     std::string GetHost() const;
     int GetPort() const;
     std::string GetName() const;
+    bool IsAllWritesDisabled() const;
+    bool IsStatisticsWritesDisabled() const;
+    bool IsMessagesWritesDisabled() const;
+    bool IsMessagesKeywordWritesDisabled() const;
+    void DisableAllWrites(bool disable);
+    void DisableStatisticsWrites(bool disable);
+    void DisableMessagesWrites(bool disable);
+    void DisableMessagesKeywordWrites(bool disable);
 
 private:
     bool CreateTables();
@@ -160,6 +170,7 @@ private:
     uint64_t GetTtl(TtlType::type type) {
         return GetTtlFromMap(ttl_map_, type);
     }
+    void MessageTableKeywordInsert(const VizMsg *vmsgp);
 
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
 
@@ -172,6 +183,10 @@ private:
     GenDb::DbTableStatistics stable_stats_;
     mutable tbb::mutex smutex_;
     TtlMap ttl_map_;
+    bool disable_all_writes_;
+    bool disable_stats_writes_;
+    bool disable_messages_writes_;
+    bool disable_messages_keyword_writes_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
@@ -205,7 +220,10 @@ class DbHandlerInitializer {
         const std::string &timer_task_name, InitializeDoneCb callback,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        const TtlMap& ttl_map);
+        const TtlMap& ttl_map,
+        bool disable_all_writes,
+        bool disable_stats_writes, bool disable_messages_writes,
+        bool disable_messages_keyword_writes);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,

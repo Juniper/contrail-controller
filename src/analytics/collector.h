@@ -68,7 +68,10 @@ public:
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
               std::vector<std::string> cassandra_ips,
-              std::vector<int> cassandra_ports, const TtlMap& ttl_map);
+              std::vector<int> cassandra_ports, const TtlMap& ttl_map,
+              bool disable_all_writes, bool disable_stats_writes,
+              bool disable_messages_writes,
+              bool disable_messages_keyword_writes);
     virtual ~Collector();
     virtual void Shutdown();
     virtual void SessionShutdown();
@@ -101,6 +104,14 @@ public:
         std::vector<Sandesh::QueueWaterMarkInfo> &wm_info) const;
     void GetQueueWaterMarkInfo(QueueType::type type,
         std::vector<Sandesh::QueueWaterMarkInfo> &wm_info) const;
+    bool IsAllWritesDisabled() const;
+    bool IsStatisticsWritesDisabled() const;
+    bool IsMessagesWritesDisabled() const;
+    bool IsMessagesKeywordWritesDisabled() const;
+    void DisableAllWrites(bool disable);
+    void DisableStatisticsWrites(bool disable);
+    void DisableMessagesWrites(bool disable);
+    void DisableMessagesKeywordWrites(bool disable);
 
     OpServerProxy * GetOSP() const { return osp_; }
     EventManager * event_manager() const { return evm_; }
@@ -164,6 +175,10 @@ private:
     std::vector<std::string> cassandra_ips_;
     std::vector<int> cassandra_ports_;
     TtlMap ttl_map_;
+    bool disable_all_writes_;
+    bool disable_stats_writes_;
+    bool disable_messages_writes_;
+    bool disable_messages_keyword_writes_;
     int db_task_id_;
 
     // SandeshGenerator map

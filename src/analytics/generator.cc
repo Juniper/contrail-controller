@@ -102,7 +102,11 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
                 &SandeshGenerator::StartDbifReinit, this),
             collector->cassandra_ips(), collector->cassandra_ports(),
             source + ":" + node_type + ":" +
-                module + ":" + instance_id, collector->analytics_ttl_map())) {
+                module + ":" + instance_id, collector->analytics_ttl_map(),
+            collector->IsAllWritesDisabled(),
+            collector->IsStatisticsWritesDisabled(),
+            collector->IsMessagesWritesDisabled(),
+            collector->IsMessagesKeywordWritesDisabled())) {
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
@@ -345,6 +349,22 @@ void SandeshGenerator::ResetSmQueueWaterMarkInfo() {
     if (state_machine_) {
         state_machine_->ResetQueueWaterMarkInfo();
     }
+}
+
+void SandeshGenerator::DisableAllWrites(bool disable) {
+    GetDbHandler()->DisableAllWrites(disable);
+}
+
+void SandeshGenerator::DisableStatisticsWrites(bool disable) {
+    GetDbHandler()->DisableStatisticsWrites(disable);
+}
+
+void SandeshGenerator::DisableMessagesWrites(bool disable) {
+    GetDbHandler()->DisableMessagesWrites(disable);
+}
+
+void SandeshGenerator::DisableMessagesKeywordWrites(bool disable) {
+    GetDbHandler()->DisableMessagesKeywordWrites(disable);
 }
 
 // SyslogGenerator

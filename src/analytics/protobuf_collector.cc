@@ -20,7 +20,7 @@ ProtobufCollector::ProtobufCollector(EventManager *evm,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map) :
     db_initializer_(new DbHandlerInitializer(evm, kDbName, kDbTaskInstance,
         kDbTaskName, boost::bind(&ProtobufCollector::DbInitializeCb, this),
-        cassandra_ips, cassandra_ports, ttl_map)),
+        cassandra_ips, cassandra_ports, ttl_map, false, false, false, false)),
     server_(new protobuf::ProtobufServer(evm, protobuf_udp_port,
         boost::bind(&DbHandler::StatTableInsert,
             db_initializer_->GetDbHandler(), _1, _2, _3, _4, _5))) {

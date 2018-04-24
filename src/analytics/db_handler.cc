@@ -52,9 +52,15 @@ DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        std::string name, const TtlMap& ttl_map) :
+        std::string name, const TtlMap& ttl_map,
+        bool disable_all_writes, bool disable_stats_writes,
+        bool disable_messages_writes, bool disable_messages_keyword_writes) :
     name_(name),
-    drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map) {
+    drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map),
+    disable_all_writes_(disable_all_writes),
+    disable_stats_writes_(disable_stats_writes),
+    disable_messages_writes_(disable_messages_writes),
+    disable_messages_keyword_writes_(disable_messages_keyword_writes) {
         dbif_.reset(GenDb::GenDbIf::GenDbIfImpl(err_handler,
           cassandra_ips, cassandra_ports, name, false));
 
@@ -64,7 +70,11 @@ DbHandler::DbHandler(EventManager *evm,
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),
-    ttl_map_(ttl_map) {
+    ttl_map_(ttl_map),
+    disable_all_writes_(false),
+    disable_stats_writes_(false),
+    disable_messages_writes_(false),
+    disable_messages_keyword_writes_(false) {
 }
 
 DbHandler::~DbHandler() {
@@ -333,6 +343,38 @@ bool DbHandler::Setup(int instance) {
     return true;
 }
 
+bool DbHandler::IsAllWritesDisabled() const {
+    return disable_all_writes_;
+}
+
+bool DbHandler::IsStatisticsWritesDisabled() const {
+    return disable_stats_writes_;
+}
+
+bool DbHandler::IsMessagesWritesDisabled() const {
+    return disable_messages_writes_;
+}
+
+bool DbHandler::IsMessagesKeywordWritesDisabled() const {
+    return disable_messages_keyword_writes_;
+}
+
+void DbHandler::DisableAllWrites(bool disable) {
+    disable_all_writes_ = disable;
+}
+
+void DbHandler::DisableStatisticsWrites(bool disable) {
+    disable_stats_writes_ = disable;
+}
+
+void DbHandler::DisableMessagesWrites(bool disable) {
+    disable_messages_writes_ = disable;
+}
+
+void DbHandler::DisableMessagesKeywordWrites(bool disable) {
+    disable_messages_keyword_writes_ = disable;
+}
+
 void DbHandler::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
     boost::function<void (void)> defer_undefer_cb) {
     dbif_->Db_SetQueueWaterMark(boost::get<2>(wm),
@@ -368,7 +410,8 @@ bool DbHandler::GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
 }
 
 bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
-    return header.get_Type() != SandeshType::FLOW;
+    return !IsMessagesWritesDisabled() && !IsAllWritesDisabled() &&
+        (header.get_Type() != SandeshType::FLOW);
 }
 
 bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
@@ -508,26 +551,14 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     }
 }
 
-void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
+void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp) {
+    if (IsMessagesKeywordWritesDisabled() ||
+        IsAllWritesDisabled()) {
+        return;
+    }
+    LineParser::WordListType words;
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
-
-    if (!AllowMessageTableInsert(header))
-        return;
-
-    MessageTableOnlyInsert(vmsgp);
-
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
-            message_type, vmsgp->unm, "");
-
     const SandeshType::type &stype(header.get_Type());
     std::string s;
 
@@ -553,6 +584,30 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
                 DB_LOG(ERROR, "Failed to parse:" << s);
         }
     }
+}
+
+void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
+    const SandeshHeader &header(vmsgp->msg->GetHeader());
+    const std::string &message_type(vmsgp->msg->GetMessageType());
+
+    if (!AllowMessageTableInsert(header))
+        return;
+
+    MessageTableOnlyInsert(vmsgp);
+
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
+            message_type, vmsgp->unm, "");
+    MessageTableKeywordInsert(vmsgp);
+
+    const SandeshType::type &stype(header.get_Type());
 
     /*
      * Insert the message types,module_id in the stat table
@@ -618,6 +673,9 @@ void DbHandler::GetRuleMap(RuleMap& rulemap) {
  */
 void DbHandler::ObjectTableInsert(const std::string &table, const std::string &objectkey_str,
         uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp) {
+    if (IsMessagesWritesDisabled() || IsAllWritesDisabled()) {
+        return;
+    }
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
     const std::string &message_type(vmsgp->msg->GetMessageType());
@@ -854,6 +912,9 @@ DbHandler::StatTableInsert(uint64_t ts,
         const std::string& statAttr,
         const TagMap & attribs_tag,
         const AttribMap & attribs) {
+    if (IsAllWritesDisabled() || IsStatisticsWritesDisabled()) {
+        return;
+    }
     int ttl = GetTtl(TtlType::STATSDATA_TTL);
     StatTableInsertTtl(ts, statName, statAttr, attribs_tag, attribs, ttl);
 }
@@ -865,7 +926,9 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
         const std::string& statAttr,
         const TagMap & attribs_tag,
         const AttribMap & attribs, int ttl) {
-
+    if (IsAllWritesDisabled() || IsStatisticsWritesDisabled()) {
+        return;
+    }
     uint64_t temp_u64 = ts;
     uint32_t temp_u32 = temp_u64 >> g_viz_constants.RowTimeInBits;
     boost::uuids::uuid unm;
@@ -1254,6 +1317,9 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
  */
 bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
     const SandeshHeader& header) {
+    if (Sandesh::IsFlowCollectionDisabled() || IsAllWritesDisabled()) {
+        return true;
+    }
     // Traverse and populate the flow entry values
     FlowValueArray flow_entry_values;
     FlowDataIpv4ObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values);
@@ -1358,12 +1424,16 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &timer_task_name,
     DbHandlerInitializer::InitializeDoneCb callback,
     const std::vector<std::string> &cassandra_ips,
-    const std::vector<int> &cassandra_ports, const TtlMap& ttl_map) :
+    const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
+    bool disable_all_writes, bool disable_stats_writes,
+    bool disable_messages_writes, bool disable_messages_keyword_writes) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
-        cassandra_ips, cassandra_ports, db_name, ttl_map)),
+        cassandra_ips, cassandra_ports, db_name, ttl_map,
+        disable_all_writes, disable_stats_writes, disable_messages_writes,
+        disable_messages_keyword_writes)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",

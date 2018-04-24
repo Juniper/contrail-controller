@@ -69,7 +69,10 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
         std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports, const TtlMap& ttl_map) :
+        std::vector<int> cassandra_ports, const TtlMap& ttl_map,
+        bool disable_all_writes, bool disable_stats_writes,
+        bool disable_messages_writes,
+        bool disable_messages_keyword_writes) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
@@ -78,6 +81,10 @@ Collector::Collector(EventManager *evm, short server_port,
         cassandra_ips_(cassandra_ips),
         cassandra_ports_(cassandra_ports),
         ttl_map_(ttl_map),
+        disable_all_writes_(disable_all_writes),
+        disable_stats_writes_(disable_stats_writes),
+        disable_messages_writes_(disable_messages_writes),
+        disable_messages_keyword_writes_(disable_messages_keyword_writes),
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
         sm_queue_wm_info_(kSmQueueWaterMarkInfo) {
@@ -565,6 +572,66 @@ void Collector::GetSmQueueWaterMarkInfo(
     GetQueueWaterMarkInfo(QueueType::Sm, wm_info);
 }
 
+bool Collector::IsAllWritesDisabled() const {
+    return disable_all_writes_;
+}
+
+bool Collector::IsStatisticsWritesDisabled() const {
+    return disable_stats_writes_;
+}
+
+bool Collector::IsMessagesWritesDisabled() const {
+    return disable_messages_writes_;
+}
+
+bool Collector::IsMessagesKeywordWritesDisabled() const {
+    return disable_messages_keyword_writes_;
+}
+
+void Collector::DisableAllWrites(bool disable) {
+    disable_all_writes_ = disable;
+    db_handler_->DisableAllWrites(disable);
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    GeneratorMap::iterator gen_it = gen_map_.begin();
+    for (; gen_it != gen_map_.end(); gen_it++) {
+        SandeshGenerator *gen = gen_it->second;
+        gen->DisableAllWrites(disable_all_writes_);
+    }
+}
+
+void Collector::DisableStatisticsWrites(bool disable) {
+    disable_stats_writes_ = disable;
+    db_handler_->DisableStatisticsWrites(disable);
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    GeneratorMap::iterator gen_it = gen_map_.begin();
+    for (; gen_it != gen_map_.end(); gen_it++) {
+        SandeshGenerator *gen = gen_it->second;
+        gen->DisableStatisticsWrites(disable_stats_writes_);
+    }
+}
+
+void Collector::DisableMessagesWrites(bool disable) {
+    disable_messages_writes_ = disable;
+    db_handler_->DisableMessagesWrites(disable);
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    GeneratorMap::iterator gen_it = gen_map_.begin();
+    for (; gen_it != gen_map_.end(); gen_it++) {
+        SandeshGenerator *gen = gen_it->second;
+        gen->DisableMessagesWrites(disable_messages_writes_);
+    }
+}
+
+void Collector::DisableMessagesKeywordWrites(bool disable) {
+    disable_messages_keyword_writes_ = disable;
+    db_handler_->DisableMessagesKeywordWrites(disable);
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    GeneratorMap::iterator gen_it = gen_map_.begin();
+    for (; gen_it != gen_map_.end(); gen_it++) {
+        SandeshGenerator *gen = gen_it->second;
+        gen->DisableMessagesKeywordWrites(disable_messages_keyword_writes_);
+    }
+}
+
 class ShowCollectorServerHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
@@ -614,9 +681,8 @@ void ShowCollectorServerReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-static void SendQueueParamsError(std::string estr, const std::string &context) {
-    // SandeshGenerator is required, send error
-    QueueParamsError *eresp(new QueueParamsError);
+static void SendCollectorError(std::string estr, const std::string &context) {
+    CollectorError *eresp(new CollectorError);
     eresp->set_context(context);
     eresp->set_error(estr);
     eresp->Response();
@@ -627,7 +693,7 @@ static Collector* ExtractCollectorFromRequest(SandeshContext *vscontext,
     VizSandeshContext *vsc = 
             dynamic_cast<VizSandeshContext *>(vscontext);
     if (!vsc) {
-        SendQueueParamsError("Sandesh client context NOT PRESENT",
+        SendCollectorError("Sandesh client context NOT PRESENT",
             context);
         return NULL;
     }
@@ -656,7 +722,7 @@ static void SendQueueParamsResponse(Collector::QueueType::type type,
 
 void DbQueueParamsSet::HandleRequest() const {
     if (!(__isset.high && __isset.drop_level && __isset.queue_count)) {
-        SendQueueParamsError("Please specify all parameters", context());
+        SendCollectorError("Please specify all parameters", context());
         return;
     }
     Collector *collector = ExtractCollectorFromRequest(client_context(),
@@ -672,7 +738,7 @@ void DbQueueParamsSet::HandleRequest() const {
 
 void SmQueueParamsSet::HandleRequest() const {
     if (!(__isset.high && __isset.drop_level && __isset.queue_count)) {
-        SendQueueParamsError("Please specify all parameters", context());
+        SendCollectorError("Please specify all parameters", context());
         return;
     }
     Collector *collector = ExtractCollectorFromRequest(client_context(),
@@ -757,4 +823,44 @@ void DisableFlowCollectionRequest::HandleRequest() const {
 void FlowCollectionStatusRequest::HandleRequest() const {
     // Send response
     SendFlowCollectionStatusResponse(context());
+}
+
+static void SendDatabaseWritesStatusResponse(SandeshContext *vscontext,
+                                             std::string context) {
+    Collector *collector = ExtractCollectorFromRequest(vscontext, context);
+    DatabaseWritesStatusResponse *dwsr(new DatabaseWritesStatusResponse);
+    dwsr->set_disable_all(collector->IsAllWritesDisabled());
+    dwsr->set_disable_statistics(collector->IsStatisticsWritesDisabled());
+    dwsr->set_disable_messages(collector->IsMessagesWritesDisabled());
+    dwsr->set_disable_messages_keyword(collector->IsMessagesKeywordWritesDisabled());
+    dwsr->set_disable_flows(Sandesh::IsFlowCollectionDisabled());
+    dwsr->set_context(context);
+    dwsr->Response();
+}
+
+void DisableDatabaseWritesRequest::HandleRequest() const {
+    Collector *collector = ExtractCollectorFromRequest(client_context(),
+        context());
+    if (__isset.disable_all) {
+        collector->DisableAllWrites(get_disable_all());
+    }
+    if (__isset.disable_statistics) {
+        collector->DisableStatisticsWrites(get_disable_statistics());
+    }
+    if (__isset.disable_messages) {
+        collector->DisableMessagesWrites(get_disable_messages());
+    }
+    if (__isset.disable_messages_keyword) {
+        collector->DisableMessagesKeywordWrites(get_disable_messages_keyword());
+    }
+    if (__isset.disable_flows) {
+        Sandesh::DisableFlowCollection(get_disable_flows());
+    }
+    // Send response
+    SendDatabaseWritesStatusResponse(client_context(), context());
+}
+
+void DatabaseWritesStatusRequest::HandleRequest() const {
+    // Send response
+    SendDatabaseWritesStatusResponse(client_context(), context());
 }
