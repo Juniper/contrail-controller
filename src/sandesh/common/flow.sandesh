@@ -40,15 +40,15 @@ struct SessionFlowInfo {
     2: optional i64 sampled_pkts;
     3: optional i64 logged_bytes;
     4: optional i64 logged_pkts;
-    5: optional uuid_t flow_uuid;
+    5: optional ct_uuid_t flow_uuid;
     6: optional i16 tcp_flags;
     7: optional i64 setup_time;
     8: optional i64 teardown_time;
     9: optional i64 teardown_bytes;
    10: optional i64 teardown_pkts;
    11: optional string action;
-   12: optional uuid_t sg_rule_uuid;
-   13: optional uuid_t nw_ace_uuid;
+   12: optional ct_uuid_t sg_rule_uuid;
+   13: optional ct_uuid_t nw_ace_uuid;
    14: optional u16 underlay_source_port;
    15: optional string drop_reason;
 }
