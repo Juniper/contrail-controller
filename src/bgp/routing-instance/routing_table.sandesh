@@ -19,37 +19,29 @@ struct RoutingInstanceStatsData {
     1: string name (key="ObjectVNTable");
     2: optional bool deleted
 
-    3: optional map<string, RoutingTableStats> raw_ipv4_stats (hidden="yes");
     /** @display_name:Routing Instance IPv4 Information*/
-    4: optional map<string, RoutingTableStats> ipv4_stats (mstats="raw_ipv4_stats:DSChange", tags=".__key", aggtype="union");
+    3: optional map<string, RoutingTableStats> raw_ipv4_stats (tags=".__key", aggtype="union");
 
-    5: optional map<string, RoutingTableStats> raw_ipv6_stats (hidden="yes");
     /** @display_name:Routing Instance IPv6 Information*/
-    6: optional map<string, RoutingTableStats> ipv6_stats (mstats="raw_ipv6_stats:DSChange", tags=".__key", aggtype="union");
+    5: optional map<string, RoutingTableStats> raw_ipv6_stats (tags=".__key", aggtype="union");
 
-    7: optional map<string, RoutingTableStats> raw_inetvpn_stats (hidden="yes");
     /** @display_name:Routing Instance IPv4 Vpn Information*/
-    8: optional map<string, RoutingTableStats> inetvpn_stats (mstats="raw_inetvpn_stats:DSChange", tags=".__key", aggtype="union");
-
-    9: optional map<string, RoutingTableStats> raw_inet6vpn_stats (hidden="yes");
+    7: optional map<string, RoutingTableStats> raw_inetvpn_stats (tags=".__key", aggtype="union");
+    
     /** @display_name:Routing Instance IPv6 Vpn Information*/
-    10: optional map<string, RoutingTableStats> inet6vpn_stats (mstats="raw_inet6vpn_stats:DSChange", tags=".__key", aggtype="union");
+    9: optional map<string, RoutingTableStats> raw_inet6vpn_stats (tags=".__key", aggtype="union");
 
-    11: optional map<string, RoutingTableStats> raw_rtarget_stats (hidden="yes");
     /** @display_name:Routing Instance Route Target Information*/
-    12: optional map<string, RoutingTableStats> rtarget_stats (mstats="raw_rtarget_stats:DSChange", tags=".__key", aggtype="union");
+    11: optional map<string, RoutingTableStats> raw_rtarget_stats (tags=".__key", aggtype="union");
 
-    13: optional map<string, RoutingTableStats> raw_evpn_stats (hidden="yes");
     /** @display_name:Routing Instance EVpn Information*/
-    14: optional map<string, RoutingTableStats> evpn_stats (mstats="raw_evpn_stats:DSChange", tags=".__key", aggtype="union");
+    13: optional map<string, RoutingTableStats> raw_evpn_stats (tags=".__key", aggtype="union");
 
-    15: optional map<string, RoutingTableStats> raw_ermvpn_stats (hidden="yes");
     /** @display_name:Routing Instance ErmVpn Information*/
-    16: optional map<string, RoutingTableStats> ermvpn_stats (mstats="raw_ermvpn_stats:DSChange", tags=".__key", aggtype="union");
+    15: optional map<string, RoutingTableStats> raw_ermvpn_stats (tags=".__key", aggtype="union");
 
-    17: optional map<string, RoutingTableStats> raw_mvpn_stats (hidden="yes");
     /** @display_name:Routing Instance MVpn Information*/
-    18: optional map<string, RoutingTableStats> mvpn_stats (mstats="raw_mvpn_stats:DSChange", tags=".__key", aggtype="union");
+    17: optional map<string, RoutingTableStats> raw_mvpn_stats (tags=".__key", aggtype="union");
 }
 
 /**
