@@ -9,6 +9,7 @@ This file contains generic plugin implementation for juniper devices
 from ncclient import manager
 from ncclient.xml_ import new_ele
 from ncclient.operations.errors import TimeoutExpiredError
+from ncclient.transport.errors import TransportError
 import time
 import datetime
 from cStringIO import StringIO
@@ -156,6 +157,16 @@ class JuniperConf(DeviceConf):
                           "(%s, %ss)" % (self.management_ip, self.timeout))
             self.device_disconnect()
             self.timeout = 300
+            self.push_config_state = PushConfigState.PUSH_STATE_RETRY
+        except TransportError as e:
+            # this exception happens normally when device is rebooted while
+            # nc manager has an active connection handler
+            # just unset the handler, and re-establish a new session
+            self._logger.error("Netconf is not connected: "
+                          "(%s, %ss), Reconnecting" % (self.management_ip, self.timeout))
+            # unset connection handler, and retry immediately
+            self._nc_manager = None
+            self.timeout = 0
             self.push_config_state = PushConfigState.PUSH_STATE_RETRY
         except Exception as e:
             self._logger.error("Router %s: %s" % (self.management_ip,
