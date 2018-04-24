@@ -399,13 +399,21 @@ class VncApiServer(object):
             }
         '''
         try:
+            if not self._args.enable_fabric_ansible:
+                err_msg = "Fabric ansible job manager is disabled. " \
+                          "Please enable it by setting the " \
+                          "'enable_fabric_ansible' to True in the conf file"
+                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+                raise cfgm_common.exceptions.HttpError(501, err_msg)
+
             self.config_log("Entered execute-job",
                             level=SandeshLevel.SYS_NOTICE)
             request_params = get_request().json
             msg = "Job Input %s " % json.dumps(request_params)
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-            device_list = self.validate_execute_job_input_params(request_params)
+            device_list = self.validate_execute_job_input_params(
+                request_params)
 
             # TODO - pass the job manager config file from api server config
 
@@ -3264,7 +3272,8 @@ class VncApiServer(object):
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
 
         # Load init data for job playbooks like JobTemplates, Tags, etc
-        self._load_init_data()
+        if self._args.enable_fabric_ansible:
+            self._load_init_data()
     # end _db_init_entries
 
     # Load init data for job playbooks like JobTemplates, Tags, etc
