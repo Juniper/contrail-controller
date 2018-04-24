@@ -41,7 +41,6 @@ class IStaticRouteMgr;
 class RouteDistinguisher;
 class RoutingInstanceMgr;
 class RoutingInstanceInfo;
-class RoutingInstanceStatsData;
 class RoutingTableStats;
 class BgpNeighborResp;
 class ExtCommunity;
@@ -417,9 +416,6 @@ private:
     void EnableInstanceConfigListProcessing();
     void DisableNeighborConfigListProcessing();
     void EnableNeighborConfigListProcessing();
-    void SetTableStatsUve(Address::Family family,
-             const std::map<std::string, RoutingTableStats> &stats_map,
-             RoutingInstanceStatsData *instance_info) const;
 
     BgpServer *server_;
     mutable tbb::mutex mutex_;
