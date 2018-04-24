@@ -94,6 +94,7 @@ def parse_args(args_str):
         'fabric_ansible_conf_file':
             ['/etc/contrail/contrail-keystone-auth.conf',
              '/etc/contrail/contrail-fabric-ansible.conf'],
+        'enable_fabric_ansible': True,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -319,6 +320,9 @@ def parse_args(args_str):
     parser.add_argument("--fabric_ansible_conf_file",
                         help="List of conf files required by fabric "
                              "ansible job manager.", nargs="+")
+    parser.add_argument("--enable_fabric_ansible",
+                        help="Enables/disables execute-job api and the initial"
+                             "data loading for the job manager.")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
