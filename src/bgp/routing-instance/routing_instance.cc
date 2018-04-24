@@ -449,78 +449,27 @@ bool RoutingInstanceMgr::DeleteVirtualNetworkMapping(
     // Delete this instance from the set of virtual-network to instances map.
     assert(iter->second.erase(instance_name) == 1);
 
-    RoutingInstanceStatsData instance_info;
     bool mapping_deleted = iter->second.empty();
 
     // Delete the mapping if the member set is empty.
     if (mapping_deleted) {
         virtual_networks_.erase(iter);
 
-        // Delete the virtual-network specific UVE.
-        instance_info.set_deleted(true);
     } else {
 
         // Delete this instance's uve, by deleting all table stats.
         map<string, RoutingTableStats> stats_map;
         stats_map.insert(make_pair(instance_name, RoutingTableStats()));
         stats_map[instance_name].set_deleted(true);
-
-        // Delete all uve stats across all address families.
-        for (Address::Family i = Address::UNSPEC; i < Address::NUM_FAMILIES;
-                i = static_cast<Address::Family>(i + 1)) {
-            SetTableStatsUve(i, stats_map, &instance_info);
-        }
     }
-
-    // Send delete uve.
-    RoutingInstanceStats::Send(instance_info);
 
     return mapping_deleted;
-}
-
-void RoutingInstanceMgr::SetTableStatsUve(Address::Family family,
-                             const map<string, RoutingTableStats> &stats_map,
-                             RoutingInstanceStatsData *instance_info) const {
-    // By switching over all families, we get compiler to tell us in future,
-    // when ever familiy enum list gets modified.
-    switch (family) {
-    case Address::UNSPEC:
-        break;
-    case Address::INET:
-    case Address::INETMPLS:
-        instance_info->set_raw_ipv4_stats(stats_map);
-        break;
-    case Address::INET6:
-        instance_info->set_raw_ipv6_stats(stats_map);
-        break;
-    case Address::INETVPN:
-        instance_info->set_raw_inetvpn_stats(stats_map);
-        break;
-    case Address::INET6VPN:
-        instance_info->set_raw_inet6vpn_stats(stats_map);
-        break;
-    case Address::RTARGET:
-        instance_info->set_raw_rtarget_stats(stats_map);
-        break;
-    case Address::EVPN:
-        instance_info->set_raw_evpn_stats(stats_map);
-        break;
-    case Address::ERMVPN:
-        instance_info->set_raw_ermvpn_stats(stats_map);
-        break;
-    case Address::MVPN:
-        instance_info->set_raw_mvpn_stats(stats_map);
-        break;
-    case Address::NUM_FAMILIES:
-        break;
-    }
 }
 
 uint32_t RoutingInstanceMgr::SendTableStatsUve() {
     uint32_t out_q_depth = 0;
 
     for (RoutingInstanceIterator rit = begin(); rit != end(); ++rit) {
-        RoutingInstanceStatsData instance_info;
         map<string, RoutingTableStats> stats_map;
 
         stats_map.insert(make_pair(rit->second->name(), RoutingTableStats()));
@@ -547,12 +496,8 @@ uint32_t RoutingInstanceMgr::SendTableStatsUve() {
                                    table->GetSecondaryPathCount() +
                                    table->GetInfeasiblePathCount();
             stats_map[rit->second->name()].set_total_paths(total_paths);
-            SetTableStatsUve(table->family(), stats_map, &instance_info);
         }
 
-        // Set the primary key and trigger uve send.
-        instance_info.set_name(rit->second->GetVirtualNetworkName());
-        RoutingInstanceStats::Send(instance_info);
     }
 
     return out_q_depth;
