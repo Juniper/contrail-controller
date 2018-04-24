@@ -8,8 +8,8 @@
 #include "diag/diag.h"
 #include "diag/diag_types.h"
 #include "pkt/control_interface.h"
-#include <netinet/udp.h> 
-#include <oper/tunnel_nh.h> 
+#include <netinet/udp.h>
+#include <oper/tunnel_nh.h>
 
 class DiagTable;
 
@@ -22,14 +22,14 @@ public:
     static const uint32_t kVxlanIBit = 0x08000000;
     static const MacAddress in_dst_mac_;
     static const MacAddress in_source_mac_;
-   
+
     OverlayPing(const OverlayPingReq *req, DiagTable *diag_table);
     virtual ~OverlayPing();
     virtual void SendRequest();
     virtual void HandleReply(DiagPktHandler *handler);
     virtual void RequestTimedOut(uint32_t seq_no);
     virtual void SendSummary();
-    static BridgeRouteEntry *L2RouteGet(VxLanId* vxlan, string remotemac, 
+    static BridgeRouteEntry *L2RouteGet(VxLanId* vxlan, string remotemac,
                                         Agent *agent);
 private:
     uuid vn_uuid_;

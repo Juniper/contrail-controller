@@ -63,7 +63,7 @@ public:
             gw_(0), flags_(flags), protocol_(0), ipam_(false) {
         }
 
-        // Constructor for interface address add/delete/change notification 
+        // Constructor for interface address add/delete/change notification
         Event(Type event, const std::string &interface, const Ip4Address &addr,
               uint8_t plen, uint32_t flags, bool ipam) :
             event_(event), interface_(interface), addr_(addr), plen_(plen),

@@ -27,7 +27,7 @@ public:
         addr_ = *a;
     }
 
-    MacAddress(unsigned int a, unsigned int b, unsigned int c, 
+    MacAddress(unsigned int a, unsigned int b, unsigned int c,
                unsigned int d, unsigned int e, unsigned int f);
 
     explicit MacAddress(const std::string &s,

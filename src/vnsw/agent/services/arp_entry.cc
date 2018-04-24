@@ -96,7 +96,7 @@ bool ArpEntry::RetryExpiry() {
         SendArpRequest();
     } else {
         Ip4Address ip(key_.ip);
-        ARP_TRACE(Trace, "Retry exceeded", ip.to_string(), 
+        ARP_TRACE(Trace, "Retry exceeded", ip.to_string(),
                   key_.vrf->GetName(), "");
         arp_proto->IncrementStatsMaxRetries();
 
@@ -245,7 +245,7 @@ void ArpEntry::AddArpRoute(bool resolved) {
         } else {
             /* Return if the route is already existing */
             InetUnicastRouteKey *rt_key = new InetUnicastRouteKey(
-                    handler_->agent()->local_peer(), vrf_name, ip, 32); 
+                    handler_->agent()->local_peer(), vrf_name, ip, 32);
             AgentRoute *entry = key_.vrf->GetInet4UnicastRouteTable()->
                 FindActiveEntry(rt_key);
             delete rt_key;

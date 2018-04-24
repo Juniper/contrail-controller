@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_ksync_sock_h 
-#define ctrlplane_ksync_sock_h 
+#ifndef ctrlplane_ksync_sock_h
+#define ctrlplane_ksync_sock_h
 
 #include <vector>
 #include <boost/asio.hpp>
@@ -50,7 +50,7 @@ void UpdateNetlink(nl_client *client, uint32_t len, uint32_t seq_no);
 void DecodeSandeshMessages(char *buf, uint32_t buf_len, SandeshContext *sandesh_context,
                            uint32_t alignment);
 
-/* Base class to hold sandesh context information which is passed to 
+/* Base class to hold sandesh context information which is passed to
  * Sandesh decode
  */
 class AgentSandeshContext : public SandeshContext {
@@ -87,7 +87,7 @@ private:
 };
 
 
-/* Base class for context management. Used while sending and 
+/* Base class for context management. Used while sending and
  * receiving data via ksync socket
  */
 class  IoContext {
@@ -108,17 +108,17 @@ public:
         sandesh_context_(NULL), msg_(NULL), msg_len_(0), seqno_(0),
         type_(IOC_KSYNC), index_(0), rx_buffer1_(NULL), rx_buffer2_(NULL) {
     }
-    IoContext(char *msg, uint32_t len, uint32_t seq, AgentSandeshContext *ctx, 
+    IoContext(char *msg, uint32_t len, uint32_t seq, AgentSandeshContext *ctx,
               Type type) :
         sandesh_context_(ctx), msg_(msg), msg_len_(len), seqno_(seq),
         type_(type), index_(0), rx_buffer1_(NULL), rx_buffer2_(NULL) {
     }
-    IoContext(char *msg, uint32_t len, uint32_t seq, AgentSandeshContext *ctx, 
+    IoContext(char *msg, uint32_t len, uint32_t seq, AgentSandeshContext *ctx,
               Type type, uint32_t index) :
         sandesh_context_(ctx), msg_(msg), msg_len_(len), seqno_(seq),
         type_(type), index_(index), rx_buffer1_(NULL), rx_buffer2_(NULL) {
     }
-    virtual ~IoContext() { 
+    virtual ~IoContext() {
         if (msg_ != NULL)
             free(msg_);
         assert(rx_buffer1_ == NULL);
@@ -394,7 +394,7 @@ public:
         return ksync_rx_queue[index];
     }
     // Allocate a recieve work-queue
-    
+
     KSyncReceiveQueue *AllocQueue(KSyncBulkSandeshContext ctxt[],
                                   uint32_t task_id, uint32_t instance,
                                   const char *name);

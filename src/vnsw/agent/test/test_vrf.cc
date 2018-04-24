@@ -106,10 +106,10 @@ TEST_F(VrfTest, VrfAddDelTest_1) {
     VrfAddReq("vrf1");
     EXPECT_TRUE(client->VrfNotifyWait(1));
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
- 
+
     Ip4Address vm1_ip = Ip4Address::from_string("1.1.1.1");
     Ip4Address vm2_ip = Ip4Address::from_string("1.1.1.2");
- 
+
     client->WaitForIdle();
     bgp_peer1->AddRoute("vrf1", "1.1.1.1/32", "10.1.1.10", 10, "vn1");
     bgp_peer1->AddRoute("vrf1", "1.1.1.2/32", "10.1.1.10", 10, "vn1");
@@ -127,10 +127,10 @@ TEST_F(VrfTest, VrfAddDelTest_sandesh_test_1) {
     VrfAddReq("vrf1");
     EXPECT_TRUE(client->VrfNotifyWait(1));
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
- 
+
     Ip4Address vm1_ip = Ip4Address::from_string("1.1.1.1");
     Ip4Address vm2_ip = Ip4Address::from_string("1.1.1.2");
- 
+
     client->WaitForIdle();
     bgp_peer1->AddRoute("vrf1", "1.1.1.1/32", "10.1.1.10", 10, "vn1");
     bgp_peer1->AddRoute("vrf1", "1.1.1.2/32", "10.1.1.10", 10, "vn1");
@@ -240,7 +240,7 @@ TEST_F(VrfTest, CheckVrfReuse) {
     EXPECT_TRUE(vrf->IsDeleted());
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
 
-    AddVrf("vrf1", 1); 
+    AddVrf("vrf1", 1);
     //Release VRF reference
     vrf_ref = NULL;
     client->WaitForIdle();
@@ -288,7 +288,7 @@ TEST_F(VrfTest, CheckIntfActivate) {
     EXPECT_FALSE(VmPortActive(input, 1) == true);
     EXPECT_FALSE(RouteFind("vrf1", vm1_ip, 32));
     EXPECT_FALSE(RouteFind("vrf1", vm2_ip, 32));
-    //Release reference to VRF, and expect interface 
+    //Release reference to VRF, and expect interface
     //to be active
     vrf_ref = NULL;
     client->WaitForIdle();

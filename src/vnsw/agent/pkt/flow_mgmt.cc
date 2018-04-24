@@ -1244,7 +1244,7 @@ bool FlowMgmtEntry::Delete(FlowEntry *flow, FlowMgmtKeyNode *node) {
     return flow_list_.size();
 }
 
-// An entry *cannot* be deleted if 
+// An entry *cannot* be deleted if
 //    - It contains flows
 //    - It has seen ADD but not seen any DELETE
 bool FlowMgmtEntry::CanDelete() const {

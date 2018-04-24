@@ -36,7 +36,7 @@ struct VlanTableReqData : public DBRequestData {
 class Vlan : public DBEntry {
 public:
     Vlan(unsigned short tag) : vlan_tag(tag) { }
-    Vlan(unsigned short tag, std::string desc) 
+    Vlan(unsigned short tag, std::string desc)
         : vlan_tag(tag), description(desc) { }
 
     ~Vlan() {
@@ -44,7 +44,7 @@ public:
 
     bool IsLess(const DBEntry &rhs) const {
         const Vlan &a = static_cast<const Vlan &>(rhs);
-        return vlan_tag < a.vlan_tag;  
+        return vlan_tag < a.vlan_tag;
     }
 
     void SetKey(const DBRequestKey *key) {

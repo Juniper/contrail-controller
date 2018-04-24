@@ -220,7 +220,7 @@ static void AddAclEntry(const char *name, int id, int proto,
 }
 
 static void AddSgIdAcl(const char *name, int id, int proto,
-                       int src_sg_id, int dest_sg_id, const char *action, 
+                       int src_sg_id, int dest_sg_id, const char *action,
                        AclDirection direction) {
     char acl_name[1024];
     uint16_t max_len = sizeof(acl_name) - 1;
@@ -255,7 +255,7 @@ static void AddSgEntry(const char *sg_name, const char *name, int id,
         case EGRESS:
             AddAclEntry(name, id, proto, action, direction);
             strncat(acl_name, "egress-access-control-list", max_len);
-            AddLink("security-group", sg_name, "access-control-list", acl_name); 
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
             break;
         case BIDIRECTION:
             AddAclEntry(name, id, proto, action, EGRESS);
@@ -271,7 +271,7 @@ static void AddSgEntry(const char *sg_name, const char *name, int id,
 }
 
 static void AddSgEntry(const char *sg_name, const char *name, int id,
-                       int proto, const char *action, uint32_t sg_id, 
+                       int proto, const char *action, uint32_t sg_id,
                        uint32_t dest_sg_id, AclDirection direction) {
     std::stringstream str;
     str << "<security-group-id>" << sg_id << "</security-group-id>" << endl;
@@ -482,7 +482,7 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
 }
 
 // Introspec checking
-// Checks for the SG UUID and sg id, if sg_id is -1, then checks num entries 
+// Checks for the SG UUID and sg id, if sg_id is -1, then checks num entries
 bool sg_introspec_test = false;
 static void SgListResponse(Sandesh *sandesh, int id, int sg_id, int num_entries)
 {
@@ -530,7 +530,7 @@ TEST_F(SgTest, Flow_Deny_1) {
                            6, 10, 20, vnet[1]->flow_key_nh()->id()));
 }
 
-// Change ACL for forward flow 
+// Change ACL for forward flow
 TEST_F(SgTest, Fwd_Sg_Change_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
@@ -808,7 +808,7 @@ TEST_F(SgTest, Sg_Introspec) {
     // Delete sg added for setup()
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
 
-    // Add a SG id acl to pass traffic between sg-id 1 and sg-id 2 
+    // Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
     // to vnet1
     AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, BIDIRECTION);
     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
@@ -859,7 +859,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     //Delete sg added for setup()
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
 
-    //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2 
+    //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
     //to vnet1
     AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, BIDIRECTION);
     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
@@ -872,7 +872,7 @@ TEST_F(SgTest, Sg_Policy_1) {
                         Ip4Address::from_string("10.10.10.0", ec),
                         24,
                         Ip4Address::from_string("10.10.10.10", ec),
-                        TunnelType::AllType(), 
+                        TunnelType::AllType(),
                         17, "vn1", sg_id_list, TagList(),
                         PathPreference());
     client->WaitForIdle();

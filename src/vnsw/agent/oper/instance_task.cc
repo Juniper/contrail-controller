@@ -65,7 +65,7 @@ bool InstanceTaskExecvp::IsSetup() {
 // "running" and return "false" to caller, so that caller does not
 // attempt to run the same task again. In this case, the child process
 // exit notification can not be received by instance manager, hence
-// instance manager has to rely on TaskTimeout delete the task. 
+// instance manager has to rely on TaskTimeout delete the task.
 bool InstanceTaskExecvp::Run() {
     std::vector<std::string> argv;
 

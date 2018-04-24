@@ -118,11 +118,11 @@ private:
 
 class VlanKSyncEntry : public KSyncDBEntry {
 public:
-    VlanKSyncEntry(const VlanKSyncEntry *entry) : 
+    VlanKSyncEntry(const VlanKSyncEntry *entry) :
         KSyncDBEntry(), tag_(entry->tag_), no_ack_trigger_(true),
         sync_pending_(false) { };
 
-    VlanKSyncEntry(const Vlan *vlan) : 
+    VlanKSyncEntry(const Vlan *vlan) :
         KSyncDBEntry(), tag_(vlan->GetTag()), no_ack_trigger_(true),
         sync_pending_(false) { };
     VlanKSyncEntry(const uint16_t tag) :
@@ -357,7 +357,7 @@ TEST_F(DBKSyncTest, DuplicateDelete) {
     task_util::WaitForIdle();
     VlanKSyncEntry v(10);
     KSyncEntry::KSyncEntryPtr ksync_vlan;
-    ksync_vlan = VlanKSyncObject::GetKSyncObject()->Find(&v); 
+    ksync_vlan = VlanKSyncObject::GetKSyncObject()->Find(&v);
 
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(new Vlan::VlanKey("vlan10", 10));

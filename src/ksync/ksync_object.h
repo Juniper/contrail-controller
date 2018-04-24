@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_ksync_object_h 
-#define ctrlplane_ksync_object_h 
+#ifndef ctrlplane_ksync_object_h
+#define ctrlplane_ksync_object_h
 
 #include <tbb/mutex.h>
 #include <tbb/recursive_mutex.h>
@@ -19,21 +19,21 @@
 // --------------
 // An entry of type <key-entry, back-ref-entry> means that key-entry is
 // waiting for back-ref-entry to be added to kernel.
-// Note, there can be more than one key-entry waiting on a single 
+// Note, there can be more than one key-entry waiting on a single
 // back-ref-entry. However, a key-entry can be waiting on only one
 // back-ref-entry at a time.
 //
 // This is a dynamic tree. Entries are added only when constraints are not
 // met. Entries will not be in tree when constraints are met.
 //
-// Fwd-Ref tree: 
+// Fwd-Ref tree:
 // -------------
 // Holds forward reference information. If Object-A is waiting on Object-B
 // Fwd-Ref tree will have an entry with Object-A as key and Object-B as data.
 /////////////////////////////////////////////////////////////////////////////
 
 struct KSyncFwdReference {
-    KSyncFwdReference(KSyncEntry *key, KSyncEntry *ref) : key_(key), 
+    KSyncFwdReference(KSyncEntry *key, KSyncEntry *ref) : key_(key),
         reference_(ref) { };
 
     bool operator<(const KSyncFwdReference &rhs) const {
@@ -46,7 +46,7 @@ struct KSyncFwdReference {
 };
 
 struct KSyncBackReference {
-    KSyncBackReference(KSyncEntry *key, KSyncEntry *ref) : 
+    KSyncBackReference(KSyncEntry *key, KSyncEntry *ref) :
                        key_(key), back_reference_(ref) { };
 
     bool operator<(const KSyncBackReference &rhs) const {
@@ -55,7 +55,7 @@ struct KSyncBackReference {
 
         if (key_ > rhs.key_)
             return false;
-	
+
         if (back_reference_ < rhs.back_reference_)
             return true;
 
@@ -135,7 +135,7 @@ public:
 
     //Callback when all the entries in table are deleted
     virtual void EmptyTable(void) { };
-    bool IsEmpty(void) { return tree_.empty(); }; 
+    bool IsEmpty(void) { return tree_.empty(); };
 
     virtual bool DoEventTrace(void) { return true; }
     virtual void PreFree(KSyncEntry *entry) { }
@@ -165,7 +165,7 @@ private:
     friend class KSyncEntry;
     friend void TestTriggerStaleEntryCleanupCb(KSyncObject *obj);
 
-    // Free indication of an KSyncElement. 
+    // Free indication of an KSyncElement.
     // Removes from tree and free index if allocated earlier
     void FreeInd(KSyncEntry *entry, uint32_t index);
     void NetlinkAckInternal(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
@@ -306,4 +306,4 @@ do {\
    KSync##obj::TraceMsg(parent->GetKSyncTraceBuf(), __FILE__, __LINE__, ##__VA_ARGS__);\
 } while (false);\
 
-#endif // ctrlplane_ksync_object_h 
+#endif // ctrlplane_ksync_object_h

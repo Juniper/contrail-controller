@@ -33,7 +33,7 @@ class Peer;
 class EcmpData;
 
 struct AgentRouteKey : public AgentKey {
-    AgentRouteKey(const Peer *peer, const std::string &vrf_name) : 
+    AgentRouteKey(const Peer *peer, const std::string &vrf_name) :
         AgentKey(), peer_(peer), vrf_name_(vrf_name) { }
     virtual ~AgentRouteKey() { }
 
@@ -103,7 +103,7 @@ struct RouteTableWalkerState {
     LifetimeRef<RouteTableWalkerState> rt_delete_ref_;
 };
 
-// Agent implements multiple route tables - inet4-unicast, inet4-multicast, 
+// Agent implements multiple route tables - inet4-unicast, inet4-multicast,
 // bridge. This base class contains common code for all route tables
 class AgentRouteTable : public RouteTable {
 public:
@@ -203,7 +203,7 @@ private:
     UnresolvedRouteTree unresolved_rt_tree_;
     UnresolvedNHTree unresolved_nh_tree_;
     // VRF is stored to identify which VRF this table belonged to
-    // in case lifetimeactor has reset the vrf_. 
+    // in case lifetimeactor has reset the vrf_.
     SandeshTraceBufferPtr OperDBTraceBuf;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteTable);
 };
@@ -281,7 +281,7 @@ public:
     AgentPath *FindLocalPath() const;
     AgentPath *FindLocalVmPortPath() const;
     const AgentPath *GetActivePath() const;
-    const NextHop *GetActiveNextHop() const; 
+    const NextHop *GetActiveNextHop() const;
     const std::string &dest_vn_name() const;
     bool IsRPFInvalid() const;
 
@@ -332,7 +332,7 @@ private:
                      AgentRouteData *data);
 
     VrfEntry *vrf_;
-    // Unicast table can contain routes for few multicast address 
+    // Unicast table can contain routes for few multicast address
     // (ex. subnet multicast). Flag to specify if this is multicast route
     bool is_multicast_;
     std::string intf_route_type_;

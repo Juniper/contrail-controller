@@ -21,8 +21,8 @@
  * This will never change, and we don't have to pull in a bunch of IP gorp
  * to use it.
  */
-#define IPV4_ADDR_LEN 4			/* Length of a v4 address */
-#define IPV6_ADDR_LEN 16		/* Length of a v6 address */
+#define IPV4_ADDR_LEN 4            /* Length of a v4 address */
+#define IPV6_ADDR_LEN 16        /* Length of a v6 address */
 
 
 /*
@@ -36,16 +36,16 @@ typedef void *gmp_instance_id;
  * Client ID.  Used to identify clients of gmp_host and gmp_router.  This
  * is actually a pointer to the associated client block.
  */
-typedef void *gmp_client_id;		/* Client ID */
+typedef void *gmp_client_id;        /* Client ID */
 
 
 /*
  * Protocol.  Used to identify which GMP protocol is in use.
  */
 typedef enum {
-    GMP_PROTO_IGMP,			/* IGMP */
-    GMP_PROTO_MLD,			/* MLD */
-    GMP_NUM_PROTOS			/* Number of protocols */
+    GMP_PROTO_IGMP,            /* IGMP */
+    GMP_PROTO_MLD,            /* MLD */
+    GMP_NUM_PROTOS            /* Number of protocols */
 } gmp_proto;
 
 
@@ -54,9 +54,9 @@ typedef enum {
  * same time.
  */
 typedef enum {
-    GMP_ROLE_HOST,			/* Host-side GMP */
-    GMP_ROLE_ROUTER,			/* Router-side GMP */
-    GMP_NUM_ROLES			/* Number of roles */
+    GMP_ROLE_HOST,            /* Host-side GMP */
+    GMP_ROLE_ROUTER,            /* Router-side GMP */
+    GMP_NUM_ROLES            /* Number of roles */
 } gmp_role;
 
 
@@ -69,14 +69,14 @@ typedef enum {GMP_FILTER_MODE_EXCLUDE, GMP_FILTER_MODE_INCLUDE}
 
 /*
  * Address string
- * 
+ *
  * This is an address, either IPv4 or IPv6, in network byte order.  The
  * address type is contextualized by its environment (IGMP vs. MLD).
  */
 typedef union gmp_addrstring_ {
     uint8_t gmp_v4_addr[IPV4_ADDR_LEN]; /* IPv4 address */
     uint8_t gmp_v6_addr[IPV6_ADDR_LEN]; /* IPv6 address */
-    uint8_t gmp_addr[1];		/* Generic address pointer */
+    uint8_t gmp_addr[1];        /* Generic address pointer */
 } gmp_addr_string;
 
 
@@ -86,7 +86,7 @@ typedef union gmp_addrstring_ {
  * Passed via the gmph_set_intf_params call
  */
 typedef struct gmph_intf_params_ {
-    uint8_t gmph_version;		/* Protocol version */
+    uint8_t gmph_version;        /* Protocol version */
 } gmph_intf_params;
 
 /*
@@ -95,15 +95,15 @@ typedef struct gmph_intf_params_ {
  * Passed via the gmpr_set_intf_params call
  */
 typedef struct gmpr_intf_params_ {
-    uint8_t gmpr_ifparm_version;	/* Protocol version */
-    uint8_t gmpr_ifparm_robustness;	/* Robustness value */
-    uint32_t gmpr_ifparm_qivl;		/* Query interval */
-    uint32_t gmpr_ifparm_qrivl;	/* Query response interval */
-    uint32_t gmpr_ifparm_lmqi;		/* Last member query interval */
-    uint32_t gmpr_ifparm_chan_limit;	/* Channel limit */
+    uint8_t gmpr_ifparm_version;    /* Protocol version */
+    uint8_t gmpr_ifparm_robustness;    /* Robustness value */
+    uint32_t gmpr_ifparm_qivl;        /* Query interval */
+    uint32_t gmpr_ifparm_qrivl;    /* Query response interval */
+    uint32_t gmpr_ifparm_lmqi;        /* Last member query interval */
+    uint32_t gmpr_ifparm_chan_limit;    /* Channel limit */
     uint32_t gmpr_ifparm_chan_threshold; /* Channel threshold */
     uint32_t gmpr_ifparm_log_interval;  /* Time between consecutive similar limit log events */
-    boolean gmpr_ifparm_fast_leave;	/* Fast leaves */
+    boolean gmpr_ifparm_fast_leave;    /* Fast leaves */
     boolean gmpr_ifparm_querier_enabled; /* Allowed to be V1 querier */
     boolean gmpr_ifparm_passive_receive; /* Passive receive */
     boolean gmpr_ifparm_suppress_gen_query; /* Suppress general queries */
@@ -139,10 +139,10 @@ typedef enum {
  * as timer smearing.
  */
 typedef enum {
-    GMP_TIMER_GROUP_DEFAULT,		/* Default */
-    GMP_TIMER_GROUP_GEN_QUERY,		/* General query timers */
+    GMP_TIMER_GROUP_DEFAULT,        /* Default */
+    GMP_TIMER_GROUP_GEN_QUERY,        /* General query timers */
 
-    GMP_NUM_TIMER_GROUPS		/* Number of timer groups */
+    GMP_NUM_TIMER_GROUPS        /* Number of timer groups */
 } gmp_timer_group;
 
 

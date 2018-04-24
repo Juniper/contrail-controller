@@ -8,7 +8,7 @@
 #include <uve/vn_uve_table.h>
 
 class VnUveTableTest : public VnUveTable {
-public:    
+public:
     VnUveTableTest(Agent *agent, uint32_t default_intvl);
     virtual void DispatchVnMsg(const UveVirtualNetworkAgent &uve);
     uint32_t send_count() const { return send_count_; }

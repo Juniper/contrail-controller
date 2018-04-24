@@ -26,16 +26,16 @@
 
 #include "ksync_init.h"
 
-VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj, 
-                                     const VxLanIdKSyncEntry *entry, 
+VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj,
+                                     const VxLanIdKSyncEntry *entry,
                                      uint32_t index) :
-    KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(entry->label_), 
-    nh_(NULL) { 
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(entry->label_),
+    nh_(NULL) {
 }
 
 VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj,
-                                     const VxLanId *vxlan_id) : 
-    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+                                     const VxLanId *vxlan_id) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
     label_(vxlan_id->vxlan_id()), nh_(NULL) {
 }
 
@@ -47,7 +47,7 @@ KSyncDBObject *VxLanIdKSyncEntry::GetObject() const {
 }
 
 bool VxLanIdKSyncEntry::IsLess(const KSyncEntry &rhs) const {
-    const VxLanIdKSyncEntry &entry = 
+    const VxLanIdKSyncEntry &entry =
         static_cast<const VxLanIdKSyncEntry &>(rhs);
 
     return label_ < entry.label_;
@@ -103,7 +103,7 @@ int VxLanIdKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     return encode_len;
 }
 
-void VxLanIdKSyncEntry::FillObjectLog(sandesh_op::type op, 
+void VxLanIdKSyncEntry::FillObjectLog(sandesh_op::type op,
                                       KSyncVxLanInfo &info) const {
     info.set_label(label_);
     info.set_nh(nh()->nh_id());
@@ -127,7 +127,7 @@ int VxLanIdKSyncEntry::ChangeMsg(char *buf, int buf_len) {
     KSyncVxLanInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(VxLan, GetObject(), info);
- 
+
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
@@ -135,7 +135,7 @@ int VxLanIdKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncVxLanInfo info;
     FillObjectLog(sandesh_op::DEL, info);
     KSYNC_TRACE(VxLan, GetObject(), info);
- 
+
     return Encode(sandesh_op::DEL, buf, buf_len);
 }
 
@@ -147,7 +147,7 @@ KSyncEntry *VxLanIdKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-VxLanKSyncObject::VxLanKSyncObject(KSync *ksync) 
+VxLanKSyncObject::VxLanKSyncObject(KSync *ksync)
     : KSyncDBObject("KSync VxLan"), ksync_(ksync) {
 }
 
@@ -159,7 +159,7 @@ void VxLanKSyncObject::RegisterDBClients() {
 }
 
 KSyncEntry *VxLanKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
-    const VxLanIdKSyncEntry *vxlan = 
+    const VxLanIdKSyncEntry *vxlan =
         static_cast<const VxLanIdKSyncEntry *>(entry);
     VxLanIdKSyncEntry *ksync = new VxLanIdKSyncEntry(this, vxlan, index);
     return static_cast<KSyncEntry *>(ksync);

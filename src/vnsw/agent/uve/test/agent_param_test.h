@@ -8,7 +8,7 @@
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
 
-// Class handling agent configuration parameters from config file and 
+// Class handling agent configuration parameters from config file and
 // arguments
 class AgentParamTest {
 public:

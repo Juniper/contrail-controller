@@ -293,7 +293,7 @@ public:
     void CreateStaticVrf(const string &name);
     void DeleteStaticVrf(const string &name);
     void CreateFabricPolicyVrf(const string &name);
- 
+
     // Create VRF Table with given name
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VrfTable *GetInstance() {return vrf_table_;};
@@ -309,7 +309,7 @@ public:
     void FreeVrfId(size_t index);
 
     virtual bool CanNotify(IFMapNode *dbe);
-    
+
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable
         (const std::string &vrf_name);
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);

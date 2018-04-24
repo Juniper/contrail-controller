@@ -486,7 +486,7 @@ bool AgentRoute::SubOpAddChangeInput(VrfEntry *vrf, AgentRouteTable *table,
     FillTrace(rt_info, event, path);
     OPER_TRACE_ROUTE_ENTRY(Route, table, rt_info);
 
-    if (path->RouteNeedsSync()) 
+    if (path->RouteNeedsSync())
         ret |= Sync();
 
     if (route_added) {
@@ -550,7 +550,7 @@ void AgentRoute::DeleteInput(DBTablePartition *part, AgentRouteTable *table,
 }
 
 void AgentRoute::InsertPath(const AgentPath *path) {
-	const Path *prev_front = front();
+    const Path *prev_front = front();
     insert(path);
     Sort(&AgentRouteTable::PathSelection, prev_front);
 }
@@ -647,7 +647,7 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
 }
 
 AgentPath *AgentRoute::FindLocalPath() const {
-    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+    for(Route::PathList::const_iterator it = GetPathList().begin();
         it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path->peer() == NULL) {

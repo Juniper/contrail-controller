@@ -109,7 +109,7 @@ public:
         EXPECT_EQ(0U, flow_proto_->FlowCount());
     }
 
-    bool ValidateBmap(const std::vector<uint32_t> &smap, const std::vector<uint32_t> &dmap, 
+    bool ValidateBmap(const std::vector<uint32_t> &smap, const std::vector<uint32_t> &dmap,
                       uint16_t sport, uint16_t dport) {
         bool ret = true;
 
@@ -822,7 +822,7 @@ TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
     EXPECT_EQ(0U, uve.get_exception_packets_dropped());
     EXPECT_EQ(0U, uve.get_exception_packets_allowed());
 
-    //Update exception stats 
+    //Update exception stats
     agent_->stats()->incr_pkt_exceptions();
     agent_->stats()->incr_pkt_exceptions();
     agent_->stats()->incr_pkt_exceptions();

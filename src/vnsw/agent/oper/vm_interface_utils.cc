@@ -145,7 +145,7 @@ void VmInterface::GetOsParams(Agent *agent) {
 // - If interface is deleted, it is inactive
 // - VN, VRF are set
 // - If sub_interface VMIs, parent_ should be set
-//   (We dont track parent_ and activate sub-interfaces. So, we only check 
+//   (We dont track parent_ and activate sub-interfaces. So, we only check
 //    parent_ is present and not necessarily active)
 // - For non-VMWARE hypervisors,
 //   The tap interface must be created. This is verified by os_index_
@@ -160,7 +160,7 @@ bool VmInterface::IsActive()  const {
     }
 
     // If sub_interface VMIs, parent_vmi_ should be set
-    // (We dont track parent_ and activate sub-interfaces. So, we only check 
+    // (We dont track parent_ and activate sub-interfaces. So, we only check
     //  paremt_vmi is present and not necessarily active)
     //  Check if parent is  not active set the SubInterface also not active
     const VmInterface *parentIntf = static_cast<const VmInterface *>(parent());
@@ -833,7 +833,7 @@ const string VmInterface::GetAnalyzer() const {
     }
 }
 
-const Peer *VmInterface::peer() const { 
+const Peer *VmInterface::peer() const {
     return peer_.get();
 }
 

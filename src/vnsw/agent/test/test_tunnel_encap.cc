@@ -100,7 +100,7 @@ public:
         client->WaitForIdle();
     }
 
-    void AddRemoteVmRoute(TunnelType::TypeBmap l3_bmap, 
+    void AddRemoteVmRoute(TunnelType::TypeBmap l3_bmap,
                           TunnelType::TypeBmap l2_bmap) {
 
         Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32,
@@ -134,7 +134,7 @@ public:
         client->WaitForIdle();
 
         TunnelOlist olist_map;
-        olist_map.push_back(OlistTunnelEntry(nil_uuid(), 3000, 
+        olist_map.push_back(OlistTunnelEntry(nil_uuid(), 3000,
                             IpAddress::from_string("8.8.8.8").to_v4(),
                             TunnelType::MplsType()));
         agent->oper_db()->multicast()->ModifyFabricMembers(Agent::GetInstance()->
@@ -149,7 +149,7 @@ public:
                                                 IpAddress::from_string("255.255.255.255").to_v4(),
                                                 IpAddress::from_string("0.0.0.0").to_v4(),
                                                 1112, olist_map);
-        AddArp("8.8.8.8", "00:00:08:08:08:08", 
+        AddArp("8.8.8.8", "00:00:08:08:08:08",
                Agent::GetInstance()->fabric_interface_name().c_str());
         client->WaitForIdle();
     }
@@ -166,7 +166,7 @@ public:
                       remote_ecmp_vm_ip_, 32, NULL);
         client->WaitForIdle();
 
-        DelArp("8.8.8.8", "00:00:08:08:08:08", 
+        DelArp("8.8.8.8", "00:00:08:08:08:08",
                Agent::GetInstance()->fabric_interface_name().c_str());
         client->WaitForIdle();
     }
@@ -179,15 +179,15 @@ public:
         case TunnelType::VXLAN: {
             ASSERT_TRUE(path->GetActiveLabel() == path->vxlan_id());
             break;
-        }    
-        case TunnelType::MPLS_GRE: 
+        }
+        case TunnelType::MPLS_GRE:
         case TunnelType::MPLS_UDP: {
             ASSERT_TRUE(path->GetActiveLabel() == path->label());
             break;
-        }    
+        }
         default: {
             break;
-        }                     
+        }
         }
     }
 
@@ -203,7 +203,7 @@ public:
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
             }
         }
-        
+
         route = RouteGet(vrf_name_, remote_vm_ip_, 32);
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
@@ -248,8 +248,8 @@ public:
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
             }
-        }  
-        
+        }
+
         route = L2RouteGet(vrf_name_, remote_vm_mac_);
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
@@ -260,7 +260,7 @@ public:
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
             }
-        } 
+        }
     }
 
     void VerifyMulticastRoutes(TunnelType::Type type) {
@@ -361,32 +361,32 @@ TEST_F(TunnelEncapTest, gre_to_vxlan_udp) {
 }
 
 TEST_F(TunnelEncapTest, EncapChange) {
-	client->Reset();
-	VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoGRE", "MPLSoUDP");
+    client->Reset();
+    VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoGRE", "MPLSoUDP");
     AddVn(agent->fabric_vn_name().c_str(), 10);
     AddVrf(agent->fabric_policy_vrf_name().c_str());
     AddLink("virtual-network", agent->fabric_vn_name().c_str(), "routing-instance",
             agent->fabric_policy_vrf_name().c_str());
     client->WaitForIdle();
 
-	TaskScheduler *scheduler = TaskScheduler::GetInstance();
-	scheduler->Stop();
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Stop();
 
-	agent->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
-	MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
-			oper_db()->multicast());
-	TunnelOlist olist;
-	olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
-				IpAddress::from_string("8.8.8.8").to_v4(),
-				TunnelType::MplsType()));
-	mc_handler->ModifyFabricMembers(Agent::GetInstance()->
-			multicast_tree_builder_peer(),
-			agent->fabric_policy_vrf_name().c_str(),
-			IpAddress::from_string("255.255.255.255").to_v4(),
-			IpAddress::from_string("0.0.0.0").to_v4(),
-			4100, olist, 1);
-	VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoUDP", "MPLSoGRE");
-	scheduler->Start();
+    agent->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
+            oper_db()->multicast());
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                IpAddress::from_string("8.8.8.8").to_v4(),
+                TunnelType::MplsType()));
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+            multicast_tree_builder_peer(),
+            agent->fabric_policy_vrf_name().c_str(),
+            IpAddress::from_string("255.255.255.255").to_v4(),
+            IpAddress::from_string("0.0.0.0").to_v4(),
+            4100, olist, 1);
+    VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoUDP", "MPLSoGRE");
+    scheduler->Start();
     client->WaitForIdle();
 
     BridgeRouteEntry *mc_route =

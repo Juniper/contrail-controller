@@ -170,7 +170,7 @@ void DBPartition::SetQueueDisable(bool disable) {
 class DBPartition::QueueRunner : public Task {
 public:
     static const int kMaxIterations = 32;
-    QueueRunner(WorkQueue *queue) 
+    QueueRunner(WorkQueue *queue)
         : Task(queue->db_task_id(), queue->db_partition_id()),
           queue_(queue) {
     }
@@ -211,7 +211,7 @@ public:
                 return false;
             }
         }
-        
+
         while (true) {
             DBTablePartBase *tpart = queue_->GetActiveTable();
             if (tpart == NULL) {

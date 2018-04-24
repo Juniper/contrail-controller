@@ -123,7 +123,7 @@ TEST_F(FabricVmiTest, basic_1) {
     PathPreference path_preference(1, PathPreference::LOW, false, false);
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE |
                                  1 << TunnelType::NATIVE);
-    Inet4TunnelRouteAdd(peer_, 
+    Inet4TunnelRouteAdd(peer_,
                         agent->fabric_policy_vrf_name().c_str(),
                         ip, 32, server_ip, bmap, 16, "vn1",
                         SecurityGroupList(), TagList(), path_preference);
@@ -163,9 +163,9 @@ TEST_F(FabricVmiTest, basic_2) {
     //Route should be leaked to fabric VRF
     EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 32));
     const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(2));
-    EXPECT_TRUE(vm_intf->forwarding_vrf()->GetName() == 
+    EXPECT_TRUE(vm_intf->forwarding_vrf()->GetName() ==
                 agent->fabric_vrf_name());
-    const InterfaceNH *intf_nh = 
+    const InterfaceNH *intf_nh =
         dynamic_cast<const InterfaceNH *>(vm_intf->flow_key_nh());
     EXPECT_TRUE(intf_nh->GetVrf()->GetName() == agent->fabric_vrf_name());
     EXPECT_TRUE(vm_intf->proxy_arp_mode() == VmInterface::PROXY_ARP_UNRESTRICTED);

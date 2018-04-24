@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_ksync_sock_user_h 
-#define ctrlplane_ksync_sock_user_h 
+#ifndef ctrlplane_ksync_sock_user_h
+#define ctrlplane_ksync_sock_user_h
 
 #include <queue>
 
@@ -106,25 +106,25 @@ public:
     }
 
     typedef std::map<int, vr_nexthop_req> ksync_map_nh;
-    ksync_map_nh nh_map; 
+    ksync_map_nh nh_map;
     typedef boost::unordered_map<int, vr_flow_req> ksync_map_flow;
-    ksync_map_flow flow_map; 
+    ksync_map_flow flow_map;
     typedef std::map<int, vr_interface_req> ksync_map_if;
-    ksync_map_if if_map; 
+    ksync_map_if if_map;
     typedef std::set<vr_route_req, TestRouteCmp> ksync_rt_tree;
-    ksync_rt_tree rt_tree; 
+    ksync_rt_tree rt_tree;
     typedef std::map<int, vr_mpls_req> ksync_map_mpls;
-    ksync_map_mpls mpls_map; 
+    ksync_map_mpls mpls_map;
     typedef std::map<int, vr_mirror_req> ksync_map_mirror;
-    ksync_map_mirror mirror_map; 
+    ksync_map_mirror mirror_map;
     typedef std::set<vr_vrf_assign_req, TestVrfAssignCmp> ksync_vrf_assign_tree;
-    ksync_vrf_assign_tree vrf_assign_tree; 
+    ksync_vrf_assign_tree vrf_assign_tree;
     typedef std::map<int, vr_vrf_stats_req> ksync_map_vrf_stats;
-    ksync_map_vrf_stats vrf_stats_map; 
+    ksync_map_vrf_stats vrf_stats_map;
     vr_drop_stats_req drop_stats;
     vrouter_ops ksync_vrouter_ops;
     typedef std::map<int, vr_vxlan_req> ksync_map_vxlan;
-    ksync_map_vxlan vxlan_map; 
+    ksync_map_vxlan vxlan_map;
 
     typedef std::queue<KSyncUserSockContext *> ksync_map_ctx_queue;
     ksync_map_ctx_queue ctx_queue_;
@@ -292,7 +292,7 @@ public:
     virtual Sandesh* GetFirst(Sandesh *);
     virtual Sandesh* GetNext(Sandesh *);
     /* GET operation is not supported for vrf assign */
-    virtual Sandesh* Get(int idx) { 
+    virtual Sandesh* Get(int idx) {
         return NULL;
     }
 };
@@ -303,7 +303,7 @@ public:
     virtual Sandesh* GetFirst(Sandesh *);
     virtual Sandesh* GetNext(Sandesh *);
     /* GET operation is not supported for route */
-    virtual Sandesh* Get(int idx) { 
+    virtual Sandesh* Get(int idx) {
         return NULL;
     }
 };
@@ -323,7 +323,7 @@ public:
     virtual Sandesh* GetNext(Sandesh *);
     virtual Sandesh* Get(int idx);
 };
- 
+
 class DropStatsDumpHandler : public MockDumpHandlerBase {
 public:
     DropStatsDumpHandler() : MockDumpHandlerBase() {}
@@ -363,7 +363,7 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_interface_req *req_;
 };
@@ -384,7 +384,7 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_nexthop_req *req_;
 };
@@ -405,7 +405,7 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_mpls_req *req_;
 };
@@ -426,7 +426,7 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_flow_req *req_;
 };
@@ -466,14 +466,14 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_route_req *req_;
 };
 
 class KSyncUserSockVrfAssignContext : public KSyncUserSockContext {
 public:
-    KSyncUserSockVrfAssignContext(uint32_t seq_num, vr_vrf_assign_req *req) : 
+    KSyncUserSockVrfAssignContext(uint32_t seq_num, vr_vrf_assign_req *req) :
         KSyncUserSockContext(seq_num) {
         if (req) {
             req_ = new vr_vrf_assign_req(*req);
@@ -488,7 +488,7 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_vrf_assign_req *req_;
 };
@@ -509,7 +509,7 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_vrf_stats_req *req_;
 };
@@ -530,11 +530,11 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_vxlan_req *req_;
 };
- 
+
 class KSyncUserSockDropStatsContext : public KSyncUserSockContext {
 public:
     KSyncUserSockDropStatsContext(uint32_t seq_num, vr_drop_stats_req *req) : KSyncUserSockContext(seq_num) {
@@ -551,7 +551,7 @@ public:
         }
     }
 
-    virtual void Process(); 
+    virtual void Process();
 private:
     vr_drop_stats_req *req_;
 };

@@ -15,7 +15,7 @@ typedef std::map<std::string,
 
 struct IFMapTypenameFilter : public DBGraph::VisitorFilter {
     virtual bool VertexFilter(const DBGraphVertex *vertex) const;
- 
+
     virtual bool EdgeFilter(const DBGraphVertex *source,
                             const DBGraphVertex *target,
                             const DBGraphEdge *edge) const;
@@ -28,7 +28,7 @@ struct IFMapTypenameFilter : public DBGraph::VisitorFilter {
 
 struct IFMapTypenameWhiteList : public DBGraph::VisitorFilter {
     virtual bool VertexFilter(const DBGraphVertex *vertex) const;
- 
+
     virtual bool EdgeFilter(const DBGraphVertex *source,
                             const DBGraphVertex *target,
                             const DBGraphEdge *edge) const;

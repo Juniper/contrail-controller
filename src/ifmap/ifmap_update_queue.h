@@ -105,7 +105,7 @@ private:
     void InsertIntoListAfter(IFMapListEntry *ptr, IFMapListEntry *item);
     void EraseFromList(IFMapListEntry *item);
     void ClearAndDisposeList();
-    IFMapMarker* MarkerSplit(IFMapMarker *marker, IFMapListEntry *current, 
+    IFMapMarker* MarkerSplit(IFMapMarker *marker, IFMapListEntry *current,
                              const BitSet &msplit, bool before);
 };
 

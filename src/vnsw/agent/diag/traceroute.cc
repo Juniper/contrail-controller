@@ -18,7 +18,7 @@
 #include "diag/diag.h"
 #include "diag/traceroute.h"
 
-void 
+void
 TraceRoute::SendSandeshReply(const std::string &address,
                              const std::string &context,
                              bool more) {
@@ -269,7 +269,7 @@ void TraceRouteReq::HandleRequest() const {
             nh = rt->GetActiveNextHop();
             if (nh && nh->GetType() == NextHop::INTERFACE) {
                 // Dest VM is also local
-                TraceRoute::SendSandeshReply(agent->router_id().to_string(), 
+                TraceRoute::SendSandeshReply(agent->router_id().to_string(),
                                              context(), false);
                 return;
             }

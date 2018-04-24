@@ -14,7 +14,7 @@ class DockerAdapterTest : public ::testing::Test {
         boost::uuids::random_generator gen;
         agent_ =  new Agent;
         docker_adapter = new DockerInstanceAdapter("/bin/true", agent_);
-        
+
         properties_.virtualization_type = ServiceInstance::VRouterInstance;
         properties_.vrouter_instance_type = ServiceInstance::Docker;
         properties_.instance_id = gen();

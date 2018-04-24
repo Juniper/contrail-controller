@@ -50,7 +50,7 @@ public:
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     static uint64_t GetSeqNumber() { return seq_number_; }
-    static uint64_t NewSeqNumber(); 
+    static uint64_t NewSeqNumber();
 
     //config cleanup timer related routines
     ConfigCleanupTimer *config_cleanup_timer();
@@ -95,7 +95,7 @@ public:
     void VmiDelete(const ControllerVmiSubscribeData *entry);
     void VmiEvent(const ControllerVmiSubscribeData *entry);
     void NotifyAll(AgentXmppChannel *peer);
-    typedef std::map<boost::uuids::uuid, struct VmExportInfo *> VmMap; 
+    typedef std::map<boost::uuids::uuid, struct VmExportInfo *> VmMap;
     Agent *agent() const {return agent_;}
 
 private:

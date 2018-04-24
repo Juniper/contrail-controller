@@ -48,14 +48,14 @@ public:
     virtual void UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
         CreateNamedConf(updated_vdns);
     }
-    std::string GetZoneFileName(const std::string &vdns, 
+    std::string GetZoneFileName(const std::string &vdns,
                                 const std::string &name) {
         if (name.size() && name.at(name.size() - 1) == '.')
             return (name + "zone");
         else
             return (name + ".zone");
     }
-    std::string GetZoneFilePath(const std::string &vdns, 
+    std::string GetZoneFilePath(const std::string &vdns,
                                 const string &name) {
          return (named_config_dir_ + GetZoneFileName("", name));
     }
@@ -66,11 +66,11 @@ public:
 };
 
 static bool FileExists(const char *file) {
-	ifstream f(file);
+    ifstream f(file);
     if (f.is_open()) {
-	    return true;
-	}
-	return false;
+        return true;
+    }
+    return false;
 }
 
 static string FileRead(const string &filename) {
@@ -112,7 +112,7 @@ static bool FilesEqual(const char *file1, const char *file2) {
     buf1 = new char[size1];
     buf2 = new char[size2];
 
-    // get file data  
+    // get file data
     pbuf1->sgetn(buf1, size1);
     pbuf2->sgetn(buf2, size2);
 
@@ -180,13 +180,13 @@ TEST_F(DnsBindTest, Config) {
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
                 "controller/src/dns/testdata/named.conf.1"));
     string s1 = cfg->GetZoneFilePath(dns_domains[0]);
-    EXPECT_TRUE(FilesEqual(s1.c_str(), 
+    EXPECT_TRUE(FilesEqual(s1.c_str(),
                 "controller/src/dns/testdata/contrail.juniper.net.zone.1"));
     string s2 = cfg->GetZoneFilePath(dns_domains[1]);
-    EXPECT_TRUE(FilesEqual(s2.c_str(), 
+    EXPECT_TRUE(FilesEqual(s2.c_str(),
                 "controller/src/dns/testdata/test.example.com.zone.1"));
     s1 = cfg->GetZoneFilePath(dns_domains[3]);
-    EXPECT_TRUE(FilesEqual(s1.c_str(), 
+    EXPECT_TRUE(FilesEqual(s1.c_str(),
                 "controller/src/dns/testdata/2.1.1.in-addr.arpa.zone"));
     for (int i = 0; i < 3; i++) {
         s1 = cfg->GetZoneFilePath(dns_domains[i+4]);
@@ -210,10 +210,10 @@ TEST_F(DnsBindTest, Config) {
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
                 "controller/src/dns/testdata/named.conf.2"));
     s1 = cfg->GetZoneFilePath(dns_domains[2]);
-    EXPECT_TRUE(FilesEqual(s1.c_str(), 
+    EXPECT_TRUE(FilesEqual(s1.c_str(),
                 "controller/src/dns/testdata/contrail.juniper.com.zone.1"));
     s2 = cfg->GetZoneFilePath(dns_domains[1]);
-    EXPECT_TRUE(FilesEqual(s2.c_str(), 
+    EXPECT_TRUE(FilesEqual(s2.c_str(),
                 "controller/src/dns/testdata/test.example.com.zone.1"));
 
     boost::replace_all(content, "<config>", "<delete>");

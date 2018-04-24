@@ -72,7 +72,7 @@ struct TestPathPreferenceRouteListener : public PathPreferenceRouteListener {
 };
 
 class PathPreferenceRouteTableWalkerTest : public ::testing::Test {
-public:    
+public:
     PathPreferenceRouteTableWalkerTest() {
         vrf_name_1_ = "vrf1";
         vrf_name_2_ = "vrf2";
@@ -84,7 +84,7 @@ public:
         test_listener_ = NULL;
         agent_ = Agent::GetInstance();
     };
-    ~PathPreferenceRouteTableWalkerTest() { 
+    ~PathPreferenceRouteTableWalkerTest() {
     }
 
     void SetupEnvironment(int num_vrfs) {
@@ -110,7 +110,7 @@ public:
         client->WaitForIdle();
         test_listener_->Init();
         client->WaitForIdle();
-        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                           Agent::GetInstance()->vhost_interface()->name());
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
                 Agent::GetInstance()->local_peer(),
@@ -191,7 +191,7 @@ public:
         DelIPAM("vn3");
         client->WaitForIdle();
     }
- 
+
     std::string vrf_name_1_;
     std::string vrf_name_2_;
     std::string vrf_name_3_;

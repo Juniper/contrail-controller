@@ -205,7 +205,7 @@ protected:
         TimerImpl timer(*evm_.io_service());
         boost::system::error_code ec;
         timer.expires_from_now(timeout * 1000, ec);
-        timer.async_wait(boost::bind(&XmppIfmapTest::on_timeout, 
+        timer.async_wait(boost::bind(&XmppIfmapTest::on_timeout,
                          boost::asio::placeholders::error, &is_expired));
         while (!is_expired) {
             evm_.RunOnce();
@@ -382,7 +382,7 @@ static bool ServerIsEstablished(XmppServer *server, const string &client_name) {
     if (connection == NULL) {
         return false;
     }
-    return (connection->GetStateMcState() == xmsm::ESTABLISHED); 
+    return (connection->GetStateMcState() == xmsm::ESTABLISHED);
 }
 
 bool IsIFMapClientUnregistered(IFMapServer *ifmap_server,
@@ -522,7 +522,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     /////////////////////////////////////////////////////////
     // repeat the whole thing by creating one more connection
     /////////////////////////////////////////////////////////
- 
+
     // create the mock client
     filename = "/tmp/" + GetUserName() + "_graph_cleanup_2.output";
     vnsw_client =
@@ -2386,7 +2386,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
 
-    // Allow sender to run 
+    // Allow sender to run
     usleep(1000);
     IFMapClient *client = ifmap_server_.FindClient(client_name);
     EXPECT_TRUE(client != NULL);
@@ -2569,7 +2569,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
 
-    // Allow sender to run 
+    // Allow sender to run
     usleep(1000);
     IFMapClient *client = ifmap_server_.FindClient(client_name);
     EXPECT_TRUE(client != NULL);
@@ -2741,7 +2741,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
 
-    // Allow sender to run 
+    // Allow sender to run
     usleep(1000);
     IFMapClient *client = ifmap_server_.FindClient(client_name);
     EXPECT_TRUE(client != NULL);
@@ -2933,7 +2933,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     vnsw_client->SendConfigSubscribe();
     TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
 
-    // Allow sender to run 
+    // Allow sender to run
     usleep(1000);
     IFMapClient *client = ifmap_server_.FindClient(client_name);
     EXPECT_TRUE(client != NULL);
@@ -3066,7 +3066,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     vm_uuid_mapper_->PrintAllNodeUuidMappedEntries();
 
     // New cycle - the nodes do not exist right now
-    
+
     // Read from config first
     FeedEventsJson(); // "controller/src/ifmap/testdata/vr_3vm_add.xml"
 
@@ -3099,7 +3099,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     vm_uuid_mapper_->PrintAllUuidMapperEntries();
     vm_uuid_mapper_->PrintAllNodeUuidMappedEntries();
 
-    // Add the vm-sub 
+    // Add the vm-sub
     vnsw_client->SendVmConfigSubscribe("2d308482-c7b3-4e05-af14-e732b7b50117");
     usleep(1000);
 
@@ -3264,7 +3264,7 @@ TEST_F(XmppIfmapTest, Bug788) {
     TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 3);
 
     // Simulate the condition where we get a link delete. Exporter has finished
-    // processing it and before the sender sends the update, we process a 
+    // processing it and before the sender sends the update, we process a
     // client-delete
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
     EXPECT_EQ(ifmap_server_.GetIndexMapSize(), 1);

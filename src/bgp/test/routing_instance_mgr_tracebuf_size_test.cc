@@ -87,7 +87,7 @@ protected:
 TEST_F(RoutingInstanceMgrTraceBufferSizeTest,
         RoutingInstanceTraceBufferSize_Test) {
     bool   set_log_disable = false;
-    size_t dormant_tracebuf_capacity = 
+    size_t dormant_tracebuf_capacity =
         GetRoutingInstanceDormantTraceBufferCapacity();
 
     TASK_UTIL_EXPECT_EQ(0, dormant_tracebuf_capacity);
@@ -124,7 +124,7 @@ TEST_F(RoutingInstanceMgrTraceBufferSizeTest,
     DeleteRoutingInstance(ri2_cfg.get());
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
-    TASK_UTIL_EXPECT_EQ((active_tracebuf_count - 2), 
+    TASK_UTIL_EXPECT_EQ((active_tracebuf_count - 2),
                               GetRoutingInstanceActiveTraceBufSize());
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
@@ -146,7 +146,7 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
 
-    // Intialize the environmental variables for this test prior to 
+    // Intialize the environmental variables for this test prior to
     // the creation of the Routing Instance Manager
 
     char   value[100];

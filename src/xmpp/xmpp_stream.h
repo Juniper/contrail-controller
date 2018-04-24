@@ -24,7 +24,7 @@ public:
         };
 
         XmppStreamMsgType type;
-        
+
     };
 };
 

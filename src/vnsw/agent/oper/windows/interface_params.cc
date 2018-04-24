@@ -190,7 +190,7 @@ static boost::optional<InterfaceOsParams> GetRealIdsFromOptionalLuid(boost::opti
 
     /* We assume that interface is UP */
     os_params.os_oper_state_ = true;
-    
+
     return os_params;
 }
 

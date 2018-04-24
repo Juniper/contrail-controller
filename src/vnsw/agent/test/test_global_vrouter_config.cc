@@ -73,7 +73,7 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
     EXPECT_TRUE(Agent::GetInstance()->vxlan_network_identifier_mode() ==
                 Agent::AUTOMATIC);
 
-    //Set to configured and then delete node 
+    //Set to configured and then delete node
     str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
     client->WaitForIdle();
@@ -91,18 +91,18 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
 TEST_F(CfgTest, TunnelType_test) {
     client->Reset();
     ASSERT_TRUE(TunnelType::DefaultType() == default_tunnel_type_);
-    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) == 
+    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) ==
                 default_tunnel_type_);
     AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
     client->WaitForIdle();
 
-    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) == 
+    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) ==
                 TunnelType::MPLS_UDP);
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
     ASSERT_TRUE(TunnelType::DefaultType() == default_tunnel_type_);
-    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) == 
+    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) ==
                 default_tunnel_type_);
 
     AddEncapList("MPLSoUDP", "VXLAN", "");

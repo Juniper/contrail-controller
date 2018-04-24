@@ -39,16 +39,16 @@ public:
         DEL
     };
 
-    Vlan(uint16_t tag, uint16_t dep_tag, size_t index) : 
+    Vlan(uint16_t tag, uint16_t dep_tag, size_t index) :
         KSyncEntry(index), tag_(tag), dep_tag_(dep_tag), dep_vlan_(NULL),
         op_(INIT), all_delete_state_comp_(true) { };
 
-    Vlan(uint16_t tag) : 
+    Vlan(uint16_t tag) :
         KSyncEntry(), tag_(tag), dep_tag_(0), dep_vlan_(NULL), op_(TEMP),
         all_delete_state_comp_(true) { };
 
-    Vlan(uint16_t tag, uint16_t dep_tag) : 
-        KSyncEntry(kInvalidIndex), tag_(tag), dep_tag_(dep_tag), 
+    Vlan(uint16_t tag, uint16_t dep_tag) :
+        KSyncEntry(kInvalidIndex), tag_(tag), dep_tag_(dep_tag),
         dep_vlan_(NULL), op_(TEMP),
         all_delete_state_comp_(true) { };
 
@@ -56,7 +56,7 @@ public:
         if (GetState() == KSyncEntry::FREE_WAIT) {
             free_wait_count_++;
         }
-        
+
         if (op_ == TEMP)
             return;
 
@@ -482,14 +482,14 @@ TEST_F(TestUT, add_defer_dep_reeval) {
     EXPECT_EQ(vlan3->GetRefCount(), 2);
     EXPECT_EQ(vlan1->GetDepTag(), 0xF03);
     //Temp Object corresponding to 0XF02 should be destroyed
-    //Verify this by using free_wait_count_ 
+    //Verify this by using free_wait_count_
     EXPECT_EQ(Vlan::delete_count_, 0);
     EXPECT_EQ(Vlan::free_wait_count_, 1);
     vlan_table_->Delete(vlan1);
     vlan_table_->Delete(vlan3);
 }
 
-    
+
 // ADD_DEFER->del_req->DEL_DEFER
 TEST_F(TestUT, add_defer_to_del_defer) {
     Vlan *vlan1;
@@ -508,7 +508,7 @@ TEST_F(TestUT, add_defer_to_del_defer) {
     EXPECT_EQ(Vlan::free_wait_count_, 3);
 }
 
-//IN_SYNC->CHANGE_DEFER->IN_SYNC     
+//IN_SYNC->CHANGE_DEFER->IN_SYNC
 TEST_F(TestUT, change_defer1) {
     Vlan *vlan1;
     Vlan *vlan2;
@@ -525,7 +525,7 @@ TEST_F(TestUT, change_defer1) {
     EXPECT_EQ(Vlan::delete_count_, 2);
 }
 
-//IN_SYNC->CHANGE_DEFER->FREE_WAIT     
+//IN_SYNC->CHANGE_DEFER->FREE_WAIT
 TEST_F(TestUT, change_defer2) {
     Vlan *vlan1;
 
@@ -580,7 +580,7 @@ TEST_F(TestUT, double_change_defer) {
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
     EXPECT_EQ(Vlan::delete_count_, 2);
     EXPECT_EQ(Vlan::free_wait_count_, 3);
-}   
+}
 
 // ADD_DEFER->del_req->TEMP->IN_SYNC
 TEST_F(TestUT, add_defer_to_temp) {
@@ -594,7 +594,7 @@ TEST_F(TestUT, add_defer_to_temp) {
     EXPECT_EQ(vlan1->GetRefCount(), 2);
     vlan_table_->Delete(vlan2);
     EXPECT_EQ(vlan2->GetState(), KSyncEntry::TEMP);
-    // The object pointed to by 0xF03 (in TEMP state) will not be 
+    // The object pointed to by 0xF03 (in TEMP state) will not be
     // destroyed/removed even though delete is invoked on vlan2
     // because vlan2 is just moved to TEMP state and it still holds
     // pointer to 0xF03
@@ -627,7 +627,7 @@ TEST_F(TestUT, refcount_verify_for_temp) {
     EXPECT_EQ(vlan2->GetState(), KSyncEntry::TEMP);
     EXPECT_EQ(vlan2->GetRefCount(), 3);
     EXPECT_EQ(Vlan::free_wait_count_, 0);
-    vlan3 = AddVlan(0xF03, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 1); 
+    vlan3 = AddVlan(0xF03, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 1);
     EXPECT_EQ(vlan3->GetRefCount(), 2);
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan3->GetRefCount(), 1);
@@ -706,7 +706,7 @@ TEST_F(TestUT, async_add_defer) {
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
     vlan_table_->NetlinkAck(vlan2, KSyncEntry::DEL_ACK);
-    
+
     EXPECT_EQ(Vlan::delete_count_, 2);
     EXPECT_EQ(Vlan::free_wait_count_, 2);
 }
@@ -721,7 +721,7 @@ TEST_F(TestUT, temp_del_req) {
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
     EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
-    //Add a reference 
+    //Add a reference
     Vlan *vlan2 = AddVlan(0x2, 0x1, KSyncEntry::ADD_DEFER, Vlan::INIT, 1);
 
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
@@ -762,7 +762,7 @@ TEST_F(TestUT, renew_dependency_reval) {
 
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::IN_SYNC);
     EXPECT_EQ(vlan2->GetState(), KSyncEntry::IN_SYNC);
- 
+
     vlan_table_->Delete(vlan2);
     vlan_table_->Delete(vlan1);
     vlan_table_->NetlinkAck(vlan2, KSyncEntry::DEL_ACK);

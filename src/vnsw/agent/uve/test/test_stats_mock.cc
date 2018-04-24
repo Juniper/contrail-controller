@@ -231,7 +231,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
                     f2_rev->flow_handle());
     client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
                         "vn5", "vn5", f2_rev->flow_handle(),
                         flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
@@ -300,7 +300,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
                     f1_rev->flow_handle());
     client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
                         "vn5", "vn5", f1_rev->flow_handle(),
                         flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
@@ -533,8 +533,8 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
     client->WaitForIdle(3);
 
-    EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0)); 
-    EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0)); 
+    EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0));
+    EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0));
 
     //Change the stats
     KSyncSockTypeMap::IfStatsUpdate(test0->id(), 1, 50, 0, 1, 20, 0);
@@ -549,8 +549,8 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     client->WaitForIdle(3);
 
     //Verify the updated flow stats
-    EXPECT_TRUE(VmPortStatsMatch(test0, 1, 50, 1, 20)); 
-    EXPECT_TRUE(VmPortStatsMatch(test1, 1, 50, 1, 20)); 
+    EXPECT_TRUE(VmPortStatsMatch(test0, 1, 50, 1, 20));
+    EXPECT_TRUE(VmPortStatsMatch(test1, 1, 50, 1, 20));
 
     //Reset the stats so that repeat of this test case works
     KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
@@ -571,7 +571,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     30, 40, hash_id);
     client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, false, 
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
     //Invoke FlowStatsCollector to update the stats
@@ -599,7 +599,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
                     f1_rev->flow_handle());
     client->WaitForIdle(10);
     client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, true, 
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, true,
                         "vn5", "vn5", f1_rev->flow_handle(),
                         flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
@@ -636,7 +636,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     client->WaitForIdle(10);
 
     // A short flow would be created with Source VN as "vn5" and dest-vn as "Unknown".
-    // Not checking for creation of short flow because it will get removed during 
+    // Not checking for creation of short flow because it will get removed during
     // the next flow-age evaluation cycle
 
     //Invoke FlowStatsCollector to update the stats
@@ -801,7 +801,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, match_req));
     EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, match_req));
 
-    //Cleanup-Remove the VRFs added 
+    //Cleanup-Remove the VRFs added
     VrfDelReq("vrf41");
     client->WaitForIdle();
     WAIT_FOR(100, 10000, (VrfFind("vrf41")== false));

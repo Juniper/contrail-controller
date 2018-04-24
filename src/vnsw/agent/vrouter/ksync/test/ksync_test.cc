@@ -37,7 +37,7 @@
 #include "vrouter/ksync/sandesh_ksync.h"
 #include "vrouter/ksync/test/ksync_test.h"
 
-KSyncTest::KSyncTest(Agent *agent) 
+KSyncTest::KSyncTest(Agent *agent)
     : KSync(agent) {
 }
 

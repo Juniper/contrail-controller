@@ -43,7 +43,7 @@ DBEntryBase::KeyPtr VmEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void VmEntry::SetKey(const DBRequestKey *key) { 
+void VmEntry::SetKey(const DBRequestKey *key) {
     const VmKey *k = static_cast<const VmKey *>(key);
     uuid_ = k->uuid_;
 }

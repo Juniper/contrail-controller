@@ -84,14 +84,14 @@ public:
         }
     }
 
-    uint32_t GetItfCount() { 
+    uint32_t GetItfCount() {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_count_; 
+        return itf_count_;
     }
 
-    std::size_t GetItfId(int index) { 
+    std::size_t GetItfId(int index) {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_id_[index]; 
+        return itf_id_[index];
     }
 
     void CheckSandeshResponse(Sandesh *sandesh, int count) {
@@ -198,10 +198,10 @@ TEST_F(PktTraceTest, TraceTest) {
         {"7.8.9.0", 24, "7.8.9.12", true},
     };
 
-    CreateVmportEnv(input, 2, 0); 
+    CreateVmportEnv(input, 2, 0);
     client->WaitForIdle();
     client->Reset();
-    AddIPAM("vn1", ipam_info, 2); 
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
 
     ClearAllInfo *clear_req1 = new ClearAllInfo();

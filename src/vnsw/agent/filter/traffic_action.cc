@@ -32,7 +32,7 @@ bool TrafficAction::IsDrop() const {
 std::string TrafficAction::ActionToString(enum Action at)
 {
     switch(at) {
-        case ALERT: 
+        case ALERT:
             return kActionAlertStr;
         case DENY:
             return("deny");

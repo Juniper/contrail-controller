@@ -50,13 +50,13 @@ public:
 
     const char *FromOffset() {
         string::const_iterator end = buf_.end();
-        tag_ = string(offset_, end); 
+        tag_ = string(offset_, end);
         return tag_.c_str();
     }
 
     const char *Buf() {
         string::const_iterator st = buf_.begin();
-        tag_ = string(st, offset_); 
+        tag_ = string(st, offset_);
         return tag_.c_str();
     }
 
@@ -87,11 +87,11 @@ TEST_F(XmppRegexTest, Connection) {
 
     // basic test...
     regex_->SetString(str);
-    
+
     // full match
     int ret = regex_->MatchTest();
     EXPECT_TRUE(ret == 0);
-    ASSERT_STREQ(regex_->TagStr(0), "<iq"); 
+    ASSERT_STREQ(regex_->TagStr(0), "<iq");
     //std::cout << " Matching string : " << regex_->TagStr(0) << std::endl;
 
     // expect no match

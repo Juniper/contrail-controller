@@ -277,7 +277,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
 
     UpdateReverseFlow(flow, rflow);
 
-    // Add the forward flow after adding the reverse flow first to avoid 
+    // Add the forward flow after adding the reverse flow first to avoid
     // following sequence
     // 1. Agent adds forward flow
     // 2. vrouter releases the packet
@@ -839,7 +839,7 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         } else {
             flow->MakeShortFlow(FlowEntry::SHORT_NO_MIRROR_ENTRY);
             flow->ResetRetryCount();
-        } 
+        }
 
         UpdateKSync(flow, true);
         break;

@@ -75,12 +75,12 @@ public:
         }
     }
 
-    uint32_t GetItfCount() { 
+    uint32_t GetItfCount() {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_count_; 
+        return itf_count_;
     }
 
-    std::size_t GetItfId(int index) { 
+    std::size_t GetItfId(int index) {
         tbb::mutex::scoped_lock lock(mutex_);
         return itf_id_[index];
     }
@@ -343,10 +343,10 @@ TEST_F(IcmpTest, IcmpErrorTest) {
         {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
-    CreateVmportEnv(input, 1, 0); 
+    CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
     client->Reset();
-    AddIPAM("vn1", ipam_info, 1); 
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[0].gw)), TYPE_ERROR);

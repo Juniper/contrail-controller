@@ -13,9 +13,9 @@
 
 class Route : public DBEntry {
 public:
-    typedef boost::intrusive::member_hook<Path, 
-            boost::intrusive::list_member_hook<>, 
-            &Path::node_> PathListMember; 
+    typedef boost::intrusive::member_hook<Path,
+            boost::intrusive::list_member_hook<>,
+            &Path::node_> PathListMember;
 
     typedef boost::intrusive::list<Path, PathListMember> PathList;
     typedef bool (*Compare)(const Path &path1, const Path &path2);

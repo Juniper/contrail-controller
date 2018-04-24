@@ -18,8 +18,8 @@ struct MatchPolicy;
 typedef map<int, int> FlowRouteRefMap;
 
 struct PktControlInfo {
-    PktControlInfo() : 
-        vrf_(NULL), intf_(NULL), rt_(NULL), vn_(NULL), vm_(NULL), 
+    PktControlInfo() :
+        vrf_(NULL), intf_(NULL), rt_(NULL), vn_(NULL), vm_(NULL),
         vlan_nh_(false), vlan_tag_(0) { }
     virtual ~PktControlInfo() { }
 
@@ -56,7 +56,7 @@ public:
         flow_entry(NULL),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
         alias_ip_flow(false), ttl(0), underlay_flow(false),
-        src_policy_vrf(-1), dst_policy_vrf(-1), port_allocated(false), 
+        src_policy_vrf(-1), dst_policy_vrf(-1), port_allocated(false),
         overlay_route_not_found(false) {
     }
 

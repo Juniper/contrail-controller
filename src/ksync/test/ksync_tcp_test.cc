@@ -42,10 +42,10 @@ class LocalVrouter {
 public:
    LocalVrouter(io_service &io_service) : io_service_(io_service),
    acceptor_(NULL), socket_(NULL) {}
-   
+
    ~LocalVrouter() {}
 
-    void Cleanup() {    
+    void Cleanup() {
         socket_->close();
         delete socket_;
         socket_ = NULL;
@@ -54,7 +54,7 @@ public:
         delete acceptor_;
         acceptor_ = NULL;
     }
-   
+
    void ProcessData() {
        char data[4096];
        boost::system::error_code error;
@@ -92,7 +92,7 @@ public:
    void Join() {
        assert(pthread_join(thread_id_, NULL) == 0);
    }
- 
+
 private:
    boost::asio::io_service &io_service_;
    tcp::acceptor *acceptor_;
@@ -171,10 +171,10 @@ private:
 
 class VlanKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    VlanKSyncEntry(const VlanKSyncEntry *entry) : 
+    VlanKSyncEntry(const VlanKSyncEntry *entry) :
         KSyncNetlinkDBEntry(), tag_(entry->tag_) { };
 
-    VlanKSyncEntry(const Vlan *vlan) : 
+    VlanKSyncEntry(const Vlan *vlan) :
         KSyncNetlinkDBEntry(), tag_(vlan->GetTag()) { };
     VlanKSyncEntry(const uint16_t tag) :
         KSyncNetlinkDBEntry(), tag_(tag) { };

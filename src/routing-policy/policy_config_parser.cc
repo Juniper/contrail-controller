@@ -31,13 +31,13 @@ static bool ParseTerm(const xml_node &xterm, PolicyTerm *term) {
     term->term_name = name.value();
 
     xml_node xaction;
-    xml_node xmatch = xterm.child("from"); 
+    xml_node xmatch = xterm.child("from");
 
     if (xmatch) {
         term->match.XmlParse(xmatch);
         xaction = xmatch.next_sibling("then");
     } else {
-        xaction = xterm.child("then"); 
+        xaction = xterm.child("then");
     }
 
     term->action.XmlParse(xaction);
@@ -55,7 +55,7 @@ static bool ParsePolicy(const xml_node &node, PolicyMap *policy) {
         policy_terms.push_back(term_data);
     }
 
-    policy->insert(std::make_pair(name.value(), policy_terms)); 
+    policy->insert(std::make_pair(name.value(), policy_terms));
     return true;
 }
 

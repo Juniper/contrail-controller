@@ -18,10 +18,10 @@ class PolicyGraph : public PolicyGraphBase {
 public:
     typedef PolicyGraphBase::edge_descriptor Edge;
     typedef PolicyGraphBase::vertex_descriptor Vertex;
-    typedef boost::intrusive::member_hook<PolicyGraphVertex, 
-            boost::intrusive::list_member_hook<>, 
-            &PolicyGraphVertex::open_vertex_> OpenVertexListMember; 
-    typedef boost::intrusive::list<PolicyGraphVertex, 
+    typedef boost::intrusive::member_hook<PolicyGraphVertex,
+            boost::intrusive::list_member_hook<>,
+            &PolicyGraphVertex::open_vertex_> OpenVertexListMember;
+    typedef boost::intrusive::list<PolicyGraphVertex,
             OpenVertexListMember> OpenVertexList;
     typedef OpenVertexList::iterator OpenVertexIterator;
 
@@ -34,8 +34,8 @@ public:
     void Unlink(PolicyGraphVertex *lhs, PolicyGraphVertex *rhs);
 
     void SetEdgeProperty(PolicyGraphEdge *edge);
-    
-    PolicyGraphEdge *GetEdge(const PolicyGraphVertex *src, 
+
+    PolicyGraphEdge *GetEdge(const PolicyGraphVertex *src,
                              const PolicyGraphVertex *tgt);
 
     const graph_t *graph() const { return &root_; }
@@ -63,18 +63,18 @@ public:
 
     void RemoveOpenVertex(PolicyGraphVertex *vertex);
 
-    typedef std::pair<PolicyGraphVertex *, 
+    typedef std::pair<PolicyGraphVertex *,
             PolicyGraphEdge *> OpenVertexPathPair;
     class open_vertex_reverse_iterator : public boost::iterator_facade<
-        open_vertex_reverse_iterator, OpenVertexPathPair, 
+        open_vertex_reverse_iterator, OpenVertexPathPair,
         boost::forward_traversal_tag, OpenVertexPathPair> {
     public:
-        open_vertex_reverse_iterator() 
+        open_vertex_reverse_iterator()
             : graph_(NULL), open_(NULL) {
         }
 
-        open_vertex_reverse_iterator(PolicyGraph *graph, 
-                                     PolicyGraphVertex *start) 
+        open_vertex_reverse_iterator(PolicyGraph *graph,
+                                     PolicyGraphVertex *start)
             : graph_(graph), open_(start) {
         }
 

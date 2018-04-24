@@ -176,7 +176,7 @@ public:
 
     void DeleteRemoteRoute(const char *vrf, const char *ip, uint8_t plen) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
+        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_,
                 vrf, addr, plen,
                 new ControllerVmRoute(static_cast<BgpPeer *>(peer_)));
         client->WaitForIdle();
@@ -241,7 +241,7 @@ public:
         flow_info->Add(pkt, &in, &out);
         client->WaitForIdle();
     }
-    
+
     static int GetFlowPassCount(int total_flows, int age_time_usecs) {
         return 0;
     }

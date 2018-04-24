@@ -5,7 +5,7 @@
 #ifndef vnsw_agent_gmp_map_h
 #define vnsw_agent_gmp_map_h
 
-typedef enum { 
+typedef enum {
     MCAST_AF_IPV4,
     MCAST_AF_FIRST = MCAST_AF_IPV4,
     MCAST_AF_IPV6,

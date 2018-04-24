@@ -57,7 +57,7 @@ public:
     Action action() const {return action_;}
     TrafficActionType action_type() const {return action_type_;}
     static std::string ActionToString(enum Action at);
-    virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
+    virtual void SetActionSandeshData(std::vector<ActionStr> &actions);
     virtual bool Compare(const TrafficAction &rhs) const = 0;
     bool operator==(const TrafficAction &rhs) const {
         if (action_type_ != rhs.action_type_) {
@@ -89,7 +89,7 @@ private:
 
 class MirrorAction : public TrafficAction {
 public:
-    MirrorAction(std::string analyzer_name, std::string vrf_name, 
+    MirrorAction(std::string analyzer_name, std::string vrf_name,
                  IpAddress ip, uint16_t port, std::string encap) :
          TrafficAction(MIRROR, MIRROR_ACTION), analyzer_name_(analyzer_name),
          vrf_name_(vrf_name), m_ip_(ip), port_(port), encap_(encap) {}
@@ -99,7 +99,7 @@ public:
     std::string vrf_name() {return vrf_name_;}
     std::string GetAnalyzerName() {return analyzer_name_;}
     std::string GetEncap() {return encap_;}
-    virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
+    virtual void SetActionSandeshData(std::vector<ActionStr> &actions);
     virtual bool Compare(const TrafficAction &rhs) const;
 private:
     std::string analyzer_name_;

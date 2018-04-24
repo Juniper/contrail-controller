@@ -144,7 +144,7 @@ private:
 class AgentUtXmlAcl : public AgentUtXmlConfig {
 public:
     struct Ace {
-        Ace() : 
+        Ace() :
             src_sg_(0), dst_sg_(0), src_vn_(""), dst_vn_(""), src_ip_(""),
             src_ip_plen_(0), dst_ip_(""), dst_ip_plen_(0), proto_(0),
             sport_begin_(-1), sport_end_(-1), dport_begin_(-1), dport_end_(-1) {

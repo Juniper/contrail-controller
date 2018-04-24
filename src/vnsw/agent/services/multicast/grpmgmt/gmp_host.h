@@ -209,8 +209,8 @@
  * after the callback is made.
  */
 typedef void (*gmph_soft_detach_callback)(gmp_proto proto,
-					  gmpx_intf_id intf_id,
-					  void *context);
+                      gmpx_intf_id intf_id,
+                      void *context);
 
 /*
  * External references
@@ -218,27 +218,27 @@ typedef void (*gmph_soft_detach_callback)(gmp_proto proto,
 extern gmp_client_id gmph_register(gmp_instance_id instance_id);
 extern void gmph_detach(gmp_client_id client_id);
 extern int gmph_listen(gmp_client_id client_id, gmpx_intf_id intf_id,
-		       const u_int8_t *group, gmp_filter_mode filter_mode,
-		       gmp_addr_thread *addr_thread);
+               const u_int8_t *group, gmp_filter_mode filter_mode,
+               gmp_addr_thread *addr_thread);
 extern gmp_instance_id gmph_create_instance(gmp_proto proto, void *context);
 extern void gmph_destroy_instance(gmp_instance_id instance_id);
 extern int gmph_set_intf_version(gmp_instance_id instance_id,
-				 gmpx_intf_id intf_id, u_int version);
+                 gmpx_intf_id intf_id, u_int version);
 extern int gmph_attach_intf(gmp_instance_id instance_id, gmpx_intf_id intf_id);
 extern int gmph_detach_intf(gmp_instance_id instance_id, gmpx_intf_id intf_id);
 extern int gmph_detach_intf_soft(gmp_instance_id instance_id,
-				 gmpx_intf_id intf_id,
-				 gmph_soft_detach_callback callback,
-				 void *context);
+                 gmpx_intf_id intf_id,
+                 gmph_soft_detach_callback callback,
+                 void *context);
 extern int gmph_leave_all_groups(gmp_client_id client_id, gmpx_intf_id intf_id);
 extern void gmph_send_intf_groups(gmp_instance_id instance_id,
-				  gmpx_intf_id intf_id);
+                  gmpx_intf_id intf_id);
 extern void gmph_set_intf_passive(gmp_instance_id instance_id,
-				  gmpx_intf_id intf_id, boolean passive);
+                  gmpx_intf_id intf_id, boolean passive);
 extern boolean gmph_intf_has_channel(gmp_instance_id instance_id,
-				     gmpx_intf_id intf_id,
-				     const u_int8_t *source_addr,
-				     const u_int8_t *group_addr,
-				     boolean exact);
+                     gmpx_intf_id intf_id,
+                     const u_int8_t *source_addr,
+                     const u_int8_t *group_addr,
+                     boolean exact);
 
 #endif /* __GMP_HOST_H__ */

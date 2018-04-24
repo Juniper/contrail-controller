@@ -52,7 +52,7 @@ PolicyGraphVertex *PolicyGraphVertex::edge_iterator::target() const {
 PolicyGraphVertex *PolicyGraphVertex::parent_vertex(PolicyGraph *graph) {
     assert(boost::in_degree(vertex_id_, *graph->graph()) == 1);
     PolicyGraphBase::inv_adjacency_iterator parentIt, parentEnd;
-    boost::tie(parentIt, parentEnd) 
+    boost::tie(parentIt, parentEnd)
         = boost::inv_adjacent_vertices(vertex_id_, *graph->graph());
     return graph->vertex_data(*parentIt);
 }

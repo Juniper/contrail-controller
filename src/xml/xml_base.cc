@@ -15,8 +15,8 @@ void XmppXmlImplFactory::ReleaseXmlImpl(XmlBase *tmp) {
     delete tmp;
 }
 
-XmppXmlImplFactory *XmppXmlImplFactory::Instance() { 
-    if (Inst_ == NULL) 
+XmppXmlImplFactory *XmppXmlImplFactory::Instance() {
+    if (Inst_ == NULL)
         Inst_ = new XmppXmlImplFactory();
     return Inst_;
 }

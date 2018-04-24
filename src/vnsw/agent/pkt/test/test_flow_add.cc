@@ -106,7 +106,7 @@ TEST_F(FlowTest, FlowAdd_2) {
         {
             TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
                     remote_router_ip, flow0->label()),
-            { 
+            {
                 new VerifyVn("vn5", "vn5"),
                 new VerifyVrf("vrf5", "vrf5")
             }
@@ -237,7 +237,7 @@ TEST_F(FlowTest, FlowAdd_4) {
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5",
                     remote_router_ip, flow0->label()),
-            { 
+            {
                 new VerifyVn("vn3", "vn5"),
             }
         },
@@ -267,7 +267,7 @@ TEST_F(FlowTest, FlowAdd_4) {
         }
     };
 
-    CreateFlow(flow, 4); 
+    CreateFlow(flow, 4);
     client->WaitForIdle();
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
@@ -297,7 +297,7 @@ TEST_F(FlowTest, FlowAdd_5) {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
-            { 
+            {
                 new VerifyVn("vn5", "vn5"),
             }
         }
@@ -334,7 +334,7 @@ TEST_F(FlowTest, FlowAdd_6) {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, "vrf5",
                     flow0->id()),
-            { 
+            {
                 new VerifyVn("vn5", "vn5"),
             }
         }
@@ -344,7 +344,7 @@ TEST_F(FlowTest, FlowAdd_6) {
         {
             TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, "vrf5",
                     flow1->id()),
-            { 
+            {
                 new VerifyVn("vn5", "vn5"),
             }
         }
@@ -366,7 +366,7 @@ TEST_F(FlowTest, FlowAdd_6) {
     CreateFlow(rev_flow, 1);
     //Send request for reverse flow again
     CreateFlow(rev_flow, 1);
-    //Send request for forward flow again 
+    //Send request for forward flow again
     EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count for VN "vn5" does not change
@@ -533,10 +533,10 @@ TEST_F(FlowTest, DISABLED_Flow_entry_reuse) {
                     flow0->id(), 1002),
             {}
         }
-    };  
+    };
     CreateFlow(flow, 1);
     EXPECT_TRUE(FlowTableWait(2));
-    FlowEntry *fe = 
+    FlowEntry *fe =
         FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, remote_vm1_ip, 1, 0, 0,
                 GetFlowKeyNH(input[0].intf_id));
     EXPECT_TRUE(fe->flow_handle() == 1001);
@@ -646,7 +646,7 @@ TEST_F(FlowTest, WaitForTraffic) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = 
+    client =
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10), (3 * 60 * 1000));
     if (vm.count("config")) {
         eth_itf = Agent::GetInstance()->fabric_interface_name();

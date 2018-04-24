@@ -125,19 +125,19 @@ void IFMapXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 }
 
 IFMapXmppChannel::IFMapXmppChannel(XmppChannel *channel, IFMapServer *server,
-        IFMapChannelManager *ifmap_channel_manager) 
+        IFMapChannelManager *ifmap_channel_manager)
     : peer_id_(xmps::CONFIG), channel_(channel), ifmap_server_(server),
       ifmap_channel_manager_(ifmap_channel_manager),
       ifmap_client_(new IFMapSender(this)), client_added_(false),
       channel_name_(channel->connection()->ToUVEKey()) {
 
     ifmap_client_->SetName(channel->connection()->ToUVEKey());
-    channel_->RegisterReceive(xmps::CONFIG, 
-                              boost::bind(&IFMapXmppChannel::ReceiveUpdate, 
+    channel_->RegisterReceive(xmps::CONFIG,
+                              boost::bind(&IFMapXmppChannel::ReceiveUpdate,
                                           this, _1));
 }
 
-IFMapXmppChannel::~IFMapXmppChannel() { 
+IFMapXmppChannel::~IFMapXmppChannel() {
     delete ifmap_client_;
     // Enqueue Unregister and process in the context of bgp::Config task
     channel_->UnRegisterWriteReady(xmps::CONFIG);
@@ -282,7 +282,7 @@ void IFMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
 
         const char* const vr_string = "virtual-router:";
         const char* const vm_string = "virtual-machine:";
-        if ((iq->iq_type.compare("set") == 0) && 
+        if ((iq->iq_type.compare("set") == 0) &&
             (iq->action.compare("subscribe") == 0)) {
             if (iq->node.compare(0, strlen(vr_string), vr_string) == 0) {
                 bool valid_message = false;
@@ -305,7 +305,7 @@ void IFMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                                 iq->action, iq->node, channel_name());
             }
         }
-        if ((iq->iq_type.compare("set") == 0) && 
+        if ((iq->iq_type.compare("set") == 0) &&
             (iq->action.compare("unsubscribe") == 0)) {
             if (iq->node.compare(0, strlen(vm_string), vm_string) == 0) {
                 bool valid_message = false;
@@ -334,7 +334,7 @@ uint64_t IFMapXmppChannel::msgs_sent() const {
 
 // IFMapClient Manager routines
 IFMapChannelManager::IFMapChannelManager(XmppServer *xmpp_server,
-                                         IFMapServer *ifmap_server) 
+                                         IFMapServer *ifmap_server)
     : xmpp_server_(xmpp_server), ifmap_server_(ifmap_server),
       config_task_work_queue_(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
@@ -374,7 +374,7 @@ IFMapXmppChannel *IFMapChannelManager::FindChannel(XmppChannel *channel) {
 IFMapXmppChannel *IFMapChannelManager::FindChannel(std::string tostring) {
     tbb::mutex::scoped_lock lock(channel_map_mutex_);
     BOOST_FOREACH(ChannelMap::value_type &i, channel_map_) {
-        if (i.second->ToString() == tostring) 
+        if (i.second->ToString() == tostring)
             return i.second;
     }
     return NULL;
@@ -442,7 +442,7 @@ void IFMapChannelManager::EnqueueChannelEvent(XCEvent event,
     scheduler->Enqueue(proc_task);
 }
 
-// This runs in the context of the "xmpp::StateMachine" 
+// This runs in the context of the "xmpp::StateMachine"
 void IFMapChannelManager::IFMapXmppChannelEventCb(XmppChannel *channel,
                                                   xmps::PeerState state) {
     if (state == xmps::READY) {

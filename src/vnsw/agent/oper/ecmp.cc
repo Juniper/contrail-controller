@@ -147,7 +147,7 @@ bool EcmpData::EcmpAddPath(AgentRoute *rt) {
 
     bool ret = false;
     if (count == 2 && ecmp_path_ == NULL) {
-        // This is second path being added, make ECMP 
+        // This is second path being added, make ECMP
         AllocateEcmpPath(rt, vm_port_path);
         ret = true;
     } else if (count > 2) {
@@ -274,7 +274,7 @@ bool EcmpData::EcmpDeletePath(AgentRoute *rt) {
     // Composite-NH is made from LOCAL_VM_PORT_PEER, count number of paths
     // with LOCAL_VM_PORT_PEER
     int count = 0;
-    for(Route::PathList::const_iterator it = rt->GetPathList().begin(); 
+    for(Route::PathList::const_iterator it = rt->GetPathList().begin();
         it != rt->GetPathList().end(); it++) {
         const AgentPath *it_path =
             static_cast<const AgentPath *>(it.operator->());

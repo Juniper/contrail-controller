@@ -517,7 +517,7 @@ TEST_F(IFMapUpdateSenderTest, MarkerMergeTest) {
                           queue_->tail_marker());
     TASK_UTIL_EXPECT_TRUE(queue_->GetMarker(c2.index()) ==
                           queue_->tail_marker());
- 
+
     // Move marker for c2 (tail_marker) after u3
     marker = queue_->GetMarker(c2.index());
     ASSERT_TRUE(marker != NULL);
@@ -1054,7 +1054,7 @@ TEST_F(IFMapUpdateSenderTest, MarkerMergeTest2) {
     TASK_UTIL_EXPECT_EQ(8, queue_->size()); // same as before, just moving TM
     TASK_UTIL_EXPECT_TRUE(queue_->GetMarker(c3.index()) ==
                           queue_->tail_marker());
- 
+
     queue_->PrintQueue();
 
     // c0/c2 will block after sending one node. c1/c3 will not block

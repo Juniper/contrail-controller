@@ -695,7 +695,7 @@ void DhcpHandlerBase::FindDomainName(const IpAddress &vm_addr) {
         config_.valid_time != (uint32_t) -1)
         return;
 
-    if (!vm_itf_->vn() || 
+    if (!vm_itf_->vn() ||
         !vm_itf_->vn()->GetIpamData(vm_addr, &ipam_name_, &ipam_type_)) {
         DHCP_BASE_TRACE("Ipam data not found");
         return;
@@ -709,8 +709,8 @@ void DhcpHandlerBase::FindDomainName(const IpAddress &vm_addr) {
 
     if (config_.domain_name_.size() &&
         config_.domain_name_ != vdns_type_.domain_name) {
-        DHCP_BASE_TRACE("Client domain " << config_.domain_name_ << 
-                        " doesnt match with configured domain " << 
+        DHCP_BASE_TRACE("Client domain " << config_.domain_name_ <<
+                        " doesnt match with configured domain " <<
                         vdns_type_.domain_name);
     }
     std::size_t pos;
@@ -718,7 +718,7 @@ void DhcpHandlerBase::FindDomainName(const IpAddress &vm_addr) {
         ((pos = config_.client_name_.find('.', 0)) != std::string::npos) &&
         (config_.client_name_.substr(pos + 1) != vdns_type_.domain_name)) {
         DHCP_BASE_TRACE("Client domain doesnt match with configured domain "
-                        << vdns_type_.domain_name << "; Client name = " 
+                        << vdns_type_.domain_name << "; Client name = "
                         << config_.client_name_);
         config_.client_name_.replace(config_.client_name_.begin() + pos + 1,
                                      config_.client_name_.end(),

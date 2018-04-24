@@ -50,7 +50,7 @@ bool NHIndexResourceKey::IsLess(const ResourceKey &rhs) const {
         (nh_type() == NextHop::COMPOSITE)) {
         if (nh_rkey->comp_type() != comp_type())
             return nh_rkey->comp_type() < comp_type();
-        if (nh_rkey->policy() != policy()) 
+        if (nh_rkey->policy() != policy())
             return nh_rkey->policy() < policy();
     }
 
@@ -61,7 +61,7 @@ bool NHIndexResourceKey::IsLess(const ResourceKey &rhs) const {
         return nh_rkey->nh_ids_labels_.size() < nh_ids_labels_.size();
 
     std::vector<cnhid_label_map>::const_iterator left_it =
-        nh_rkey->nh_ids_labels_.begin(); 
+        nh_rkey->nh_ids_labels_.begin();
     std::vector<cnhid_label_map>::const_iterator right_it =
         nh_ids_labels_.begin();
     for (;left_it != nh_rkey->nh_ids_labels_.end() && right_it != nh_ids_labels_.end();
@@ -95,7 +95,7 @@ void NHIndexResourceKey::Backup(ResourceData *data, uint16_t op) {
         rm()->backup_mgr()->
             sandesh_maps().DeleteNextHopResourceEntry(index_data->index());
         goto end;
-    } 
+    }
     backup_data.set_time_stamp(UTCTimestampUsec());
     switch(nh_key->GetType()) {
     case NextHop::INTERFACE: {
@@ -171,7 +171,7 @@ void NHIndexResourceKey::Backup(ResourceData *data, uint16_t op) {
         break;
     }
     case NextHop::MIRROR: {
-        const MirrorNHKey *mirror_nh_key = 
+        const MirrorNHKey *mirror_nh_key =
             static_cast<const MirrorNHKey *>(GetNhKey());
         backup_data.set_dip(mirror_nh_key->dip().to_v4().to_ulong());
         backup_data.set_sip(mirror_nh_key->sip().to_v4().to_ulong());
@@ -206,7 +206,7 @@ void NHIndexResourceKey::BackupCompositeNH(ResourceData *data, uint16_t op) {
             nhid_label.label = nh_ids_labels_[i].label;
             nhid_label_map.push_back(nhid_label);
         }
-        // set list of nh_id's 
+        // set list of nh_id's
         backup_data.set_nhid_label_map(nhid_label_map);
         rm()->backup_mgr()->
             sandesh_maps().AddCompositeNHResourceEntry(index_data->index(),

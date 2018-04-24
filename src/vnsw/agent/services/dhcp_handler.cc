@@ -343,7 +343,7 @@ bool DhcpHandler::Run() {
        default:
             return HandleVmRequest();
     }
-}    
+}
 
 bool DhcpHandler::HandleVmRequest() {
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
@@ -429,7 +429,7 @@ bool DhcpHandler::HandleVmRequest() {
 
         case DHCP_DECLINE:
             dhcp_proto->IncrStatsDecline();
-            DHCP_TRACE(Error, "DHCP Client declined the offer : vrf = " << 
+            DHCP_TRACE(Error, "DHCP Client declined the offer : vrf = " <<
                        pkt_info_->vrf << " ifindex = " << GetInterfaceIndex() <<
                        " Mac : " << request_.mac_addr.ToString());
             if (vm_itf_->vmi_type() == VmInterface::GATEWAY) {
@@ -508,7 +508,7 @@ bool DhcpHandler::HandleDhcpFromFabric() {
 // read DHCP options in the incoming packet
 bool DhcpHandler::ReadOptions(int16_t opt_rem_len) {
     // verify magic cookie
-    if ((opt_rem_len < 4) || 
+    if ((opt_rem_len < 4) ||
         memcmp(dhcp_->options, DHCP_OPTIONS_COOKIE, 4)) {
         agent()->GetDhcpProto()->IncrStatsErrors();
         DHCP_TRACE(Error, "DHCP options cookie missing; vrf = " <<
@@ -659,7 +659,7 @@ bool DhcpHandler::FindLeaseData() {
             if (!ipam[i].IsV4()) {
                 continue;
             }
-            if (IsIp4SubnetMember(ip, ipam[i].ip_prefix.to_v4(), 
+            if (IsIp4SubnetMember(ip, ipam[i].ip_prefix.to_v4(),
                                   ipam[i].plen)) {
                 Ip4Address default_gw = ipam[i].default_gw.to_v4();
                 Ip4Address service_address = ipam[i].dns_server.to_v4();
@@ -972,7 +972,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
 
     if (out_msg_type_ == DHCP_NAK) {
         option_->SetNextOptionPtr(opt_len);
-        option_->WriteData(DHCP_OPTION_MESSAGE, nak_msg_.size(), 
+        option_->WriteData(DHCP_OPTION_MESSAGE, nak_msg_.size(),
                             nak_msg_.data(), &opt_len);
     }
     else {
@@ -1074,7 +1074,7 @@ void DhcpHandler::SendDhcpResponse() {
     // TODO: If giaddr is set, what to do ?
 
     // In TSN, the source address for DHCP response should be the address
-    // in the subnet reserved for service node. Otherwise, it will be the 
+    // in the subnet reserved for service node. Otherwise, it will be the
     // GW address. dns_addr field has this address, use it as the source IP.
     in_addr_t src_ip = htonl(config_.dns_addr.to_v4().to_ulong());
     in_addr_t dest_ip = 0xFFFFFFFF;
@@ -1140,7 +1140,7 @@ bool DhcpHandler::IsRouterOptionNeeded() {
 void DhcpHandler::UpdateStats() {
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     (out_msg_type_ == DHCP_OFFER) ? dhcp_proto->IncrStatsOffers() :
-        ((out_msg_type_ == DHCP_ACK) ? dhcp_proto->IncrStatsAcks() : 
+        ((out_msg_type_ == DHCP_ACK) ? dhcp_proto->IncrStatsAcks() :
                                        dhcp_proto->IncrStatsNacks());
 }
 

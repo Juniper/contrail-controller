@@ -354,7 +354,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_1) {
     util_.EnqueueSendVmiUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     const VmInterface *vmi = VmInterfaceGet(input[0].intf_id);
     EXPECT_TRUE(vmi != NULL);
     const UveVMInterfaceAgent uve1 = vmut->last_sent_uve();
@@ -395,7 +395,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_1) {
     client->WaitForIdle();
     WAIT_FOR(1000, 500, ((vmut->InterfaceUveCount() == 0U)));
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_EQ(1U, vmut->delete_count());
 
     //clear counters at the end of test case
@@ -560,7 +560,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmiUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_EQ(2U, vmut->send_count());
 
     //Disassociate VM from VMI and delete the VM
@@ -574,7 +574,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     //Verify that no additional interface UVEs are sent
     EXPECT_TRUE((vmut->send_count() == 3U));
     EXPECT_EQ(0U, vmut->delete_count());
-    
+
     //Add the VM back and re-associate it with same VMI
     util_.VmAdd(input[0].vm_id);
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -583,7 +583,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmiUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_TRUE((vmut->send_count() >= 4U));
 
     // Delete virtual-machine-interface to vrf link attribute
@@ -599,7 +599,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmiUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_TRUE((vmut->send_count() >= 5U));
 
     //Activate the interface again
@@ -612,7 +612,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmiUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_TRUE((vmut->send_count() >= 6U));
 
     // Delete virtual-machine-interface to vrf link attribute
@@ -628,7 +628,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmiUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_TRUE((vmut->send_count() >= 7U));
 
     //other cleanup
@@ -655,7 +655,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_2) {
     client->WaitForIdle();
     WAIT_FOR(1000, 500, ((vmut->InterfaceUveCount() == 0U)));
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_EQ(1U, vmut->delete_count());
 
     //clear counters at the end of test case

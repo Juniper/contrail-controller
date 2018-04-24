@@ -11,7 +11,7 @@
 class Agent;
 class AgentParam;
 
-// The class to drive agent initialization. 
+// The class to drive agent initialization.
 // Defines control parameters used to enable/disable agent features
 class ContrailInitCommon : public AgentInit {
 public:

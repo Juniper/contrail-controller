@@ -30,7 +30,7 @@ bool DiagProto::SegmentHealthCheckProcess(
     HealthCheckTable::HealthCheckServiceAction action,
     HealthCheckInstanceService *service) {
 
-    uint32_t intf_id = service->interface()->id(); 
+    uint32_t intf_id = service->interface()->id();
     SessionMap::iterator it = session_map_.find(intf_id);
 
     switch (action) {

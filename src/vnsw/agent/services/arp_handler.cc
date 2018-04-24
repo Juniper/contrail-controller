@@ -70,7 +70,7 @@ bool ArpHandler::HandlePacket() {
             arp_tpa_ = tpa;
         else
             arp_tpa_ = spa;
-        
+
         // if it is our own, ignore
         if (arp_tpa_ == agent()->router_id().to_ulong()) {
             arp_proto->IncrementStatsGratuitous();
@@ -119,7 +119,7 @@ bool ArpHandler::HandlePacket() {
     }
 
     //Look for subnet broadcast
-    AgentRoute *route = 
+    AgentRoute *route =
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->FindLPM(arp_addr);
     if (route) {
@@ -190,7 +190,7 @@ bool ArpHandler::HandlePacket() {
             if(entry) {
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 return true;
-            } else { 
+            } else {
                 entry = new ArpEntry(io_, this, key, nh_vrf, ArpEntry::INITING,
                                      itf);
                 if (arp_proto->AddArpEntry(entry) == false) {

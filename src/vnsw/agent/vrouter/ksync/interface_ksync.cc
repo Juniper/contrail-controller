@@ -103,7 +103,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     ipv4_active_(false),
     layer3_forwarding_(true),
     ksync_obj_(obj),
-    l2_active_(false),                
+    l2_active_(false),
     metadata_l2_active_(false),
     metadata_ip_active_(false),
     bridging_(true),
@@ -111,7 +111,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     mac_(),
     smac_(),
     mirror_direction_(Interface::UNKNOWN),
-    os_index_(intf->os_index()), 
+    os_index_(intf->os_index()),
     parent_(NULL),
     policy_enabled_(false),
     sub_type_(InetInterface::VHOST),
@@ -661,7 +661,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     switch (type_) {
     case Interface::VM_INTERFACE: {
         if (vmi_device_type_ == VmInterface::TOR)
-            return 0;            
+            return 0;
         if (drop_new_flows_) {
             flags |= VIF_FLAG_DROP_NEW_FLOWS;
         }

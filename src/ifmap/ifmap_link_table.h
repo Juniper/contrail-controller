@@ -35,7 +35,7 @@ public:
     virtual void Input(DBTablePartition *partition, DBClient *client,
                        DBRequest *req);
 
-    std::string LinkKey(const std::string &metadata, IFMapNode *left, 
+    std::string LinkKey(const std::string &metadata, IFMapNode *left,
                         IFMapNode *right);
     IFMapLink *AddLink(IFMapNode *left, IFMapNode *right,
                        const std::string &metadata, uint64_t sequence_number,

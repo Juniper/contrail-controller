@@ -12,7 +12,7 @@ ProuterUveTableTest::~ProuterUveTableTest() {
 }
 
 void ProuterUveTableTest::DispatchProuterMsg(const ProuterData &uve) {
-    send_count_++; 
+    send_count_++;
     if (uve.get_deleted()) {
         delete_count_++;
     }
