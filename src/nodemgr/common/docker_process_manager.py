@@ -16,10 +16,8 @@ _docker_label_to_unit_name = {
     Module.ANALYTICS_NODE_MGR: {
         'analytics-collector': 'contrail-collector',
         'analytics-api': 'contrail-analytics-api',
-        'analytics-snmp-collector': 'contrail-snmp-collector',
         'analytics-query-engine': 'contrail-query-engine',
         'analytics-alarm-gen': 'contrail-alarm-gen',
-        'analytics-topology': 'contrail-topology',
         'analytics-nodemgr': 'contrail-analytics-nodemgr'
     },
     Module.CONFIG_NODE_MGR: {
@@ -248,3 +246,4 @@ class DockerProcessInfoManager(object):
         if exit_code != 0:
             raise RuntimeError("Result: {}\nExit data: {}".format(res, data))
         return res
+
