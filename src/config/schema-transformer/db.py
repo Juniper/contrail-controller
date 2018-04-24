@@ -215,9 +215,6 @@ class SchemaTransformerDB(VncObjectDBClient):
         return rtgt_num
     # end alloc_route_target
 
-    def free_route_target_by_number(self, rtgt):
-        self._rt_allocator.delete(rtgt)
-
     def free_route_target(self, ri_fq_name):
         try:
             rtgt = self.get_route_target(ri_fq_name)
