@@ -36,4 +36,4 @@
       - "{{ PR_url.results }}"
       - "{{ successful_connections.ssh_success }}"
 
-  - debug: var=physical_router_uuids
+  - debug: var=physical_router_uuids verbosity=1

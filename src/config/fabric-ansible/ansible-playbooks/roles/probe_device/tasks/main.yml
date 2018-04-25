@@ -5,7 +5,7 @@
         subnets: "{{ host_prefix }}"
       register: hosts
 
-    - debug: var=hosts
+    - debug: var=hosts verbosity=1
 
     - name: get snmp info
       snmp_facts:
@@ -61,7 +61,7 @@
         - "physical_router_uuids.failed == false"
       with_items: "{{ host_vendor_mapping }}"
 
-    - debug: var=physical_router_uuids
+    - debug: var=physical_router_uuids verbosity=1
 
     - name: if vnc failed end play
       include_tasks: error_handler.yml
