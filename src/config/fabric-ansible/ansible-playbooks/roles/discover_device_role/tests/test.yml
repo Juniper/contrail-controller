@@ -2,4 +2,4 @@
 - hosts: localhost
   remote_user: root
   roles:
-    - probe_device
+    - discover_device_role
