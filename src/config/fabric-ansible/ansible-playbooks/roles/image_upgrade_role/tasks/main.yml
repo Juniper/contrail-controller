@@ -40,6 +40,7 @@
 - name: Debug encode temp url
   debug:
     var: enc_tempurl
+    verbosity: 1
 
 - name: Appending job log for retreiving image download link and starting image upgrade
   job_objectlog:
