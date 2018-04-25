@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-include "sandesh/library/common/derived_stats_results.sandesh"
 
 /**
  * Generic Peer Information
@@ -79,21 +78,8 @@ struct PeerStatsData {
     1: string name (key="");
     2: optional bool deleted;
     11: string encoding;
-    3: optional PeerUpdateStats raw_rx_update_stats(metric="agg",hidden="yes");
-    4: optional PeerUpdateStats raw_tx_update_stats(metric="agg",hidden="yes");
-
-    5: optional derived_stats_results.AnomalyResult rx_update_stats_ewm (stats="raw_rx_update_stats.total:DSAnomaly:EWM:0.2");
-    6: optional derived_stats_results.AnomalyResult tx_update_stats_ewm (stats="raw_tx_update_stats.total:DSAnomaly:EWM:0.2");
-
-      /** @display_name:BGP/XMPP Peer Receive Statistics */
-    7: optional PeerUpdateStats rx_update_stats(stats="raw_rx_update_stats:DSNon0:",tags="");
-
-      /** @display_name:BGP/XMPP Peer Transmit Statistics */
-    8: optional PeerUpdateStats tx_update_stats(stats="raw_tx_update_stats:DSNon0:",tags="");
-
-    9: optional PeerUpdateStats rx_update_stats_5m (stats="raw_rx_update_stats:DSSum:300");
-   10: optional PeerUpdateStats tx_update_stats_5m (stats="raw_tx_update_stats:DSSum:300");
-
+    3: optional PeerUpdateStats raw_rx_update_stats(metric="agg",tags="");
+    4: optional PeerUpdateStats raw_tx_update_stats(metric="agg",tags="");
 }
 
 uve sandesh PeerStatsUve {
@@ -112,10 +98,6 @@ struct PeerFlapData {
      2: optional bool deleted;
      6: string encoding;
      3: optional PeerFlapInfo flap_info (metric="agg");
-     4: optional flap_u64_P_ flap_10m
-            (stats="1-flap_info.flap_count:DSSum:");
-     5: optional flap_u64_P_ flap_1h
-            (stats="6-flap_info.flap_count:DSSum:",hidden="yes");
 } (period="600")
 
 /**
