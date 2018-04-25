@@ -154,8 +154,7 @@
             "src/contrail-api-client/schema",
             "controller/src/xml",
             "src/contrail-api-client/generateds",
-            "src/contrail-common/sandesh/compiler",
-            "src/contrail-common/sandesh/library"
+            "src/contrail-common/sandesh"
         ],
         "scons_test_targets" : [
             "src/contrail-common/base:test",
