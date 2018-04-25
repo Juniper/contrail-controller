@@ -5,12 +5,12 @@
             src: juniper.underlay.bgp.j2
             dest: "{{ conf_dir }}/build_config/underlay_config.conf"
           register: cmd_res
-        - debug: msg={{cmd_res}}
+        - debug: var=cmd_res verbosity=1
       rescue:
         - set_fact:
             output: {
               "status": "Failed to Generate BGP config",
               "message": "{{cmd_res.msg}}"
             }
-        - debug: msg={{output}}
+        - debug: var=output verbosity=1
         - meta: end_play

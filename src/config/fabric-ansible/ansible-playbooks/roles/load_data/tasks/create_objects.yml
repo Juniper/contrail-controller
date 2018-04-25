@@ -20,6 +20,7 @@
 - name: print object data
   debug:
     var: updated_obj
+    verbosity: 1
 
 - name: call vnc to create predef data
   vnc_db_mod:
@@ -33,3 +34,4 @@
 - name: Read object dict response
   debug:
     var: vnc_details
+    verbosity: 1

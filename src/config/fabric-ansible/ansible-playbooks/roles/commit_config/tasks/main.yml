@@ -9,7 +9,7 @@
       with_file:
         - "{{ conf_dir }}/final_config/combined_config.conf"
 
-    - debug: var=final_cfg
+    - debug: var=final_cfg verbosity=1
 
     - name: Create a job log for deploying the config
       job_objectlog:
@@ -42,7 +42,7 @@
               }
             jl_err_message: "Unable to push config on the device, Junos config push task failed with following error:\n{{junos_response.msg}}"
 
-    - debug: var=junos_response
+    - debug: var=junos_response verbosity=1
 
     - name: Create a job log for displaying junos response
       job_objectlog:
