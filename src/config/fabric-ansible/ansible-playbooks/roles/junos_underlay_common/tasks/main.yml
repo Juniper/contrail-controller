@@ -5,7 +5,7 @@
             src: junos.common.conf.j2
             dest: "{{ conf_dir }}/build_config/common_config.conf"
           register: cmd_res
-        - debug: var=cmd_res
+        - debug: var=cmd_res verbosity=1
       rescue:
         - set_fact:
             output: {
@@ -13,7 +13,7 @@
               "message": "{{cmd_res.msg}}"
             }
 
-        - debug: var=output
+        - debug: var=output verbosity=1
 
         - name: Appending job log for reading necessary info from database
           job_objectlog:
