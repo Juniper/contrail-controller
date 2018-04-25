@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "5f2577a7_6026af6b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 343,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2018-04-25T21:14:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5f2577a7_45bbc571",
+      "revId": "63ad9a15c1a8d028840d18398d87cfe9cb292cc9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5f2577a7_65b6c18d",
         "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
         "patchSetId": 7
@@ -30,6 +48,24 @@
       "writtenOn": "2018-04-25T18:17:56Z",
       "side": 1,
       "message": "Change \u0027Device discovery\u0027 to \u0027Underlay Config\u0027",
+      "revId": "63ad9a15c1a8d028840d18398d87cfe9cb292cc9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f2577a7_402bb32f",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 368,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2018-04-25T21:14:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5f2577a7_65b6c18d",
       "revId": "63ad9a15c1a8d028840d18398d87cfe9cb292cc9",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
