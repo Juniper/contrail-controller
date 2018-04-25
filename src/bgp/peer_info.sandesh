@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-include "sandesh/library/common/derived_stats_results.sandesh"
 
 /**
  * Generic Peer Information
@@ -81,9 +80,6 @@ struct PeerStatsData {
     11: string encoding;
     3: optional PeerUpdateStats raw_rx_update_stats(metric="agg",hidden="yes");
     4: optional PeerUpdateStats raw_tx_update_stats(metric="agg",hidden="yes");
-
-    5: optional derived_stats_results.AnomalyResult rx_update_stats_ewm (stats="raw_rx_update_stats.total:DSAnomaly:EWM:0.2");
-    6: optional derived_stats_results.AnomalyResult tx_update_stats_ewm (stats="raw_tx_update_stats.total:DSAnomaly:EWM:0.2");
 
       /** @display_name:BGP/XMPP Peer Receive Statistics */
     7: optional PeerUpdateStats rx_update_stats(stats="raw_rx_update_stats:DSNon0:",tags="");
