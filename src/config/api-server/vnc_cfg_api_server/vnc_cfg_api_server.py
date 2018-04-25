@@ -1140,19 +1140,25 @@ class VncApiServer(object):
             self.config_object_error(id, None, obj_type, 'http_delete', msg)
             raise cfgm_common.exceptions.HttpError(code, msg)
 
-        fq_name = read_result['fq_name']
-
         # Permit abort resource deletion and retrun 202 status code
         get_context().set_state('PENDING_DBE_DELETE')
         ok, result = r_class.pending_dbe_delete(read_result)
-        if not ok:
-            code, msg = result
-            raise cfgm_common.exceptions.HttpError(code, msg)
-        if ok and isinstance(result, tuple) and result[0] == 202:
+        if (not ok and isinstance(result, tuple) and result[0] == 409 and
+                isinstance(result[1], set)):
+            # Found back reference to existing enforced or draft resource
+            exist_hrefs = [self.generate_url(type, uuid)
+                           for type, uuid in result[1]]
+            msg = "Delete when resource still referred: %s" % exist_hrefs
+            self.config_object_error(id, None, obj_type, 'http_delete', msg)
+            raise cfgm_common.exceptions.HttpError(409, msg)
+        elif ok and isinstance(result, tuple) and result[0] == 202:
             # Deletion accepted but not applied, pending delete
             # return 202 HTTP OK code to aware clients
             bottle.response.status = 202
             return
+        elif not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         # fail if non-default children or non-derived backrefs exist
         for child_field in r_class.children_fields:
@@ -4536,7 +4542,8 @@ class VncApiServer(object):
 
     def _security_commit_resources(self, parent_type, parent_fq_name,
                                    parent_uuid, pm):
-        actions = []
+        updates = []
+        deletes = []
         for type_name in SECURITY_OBJECT_TYPES:
             r_class = self.get_resource_class(type_name)
             for child in pm.get('%ss' % r_class.object_type, []):
@@ -4555,13 +4562,10 @@ class VncApiServer(object):
                 # Purge pending resource as we re-use the same UUID
                 self.internal_request_delete(r_class.object_type,
                                              child['uuid'])
-                if (uuid and
-                        draft['draft_mode_state'] == 'deleted'):
-                    # The resource is removed, we can purge
-                    # original resource
-                    actions.append(('delete', (r_class.object_type, uuid)))
-                elif (uuid and
-                        draft['draft_mode_state'] == 'updated'):
+                if uuid and draft['draft_mode_state'] == 'deleted':
+                    # The resource is removed, we can purge original resource
+                    deletes.append((r_class.object_type, uuid))
+                elif uuid and draft['draft_mode_state'] == 'updated':
                     # Update orginal resource with pending resource
                     draft.pop('fq_name', None)
                     draft.pop('uuid', None)
@@ -4578,10 +4582,9 @@ class VncApiServer(object):
                             draft[ref_type] = []
                     self._update_fq_name_security_refs(
                         parent_fq_name, pm['fq_name'], type_name, draft)
-                    actions.append(('update', (r_class.resource_type, uuid,
+                    updates.append(('update', (r_class.resource_type, uuid,
                                                copy.deepcopy(draft))))
-                elif (not uuid and
-                        draft['draft_mode_state'] == 'created'):
+                elif not uuid and draft['draft_mode_state'] == 'created':
                     # Create new resource with pending values (re-use UUID)
                     draft.pop('id_perms', None)
                     draft.pop('perms2', None)
@@ -4591,7 +4594,7 @@ class VncApiServer(object):
                     draft['parent_uuid'] = parent_uuid
                     self._update_fq_name_security_refs(
                         parent_fq_name, pm['fq_name'], type_name, draft)
-                    actions.append(('create', (r_class.resource_type,
+                    updates.append(('create', (r_class.resource_type,
                                                copy.deepcopy(draft))))
                 else:
                     msg = (
@@ -4603,15 +4606,16 @@ class VncApiServer(object):
                     )
                     self.config_log(msg, level=SandeshLevel.SYS_WARN)
 
-        actions.reverse()
-        for action, args in actions:
-            # Postpone delete to be sure deleted resource not anymore
-            # referenced
-            if action != 'delete':
-                getattr(self, 'internal_request_%s' % action)(*args)
-        for action, args in actions:
-            if action == 'delete':
-                self.internal_request_delete(*args)
+        # Need to create/update leaf resources first as they could be
+        # referenced by another create/updated resource (e.g.: FP -> FP)
+        updates.reverse()  # order is: AG, SG, FR, FP and APS
+        for action, args in updates:
+            getattr(self, 'internal_request_%s' % action)(*args)
+
+        # Postpone delete to be sure deleted resource not anymore
+        # referenced and delete resource with ref before resource with backref
+        for args in deletes:  # order is: APS, FP, FR, SG and AG
+            self.internal_request_delete(*args)
 
     @staticmethod
     def _update_fq_name_security_refs(parent_fq_name, pm_fq_name, res_type,
