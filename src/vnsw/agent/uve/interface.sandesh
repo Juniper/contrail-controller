@@ -3,7 +3,6 @@
  */
 
 include "vnsw/agent/uve/port_bmap.sandesh"
-include "sandesh/library/common/derived_stats_results.sandesh"
 include "vnsw/agent/uve/vrouter.sandesh"
 
 /**
@@ -154,22 +153,8 @@ struct UveVMInterfaceAgent {
     /** @display_name:Virtual Machine Floating IP Statistics */
    17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address", uve_type=".virtual_network:virtual_network")
     /** Statistics of VMI. Contains aggregate statistics */
-   18: optional VmInterfaceStats raw_if_stats (metric="agg", hidden="yes")
-    /** Contains statistics of VMI since previous send */
-    /** @display_name:Virtual Machine Interface Statistics */
-   30: optional VmInterfaceStats if_stats (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid", uve_type="vm_uuid:virtual_machine")
-   36: optional VmInterfaceStats if_stats_1h (stats="raw_if_stats:DSSum:3600")
+   18: optional VmInterfaceStats raw_if_stats (metric="agg", tags="vm_name,vm_uuid", uve_type="vm_uuid:virtual_machine")
  
-    /** Anomaly Detection for incoming packets count using Exponentially
-     * Weighed Mean
-     */
-   31: optional derived_stats_results.AnomalyResult if_in_pkts_ewm 
-                    (stats="raw_if_stats.in_pkts:DSAnomaly:EWM:0.1")
-    /** Anomaly Detection for outgoing packets count using Exponentially
-     * Weighed Mean
-     */
-   32: optional derived_stats_results.AnomalyResult if_out_pkts_ewm
-                    (stats="raw_if_stats.out_pkts:DSAnomaly:EWM:0.1")
     /** UUID of Virtual machine to which the VMI belongs */
    19: string vm_uuid;
     /** Ingress direction bandwidth in bits per second */
@@ -201,15 +186,6 @@ struct UveVMInterfaceAgent {
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
     /** @display_name:Interface Flow Setup Statistics*/
    26: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network",uve_type="virtual_network:virtual_network")
-    /** Anomaly Detection for added flows using Exponentially Weighed Mean */
-   41: optional derived_stats_results.AnomalyResult added_flows_ewm
-                    (stats="flow_rate.added_flows:DSAnomaly:EWM:0.1")
-    /** Anomaly Detection for deleted flows using Exponentially Weighed Mean */
-   42: optional derived_stats_results.AnomalyResult deleted_flows_ewm
-                     (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
-    /** Anomaly Detection for active flows using Exponentially Weighed Mean */
-   43: optional derived_stats_results.AnomalyResult active_flows_ewm
-                     (stats="flow_rate.active_flows:DSAnomaly:EWM:0.1")
     /** Contains 'true' if the VMI is administratively UP and 'false' otherwise
      */
    27: optional bool admin_state;
@@ -218,10 +194,7 @@ struct UveVMInterfaceAgent {
     /** List of IPv6 addresses assigned to VMI */
    29: optional list<string> fixed_ip6_list;
 
-   33: optional vrouter.AgentDropStats raw_drop_stats (metric="agg", hidden="yes")
-   /** @display_name:VMI Packet drop Statistics*/
-   34: optional vrouter.AgentDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="virtual_network",uve_type="virtual_network:virtual_network")
-   35: optional vrouter.AgentDropStats drop_stats_1h (stats="raw_drop_stats:DSSum:3600")
+   33: optional vrouter.AgentDropStats raw_drop_stats (metric="agg", tags="virtual_network",uve_type="virtual_network:virtual_network")
    /** UUID of VMI's VN */
    37: optional string vn_uuid;
    /** Transmit VLAN tag for packets over this VMI */

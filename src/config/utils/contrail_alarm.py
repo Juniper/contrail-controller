@@ -291,54 +291,6 @@ alarm_list = [
     {
         "alarm_rules": {
             "or_list": [
-                {
-                    "and_list": [
-                        {
-                            "operand1": "VrouterStatsAgent.out_bps_ewm.*.sigma",
-                            "operation": ">=",
-                            "operand2": {
-                                "json_value": "2"
-                            },
-                            "variables": ["VrouterStatsAgent.out_bps_ewm.__key"]
-                        }
-                    ]
-                },
-                {
-                    "and_list": [
-                        {
-                            "operand1": "VrouterStatsAgent.out_bps_ewm.*.sigma",
-                            "operation": "<=",
-                            "operand2": {
-                                "json_value": "-2"
-                            },
-                            "variables": ["VrouterStatsAgent.out_bps_ewm.__key"]
-                        }
-                    ]
-                },
-                {
-                    "and_list": [
-                        {
-                            "operand1": "VrouterStatsAgent.in_bps_ewm.*.sigma",
-                            "operation": ">=",
-                            "operand2": {
-                                "json_value": "2"
-                            },
-                            "variables": ["VrouterStatsAgent.in_bps_ewm.__key"]
-                        }
-                    ]
-                },
-                {
-                    "and_list": [
-                        {
-                            "operand1": "VrouterStatsAgent.in_bps_ewm.*.sigma",
-                            "operation": "<=",
-                            "operand2": {
-                                "json_value": "-2"
-                            },
-                            "variables": ["VrouterStatsAgent.in_bps_ewm.__key"]
-                        }
-                    ]
-                }
             ]
         },
         "alarm_severity": 2,
