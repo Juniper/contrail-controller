@@ -28,7 +28,7 @@ struct OlistTunnelEntry {
     OlistTunnelEntry(const boost::uuids::uuid &device_uuid,
                      uint32_t label,
                      const Ip4Address &addr,
-                     TunnelType::TypeBmap bmap) : 
+                     TunnelType::TypeBmap bmap) :
         device_uuid_(device_uuid),
         label_(label),
         daddr_(addr),
@@ -63,7 +63,7 @@ typedef std::vector<OlistTunnelEntry> TunnelOlist;
 class MulticastGroupObject {
 public:
     typedef DependencyList<MulticastGroupObject, MulticastGroupObject> MGList;
-    MulticastGroupObject(const std::string &vrf_name, 
+    MulticastGroupObject(const std::string &vrf_name,
                          const Ip4Address &grp_addr,
                          const std::string &vn_name) :
         vrf_name_(vrf_name), grp_address_(grp_addr), vn_name_(vn_name),
@@ -74,7 +74,7 @@ public:
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
-    };     
+    };
     MulticastGroupObject(const std::string &vrf_name,
                          const std::string &vn_name,
                          const Ip4Address &grp_addr,
@@ -97,8 +97,8 @@ public:
         return true;
     };
 
-    //Delete local member from VM list in server 
-    bool DeleteLocalMember(const boost::uuids::uuid &intf_uuid) { 
+    //Delete local member from VM list in server
+    bool DeleteLocalMember(const boost::uuids::uuid &intf_uuid) {
         if (local_olist_.find(intf_uuid) == local_olist_.end()) {
             return false;
         }
@@ -275,7 +275,7 @@ public:
     void ModifyFabricMembers(const Peer *peer,
                              const std::string &vrf_name,
                              const Ip4Address &group,
-                             const Ip4Address &source, 
+                             const Ip4Address &source,
                              uint32_t source_label,
                              const TunnelOlist &olist,
                              uint64_t peer_identifier = 0);
@@ -296,14 +296,14 @@ public:
     //Registered for VN notification
     void ModifyVN(DBTablePartBase *partition, DBEntryBase *e);
     //Registered for VM notification
-    void ModifyVmInterface(DBTablePartBase *partition, DBEntryBase *e); 
-    void NotifyPhysicalDevice(DBTablePartBase *partition, DBEntryBase *e); 
+    void ModifyVmInterface(DBTablePartBase *partition, DBEntryBase *e);
+    void NotifyPhysicalDevice(DBTablePartBase *partition, DBEntryBase *e);
     //Register VM and VN notification
     void Register();
 
     //Singleton object reference
-    static MulticastHandler *GetInstance() { 
-        return obj_; 
+    static MulticastHandler *GetInstance() {
+        return obj_;
     };
     void TriggerLocalRouteChange(MulticastGroupObject *obj, const Peer *peer);
     void TriggerRemoteRouteChange(MulticastGroupObject *obj,
@@ -414,7 +414,7 @@ private:
                             bool pbb_etree_enabled);
 
     //VM itf to multicast ob
-    void AddVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid, 
+    void AddVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
                                 MulticastGroupObject *obj) {
         this->vm_to_mcobj_list_[vm_itf_uuid].insert(obj);
     };

@@ -45,7 +45,7 @@ private:
     friend void intrusive_ptr_release(IFMapObject *object);
     friend void intrusive_ptr_add_ref(const IFMapObject *object);
     friend void intrusive_ptr_release(const IFMapObject *object);
-    
+
     static void Release(IFMapObject *object);
 
     boost::intrusive::list_member_hook<> node_;

@@ -23,8 +23,8 @@ struct SgKey : public AgentOperDBKey {
 struct SgData : public AgentOperDBData {
     SgData(Agent *agent, IFMapNode *node, const uint32_t &sg_id,
            const uuid &egress_acl_id, const uuid &ingress_acl_id) :
-                   AgentOperDBData(agent, node), sg_id_(sg_id), 
-                   egress_acl_id_(egress_acl_id), 
+                   AgentOperDBData(agent, node), sg_id_(sg_id),
+                   egress_acl_id_(egress_acl_id),
                    ingress_acl_id_(ingress_acl_id) {
     }
     virtual ~SgData() { }
@@ -36,7 +36,7 @@ struct SgData : public AgentOperDBData {
 
 class SgEntry : AgentRefCount<SgEntry>, public AgentOperDBEntry {
 public:
-    SgEntry(uuid sg_uuid, uint32_t sg_id) : sg_uuid_(sg_uuid), sg_id_(sg_id), 
+    SgEntry(uuid sg_uuid, uint32_t sg_id) : sg_uuid_(sg_uuid), sg_id_(sg_id),
                                             egress_acl_(NULL), ingress_acl_(NULL) {};
     SgEntry(uuid sg_uuid) : sg_uuid_(sg_uuid) { };
     virtual ~SgEntry() { };

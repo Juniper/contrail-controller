@@ -63,11 +63,11 @@ void DnsHandler::BuildDnsResolvers() {
     uint8_t count = 0;
     uint8_t resolvers_count = Agent::GetInstance()->GetDnslist().size();
     dns_resolvers_.resize(resolvers_count);
-    
+
     std::vector<string>dns_servers;
     while (count < resolvers_count) {
-   
-        boost::split(dns_servers, Agent::GetInstance()->GetDnslist()[count], 
+
+        boost::split(dns_servers, Agent::GetInstance()->GetDnslist()[count],
                      boost::is_any_of(":"));
         DnsResolverInfo *resolver = new DnsResolverInfo();
 
@@ -143,13 +143,13 @@ bool DnsHandler::HandleRequest() {
 
     const VmInterface *vmitf = static_cast<const VmInterface *>(itf);
     if (!vmitf->layer3_forwarding()) {
-        DNS_BIND_TRACE(DnsBindError, "DNS request on VM port with disabled" 
+        DNS_BIND_TRACE(DnsBindError, "DNS request on VM port with disabled"
                        "ipv4 service: " << itf);
         dns_proto->IncrStatsDrop();
         return true;
     }
     // Handle requests (req == 0), queries (op code == 0), updates, non auth
-    if ((dns_->flags.op && dns_->flags.op != DNS_OPCODE_UPDATE) || 
+    if ((dns_->flags.op && dns_->flags.op != DNS_OPCODE_UPDATE) ||
         (dns_->flags.cd)) {
         DNS_BIND_TRACE(DnsBindError, "Unimplemented DNS request"
                        << "; flags.op = " << dns_->flags.op << "; flags.cd = "
@@ -212,7 +212,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     DnsProto *dns_proto = agent()->GetDnsProto();
     rkey_ = new QueryKey(vmitf, dns_->xid);
     if (dns_proto->IsVmRequestDuplicate(rkey_)) {
-        DNS_BIND_TRACE(DnsBindTrace, 
+        DNS_BIND_TRACE(DnsBindTrace,
                        "Retry DNS query from VM - dropping; interface = "
                        << vmitf->vm_name() << " xid = " << dns_->xid);
         dns_proto->IncrStatsRetransmitReq();
@@ -230,8 +230,8 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     }
 
     resp_ptr_ = (uint8_t *)dns_ + dns_resp_size_;
-    BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
-                             DNS_OPCODE_QUERY, 0, 1, DNS_ERR_NO_ERROR, 
+    BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE,
+                             DNS_OPCODE_QUERY, 0, 1, DNS_ERR_NO_ERROR,
                              ntohs(dns_->ques_rrcount));
     ResolveAllLinkLocalRequests();
     if (!items_.size()) {
@@ -251,7 +251,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     }
 
     DNS_BIND_TRACE(DnsBindTrace, "Default DNS query received; "
-                   "interface = " << vmitf->vm_name() << " xid = " << 
+                   "interface = " << vmitf->vm_name() << " xid = " <<
                    dns_->xid << " " << DnsItemsToString(items_));
 
     action_ = DnsHandler::DNS_QUERY;
@@ -276,7 +276,7 @@ fail:
 void DnsHandler::DefaultDnsSendResponse() {
     agent()->GetDnsProto()->DelVmRequest(rkey_);
     if (dns_->flags.ret) {
-        DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
+        DNS_BIND_TRACE(DnsBindError, "Query failed : " <<
                        BindUtil::DnsResponseCode(dns_->flags.ret) <<
                        " xid = " << dns_->xid << " " <<
                        DnsItemsToString(items_) <<
@@ -318,8 +318,8 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
                 break;
             }
             resp_ptr_ = (uint8_t *)dns_ + dns_resp_size_;
-            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
-                                     DNS_OPCODE_QUERY, 0, 1, ret, 
+            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE,
+                                     DNS_OPCODE_QUERY, 0, 1, ret,
                                      ntohs(dns_->ques_rrcount));
             // Check for linklocal service name resolution
             ResolveAllLinkLocalRequests();
@@ -356,7 +356,7 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
             if (vdns_type_.dynamic_records_from_client) {
                 DnsUpdateData *update_data = new DnsUpdateData();
                 DnsProto::DnsUpdateIpc *update =
-                    new DnsProto::DnsUpdateIpc(DnsAgentXmpp::Update, 
+                    new DnsProto::DnsUpdateIpc(DnsAgentXmpp::Update,
                                                update_data, vmitf, false);
                 if (BindUtil::ParseDnsUpdate((uint8_t *)dns_,
                                              pkt_info_->GetUdpPayloadLength(),
@@ -374,7 +374,7 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
                 "update for " << DnsItemsToString(items_));
                 ret = DNS_ERR_NOT_AUTH;
             }
-            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
+            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE,
                                      DNS_OPCODE_UPDATE, 0, 1, ret,
                                      ntohs(dns_->ques_rrcount));
             SendDnsResponse();
@@ -400,7 +400,7 @@ bool DnsHandler::SendDnsQuery(DnsResolverInfo *resolver,
     bool in_progress = dns_proto->IsDnsQueryInProgress(xid);
     if (in_progress) {
         if (resolver->retries_ >= dns_proto->max_retries()) {
-            DNS_BIND_TRACE(DnsBindTrace, 
+            DNS_BIND_TRACE(DnsBindTrace,
                            "Max retries reached for query; xid = " << xid <<
                            " " << DnsItemsToString(items_));
             goto cleanup;
@@ -746,7 +746,7 @@ bool DnsHandler::HandleModifyVdns() {
         if (!ipc->itf && ipc->new_vdns == ipc->old_vdns)
             continue;
 
-        for (DnsItems::iterator item = (*it)->xmpp_data->items.begin(); 
+        for (DnsItems::iterator item = (*it)->xmpp_data->items.begin();
              item != (*it)->xmpp_data->items.end(); ++item) {
             // in case of delete, set the class to NONE and ttl to 0
             (*item).eclass = DNS_CLASS_NONE;
@@ -787,7 +787,7 @@ bool DnsHandler::UpdateAll() {
         static_cast<DnsProto::DnsUpdateAllIpc *>(pkt_info_->ipc);
     const DnsProto::DnsUpdateSet &update_set =
         agent()->GetDnsProto()->update_set();
-    for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin(); 
+    for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin();
          it != update_set.end(); ++it) {
         SendXmppUpdate(ipc->channel, (*it)->xmpp_data);
     }
@@ -796,7 +796,7 @@ bool DnsHandler::UpdateAll() {
     return true;
 }
 
-void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel, 
+void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
                                 DnsUpdateData *xmpp_data) {
     if (channel && agent_->is_dns_xmpp_channel(channel)) {
         // Split the request in case we have more data items
@@ -819,9 +819,9 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
             uint8_t data[DnsAgentXmpp::max_dns_xmpp_msg_len];
             xid_ = agent()->GetDnsProto()->GetTransId();
             std::size_t len = 0;
-            if ((len = DnsAgentXmpp::DnsAgentXmppEncode(channel->GetXmppChannel(), 
+            if ((len = DnsAgentXmpp::DnsAgentXmppEncode(channel->GetXmppChannel(),
                                                         DnsAgentXmpp::Update,
-                                                        xid_, 0, xmpp_data, 
+                                                        xid_, 0, xmpp_data,
                                                         data)) > 0) {
                 channel->SendMsg(data, len);
             }
@@ -833,7 +833,7 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
     }
 }
 
-void 
+void
 DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
                     DnsItems &auth, DnsItems &add) {
     for (DnsItems::iterator it = ans.begin(); it != ans.end(); ++it) {
@@ -967,7 +967,7 @@ void DnsHandler::UpdateQueryNames() {
     }
 }
 
-// In case we added domain name to the queries, the response to the VM 
+// In case we added domain name to the queries, the response to the VM
 // should not have the domain name. Update the offsets in the DnsItems
 // accordingly.
 void DnsHandler::UpdateOffsets(DnsItem &item, bool name_update_required) {
@@ -1010,7 +1010,7 @@ void DnsHandler::Update(InterTaskMsg *msg) {
     DnsProto::DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     if (update_req) {
         DnsUpdateData *data = update_req->xmpp_data;
-        for (DnsItems::iterator item = update->xmpp_data->items.begin(); 
+        for (DnsItems::iterator item = update->xmpp_data->items.begin();
              item != update->xmpp_data->items.end();) {
             if ((*item).IsDelete()) {
                 if (!data->DelItem(*item))
@@ -1050,14 +1050,14 @@ void DnsHandler::DelUpdate(InterTaskMsg *msg) {
     DnsProto *dns_proto = agent()->GetDnsProto();
     DnsProto::DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     while (update_req) {
-        for (DnsItems::iterator item = update_req->xmpp_data->items.begin(); 
+        for (DnsItems::iterator item = update_req->xmpp_data->items.begin();
              item != update_req->xmpp_data->items.end(); ++item) {
             // in case of delete, set the class to NONE and ttl to 0
             (*item).eclass = DNS_CLASS_NONE;
             (*item).ttl = 0;
         }
         for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-            AgentDnsXmppChannel *channel = 
+            AgentDnsXmppChannel *channel =
                         agent()->dns_xmpp_channel(i);
             SendXmppUpdate(channel, update_req->xmpp_data);
         }

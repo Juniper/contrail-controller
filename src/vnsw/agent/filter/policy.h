@@ -60,7 +60,7 @@ class PolicyTable : public DBTable {
 public:
     PolicyTable(DB *db, const std::string &name) : DBTable(db, name) { };
     ~PolicyTable() { };
-    
+
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 
     int Hash(const DBEntry *entry) const {return 0;};

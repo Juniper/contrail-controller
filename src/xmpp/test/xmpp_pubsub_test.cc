@@ -32,7 +32,7 @@ using namespace std;
 
 class XmppBgpMockPeer : public XmppSamplePeer {
 public:
-    XmppBgpMockPeer(XmppChannelMux *channel) : 
+    XmppBgpMockPeer(XmppChannelMux *channel) :
         XmppSamplePeer(channel) , count_(0) {
     }
 
@@ -82,9 +82,9 @@ protected:
 
         XmppChannelConfig server_cfg(false);
         server_cfg.auth_enabled = true;
-        server_cfg.path_to_server_cert = 
+        server_cfg.path_to_server_cert =
             "controller/src/xmpp/testdata/server-build02.pem";
-        server_cfg.path_to_server_priv_key = 
+        server_cfg.path_to_server_priv_key =
             "controller/src/xmpp/testdata/server-build02.key";
         a_ = new XmppServer(evm_.get(), XMPP_CONTROL_SERV, &server_cfg);
         thread_.reset(new ServerThread(evm_.get()));
@@ -154,11 +154,11 @@ TEST_F(XmppPubSubTest, Connection) {
 
     // server channels
     XmppConnection *sconnection;
-    // Wait for connection on server. 
+    // Wait for connection on server.
     TASK_UTIL_EXPECT_TRUE((sconnection = a_->FindConnection(SUB_ADDR)) != NULL);
     // Check for server, client connection is established. Wait upto 1 sec
     TASK_UTIL_EXPECT_TRUE(sconnection->GetStateMcState() == xmsm::ESTABLISHED);
-    XmppBgpMockPeer *bgp_schannel = 
+    XmppBgpMockPeer *bgp_schannel =
             new XmppBgpMockPeer(sconnection->ChannelMux());
 
     // client channel
@@ -208,9 +208,9 @@ TEST_F(XmppPubSubTest, SSl_Connection) {
     cfg->ToAddr = XMPP_CONTROL_SERV;
     cfg->FromAddr = SUB_ADDR;
     cfg->auth_enabled = true;
-    cfg->path_to_server_cert = 
+    cfg->path_to_server_cert =
         "controller/src/xmpp/testdata/server-build02.pem";
-    cfg->path_to_server_priv_key = 
+    cfg->path_to_server_priv_key =
         "controller/src/xmpp/testdata/server-build02.key";
 
     b_ = new XmppClient(evm_.get(), cfg);

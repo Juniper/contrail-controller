@@ -148,7 +148,7 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
                                  stats->prev_ecmp_composites;
         stats->l2_mcast_composites = req->get_vsr_l2_mcast_composites() -
                                      stats->prev_l2_mcast_composites;
-        stats->fabric_composites = req->get_vsr_fabric_composites() - 
+        stats->fabric_composites = req->get_vsr_fabric_composites() -
                                    stats->prev_fabric_composites;
 
         stats->gros = req->get_vsr_gros() - stats->prev_gros;

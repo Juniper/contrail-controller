@@ -83,7 +83,7 @@ protected:
 
     void AddAllArpEntry() {
         for (int i = 0; i < count_; i++) {
-            AddArp(dip_[i].to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
+            AddArp(dip_[i].to_string().c_str(), "0a:0b:0c:0d:0e:0f",
                    eth_itf.c_str());
         }
         client->WaitForIdle();
@@ -132,9 +132,9 @@ protected:
 
 TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
     AddAllMirrorEntry();
-   
+
     MirrorEntry *mirr_entry;
-    //Verify all mirror entry and mirror NH are added 
+    //Verify all mirror entry and mirror NH are added
     for (int i = 0; i < count_; i++) {
         EXPECT_TRUE(MirrorEntryFind(i));
         mirr_entry = GetMirrorEntry(i);
@@ -147,7 +147,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
     //Resolve ARP for dest server IP and make sure NH
     //are valid now
     AddAllArpEntry();
-    //Verify all mirror entry and mirror NH are added 
+    //Verify all mirror entry and mirror NH are added
     for (int i = 0; i < count_; i++) {
         EXPECT_TRUE(MirrorEntryFind(i));
         mirr_entry = GetMirrorEntry(i);
@@ -181,9 +181,9 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
 
 TEST_F(MirrorTableTest, MirrorEntryAddDel_2) {
     AddAllMirrorEntry();
-   
+
     MirrorEntry *mirr_entry;
-    //Verify all mirror entry and mirror NH are added 
+    //Verify all mirror entry and mirror NH are added
     for (int i = 0; i < count_; i++) {
         EXPECT_TRUE(MirrorEntryFind(i));
         mirr_entry = GetMirrorEntry(i);
@@ -196,7 +196,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_2) {
     //Resolve ARP for dest server IP and make sure NH
     //are valid now
     AddAllArpEntry();
-    //Verify all mirror entry and mirror NH are added 
+    //Verify all mirror entry and mirror NH are added
     for (int i = 0; i < count_; i++) {
         EXPECT_TRUE(MirrorEntryFind(i));
         mirr_entry = GetMirrorEntry(i);
@@ -234,7 +234,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
     //Add mirror entry pointing to same vhost IP
     std::stringstream str;
     str << analyzer;
-    MirrorTable::AddMirrorEntry(analyzer, agent_->fabric_vrf_name(), 
+    MirrorTable::AddMirrorEntry(analyzer, agent_->fabric_vrf_name(),
                                 vhost_ip, 0x1, vhost_ip, 0x2);
     client->WaitForIdle();
     //Mirror NH would point to a route, whose nexthop would be RCV NH
@@ -253,7 +253,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
                  (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry == NULL);
 }
- 
+
 TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
     Ip4Address vhost_ip(agent_->router_id());
     Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
@@ -268,13 +268,13 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
                                     (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry != NULL);
     const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
-    //Gateway route not resolved, hence mirror entry would 
+    //Gateway route not resolved, hence mirror entry would
     //be pointing to invalid NH
     const NextHop *nh = mirr_nh->GetRt()->GetActiveNextHop();
     EXPECT_TRUE(nh->IsValid() == false);
 
     //Resolve ARP for subnet gateway route
-    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
+    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f",
            eth_itf.c_str());
     client->WaitForIdle();
     EXPECT_TRUE(nh->IsValid() == true);
@@ -497,7 +497,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_6) {
 //This test is to verify the Dynamic without Juniper header config
 //Add Mirror Entry without mirror VRF so that Mirror entry will create the
 //vrf and attach to the Tunnel NH created by BridgeTunnelRouteAdd
-// Change the VRF and check NH refrence is released 
+// Change the VRF and check NH refrence is released
 TEST_F(MirrorTableTest, StaticMirrorEntryAdd_7) {
     Ip4Address vhost_ip(agent_->router_id());
     Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
@@ -640,7 +640,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_8) {
     EXPECT_TRUE(mirr_entry == NULL);
     client->WaitForIdle();
 }
-//This test is to verify the Static without Juniper header config 
+//This test is to verify the Static without Juniper header config
 //create a route in resolved state and check that Mirror entry creates tunnel nh
 //and attaches to it.
 TEST_F(MirrorTableTest, StaticMirrorEntryAdd_9) {

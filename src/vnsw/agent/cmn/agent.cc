@@ -560,28 +560,28 @@ void Agent::InitDone() {
 }
 
 static bool interface_exist(string &name) {
-	struct if_nameindex *ifs = NULL;
-	struct if_nameindex *head = NULL;
-	bool ret = false;
-	string tname = "";
+    struct if_nameindex *ifs = NULL;
+    struct if_nameindex *head = NULL;
+    bool ret = false;
+    string tname = "";
 
-	ifs = if_nameindex();
-	if (ifs == NULL) {
-		LOG(INFO, "No interface exists!");
-		return ret;
-	}
-	head = ifs;
-	while (ifs->if_name && ifs->if_index) {
-		tname = ifs->if_name;
-		if (string::npos != tname.find(name)) {
-			ret = true;
-			name = tname;
-			break;
-		}
-		ifs++;
-	}
-	if_freenameindex(head);
-	return ret;
+    ifs = if_nameindex();
+    if (ifs == NULL) {
+        LOG(INFO, "No interface exists!");
+        return ret;
+    }
+    head = ifs;
+    while (ifs->if_name && ifs->if_index) {
+        tname = ifs->if_name;
+        if (string::npos != tname.find(name)) {
+            ret = true;
+            name = tname;
+            break;
+        }
+        ifs++;
+    }
+    if_freenameindex(head);
+    return ret;
 }
 
 void Agent::InitXenLinkLocalIntf() {
@@ -679,7 +679,7 @@ Agent::Agent() :
     xs_stime_(), xs_auth_enable_(false), xs_dns_idx_(0), dns_addr_(),
     dns_port_(), dns_auth_enable_(false),
     controller_chksum_(0), dns_chksum_(0), collector_chksum_(0),
-    ip_fabric_intf_name_(""), crypt_intf_name_(""), 
+    ip_fabric_intf_name_(""), crypt_intf_name_(""),
     vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),

@@ -51,7 +51,7 @@ bool FlowModuleDbEventCompleted(Agent *agent) {
     return true;
 }
 
-//Test flow deletion on interface deletion and make sure 
+//Test flow deletion on interface deletion and make sure
 //interface DB Entry is not deleted while FlowMgr Instance has reference.
 TEST_F(FlowTest, FlowDeleteInterface) {
     KSyncSockTypeMap *sock = static_cast<KSyncSockTypeMap *>(KSyncSock::Get(0));
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
     // use config with large flow tokens to avoid task delays because of token
     // unavailability
     strcpy(init_file, "controller/src/vnsw/agent/pkt/test/flow-table-tokens.ini");
-    client = 
+    client =
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10), (3 * 60 * 1000));
     if (vm.count("config")) {
         eth_itf = Agent::GetInstance()->fabric_interface_name();

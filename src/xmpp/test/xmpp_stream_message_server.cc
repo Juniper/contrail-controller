@@ -54,13 +54,13 @@ public:
         uint8_t data[256];
 
         //EncodeStream
-        auto_ptr<XmlBase> resp_doc(XmppXmlImplFactory::Instance()->GetXmlImpl()); 
-        if (send_bad_open_resp == true) { 
-            if (resp_doc->LoadDoc(sXMPP_STREAM_RESP_BAD) == -1) { 
+        auto_ptr<XmlBase> resp_doc(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        if (send_bad_open_resp == true) {
+            if (resp_doc->LoadDoc(sXMPP_STREAM_RESP_BAD) == -1) {
                 return false;
             }
         } else {
-            if (resp_doc->LoadDoc(sXMPP_STREAM_RESP_GOOD) == -1) { 
+            if (resp_doc->LoadDoc(sXMPP_STREAM_RESP_GOOD) == -1) {
                 return false;
             }
         }
@@ -74,7 +74,7 @@ public:
         uint8_t *buf = data;
         int len = 0;
         //Returns byte encoded in the doc
-        if (send_write_doc) { 
+        if (send_write_doc) {
             len = resp_doc->WriteDoc(buf);
         } else {
             len = resp_doc->WriteRawDoc(buf);
@@ -139,7 +139,7 @@ protected:
         a_ = new XmppMockServer(evm_.get(), XMPP_CONTROL_SERV);
         b_ = new XmppClient(evm_.get());
         thread_.reset(new ServerThread(evm_.get()));
-        init_.reset(new XmppInit()); 
+        init_.reset(new XmppInit());
 
         a_->Initialize(0, false);
         LOG(DEBUG, "Created server at port: " << a_->GetPort());
@@ -157,7 +157,7 @@ protected:
         TcpServerManager::DeleteServer(b_);
         b_ = NULL;
 
-        init_->Reset(); 
+        init_->Reset();
 
         evm_->Shutdown();
         if (thread_.get() != NULL) {

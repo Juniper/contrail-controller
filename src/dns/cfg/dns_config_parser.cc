@@ -81,7 +81,7 @@ static void SetData(const string &identifier, const string &id_type,
 }
 
 static void ClearData(const string &identifier, const string &id_type,
-                      const string &metadata, 
+                      const string &metadata,
                       DnsConfigParser::RequestList *requests) {
     DBRequest *request = new DBRequest;
     request->oper = DBRequest::DB_ENTRY_DELETE;
@@ -96,7 +96,7 @@ static void ClearData(const string &identifier, const string &id_type,
     requests->push_back(request);
 }
 
-static bool ParseVnNetworkIpam(const xml_node &node, bool add_change, 
+static bool ParseVnNetworkIpam(const xml_node &node, bool add_change,
                                DnsConfigParser::RequestList *requests) {
     xml_attribute name_attr = node.attribute("name");
     xml_attribute ipam_attr = node.attribute("ipam");
@@ -118,11 +118,11 @@ static bool ParseVnNetworkIpam(const xml_node &node, bool add_change,
     }
 
     if (add_change) {
-        MapObjectLinkAttr("virtual-network", vn, "network-ipam", ipam, 
-                          "virtual-network-network-ipam", params.release(), requests, 
+        MapObjectLinkAttr("virtual-network", vn, "network-ipam", ipam,
+                          "virtual-network-network-ipam", params.release(), requests,
                           DBRequest::DB_ENTRY_ADD_CHANGE);
     } else {
-        MapObjectLinkAttr("virtual-network", vn, "network-ipam", ipam, 
+        MapObjectLinkAttr("virtual-network", vn, "network-ipam", ipam,
                           "virtual-network-network-ipam", params.release(), requests,
                           DBRequest::DB_ENTRY_DELETE);
     }
@@ -130,7 +130,7 @@ static bool ParseVnNetworkIpam(const xml_node &node, bool add_change,
     return true;
 }
 
-static bool ParseNetworkIpam(const xml_node &node, bool add_change, 
+static bool ParseNetworkIpam(const xml_node &node, bool add_change,
                              DnsConfigParser::RequestList *requests) {
     xml_attribute name = node.attribute("name");
     string identifier;
@@ -143,7 +143,7 @@ static bool ParseNetworkIpam(const xml_node &node, bool add_change,
     }
 
     if (add_change) {
-        SetData(identifier, "network-ipam", "network-ipam-mgmt", 
+        SetData(identifier, "network-ipam", "network-ipam-mgmt",
                 params.release(), requests);
     } else {
         ClearData(identifier, "network-ipam", "network-ipam-mgmt", requests);
@@ -152,7 +152,7 @@ static bool ParseNetworkIpam(const xml_node &node, bool add_change,
     return true;
 }
 
-static bool ParseVirtualDNS(const xml_node &node, bool add_change, 
+static bool ParseVirtualDNS(const xml_node &node, bool add_change,
                             DnsConfigParser::RequestList *requests) {
     xml_attribute name = node.attribute("name");
     xml_attribute domain = node.attribute("domain");
@@ -172,12 +172,12 @@ static bool ParseVirtualDNS(const xml_node &node, bool add_change,
     if (add_change) {
         SetData(identifier, "virtual-DNS", "virtual-DNS-data",
                 params.release(), requests);
-        MapObjectLink("domain", view, "virtual-DNS", identifier, 
-                      "domain-virtual-DNS", requests, 
+        MapObjectLink("domain", view, "virtual-DNS", identifier,
+                      "domain-virtual-DNS", requests,
                       DBRequest::DB_ENTRY_ADD_CHANGE);
     } else {
         ClearData(identifier, "virtual-DNS", "virtual-DNS-data", requests);
-        MapObjectLink("domain", view, "virtual-DNS", identifier, 
+        MapObjectLink("domain", view, "virtual-DNS", identifier,
                       "domain-virtual-DNS", requests,
                       DBRequest::DB_ENTRY_DELETE);
     }
@@ -185,7 +185,7 @@ static bool ParseVirtualDNS(const xml_node &node, bool add_change,
     return true;
 }
 
-static bool ParseVirtualDNSRecord(const xml_node &node, bool add_change, 
+static bool ParseVirtualDNSRecord(const xml_node &node, bool add_change,
                                   DnsConfigParser::RequestList *requests) {
     xml_attribute name = node.attribute("name");
     xml_attribute dns = node.attribute("dns");
@@ -206,14 +206,14 @@ static bool ParseVirtualDNSRecord(const xml_node &node, bool add_change,
         SetData(identifier, "virtual-DNS-record", "virtual-DNS-record-data",
                 params.release(), requests);
         MapObjectLink("virtual-DNS", virtual_dns,
-                      "virtual-DNS-record", identifier, 
+                      "virtual-DNS-record", identifier,
                       "virtual-DNS-virtual-DNS-record", requests,
                       DBRequest::DB_ENTRY_ADD_CHANGE);
     } else {
-        ClearData(identifier, "virtual-DNS-record", 
+        ClearData(identifier, "virtual-DNS-record",
                   "virtual-DNS-record-data", requests);
         MapObjectLink("virtual-DNS", virtual_dns,
-                        "virtual-DNS-record", identifier, 
+                        "virtual-DNS-record", identifier,
                         "virtual-DNS-virtual-DNS-record", requests,
                         DBRequest::DB_ENTRY_DELETE);
     }

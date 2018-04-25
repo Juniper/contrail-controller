@@ -284,7 +284,7 @@ TEST_F(UveVmUveTest, VmAddDel_1) {
     EXPECT_TRUE(uve1 != NULL);
     string uuid_str = to_string(vm->GetUuid());
     EXPECT_STREQ(uuid_str.c_str(), uve1->get_uuid().c_str());
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(0U, uve1->get_interface_list().size());
 
     //Add another VM
     util_.VmAdd(2);
@@ -300,7 +300,7 @@ TEST_F(UveVmUveTest, VmAddDel_1) {
     EXPECT_TRUE(vm2 != NULL);
     UveVirtualMachineAgent *uve2 =  vmut->VmUveObject(vm2);
     EXPECT_TRUE(uve2 != NULL);
-    EXPECT_EQ(0U, uve2->get_interface_list().size()); 
+    EXPECT_EQ(0U, uve2->get_interface_list().size());
 
     //Delete one of the VMs
     util_.VmDelete(1);
@@ -350,7 +350,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
-    //Since the port is inactive, verify that no VM UVE send has 
+    //Since the port is inactive, verify that no VM UVE send has
     //happened since port addition
     EXPECT_EQ(0U, vmut->send_count());
 
@@ -389,13 +389,13 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     util_.EnqueueSendVmUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     VmEntry *vm = VmGet(input[0].vm_id);
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
     EXPECT_EQ(2U, vmut->send_count());
-    EXPECT_EQ(1U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Verify interface UUID
     std::string intf_entry = uve1->get_interface_list().front();
@@ -433,7 +433,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
 
     //Verify that no UVE is sent on VMI reactivation
     EXPECT_EQ(2U, vmut->send_count());
-    EXPECT_EQ(1U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
@@ -508,7 +508,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
-    //Since the port is inactive, verify that no VM UVE send has 
+    //Since the port is inactive, verify that no VM UVE send has
     //happened since port addition
     EXPECT_EQ(0U, vmut->send_count());
 
@@ -546,13 +546,13 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     VmEntry *vm = VmGet(input[0].vm_id);
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
     EXPECT_EQ(2U, vmut->send_count());
-    EXPECT_EQ(1U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Disassociate VM from VMI and delete the VM
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -565,7 +565,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
 
     EXPECT_TRUE((vmut->send_count() >= 3U));
     EXPECT_EQ(1U, vmut->delete_count());
-    
+
     //Add the VM back and re-associate it with same VMI
     util_.VmAdd(input[0].vm_id);
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -575,7 +575,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_TRUE((vmut->send_count() >= 4U));
     EXPECT_EQ(1U, vmut->delete_count());
     vm = VmGet(input[0].vm_id);
@@ -597,7 +597,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     util_.EnqueueSendVmUveTask();
     client->WaitForIdle();
 
-    //Verify UVE 
+    //Verify UVE
     vm = VmGet(input[0].vm_id);
     EXPECT_TRUE(vm != NULL);
     uve1 =  vmut->VmUveObject(vm);
@@ -662,7 +662,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     client->WaitForIdle();
     WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_TRUE((vmut->send_count() >= 5U));
     EXPECT_EQ(2U, vmut->delete_count());
 

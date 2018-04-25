@@ -133,7 +133,7 @@ void xml_parse(pugi::xml_node &node, string &s, int n) {
             for (pugi::xml_attribute_iterator ait = node.attributes_begin(); ait != node.attributes_end(); ++ait) {
                 s = s + t + ait->name() + ":" + ait->value() + "\n";
             }
-            
+
             for(pugi::xml_node chld = node.first_child(); chld; chld = chld.next_sibling()) {
                 xml_parse(chld, s, n + 1);
             }
@@ -177,7 +177,7 @@ void ShowIFMapAgentTable::MakeNode(const string &name_sub_string,
     // Display its adjacencies
     dst = dst + "Adjacencies:\n";
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator 
+    for (DBGraphVertex::adjacency_iterator
          iter = node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
@@ -221,7 +221,7 @@ void ShowIFMapAgentTable::TableToBuffer(const ShowIFMapAgentReq *request,
 
 bool ShowIFMapAgentTable::BufferSomeTables(const RequestPipeline::PipeSpec ps,
                                       RequestPipeline::InstData *data) {
-    const ShowIFMapAgentReq *request = 
+    const ShowIFMapAgentReq *request =
         static_cast<const ShowIFMapAgentReq *>(ps.snhRequest_.get());
 
     IFMapTable *table = IFMapTable::FindTable(db_, request->get_table_name());
@@ -263,7 +263,7 @@ bool ShowIFMapAgentTable::BufferStage(const Sandesh *sr,
                                  int stage, int instNum,
                                  RequestPipeline::InstData *data) {
 
-    const ShowIFMapAgentReq *request = 
+    const ShowIFMapAgentReq *request =
         static_cast<const ShowIFMapAgentReq *>(ps.snhRequest_.get());
     // If table name has not been passed, print all tables
     if (request->get_table_name().length()) {
@@ -278,9 +278,9 @@ bool ShowIFMapAgentTable::SendStage(const Sandesh *sr,
                                int stage, int instNum,
                                RequestPipeline::InstData *data) {
     const RequestPipeline::StageData *stage_data = ps.GetStageData(0);
-    const ShowIFMapAgentTable::ShowData &show_data = 
+    const ShowIFMapAgentTable::ShowData &show_data =
         static_cast<const ShowIFMapAgentTable::ShowData &> (stage_data->at(0));
-    const ShowIFMapAgentReq *request = 
+    const ShowIFMapAgentReq *request =
         static_cast<const ShowIFMapAgentReq *>(ps.snhRequest_.get());
     ShowIFMapAgentResp *response = new ShowIFMapAgentResp();
     response->set_table_data(show_data.send_buffer);
@@ -332,7 +332,7 @@ void ShowIFMapAgentDefLinkReq::HandleRequest() const {
     const IFMapAgentLinkTable::LinkDefMap &def_list = link_table->GetLinkDefMap();
 
     //Get Sandesh response's output list
-    std::vector<IFMapAgentDefLink> &list = 
+    std::vector<IFMapAgentDefLink> &list =
         const_cast<std::vector<IFMapAgentDefLink>&>(resp->get_def_list());
 
     //Iterate left node list
@@ -349,7 +349,7 @@ void ShowIFMapAgentDefLinkReq::HandleRequest() const {
             data.set_metadata((*it).link_metadata);
             data.set_right_node((*it).node_key.id_type + ":" +
                     (*it).node_key.id_name);
-            list.push_back(data);     
+            list.push_back(data);
         }
     }
     resp->set_context(context());

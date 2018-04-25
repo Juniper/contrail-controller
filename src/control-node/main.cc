@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
     IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
 
     ConfigFactory::Register<ConfigJsonParserBase>(
-                          boost::factory<ConfigJsonParser *>());   
+                          boost::factory<ConfigJsonParser *>());
     ConfigClientManager *config_client_manager =
         new ConfigClientManager(&evm, options.hostname(),
                                 module_name, options.configdb_options());

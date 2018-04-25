@@ -49,7 +49,7 @@ protected:
         evm_.reset(new EventManager());
     }
 
-    ~XmppStateMachineTest() { 
+    ~XmppStateMachineTest() {
     }
 
     virtual void SetUp() {
@@ -67,7 +67,7 @@ protected:
         TcpServerManager::DeleteServer(server_);
         server_ = NULL;
         task_util::WaitForIdle();
- 
+
         client_->Shutdown();
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(client_);
@@ -165,7 +165,7 @@ protected:
 
     void EvTcpConnected() {
         session_ = sm_->session();
-        sm_->OnSessionEvent(session_,TcpSession::CONNECT_COMPLETE); 
+        sm_->OnSessionEvent(session_,TcpSession::CONNECT_COMPLETE);
     }
 
     void EvXmppOpen() {
@@ -174,18 +174,18 @@ protected:
         msg_->strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
         msg_->from = "bgp.contrail.com";
         msg_->to = "agent";
-        sm_->OnMessage(session_, msg_);     
+        sm_->OnMessage(session_, msg_);
     }
 
     void EvXmppKeepalive() {
-        XmppStanza::XmppMessage *msg_; 
+        XmppStanza::XmppMessage *msg_;
         msg_ = new XmppStanza::XmppMessage(XmppStanza::WHITESPACE_MESSAGE_STANZA);
         msg_->type =  XmppStanza::WHITESPACE_MESSAGE_STANZA;
         sm_->OnMessage(session_, msg_);
     }
 
     void EvXmppMessageStanza() {
-        XmppStanza::XmppMessage *msg_; 
+        XmppStanza::XmppMessage *msg_;
         msg_ = new XmppStanza::XmppMessage(XmppStanza::MESSAGE_STANZA);
         msg_->type =  XmppStanza::MESSAGE_STANZA;
         sm_->OnMessage(session_, msg_);
@@ -193,11 +193,11 @@ protected:
 
     void EvTcpConnectFailed() {
         session_ = sm_->session();
-        sm_->OnSessionEvent(session_,TcpSession::CONNECT_FAILED); 
+        sm_->OnSessionEvent(session_,TcpSession::CONNECT_FAILED);
     }
     void EvTcpClose() {
         session_ = sm_->session();
-        sm_->OnSessionEvent(session_,TcpSession::CLOSE); 
+        sm_->OnSessionEvent(session_,TcpSession::CLOSE);
     }
 
     bool ConnectTimerRunning() { return(sm_->connect_timer_->running()); }
@@ -224,7 +224,7 @@ namespace {
 
 // OldState : Idle
 // Event    : EvStart
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, Idle_EvStart) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -237,7 +237,7 @@ TEST_F(XmppStateMachineTest, Idle_EvStart) {
 
 // OldState : Active
 // Event    : EvTcpConnectTimerExpired
-// NewState : Connect 
+// NewState : Connect
 TEST_F(XmppStateMachineTest, Active_EvTcpConnectTimerExpired) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -255,7 +255,7 @@ TEST_F(XmppStateMachineTest, Active_EvTcpConnectTimerExpired) {
 
 // OldState : Active
 // Event    : EvStop
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, Active_EvStop) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -273,9 +273,9 @@ TEST_F(XmppStateMachineTest, Active_EvStop) {
 
 
 
-// OldState : Connect 
+// OldState : Connect
 // Event    : EvConnectTimerExpired
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, Connect_EvTcpConnectTimerExpired) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -294,9 +294,9 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpConnectTimerExpired) {
     VerifyState(xmsm::ACTIVE);
 }
 
-// OldState : Connect 
+// OldState : Connect
 // Event    : EvConnectFail
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, Connect_EvTcpConnectFailed) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -316,9 +316,9 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpConnectFailed) {
 }
 
 
-// OldState : Connect 
+// OldState : Connect
 // Event    : EvTcpConnected
-// NewState : OpenSent 
+// NewState : OpenSent
 TEST_F(XmppStateMachineTest, Connect_EvTcpConnected) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -337,9 +337,9 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpConnected) {
     VerifyState(xmsm::OPENSENT);
 }
 
-// OldState : Connect 
+// OldState : Connect
 // Event    : EvTcpClose
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, Connect_EvTcpClose) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -358,9 +358,9 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpClose) {
     VerifyState(xmsm::ACTIVE);
 }
 
-// OldState : Connect 
+// OldState : Connect
 // Event    : EvStop
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, Connect_EvTcpStop) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -380,9 +380,9 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpStop) {
 }
 
 
-// OldState : OpenSent 
+// OldState : OpenSent
 // Event    : EvXmppOpen
-// NewState : Established 
+// NewState : Established
 TEST_F(XmppStateMachineTest, OpenSent_EvXmppOpen) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -405,9 +405,9 @@ TEST_F(XmppStateMachineTest, OpenSent_EvXmppOpen) {
 }
 
 
-// OldState : OpenSent 
+// OldState : OpenSent
 // Event    : EvTcpClose
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, OpenSent_EvTcpClose) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -429,9 +429,9 @@ TEST_F(XmppStateMachineTest, OpenSent_EvTcpClose) {
     VerifyState(xmsm::ACTIVE);
 }
 
-// OldState : OpenSent 
+// OldState : OpenSent
 // Event    : EvHoldTimerExpired
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, OpenSent_EvHoldTimerExpired) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -453,9 +453,9 @@ TEST_F(XmppStateMachineTest, OpenSent_EvHoldTimerExpired) {
     VerifyState(xmsm::ACTIVE);
 }
 
-// OldState : OpenSent 
+// OldState : OpenSent
 // Event    : EvStop
-// NewState : Active 
+// NewState : Active
 TEST_F(XmppStateMachineTest, OpenSent_EvStop) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -478,9 +478,9 @@ TEST_F(XmppStateMachineTest, OpenSent_EvStop) {
 }
 
 
-// OldState : Established 
+// OldState : Established
 // Event    : EvXmppKeepAlive
-// NewState : Established 
+// NewState : Established
 TEST_F(XmppStateMachineTest, Established_EvXmppKeepAlive) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -505,9 +505,9 @@ TEST_F(XmppStateMachineTest, Established_EvXmppKeepAlive) {
     VerifyState(xmsm::ESTABLISHED);
 }
 
-// OldState : Established 
+// OldState : Established
 // Event    : EvXmppMessageStanza
-// NewState : Established 
+// NewState : Established
 TEST_F(XmppStateMachineTest, Established_EvXmppMessageReceive) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -532,9 +532,9 @@ TEST_F(XmppStateMachineTest, Established_EvXmppMessageReceive) {
     VerifyState(xmsm::ESTABLISHED);
 }
 
-// OldState : Established 
-// Event    : EvHoldTimerExpired 
-// NewState : Active 
+// OldState : Established
+// Event    : EvHoldTimerExpired
+// NewState : Active
 TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -561,9 +561,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
     VerifyState(xmsm::ACTIVE);
 }
 
-// OldState : Established 
-// Event    : EvHoldTimerExpired 
-// NewState : Active 
+// OldState : Established
+// Event    : EvHoldTimerExpired
+// NewState : Active
 // Event    : EvTcpConnectFailed
 // NewState : Active
 // Event    : EvTcpConnect
@@ -606,11 +606,11 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired_connectfail) {
     VerifyState(xmsm::OPENSENT);
 }
 
-// OldState : Connect 
+// OldState : Connect
 // Event    : EvTcpConnectFailed
-// NewState : Active 
+// NewState : Active
 // Event    : EvTcpConnected
-// NewState : OpenSent 
+// NewState : OpenSent
 TEST_F(XmppStateMachineTest, Connect_EvTcpConnectFailed_EvTcpConnected) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not

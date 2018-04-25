@@ -93,7 +93,7 @@ public:
     };
 
     struct DnsUpdateAllIpc : InterTaskMsg {
-        DnsUpdateAllIpc(AgentDnsXmppChannel *ch) 
+        DnsUpdateAllIpc(AgentDnsXmppChannel *ch)
             : InterTaskMsg(DNS_XMPP_SEND_UPDATE_ALL), channel(ch) {}
 
         AgentDnsXmppChannel *channel;

@@ -38,7 +38,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 }
 
 class BgpCfgTest : public ::testing::Test {
-public:    
+public:
     BgpCfgTest() : agent_(Agent::GetInstance()) {
     }
 

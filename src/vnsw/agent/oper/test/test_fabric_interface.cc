@@ -29,8 +29,8 @@
 #include "filter/acl.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <controller/controller_export.h> 
-#include <ksync/ksync_sock_user.h> 
+#include <controller/controller_export.h>
+#include <ksync/ksync_sock_user.h>
 
 void RouterIdDepInit(Agent *agent) {
 }

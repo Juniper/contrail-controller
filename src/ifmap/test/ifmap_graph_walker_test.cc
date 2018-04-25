@@ -38,7 +38,7 @@ protected:
         thread_(&evm_),
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
         server_(new IFMapServer(&db_, &db_graph_, evm_.io_service())),
-        config_client_manager_(new ConfigClientManager(&evm_, "localhost", 
+        config_client_manager_(new ConfigClientManager(&evm_, "localhost",
                        "config-test", config_options_)) {
         config_cassandra_client_ = dynamic_cast<ConfigCassandraClientTest *>(
             config_client_manager_->config_db_client());
@@ -129,7 +129,7 @@ TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
                                            "network-ipam");
     TASK_UTIL_EXPECT_EQ(l_mid, r_mid);
     TASK_UTIL_EXPECT_NE(0, right.size());
-    
+
 #if 0
     ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-network", left,
                                     "network-ipam", right,
@@ -141,7 +141,7 @@ TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
     ifmap_test_util::IFMapMsgLink(&db_, "virtual-network", left,
                                   "network-ipam", right,
                                   "virtual-network-network-ipam");
-    
+
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, c1.object_map().count("network-ipam"));
     // virtual-network-network-ipam is a LinkAttr. There are 2 nodes and
@@ -154,7 +154,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn1Vm3Add) {
     ParseEventsJson("controller/src/ifmap/testdata/cli1_vn1_vm3_add.json");
     FeedEventsJson();
 
-    IFMapClientMock 
+    IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_->AddClient(&c1);
     server_->ProcessVmSubscribe(
@@ -171,7 +171,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn1Vm3Add) {
     TASK_UTIL_EXPECT_NE(0, c1.node_count());
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
 
-    IFMapClientMock 
+    IFMapClientMock
         c2("default-global-system-config:a1s28.contrail.juniper.net");
     server_->AddClient(&c2);
     task_util::WaitForIdle();
@@ -194,7 +194,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
     ParseEventsJson("controller/src/ifmap/testdata/cli2_vn2_vm2_add.json");
     FeedEventsJson();
 
-    IFMapClientMock 
+    IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_->AddClient(&c1);
     server_->ProcessVmSubscribe(
@@ -205,7 +205,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
     TASK_UTIL_EXPECT_NE(0, c1.node_count());
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
 
-    IFMapClientMock 
+    IFMapClientMock
         c2("default-global-system-config:a1s28.contrail.juniper.net");
     server_->AddClient(&c2);
     server_->ProcessVmSubscribe(
@@ -252,7 +252,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np2Add) {
     ParseEventsJson("controller/src/ifmap/testdata/cli1_vn2_np2_add.json");
     FeedEventsJson();
 
-    IFMapClientMock 
+    IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_->AddClient(&c1);
     server_->ProcessVmSubscribe(
@@ -266,7 +266,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np2Add) {
     TASK_UTIL_EXPECT_NE(0, c1.node_count());
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
 
-    IFMapClientMock 
+    IFMapClientMock
         c2("default-global-system-config:a1s28.contrail.juniper.net");
     server_->AddClient(&c2);
     task_util::WaitForIdle();
@@ -303,7 +303,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np1Add) {
     ParseEventsJson("controller/src/ifmap/testdata/cli1_vn2_np1_add.json");
     FeedEventsJson();
 
-    IFMapClientMock 
+    IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_->AddClient(&c1);
     server_->ProcessVmSubscribe(
@@ -317,7 +317,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np1Add) {
     TASK_UTIL_EXPECT_NE(0, c1.node_count());
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
 
-    IFMapClientMock 
+    IFMapClientMock
         c2("default-global-system-config:a1s28.contrail.juniper.net");
     server_->AddClient(&c2);
     task_util::WaitForIdle();
@@ -354,7 +354,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
     ParseEventsJson("controller/src/ifmap/testdata/cli2_vn2_np2_add.json");
     FeedEventsJson();
 
-    IFMapClientMock 
+    IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_->AddClient(&c1);
     server_->ProcessVmSubscribe(
@@ -365,7 +365,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
     TASK_UTIL_EXPECT_NE(0, c1.node_count());
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
 
-    IFMapClientMock 
+    IFMapClientMock
         c2("default-global-system-config:a1s28.contrail.juniper.net");
     server_->AddClient(&c2);
     server_->ProcessVmSubscribe(
@@ -390,7 +390,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
     TASK_UTIL_EXPECT_FALSE(c1.LinkExists("virtual-network",
         "virtual-network-network-policy", "default-domain:demo:vn27",
         "attr(default-domain:demo:27to28tcp,default-domain:demo:vn27)"));
-    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network", 
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-network",
                                         "virtual-network-network-policy"), 0);
 
     TASK_UTIL_EXPECT_TRUE(c2.NodeExists("virtual-network",
@@ -407,7 +407,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
     TASK_UTIL_EXPECT_FALSE(c2.LinkExists("virtual-network",
         "virtual-network-network-policy", "default-domain:demo:vn28",
         "attr(default-domain:demo:28to27udp,default-domain:demo:vn28)"));
-    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-network", 
+    TASK_UTIL_EXPECT_EQ(c2.LinkKeyCount("virtual-network",
                                         "virtual-network-network-policy"), 0);
 
     // Since network-policy and virtual-network-network-policy is not downloaded
@@ -426,7 +426,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn3Vm6Np2Add) {
     ParseEventsJson("controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add.json");
     FeedEventsJson();
 
-    IFMapClientMock 
+    IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_->AddClient(&c1);
     server_->ProcessVmSubscribe(
@@ -446,7 +446,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn3Vm6Np2Add) {
     TASK_UTIL_EXPECT_NE(0, c1.node_count());
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
 
-    IFMapClientMock 
+    IFMapClientMock
         c2("default-global-system-config:a1s28.contrail.juniper.net");
     server_->AddClient(&c2);
     server_->ProcessVmSubscribe(
@@ -514,7 +514,7 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
     FeedEventsJson();
     task_util::WaitForIdle();
 
-    // VR-reg 
+    // VR-reg
     IFMapClientMock c1("gsc1:vr1");
     server_->AddClient(&c1);
     task_util::WaitForIdle();
@@ -535,7 +535,7 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
 
 // Receive VR-subscribe and then config
 TEST_F(IFMapGraphWalkerTest, VrsubConfig) {
-    // VR-reg 
+    // VR-reg
     IFMapClientMock c1("gsc1:vr1");
     server_->AddClient(&c1);
     task_util::WaitForIdle();

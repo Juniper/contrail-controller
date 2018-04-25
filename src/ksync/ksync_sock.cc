@@ -50,7 +50,7 @@ pid_t KSyncSock::pid_;
 tbb::atomic<bool> KSyncSock::shutdown_;
 
 // Name of task used in KSync Response work-queues
-const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] = 
+const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] =
                                                 {
                                                     "Agent::Uve",
                                                     "Agent::KSync"
@@ -358,7 +358,7 @@ bool KSyncSock::ValidateAndEnqueue(char *data, KSyncBulkMsgContext *context) {
 void KSyncSock::ReadHandler(const boost::system::error_code& error,
                             size_t bytes_transferred) {
     if (error) {
-        LOG(ERROR, "Error reading from Ksync sock. Error : " << 
+        LOG(ERROR, "Error reading from Ksync sock. Error : " <<
             boost::system::system_error(error).what());
         if (shutdown_ == false) {
             assert(0);
@@ -422,7 +422,7 @@ bool KSyncSock::BlockingRecv() {
         // Use non-bulk version of decoder
         Decoder(data, ctxt);
         if (ctxt->GetErrno() != 0 && ctxt->GetErrno() != EEXIST) {
-            KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", 
+            KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <",
                         ctxt->GetErrno(), ":",
                         KSyncEntry::VrouterErrorToString(ctxt->GetErrno()),
                         ">. Object <", "N/A", ">. State <", "N/A",
@@ -792,7 +792,7 @@ void KSyncSockNetlink::Receive(mutable_buffers_1 buf) {
     sock_.receive(buf);
     struct nlmsghdr *nlh = buffer_cast<struct nlmsghdr *>(buf);
     if (nlh->nlmsg_type == NLMSG_ERROR) {
-        LOG(ERROR, "Netlink error for seqno " << nlh->nlmsg_seq 
+        LOG(ERROR, "Netlink error for seqno " << nlh->nlmsg_seq
                 << " len " << nlh->nlmsg_len);
         assert(0);
     }
@@ -1108,7 +1108,7 @@ struct IoContextDisposer {
 };
 
 KSyncBulkMsgContext::~KSyncBulkMsgContext() {
-    assert(vr_response_count_ == io_context_list_.size()); 
+    assert(vr_response_count_ == io_context_list_.size());
     io_context_list_.clear_and_dispose(IoContextDisposer());
     for (uint32_t i = 0; i < rx_buffer_index_; i++) {
         delete[] rx_buffers_[i];

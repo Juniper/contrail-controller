@@ -217,7 +217,7 @@ void DnsManager::DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
         DNS_BIND_TRACE(DnsBindTrace, "Ptr Zone <" << vdns->GetName() <<
                        "> ; ignoring event: " << DnsConfig::ToEventString(ev) <<
                        " Domain: " << dns_domain << " Reverse Resolution: " <<
-                       (vdns->IsReverseResolutionEnabled()? "enabled" : 
+                       (vdns->IsReverseResolutionEnabled()? "enabled" :
                        "disabled"));
         return;
     }
@@ -360,7 +360,7 @@ void DnsManager::SendRetransmit(uint16_t xid, BindUtil::Operation op,
     uint8_t *pkt = new uint8_t[BindResolver::max_pkt_size];
     int len = BindUtil::BuildDnsUpdate(pkt, op, xid, view, zone, items);
     if (BindResolver::Resolver()->DnsSend(pkt, 0, len)) {
-        DNS_BIND_TRACE(DnsBindTrace, 
+        DNS_BIND_TRACE(DnsBindTrace,
             "DNS transmit sent for DNS record; xid = " <<
              xid << "; View = " << view << "; Zone = " << zone << "; " <<
              DnsItemsToString(items) << " Retry = " <<
@@ -447,7 +447,7 @@ bool DnsManager::ResendRecordsinBatch() {
              dp_pending_map_.insert(PendingListPair(it->first,
                                     PendingList(it->first, it->second.view,
                                                 it->second.zone, it->second.items,
-                                                it->second.op, 
+                                                it->second.op,
                                                 it->second.retransmit_count)));
              ResetTransId(it->first);
              pending_map_.erase(it++);

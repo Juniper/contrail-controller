@@ -66,17 +66,17 @@ TEST_F(CfgTest, VmBasic_1) {
 
     //Test for no node and link present
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, "virtual-network", "vn1", 1); 
+    AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddNodeString(buff, len, "virtual-machine", "vm1", 1);
     AddNodeString(buff, len, "virtual-machine-interface", "vnet2", 1);
     AddLinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     CheckVmAdd(1, 1);
-    
+
     //Try changing key of VN
     VmEntry *vm = VmGet(1);
-    VmKey *oldKey = 
+    VmKey *oldKey =
            new VmKey((static_cast<VnKey*>((vm->GetDBRequestKey()).get()))->uuid_);
     VmKey *newKey = new VmKey(MakeUuid(200));
     string s1;

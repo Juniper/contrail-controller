@@ -286,7 +286,7 @@ TEST_F(RemoteEcmpTest, Fabric_NonEcmpToEcmp_1) {
     //VIP of vrf2 interfaces
     char vm_ip[80] = "2.1.1.1";
     char router_id[80];
-    char remote_server_ip[80]; 
+    char remote_server_ip[80];
     char remote_vm_ip[80];
 
     strcpy(router_id, agent_->router_id().to_string().c_str());
@@ -301,12 +301,12 @@ TEST_F(RemoteEcmpTest, Fabric_NonEcmpToEcmp_1) {
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                                remote_vm_ip, vm_ip, 1, 0, 0,  nh_id);
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx != 
+    EXPECT_TRUE(entry->data().component_nh_idx !=
             CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
 }
 
@@ -317,7 +317,7 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_NonEcmpToEcmp_1) {
     //FIP of vrf3 interfaces
     char vm_ip[80] = "4.1.1.100";
     char router_id[80];
-    char remote_server_ip[80]; 
+    char remote_server_ip[80];
     char remote_vm_ip[80];
 
     strcpy(router_id, agent_->router_id().to_string().c_str());
@@ -332,12 +332,12 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_NonEcmpToEcmp_1) {
     FlowEntry *entry = FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(),
                                remote_vm_ip, vm_ip, 1, 0, 0, nh_id);
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx != 
+    EXPECT_TRUE(entry->data().component_nh_idx !=
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
 }
 
@@ -417,7 +417,7 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_EcmpToNonEcmp_1) {
     //VIP of vrf2 interfaces
     char vm_ip[80] = "1.1.1.1";
     char router_id[80];
-    char remote_server_ip[80]; 
+    char remote_server_ip[80];
     char remote_vm_ip[80];
 
     strcpy(router_id, agent_->router_id().to_string().c_str());
@@ -679,7 +679,7 @@ TEST_F(RemoteEcmpTest, Vmi_EcmpTest_13) {
     DelIPAM("vn9");
 }
 
-//Add a test case to check if rpf NH of flow using floating IP 
+//Add a test case to check if rpf NH of flow using floating IP
 //gets properly upon nexthop change from ecmp to unicast
 TEST_F(RemoteEcmpTest, EcmpTest_14) {
     struct PortInfo input1[] = {
@@ -945,7 +945,7 @@ TEST_F(RemoteEcmpTest, DISABLED_EcmpReEval_1) {
 
     uint32_t ecmp_index = entry->data().component_nh_idx;
     //Delete VM corresponding to index component_nh_idx
-    IntfCfgDel(input2, ecmp_index); 
+    IntfCfgDel(input2, ecmp_index);
     client->WaitForIdle();
     //Enqueue a re-evaluate request
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
@@ -953,7 +953,7 @@ TEST_F(RemoteEcmpTest, DISABLED_EcmpReEval_1) {
     //Upon interface deletion flow would have been deleted, get flow again
     FlowEntry *entry2 = FlowGet(VrfGet("vrf2")->vrf_id(),
             "1.1.1.1", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
- 
+
     //Verify compoennt NH index is different
     EXPECT_TRUE(entry2->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
@@ -968,7 +968,7 @@ TEST_F(RemoteEcmpTest, EcmpReEval_2) {
     //Add a remote VM route for 3.1.1.10
     Ip4Address remote_vm_ip = Ip4Address::from_string("3.1.1.10");
     Ip4Address remote_server_ip = Ip4Address::from_string("10.10.10.10");
-    Inet4TunnelRouteAdd(bgp_peer, "vrf2",remote_vm_ip, 32, 
+    Inet4TunnelRouteAdd(bgp_peer, "vrf2",remote_vm_ip, 32,
                         remote_server_ip, TunnelType::GREType(), 16, "vn2",
                         SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
@@ -1122,7 +1122,7 @@ TEST_F(RemoteEcmpTest, DISABLE_VgwFlag) {
 // Send packet from ECMP VM to ECMP MX
 // Verify component index is set and correspnding rpf nexthop
 TEST_F(RemoteEcmpTest, DISABLED_EcmpTest_1) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4, ComponentNHKeyList()); 
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4, ComponentNHKeyList());
     AddRemoteEcmpRoute("vrf1", "1.1.1.1", 32, "vn1", 4, ComponentNHKeyList());
 
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
@@ -1141,7 +1141,7 @@ TEST_F(RemoteEcmpTest, DISABLED_EcmpTest_1) {
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 

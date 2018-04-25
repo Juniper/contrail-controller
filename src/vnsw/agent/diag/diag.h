@@ -186,14 +186,14 @@ struct OverlayOamPktData {
     MALFORMED_ECHO_REQUEST = 1,
     OVERLAY_SEGMENT_NOT_PRESENT = 2,
     OVERLAY_SEGMENT_NOT_OPERATIONAL = 3,
-    RETURN_CODE_OK = 4, 
+    RETURN_CODE_OK = 4,
    };
 
    enum Replymode {
     DONT_REPLY = 1,
     REPLY_IPV4ORV6_UDP = 2,
     REPLY_OVERLAY_SEGMENT = 3,
-   }; 
+   };
 
    uint8_t msg_type_;
    uint8_t reply_mode_;

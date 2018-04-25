@@ -160,11 +160,11 @@ public:
 
     void unconsumed_event(const sc::event_base &event);
 
-    void SendConnectionInfo(const std::string &event, 
+    void SendConnectionInfo(const std::string &event,
                             const std::string &nextstate = "");
 
-    void SendConnectionInfo(XmppConnectionInfo *info, const std::string &event, 
-                            const std::string &nextstate = ""); 
+    void SendConnectionInfo(XmppConnectionInfo *info, const std::string &event,
+                            const std::string &nextstate = "");
     void ResurrectOldConnection(XmppConnection *connection,
                                 XmppSession *session);
 

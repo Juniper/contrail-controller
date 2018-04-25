@@ -449,11 +449,11 @@ void BgpStressTest::IFMapInitialize(const string &hostname) {
 
     ifmap_server_.reset(new IFMapServerTest(config_db_, config_graph_,
                                             evm_.io_service()));
-     
+
     config_client_manager_.reset(new ConfigClientManager(&evm_,
         hostname, "BgpServerTest", ConfigClientOptions()));
     ConfigJsonParser *config_json_parser_ =
-     static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser()); 
+     static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
     static_cast<IFMapServerTest *>(ifmap_server_.get())->
         set_config_client_manager(config_client_manager_.get());
     config_json_parser_->ifmap_server_set(ifmap_server_.get());

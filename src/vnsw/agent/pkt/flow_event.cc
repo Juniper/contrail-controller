@@ -86,7 +86,7 @@ void FlowEventQueueBase::TaskExit(bool done) {
         uint32_t sys = (r.ru_stime.tv_sec - rusage_.ru_stime.tv_sec) * 1000;
         sys += ((r.ru_stime.tv_usec - rusage_.ru_stime.tv_usec) / 1000);
 
-        LOG(ERROR, queue_->Description() 
+        LOG(ERROR, queue_->Description()
             << " Time exceeded " << ((t - task_start_) / 1000)
             << " Count " << count_
             << " User " << user << " Sys " << sys);

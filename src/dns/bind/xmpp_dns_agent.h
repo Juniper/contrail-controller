@@ -33,20 +33,20 @@ public:
         DnsQueryResponse
     };
 
-    static std::size_t DnsAgentXmppEncode(XmppChannel *channel, XmppType type, 
-                                          uint32_t trans_id, uint32_t resp_code, 
+    static std::size_t DnsAgentXmppEncode(XmppChannel *channel, XmppType type,
+                                          uint32_t trans_id, uint32_t resp_code,
                                           DnsUpdateData *xmpp_data,
                                           uint8_t *data);
-    static bool DnsAgentXmppDecode(const pugi::xml_node dns, 
+    static bool DnsAgentXmppDecode(const pugi::xml_node dns,
                                    XmppType &type, uint32_t &xid,
                                    uint16_t &resp_code, DnsUpdateData *data);
 
 private:
     static void EncodeDnsData(pugi::xml_node *node, DnsUpdateData *xmpp_data);
     static void EncodeDnsItem(pugi::xml_node *node, DnsItem &entry);
-    static bool DecodeDns(const pugi::xml_node node, XmppType &type, 
+    static bool DecodeDns(const pugi::xml_node node, XmppType &type,
                           bool is_resp, DnsUpdateData *data);
-    static bool DecodeDnsItems(const pugi::xml_node dnsdata, 
+    static bool DecodeDnsItems(const pugi::xml_node dnsdata,
                                DnsUpdateData *data);
 };
 

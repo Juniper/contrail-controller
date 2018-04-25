@@ -6,7 +6,7 @@
 
 /////////////////////////////////////////////////////////////////////////////
 // Agent supports multiple type of interface. Class Interface is defines
-// common attributes of all interfaces. All interfaces derive from the base 
+// common attributes of all interfaces. All interfaces derive from the base
 // Interface class
 /////////////////////////////////////////////////////////////////////////////
 
@@ -90,7 +90,7 @@ public:
 
     // DBEntry virtual function. Must be implemented by derived interfaces
     virtual KeyPtr GetDBRequestKey() const = 0;
-    //DBEntry virtual function. Implmeneted in base class since its common 
+    //DBEntry virtual function. Implmeneted in base class since its common
     //for all interfaces
     virtual void SetKey(const DBRequestKey *key);
 

@@ -15,7 +15,7 @@ public:
     virtual void SetUp() {
         EcmpTest::SetUp();
     }
- 
+
     virtual void TearDown() {
         EcmpTest::TearDown();
     }
@@ -500,7 +500,7 @@ TEST_F(LocalEcmpTest, EcmpToEcmp_RpfFail_1) {
 }
 
 TEST_F(LocalEcmpTest, Metadata_Ecmp_1) {
-    const VmInterface *vhost = 
+    const VmInterface *vhost =
         static_cast<const VmInterface *>(agent_->vhost_interface());
 
     TxTcpPacket(vhost->id(), vhost->primary_ip_addr().to_string().c_str(),
@@ -515,14 +515,14 @@ TEST_F(LocalEcmpTest, Metadata_Ecmp_1) {
     EXPECT_TRUE(flow != NULL);
     EXPECT_TRUE(flow->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-    
+
     InetUnicastRouteEntry *rt = RouteGet("vrf1", vmi_[11]->primary_ip_addr(),
                                          32);
-    const CompositeNH *cnh = 
+    const CompositeNH *cnh =
         dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
-    EXPECT_TRUE(cnh->GetNH(flow->data().component_nh_idx) == 
+    EXPECT_TRUE(cnh->GetNH(flow->data().component_nh_idx) ==
                 vmi_[11]->l3_interface_nh_no_policy());
-   
+
     client->WaitForIdle();
 }
 

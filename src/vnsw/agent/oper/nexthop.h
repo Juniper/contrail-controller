@@ -233,7 +233,7 @@ private:
 };
 
 /////////////////////////////////////////////////////////////////////////////
-// Class to manage supported tunnel-types 
+// Class to manage supported tunnel-types
 /////////////////////////////////////////////////////////////////////////////
 class TunnelType {
 public:
@@ -312,7 +312,7 @@ public:
             return TunnelType::VxlanType();
         return TunnelType::AllType();
     }
-    static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
+    static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) |
                                        (1 << VXLAN));}
     static TypeBmap GREType() {return (1 << MPLS_GRE);}
     static TypeBmap UDPType() {return (1 << MPLS_UDP);}
@@ -327,7 +327,7 @@ private:
 };
 
 /////////////////////////////////////////////////////////////////////////////
-// Base class for NextHop. Implementation of specific NextHop must 
+// Base class for NextHop. Implementation of specific NextHop must
 // derive from this class
 /////////////////////////////////////////////////////////////////////////////
 class NextHop : AgentRefCount<NextHop>, public AgentDBEntry {
@@ -352,7 +352,7 @@ public:
     NextHop(Type type, bool policy) :
         type_(type), valid_(true), policy_(policy), id_(kInvalidIndex),
         mpls_label_(), learning_enabled_(false), etree_leaf_(false) {}
-    NextHop(Type type, bool valid, bool policy) : 
+    NextHop(Type type, bool valid, bool policy) :
         type_(type), valid_(valid), policy_(policy), id_(kInvalidIndex),
         mpls_label_(), learning_enabled_(false), etree_leaf_(false) {}
     virtual ~NextHop();
@@ -647,7 +647,7 @@ private:
 
 class ReceiveNH : public NextHop {
 public:
-    ReceiveNH(Interface *intf, bool policy) : 
+    ReceiveNH(Interface *intf, bool policy) :
         NextHop(RECEIVE, true, policy), interface_(intf) { };
     virtual ~ReceiveNH() { };
 
@@ -1123,7 +1123,7 @@ public:
     const Interface *GetInterface() const {return interface_.get();};
     const MacAddress &GetDMac() const {return dmac_;};
     bool IsVxlanRouting() const {
-        return flags_ & InterfaceNHFlags::VXLAN_ROUTING; 
+        return flags_ & InterfaceNHFlags::VXLAN_ROUTING;
     }
     bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
     bool IsBridge() const { return flags_ & InterfaceNHFlags::BRIDGE; };
@@ -1197,7 +1197,7 @@ private:
     InterfaceRef interface_;
     uint8_t flags_;
     MacAddress dmac_;
-    VrfEntryRef vrf_; 
+    VrfEntryRef vrf_;
     bool delete_on_zero_refcount_;
     bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceNH);
@@ -1304,7 +1304,7 @@ private:
 class VlanNHKey : public NextHopKey {
 public:
     VlanNHKey(const uuid &vm_port_uuid, uint16_t vlan_tag) :
-        NextHopKey(NextHop::VLAN, false), 
+        NextHopKey(NextHop::VLAN, false),
         intf_key_(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, vm_port_uuid,
                                      "")),
         vlan_tag_(vlan_tag) {
@@ -1312,7 +1312,7 @@ public:
     VlanNHKey(InterfaceKey *key, uint16_t vlan_tag) :
         NextHopKey(NextHop::VLAN, false), intf_key_(key), vlan_tag_(vlan_tag) {
     }
-    
+
     virtual ~VlanNHKey() {}
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
@@ -1397,7 +1397,7 @@ private:
     uint16_t vlan_tag_;
     MacAddress smac_;
     MacAddress dmac_;
-    VrfEntryRef vrf_; 
+    VrfEntryRef vrf_;
     DISALLOW_COPY_AND_ASSIGN(VlanNH);
 };
 
@@ -1474,7 +1474,7 @@ public:
                    const std::string &vrf_name);
     ComponentNHKey(int label, const uuid &intf_uuid, uint8_t flags,
                    const MacAddress &mac):
-        label_(label), 
+        label_(label),
         nh_key_(new InterfaceNHKey(
                     new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
                     false, flags, mac)) {

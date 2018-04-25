@@ -98,7 +98,7 @@ public:
     // Set key fields in the DBEntry
     virtual void SetKey(const DBRequestKey *key) = 0;
 
-    // Comparator used in Tree management 
+    // Comparator used in Tree management
     virtual bool IsLess(const DBEntry &rhs) const = 0;
 
     bool operator<(const DBEntry &rhs) const {

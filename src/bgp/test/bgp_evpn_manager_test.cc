@@ -483,7 +483,7 @@ protected:
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
             if ((odd && peer->index() % 2 != 0) ||
                 (even && peer->index() % 2 == 0)) {
-                BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                BOOST_FOREACH(uint32_t tag, temp_tag_list)
                     AddXmppPeerBroadcastMacRoute(peer, tag);
             }
         }
@@ -517,7 +517,7 @@ protected:
     void DelAllXmppPeersBroadcastMacRoute(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 DelXmppPeerBroadcastMacRoute(peer, tag);
         }
     }
@@ -555,7 +555,7 @@ protected:
                                                    TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 VerifyXmppPeerInclusiveMulticastRoute(peer, tag);
         }
     }
@@ -572,7 +572,7 @@ protected:
                                                      TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 VerifyXmppPeerNoInclusiveMulticastRoute(peer, tag);
         }
     }
@@ -580,7 +580,7 @@ protected:
     void VerifyAllXmppPeersOddUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, true, false, tag, false));
         }
@@ -589,7 +589,7 @@ protected:
     void VerifyAllXmppPeersEvenUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, false, true, tag, false));
         }
@@ -598,7 +598,7 @@ protected:
     void VerifyAllXmppPeersAllUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, true, true, tag, false));
         }
@@ -607,7 +607,7 @@ protected:
     void VerifyAllXmppPeersNoUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }
@@ -850,7 +850,7 @@ protected:
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
             if ((odd && peer->index() % 2 != 0) ||
                 (even && peer->index() % 2 == 0)) {
-                BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                BOOST_FOREACH(uint32_t tag, temp_tag_list)
                     AddBgpPeerInclusiveMulticastRoute(peer, tag);
             }
         }
@@ -887,7 +887,7 @@ protected:
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
             if ((odd && peer->index() % 2 != 0) ||
                 (even && peer->index() % 2 == 0)) {
-                BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                BOOST_FOREACH(uint32_t tag, temp_tag_list)
                     DelBgpPeerInclusiveMulticastRoute(peer, tag);
             }
         }
@@ -1004,7 +1004,7 @@ protected:
     void VerifyAllBgpPeersBgpUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, true, true, tag, false));
         }
@@ -1013,7 +1013,7 @@ protected:
     void VerifyAllBgpPeersAllUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, true, true, tag, true));
         }
@@ -1022,7 +1022,7 @@ protected:
     void VerifyAllBgpPeersNoUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }
@@ -1338,7 +1338,7 @@ protected:
     void VerifyAllLeafPeersNoUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }
@@ -1508,7 +1508,7 @@ protected:
                 continue;
             if (!even && peer->index() % 2 == 0)
                 continue;
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, false, false, tag, false, true));
         }
@@ -1529,7 +1529,7 @@ protected:
     void VerifyAllReplicatorPeersNonLeafUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, true, true, tag, false, false));
         }
@@ -1538,7 +1538,7 @@ protected:
     void VerifyAllReplicatorPeersAllUpdateInfo(TagList tag_list = TagList()) {
         TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(
                     VerifyPeerUpdateInfoCommon(peer, true, true, tag, false, true));
         }
@@ -1552,7 +1552,7 @@ protected:
                 continue;
             if (!even && peer->index() % 2 == 0)
                 continue;
-            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+            BOOST_FOREACH(uint32_t tag, temp_tag_list)
                 TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }

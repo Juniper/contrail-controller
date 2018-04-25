@@ -450,7 +450,7 @@ TEST_F(QosConfigClassTest, Test11) {
 
     DelNode("qos-config", "qos_config");
     DelNode("qos-config", "qos_config1");
-    DelNode("global-qos-config", 
+    DelNode("global-qos-config",
             "default-global-system-config:default-global-qos-config");
     DelGlobalConfig(fc_data, 2);
     client->WaitForIdle();

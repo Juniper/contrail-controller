@@ -39,7 +39,7 @@ private:
     XmppClient *client_;
 };
 
-XmppClient::XmppClient(EventManager *evm) 
+XmppClient::XmppClient(EventManager *evm)
     : XmppConnectionManager(evm, ssl::context::tlsv1_client, false, false),
       config_mgr_(new XmppConfigManager),
       lifetime_manager_(new LifetimeManager(
@@ -94,7 +94,7 @@ XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
                 exit(EINVAL);
             }
         }
-     
+
         // server certificate
         ctx->use_certificate_chain_file(config->path_to_server_cert, ec);
         if (ec.value() != 0) {
@@ -127,7 +127,7 @@ bool XmppClient::Initialize(short port) {
 LifetimeActor *XmppClient::deleter() {
     return deleter_.get();
 }
- 
+
 LifetimeManager *XmppClient::lifetime_manager() {
     return lifetime_manager_.get();
 }
@@ -152,7 +152,7 @@ TcpSession *XmppClient::CreateSession() {
         return NULL;
     }
 
-#ifdef __APPLE__    
+#ifdef __APPLE__
     socket->set_option(reuse_port_t(true), err);
 #else
     socket->set_option(reuse_addr_t(true), err);
@@ -166,7 +166,7 @@ TcpSession *XmppClient::CreateSession() {
     err = session->SetSocketOptions();
     if (err) {
         DeleteSession(session);
-        assert(0); 
+        assert(0);
     }
 
     return session;
@@ -177,8 +177,8 @@ void XmppClient::Shutdown() {
     deleter_->Delete();
 }
 
-void 
-XmppClient::ProcessConfigUpdate(XmppConfigManager::DiffType delta, 
+void
+XmppClient::ProcessConfigUpdate(XmppConfigManager::DiffType delta,
     const XmppChannelConfig *current, const XmppChannelConfig *future) {
     if (delta == XmppConfigManager::DF_ADD) {
         XmppClientConnection *connection = CreateConnection(future);
@@ -187,7 +187,7 @@ XmppClient::ProcessConfigUpdate(XmppConfigManager::DiffType delta,
     if (delta == XmppConfigManager::DF_DELETE) {
         ConnectionMap::iterator loc = connection_map_.find(current->endpoint);
         if (loc != connection_map_.end()) {
-            loc->second->ManagedDelete(); 
+            loc->second->ManagedDelete();
         }
     }
 }

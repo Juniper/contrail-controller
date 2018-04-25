@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_ksync_index_table_h 
-#define ctrlplane_ksync_index_table_h 
+#ifndef ctrlplane_ksync_index_table_h
+#define ctrlplane_ksync_index_table_h
 
 #include <boost/dynamic_bitset.hpp>
 

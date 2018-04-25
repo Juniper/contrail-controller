@@ -248,7 +248,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     client->WaitForIdle();
 
     WAIT_FOR(1000, 100, (VmPortL2Active(input, 0) == true));
-    MulticastGroupObject *obj = 
+    MulticastGroupObject *obj =
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
     WAIT_FOR(1000, 100,
@@ -259,7 +259,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetActiveLabel();
     MplsLabelKey key(label);
-    MplsLabel *mpls = 
+    MplsLabel *mpls =
         static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
 
     EXPECT_TRUE(mpls->nexthop() == nh);
@@ -294,7 +294,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetActiveLabel();
     MplsLabelKey key(label);
-    MplsLabel *mpls = 
+    MplsLabel *mpls =
         static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
 
     EXPECT_TRUE(mpls->nexthop() == nh);
@@ -324,7 +324,7 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     client->WaitForIdle();
 
     WAIT_FOR(1000, 100, (VmPortL2Active(input, 0) == true));
-    MulticastGroupObject *obj = 
+    MulticastGroupObject *obj =
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
@@ -1111,7 +1111,7 @@ TEST_F(RouteTest, delete_notify_on_multicast_rt_with_no_state) {
     EXPECT_TRUE(route_state != NULL);
     VrfExport::State *vs = static_cast<VrfExport::State *>
         (bgp_peer_->GetVrfExportState(agent_->vrf_table()->GetTablePartition(rt->vrf()),
-                           rt->vrf())); 
+                           rt->vrf()));
     rt->ClearState(rt->get_table(),
                    vs->rt_export_[Agent::BRIDGE]->GetListenerId());
     delete route_state;
@@ -1419,7 +1419,7 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
     client->WaitForIdle();
 }
 
-// Bug# 1529665 
+// Bug# 1529665
 TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
     client->Reset();
     AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
@@ -1635,7 +1635,7 @@ class SetupTask : public Task {
         std::string test_name_;
 };
 
-//Bug# 1571598 
+//Bug# 1571598
 TEST_F(RouteTest, SquashPathTest_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},

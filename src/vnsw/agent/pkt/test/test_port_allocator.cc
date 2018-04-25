@@ -99,8 +99,8 @@ TEST_F(PortAllocationTest, Test3) {
     EXPECT_TRUE(port != port2);
 
     port_table_->Free(key1, port, true);
-    port_table_->Free(key2, port, true); 
-    port_table_->Free(key3, port2, true); 
+    port_table_->Free(key2, port, true);
+    port_table_->Free(key3, port2, true);
 }
 
 TEST_F(PortAllocationTest, Range) {
@@ -117,7 +117,7 @@ TEST_F(PortAllocationTest, Range) {
 
     uint16_t port = port_table_->Allocate(key1);
     EXPECT_TRUE(port == 50000 || port == 50001);
-    
+
     port_table_->Free(key1, port, false);
 }
 
@@ -203,15 +203,15 @@ TEST_F(PortAllocationTest, UdpFlow) {
     pm->UpdatePortConfig(IPPROTO_UDP, &pc);
     client->WaitForIdle();
 
-	TxUdpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 100);
-	client->WaitForIdle();
+    TxUdpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 100);
+    client->WaitForIdle();
 
-	//No port config hence short flow
-	FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
-			17, 100, 100, GetFlowKeyNH(1));
-	EXPECT_TRUE(flow != NULL);
-	EXPECT_TRUE(flow->IsShortFlow() == false);
-	EXPECT_TRUE(flow->IsNatFlow() == true);
+    //No port config hence short flow
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
+            17, 100, 100, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
+    EXPECT_TRUE(flow->IsNatFlow() == true);
 }
 
 TEST_F(PortAllocationTest, ShortTcpFlow) {
@@ -224,31 +224,31 @@ TEST_F(PortAllocationTest, ShortTcpFlow) {
     pm->UpdatePortConfig(IPPROTO_TCP, &pc);
     client->WaitForIdle();
 
-	TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 100, false);
-	client->WaitForIdle();
+    TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 100, false);
+    client->WaitForIdle();
 
-	//No port config hence short flow
-	FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
-			6, 100, 100, GetFlowKeyNH(1));
-	EXPECT_TRUE(flow != NULL);
-	EXPECT_TRUE(flow->IsShortFlow() == true);
+    //No port config hence short flow
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
+            6, 100, 100, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == true);
 }
 
 TEST_F(PortAllocationTest, TcpFlow) {
     PortTableManager *pm = agent_->pkt()->get_flow_proto()->port_table_manager();
     PortConfig pc;
     pc.port_count = 10;
-	pm->UpdatePortConfig(IPPROTO_TCP, &pc);
-	client->WaitForIdle();
+    pm->UpdatePortConfig(IPPROTO_TCP, &pc);
+    client->WaitForIdle();
 
-	TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 100, false);
-	client->WaitForIdle();
+    TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100, 100, false);
+    client->WaitForIdle();
 
-	//No port config hence short flow
-	FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
-			6, 100, 100, GetFlowKeyNH(1));
-	EXPECT_TRUE(flow != NULL);
-	EXPECT_TRUE(flow->IsShortFlow() == false);
+    //No port config hence short flow
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
+            6, 100, 100, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->IsNatFlow() == true);
 }
 
@@ -603,11 +603,11 @@ int main(int argc, char *argv[]) {
         TestInit(init_file, ksync_init, true, true, true);
 
     client->agent()->flow_stats_manager()->set_delete_short_flow(false);
- 
+
     int ret = RUN_ALL_TESTS();
 
     client->WaitForIdle();
-    
+
     TestShutdown();
     delete client;
     return ret;

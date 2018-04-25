@@ -202,9 +202,9 @@ TEST_F(FlowTest, Subnet_broadcast_Flow) {
     const FlowEntry *rev_fe = fe->reverse_flow_entry();
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::Multicast));
     EXPECT_TRUE(rev_fe->is_flags_set(FlowEntry::Multicast));
-    EXPECT_TRUE(fe->data().match_p.action_info.action == 
+    EXPECT_TRUE(fe->data().match_p.action_info.action ==
                 (1 << TrafficAction::PASS));
-    EXPECT_TRUE(rev_fe->data().match_p.action_info.action == 
+    EXPECT_TRUE(rev_fe->data().match_p.action_info.action ==
                 (1 << TrafficAction::PASS));
     //fe->data.match_p.flow_action.action
 
@@ -305,7 +305,7 @@ TEST_F(FlowTest, Flow_Deleted_Interace_nh) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = 
+    client =
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10), (3 * 60 * 1000));
     if (vm.count("config")) {
         eth_itf = Agent::GetInstance()->fabric_interface_name();

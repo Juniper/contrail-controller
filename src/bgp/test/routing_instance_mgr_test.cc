@@ -506,7 +506,7 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
 
     TASK_UTIL_EXPECT_EQ(4, GetRoutingInstanceDormantTraceBufferCapacity());
     TASK_UTIL_EXPECT_EQ(2, GetRoutingInstanceDormantTraceBufferThreshold());
-    
+
     ri1_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#1"));
     scoped_ptr<BgpInstanceConfigTest> ri2_cfg;
     ri2_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#2"));
@@ -543,7 +543,7 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
     trace_buf = GetActiveTraceBuffer("TestRi#1");
     DeleteRoutingInstance(ri1_cfg.get());
     TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
-    TASK_UTIL_EXPECT_EQ(true, 
+    TASK_UTIL_EXPECT_EQ(true,
             HasRoutingInstanceDormantTraceBuf("TestRi#1"));
     TASK_UTIL_EXPECT_EQ((dormant_tracebuf_count + 1),
             GetRoutingInstanceDormantTraceBufSize());
@@ -562,10 +562,10 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
             GetRoutingInstanceDormantTraceBufSize());
     TASK_UTIL_EXPECT_EQ(active_tracebuf_count,
             GetRoutingInstanceActiveTraceBufSize());
-    
+
     CreateRoutingInstance(ri1_cfg.get());
     TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
-    TASK_UTIL_EXPECT_EQ((active_tracebuf_count + 1), 
+    TASK_UTIL_EXPECT_EQ((active_tracebuf_count + 1),
             GetRoutingInstanceActiveTraceBufSize());
     TASK_UTIL_EXPECT_EQ(trace_buf, GetActiveTraceBuffer("TestRi#1"));
     TASK_UTIL_EXPECT_EQ(false,
@@ -582,7 +582,7 @@ TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
     active_tracebuf_count = GetRoutingInstanceActiveTraceBufSize();
     dormant_tracebuf_count = GetRoutingInstanceDormantTraceBufSize();
 
-    
+
     DeleteRoutingInstance(ri1_cfg.get());
     DeleteRoutingInstance(ri2_cfg.get());
     DeleteRoutingInstance(ri3_cfg.get());
@@ -939,7 +939,7 @@ static void SetUp() {
 
     ControlNode::SetDefaultSchedulingPolicy();
 
-    // Intialize the environmental variables for this test prior to 
+    // Intialize the environmental variables for this test prior to
     // the creation of the Routing Instance Manager
     size_t dormant_trace_buf_size = TEST_DORMANT_TRACE_BUFFER_SIZE;
     snprintf(value, sizeof(value), "%zu", dormant_trace_buf_size);

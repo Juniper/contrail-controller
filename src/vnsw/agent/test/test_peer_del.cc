@@ -33,8 +33,8 @@ public:
     void VrfCreated(DBTablePartBase *partition, DBEntryBase *e, BgpPeer *peer) {
         VrfEntry *vrf = static_cast<VrfEntry *>(e);
         // state is created for each peer
-        DBState *State = vrf->GetState(partition->parent(), peer->GetVrfExportListenerId()); 
-        VrfExport::State *state = static_cast<VrfExport::State *>(State); 
+        DBState *State = vrf->GetState(partition->parent(), peer->GetVrfExportListenerId());
+        VrfExport::State *state = static_cast<VrfExport::State *>(State);
         if (vrf->IsDeleted()) {
             if (state == NULL) {
                 return;
@@ -46,7 +46,7 @@ public:
 
         if (state == NULL) {
             state = new VrfExport::State();
-            vrf->SetState(partition->parent(), peer->GetVrfExportListenerId(), state); 
+            vrf->SetState(partition->parent(), peer->GetVrfExportListenerId(), state);
         }
     }
 
@@ -60,7 +60,7 @@ public:
                IpAddress &dip, int label, InetUnicastAgentRouteTable *table) {
         Ip4Address s = sip.to_v4();
         Ip4Address d = dip.to_v4();
-        Inet4TunnelRouteAdd(peer, vrf_name, s, 32, d, 
+        Inet4TunnelRouteAdd(peer, vrf_name, s, 32, d,
                             TunnelType::AllType(), label, "",
                             SecurityGroupList(), TagList(), PathPreference());
     }
@@ -75,7 +75,7 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     ip5 = IpAddress::from_string("78.25.2.1");
     ip6 = IpAddress::from_string("67.25.2.1");
 
-    BgpPeer *peer1, *peer2; 
+    BgpPeer *peer1, *peer2;
     AgentXmppChannel *channel1, *channel2;
     XmppChannelMock xmpp_channel;
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
@@ -162,7 +162,7 @@ TEST_F(AgentPeerDelete, peer_test_1) {
 
 TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     XmppChannelMock xmpp_channel;
-    BgpPeer *peer1, *peer2; 
+    BgpPeer *peer1, *peer2;
     AgentXmppChannel *channel1;
     AgentXmppChannel *channel2;
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
@@ -205,9 +205,9 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     DelVrf("test_vrf3");
     client->WaitForIdle();
 
-    peer1->DelPeerRoutes(boost::bind(&AgentPeerDelete::DeletedVrfPeerDelDone, 
+    peer1->DelPeerRoutes(boost::bind(&AgentPeerDelete::DeletedVrfPeerDelDone,
                          this));
-    peer2->DelPeerRoutes(boost::bind(&AgentPeerDelete::DeletedVrfPeerDelDone, 
+    peer2->DelPeerRoutes(boost::bind(&AgentPeerDelete::DeletedVrfPeerDelDone,
                          this));
     client->WaitForIdle();
 

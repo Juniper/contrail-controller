@@ -25,10 +25,10 @@
 uint64_t AgentIfMapXmppChannel::seq_number_;
 
 AgentIfMapXmppChannel::AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
-                                             uint8_t cnt) : channel_(channel), 
+                                             uint8_t cnt) : channel_(channel),
                                              xs_idx_(cnt),
                                              agent_(agent) {
-    channel_->RegisterReceive(xmps::CONFIG, 
+    channel_->RegisterReceive(xmps::CONFIG,
                               boost::bind(&AgentIfMapXmppChannel::ReceiveInternal,
                                           this, _1));
     config_cleanup_timer_.reset(new ConfigCleanupTimer(agent));
@@ -164,7 +164,7 @@ static AgentXmppChannel *GetActivePeer(Agent *agent) {
     return peer;
 }
 
-    
+
 static AgentIfMapXmppChannel *GetActiveChannel
 (Agent *agent, struct AgentIfMapVmExport::VmExportInfo *info) {
     int active_index = agent->ifmap_active_xmpp_server_index();
@@ -298,7 +298,7 @@ void AgentIfMapVmExport::NotifyAll(AgentXmppChannel *peer) {
     if (!AgentXmppChannel::IsBgpPeerActive(agent, peer)) {
         return;
     }
-    
+
     ifmap = agent->ifmap_xmpp_channel(agent->ifmap_active_xmpp_server_index());
     if (!ifmap) {
         return;
@@ -318,7 +318,7 @@ void AgentIfMapVmExport::NotifyAll(AgentXmppChannel *peer) {
         vmid << vm_it->first;
         CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), "",
                          "Subscribe");
-        AgentXmppChannel::ControllerSendVmCfgSubscribe(peer, 
+        AgentXmppChannel::ControllerSendVmCfgSubscribe(peer,
                                     vm_it->first, true);
 
         //Update the sequence number so that we dont send duplicate

@@ -149,7 +149,7 @@ private:
         }
         return &react->second;
     }
-    
+
     bool IsInterestingEvent(const IFMapNode *node,
                             const string &metadata) const {
         if (node->IsDeleted()) {
@@ -171,7 +171,7 @@ private:
             if (plist == NULL) {
                 continue;
             }
-            PropagateEdge(target, link->metadata(), in_edges, change_list);            
+            PropagateEdge(target, link->metadata(), in_edges, change_list);
         }
     }
 
@@ -232,7 +232,7 @@ ConfigListener::ConfigListener(DnsConfigManager *manager)
 ConfigListener::~ConfigListener() {
 }
 
-void ConfigListener::Initialize(DB *database, int ntypes, 
+void ConfigListener::Initialize(DB *database, int ntypes,
                                 const char *config_types[]) {
     DBTable *link_table = static_cast<DBTable *>(
         database->FindTable("__ifmap_metadata__.0"));

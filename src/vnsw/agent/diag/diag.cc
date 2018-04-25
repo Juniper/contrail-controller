@@ -19,7 +19,7 @@
 
 const std::string KDiagName("DiagTimeoutHandler");
 const std::string DiagTable::kDiagData = "diagshc";
-using namespace boost::posix_time; 
+using namespace boost::posix_time;
 ////////////////////////////////////////////////////////////////////////////////
 
 DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
@@ -30,7 +30,7 @@ DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
     dip_(IpAddress::from_string(dip, ec_)),
     proto_(proto), sport_(sport), dport_(dport),
     vrf_name_(vrf_name), diag_table_(diag_table), timeout_(timeout),
-    timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
+    timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(),
                          "DiagTimeoutHandler",
                          TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"),
                          PktHandler::DIAG)),

@@ -71,7 +71,7 @@ TEST_F(IFMapUpdateQueueTest, Basic) {
     IFMapUpdate *u3 = CreateUpdate(n3.get());
     IFMapUpdate *u4 = CreateUpdate(n4.get());
 
-    queue_->Join(1);     // client 1   
+    queue_->Join(1);     // client 1
     queue_->Join(2);     // client 2
     queue_->Join(3);     // client 3
     queue_->Join(5);     // client 5
@@ -114,7 +114,7 @@ TEST_F(IFMapUpdateQueueTest, Basic) {
     EXPECT_EQ(queue_->tail_marker()->get_sequence(), 1);
     rem_bs.Reset(rem_bs);
     ASSERT_TRUE(rem_bs.empty());
- 
+
     // Insert marker for client 3 after u3
     marker = queue_->GetMarker(3);
     ASSERT_TRUE(marker != NULL);
@@ -186,7 +186,7 @@ TEST_F(IFMapUpdateQueueTest, Basic) {
     // Should print only the tail_marker_
     queue_->PrintQueue();
 
-    queue_->Leave(1);     // client 1   
+    queue_->Leave(1);     // client 1
     queue_->Leave(2);     // client 2
     queue_->Leave(3);     // client 3
     queue_->Leave(5);     // client 5

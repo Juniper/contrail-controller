@@ -258,7 +258,7 @@ TEST_F(TestFlowTable, EvictPktTrapBeforeReverseFlowResp) {
                     remote_vm1_ip, vm1_ip, 1000, 200, 1, 1);
 
     FlowEntry *flow = NULL;
-    
+
     WAIT_FOR(1000, 1000, ((flow = FlowGet(remote_vm1_ip, vm1_ip, IPPROTO_TCP,
                           1000, 200, vif0->flow_key_nh()->id(), 1)) != NULL));
     FlowEntry *rflow = flow->reverse_flow_entry();

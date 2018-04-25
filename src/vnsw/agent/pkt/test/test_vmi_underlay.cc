@@ -161,7 +161,7 @@ TEST_F(FlowTest, UnderlayFipToFip) {
 
     VrfEntry *vrf = VrfGet("default-project:vn4:vn4");
     VrfEntry *vrf6 = VrfGet("vrf6");
-   
+
     VnListType vn_list;
     vn_list.insert("default-project:vn4");
 

@@ -429,41 +429,41 @@ protected:
         TASK_UTIL_EXPECT_TRUE(CheckSegmentPeNoExists(esi, peer));
     }
 
-	void DisableSegmentUpdateProcessing() {
+    void DisableSegmentUpdateProcessing() {
         task_util::TaskFire(
             boost::bind(&EvpnManager::DisableSegmentUpdateProcessing,
                 blue_manager_), "bgp::Config");
-	}
+    }
 
-	void EnableSegmentUpdateProcessing() {
+    void EnableSegmentUpdateProcessing() {
         task_util::TaskFire(
             boost::bind(&EvpnManager::EnableSegmentUpdateProcessing,
                 blue_manager_), "bgp::Config");
-	}
+    }
 
-	void DisableSegmentDeleteProcessing() {
+    void DisableSegmentDeleteProcessing() {
         task_util::TaskFire(
             boost::bind(&EvpnManager::DisableSegmentDeleteProcessing,
                 blue_manager_), "bgp::Config");
-	}
+    }
 
-	void EnableSegmentDeleteProcessing() {
+    void EnableSegmentDeleteProcessing() {
         task_util::TaskFire(
             boost::bind(&EvpnManager::EnableSegmentDeleteProcessing,
                 blue_manager_), "bgp::Config");
-	}
+    }
 
-	void DisableMacUpdateProcessing() {
+    void DisableMacUpdateProcessing() {
         task_util::TaskFire(
             boost::bind(&EvpnManager::DisableMacUpdateProcessing,
                 blue_manager_), "bgp::Config");
-	}
+    }
 
-	void EnableMacUpdateProcessing() {
+    void EnableMacUpdateProcessing() {
         task_util::TaskFire(
             boost::bind(&EvpnManager::EnableMacUpdateProcessing,
                 blue_manager_), "bgp::Config");
-	}
+    }
 
     EventManager evm_;
     ServerThread thread_;
@@ -591,17 +591,17 @@ TEST_F(BgpEvpnAliasingTest, AddDeleteMac7) {
 TEST_F(BgpEvpnAliasingTest, AddDeleteMac8) {
     string mac_prefix = "aa:bb:cc:dd:ee:0";
     for (int idx = 1; idx <= 8; ++idx) {
-	    AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
+        AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteExists(mac_prefix + integerToString(idx));
+        VerifyRouteExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentExists(esi1_);
     for (int idx = 1; idx <= 8; ++idx) {
-	    DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
+        DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteNoExists(mac_prefix + integerToString(idx));
+        VerifyRouteNoExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentNoExists(esi1_);
 }
@@ -613,24 +613,24 @@ TEST_F(BgpEvpnAliasingTest, AddDeleteMac8) {
 TEST_F(BgpEvpnAliasingTest, AddDeleteMac9) {
     string mac_prefix = "aa:bb:cc:dd:ee:0";
     for (int idx = 1; idx <= 8; ++idx) {
-	    AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
+        AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteExists(mac_prefix + integerToString(idx));
+        VerifyRouteExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentExists(esi1_);
     for (int idx = 1; idx <= 8; ++idx) {
-	    AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi_null_);
+        AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi_null_);
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteExists(mac_prefix + integerToString(idx));
+        VerifyRouteExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentNoExists(esi1_);
     for (int idx = 1; idx <= 8; ++idx) {
-	    DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
+        DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteNoExists(mac_prefix + integerToString(idx));
+        VerifyRouteNoExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentNoExists(esi1_);
 }
@@ -643,21 +643,21 @@ TEST_F(BgpEvpnAliasingTest, AddDeleteMac10) {
     string mac_prefix = "aa:bb:cc:dd:ee:0";
     for (int idx = 1; idx <= 8; ++idx) {
         if (idx % 2 == 0) {
-		    AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
+            AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
         } else {
-		    AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi2_);
+            AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi2_);
         }
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteExists(mac_prefix + integerToString(idx));
+        VerifyRouteExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentExists(esi1_);
     VerifySegmentExists(esi2_);
     for (int idx = 1; idx <= 8; ++idx) {
-	    DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
+        DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteNoExists(mac_prefix + integerToString(idx));
+        VerifyRouteNoExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentNoExists(esi1_);
     VerifySegmentNoExists(esi2_);
@@ -1064,10 +1064,10 @@ TEST_F(BgpEvpnAliasingTest, Aliasing12) {
 TEST_F(BgpEvpnAliasingTest, Aliasing13) {
     string mac_prefix = "aa:bb:cc:dd:ee:0";
     for (int idx = 1; idx <= 8; ++idx) {
-	    AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
+        AddMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx), esi1_);
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteExists(mac_prefix + integerToString(idx));
+        VerifyRouteExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentExists(esi1_);
 
@@ -1075,33 +1075,33 @@ TEST_F(BgpEvpnAliasingTest, Aliasing13) {
     AddAutoDiscoveryRoute(bgp_peers_[2], esi1_);
     AddAutoDiscoveryRoute(bgp_peers_[3], esi1_);
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteExists(mac_prefix + integerToString(idx));
-	    VerifyRoutePathExists(
-	        mac_prefix + integerToString(idx), bgp_peers_[1], false);
-	    VerifyRoutePathExists(
-	        mac_prefix + integerToString(idx), bgp_peers_[2], true);
-	    VerifyRoutePathExists(
-	        mac_prefix + integerToString(idx), bgp_peers_[3], true);
+        VerifyRouteExists(mac_prefix + integerToString(idx));
+        VerifyRoutePathExists(
+            mac_prefix + integerToString(idx), bgp_peers_[1], false);
+        VerifyRoutePathExists(
+            mac_prefix + integerToString(idx), bgp_peers_[2], true);
+        VerifyRoutePathExists(
+            mac_prefix + integerToString(idx), bgp_peers_[3], true);
     }
 
     DelAutoDiscoveryRoute(bgp_peers_[3], esi1_);
     DelAutoDiscoveryRoute(bgp_peers_[2], esi1_);
     DelAutoDiscoveryRoute(bgp_peers_[1], esi1_);
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteExists(mac_prefix + integerToString(idx));
-	    VerifyRoutePathExists(
-	        mac_prefix + integerToString(idx), bgp_peers_[1], false);
-	    VerifyRoutePathNoExists(
-	        mac_prefix + integerToString(idx), bgp_peers_[2]);
-	    VerifyRoutePathNoExists(
-	        mac_prefix + integerToString(idx), bgp_peers_[3]);
+        VerifyRouteExists(mac_prefix + integerToString(idx));
+        VerifyRoutePathExists(
+            mac_prefix + integerToString(idx), bgp_peers_[1], false);
+        VerifyRoutePathNoExists(
+            mac_prefix + integerToString(idx), bgp_peers_[2]);
+        VerifyRoutePathNoExists(
+            mac_prefix + integerToString(idx), bgp_peers_[3]);
     }
 
     for (int idx = 1; idx <= 8; ++idx) {
-	    DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
+        DelMacRoute(bgp_peers_[1], mac_prefix + integerToString(idx));
     }
     for (int idx = 1; idx <= 8; ++idx) {
-	    VerifyRouteNoExists(mac_prefix + integerToString(idx));
+        VerifyRouteNoExists(mac_prefix + integerToString(idx));
     }
     VerifySegmentNoExists(esi1_);
 }

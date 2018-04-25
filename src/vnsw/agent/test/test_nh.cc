@@ -80,7 +80,7 @@ static void CreateTunnelNH(const string &vrf_name, const Ip4Address &sip,
     uint32_t table_size = Agent::GetInstance()->nexthop_table()->Size();
 
     NextHopKey *key = new TunnelNHKey(vrf_name, sip, dip, policy,
-                                      TunnelType::ComputeType(bmap)); 
+                                      TunnelType::ComputeType(bmap));
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);
@@ -96,7 +96,7 @@ static void DeleteTunnelNH(const string &vrf_name, const Ip4Address &sip,
     uint32_t table_size = Agent::GetInstance()->nexthop_table()->Size();
 
     NextHopKey *key = new TunnelNHKey(vrf_name, sip, dip, policy,
-                                      TunnelType::ComputeType(bmap)); 
+                                      TunnelType::ComputeType(bmap));
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
     req.data.reset(data);
@@ -133,7 +133,7 @@ TEST_F(CfgTest, TunnelNh_1) {
                    Ip4Address::from_string("30.30.30.30"),
                    Ip4Address::from_string("20.20.20.20"), true,
                    TunnelType::AllType());
-    CreateTunnelNH(agent_->fabric_vrf_name(), 
+    CreateTunnelNH(agent_->fabric_vrf_name(),
                    Ip4Address::from_string("33.30.30.30"),
                    Ip4Address::from_string("22.20.20.20"), false,
                    TunnelType::AllType());
@@ -144,11 +144,11 @@ TEST_F(CfgTest, TunnelNh_1) {
     DeleteTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
                    Ip4Address::from_string("10.1.1.10"), true,
                    TunnelType::AllType());
-    DeleteTunnelNH(agent_->fabric_vrf_name(), 
+    DeleteTunnelNH(agent_->fabric_vrf_name(),
                    Ip4Address::from_string("30.30.30.30"),
                    Ip4Address::from_string("20.20.20.20"), true,
                    TunnelType::AllType());
-    DeleteTunnelNH(agent_->fabric_vrf_name(), 
+    DeleteTunnelNH(agent_->fabric_vrf_name(),
                    Ip4Address::from_string("33.30.30.30"),
                    Ip4Address::from_string("22.20.20.20"), false,
                    TunnelType::AllType());
@@ -200,7 +200,7 @@ TEST_F(CfgTest, TunnelNh_3) {
             Ip4Address::from_string("10.1.1.10"), false,
             TunnelType::AllType());
     client->WaitForIdle();
- 
+
     client->NextHopReset();
     for (uint32_t i = 0; i < 10; i++) {
         CreateTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
@@ -588,7 +588,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
     client->WaitForIdle();
     CreateVmportEnv(input1, 1);
-    WAIT_FOR(1000, 1000, VmPortActive(10)); 
+    WAIT_FOR(1000, 1000, VmPortActive(10));
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     WAIT_FOR(1000, 1000, (VrfGet("vrf10") != NULL));
     WAIT_FOR(1000, 1000, (RouteGet("vrf10", ip, 32) != NULL));
@@ -748,15 +748,15 @@ TEST_F(CfgTest, Nexthop_keys) {
     //ARP NH with vm interface
     DBRequest arp_nh_req;
     arp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    arp_nh_req.key.reset(new ArpNHKey("vrf10", Ip4Address::from_string("11.11.11.11"), 
+    arp_nh_req.key.reset(new ArpNHKey("vrf10", Ip4Address::from_string("11.11.11.11"),
                                       false));
     MacAddress intf_vm_mac("00:00:01:01:01:11");
-    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, 
+    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               MakeUuid(10), "vrf10");
     arp_nh_req.data.reset(new ArpNHData(intf_vm_mac, intf_key, true));
     agent_->nexthop_table()->Enqueue(&arp_nh_req);
     client->WaitForIdle();
-    ArpNHKey find_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11"), 
+    ArpNHKey find_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11"),
                              false);
     ArpNH *arp_nh = static_cast<ArpNH *>
         (agent_->nexthop_table()->FindActiveEntry(&find_arp_nh_key));
@@ -772,7 +772,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     del_arp_nh_req.data.reset(NULL);
     agent_->nexthop_table()->Enqueue(&del_arp_nh_req);
     client->WaitForIdle();
-    ArpNHKey find_del_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11"), 
+    ArpNHKey find_del_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11"),
                                  false);
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_del_arp_nh_key) == NULL);
@@ -801,7 +801,7 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     //ARP NH
     DBRequest arp_nh_req;
     arp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    arp_nh_req.key.reset(new ArpNHKey("vrf11", Ip4Address::from_string("11.11.11.11"), 
+    arp_nh_req.key.reset(new ArpNHKey("vrf11", Ip4Address::from_string("11.11.11.11"),
                                       false));
     arp_nh_req.data.reset(new ArpNHData(vhost_intf_key));
     agent_->nexthop_table()->Enqueue(&arp_nh_req);
@@ -813,7 +813,7 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
 
     //Interface NH
     MacAddress intf_vm_mac("00:00:01:01:01:11");
-    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, 
+    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               MakeUuid(11), "vrf11");
     DBRequest intf_nh_req;
     intf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

@@ -19,7 +19,7 @@ class KSyncFlowMemory;
 class KSyncSandeshContext : public AgentSandeshContext {
 public:
     KSyncSandeshContext(KSync *obj) : ksync_(obj) {
-        Reset(); 
+        Reset();
     }
 
     virtual void IfMsgHandler(vr_interface_req *req);
@@ -61,7 +61,7 @@ public:
     virtual void FlowResponseHandler(vr_flow_response *r);
     virtual void VrouterHugePageHandler(vr_hugepage_config *r);
     virtual void VrouterOpsMsgHandler(vrouter_ops *r);
-    
+
     int response_code() const { return response_code_; }
     int context_marker() const { return context_marker_; }
     void Reset() {

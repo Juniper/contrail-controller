@@ -15,7 +15,7 @@
 #include "sandesh/sandesh_trace.h"
 
 #define IFMAP_AGENT_LINK_DB_NAME "__ifmap_agentlinkdata__.0"
-extern SandeshTraceBufferPtr IFMapAgentTraceBuf; 
+extern SandeshTraceBufferPtr IFMapAgentTraceBuf;
 
 #define IFMAP_AGENT_TRACE(obj, ...) do {                                      \
     if (LoggingDisabled()) break;                                              \
@@ -43,7 +43,7 @@ public:
 
      // Allocate an IFMapNode.
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
-    
+
     static IFMapNode *TableEntryLookup(DB *db, RequestKey *key);
     void NotifyNode(IFMapNode *node);
     const DBGraph *GetGraph() const {return graph();};
@@ -74,9 +74,9 @@ public:
 
     class comp {
         public:
-            bool operator()(const IFMapTable::RequestKey &left, 
+            bool operator()(const IFMapTable::RequestKey &left,
                             const IFMapTable::RequestKey &right) const {
-                if (left.id_type != right.id_type) 
+                if (left.id_type != right.id_type)
                     return left.id_type < right.id_type;
 
                 return left.id_name < right.id_name;

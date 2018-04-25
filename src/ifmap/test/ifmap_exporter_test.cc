@@ -59,7 +59,7 @@ private:
 class IFMapUpdateSenderMock : public IFMapUpdateSender {
 public:
     // Use the original server and its queue
-    IFMapUpdateSenderMock(IFMapServer *server) : 
+    IFMapUpdateSenderMock(IFMapServer *server) :
         IFMapUpdateSender(server, server->queue()) {
     }
     virtual void QueueActive() { return; }
@@ -263,9 +263,9 @@ TEST_F(IFMapExporterTest, Basic) {
     IFMapMsgLink("domain", "project", "user1", "vnc");
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
                  "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_x:veth0", "blue");
     task_util::WaitForIdle();
 
@@ -278,7 +278,7 @@ TEST_F(IFMapExporterTest, Basic) {
 
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
-    
+
     state = exporter_->NodeStateLookup(idn);
     ASSERT_TRUE(state != NULL);
     TASK_UTIL_EXPECT_FALSE(state->interest().empty());
@@ -537,13 +537,13 @@ TEST_F(IFMapExporterTest, NodeAddDependency) {
     server_->SetSender(new IFMapUpdateSenderMock(server_.get()));
     TestClient c1("192.168.1.1");
     ClientSetup(&c1);
-    
+
     IFMapMsgLink("domain", "project", "user1", "vnc");
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
                  "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_x:veth0", "blue");
 
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
@@ -588,18 +588,18 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
     server_->SetSender(new IFMapUpdateSenderMock(server_.get()));
     TestClient c1("192.168.1.1");
     ClientSetup(&c1);
- 
+
     IFMapMsgLink("domain", "project", "user1", "vnc");
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
                  "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_x:veth0", "blue");
-    
+
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
- 
+
     TASK_UTIL_ASSERT_TRUE(TableLookup("virtual-network", "blue") != NULL);
     IFMapNode *blue = TableLookup("virtual-network", "blue");
     ASSERT_TRUE(blue != NULL);
@@ -836,9 +836,9 @@ TEST_F(IFMapExporterTest, DISABLED_ChangePropertiesIncrementally) {
     IFMapMsgLink("domain", "project", "user1", "vnc");
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
-    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface",
                  "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
-    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
+    IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_x:veth0", "blue");
     IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
     task_util::WaitForIdle();
@@ -855,7 +855,7 @@ TEST_F(IFMapExporterTest, DISABLED_ChangePropertiesIncrementally) {
     IFMapState::crc32type crc0 = state->crc();
     ProcessQueue();
     EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
- 
+
     // Add the 'id-perms' property
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
     IFMapMsgNodeAdd("virtual-router", "vr-test", 1, "id-perms", prop1);

@@ -185,7 +185,7 @@ IFMapMarker* IFMapUpdateQueue::MarkerSplit(IFMapMarker *marker,
 }
 
 IFMapMarker* IFMapUpdateQueue::MarkerSplitBefore(IFMapMarker *marker,
-                                                 IFMapListEntry *current, 
+                                                 IFMapListEntry *current,
                                                  const BitSet &msplit) {
     bool before = true;
     IFMapMarker *ret_marker = MarkerSplit(marker, current, msplit, before);
@@ -193,7 +193,7 @@ IFMapMarker* IFMapUpdateQueue::MarkerSplitBefore(IFMapMarker *marker,
 }
 
 IFMapMarker* IFMapUpdateQueue::MarkerSplitAfter(IFMapMarker *marker,
-                                                IFMapListEntry *current, 
+                                                IFMapListEntry *current,
                                                 const BitSet &msplit) {
     bool before = false;
     IFMapMarker *ret_marker = MarkerSplit(marker, current, msplit, before);
@@ -368,9 +368,9 @@ bool ShowIFMapUpdateQueue::BufferStage(const Sandesh *sr,
                                        const RequestPipeline::PipeSpec ps,
                                        int stage, int instNum,
                                        RequestPipeline::InstData *data) {
-    const IFMapUpdateQueueShowReq *request = 
+    const IFMapUpdateQueueShowReq *request =
         static_cast<const IFMapUpdateQueueShowReq *>(ps.snhRequest_.get());
-    IFMapSandeshContext *sctx = 
+    IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     ShowData *show_data = static_cast<ShowData *>(data);
 
@@ -378,7 +378,7 @@ bool ShowIFMapUpdateQueue::BufferStage(const Sandesh *sr,
     assert(queue);
     show_data->send_buffer.reserve(queue->list_.size());
 
-    IFMapUpdateQueue::List::iterator iter = 
+    IFMapUpdateQueue::List::iterator iter =
         queue->list_.iterator_to(queue->list_.front());
     while (iter != queue->list_.end()) {
         IFMapListEntry *item = iter.operator->();
@@ -399,7 +399,7 @@ bool ShowIFMapUpdateQueue::SendStage(const Sandesh *sr,
                                      int stage, int instNum,
                                      RequestPipeline::InstData *data) {
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapUpdateQueue::ShowData &show_data = 
+    const ShowIFMapUpdateQueue::ShowData &show_data =
         static_cast<const ShowIFMapUpdateQueue::ShowData &>
                                                 (prev_stage_data->at(0));
     // Data for this stage
@@ -426,7 +426,7 @@ bool ShowIFMapUpdateQueue::SendStage(const Sandesh *sr,
     } else {
         more = false;
     }
-    const IFMapUpdateQueueShowReq *request = 
+    const IFMapUpdateQueueShowReq *request =
         static_cast<const IFMapUpdateQueueShowReq *>(ps.snhRequest_.get());
     IFMapUpdateQueueShowResp *response = new IFMapUpdateQueueShowResp();
     response->set_queue(dest_buffer);

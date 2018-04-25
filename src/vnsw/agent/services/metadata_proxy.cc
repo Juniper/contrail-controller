@@ -55,7 +55,7 @@ std::map<uint16_t, std::string>
 static std::string ErrorMessage(uint16_t ec) {
     std::map<uint16_t, std::string>::iterator iter = g_http_error_map.find(ec);
     if (iter == g_http_error_map.end())
-        return ""; 
+        return "";
     return iter->second;
 }
 
@@ -125,7 +125,7 @@ MetadataProxy::Shutdown() {
     }
 }
 
-void 
+void
 MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *request) {
     bool conn_close = false;
     std::vector<std::string> header_options;
@@ -271,7 +271,7 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
             session->Send(reinterpret_cast<const u_int8_t *>(msg.c_str()),
                           msg.length(), NULL);
         } else {
-            METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Error : " << 
+            METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Error : " <<
                                   boost::system::system_error(ec).what());
             CloseClientSession(conn);
             ErrorClose(session.get(), 502);
@@ -332,7 +332,7 @@ MetadataProxy::OnClientSessionEvent(HttpClientSession *session, TcpSession::Even
     switch (event) {
         case TcpSession::CLOSE: {
             {
-                ConnectionSessionMap::iterator it = 
+                ConnectionSessionMap::iterator it =
                     metadata_proxy_sessions_.find(session->Connection());
                 if (it == metadata_proxy_sessions_.end())
                     break;

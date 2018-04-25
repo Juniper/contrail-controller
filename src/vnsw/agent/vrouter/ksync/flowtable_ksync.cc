@@ -171,7 +171,7 @@ void FlowTableKSyncEntry::ReleaseToken() {
         token_.reset();
 }
 
-void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe, 
+void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe,
                                       std::vector<int8_t> &data) {
     data.clear();
     uint32_t addr = ksync_obj_->ksync()->agent()->router_id().to_ulong();
@@ -194,7 +194,7 @@ void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe,
     data.push_back((action >> 16) & 0xFF);
     data.push_back((action >> 8) & 0xFF);
     data.push_back((action) & 0xFF);
-    
+
     data.push_back(FlowEntry::PCAP_SOURCE_VN);
     data.push_back(fe->data().source_vn_match.size());
     data.insert(data.end(), fe->data().source_vn_match.begin(),
@@ -269,8 +269,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         uint32_t fe_action = flow_entry_->match_p().action_info.action;
         if ((fe_action) & (1 << TrafficAction::PASS)) {
             action = VR_FLOW_ACTION_FORWARD;
-        } 
-        
+        }
+
         if ((fe_action) & (1 << TrafficAction::DENY)) {
             action = VR_FLOW_ACTION_DROP;
             drop_reason = GetDropReason(flow_entry_->data().drop_reason);
@@ -281,16 +281,16 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             action = VR_FLOW_ACTION_NAT;
         }
 
-        if (action == VR_FLOW_ACTION_NAT && 
+        if (action == VR_FLOW_ACTION_NAT &&
             flow_entry_->reverse_flow_entry() == NULL) {
             action = VR_FLOW_ACTION_DROP;
         }
-        
+
         if ((fe_action) & (1 << TrafficAction::MIRROR)) {
             flags |= VR_FLOW_FLAG_MIRROR;
             req.set_fr_mir_id(-1);
             req.set_fr_sec_mir_id(-1);
-            if (flow_entry_->match_p().action_info.mirror_l.size() > 
+            if (flow_entry_->match_p().action_info.mirror_l.size() >
                 FlowEntry::kMaxMirrorsPerFlow) {
                 FLOW_TRACE(Err, hash_id_,
                            "Don't support more than two mirrors/analyzers per "
@@ -305,22 +305,22 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                                                           mirror_ksync_obj();
             uint16_t idx_1 = obj->GetIdx((*it).analyzer_name);
             req.set_fr_mir_id(idx_1);
-            FLOW_TRACE(ModuleInfo, "Mirror index first: " + 
+            FLOW_TRACE(ModuleInfo, "Mirror index first: " +
                        integerToString(idx_1));
             ++it;
             if (it != flow_entry_->match_p().action_info.mirror_l.end()) {
                 uint16_t idx_2 = obj->GetIdx((*it).analyzer_name);
                 if (idx_1 != idx_2) {
                     req.set_fr_sec_mir_id(idx_2);
-                    FLOW_TRACE(ModuleInfo, "Mirror index second: " + 
+                    FLOW_TRACE(ModuleInfo, "Mirror index second: " +
                                integerToString(idx_2));
                 } else {
-                    FLOW_TRACE(Err, hash_id_, 
+                    FLOW_TRACE(Err, hash_id_,
                                "Both Mirror indexes are same, hence didn't set "
                                "the second mirror dest.");
                 }
             }
-            req.set_fr_mir_vrf(flow_entry_->data().mirror_vrf); 
+            req.set_fr_mir_vrf(flow_entry_->data().mirror_vrf);
             req.set_fr_mir_sip(htonl(ksync_obj_->ksync()->agent()->
                                      router_id().to_ulong()));
             req.set_fr_mir_sport(htons(ksync_obj_->ksync()->agent()->
@@ -348,7 +348,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= VR_FLOW_FLAG_DNAT;
             }
 
-            if (flow_entry_->key().protocol == IPPROTO_TCP || 
+            if (flow_entry_->key().protocol == IPPROTO_TCP ||
                 flow_entry_->key().protocol == IPPROTO_UDP) {
                 if (flow_entry_->key().src_port != nat_key->dst_port) {
                     flags |= VR_FLOW_FLAG_SPAT;
@@ -436,9 +436,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
 bool FlowTableKSyncEntry::Sync() {
     bool changed = false;
-    
+
     last_event_ = (FlowEvent::Event)flow_entry_->last_event();
-    FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();   
+    FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
     if (rev_flow) {
         if (old_reverse_flow_id_ != rev_flow->flow_handle()) {
             if (old_reverse_flow_id_ != FlowEntry::kInvalidFlowHandle)
@@ -488,7 +488,7 @@ bool FlowTableKSyncEntry::Sync() {
         ++it;
         if (it != flow_entry_->match_p().action_info.mirror_l.end()) {
             idx = obj->GetIdx((*it).analyzer_name);
-            if (!((*it).analyzer_name.empty()) && 
+            if (!((*it).analyzer_name.empty()) &&
                 (idx == MirrorTable::kInvalidIndex)) {
                 // run time and to update  flow entry;
                 ksync_obj_->UpdateUnresolvedFlowEntry(flow_entry_);

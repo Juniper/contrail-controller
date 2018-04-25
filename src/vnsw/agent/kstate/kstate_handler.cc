@@ -122,7 +122,7 @@ void KMplsReq::HandleRequest() const {
 }
 
 void NextKFlowReq::HandleRequest() const {
-    FlowKState *task = new FlowKState(Agent::GetInstance(), context(), 
+    FlowKState *task = new FlowKState(Agent::GetInstance(), context(),
                                       get_flow_handle());
     vector<string> tokens;
     boost::split(tokens, get_flow_handle(), boost::is_any_of(" "));
@@ -134,7 +134,7 @@ void NextKFlowReq::HandleRequest() const {
 }
 
 void KFlowReq::HandleRequest() const {
-    FlowKState *task = new FlowKState(Agent::GetInstance(), context(), 
+    FlowKState *task = new FlowKState(Agent::GetInstance(), context(),
                                       get_flow_idx());
     task->set_evicted_flag(get_show_evicted());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -146,7 +146,7 @@ void KMirrorReq::HandleRequest() const {
     KMirrorResp *resp = new KMirrorResp();
     resp->set_context(context());
 
-    MirrorKState *kstate = new MirrorKState(resp, context(), req, 
+    MirrorKState *kstate = new MirrorKState(resp, context(), req,
                                             get_mirror_id());
     kstate->EncodeAndSend(req);
 }
@@ -156,7 +156,7 @@ void KVrfAssignReq::HandleRequest() const {
     KVrfAssignResp *resp = new KVrfAssignResp();
     resp->set_context(context());
 
-    VrfAssignKState *kstate = new VrfAssignKState(resp, context(), req, 
+    VrfAssignKState *kstate = new VrfAssignKState(resp, context(), req,
                                                   get_vif_index());
     kstate->EncodeAndSend(req);
 }
@@ -166,7 +166,7 @@ void KVrfStatsReq::HandleRequest() const {
     KVrfStatsResp *resp = new KVrfStatsResp();
     resp->set_context(context());
 
-    VrfStatsKState *kstate = new VrfStatsKState(resp, context(), req, 
+    VrfStatsKState *kstate = new VrfStatsKState(resp, context(), req,
                                                 get_vrf_index());
     kstate->EncodeAndSend(req);
 }
@@ -185,7 +185,7 @@ void KVxLanReq::HandleRequest() const {
     KVxLanResp *resp = new KVxLanResp();
     resp->set_context(context());
 
-    VxLanKState *kstate = new VxLanKState(resp, context(), req, 
+    VxLanKState *kstate = new VxLanKState(resp, context(), req,
                                           get_vxlan_label());
     kstate->EncodeAndSend(req);
 }

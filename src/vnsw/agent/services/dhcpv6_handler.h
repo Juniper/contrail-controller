@@ -143,7 +143,7 @@
 struct Dhcpv6Options {
     void WriteData(uint16_t c, uint16_t l, const void *d, uint16_t *optlen) {
         code = htons(c);
-        len = htons(l); 
+        len = htons(l);
         memcpy(data, (uint8_t *)d, l);
         *optlen += 4 + l;
     }

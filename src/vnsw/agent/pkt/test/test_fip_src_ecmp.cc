@@ -63,7 +63,7 @@ class FipEcmpTest : public ::testing::Test {
         vm1_mac = vmi->vm_mac();
         eth_intf_id = EthInterfaceGet("vnet0")->id();
     }
- 
+
     virtual void TearDown() {
         DelLink("virtual-network", VN2, "routing-instance",
                 VRF2);
@@ -202,24 +202,24 @@ TEST_F(FipEcmpTest, Test_1) {
 
     InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(
         RouteGet(VRF2, Ip4Address::from_string("2.1.1.1"), 32));
- 
+
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
 
-    rt = static_cast<InetUnicastRouteEntry *>( 
+    rt = static_cast<InetUnicastRouteEntry *>(
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     DeleteRoute(VRF2, "0.0.0.0", 0, bgp_peer);
     DeleteRemoteEcmpFip();
-    client->WaitForIdle(); 
+    client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
 
@@ -243,11 +243,11 @@ TEST_F(FipEcmpTest, Test_2) {
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
-    rt = static_cast<InetUnicastRouteEntry *>( 
+    rt = static_cast<InetUnicastRouteEntry *>(
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
@@ -272,13 +272,13 @@ TEST_F(FipEcmpTest, Test_3) {
 
     InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(
         RouteGet("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
- 
+
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
                     CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
-    rt = static_cast<InetUnicastRouteEntry *>( 
+    rt = static_cast<InetUnicastRouteEntry *>(
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -288,7 +288,7 @@ TEST_F(FipEcmpTest, Test_3) {
 
     DeleteRoute(VRF2, "0.0.0.0", 32, bgp_peer);
     DeleteLocalEcmpFip();
-    client->WaitForIdle(); 
+    client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
 
@@ -315,7 +315,7 @@ TEST_F(FipEcmpTest, Test_4) {
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
-    rt = static_cast<InetUnicastRouteEntry *>( 
+    rt = static_cast<InetUnicastRouteEntry *>(
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();

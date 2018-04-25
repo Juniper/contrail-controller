@@ -466,7 +466,7 @@ void AddLink(const char *node_name1, const char *name1,
              const char *node_name2, const char *name2, const char *mdata) {
     char buff[1024];
     int len = 0;
- 
+
     AddXmlHdr(buff, len);
     AddLinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
     AddXmlTail(buff, len);
@@ -653,8 +653,8 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
 
 void IntfCfgAdd(PortInfo *input, int id) {
     IntfCfgAdd(input[id].intf_id, input[id].name, input[id].addr,
-  	       input[id].vm_id, input[id].vn_id, input[id].mac,
-	       input[id].ip6addr);
+             input[id].vm_id, input[id].vn_id, input[id].mac,
+           input[id].ip6addr);
 }
 
 void IntfCfgAddThrift(PortInfo *input, int id) {
@@ -2958,19 +2958,19 @@ void AddHealthCheckService(const char *name, int id,
 
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip) {
     uint8_t dummy_dmac[6], dummy_smac[6];
-	memset(dummy_dmac, 0, sizeof(dummy_dmac));
-	memset(dummy_smac, 0, sizeof(dummy_dmac));
-	dummy_dmac[5] = dmac;
-	dummy_smac[5] = smac;
+    memset(dummy_dmac, 0, sizeof(dummy_dmac));
+    memset(dummy_smac, 0, sizeof(dummy_dmac));
+    dummy_dmac[5] = dmac;
+    dummy_smac[5] = smac;
 
     IcmpPacket icmp(dummy_smac, dummy_dmac, sip, dip);
     int ret = write(fd, icmp.GetPacket(), sizeof(icmp_packet));
     LOG(DEBUG, "Written " << ret << " bytes to fd " << fd);
     if (ret < 0)
-	{
-	    LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-	        "> writing");
-	}
+    {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> writing");
+    }
     usleep(3*1000);
 }
 

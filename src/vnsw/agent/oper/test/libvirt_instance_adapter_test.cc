@@ -29,7 +29,7 @@ class LibvirtAdapterTest : public ::testing::Test {
   virtual void SetUp() {
       agent_ =  new Agent;
       libvirt_adapter_ = new LibvirtInstanceAdapter(agent_, "qemu:///system");
-        
+
       properties_.virtualization_type = ServiceInstance::VRouterInstance;
       properties_.vrouter_instance_type = ServiceInstance::KVM;
       properties_.instance_id =
@@ -37,9 +37,9 @@ class LibvirtAdapterTest : public ::testing::Test {
 
       properties_.vmi_inside =
         boost::lexical_cast<boost::uuids::uuid>("ea9b8b18-8182-11e4-8ad5-47899f2d45f1");
-      properties_.vmi_outside = 
+      properties_.vmi_outside =
         boost::lexical_cast<boost::uuids::uuid>("eb0e2d30-8182-11e4-b09d-533359975d6a");
-      properties_.vmi_management = 
+      properties_.vmi_management =
         boost::lexical_cast<boost::uuids::uuid>("324d6de6-8183-11e4-8a75-13b524544c2f");
 
       properties_.mac_addr_inside = "00:50:56:00:00:01";
@@ -95,7 +95,7 @@ TEST_F(LibvirtAdapterTest, LibvirtStart) {
 TEST_F(LibvirtAdapterTest, LibvirtDomainCreated) {
     virConnectPtr conn = virConnectOpen("qemu:///system");
     ASSERT_NE(conn, (virConnectPtr)(NULL));
-    std::string dom_uuid_str = 
+    std::string dom_uuid_str =
         boost::lexical_cast<std::string>(properties_.instance_id);
     virDomainPtr dom;
     for (int i = 0; i < 20; i++) {
@@ -120,7 +120,7 @@ TEST_F(LibvirtAdapterTest, LibvirtStop) {
 TEST_F(LibvirtAdapterTest, LibvirtDomainDestroyed) {
     virConnectPtr conn = virConnectOpen("qemu:///system");
     ASSERT_NE(conn, (virConnectPtr)(NULL));
-    std::string dom_uuid_str = 
+    std::string dom_uuid_str =
         boost::lexical_cast<std::string>(properties_.instance_id);
     virDomainPtr dom;
     for (int i = 0; i < 20; i++) {

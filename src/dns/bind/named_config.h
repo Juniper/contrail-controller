@@ -98,9 +98,9 @@ public:
 
     virtual void UpdateNamedConf(const VirtualDnsConfig *updated_vdns = NULL);
     void RemoveZoneFiles(const VirtualDnsConfig *vdns, ZoneList &zones);
-    virtual std::string GetZoneFileName(const std::string &vdns, 
+    virtual std::string GetZoneFileName(const std::string &vdns,
                                         const std::string &name);
-    virtual std::string GetZoneFilePath(const std::string &vdns, 
+    virtual std::string GetZoneFilePath(const std::string &vdns,
                                         const std::string &name);
     virtual std::string GetResolveFile() { return "/etc/resolv.conf"; }
     std::string GetPidFilePath();
@@ -125,7 +125,7 @@ protected:
     void RemoveZoneFile(const VirtualDnsConfig *vdns, std::string &zone);
     std::string GetZoneNSName(const std::string domain_name);
     std::string GetZoneMXName(const std::string domain_name);
-    void CreateZoneFile(std::string &zone_name, 
+    void CreateZoneFile(std::string &zone_name,
                         const VirtualDnsConfig *vdns, bool ns);
     void MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zones);
     void MakeReverseZoneList(const VirtualDnsConfig *vdns_config,

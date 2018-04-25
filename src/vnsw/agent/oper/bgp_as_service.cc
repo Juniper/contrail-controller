@@ -667,7 +667,7 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 (const BgpAsAService::BgpAsAServiceEntry &rhs) :
     VmInterface::ListEntry(rhs.del_pending_),
     installed_(rhs.installed_),
-    local_peer_ip_(rhs.local_peer_ip_), 
+    local_peer_ip_(rhs.local_peer_ip_),
     source_port_(rhs.source_port_),
     dest_port_(rhs.dest_port_),
     health_check_configured_(rhs.health_check_configured_),

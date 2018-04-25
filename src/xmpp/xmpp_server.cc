@@ -56,7 +56,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
       max_connections_(0),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
-      deleter_(new DeleteActor(this)), 
+      deleter_(new DeleteActor(this)),
       server_addr_(server_addr),
       log_uve_(false),
       auth_enabled_(config->auth_enabled),
@@ -197,12 +197,12 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
 }
 
 
-XmppServer::XmppServer(EventManager *evm) 
+XmppServer::XmppServer(EventManager *evm)
     : XmppConnectionManager(evm, ssl::context::tlsv1_server, false, false),
       max_connections_(0),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
-      deleter_(new DeleteActor(this)), 
+      deleter_(new DeleteActor(this)),
       log_uve_(false),
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
@@ -348,7 +348,7 @@ TcpSession *XmppServer::CreateSession() {
         SOL_SOCKET, SO_REUSEPORT> reuse_port_t;
 #else
         SOL_SOCKET, SO_REUSEADDR> reuse_addr_t;
-#endif 
+#endif
     TcpSession *session = TcpServer::CreateSession();
     Socket *socket = session->socket();
 
@@ -358,7 +358,7 @@ TcpSession *XmppServer::CreateSession() {
         XMPP_WARNING(ServerOpenFail, err.message());
     }
 
-#ifdef __APPLE__    
+#ifdef __APPLE__
     socket->set_option(reuse_port_t(true), err);
 #else
     socket->set_option(reuse_addr_t(true), err);
@@ -431,7 +431,7 @@ void XmppServer::ClearAllConnections() {
     }
 }
 
-void XmppServer::RegisterConnectionEvent(xmps::PeerId id, 
+void XmppServer::RegisterConnectionEvent(xmps::PeerId id,
                                          ConnectionEventCb cb) {
     connection_event_map_.insert(make_pair(id, cb));
 }
@@ -442,7 +442,7 @@ void XmppServer::UnRegisterConnectionEvent(xmps::PeerId id) {
         connection_event_map_.erase(it);
 }
 
-void XmppServer::NotifyConnectionEvent(XmppChannelMux *mux, 
+void XmppServer::NotifyConnectionEvent(XmppChannelMux *mux,
                                        xmps::PeerState state) {
     ConnectionEventCbMap::iterator iter = connection_event_map_.begin();
     for (; iter != connection_event_map_.end(); ++iter) {
@@ -575,7 +575,7 @@ void XmppServer::SetDscpValue(uint8_t value) {
 // before the connection WorkQueue is drained.
 //
 bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
-    CHECK_CONCURRENCY("bgp::Config"); 
+    CHECK_CONCURRENCY("bgp::Config");
     connection->clear_on_work_queue();
 
     // This happens if the XmppServer got deleted while the XmppConnnection

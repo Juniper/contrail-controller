@@ -75,7 +75,7 @@ class ArpSandesh {
 public:
     static const uint8_t entries_per_sandesh = 100;
     ArpSandesh(SandeshResponse *resp) : iter_(0), resp_(resp) {};
-    bool SetArpEntry(const ArpKey &key, const ArpEntry *entry); 
+    bool SetArpEntry(const ArpKey &key, const ArpEntry *entry);
     void Response() { resp_->Response(); }
     void SetInterfaceArpStatsEntry(
         ArpProto::InterfaceArpMap::const_iterator &it,

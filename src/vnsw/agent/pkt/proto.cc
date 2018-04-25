@@ -11,7 +11,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
-             boost::asio::io_service &io) 
+             boost::asio::io_service &io)
     : agent_(agent), module_(mod), trace_(true), free_buffer_(false), io_(io),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
                   boost::bind(&Proto::ProcessProto, this, _1)) {
@@ -21,7 +21,7 @@ Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
     work_queue_.set_name(str.str());
 }
 
-Proto::~Proto() { 
+Proto::~Proto() {
     work_queue_.Shutdown();
 }
 

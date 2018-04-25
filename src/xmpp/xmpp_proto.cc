@@ -26,7 +26,7 @@ auto_ptr<XmlBase> XmppProto::open_doc_(AllocXmppXmlImpl(sXMPP_STREAM_OPEN));
 XmppStanza::XmppStanza() {
 }
 
-XmppProto::XmppProto() { 
+XmppProto::XmppProto() {
 }
 
 XmppProto::~XmppProto() {
@@ -64,7 +64,7 @@ int XmppProto::EncodeStream(const XmppStreamMessage &str, string &to,
     return len;
 }
 
-int XmppProto::EncodeStream(const XmppStanza::XmppMessage &str, uint8_t *buf, 
+int XmppProto::EncodeStream(const XmppStanza::XmppMessage &str, uint8_t *buf,
                             size_t size) {
     int ret = 0;
 
@@ -85,7 +85,7 @@ int XmppProto::EncodePresence(uint8_t *buf, size_t size) {
     return 0;
 }
 
-int XmppProto::EncodeIq(const XmppStanza::XmppMessageIq *iq, 
+int XmppProto::EncodeIq(const XmppStanza::XmppMessageIq *iq,
                         XmlBase *doc, uint8_t *buf, size_t size) {
     auto_ptr<XmlBase> send_doc_(AllocXmppXmlImpl());
 
@@ -94,16 +94,16 @@ int XmppProto::EncodeIq(const XmppStanza::XmppMessageIq *iq,
     send_doc_->AddNode("iq", "");
 
     switch(iq->stype) {
-        case XmppStanza::XmppMessageIq::GET: 
+        case XmppStanza::XmppMessageIq::GET:
             send_doc_->AddAttribute("type", "get");
             break;
-        case XmppStanza::XmppMessageIq::SET: 
+        case XmppStanza::XmppMessageIq::SET:
             send_doc_->AddAttribute("type", "set");
             break;
-        case XmppStanza::XmppMessageIq::RESULT: 
+        case XmppStanza::XmppMessageIq::RESULT:
             send_doc_->AddAttribute("type", "result");
             break;
-        case XmppStanza::XmppMessageIq::ERROR: 
+        case XmppStanza::XmppMessageIq::ERROR:
             send_doc_->AddAttribute("type", "error");
             break;
         default:
@@ -126,7 +126,7 @@ int XmppProto::EncodeIq(const XmppStanza::XmppMessageIq *iq,
 
 int XmppProto::EncodeWhitespace(uint8_t *buf) {
     string str(sXMPP_WHITESPACE);
-     
+
     int len = str.size();
     if (len > 0) {
         memcpy(buf, str.data(), len);
@@ -144,8 +144,8 @@ int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from,
         return 0;
     }
 
-    SetTo(to, resp_doc.get()); 
-    SetFrom(from, resp_doc.get()); 
+    SetTo(to, resp_doc.get());
+    SetFrom(from, resp_doc.get());
 
     std::stringstream ss;
     resp_doc->PrintDoc(ss);
@@ -169,8 +169,8 @@ int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
         return 0;
     }
 
-    SetTo(to, open_doc_.get()); 
-    SetFrom(from, open_doc_.get()); 
+    SetTo(to, open_doc_.get());
+    SetFrom(from, open_doc_.get());
     SetXmlns(xmlns, open_doc_.get());
 
     //Returns byte encoded in the doc
@@ -248,10 +248,10 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
 
         XmppStanza::XmppMessageIq *msg = new XmppStanza::XmppMessageIq;
         impl->ReadNode(iq);
-        msg->to = XmppProto::GetTo(impl); 
-        msg->from = XmppProto::GetFrom(impl); 
-        msg->id = XmppProto::GetId(impl); 
-        msg->iq_type = XmppProto::GetType(impl); 
+        msg->to = XmppProto::GetTo(impl);
+        msg->from = XmppProto::GetFrom(impl);
+        msg->id = XmppProto::GetId(impl);
+        msg->iq_type = XmppProto::GetType(impl);
         // action is subscribe,publish,collection
         const char *action = XmppProto::GetAction(impl, msg->iq_type);
         if (action) {
@@ -288,7 +288,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
             goto done;
         }
         XmppStanza::XmppMessage *msg = new XmppStanza::XmppChatMessage(
-                                           STATE_NONE); 
+                                           STATE_NONE);
         impl->ReadNode(sXMPP_MESSAGE_KEY);
 
         msg->to = XmppProto::GetTo(impl);
@@ -305,9 +305,9 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
         string ts_tmp = ts;
         ts_tmp.erase(std::remove(ts_tmp.begin(), ts_tmp.end(), '\n'), ts_tmp.end());
 
-        if ((ts_tmp.compare(0, strlen(sXMPP_STREAM_START), 
-             sXMPP_STREAM_START) != 0) && 
-            (ts_tmp.compare(0, strlen(sXMPP_STREAM_START_S), 
+        if ((ts_tmp.compare(0, strlen(sXMPP_STREAM_START),
+             sXMPP_STREAM_START) != 0) &&
+            (ts_tmp.compare(0, strlen(sXMPP_STREAM_START_S),
              sXMPP_STREAM_START_S) != 0)) {
             XMPP_WARNING(XmppBadMessage, connection->ToUVEKey(),
                          XMPP_PEER_DIR_IN,
@@ -316,8 +316,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
         }
 
         // check if the buf is xmpp open or response message
-        // As end tag will be missing we need to modify the 
-        // string for stream open, else dom decoder will fail 
+        // As end tag will be missing we need to modify the
+        // string for stream open, else dom decoder will fail
         boost::algorithm::replace_last(ts_tmp, ">", "/>");
         if (impl->LoadDoc(ts_tmp) == -1) {
             XMPP_WARNING(XmppBadMessage, connection->ToUVEKey(),
@@ -325,12 +325,12 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
             goto done;
         }
 
-        XmppStanza::XmppStreamMessage *strm = 
+        XmppStanza::XmppStreamMessage *strm =
             new XmppStanza::XmppStreamMessage();
         strm->strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
         impl->ReadNode(ns);
-        strm->to = XmppProto::GetTo(impl); 
-        strm->from = XmppProto::GetFrom(impl); 
+        strm->to = XmppProto::GetTo(impl);
+        strm->from = XmppProto::GetFrom(impl);
         strm->xmlns = XmppProto::GetXmlns(impl);
 
         ret = strm;
@@ -386,7 +386,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
 
     } else if (ts.find_first_of(sXMPP_VALIDWS) != string::npos) {
 
-        XmppStanza::XmppMessage *msg = 
+        XmppStanza::XmppMessage *msg =
             new XmppStanza::XmppMessage(WHITESPACE_MESSAGE_STANZA);
         return msg;
     } else {
@@ -405,7 +405,7 @@ int XmppProto::SetTo(string &to, XmlBase *doc) {
     string ns(sXMPP_STREAM_O);
     doc->ReadNode(ns);
     doc->ModifyAttribute("to", to);
- 
+
     return 0;
 }
 

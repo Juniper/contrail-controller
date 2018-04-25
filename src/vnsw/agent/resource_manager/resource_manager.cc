@@ -98,7 +98,7 @@ ResourceManager::DataPtr ResourceManager::Allocate(KeyPtr key) {
 // Releases the resource table index and  key.
 // Delete the data from file.
 void ResourceManager::Release(KeyPtr key) {
-    ResourceTable *resource_table = key.get()->resource_table(); 
+    ResourceTable *resource_table = key.get()->resource_table();
     ResourceManager::DataPtr data = resource_table->FindKeyPtr(key);
     if (data.get() == NULL) {
         return;

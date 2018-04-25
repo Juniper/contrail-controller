@@ -116,7 +116,7 @@ TEST_F(CfgTest, NodeTest) {
     EXPECT_TRUE(result);
 
     parser_->ConfigParse(xdoc_.first_child(), 0);
-    
+
     WaitForIdle();
     IFMapTable *table = IFMapTable::FindTable(&db_, "foo");
     ASSERT_TRUE(table!=NULL);
@@ -124,7 +124,7 @@ TEST_F(CfgTest, NodeTest) {
     IFMapNode *TestFoo = table->FindNode("testfoo");
     ASSERT_TRUE(TestFoo!=NULL);
     EXPECT_EQ("testfoo", TestFoo->name());
-    
+
 
     table = IFMapTable::FindTable(&db_, "bar");
     ASSERT_TRUE(table!=NULL);
@@ -174,7 +174,7 @@ TEST_F(CfgTest, LinkTest) {
     EXPECT_TRUE(result);
 
     parser_->ConfigParse(xdoc_.first_child(), 0);
-    
+
     WaitForIdle();
 
     EXPECT_EQ(foo_cnt, 1);
@@ -250,8 +250,8 @@ TEST_F(CfgTest, LinkTest) {
     TestBar = btable->FindNode("testbar");
     ASSERT_TRUE(TestBar==NULL);
 
-    EXPECT_EQ(foo_cnt, 0);    
-    EXPECT_EQ(bar_cnt, 0);    
+    EXPECT_EQ(foo_cnt, 0);
+    EXPECT_EQ(bar_cnt, 0);
 
     ftable->Unregister(fid);
     btable->Unregister(bid);
@@ -261,8 +261,8 @@ TEST_F(CfgTest, LinkTest) {
 TEST_F(CfgTest, LinkAttrTest) {
 
     char buff[1500];
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <node type=\"A\">\n"
         "       <name>testA</name>\n"
         "   </node>\n"
@@ -308,7 +308,7 @@ TEST_F(CfgTest, LinkAttrTest) {
     EXPECT_TRUE(result);
 
     parser_->ConfigParse(xdoc_, 0);
-    
+
     WaitForIdle();
 
     //Ensure that both nodes are added fine along with attribute
@@ -413,7 +413,7 @@ TEST_F(CfgTest, NodeReaddTest) {
         EXPECT_EQ("testfoo", TestFoo->name());
     }
 
-    //Delete the all config and readdd the same 
+    //Delete the all config and readdd the same
     sprintf(buff,
         "<delete>\n"
         "   <link>\n"
@@ -431,7 +431,7 @@ TEST_F(CfgTest, NodeReaddTest) {
         "       <name>testbar</name>\n"
         "   </node>\n"
         "</delete>\n"
-        "<update>\n"    
+        "<update>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -591,7 +591,7 @@ TEST_F(CfgTest, LinkReorderTest) {
         "       <name>testtest</name>\n"
         "   </node>\n"
         "</delete>\n"
-        "<update>\n"    
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -608,8 +608,8 @@ TEST_F(CfgTest, LinkReorderTest) {
     WaitForIdle();
 
     //Add another link and nodes with seq = 1
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -691,8 +691,8 @@ TEST_F(CfgTest, LinkReorderTest) {
     WaitForIdle();
 
     //Add link with seq 0
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -701,7 +701,7 @@ TEST_F(CfgTest, LinkReorderTest) {
         "           <name>testtest</name>\n"
         "       </node>\n"
         "   </link>\n"
-        "</update>\n");   
+        "</update>\n");
 
     result = xdoc_.load(buff);
     EXPECT_TRUE(result);
@@ -709,8 +709,8 @@ TEST_F(CfgTest, LinkReorderTest) {
     WaitForIdle();
 
     //update the same with seq 1 and add nodes too
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"test\">\n"
         "           <name>testtest</name>\n"
@@ -739,8 +739,8 @@ TEST_F(CfgTest, LinkReorderTest) {
     TestTest = ttable->FindNode("testtest");
     ASSERT_TRUE(TestTest !=NULL);
     EXPECT_EQ("testtest", TestTest->name());
-        
-    //Ensure that there is link from foo->test 
+
+    //Ensure that there is link from foo->test
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestTest = static_cast<IFMapNode *>(iter.operator->());
@@ -770,8 +770,8 @@ TEST_F(CfgTest, LinkReorderTest) {
     parser_->ConfigParse(xdoc_, 1);
     WaitForIdle();
 
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"test\">\n"
         "           <name>testtest</name>\n"
@@ -780,8 +780,8 @@ TEST_F(CfgTest, LinkReorderTest) {
         "           <name>testfoo</name>\n"
         "       </node>\n"
         "   </link>\n"
-        "</update>\n"    
-        "<delete>\n"    
+        "</update>\n"
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"test\">\n"
         "           <name>testtest</name>\n"
@@ -790,8 +790,8 @@ TEST_F(CfgTest, LinkReorderTest) {
         "           <name>testfoo</name>\n"
         "       </node>\n"
         "   </link>\n"
-        "</delete>\n"    
-        "<update>\n"    
+        "</delete>\n"
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"test\">\n"
         "           <name>testtest</name>\n"
@@ -800,8 +800,8 @@ TEST_F(CfgTest, LinkReorderTest) {
         "           <name>testfoo</name>\n"
         "       </node>\n"
         "   </link>\n"
-        "</update>\n"    
-        "<delete>\n"    
+        "</update>\n"
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -810,15 +810,15 @@ TEST_F(CfgTest, LinkReorderTest) {
         "           <name>testtest</name>\n"
         "       </node>\n"
         "   </link>\n"
-        "</delete>\n"    
-        "<update>\n"    
+        "</delete>\n"
+        "<update>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
         "   <node type=\"test\">\n"
         "       <name>testtest</name>\n"
         "   </node>\n"
-        "</update>\n");    
+        "</update>\n");
 
     result = xdoc_.load(buff);
     EXPECT_TRUE(result);
@@ -831,7 +831,7 @@ TEST_F(CfgTest, LinkReorderTest) {
 
     TestTest = ttable->FindNode("testtest");
     ASSERT_TRUE(TestTest !=NULL);
-    EXPECT_EQ("testtest", TestTest->name()); 
+    EXPECT_EQ("testtest", TestTest->name());
 
     //Ensure that there are no links from foo->test and test->foo
     cnt = 0;
@@ -847,8 +847,8 @@ TEST_F(CfgTest, LinkReorderTest) {
     }
     EXPECT_EQ(cnt, 0);
 
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"test\">\n"
         "           <name>testtest</name>\n"
@@ -865,7 +865,7 @@ TEST_F(CfgTest, LinkReorderTest) {
         "           <name>testbar</name>\n"
         "       </node>\n"
         "   </link>\n"
-        "</update>\n");    
+        "</update>\n");
     result = xdoc_.load(buff);
     EXPECT_TRUE(result);
     parser_->ConfigParse(xdoc_, 0);
@@ -877,8 +877,8 @@ TEST_F(CfgTest, LinkReorderTest) {
 
 TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     char buff[1500];
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -979,11 +979,11 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     //testbar and testtest should exist
     TestTest = ttable->FindNode("testtest");
     ASSERT_TRUE(TestTest !=NULL);
-    EXPECT_EQ("testtest", TestTest->name()); 
+    EXPECT_EQ("testtest", TestTest->name());
 
     TestBar = btable->FindNode("testbar");
     ASSERT_TRUE(TestBar !=NULL);
-    EXPECT_EQ("testbar", TestBar->name()); 
+    EXPECT_EQ("testbar", TestBar->name());
 
     //Ensure that there are no links from test->foo and bar->foo
     cnt = 0;
@@ -1000,8 +1000,8 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     EXPECT_EQ(cnt, 0);
 
     //Add node foo again and veriy all nodes and links
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -1060,8 +1060,8 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     WaitForIdle();
 
     //Now delete links and add node
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -1079,7 +1079,7 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
         "       </node>\n"
         "   </link>\n"
         "</delete>"
-        "<update>\n"    
+        "<update>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -1117,8 +1117,8 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     EXPECT_EQ(cnt, 0);
 
     //Have all the nodes and links and delete bar
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -1136,7 +1136,7 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
         "       </node>\n"
         "   </link>\n"
         "</update>"
-        "<delete>\n"    
+        "<delete>\n"
         "   <node type=\"bar\">\n"
         "       <name>testbar</name>\n"
         "   </node>\n"
@@ -1188,12 +1188,12 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
         "       </node>\n"
         "   </link>\n"
         "</delete>\n"
-        "<delete>\n"    
+        "<delete>\n"
         "   <node type=\"test\">\n"
         "       <name>testtest</name>\n"
         "   </node>\n"
         "</delete>\n"
-        "<delete>\n"    
+        "<delete>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -1209,8 +1209,8 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
 TEST_F(CfgTest, NodeDelLinkAddDeferTest) {
 
     char buff[1500];
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -1275,7 +1275,7 @@ TEST_F(CfgTest, NodeDelLinkAddDeferTest) {
         EXPECT_EQ("testfoo", TestFoo->name());
     }
 
-    //Delete the all config and readdd the same 
+    //Delete the all config and readdd the same
     sprintf(buff,
         "<delete>\n"
         "   <link>\n"
@@ -1293,7 +1293,7 @@ TEST_F(CfgTest, NodeDelLinkAddDeferTest) {
         "       <name>testbar</name>\n"
         "   </node>\n"
         "</delete>\n"
-        "<update>\n"    
+        "<update>\n"
         "   <node type=\"bar\">\n"
         "       <name>testbar</name>\n"
         "   </node>\n"
@@ -1427,8 +1427,8 @@ TEST_F(CfgTest, LinkJumbleTest) {
     ASSERT_TRUE(TestBar == NULL);
 
     //Add bar now
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "    <node type=\"bar\">\n"
         "        <name>testbar</name>\n"
         "    </node>\n"
@@ -1899,8 +1899,8 @@ TEST_F(CfgTest, StaleTimeoutDeferList) {
     }
     EXPECT_EQ(cnt, 0);
 
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -1930,8 +1930,8 @@ TEST_F(CfgTest, StaleTimeoutDeferList) {
     parser_->ConfigParse(xdoc_, 2);
     WaitForIdle();
 
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -1968,7 +1968,7 @@ TEST_F(CfgTest, StaleTimeoutDeferList) {
     ASSERT_TRUE(TestTest !=NULL);
     EXPECT_EQ("testtest", TestTest->name());
 
-    //Ensure that there is Link from Foo toTest 
+    //Ensure that there is Link from Foo toTest
     cnt = 0;
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {

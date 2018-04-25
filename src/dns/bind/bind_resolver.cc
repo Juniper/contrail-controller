@@ -29,11 +29,11 @@ BindResolver::BindResolver(boost::asio::io_service &io,
                : pkt_buf_(NULL), cb_(cb), sock_(io), dscp_value_(dscp) {
 
     boost::system::error_code ec;
-    uint8_t size = (dns_servers.size() > max_dns_servers) ? 
+    uint8_t size = (dns_servers.size() > max_dns_servers) ?
                     dns_servers.size() : max_dns_servers;
     dns_ep_.resize(size);
     for (unsigned int i = 0; i < dns_servers.size(); ++i) {
-        boost::asio::ip::udp::endpoint *ep = 
+        boost::asio::ip::udp::endpoint *ep =
             new boost::asio::ip::udp::endpoint(
                      boost::asio::ip::address::from_string(
                      dns_servers[i].ip_, ec), dns_servers[i].port_);
@@ -122,7 +122,7 @@ void BindResolver::SetupResolver(const DnsServer &server, uint8_t idx) {
     dns_ep_[idx] = ep;
 }
 
-bool BindResolver::DnsSend(uint8_t *pkt, unsigned int dns_srv_index, 
+bool BindResolver::DnsSend(uint8_t *pkt, unsigned int dns_srv_index,
                            std::size_t len) {
     if (dns_srv_index < dns_ep_.size() && dns_ep_[dns_srv_index] && len > 0) {
         sock_.async_send_to(

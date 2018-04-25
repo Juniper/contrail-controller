@@ -42,7 +42,7 @@
 const Ip4Address PktFlowInfo::kDefaultIpv4;
 const Ip6Address PktFlowInfo::kDefaultIpv6;
 
-static void LogError(const PktInfo *pkt, const PktFlowInfo *flow_info, 
+static void LogError(const PktInfo *pkt, const PktFlowInfo *flow_info,
                      const char *str) {
     if (pkt->family == Address::INET || pkt->family == Address::INET6) {
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
@@ -55,7 +55,7 @@ static void LogError(const PktInfo *pkt, const PktFlowInfo *flow_info,
 
 // VRF changed for the packet. Treat it as Layer3 packet from now.
 // Note:
-// Features like service chain are supported only for Layer3. Bridge 
+// Features like service chain are supported only for Layer3. Bridge
 // entries are not leaked into the new VRF and any bridge entry lookup
 // into new VRF will also Fail. So, even VRouter will treat packets
 // as L3 after VRF transaltion.
@@ -118,7 +118,7 @@ static uint32_t NhToVrf(const NextHop *nh) {
         break;
     }
     case NextHop::NextHop::INTERFACE: {
-        const Interface *intf = 
+        const Interface *intf =
             (static_cast<const InterfaceNH *>(nh))->GetInterface();
         if (intf)
             vrf = intf->vrf();
@@ -150,7 +150,7 @@ static bool IsVgwOrVmInterface(const Interface *intf) {
 }
 
 static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
-			   const PktInfo *pkt, PktFlowInfo *info,
+               const PktInfo *pkt, PktFlowInfo *info,
                            const EcmpLoadBalance &ecmp_load_balance) {
     const CompositeNH *comp_nh = dynamic_cast<const CompositeNH *>(*nh);
     // ECMP supported only if composite-type is ECMP or LOCAL_ECMP
@@ -203,8 +203,8 @@ static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
 // force_vmport means, we want destination to be VM_INTERFACE only
 // This is to avoid routing across fabric interface itself
 static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
-		     PktFlowInfo *info, PktControlInfo *in,
-		     PktControlInfo *out, bool force_vmport,
+             PktFlowInfo *info, PktControlInfo *in,
+             PktControlInfo *out, bool force_vmport,
                      const EcmpLoadBalance &ecmp_load_balance) {
     bool ret = true;
 
@@ -397,8 +397,8 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
 
 // Decode route and get Interface / ECMP information
 static bool RouteToOutInfo(const Agent *agent, const AgentRoute *rt,
-			   const PktInfo *pkt, PktFlowInfo *info,
-			   PktControlInfo *in, PktControlInfo *out) {
+               const PktInfo *pkt, PktFlowInfo *info,
+               PktControlInfo *in, PktControlInfo *out) {
     const AgentPath *path = rt->GetActivePath();
     if (path == NULL)
         return false;
@@ -562,7 +562,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    const VmInterface *vm_port = 
+    const VmInterface *vm_port =
         static_cast<const VmInterface *>(in->intf_);
 
     uint16_t nat_port;
@@ -574,7 +574,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         // link local service not configured, drop the request
         in->rt_ = NULL;
         out->rt_ = NULL;
-        return; 
+        return;
     }
 
     out->vrf_ = agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
@@ -620,12 +620,12 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
 
     // Link local services supported only for IPv4 for now
     if (pkt->family != Address::INET) {
-        in->rt_ = NULL; 
-        out->rt_ = NULL; 
+        in->rt_ = NULL;
+        out->rt_ = NULL;
         return;
     }
 
-    const VmInterface *vm_port = 
+    const VmInterface *vm_port =
         static_cast<const VmInterface *>(out->intf_);
     if (vm_port == NULL) {
         // Force implicit deny
@@ -823,7 +823,7 @@ void PktFlowInfo::ProcessHealthCheckFatFlow(const VmInterface *vmi,
 // - Packet originated from remote vm
 void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
-    const VmInterface *vm_port = 
+    const VmInterface *vm_port =
         static_cast<const VmInterface *>(out->intf_);
     const VmInterface::FloatingIpSet &fip_list =
         vm_port->floating_ip_list().list_;
@@ -933,7 +933,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
         //TODO: V6 FIP
     }
-    const VmInterface *intf = 
+    const VmInterface *intf =
         static_cast<const VmInterface *>(in->intf_);
     const VmInterface::FloatingIpSet &fip_list = intf->floating_ip_list().list_;
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
@@ -1380,7 +1380,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
             FloatingIpSNat(pkt, in, out);
         }
     }
-    
+
     if (out->rt_ != NULL) {
         // Route is present. If IP-DA is a floating-ip, we need DNAT
         if (RouteToOutInfo(agent, out->rt_, pkt, this, in, out)) {
@@ -1504,7 +1504,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
     //Delay hash pick up till route is picked.
     if (NhDecode(agent, nh, pkt, this, in, out, true,
-		 EcmpLoadBalance()) == false) {
+         EcmpLoadBalance()) == false) {
         return;
     }
 
@@ -1721,12 +1721,12 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (nat_done && (pkt->ignore_address == VmInterface::IGNORE_SOURCE ||
-	pkt->ignore_address == VmInterface::IGNORE_DESTINATION)) {
+    pkt->ignore_address == VmInterface::IGNORE_DESTINATION)) {
         /* IGNORE_SOURCE/IGNORE_DESTINATION not supported for NAT flows */
-	LogError(pkt, this, "Flow : Fat-flow and NAT cannot co-exist");
-	short_flow = true;
-	short_flow_reason = FlowEntry::SHORT_FAT_FLOW_NAT_CONFLICT;
-	return false;
+    LogError(pkt, this, "Flow : Fat-flow and NAT cannot co-exist");
+    short_flow = true;
+    short_flow_reason = FlowEntry::SHORT_FAT_FLOW_NAT_CONFLICT;
+    return false;
     }
 
     if (!disable_validation) {
@@ -2119,7 +2119,7 @@ void PktFlowInfo::SetPktInfo(boost::shared_ptr<PktInfo> pkt_info) {
 
 IpAddress PktFlowInfo::FamilyToAddress(Address::Family family) {
     if (pkt->family == Address::INET6) {
-	return Ip6Address();
+    return Ip6Address();
     }
     return Ip4Address();
 }

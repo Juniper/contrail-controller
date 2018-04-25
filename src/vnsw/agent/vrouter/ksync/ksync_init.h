@@ -37,8 +37,8 @@ public:
 
     void UpdateVhostMac();
     Agent *agent() const  { return agent_; }
-    MirrorKSyncObject *mirror_ksync_obj() const { 
-        return mirror_ksync_obj_.get(); 
+    MirrorKSyncObject *mirror_ksync_obj() const {
+        return mirror_ksync_obj_.get();
     }
     NHKSyncObject *nh_ksync_obj() const {
         return nh_ksync_obj_.get();
@@ -84,11 +84,11 @@ public:
     }
 protected:
     Agent *agent_;
-    boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
+    boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_;
     std::vector<FlowTableKSyncObject *> flow_table_ksync_obj_list_;
-    boost::scoped_ptr<MplsKSyncObject> mpls_ksync_obj_; 
-    boost::scoped_ptr<NHKSyncObject> nh_ksync_obj_; 
-    boost::scoped_ptr<MirrorKSyncObject> mirror_ksync_obj_; 
+    boost::scoped_ptr<MplsKSyncObject> mpls_ksync_obj_;
+    boost::scoped_ptr<NHKSyncObject> nh_ksync_obj_;
+    boost::scoped_ptr<MirrorKSyncObject> mirror_ksync_obj_;
     boost::scoped_ptr<VrfKSyncObject> vrf_ksync_obj_;
     boost::scoped_ptr<VxLanKSyncObject> vxlan_ksync_obj_;
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;

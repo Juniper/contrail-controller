@@ -429,7 +429,7 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
     PktInfo pkt_info3(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
     TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "1.1.1.1", "1.1.1.2", IPPROTO_TCP, 
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "1.1.1.1", "1.1.1.2", IPPROTO_TCP,
                                   1, 2));
 
     pkt->Reset();
@@ -620,7 +620,7 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
 
     pkt->Reset();
     MakeTcpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
-                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 
+                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2,
                       false, 1);
     PktInfo pkt_info3(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
     TestPkt(&pkt_info3, pkt.get());
@@ -656,7 +656,7 @@ TEST_F(PktParseTest, IPv6_GRE_On_Enet_1) {
 
     pkt->Reset();
     MakeTcp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
-                       vnet1->label(), "10::10", "11::11", 1, 2, 
+                       vnet1->label(), "10::10", "11::11", 1, 2,
                       false, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
@@ -872,8 +872,8 @@ TEST_F(PktParseTest, MulticastControlWord) {
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "10.10.10.11",
                                 1, 0, 0));
 
-	DeleteBgpPeer(bgp_peer_ptr);
-	client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer_ptr);
+    client->WaitForIdle();
     client->WaitForIdle();
 }
 

@@ -9,18 +9,18 @@
  * process configuration thru IFNodeToReq or IFLinkToReq callback methods.
  *
  * In scaled environments there can be large number of invocations to
- * IFNodeToReq and IFLinkToReq APIs. The config processing routines are 
+ * IFNodeToReq and IFLinkToReq APIs. The config processing routines are
  * written to act on the latest version of configuration. So, an invocation
  * of config routine will override all previous invocations. Ideally, we wnat
  * to invoke the config callbacks only once after all configuraiton is
  * received. However, we dont have any marker to identify end of configuration.
- * 
- * The next best design we follow is to add the objects changed into a 
+ *
+ * The next best design we follow is to add the objects changed into a
  * change list. The change-list is run from a task-trigger. The list can
  * potentially compress multiple changes to a node
  *
- * The changelist should also take care of dependency between objects. For 
- * example, VMInterface has reference to VirtualNetwork. So, the change list 
+ * The changelist should also take care of dependency between objects. For
+ * example, VMInterface has reference to VirtualNetwork. So, the change list
  * for virtual-network should be invoked before VMInterface. The changelist
  * should take of all dependencies.
  *

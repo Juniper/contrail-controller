@@ -208,7 +208,7 @@ void ProfileData::Get(Agent *agent) {
         agent->db()->const_begin();
     DB::TableMap::const_iterator itrend =
         agent->db()->const_end();
-    
+
     profile_stats_table_.clear();
     for ( ;itr != itrend; ++itr) {
         if(itr->first.rfind(kV4UnicastRouteDbTableSuffix) !=
@@ -316,7 +316,7 @@ void SandeshDBTableStatsRequest::HandleRequest() const {
     for (uint16_t i = start; i < end; i++) {
         uint16_t index = i % AgentProfile::kSecondsHistoryCount;
         ProfileData *data = profile->GetProfileData(index);
-        SandeshDBTableStatsInfo stats; 
+        SandeshDBTableStatsInfo stats;
         GetDBTableStats(&stats, index, data);
         stats_list.push_back(stats);
     }
@@ -354,7 +354,7 @@ void SandeshFlowStatsRequest::HandleRequest() const {
     for (uint16_t i = start; i < end; i++) {
         uint16_t index = i % AgentProfile::kSecondsHistoryCount;
         ProfileData *data = profile->GetProfileData(index);
-        SandeshFlowStats stats; 
+        SandeshFlowStats stats;
         GetFlowStats(&stats, index, data);
         stats_list.push_back(stats);
     }
@@ -428,7 +428,7 @@ void SandeshTaskStatsRequest::HandleRequest() const {
     for (uint16_t i = start; i < end; i++) {
         uint16_t index = i % AgentProfile::kSecondsHistoryCount;
         ProfileData *data = profile->GetProfileData(index);
-        TaskProfileStats stats; 
+        TaskProfileStats stats;
         GetTaskStats(&stats, index, data);
         stats_list.push_back(stats);
     }

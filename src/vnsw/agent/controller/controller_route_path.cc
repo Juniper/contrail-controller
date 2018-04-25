@@ -294,7 +294,7 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     }
 
     TunnelType::Type new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
-    if ((tunnel_bmap_ == (1 << TunnelType::VXLAN) && 
+    if ((tunnel_bmap_ == (1 << TunnelType::VXLAN) &&
          (new_tunnel_type != TunnelType::VXLAN)) ||
         (tunnel_bmap_ != (1 << TunnelType::VXLAN) &&
          (new_tunnel_type == TunnelType::VXLAN))) {

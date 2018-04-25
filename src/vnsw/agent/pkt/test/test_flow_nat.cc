@@ -23,7 +23,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
-            { 
+            {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
@@ -39,7 +39,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->WaitForIdle();
 
     EXPECT_EQ(2U, get_flow_proto()->FlowCount());
-    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 0, 0, 
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 0, 0,
                         false, -1, -1, GetFlowKeyNH(input[0].intf_id)));
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm5_ip,
                         vm1_fip, 1, 0, 0, false, -1, -1,
@@ -67,7 +67,7 @@ TEST_F(FlowTest, NonNatFlowAdd_1) {
             TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                     flow1->id()),
             {}
-        }   
+        }
     };
 
     CreateFlow(flow, 1);
@@ -107,11 +107,11 @@ TEST_F(FlowTest, NonNatDupFlowAdd_1) {
              TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                                 flow1->id()),
             {}
-        }   
+        }
     };
 
     // Add forward and reverse flow
-    CreateFlow(flow, 2); 
+    CreateFlow(flow, 2);
 
     // Add duplicate forward and reverse flow
     CreateFlow(flow, 2);
@@ -131,7 +131,7 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
@@ -148,9 +148,9 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
     CreateFlow(nat_flow, 1);
 
     //Disassociate fip
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
     client->WaitForIdle();
-        
+
     // Add Non-NAT forward flow
     CreateFlow(non_nat_flow, 1);
     //Make sure NAT reverse flow is also deleted
@@ -158,7 +158,7 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
                           vm5_ip, vm1_fip, 1,
                           0, 0, GetFlowKeyNH(input[0].intf_id)));
 
-    DeleteFlow(non_nat_flow, 1); 
+    DeleteFlow(non_nat_flow, 1);
     EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm5_ip, vm1_ip, 1,
                          0, 0, GetFlowKeyNH(input[0].intf_id)));
 
@@ -171,18 +171,18 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
 #if 0
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0,
                  "default-project:vn4:vn4", flow4->id()),
             {
-                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
+                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
             }
         }
     };
 
     TestFlow non_nat_flow[] = {
         {
-             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
-             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4",
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0,
                  "default-project:vn4:vn4", flow4->id()),
             {
                 new VerifyVn(unknown_vn_, unknown_vn_)
@@ -194,18 +194,18 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
     CreateFlow(nat_flow, 1);
 
     //Disassociate fip
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
     client->WaitForIdle();
     //Make sure NAT reverse flow is deleted
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1,
                          0, 0));
     EXPECT_TRUE(FlowFail(VrfGet("default-project:vn4:vn4")->vrf_id(), vm5_ip,
                          vm1_fip, 1, 0, 0));
 
     // Add Non-NAT reverse flow
     CreateFlow(non_nat_flow, 1);
-    DeleteFlow(non_nat_flow, 1); 
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 
+    DeleteFlow(non_nat_flow, 1);
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1,
                          0, 0));
 
     client->EnqueueFlowAge();
@@ -217,10 +217,10 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
 TEST_F(FlowTest, NonNatAddOldNat_3) {
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
@@ -239,7 +239,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
     CreateFlow(nat_flow, 1);
 
     //Disassociate fip
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
     client->WaitForIdle();
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -252,8 +252,8 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
 
     // Add Non-NAT forward flow
     CreateFlow(non_nat_flow, 1);
-    DeleteFlow(non_nat_flow, 1); 
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm5_ip, vm1_ip, 1, 
+    DeleteFlow(non_nat_flow, 1);
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm5_ip, vm1_ip, 1,
                 0, 0, GetFlowKeyNH(input3[0].intf_id)));
     //Make sure NAT reverse flow is not present
     EXPECT_TRUE(FlowFail(VrfGet("default-project:vn4:vn4")->vrf_id(),
@@ -271,7 +271,7 @@ TEST_F(FlowTest, NatFlowAdd_1) {
             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
@@ -279,7 +279,7 @@ TEST_F(FlowTest, NatFlowAdd_1) {
     CreateFlow(nat_flow, 1);
     //Add duplicate flow
     CreateFlow(nat_flow, 1);
-    
+
     //Send a reverse nat flow packet
     TestFlow nat_rev_flow[] = {
         {
@@ -298,7 +298,7 @@ TEST_F(FlowTest, NatFlowAdd_1) {
     WAIT_FOR(1000, 1000,
              (FlowFail(VrfGet("default-project:vn4:vn4")->vrf_id(), vm5_ip,
                        vm1_fip, 1, 0, 0, GetFlowKeyNH(input3[0].intf_id))));;
-    CreateFlow(nat_flow, 1); 
+    CreateFlow(nat_flow, 1);
     DeleteFlow(nat_rev_flow, 1);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000,
@@ -324,7 +324,7 @@ TEST_F(FlowTest, NatFlowAdd_2) {
     //Send a reverse nat flow packet
     TestFlow nat_rev_flow[] = {
         {
-             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0,
                  "default-project:vn4:vn4", flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
@@ -343,7 +343,7 @@ TEST_F(FlowTest, NatFlowAdd_2) {
 
 TEST_F(FlowTest, NatAddOldNonNat_1) {
     //Disassociate fip
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
     client->WaitForIdle();
 
     TestFlow non_nat_flow[] = {
@@ -351,7 +351,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyVn("vn5", unknown_vn_) 
+                new VerifyVn("vn5", unknown_vn_)
             }
         }
     };
@@ -365,7 +365,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
@@ -390,7 +390,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyVn("vn5", unknown_vn_) 
+                new VerifyVn("vn5", unknown_vn_)
             }
         }
     };
@@ -401,17 +401,17 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
     client->WaitForIdle();
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0,
                     "default-project:vn4:vn4", flow4->id(), 2),
             {
-                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
+                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
             }
         }
     };
     CreateFlow(nat_flow, 1);
     DeleteFlow(nat_flow, 1);
 
-    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, 
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip,
                 vm5_ip, 1, 0, 0, GetFlowKeyNH(input3[0].intf_id)) == NULL);
 
     client->EnqueueFlowAge();
@@ -425,15 +425,15 @@ TEST_F(FlowTest, NatAddOldNat_1) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
 
     CreateFlow(nat_flow, 1);
 
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");  
-    AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip2"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip2");
     client->WaitForIdle();
 
     TestFlow new_nat_flow[] = {
@@ -441,13 +441,13 @@ TEST_F(FlowTest, NatAddOldNat_1) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip2, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip2, 1, 0, 0)
             }
         }
     };
     CreateFlow(new_nat_flow, 1);
     DeleteFlow(new_nat_flow, 1);
- 
+
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
@@ -459,15 +459,15 @@ TEST_F(FlowTest, NatAddOldNat_2) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
 
     CreateFlow(nat_flow, 1);
 
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");  
-    AddLink("virtual-machine-interface", "flow1", "floating-ip", "fip1"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "flow1", "floating-ip", "fip1");
     client->WaitForIdle();
 
     TestFlow new_nat_flow[] = {
@@ -493,20 +493,20 @@ TEST_F(FlowTest, NatAddOldNat_3) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
 
     CreateFlow(nat_flow, 1);
 
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");  
-    AddLink("virtual-machine-interface", "flow1", "floating-ip", "fip1"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+    AddLink("virtual-machine-interface", "flow1", "floating-ip", "fip1");
     client->WaitForIdle();
 
     TestFlow new_nat_flow[] = {
         {
-             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0,
                     "default-project:vn4:vn4", flow4->id(), 2),
             {
                 new VerifyNat(vm2_ip, vm5_ip, 1, 0, 0)
@@ -529,7 +529,7 @@ TEST_F(FlowTest, TwoNatFlow) {
              TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
@@ -537,7 +537,7 @@ TEST_F(FlowTest, TwoNatFlow) {
     CreateFlow(nat_flow, 1);
     TestFlow nat_rev_flow[] = {
         {
-             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0,
                  "default-project:vn4:vn4", flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
@@ -546,14 +546,14 @@ TEST_F(FlowTest, TwoNatFlow) {
     };
     CreateFlow(nat_rev_flow, 1);
 
-    DeleteFlow(nat_flow, 1);    
+    DeleteFlow(nat_flow, 1);
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = 
+    client =
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10), (3 * 60 * 1000));
     if (vm.count("config")) {
         eth_itf = Agent::GetInstance()->fabric_interface_name();

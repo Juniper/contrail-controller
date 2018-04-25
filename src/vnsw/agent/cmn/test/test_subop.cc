@@ -24,7 +24,7 @@ DBEntryBase::KeyPtr EntryC::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void EntryC::SetKey(const DBRequestKey *k) { 
+void EntryC::SetKey(const DBRequestKey *k) {
     const EntryKey *key = static_cast<const EntryKey *>(k);
     id_ = key->id_;
 }
@@ -101,7 +101,7 @@ public:
     void Init(DB *db) {
         table_ = static_cast<TableC *>(db->FindTable("db.tablea.0"));
         assert(table_);
-        listener_id_ = table_->Register(boost::bind(&ClientC::DBTestListener, 
+        listener_id_ = table_->Register(boost::bind(&ClientC::DBTestListener,
                                                     this, _1, _2));
     };
 

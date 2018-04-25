@@ -7,7 +7,7 @@
 struct RemotePhysicalInterfaceData;
 
 /////////////////////////////////////////////////////////////////////////////
-// Remote Physical Ports represents physical ports on an external device 
+// Remote Physical Ports represents physical ports on an external device
 // UUID is the key
 /////////////////////////////////////////////////////////////////////////////
 class RemotePhysicalInterface : public Interface {

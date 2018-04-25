@@ -11,11 +11,11 @@
 using namespace std;
 
 InterfaceKState::InterfaceKState(KInterfaceResp *obj, const std::string &ctx,
-                                 vr_interface_req &req, int id) : 
+                                 vr_interface_req &req, int id) :
                                  KState(ctx, obj) {
     if (id >= 0) {
         req.set_h_op(sandesh_op::GET);
-        req.set_vifr_idx(id);    
+        req.set_vifr_idx(id);
     } else {
         InitDumpRequest(req);
         req.set_vifr_marker(-1);
@@ -31,7 +31,7 @@ void InterfaceKState::Handler() {
     KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
-            /* There are more interfaces in Kernel. We need to query them from 
+            /* There are more interfaces in Kernel. We need to query them from
              * Kernel and send it to Sandesh.
              */
             SendResponse();

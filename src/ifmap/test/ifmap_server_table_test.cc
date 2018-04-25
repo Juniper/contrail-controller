@@ -401,7 +401,7 @@ TEST_F(IFMapServerTableTest, CreateDelete) {
     EXPECT_EQ(0, TableCount(tbl));
 
     tbl = IFMapTable::FindTable(&db_, "virtual-network");
-    EXPECT_EQ(0, TableCount(tbl));    
+    EXPECT_EQ(0, TableCount(tbl));
 }
 
 TEST_F(IFMapServerTableTest, Traversal) {
@@ -429,7 +429,7 @@ TEST_F(IFMapServerTableTest, Traversal) {
     ASSERT_TRUE(vs1 != NULL);
 
     graph_visitor visitor;
-    
+
     graph_.Visit(vs1, boost::bind(&graph_visitor::Visit, &visitor, _1), 0);
     EXPECT_EQ(5, visitor.count);
 
@@ -443,7 +443,7 @@ TEST_F(IFMapServerTableTest, Traversal) {
     IFMapTypenameFilter criteria;
 
     criteria.exclude_vertex = list_of<std::string> ("tenant");
-    criteria.exclude_edge = map_list_of<std::string, std::set<std::string> > 
+    criteria.exclude_edge = map_list_of<std::string, std::set<std::string> >
         ("virtual-network", list_of("virtual-network-virtual-machine"));
 
     LOG(DEBUG, "filtered visit 1");
@@ -459,7 +459,7 @@ TEST_F(IFMapServerTableTest, Traversal) {
     graph_visitor f2;
     graph_.Visit(vs1, boost::bind(&graph_visitor::Visit, &f2, _1), 0, criteria);
     EXPECT_EQ(5, f2.count);
-    
+
     IFMapMsgUnlink("virtual-network", "virtual-machine", "vn2", "vm1");
     Wait();
 
