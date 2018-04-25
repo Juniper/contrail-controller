@@ -77,7 +77,7 @@ public:
     MvpnPrefix CreateType1ADRoutePrefix(const Ip4Address &originator_ip);
     MvpnPrefix CreateType1ADRoutePrefix();
     MvpnPrefix CreateType7SourceTreeJoinRoutePrefix(MvpnRoute *rt) const;
-    MvpnPrefix CreateType7PrefixFromType4(MvpnRoute *rt) const;
+    MvpnPrefix CreateLocalType7Prefix(MvpnRoute *rt) const;
     MvpnRoute *FindType1ADRoute(const Ip4Address &originator_ip);
     MvpnRoute *FindType1ADRoute();
     const MvpnRoute *FindType7SourceTreeJoinRoute(MvpnRoute *rt) const;
