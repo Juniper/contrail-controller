@@ -30,12 +30,17 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.2"
+__version__ = "1.3"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.3:
+  - add timestamp into script output headers
+  - remove verbose option and set default logging level to INFO
+  - log output to local file (default: /var/log/contrail/db_manage.log) in
+    addition to stdout
 * 1.2:
   - Re-define the way the script recovers the route target inconsistencies.
     The source of trust move from the schema transformer DB to the
@@ -272,11 +277,11 @@ def _parse_args(args_str):
         "--execute", help="Apply database modifications",
         action='store_true', default=False)
     parser.add_argument(
-        "--verbose", help="Run in verbose/INFO mode, default False",
-        action='store_true', default=False)
-    parser.add_argument(
         "--debug", help="Run in debug mode, default False",
         action='store_true', default=False)
+    parser.add_argument(
+        "--log_file", help="Log file to save output, default '%(default)s'",
+        default="/var/log/contrail/db_manage.log")
 
     args_obj, remaining_argv = parser.parse_known_args(args_str.split())
     _args = args_obj
@@ -302,17 +307,16 @@ class DatabaseManager(object):
         self._api_args = api_args
 
         self._logger = utils.ColorLog(logging.getLogger(__name__))
-        log_level = 'ERROR'
-        if self._args.verbose:
-            log_level = 'INFO'
-        if self._args.debug:
-            log_level = 'DEBUG'
+        log_level = 'DEBUG' if self._args.debug else 'INFO'
         self._logger.setLevel(log_level)
-        logformat = logging.Formatter("%(levelname)s: %(message)s")
+        logformat = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
         stdout = logging.StreamHandler(sys.stdout)
-        stdout.setLevel(log_level)
         stdout.setFormatter(logformat)
         self._logger.addHandler(stdout)
+        logfile = logging.handlers.RotatingFileHandler(
+                  self._args.log_file, maxBytes=10000000, backupCount=5)
+        logfile.setFormatter(logformat)
+        self._logger.addHandler(logfile)
         cluster_id = self._api_args.cluster_id
 
         # cassandra connection
