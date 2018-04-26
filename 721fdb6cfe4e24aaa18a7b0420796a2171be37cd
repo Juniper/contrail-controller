@@ -16,6 +16,24 @@
       "revId": "721fdb6cfe4e24aaa18a7b0420796a2171be37cd",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f2577a7_fee23fa0",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/config/test_config.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2018-04-26T17:12:50Z",
+      "side": 1,
+      "message": "I had started off that way, Sirisha mentioned that for her test she has a different config and wont necessarily be using just the common one. So I merged the global.yml and test_config.yml into one file.\nThe config loading logic in config.py still supports loading multiple files and config overriding.",
+      "parentUuid": "5f2577a7_c0f8c34a",
+      "revId": "721fdb6cfe4e24aaa18a7b0420796a2171be37cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
