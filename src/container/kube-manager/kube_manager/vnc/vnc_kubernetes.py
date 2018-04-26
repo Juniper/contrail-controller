@@ -122,13 +122,15 @@ class VncKubernetes(VncCommon):
         self.label_cache = label_cache.LabelCache()
         self.vnc_kube_config.update(label_cache=self.label_cache)
 
+        self.tags_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_tags.VncTags')
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy')
         self.namespace_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_namespace.VncNamespace',
             self.network_policy_mgr)
         self.ingress_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_ingress.VncIngress')
+            'kube_manager.vnc.vnc_ingress.VncIngress', self.tags_mgr)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.ingress_mgr)
         self.pod_mgr = importutils.import_object(
@@ -136,8 +138,6 @@ class VncKubernetes(VncCommon):
             self.network_policy_mgr)
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints')
-        self.tags_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_tags.VncTags')
 
         # Create system default security policies.
         VncSecurityPolicy.create_deny_all_security_policy()
