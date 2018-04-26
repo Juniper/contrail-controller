@@ -150,7 +150,7 @@ class JobManager(object):
         except JobException as e:
             err_msg = "Job Exception recieved: %s " % repr(e)
             self._logger.error(err_msg)
-            self._logger.error("%s" % traceback.print_stack())
+            self._logger.error("%s" % traceback.format_exc())
             self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
             if job_template:
                 self.result_handler.create_job_summary_log(
@@ -159,7 +159,7 @@ class JobManager(object):
         except Exception as e:
             err_msg = "Error while executing job %s " % repr(e)
             self._logger.error(err_msg)
-            self._logger.error("%s" % traceback.print_stack())
+            self._logger.error("%s" % traceback.format_exc())
             self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
             self.result_handler.create_job_summary_log(job_template.fq_name)
             job_error_msg = err_msg
@@ -208,7 +208,7 @@ if __name__ == "__main__":
         logger = job_log_utils.config_logger
     except Exception as e:
         print >> sys.stderr, "Failed to initialize logger due "\
-                             "to Exception: %s" % traceback.print_stack()
+                             "to Exception: %s" % traceback.format_exc()
         sys.exit(
             "Exiting due to logger initialization error: %s" % repr(e))
 
@@ -220,7 +220,7 @@ if __name__ == "__main__":
         logger.info("VNC api is initialized using the auth token passed.")
     except Exception as e:
         logger.error(MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
-                                   exc_msg=traceback.print_stack()))
+                                   exc_msg=traceback.format_exc()))
         msg = MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
                                    exc_msg=repr(e))
         job_log_utils.send_job_log(job_input_json['job_template_fqname'],
@@ -236,7 +236,7 @@ if __name__ == "__main__":
         job_manager.start_job()
     except Exception as e:
         logger.error(MsgBundle.getMessage(MsgBundle.JOB_ERROR,
-                                   exc_msg=traceback.print_stack()))
+                                   exc_msg=traceback.format_exc()))
         msg = MsgBundle.getMessage(MsgBundle.JOB_ERROR,
                                    exc_msg=repr(e))
         job_log_utils.send_job_log(job_input_json['job_template_fqname'],
