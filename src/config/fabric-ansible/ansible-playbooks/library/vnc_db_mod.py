@@ -17,7 +17,6 @@ from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import VncApi
 import vnc_api
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
-from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
 
 DOCUMENTATION = '''
 ---
@@ -532,6 +531,11 @@ class VncMod(object):
 # end class VncMod
 
 
+def module_process(module, args):
+    module.send_job_object_log(
+        args[0], VncMod.JOB_IN_PROGRESS, None)
+
+
 def main():
     """ module main """
 
@@ -559,9 +563,6 @@ def main():
         supports_check_mode=True
     )
 
-    # looging initialization
-    logging.basicConfig(level=logging.INFO)
-
     try:
         # vnc operations
         vnc_mod = VncMod(module)
@@ -570,23 +571,13 @@ def main():
         results = dict(failed=True, msg=str(ex))
 
     if results.get('failed'):
-        logging.error(results.get('msg'))
+        module.logger.error(results.get('msg'))
 
         enable_job_ctx = module.params['enable_job_ctx']
 
         # log to sandesh only when enable_job_ctx is set to true
         if enable_job_ctx:
-            job_ctx = module.params['job_ctx']
-            object_log = None
-            try:
-                object_log = ObjectLogUtil(job_ctx)
-                object_log.send_job_object_log(
-                    results.get('msg'), VncMod.JOB_IN_PROGRESS, None)
-            except Exception as e:
-                logging.error("Unable to log sandesh job logs: %s", str(e))
-            finally:
-                if object_log:
-                    object_log.close_sandesh_conn()
+            module.execute(module_process, results.get('msg'))
 
     # Return response
     module.exit_json(**results)
@@ -594,4 +585,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
