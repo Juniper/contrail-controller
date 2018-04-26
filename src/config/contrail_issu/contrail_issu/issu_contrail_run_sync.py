@@ -41,21 +41,21 @@ class ICKombuClient(VncKombuClient):
                                             q_name, subscribe_cb, logger)
 
     def _act_on_api(self, action):
-        cmd1 = 'docker exec -i controller service contrail-control %s' % (action)
-        cmd2 = 'docker exec -i controller systemctl %s contrail-control' % (action)
+        cmd_cid = ('docker ps --filter "label=net.juniper.contrail.pod=control"'
+                   ' --filter "label=net.juniper.contrail.service=control" -q')
 
         for addr, clist in self._new_api_info.items():
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(addr, username=clist[0], password=clist[1])
-            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('lsb_release -sr')
-            val = ssh_stdout.readlines()
-            if str(val[0]).split('.')[0] == '14':
-                self.logger(cmd1, level=SandeshLevel.SYS_INFO)
-                ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
-            else:
-                self.logger(cmd2, level=SandeshLevel.SYS_INFO)
-                ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd2)
+
+            _, ssh_stdout, ssh_stderr = ssh.exec_command(cmd_cid)
+            cid = ssh_stdout.readlines()[0]
+            self.logger("Control on node {} has CID {}".format(addr, cid),
+                        level=SandeshLevel.SYS_DEBUG)
+
+            action_cmd = 'docker {} {}'.format(action, cid)
+            _, ssh_stdout, ssh_stderr = ssh.exec_command(action_cmd)
             exit_status = ssh_stdout.channel.recv_exit_status()
             self.logger(exit_status, level=SandeshLevel.SYS_INFO)
             ssh_cmd_dict = ssh_stdout.readlines()
@@ -65,7 +65,7 @@ class ICKombuClient(VncKombuClient):
             ssh.close()
 
     def prepare_to_consume(self):
-        self._act_on_api("stop")
+        self._act_on_api("pause")
         try:
             self.logger("Config sync initiated...",
                         level=SandeshLevel.SYS_INFO)
@@ -77,7 +77,7 @@ class ICKombuClient(VncKombuClient):
             self.logger(e, level=SandeshLevel.SYS_INFO)
         self.logger("Started runtime sync...", level=SandeshLevel.SYS_INFO)
         print "Started runtime sync..."
-        self._act_on_api("start")
+        self._act_on_api("unpause")
         self.logger("Start Compute upgrade...", level=SandeshLevel.SYS_INFO)
         print "Start Compute upgrade..."
 
