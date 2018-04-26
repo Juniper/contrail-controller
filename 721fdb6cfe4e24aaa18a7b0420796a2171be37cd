@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5f2577a7_c0f8c34a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/config/test_config.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 502
+      },
+      "writtenOn": "2018-04-26T00:57:38Z",
+      "side": 1,
+      "message": "Shall we separate the common config from test specify config? The test specific data is different from test to test if we have multiple sanity tests.\n\nI guess I don\u0027t quite understand the benefits of moving the test data to a config file.",
+      "revId": "721fdb6cfe4e24aaa18a7b0420796a2171be37cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
