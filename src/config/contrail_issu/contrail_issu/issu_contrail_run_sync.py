@@ -40,32 +40,33 @@ class ICKombuClient(VncKombuClient):
                                             rabbit_vhost, rabbit_ha_mode,
                                             q_name, subscribe_cb, logger)
 
-    def _act_on_api(self, action):
-        cmd1 = 'docker exec -i controller service contrail-control %s' % (action)
-        cmd2 = 'docker exec -i controller systemctl %s contrail-control' % (action)
+    def _reinit_control(self):
+        cmd_cid = ('docker ps --filter "label=net.juniper.contrail.pod=control"'
+                   ' --filter "label=net.juniper.contrail.service=control" -q')
+        cmd_reinit = 'docker kill --signal="SIGUSR1" {}'
 
         for addr, clist in self._new_api_info.items():
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(addr, username=clist[0], password=clist[1])
-            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('lsb_release -sr')
-            val = ssh_stdout.readlines()
-            if str(val[0]).split('.')[0] == '14':
-                self.logger(cmd1, level=SandeshLevel.SYS_INFO)
-                ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
-            else:
-                self.logger(cmd2, level=SandeshLevel.SYS_INFO)
-                ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd2)
+
+            _, ssh_stdout, ssh_stderr = ssh.exec_command(cmd_cid)
+            cid = ssh_stdout.readlines()[0]
+            self.logger("Control on node {} has CID {}".format(addr, cid),
+                        level=SandeshLevel.SYS_DEBUG)
+
+            cmd = cmd_reinit.format(cid)
+            _, ssh_stdout, ssh_stderr = ssh.exec_command(cmd)
             exit_status = ssh_stdout.channel.recv_exit_status()
-            self.logger(exit_status, level=SandeshLevel.SYS_INFO)
-            ssh_cmd_dict = ssh_stdout.readlines()
+            ssh_cmd_out = ssh_stdout.readlines()
             ssh_cmd_err = ssh_stderr.readlines()
-            self.logger(ssh_cmd_dict, level=SandeshLevel.SYS_INFO)
-            self.logger(ssh_cmd_err, level=SandeshLevel.SYS_INFO)
+            self.logger(
+                'Signal sent to process. exit_code = {}, stdout = "{}",'
+                ' stderr="{}"'.format(exit_status, ssh_cmd_out, ssh_cmd_err),
+                level=SandeshLevel.SYS_INFO)
             ssh.close()
 
     def prepare_to_consume(self):
-        self._act_on_api("stop")
         try:
             self.logger("Config sync initiated...",
                         level=SandeshLevel.SYS_INFO)
@@ -76,8 +77,10 @@ class ICKombuClient(VncKombuClient):
         except Exception as e:
             self.logger(e, level=SandeshLevel.SYS_INFO)
         self.logger("Started runtime sync...", level=SandeshLevel.SYS_INFO)
+
         print "Started runtime sync..."
-        self._act_on_api("start")
+        self._reinit_control("unpause")
+
         self.logger("Start Compute upgrade...", level=SandeshLevel.SYS_INFO)
         print "Start Compute upgrade..."
 
