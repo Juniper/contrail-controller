@@ -19,7 +19,6 @@ from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import PhysicalRouter
 from gevent import Greenlet, monkey, pool
 monkey.patch_all()
-from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
 from ansible.module_utils.fabric_pysnmp import snmp_walk
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
@@ -312,7 +311,7 @@ def _pr_object_create(
         oid_mapped,
         fq_name,
         logger,
-        object_log,
+        module,
         fabric_uuid):
     try:
         physicalrouter = PhysicalRouter(
@@ -341,12 +340,13 @@ def _pr_object_create(
         'host'), pr_uuid))
     vncapi.ref_update(
         "fabric", fabric_uuid, "physical_router", pr_uuid, None, "ADD")
-    _send_sandesh_log(object_log, msg, logger, False)
+    # _send_sandesh_log(object_log, msg, logger, False)
+    module.send_job_object_log(msg, JOB_IN_PROGRESS, None)
     return True
 # end _pr_object_create
 
 
-def _device_info_processing(host, vncapi, module, object_log, fabric_uuid):
+def _device_info_processing(host, vncapi, module, fabric_uuid):
     oid_mapped = {}
     valid_creds = False
     credentials = module.params['credentials']
@@ -377,7 +377,7 @@ def _device_info_processing(host, vncapi, module, object_log, fabric_uuid):
                 'default-global-system-config',
                 oid_mapped.get('hostname')]
             return_code = _pr_object_create(
-                vncapi, oid_mapped, fq_name, logger, object_log, fabric_uuid)
+                vncapi, oid_mapped, fq_name, logger, module, fabric_uuid)
             if return_code == REF_EXISTS_ERROR:
                 physicalrouter = vncapi.physical_router_read(
                     fq_name=fq_name)
@@ -394,27 +394,13 @@ def _device_info_processing(host, vncapi, module, object_log, fabric_uuid):
                         '_' +
                         oid_mapped.get('host')]
                     return_code = _pr_object_create(
-                        vncapi, oid_mapped, fq_name, logger, object_log,
+                        vncapi, oid_mapped, fq_name, logger, module,
                         fabric_uuid)
                     if return_code == REF_EXISTS_ERROR:
                         logger.debug("Object already exists")
     else:
         logger.debug("HOST {}: NOT REACHABLE".format(host))
 # end _device_info_processing
-
-
-def _send_sandesh_log(object_log, msg, logger, close):
-    try:
-        object_log.send_job_object_log(
-            msg, JOB_IN_PROGRESS, None)
-    except ValueError as vex:
-        logger.error(str(vex))
-    except Exception as ex:
-        logger.error("Unable to log sandesh job logs: %s", str(ex))
-
-    if close:
-        object_log.close_sandesh_conn()
-# end _send_sandesh_log
 
 
 def main():
@@ -439,7 +425,6 @@ def main():
     fabric_uuid = module.params['fabric_uuid']
     all_hosts = []
     job_ctx = module.params['job_ctx']
-    object_log = ObjectLogUtil(job_ctx)
 
     if module.params['subnets']:
         for subnet in module.params['subnets']:
@@ -450,8 +435,8 @@ def main():
                 _result['failed'] = True
                 _result['msg'] = "ERROR: Invalid subnet \"%s\" (%s)" % \
                                  (subnet, str(ex))
-                _send_sandesh_log(object_log, _result.get('msg'),
-                                  module.logger, True)
+                module.send_job_object_log(_result.get('msg'),
+                                           JOB_IN_PROGRESS, None)
                 module.exit_json(**_result)
 
     if module.params['hosts']:
@@ -463,8 +448,8 @@ def main():
                 _result['failed'] = True
                 _result['msg'] = "ERROR: Invalid ip address \"%s\" (%s)" % \
                                  (host, str(ex))
-                _send_sandesh_log(object_log, _result.get('msg'),
-                                  module.logger, True)
+                module.send_job_object_log(_result.get('msg'),
+                                           JOB_IN_PROGRESS, None)
                 module.exit_json(**_result)
 
     # Verify that we receive a community when using snmp v2
@@ -473,20 +458,20 @@ def main():
             _result['failed'] = True
             _result['msg'] = "ERROR: Community not set when using \
                              snmp version 2"
-            _send_sandesh_log(object_log, _result.get('msg'), module.logger,
-                              True)
+            module.send_job_object_log(_result.get('msg'),
+                                       JOB_IN_PROGRESS, None)
             module.exit_json(**_result)
 
     if module.params['version'] == "v3":
         _result['failed'] = True
         _result['msg'] = "ERROR: Donot support snmp version 3"
-        _send_sandesh_log(object_log, _result.get('msg'), module.logger,
-                          True)
+        module.send_job_object_log(_result.get('msg'),
+                                   JOB_IN_PROGRESS, None)
         module.exit_json(**_result)
 
     _result['msg'] = "Prefix(es) to be discovered: " + \
                      ','.join(module.params['subnets'])
-    _send_sandesh_log(object_log, _result.get('msg'), module.logger, False)
+    module.send_job_object_log(_result.get('msg'), JOB_IN_PROGRESS, None)
 
     if len(all_hosts) < concurrent:
         concurrent = len(all_hosts)
@@ -503,7 +488,6 @@ def main():
                     str(host),
                     vncapi,
                     module,
-                    object_log,
                     fabric_uuid))
         threadpool.join()
     except Exception as ex:
@@ -513,10 +497,11 @@ def main():
         module.exit_json(**_result)
 
     _result['msg'] = "Device discovery complete"
-    _send_sandesh_log(object_log, _result.get('msg'), module.logger, True)
+    module.send_job_object_log(_result.get('msg'), JOB_IN_PROGRESS, None)
     module.exit_json(**_result)
 # end main
 
 
 if __name__ == '__main__':
     main()
+
