@@ -56,7 +56,20 @@ EXAMPLES = '''
 
 import logging
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
-from ansible.module_utils.sandesh_log_utils import ObjectLogUtil
+
+
+def process_module(module, args):
+    # Fetch module params
+    prouter_fqname = module.params['prouter_fqname']
+    os_version = module.params['os_version']
+    serial_num = module.params['serial_num']
+    onboarding_state = module.params['onboarding_state']
+
+    module.send_prouter_object_log(prouter_fqname,
+                                   os_version, serial_num,
+                                   onboarding_state)
+
+    module.exit_json(**module.results)
 
 
 def main():
@@ -71,42 +84,7 @@ def main():
         ),
         supports_check_mode=True)
 
-    # Fetch module params
-    prouter_fqname = module.params['prouter_fqname']
-    job_ctx = module.params['job_ctx']
-    os_version = module.params['os_version']
-    serial_num = module.params['serial_num']
-    onboarding_state = module.params['onboarding_state']
-
-    results = dict()
-    results['failed'] = False
-
-    object_log = None
-    try:
-        object_log = ObjectLogUtil(job_ctx)
-        object_log.send_prouter_object_log(prouter_fqname,
-                                           os_version, serial_num,
-                                           onboarding_state)
-    except ValueError as ve:
-        results['msg'] = str(ve)
-        results['failed'] = True
-    except Exception as e:
-        msg = "Failed to create following physical router object log due to " \
-              "error: %s\n\t \
-               job name: %s\n\t \
-               job execution id: %s\n\t \
-               device name: %s\n\t \
-               onboarding_state: %s\n" \
-               % (str(e), job_ctx['job_template_fqname'],
-                 job_ctx['job_execution_id'], str(prouter_fqname),
-                 onboarding_state)
-        results['msg'] = msg
-        results['failed'] = True
-    finally:
-        if object_log:
-            object_log.close_sandesh_conn()
-
-    module.exit_json(**results)
+    module.execute(process_module, None)
 
 
 if __name__ == '__main__':
