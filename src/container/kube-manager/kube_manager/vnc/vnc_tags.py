@@ -87,6 +87,18 @@ class VncTags(object):
 
         return
 
+    def read(self, type, value):
+        try:
+            return self._vnc_lib.tag_read(
+                          fq_name=self._construct_tag_fq_name(type, value))
+        except NoIdError:
+            self._logger.debug("Tag read failed. Tag [%s] not found."
+                               %(self._construct_tag_fq_name(type, value)))
+        except Exception as e:
+            self._logger.debug("Tag [%s] read failed. Error [%s]."
+                   %(self._construct_tag_fq_name(type, value), e.message))
+        return None
+
     def get_tags_fq_name(self, kv_dict, create=False):
         tags = []
         for k,v in kv_dict.iteritems():
