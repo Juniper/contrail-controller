@@ -46,7 +46,7 @@ except ImportError:
 from gevent import sleep
 
 flexmock(ICKombuClient)
-ICKombuClient.should_receive('_act_on_api')
+ICKombuClient.should_receive('_reinit_control')
 
 flexmock(logging)
 logging.should_receive('basicConfig')
