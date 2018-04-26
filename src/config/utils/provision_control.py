@@ -21,7 +21,7 @@ class ControlProvisioner(object):
         if self._args.peer_list:
             peer_list = self._args.peer_list.split(',')
         else:
-            peer_list = []
+            peer_list = None
         if self._args.router_asn and not self._args.oper:
             self._vnc_lib = VncApiAdmin(
             self._args.use_admin_api,

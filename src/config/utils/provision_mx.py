@@ -20,7 +20,7 @@ class MxProvisioner(object):
         if self._args.peer_list:
             peer_list = self._args.peer_list.split(',')
         else:
-            peer_list = []
+            peer_list = None
 
         bp_obj = BgpProvisioner(
             self._args.admin_user, self._args.admin_password,
@@ -70,7 +70,7 @@ class MxProvisioner(object):
             'admin_password': None,
             'admin_tenant_name': None,
             'sub_cluster_name': None,
-            'peer_list':None,
+            'peer_list': None,
         }
 
         if args.conf_file:
