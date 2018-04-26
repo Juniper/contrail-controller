@@ -21,7 +21,7 @@ class BgpProvisioner(object):
 
     def __init__(self, user, password, tenant, api_server_ip, api_server_port,
                  api_server_use_ssl=False, use_admin_api=False,
-                 sub_cluster_name=None, peer_list=[]):
+                 sub_cluster_name=None, peer_list=None):
         self._admin_user = user
         self._admin_password = password
         self._admin_tenant_name = tenant
@@ -101,17 +101,20 @@ class BgpProvisioner(object):
                                    bgp_router_parameters=router_params)
         bgp_router_fq_name = bgp_router_obj.get_fq_name()
         peer_list = self._peer_list
-        fqname_peer_list = []
-        fqname_peer_set = set()
-        for peer in peer_list:
-            peer_router_obj = BgpRouter(peer, rt_inst_obj)
-            try:
-                vnc_lib.bgp_router_create(peer_router_obj)
-            except RefsExistError as e:
-                pass
-            finally:
-                fqname_peer_list.append(peer_router_obj.get_fq_name())
-                fqname_peer_set.add(tuple(peer_router_obj.get_fq_name()))
+        fqname_peer_list = None
+        fqname_peer_set = None
+        if peer_list is not None:
+            fqname_peer_list = []
+            fqname_peer_set = set()
+            for peer in peer_list:
+                peer_router_obj = BgpRouter(peer, rt_inst_obj)
+                try:
+                    vnc_lib.bgp_router_create(peer_router_obj)
+                except RefsExistError as e:
+                    pass
+                finally:
+                    fqname_peer_list.append(peer_router_obj.get_fq_name())
+                    fqname_peer_set.add(tuple(peer_router_obj.get_fq_name()))
         try:
             # full-mesh with existing bgp routers
             if self._sub_cluster_name:
@@ -122,7 +125,7 @@ class BgpProvisioner(object):
                 except NoIdError:
                     raise RuntimeError("Sub cluster to be provisioned first")
                 bgp_router_obj.add_sub_cluster(sub_cluster_obj)
-            if len(fqname_peer_list):
+            if fqname_peer_list:
                 bgp_router_obj.set_bgp_router_list(fqname_peer_list,
                     [bgp_peering_attrs]*len(fqname_peer_list))
             vnc_lib.bgp_router_create(bgp_router_obj)
@@ -136,7 +139,7 @@ class BgpProvisioner(object):
                 changed = True
             cur_bgp_router_set = {tuple(x['to'])
                                    for x in cur_obj.get_bgp_router_refs() or []}
-            if fqname_peer_set != cur_bgp_router_set:
+            if peer_list is not None and fqname_peer_set != cur_bgp_router_set:
                 cur_obj.set_bgp_router_list(fqname_peer_list,
                     [bgp_peering_attrs]*len(fqname_peer_list))
                 changed = True
