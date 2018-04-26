@@ -393,11 +393,6 @@ void VxlanRoutingManager::BridgeVnNotify(const VnEntry *vn,
 
     if (it != vrf_mapper_.vn_lr_set_.end()) {
         routing_info_it = vrf_mapper_.lr_vrf_info_map_.find(it->second);
-    } else {
-        if (!update)
-            assert((vrf_mapper_.lr_vrf_info_map_.find(vn_state->
-                                                      logical_router_uuid_)) ==
-                   vrf_mapper_.lr_vrf_info_map_.end());
     }
 
     //Handles deletion case
