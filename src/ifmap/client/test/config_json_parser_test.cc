@@ -35,10 +35,10 @@ using namespace std;
 using namespace autogen;
 using boost::assign::list_of;
 
-class ConfigCassandraPartitionTest: public ConfigCassandraPartition {
-  public:
+class ConfigCassandraPartitionTest2 : public ConfigCassandraPartition {
+public:
     static const int kUUIDReadRetryTimeInMsec = 300000;
-    ConfigCassandraPartitionTest(ConfigCassandraClient *client, size_t idx)
+    ConfigCassandraPartitionTest2(ConfigCassandraClient *client, size_t idx)
         : ConfigCassandraPartition(client, idx),
         retry_time_ms_(kUUIDReadRetryTimeInMsec) {
     }
@@ -62,10 +62,12 @@ class ConfigCassandraPartitionTest: public ConfigCassandraPartition {
         obj->GetRetryTimer()->Cancel();
         obj->GetRetryTimer()->Start(10,
                 boost::bind(
-                        &ConfigCassandraPartition::ObjectCacheEntry::CassReadRetryTimerExpired,
+                        &ConfigCassandraPartition::ObjectCacheEntry::
+                        CassReadRetryTimerExpired,
                         obj, uuid),
                 boost::bind(
-                    &ConfigCassandraPartition::ObjectCacheEntry::CassReadRetryTimerErrorHandler,
+                        &ConfigCassandraPartition::ObjectCacheEntry::
+                        CassReadRetryTimerErrorHandler,
                         obj));
     }
 
@@ -78,7 +80,76 @@ class ConfigCassandraPartitionTest: public ConfigCassandraPartition {
         }
     }
 
-  private:
+    virtual void HandleObjectDelete(const std::string &uuid, bool add_change) {
+        std::vector<std::string> tokens;
+        boost::split(tokens, uuid, boost::is_any_of(":"));
+        std::string u;
+        if (tokens.size() == 2) {
+            u = tokens[1];
+        } else {
+            u = uuid;
+        }
+        ConfigCassandraPartition::HandleObjectDelete(u, add_change);
+    }
+
+    bool ReadObjUUIDTable(const std::set<std::string> &uuid_list) {
+        ConfigCassandraClientTest *test_client =
+            dynamic_cast<ConfigCassandraClientTest *>(client());
+        BOOST_FOREACH(std::string uuid_key, uuid_list) {
+            vector<string> tokens;
+            boost::split(tokens, uuid_key, boost::is_any_of(":"));
+            int index = atoi(tokens[0].c_str());
+            std::string u = tokens[1];
+            assert((*test_client->events())[index].IsObject());
+            int idx = test_client->HashUUID(u);
+            test_client->curr_db_idx_ = index;
+            test_client->db_index_[idx].insert(make_pair(u, index));
+            ProcessObjUUIDTableEntry(u, GenDb::ColList());
+        }
+        return true;
+    }
+
+    void ParseObjUUIDTableEntry(const std::string &uuid,
+                                const GenDb::ColList &col_list,
+                                CassColumnKVVec *cass_data_vec,
+                                ConfigCassandraParseContext &context) {
+        // Retrieve event index prepended to uuid, to get to the correct db.
+        ConfigCassandraClientTest *test_client =
+            dynamic_cast<ConfigCassandraClientTest *>(client());
+        int idx = test_client->HashUUID(uuid);
+        ConfigCassandraClientTest::UUIDIndexMap::iterator it =
+        test_client->db_index_[idx].find(uuid);
+        int index = it->second;
+
+        contrail_rapidjson::Document *events = test_client->events();
+        if (!(*events)[contrail_rapidjson::SizeType(index)]["db"].HasMember(
+            uuid.c_str()))
+            return;
+        for (contrail_rapidjson::Value::ConstMemberIterator k =
+             (*events)[contrail_rapidjson::SizeType(index)]["db"][
+             uuid.c_str()].MemberBegin();
+             k != (*events)[contrail_rapidjson::SizeType(index)]["db"][
+             uuid.c_str()].MemberEnd();
+             ++k) {
+            const char *k1 = k->name.GetString();
+            const char *v1;
+            uint64_t  ts = 0;
+            if (k->value.IsArray()) {
+                v1 = k->value[contrail_rapidjson::SizeType(0)].GetString();
+                if (k->value.Size() > 1) {
+                    ts = k->value[contrail_rapidjson::SizeType(1)].GetUint64();
+                }
+            } else {
+                v1 = k->value.GetString();
+            }
+
+            ParseObjUUIDTableEachColumnBuildContext(uuid, k1, v1, ts,
+                                                    cass_data_vec, context);
+        }
+        test_client->db_index_[idx].erase(it);
+    }
+
+private:
     int retry_time_ms_;
 };
 
@@ -128,7 +199,8 @@ class ConfigJsonParserTest : public ::testing::Test {
         for (size_t i = 0; i < resp->get_uuid_cache().size(); ++i) {
             for (size_t j = 0;
                  j < resp->get_uuid_cache()[i].get_field_list().size(); j++) {
-                string key = resp->get_uuid_cache()[i].get_field_list()[j].field_name;
+                string key =
+                    resp->get_uuid_cache()[i].get_field_list()[j].field_name;
                 set<string>::iterator it = setResult.find(key);
                 if (it != setResult.end()) {
                    setResult.erase(it);
@@ -152,9 +224,10 @@ class ConfigJsonParserTest : public ::testing::Test {
         for (size_t i = 0; i < resp->get_uuid_cache().size(); ++i) {
             for (size_t j = 0;
                  j < resp->get_uuid_cache()[i].get_field_list().size(); j++) {
-                string key = resp->get_uuid_cache()[i].get_field_list()[j].field_name;
+                string key =
+                    resp->get_uuid_cache()[i].get_field_list()[j].field_name;
                 set<string>::iterator it = setResult.find(key);
-                TASK_UTIL_EXPECT_TRUE(it==setResult.end());
+                TASK_UTIL_EXPECT_TRUE(it == setResult.end());
             }
             cout << resp->get_uuid_cache()[i].log() << endl;
         }
@@ -201,7 +274,8 @@ class ConfigJsonParserTest : public ::testing::Test {
         IFMapLinkTable_Init(&db_, &graph_);
 
         ConfigJsonParser *config_json_parser =
-         static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+         static_cast<ConfigJsonParser *>
+            (config_client_manager_->config_json_parser());
         config_json_parser->ifmap_server_set(ifmap_server_.get());
         vnc_cfg_JsonParserInit(config_json_parser);
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
@@ -219,7 +293,8 @@ class ConfigJsonParserTest : public ::testing::Test {
         IFMapLinkTable_Clear(&db_);
         IFMapTable::ClearTables(&db_);
         ConfigJsonParser *config_json_parser =
-         static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+         static_cast<ConfigJsonParser *>
+            (config_client_manager_->config_json_parser());
         config_json_parser->MetadataClear("vnc_cfg");
         SandeshTearDown();
         evm_.Shutdown();
@@ -252,8 +327,9 @@ class ConfigJsonParserTest : public ::testing::Test {
                     != NULL);
         VirtualMachineInterface *vmi =
             reinterpret_cast<VirtualMachineInterface *>(NodeLookup(
-                "virtual-machine-interface",
-                "default-domain:service:c4287577-b6af-4cca-a21d-6470a08af68a")->Find(
+            "virtual-machine-interface",
+            "default-domain:service:"
+            "c4287577-b6af-4cca-a21d-6470a08af68a")->Find(
                     IFMapOrigin(IFMapOrigin::CASSANDRA)));
         TASK_UTIL_EXPECT_TRUE(vmi != NULL);
         if (property_id == VirtualMachineInterface::BINDINGS) {
@@ -320,12 +396,12 @@ class ConfigJsonParserTest : public ::testing::Test {
         ConfigCassandraClientTest::FeedEventsJson(config_client_manager_.get());
     }
 
-    ConfigCassandraPartitionTest *GetConfigCassandraPartition(
+    ConfigCassandraPartitionTest2 *GetConfigCassandraPartition(
             const string uuid) {
         ConfigCassandraClientTest *config_cassandra_client =
             dynamic_cast<ConfigCassandraClientTest *>(
                     config_client_manager_.get()->config_db_client());
-        return(dynamic_cast<ConfigCassandraPartitionTest *>
+        return(dynamic_cast<ConfigCassandraPartitionTest2 *>
                 (config_cassandra_client->GetPartition(uuid)));
     }
 
@@ -340,8 +416,8 @@ class ConfigJsonParserTest : public ::testing::Test {
         ConfigCassandraClientTest *config_cassandra_client =
             dynamic_cast<ConfigCassandraClientTest *>(
                     config_client_manager_.get()->config_db_client());
-        ConfigCassandraPartitionTest *config_cassandra_partition =
-            dynamic_cast<ConfigCassandraPartitionTest *>(
+        ConfigCassandraPartitionTest2 *config_cassandra_partition =
+            dynamic_cast<ConfigCassandraPartitionTest2 *>(
                     config_cassandra_client->GetPartition(uuid));
         return(config_cassandra_partition->GetUUIDReadRetryCount(uuid));
     }
@@ -350,8 +426,8 @@ class ConfigJsonParserTest : public ::testing::Test {
         ConfigCassandraClientTest *config_cassandra_client =
             dynamic_cast<ConfigCassandraClientTest *>(
                     config_client_manager_.get()->config_db_client());
-        ConfigCassandraPartitionTest *config_cassandra_partition =
-            dynamic_cast<ConfigCassandraPartitionTest *>(
+        ConfigCassandraPartitionTest2 *config_cassandra_partition =
+            dynamic_cast<ConfigCassandraPartitionTest2 *>(
                     config_cassandra_client->GetPartition(uuid));
         config_cassandra_partition->SetRetryTimeInMSec(time);
     }
@@ -876,7 +952,8 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_ReqIterate_Deleted) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 }
-// Verify introspect for Object cache field (ref, parent, prop) deleted from cache
+// Verify introspect for Object cache field (ref, parent, prop) deleted
+// from cache.
 TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
@@ -889,7 +966,8 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     vector<string> obj_cache_not_expected_entries;
     string next_batch;
 
-    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test16_p4.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/server_parser_test16_p4.json");
     // feed vm1,vr1,gsc1 and vr1 ref vm1, vr1 parent is gsc1
     FeedEventsJson();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
@@ -901,9 +979,10 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
     obj_cache_expected_entries =
-        list_of("parent:global_system_config:8c5eeb87-0b08-4b0c-b53f-0a036805575c")(
-                "ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375")(
-                "prop:id_perms");
+        list_of("parent:global_system_config:"
+                "8c5eeb87-0b08-4b0c-b53f-0a036805575c")
+               ("ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375")
+               ("prop:id_perms");
     Sandesh::set_response_callback(boost::bind(
         &ConfigJsonParserTest::ValidateObjCacheResponseFieldAdded, this,
         _1, obj_cache_expected_entries, next_batch));
@@ -913,12 +992,13 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 
-    //feed remove vr1 parent
+    // feed remove vr1 parent
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
     obj_cache_not_expected_entries =
-        list_of("parent:global_system_config:8c5eeb87-0b08-4b0c-b53f-0a036805575c");
+        list_of("parent:global_system_config:"
+                "8c5eeb87-0b08-4b0c-b53f-0a036805575c");
     Sandesh::set_response_callback(boost::bind(
         &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
         _1, obj_cache_not_expected_entries, next_batch));
@@ -928,11 +1008,12 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 
-    //feed vr1 update, without ref
+    // feed vr1 update, without ref
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
-    obj_cache_not_expected_entries = list_of("ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375");
+    obj_cache_not_expected_entries = list_of(
+        "ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375");
     Sandesh::set_response_callback(boost::bind(
         &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
         _1, obj_cache_not_expected_entries, next_batch));
@@ -942,7 +1023,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 
-    //feed vr1 update, without id_perms
+    // feed vr1 update, without id_perms
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
@@ -994,7 +1075,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Propm_PropL_Deleted) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 
-    //remove one propm and one proml
+    // remove one propm and one proml
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
@@ -2105,7 +2186,7 @@ TEST_F(ConfigJsonParserTest, ServerParser17InParts) {
     string uuid = "8c5eeb87-0b08-4724-b53f-0a0368055374";
     SetUUIDRetryTimeInMSec(uuid, 100);
     task_util::TaskFire(boost::bind(
-                &ConfigCassandraPartitionTest::FireUUIDReadRetryTimer,
+                &ConfigCassandraPartitionTest2::FireUUIDReadRetryTimer,
                 GetConfigCassandraPartition(uuid), uuid),
                 "cassandra::Reader",
                 GetConfigCassandraPartitionInstanceId(uuid));
@@ -2628,10 +2709,10 @@ int main(int argc, char **argv) {
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
-    ConfigFactory::Register<ConfigCassandraPartition>(
-        boost::factory<ConfigCassandraPartitionTest *>());
     ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
+    ConfigFactory::Register<ConfigCassandraPartition>(
+        boost::factory<ConfigCassandraPartitionTest2 *>());
     ConfigFactory::Register<ConfigJsonParserBase>(
         boost::factory<ConfigJsonParser *>());
     int status = RUN_ALL_TESTS();
