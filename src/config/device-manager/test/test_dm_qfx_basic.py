@@ -77,13 +77,12 @@ class TestQfxBasicDM(TestCommonDM):
             comms = policy_opts.get_community() or []
             self.assertIsNotNone(comms)
             comm_name = DMUtils.get_switch_export_community_name()
-            comm = comms[0]
-            self.assertIsNotNone(comm)
-            self.assertEqual(comm.name, comm_name)
-        except:
+            if comm_name not in  [comm.name for comm in comms]:
+                raise Exception("comm name : " + comm_name + " not found")
+        except Exception as e:
             if not should_present:
                 return
-            raise Exception("Policy Options not found")
+            raise Exception("Policy Options not found: " + str(e))
     # end check_policy_options_config
 
     @retries(5, hook=retry_exc_handler)

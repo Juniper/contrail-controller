@@ -329,9 +329,9 @@ class QfxConf(JuniperConf):
     # end add_routing_instance
 
     def attach_acls(self, interface, unit):
-        if self.is_spine():
+        if self.is_spine() or not interface.li_uuid:
             return
-        interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.name)
+        interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
         if not interface:
             return
         sg_list = interface.get_attached_sgs()
@@ -464,13 +464,15 @@ class QfxConf(JuniperConf):
             self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
         # add export community
         export_comm = CommunityType(name=DMUtils.get_switch_export_community_name())
-        self.policy_config.add_community(export_comm)
         for route_target in self.route_targets:
             comm = CommunityType(name=DMUtils.make_community_name(route_target))
             comm.add_members(route_target)
             self.policy_config.add_community(comm)
             # add route-targets to export community
             export_comm.add_members(route_target)
+        # if no members, no need to add community
+        if export_comm.get_members():
+            self.policy_config.add_community(export_comm)
         # add community for switch options
         comm = CommunityType(name=DMUtils.get_switch_policy_name())
         comm.add_members(DMUtils.get_switch_vrf_import(self.get_asn()))
@@ -581,7 +583,7 @@ class QfxConf(JuniperConf):
                            JunosInterface(ae_name, li.li_type, li.vlan_tag))
                     continue
             vn_dict.setdefault(vn_id, []).append(
-                JunosInterface(li.name, li.li_type, li.vlan_tag))
+                JunosInterface(li.name, li.li_type, li.vlan_tag, li_uuid=li.uuid))
         return vn_dict
     # end
 
@@ -782,7 +784,8 @@ class QfxConf(JuniperConf):
             self.add_addr_term(f, src_addr_match, True)
             self.add_port_term(f, dst_port_match, False)
             self.add_port_term(f, src_port_match, False)
-            self.add_ether_type_term(f, ether_type_match)
+            # allow arp ether type always
+            self.add_ether_type_term(f, 'arp')
             self.add_protocol_term(f, protocol_match)
             eswitching.add_filter(f)
         if not eswitching.get_filter():

@@ -931,8 +931,8 @@ class AccessControlListDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        if self.security_group:
-            self.remove_from_parent()
+        if obj.security_group:
+            obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
 

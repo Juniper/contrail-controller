@@ -259,7 +259,7 @@ class JuniperConf(DeviceConf):
                 continue
             vn_id = vmi.virtual_network
             vn_dict.setdefault(vn_id, []).append(
-                JunosInterface(li.name, li.li_type, li.vlan_tag))
+                JunosInterface(li.name, li.li_type, li.vlan_tag, li_uuid=li.uuid))
         return vn_dict
     # end
 
@@ -581,7 +581,8 @@ class JuniperConf(DeviceConf):
 
 class JunosInterface(object):
 
-    def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None):
+    def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None, li_uuid=None):
+        self.li_uuid = li_uuid
         self.name = if_name
         self.if_type = if_type
         self.vlan_tag = if_vlan_tag
