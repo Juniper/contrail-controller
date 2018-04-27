@@ -116,8 +116,7 @@ public:
     static const int kHeartBeatInterval = 5;
 
     DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
-                           std::string client_name,
-                           std::string reeval_publish_taskname="bgp::Config");
+                           std::string client_name);
     virtual ~DiscoveryServiceClient();
     
     void Init();
