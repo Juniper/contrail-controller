@@ -5,6 +5,7 @@
 #ifndef SRC_BGP_BGP_SERVER_H_
 #define SRC_BGP_BGP_SERVER_H_
 
+#include <tbb/mutex.h>
 #include <tbb/spin_rw_mutex.h>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/dynamic_bitset.hpp>
@@ -132,6 +133,9 @@ public:
     as_t autonomous_system() const { return autonomous_system_; }
     as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
+    uint32_t bgp_identifier_locked() const;
+    void set_bgp_identifier(const Ip4Address &identifier);
+
     std::string bgp_identifier_string() const {
         return bgp_identifier_.to_string();
     }
@@ -202,6 +206,7 @@ private:
     as_t local_autonomous_system_;
     ASNUpdateListenersList asn_listeners_;
     boost::dynamic_bitset<> asn_bmap_;     // free list.
+    mutable tbb::mutex bgp_identifier_mutex_;
     Ip4Address bgp_identifier_;
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
