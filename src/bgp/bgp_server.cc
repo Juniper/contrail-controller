@@ -93,7 +93,7 @@ public:
                         server_->bgp_identifier_.to_string() << " to " <<
                         identifier.to_string());
             Ip4Address old_identifier = server_->bgp_identifier_;
-            server_->bgp_identifier_ = identifier;
+            server_->set_bgp_identifier(identifier);
             server_->NotifyIdentifierUpdate(old_identifier);
         }
 
@@ -299,8 +299,20 @@ LifetimeActor *BgpServer::deleter() {
     return deleter_.get();
 }
 
+// Retrieve bgp_identifier information in a thread-safe manner.
+uint32_t BgpServer::bgp_identifier_locked() const {
+    tbb::mutex::scoped_lock lock(bgp_identifier_mutex_);
+    return bgp_identifier_.to_ulong();
+}
+
+// Update bgp_identifier_ object in a thread-safe manner.
+void BgpServer::set_bgp_identifier(const Ip4Address &identifier) {
+    tbb::mutex::scoped_lock lock(bgp_identifier_mutex_);
+    bgp_identifier_ = identifier;
+}
+
 bool BgpServer::HasSelfConfiguration() const {
-    if (!bgp_identifier())
+    if (!bgp_identifier_locked())
         return false;
     if (!local_autonomous_system())
         return false;
