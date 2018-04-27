@@ -529,8 +529,8 @@ class SecurityResourceBase(Resource):
                 ':'.join(scope_fq_name),
             ),
         )
-        if not scope_lock.acquire(blocking=False):
-            contenders = scope_lock.contenders()
+        contenders = scope_lock.contenders()
+        if contenders:
             action_in_progress = '<unknown action>'
             if len(contenders) > 0 and contenders[0]:
                 _, _, action_in_progress = contenders[0].partition(' ')
@@ -540,7 +540,6 @@ class SecurityResourceBase(Resource):
                     ':'.join(scope_fq_name), scope_uuid,
                     cls.object_type.replace('_', ' ').title()))
             return False, (400, msg)
-        scope_lock.release()
 
         if not delta_obj_dict:
             delta_obj_dict = {}
