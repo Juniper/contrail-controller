@@ -2362,7 +2362,7 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                          Sandesh::LoggingUtLevel(), BGP_LOG_FLAG_SYSLOG,
                          BGP_PEER_DIR_IN,
                          "Received XmppChannel up event");
-            if (!bgp_server_->HasSelfConfiguration()) {
+            if (!bgp_server_->HasSelfConfiguration(false)) {
                 BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
                              SandeshLevel::SYS_INFO, BGP_LOG_FLAG_SYSLOG,
                              BGP_PEER_DIR_IN,
