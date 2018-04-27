@@ -1263,41 +1263,47 @@ class VirtualNetworkST(DBBaseST):
                     action = arule.get_action_list()
                     if action.simple_action == 'deny':
                         continue
-                    connected_network = None
+                    connected_networks = []
                     if self.me(match.dst_address.virtual_network):
-                        connected_network = match.src_address.virtual_network
-                    elif self.me(match.src_address.virtual_network):
-                        connected_network = match.dst_address.virtual_network
-                    if action.apply_service:
-                        # if a service was applied, the ACL should have a
-                        # pass action, and we should not make a connection
-                        # between the routing instances
-                        action.simple_action = "pass"
-                        action.apply_service = []
-                        if self.multi_policy_service_chains_enabled:
-                            other_vn = VirtualNetworkST.get(connected_network)
-                            if not other_vn:
-                                continue
-                            # check to see if service chain(s) between the two
-                            # networks associated with a policy has service of
-                            # type 'in-network-nat, in which case we shouldn't
-                            # connect the two networks directly
-                            nat_service = False
-                            sc_list = self.service_chains[connected_network]
-                            for sc in sc_list:
-                                if sc is not None and sc.created:
-                                    right_si_name = sc.service_list[-1]
-                                    right_si = ServiceInstanceST.get(right_si_name)
-                                    if right_si.get_service_mode() == 'in-network-nat':
-                                        nat_service = True
-                                        break
+                        connected_networks.append(match.src_address.virtual_network)
+                    if self.me(match.src_address.virtual_network):
+                        connected_networks.append(match.dst_address.virtual_network)
+                    for connected_network in connected_networks:
+                        if action.apply_service:
+                            # if a service was applied, the ACL should have a
+                            # pass action, and we should not make a connection
+                            # between the routing instances
+                            action.simple_action = "pass"
+                            action.apply_service = []
+                            if self.multi_policy_service_chains_enabled:
+                                other_vn = VirtualNetworkST.get(
+                                    connected_network)
+                                if not other_vn:
+                                    continue
+                                # check to see if service chain(s) between the
+                                # two networks associated with a policy has
+                                # service of type 'in-network-nat, in which
+                                # case we shouldn't connect the two networks
+                                # directly
+                                nat_service = False
+                                sc_list = self.service_chains[connected_network]
+                                for sc in sc_list:
+                                    if sc is not None and sc.created:
+                                        right_si_name = sc.service_list[-1]
+                                        right_si = ServiceInstanceST.get(
+                                            right_si_name)
+                                        if (right_si.get_service_mode() ==
+                                                'in-network-nat'):
+                                            nat_service = True
+                                            break
 
-                            if other_vn.multi_policy_service_chains_enabled and not nat_service:
-                                self.add_connection(connected_network)
-                        continue
+                                if (other_vn.multi_policy_service_chains_enabled
+                                        and not nat_service):
+                                    self.add_connection(connected_network)
+                            continue
 
-                    if connected_network and action.simple_action:
-                        self.add_connection(connected_network)
+                        if action.simple_action:
+                            self.add_connection(connected_network)
 
                 # end for acl_rule_list
             # end for policy_rule_entries.policy_rule
