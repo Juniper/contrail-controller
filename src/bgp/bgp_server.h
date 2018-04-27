@@ -132,6 +132,8 @@ public:
     as_t autonomous_system() const { return autonomous_system_; }
     as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
+    uint32_t bgp_identifier_u32() const { return bgp_identifier_u32_; }
+
     std::string bgp_identifier_string() const {
         return bgp_identifier_.to_string();
     }
@@ -203,6 +205,7 @@ private:
     ASNUpdateListenersList asn_listeners_;
     boost::dynamic_bitset<> asn_bmap_;     // free list.
     Ip4Address bgp_identifier_;
+    uint32_t bgp_identifier_u32_;
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
     uint16_t hold_time_;
