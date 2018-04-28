@@ -55,12 +55,12 @@ class JobHandler(object):
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
         except JobException as e:
             self._logger.error("%s" % e.msg)
-            self._logger.error("%s" % traceback.print_stack())
+            self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, e.msg,
                                              device_id)
         except Exception as e:
             self._logger.error("Error while executing job %s " % repr(e))
-            self._logger.error("%s" % traceback.print_stack())
+            self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, e.message,
                                              device_id)
 
