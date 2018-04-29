@@ -86,7 +86,7 @@ class TestFabricVncDbModule(TestFabricModule):
                        "physical_router_management_ip": "172.10.68.1",
                        "physical_router_vendor_name": "Juni",
                        "physical_router_product_name": "MX",
-                       "physical_router_device_family": "juniper-mx"}
+                       "physical_router_device_family": "junos"}
         fake_vnc_lib = flexmock()
         flexmock(VncApi, __new__=fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
@@ -151,7 +151,7 @@ class TestFabricVncDbModule(TestFabricModule):
                         "physical_router_management_ip": "172.10.68.1",
                         "physical_router_vendor_name": "Juni",
                         "physical_router_product_name": "MX",
-                        "physical_router_device_family": "juniper-mx"}]
+                        "physical_router_device_family": "junos"}]
         fake_vnc_lib = flexmock()
         flexmock(VncApi, __new__=fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
