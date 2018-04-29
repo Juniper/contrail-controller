@@ -3,7 +3,7 @@
   gather_facts: no
   connection: local
   vars:
-     output: {"status":"", "message":"", "results":""}
+     output: {"status":"", "message":""}
      host_prefix: []
 
   pre_tasks:
@@ -20,12 +20,11 @@
 
   roles:
    - fabric_namespace_read
-   - probe_device
-   - check_credentials
+   - discover_device_role
 
   post_tasks:
     - name: set output parameter
       set_fact:
-         output: "{{ output|combine({'status':'SUCCESS','message':'Successfully discovered devices', 'results': '{{ results }}' })}}"
-    
+         output: "{{ output|combine({'status':'SUCCESS', 'message':'Discover playbook successfully executed'})}}"
+
     - debug: var=output
