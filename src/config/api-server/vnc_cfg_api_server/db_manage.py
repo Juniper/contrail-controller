@@ -131,6 +131,7 @@ exceptions = [
     'OrphanResourceError',
     'ZkSubnetPathInvalid',
     'FqNameDuplicateError',
+    'RTInvalidError',
 ]
 for exception_class in exceptions:
     setattr(sys.modules[__name__],
@@ -435,6 +436,7 @@ class DatabaseManager(object):
         zk_set = set()
         schema_set = set()
         config_set = set()
+        RT_FQ_NAME_FORMAT = re.compile('target:\d+:\d+')
 
         # read in route-target ids from zookeeper
         base_path = self.base_rtgt_id_zk_path
@@ -476,6 +478,10 @@ class DatabaseManager(object):
         no_assoc_msg = "No Routing Instance or Logical Router associated"
         for fq_name_uuid_str, _ in fq_name_table.xget('route_target'):
             fq_name_str, _, uuid = fq_name_uuid_str.rpartition(':')
+            if not RT_FQ_NAME_FORMAT.match(fq_name_str):
+                errmsg = ("Route Target fq_name %s with uuid:%s is Invalid" %(fq_name_str, uuid))
+                ret_errors.append(RTInvalidError(errmsg))
+                continue
             asn, id = _parse_rt(fq_name_str)
             if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
                 user_rts += 1
@@ -1328,6 +1334,7 @@ class DatabaseChecker(DatabaseManager):
         logger = self._logger
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
+        RT_FQ_NAME_FORMAT = re.compile('target:\d+:\d+')
 
         zk_set, schema_set, config_set, errors = self.audit_route_targets_id()
         ret_errors.extend(errors)
@@ -1370,6 +1377,8 @@ class DatabaseChecker(DatabaseManager):
                 continue
 
             for rtgt in rtgt_list:
+                if not RT_FQ_NAME_FORMAT.match(str(rtgt)):
+                    continue  # Invalid fq_name error already printed under audit_route_target
                 rtgt_asn, rtgt_id = _parse_rt(rtgt)
                 if rtgt_asn != self.global_asn or rtgt_id < RT_ID_MIN_ALLOC:
                     num_user_rtgts += 1
@@ -1708,9 +1717,20 @@ class DatabaseCleaner(DatabaseManager):
         ret_errors = []
         fq_name_table = self._cf_dict['obj_fq_name_table']
         rt_table = self._cf_dict['route_target_table']
+        RT_FQ_NAME_FORMAT = re.compile('target:\d+:\d+')
 
         zk_set, schema_set, config_set, errors = self.audit_route_targets_id()
         ret_errors.extend(errors)
+
+        #Remove RT with Invalid fq_name
+        for fq_name_uuid_str, _ in fq_name_table.xget('route_target'):
+            fq_name_str, _, uuid = fq_name_uuid_str.rpartition(':')
+            if not RT_FQ_NAME_FORMAT.match(fq_name_str):
+                logger.info("Removing stale route target %s with invalid"
+                             " fq_name", fq_name_str)
+                self._remove_config_object('route_target', [uuid])
+                fq_name_table.remove('route_target',
+                                     columns=[fq_name_uuid_str])
 
         # Remove extra RT in Schema DB
         for id, res_fq_name_str in schema_set - zk_set:
