@@ -45,7 +45,7 @@ CREATE operation:
               "physical_router_management_ip": "172.10.68.1",
               "physical_router_vendor_name": "Juniper",
               "physical_router_product_name": "MX",
-              "physical_router_device_family": "juniper-mx"
+              "physical_router_device_family": "junos"
           }
 
 BULK CREATE operation:
@@ -60,7 +60,7 @@ BULK CREATE operation:
               "physical_router_management_ip": "172.10.68.1",
               "physical_router_vendor_name": "Juniper",
               "physical_router_product_name": "MX",
-              "physical_router_device_family": "juniper-mx"
+              "physical_router_device_family": "junos"
           },
           {
               "parent_type": "global-system-config",
@@ -68,7 +68,7 @@ BULK CREATE operation:
               "physical_router_management_ip": "172.10.68.2",
               "physical_router_vendor_name": "Juniper",
               "physical_router_product_name": "MX",
-              "physical_router_device_family": "juniper-mx"
+              "physical_router_device_family": "junos"
           }
         ]
 
