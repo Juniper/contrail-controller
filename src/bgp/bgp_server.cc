@@ -436,6 +436,7 @@ BgpServer::BgpServer(EventManager *evm)
       autonomous_system_(0),
       local_autonomous_system_(0),
       bgp_identifier_(0),
+      bgp_identifier_u32_(0),
       hold_time_(0),
       gr_helper_disable_(false),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
@@ -511,7 +512,7 @@ LifetimeActor *BgpServer::deleter() {
 }
 
 bool BgpServer::HasSelfConfiguration() const {
-    if (!bgp_identifier())
+    if (!bgp_identifier_u32())
         return false;
     if (!local_autonomous_system())
         return false;
@@ -1123,5 +1124,6 @@ time_t BgpServer::GetRTargetTableLastUpdatedTimeStamp() const {
 void BgpServer::UpdateBgpIdentifier(const Ip4Address &identifier) {
     Ip4Address old_identifier = bgp_identifier_;
     bgp_identifier_ = identifier;
+    bgp_identifier_u32_ = identifier.to_ulong();
     NotifyIdentifierUpdate(old_identifier);
 }
