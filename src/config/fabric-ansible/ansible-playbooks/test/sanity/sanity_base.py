@@ -21,6 +21,8 @@ from cfgm_common.exceptions import (
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import Fabric
 from vnc_api.gen.resource_client import FabricNamespace
+from vnc_api.gen.resource_client import DeviceImage
+from vnc_api.gen.resource_client import PhysicalRouter
 
 
 # pylint: disable=E1101
@@ -179,6 +181,63 @@ class SanityBase(object):
         return namespace
     # end _add_asn_namespace
 
+    def create_image_and_device(self, img_name, img_uri, img_version,
+                                    family,
+                                    prouter_ip, prouter_password, device_name):
+
+        """create image and physical device"""
+        img_fqname = None
+        device_fqname = None
+        try:
+            self._logger.info('Creating image: %s', img_name)
+            img_fqname = ['default-global-system-config', img_name]
+            image = DeviceImage(
+                name=img_name,
+                fq_name=img_fqname,
+                parent_type='global-system-config',
+                device_image_file_uri=img_uri,
+                device_image_os_version=img_version,
+                device_image_device_family=family
+            )
+            img_uuid = self._api.device_image_create(image)
+            image = self._api.device_image_read(id=img_uuid)
+
+        except RefsExistError:
+            self._logger.warn("Image '%s' already exists", img_name)
+            image = self._api.device_image_read(fq_name=img_fqname)
+
+        self._logger.debug(
+            "Image created:\n%s",
+            pprint.pformat(self._api.obj_to_dict(image), indent=4))
+
+        try:
+            self._logger.info('Creating device: %s', device_name)
+            device_fqname = ['default-global-system-config', device_name]
+            device = PhysicalRouter(
+                name=device_name,
+                fq_name=device_fqname,
+                physical_router_device_family=family,
+                physical_router_management_ip=prouter_ip,
+                physical_router_vendor_name='juniper',
+                physical_router_user_credentials={
+                    'username': 'root', 'password': prouter_password
+                }
+            )
+            device_uuid = self._api.physical_router_create(device)
+            device = self._api.physical_router_read(id=device_uuid)
+
+        except RefsExistError:
+            self._logger.warn("Device '%s' already exists", device_name)
+            device = self._api.physical_router_read(fq_name=device_fqname)
+
+        self._logger.debug(
+            "Device created:\n%s",
+            pprint.pformat(self._api.obj_to_dict(device), indent=4))
+
+        return image, device
+
+    # end create_image_and_device
+
     def cleanup_fabric(self, fab_name):
         """delete fabric including all prouters in the fabric"""
         try:
@@ -205,6 +264,31 @@ class SanityBase(object):
         except NoIdError:
             self._logger.warn('Fabric "%s" not found', fab_name)
     # end cleanup_fabric
+
+    def cleanup_image_prouter(self, img_name, device_name):
+        # image cleanup
+        self._logger.info("Clean up image and prouter from db")
+        try:
+            img_fqname = ['default-global-system-config', img_name]
+            img = self._api.device_image_read(fq_name=img_fqname)
+            self._logger.debug(
+                "Delete Image: %s", img_fqname)
+            self._api.device_image_delete(img_fqname)
+
+        except NoIdError:
+            self._logger.warn('Image "%s" not found', img_name)
+
+        # device cleanup
+        try:
+            device_fqname = ['default-global-system-config', device_name]
+            device = self._api.physical_router_read(fq_name=device_fqname)
+            self._logger.debug(
+                "Delete Physical Router: %s", device_fqname)
+            self._api.physical_router_delete(device_fqname)
+        except NoIdError:
+            self._logger.warn('Device "%s" not found', device_name)
+
+    # end cleanup_image_prouter
 
     def _delete_prouter(self, uuid):
         prouter = self._api.physical_router_read(id=uuid)
@@ -369,10 +453,25 @@ class SanityBase(object):
         self._wait_for_job_to_finish('Underlay config', job_execution_id)
     # end underlay_config
 
+    def image_upgrade(self, image, device):
+        """upgrade the physical routers with specified images"""
+        self._logger.info("Upgrade image on the physical router ...")
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=[
+                'default-global-system-config', 'image_upgrade_template'],
+            job_input={'image_uuid': image.uuid},
+            device_list=[device.uuid]
+        )
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.info(
+            "Image upgrade job started with execution id: %s", job_execution_id)
+        self._wait_for_job_to_finish('Image upgrade', job_execution_id)
+
+    # end image_upgrade
+
     def _exit_with_error(self, errmsg):
         self._logger.error(errmsg)
         sys.exit(1)
     # end _exit_with_error
 
 # end SanityBase class
-
