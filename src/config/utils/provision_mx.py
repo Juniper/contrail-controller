@@ -8,7 +8,9 @@ import argparse
 import ConfigParser
 
 from provision_bgp import BgpProvisioner
-
+from vnc_api.vnc_api import *
+from cfgm_common.exceptions import *
+from vnc_admin_api import VncApiAdmin
 
 class MxProvisioner(object):
 
@@ -22,22 +24,16 @@ class MxProvisioner(object):
         else:
             peer_list = None
 
-        bp_obj = BgpProvisioner(
-            self._args.admin_user, self._args.admin_password,
+        self._vnc_lib = VncApiAdmin(
+            self._args.use_admin_api, self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name, self._args.api_server_ip,
-            self._args.api_server_port, self._args.api_server_use_ssl,
-            self._args.use_admin_api, peer_list=peer_list,
-            sub_cluster_name=self._args.sub_cluster_name)
+            self._args.api_server_port, '/', self._args.api_server_use_ssl)
 
+        self.add_bgp_router()
         if self._args.oper == 'add':
-            bp_obj.add_bgp_router('router', self._args.router_name,
-                                  self._args.router_ip, self._args.router_asn,
-                                  self._args.address_families)
+            self.add_physical_device()
         elif self._args.oper == 'del':
-            bp_obj.del_bgp_router(self._args.router_name)
-        else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            self.delete_physical_device()
 
     # end __init__
 
@@ -45,6 +41,10 @@ class MxProvisioner(object):
         '''
         Eg. python provision_mx.py --router_name mx1
                                    --router_ip 10.1.1.1
+                                   --loopback_ip 1.1.1.1
+                                   --product_name MX80
+                                   --device_user root
+                                   --device_password pwd
                                    --router_asn 64512
                                    --api_server_ip 127.0.0.1
                                    --api_server_port 8082
@@ -62,10 +62,16 @@ class MxProvisioner(object):
 
         defaults = {
             'router_asn': '64512',
+            'loopback_ip': None,
+            'vendor_name': 'Juniper',
+            'product_name': 'MX80',
+            'device_user': None,
+            'device_password': None,
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
             'api_server_use_ssl': False,
             'oper': 'add',
+            'role': None,
             'admin_user': None,
             'admin_password': None,
             'admin_tenant_name': None,
@@ -93,6 +99,13 @@ class MxProvisioner(object):
         parser.add_argument("--router_name", help="System name of MX")
         parser.add_argument("--router_ip", help="IP address of MX")
         parser.add_argument("--router_asn", help="AS Number the MX is in")
+        parser.add_argument("--loopback_ip", help="Loopback IP address of MX")
+        parser.add_argument(
+            "--product_name", default='MX80', help="Product name of the MX", required=True)
+        parser.add_argument(
+            "--device_user", help="Username for MX login")
+        parser.add_argument(
+            "--device_password", help="Password for MX login")
         parser.add_argument(
             "--address_families", help="Address family list",
             choices=["route-target", "inet-vpn", "e-vpn", "erm-vpn", "inet6-vpn"],
@@ -127,6 +140,69 @@ class MxProvisioner(object):
         self._args = parser.parse_args(remaining_argv)
 
     # end _parse_args
+
+    def _get_rt_inst_obj(self):
+        vnc_lib = self._vnc_lib
+
+        # TODO pick fqname hardcode from common
+        rt_inst_obj = vnc_lib.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+
+        return rt_inst_obj
+    #end _get_rt_inst_obj
+
+    def add_bgp_router(self):
+
+        bp_obj = BgpProvisioner(
+            self._args.admin_user, self._args.admin_password,
+            self._args.admin_tenant_name, self._args.api_server_ip,
+            self._args.api_server_port, self._args.api_server_use_ssl,
+            self._args.use_admin_api, peer_list=peer_list,
+            sub_cluster_name=self._args.sub_cluster_name)
+
+        if self._args.oper == 'add':
+            bp_obj.add_bgp_router('router', self._args.router_name,
+                                  self._args.router_ip, self._args.router_asn,
+                                  self._args.address_families)
+        elif self._args.oper == 'del':
+            bp_obj.del_bgp_router(self._args.router_name)
+        else:
+            print "Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper)
+    # end add_bgp_router
+
+    def add_physical_device(self):
+        pr = PhysicalRouter(self._args.router_name)
+        pr.physical_router_management_ip = self._args.router_ip
+        if self._args.loopback_ip:
+            pr.physical_router_dataplane_ip = self._args.loopback_ip
+        pr.physical_router_vendor_name = self._args.vendor_name
+        pr.physical_router_product_name = self._args.product_name
+        pr.physical_router_vnc_managed = True
+        if self._args.role:
+            pr.physical_router_role = self._args.role
+        if self._args.device_user and self._args.device_password:
+            uc = UserCredentials(self._args.device_user, self._args.device_password)
+            pr.set_physical_router_user_credentials(uc)
+
+        rt_inst_obj = self._get_rt_inst_obj()
+        fq_name = rt_inst_obj.get_fq_name() + [self._args.router_name]
+        bgp_router = self._vnc_lib.bgp_router_read(fq_name=fq_name)
+
+        pr.set_bgp_router(bgp_router)
+
+        self._vnc_lib.physical_router_create(pr)
+    # end add_physical_device
+
+    def del_physical_device(self):
+        pr_check=GetDevice(self._vnc_lib, self._args.router_name)
+        uuid=pr_check.Get()
+        if uuid:
+            self._vnc_lib.physical_router_delete(id=uuid)
+        else:
+            print 'No device found with Name : %s' %(self._args.device_name)
+    # end del_physical_device
 
 # end class MxProvisioner
 
