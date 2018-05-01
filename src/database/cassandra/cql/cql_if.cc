@@ -2129,7 +2129,7 @@ bool CqlIfImpl::InsertIntoTablePrepareAsync(std::auto_ptr<GenDb::ColList> v_colu
 // so we dont want to prepare for inserts.
 bool CqlIfImpl::IsInsertIntoTablePrepareSupported(const std::string &table) {
     return (IsTableDynamic(table)) &&
-           (table != "MessageTablev2");
+           (table != "MessageTablev3");
 }
 
 bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,

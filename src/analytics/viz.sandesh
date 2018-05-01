@@ -11,7 +11,7 @@ include "database/gendb.sandesh"
 const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
 const string COLLECTOR_KEYSPACE_CQL = "ContrailAnalyticsCql"
 const string MESSAGE_TABLE          = "MessageTable"        // API table name
-const string COLLECTOR_GLOBAL_TABLE = "MessageTablev2"      // CQL table name
+const string COLLECTOR_GLOBAL_TABLE = "MessageTablev3"      // CQL table name
 const string UUID_KEY               = "UuidKey"
 const string FORWARD_FLOW_UUID      = "forward_flow_uuid"
 const string REVERSE_FLOW_UUID      = "reverse_flow_uuid"
