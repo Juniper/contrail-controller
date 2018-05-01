@@ -28,12 +28,15 @@ class SanityTest01(SanityBase):
     # end __init__
 
     def _validate_discovered_prouters(self, prouters):
-        assert len(prouters) == 1
-        assert prouters[0].physical_router_management_ip == self._prouter_ip
-        assert prouters[0].physical_router_user_credentials.username == 'root'
-        assert prouters[0].physical_router_vendor_name == 'juniper'
-        assert prouters[0].physical_router_product_name
-        assert prouters[0].physical_router_device_family
+        assert len(prouters) == len(self._prouter['ips'])
+        for i in range(len(prouters)):
+            assert prouters[i].physical_router_management_ip\
+                   == self._prouter['ips'][i]
+            assert prouters[i].physical_router_user_credentials.username\
+                   == 'root'
+            assert prouters[i].physical_router_vendor_name
+            assert prouters[i].physical_router_product_name
+            assert prouters[i].physical_router_device_family
     # end _validate_discovered_prouters
 
     def _validate_imported_prouters(self, prouters):
