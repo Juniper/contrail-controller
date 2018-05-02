@@ -39,7 +39,9 @@ class MsgBundle(object):
     START_EXECUTE_PLAYBOOK_MSG = 37,
     PB_EXEC_COMPLETE_WITH_INFO = 38,
     JOB_EXC_REC_HDR = 39,
-    EXC_JOB_ERR_HDR = 40
+    EXC_JOB_ERR_HDR = 40,
+    PLAYBOOK_STATUS_FAILED = 41,
+    PLAYBOOK_OUTPUT_MISSING = 42
 
     _msgs = {
         'en': {
@@ -58,6 +60,9 @@ class MsgBundle(object):
             PLAYBOOK_EXIT_WITH_ERROR: 'Playbook exited with error.',
             PLAYBOOK_RETURN_WITH_ERROR: 'Playbook returned '
                                         'with error',
+            PLAYBOOK_STATUS_FAILED: 'Playbook completed with status Failure.',
+            PLAYBOOK_OUTPUT_MISSING: 'Playbook completed without sending the'
+                                     'output with status details.',
             NO_PLAYBOOK_INPUT_DATA: 'Playbook input data'
                                     ' is not passed. '
                                     'Aborting execution.',
@@ -171,3 +176,4 @@ class MsgBundle(object):
         except KeyError as ex:
             return 'Failed to contruct job message due to missing message '\
                    'arguments: %s' % ex.message
+
