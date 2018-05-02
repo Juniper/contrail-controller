@@ -208,6 +208,7 @@ public:
             }
             Ip4Address old_identifier = server_->bgp_identifier_;
             server_->bgp_identifier_ = identifier;
+            server_->bgp_identifier_u32_ = identifier.to_ulong();
             server_->NotifyIdentifierUpdate(old_identifier);
         }
 
@@ -414,6 +415,7 @@ BgpServer::BgpServer(EventManager *evm)
       autonomous_system_(0),
       local_autonomous_system_(0),
       bgp_identifier_(0),
+      bgp_identifier_u32_(0),
       hold_time_(0),
       gr_helper_disable_(false),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
@@ -488,7 +490,7 @@ LifetimeActor *BgpServer::deleter() {
 }
 
 bool BgpServer::HasSelfConfiguration() const {
-    if (!bgp_identifier())
+    if (!bgp_identifier_u32())
         return false;
     if (!local_autonomous_system())
         return false;
