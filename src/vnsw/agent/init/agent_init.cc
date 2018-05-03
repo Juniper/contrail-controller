@@ -107,20 +107,38 @@ int AgentInit::Start() {
     agent_->set_instance_id(InstanceId());
     agent_->set_module_type(ModuleType());
     agent_->set_module_name(module_name);
-
-
+    std::vector<std::string> v_slo_destinations = agent_param_->
+                                                   get_slo_destination();
     std::string log_property_file = agent_param_->log_property_file();
     if (log_property_file.size()) {
         LoggingInit(log_property_file);
     }
     else {
         LoggingInit(agent_param_->log_file(), agent_param_->log_file_size(),
-                    agent_param_->log_files_count(), agent_param_->use_syslog(),
+                    agent_param_->log_files_count(), false,
                     agent_param_->syslog_facility(), module_name,
                     SandeshLevelTolog4Level(
                         Sandesh::StringToLevel(agent_param_->log_level())));
     }
     agent_param_->LogConfig();
+
+    // Set the sample logger params
+    Sandesh::set_logger_appender(agent_param_->log_file(),
+                                 agent_param_->log_file_size(),
+                                 agent_param_->log_files_count(),
+                                 agent_param_->syslog_facility(),
+                                 agent_param_->get_sample_destination(),
+                                 module_name, true);
+    // Set the SLO logger params
+    Sandesh::set_logger_appender(agent_param_->log_file(),
+                                 agent_param_->log_file_size(),
+                                 agent_param_->log_files_count(),
+                                 agent_param_->syslog_facility(),
+                                 agent_param_->get_slo_destination(),
+                                 module_name, false);
+
+    Sandesh::set_send_to_collector_flags(agent_param_->get_sample_destination(),
+                                         agent_param_->get_slo_destination());
 
     int ret = agent_param_->Validate();
     if (ret != 0) {
