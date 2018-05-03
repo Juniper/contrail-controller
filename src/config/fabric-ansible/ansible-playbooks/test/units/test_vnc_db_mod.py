@@ -5,13 +5,17 @@ from test_fabric_base import TestFabricModule
 from test_fabric_base import set_module_args
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import *
+from ansible.module_utils import fabric_utils
 
 
 class TestFabricVncDbModule(TestFabricModule):
     module = vnc_db_mod
 
     def setUp(self):
-        pass
+        fake_logger = flexmock()
+        flexmock(fake_logger).should_receive('error')
+        flexmock(fake_logger).should_receive('debug')
+        flexmock(fabric_utils).should_receive('fabric_ansible_logger').and_return(fake_logger)
 
     def tearDown(self):
         pass

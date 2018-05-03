@@ -5,6 +5,7 @@ import swiftclient.utils
 from ansible.modules.network.fabric import swift_fileutil
 from test_fabric_base import TestFabricModule
 from test_fabric_base import set_module_args
+from ansible.module_utils import fabric_utils
 
 
 class TestSwiftFileUtilModule(TestFabricModule):
@@ -18,6 +19,10 @@ class TestSwiftFileUtilModule(TestFabricModule):
         flexmock(self.mockobj).should_receive('post_account').and_return(None)
         flexmock(self.mockobj).url = "storage_url"
         flexmock(self.mockobj).should_receive("close").and_return(None)
+        fake_logger = flexmock()
+        flexmock(fake_logger).should_receive('error')
+        flexmock(fake_logger).should_receive('debug')
+        flexmock(fabric_utils).should_receive('fabric_ansible_logger').and_return(fake_logger)
 
         self.args_dict = dict(authtoken="4242", authurl="auth_url", user="admin", key="contrail", tenant_name="project",
                               auth_version="3.0", temp_url_key="temp_url_key1",
