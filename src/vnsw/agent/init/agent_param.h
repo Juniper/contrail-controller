@@ -278,6 +278,12 @@ public:
     const long log_file_size() const { return log_file_size_; }
     bool log_local() const { return log_local_; }
     bool log_flow() const { return log_flow_; }
+    const std::vector<std::string> &get_sample_destination() {
+        return sample_destination_;
+    }
+    const std::vector<std::string> &get_slo_destination() {
+        return slo_destination_;
+    }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
     const std::string &log_property_file() const { return log_property_file_; }
@@ -615,6 +621,13 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseMacLearning
         (const boost::program_options::variables_map &v);
+<<<<<<< HEAD
+=======
+    void ParseCryptArguments
+        (const boost::program_options::variables_map &v);
+    void ParseSessionDestinationArguments
+        (const boost::program_options::variables_map &v);
+>>>>>>> f781970... Session logging
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
@@ -675,6 +688,8 @@ private:
     std::string log_property_file_;
     bool log_local_;
     bool log_flow_;
+    std::vector<std::string> slo_destination_;
+    std::vector<std::string> sample_destination_;
     std::string log_level_;
     std::string log_category_;
     bool use_syslog_;
