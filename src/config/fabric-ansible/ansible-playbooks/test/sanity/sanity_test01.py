@@ -35,7 +35,7 @@ class SanityTest01(SanityBase):
                    == self._prouter['ips'][i]
             assert prouters[i].physical_router_user_credentials.username\
                    == 'root'
-            assert prouters[i].physical_router_vendor_name == 'juniper'
+            assert prouters[i].physical_router_vendor_name
             assert prouters[i].physical_router_product_name
             assert prouters[i].physical_router_device_family
     # end _validate_discovered_prouters
