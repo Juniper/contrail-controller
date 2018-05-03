@@ -347,6 +347,16 @@ void AgentParam::ParseQueue() {
     }
 }
 
+void AgentParam::ParseSessionDestinationArguments
+    (const boost::program_options::variables_map &var_map) {
+    slo_destination_.clear();
+    sample_destination_.clear();
+    GetOptValue< vector<string> >(var_map, slo_destination_,
+                                  "SESSION_DESTINATION.slo_destination");
+    GetOptValue< vector<string> >(var_map, sample_destination_,
+                                  "SESSION_DESTINATION.sample_destination");
+}
+
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     collector_server_list_.clear();
@@ -809,6 +819,7 @@ void AgentParam::ProcessArguments() {
     ParseMacLearning(var_map_);
     ParseTsnServersArguments(var_map_);
     ParseCryptArguments(var_map_);
+    ParseSessionDestinationArguments(var_map_);
     return;
 }
 
@@ -827,6 +838,7 @@ void AgentParam::ReInitFromConfig() {
         ParseDnsServersArguments(var_map);
         ParseCollectorArguments(var_map);
         ParseTsnServersArguments(var_map);
+        ParseSessionDestinationArguments(var_map);
 
         LogFilteredConfig();
     }
@@ -1058,7 +1070,6 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
 
     config_file_ = config_file;
     program_name_ = program_name;
-
     InitFromSystem();
     InitFromConfig();
     ProcessArguments();
@@ -1548,8 +1559,10 @@ AgentParam::AgentParam(bool enable_flow_options,
          "List of 2M Huge pages to be used by vrouter");
     options_.add(restart);
     config_file_options_.add(restart);
-
     opt::options_description log("Logging options");
+    std::vector<std::string> default_session_dest;
+    std::vector<std::string> implicit_session_dest;
+    default_session_dest.push_back("collector");
     log.add_options()
         ("DEFAULT.log_category", opt::value<string>()->default_value(""),
          "Category filter for local logging of sandesh messages")
@@ -1572,7 +1585,16 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Enable local logging of flow sandesh messages")
         ("DEFAULT.log_property_file", opt::value<string>()->default_value(""),
          "Log Property File")
-        ;
+        ("SESSION_DESTINATION.slo_destination",
+         opt::value<vector<string> >()
+             ->default_value(default_session_dest, std::string("collector"))
+             ->implicit_value(implicit_session_dest, std::string("")),
+        "List of destinations. valid values are collector, file, syslog")
+        ("SESSION_DESTINATION.sample_destination",
+         opt::value<std::vector<std::string> >()
+             ->default_value(default_session_dest, std::string("collector"))
+             ->implicit_value(implicit_session_dest, std::string("")),
+        "List of destinations. valid values are collector, file, syslog");
     options_.add(log);
     config_file_options_.add(log);
 

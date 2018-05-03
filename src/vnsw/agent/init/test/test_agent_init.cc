@@ -558,6 +558,47 @@ TEST_F(AgentParamTest, Agent_Crypt_Config) {
     EXPECT_STREQ(param.crypt_port().c_str(), "ipsec0");
 }
 
+TEST_F(AgentParamTest, Agent_Session_Destination_Option_Arguments) {
+    int argc = 3;
+    char *argv[] = {
+        (char *) "",
+        (char *) "--SESSION_DESTINATION.slo_destination", (char *) "collector file",
+        (char *) "--SESSION_DESTINATION.sample_destination", (char *) "file",
+    };
+
+    AgentParam param;
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/flows.ini", "test-param");
+    vector<string> slo_destn_list;
+    slo_destn_list.push_back(string("collector"));
+    slo_destn_list.push_back(string("file"));
+    TASK_UTIL_EXPECT_VECTOR_EQ(param.get_slo_destination(),
+                     slo_destn_list);
+    // when options are unspecified, the sessions are sent only to collector
+    argc = 1;
+    char *argv1[] = {
+        (char *) "",
+    };
+    AgentParam p;
+    p.ParseArguments(argc, argv1);
+    p.Init("controller/src/vnsw/agent/init/test/flows.ini", "test-param");
+    slo_destn_list.pop_back();
+    TASK_UTIL_EXPECT_VECTOR_EQ(p.get_slo_destination(),
+                     slo_destn_list);
+    // when empty list is passed for destination, slo_destn_list is empty
+    argc = 2;
+    char *argv2[] = {
+        (char *) "",
+        (char *) "--SESSION_DESTINATION.slo_destination", (char *) "",
+    };
+    AgentParam p1;
+    p1.ParseArguments(argc, argv2);
+    p1.Init("controller/src/vnsw/agent/init/test/flows.ini", "test-param");
+    slo_destn_list.pop_back();
+    TASK_UTIL_EXPECT_VECTOR_EQ(p1.get_slo_destination(),
+                     slo_destn_list);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();
