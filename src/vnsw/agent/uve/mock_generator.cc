@@ -236,10 +236,6 @@ private:
                     = end_point.get_sess_agg_info().begin();
                     it2 != end_point.get_sess_agg_info().end(); ++it2) {
                     SessionAggInfo sess_agg_info;
-                    sess_agg_info.set_sampled_forward_bytes(0);
-                    sess_agg_info.set_sampled_forward_pkts(0);
-                    sess_agg_info.set_sampled_reverse_bytes(0);
-                    sess_agg_info.set_sampled_reverse_pkts(0);
                     std::map<SessionIpPort, SessionInfo> session_map;
                     int ncport = mgen_->dNPorts(mgen_->rgen_);
                     for (int i = 0; i < ncport; i++) {
@@ -267,24 +263,46 @@ private:
                                 mgen_->rgen_));
                             uint64_t reverse_pkts(mgen_->dFlowPktsPerSec(
                                 mgen_->rgen_));
-                            forward_flow_info.set_sampled_pkts(forward_pkts);
-                            forward_flow_info.set_sampled_bytes(forward_pkts *
-                                mgen_->dBytesPerPacket(mgen_->rgen_));
-                            reverse_flow_info.set_sampled_pkts(reverse_pkts);
-                            reverse_flow_info.set_sampled_bytes(reverse_pkts *
-                                mgen_->dBytesPerPacket(mgen_->rgen_));
-                            sess_agg_info.set_sampled_forward_pkts(
-                                sess_agg_info.get_sampled_forward_pkts() +
+                            // Send once in every 5 message as a logged message
+                            if (j % 5 !=0 ) {
+                                forward_flow_info.set_sampled_pkts(forward_pkts);
+                                forward_flow_info.set_sampled_bytes(forward_pkts *
+                                    mgen_->dBytesPerPacket(mgen_->rgen_));
+                                reverse_flow_info.set_sampled_pkts(reverse_pkts);
+                                reverse_flow_info.set_sampled_bytes(reverse_pkts *
+                                    mgen_->dBytesPerPacket(mgen_->rgen_));
+                                sess_agg_info.set_sampled_forward_pkts(
+                                    sess_agg_info.get_sampled_forward_pkts() + 
                                     forward_pkts);
-                            sess_agg_info.set_sampled_forward_bytes(
-                                sess_agg_info.get_sampled_forward_bytes() +
+                                sess_agg_info.set_sampled_forward_bytes(
+                                    sess_agg_info.get_sampled_forward_bytes() +
                                     forward_flow_info.get_sampled_bytes());
-                            sess_agg_info.set_sampled_reverse_pkts(
-                                sess_agg_info.get_sampled_reverse_pkts() +
+                                sess_agg_info.set_sampled_reverse_pkts(
+                                    sess_agg_info.get_sampled_reverse_pkts() +
                                     reverse_pkts);
-                            sess_agg_info.set_sampled_reverse_bytes(
-                                sess_agg_info.get_sampled_reverse_bytes() +
+                                sess_agg_info.set_sampled_reverse_bytes(
+                                    sess_agg_info.get_sampled_reverse_bytes() +
                                     reverse_flow_info.get_sampled_bytes());
+                            } else {
+                                forward_flow_info.set_logged_pkts(forward_pkts);
+                                forward_flow_info.set_logged_bytes(forward_pkts *
+                                    mgen_->dBytesPerPacket(mgen_->rgen_));
+                                reverse_flow_info.set_logged_pkts(reverse_pkts);
+                                reverse_flow_info.set_logged_bytes(reverse_pkts *
+                                    mgen_->dBytesPerPacket(mgen_->rgen_));
+                                sess_agg_info.set_logged_forward_pkts(
+                                    sess_agg_info.get_logged_forward_pkts() +
+                                    forward_pkts);
+                                sess_agg_info.set_logged_forward_bytes(
+                                    sess_agg_info.get_logged_forward_bytes() +
+                                    forward_flow_info.get_logged_bytes());
+                                sess_agg_info.set_logged_reverse_pkts(
+                                    sess_agg_info.get_logged_reverse_pkts() +
+                                    reverse_pkts);
+                                sess_agg_info.set_logged_reverse_bytes(
+                                    sess_agg_info.get_logged_reverse_bytes() +
+                                    reverse_flow_info.get_logged_bytes());
+                            }
                             session_val.set_forward_flow_info(forward_flow_info);
                             session_val.set_reverse_flow_info(reverse_flow_info);
                             session_map[sess_ip_port] = session_val;
@@ -495,7 +513,15 @@ int main(int argc, char *argv[]) {
         ("syslog_facility", opt::value<std::string>()->default_value(
             "LOG_LOCAL0"), "Syslog facility to receive log lines")
         ("log_flow", opt::bool_switch(&log_flow),
-            "Enable local logging of flow sandesh messages");
+            "Enable local logging of flow sandesh messages")
+        ("slo_destination", opt::value<std::vector<std::string> >()->multitoken(
+            )->default_value(std::vector<std::string>(1, "collector"),
+                             "collector"),
+            "List of destinations. valid values are collector, file, syslog")
+        ("sample_destination", opt::value<std::vector<std::string> >()->multitoken(
+            )->default_value(std::vector<std::string>(1, "collector"),
+                             "collector"),
+            "List of destinations. valid values are collector, file, syslog");
 
     opt::variables_map var_map;
     opt::store(opt::parse_command_line(argc, argv, desc), var_map);
@@ -525,6 +551,27 @@ int main(int argc, char *argv[]) {
     Sandesh::SetLoggingParams(log_local,
         var_map["log_category"].as<std::string>(),
         var_map["log_level"].as<std::string>(), false, log_flow);
+
+    std::vector<std::string> slo_destn(
+        var_map["slo_destination"].as<std::vector<std::string> >());
+    std::vector<std::string> sample_destn(
+        var_map["sample_destination"].as<std::vector<std::string> >());
+    Sandesh::set_logger_appender(var_map["log_file"].as<std::string>(),
+                                     var_map["log_file_size"].as<long>(),
+                                     var_map["log_files_count"].as<int>(),
+                                     var_map["syslog_facility"].as<std::string>(),
+                                     slo_destn,
+                                     moduleid, false);
+
+    Sandesh::set_logger_appender(var_map["log_file"].as<std::string>(),
+                                     var_map["log_file_size"].as<long>(),
+                                     var_map["log_files_count"].as<int>(),
+                                     var_map["syslog_facility"].as<std::string>(),
+                                     sample_destn,
+                                     moduleid, true);
+
+    Sandesh::set_send_to_collector_flags(sample_destn, slo_destn);
+
     int gen_id(var_map["generator_id"].as<int>());
     int ngens(var_map["num_generators"].as<int>());
     int pid(getpid());
