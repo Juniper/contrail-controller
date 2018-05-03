@@ -12,6 +12,7 @@ import vnc_quota
 import cfgm_common
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from sandesh_common.vns import constants as vns_constants
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
@@ -89,6 +90,7 @@ def parse_args(args_str):
         'object_cache_exclude_types': '', # csv of object types to *not* cache
         'db_engine': 'cassandra',
         'max_request_size': 1024000,
+        'gc_grace_seconds': vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -309,6 +311,9 @@ def parse_args(args_str):
         help="Database engine to use, default cassandra")
     parser.add_argument("--max_request_size", type=int,
             help="Maximum size of bottle requests served by api server")
+    parser.add_argument(
+        "--gc_grace_seconds", type=int,
+        help="Cassandra garbage collection grace seconds")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file

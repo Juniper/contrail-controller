@@ -83,7 +83,8 @@ class VncServerCassandraClient(VncCassandraClient):
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
                       cassandra_credential, walk, obj_cache_entries,
                       obj_cache_exclude_types, log_response_time=None,
-                      ssl_enabled=False, ca_certs=None, pool_size=20):
+                      ssl_enabled=False, ca_certs=None, pool_size=20,
+                      gc_grace_sec=None):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
@@ -95,7 +96,7 @@ class VncServerCassandraClient(VncCassandraClient):
             obj_cache_entries=obj_cache_entries,
             obj_cache_exclude_types=obj_cache_exclude_types,
             log_response_time=log_response_time, ssl_enabled=ssl_enabled,
-            ca_certs=ca_certs)
+            ca_certs=ca_certs, gc_grace_sec=gc_grace_sec)
     # end __init__
 
     def config_log(self, msg, level):
@@ -730,7 +731,8 @@ class VncDbClient(object):
                     self, db_srv_list, reset_config, db_prefix,
                     db_credential, walk, obj_cache_entries,
                     obj_cache_exclude_types, self.log_cassandra_response_time,
-                    ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs)
+                    ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs,
+                    gc_grace_sec=self._api_svr_mgr.get_args().gc_grace_seconds)
 
             self._zk_db.master_election("/api-server-election", db_client_init)
         elif db_engine == 'rdbms':
