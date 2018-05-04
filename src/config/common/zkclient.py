@@ -587,4 +587,12 @@ class ZookeeperClient(object):
             identifier = '%s-%s' % (socket.gethostname(), os.getpid())
         return self._zk_client.Lock(path, identifier)
 
-# end class ZookeeperClient
+    def read_lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+        return self._zk_client.ReadLock(path, identifier)
+
+    def write_lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+        return self._zk_client.WriteLock(path, identifier)

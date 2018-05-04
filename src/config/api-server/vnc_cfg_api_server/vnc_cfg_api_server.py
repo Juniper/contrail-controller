@@ -40,6 +40,7 @@ from vnc_api.utils import AAA_MODE_VALID_VALUES
 from cfgm_common import vnc_cgitb
 import subprocess
 import traceback
+from kazoo.exceptions import LockTimeout
 
 from cfgm_common import has_role
 from cfgm_common import _obj_serializer_all
@@ -4552,14 +4553,18 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(result[0], result[1])
         pm = result
 
-        scope_lock = self._db_conn._zk_db._zk_client.lock(
+        scope_lock = self._db_conn._zk_db._zk_client.write_lock(
             '%s/%s/%s' % (
                 self.security_lock_prefix, scope_type,
                 ':'.join(scope_fq_name)
             ),
             'api-server-%s %s' % (socket.gethostname(), action),
         )
-        if scope_lock.acquire(blocking=False):
+        try:
+            acquired_lock = scope_lock.acquire(timeout=1)
+        except LockTimeout:
+            acquired_lock = False
+        if acquired_lock:
             try:
                 if action == 'commit':
                     self._security_commit_resources(
@@ -4576,10 +4581,10 @@ class VncApiServer(object):
             action_in_progress = '<unknown action>'
             if len(contenders) > 0 and contenders[0]:
                 _, _, action_in_progress = contenders[0].partition(' ')
-            msg = ("Action '%s' on %s '%s' (%s) scope is under progress. Try "
-                   "again later." % (action_in_progress,
-                                     scope_type.replace('_', ' ').title(),
-                                     ':'.join(scope_fq_name), scope_uuid))
+            msg = ("Security resource modifications or commit/discard action "
+                   "on %s '%s' (%s) scope is under progress. Try again later."
+                   % (scope_type.replace('_', ' ').title(),
+                      ':'.join(scope_fq_name), scope_uuid))
             raise cfgm_common.exceptions.HttpError(400, msg)
 
         # TODO(ethuleau): we could return some stats or type/uuid resources

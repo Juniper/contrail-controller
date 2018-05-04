@@ -36,6 +36,7 @@ from vnc_api.vnc_api import Tag
 from vnc_api.vnc_api import VirtualNetwork
 
 from vnc_cfg_api_server.tests import test_case
+from vnc_cfg_api_server.vnc_cfg_types import FirewallPolicyServer
 
 
 logger = logging.getLogger(__name__)
@@ -1400,7 +1401,7 @@ class FirewallDraftModeBase(object):
 
         for action in self.ACTIONS:
             opposite_action = (self.ACTIONS - set([action])).pop()
-            with self._api_server._db_conn._zk_db._zk_client.lock(
+            with self._api_server._db_conn._zk_db._zk_client.write_lock(
                     self.lock_path, 'fake_identifier %s' % opposite_action):
                 with ExpectedException(BadRequest):
                     getattr(self.api, '%s_security' % action)(self._scope)
@@ -1417,8 +1418,8 @@ class FirewallDraftModeBase(object):
                 with ExpectedException(HttpError):
                     getattr(self.api, '%s_security' % action)(self._scope)
 
-            scope_lock = self._api_server._db_conn._zk_db._zk_client.lock(
-                self.lock_path)
+            scope_lock = self._api_server._db_conn._zk_db._zk_client.\
+                write_lock(self.lock_path)
             self.assertTrue(scope_lock.acquire(blocking=False))
             scope_lock.release()
 
@@ -1439,8 +1440,8 @@ class FirewallDraftModeBase(object):
     def test_cannot_create_security_resource_during_action(self):
         self.set_scope_instance()
 
-        with self._api_server._db_conn._zk_db._zk_client.lock(self.lock_path,
-                                                              'fake commit'):
+        with self._api_server._db_conn._zk_db._zk_client.write_lock(
+                self.lock_path, 'fake commit'):
             for r_class in self.SECURITY_RESOURCES:
                 resource = r_class(
                     name='%s-%s' % (r_class.resource_type, self.id()),
@@ -1467,8 +1468,8 @@ class FirewallDraftModeBase(object):
             self.assertEqual(resource.parent_type, self._owner.resource_type)
         self.draft_mode = True
 
-        with self._api_server._db_conn._zk_db._zk_client.lock(self.lock_path,
-                                                              'fake commit'):
+        with self._api_server._db_conn._zk_db._zk_client.write_lock(
+                self.lock_path, 'fake commit'):
             for resource in resources:
                 resource.display_name = 'new-name-%s' % resource.name
                 with ExpectedException(BadRequest):
@@ -1490,12 +1491,28 @@ class FirewallDraftModeBase(object):
             self.assertEqual(resource.parent_type, self._owner.resource_type)
         self.draft_mode = True
 
-        with self._api_server._db_conn._zk_db._zk_client.lock(self.lock_path,
-                                                              'fake commit'):
+        with self._api_server._db_conn._zk_db._zk_client.write_lock(
+                self.lock_path, 'fake commit'):
             for resource in resources:
                 with ExpectedException(BadRequest):
                     getattr(self.api, '%s_delete' % resource.object_type)(
                         id=resource.uuid)
+
+    # @patch.object(SecurityResourceBase, '_pending_update')
+    def test_cannot_start_action_during_sec_res_is_being_created(self):
+        self.set_scope_instance()
+        pending_update_orig = FirewallPolicyServer._pending_update
+
+        def pending_update_mock(*args, **kwargs):
+            self.assertRaises(BadRequest, self.api.commit_security,
+                              self._scope)
+            self.assertRaises(BadRequest, self.api.discard_security,
+                              self._scope)
+            return pending_update_orig(*args, **kwargs)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        with patch.object(FirewallPolicyServer, '_pending_update',
+                          side_effect=pending_update_mock):
+            self.api.firewall_policy_create(fp)
 
     def test_read_draft_security_resource_required_fq_name_or_uuid(self):
         self.set_scope_instance()

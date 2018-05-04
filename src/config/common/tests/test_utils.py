@@ -1170,19 +1170,23 @@ class FakeKazooClient(object):
         def __init__(self, path, identifier):
             self._path = zk_scrub_path(path)
             if self._path not in self._locks:
-                self._locks[self._path] = (gevent.lock.Semaphore(), identifier)
+                self._locks[self._path] = (
+                    gevent.lock.Semaphore(),  # write lock
+                    gevent.lock.Semaphore(),  # read lock
+                    identifier,
+                )
 
         def acquire(self, blocking=True, timeout=None):
-            lock, _ = self._locks[self._path]
-            return lock.acquire(blocking, timeout)
+            w_lock, _, _ = self._locks[self._path]
+            return w_lock.acquire(blocking, timeout)
 
         def release(self):
-            lock, _ = self._locks[self._path]
-            lock.release()
+            w_lock, _, _ = self._locks[self._path]
+            w_lock.release()
 
         def contenders(self):
-            lock, contender = self._locks[self._path]
-            return [contender] if lock.locked() else []
+            w_lock, _, contender = self._locks[self._path]
+            return [contender] if w_lock.locked() else []
 
         def destroy(self):
             self._locks.pop(self._path, None)
@@ -1193,6 +1197,33 @@ class FakeKazooClient(object):
         def __exit__(self, exc_type, exc_value, traceback):
             self.release()
             self.destroy()
+
+    class ReadLock(Lock):
+        def acquire(self, blocking=True, timeout=None):
+            w_lock, r_lock, _ = self._locks[self._path]
+            if w_lock.acquire(blocking, timeout):
+                w_lock.release()
+                r_lock.acquire(False)
+                return True
+            return False
+
+        def release(self):
+            _, r_lock, _ = self._locks[self._path]
+            r_lock.release()
+
+    class WriteLock(Lock):
+        def acquire(self, blocking=True, timeout=None):
+            w_lock, r_lock, _ = self._locks[self._path]
+            if r_lock.acquire(blocking, timeout):
+                r_lock.release()
+                # we should substract time already passed in the read acquire
+                # to the timout before we tried acquire the write lock
+                return w_lock.acquire(blocking, timeout)
+            return False
+
+        def release(self):
+            w_lock, _, _ = self._locks[self._path]
+            w_lock.release()
 
     def __init__(self, *args, **kwargs):
         self.add_listener = stub
