@@ -30,7 +30,7 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.2"
+__version__ = "1.3"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
@@ -752,6 +752,7 @@ class DatabaseManager(object):
             except pycassa.NotFoundException:
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
+                continue
             fq_name_str = ':'.join(json.loads(col['fq_name']))
             if fq_name_str not in cassandra_all_vns:
                 msg = ("Found IP %s %s on VN %s (%s) thats not in FQ NAME "
