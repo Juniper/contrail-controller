@@ -51,6 +51,8 @@ struct JobLogEntry {
        Key: job task name which could be the device id if this is multi-device job
        Value: JSON text blob that conforms to the output schema defined in the job template. */
     6: optional map<string, string>    result;
+    /* fq_name string of the fabric for which the job is executed, e.g. default-global-system-config:fabric-1 */
+    7: string                           fabric_name (key="ObjectFabricNameTable");
     // Add additional items here as needed
 }
 
@@ -82,3 +84,4 @@ objectlog sandesh JobLog {
 uve sandesh UveJobExecution {
     1: JobExecution              data;
 }
+

@@ -24,10 +24,10 @@ from sandesh.job.ttypes import UveJobExecution
 from sandesh.job.ttypes import PRouterOnboardingLogEntry
 from sandesh.job.ttypes import PRouterOnboardingLog
 
-from logger import JobLogger
-from job_exception import JobException
-from sandesh_utils import SandeshUtils
-from job_messages import MsgBundle
+from job_manager.logger import JobLogger
+from job_manager.job_exception import JobException
+from job_manager.sandesh_utils import SandeshUtils
+from job_manager.job_messages import MsgBundle
 
 
 class JobLogUtils(object):
@@ -166,28 +166,33 @@ class JobLogUtils(object):
         return args
 
     def send_job_log(self, job_template_fqname, job_execution_id,
-                     message, status, result=None, timestamp=None):
+                     fabric_fq_name, message, status, result=None,
+                     timestamp=None):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if timestamp is None:
                 timestamp = int(round(time.time() * 1000))
             job_log_entry = JobLogEntry(name=job_template_fqname,
                                         execution_id=job_execution_id,
+                                        fabric_name=fabric_fq_name,
                                         timestamp=timestamp, message=message,
                                         status=status, result=result)
             job_log = JobLog(log_entry=job_log_entry)
             job_log.send(sandesh=self.config_logger._sandesh)
             self.config_logger.debug("Created job log for job template: %s, "
-                                     " execution id: %s,  status: %s, result: "
+                                     " execution id: %s,  fabric_fq_name: %s"
+                                     "status: %s, result: "
                                      "%s, message: %s" % (job_template_fqname,
                                                           job_execution_id,
+                                                          fabric_fq_name,
                                                           status, result,
                                                           message))
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.SEND_JOB_LOG_ERROR,
                                        job_template_fqname=job_template_fqname,
                                        job_execution_id=job_execution_id,
-                                       exc_msg=repr(e))
+                                       fabric_name=fabric_fq_name,
+                                       exc_msg=repr(exp))
             raise JobException(msg, job_execution_id)
 
     def send_job_execution_uve(self, job_template_fqname, job_execution_id,
@@ -203,11 +208,11 @@ class JobLogUtils(object):
                 percentage_completed=percentage_completed)
             job_uve = UveJobExecution(data=job_exe_data)
             job_uve.send(sandesh=self.config_logger._sandesh)
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.SEND_JOB_EXC_UVE_ERROR,
                                        job_template_fqname=job_template_fqname,
                                        job_execution_id=job_execution_id,
-                                       exc_msg=repr(e))
+                                       exc_msg=repr(exp))
             raise JobException(msg, job_execution_id)
 
     def send_prouter_object_log(self, prouter_fqname, job_execution_id,
@@ -243,14 +248,15 @@ class JobLogUtils(object):
                  os_version,
                  serial_num,
                  onboarding_state))
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.SEND_PROUTER_OBJECT_LOG_ERROR,
                                        prouter_fqname=prouter_fqname,
                                        job_execution_id=job_execution_id,
-                                       exc_msg=repr(e))
+                                       exc_msg=repr(exp))
 
             raise JobException(msg, job_execution_id)
 
     def get_fq_name_log_str(self, fq_name):
         fq_name_log_str = ':'.join(map(str, fq_name))
         return fq_name_log_str
+
