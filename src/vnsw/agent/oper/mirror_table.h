@@ -184,7 +184,7 @@ public:
                                 VrfMirrorEntryList &list);
     static MirrorEntryData::MirrorEntryFlags
         DecodeMirrorFlag (const std::string &nh_mode, bool juniper_header);
-    void DeleteMirrorVrf(MirrorEntry *entry);
+    void DeleteMirrorVrf(MirrorEntry *entry, bool del_from_vrf_list);
     bool IsConfigured();
 private:
     std::auto_ptr<boost::asio::ip::udp::socket> udp_sock_;
