@@ -32,7 +32,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 from ansible.executor.playbook_executor import PlaybookExecutor
-from job_messages import MsgBundle
+from job_manager.job_messages import MsgBundle
 
 
 class PlaybookHelper(object):
@@ -91,11 +91,11 @@ class PlaybookHelper(object):
                 raise Exception(msg)
 
             return output
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.PLAYBOOK_EXECUTE_ERROR,
-                                       exc_msg=repr(e))
-            if e.message:
-                msg = msg + "\n" + e.message
+                                       exc_msg=repr(exp))
+            if exp.message:
+                msg = msg + "\n" + exp.message
             sys.exit(msg)
 
 
@@ -115,10 +115,10 @@ if __name__ == "__main__":
         playbook_input_json = json.loads(playbook_params.playbook_input[0])
         if playbook_input_json is None:
             sys.exit(MsgBundle.getMessage(MsgBundle.NO_PLAYBOOK_INPUT_DATA))
-    except Exception as e:
+    except Exception as exp:
         print >> sys.stderr, "Failed to start playbook due "\
                              "to Exception: %s" % traceback.print_stack()
         sys.exit(MsgBundle.getMessage(MsgBundle.PLAYBOOK_INPUT_PARSING_ERROR,
-                                      exc_msg=repr(e)))
+                                      exc_msg=repr(exp)))
     playbook_helper = PlaybookHelper()
     playbook_helper.execute_playbook(playbook_input_json)

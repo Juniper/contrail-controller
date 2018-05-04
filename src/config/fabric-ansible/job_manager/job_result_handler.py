@@ -8,17 +8,18 @@ results from the job executions
 """
 import time
 
-from job_utils import JobStatus
-from job_exception import JobException
-from job_messages import MsgBundle
+from job_manager.job_utils import JobStatus
+from job_manager.job_messages import MsgBundle
 
 
 class JobResultHandler(object):
 
-    def __init__(self, job_template_id, execution_id, logger, job_utils,
+    def __init__(self, job_template_id, execution_id, fabric_fq_name,
+                 logger, job_utils,
                  job_log_utils):
         self._job_template_id = job_template_id
         self._execution_id = execution_id
+        self._fabric_fq_name = fabric_fq_name
         self._logger = logger
         self._job_utils = job_utils
         self.job_log_utils = job_log_utils
@@ -56,6 +57,7 @@ class JobResultHandler(object):
         self._logger.debug("%s" % self.job_summary_message)
         self.job_log_utils.send_job_log(job_template_fqname,
                                         self._execution_id,
+                                        self._fabric_fq_name,
                                         self.job_summary_message,
                                         self.job_result_status.value,
                                         timestamp=timestamp)
@@ -98,3 +100,4 @@ class JobResultHandler(object):
             job_summary_message += self.job_result_message
 
         return job_summary_message
+

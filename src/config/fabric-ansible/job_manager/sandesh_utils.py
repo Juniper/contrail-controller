@@ -8,8 +8,8 @@ Contains utility functions used for Sandesh initialization and logging
 import time
 import timeout_decorator
 
-from job_exception import JobException
-from job_messages import MsgBundle
+from job_manager.job_exception import JobException
+from job_manager.job_messages import MsgBundle
 
 
 class SandeshUtils(object):
@@ -40,10 +40,10 @@ class SandeshUtils(object):
     def close_sandesh_connection(self):
         try:
             self.wait_for_msg_send()
-        except JobException as e:
+        except JobException as job_exp:
             msg = MsgBundle.getMessage(MsgBundle.CLOSE_SANDESH_EXCEPTION)
             self._logger.error(msg)
-            e.msg = msg
-            raise e
+            job_exp.msg = msg
+            raise job_exp
         finally:
             self.uninit_sandesh()
