@@ -231,7 +231,7 @@ class Resource(ResourceDbMixin):
         return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
 
 
-def if_draft_mode_enabled(func):
+def draft_mode_sanity_checks(func):
     @wraps(func)
     def wrapper(cls, obj_dict, *args, **kwargs):
         if cls.object_type not in constants.SECURITY_OBJECT_TYPES:
@@ -250,7 +250,39 @@ def if_draft_mode_enabled(func):
             return True, ''
         draft_pm = result
 
-        return func(cls, draft_pm, obj_dict, *args, **kwargs)
+        # if a commit or discard is on going in that scope, forbidden any
+        # security resource modification in that scope
+        scope_type = draft_pm.get('parent_type',
+                                  GlobalSystemConfigServer.object_type)
+        scope_uuid = draft_pm.get('parent_uuid', 'unknown UUID')
+        scope_fq_name = draft_pm['fq_name'][:-1]
+        if not scope_fq_name:
+            scope_fq_name = [GlobalSystemConfigServer().name]
+        scope_read_lock = cls.vnc_zk_client._zk_client.read_lock(
+            '%s/%s/%s' % (
+                cls.server.security_lock_prefix,
+                scope_type,
+                ':'.join(scope_fq_name),
+            ),
+        )
+        if not scope_read_lock.acquire(blocking=False):
+            contenders = scope_read_lock.contenders()
+            for contender in contenders:
+                _, action_in_progress = contender.split()
+                if action_in_progress:
+                    break
+            else:
+                action_in_progress = '<unknown action>'
+            msg = ("Action '%s' on %s '%s' (%s) scope is under progress. "
+                   "Cannot modify %s security resource." %
+                   (action_in_progress, scope_type.replace('_', ' ').title(),
+                    ':'.join(scope_fq_name), scope_uuid,
+                    cls.object_type.replace('_', ' ').title()))
+            return False, (400, msg)
+        try:
+            return func(cls, draft_pm, obj_dict, *args, **kwargs)
+        finally:
+            scope_read_lock.release()
     return wrapper
 
 
@@ -438,19 +470,19 @@ class SecurityResourceBase(Resource):
             parent_class.resource_type, parent_dict)
 
     @classmethod
-    @if_draft_mode_enabled
+    @draft_mode_sanity_checks
     def pending_dbe_create(cls, draft_pm, obj_dict):
         return cls._pending_update(draft_pm, obj_dict, 'created')
 
     @classmethod
-    @if_draft_mode_enabled
+    @draft_mode_sanity_checks
     def pending_dbe_update(cls, draft_pm, obj_dict, delta_obj_dict=None,
                            prop_collection_updates=None):
         return cls._pending_update(draft_pm, obj_dict, 'updated',
                                    delta_obj_dict, prop_collection_updates)
 
     @classmethod
-    @if_draft_mode_enabled
+    @draft_mode_sanity_checks
     def pending_dbe_delete(cls, draft_pm, obj_dict):
         uuid = obj_dict['uuid']
         exist_refs = set()
@@ -514,33 +546,6 @@ class SecurityResourceBase(Resource):
     @classmethod
     def _pending_update(cls, draft_pm, obj_dict, draft_mode_state,
                         delta_obj_dict=None, prop_collection_updates=None):
-        # if a commit or discard is on going in that scope, forbidden any
-        # security resource modification in that scope
-        scope_type = draft_pm.get('parent_type',
-                                  GlobalSystemConfigServer.object_type)
-        scope_uuid = draft_pm.get('parent_uuid', 'unknown UUID')
-        scope_fq_name = draft_pm['fq_name'][:-1]
-        if not scope_fq_name:
-            scope_fq_name = [GlobalSystemConfigServer().name]
-        scope_lock = cls.vnc_zk_client._zk_client.lock(
-            '%s/%s/%s' % (
-                cls.server.security_lock_prefix,
-                scope_type,
-                ':'.join(scope_fq_name),
-            ),
-        )
-        contenders = scope_lock.contenders()
-        if contenders:
-            action_in_progress = '<unknown action>'
-            if len(contenders) > 0 and contenders[0]:
-                _, _, action_in_progress = contenders[0].partition(' ')
-            msg = ("Action '%s' on %s '%s' (%s) scope is under progress. "
-                   "Cannot modify %s security resource." %
-                   (action_in_progress, scope_type.replace('_', ' ').title(),
-                    ':'.join(scope_fq_name), scope_uuid,
-                    cls.object_type.replace('_', ' ').title()))
-            return False, (400, msg)
-
         if not delta_obj_dict:
             delta_obj_dict = {}
         delta_obj_dict.pop('uuid', None)
