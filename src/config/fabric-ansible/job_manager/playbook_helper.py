@@ -38,9 +38,8 @@ from job_messages import MsgBundle
 class PlaybookHelper(object):
 
     def get_plugin_output(self, pbex):
-        output_dict = pbex._tqm._variable_manager._nonpersistent_fact_cache[
+        output_json = pbex._tqm._variable_manager._nonpersistent_fact_cache[
             'localhost']['output']
-        output_json = json.dumps(output_dict)
         return output_json
 
     def execute_playbook(self, playbook_info):
@@ -75,17 +74,28 @@ class PlaybookHelper(object):
                                     loader=loader,
                                     options=options, passwords=None)
             ret_val = pbex.run()
-            output = self.get_plugin_output(pbex)
-
             if ret_val != 0:
                 msg = MsgBundle.getMessage(MsgBundle.
                                            PLAYBOOK_RETURN_WITH_ERROR)
+                raise Exception(msg)
+
+            output = self.get_plugin_output(pbex)
+            if output is None or output.get('status') is None:
+                msg = MsgBundle.getMessage(MsgBundle.
+                                           PLAYBOOK_OUTPUT_MISSING)
+                raise Exception(msg)
+
+            if output.get('status').lower() == "failure":
+                msg = MsgBundle.getMessage(MsgBundle.
+                                           PLAYBOOK_STATUS_FAILED)
                 raise Exception(msg)
 
             return output
         except Exception as e:
             msg = MsgBundle.getMessage(MsgBundle.PLAYBOOK_EXECUTE_ERROR,
                                        exc_msg=repr(e))
+            if e.message:
+                msg = msg + "\n" + e.message
             sys.exit(msg)
 
 
