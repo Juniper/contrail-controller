@@ -29,7 +29,7 @@ public:
     DiscoveryServiceClientMock(EventManager *evm, boost::asio::ip::tcp::endpoint ep,
                                std::string client_name,
                                bool send_parent_heartbeat = true) :
-        DiscoveryServiceClient(evm, ep, client_name),
+        DiscoveryServiceClient(evm, ep, SslConfig(), client_name),
         xmpp_instances_(0), ifmap_instances_(0),
         xmpp_cb_count_(0), ifmap_cb_count_(0), xmpp_reeval_pub_(0),
         send_parent_heartbeat_(send_parent_heartbeat) {

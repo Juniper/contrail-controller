@@ -133,8 +133,7 @@ public:
 
     DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
                            SslConfig ssl_cfg,
-                           std::string client_name,
-                           std::string reeval_publish_taskname="bgp::Config");
+                           std::string client_name);
     virtual ~DiscoveryServiceClient();
     
     void Init();

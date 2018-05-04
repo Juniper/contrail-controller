@@ -5,6 +5,7 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include <base/connection_info.h>
+#include <base/task_annotations.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/common/vns_constants.h>
@@ -59,6 +60,7 @@ int DSSubscribeResponse::GetConnectTime() const {
 }
 
 bool DSSubscribeResponse::SubscribeTimerExpired() {
+    CHECK_CONCURRENCY("http client");
     // Resend subscription request
     ds_client_->Subscribe(serviceName_);
     return false;
@@ -132,6 +134,7 @@ DSPublishResponse::~DSPublishResponse() {
 }
 
 bool DSPublishResponse::HeartBeatTimerExpired() {
+    CHECK_CONCURRENCY("http client");
 
     // Check if ReEvalPublish cb registered, if so enqueue re-evaluate trigger
     DiscoveryServiceClient::ReEvalPublishCbHandlerMap::iterator it =
@@ -168,6 +171,7 @@ int DSPublishResponse::GetConnectTime() const {
 }
 
 bool DSPublishResponse::PublishConnectTimerExpired() {
+    CHECK_CONCURRENCY("http client");
     // Resend subscription request
     ds_client_->Publish(serviceName_);
     return false;
@@ -200,14 +204,13 @@ static void WaitForIdle() {
 DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
                                                boost::asio::ip::tcp::endpoint ep,
                                                SslConfig ssl_cfg,
-                                               std::string client_name,
-                                               std::string reeval_publish_taskname)
+                                               std::string client_name)
     : http_client_(new HttpClient(evm)),
       evm_(evm), ds_endpoint_(ep), ssl_config_(ssl_cfg),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
                   boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
       reevaluate_publish_cb_queue_(
-          TaskScheduler::GetInstance()->GetTaskId(reeval_publish_taskname), 0,
+          TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
           boost::bind(&DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent,
           this, _1)),
       shutdown_(false),
@@ -291,6 +294,7 @@ DiscoveryServiceClient::~DiscoveryServiceClient() {
 }
 
 bool DiscoveryServiceClient::DequeueEvent(EnqueuedCb cb) {
+    CHECK_CONCURRENCY("http client");
     cb();
     return true;
 }
@@ -515,6 +519,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
 
 void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
                                                ReEvalPublishCbHandler cb) {
+    CHECK_CONCURRENCY("http client");
 
     // Get Response Header
     PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
@@ -572,6 +577,7 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
 }
 
 bool DiscoveryServiceClient::ReEvalautePublishCbDequeueEvent(EnqueuedCb cb) {
+    CHECK_CONCURRENCY("http client");
     cb();
     return true;
 }
