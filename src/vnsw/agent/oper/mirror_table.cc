@@ -126,11 +126,14 @@ bool MirrorTable::OnChange(MirrorEntry *mirror_entry) {
 
 bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
+    bool vrf_changed = false;
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
     MirrorEntryData *data = static_cast<MirrorEntryData *>(req->data.get());
-    if (mirror_entry->vrf_name_ != data->vrf_name_ || 
-        mirror_entry->mirror_flags_ != data->mirror_flags_) {
-        DeleteMirrorVrf(mirror_entry);
+    if (mirror_entry->vrf_name_ != data->vrf_name_) {
+        vrf_changed = true;
+    }
+    if (vrf_changed || (mirror_entry->mirror_flags_ != data->mirror_flags_)) {
+        DeleteMirrorVrf(mirror_entry, vrf_changed);
         mirror_entry->vrf_name_ = data->vrf_name_;
     }
     mirror_entry->sip_ = data->sip_;
@@ -196,16 +199,16 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
 
 bool MirrorTable::Delete(DBEntry *entry, const DBRequest *request) {
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
-    RemoveUnresolved(mirror_entry);
-    DeleteResolvedVrfMirrorEntry(mirror_entry);
-    DeleteMirrorVrf(mirror_entry);
+    DeleteMirrorVrf(mirror_entry, true);
     return true;
 }
 
-void MirrorTable::DeleteMirrorVrf(MirrorEntry *entry) {
-    if (entry->mirror_flags_ == MirrorEntryData::DynamicNH_Without_JuniperHdr){
+void MirrorTable::DeleteMirrorVrf(MirrorEntry *entry, bool del_from_vrf_list) {
+    if (del_from_vrf_list) {
         RemoveUnresolved(entry);
         DeleteResolvedVrfMirrorEntry(entry);
+    }
+    if (entry->mirror_flags_ == MirrorEntryData::DynamicNH_Without_JuniperHdr){
         VrfEntry *vrf =
             agent()->vrf_table()->FindVrfFromName(entry->vrf_name_);
         if (vrf) {
