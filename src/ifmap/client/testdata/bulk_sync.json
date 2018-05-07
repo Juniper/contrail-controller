@@ -1240,22 +1240,6 @@
         "prop:service_appliance_user_credentials": "{\"username\": \"admin\", \"password\": \"contrail123\"}",
         "type": "\"service_appliance\""
       },
-      "19c6152f-716c-451c-9a11-acd46347bd5c": {
-        "META:latest_col_ts": "null",
-        "fq_name": "[\"default-global-system-config\", \"system-defined-phyif-bandwidth\"]",
-        "parent:global_system_config:817fc9a2-4a1b-4614-9246-d28401781c1b": "null",
-        "parent_type": "\"global-system-config\"",
-        "prop:alarm_severity": "2",
-        "prop:display_name": "\"system-defined-phyif-bandwidth\"",
-        "prop:id_perms": "{\"enable\": true, \"uuid\": {\"uuid_mslong\": 1857195189847475484, \"uuid_lslong\": 11101844584643673436}, \"creator\": null, \"created\": \"2016-12-15T09:21:39.072153\", \"user_visible\": true, \"last_modified\": \"2016-12-15T09:21:39.072153\", \"permissions\": {\"owner\": \"admin\", \"owner_access\": 7, \"other_access\": 7, \"group\": \"KeystoneAdmin\", \"group_access\": 7}, \"description\": \"Physical Bandwidth usage anomaly.\"}",
-        "prop:perms2": "{\"owner\": \"13f0865eaa21470d8008b230a2699c83\", \"owner_access\": 7, \"global_access\": 0, \"share\": []}",
-        "prop:uve_keys": "{\"uve_key\": [\"vrouter\"]}",
-        "propl:alarm_rules:0": "{\"and_list\": [{\"operation\": \">=\", \"operand1\": \"VrouterStatsAgent.out_bps_ewm.*.sigma\", \"variables\": [\"VrouterStatsAgent.out_bps_ewm.__key\"], \"operand2\": {\"json_value\": \"2\"}}]}",
-        "propl:alarm_rules:1": "{\"and_list\": [{\"operation\": \"<=\", \"operand1\": \"VrouterStatsAgent.out_bps_ewm.*.sigma\", \"variables\": [\"VrouterStatsAgent.out_bps_ewm.__key\"], \"operand2\": {\"json_value\": \"-2\"}}]}",
-        "propl:alarm_rules:2": "{\"and_list\": [{\"operation\": \">=\", \"operand1\": \"VrouterStatsAgent.in_bps_ewm.*.sigma\", \"variables\": [\"VrouterStatsAgent.in_bps_ewm.__key\"], \"operand2\": {\"json_value\": \"2\"}}]}",
-        "propl:alarm_rules:3": "{\"and_list\": [{\"operation\": \"<=\", \"operand1\": \"VrouterStatsAgent.in_bps_ewm.*.sigma\", \"variables\": [\"VrouterStatsAgent.in_bps_ewm.__key\"], \"operand2\": {\"json_value\": \"-2\"}}]}",
-        "type": "\"alarm\""
-      },
       "0d2748d8-ad3b-496f-baeb-c712f67feca1": {
         "META:latest_col_ts": "null",
         "fq_name": "[\"0d2748d8-ad3b-496f-baeb-c712f67feca1\"]",
