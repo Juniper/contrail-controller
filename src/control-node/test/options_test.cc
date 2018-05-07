@@ -12,6 +12,7 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
+#include "control-node/control_node.h"
 #include "control-node/options.h"
 #include "io/event_manager.h"
 #include "net/address_util.h"
@@ -626,6 +627,12 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
     config_db_server_list.push_back("40.1.1.2:100");
     TASK_UTIL_EXPECT_VECTOR_EQ(config_db_server_list,
                      options_.config_db_server_list());
+}
+
+TEST_F(OptionsTest, ControlNodeExit) {
+    remove("core");
+    EXPECT_DEATH(ControlNode::Exit(1, true), ".*");
+    EXPECT_FALSE(ifstream("core"));
 }
 
 int main(int argc, char **argv) {
