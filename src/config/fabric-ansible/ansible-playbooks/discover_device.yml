@@ -27,4 +27,5 @@
       set_fact:
          output: "{{ output|combine({'status':'SUCCESS', 'message':'Discover playbook successfully executed'})}}"
 
-    - debug: var=output
+    - name: print output
+      debug: var=output verbosity=1
