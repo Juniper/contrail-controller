@@ -107,7 +107,7 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     if (ec) {
         LOG(ERROR, "Xmpp IP Address:" <<  options->host_ip() <<
                    " conversion error:" << ec.message());
-        exit(1);
+        ControlNode::Exit(1);
     }
     if (!xmpp_server->Initialize(options->xmpp_port(), true,
                                  xmpp_ip_address)) {
@@ -216,7 +216,7 @@ void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
 int main(int argc, char *argv[]) {
     // Process options from command-line and configuration file.
     if (!options.Parse(evm, argc, argv)) {
-        exit(-1);
+        ControlNode::Exit(1);
     }
 
     srand(unsigned(time(NULL)));
@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
     if (ec) {
         LOG(ERROR, "Bgp IP Address:" <<  options.host_ip() <<
                    " conversion error:" << ec.message());
-        exit(1);
+        ControlNode::Exit(1);
     }
 
     bgp_server->rtarget_group_mgr()->Initialize();
@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
     xmpp_cfg.dscp_value = bgp_server->global_qos()->control_dscp();
     XmppServer *xmpp_server = CreateXmppServer(&evm, &options, &xmpp_cfg);
     if (xmpp_server == NULL) {
-        exit(1);
+        ControlNode::Exit(1);
     }
 
     // Create BGP and IFMap channel managers.
@@ -378,7 +378,7 @@ int main(int argc, char *argv[]) {
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
         Sandesh::Uninit();
-        exit(1);
+        ControlNode::Exit(1);
     }
 
     // Set BuildInfo.

@@ -31,6 +31,7 @@ public:
         const BgpXmppChannelManager *xmpp_channel_mgr,
         const IFMapServer *ifmap_server, const string &build_info);
     static void Shutdown();
+    static void Exit(int status, bool do_assert = false);
 
 private:
     static bool ControlNodeInfoLogger(const BgpServer *server,

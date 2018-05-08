@@ -5,6 +5,7 @@
 #include "control_node.h"
 
 #include <boost/assign.hpp>
+#include <sys/resource.h>
 
 #include "base/task.h"
 #include "db/db.h"
@@ -236,4 +237,15 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")));
     scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
+}
+
+// Exit control-node without dumping any core-file.
+void ControlNode::Exit(int status, bool do_assert) {
+    rlimit new_core_limit;
+    new_core_limit.rlim_cur = 0;
+    new_core_limit.rlim_max = 0;
+    setrlimit(RLIMIT_CORE, &new_core_limit);
+    if (do_assert)
+        assert(false);
+    exit(status);
 }
