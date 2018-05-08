@@ -1917,7 +1917,7 @@ class OpServer(object):
 
         uve_name = uve_tbl + ':' + name
         user_resources = self.get_resource_list_from_uve_type(table)
-        self._logger.error("usr res are %s" %user_resources)
+        self._logger.debug("resource list for %s is %s" %(table, user_resources))
         if name.find('*') != -1:
             flat = True
             yield u'{"value": ['
@@ -2020,9 +2020,8 @@ class OpServer(object):
         if uve_type in UVE_MAP:
             uve_tbl = UVE_MAP[uve_type]
 
-        self._logger.error("before res list is %s" %uve_type)
         res_list = self.get_resource_list_from_uve_type(uve_type)
-        self._logger.error("res list is %s" %res_list)
+        self._logger.debug("resourse list for %s is %s" %(uve_type, res_list))
         req = bottle.request.query
         try:
             filters = OpServer._uve_filter_set(req)
