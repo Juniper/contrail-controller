@@ -445,6 +445,7 @@ class OpServer(object):
     def __init__(self, args_str=' '.join(sys.argv[1:])):
         self.gevs = []
         self._args = None
+        self._usecache = True
         self._parse_args(args_str)
         print args_str
  
@@ -534,7 +535,6 @@ class OpServer(object):
 
         # On olders version of linux, kafka cannot be
         # relied upon. DO NOT use it to serve UVEs
-        self._usecache = True
         (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
         if PLATFORM.lower() == 'ubuntu':
             if VERSION.find('12.') == 0:
@@ -849,6 +849,7 @@ class OpServer(object):
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
             'api_server_use_ssl': False,
+            'use_aggregated_uve_db' : 'true',
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -1009,6 +1010,8 @@ class OpServer(object):
             help="Port with local auth for admin access")
         parser.add_argument("--api_server_use_ssl",
             help="Use SSL to connect with API server")
+        parser.add_argument("--use_aggregated_uve_db",
+            help="enable/disbale read uve from aggregated uve db")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -1035,6 +1038,9 @@ class OpServer(object):
         auth_conf_info['api_server_ip'] = api_server_info[0]
         auth_conf_info['api_server_port'] = int(api_server_info[1])
         self._args.auth_conf_info = auth_conf_info
+        if self._args.use_aggregated_uve_db.lower() == 'false' or\
+           self._args.use_aggregated_uve_db == '0':
+            self._usecache = False
     # end _parse_args
 
     def get_args(self):
@@ -2462,10 +2468,11 @@ class OpServer(object):
         return self.agp
 
     def run(self):
-        self._uvedbstream.start()
+        if self._usecache:
+            self._uvedbstream.start()
+            self.gevs.append(self._uvedbstream)
 
         self.gevs += [
-            self._uvedbstream,
             gevent.spawn(self.start_webserver),
             gevent.spawn(self.start_uve_server),
             ]
