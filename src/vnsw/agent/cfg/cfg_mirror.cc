@@ -138,6 +138,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
                                     cfg.get_vni(), mirror_flag,
                                     MacAddress::ZeroMac());
     } else {
+        delete entry;
         return "Mode not supported";
     }
 
@@ -512,6 +513,7 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
                                      intf_mirror.get_vni(), mirror_flag,
                                      MacAddress::ZeroMac());
      } else {
+        delete entry;
         return "not supported";
      }
 intf_update:
