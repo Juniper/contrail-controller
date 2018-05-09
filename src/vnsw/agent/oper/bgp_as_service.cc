@@ -60,7 +60,7 @@ void BgpAsAService::BindBgpAsAServicePorts(const std::vector<uint16_t> &ports) {
     for (uint16_t port = start; port <= end; port++) {
         int port_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         struct sockaddr_in address;
-        memset(&address, '0', sizeof(address));
+        memset(&address, 0, sizeof(address));
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = htonl(agent_->router_id().to_ulong());
         address.sin_port = htons(port);
