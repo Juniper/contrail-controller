@@ -1064,6 +1064,7 @@ void DnsManager::VdnsRecordsMsgHandler(const std::string &key,
 
     } else {
         SandeshError("Invalid Request Enter Vdns Server Name", context);
+        delete resp;
     }
 }
 
@@ -1179,6 +1180,7 @@ void DnsManager::BindPendingMsgHandler(const std::string &key,
 
     } else {
         SandeshError("Invalid Request No DnsManager Object ", context);
+        delete resp;
     }
 }
 
