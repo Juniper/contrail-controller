@@ -21,13 +21,11 @@ from job_result_handler import JobResultHandler
 from job_handler import JobHandler
 from job_mgr import JobManager
 from job_log_utils import JobLogUtils
-from job_utils import JobUtils, JobStatus
+from job_utils import JobStatus
 from job_exception import JobException
-from logger import JobLogger
 from sandesh_utils import SandeshUtils
 from job_messages import MsgBundle
 
-from sandesh.job.ttypes import JobLog
 from test_job_manager_utils import TestJobManagerUtils
 
 import gevent
@@ -70,7 +68,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             json.dumps(args))
         self.assertEqual(str(exc_msg), "JobException in execution" +
                          " (None): " + MsgBundle.getMessage(
-                         MsgBundle.SANDESH_INITIALIZATION_TIMEOUT_ERROR))
+                             MsgBundle.SANDESH_INITIALIZATION_TIMEOUT_ERROR))
 
     # to test the case when job_template_id is missing while initializing the
     # job_manager
@@ -110,7 +108,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        job_template_id)
+            job_template_id)
 
         mock_vnc = flexmock()
         flexmock(VncApi).new_instances(mock_vnc)
@@ -118,9 +116,9 @@ class TestJobManagerEC(test_case.JobTestCase):
         flexmock(mock_vnc).should_receive('job_template_read')\
             .with_args(id=job_template_id)\
             .and_raise(NoIdError('No such job Template id'))
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         mock_vnc, job_input_json, log_utils)
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(
             sys_exit_msg.code,
             MsgBundle.getMessage(MsgBundle.JOB_EXC_REC_HDR) +
@@ -145,9 +143,9 @@ class TestJobManagerEC(test_case.JobTestCase):
         exc_msg = 'Job Handler Generic Exception'
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        job_template_uuid)
+            job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         # mock the job_handler to raise a general exception
@@ -157,8 +155,8 @@ class TestJobManagerEC(test_case.JobTestCase):
         flexmock(mock_job_handler).should_receive('handle_job')
         flexmock(mock_job_handler).should_receive('get_playbook_info')\
                                   .and_raise(
-            Exception("Job Handler "
-                      "Generic Exception"))
+                                      Exception("Job Handler "
+                                                "Generic Exception"))
 
         mock_result_handler = flexmock(job_result_status=JobStatus.FAILURE,
                                        job_summary_message=exc_msg)
@@ -169,22 +167,22 @@ class TestJobManagerEC(test_case.JobTestCase):
         flexmock(mock_result_handler).should_receive('update_job_status')\
                                      .with_args(JobStatus.FAILURE, exc_msg)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code, exc_msg)
 
     # to test generic exception from get_playbook_info
     def test_execute_job_handler_gen_exc(self):
         # create job template
         fake_job_template = flexmock(
-                                job_template_type='device',
-                                job_template_job_runtime='ansible',
-                                job_template_multi_device_job=False,
-                                job_template_playbooks=TestJobManagerUtils.
-                                playbooks_list,
-                                name='single_device_temp_jh_gen_exc',
-                                fq_name=["default-global-system-config",
-                                         "single_device_temp_jh_gen_exc"],
-                                uuid='random_uuid')
+            job_template_type='device',
+            job_template_job_runtime='ansible',
+            job_template_multi_device_job=False,
+            job_template_playbooks=TestJobManagerUtils.
+            playbooks_list,
+            name='single_device_temp_jh_gen_exc',
+            fq_name=["default-global-system-config",
+                     "single_device_temp_jh_gen_exc"],
+            uuid='random_uuid')
 
         mock_vnc = flexmock()
         flexmock(VncApi).new_instances(mock_vnc)
@@ -196,9 +194,9 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        "random_uuid")
+            "random_uuid")
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         mock_vnc, job_input_json, log_utils)
 
         fake_job_template.should_receive(
@@ -209,12 +207,12 @@ class TestJobManagerEC(test_case.JobTestCase):
         # mock the job_handler to raise a general exception
         fake_job_template.should_receive('get_job_template_playbooks')\
             .and_raise(
-            Exception("Mock "
-                      "Generic Exception in job_handler"))
+                Exception("Mock "
+                          "Generic Exception in job_handler"))
 
-        e = Exception('Mock Generic Exception in job_handler')
+        exc = Exception('Mock Generic Exception in job_handler')
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code, MsgBundle.
                          getMessage(MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
                          MsgBundle.
@@ -223,7 +221,7 @@ class TestJobManagerEC(test_case.JobTestCase):
                          MsgBundle.
                          getMessage(MsgBundle.GET_PLAYBOOK_INFO_ERROR,
                                     job_template_id="random_uuid",
-                                    exc_msg=repr(e)))
+                                    exc_msg=repr(exc)))
 
     # to test single_device_job when playbook is not present in the path
     def test_execute_job_no_pb_file_on_path(self):
@@ -243,15 +241,15 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        job_template_uuid)
+            job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         # mock the call to invoke the playbook process
         flexmock(os.path).should_receive('exists').and_return(False)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code, MsgBundle.
                          getMessage(MsgBundle.
                                     JOB_SUMMARY_MESSAGE_HDR) +
@@ -278,27 +276,27 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        job_template_uuid)
+            job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         # mock the job_handler to raise a general exception
         mock_job_handler = flexmock()
         flexmock(JobHandler).new_instances(mock_job_handler)
 
-        e = Exception("Mock "
+        exc = Exception("Mock "
                       "Generic Exception")
 
         flexmock(mock_job_handler).should_receive('handle_job')\
-                                  .and_raise(e)
+                                  .and_raise(exc)
 
-        exc_msg = repr(e)
+        exc_msg = repr(exc)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code,
                          MsgBundle.getMessage(
-                                       MsgBundle.EXC_JOB_ERR_HDR) +
+                             MsgBundle.EXC_JOB_ERR_HDR) +
                          exc_msg + " ")
 
     # to test generic exception in job_manager
@@ -317,17 +315,17 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        job_template_uuid)
+            job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         exc_msg = repr(TypeError(
-                           "'NoneType' object has no attribute '__getitem__'"))
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+            "'NoneType' object has no attribute '__getitem__'"))
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code,
                          MsgBundle.getMessage(
-                                       MsgBundle.EXC_JOB_ERR_HDR) +
+                             MsgBundle.EXC_JOB_ERR_HDR) +
                          exc_msg + " ")
 
     # to test the generic exception in handle_device_job
@@ -346,11 +344,11 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        job_template_uuid)
+            job_template_uuid)
         job_input_json["params"] = {"device_list":
                                     ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]}
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         # mock the job_handler to raise a general exception
@@ -360,8 +358,8 @@ class TestJobManagerEC(test_case.JobTestCase):
         flexmock(mock_job_handler).should_receive('handle_job')
         flexmock(mock_job_handler).should_receive('get_playbook_info')\
                                   .and_raise(
-            Exception("Job Device Handler "
-                      "Generic Exception"))
+                                      Exception("Job Device Handler "
+                                          "Generic Exception"))
 
         mock_result_handler = flexmock(job_result_status=JobStatus.FAILURE,
                                        job_summary_message=exc_msg)
@@ -372,7 +370,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         flexmock(mock_result_handler).should_receive('update_job_status')\
                                      .with_args(JobStatus.FAILURE, exc_msg)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code, exc_msg)
 
     # to test multi_device_job when device_vendor is not found
@@ -391,20 +389,20 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                                        job_template_uuid)
+            job_template_uuid)
         job_input_json.update({
-                               "params": {"device_list":
+            "params": {"device_list":
                                           [device_id]},
-                               "device_json": {
+                       "device_json": {
                                    device_id:
                                        {"device_family": "MX"}}})
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code, MsgBundle.getMessage(
-                         MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
+            MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
                          MsgBundle.getMessage(
                          MsgBundle.JOB_MULTI_DEVICE_FAILED_MESSAGE_HDR) +
                          device_id + ",\n" +
@@ -441,10 +439,10 @@ class TestJobManagerEC(test_case.JobTestCase):
                                         "device_username": "username",
                                         "device_password": "password"}}})
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(
             sys_exit_msg.code,
             MsgBundle.getMessage(MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
@@ -481,10 +479,10 @@ class TestJobManagerEC(test_case.JobTestCase):
                                        {"device_family": "MX",
                                         "device_vendor": "Juniper"}}})
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(
             sys_exit_msg.code,
             MsgBundle.getMessage(MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
@@ -528,9 +526,9 @@ class TestJobManagerEC(test_case.JobTestCase):
                                         "device_vendor": "Juniper"}
                                }})
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(
             sys_exit_msg.code,
             MsgBundle.getMessage(MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
@@ -570,9 +568,9 @@ class TestJobManagerEC(test_case.JobTestCase):
                                           [device_id]},
                              })
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(
             sys_exit_msg.code,
             MsgBundle.getMessage(MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
@@ -602,15 +600,15 @@ class TestJobManagerEC(test_case.JobTestCase):
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
                                                         job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
-        e = Exception('some gen exc')
+        exc = Exception('some gen exc')
 
         # mock the call to raise exception
         flexmock(json).should_receive('dumps')\
-            .and_raise(e)
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+            .and_raise(exc)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
 
         self.assertEqual(sys_exit_msg.code,
                          MsgBundle.getMessage(MsgBundle.
@@ -622,7 +620,7 @@ class TestJobManagerEC(test_case.JobTestCase):
                                               playbook_uri=TestJobManagerUtils.
                                               play_info.
                                               playbook_uri,
-                                              exc_msg=repr(e)))
+                                              exc_msg=repr(exc)))
 
     # to handle run playbook process rc =1 exception
 
@@ -641,7 +639,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
                                                         job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         flexmock(os.path).should_receive('exists').and_return(True)
@@ -651,7 +649,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         fake_process.should_receive('wait')
         # flexmock(subprocess).should_receive('TimeoutExpired')
         flexmock(subprocess32).should_receive('Popen').and_return(fake_process)
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
 
         self.assertEqual(sys_exit_msg.code,
                          MsgBundle.getMessage(MsgBundle.
@@ -660,7 +658,10 @@ class TestJobManagerEC(test_case.JobTestCase):
                                        MsgBundle.
                                        JOB_SINGLE_DEVICE_FAILED_MESSAGE_HDR) +
                          MsgBundle.getMessage(
-                                       MsgBundle.PLAYBOOK_EXIT_WITH_ERROR)
+                                       MsgBundle.PLAYBOOK_EXIT_WITH_ERROR,
+                                       playbook_uri=TestJobManagerUtils.
+                                              play_info.
+                                              playbook_uri,)
                          )
 
     # to handle run playbook process generic exception
@@ -680,7 +681,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
                                                         job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         flexmock(os.path).should_receive('exists').and_return(True)
@@ -690,10 +691,10 @@ class TestJobManagerEC(test_case.JobTestCase):
         fake_process.should_receive('wait')
         # flexmock(subprocess).should_receive('TimeoutExpired')
 
-        e = Exception('mock gen exception in run_playbook_process')
-        flexmock(subprocess32).should_receive('Popen').and_raise(e)
+        exc = Exception('mock gen exception in run_playbook_process')
+        flexmock(subprocess32).should_receive('Popen').and_raise(exc)
 
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
 
         self.assertEqual(
             sys_exit_msg.code,
@@ -703,7 +704,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             MsgBundle.getMessage(MsgBundle.RUN_PLAYBOOK_PROCESS_ERROR,
                                  playbook_uri=TestJobManagerUtils.play_info.
                                  playbook_uri,
-                                 exc_msg=repr(e)))
+                                 exc_msg=repr(exc)))
 
     # to test job_input_schema_validations
 
@@ -732,10 +733,10 @@ class TestJobManagerEC(test_case.JobTestCase):
                            'job_template_read').with_args(
                            id="random_uuid").and_return(fake_job_template)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         mock_vnc, job_input_json, log_utils)
 
-        e = Exception("'name' is a required property")
+        exc = Exception("'name' is a required property")
 
         fake_schema = TestJobManagerUtils.fake_schema
 
@@ -747,26 +748,26 @@ class TestJobManagerEC(test_case.JobTestCase):
 
         # mock the job_handler to raise an exception
         fake_job_template.should_receive('get_job_template_playbooks')
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code,
                          MsgBundle.getMessage(MsgBundle.JOB_EXC_REC_HDR) +
                          MsgBundle.getMessage(MsgBundle.INVALID_SCHEMA,
                                               job_template_id="random_uuid",
-                                              exc_obj=e) +
+                                              exc_obj=exc) +
                          " ")
 
     def test_execute_job_input_schema_ip_not_found(self):
         # create job template
         fake_job_template = flexmock(
-                                job_template_type='device',
-                                job_template_job_runtime='ansible',
-                                job_template_multi_device_job=False,
-                                job_template_playbooks=TestJobManagerUtils.
-                                playbooks_list,
-                                name='input_schema_template_ip',
-                                fq_name=["default-global-system-config",
-                                         "input_schema_template_ip"],
-                                uuid='random_uuid')
+             job_template_type='device',
+             job_template_job_runtime='ansible',
+             job_template_multi_device_job=False,
+             job_template_playbooks=TestJobManagerUtils.
+             playbooks_list,
+             name='input_schema_template_ip',
+            fq_name=["default-global-system-config",
+                     "input_schema_template_ip"],
+            uuid='random_uuid')
 
         mock_vnc = flexmock()
         flexmock(VncApi).new_instances(mock_vnc)
@@ -778,16 +779,16 @@ class TestJobManagerEC(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json = {
-                          "job_template_id": "random_uuid",
-                          "job_execution_id": TestJobManagerUtils.execution_id,
-                          "auth_token": "6e7d7f87faa54fac96a2a28ec752336a",
-                          "args": TestJobManagerUtils.args
-                         }
+            "job_template_id": "random_uuid",
+            "job_execution_id": TestJobManagerUtils.execution_id,
+            "auth_token": "6e7d7f87faa54fac96a2a28ec752336a",
+            "args": TestJobManagerUtils.args
+            }
         log_utils = JobLogUtils(
-                        sandesh_instance_id=TestJobManagerUtils.execution_id,
-                        config_args=json.dumps(TestJobManagerUtils.args))
+            sandesh_instance_id=TestJobManagerUtils.execution_id,
+            config_args=json.dumps(TestJobManagerUtils.args))
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         mock_vnc, job_input_json, log_utils)
 
         fake_schema = TestJobManagerUtils.fake_schema
@@ -801,7 +802,7 @@ class TestJobManagerEC(test_case.JobTestCase):
 
         # mock the job_handler to raise an exception
         fake_job_template.should_receive('get_job_template_playbooks')
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(sys_exit_msg.code,
                          MsgBundle.getMessage(MsgBundle.JOB_EXC_REC_HDR) +
                          MsgBundle.getMessage(
@@ -811,20 +812,20 @@ class TestJobManagerEC(test_case.JobTestCase):
     def test_execute_job_run_pb_process_timeout_expired(self):
         # create job template
         job_template = JobTemplate(
-                           job_template_type='device',
-                           job_template_job_runtime='ansible',
-                           job_template_multi_device_job=False,
-                           job_template_playbooks=TestJobManagerUtils.
-                           playbooks_list,
-                           name='run_pb_prc_rc_timeout')
+            job_template_type='device',
+            job_template_job_runtime='ansible',
+            job_template_multi_device_job=False,
+            job_template_playbooks=TestJobManagerUtils.
+            playbooks_list,
+            name='run_pb_prc_rc_timeout')
         job_template_uuid = self._vnc_lib.job_template_create(job_template)
 
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                        job_template_uuid)
+            job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(),
+        jmgr = JobManager(log_utils.get_config_logger(),
                         self._vnc_lib, job_input_json, log_utils)
 
         flexmock(os.path).should_receive('exists').and_return(True)
@@ -832,11 +833,11 @@ class TestJobManagerEC(test_case.JobTestCase):
         # mock the call to raise exception
 
         fake_process = flexmock(returncode=1, pid=1234)
-        e = subprocess32.TimeoutExpired(cmd='Mock timeout exc cmd',
+        exc = subprocess32.TimeoutExpired(cmd='Mock timeout exc cmd',
                                         timeout=3600)
-        fake_process.should_receive('wait').and_raise(e)
+        fake_process.should_receive('wait').and_raise(exc)
         flexmock(subprocess32).should_receive('Popen').and_return(fake_process)
-        sys_exit_msg = self.assertRaises(SystemExit, jm.start_job)
+        sys_exit_msg = self.assertRaises(SystemExit, jmgr.start_job)
         self.assertEqual(
             sys_exit_msg.code,
             MsgBundle.getMessage(MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
@@ -845,4 +846,4 @@ class TestJobManagerEC(test_case.JobTestCase):
             MsgBundle.getMessage(MsgBundle.RUN_PLAYBOOK_PROCESS_TIMEOUT,
                                  playbook_uri=TestJobManagerUtils.play_info.
                                  playbook_uri,
-                                 exc_msg=repr(e)))
+                                 exc_msg=repr(exc)))

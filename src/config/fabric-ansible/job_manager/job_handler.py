@@ -198,7 +198,8 @@ class JobHandler(object):
 
         if p.returncode != 0:
             msg = MsgBundle.getMessage(MsgBundle.
-                                       PLAYBOOK_EXIT_WITH_ERROR)
+                                       PLAYBOOK_EXIT_WITH_ERROR,
+                                       playbook_uri=playbook_info['uri'])
             raise JobException(msg, self._execution_id)
 
     def run_playbook(self, playbook_info):
