@@ -145,6 +145,6 @@ NexthopDBClient::WriteMessage()
          * Send always succeeds
          */
         session_->Send(data, data_len);
-        free(data);
+        delete [] data;
     }
 }
