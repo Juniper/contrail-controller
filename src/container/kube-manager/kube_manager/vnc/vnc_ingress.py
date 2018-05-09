@@ -26,7 +26,7 @@ from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
 
 class VncIngress(VncCommon):
-    def __init__(self):
+    def __init__(self, tag_mgr=None):
         self._k8s_event_type = 'Ingress'
         super(VncIngress,self).__init__(self._k8s_event_type)
         self._name = type(self).__name__
@@ -37,6 +37,7 @@ class VncIngress(VncCommon):
         self._kube = vnc_kube_config.kube()
         self._label_cache = vnc_kube_config.label_cache()
         self._labels = XLabelCache(self._k8s_event_type)
+        self.tag_mgr = tag_mgr
         self._ingress_label_cache = {}
         self._default_vn_obj = None
         self._fip_pool_obj = None
@@ -692,6 +693,12 @@ class VncIngress(VncCommon):
                     and new_backend['listener'] == old_backend['listener'] \
                     and new_backend['pool'] == old_backend['pool'] \
                     and new_backend['member'] == old_backend['member']:
+
+                    # Create a firewall rule for this member.
+                    fw_uuid = VncIngress.add_ingress_to_service_rule(ns_name,
+                                  name, new_backend['member']['serviceName'])
+                    lb.add_firewall_rule(fw_uuid)
+
                     old_backend_list.remove(old_backend)
                     new_backend_list.remove(new_backend)
                     break
@@ -847,6 +854,9 @@ class VncIngress(VncCommon):
     def ingress_timer(self):
         self._sync_ingress_lb()
 
+    def get_ingress_label_name(self, ns_name, name):
+        return "-".join([vnc_kube_config.cluster_name(), ns_name, name])
+
     def process(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
@@ -868,20 +878,51 @@ class VncIngress(VncCommon):
             # 1. A label for the ingress object.
             # 2. A label for the namespace of ingress object.
             #
-            labels = self._labels.get_ingress_label("-".join([ns_name, name]))
+            labels = self._labels.get_ingress_label(
+                         self.get_ingress_label_name(ns_name, name))
             labels.update(self._labels.get_namespace_label(ns_name))
             self._labels.process(uid, labels)
 
             self._update_ingress(name, uid, event)
 
         elif event['type'] == 'DELETED':
+            # Dis-associate infra labels from refernced VMI's.
+            self.remove_ingress_labels(ns_name, name)
+
             self._delete_ingress(uid)
 
-            # Remove labels added by infra for this ingress.
+            # Delete labels added by infra for this ingress.
             self._labels.process(uid)
         else:
             self._logger.warning(
                 'Unknown event type: "{}" Ignoring'.format(event['type']))
+
+    def remove_ingress_labels(self, ns_name, name):
+        """
+        Remove ingress infra label/tag from VMI's corresponding to the services of
+        this ingress.
+
+        For each ingress service, kube-manager will create a infra label to add
+        rules that allow traffic from ingress VMI to backend service VMI's.
+
+        Ingress is a special case where tags created by kube-manager are attached
+        to VMI's that are not created/managed by kube-manager. Since the ingress
+        label/tag is being deleted, dis-associate this tag from all VMI's on which
+        it is referred.
+        """
+        if not self.tag_mgr or not ns_name or not name:
+            return
+
+        # Get labels for this ingress service.
+        labels = self._labels.get_ingress_label(
+                     self.get_ingress_label_name(ns_name, name))
+        for type, value in labels.iteritems():
+            tag_obj = self.tag_mgr.read(type, value)
+            if tag_obj:
+                vmi_refs = tag_obj.get_virtual_machine_interface_back_refs()
+                for vmi in vmi_refs if vmi_refs else []:
+                    vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi['uuid'])
+                    self._vnc_lib.unset_tag(vmi_obj, type)
 
     def create_ingress_security_policy(self):
         """
