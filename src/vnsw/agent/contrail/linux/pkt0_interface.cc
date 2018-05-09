@@ -82,7 +82,7 @@ void Pkt0Interface::InitControlInterface() {
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
     if (ioctl(raw, SIOCGIFINDEX, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
             strerror(errno) << "> getting ifindex of the tap interface");
@@ -121,7 +121,7 @@ void Pkt0Interface::InitControlInterface() {
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
     if (ioctl(raw, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
             strerror(errno) << "> getting socket flags");
@@ -187,7 +187,7 @@ void Pkt0RawInterface::InitControlInterface() {
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
     if (ioctl(raw_, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
                 strerror(errno) << "> getting socket flags");
