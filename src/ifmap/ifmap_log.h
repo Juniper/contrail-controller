@@ -149,4 +149,24 @@ do { \
     IFMAP_SM_TRACE(obj##Trace, __VA_ARGS__); \
 } while(0)
 
+#define IFMAP_NOTICE_LOG(obj, category, ...) \
+do { \
+    if (!LoggingDisabled()) { \
+        obj::Send(g_vns_constants.CategoryNames.find(category)->second, \
+                  SandeshLevel::SYS_NOTICE, __FILE__, __LINE__, ##__VA_ARGS__); \
+    } \
+} while(0)
+
+#define IFMAP_PEER_NOTICE(obj, ...) \
+do { \
+    IFMAP_NOTICE_LOG(obj, Category::IFMAP_PEER, __VA_ARGS__); \
+    IFMAP_PEER_TRACE(obj##Trace, __VA_ARGS__); \
+} while(0)
+
+#define IFMAP_NOTICE(obj, ...) \
+do { \
+    IFMAP_NOTICE_LOG(obj, Category::IFMAP, __VA_ARGS__); \
+    IFMAP_TRACE(obj##Trace, __VA_ARGS__); \
+} while(0)
+
 #endif // __IFMAP_LOG_H__
