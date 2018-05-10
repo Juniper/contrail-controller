@@ -399,7 +399,11 @@ void NamedConfig::CreateZoneFile(std::string &zone_name,
     zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Refresh << endl;
     zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Retry << endl;
     zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Expire << endl;
-    zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Minimum << endl;
+    if (vdns->GetNegativeCacheTtl() > 0 ) {
+        zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << vdns->GetNegativeCacheTtl() << endl;
+    } else {
+        zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Minimum << endl;
+    }
     zfile << setw(NameWidth + 8) << "" << ")" << endl;
     /* NS records are mandatory in zone file. They are required for the following reasons
        1. Name servers returns NS RR in responses to queries, in the authority section
