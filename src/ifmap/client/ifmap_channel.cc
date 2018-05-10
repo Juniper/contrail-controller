@@ -84,7 +84,7 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
     char hostname[1024];
     struct addrinfo hints, *info;
 
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "Certificate Store is", certstore);
+    IFMAP_PEER_NOTICE(IFMapServerConnection, "Certificate Store is", certstore);
 
     // get host FQDN; eg a2s8.contrail.juniper.net
     hostname[sizeof(hostname)-1] = '\0';
@@ -103,7 +103,7 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
 
     // certificate files - follow puppet convention and subdirs
     certname = string(hostname) + ".pem";
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "Certificate name is", certname);
+    IFMAP_PEER_NOTICE(IFMapServerConnection, "Certificate name is", certname);
 
     // server auth
     ctx_.set_verify_mode(boost::asio::ssl::context::verify_peer, ec);
@@ -222,7 +222,7 @@ void IFMapChannel::ReconnectPreparationInMainThr() {
         IFMAP_PEER_DEBUG(IFMapServerConnection, 
                          "Retrying connection to Ifmap-server.", "");
     } else {
-        IFMAP_PEER_DEBUG(IFMapServerConnection,
+        IFMAP_PEER_NOTICE(IFMapServerConnection,
                          "Connection to Ifmap-server went down.", "");
     }
 
@@ -314,7 +314,7 @@ void IFMapChannel::DoConnectInMainThr(bool is_ssrc) {
             set_start_stale_entries_cleanup(true);
         }
         set_connection_status(UP);
-        IFMAP_PEER_DEBUG(IFMapServerConnection,
+        IFMAP_PEER_NOTICE(IFMapServerConnection,
                          "Connection to Ifmap-server came up.", "");
     }
 }
@@ -445,7 +445,7 @@ int IFMapChannel::ExtractPubSessionId() {
     size_t start_pos = (pos + str.length());
     size_t pub_id_len = pos1 - pos - str.length();
     pub_id_ = reply_str.substr(start_pos, pub_id_len);
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "Pub-id is", pub_id_);
+    IFMAP_PEER_NOTICE(IFMapServerConnection, "Pub-id is", pub_id_);
 
     // Get the session-id returned by the server
     // EG: session-id="2077221532-423634091-1596075545-1209811427"
@@ -472,7 +472,7 @@ int IFMapChannel::ExtractPubSessionId() {
     start_pos = (pos + str.length());
     size_t session_id_len = pos1 - pos - str.length();
     session_id_ = reply_str.substr(start_pos, session_id_len);
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "Session-id is", session_id_);
+    IFMAP_PEER_NOTICE(IFMapServerConnection, "Session-id is", session_id_);
 
     return 0;
 }
@@ -715,7 +715,7 @@ void IFMapChannel::StopStaleEntriesCleanupTimer() {
 
 // Called in the context of the main thread.
 bool IFMapChannel::ProcessStaleEntriesTimeout() {
-    IFMAP_PEER_WARN(IFMapServerConnection,
+    IFMAP_PEER_NOTICE(IFMapServerConnection,
                     integerToString(UTCTimestampUsec()/1000 -
                         stale_entries_cleanup_timer_started_at_us_),
                     "millisecond stale cleanup timer fired");
@@ -755,7 +755,7 @@ void IFMapChannel::StopEndOfRibTimer() {
 
 // Called in the context of the main thread.
 bool IFMapChannel::ProcessEndOfRibTimeout() {
-    IFMAP_PEER_DEBUG(IFMapServerConnection,
+    IFMAP_PEER_NOTICE(IFMapServerConnection,
                     integerToString(UTCTimestampUsec()/1000 -
                         end_of_rib_timer_started_at_us_),
                     "millisecond end of rib timer fired");
