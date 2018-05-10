@@ -115,7 +115,18 @@ void HealthCheckInstanceBase::StopTask(HealthCheckService *service) {
     service->table()->InstanceEventEnqueue(event);
 }
 
+IpAddress HealthCheckInstanceBase::update_source_ip() {
+    if (source_ip_.is_unspecified()) {
+        VmInterface *itf = static_cast<VmInterface *>(interface().get());
+        if (itf) {
+            source_ip_ = itf->GetGatewayIp(itf->primary_ip_addr());
+        }
+    }
+    return source_ip();
+}
+
 IpAddress HealthCheckInstanceBase::source_ip() const {
+
     if (source_ip_.is_unspecified() && ip_)
         return ip_->service_ip();
     return source_ip_;
