@@ -200,10 +200,6 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     }
 
     if (path && route->vrf()->GetName() == table->agent()->fabric_vrf_name()) {
-        if (path->peer() != table->agent()->fabric_rt_export_peer()) {
-            path = NULL;
-        }
-
         //Dont export vhost IP path to control-node
         const InetUnicastRouteEntry *inet_rt =
             dynamic_cast<const InetUnicastRouteEntry *>(route);

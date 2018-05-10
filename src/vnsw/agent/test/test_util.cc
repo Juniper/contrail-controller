@@ -1633,7 +1633,8 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const TagList &tag,
-                       const PathPreference &path_preference) {
+                       const PathPreference &path_preference,
+                       bool copy_local_path) {
     COMPOSITETYPE type = Composite::ECMP;
     if (local_ecmp) {
         type = Composite::LOCAL_ECMP;
@@ -1649,6 +1650,7 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
         new ControllerEcmpRoute(peer, vn_list, EcmpLoadBalance(), tag, sg,
                                 path_preference, TunnelType::MplsType(),
                                 nh_req, vm_ip.to_string());
+    data->set_copy_local_path(copy_local_path);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
@@ -1725,7 +1727,7 @@ bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf,
     TagList tag_id_list;
     EcmpTunnelRouteAdd(peer, vrf, Ip4Address::from_string(prefix), plen,
                        comp_nh_list, false, vn, sg_id_list, tag_id_list,
-                       PathPreference());
+                       PathPreference(), false);
     client->WaitForIdle();
 }
 
