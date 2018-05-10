@@ -123,8 +123,8 @@ private:
     Ip4Address originator_;
     Ip4Address group_;
     Ip4Address source_;
-    uint8_t ip_prefixlen_;
-    uint32_t asn_;
+    uint8_t ip_prefixlen_ = 0;
+    uint32_t asn_ = 0;
     std::vector<uint8_t> rt_key_;
 };
 
