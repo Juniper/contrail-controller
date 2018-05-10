@@ -41,6 +41,7 @@ Pkt0Interface::Pkt0Interface(const std::string &name,
 Pkt0Interface::~Pkt0Interface() {
     if (read_buff_) {
         delete [] read_buff_;
+        read_buff_ = NULL;
     }
 }
 
@@ -113,9 +114,6 @@ Pkt0RawInterface::Pkt0RawInterface(const std::string &name,
 }
 
 Pkt0RawInterface::~Pkt0RawInterface() {
-    if (read_buff_) {
-        delete [] read_buff_;
-    }
 }
 
 // Pkt0Socket is not supported on Windows
