@@ -283,6 +283,7 @@ class ZookeeperCounter(Counter):
         super(ZookeeperCounter, self).__init__(client, path, default)
 
         self.max_count = max_count
+        self._ensure_node()
 
     def _inner_change(self, value):
         data, version = self._value()
