@@ -194,7 +194,6 @@ private:
     static const int kSessionKeepaliveInterval = 3; // in seconds
     static const int kSessionKeepaliveProbes = 5; // count
     static const int kSessionTcpUserTimeout = 45000; // in milliseconds
-    static const int kStaleOrEorTimeoutFudgeMs = 60000; // in milliseconds
 
     enum ResponseState {
         NONE = 0,
@@ -238,6 +237,7 @@ private:
     void StopEndOfRibTimer();
     bool ProcessEndOfRibTimeout();
     const int ComputeTimeout(const int configured_timeout_ms,
+        const int configured_timeout_increment_ms,
         const uint64_t started_at_us) const;
 
     IFMapManager *manager_;
@@ -279,6 +279,7 @@ private:
     Timer *end_of_rib_timer_;
     uint64_t end_of_rib_timer_started_at_us_;
     static tbb::atomic<bool> end_of_rib_computed_;
+    int stale_or_eor_timeout_increment_ms_;
 
     std::string GetSizeAsString(size_t stream_sz, std::string log) {
         std::ostringstream ss;
