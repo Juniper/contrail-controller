@@ -251,6 +251,11 @@ public:
     void set_subnet_service_ip(const IpAddress &ip) {
         subnet_service_ip_ = ip;
     }
+
+    void set_copy_local_path(bool copy_local_path) {
+        copy_local_path_ = copy_local_path;
+    }
+
     void set_local_ecmp_mpls_label(MplsLabel *mpls);
     bool dest_vn_match(const std::string &vn) const;
     const MplsLabel* local_ecmp_mpls_label() const;
@@ -278,7 +283,8 @@ public:
         return composite_nh_key_.get();
     }
     bool ReorderCompositeNH(Agent *agent, CompositeNHKey *nh,
-                            bool &comp_nh_policy);
+                            bool &comp_nh_policy,
+                            const AgentPath *local_path);
     bool ChangeCompositeNH(Agent *agent, CompositeNHKey *nh);
     // Get nexthop-ip address to be used for path
     const Ip4Address *NexthopIp(Agent *agent) const;
@@ -363,6 +369,8 @@ public:
     }
 
     void ResetEcmpHashFields();
+    void CopyLocalPath(CompositeNHKey *composite_nh_key,
+                       const AgentPath *local_path);
 
 private:
     PeerConstPtr peer_;
@@ -447,6 +455,7 @@ private:
     //if its a l2 packet or l3 packet.
     bool layer2_control_word_;
     bool inactive_;
+    bool copy_local_path_;
     //Valid for routes exported in ip-fabric:__default__ VRF
     //Indicates the VRF from which routes was originated
     uint32_t  native_vrf_id_;
