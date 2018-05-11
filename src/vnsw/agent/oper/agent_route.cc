@@ -1172,6 +1172,8 @@ bool AgentRoute::ReComputeMulticastPaths(AgentPath *path, bool del) {
     //NH may not get added if VRF is marked for delete. Route may be in
     //transition of getting deleted, skip NH modification.
     if (!nh) {
+        RemovePath(multicast_peer_path);
+        delete multicast_peer_path;
         return false;
     }
 
