@@ -12,7 +12,7 @@ void Interface::ObtainOsSpecificParams(const std::string &name) {
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name.c_str(), IF_NAMESIZE-1);
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
