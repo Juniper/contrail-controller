@@ -801,7 +801,7 @@ class QfxConf(JuniperConf):
             acls = sg.access_control_lists
             for acl in acls or []:
                 acl = AccessControlListDM.get(acl)
-                if acl and acl.is_ingress:
+                if acl and not acl.is_ingress:
                     self.build_firewall_filters(sg, acl)
     # end build_firewall_config
 
@@ -847,7 +847,7 @@ class QfxConf(JuniperConf):
         acls = sg.access_control_lists
         for acl in acls or []:
             acl = AccessControlListDM.get(acl)
-            if acl and acl.is_ingress:
+            if acl and not acl.is_ingress:
                 fnames = self.get_firewall_filters(sg, acl)
                 filter_names += fnames
         return filter_names
