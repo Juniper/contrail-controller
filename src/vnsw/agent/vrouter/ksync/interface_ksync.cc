@@ -1072,9 +1072,21 @@ InterfaceKSyncObject::DBEntryFilter(const DBEntry *entry,
     }
 
     // No need to add VLAN sub-interface if there is no parent
-    if (vm_intf && vm_intf->device_type() == VmInterface::VM_VLAN_ON_VMI &&
-        vm_intf->parent() == NULL) {
-        return DBFilterIgnore;
+    //if (vm_intf && vm_intf->device_type() == VmInterface::VM_VLAN_ON_VMI &&
+    //    vm_intf->parent() == NULL) {
+    //    return DBFilterIgnore;
+    //}
+
+    if (ksync) {
+        const InterfaceKSyncEntry *ksync_entry =
+            static_cast<const InterfaceKSyncEntry *>(ksync);
+        if (ksync_entry->parent() == NULL) {
+            if (vm_intf && vm_intf->parent()  != NULL)
+                return DBFilterDelAdd;
+        } else {
+            if (vm_intf && vm_intf->parent()  == NULL)
+                return DBFilterDelete;
+        }
     }
 
     return DBFilterAccept;

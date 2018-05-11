@@ -74,6 +74,7 @@ public:
 
     int MsgLen() { return kDefaultInterfaceMsgSize; }
     bool KSyncEntrySandesh(Sandesh *resp);
+    const KSyncEntry *parent() const { return parent_.get(); }
 
 private:
     friend class InterfaceKSyncObject;
