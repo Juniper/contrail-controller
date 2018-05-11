@@ -1327,8 +1327,10 @@ igmp_parse_v3_report_packet(igmp_packet *packet, gmp_packet *gen_packet,
 		/* Enqueue an address thread entry for the next address. */
 
 		if (gmp_enqueue_addr_thread_addr(addr_thread, addr_ptr,
-						 IPV4_ADDR_LEN) < 0)
+						 IPV4_ADDR_LEN) < 0) {
+                    free(addr_thread);
 		    return FALSE;	/* Out of memory */
+                }
 		addr_ptr += IPV4_ADDR_LEN;
 	    }
 	    group_rcrd->gmp_rpt_rcv_srcs = addr_thread;
