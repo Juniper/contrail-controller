@@ -490,8 +490,10 @@ gmp_lookup_create_addr_cat_entry (gmp_addr_catalog *catalog,
         memmove(cat_entry->adcat_ent_addr.gmp_addr, addr,
             catalog->adcat_addrlen);
         cat_entry->adcat_ent_ord = ord_get_ordinal(catalog->adcat_ord_handle);
-        if (cat_entry->adcat_ent_ord == ORD_BAD_ORDINAL)
+        if (cat_entry->adcat_ent_ord == ORD_BAD_ORDINAL) {
+            free(cat_entry);
             return ORD_BAD_ORDINAL;	/* Out of memory */
+        }
 
         /* Add it to the patricia trees. */
 
