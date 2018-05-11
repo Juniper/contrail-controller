@@ -1076,6 +1076,13 @@ InterfaceKSyncObject::DBEntryFilter(const DBEntry *entry,
         vm_intf->parent() == NULL) {
         return DBFilterIgnore;
     }
+    // Gateway interface is dependant on parent, skip till parent gets
+    // populated in oper entry.
+    if (vm_intf && vm_intf->device_type() == VmInterface::LOCAL_DEVICE &&
+        vm_intf->vmi_type() == VmInterface::GATEWAY &&
+        vm_intf->parent() == NULL) {
+        return DBFilterIgnore;
+    }
 
     return DBFilterAccept;
 }
