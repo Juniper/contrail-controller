@@ -127,10 +127,7 @@ IFMapChannel::IFMapChannel(IFMapManager *manager,
       ssrc_socket_(new SslStream((*manager->io_service()), ctx_)),
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
       username_(config_options.user), password_(config_options.password),
-      state_machine_(NULL), response_state_(NONE), sequence_number_(0),
-      recv_msg_cnt_(0), sent_msg_cnt_(0),
-      stale_timer_cnt_(0),stale_timer_updt_cnt_(0),
-      eor_timer_cnt_(0),eor_timer_updt_cnt_(0),reconnect_attempts_(0),
+      state_machine_(NULL), response_state_(NONE),
       connection_status_(NOCONN),
       connection_status_change_at_(UTCTimestampUsec()),
       stale_entries_cleanup_timeout_ms_(
@@ -144,7 +141,14 @@ IFMapChannel::IFMapChannel(IFMapManager *manager,
       end_of_rib_timer_started_at_us_(0),
       stale_or_eor_timeout_increment_ms_(
           config_options.stale_or_eor_timeout_increment*1000) {
-
+    sequence_number_ = 0;
+    recv_msg_cnt_ = 0;
+    sent_msg_cnt_ = 0;
+    stale_timer_cnt_ = 0;
+    stale_timer_updt_cnt_ = 0;
+    eor_timer_cnt_ = 0;
+    eor_timer_updt_cnt_ = 0;
+    reconnect_attempts_ = 0;
     set_start_stale_entries_cleanup(false);
     set_end_of_rib_computed(false);
     boost::system::error_code ec;
