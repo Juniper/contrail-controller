@@ -26,7 +26,7 @@ bool InterfaceUveStatsTable::FrameInterfaceObjectLog(UveInterfaceEntry* entry,
 }
 
 bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
-                                            UveVMInterfaceAgent *uve) const {
+                                                    VMIStats *uve) const {
     uint64_t in_band = 0, out_band = 0;
     bool diff_fip_list_non_zero = false;
     VmInterfaceStats if_stats;
@@ -39,7 +39,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
         return false;
     }
     uve->set_name(vm_intf->cfg_name());
-    entry->SetVnVmInfo(uve);
+    entry->SetVMIStatsVnVm(uve);
 
     const Interface *intf = static_cast<const Interface *>(vm_intf);
     AgentUveStats *agent_uve = static_cast<AgentUveStats *>(agent_->uve());
@@ -70,11 +70,11 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
 
     if (entry->InBandChanged(in_band)) {
         uve->set_in_bw_usage(in_band);
-        entry->uve_info_.set_in_bw_usage(in_band);
+        entry->uve_stats_.set_in_bw_usage(in_band);
     }
     if (entry->OutBandChanged(out_band)) {
         uve->set_out_bw_usage(out_band);
-        entry->uve_info_.set_out_bw_usage(out_band);
+        entry->uve_stats_.set_out_bw_usage(out_band);
     }
     s->stats_time = UTCTimestampUsec();
 
@@ -88,14 +88,14 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     port_bmap.Encode(map);
     if (entry->PortBitmapChanged(map)) {
         uve->set_port_bucket_bmap(map);
-        entry->uve_info_.set_port_bucket_bmap(map);
+        entry->uve_stats_.set_port_bucket_bmap(map);
     }
 
     FrameFipStatsMsg(vm_intf, agg_fip_list, diff_fip_list,
                      diff_fip_list_non_zero);
     if (entry->FipAggStatsChanged(agg_fip_list)) {
         uve->set_fip_agg_stats(agg_fip_list);
-        entry->uve_info_.set_fip_agg_stats(agg_fip_list);
+        entry->uve_stats_.set_fip_agg_stats(agg_fip_list);
     }
     /* Diff stats need not be sent if the value of the stats is 0.
      * If any of the entry in diff_fip_list has non-zero stats, then
@@ -112,12 +112,12 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     bool built = agent_uve->stats_manager()->BuildFlowRate(s->added, s->deleted,
                                                            s->flow_info,
                                                            flow_rate);
-    /* Populate TagSet and policy-list in UVE */
-    entry->FillTagSetAndPolicyList(uve);
     if (built) {
         flow_rate.set_active_flows(active_flows);
         uve->set_flow_rate(flow_rate);
     }
+    /* Populate TagSet and policy-list in UVE */
+    entry->FillTagSetAndPolicyList(uve);
 
     return true;
 }
@@ -126,11 +126,11 @@ void InterfaceUveStatsTable::SendInterfaceStatsMsg(UveInterfaceEntry* entry) {
     if (entry->deleted_) {
         return;
     }
-    UveVMInterfaceAgent uve;
+    VMIStats uve;
 
     bool send = FrameInterfaceStatsMsg(entry, &uve);
     if (send) {
-        DispatchInterfaceMsg(uve);
+        DispatchVMIStatsMsg(uve);
     }
     EndpointSecurityStats *obj_log = ENDPOINT_SECURITY_STATS_CREATE();
     send = FrameInterfaceObjectLog(entry, obj_log);
@@ -272,9 +272,9 @@ bool InterfaceUveStatsTable::IncrInterfaceEndpointHits(const string &itf,
 
 void InterfaceUveStatsTable::SendInterfaceAceStats(const string &name,
                                                    UveInterfaceEntry *entry) {
-    UveVMInterfaceAgent uve;
+    VMIStats uve;
     if (entry->FrameInterfaceAceStatsMsg(name, &uve)) {
-        DispatchInterfaceMsg(uve);
+        DispatchVMIStatsMsg(uve);
     }
 }
 

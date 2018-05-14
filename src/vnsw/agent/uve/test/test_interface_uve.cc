@@ -905,11 +905,11 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     //Trigger Interface UVE send
     vmut->ClearCount();
     vmut->SendInterfaceStats();
-    EXPECT_EQ(3U, vmut->send_count());
-    EXPECT_EQ(0U, vmut->delete_count());
+    EXPECT_EQ(3U, vmut->vmi_stats_send_count());
+    EXPECT_EQ(0U, vmut->vmi_stats_delete_count());
 
     //Verify UVE
-    UveVMInterfaceAgent *uve1 = vmut->InterfaceUveObject(flow0);
+    VMIStats *uve1 = vmut->InterfaceUveObject(flow0);
     EXPECT_EQ(1U, uve1->get_fip_agg_stats().size());
 
     //Verify stats values in UVE
@@ -991,11 +991,11 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     //Trigger VM UVE send
     vmut->ClearCount();
     vmut->SendInterfaceStats();
-    EXPECT_EQ(3U, vmut->send_count());
-    EXPECT_EQ(0U, vmut->delete_count());
+    EXPECT_EQ(3U, vmut->vmi_stats_send_count());
+    EXPECT_EQ(0U, vmut->vmi_stats_delete_count());
 
     //Verify UVE
-    UveVMInterfaceAgent *uve1 = vmut->InterfaceUveObject(flowa);
+    VMIStats *uve1 = vmut->InterfaceUveObject(flowa);
     EXPECT_EQ(1U, uve1->get_fip_agg_stats().size());
 
     //Verify stats values in UVE
@@ -1080,11 +1080,11 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     //Trigger VM UVE send
     vmut->ClearCount();
     vmut->SendInterfaceStats();
-    WAIT_FOR(1000, 500, (3U == vmut->send_count()));
-    EXPECT_EQ(0U, vmut->delete_count());
+    WAIT_FOR(1000, 500, (3U == vmut->vmi_stats_send_count()));
+    EXPECT_EQ(0U, vmut->vmi_stats_delete_count());
 
     //Verify UVE
-    UveVMInterfaceAgent *uve1 = vmut->InterfaceUveObject(flow0);
+    VMIStats *uve1 = vmut->InterfaceUveObject(flow0);
     EXPECT_EQ(1U, uve1->get_fip_agg_stats().size());
 
     //Verify stats values in UVE
@@ -1228,7 +1228,7 @@ TEST_F(InterfaceUveTest, IntfStatsTest) {
     //Verify 2 UVE sends have happened (one for each VMI)
     //Because bandwith of VMI is changing from non-zero to zero, we expect
     //UVEs to be sent for each VMI
-    EXPECT_EQ(2U, vmut->send_count());
+    EXPECT_EQ(2U, vmut->vmi_stats_send_count());
 
     InterfaceCleanup();
 }

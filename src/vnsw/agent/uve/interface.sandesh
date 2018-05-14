@@ -141,26 +141,11 @@ struct UveVMInterfaceAgent {
      If None of the above conditions are true, then it will have 'false'
      */
    13: optional bool ip6_active;
-    /** Bitmap of port numbers that packets on this VMI have used */
-   14: optional port_bmap.PortBucketBitmap port_bucket_bmap;
     /** List of Floating IPs associated with VMI */
    15: optional list<VmFloatingIPAgent> floating_ips;
-    /** List of Aggregate Floating IP statistics of all Floating IPs associated
-     * with VMI
-     */
-   16: optional list<VmFloatingIPStats> fip_agg_stats;
-    /** Floating IP statistics of all Floating IPs on VMI since previous send.*/
-    /** @display_name:Virtual Machine Floating IP Statistics */
-   17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address", uve_type=".virtual_network:virtual_network")
-    /** Statistics of VMI. Contains aggregate statistics */
-   18: optional VmInterfaceStats raw_if_stats (metric="agg", tags="vm_name,vm_uuid", uve_type="vm_uuid:virtual_machine")
  
     /** UUID of Virtual machine to which the VMI belongs */
    19: string vm_uuid;
-    /** Ingress direction bandwidth in bits per second */
-   20: optional u64 in_bw_usage;
-    /** Egress direction bandwidth in bits per second */
-   21: optional u64 out_bw_usage;
     /** Value 'true' indicates VMI is IPv4 active. This means that
      * It has received VM, VN and VRF configuration
      * It is administratively UP
@@ -182,10 +167,6 @@ struct UveVMInterfaceAgent {
     /** Per VMI based list of SG rules matching flows. Also contains statistics
      *  of number of flows matching this (SG-rule, VMI) tuple
      */
-    /** @display_name:VMI ACL Rule Statistics */
-   25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
-    /** @display_name:Interface Flow Setup Statistics*/
-   26: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network",uve_type="virtual_network:virtual_network")
     /** Contains 'true' if the VMI is administratively UP and 'false' otherwise
      */
    27: optional bool admin_state;
@@ -194,7 +175,6 @@ struct UveVMInterfaceAgent {
     /** List of IPv6 addresses assigned to VMI */
    29: optional list<string> fixed_ip6_list;
 
-   33: optional vrouter.AgentDropStats raw_drop_stats (metric="agg", tags="virtual_network",uve_type="virtual_network:virtual_network")
    /** UUID of VMI's VN */
    37: optional string vn_uuid;
    /** Transmit VLAN tag for packets over this VMI */
@@ -203,8 +183,6 @@ struct UveVMInterfaceAgent {
    39: optional u16 rx_vlan;
    /** Parent interface name */
    40: optional string parent_interface;
-   /** Firewall policy rules along with its policy set name */
-   48: optional list<string> policy_rules;
    /** Vhostuser mode */
    49: optional byte vhostuser_mode;
    /** shows whether interface port mirror is enabled or not*/
@@ -330,4 +308,53 @@ struct VMITags {
 uve sandesh UVEVMITags {
     /** Virtual Machine interface details */
     1: VMITags data;
+}
+
+/**
+ * Structure definition for holding virtual-machine-interface statistics
+ */
+struct VMIStats {
+    /** Name of Virtual Machine Interface */
+    1: string  name (key="ObjectVMITable")
+    /** Value 'true' indicates VMI is removed. Holds value of 'false' otherwise*/
+    2: optional bool deleted
+    /** Name of the virtual machine instance to which this VMI belongs */
+    3: string vm_name;
+    /** UUID of Virtual machine to which the VMI belongs */
+    4: string vm_uuid;
+    /** Name of virtual-network to which this VMI belongs */
+    5: string virtual_network;
+    /** Bitmap of port numbers that packets on this VMI have used */
+    6: optional port_bmap.PortBucketBitmap port_bucket_bmap;
+    /** List of Aggregate Floating IP statistics of all Floating IPs associated
+     * with VMI
+     */
+    7: optional list<VmFloatingIPStats> fip_agg_stats;
+    /** Floating IP statistics of all Floating IPs on VMI since previous send.*/
+    /** @display_name:Virtual Machine Floating IP Statistics */
+    8: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address", uve_type=".virtual_network:virtual_network")
+    /** Statistics of VMI. Contains aggregate statistics */
+    9: optional VmInterfaceStats raw_if_stats (metric="agg", tags="vm_name,vm_uuid", uve_type="vm_uuid:virtual_machine")
+    /** @display_name:Interface Flow Setup Statistics*/
+    10: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network",uve_type="virtual_network:virtual_network")
+    /** Ingress direction bandwidth in bits per second */
+    11: optional u64 in_bw_usage;
+    /** Egress direction bandwidth in bits per second */
+    12: optional u64 out_bw_usage;
+    /** Interface drop statistics */
+    13: optional vrouter.AgentDropStats raw_drop_stats (metric="agg", tags="virtual_network",uve_type="virtual_network:virtual_network")
+    /** @display_name:VMI ACL Rule Statistics */
+    14: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
+    /** Firewall policy rules along with its policy set name */
+    15: optional list<string> policy_rules;
+}
+
+/**
+ * @description: Uve for virtual-machine-interface statistics
+ * @type: uve
+ * @object: virtual-machine-interface
+ */
+uve sandesh UVEVMIStats {
+    /** Virtual Machine interface details */
+    1: VMIStats data;
 }

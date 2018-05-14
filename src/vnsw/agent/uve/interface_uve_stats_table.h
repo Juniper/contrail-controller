@@ -42,7 +42,7 @@ private:
                           vector<VmFloatingIPStats> &diff_list,
                           bool &diff_list_send) const;
     bool FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
-                                UveVMInterfaceAgent *uve) const;
+                                VMIStats *uve) const;
 
     DISALLOW_COPY_AND_ASSIGN(InterfaceUveStatsTable);
 };

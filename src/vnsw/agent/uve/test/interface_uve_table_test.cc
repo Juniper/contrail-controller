@@ -12,6 +12,7 @@
 
 InterfaceUveTableTest::InterfaceUveTableTest(Agent *agent, uint32_t intvl) :
     InterfaceUveStatsTable(agent, intvl) {
+    ClearCount();
 }
 
 void InterfaceUveTableTest::DispatchInterfaceMsg(const UveVMInterfaceAgent &u) {
@@ -22,9 +23,19 @@ void InterfaceUveTableTest::DispatchInterfaceMsg(const UveVMInterfaceAgent &u) {
     uve_ = u;
 }
 
+void InterfaceUveTableTest::DispatchVMIStatsMsg(const VMIStats  &uve) {
+    vmi_stats_send_count_++;
+    if (uve.get_deleted()) {
+        vmi_stats_delete_count_++;
+    }
+    uve_stats_ = uve;
+}
+
 void InterfaceUveTableTest::ClearCount() {
     send_count_ = 0;
     delete_count_ = 0;
+    vmi_stats_send_count_ = 0;
+    vmi_stats_delete_count_ = 0;
 }
 
 L4PortBitmap* InterfaceUveTableTest::GetVmIntfPortBitmap
@@ -37,12 +48,11 @@ L4PortBitmap* InterfaceUveTableTest::GetVmIntfPortBitmap
     return NULL;
 }
 
-UveVMInterfaceAgent* InterfaceUveTableTest::InterfaceUveObject
-    (const VmInterface *itf) {
+VMIStats* InterfaceUveTableTest::InterfaceUveObject(const VmInterface *itf) {
     InterfaceMap::iterator it = interface_tree_.find(itf->cfg_name());
     if (it != interface_tree_.end()) {
         UveInterfaceEntry *entry = it->second.get();
-        return &(entry->uve_info_);
+        return &(entry->uve_stats_);
     }
     return NULL;
 }

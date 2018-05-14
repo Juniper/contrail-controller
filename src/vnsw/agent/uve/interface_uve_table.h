@@ -211,7 +211,7 @@ public:
         bool deleted_;
         bool renewed_;
         bool ace_stats_changed_;
-        UveVMInterfaceAgent uve_info_;
+        VMIStats uve_stats_;
         AceStatsSet ace_set_;
         TagList local_tagset_;
         SecurityPolicyStatsMap security_policy_stats_map_;
@@ -233,7 +233,7 @@ public:
         UveInterfaceEntry(const VmInterface *i) : intf_(i),
             uuid_(i->GetUuid()), port_bitmap_(),
             fip_tree_(), prev_fip_tree_(), changed_(true), deleted_(false),
-            renewed_(false), uve_info_() { }
+            renewed_(false), uve_stats_() { }
         virtual ~UveInterfaceEntry() {}
         void UpdateFloatingIpStats(const FipInfo &fip_info);
         bool FillFloatingIpStats(vector<VmFloatingIPStats> &result,
@@ -253,7 +253,7 @@ public:
         bool FrameTagsUveMsg(Agent *agent, const std::string &name,
                              VMITags *uve);
         bool FrameInterfaceAceStatsMsg(const std::string &name,
-                                       UveVMInterfaceAgent *s_intf);
+                                       VMIStats *s_intf);
         bool GetVmInterfaceGateway(const VmInterface *vm_intf,
                                    std::string &gw) const;
         bool FipAggStatsChanged(const vector<VmFloatingIPStats>  &list) const;
@@ -261,6 +261,7 @@ public:
         bool InBandChanged(uint64_t in_band) const;
         bool OutBandChanged(uint64_t out_band) const;
         void SetVnVmInfo(UveVMInterfaceAgent *uve) const;
+        void SetVMIStatsVnVm(VMIStats *uve) const;
         void UpdateInterfaceAceStats(const std::string &ace_uuid);
         void Reset();
         void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
@@ -272,7 +273,7 @@ public:
                                                UveSecurityPolicyStats *stats);
         void FillEndpointStats(Agent *agent, EndpointSecurityStats *obj);
         void BuildInterfaceUveInfo(InterfaceUveInfo *r) const;
-        void FillTagSetAndPolicyList(UveVMInterfaceAgent *obj);
+        void FillTagSetAndPolicyList(VMIStats *obj);
         void BuildSandeshUveTagList(const TagList &list,
                                     std::vector<SandeshUveTagInfo> *rts) const;
         void HandleTagListChange();
@@ -296,6 +297,7 @@ public:
     virtual void DispatchInterfaceMsg(const UveVMInterfaceAgent &uve);
     virtual void DispatchInterfaceObjectLog(EndpointSecurityStats *obj);
     void DispatchVMITagsMsg(const VMITags &uve) const;
+    virtual void DispatchVMIStatsMsg(const VMIStats &uve);
     bool TimerExpiry();
     virtual void SendInterfaceAceStats(const string &name,
                                        UveInterfaceEntry *entry) {

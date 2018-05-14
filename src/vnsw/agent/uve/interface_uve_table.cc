@@ -118,6 +118,24 @@ void InterfaceUveTable::UveInterfaceEntry::SetVnVmInfo(UveVMInterfaceAgent *uve)
     }
 }
 
+void InterfaceUveTable::UveInterfaceEntry::SetVMIStatsVnVm(VMIStats *uve)
+                                                           const {
+    const VmEntry *vm = intf_->vm();
+    const string &vm_name = GetVmName();
+    if (!vm_name.empty()) {
+        uve->set_vm_name(vm_name);
+    }
+    if (intf_->vn() != NULL) {
+        uve->set_virtual_network(intf_->vn()->GetName());
+    } else {
+        uve->set_virtual_network("");
+    }
+    if (vm) {
+        uve->set_vm_uuid(to_string(vm->GetUuid()));
+    } else {
+        uve->set_vm_uuid("");
+    }
+}
 
 bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     UveVMInterfaceAgent *s_intf) const {
@@ -254,7 +272,7 @@ void InterfaceUveTable::UveInterfaceEntry::UpdatePortBitmap
 
 bool InterfaceUveTable::UveInterfaceEntry::FipAggStatsChanged
     (const vector<VmFloatingIPStats>  &list) const {
-    if (list != uve_info_.get_fip_agg_stats()) {
+    if (list != uve_stats_.get_fip_agg_stats()) {
         return true;
     }
     return false;
@@ -290,6 +308,11 @@ void InterfaceUveTable::SendInterfaceDeleteMsg(const string &config_name) {
     tags_uve.set_name(config_name);
     tags_uve.set_deleted(true);
     DispatchVMITagsMsg(tags_uve);
+
+    VMIStats s_uve;
+    s_uve.set_name(config_name);
+    s_uve.set_deleted(true);
+    DispatchVMIStatsMsg(s_uve);
 }
 
 bool InterfaceUveTable::UveInterfaceEntry::FrameTagsUveMsg
@@ -354,6 +377,10 @@ InterfaceUveTable::Allocate(const VmInterface *itf) {
 
 void InterfaceUveTable::DispatchInterfaceMsg(const UveVMInterfaceAgent &uve) {
     UveVMInterfaceAgentTrace::Send(uve);
+}
+
+void InterfaceUveTable::DispatchVMIStatsMsg(const VMIStats  &uve) {
+    UVEVMIStats::Send(uve);
 }
 
 void InterfaceUveTable::DispatchVMITagsMsg(const VMITags &uve) const {
@@ -509,10 +536,10 @@ void InterfaceUveTable::Shutdown(void) {
 
 bool InterfaceUveTable::UveInterfaceEntry::PortBitmapChanged
     (const PortBucketBitmap &bmap) const {
-    if (!uve_info_.__isset.port_bucket_bmap) {
+    if (!uve_stats_.__isset.port_bucket_bmap) {
         return true;
     }
-    if (bmap != uve_info_.get_port_bucket_bmap()) {
+    if (bmap != uve_stats_.get_port_bucket_bmap()) {
         return true;
     }
     return false;
@@ -520,10 +547,10 @@ bool InterfaceUveTable::UveInterfaceEntry::PortBitmapChanged
 
 bool InterfaceUveTable::UveInterfaceEntry::InBandChanged(uint64_t in_band)
     const {
-    if (!uve_info_.__isset.in_bw_usage) {
+    if (!uve_stats_.__isset.in_bw_usage) {
         return true;
     }
-    if (in_band != uve_info_.get_in_bw_usage()) {
+    if (in_band != uve_stats_.get_in_bw_usage()) {
         return true;
     }
     return false;
@@ -531,10 +558,10 @@ bool InterfaceUveTable::UveInterfaceEntry::InBandChanged(uint64_t in_band)
 
 bool InterfaceUveTable::UveInterfaceEntry::OutBandChanged(uint64_t out_band)
     const {
-    if (!uve_info_.__isset.out_bw_usage) {
+    if (!uve_stats_.__isset.out_bw_usage) {
         return true;
     }
-    if (out_band != uve_info_.get_out_bw_usage()) {
+    if (out_band != uve_stats_.get_out_bw_usage()) {
         return true;
     }
     return false;
@@ -795,7 +822,7 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceFwPolicyStats
 }
 
 bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceAceStatsMsg
-    (const std::string &name, UveVMInterfaceAgent *s_intf) {
+    (const std::string &name, VMIStats *s_intf) {
     if (!ace_stats_changed_) {
         return false;
     }
@@ -821,7 +848,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceAceStatsMsg
      * sent */
     if (changed) {
         s_intf->set_name(name);
-        SetVnVmInfo(s_intf);
+        SetVMIStatsVnVm(s_intf);
         s_intf->set_sg_rule_stats(list);
         ace_stats_changed_ = false;
         return true;
@@ -940,7 +967,7 @@ void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
 }
 
 void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
-    (UveVMInterfaceAgent *obj) {
+    (VMIStats *obj) {
 
     tbb::mutex::scoped_lock lock(mutex_);
 
