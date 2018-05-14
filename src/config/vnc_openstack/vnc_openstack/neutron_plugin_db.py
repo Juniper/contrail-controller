@@ -4006,9 +4006,9 @@ class DBInterface(object):
                 port_ids = [str(uuid.UUID(pid)) for pid in filters['port_id']]
                 if len(port_ids) > 0:
                     backref_ids = port_ids
-        else:  # no filters
-            if not context['is_admin']:
-                backref_ids = [str(uuid.UUID(context['tenant']))]
+
+        if not context['is_admin']:
+            backref_ids = [str(uuid.UUID(context['tenant']))]
 
         memo_req = {'routers': {},
                     'ports': {},
