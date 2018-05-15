@@ -378,7 +378,7 @@ class VncService(VncCommon):
         allocated_fips = self._read_allocated_floating_ips(service_id)
 
         if service_type in ["LoadBalancer"]:
-            if len(allocated_fips) is 0:
+            if allocated_fips is not None and len(allocated_fips) is 0:
                 # Allocate floating-ip from public-pool, if none exists.
                 # if "loadBalancerIp" if specified in Service definition, allocate
                 #     loadBalancerIp as floating-ip.
@@ -407,7 +407,7 @@ class VncService(VncCommon):
 
                 return
 
-            if len(allocated_fips):
+            if allocated_fips is not None and len(allocated_fips):
                 if loadBalancerIp and loadBalancerIp in allocated_fips:
                     self._deallocate_floating_ips(service_id)
                     self._allocate_floating_ips(service_id,
