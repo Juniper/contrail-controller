@@ -218,7 +218,7 @@ def main():
                         " not be UP before stopping cassandra")
 
     parser.add_argument("--status-up-file", dest="status_up_file",
-                        metavar="FILENAME", default="/var/log/cassandra/status-up",
+                        metavar="FILENAME", default="/var/log/contrail/cassandra-status-up",
                         help="Record up status to file")
 
     parser.add_argument("-v", "--verbose", dest="verbose", action='store_true',
