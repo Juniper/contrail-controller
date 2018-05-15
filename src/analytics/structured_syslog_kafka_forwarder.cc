@@ -170,7 +170,11 @@ KafkaForwarder::KafkaTimer() {
                 LOG(ERROR, "KafkaForwarder Metadata for " <<
                     metadata->orig_broker_id() << ":" <<
                     metadata->orig_broker_name());
+                LOG(DEBUG, "Initializing k_forwarder_event_cb.disableKafka to false!");
+                k_forwarder_event_cb.disableKafka = false;
             }
+            // deleting metadata pointer object as a fix for memory leak
+            delete metadata;
         }
     }
 
