@@ -14,6 +14,7 @@ struct VirtualDnsTraceData {
     9: string external_visible;
     10: string reverse_resolution;
     11: i32 flags;
+    12: i32 negative_cache_ttl_seconds;
 }
 
 struct VirtualDnsRecordTraceData {
