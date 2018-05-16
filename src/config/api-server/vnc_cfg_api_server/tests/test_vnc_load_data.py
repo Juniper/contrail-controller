@@ -57,7 +57,7 @@ class TestInitData1(test_case.ApiServerTestCase):
                 if d.get("object_type") == 'tag':
                     expected_tag_count = len(d.get("objects"))
 
-        self.assertEqual(exepected_object_type_count, 2)
+        self.assertEqual(exepected_object_type_count, 3)
         jb_list = self._vnc_lib.job_templates_list()
         self.assertTrue(jb_list)
         self.assertEqual(len(jb_list.get('job-templates')), expected_jb_count)
