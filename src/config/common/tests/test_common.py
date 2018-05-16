@@ -33,7 +33,7 @@ import inspect
 import novaclient
 import novaclient.client
 
-import gevent.wsgi
+import gevent.pywsgi
 import uuid
 from pysandesh import sandesh_logger
 
@@ -741,7 +741,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         #cov_handle.start()
 
         cfgm_common.zkclient.LOG_DIR = './'
-        gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
+        gevent.pywsgi.WSGIServer.handler_class = FakeWSGIHandler
 
         cls.orig_mocked_values = setup_mocks(cls.mocks + (extra_mocks or []))
 
