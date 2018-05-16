@@ -254,6 +254,65 @@ class TestNetworkDM(TestCommonDM):
 
         return
 
+    @retries(5, hook=retry_exc_handler)
+    def check_network_policy_config(self, vn1_obj):
+        vrf_import = None
+        vrf_export = None
+        config = FakeDeviceConnect.get_xml_config()
+        ris = self.get_routing_instances(config, ri_name='')
+        for ri in ris:
+            instance_type = ri.get_instance_type()
+            instance_name = ri.get_name()
+            vrf_import = instance_name + "-import"
+            vrf_export = instance_name + "-export"
+            self.assertEqual(ri.get_vrf_import(), vrf_import)
+            self.assertEqual(ri.get_vrf_export(), vrf_export)
+            if instance_type == 'evpn':
+                intf_name = "irb." + instance_name[-1]
+                ri_intf = ri.get_routing_interface()
+                self.assertEqual(ri_intf, intf_name)
+            if instance_type == 'vrf':
+                ri_opts = ri.get_routing_options()
+                route = ri_opts.get_static().get_route()
+                self.assertEqual(len(route),1)
+        policy_options = config.get_policy_options()
+        self.assertIsNotNone(policy_options)
+        policy_statement= policy_options.get_policy_statement()
+
+        #Checking for export configurations
+        for item in range(len(policy_statement)):
+            res = vrf_export in policy_statement[item].name
+            if res:
+                for obj in range(len(policy_statement[item].term)):
+                    self.assertIsNotNone(policy_statement[item].term[obj]
+                                         .then.community)
+                break
+            elif not(res) and len(policy_statement)-1 <= item:
+                raise Exception("%s not found among the policy options" %(vrf_export))
+            else:
+                continue
+
+        #Checking for import configurations.
+        for item in range(len(policy_statement)):
+            res = vrf_import in policy_statement[item].name
+            if res:
+                for obj in range(len(policy_statement[item].term)):
+                    self.assertEqual(policy_statement[item].term[
+                                         obj].fromxx.community,
+                                 ['_contrail_target_64512_8000002'])
+                break
+            elif not(res) and len(policy_statement)-1 <= item:
+                raise Exception("%s not found among the policy options" %(vrf_import))
+            else:
+                continue
+        comms = policy_options.get_community() or []
+        self.assertIsNotNone(comms)
+        for i in comms:
+            self.assertEqual(i.name,"_contrail_target_64512_8000002")
+            self.assertEqual(i.members,['target:64512:8000002'])
+
+        return
+
     def set_global_vrouter_config(self, encap_priority_list = []):
         create = False
         try:
@@ -341,5 +400,27 @@ class TestNetworkDM(TestCommonDM):
         self.delete_routers(bgp_router, pr)
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
 
+
+    def test_network_policy_config(self):
+
+        vn1_name = 'vn1' + self.id()
+        vn2_name = 'vn2' + self.id()
+
+        vn1_obj = self.create_virtual_network(vn1_name, '1.0.0.0/24')
+        vn2_obj = self.create_virtual_network(vn2_name, '2.0.0.0/24')
+
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1')
+        pr.add_virtual_network(vn1_obj)
+        #pr.add_virtual_network(vn2_obj)
+        self._vnc_lib.physical_router_update(pr)
+        np = self.create_network_policy(vn1_obj, vn2_obj)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
+        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_network_policy_config(vn1_obj)
 # end TestNetworkDM
+
 
