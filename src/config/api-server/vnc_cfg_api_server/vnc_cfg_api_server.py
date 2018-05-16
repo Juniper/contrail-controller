@@ -3339,6 +3339,12 @@ class VncApiServer(object):
                 for object in item.get("objects"):
                     instance_obj = cls_ob(**object)
                     self.create_singleton_entry(instance_obj)
+                    # update default-global-system-config for supported_device_families
+                    if object_type =='global_system_config':
+                        fq_name = instance_obj.get_fq_name()
+                        uuid = self._db_conn.fq_name_to_uuid(object_type, fq_name)
+                        self._db_conn.dbe_update(object_type, uuid, object)
+
         except Exception as e:
             self.config_log('error while loading init data: ' + str(e),
                             level=SandeshLevel.SYS_NOTICE)
@@ -4688,3 +4694,4 @@ def server_main(args_str=None):
 
 if __name__ == "__main__":
     server_main()
+
