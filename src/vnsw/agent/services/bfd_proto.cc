@@ -44,8 +44,15 @@ bool BfdProto::BfdHealthCheckSessionControl(
 
     uint16_t remote_port = service->is_multi_hop() ?
                            BFD::kMultiHop : BFD::kSingleHop;
-    IpAddress source_ip = service->source_ip();
+    IpAddress source_ip = service->update_source_ip();
     IpAddress destination_ip = service->destination_ip();
+    if (source_ip.is_unspecified()) {
+        BFD_TRACE(Trace, "Ignore",
+                  destination_ip.to_string(),
+                  source_ip.to_string(), service->interface()->id(),
+                  0, 0, 0);
+        return false;
+    }
     BFD::SessionKey key(destination_ip,
                         BFD::SessionIndex(service->interface()->id()),
                         remote_port,
