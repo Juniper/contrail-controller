@@ -13,7 +13,7 @@
 #include "http/client/vncapi.h"
 #include "parser_util.h"
 #include "configdb_connection.h"
-
+#
 class Options;
 
 class HostnameRecord {
