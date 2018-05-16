@@ -1381,7 +1381,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:simpleType name="VlanIdType">
      <xsd:restriction base="xsd:integer">
-         <xsd:minInclusive value="1"/>
+         <xsd:minInclusive value="0"/>
          <xsd:maxInclusive value="4094"/>
      </xsd:restriction>
 </xsd:simpleType>
