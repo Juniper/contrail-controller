@@ -978,7 +978,7 @@ class Controller(object):
 
         ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
+            staticmethod(ConnectionState.get_conn_state_cb),
             NodeStatusUVE, NodeStatus, self.table)
 
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
