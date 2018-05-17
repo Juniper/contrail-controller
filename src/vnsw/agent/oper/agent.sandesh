@@ -316,6 +316,10 @@ struct ItfSandeshData {
    /** If current VMI is SI VMI, then below field is uuid of VMI of other
        end of SI */
    64: string si_other_end_vmi;
+   /** Enable IGMP on the VMI */
+   65: bool cfg_igmp_enable;
+   /** IGMP Status on the VMI */
+   66: bool igmp_enabled;
 }
 
 /**
@@ -402,6 +406,8 @@ struct VnSandeshData {
     19: bool layer2_control_word;
     /** List of security-logging-objects associated with virtual network */
     20: list<SecurityLoggingObjectLink> slo_list;
+    /** Enable IGMP on the VMI */
+    21: bool cfg_igmp_enable;
 }
 
 /**
@@ -3415,11 +3421,21 @@ struct GracefulRestartSandeshData {
     4: bool config_seen;
 }
 
+/**
+ * Sandesh definition for IGMP Parameters
+ */
+struct IgmpSandeshData {
+    /** Enable IGMP flag */
+    1: bool cfg_igmp_enable;
+}
+
 response sandesh GlobalSystemConfigResp {
     /** BgpaaS parameters */
     1: BGPaaSSandeshData bgp_parameters;
     /** Graceful Restart parameters */
     2: GracefulRestartSandeshData llgr_parameters;
+    /** IGMP parameters */
+    3: IgmpSandeshData igmp_parameters;
 }
 
 /**
