@@ -1228,6 +1228,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_slo_list(slo_list);
         data.set_si_other_end_vmi(UuidToString(vintf->si_other_end_vmi()));
+        data.set_cfg_igmp_enable(vintf->cfg_igmp_enable());
+        data.set_igmp_enabled(vintf->igmp_enabled());
         break;
     }
     case Interface::INET: {
