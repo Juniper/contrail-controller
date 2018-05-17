@@ -31,6 +31,7 @@ import discoveryclient.client as client
 from buildinfo import build_info
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.connection_info import ConnectionState
 from nodemgr.utils import NodeMgrUtils
 
 
@@ -152,6 +153,10 @@ class EventManager(object):
             self.discovery_server, self.discovery_port, self.module_id,
             **self.dss_kwargs)
         return _disc
+
+    def get_process_state_cb(self):
+        state, description = self.get_process_state(self.fail_status_bits)
+        return state, description
 
     def check_ntp_status(self):
         ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
@@ -386,9 +391,15 @@ class EventManager(object):
             self.prev_fail_status_bits = self.fail_status_bits
             fail_status_bits = self.fail_status_bits
             state, description = self.get_process_state(fail_status_bits)
+            conn_infos = ConnectionState._connection_map.values()
+            (cb_state, cb_description) = ConnectionState.get_conn_state_cb(conn_infos)
+            if (cb_state == ProcessState.NON_FUNCTIONAL):
+                state = ProcessState.NON_FUNCTIONAL
+            description += cb_description
+
             process_status = ProcessStatus(
                     module_id=self.module_id, instance_id=self.instance_id,
-                    state=state, description=description)
+                    state=ProcessStateNames[state], description=description)
             process_status_list = []
             process_status_list.append(process_status)
             node_status = NodeStatus(name=socket.gethostname(),
@@ -518,7 +529,7 @@ class EventManager(object):
     def get_process_state_base(self, fail_status_bits,
                                ProcessStateNames, ProcessState):
         if fail_status_bits:
-            state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
+            state = ProcessState.NON_FUNCTIONAL
             description = self.get_failbits_nodespecific_desc(fail_status_bits)
             if (description is ""):
                 if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
@@ -526,7 +537,7 @@ class EventManager(object):
                         description += " "
                     description += "NTP state unsynchronized."
         else:
-            state = ProcessStateNames[ProcessState.FUNCTIONAL]
+            state = ProcessState.FUNCTIONAL
             description = ''
         return state, description
 
