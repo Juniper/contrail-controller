@@ -46,7 +46,6 @@ else:
     elif (distname == 'centos' or distname == 'redhat') and \
           (LooseVersion(version) >= LooseVersion('7.0')):
         subdirs += [
-            'gperftools',
             'log4cplus',
         ]
     elif distname == 'fedora' and LooseVersion(version) >= LooseVersion('20'):
