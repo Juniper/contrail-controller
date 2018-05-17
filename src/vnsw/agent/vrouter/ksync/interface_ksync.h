@@ -132,6 +132,7 @@ private:
     bool etree_leaf_;
     bool pbb_interface_;
     uint8_t vhostuser_mode_;
+    bool igmp_enable_;
     boost::optional<InterfaceOsParams::IfGuid> os_guid_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };

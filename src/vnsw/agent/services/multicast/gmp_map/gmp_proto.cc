@@ -23,10 +23,11 @@ extern "C" {
 #include "task_map.h"
 #include "gmp_proto.h"
 
-GmpIntf::GmpIntf(const GmpProto *gmp_proto) : gmp_proto_(gmp_proto), vrf_name_(),
-                                    ip_addr_() {
+GmpIntf::GmpIntf(const GmpProto *gmp_proto) : gmp_proto_(gmp_proto),
+                                    vrf_name_(), ip_addr_() {
 
     gif_ = NULL;
+    querying_ = false;
 }
 
 bool GmpIntf::set_ip_address(const IpAddress &addr) {
@@ -38,7 +39,8 @@ bool GmpIntf::set_ip_address(const IpAddress &addr) {
         gmp_addr_string gmp_addr;
         memcpy(&gmp_addr, &intf_addr, IPV4_ADDR_LEN);
         gmp_update_intf_state(gmp_proto_->gd_, gif_,
-                                    (const gmp_addr_string *)&intf_addr);
+                                    addr != IpAddress() ?
+                                    (const gmp_addr_string *)&intf_addr : NULL);
         return true;
     }
 
@@ -50,16 +52,31 @@ bool GmpIntf::set_vrf_name(const string &vrf_name) {
     return true;
 }
 
+bool GmpIntf::set_gmp_querying(bool querying) {
+
+    if (querying_ != querying) {
+        querying_ = querying;
+        boolean ret = gmp_update_intf_querying(gmp_proto_->gd_, gif_,
+                                querying ? TRUE : FALSE);
+        return ret ? true : false;
+    }
+
+    return true;
+}
+
 GmpProto::GmpProto(GmpType::Type type, Agent *agent,
                             const std::string &task_name, int instance,
                             boost::asio::io_service &io) :
     type_(type), agent_(agent), name_(task_name), instance_(instance), io_(io) {
 
     task_map_ = NULL;
+    gmp_trigger_timer_ = NULL;
+    gmp_notif_trigger_ = NULL;
     gd_ = NULL;
+    cb_ = NULL;
 
-    stats_.igmp_sgh_add_count_ = 0;
-    stats_.igmp_sgh_del_count_ = 0;
+    stats_.gmp_sgh_add_count_ = 0;
+    stats_.gmp_sgh_del_count_ = 0;
 }
 
 GmpProto::~GmpProto() {
@@ -72,14 +89,29 @@ bool GmpProto::Start() {
     }
 
     task_map_ = TaskMapManager::CreateTaskMap(agent_, name_, instance_, io_);
+    if (!task_map_) {
+        return false;
+    }
+
+    gmp_notif_trigger_ = new TaskTrigger(
+                            boost::bind(&GmpProto::GmpNotificationHandler,this),
+                            TaskScheduler::GetInstance()->GetTaskId(name_),
+                            instance_);
 
     gd_ = gmp_init(MCAST_AF_IPV4, (task *)task_map_->task_, this);
     if (!gd_) {
-        TaskMapManager::DeleteTaskMap(task_map_);
+        if (task_map_) TaskMapManager::DeleteTaskMap(task_map_);
         task_map_ = NULL;
+
+        if (gmp_notif_trigger_) {
+            gmp_notif_trigger_->Reset();
+            delete gmp_notif_trigger_;
+        }
+        gmp_notif_trigger_ = NULL;
 
         return false;
     }
+
     return true;
 }
 
@@ -91,6 +123,17 @@ bool GmpProto::Stop() {
 
     gmp_deinit(MCAST_AF_IPV4);
     gd_ = NULL;
+
+    if (gmp_trigger_timer_) {
+        gmp_trigger_timer_->Cancel();
+        TimerManager::DeleteTimer(gmp_trigger_timer_);
+        gmp_trigger_timer_ = NULL;
+    }
+
+    gmp_notif_trigger_->Reset();
+    delete gmp_notif_trigger_;
+    gmp_notif_trigger_ = NULL;
+
     TaskMapManager::DeleteTaskMap(task_map_);
     task_map_ = NULL;
 
@@ -134,6 +177,58 @@ bool GmpProto::GmpProcessPkt(GmpIntf *gmp_intf,
                         packet_len, &src_addr, &dst_addr);
 
     return ret ? true : false;
+}
+
+uint8_t *GmpProto::GmpBufferGet() {
+    return new uint8_t[GMP_TX_BUFF_LEN];
+}
+
+void GmpProto::GmpBufferFree(uint8_t *pkt) {
+    delete [] pkt;
+}
+
+bool GmpProto::GmpNotificationHandler() {
+
+    boolean pending = FALSE;
+
+    pending = gmp_notification_handler(gd_);
+    if ((pending == TRUE) && gmp_notif_trigger_) {
+        gmp_trigger_timer_ = TimerManager::CreateTimer(io_, "GMP Trigger Timer",
+                            TaskScheduler::GetInstance()->GetTaskId(name_),
+                            instance_, true);
+        gmp_trigger_timer_->Start(kGmpTriggerRestartTimer,
+                            boost::bind(&GmpProto::GmpNotificationTimer, this));
+    }
+
+    return true;
+}
+
+bool GmpProto::GmpNotificationTimer() {
+
+    if (gmp_notif_trigger_ && !gmp_notif_trigger_->IsSet()) {
+        gmp_notif_trigger_->Set();
+    }
+
+    gmp_trigger_timer_ = NULL;
+
+    return false;
+}
+
+void GmpProto::GmpNotificationReady() {
+
+    if (!gmp_notif_trigger_ || gmp_notif_trigger_->IsSet()) {
+        return;
+    }
+
+    gmp_notif_trigger_->Set();
+
+    if (gmp_trigger_timer_) {
+        gmp_trigger_timer_->Cancel();
+        TimerManager::DeleteTimer(gmp_trigger_timer_);
+        gmp_trigger_timer_ = NULL;
+    }
+
+    return;
 }
 
 void GmpProto::GroupNotify(GmpIntf *gif, IpAddress source, IpAddress group,
@@ -182,22 +277,35 @@ void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
 
     if (src_addr) {
         if (join) {
-            stats_.igmp_sgh_add_count_++;
+            stats_.gmp_sgh_add_count_++;
             agent_->oper_db()->multicast()->AddVmInterfaceToSourceGroup(
                                     agent_->fabric_policy_vrf_name(),
                                     agent_->fabric_vn_name(), vm_intf,
                                     source.to_v4(), group.to_v4());
         } else {
-            stats_.igmp_sgh_del_count_++;
+            stats_.gmp_sgh_del_count_++;
             agent_->oper_db()->multicast()->DeleteVmInterfaceFromSourceGroup(
                                     agent_->fabric_policy_vrf_name(), vm_intf,
                                     source.to_v4(), group.to_v4());
         }
     } else {
-        agent_->oper_db()->multicast()->DeleteVmInterfaceFromSourceGroup(
+        if (!join) {
+            agent_->oper_db()->multicast()->DeleteVmInterfaceFromSourceGroup(
                                     agent_->fabric_policy_vrf_name(), vm_intf,
                                     group.to_v4());
+        }
     }
+}
+
+bool GmpProto::SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
+                            IpAddress dest) {
+
+    GmpPacket packet(pkt, pkt_len, dest);
+
+    if (cb_) {
+        return cb_(gif, &packet);
+    }
+    return false;
 }
 
 GmpProto *GmpProtoManager::CreateGmpProto(GmpType::Type type, Agent *agent,
@@ -222,11 +330,28 @@ bool GmpProtoManager::DeleteGmpProto(GmpProto *proto_inst) {
     return true;
 }
 
+void gmp_notification_ready(mgm_global_data *gd)
+{
+   if (!gd) {
+        return;
+    }
+
+    GmpProto *gmp_proto = (GmpProto *)gd->gmp_sm;
+
+    gmp_proto->GmpNotificationReady();
+
+    return;
+}
+
 void gmp_group_notify(mgm_global_data *gd, gmp_intf *intf,
                             int group_action, gmp_addr_string source,
                             gmp_addr_string group)
 {
     if (!gd || !intf) {
+        return;
+    }
+
+    if (gd->mgm_gd_af != MCAST_AF_IPV4) {
         return;
     }
 
@@ -239,9 +364,9 @@ void gmp_group_notify(mgm_global_data *gd, gmp_intf *intf,
 
     uint32_t addr;
     memcpy(&addr, &source, IPV4_ADDR_LEN);
-    IpAddress source_addr = IpAddress(Ip4Address(addr));
+    IpAddress source_addr = Ip4Address(ntohl(addr));
     memcpy(&addr, &group, IPV4_ADDR_LEN);
-    IpAddress group_addr = IpAddress(Ip4Address(addr));
+    IpAddress group_addr = Ip4Address(ntohl(addr));
 
     bool add;
     if (group_action == MGM_GROUP_ADDED) {
@@ -259,6 +384,10 @@ void gmp_cache_resync_notify(mgm_global_data *gd, gmp_intf *intf,
         return;
     }
 
+    if (gd->mgm_gd_af != MCAST_AF_IPV4) {
+        return;
+    }
+
     GmpProto *gmp_proto = (GmpProto *)gd->gmp_sm;
     GmpIntf *gif = (GmpIntf *)intf->vm_interface;
 
@@ -268,9 +397,9 @@ void gmp_cache_resync_notify(mgm_global_data *gd, gmp_intf *intf,
 
     uint32_t addr;
     memcpy(&addr, &source, IPV4_ADDR_LEN);
-    IpAddress source_addr = IpAddress(Ip4Address(addr));
+    IpAddress source_addr = Ip4Address(ntohl(addr));
     memcpy(&addr, &group, IPV4_ADDR_LEN);
-    IpAddress group_addr = IpAddress(Ip4Address(addr));
+    IpAddress group_addr = Ip4Address(ntohl(addr));
 
     gmp_proto->ResyncNotify(gif, source_addr, group_addr);
 }
@@ -280,6 +409,10 @@ void gmp_host_update(mgm_global_data *gd, gmp_intf *intf, boolean join,
                             gmp_addr_string group)
 {
     if (!gd || !intf) {
+        return;
+    }
+
+    if (gd->mgm_gd_af != MCAST_AF_IPV4) {
         return;
     }
 
@@ -302,3 +435,43 @@ void gmp_host_update(mgm_global_data *gd, gmp_intf *intf, boolean join,
                                     source_addr, group_addr);
 }
 
+uint8_t *gmp_get_send_buffer(mgm_global_data *gd, gmp_intf *intf)
+{
+    if (!gd || !intf) {
+        return NULL;
+    }
+
+    GmpProto *gmp_proto = (GmpProto *)gd->gmp_sm;
+    return gmp_proto->GmpBufferGet();
+}
+
+void gmp_free_send_buffer(mgm_global_data *gd, gmp_intf *intf, uint8_t *buffer)
+{
+    if (!gd || !intf) {
+        return;
+    }
+
+    GmpProto *gmp_proto = (GmpProto *)gd->gmp_sm;
+    gmp_proto->GmpBufferFree(buffer);
+
+    return;
+}
+
+void gmp_send_one_packet(mgm_global_data *gd, gmp_intf *intf, uint8_t *pkt,
+                            uint32_t pkt_len, gmp_addr_string dest)
+{
+    if (!gd || !intf) {
+        return;
+    }
+
+    GmpProto *gmp_proto = (GmpProto *)gd->gmp_sm;
+    GmpIntf *gif = (GmpIntf *)intf->vm_interface;
+
+    uint32_t addr;
+    memcpy(&addr, &dest, IPV4_ADDR_LEN);
+    IpAddress dst_addr = IpAddress(Ip4Address(ntohl(addr)));
+
+    gmp_proto->SendPacket(gif, pkt, pkt_len, dst_addr);
+
+    return;
+}

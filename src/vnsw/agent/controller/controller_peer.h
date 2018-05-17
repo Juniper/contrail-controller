@@ -44,6 +44,7 @@ public:
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
     virtual void ReceiveEvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
+    virtual void ReceiveMvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveV4V6Update(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
     void ReceiveBgpMessage(std::auto_ptr<XmlBase> impl);
