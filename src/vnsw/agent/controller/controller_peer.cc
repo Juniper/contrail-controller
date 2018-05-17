@@ -449,6 +449,124 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
     }
 }
 
+void AgentXmppChannel::ReceiveMvpnUpdate(XmlPugi *pugi) {
+
+    pugi::xml_node node = pugi->FindNode("items");
+    pugi::xml_attribute attr = node.attribute("node");
+
+    char *saveptr;
+    strtok_r(const_cast<char *>(attr.value()), "/", &saveptr);
+    strtok_r(NULL, "/", &saveptr);
+    char *vrf_name =  strtok_r(NULL, "", &saveptr);
+    const std::string vrf(vrf_name);
+
+    pugi::xml_node node_check = pugi->FindNode("retract");
+    if (!pugi->IsNull(node_check)) {
+        pugi->ReadNode("retract"); //sets the context
+        std::string retract_id = pugi->ReadAttrib("id");
+
+        for (node = node.first_child(); node; node = node.next_sibling()) {
+            if (strcmp(node.name(), "retract") == 0) {
+                std::string id = node.first_attribute().value();
+                CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                            "Multicast Delete Node id:" + id);
+
+                // Parse identifier to obtain group,source
+                // <addr:VRF:Group,Source)
+                strtok_r(const_cast<char *>(id.c_str()), ":", &saveptr);
+                strtok_r(NULL, ":", &saveptr);
+                char *group = strtok_r(NULL, ",", &saveptr);
+                char *source = strtok_r(NULL, "", &saveptr);
+                if (group == NULL || source == NULL) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                       "Error parsing multicast group address from retract id");
+                    return;
+                }
+
+                boost::system::error_code ec;
+                IpAddress g_address = IpAddress::from_string(group, ec);
+                if (ec.value() != 0) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                            "Error parsing multicast group address");
+                    return;
+                }
+
+                IpAddress s_address = IpAddress::from_string(source, ec);
+                if (ec.value() != 0) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                            "Error parsing multicast source address");
+                    return;
+                }
+
+                //Retract with invalid identifier
+                agent_->oper_db()->multicast()->ModifyMvpnVrfRegistration(
+                                    bgp_peer_id(), vrf, g_address.to_v4(),
+                                    s_address.to_v4(),
+                                    ControllerPeerPath::kInvalidPeerIdentifier);
+            }
+        }
+        return;
+    }
+
+    pugi::xml_node items_node = pugi->FindNode("item");
+    if (!pugi->IsNull(items_node)) {
+        pugi->ReadNode("item"); //sets the context
+        std::string item_id = pugi->ReadAttrib("id");
+        if (!(agent_->mulitcast_builder()) || (bgp_peer_id() !=
+            agent_->mulitcast_builder()->bgp_peer_id())) {
+            CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                             "Ignore request from non multicast tree "
+                             "builder peer; Multicast Delete Node:" + item_id);
+            return;
+        }
+    }
+
+    //Call Auto-generated Code to return struct
+    auto_ptr<AutogenProperty> xparser(new AutogenProperty());
+    if (MvpnItemsType::XmlParseProperty(node, &xparser) == false) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                        "Xml Parsing for Multicast Message Failed");
+        return;
+    }
+
+    MvpnItemsType *items;
+    MvpnItemType *item;
+
+    items = (static_cast<MvpnItemsType *>(xparser.get()));
+    std::vector<MvpnItemType>::iterator items_iter;
+    boost::system::error_code ec;
+    for (items_iter = items->item.begin(); items_iter != items->item.end();
+            items_iter++) {
+
+        item = &*items_iter;
+
+        IpAddress g_address = IpAddress::from_string(item->entry.nlri.group, ec);
+        if (ec.value() != 0) {
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                             "Error parsing multicast group address");
+            return;
+        }
+
+        IpAddress s_address = IpAddress::from_string(item->entry.nlri.source, ec);
+        if (ec.value() != 0) {
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                            "Error parsing multicast source address");
+            return;
+        }
+
+        int route_type = item->entry.nlri.route_type;
+        if (route_type != 7) {
+            continue;
+        }
+
+        agent_->oper_db()->multicast()->ModifyMvpnVrfRegistration(
+                                    bgp_peer_id(), vrf, g_address.to_v4(),
+                                    s_address.to_v4(),
+                                    agent_->controller()->
+                                    multicast_sequence_number());
+    }
+}
+
 void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
 
     pugi::xml_node node = pugi->FindNode("items");
@@ -1204,6 +1322,10 @@ void AgentXmppChannel::ReceiveBgpMessage(std::auto_ptr<XmlBase> impl) {
         return;
     }
 
+    if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::MVpn) {
+        ReceiveMvpnUpdate(pugi);
+        return;
+    }
     if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::Mcast) {
         ReceiveMulticastUpdate(pugi);
         return;
@@ -2354,13 +2476,6 @@ bool AgentXmppChannel::ControllerSendMvpnRouteCommon(AgentRoute *route,
     MvpnItemType item;
     uint8_t data_[4096];
     size_t datalen_;
-
-    if (associate && (agent_->mulitcast_builder() != this)) {
-        CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(),
-                                    route->vrf()->GetName(),
-                                    "Peer not elected Multicast Tree Builder");
-        return false;
-    }
 
     CONTROLLER_INFO_TRACE(McastSubscribe, GetBgpPeerName(),
                                 route->vrf()->GetName(), " ",
