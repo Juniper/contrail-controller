@@ -1512,7 +1512,7 @@ class VncApiServer(object):
 
         ConnectionState.init(self._sandesh, hostname, module_name,
                 instance_id,
-                staticmethod(ConnectionState.get_process_state_cb),
+                staticmethod(ConnectionState.get_conn_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
 
         # Address Management interface
