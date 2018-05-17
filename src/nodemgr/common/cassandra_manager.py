@@ -38,7 +38,7 @@ class CassandraManager(object):
 
     def status(self):
         subprocess.Popen(["contrail-cassandra-status",
-                          "--log-file", "/var/log/cassandra/status.log",
+                          "--log-file", "/var/log/contrail/cassandra-status.log",
                           "--debug"], close_fds=True)
 
     def repair(self):
@@ -169,10 +169,6 @@ class CassandraManager(object):
             else:
                 disk_space = int(total_disk_space_used) + int(total_disk_space_available)
                 if (disk_space / (1024 * 1024) < self.minimum_diskgb):
-                    cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
-                    (ret_value, error_value) = subprocess.Popen(
-                        cmd_str, shell=True, stdout=subprocess.PIPE,
-                        close_fds=True).communicate()
                     event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE
                 event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_DISK_SPACE_NA
         except:
