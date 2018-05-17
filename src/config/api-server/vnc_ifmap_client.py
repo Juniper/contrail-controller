@@ -12,6 +12,7 @@ import cStringIO
 import StringIO
 import time
 
+from pprint import pformat
 from cfgm_common import ignore_exceptions
 from cfgm_common import jsonutils as json
 from cfgm_common.ifmap.client import client
