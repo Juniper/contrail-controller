@@ -58,8 +58,9 @@ class AnalyticsEventManager(EventManager):
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
             self.instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus, self.table)
+            staticmethod(ConnectionState.get_conn_state_cb),
+            NodeStatusUVE, NodeStatus, self.table,
+            self.get_process_state_cb)
         self.send_init_info()
         self.third_party_process_dict = {}
     # end __init__

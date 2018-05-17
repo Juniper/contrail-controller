@@ -139,7 +139,7 @@ class ConfigServiceLogger(object):
         ConnectionState.init(
                 self._sandesh, self._hostname, self._module_name,
                 self._instance_id,
-                staticmethod(ConnectionState.get_process_state_cb),
+                staticmethod(ConnectionState.get_conn_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
         VncGreenlet.register_sandesh_handler()
 

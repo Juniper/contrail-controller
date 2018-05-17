@@ -25,12 +25,14 @@ from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common.sandesh.nodeinfo.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.process_info.constants import *
 from nodemgr.common.cpuinfo import MemCpuUsageData
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 import discoveryclient.client as client
 from buildinfo import build_info
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.connection_info import ConnectionState
 from nodemgr.utils import NodeMgrUtils
 
 
@@ -54,6 +56,7 @@ class EventManager(object):
     FAIL_STATUS_SERVER_PORT = 0x4
     FAIL_STATUS_NTP_SYNC = 0x8
     FAIL_STATUS_DISK_SPACE_NA = 0x10
+    NTP_STATUS_MIN_TICK_COUNT = 10
 
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr, sandesh_global,
@@ -153,6 +156,15 @@ class EventManager(object):
             **self.dss_kwargs)
         return _disc
 
+    def get_process_state_cb(self):
+        state = ProcessState.FUNCTIONAL
+        description = ''
+        if self.tick_count >= self.NTP_STATUS_MIN_TICK_COUNT:
+            self.check_ntp_status()
+            fail_status_bits = self.fail_status_bits
+            state, description = self.get_process_state(fail_status_bits)
+        return state, description
+
     def check_ntp_status(self):
         ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
         proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE)
@@ -161,6 +173,9 @@ class EventManager(object):
             self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
         else:
             self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
+
+    def send_ntp_status(self):
+        self.check_ntp_status()
         self.send_nodemgr_process_status()
 
     def get_build_info(self):
@@ -386,9 +401,15 @@ class EventManager(object):
             self.prev_fail_status_bits = self.fail_status_bits
             fail_status_bits = self.fail_status_bits
             state, description = self.get_process_state(fail_status_bits)
+            conn_infos = ConnectionState._connection_map.values()
+            (cb_state, cb_description) = ConnectionState.get_conn_state_cb(conn_infos)
+            if (cb_state == ProcessState.NON_FUNCTIONAL):
+                state = ProcessState.NON_FUNCTIONAL
+            description += cb_description
+
             process_status = ProcessStatus(
                     module_id=self.module_id, instance_id=self.instance_id,
-                    state=state, description=description)
+                    state=ProcessStateNames[state], description=description)
             process_status_list = []
             process_status_list.append(process_status)
             node_status = NodeStatus(name=socket.gethostname(),
@@ -518,7 +539,7 @@ class EventManager(object):
     def get_process_state_base(self, fail_status_bits,
                                ProcessStateNames, ProcessState):
         if fail_status_bits:
-            state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
+            state = ProcessState.NON_FUNCTIONAL
             description = self.get_failbits_nodespecific_desc(fail_status_bits)
             if (description is ""):
                 if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
@@ -526,7 +547,7 @@ class EventManager(object):
                         description += " "
                     description += "NTP state unsynchronized."
         else:
-            state = ProcessStateNames[ProcessState.FUNCTIONAL]
+            state = ProcessState.FUNCTIONAL
             description = ''
         return state, description
 
@@ -591,8 +612,8 @@ class EventManager(object):
 
             # typical ntp sync time is about 5 min - first time,
             # we scan only after 10 min
-            if self.tick_count >= 10:
-                self.check_ntp_status()
+            if self.tick_count >= self.NTP_STATUS_MIN_TICK_COUNT:
+                self.send_ntp_status()
             if self.update_process_core_file_list():
                 self.send_process_state_db(['default'])
 

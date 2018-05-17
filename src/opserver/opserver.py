@@ -504,7 +504,7 @@ class OpServer(object):
             syslog_facility=self._args.syslog_facility)
         ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
+            staticmethod(ConnectionState.get_conn_state_cb),
             NodeStatusUVE, NodeStatus, self.table)
         self._uvepartitions_state = None
         # Trace buffer list
