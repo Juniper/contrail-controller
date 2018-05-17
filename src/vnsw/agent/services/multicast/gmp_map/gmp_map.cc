@@ -22,6 +22,9 @@ extern "C" {
 
 #include "gmp_intf.h"
 #include "gmp_map.h"
+#include "gmp_private.h"
+#include "gmp_trace.h"
+#include "gmpr_trace.h"
 
 extern void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
                         uint32_t qrivl, uint32_t lmqi);
@@ -110,6 +113,7 @@ mgm_global_data *gmp_init(mc_af mcast_af, task *tp, void *gmp_sm)
     gd->mgm_gmpr_instance = gmpr_create_instance(proto, gd, &gmp_inst_ctx);
     gd->mgm_gmpr_client = gmpr_register(gd->mgm_gmpr_instance, gd,
                             &igmp_client_context);
+    gmpr_update_trace_flags(gd->mgm_gmpr_instance, 0);
     gmp_set_def_intf_params(mcast_af);
 
     return gd;
@@ -131,16 +135,14 @@ void gmp_deinit(mc_af mcast_af)
 
 void gmp_set_intf_params(mgm_global_data *gd, gmp_intf *gif)
 {
-    gmpr_intf_params *params;
     gmp_intf_handle *handle;
 
     if (gd->mgm_gd_af != MCAST_AF_IPV4) {
         return;
     }
 
-    params = &def_gmpr_intf_params[gd->mgm_gd_af];
     handle = gmp_gif_to_handle(gif);
-    gmpr_set_intf_params(gd->mgm_gmpr_instance, handle, params);
+    gmpr_set_intf_params(gd->mgm_gmpr_instance, handle, &gif->params);
     return;
 }
 
@@ -166,6 +168,8 @@ gmp_intf *gmp_attach_intf(mgm_global_data *gd, void *mif_state)
     gif->gmpif_handle.gmpifh_host = FALSE;
     std::memset(&gif->gmpif_handle.gmpifh_xmit_thread, 0, sizeof(thread));
     gmpr_attach_intf(gd->mgm_gmpr_instance, &gif->gmpif_handle);
+    memcpy(&gif->params, &def_gmpr_intf_params[gd->mgm_gd_af],
+                                    sizeof(gif->params));
     gmp_set_intf_params(gd, gif);
 
     return gif;
@@ -189,6 +193,15 @@ boolean gmp_update_intf_state(mgm_global_data *gd, gmp_intf *gif,
 {
     gmpr_update_intf_state(gd->mgm_gmpr_instance, gmp_gif_to_handle(gif),
                                 (const u_int8_t *)intf_addr);
+    return TRUE;
+}
+
+boolean gmp_update_intf_querying(mgm_global_data *gd, gmp_intf *gif,
+                                boolean query)
+{
+    gif->params.gmpr_ifparm_suppress_gen_query = query;
+    gif->params.gmpr_ifparm_suppress_gs_query = query;
+    gmp_set_intf_params(gd, gif);
     return TRUE;
 }
 
@@ -229,17 +242,15 @@ boolean gmp_ssm_check_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
     return TRUE;
 }
 
-void igmp_notification_ready(void *context)
+boolean gmp_client_notification(mgm_global_data *gd)
 {
+    boolean pending = FALSE;
     gmpr_client_notification *notification;
     gmp_intf *gif;
     gmp_intf_handle *handle;
     gmp_addr_string g;
     gmp_addr_string s;
-    mgm_global_data *gd;
     int notif_count = IGMP_MAX_NOTIF_PER_PASS;
-
-    gd = (mgm_global_data *)context;
 
     /*
      * Pull notifications until we run out, hit our max count, or the
@@ -248,8 +259,7 @@ void igmp_notification_ready(void *context)
      * NOTE: We might go over the max notifications per pass,
      * ie. notif_count might be -ve, because we need to make sure that
      * the notifications for the (s,g) of the same group are being
-     * processed in the same batch.  For details, please see PR
-     * 509013.
+     * processed in the same batch.
      */
     notification = NULL;
     while (notif_count-- > 0 || !gmpr_notification_last_sg(notification)) {
@@ -338,22 +348,22 @@ void igmp_notification_ready(void *context)
      */
      if (notification) {
          gmpr_return_notification(notification);
+         pending = TRUE;
      }
-     return;
+
+     return pending;
 }
 
-void igmp_host_notification_ready(void *context)
+boolean gmp_client_host_notification(mgm_global_data *gd)
 {
+    boolean pending = FALSE;
     gmpr_client_host_notification *gmpr_notif = NULL;
     gmp_intf *gif;
     gmp_intf_handle *handle;
-    mgm_global_data *gd;
     gmp_addr_string g;
     gmp_addr_string s;
     gmp_addr_string h;
     int notif_count = IGMP_MAX_HOST_NOTIF_PER_PASS;
-
-    gd = (mgm_global_data *)context;
 
     /*
      *  Do this a limited number of times.
@@ -424,8 +434,36 @@ void igmp_host_notification_ready(void *context)
      */
     if (gmpr_notif) {
         gmpr_return_host_notification(gmpr_notif);
+        pending = TRUE;
     }
-    return;
+
+    return pending;
+}
+
+boolean gmp_notification_handler(mgm_global_data *gd)
+{
+    boolean pending = FALSE;
+
+    pending |= gmp_client_notification(gd);
+
+    pending |= gmp_client_host_notification(gd);
+
+    return pending;
+}
+
+void igmp_notification_ready(void *context)
+{
+    mgm_global_data *gd = (mgm_global_data *)context;
+
+    gmp_notification_ready(gd);
+}
+
+
+void igmp_host_notification_ready(void *context)
+{
+    mgm_global_data *gd = (mgm_global_data *)context;
+
+    gmp_notification_ready(gd);
 }
 
 void mgm_querier_change(void *cli_context UNUSED, gmp_intf_handle *handle,
@@ -445,8 +483,55 @@ void gmpx_post_event(void *context, gmpx_event_type ev,
     return;
 }
 
+bool igmp_send_one_packet(gmp_intf_handle *intf)
+{
+    uint8_t *pkt = NULL;
+    gmp_addr_string dest_addr;
+    mgm_global_data *gd;
+    gmp_intf *gif;
+
+    gd = &mgm_global[MCAST_AF_IPV4];
+    gif = gmp_handle_to_gif(intf);
+    if (!gif) {
+        return false;
+    }
+
+    pkt = gmp_get_send_buffer(gd, gif);
+    if (!pkt) {
+        return false;
+    }
+
+    uint32_t formatted_len = igmp_next_xmit_packet(GMP_ROLE_ROUTER, intf, pkt,
+                                    dest_addr.gmp_v4_addr, 1500, gd, 0);
+    if (formatted_len == 0) {
+        gmp_free_send_buffer(gd, gif, pkt);
+        return false;
+    }
+
+    gmp_send_one_packet(gd, gif, pkt, formatted_len, dest_addr);
+
+    gmp_free_send_buffer(gd, gif, pkt);
+
+    return true;
+}
+
 void gmp_xmit_ready(gmp_role role, gmp_proto proto, gmpx_intf_id intf_id)
 {
+    if (role != GMP_ROLE_ROUTER) {
+        return;
+    }
+
+    if (proto != GMP_PROTO_IGMP) {
+        return;
+    }
+
+    gmp_intf_handle *intf = (gmp_intf_handle*)intf_id;
+    if (!intf) {
+        return;
+    }
+
+    while (igmp_send_one_packet(intf));
+
     return;
 }
 

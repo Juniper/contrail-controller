@@ -77,7 +77,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     proxy_arp_mode_(VmInterface::PROXY_ARP_NONE), admin_state_(true),
     disable_policy_(false), analyzer_name_(""),
     local_preference_(0), oper_dhcp_options_(),
-    mirror_direction_(Interface::UNKNOWN), sg_list_(),
+    mirror_direction_(Interface::UNKNOWN),
+    cfg_igmp_enable_(false), igmp_enabled_(false), sg_list_(),
     floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
     instance_ipv4_list_(true), instance_ipv6_list_(false),
@@ -455,6 +456,16 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (dhcp_enable_ != data->dhcp_enable_) {
         dhcp_enable_ = data->dhcp_enable_;
+        ret = true;
+    }
+
+    if (cfg_igmp_enable_ != data->cfg_igmp_enable_) {
+        cfg_igmp_enable_ = data->cfg_igmp_enable_;
+        ret = true;
+    }
+
+    if (igmp_enabled_ != data->igmp_enabled_) {
+        igmp_enabled_ = data->igmp_enabled_;
         ret = true;
     }
 
