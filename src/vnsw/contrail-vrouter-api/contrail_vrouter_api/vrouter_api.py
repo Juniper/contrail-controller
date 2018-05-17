@@ -48,15 +48,18 @@ class ContrailVRouterApi(object):
             display_name=''
             if 'display_name' in kwargs:
                 display_name = kwargs['display_name']
-            vm_project_id=''
 
+            vm_project_id=''
             if 'vm_project_id' in kwargs:
                 vm_project_id = kwargs['vm_project_id']
+
             if ('port_type' in kwargs):
                 if (kwargs['port_type'] == 0):
                     port_type = "NovaVMPort"
                 elif (kwargs['port_type'] == 1):
                     port_type = "NameSpacePort"
+                elif (kwargs['port_type'] == 2):
+                    port_type = "ESXiPort"
                 elif (kwargs['port_type'] == 'NovaVMPort'):
                     port_type = "NovaVMPort"
                 else:
@@ -72,16 +75,39 @@ class ContrailVRouterApi(object):
             if 'vlan' in kwargs:
                 tx_vlan_id = kwargs['vlan']
 
-            cmd_args = ("vrouter-port-control --oper=\"add\" --uuid=\"%s\" "
-                        "--instance_uuid=\"%s\" --vn_uuid=\"%s\" "
-                        "--vm_project_uuid=\"%s\" --ip_address=\"%s\" "
-                        "--ipv6_address=\"%s\" --vm_name=\"%s\" --mac=\"%s\" "
-                        "--tap_name=\"%s\" --port_type=\"%s\" "
-                        "--vif_type=\"Vrouter\" --tx_vlan_id=\"%d\" "
-                        "--rx_vlan_id=\"%d\"" %(vif_uuid_str, vm_uuid_str,
-                        network_uuid, vm_project_id, ip_address, ip6_address,
-                        display_name, mac_address, interface_name, port_type,
-                        tx_vlan_id, -1))
+            rx_vlan_id = -1
+            if 'rx_vlan' in kwargs:
+                rx_vlan_id = kwargs['rx_vlan']
+
+            cmd_args = (
+                    "vrouter-port-control --oper=\"add\" "
+                    "--uuid=\"%s\" "
+                    "--instance_uuid=\"%s\" "
+                    "--vn_uuid=\"%s\" "
+                    "--vm_project_uuid=\"%s\" "
+                    "--ip_address=\"%s\" "
+                    "--ipv6_address=\"%s\" "
+                    "--vm_name=\"%s\" "
+                    "--mac=\"%s\" "
+                    "--tap_name=\"%s\" "
+                    "--port_type=\"%s\" "
+                    "--vif_type=\"Vrouter\" "
+                    "--tx_vlan_id=\"%d\" "
+                    "--rx_vlan_id=\"%d\" " % (
+                        vif_uuid_str,
+                        vm_uuid_str,
+                        network_uuid,
+                        vm_project_id,
+                        ip_address,
+                        ip6_address,
+                        display_name,
+                        mac_address,
+                        interface_name,
+                        port_type,
+                        tx_vlan_id,
+                        rx_vlan_id,
+                    )
+            )
 
             cmd = cmd_args.split()
             ret_code = subprocess.call(cmd)
@@ -118,7 +144,7 @@ class ContrailVRouterApi(object):
         finally:
             if self._semaphore:
                 self._semaphore.release()
-                
+
     def enable_port(self, vif_uuid_str):
         """
         Enable a port in the agent.
@@ -135,7 +161,7 @@ class ContrailVRouterApi(object):
             if ret_code != 0:
                 return False
             return True
-        
+
         finally:
             if self._semaphore:
                 self._semaphore.release()
