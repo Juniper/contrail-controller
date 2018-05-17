@@ -8,7 +8,6 @@
 #include "base/regex.h"
 #include "bfd/bfd_client.h"
 #include "bfd/bfd_control_packet.h"
-#include "bfd/bfd_server.h"
 #include "bfd/bfd_session.h"
 
 typedef contrail::regex regex_t;
@@ -171,6 +170,51 @@ TEST_F(ClientTest, BasicSingleHop1) {
     TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
 }
 
+TEST_F(ClientTest, BasicSendTimerTest1) {
+    boost::asio::ip::address client_address =
+        boost::asio::ip::address::from_string("10.10.10.1");
+    boost::asio::ip::address client_test_address =
+        boost::asio::ip::address::from_string("10.10.10.2");
+    SessionKey client_key = SessionKey(client_address, SessionIndex(),
+                                       kSingleHop, client_test_address);
+    SessionKey client_test_key = SessionKey(client_test_address,
+                                            SessionIndex(), kSingleHop,
+                                            client_address);
+    // Connect two bfd links
+    cm_.links()->insert(make_pair(
+        Communicator::LinksKey(client_address, client_test_address,
+                               SessionIndex()), &cm_test_));
+    cm_test_.links()->insert(
+        make_pair(Communicator::LinksKey(client_test_address, client_address,
+                                         SessionIndex()),&cm_));
+    SessionConfig sc;
+    sc.desiredMinTxInterval = boost::posix_time::milliseconds(100);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(100);
+    sc.detectionTimeMultiplier = 3;
+    client_.AddSession(client_key, sc);
+
+    SessionConfig sc_t;
+    sc_t.desiredMinTxInterval = boost::posix_time::milliseconds(60);
+    sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(200);
+    sc_t.detectionTimeMultiplier = 3;
+    client_test_.AddSession(client_test_key, sc_t);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
+
+    // Read the pkt stats
+    Server *server_test = client_test_.GetConnection()->GetServer();
+    Session *session_test =  server_test->SessionByKey(client_test_key);
+    int old_rx_count = session_test->Stats().rx_count;
+    int old_tx_count = session_test->Stats().tx_count;
+    boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+    // Read the Stats and validate with expected
+    EXPECT_GE((session_test->Stats().rx_count - old_rx_count), 4);
+    EXPECT_GE((session_test->Stats().tx_count - old_tx_count), 9);
+
+    client_.DeleteSession(client_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+}
+
 // Multiple sessions with same IPs (but with different ifindex)
 TEST_F(ClientTest, BasicSingleHop2) {
     boost::asio::ip::address client_address =
@@ -276,7 +320,7 @@ TEST_F(ClientTest, BasicSingleHop3) {
 
     SessionConfig sc;
     sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
-    sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
     sc.detectionTimeMultiplier = 3;
 
     client_.AddSession(client_key1, sc);
