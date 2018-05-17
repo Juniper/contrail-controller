@@ -37,7 +37,7 @@ class LinkUve(object):
             syslog_facility=self._conf.syslog_facility())
         ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
             self._instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
+            staticmethod(ConnectionState.get_conn_state_cb),
             NodeStatusUVE, NodeStatus, self.table)
         self._logger = sandesh_global.logger()
         # end __init__
