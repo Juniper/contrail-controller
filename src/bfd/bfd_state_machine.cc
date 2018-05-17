@@ -39,7 +39,7 @@ struct InitState;
 struct DownState;
 struct UpState;
 class StateMachineImpl : public StateMachine,
-                         public sc::state_machine<StateMachineImpl, InitState> {
+                         public sc::state_machine<StateMachineImpl, DownState> {
  public:
     explicit StateMachineImpl(EventManager *evm, Session *session) :
             evm_(evm), session_(session) {

@@ -139,6 +139,7 @@ void Session::PreparePacket(const SessionConfig &config,
 }
 
 ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
+    TimeInterval oldMinRxInterval = remoteSession_.minRxInterval;
     remoteSession_.discriminator = packet->sender_discriminator;
     remoteSession_.detectionTimeMultiplier = packet->detection_time_multiplier;
     remoteSession_.state = packet->state;
@@ -150,10 +151,16 @@ ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
         if (packet->desired_min_tx_interval > remoteSession_.minTxInterval) {
             remoteSession_.minTxInterval = packet->desired_min_tx_interval;
         }
-    } else if (local_state_non_locking() == kInit) {
+    } else if (local_state_non_locking() == kInit ||
+               local_state_non_locking() == kDown) {
         remoteSession_.minRxInterval = packet->required_min_rx_interval;
         remoteSession_.minTxInterval = packet->desired_min_tx_interval;
         remoteSession_.detectionTimeMultiplier = packet->detection_time_multiplier;
+        if (packet->required_min_rx_interval.total_microseconds() && 
+                oldMinRxInterval >= (packet->required_min_rx_interval * 10)) {
+            // reschedule the sendtimer to new value
+            ScheduleSendTimer();
+        }
     }
 
     sm_->ProcessRemoteState(packet->state);
@@ -204,23 +211,22 @@ TimeInterval Session::detection_time() {
 TimeInterval Session::tx_interval() {
     TimeInterval minInterval, maxInterval;
 
-    if (local_state_non_locking() == kUp) {
-        TimeInterval negotiatedInterval =
-                std::max(currentConfig_.desiredMinTxInterval,
-                         remoteSession_.minRxInterval);
+    TimeInterval negotiatedInterval =
+        std::max(currentConfig_.desiredMinTxInterval,
+                remoteSession_.minRxInterval);
 
-        minInterval = negotiatedInterval * 3/4;
-        if (currentConfig_.detectionTimeMultiplier == 1)
-            maxInterval = negotiatedInterval * 9/10;
-        else
-            maxInterval = negotiatedInterval;
+    minInterval = negotiatedInterval * 3/4;
+    if (currentConfig_.detectionTimeMultiplier == 1) {
+        maxInterval = negotiatedInterval * 9/10;
     } else {
-        minInterval = kIdleTxInterval * 3/4;
-        maxInterval = kIdleTxInterval;
+        maxInterval = negotiatedInterval;
     }
+
+    std::ostringstream out;
+    LOG(DEBUG, "LocalDiscriminator: 0x" << std::hex << localDiscriminator_);
     boost::random::uniform_int_distribution<>
-            dist(minInterval.total_microseconds(),
-                 maxInterval.total_microseconds());
+                dist(minInterval.total_microseconds(),
+                maxInterval.total_microseconds());
     return boost::posix_time::microseconds(dist(randomGen));
 }
 
