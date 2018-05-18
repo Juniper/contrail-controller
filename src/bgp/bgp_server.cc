@@ -180,6 +180,7 @@ public:
             config_identifier = config->identifier();
             config_autonomous_system = config->autonomous_system();
             config_local_autonomous_system = config->local_autonomous_system();
+            server_->cluster_id_ = config->cluster_id();
             config_hold_time = config->hold_time();
         }
 
@@ -433,6 +434,7 @@ bool BgpServer::IsReadyForDeletion() {
 
 BgpServer::BgpServer(EventManager *evm)
     : admin_down_(false),
+      cluster_id_(0),
       autonomous_system_(0),
       local_autonomous_system_(0),
       bgp_identifier_(0),

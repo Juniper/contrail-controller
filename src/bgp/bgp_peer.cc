@@ -641,6 +641,23 @@ size_t BgpPeer::GetBufferCapacity() const {
     }
 }
 
+bool BgpPeer::CheckSplitHorizon(uint32_t server_cluster_id,
+        uint32_t ribout_cid) const {
+    if (PeerType() != BgpProto::IBGP)
+        return false;
+    // check if router is a route reflector
+    if (!server_cluster_id) return true;
+    // check if received from client or non-client by comparing the clusterId
+    // of router with that of peer from which we this route is received
+    if (server_cluster_id != cluster_id_) {
+        // If received from non-client, reflect to all the clients only
+        if (ribout_cid && ribout_cid != server_cluster_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void BgpPeer::NotifyEstablished(bool established) {
     if (established) {
         if (IsRouterTypeBGPaaS()) {

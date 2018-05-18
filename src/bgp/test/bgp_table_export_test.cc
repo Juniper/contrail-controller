@@ -59,6 +59,7 @@ public:
     explicit BgpTestPeer(int index, bool internal)
         : index_(index),
           internal_(internal),
+          cluster_id_(100),
           to_str_("Peer " + integerToString(index_)) {
     }
     virtual ~BgpTestPeer() { }
@@ -103,13 +104,25 @@ public:
     virtual bool CanUseMembershipManager() const { return true; }
     virtual bool IsInGRTimerWaitState() const { return false; }
     virtual bool ProcessSession() const { return true; }
-    virtual bool CheckSplitHorizon() const {
-        return PeerType() == BgpProto::IBGP;
+    virtual bool CheckSplitHorizon(uint32_t cluster_id,
+            uint32_t ribout_cid) const {
+        if (PeerType() != BgpProto::IBGP)
+            return false;
+        if (!cluster_id) return true;
+        // check if received from client or non-client by comparing the
+        // clusterid of router with first value in cluster_list
+        if (cluster_id != cluster_id_) {
+            // If received from non-client, reflect to all the clients only
+            if (ribout_cid && ribout_cid != cluster_id)
+                return true;
+        }
+        return false;
     }
 
 private:
     int index_;
     bool internal_;
+    uint32_t cluster_id_;
     std::string to_str_;
 };
 
@@ -243,20 +256,20 @@ protected:
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number = 0,
-            as_t local_as = 0) {
+            as_t local_as = 0, uint32_t cluster_id = 0) {
         RibExportPolicy policy(type, encoding, as_number, false, false, -1,
-                               0, local_as);
+                               cluster_id, local_as);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number,
-            bool as_override, IpAddress nexthop) {
+            bool as_override, IpAddress nexthop, uint32_t cluster_id = 0) {
         vector<string> default_tunnel_encap_list;
         RibExportPolicy policy(
-            type, encoding, as_number, as_override, false, nexthop, -1, 0,
-            default_tunnel_encap_list);
+            type, encoding, as_number, as_override, false, nexthop, -1,
+            cluster_id, default_tunnel_encap_list);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
@@ -846,6 +859,74 @@ TEST_P(BgpTableExportParamTest2, IBgpSplitHorizon) {
     AddPath();
     RunExport();
     VerifyExportReject();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: iBGP
+// Intent: Split Horizon check with Route Reflector and route from non client
+//         should be accepted for client Ribout
+//
+TEST_P(BgpTableExportParamTest2, IBgpSplitHorizonRRNonClientToClient) {
+    uint32_t cluster_id = 200;
+    server_.set_cluster_id(cluster_id);
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber(), 0,
+                 cluster_id);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: iBGP
+// Intent: Split Horizon check with Route Reflector and route from non client
+//         should be rejected for non-client Ribout
+//
+TEST_P(BgpTableExportParamTest2, IBgpSplitHorizonRRNonClientToNonClient) {
+    server_.set_cluster_id(200);
+    uint32_t ribout_cluster_id = 100;
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber(), 0,
+                 ribout_cluster_id);
+    AddPath();
+    RunExport();
+    VerifyExportReject();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: iBGP
+// Intent: Split Horizon check with Route Reflector and route from client
+//         should be accepted for client Ribout
+//
+TEST_P(BgpTableExportParamTest2, IBgpSplitHorizonRRClientToClient) {
+    uint32_t cluster_id = 100;
+    server_.set_cluster_id(cluster_id);
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber(), 0,
+                 cluster_id);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: iBGP
+// Intent: Split Horizon check with Route Reflector and route from client
+//         should be accepted for non-client Ribout
+//
+TEST_P(BgpTableExportParamTest2, IBgpSplitHorizonRRClientToNonClient) {
+    server_.set_cluster_id(100);
+    uint32_t ribout_cluster_id = 200;
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber(), 0,
+                 ribout_cluster_id);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
 }
 
 //
