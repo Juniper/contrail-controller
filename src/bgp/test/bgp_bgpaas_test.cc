@@ -45,7 +45,8 @@ public:
     bool ProcessSession() const { return true; }
 
     // Disable IBGP Split Horizon check for this test.
-    bool CheckSplitHorizon() const { return false; }
+    virtual bool CheckSplitHorizon(uint32_t cluster_id = 0,
+            uint32_t ribout_cid = 0) const { return false; }
 
 protected:
     BGPaaSTest() :
@@ -87,8 +88,8 @@ protected:
         agent_->SessionDown();
         agent_->Delete();
         task_util::WaitForIdle();
-        server_->Shutdown();
         xmpp_server_->Shutdown();
+        server_->Shutdown();
         vm1_->Shutdown();
         task_util::WaitForIdle();
         vm2_->Shutdown();
@@ -1088,14 +1089,14 @@ TEST_P(BGPaaSTest, Basic) {
     peer_vm1->set_process_session_fnc(
         boost::bind(&BGPaaSTest::ProcessSession, this));
     peer_vm1->set_check_split_horizon_fnc(
-        boost::bind(&BGPaaSTest::CheckSplitHorizon, this));
+        boost::bind(&BGPaaSTest::CheckSplitHorizon, this, 0, 0));
 
     BgpPeerTest *peer_vm2 = FindPeer(server_.get(), "test",
             BgpConfigParser::session_uuid("bgpaas-server", "vm2", 1));
     peer_vm2->set_process_session_fnc(
         boost::bind(&BGPaaSTest::ProcessSession, this));
     peer_vm2->set_check_split_horizon_fnc(
-        boost::bind(&BGPaaSTest::CheckSplitHorizon, this));
+        boost::bind(&BGPaaSTest::CheckSplitHorizon, this, 0, 0));
 
     BgpPeerTest *vm1_peer = WaitForPeerToComeUp(vm1_.get(), "vm1");
     int vm1_flap_count = vm1_peer->flap_count();

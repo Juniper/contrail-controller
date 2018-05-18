@@ -294,6 +294,7 @@ bool StaticRouteConfig::operator<(const StaticRouteConfig &rhs) const {
 BgpProtocolConfig::BgpProtocolConfig(const string &instance_name)
     : instance_name_(instance_name),
       admin_down_(false),
+      cluster_id_(0),
       autonomous_system_(0),
       local_autonomous_system_(0),
       identifier_(0),

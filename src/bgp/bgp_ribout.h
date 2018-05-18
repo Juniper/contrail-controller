@@ -342,6 +342,7 @@ public:
     bool remove_private_peer_loop_check() const {
         return policy_.remove_private.peer_loop_check;
     }
+    uint32_t cluster_id() const { return policy_.cluster_id; }
 
     void FillStatisticsInfo(std::vector<ShowRibOutStatistics> *sros_list) const;
 

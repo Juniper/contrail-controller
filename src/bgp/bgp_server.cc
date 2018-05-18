@@ -174,12 +174,14 @@ public:
         uint32_t config_autonomous_system = 0;
         uint32_t config_local_autonomous_system = 0;
         uint32_t config_hold_time = 0;
+        uint32_t config_cluster_id = 0;
         bool config_admin_down = false;
         if (config) {
             config_admin_down = config->admin_down();
             config_identifier = config->identifier();
             config_autonomous_system = config->autonomous_system();
             config_local_autonomous_system = config->local_autonomous_system();
+            config_cluster_id = config->cluster_id();
             config_hold_time = config->hold_time();
         }
 
@@ -282,6 +284,18 @@ public:
                         "Updated Hold Time from " <<
                         server_->hold_time_ << " to " << config_hold_time);
             server_->hold_time_ = config_hold_time;
+        }
+
+        if (server_->cluster_id() != config_cluster_id) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Cluster Id from " <<
+                        server_->cluster_id_ << " to " << config_cluster_id);
+            server_->set_cluster_id(config_cluster_id);
+            RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
+            RoutingInstance *rti = ri_mgr->GetDefaultRoutingInstance();
+            assert(rti);
+            PeerManager *peer_manager = rti->LocatePeerManager();
+            peer_manager->ClearAllInternalPeers();
         }
 
         ConnectionState::GetInstance()->Update();
@@ -433,6 +447,7 @@ bool BgpServer::IsReadyForDeletion() {
 
 BgpServer::BgpServer(EventManager *evm)
     : admin_down_(false),
+      cluster_id_(0),
       autonomous_system_(0),
       local_autonomous_system_(0),
       bgp_identifier_(0),
