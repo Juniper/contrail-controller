@@ -3,6 +3,7 @@
 #
 
 
+import gevent
 import json
 import traceback
 
@@ -31,10 +32,19 @@ class ConfigHandler(object):
     def start(self):
         # Connect to rabbitmq for config update notifications
         rabbitmq_qname = self._service_id
-        self._vnc_amqp = VncAmqpHandle(self._sandesh, self._logger,
-            self._db_cls, self._reaction_map, self._service_id,
-            self._rabbitmq_cfg)
-        self._vnc_amqp.establish()
+        while True:
+            try:
+                self._vnc_amqp = VncAmqpHandle(self._sandesh, self._logger,
+                    self._db_cls, self._reaction_map, self._service_id,
+                    self._rabbitmq_cfg)
+                self._vnc_amqp.establish()
+            except Exception as e:
+                template = 'Exception {0} connecting to Rabbitmq. Arguments:\n{1!r}'
+                msg = template.format(type(e).__name__, e.args)
+                self._logger.error('%s: %s' % (msg, traceback.format_exc())
+                gevent.sleep(2)
+            else:
+                break
         cassandra_credential = {
             'username': self._cassandra_cfg['user'],
             'password': self._cassandra_cfg['password']
