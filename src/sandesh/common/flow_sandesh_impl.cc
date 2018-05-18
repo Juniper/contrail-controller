@@ -131,15 +131,19 @@ std::string SessionAggInfoLog(
     return Xbuf.str();
 }
 
-
 void SessionEndpointObject::LogUnrolled(std::string category,
     SandeshLevel::type level,
-    const std::vector<SessionEndpoint> & session_data) {
+    const std::vector<SessionEndpoint> & session_data,
+    log4cplus::Logger &Xlogger,
+    log4cplus::Logger &SLO_logger,
+    bool is_send_sample_to_collger_enabled,
+    bool is_send_slo_to_collger_enabled) {
     if (!IsLevelCategoryLoggingAllowed(SandeshType::SESSION, level, category)) {
         return;
     }
     log4cplus::LogLevel Xlog4level(SandeshLevelTolog4Level(level));
-    log4cplus::Logger Xlogger = Sandesh::logger();
+    //log4cplus::Logger Xlogger = Sandesh::logger();
+    //log4cplus::Logger SLO_logger = Sandesh::slo_logger();
     if (!Xlogger.isEnabledFor(Xlog4level)) {
         return;
     }
@@ -174,7 +178,97 @@ void SessionEndpointObject::LogUnrolled(std::string category,
                 // print SessionInfo values [aggregate data for individual session]
                 Xbuf << sessions_iter->second.log() << " ";
                 Xbuf << " ]";
-                Xlogger.forcedLog(Xlog4level, Xbuf.str());
+                // If SLO session log to SLO_logger
+                const SessionInfo & sess_info = sessions_iter->second;
+                if (sess_info.forward_flow_info.__isset.logged_bytes ||
+                    sess_info.reverse_flow_info.__isset.logged_bytes) {
+                    if (is_send_slo_to_collger_enabled) {
+                        SLO_logger.forcedLog(Xlog4level, Xbuf.str());
+                    }
+                }
+                // If sampled session log to Xlogger
+                if (sess_info.forward_flow_info.__isset.sampled_bytes ||
+                    sess_info.reverse_flow_info.__isset.sampled_bytes) {
+                    if (is_send_sample_to_collger_enabled) {
+                        Xlogger.forcedLog(Xlog4level, Xbuf.str());
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+ * Remove the sessions from the SessionEndPoint struct
+ * if the session need not go to the collector
+ */
+
+void SessionEndpointObject::adjust_session_end_point_objects(bool is_send_sample_to_collector,
+                        bool is_send_slo_to_collector,
+                        std::vector<SessionEndpoint> &session_data) {
+    std::vector<SessionEndpoint> ::iterator sep_iter;
+    for (sep_iter = session_data.begin(); sep_iter !=
+         session_data.end(); ++sep_iter) {
+        std::map<SessionIpPortProtocol, SessionAggInfo>::iterator
+            local_ep_iter;
+        for (local_ep_iter = sep_iter->sess_agg_info.begin();
+             local_ep_iter != sep_iter->sess_agg_info.end();
+             local_ep_iter++) {
+             std::map<SessionIpPort, SessionInfo>::iterator sessions_iter;
+             if (!is_send_slo_to_collector) {
+                 local_ep_iter->second.__isset.logged_forward_bytes = false;
+                 local_ep_iter->second.__isset.logged_forward_pkts = false;
+                 local_ep_iter->second.__isset.logged_reverse_bytes = false;
+                 local_ep_iter->second.__isset.logged_reverse_pkts = false;
+             }
+             if (!is_send_sample_to_collector) {
+                 local_ep_iter->second.__isset.sampled_forward_bytes = false;
+                 local_ep_iter->second.__isset.sampled_forward_pkts = false;
+                 local_ep_iter->second.__isset.sampled_reverse_bytes = false;
+                 local_ep_iter->second.__isset.sampled_reverse_pkts = false;
+             }
+             for (sessions_iter = local_ep_iter->second.sessionMap.begin();
+                 sessions_iter != local_ep_iter->second.sessionMap.end();) {
+                SessionInfo & sess_info = sessions_iter->second;
+                if (sess_info.forward_flow_info.__isset.logged_bytes ||
+                    sess_info.reverse_flow_info.__isset.logged_bytes) {
+                     if (!is_send_slo_to_collector) {
+                         // If forward flow deduct forward count
+                         // Erase if session is not sampled as well
+                         if (!sess_info.forward_flow_info.__isset.
+                             sampled_bytes) {
+                             local_ep_iter->second.sessionMap.
+                                 erase(sessions_iter++);
+                         } else {
+                             sess_info.forward_flow_info.__isset.logged_bytes = false;
+                             sess_info.forward_flow_info.__isset.logged_pkts = false;
+                             sess_info.reverse_flow_info.__isset.logged_bytes = false;
+                             sess_info.reverse_flow_info.__isset.logged_pkts = false;
+                             ++sessions_iter;
+                         }
+                     }
+                     else {
+                         ++sessions_iter;
+                     }
+                }
+                if (sess_info.forward_flow_info.__isset.sampled_bytes ||
+                    sess_info.reverse_flow_info.__isset.sampled_bytes) {
+                    if (!is_send_sample_to_collector) {
+                         if (!sess_info.forward_flow_info.__isset.
+                             logged_bytes) {
+                             local_ep_iter->second.sessionMap.
+                                 erase(sessions_iter++);
+                         } else {
+                             sess_info.forward_flow_info.__isset.sampled_bytes = false;
+                             sess_info.forward_flow_info.__isset.sampled_pkts = false;
+                             sess_info.reverse_flow_info.__isset.sampled_bytes = false;
+                             sess_info.reverse_flow_info.__isset.sampled_pkts = false;
+                             ++sessions_iter;
+                         }
+                     } else {
+                         ++sessions_iter;
+                     }
+                 }
             }
         }
     }
