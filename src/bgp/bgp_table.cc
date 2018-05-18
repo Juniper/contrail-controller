@@ -276,7 +276,8 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             attr->community()->ContainsValue(CommunityType::LlgrStale);
         if (ribout->peer_type() == BgpProto::IBGP) {
             // Split horizon check.
-            if (peer && peer->CheckSplitHorizon())
+            if (peer && peer->CheckSplitHorizon(server()->cluster_id(),
+                        ribout->cluster_id()))
                 return NULL;
 
             // Handle route-target filtering.
@@ -287,6 +288,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                     return NULL;
             }
 
+            // Check if there is a loop in cluster_list
+            if (server()->cluster_id()) {
+                if (attr->cluster_list() && attr->cluster_list()->cluster_list()
+                        .ClusterListLoop(server()->cluster_id())) {
+                    return NULL;
+                }
+            }
             clone = new BgpAttr(*attr);
 
             // Retain LocalPref value if set, else set default to 100.
@@ -297,6 +305,27 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             // complex configurations where this is useful.
             ProcessRemovePrivate(ribout, clone);
 
+            // Add Originator_Id if acting as route reflector and cluster_id
+            // is not present
+            if (server()->cluster_id()) {
+                if (clone->originator_id().is_unspecified()) {
+                    clone->set_originator_id(Ip4Address(
+                                server()->bgp_identifier()));
+                }
+                if (attr->cluster_list()) {
+                    const ClusterListSpec &cluster =
+                        clone->cluster_list()->cluster_list();
+                    ClusterListSpec *cl_ptr = new ClusterListSpec(
+                            server()->cluster_id(), &cluster);
+                    clone->set_cluster_list(cl_ptr);
+                    delete cl_ptr;
+                } else {
+                    ClusterListSpec *cl_ptr = new ClusterListSpec(
+                            server()->cluster_id(), NULL);
+                    clone->set_cluster_list(cl_ptr);
+                    delete cl_ptr;
+                }
+            }
             // If the route is locally originated i.e. there's no AsPath,
             // then generate a Nil AsPath i.e. one with 0 length. No need
             // to modify the AsPath if it already exists since this is an

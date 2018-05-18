@@ -167,6 +167,8 @@ public:
     const std::string &peer_basename() const { return peer_basename_; }
     std::string router_type() const { return router_type_; }
     TcpSession::Endpoint endpoint() const { return endpoint_; }
+    virtual bool CheckSplitHorizon(uint32_t cluster_id = 0,
+            uint32_t ribout_cid = 0) const;
 
     StateMachine::State GetState() const;
     virtual const std::string GetStateName() const;

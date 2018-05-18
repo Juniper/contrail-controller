@@ -38,6 +38,7 @@ public:
     BgpPeer *TriggerPeerDeletion(const BgpNeighborConfig *config);
     virtual void DestroyIPeer(IPeer *ipeer);
     void ClearAllPeers();
+    void ClearAllInternalPeers();
 
     const BgpPeer *NextPeer(const BgpPeerKey &key) const;
     size_t GetNeighborCount(std::string up_or_down);
