@@ -207,6 +207,16 @@ void PeerManager::ClearAllPeers() {
     }
 }
 
+void PeerManager::ClearAllInternalPeers() {
+    BgpPeerNameMap::iterator iter;
+
+    for (iter = peers_by_name_.begin(); iter != peers_by_name_.end(); iter++) {
+        BgpPeer *peer = iter->second;
+        if (peer->PeerType() ==  BgpProto::IBGP)
+            peer->Clear(BgpProto::Notification::OtherConfigChange);
+    }
+}
+
 //
 // Concurrency: Called from state machine thread
 //

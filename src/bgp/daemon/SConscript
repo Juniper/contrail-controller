@@ -40,6 +40,7 @@ feature_libs = [
     'bgp_inet6',
     'bgp_inet6vpn',
     'bgp_l3vpn',
+    'bgp_mvpn',
     'extended_community',
     'rtarget',
 ]
@@ -61,6 +62,7 @@ libpath = [
     '../evpn',
     '../extended-community',
     '../l3vpn',
+    '../mvpn',
     '../origin-vn',
     '../routing-instance',
     '../routing-policy',

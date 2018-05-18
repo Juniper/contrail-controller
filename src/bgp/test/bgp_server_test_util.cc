@@ -197,7 +197,8 @@ BgpPeerTest::BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
           mp_nlri_allowed_fnc_(boost::bind(&BgpPeerTest::BgpPeerMpNlriAllowed,
                                            this, _1, _2)),
           check_split_horizon_fnc_(
-                boost::bind(&BgpPeerTest::BgpPeerCheckSplitHorizon, this)),
+                boost::bind(&BgpPeerTest::BgpPeerCheckSplitHorizon, this,
+                            _1, _2)),
           process_session_fnc_(
                 boost::bind(&BgpPeerTest::BgpPeerProcessSession, this)),
           is_ready_fnc_(boost::bind(&BgpPeerTest::BgpPeerIsReady, this)) {
