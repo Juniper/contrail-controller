@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.juniper.net/2016/device-abstract-config"
+    xmlns:dac="http://www.juniper.net/2016/device-abstract-config">
+
+<xsd:complexType name="Device">
+    <xsd:all>
+       <!-- General Router's config parameters, tunnel config, interfaces -->
+       <xsd:element name="system" type="dac:System"/>
+       <!-- BGP configuration -->
+       <xsd:element name="bgp" type="dac:Bgp"/>
+       <!-- Routing Instances -->
+       <xsd:element name="routing-instances" type="dac:RoutingInstance" maxOccurs="unbounded"/>
+       <!-- L2 Vlans/Bridge Domains-->
+       <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
+       <!-- System Firewalls for FIP/SNAP/Policies/ACLs -->
+       <xsd:element name="firewalls" type="dac:Firewall" maxOccurs="unbounded"/>
+       <!-- L2/L3 Policies -->
+       <xsd:element name="policies" type="dac:Policy" maxOccurs="unbounded"/>
+       <xsd:element name="comment" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="System">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="uuid" type="xsd:string"/>
+       <xsd:element name="vendor-name" type="xsd:string"/>
+       <xsd:element name="product-name" type="xsd:string"/>
+       <xsd:element name="roles" type="dac:Role" maxOccurs="unbounded"/>
+       <xsd:element name="credentials" type="dac:Credentials"/>
+       <xsd:element name="loopback-ip-list" type="dac:IpType" maxOccurs="unbounded"/>
+       <xsd:element name="highest-encapsulation-priority" type="xsd:string"/>
+       <xsd:element name="tunnel-ip" type="xsd:string"/>
+       <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
+       <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="IpType">
+    <xsd:all>
+       <xsd:element name="description" type="xsd:string"/>
+       <xsd:element name="address" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Subnet">
+    <xsd:all>
+       <xsd:element name="prefix" type="xsd:string"/>
+       <xsd:element name="prefix-len" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Bgp">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="uuid" type="xsd:string"/>
+       <xsd:element name="type" type="xsd:string"/>
+       <xsd:element name="autonomous-system" type="xsd:integer"/>
+       <xsd:element name="ip-address" type="xsd:string"/>
+       <xsd:element name="hold-time" type="xsd:integer"/>
+       <xsd:element name="authentication-key" type="xsd:string"/>
+       <xsd:element name="families" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="peers" type="dac:Bgp" maxOccurs="unbounded"/>
+       <xsd:element name="export-policy" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Role">
+    <xsd:all>
+       <xsd:element name="role-type" type="dac:RoleTypes"/>
+       <xsd:element name="role-name" type="dac:RoleNames"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="RoleTypes">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="PhysicalRole"/>
+        <xsd:enumeration value="RoutingBridgingRole"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="RoleNames">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="Spine"/>
+        <xsd:enumeration value="Leaf"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="Credentials">
+    <xsd:all>
+       <xsd:element name="authentication-method" type="dac:DeviceAuthenticationMethods"/>
+       <xsd:element name="user-name" type="xsd:string"/>
+       <xsd:element name="password" type="xsd:string"/>
+       <xsd:element name="authentication-key" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="DeviceAuthenticationMethods">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="KeyBasedAuthentication"/>
+        <xsd:enumeration value="PasswordBasedAuthentication"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="RoutingInstance">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="virtual-network-uuid" type="xsd:string"/>
+       <xsd:element name="virtual-network-id" type="xsd:string"/>
+       <xsd:element name="routing-instance-type" type="xsd:string"/>
+       <xsd:element name="is-public-network" type="xsd:boolean"/>
+       <xsd:element name="import-targets" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="export-targets" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="static-routes" type="dac:Subnet" maxOccurs="unbounded"/>
+       <xsd:element name="gateways" type="dac:Subnet" maxOccurs="unbounded"/>
+       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="routing-interface" type="dac:LogicalInterface"/>
+       <xsd:element name="loopback-interface" type="dac:LogicalInterface"/>
+       <xsd:element name="service-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <!-- for SNAT & FIP -->
+       <xsd:element name="nat-rules" type="dac:NatRules" maxOccurs="unbounded"/>
+       <!-- for Private IP to Public IP Map, and public vrf map -->
+       <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
+       <!-- Evpn Configuration -->
+       <xsd:element name="evpn" type="dac:Evpn"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FloatingIpMap">
+    <xsd:all>
+       <xsd:element name="instance-ip" type="xsd:string"/>
+       <xsd:element name="floating-ip" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FloatingIpList">
+    <xsd:all>
+       <xsd:element name="public-routing-instance" type="xsd:string"/>
+       <xsd:element name="floating-ips" type="dac:FloatingIpMap" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Vlan">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="vlan-id" type="xsd:integer"/>
+       <xsd:element name="vxlan-id" type="xsd:integer"/>
+       <!-- FOr L2 EVPN on LEAF and MX : L2 Bridge Domains-->
+       <xsd:element name="vlan_or_bridge_domain" type="xsd:boolean"/>
+       <xsd:element name="l3-interface" type="xsd:string"/>
+       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PhysicalInterface">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="uuid" type="xsd:string"/>
+       <xsd:element name="interface-type" type="dac:InterfaceTypes"/>
+       <xsd:element name="mac-address" type="xsd:string"/>
+       <xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
+       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="InterfaceTypes">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="irb"/>
+        <xsd:enumeration value="loopback"/>
+        <xsd:enumeration value="service"/>
+        <xsd:enumeration value="regular"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="LogicalInterface">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="uuid" type="xsd:string"/>
+       <xsd:element name="vlan_tag" type="xsd:string"/>
+       <xsd:element name="unit" type="xsd:integer"/>
+       <xsd:element name="family" type="xsd:string"/>
+       <xsd:element name="firewall_filters" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Evpn">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="encapsulation" type="xsd:string"/>
+       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="From">
+    <xsd:all>
+        <xsd:element name="community" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="destination-address" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="source-address" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="destination-prefix-list" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="source-prefix-list" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="source-port" type="xsd:string"/>
+        <xsd:element name="destination-port" type="xsd:string"/>
+        <xsd:element name="ip-protocol" type="xsd:string"/>
+        <xsd:element name="ether-type" type="xsd:string"/>
+        <xsd:element name="family" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Then">
+    <xsd:all>
+        <xsd:element name="community" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="routing-instance" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="source-prefix" type="xsd:string"/>
+        <xsd:element name="destination-prefix" type="xsd:string"/>
+        <xsd:element name="accept_or_reject" type="xsd:boolean"/>
+        <xsd:element name="translation_type" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Term">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="from" type="dac:From"/>
+        <xsd:element name="then" type="dac:Then"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="NatRule">
+    <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="direction" type="xsd:string"/>
+        <xsd:element name="term" type="dac:Term"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="NatRules">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="allow-overlapping-nat-pools" type="xsd:boolean"/>
+        <xsd:element name="rules" type="dac:NatRule"  maxOccurs="unbounded"/>
+        <xsd:element name="inside-interface" type="xsd:string"/>
+        <xsd:element name="outside-interface" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallFilter">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="terms" type="dac:Term" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Firewall">
+    <xsd:all>
+         <!-- inet, inet6, ethernet-switching -->
+        <xsd:element name="family" type="xsd:string"/>
+        <xsd:element name="firewall-filters" type="dac:FirewallFilter" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="CommunityType">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="members" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Policy">
+    <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="policy-rule" type="dac:PolicyRule" maxOccurs="unbounded"/>
+        <xsd:element name="community" type="dac:CommunityType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<!--<xsd:element name="root" type="dac:Device" maxOccurs="1"/>-->
+
+</xsd:schema>

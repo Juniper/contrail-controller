@@ -22,8 +22,13 @@ autogen_sources = [
                  '#controller/src/config/device-manager/device_schema/juniper/juniper_common.xsd',
                 ]
 
+abstract_autogen_sources = [
+                 '#controller/src/config/device-manager/device_schema/abstract_device/abstract_device.xsd',
+                ]
+
 autogen_script = File('#src/contrail-api-client/generateds/generateDS.py').path
 autogen_cmd = '%s -f -o %s -g device-api' % (autogen_script, Dir('device_api/juniper_common').path)
+abstract_gen_cmd = '%s -f -o %s -g device-api' % (autogen_script, Dir('abstract_device_api/abstract_device').path)
 
 generated_files = [
                   'device_api/__init__.py',
@@ -32,6 +37,14 @@ generated_files = [
 generated_rule = env.Command(generated_files,
                              '#controller/src/config/device-manager/device_schema/juniper/juniper_common.xsd',
                              autogen_cmd + ' $SOURCE')
+
+abstract_generated_files = [
+                  'abstract_device_api/__init__.py',
+                  'abstract_device_api/abstract_device_xsd.py'
+                ]
+abstract_generated_rule = env.Command(abstract_generated_files,
+                             '#controller/src/config/device-manager/device_schema/abstract_device/abstract_device.xsd',
+                             abstract_gen_cmd + ' $SOURCE')
 
 setup_sources = [
            'setup.py',
@@ -74,18 +87,21 @@ for file in local_sources:
                     "#controller/src/config/device-manager/" + file))
 
 generateds_rule = env.Install("device_api", "#src/contrail-api-client/generateds/generatedssuper.py")
+generateds_rule = env.Install("device_api", "#src/contrail-api-client/generateds/generatedssuper.py")
+abstract_generateds_rule = env.Install("abstract_device_api", "#src/contrail-api-client/api-lib/generatedssuper.py")
 
 dm_introspect_pkg = env.SandeshGenPy('dm_introspect.sandesh',
                                        'device_manager/sandesh/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_depends = [generated_rule, generateds_rule]
+sdist_depends = [generated_rule, generateds_rule, abstract_generated_rule, abstract_generateds_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(dm_introspect_pkg)
 sdist_gen = env.Command('dist/device_manager-0.1dev.tar.gz', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
+env.Depends(abstract_generated_rule, [autogen_infra_sources, abstract_autogen_sources])
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 
