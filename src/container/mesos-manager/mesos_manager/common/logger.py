@@ -163,6 +163,6 @@ class MesosManagerLogger(object):
         # Connect to collector.
         ConnectionState.init(self._sandesh, self.module['hostname'],
             self.module['name'], self.module['instance_id'],
-            staticmethod(ConnectionState.get_process_state_cb),
+            staticmethod(ConnectionState.get_conn_state_cb),
             NodeStatusUVE, NodeStatus, self.module['table'])
 
