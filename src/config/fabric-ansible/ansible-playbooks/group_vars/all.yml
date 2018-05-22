@@ -54,5 +54,7 @@ device_family_info:
         family: junos
         product: mx80
     ssh_probe:
-      command: echo "show system information | display xml" | cli
-      data_format: xml
+      - command: echo "show system information | display xml" | cli
+        data_format: xml
+      - command: show system information | display xml
+        data_format: xml
