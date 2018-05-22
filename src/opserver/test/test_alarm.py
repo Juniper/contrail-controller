@@ -36,6 +36,7 @@ from opserver.partition_handler import PartitionHandler, UveStreamProc, \
 from opserver.alarmgen import Controller, AlarmStateMachine, AlarmProcessor
 from opserver.alarmgen_cfg import CfgParser
 from opserver.plugins.alarm_base import AlarmBase
+from opserver.alarmgen import AGKeyInfo 
 
 logging.basicConfig(level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s')
@@ -4198,6 +4199,258 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 
 # end class TestAlarmGen
 
+# Tests for AGKeyInfo
+
+class TestAGKeyInfo(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def init_exp_dict(self):
+        self._exp = {}
+        self._exp['current_dict'] = {}
+        self._exp['pending_dict'] = {}
+        self._exp['added'] = set()
+        self._exp['removed'] = set()
+        self._exp['changed'] = set()
+        self._exp['unchanged'] = set()
+        self._exp['commit_pending'] = False
+        self._exp['commit_failure'] = 0
+        self._exp['values_with_pending_data'] = {}
+
+    def set_exp_current(self, current_dict):
+       self._exp['current_dict'] = copy.deepcopy(current_dict)
+
+    def set_exp_pending(self, pending_dict):
+        self._exp['pending_dict'] = copy.deepcopy(pending_dict)
+
+    def set_exp_added(self, added_list):
+        self._exp['added'] = set(added_list)
+
+    def set_exp_removed(self, removed_list):
+       self._exp['removed'] = set(removed_list)
+
+    def set_exp_changed(self, changed_list):
+        self._exp['changed'] = set(changed_list)
+
+    def set_exp_unchanged(self, unchanged_list):
+        self._exp['unchanged'] = set(unchanged_list)
+
+    def set_exp_commit_pending(self, commit_pending):
+        self._exp['commit_pending'] = commit_pending
+
+    def set_exp_commit_failure(self, commit_failure):
+        self._exp['commit_failure'] = commit_failure
+
+    def calc_exp_introspect_data(self):
+        self._exp['values_with_pending_data'] = \
+                                    copy.deepcopy(self._exp['current_dict'])
+        if self._exp['commit_pending']:
+            self._exp['values_with_pending_data']['pending_data'] =\
+                                            str(self._exp['pending_dict'])
+        if self._exp['commit_failure']:
+            self._exp['values_with_pending_data']['commit_failure'] =\
+                                            self._exp['commit_failure']
+
+    def verify_AGKeyInfo(self, agkey_info):
+        self.calc_exp_introspect_data();
+        self.assertEqual(self._exp['current_dict'], agkey_info.values())
+        self.assertEqual(self._exp['pending_dict'], agkey_info.latest_values())
+        self.assertEqual(self._exp['added'], agkey_info.added())
+        self.assertEqual(self._exp['removed'], agkey_info.removed())
+        self.assertEqual(self._exp['changed'], agkey_info.changed())
+        self.assertEqual(self._exp['unchanged'], agkey_info.unchanged())
+        self.assertEqual(self._exp['commit_pending'], agkey_info.is_commit_pending)
+        self.assertEqual(self._exp['commit_failure'], agkey_info.commit_failure)
+        self.assertEqual(self._exp['values_with_pending_data'], \
+                            agkey_info.values_with_pending_data())
+
+    def test_00_update_single_add(self):
+        input_data = {'xx': 'data'}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.set_exp_pending(input_data)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(input_data)
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+
+    def test_01_update_single_remove(self):
+        input_data = {'xx': 'data'}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.set_exp_pending(input_data)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(input_data)
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+
+        input_data = {'xx': None}
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 11)
+        self.set_exp_added(set())
+        self.set_exp_removed(input_data.keys())
+        self.set_exp_pending({})
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current({})
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+ 
+    def test_02_update_single_change(self):
+        input_data = {'xx': 'data'}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.set_exp_pending(input_data)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(input_data)
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+
+        input_data = {'xx': 'data1'}
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 11)
+        self.set_exp_added(set())
+        self.set_exp_changed(input_data.keys())
+        self.set_exp_pending(input_data)
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(input_data)
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+ 
+    def test_03_update_single_no_change(self):
+        input_data = {'xx': None}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.verify_AGKeyInfo(orig)
+ 
+    def test_04_update_single_mearge_commit(self):
+        input_data = {'xx': 'data'}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.set_exp_pending(input_data)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        input_data = {'xx': 'data1'}
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 11)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_pending(input_data)
+        self.set_exp_commit_pending(True)
+        self.set_exp_commit_failure(1)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(input_data)
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+ 
+    def test_05_update_single_diff_type_commit(self):
+        input_data = {'xx': 'data'}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.set_exp_pending(input_data)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(input_data)
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+
+        input_data1 = {'yy': 'data1'}
+        orig.update_single(input_data1.keys()[0], input_data1.values()[0], 11)
+        self.set_exp_added(input_data1.keys())
+        self.set_exp_pending(dict(input_data.items() + input_data1.items()))
+        self.set_exp_commit_pending(True)
+        self.set_exp_unchanged(input_data.keys())
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(dict(input_data.items() + input_data1.items()))
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+
+    def test_06_update_single_diff_type_with_one_sucess_commit(self):
+        input_data = {'xx': 'data'}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.set_exp_pending(input_data)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        input_data1 = {'yy': 'data1'}
+        orig.update_single(input_data1.keys()[0], input_data1.values()[0], 11)
+        self.set_exp_added(input_data1.keys())
+        self.set_exp_pending(input_data1)
+        self.set_exp_commit_pending(True)
+        self.set_exp_commit_failure(1)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(input_data1)
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
+
+    def test_07_update_single_diff_type_merge_commit(self):
+        input_data = {'xx': 'data'}
+        orig= AGKeyInfo(1)
+        orig.update_single(input_data.keys()[0], input_data.values()[0], 10)
+        self.init_exp_dict()
+        self.set_exp_pending(input_data)
+        self.set_exp_added(input_data.keys())
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        input_data1 = {'yy': 'data1'}
+        orig.update_single(input_data1.keys()[0], input_data1.values()[0], 10)
+        self.set_exp_added(input_data1.keys())
+        self.set_exp_pending(dict(input_data.items() + input_data1.items()))
+        self.set_exp_commit_pending(True)
+        self.verify_AGKeyInfo(orig)
+
+        orig.commit()
+        self.set_exp_current(dict(input_data.items() + input_data1.items()))
+        self.set_exp_commit_pending(False)
+        self.verify_AGKeyInfo(orig)
 
 def _term_handler(*_):
     raise IntSignal()
