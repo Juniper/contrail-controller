@@ -715,10 +715,10 @@ class QfxConf(JuniperConf):
         term.set_from(from_)
         if is_src:
             term.set_name("src-port")
-            from_.set_destination_port(port_str)
+            from_.add_destination_port(port_str)
         else:
             term.set_name("dst-port")
-            from_.set_source_port(port_str)
+            from_.add_source_port(port_str)
         term.set_then(Then(accept=''))
         ff.add_term(term)
     # end add_port_term
@@ -734,6 +734,19 @@ class QfxConf(JuniperConf):
         term.set_then(Then(accept=''))
         ff.add_term(term)
     # end add_protocol_term
+
+    def add_dns_dhcp_terms(self, ff):
+        port_list = [67, 68, 53]
+        term = Term()
+        term.set_name("allow-dns-dhcp")
+        from_ = From()
+        from_.set_ip_protocol("udp")
+        term.set_from(from_)
+        for port in port_list:
+            from_.add_source_port(str(port))
+        term.set_then(Then(accept=''))
+        ff.add_term(term)
+    # end add_dns_dhcp_terms
 
     def add_ether_type_term(self, ff, ether_type_match):
         if not ether_type_match:
@@ -787,6 +800,8 @@ class QfxConf(JuniperConf):
             # allow arp ether type always
             self.add_ether_type_term(f, 'arp')
             self.add_protocol_term(f, protocol_match)
+            # allow dhcp/dns always
+            self.add_dns_dhcp_terms(f)
             eswitching.add_filter(f)
         if not eswitching.get_filter():
             ff.set_ethernet_switching(None)

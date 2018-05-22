@@ -693,6 +693,15 @@ class TestQfxBasicDM(TestCommonDM):
         for fname in fnames:
             if fname not in conf_filters:
                 raise Exception("firewall filter %s configured"%(fname))
+        if check:
+            found = False
+            for f in ff or []:
+                for term in f.get_term() or []:
+                    if term.name == 'allow-dns-dhcp':
+                        found = True
+                        break
+            if not found:
+                raise Exception("firewall filter default term: allow-dhcp-dns not found")
     # end check_firewall_config
 
     @retries(5, hook=retry_exc_handler)
