@@ -36,6 +36,7 @@ from opserver.partition_handler import PartitionHandler, UveStreamProc, \
 from opserver.alarmgen import Controller, AlarmStateMachine, AlarmProcessor
 from opserver.alarmgen_cfg import CfgParser
 from opserver.plugins.alarm_base import AlarmBase
+from opserver.alarmgen import AGKeyInfo 
 
 logging.basicConfig(level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s')
@@ -4211,6 +4212,126 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 
 # end class TestAlarmGen
 
+# Tests for AGKeyInfo
+
+class TestAGKeyInfo(unittest.TestCase, TestChecker):
+    @classmethod
+    def setUpClass(cls):
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_00_val_val_notype(self):
+        orig= AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data'
+        expect = { 'xx' : 'data' }
+
+        orig.update_single(typ, val)
+        orig.update_single(typ, val)
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_01_none_none_type(self):
+        orig= AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data'
+        orig.update_single(typ, val)
+        expect = { }
+
+        orig.update_single(typ, None)
+        orig.update_single(typ, None)
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_02_val_val_type(self):
+        orig= AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data1'
+        orig.update_single(typ, val)
+        expect = { 'xx' : 'data' }
+
+        orig.update_single(typ, 'data')
+        orig.update_single(typ, 'data')
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_03_none_none_notype(self):
+        orig= AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data1'
+        expect = {  }
+
+        orig.update_single(typ, None)
+        orig.update_single(typ, None)
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_04_none_val_notype(self):
+        orig = AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data'
+        expect = { 'xx':'data' }
+
+        orig.update_single(typ, None)
+        orig.update_single(typ, val)
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_05_val_none_notype(self):
+        orig = AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data'
+        expect = { }
+
+        orig.update_single(typ, val)
+        orig.update_single(typ, None)
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_06_none_val_type(self):
+        orig = AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data'
+        orig.update_single(typ, val)
+        expect = { 'xx':'data' }
+
+        orig.update_single(typ, None)
+        orig.update_single(typ, val)
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_07_val_none_type(self):
+        orig = AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data'
+        orig.update_single(typ, val)
+        expect = { }
+
+        orig.update_single(typ, val)
+        orig.update_single(typ, None)
+        orig.commit()
+        self.assertEqual(expect, orig.latest_values())
+
+    def test_08_update_diff_single_without_commit(self):
+        orig = AGKeyInfo(1)
+        typ = 'xx'
+        val = 'data'
+        orig.update_single(typ, val)
+        typ = 'yy'
+        val = 'data1'
+        orig.update_single(typ, val)
+        expect = { 'yy': 'data1'}
+        values = orig.values_with_pending_check()
+        self.assertEqual(values['commit_failure'], 1)
 
 def _term_handler(*_):
     raise IntSignal()
