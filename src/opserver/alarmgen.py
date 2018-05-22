@@ -125,12 +125,20 @@ class AGKeyInfo(object):
         # key of struct name, value of content dict
 
         self.current_dict = {}
+        self.pending_dict = {}
+        self.is_commit_pending = False
+        self.commit_failure = 0
         self.update({})
+        self._uuid = 0
         
-    def update_single(self, typ, val):
+    def update_single(self, typ, val, uuid):
         # A single UVE struct has changed
         # If the UVE has gone away, the val is passed in as None
-
+        if self.is_commit_pending and self._uuid != uuid:
+            self.is_commit_pending = False
+            self.commit_failure += 1
+            self.pending_dict = copy.deepcopy(self.current_dict)
+        self._uuid = uuid
         self.set_removed = set()
         self.set_added = set()
         self.set_changed = set()
@@ -141,21 +149,32 @@ class AGKeyInfo(object):
             if val is None:
                 self.set_unchanged.remove(typ)
                 self.set_removed.add(typ)
-                del self.current_dict[typ]
+                del self.pending_dict[typ]
             else:
                 # both "added" and "removed" will be empty
                 if val != self.current_dict[typ]:
                     self.set_unchanged.remove(typ)
                     self.set_changed.add(typ)
-                    self.current_dict[typ] = val
+                    self.pending_dict[typ] = val
         else:
             if val != None:
                 self.set_added.add(typ)
-                self.current_dict[typ] = val
+                self.pending_dict[typ] = val
+            else:
+                if typ in self.pending_dict:
+                    del self.pending_dict[typ]
+        if len(self.set_removed) or \
+            len(self.set_added) or \
+            len(self.set_changed):
+            self.is_commit_pending = True
 
     def update(self, new_dict):
         # A UVE has changed, and we have the entire new 
         # content of the UVE available in new_dict
+        if self.is_commit_pending:
+            self.is_commit_pending = False
+            self.commit_failure += 1
+            self.pending_dict = {}
         set_current = set(new_dict.keys())
         set_past = set(self.current_dict.keys())
         set_intersect = set_current.intersection(set_past)
@@ -169,10 +188,29 @@ class AGKeyInfo(object):
                 self.set_changed.add(o)
             else:
                 self.set_unchanged.add(o)
-        self.current_dict = new_dict
+        self.pending_dict = new_dict
+        if len(self.set_changed) or \
+            len(self.set_added) or \
+            len(self.set_removed):
+            self.is_commit_pending = True
+
+    def commit(self):
+        self.is_commit_pending = False
+        self.current_dict = copy.deepcopy(self.pending_dict)
 
     def values(self):
         return self.current_dict
+
+    def latest_values(self):
+        return self.pending_dict
+
+    def values_with_pending_check(self):
+        values = copy.deepcopy(self.pending_dict)
+        if self.is_commit_pending:
+            values['old_data'] = str(self.current_dict)
+        if self.commit_failure:
+            values['commit_failure'] = self.commit_failure
+        return values
 
     def added(self):
         return self.set_added
@@ -1750,6 +1788,7 @@ class Controller(object):
 		sandesh=self._sandesh)
 
         erruves = []
+        uves_uuid = UTCTimestampUsec()
         for uv,types in uves.iteritems():
             tab = uv.split(':',1)[0]
             if tab not in self.tab_perf:
@@ -1803,7 +1842,7 @@ class Controller(object):
                             self.ptab_info[part][tab][uve_name].changed()))
                     for chgs in self.ptab_info[part][tab][uve_name].changed():
                         output[uv][chgs] = \
-                                self.ptab_info[part][tab][uve_name].values()[chgs]
+                                self.ptab_info[part][tab][uve_name].latest_values()[chgs]
                         self.increment_uve_notif_count(part, tab, chgs, "change")
                 if len(self.ptab_info[part][tab][uve_name].added()):
                     touched = True
@@ -1811,14 +1850,14 @@ class Controller(object):
                             self.ptab_info[part][tab][uve_name].added()))
                     for adds in self.ptab_info[part][tab][uve_name].added():
                         output[uv][adds] = \
-                                self.ptab_info[part][tab][uve_name].values()[adds]
+                                self.ptab_info[part][tab][uve_name].latest_values()[adds]
                         self.increment_uve_notif_count(part, tab, adds, "add")
             else:
                 for typ in types:
                     val = None
                     if typ in uve_data:
                         val = uve_data[typ]
-                    self.ptab_info[part][tab][uve_name].update_single(typ, val)
+                    self.ptab_info[part][tab][uve_name].update_single(typ, val, uves_uuid)
                     if len(self.ptab_info[part][tab][uve_name].removed()):
                         touched = True
                         rset = self.ptab_info[part][tab][uve_name].removed()
@@ -1838,7 +1877,7 @@ class Controller(object):
                                 self.ptab_info[part][tab][uve_name].changed()))
                         for chgs in self.ptab_info[part][tab][uve_name].changed():
                             output[uv][chgs] = \
-                                    self.ptab_info[part][tab][uve_name].values()[chgs]
+                                    self.ptab_info[part][tab][uve_name].latest_values()[chgs]
                             self.increment_uve_notif_count(part, tab, chgs, "change")
                     if len(self.ptab_info[part][tab][uve_name].added()):
                         touched = True
@@ -1846,17 +1885,16 @@ class Controller(object):
                                 self.ptab_info[part][tab][uve_name].added()))
                         for adds in self.ptab_info[part][tab][uve_name].added():
                             output[uv][adds] = \
-                                    self.ptab_info[part][tab][uve_name].values()[adds]
+                                    self.ptab_info[part][tab][uve_name].latest_values()[adds]
                             self.increment_uve_notif_count(part, tab, adds, "add")
             if not touched:
                 del output[uv]
-            local_uve = self.ptab_info[part][tab][uve_name].values()
+            local_uve = self.ptab_info[part][tab][uve_name].latest_values()
             
             self.tab_perf[tab].record_pub(UTCTimestampUsec() - prevt)
 
             if len(local_uve.keys()) == 0:
                 self._logger.info("UVE %s deleted in proc" % (uv))
-                del self.ptab_info[part][tab][uve_name]
                 output[uv] = None
                 
                 if tab in self.tab_alarms:
@@ -1896,6 +1934,12 @@ class Controller(object):
             uveq_trace = UVEQTrace()
             uveq_trace.uves = []
             for k,v in output.iteritems():
+                tab_co = k.split(':',1)[0]
+                uve_co = k.split(':',1)[1]
+                self.ptab_info[part][tab_co][uve_co].commit()
+                lo_uve = self.ptab_info[part][tab_co][uve_co].latest_values()
+                if len(lo_uve.keys()) == 0:
+                        del self.ptab_info[part][tab_co][uve_co]
                 if isinstance(v,dict):
                     uveq_trace.uves.append(str((k,v.keys())))
                     for ut in v:
@@ -1935,7 +1979,7 @@ class Controller(object):
                 uvel = []
                 for uk,uv in self.ptab_info[part][tab].iteritems():
                     types = []
-                    for tk,tv in uv.values().iteritems():
+                    for tk,tv in uv.values_with_pending_check().iteritems():
                         types.append(UVEStructInfo(type = tk,
                                 content = json.dumps(tv)))
                     uvel.append(UVEObjectInfo(
