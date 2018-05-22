@@ -144,10 +144,9 @@ class AGKeyInfo(object):
                 del self.current_dict[typ]
             else:
                 # both "added" and "removed" will be empty
-                if val != self.current_dict[typ]:
-                    self.set_unchanged.remove(typ)
-                    self.set_changed.add(typ)
-                    self.current_dict[typ] = val
+                self.set_unchanged.remove(typ)
+                self.set_changed.add(typ)
+                self.current_dict[typ] = val
         else:
             if val != None:
                 self.set_added.add(typ)
