@@ -738,10 +738,10 @@ void StructuredSyslogUVESummarizeAppQoeSMV(SyslogParser::syslog_m_t v, bool summ
         if (SyslogParser::GetMapVal(v, "jitter-violation-count", 0) != 0) {
             sdwanmetric.set_jitter_violation_count(1);
         }
-        else if (SyslogParser::GetMapVal(v, "rtt-violation-count", 0) != 0) {
+        if (SyslogParser::GetMapVal(v, "rtt-violation-count", 0) != 0) {
             sdwanmetric.set_rtt_violation_count(1);
         }
-        else if (SyslogParser::GetMapVal(v, "pkt-loss-violation-count", 0) != 0) {
+        if (SyslogParser::GetMapVal(v, "pkt-loss-violation-count", 0) != 0) {
             sdwanmetric.set_pkt_loss_violation_count(1);
         }
     }
