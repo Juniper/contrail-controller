@@ -47,6 +47,7 @@ local_sources = [
     'job_manager/sandesh_utils.py',
     'job_manager/job_messages.py',
     'job_manager/fabric_logger.py',
+    'job_manager/job_manager_logger.py',
 ]
 
 local_sources_rules = []

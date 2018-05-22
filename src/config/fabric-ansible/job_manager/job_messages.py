@@ -57,7 +57,7 @@ class MsgBundle(object):
                                                  'for devices: ',
             JOB_SINGLE_DEVICE_FAILED_MESSAGE_HDR: 'Job failed. \n',
             PLAYBOOK_RESULTS_MESSAGE: 'Detailed job results: \n',
-            PLAYBOOK_EXIT_WITH_ERROR: 'Playbook exited with error.',
+            PLAYBOOK_EXIT_WITH_ERROR: 'Playbook "{playbook_uri}" exited with error.',
             PLAYBOOK_RETURN_WITH_ERROR: 'Playbook returned '
                                         'with error',
             PLAYBOOK_STATUS_FAILED: 'Playbook completed with status Failure.',
@@ -94,7 +94,8 @@ class MsgBundle(object):
                                           ' input parsing error:'
                                           ' {exc_msg}',
             PLAYBOOK_EXECUTE_ERROR: 'Exception in playbook process'
-                                    ' : {exc_msg} ',
+                                    ' for playbook "{playbook_uri}" '
+                                    '(exec_id: {execution_id}): {exc_msg} ',
             CREATE_JOB_SUMMARY_ERROR: 'Error while generating the'
                                       ' job summary message'
                                       ' : {exc_msg}',
