@@ -125,6 +125,8 @@ class AGKeyInfo(object):
         # key of struct name, value of content dict
 
         self.current_dict = {}
+        self.pending_dict = {}
+        self.distance = 0
         self.update({})
         
     def update_single(self, typ, val):
@@ -141,17 +143,22 @@ class AGKeyInfo(object):
             if val is None:
                 self.set_unchanged.remove(typ)
                 self.set_removed.add(typ)
-                del self.current_dict[typ]
+                if typ in self.pending_dict:
+                    del self.pending_dict[typ]
             else:
                 # both "added" and "removed" will be empty
                 if val != self.current_dict[typ]:
                     self.set_unchanged.remove(typ)
                     self.set_changed.add(typ)
-                    self.current_dict[typ] = val
+                self.pending_dict[typ] = val
         else:
             if val != None:
                 self.set_added.add(typ)
-                self.current_dict[typ] = val
+                self.pending_dict[typ] = val
+            else:
+                if typ in self.pending_dict:
+                    del self.pending_dict[typ]
+        self.distance += 1
 
     def update(self, new_dict):
         # A UVE has changed, and we have the entire new 
@@ -169,10 +176,20 @@ class AGKeyInfo(object):
                 self.set_changed.add(o)
             else:
                 self.set_unchanged.add(o)
-        self.current_dict = new_dict
+        self.pending_dict = new_dict
+        self.distance += 1
+
+    def commit(self):
+        self.distance = 0
+        self.current_dict = self.pending_dict
 
     def values(self):
-        return self.current_dict
+        return self.pending_dict
+
+    def values_with_distance(self):
+        values = self.pending_dict
+        values['distance'] = self.distance
+        return values
 
     def added(self):
         return self.set_added
@@ -1896,6 +1913,11 @@ class Controller(object):
             uveq_trace = UVEQTrace()
             uveq_trace.uves = []
             for k,v in output.iteritems():
+                tab_co = k.split(':',1)[0]
+                uve_co = k.split(':',1)[1]
+                if tab_co in self.ptab_info[part]:
+                    if uve_co in self.ptab_info[part][tab_co]:
+                        self.ptab_info[part][tab_co][uve_co].commit()
                 if isinstance(v,dict):
                     uveq_trace.uves.append(str((k,v.keys())))
                     for ut in v:
@@ -1935,7 +1957,7 @@ class Controller(object):
                 uvel = []
                 for uk,uv in self.ptab_info[part][tab].iteritems():
                     types = []
-                    for tk,tv in uv.values().iteritems():
+                    for tk,tv in uv.values_with_distance().iteritems():
                         types.append(UVEStructInfo(type = tk,
                                 content = json.dumps(tv)))
                     uvel.append(UVEObjectInfo(
