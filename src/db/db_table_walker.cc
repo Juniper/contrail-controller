@@ -87,14 +87,18 @@ private:
 };
 
 static void db_walker_wait() {
-    static int walk_sleep_usecs_;
+    static unsigned int walk_sleep_usecs_;
     static bool once;
 
     if (!once) {
         once = true;
 
         char *wait = getenv("DB_WALKER_WAIT_USECS");
-        if (wait) walk_sleep_usecs_ = strtoul(wait, NULL, 0);
+        if (wait) {
+          walk_sleep_usecs_ = (unsigned int) strtoul(wait, NULL, 0);
+          if (walk_sleep_usecs_ > 1000000)
+            walk_sleep_usecs = 1000000;
+        }
     }
 
     if (walk_sleep_usecs_) {
