@@ -56,3 +56,8 @@ device_family_info:
     ssh_probe:
       command: echo "show system information | display xml" | cli
       data_format: xml
+
+# Paths for DHCP and TFTP config files
+DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
+TFTP_BOOT_PATH: "/var/lib/tftpboot"
+
