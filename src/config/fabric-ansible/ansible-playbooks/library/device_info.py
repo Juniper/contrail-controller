@@ -12,6 +12,7 @@ import socket
 import xml.etree.ElementTree as etree
 import paramiko
 from netaddr import IPNetwork
+import ast
 from cfgm_common.exceptions import (
     RefsExistError
 )
@@ -117,12 +118,13 @@ def _parse_xml_response(xml_response, oid_mapped):
     final = etree.fromstring(output[0])
     oid_mapped['product'] = final.find('hardware-model').text
     oid_mapped['family'] = final.find('os-name').text
+    oid_mapped['os-version'] = final.find('os-version').text
+    oid_mapped['serial-number'] = final.find('serial-number').text
     oid_mapped['hostname'] = final.find('host-name').text
 # end _parse_xml_response
 
-
 def _ssh_connect(ssh_conn, username, password, hostname,
-                 command, oid_mapped, logger):
+                 commands, oid_mapped, logger):
     try:
         ssh_conn.connect(
             username=username,
@@ -131,17 +133,22 @@ def _ssh_connect(ssh_conn, username, password, hostname,
         oid_mapped['username'] = username
         oid_mapped['password'] = password
         oid_mapped['host'] = hostname
-        if command:
-            stdin, stdout, stderr = ssh_conn.exec_command(command)
-            if stderr:
-                raise RuntimeError(
-                    "Command {} failed on host {}:{}"
-                    .format(command, hostname, stderr))
-            response = stdout.read()
-            if response is None:
-                raise RuntimeError(
-                    "Command {} succeeded on host with no response {}"
-                    .format(command, hostname))
+        if commands:
+            num_commands = len(commands) - 1
+            for index, command in enumerate(commands):
+                stdin, stdout, stderr = ssh_conn.exec_command(
+                    command['command'])
+                response = stdout.read()
+                if (not stdout and stderr) or (response is None) or ('error'
+                                                                     in response):
+                    logger.info(
+                        "Command {} failed on host {}:{}"
+                        .format(command['command'], hostname, stderr))
+                    if index == num_commands:
+                        raise RuntimeError("All commands failed on host {}"
+                                           .format(hostname))
+                else:
+                    break
             _parse_xml_response(response, oid_mapped)
         return True
     except RuntimeError as rex:
@@ -151,7 +158,6 @@ def _ssh_connect(ssh_conn, username, password, hostname,
         logger.info("SSH failed for host {}: {}".format(hostname, str(ex)))
         return False
 # end _ssh_connect
-
 
 def _ssh_check(host, credentials, oid_mapped, logger):
     remove_null = []
@@ -246,6 +252,7 @@ def _get_device_vendor(oid, vendor_mapping):
 
 def _oid_mapping(host, pysnmp_output, module):
     matched_oid_mapping = {}
+    matched_oid = None
     device_family_info = module.params['device_family_info']
     vendor_mapping = module.params['vendor_mapping']
     logger = module.logger
@@ -254,25 +261,26 @@ def _oid_mapping(host, pysnmp_output, module):
         vendor = _get_device_vendor(pysnmp_output['ansible_sysobjectid'],
                                     vendor_mapping)
         if not vendor:
-            logger.debug("Vendor for host {} not supported".format(host))
+            logger.info("Vendor for host {} not supported".format(host))
         else:
             device_family = next(
                 element for element in device_family_info
                 if element['vendor'] == vendor)
             if device_family:
                 try:
-                    matched_oid_mapping = next(
+                    matched_oid = next(
                         item for item in device_family['snmp_probe']
                         if item['oid'] == pysnmp_output['ansible_sysobjectid'])
                 except StopIteration:
                     pass
-                if matched_oid_mapping:
+                if matched_oid:
+                    matched_oid_mapping = matched_oid.copy()
                     matched_oid_mapping['hostname'] = \
                         pysnmp_output['ansible_sysname']
                     matched_oid_mapping['host'] = host
                     matched_oid_mapping['vendor'] = vendor
                 else:
-                    logger.debug(
+                    logger.info(
                         "OID {} not present in the given list of device "
                         "info for the host {}".format(
                             pysnmp_output['ansible_sysobjectid'], host))
@@ -296,7 +304,7 @@ def _get_device_info_ssh(host, oid_mapped, module):
                     cred['credential']['username'],
                     cred['credential']['password'],
                     host,
-                    info['ssh_probe']['command'],
+                    info['ssh_probe'],
                     oid_mapped,
                     logger)
                 if success:
@@ -307,14 +315,17 @@ def _get_device_info_ssh(host, oid_mapped, module):
 # end _get_device_info_ssh
 
 
-def _pr_object_create(
+def _pr_object_create_update(
         vncapi,
         oid_mapped,
         fq_name,
-        logger,
-        object_log,
-        fabric_uuid):
+        module,
+        update):
+    pr_uuid = None
+    logger = module.logger
     try:
+        os_version = oid_mapped.get('os-version', None)
+        serial_num = oid_mapped.get('serial-number', None)
         physicalrouter = PhysicalRouter(
             parent_type='global-system-config',
             fq_name=fq_name,
@@ -328,56 +339,74 @@ def _pr_object_create(
                 'password': oid_mapped.get('password')
             }
         )
-        pr_uuid = vncapi.physical_router_create(physicalrouter)
+        if update:
+            pr_unicode_obj = vncapi.physical_router_update(physicalrouter)
+            if pr_unicode_obj:
+                pr_obj_dict = ast.literal_eval(pr_unicode_obj)
+                pr_uuid = pr_obj_dict['physical-router']['uuid']
+                msg = "Updated device info for: {} : {} : {}".format(
+                    oid_mapped.get('host'), fq_name[1], oid_mapped.get('product'))
+                logger.info("Updated device info for: {} : {}".format(oid_mapped.get(
+                    'host'), pr_uuid))
+        else:
+            pr_uuid = vncapi.physical_router_create(physicalrouter)
+            msg = "Discovered device details: {} : {} : {}".format(
+                oid_mapped.get('host'), fq_name[1], oid_mapped.get('product'))
+            logger.info("Device created with uuid- {} : {}".format(oid_mapped.get(
+                'host'), pr_uuid))
+            module.send_prouter_object_log(fq_name, "DISCOVERED",
+                                               os_version, serial_num)
     except(RefsExistError, Exception) as ex:
         if isinstance(ex, RefsExistError):
-            return REF_EXISTS_ERROR
+            return REF_EXISTS_ERROR, None
         logger.error("VNC create failed with error: {}".format(str(ex)))
-        return False
+        return False, None
 
-    msg = "Discovered device details: {} : {} : {}".format(
-        oid_mapped.get('host'), fq_name[1], oid_mapped.get('product'))
-    logger.info("Device created with uuid- {} : {}".format(oid_mapped.get(
-        'host'), pr_uuid))
-    vncapi.ref_update(
-        "fabric", fabric_uuid, "physical_router", pr_uuid, None, "ADD")
-    _send_sandesh_log(object_log, msg, logger, False)
-    return True
-# end _pr_object_create
-
+    module.send_job_object_log(msg, JOB_IN_PROGRESS, None)
+    return True, pr_uuid
 
 def _device_info_processing(host, vncapi, module, object_log, fabric_uuid):
     oid_mapped = {}
     valid_creds = False
+    return_code = True
     credentials = module.params['credentials']
     logger = module.logger
 
     if _ping_sweep(host, logger):
+        logger.info("HOST {}: REACHABLE".format(host))
         snmp_result = snmp_walk(host, '2vc', 'public')
 
         if snmp_result.get('error') is False:
             oid_mapped = _oid_mapping(host, snmp_result, module)
+            if oid_mapped:
+                logger.info("HOST {}: SNMP SUCCEEDED".format(host))
         else:
-            logger.debug(
+            logger.info(
                 "SNMP failed for host {} with error {}".format(
                     host, snmp_result['error_msg']))
 
         if not oid_mapped or snmp_result.get('error') is True:
             _get_device_info_ssh(host, oid_mapped, module)
+            if not oid_mapped.get('family') or not oid_mapped.get('vendor'):
+                logger.info("Could not retrieve family/vendor info for the \
+                    host: {}, not creating PR object".format(host))
+                logger.info("vendor: {}, family: {}".format(
+                    oid_mapped.get('vendor'), oid_mapped.get('family')))
+                oid_mapped = {}
 
         if oid_mapped.get('host'):
             valid_creds = _ssh_check(host, credentials, oid_mapped, logger)
 
-        if not valid_creds:
-            logger.debug("No credentials matched, nothing to update in DB")
+        if not valid_creds and oid_mapped:
+            logger.info("No credentials matched for host: {}, nothing to update in DB".format(host))
             oid_mapped = {}
 
         if oid_mapped:
             fq_name = [
                 'default-global-system-config',
                 oid_mapped.get('hostname')]
-            return_code = _pr_object_create(
-                vncapi, oid_mapped, fq_name, logger, object_log, fabric_uuid)
+            return_code, pr_uuid = _pr_object_create_update(
+                vncapi, oid_mapped, fq_name, module, False)
             if return_code == REF_EXISTS_ERROR:
                 physicalrouter = vncapi.physical_router_read(
                     fq_name=fq_name)
@@ -387,17 +416,23 @@ def _device_info_processing(host, vncapi, module, object_log, fabric_uuid):
                     logger.info(
                         "Device with same mgmt ip already exists {}".format(
                             phy_router.get('physical_router_management_ip')))
+                    return_code, pr_uuid = _pr_object_create_update(
+                        vncapi, oid_mapped, fq_name, module, True)
                 else:
                     fq_name = [
                         'default-global-system-config',
                         oid_mapped.get('hostname') +
                         '_' +
                         oid_mapped.get('host')]
-                    return_code = _pr_object_create(
-                        vncapi, oid_mapped, fq_name, logger, object_log,
-                        fabric_uuid)
+                    return_code, pr_uuid = _pr_object_create_update(
+                        vncapi, oid_mapped, fq_name, module,
+                        False)
                     if return_code == REF_EXISTS_ERROR:
                         logger.debug("Object already exists")
+            if return_code is True:
+                vncapi.ref_update(
+                    "fabric", fabric_uuid, "physical_router", pr_uuid, None, "ADD")
+                logger.info("Fabric updated with physical router info for host: {}".format(host))
     else:
         logger.debug("HOST {}: NOT REACHABLE".format(host))
 # end _device_info_processing
