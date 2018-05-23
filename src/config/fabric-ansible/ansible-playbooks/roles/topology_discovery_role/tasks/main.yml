@@ -1,0 +1,80 @@
+---
+# tasks file for topology_discovery_role
+
+- name: Execute "show lldp neighbors" command
+  block:
+    - juniper_junos_command:
+        commands:
+          - "show lldp neighbors interface"
+        format: xml
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+      register: resp
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "interface_info.failed == true"
+      vars:
+        op_err_message: "{{interface_info.msg}}"
+        jl_err_message: "Execute 'show lldp neighbors' command on Juniper Device: {{prouter_name}} failed"
+
+- set_fact:
+    lldp_neighbor_info: "{{resp.parsed_output['lldp-neighbors-information']['lldp-neighbor-information']}}"
+
+- debug:
+    msg: "{{lldp_neighbor_info}}"
+
+- name: parse lldp info obtained to get remote system information
+  set_fact:
+    parsed_lldp_neighbors_op: "{{lldp_neighbor_info | parse_neighbor_info(prouter_fqname)}}"
+
+- debug:
+    msg: "{{parsed_lldp_neighbors_op}}"
+
+- name: vnc-db-mod bulk query for listing all physical-interfaces for multiple devices
+  vnc_db_mod:
+    job_ctx: "{{job_ctx}}"
+    object_type: "physical_interface"
+    object_op: "bulk_query"
+    object_dict: {"fields": ['physical-interface-port-id']}
+    object_list: "{{parsed_lldp_neighbors_op.remote_neighbors_list}}"
+  register: bulk_query_prouter_resp  
+
+- debug:
+    msg: "{{bulk_query_prouter_resp}}"
+
+- name: get remote port-id to fq_name map
+  set_fact:
+    port_id_fqname_map: "{{bulk_query_prouter_resp| get_port_id_fqname_map}}"
+
+- debug:
+    msg: "{{port_id_fqname_map}}"
+
+#- name: stub to mock device_intf_map
+#  set_fact:
+#    port_id_fqname_map: { "584":["default-global-system-config",
+#                                 "jtme-mx240-03",
+#                                 "ge-0/3/0"], 
+#                          "515":["default-global-system-config",
+#                                 "couldcpe2",
+#                                 "xe-0/0/2_1"]
+#                        }
+
+- name: get the payload for bulk ref add
+  set_fact:
+    bulk_ref_add_payload: "{{port_id_fqname_map | get_bulk_ref_add_payload(parsed_lldp_neighbors_op.neighbor_map_info_list)}}"
+
+- debug:
+    msg: "{{bulk_ref_add_payload}}"
+
+- name: bulk add references between the objects and update vnc
+  vnc_db_mod:
+    job_ctx: "{{job_ctx}}"
+    object_type: "physical_interface"
+    object_dict: {"ref_type": "physical_interface"}
+    object_op: "bulk_ref_update"
+    object_list: "{{bulk_ref_add_payload}}"
+  register: bulk_ref_create_resp
