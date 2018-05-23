@@ -1,0 +1,11 @@
+---
+# vars file for ztp_config role
+
+job_ctx: {"auth_token": ""}
+fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+tftp_server: "{{ hostvars['localhost']['groups']['tftp'][0] }}"
+
+device_count: 3
+ipam_uuid: "804418ba-396d-4536-9995-676f9009668e"
+password: "Embe1mpls"
+
