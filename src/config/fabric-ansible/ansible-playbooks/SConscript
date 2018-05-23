@@ -23,6 +23,7 @@ setup_sources = [
            'module_utils',
            'roles',
            'schema',
+           'filter_plugins',
           ]
 
 setup_sources_rules = []
