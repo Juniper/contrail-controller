@@ -11,3 +11,4 @@ dist
 .project
 .pydevproject
 .idea
+.DS_Store
