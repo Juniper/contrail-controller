@@ -470,6 +470,21 @@ class SanityBase(object):
 
     # end image_upgrade
 
+    def ztp(self, fabric_uuid):
+        """run ztp for a fabric"""
+        self._logger.info("Running ZTP for fabric...")
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=[
+                'default-global-system-config', 'ztp_template'],
+            job_input={'fabric_uuid': fabric_uuid}
+        )
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.info(
+            "ZTP job started with execution id: %s", job_execution_id)
+        self._wait_for_job_to_finish('ZTP', job_execution_id)
+
+    # end image_upgrade
+
     def _exit_with_error(self, errmsg):
         self._logger.error(errmsg)
         sys.exit(1)
