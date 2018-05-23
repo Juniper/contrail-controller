@@ -43,6 +43,7 @@ class FilterModule(object):
                                                              phy_interface_name,
                                                              log_unit['name'].replace(':', '_')
                                                             ],
+                                                 "port_id": phy_interface['snmp-index'],
                                                  "display_name": log_unit['name']}
 
                         add_fmly = log_unit.get('address-family')

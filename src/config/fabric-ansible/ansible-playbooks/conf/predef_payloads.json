@@ -78,6 +78,25 @@
                 "default-global-system-config",
                 "device_import_template"
              ]
+          },
+          {
+             "job_template_multi_device_job":true,
+             "job_template_playbooks":{
+                "playbook_info":[
+                   {
+                      "playbook_uri":"./opt/contrail/fabric_ansible_playbooks/topo_discovery.yml",
+                      "vendor":"Juniper",
+                      "device_family":""
+                   }
+                ]
+             },
+             "job_template_output_schema":"",
+             "job_template_input_schema":"",
+             "parent_type":"global-system-config",
+             "fq_name":[
+                "default-global-system-config",
+                "topology_discovery_template"
+             ]
           }
          ]
       },
