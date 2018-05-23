@@ -14,7 +14,8 @@ from cfgm_common.utils import cgitb_hook
 class KubeMonitor(object):
 
     def __init__(self, args=None, logger=None, q=None, db=None,
-                 resource_name='KubeMonitor', beta=False):
+                 resource_name='KubeMonitor', beta=False, api_group=None,
+                 api_version=None):
         self.name = type(self).__name__
         self.args = args
         self.logger = logger
@@ -55,10 +56,15 @@ class KubeMonitor(object):
         self.url = "%s://%s:%s" % (protocol,
                                    self.kubernetes_api_server,
                                    self.kubernetes_api_server_port)
-        # URL to the v1-components in api server.
-        self.v1_url = "%s/api/v1" % self.url
-        # URL to v1-beta1 components to api server.
-        self.beta_url = "%s/apis/extensions/v1beta1" % self.url
+
+        # Get the base kubernetes url to use for this resource.
+        # Each resouce can be independently configured to use difference
+        # versions or api groups. So we let the resource class specify what
+        # version and api group it is interested in. The base_url is constructed
+        # with the input from the derived class and does not change for the
+        # course of the process.
+        self.base_url = self._get_base_url(self.url, beta, api_group,
+                                           api_version)
 
         if not self._is_kube_api_server_alive():
             msg = "kube_api_service is not available"
@@ -73,13 +79,29 @@ class KubeMonitor(object):
                                   self.kubernetes_api_server_port))
         return result == 0
 
-    def _get_component_url(self):
+    @classmethod
+    def _get_base_url(cls, url, beta, api_group, api_version):
+        ''' Construct a base url. '''
+        if beta:
+            # URL to v1-beta1 components to api server.
+            version = api_version if api_version else "v1beta1"
+            url = "/".join([url, "apis/extensions", version])
+        else:
+            """ Get the base URL for the resource. """
+            version = api_version if api_version else "v1"
+            group = api_group if api_group else "api"
+
+            # URL to the v1-components in api server.
+            url = "/".join([url, group, version])
+
+        return url
+
+    def get_component_url(self):
         """URL to a component.
         This method return the URL for the component represented by this
         monitor instance.
         """
-        base_url = self.beta_url if self.resource_beta else self.v1_url
-        return "%s/%s" % (base_url, self.resource_name)
+        return "%s/%s" % (self.base_url, self.resource_name)
 
     @staticmethod
     def get_entry_url(base_url, entry):
@@ -95,7 +117,7 @@ class KubeMonitor(object):
         server and populate the local db.
         """
         # Get the URL to this component.
-        url = self._get_component_url()
+        url = self.get_component_url()
 
         try:
             resp = requests.get(url, headers=self.headers, verify=self.verify)
@@ -146,7 +168,7 @@ class KubeMonitor(object):
             time.sleep(self.timeout)
             return
 
-        url = self._get_component_url()
+        url = self.get_component_url()
         try:
             resp = requests.get(url, params={'watch': 'true'},
                                 stream=True, headers=self.headers,
@@ -163,9 +185,10 @@ class KubeMonitor(object):
             self.logger.error("%s - %s" % (self.name, e))
 
     def get_resource(self, resource_type, resource_name,
-                     namespace=None, beta=False):
+                     namespace=None, beta=False, api_group=None,
+                     api_version=None):
         json_data = {}
-        base_url = self.beta_url if beta else self.v1_url
+        base_url = self._get_base_url(self.url, beta, api_group, api_version)
 
         if resource_type == "namespaces":
             url = "%s/%s" % (base_url, resource_type)
@@ -185,8 +208,9 @@ class KubeMonitor(object):
 
     def patch_resource(
             self, resource_type, resource_name,
-            merge_patch, namespace=None, beta=False, sub_resource_name=None):
-        base_url = self.beta_url if beta else self.v1_url
+            merge_patch, namespace=None, beta=False, sub_resource_name=None,
+            api_group=None, api_version=None):
+        base_url = self._get_base_url(self.url, beta, api_group, api_version)
 
         if resource_type == "namespaces":
             url = "%s/%s" % (base_url, resource_type)
