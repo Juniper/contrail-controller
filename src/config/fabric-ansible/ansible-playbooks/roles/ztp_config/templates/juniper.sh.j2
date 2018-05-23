@@ -1,0 +1,27 @@
+#!/bin/sh
+cat <<EOF > /tmp/juniper.config
+system {
+    root-authentication {
+        encrypted-password "{{ dhcp_config.password | encrypt | shell_escape }}";
+    }
+    services {
+        ssh {
+            root-login allow;
+        }
+        telnet;
+        netconf {
+            ssh;
+        }
+    }
+}
+protocols {
+    lldp {
+        interface all;
+    }
+}
+EOF
+cli <<EOF
+configure
+load merge /tmp/juniper.config relative
+commit and-quit
+EOF
