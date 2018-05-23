@@ -12,7 +12,7 @@ import logging
 from ansible import constants as CONST
 
 DEFAULT_ANSIBLE_LOG_PATH = '/var/log/contrail/contrail-fabric-ansible-playbooks.log'
-LOGGING_FORMAT = '%(asctime)s.%(msecs)03d %(name)s:  %(message)s'
+LOGGING_FORMAT = '%(asctime)s.%(msecs)03d %(name)s [%(levelname)s]:  %(message)s'
 DATE_FORMAT = "%m/%d/%Y %H:%M:%S"
 
 # Context attribute along with it's abbeviation for logging
