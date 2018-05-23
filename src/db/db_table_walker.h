@@ -64,7 +64,9 @@ private:
             // XXX To be used for testing purposes only.
             char *count_str = getenv("DB_ITERATION_TO_YIELD");
             if (count_str) {
-                max_iteration_to_yield_ = strtol(count_str, NULL, 0);
+                max_iteration_to_yield_ = (int) strtol(count_str, NULL, 0);
+                if (max_iteration_to_yield_ <= 0)
+                  max_iteration_to_yield_ = kIterationToYield;
             }
             init_ = true;
         }
