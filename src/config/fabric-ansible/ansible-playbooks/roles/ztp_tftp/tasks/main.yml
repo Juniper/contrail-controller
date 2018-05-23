@@ -1,0 +1,7 @@
+---
+
+- name: Copy script files on remote host
+  copy:
+    src: "{{ tftp_dir }}/"
+    dest: "{{ TFTP_BOOT_PATH }}"
+
