@@ -72,6 +72,7 @@ local_sources = [
     'kube_manager/tests/vnc/test_vnc_network_policy.py',
     'kube_manager/tests/vnc/vnc_api_mock.py',
     'kube_manager/tests/kube/__init__.py',
+    'kube_manager/tests/kube/test_kube_monitor.py',
 ]
 
 # Sandesh source files.
