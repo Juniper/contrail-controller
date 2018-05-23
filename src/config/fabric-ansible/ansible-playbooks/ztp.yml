@@ -1,0 +1,185 @@
+- name: Generate ansible-created section of DHCP server config file
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    job_ctx: {"auth_token": ""}
+    fabric_uuid: "93567055-c0f8-414a-ab85-265f42d1dcf6"
+    ipam_uuid: "7edae3a7-0519-499e-a697-71471d603321"
+    password: "Embe1mpls"
+    tftp_server: "192.168.10.1"
+
+  tasks:
+    - name: get fabric fq name
+      vnc_db_mod:
+        enable_job_ctx: False
+        job_ctx: "{{ job_ctx }}"
+        object_type: "fabric"
+        object_op: "id_to_fq_name"
+        object_dict: |
+          {
+            "uuid": "{{ fabric_uuid }}"
+          }
+      register: fq_name
+      when: fabric_uuid is defined
+
+    - set_fact:
+         fabric_fq_name: "{{ fq_name.fq_name }}"
+      when: fabric_uuid is defined
+
+    - name: get fabric
+      vnc_db_mod:
+        enable_job_ctx: False
+        job_ctx: "{{ job_ctx }}"
+        object_type: "fabric"
+        object_op: "read"
+        object_dict: |
+          {
+            "fq_name": "{{ fabric_fq_name }}"
+          }
+      register: fabric
+
+
+    - name: get network_ipam fq name
+      vnc_db_mod:
+        enable_job_ctx: False
+        job_ctx: "{{ job_ctx }}"
+        object_type: "network_ipam"
+        object_op: "id_to_fq_name"
+        object_dict: |
+          {
+            "uuid": "{{ ipam_uuid }}"
+          }
+      register: i_fq_name
+      when: ipam_uuid is defined
+
+    - set_fact:
+         ipam_fq_name: "{{ i_fq_name.fq_name }}"
+      when: ipam_uuid is defined
+
+    - name: Print ipam_fq_name
+      debug: var=ipam_fq_name verbosity=1
+
+    - name: get network_ipam
+      vnc_db_mod:
+        enable_job_ctx: False
+        job_ctx: "{{ job_ctx }}"
+        object_type: "network_ipam"
+        object_op: "read"
+        object_dict: |
+          {
+            "fq_name": "{{ ipam_fq_name }}"
+          }
+      register: ipam
+
+    - set_fact:
+         dhcp_config: "{{ ipam.obj }}"
+
+    - name: Print IPAM object
+      debug: var=dhcp_config verbosity=1
+
+    - name: Generate config file global section on local host
+      block:
+        - template:
+            src: dhcpd-global.conf.j2
+            dest: "{{ GLOBAL_DHCPD_CFG_PATH }}"
+          register: cmd_res
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failed to generate global config",
+              "message": "{{cmd_res.msg}}"
+            }
+        - name: print output
+          debug: var=output verbosity=1
+        - meta: end_play
+
+    - name: Generate config file subsection on local host
+      block:
+        - template:
+            src: dhcpd.conf.j2
+            dest: "{{ LOCAL_DHCPD_CFG_PATH }}"
+          register: cmd_res
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failed to generate config",
+              "message": "{{cmd_res.msg}}"
+            }
+        - name: print output
+          debug: var=output verbosity=1
+        - meta: end_play
+
+    - name: Generate script file on local host
+      block:
+        - template:
+            src: juniper.sh.j2
+            dest: "{{ LOCAL_TFTP_BOOT_PATH }}/{{ fabric_fq_name[-1] }}_juniper.sh"
+          register: cmd_res
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failed to generate script",
+              "message": "{{cmd_res.msg}}"
+            }
+        - name: print output
+          debug: var=output verbosity=1
+        - meta: end_play
+
+
+- name: Copy ansible-created script files to TFTP server
+  hosts: tftp
+  gather_facts: no
+
+  tasks:
+    - name: Copy script files on remote host
+      copy:
+        src: "{{ LOCAL_TFTP_BOOT_PATH }}/"
+        dest: "{{ TFTP_BOOT_PATH }}"
+
+
+- name: Insert/update ansible-created section of DHCP server config file
+  hosts: dhcp
+  gather_facts: no
+  vars:
+    fabric_uuid: "93567055-c0f8-414a-ab85-265f42d1dcf6"
+
+  tasks:
+    - name: Insert/update global section in config file on remote host
+      block:
+        - blockinfile:
+            block: "{{ lookup('file', GLOBAL_DHCPD_CFG_PATH) }}"
+            dest: "{{ DHCPD_CONFIG_PATH }}"
+            marker: '########## {mark} GLOBAL BLOCK ##########'
+            create: yes
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failed to insert/update global config",
+              "message": ""
+            }
+        - name: print output
+          debug: var=output verbosity=1
+        - meta: end_play
+
+    - name: Insert/update subsection in config file on remote host
+      block:
+        - blockinfile:
+            block: "{{ lookup('file', LOCAL_DHCPD_CFG_PATH) }}"
+            dest: "{{ DHCPD_CONFIG_PATH }}"
+            marker: '########## {mark} BLOCK FOR FABRIC {{ fabric_uuid }} ##########'
+            create: yes
+#        - dhcp_leases:
+#            mac_list: "{{ mac_list | to_json }}"
+#          register: lease_res
+#        - name: print lease results
+#          debug: var=lease_res verbosity=1
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failed to insert/update config",
+              "message": ""
+            }
+        - name: print output
+          debug: var=output verbosity=1
+        - meta: end_play
