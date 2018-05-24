@@ -372,7 +372,7 @@ class TestQfxBasicDM(TestCommonDM):
         protocol = rule_info['protocol']
         port_min = rule_info['port_min'] or 0
         port_max = rule_info['port_max'] or 65535
-        direction = rule_info['direction'] or 'ingress'
+        direction = rule_info['direction'] or 'egress'
         ip_prefix = rule_info['ip_prefix']
         ether_type = rule_info['ether_type']
 
@@ -440,7 +440,7 @@ class TestQfxBasicDM(TestCommonDM):
         filter_names = []
         acls = self.get_sg_acls(sg)
         for acl in acls or []:
-            if 'egress-' in acl.name:
+            if 'ingress-' in acl.name:
                 continue
             entries = acl.get_access_control_list_entries()
             if not entries:
@@ -485,7 +485,7 @@ class TestQfxBasicDM(TestCommonDM):
                                                       'default-project'])
         self.wait_for_get_sg_id(sg1_obj.get_fq_name())
         sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
-        rule1 = self.build_acl_rule(0, 65535, 'ingress', 'icmp', 'IPv4')
+        rule1 = self.build_acl_rule(0, 65535, 'egress', 'icmp', 'IPv4')
         sg_rule1 = self._security_group_rule_build(rule1,
                                                    sg1_obj.get_fq_name_str())
         self._security_group_rule_append(sg1_obj, sg_rule1)
