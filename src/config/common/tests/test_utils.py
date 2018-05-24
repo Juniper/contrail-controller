@@ -3,7 +3,7 @@
 #
 import gevent
 import gevent.queue
-import gevent.wsgi
+import gevent.pywsgi
 import gevent.monkey
 gevent.monkey.patch_all()
 import os
@@ -59,7 +59,7 @@ class FakeApiConfigLog(object):
             print "\n"
 # class FakeApiConfigLog
 
-class FakeWSGIHandler(gevent.wsgi.WSGIHandler):
+class FakeWSGIHandler(gevent.pywsgi.WSGIHandler):
     logger = logging.getLogger('FakeWSGIHandler')
     logger.addHandler(logging.FileHandler('api_server.log'))
     def __init__(self, socket, address, server):
