@@ -197,6 +197,7 @@ void ContrailInitCommon::CreateInterfaces() {
     assert(table->FindActiveEntry(&physical_key));
 
     agent()->set_router_id(agent_param()->vhost_addr());
+    agent()->set_vhost_prefix(agent_param()->vhost_prefix());
     agent()->set_vhost_prefix_len(agent_param()->vhost_plen());
     agent()->set_vhost_default_gateway(agent_param()->vhost_gw());
     if (agent_param()->crypt_port() != "") {

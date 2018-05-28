@@ -988,6 +988,23 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
         return;
     }
 
+    if (vrf_name == agent_->fabric_policy_vrf_name() && prefix_addr.is_v4()) {
+         //Dont override the below routes in ip_fabric vrf
+         //default route
+         //vhost route
+         //vhost subnet route
+        if (prefix_addr.to_v4() == Ip4Address(0) && prefix_len == 0) {
+            return;
+        }
+        if (prefix_addr == agent_->router_id() && prefix_len == 32) {
+            return;
+        }
+        if (prefix_addr == agent_->vhost_prefix() &&
+            prefix_len == agent_->vhost_prefix_len()) {
+            return;
+        }
+    }
+
     if (agent_->router_id() != addr.to_v4()) {
         EcmpLoadBalance ecmp_load_balance;
         GetEcmpHashFieldsToUse(item, ecmp_load_balance);
