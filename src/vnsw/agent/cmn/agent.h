@@ -571,6 +571,11 @@ public:
     }
 
     // VHOST related
+    Ip4Address vhost_prefix() const {return prefix_;}
+    void set_vhost_prefix(const Ip4Address &addr) {
+        prefix_ = addr;
+    }
+
     uint32_t vhost_prefix_len() const {return prefix_len_;}
     void set_vhost_prefix_len(uint32_t plen) {prefix_len_ = plen;}
 
@@ -1286,6 +1291,7 @@ private:
     IntfMirrorCfgTable *intf_mirror_cfg_table_;
     
     Ip4Address router_id_;
+    Ip4Address prefix_;
     uint32_t prefix_len_;
     Ip4Address gateway_id_;
 
