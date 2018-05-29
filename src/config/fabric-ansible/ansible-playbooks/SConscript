@@ -23,6 +23,7 @@ setup_sources = [
            'module_utils',
            'roles',
            'schema',
+           'filter_plugins',
           ]
 
 setup_sources_rules = []
@@ -36,6 +37,7 @@ local_sources = [
     'generate_underlay_config.yml',
     'image_upgrade.yml',
     'error_handler.yml',
+    'topo_discovery.yml',
     'ansible.cfg',
     'postscript.yml',
 ]
