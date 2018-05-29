@@ -1,0 +1,20 @@
+---
+- name: Get the Topology Information from this device
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - topology_discovery_role
+
+  tasks:
+
+    - set_fact:
+        output: "{{output }}"
+
+    - name: Update Job log with topology discovery job completed status
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+        message: "Topology Discovery: {{prouter_name}} succeeded discovering topology"
