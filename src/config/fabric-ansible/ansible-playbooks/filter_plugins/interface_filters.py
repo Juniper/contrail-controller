@@ -9,6 +9,81 @@ class FilterModule(object):
             'junos_conf_interface_info': self.junos_cf_intf_filter,
         }
 
+    '''
+    This filter takes the inputs as the prouter_name and the list of runtime interfaces
+    obtained by running the show interfaces junos command.
+
+    interface_list_new:
+      [
+        {
+            "admin-status": "up",
+            "current-physical-address": "00:26:88:db:38:00",
+            "hardware-physical-address": "00:26:88:db:38:00",
+            "if-auto-negotiation": "enabled",
+            "if-config-flags": {
+                "iff-hardware-down": "",
+                "iff-snmp-traps": "",
+                "internal-flags": "0x4000"
+            },
+            "if-device-flags": {
+                "ifdf-down": "",
+                "ifdf-present": "",
+                "ifdf-running": ""
+            },
+            "if-flow-control": "enabled",
+            "if-media-flags": {
+                "ifmf-none": ""
+            },
+            "if-remote-fault": "online",
+            "interface-flapped": "2018-03-25 02:05:36 PDT (1w4d 08:33 ago)",
+            "interface-transmit-statistics": "Disabled",
+            "l2pt-error": "none",
+            "ld-pdu-error": "none",
+            "link-level-type": "Ethernet",
+            "local-index": "214",
+            "loopback": "disabled",
+            "mru": "1522",
+            "mtu": "1514",
+            "name": "ge-0/0/0",
+            "oper-status": "down",
+            "pad-to-minimum-frame-size": "Disabled",
+            "physical-interface-cos-information": {
+                "physical-interface-cos-hw-max-queues": "8",
+                "physical-interface-cos-use-max-queues": "8"
+            },
+            "snmp-index": "533",
+            "sonet-mode": "LAN-PHY",
+            "source-filtering": "disabled",
+            "speed": "1000mbps",
+            "traffic-statistics": {
+                "input-bps": "0",
+                "input-pps": "0",
+                "output-bps": "0",
+                "output-pps": "0"
+            }
+        }
+      ]
+
+    and returns:
+    {
+     "phy_interfaces_payload": [{"parent_type": "physical-router",
+                                 "physical_interface_port_id": 533,
+                                 "fq_name": ["default-global-system-config",
+                                             prouter_name,
+                                             phy_interface_name
+                                 ],
+                                 "display_name": physical_intf_name}, {<another payload>}],
+     "log_interfaces_payload": [{"parent_type": "physical-interface",
+                                 "fq_name": ["default-global-system-config",
+                                             prouter_name,
+                                             phy_interface_name,
+                                             log_interface_name
+                                 ],
+                                 "display_name": logical_intf_name,
+                                 "logical_interface_type": "l3"}, {<another payload>}]
+    }
+
+    '''
     def junos_rt_intf_filter(self, interface_list_new, prouter_name, regex_str=".*"):
         if not regex_str:
             regex_str = ".*"
@@ -25,6 +100,7 @@ class FilterModule(object):
                                                      prouter_name,
                                                      phy_interface_name
                                                     ],
+                                        "physical_interface_port_id": phy_interface['snmp-index'],
                                         "display_name": physical_intf_name}
 
                 phy_interfaces_payloads.append(phy_interface_payload)
@@ -61,6 +137,81 @@ class FilterModule(object):
         return {"phy_interfaces_payload": phy_interfaces_payloads,
                 "log_interfaces_payload": log_interfaces_payloads}
 
+    '''
+    This filter takes the inputs as the prouter_name and the list of configured interfaces
+    obtained by running the show configuration interfaces junos command.
+
+    interface_list:
+      [
+        {
+            "name": "ge-0/1/0",
+            "unit": [
+                {
+                    "family": {
+                        "inet": {
+                            "address": {
+                                "name": "172.16.11.1/30"
+                            }
+                        }
+                    },
+                    "name": "1211",
+                    "vlan-id": "11"
+                },
+                {
+                    "family": {
+                        "inet": {
+                            "address": {
+                                "name": "172.16.12.1/30"
+                            }
+                        }
+                    },
+                    "name": "1212",
+                    "vlan-id": "12"
+                },
+                {
+                    "family": {
+                        "inet": {
+                            "address": {
+                                "name": "172.16.13.1/30"
+                            }
+                        }
+                    },
+                    "name": "1213",
+                    "vlan-id": "13"
+                }
+            ],
+            "vlan-tagging": ""
+        },
+        {
+            "name": "ge-0/1/1",
+            "vlan-tagging": ""
+        },
+        {
+            "name": "ge-0/1/2",
+            "vlan-tagging": ""
+        }
+      ]
+
+    and returns:
+    {
+     "phy_interfaces_payload": [{"parent_type": "physical-router",
+                                 "fq_name": ["default-global-system-config",
+                                             prouter_name,
+                                             phy_interface_name
+                                 ],
+                                 "display_name": physical_intf_name}, {<another payload>}],
+     "log_interfaces_payload": [{"parent_type": "physical-interface",
+                                 "fq_name": ["default-global-system-config",
+                                             prouter_name,
+                                             phy_interface_name,
+                                             log_interface_name
+                                 ],
+                                 "display_name": logical_intf_name,
+                                 "logical_interface_type": "l3",
+                                 "logical_interface_vlan_tag": "11"}, {<another payload>}]
+    }
+
+    '''
     def junos_cf_intf_filter(self, interface_list, prouter_name, regex_str=".*"):
         if not regex_str:
             regex_str = ".*"
@@ -133,3 +284,4 @@ class FilterModule(object):
         return {"phy_interfaces_payload": phy_interfaces_payloads,
                 "log_interfaces_payload": log_interfaces_payloads,
                 "lo_interface_ip": lo0_ip_add}
+
