@@ -1959,6 +1959,9 @@ class RoutingInstanceST(DBBaseST):
         if self.obj.get_parent_fq_name() in [common.IP_FABRIC_VN_FQ_NAME,
                                              common.LINK_LOCAL_VN_FQ_NAME]:
             return
+        vmi_refs = self.obj.get_virtual_machine_interface_back_refs() or []
+        self.virtual_machine_interfaces = set([':'.join(ref['to'])
+                                              for ref in vmi_refs])
         self.locate_route_target()
         for ri_ref in self.obj.get_routing_instance_refs() or []:
             conn_fq_name = ':'.join(ri_ref['to'])
@@ -2151,6 +2154,20 @@ class RoutingInstanceST(DBBaseST):
                         else:
                             self.stale_route_targets.remove(rt)
                     if self.is_default:
+                        for vmi_fq_name in self.virtual_machine_interfaces:
+                            vmi = VirtualMachineInterfaceST.locate(vmi_fq_name)
+                            lr_refs = vmi.obj.get_logical_router_back_refs() or []
+                            lrs = [LogicalRouterST.locate(lr_fq_name) for lr_fq_name in set([':'.join(ref['to']) for ref in lr_refs])]
+                            for lr in lrs:
+                                rt_refs = lr.obj.get_route_target_refs() or []
+                                rts = set([':'.join(ref['to']) for ref in rt_refs])
+                                for rt in rts:
+                                    if rt not in self.stale_route_targets:
+                                        rtgt_obj = RouteTargetST.locate(rt)
+                                        self.obj.add_route_target(rtgt_obj.obj, inst_tgt_data)
+                                        update_ri = True
+                                    else:
+                                        self.stale_route_targets.remove(rt)
                         for rt in vn.export_rt_list:
                             if rt not in self.stale_route_targets:
                                 rtgt_obj = RouteTargetST.locate(rt)
