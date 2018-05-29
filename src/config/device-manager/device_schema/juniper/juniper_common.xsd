@@ -355,8 +355,8 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="source-address" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="destination-prefix-list" type="DestinationPrefixList"/>
         <xsd:element name="source-prefix-list" type="SourcePrefixList"/>
-        <xsd:element name="source-port" type="xsd:string"/>
-        <xsd:element name="destination-port" type="xsd:string"/>
+        <xsd:element name="source-port" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="destination-port" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="ip-protocol" type="xsd:string"/>
         <xsd:element name="ether-type" type="xsd:string"/>
         <xsd:element name="family" type="xsd:string"/>
