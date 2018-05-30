@@ -22,6 +22,12 @@ class FakeNetconfManager(object):
     def edit_config(self, target, config, test_option, default_operation):
         self.configs = [config]
 
+    def close_session(self):
+        self.host = None
+        self.connected = True
+        self.configs = []
+        FakeDeviceConnect.reset()
+
     def get_config(self, source='running'):
         model = FakeNetconfManager.model
         version = FakeNetconfManager.version
