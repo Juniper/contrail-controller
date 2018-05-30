@@ -48,6 +48,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     SecurityGroupDM, AccessControlListDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
+from ansible_base import AnsibleBase
 from device_conf import DeviceConf
 from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common import vnc_cgitb
@@ -210,6 +211,7 @@ class DeviceManager(object):
 
     def __init__(self, dm_logger=None, args=None):
         self._args = args
+        PushConfigState.set_push_mode(int(self._args.push_mode))
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
@@ -231,6 +233,15 @@ class DeviceManager(object):
         except Exception as e:
             tb = traceback.format_exc()
             self.logger.error("Internal error while registering plugins: " + str(e) + tb)
+
+        # Register Ansible Plugins
+        try:
+            AnsibleBase.register_plugins()
+        except AnsibleBase.PluginsRegistrationFailed as e:
+            self.logger.error("Exception: " + str(e))
+        except Exception as e:
+            tb = traceback.format_exc()
+            self.logger.error("Internal error while registering ansible plugins: " + str(e) + tb)
 
         # Retry till API server is up
         connected = False
@@ -372,6 +383,9 @@ class DeviceManager(object):
             raise
     # end __init__
 
+    def get_vnc(self):
+        return self._vnc_lib
+
     @classmethod
     def get_instance(cls):
         return cls._device_manager
@@ -443,6 +457,7 @@ def parse_args(args_str):
                          --push_delay_per_kb 0.01
                          --push_delay_max 100
                          --push_delay_enable True
+                         --push_mode 0
                          [--reset_config]
     '''
 
@@ -479,6 +494,7 @@ def parse_args(args_str):
         'logging_conf': '',
         'logger_class': None,
         'repush_interval': '15',
+        'push_mode': 0,
         'repush_max_interval': '600',
         'push_delay_per_kb': '0.01',
         'push_delay_max': '100',
