@@ -178,6 +178,8 @@ class TestInfraDM(TestCommonDM):
 
     @retries(5, hook=retry_exc_handler)
     def check_dm_delete_groups(self):
+        if not FakeDeviceConnect.params:
+            return
         pr_config = FakeDeviceConnect.params.get("pr_config")
         self.assertIsNotNone(pr_config)
         self.assertIsNotNone(FakeDeviceConnect.params.get("config"))
