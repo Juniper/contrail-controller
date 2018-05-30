@@ -7,6 +7,7 @@ This file contains implementation of data model for physical router
 configuration manager
 """
 from device_conf import DeviceConf
+from ansible_base import AnsibleBase
 from dm_utils import PushConfigState
 from dm_utils import DMUtils
 from dm_utils import DMIndexer
@@ -107,12 +108,9 @@ class PhysicalRouterDM(DBBaseDM):
         self.ae_index_allocator = DMIndexer(
                         DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
         self.init_cs_state()
+        self.config_manager = None
+        self.ansible_manager = None
         self.update(obj_dict)
-        plugin_params = {
-                "physical_router": self
-            }
-        self.config_manager = DeviceConf.plugin(self.vendor, self.product,
-                                                 plugin_params, self._logger)
         if self.config_manager:
             self.set_conf_sent_state(False)
             self.config_repush_interval = PushConfigState.get_repush_interval()
@@ -120,6 +118,45 @@ class PhysicalRouterDM(DBBaseDM):
                                                        self.nc_handler)
             self.uve_send()
     # end __init__
+
+    def reinit_device_plugin(self):
+        plugin_params = {
+                "physical_router": self
+            }
+        dm_instance = DeviceManager.get_instance()
+        vnc_lib = dm_instance.get_vnc()
+        if not self.ansible_manager:
+            self.ansible_manager = AnsibleBase.plugin(self.vendor, self.product,
+                                                 plugin_params, vnc_lib, self._logger)
+        else:
+            if self.ansible_manager.verify_plugin(self.physical_router_role):
+                self.ansible_manager.update()
+            else:
+                self.ansible_manager.clear()
+                self.ansible_manager = AnsibleBase.plugin(self.vendor, self.product,
+                                                 plugin_params, vnc_lib, self._logger)
+        if PushConfigState.is_push_mode_ansible() and not self.no_ansible_support_for_role():
+            self.config_manager = self.ansible_manager
+            return
+        if not self.config_manager:
+            self.config_manager = DeviceConf.plugin(self.vendor, self.product,
+                                                 plugin_params, self._logger)
+        else:
+            if self.config_manager.verify_plugin(self.vendor, self.product,
+                                                 self.physical_router_role):
+                self.config_manager.update()
+            else:
+                self.config_manager.clear()
+                self.config_manager = DeviceConf.plugin(self.vendor, self.product,
+                                                 plugin_params, self._logger)
+    # end reinit_device_plugin
+
+    def no_ansible_support_for_role(self):
+        if not self.physical_router_role:
+            return True
+        if self.physical_router_role.lower() not in ["leaf", "spine"]:
+            return True
+        return False
 
     def update(self, obj=None):
         if obj is None:
@@ -150,18 +187,7 @@ class PhysicalRouterDM(DBBaseDM):
         plugin_params = {
                 "physical_router": self
             }
-        # reinit plugin, find out new plugin if vendor/product is changed
-        if not self.config_manager:
-            self.config_manager = DeviceConf.plugin(self.vendor, self.product,
-                                                          plugin_params, self._logger)
-        else:
-            if self.config_manager.verify_plugin(self.vendor, self.product,
-                                                 self.physical_router_role):
-                self.config_manager.update()
-            else:
-                self.config_manager.clear()
-                self.config_manager = DeviceConf.plugin(self.vendor, self.product,
-                                                          plugin_params, self._logger)
+        self.reinit_device_plugin()
     # end update
 
     @classmethod
@@ -512,6 +538,11 @@ class PhysicalRouterDM(DBBaseDM):
     def push_config(self):
         if not self.config_manager:
             self._logger.info("plugin not found for vendor family(%s:%s), \
+                  ip: %s, not pushing netconf message" % (str(self.vendor),
+                                     str(self.product), self.management_ip))
+            return
+        if not self.config_manager.is_plugin_initialized():
+            self._logger.info("plugin not initialized yet for vendor family(%s:%s), \
                   ip: %s, not pushing netconf message" % (str(self.vendor),
                                      str(self.product), self.management_ip))
             return
