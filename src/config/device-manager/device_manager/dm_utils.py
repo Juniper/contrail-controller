@@ -10,6 +10,7 @@ from netaddr import IPNetwork
 from bitarray import bitarray
 
 class PushConfigState(object):
+    PUSH_MODE = 0  # Global Push Mode - 0: python plugin, 1 : ansible plugin
     PUSH_STATE_INIT = 0
     PUSH_STATE_SUCCESS = 1
     PUSH_STATE_RETRY = 2
@@ -18,6 +19,18 @@ class PushConfigState(object):
     PUSH_DELAY_PER_KB = 0.01
     PUSH_DELAY_MAX = 100
     PUSH_DELAY_ENABLE = True
+
+    @classmethod
+    def set_push_mode(cls, value):
+        cls.PUSH_MODE = value
+    # end set_push_mode
+
+    @classmethod
+    def is_push_mode_ansible(cls):
+        if cls.PUSH_MODE == 1:
+            return True
+        return False
+    # end is_push_mode_ansible
 
     @classmethod
     def set_repush_interval(cls, value):
