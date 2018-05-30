@@ -8,11 +8,11 @@ This file contains implementation plugin base class for device config module
 
 import abc
 import sys
-from imports import import_plugins
+from imports import import_ansible_plugins
 #
 # Base Class for all plugins. pluigns must implement all abstract methods
 #
-class DeviceConf(object):
+class AnsibleBase(object):
     _plugins = {}
 
     class PluginError(Exception):
@@ -21,7 +21,7 @@ class DeviceConf(object):
         # end __init__
 
         def __str__(self):
-            return "Plugin Error, Configuration = %s" % str(plugin_info)
+            return "Ansible Plugin Error, Configuration = %s" % str(plugin_info)
         # end __str__
     # end PluginError
 
@@ -39,7 +39,8 @@ class DeviceConf(object):
     # end PluginsRegistrationFailed
 
     def __init__(self):
-        self.initialize()
+        self.plugin_init_done = False
+        self.plugin_init()
         self.device_config = {}
         self.commit_stats = {
             'last_commit_time': '',
@@ -50,43 +51,42 @@ class DeviceConf(object):
         self.device_connect()
     # end __init__
 
+    def is_plugin_initialized(self):
+        return self.plugin_init_done
+    # end is_plugin_initialized
+
     # instantiate a plugin dynamically
     @classmethod
     def plugin(cls, vendor, product, params, logger):
         pr = params.get("physical_router")
-        if not vendor or not product:
-            name = str(vendor) + ":" + str(product)
-            logger.warning("No plugin pr=%s, vendor/product=%s"%(pr.uuid, name))
+        if not pr.physical_router_role or not vendor or not product:
+            name = str(pr.physical_router_role) + ":"+ str(vendor) + ":" + str(product)
+            logger.warning("No ansible plugin pr=%s, role/vendor/product=%s"%(pr.uuid, name))
             return None
         vendor = vendor.lower()
         product = product.lower()
-        pconfs = DeviceConf._plugins.get(vendor)
-        for pconf in pconfs or []:
+        pconf = AnsibleBase._plugins.get(pr.physical_router_role)
+        if pconf:
+            pconf = pconf[0] #for now one only
             inst_cls = pconf.get('class')
-            if inst_cls.is_product_supported(product, pr.physical_router_role):
-                return  inst_cls(logger, params)
-        name = vendor + ":" + product
-        logger.warning("No plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
+            return  inst_cls(logger, params)
+        name = pr.physical_router_role + ":" + vendor + ":" + product
+        logger.warning("No ansible plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
         return None
     # end plugin
 
     # validate plugin name
-    def verify_plugin(self, vendor, product, role):
-        if not vendor or not product:
+    def verify_plugin(self, role):
+        if not role or not self.is_role_supported(role):
             return False
-        vendor = vendor.lower()
-        product = product.lower()
-        if vendor == self._vendor.lower() and \
-        self.is_product_supported(product, role):
-            return True
-        return False
+        return True
     # end verify_plugin
 
     # register all plugins with device manager
     @classmethod
     def register_plugins(cls):
         # make sure modules are loaded
-        import_plugins()
+        import_ansible_plugins()
         # register plugins, find all leaf implementation classes derived from this class
         subclasses = set()
         work = [cls]
@@ -105,7 +105,7 @@ class DeviceConf(object):
         for scls in subclasses or []:
             try:
                 scls.register()
-            except DeviceConf.PluginError as e:
+            except AnsibleBase.PluginError as e:
                 exceptions.append(str(e))
         if exceptions:
             raise PluginsRegistrationFailed(exceptions)
@@ -113,21 +113,24 @@ class DeviceConf(object):
 
     @classmethod
     def register(cls, plugin_info):
-        if not all (k in plugin_info for k in ("vendor", "products")):
-            raise DeviceConf.PluginError(plugin_info)
-        name = plugin_info['vendor']
-        DeviceConf._plugins.setdefault(name.lower(), []).append(plugin_info)
+        if not plugin_info or not plugin_info.get("roles"):
+            raise AnsibleBase.PluginError(plugin_info)
+        roles = plugin_info['roles']
+        for role in roles or []:
+             AnsibleBase._plugins.setdefault(role.lower(), []).append(plugin_info)
     # end register
 
     @classmethod
-    def is_product_supported(cls, product, role):
-        """ check if plugin is capable of supporting product """
+    def is_role_supported(cls, role):
+        """ check if plugin is capable of supporting role """
         return False
-    # end is_product_supported
+    # end is_role_supported
 
-    def is_plugin_initialized(self):
-        return True
-    # end is_plugin_initialized
+    @abc.abstractmethod
+    def plugin_init(self):
+        # derived class must implement this method
+        pass
+    # end plugin_init
 
     @abc.abstractmethod
     def initialize(self):
@@ -139,18 +142,6 @@ class DeviceConf(object):
     # end get_device_config
 
     def validate_device(self):
-        if not self.device_config:
-            self.device_config = self.device_get()
-        if not self.device_config:
-            self.device_config = {}
-            return False
-        model = self.device_config.get('product-model')
-        if not self.is_product_supported(model, \
-               self.physical_router.physical_router_role):
-            self._logger.error("product model mismatch: device model = %s," \
-                      " plugin mode = %s" % (model, str(self._products)))
-            self.device_config = {}
-            return False
         return True
     # def validate_device
 
@@ -212,4 +203,4 @@ class DeviceConf(object):
         return {}
     # end get_service_status
 
-# end DeviceConf
+# end AnsibleBase
