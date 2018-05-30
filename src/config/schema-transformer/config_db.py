@@ -3967,6 +3967,12 @@ class LogicalRouterST(DBBaseST):
         return changed
     # end update
 
+    def evaluate(self):
+        self.update_virtual_networks()
+        rt_list = self.obj.get_configured_route_target_list() or RouteTargetList()
+        self.set_route_target_list(rt_list)
+    # end evaluate
+
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('route_table', {})
