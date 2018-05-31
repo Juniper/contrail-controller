@@ -264,15 +264,11 @@ class IndexAllocator(object):
             else:
                 idx = self._in_use.index(0)
                 self._in_use[idx] = 1
-
         try:
             idx = self._get_zk_index_from_bit(idx)
         except ResourceExhaustionError as e:
-            if self._in_use.all():
-                self._in_use.pop(1)
-            else:
-                self._in_use[idx] = 0
-            raise ResourceExhaustionError(str(e))
+            self._in_use[idx] = 0
+            raise
 
         try:
             # Create a node at path and return its integer value
