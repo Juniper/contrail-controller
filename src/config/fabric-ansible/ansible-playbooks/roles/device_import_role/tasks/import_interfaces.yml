@@ -1,13 +1,12 @@
 - name: Execute commands on a Juniper Device
   block:
-    - juniper_junos_config:
-        retrieve: 'committed'
-        format: xml
-        filter: interfaces
+    - junos_command:
+        commands: show configuration
+        display: xml
         provider:
           host: "{{junos_host}}"
-          user: "{{junos_username}}"
-          passwd: "{{junos_password}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
           port: 22
           timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
       register: interface_info
@@ -21,7 +20,7 @@
 
 - name: settings facts
   set_fact:
-    interface_list: "{{interface_info|json_query('config_parsed.configuration.interfaces.interface')}}"
+    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
 
 - name: Update Job log with 'show configuration interfaces' command successs
   job_objectlog:
@@ -31,13 +30,13 @@
 
 - name: Execute commands on a Juniper Device
   block:
-    - juniper_junos_command:
-        commands: "show interfaces"
-        formats: xml
+    - junos_command:
+        commands: show interfaces
+        display: xml
         provider:
           host: "{{junos_host}}"
-          user: "{{junos_username}}"
-          passwd: "{{junos_password}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
           port: 22
           timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
       register: interface_info
@@ -50,7 +49,7 @@
         jl_err_message: "Execute 'show interfaces' command on Juniper Device: {{prouter_name}} failed; see result for more details"
 
 - set_fact:
-    interface_list_new: "{{interface_info|json_query('parsed_output.\"interface-information\".\"physical-interface\"')}}"
+    interface_list_new: "{{interface_info|json_query('output[0].\"rpc-reply\".\"interface-information\".\"physical-interface\"[*]')}}"
 
 - name: Update Job log with 'show interfaces' command successs
   job_objectlog:
