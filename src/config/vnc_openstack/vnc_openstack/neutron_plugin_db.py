@@ -31,8 +31,10 @@ import vnc_cfg_api_server.context
 from context import get_context, use_context
 import datetime
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+import StringIO
 
 operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
+oper = ['NOOP', 'POST', 'GET', 'PUT', 'DELETE']
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -51,9 +53,8 @@ _IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX = re.compile(
 class LocalVncApi(VncApi):
     def __init__(self, api_server_obj, *args, **kwargs):
         if api_server_obj:
-            self.api_server_routes = dict((r.rule.split('/')[1], r.callback)
-                for r in api_server_obj.api_bottle.routes
-                if r.method == 'GET')
+            self.api_server_routes = dict((r.rule.split('/')[1]+'-'+r.method, r.callback)
+                for r in api_server_obj.api_bottle.routes)
             self.POST_FOR_LIST_THRESHOLD = sys.maxsize
         else:
             self.api_server_routes = []
@@ -92,28 +93,37 @@ class LocalVncApi(VncApi):
                          "neutron request %s id %s needs %s permission on %s"
                         %(get_context().request, get_context().request_id,
                           operations[op], url_parts[1]), level=SandeshLevel.SYS_INFO)
-            if op != rest.OP_GET or url_parts[1] not in self.api_server_routes:
+            if (url_parts[1]+'-'+oper[op]) not in self.api_server_routes:
                 return super(LocalVncApi, self)._request(
                     op, url, data, *args, **kwargs)
 
-            server_method = self.api_server_routes[url_parts[1]]
-            if data:
-                q_str = '&'.join(['%s=%s' %(k,v) for k,v in data.items()])
-            else:
-                q_str = None
+            server_method = self.api_server_routes[url_parts[1]+'-'+oper[op]]
 
+            environ = {
+                'PATH_INFO': url,
+                'bottle.app': self.api_server_obj.api_bottle,
+                'REQUEST_METHOD': oper[op],
+            }
             if user_token:
                 auth_hdrs = vnc_cfg_api_server.auth_context.get_auth_hdrs()
             else:
                 auth_hdrs = {}
 
 
-            environ = {
-                'PATH_INFO': url,
-                'QUERY_STRING': q_str,
-                'bottle.app': self.api_server_obj.api_bottle
-            }
             environ.update(auth_hdrs)
+
+            if op == rest.OP_GET:
+                if data:
+                    environ['QUERY_STRING'] = '&'.join(['%s=%s' %(k,v) for k,v in data.items()])
+            else:
+                if data:
+                    x = StringIO.StringIO()
+                    x.write(data)
+                    environ['bottle.request.data'] = x
+                    environ['bottle.request.json'] = json.loads(data)
+                    environ['CONTENT_TYPE'] = 'application/json; charset="UTF-8"',
+                    environ['CONTENT_LEN'] = x.len
+
             vnc_cfg_api_server.context.set_context(
                 vnc_cfg_api_server.context.ApiContext(
                     external_req=bottle.BaseRequest(environ))
@@ -150,20 +160,23 @@ class LocalVncApi(VncApi):
             # in-place and change the cached value
             try:
                 # strip / in /virtual-networks
-                if len(url_parts) < 3:
-                    coll_key = url_parts[1]
-                    item_key = coll_key[:-1]
-                    ret_list = ret_val[coll_key]
-                    for ret_item in ret_list:
+                if ret_val:
+                    if len(url_parts) < 3:
+                        coll_key = url_parts[1]
+                        item_key = coll_key[:-1]
+                        ret_list = ret_val[coll_key]
+                        for ret_item in ret_list:
+                            self.deepcopy_ref(ret_item, item_key)
+                    else:
+                        item_key = url_parts[1]
+                        ret_item = ret_val
                         self.deepcopy_ref(ret_item, item_key)
-                else:
-                    item_key = url_parts[1]
-                    ret_item = ret_val
-                    self.deepcopy_ref(ret_item, item_key)
             except KeyError:
                 pass
-
-            return ret_val
+            if op == rest.OP_GET:
+                return ret_val
+            else:
+                return json.dumps(ret_val)
 
         except PermissionDenied as e:
             exc_info = {'exception': 'NotAuthorized'}
