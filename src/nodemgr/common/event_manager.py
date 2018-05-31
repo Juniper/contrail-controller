@@ -96,8 +96,9 @@ class EventManager(object):
         event_handlers['PROCESS_LIST_UPDATE'] = self.update_current_processes
         ConnectionState.init(self.sandesh_instance, self.hostname,
             self.type_info._module_name, self.instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus, self.type_info._object_table)
+            staticmethod(ConnectionState.get_conn_state_cb),
+            NodeStatusUVE, NodeStatus, self.type_info._object_table,
+            self.get_process_state_cb)
         self.sandesh_instance.init_generator(
             self.type_info._module_name, self.hostname,
             self.type_info._node_type_name, self.instance_id,
@@ -208,6 +209,10 @@ class EventManager(object):
         self.process_state_db[group_val][added_process] = process_info
         self.send_process_state_db([group_val])
     # end add_process_handler
+
+    def get_process_state_cb(self):
+        state, description = self.get_process_state(self.fail_status_bits)
+        return state, description
 
     def check_ntp_status(self):
         ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
@@ -449,9 +454,17 @@ class EventManager(object):
         self.prev_fail_status_bits = self.fail_status_bits
         fail_status_bits = self.fail_status_bits
         state, description = self.get_process_state(fail_status_bits)
+        conn_infos = ConnectionState._connection_map.values()
+        (cb_state, cb_description) = ConnectionState.get_conn_state_cb(conn_infos)
+        if (cb_state == ProcessState.NON_FUNCTIONAL):
+            state = ProcessState.NON_FUNCTIONAL
+        if description != '':
+            description += ' '
+        description += cb_description
+
         process_status = ProcessStatus(
             module_id=self.type_info._module_name, instance_id=self.instance_id,
-            state=state, description=description)
+            state=ProcessStateNames[state], description=description)
         process_status_list = []
         process_status_list.append(process_status)
         node_status = NodeStatus(name=self.hostname,
@@ -551,9 +564,9 @@ class EventManager(object):
 
     def get_process_state(self, fail_status_bits):
         if not fail_status_bits:
-            return ProcessStateNames[ProcessState.FUNCTIONAL], ''
+            return ProcessState.FUNCTIONAL, ''
 
-        state = ProcessStateNames[ProcessState.NON_FUNCTIONAL]
+        state = ProcessState.NON_FUNCTIONAL
         description = self.get_failbits_nodespecific_desc(fail_status_bits)
         if fail_status_bits & self.FAIL_STATUS_NTP_SYNC:
             description.append("NTP state unsynchronized.")
