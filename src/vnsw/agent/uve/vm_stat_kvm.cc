@@ -211,6 +211,8 @@ void VmStatKvm::GetDiskName() {
 
 void VmStatKvm::ReadDiskName() {
     data_ >> disk_name_;
+    data_.str(" ");
+    data_.clear();
     if (!disk_name_.empty()) {
         GetDiskStat();
     } else {
@@ -253,6 +255,9 @@ void VmStatKvm::ReadDiskStat() {
         stringstream ss(disk_size_str);
         ss >> disk_size_;
     }
+
+    data_.str(" ");
+    data_.clear();
 
     SendVmCpuStats();
     StartTimer();
