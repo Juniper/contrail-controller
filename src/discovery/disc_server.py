@@ -226,7 +226,7 @@ class DiscoveryServer():
         self._sandesh.trace_buffer_create(name="dsSubscribeTraceBuf",
                                           size=1000)
         ConnectionState.init(self._sandesh, socket.gethostname(), module_name,
-                instance_id, staticmethod(ConnectionState.get_process_state_cb),
+                instance_id, staticmethod(ConnectionState.get_conn_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
 
         # DB interface initialization

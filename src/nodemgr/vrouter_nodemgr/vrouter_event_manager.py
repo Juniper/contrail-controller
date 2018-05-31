@@ -72,8 +72,9 @@ class VrouterEventManager(EventManager):
         self.add_current_process()
         ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
             self.instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus, self.table)
+            staticmethod(ConnectionState.get_conn_state_cb),
+            NodeStatusUVE, NodeStatus, self.table,
+            self.get_process_state_cb)
 
         self.lb_stats = LoadbalancerStatsUVE()
         self.send_init_info()
