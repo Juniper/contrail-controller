@@ -279,6 +279,10 @@ class FakeCF(object):
 
     def get(self, key, columns=None, column_start=None, column_finish=None,
             column_count=0, include_timestamp=False, include_ttl=False):
+        if not isinstance(key, six.string_types):
+            raise TypeError("A str or unicode value was expected, but %s "
+                            "was received instead (%s)"
+                            % (key.__class__.__name__, str(key)))
         if not key in self._rows:
             raise pycassa.NotFoundException
         if columns:

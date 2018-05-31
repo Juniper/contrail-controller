@@ -4,7 +4,6 @@
 import abc
 import logging
 import six
-from unittest import skip
 
 from gevent import monkey
 monkey.patch_all()  # noqa
@@ -35,7 +34,6 @@ from vnc_api.vnc_api import SubnetListType
 from vnc_api.vnc_api import SubnetType
 from vnc_api.vnc_api import Tag
 from vnc_api.vnc_api import VirtualNetwork
-
 
 from vnc_cfg_api_server.tests import test_case
 
@@ -953,8 +951,8 @@ class FirewallDraftModeBase(object):
         self.api.firewall_rule_create(fr1)
 
         msg_regex = (r"Cannot disable security draft mode on "
-                      "(global scope|scope .*) as some pending security "
-                      "resource\(s\) need to be reviewed:.*")
+                     "(global scope|scope .*) as some pending security "
+                     "resource\\(s\\) need to be reviewed:.*")
         with self.assertRaisesRegex(RefsExistError, msg_regex):
             self.draft_mode = False
 
@@ -1845,6 +1843,32 @@ class FirewallDraftModeBase(object):
         self.draft_mode = True
         self.assertRaises(RefsExistError, self.api.firewall_rule_delete,
                           id=fr.uuid)
+
+    def test_can_delete_security_resource_with_ref(self):
+        self.set_scope_instance(draft_enable=False)
+        sg = ServiceGroup(
+            name='sg-%s' % self.id(),
+            parent_obj=self._owner,
+            service_group_firewall_service_list=FirewallServiceGroupType(
+                firewall_service=[FirewallServiceType()]),
+        )
+        self.api.service_group_create(sg)
+        fr = FirewallRule(
+            name='fr-%s' % self.id(),
+            parent_obj=self._owner,
+            action_list=ActionListType(simple_action='pass'),
+            direction='<>',
+        )
+        fr.set_service_group(sg)
+        self.api.firewall_rule_create(fr)
+
+        self.draft_mode = True
+        fr.set_service_group_list([])
+        fr.set_service(FirewallServiceType())
+        self.api.firewall_rule_update(fr)
+        self.api.service_group_delete(id=sg.uuid)
+        # self.api.commit_security(self._scope)
+        self.api.discard_security(self._scope)
 
 
 class TestFirewallDraftModeGlobalScope(TestFirewallBase,
