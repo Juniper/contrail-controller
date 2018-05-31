@@ -1177,8 +1177,8 @@ class FakeKazooClient(object):
             lock.release()
 
         def contenders(self):
-            _, contender = self._locks[self._path]
-            return [contender]
+            lock, contender = self._locks[self._path]
+            return [contender] if lock.locked() else []
 
         def destroy(self):
             self._locks.pop(self._path, None)
