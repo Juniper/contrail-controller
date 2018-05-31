@@ -199,7 +199,7 @@ class KubeManagerLogger(object):
         ConnectionState.init(
             self._sandesh, self._module["hostname"], self._module["name"],
             self._module["instance_id"],
-            staticmethod(ConnectionState.get_process_state_cb),
+            staticmethod(ConnectionState.get_conn_state_cb),
             NodeStatusUVE, NodeStatus, self._module["table"])
 
     def introspect_init(self):
