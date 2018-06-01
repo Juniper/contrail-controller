@@ -38,12 +38,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.4"
+__version__ = "1.5"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.5:
+  - fix bug to identifying stale route target when it's a RT of a LR with a
+    gateway
 * 1.4:
   - add timestamp into script output headers
   - remove verbose option and set default logging level to INFO
@@ -515,12 +518,19 @@ class DatabaseManager(object):
                                        column_finish='backref;')
             except pycassa.NotFoundException:
                 continue
-            backref_uuids = {col.rpartition(':')[-1] for col, _ in cols}
-            if not backref_uuids or len(backref_uuids) != 1:
+            backref_uuid = None
+            for col, _ in cols:
+                if col.startswith('backref:logical_router:'):
+                    backref_uuid = col.rpartition(':')[-1]
+                    break
+                elif col.startswith('backref:routing_instance:'):
+                    backref_uuid = col.rpartition(':')[-1]
+
+            if not backref_uuid:
                 config_set.add((id, no_assoc_msg))
                 continue
             try:
-                cols = uuid_table.get(backref_uuids.pop(), columns=['fq_name'])
+                cols = uuid_table.get(backref_uuid, columns=['fq_name'])
             except pycassa.NotFoundException:
                 config_set.add((id, no_assoc_msg))
                 continue
