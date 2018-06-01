@@ -7,9 +7,9 @@ Contains functions that invoke the playbook.
 """
 import sys
 import json
-from collections import namedtuple
 import traceback
 import argparse
+from collections import namedtuple
 
 from ansible import constants as CONST
 verbosity = CONST.DEFAULT_VERBOSITY or 0
@@ -36,6 +36,8 @@ from ansible.executor.playbook_executor import PlaybookExecutor
 
 from job_manager.job_messages import MsgBundle
 from job_manager.job_manager_logger import job_mgr_logger
+
+logger = fabric_ansible_logger("ansible")
 JM_LOGGER = job_mgr_logger("FabricAnsible")
 
 
@@ -82,6 +84,7 @@ class PlaybookHelper(object):
                 msg = MsgBundle.getMessage(MsgBundle.
                                            PLAYBOOK_RETURN_WITH_ERROR)
                 raise Exception(msg)
+
             output = self.get_plugin_output(pbex)
             if output is None or output.get('status') is None:
                 msg = MsgBundle.getMessage(MsgBundle.
@@ -94,14 +97,14 @@ class PlaybookHelper(object):
                 raise Exception(msg)
 
             return output
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.PLAYBOOK_EXECUTE_ERROR,
                                        playbook_uri=playbook_info['uri'],
                                        execution_id=playbook_info['extra_vars']
                                        ['playbook_input']['job_execution_id'],
-                                       exc_msg=repr(e))
-            if e.message:
-                msg = msg + "\n" + e.message
+                                       exc_msg=repr(exp))
+            if exp.message:
+                msg = msg + "\n" + exp.message
 
             JM_LOGGER.error(msg)
             sys.exit(msg)
@@ -123,11 +126,12 @@ if __name__ == "__main__":
         playbook_input_json = json.loads(playbook_params.playbook_input[0])
         if playbook_input_json is None:
             sys.exit(MsgBundle.getMessage(MsgBundle.NO_PLAYBOOK_INPUT_DATA))
-    except Exception as e:
+    except Exception as exp:
         ERR_MSG = "Failed to start playbook due "\
               "to Exception: %s" % traceback.print_stack()
         JM_LOGGER.error(ERR_MSG)
         sys.exit(MsgBundle.getMessage(MsgBundle.PLAYBOOK_INPUT_PARSING_ERROR,
-                                      exc_msg=repr(e)))
+                                      exc_msg=repr(exp)))
     playbook_helper = PlaybookHelper()
     playbook_helper.execute_playbook(playbook_input_json)
+

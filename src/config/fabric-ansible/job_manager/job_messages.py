@@ -41,8 +41,8 @@ class MsgBundle(object):
     JOB_EXC_REC_HDR = 39,
     EXC_JOB_ERR_HDR = 40,
     PLAYBOOK_STATUS_FAILED = 41,
-    PLAYBOOK_OUTPUT_MISSING = 42
-
+    PLAYBOOK_OUTPUT_MISSING = 42,
+    EMPTY_DEVICE_LIST = 43
     _msgs = {
         'en': {
             JOB_TEMPLATE_MISSING: 'job_template_id is missing '
@@ -57,7 +57,8 @@ class MsgBundle(object):
                                                  'for devices: ',
             JOB_SINGLE_DEVICE_FAILED_MESSAGE_HDR: 'Job failed. \n',
             PLAYBOOK_RESULTS_MESSAGE: 'Detailed job results: \n',
-            PLAYBOOK_EXIT_WITH_ERROR: 'Playbook "{playbook_uri}" exited with error.',
+            PLAYBOOK_EXIT_WITH_ERROR: 'Playbook "{playbook_uri}" exited'
+                                      ' with error.',
             PLAYBOOK_RETURN_WITH_ERROR: 'Playbook returned '
                                         'with error',
             PLAYBOOK_STATUS_FAILED: 'Playbook completed with status Failure.',
@@ -160,7 +161,8 @@ class MsgBundle(object):
                                         'playbook "{playbook_uri}" for'
                                         ' device "{device_id}"',
             JOB_EXC_REC_HDR: 'Job Exception recieved: ',
-            EXC_JOB_ERR_HDR: 'Error while executing job '
+            EXC_JOB_ERR_HDR: 'Error while executing job ',
+            EMPTY_DEVICE_LIST: 'Need to pass a valid device list '
         }
     }
 
@@ -177,3 +179,4 @@ class MsgBundle(object):
         except KeyError as ex:
             return 'Failed to contruct job message due to missing message '\
                    'arguments: %s' % ex.message
+

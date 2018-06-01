@@ -1,5 +1,7 @@
 ---
 # tasks file for device-facts-uve
+- set_fact:
+    job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
 
 - name: READ JUNOS FACTS
   block:
