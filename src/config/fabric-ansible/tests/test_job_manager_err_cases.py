@@ -17,14 +17,14 @@ from vnc_api.vnc_api import VncApi
 from cfgm_common.exceptions import NoIdError
 
 import test_case
-from job_result_handler import JobResultHandler
-from job_handler import JobHandler
-from job_mgr import JobManager
-from job_log_utils import JobLogUtils
-from job_utils import JobStatus
-from job_exception import JobException
-from sandesh_utils import SandeshUtils
-from job_messages import MsgBundle
+from job_manager.job_result_handler import JobResultHandler
+from job_manager.job_handler import JobHandler
+from job_manager.job_mgr import JobManager
+from job_manager.job_log_utils import JobLogUtils
+from job_manager.job_utils import JobUtils, JobStatus
+from job_manager.job_exception import JobException
+from job_manager.sandesh_utils import SandeshUtils
+from job_manager.job_messages import MsgBundle
 
 from test_job_manager_utils import TestJobManagerUtils
 
@@ -781,6 +781,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         job_input_json = {
             "job_template_id": "random_uuid",
             "job_execution_id": TestJobManagerUtils.execution_id,
+            "fabric_fq_name": "Global-system-config:fabric:1",
             "auth_token": "6e7d7f87faa54fac96a2a28ec752336a",
             "args": TestJobManagerUtils.args
             }
@@ -847,3 +848,4 @@ class TestJobManagerEC(test_case.JobTestCase):
                                  playbook_uri=TestJobManagerUtils.play_info.
                                  playbook_uri,
                                  exc_msg=repr(exc)))
+
