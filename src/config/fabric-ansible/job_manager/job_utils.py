@@ -12,11 +12,10 @@ from job_messages import MsgBundle
 
 
 class JobStatus(Enum):
-    STARTING = 0
-    IN_PROGRESS = 1
-    SUCCESS = 2
-    FAILURE = 3
-    TIMEOUT = 4
+    STARTING = "STARTING"
+    IN_PROGRESS = "IN_PROGRESS"
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
 
 
 class JobUtils(object):
@@ -38,3 +37,4 @@ class JobUtils(object):
                                        job_template_id=self._job_template_id)
             raise JobException(msg, self._job_execution_id)
         return job_template
+
