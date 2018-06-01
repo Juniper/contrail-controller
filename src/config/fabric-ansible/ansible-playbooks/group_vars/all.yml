@@ -11,15 +11,29 @@ DEVICE_STATE:
   IMAGE_UPGRADED: "IMAGE_UPGRADED"
 
 JOBLOG_STATUS:
-  IN_PROGRESS: 1
+  IN_PROGRESS: "IN_PROGRESS"
 
 # Job context to be passed to ansible modules
 job_ctx:
   job_template_fqname: "{{ playbook_input.job_template_fqname }}"
   job_execution_id: "{{ playbook_input.job_execution_id }}"
+  fabric_fqname: "{{ playbook_input.fabric_fq_name }}"
   config_args: "{{ playbook_input.args }}"
   job_input: "{{ playbook_input.input }}"
   auth_token: "{{ playbook_input.auth_token }}"
+  playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
+  # This is used in the job percentage calculations. Dataype is an int
+  # Example: For the first task in image upgrade - dowloading the image
+  # the current_task_index will be 1. Note: The first task index always needs
+  # to be initialized from 1 and not 0
+  current_task_index: 1
+  # This is used in job percentage calculations. Dataype is int.
+  # It is the total number of tasks in the playbook. For example,
+  # image upgrade has four tasks (creates job logs 4 times)
+  total_task_count: 1
+  # This is used for job percentage calcualtions. Dataype is a array of int
+  # For example for image upgrade it could be set to [5, 40, 45, 10]
+  task_weightage_array:
 
 #pool size
 POOL_SIZE: 500
