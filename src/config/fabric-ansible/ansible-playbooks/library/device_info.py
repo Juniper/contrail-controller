@@ -107,7 +107,7 @@ RETURN = '''
 '''
 
 REF_EXISTS_ERROR = 3
-JOB_IN_PROGRESS = 1
+JOB_IN_PROGRESS = "IN_PROGRESS"
 
 
 def _parse_xml_response(xml_response, oid_mapped):
@@ -317,10 +317,10 @@ def _pr_object_create_update(
         vncapi,
         oid_mapped,
         fq_name,
+        logger,
         module,
-        update):
-    pr_uuid = None
-    logger = module.logger
+        fabric_uuid,
+        total_percentage):
     try:
         os_version = oid_mapped.get('os-version', None)
         serial_num = oid_mapped.get('serial-number', None)
@@ -360,10 +360,20 @@ def _pr_object_create_update(
         logger.error("VNC create failed with error: {}".format(str(ex)))
         return False, None
 
-    module.send_job_object_log(msg, JOB_IN_PROGRESS, None)
-    return True, pr_uuid
+    msg = "Discovered device details: {} : {} : {}".format(
+        oid_mapped.get('host'), fq_name[1], oid_mapped.get('product'))
+    logger.info("Device created with uuid- {} : {}".format(oid_mapped.get(
+        'host'), pr_uuid))
+    vncapi.ref_update(
+        "fabric", fabric_uuid, "physical_router", pr_uuid, None, "ADD")
+    module.send_job_object_log(msg, JOB_IN_PROGRESS, None,
+                               job_success_percent=total_percentage)
+    return True
+# end _pr_object_create
 
-def _device_info_processing(host, vncapi, module, fabric_uuid):
+
+def _device_info_processing(host, vncapi, module, fabric_uuid,
+                            total_percentage):
     oid_mapped = {}
     valid_creds = False
     return_code = True
@@ -403,8 +413,9 @@ def _device_info_processing(host, vncapi, module, fabric_uuid):
             fq_name = [
                 'default-global-system-config',
                 oid_mapped.get('hostname')]
-            return_code, pr_uuid = _pr_object_create_update(
-                vncapi, oid_mapped, fq_name, module, False)
+            return_code = _pr_object_create(
+                vncapi, oid_mapped, fq_name, logger, module, fabric_uuid,
+                total_percentage)
             if return_code == REF_EXISTS_ERROR:
                 physicalrouter = vncapi.physical_router_read(
                     fq_name=fq_name)
@@ -422,9 +433,9 @@ def _device_info_processing(host, vncapi, module, fabric_uuid):
                         oid_mapped.get('hostname') +
                         '_' +
                         oid_mapped.get('host')]
-                    return_code, pr_uuid = _pr_object_create_update(
-                        vncapi, oid_mapped, fq_name, module,
-                        False)
+                    return_code = _pr_object_create(
+                        vncapi, oid_mapped, fq_name, logger, module,
+                        fabric_uuid, total_percentage)
                     if return_code == REF_EXISTS_ERROR:
                         logger.debug("Object already exists")
             if return_code is True:
@@ -486,10 +497,34 @@ def module_process(module):
         None)
 
     if len(all_hosts) < concurrent:
-        concurrent = len(all_hosts)
+        concurrent = len(all_hosts) 
+
+    module.job_ctx['current_task_index'] = 2
+
+    per_greenlet_percentage = None
+    try:
+        total_percent = module.job_ctx.get('playbook_job_percentage')
+        if total_percent:
+            total_percent = float(total_percent)
+
+        greeenlet_task_percentage = module.calculate_job_percentage(
+            module.job_ctx.get('total_task_count'),
+            task_seq_number=module.job_ctx.get('current_task_index'),
+            total_percent=total_percent,
+            task_weightage=module.job_ctx.get('task_weightage_array'))[0]
+
+        module.logger.info("Number of greenlets: {} and total_percent: "
+                           "{}".format(concurrent, greeenlet_task_percentage))
+        per_greenlet_percentage = module.calculate_job_percentage(
+            concurrent,
+            total_percent=greeenlet_task_percentage)[0]
+        module.logger.info("Per greenlet percent: "
+                           "{}".format(per_greenlet_percentage))
+    except Exception as ex:
+        module.logger.info("Percentage calculation failed with error "
+                           "{}".format(str(ex)))
 
     threadpool = pool.Pool(concurrent)
-
     try:
         vncapi = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
                         auth_token=module.job_ctx.get('auth_token'))
@@ -500,7 +535,8 @@ def module_process(module):
                     str(host),
                     vncapi,
                     module,
-                    fabric_uuid))
+                    fabric_uuid,
+                    per_greenlet_percentage))
         threadpool.join()
     except Exception as ex:
         module.results['failed'] = True
@@ -509,6 +545,7 @@ def module_process(module):
         module.exit_json(**module.results)
 
     module.results['msg'] = "Device discovery complete"
+    module.job_ctx['current_task_index'] = 3
     module.send_job_object_log(
         module.results.get('msg'),
         JOB_IN_PROGRESS,
