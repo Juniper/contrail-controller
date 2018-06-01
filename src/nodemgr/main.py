@@ -223,7 +223,7 @@ def main(args_str=' '.join(sys.argv[1:])):
             rule_file = "/etc/contrail/supervisord_database_files/" + \
                 "contrail-database.rules"
         unit_names = ['contrail-database.service',
-                      'kafka.service',
+                      'confluent-kafka.service',
                       'contrail-database-nodemgr.service',
                      ]
         prog = DatabaseEventManager(_args, rule_file, unit_names)
