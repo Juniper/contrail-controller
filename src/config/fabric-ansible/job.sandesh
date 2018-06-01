@@ -44,13 +44,17 @@ struct JobLogEntry {
     3: i64                              timestamp;
     /* job message which should be meaningful to the end user */
     4: string                           message;
-    /* job status: 0 (starting), 1 (in-progress), 2 (completed_with_success), 3 (completed_with_error), 4 (timeout) */
-    5: u16                              status (key="ObjectJobExecutionTable");
+    /* valid job status states are: STARTING, IN_PROGRESS, SUCCESS, FAILURE */
+    5: string                           status (key="ObjectJobExecutionTable");
     /* job result that captures the output from the job execution. This is an optional field only in the last job log if
        job is completed with success.
        Key: job task name which could be the device id if this is multi-device job
        Value: JSON text blob that conforms to the output schema defined in the job template. */
-    6: optional map<string, string>    result;
+    6: optional map<string, string>     result;
+    /* fq_name string of the fabric for which the job is executed, e.g. default-global-system-config:fabric-1 */
+    7: string                           fabric_name (key="ObjectFabricNameTable");
+    /* Percentage completion for this job execution */
+    8: double                           percentage_completed;
     // Add additional items here as needed
 }
 
@@ -82,3 +86,4 @@ objectlog sandesh JobLog {
 uve sandesh UveJobExecution {
     1: JobExecution              data;
 }
+
