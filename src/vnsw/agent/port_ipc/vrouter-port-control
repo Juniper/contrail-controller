@@ -49,6 +49,8 @@ class VrouterPortControl(object):
                 port_type_value = 0
             elif self._args.port_type == "NameSpacePort":
                 port_type_value = 1
+            elif self._args.port_type == "ESXiPort":
+                port_type_value = 2
 
             u = self._args.vm_project_uuid
             project_id = ""
@@ -207,7 +209,7 @@ class VrouterPortControl(object):
             sys.exit(1)
 
         if self._args.oper == "add":
-            port_type_list = ['NovaVMPort', 'NameSpacePort']
+            port_type_list = ['NovaVMPort', 'NameSpacePort', 'ESXiPort']
             if self._args.port_type not in port_type_list:
                 print "Invalid argument for port_type %s" % (self._args.port_type)
                 sys.exit(1)
