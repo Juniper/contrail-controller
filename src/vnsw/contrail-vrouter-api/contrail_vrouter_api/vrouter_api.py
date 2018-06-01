@@ -118,6 +118,48 @@ class ContrailVRouterApi(object):
         finally:
             if self._semaphore:
                 self._semaphore.release()
+                
+    def enable_port(self, vif_uuid_str):
+        """
+        Enable a port in the agent.
+        """
+        try:
+            if self._semaphore:
+                self._semaphore.acquire()
+
+            cmd_args = ("vrouter-port-control --oper=enable --uuid=%s" % vif_uuid_str)
+            cmd = cmd_args.split()
+            ret_code = subprocess.call(cmd)
+
+            self._resynchronize()
+            if ret_code != 0:
+                return False
+            return True
+        
+        finally:
+            if self._semaphore:
+                self._semaphore.release()
+
+    def disable_port(self, vif_uuid_str):
+        """
+        Disable a port in the agent.
+        """
+        try:
+            if self._semaphore:
+                self._semaphore.acquire()
+
+            cmd_args = ("vrouter-port-control --oper=disable --uuid=%s" % vif_uuid_str)
+            cmd = cmd_args.split()
+            ret_code = subprocess.call(cmd)
+
+            self._resynchronize()
+            if ret_code != 0:
+                return False
+            return True
+
+        finally:
+            if self._semaphore:
+                self._semaphore.release()
 
     def periodic_connection_check(self):
         """
