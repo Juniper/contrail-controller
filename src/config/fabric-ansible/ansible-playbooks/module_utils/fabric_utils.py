@@ -58,7 +58,7 @@ def handle_sandesh(function):
 #
 class FabricAnsibleModule(AnsibleModule):
     def __init__(self, argument_spec={}, **kwargs):
-        super(FabricAnsibleModule, self).__init__(argument_spec=argument_spec, 
+        super(FabricAnsibleModule, self).__init__(argument_spec=argument_spec,
                                                   **kwargs)
         self.module_name = self._name
         self.job_ctx = self.params.get('job_ctx')
@@ -106,14 +106,50 @@ class FabricAnsibleModule(AnsibleModule):
                      onboarding_state)
             self.logger.error(msg)
 
-    def send_job_object_log(self, message, status, job_result):
+    def send_job_object_log(self, message, status, job_result,
+                            log_error_percent=False, job_success_percent=None,
+                            job_error_percent=None):
+        if job_success_percent is None or (log_error_percent
+                                           and job_error_percent is None):
+            try:
+                total_percent = self.job_ctx.get('playbook_job_percentage')
+                if total_percent:
+                    total_percent = float(total_percent)
+                self.logger.debug(
+                    "Calculating the job completion percentage. "
+                    "total_task_count: %s, current_task_index: %s, "
+                    "playbook_job_percentage: %s,"
+                    " task_weightage_array: %s",
+                    self.job_ctx.get('total_task_count'),
+                    self.job_ctx.get('current_task_index'),
+                    total_percent,
+                    self.job_ctx.get('task_weightage_array'))
+                job_success_percent, job_error_percent = \
+                    self.job_log_util.calculate_job_percentage(
+                        self.job_ctx.get('total_task_count'),
+                        buffer_task_percent=False,
+                        task_seq_number=self.job_ctx.get('current_task_index'),
+                        total_percent=total_percent,
+                        task_weightage_array=
+                        self.job_ctx.get('task_weightage_array'))
+            except Exception as e:
+                self.logger.error("Exception while calculating the job "
+                              "percentage %s", str(e))
+        if log_error_percent:
+            job_percentage = job_error_percent
+        else:
+            job_percentage = job_success_percent
+        self.logger.debug("Job complete percentage is %s" % job_percentage)
+
         try:
             if self.job_log_util:
                 self.job_log_util.send_job_log(
                     self.job_ctx['job_template_fqname'],
                     self.job_ctx['job_execution_id'],
+                    self.job_ctx['fabric_fqname'],
                     message,
                     status,
+                    job_percentage,
                     job_result)
             else:
                 raise Exception("job log not initialized")
@@ -121,8 +157,20 @@ class FabricAnsibleModule(AnsibleModule):
             msg = "Failed to create following job log due to error: %s\n\t \
                    job name: %s\n\t \
                    job execution id: %s\n\t \
+                   fabric uuid: %s\n\t \
+                   job percentage: %s\n\t  \
                    job status: %s\n\t, \
                    log message: %s\n" \
                   % (str(ex), self.job_ctx['job_template_fqname'],
-                     self.job_ctx['job_execution_id'], status, message)
+                     self.job_ctx['job_execution_id'],
+                     self.job_ctx['fabric_fqname'], job_percentage,
+                     status, message)
             self.logger.error(msg)
+
+    def calculate_job_percentage(self, num_tasks, buffer_task_percent=False,
+                                 task_seq_number=None, total_percent=100,
+                                 task_weightage_array=None):
+        return self.job_log_util.calculate_job_percentage(
+            num_tasks, buffer_task_percent, task_seq_number, total_percent,
+            task_weightage_array)
+
