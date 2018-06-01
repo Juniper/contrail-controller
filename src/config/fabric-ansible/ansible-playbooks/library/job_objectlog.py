@@ -67,7 +67,7 @@ def main():
         argument_spec=dict(
             job_ctx=dict(required=True, type=dict),
             message=dict(required=True, type=str),
-            status=dict(required=True, type=int),
+            status=dict(required=True, type=str),
             result=dict(type=dict),
         ),
         supports_check_mode=True)
