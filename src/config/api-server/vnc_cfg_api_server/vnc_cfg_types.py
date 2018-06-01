@@ -454,7 +454,7 @@ class SecurityResourceBase(Resource):
     def pending_dbe_delete(cls, draft_pm, obj_dict):
         uuid = obj_dict['uuid']
         exist_refs = set()
-        relaxed_refs = set(cls.db_conn.dbe_get_relaxed_refs(id))
+        relaxed_refs = set(cls.db_conn.dbe_get_relaxed_refs(uuid))
 
         for backref_field in cls.backref_fields:
             ref_type, _, is_derived = cls.backref_field_types[backref_field]
@@ -498,13 +498,13 @@ class SecurityResourceBase(Resource):
             else:
                 draft_ref = ref
             if draft_ref['draft_mode_state'] in ['create', 'updated']:
-                if uuid in {r['uuid'] for r in draft_ref[ref_field]}:
+                if uuid in {r['uuid'] for r in draft_ref.get(ref_field, [])}:
                     # draft version of the back-referenced resource still
-                    # referencing resource, cannot delete it
+                    # referencing resource, resource cannot delete it
                     ref_exits_error.add((ref_type, ref_uuid))
                     continue
             # draft version of the back-referenced resource is in pending
-            # delete, resource be delete it
+            # delete, resource could be deleted
 
         if ref_exits_error:
             return False, (409, ref_exits_error)
