@@ -2588,13 +2588,13 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                     return (False, "Provider values can not be changed when VMs are already using")
 
             if old_properties:
-                if not properties.get('segmentation_id'):
+                if 'segmentation_id' not in properties:
                     properties['segmentation_id'] = old_properties.get('segmentation_id')
 
                 if not properties.get('physical_network'):
                     properties['physical_network'] = old_properties.get('physical_network')
 
-        if not properties.get('segmentation_id'):
+        if 'segmentation_id' not in properties:
             return (False, "Segmenation id must be configured")
 
         if not properties.get('physical_network'):
