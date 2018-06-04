@@ -1061,7 +1061,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                 autogen::LogicalRouterVirtualNetworkType data =
                     lr_vn_node->data();
                 if (data.logical_router_virtual_network_type ==
-                    "InternalVirtualNetwork")
+                    "EVpnType5Routing")
                 {
                     vxlan_routing_vn = true;
                 }
