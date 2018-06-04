@@ -12,7 +12,3 @@ image:
   image_version: 15.1X53-D63.9
   image_family_name: juniper-qfx
   image_vendor_name: juniper
-  device_family_name: juniper-qfx
-  device_vendor_name: juniper
-
-

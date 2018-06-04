@@ -56,9 +56,10 @@ class SanityTest02(SanityBase):
 
     def __init__(self, cfg):
         SanityBase.__init__(self, cfg, "sanity_test_02")
+        self._namespaces = cfg['namespaces']
+        self._prouter = cfg['prouter']
         self._prouter_ip = cfg['prouter']['ips'][0]
         self._prouter_password = cfg['prouter']['passwords'][0]
-        self._device_name = 'mxdev'
         self._swift_params = cfg['swift']
         self._image_details = cfg['image']
         self._keystone_ip = self._swift_params['keystone_ip']
@@ -67,8 +68,6 @@ class SanityTest02(SanityBase):
         self._image_version = self._image_details['image_version']
         self._image_family_name = self._image_details['image_family_name']
         self._image_vendor_name = self._image_details['image_vendor_name']
-        self._device_family_name = self._image_details['device_family_name']
-        self._device_vendor_name = self._image_details['device_vendor_name']
         self._auth_url = 'http://' + self._keystone_ip + ':' + str(self._port) \
                          + '/v3'
         try:
@@ -114,28 +113,33 @@ class SanityTest02(SanityBase):
             self._exit_with_error(
                 "Could not upload image file to swift: %s" % str(ex))
 
-        # Test image upgrade
+        # Test image upgrade after device discovery
         try:
-            # Create image and device db objects
-            image, device = self.create_image_and_device(self._image_name,
+            self.cleanup_fabric('fab01')
+            fabric = self.create_fabric('fab01', self._prouter['passwords'])
+            mgmt_namespace = self._namespaces['management']
+            self.add_mgmt_ip_namespace(fabric, mgmt_namespace['name'],
+                                       mgmt_namespace['cidrs'])
+            self.add_asn_namespace(fabric, self._namespaces['asn'])
+
+            prouters = self.discover_fabric_device(fabric)
+            print prouters
+            # Create image db object
+            image = self.create_image(self._image_name,
                                                          img_uri,
                                                          self._image_version,
                                                          self._image_family_name,
                                                          self._image_vendor_name,
-                                                         self._device_family_name,
-                                                         self._device_vendor_name,
-                                                         self._prouter_ip,
-                                                         self._prouter_password,
-                                                         self._device_name)
+                                                         )
             # Run image upgrade playbook
-            self.image_upgrade(image, device)
+            self.image_upgrade(image, prouters[0])
         except Exception as ex:
             self._exit_with_error(
                 "Image upgrade test failed due to unexpected error: %s"
                 % str(ex))
 
-        # clean device and image from DB
-        self.cleanup_image_prouter(self._image_name, self._device_name)
+        # clean image from DB
+        self.cleanup_image(self._image_name)
     # end test
 
     def _getmd5(self, filepath):
