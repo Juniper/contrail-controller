@@ -1041,30 +1041,22 @@ VnData *VnTable::BuildData(IFMapNode *node) {
 
         if (strcmp(adj_node->table()->Typename(),
                    "logical-router-virtual-network") == 0) {
-            autogen::LogicalRouterVirtualNetwork *lr_vn_node =
-                dynamic_cast<autogen::LogicalRouterVirtualNetwork *>
-                (adj_node->GetObject());
             autogen::LogicalRouter *lr = NULL;
             IFMapNode *lr_adj_node =
                 agent()->config_manager()->FindAdjacentIFMapNode(adj_node,
-                                                                 "logical-router");
+                                               "logical-router");
             if (lr_adj_node) {
                 lr = dynamic_cast<autogen::LogicalRouter *>(lr_adj_node->
                                                             GetObject());
             }
 
-            if (lr_vn_node && lr) {
+            if (lr) {
                 autogen::IdPermsType id_perms = lr->id_perms();
                 CfgUuidSet(id_perms.uuid.uuid_mslong,
                            id_perms.uuid.uuid_lslong,
                            logical_router_uuid);
-                autogen::LogicalRouterVirtualNetworkType data =
-                    lr_vn_node->data();
-                if (data.logical_router_virtual_network_type ==
-                    "InternalVirtualNetwork")
-                {
+                if (lr->mode() == "InternalVirtualNetwork")
                     vxlan_routing_vn = true;
-                }
             }
         }
     }
