@@ -386,6 +386,15 @@ class DeviceManager(object):
     def get_vnc(self):
         return self._vnc_lib
 
+    def get_analytics_config(self):
+        return {
+            'ip': self._args.analytics_server_ip,
+            'port': self._args.analytics_server_port,
+            'username': self._args.analytics_username,
+            'password': self._args.analytics_password
+        }
+    # end get_analytics_config
+
     @classmethod
     def get_instance(cls):
         return cls._device_manager
