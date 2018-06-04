@@ -69,13 +69,13 @@ public:
 
     void IgmpChecksum(char *buff, uint16_t buf_len);
 
-    uint32_t Sum(uint16_t *, std::size_t, uint32_t);
-    uint16_t Csum(uint16_t *, std::size_t, uint32_t);
-    uint16_t UdpCsum(in_addr_t, in_addr_t, std::size_t, udphdr *);
+    uint32_t Sum(uint16_t *, std::size_t, uint32_t) const;
+    uint16_t Csum(uint16_t *, std::size_t, uint32_t) const;
+    uint16_t UdpCsum(in_addr_t, in_addr_t, std::size_t, udphdr *) const;
     uint16_t Ipv6Csum(const uint8_t *src, const uint8_t *dest,
-                      uint16_t plen, uint8_t next_hdr, uint16_t *hdr);
+                        uint16_t plen, uint8_t next_hdr, uint16_t *hdr) const;
     uint16_t Icmpv6Csum(const uint8_t *src, const uint8_t *dest,
-                        icmp6_hdr *icmp, uint16_t plen);
+                        icmp6_hdr *icmp, uint16_t plen) const;
 
     Agent *agent() const { return agent_; }
     uint32_t GetVrfIndex() const { return pkt_info_->GetAgentHdr().vrf; }

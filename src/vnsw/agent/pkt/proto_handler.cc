@@ -215,7 +215,7 @@ void ProtoHandler::UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
                                             (uint16_t *)pkt_info_->transp.udp);
 }
 
-uint32_t ProtoHandler::Sum(uint16_t *ptr, std::size_t len, uint32_t sum) {
+uint32_t ProtoHandler::Sum(uint16_t *ptr, std::size_t len, uint32_t sum) const {
     while (len > 1) {
         sum += *ptr++;
         len -= 2;
@@ -229,7 +229,7 @@ uint32_t ProtoHandler::Sum(uint16_t *ptr, std::size_t len, uint32_t sum) {
     return sum;
 }
 
-uint16_t ProtoHandler::Csum(uint16_t *ptr, std::size_t len, uint32_t sum) {
+uint16_t ProtoHandler::Csum(uint16_t *ptr, std::size_t len, uint32_t sum) const{
     sum = Sum(ptr, len, sum);
 
     while (sum >> 16)
@@ -239,7 +239,7 @@ uint16_t ProtoHandler::Csum(uint16_t *ptr, std::size_t len, uint32_t sum) {
 }
 
 uint16_t ProtoHandler::UdpCsum(in_addr_t src, in_addr_t dest,
-                               std::size_t len, udphdr *udp) {
+                               std::size_t len, udphdr *udp) const {
     uint32_t sum = 0;
     PseudoUdpHdr phdr(src, dest, IPPROTO_UDP, htons(len));
     sum = Sum((uint16_t *)&phdr, sizeof(PseudoUdpHdr), sum);
@@ -247,7 +247,8 @@ uint16_t ProtoHandler::UdpCsum(in_addr_t src, in_addr_t dest,
 }
 
 uint16_t ProtoHandler::Ipv6Csum(const uint8_t *src, const uint8_t *dest,
-                                uint16_t plen, uint8_t next_hdr, uint16_t *hdr) {
+                                uint16_t plen, uint8_t next_hdr,
+                                uint16_t *hdr) const {
     uint32_t len = htonl((uint32_t)plen);
     uint32_t next = htonl((uint32_t)next_hdr);
 
@@ -260,7 +261,7 @@ uint16_t ProtoHandler::Ipv6Csum(const uint8_t *src, const uint8_t *dest,
 }
 
 uint16_t ProtoHandler::Icmpv6Csum(const uint8_t *src, const uint8_t *dest,
-                                  icmp6_hdr *icmp, uint16_t plen) {
+                                  icmp6_hdr *icmp, uint16_t plen) const {
     return Ipv6Csum(src, dest, plen, IPPROTO_ICMPV6, (uint16_t *)icmp);
 }
 
