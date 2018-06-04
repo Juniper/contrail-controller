@@ -1,0 +1,14 @@
+swift:
+  keystone_ip: 10.155.75.141
+  keystone_port: 35357
+  auth_version: 3
+  temp_url_key: mykey
+  temp_url_key_2: mykey2
+  chosen_temp_url_key: temp_url_key
+  container_name: contrail_container
+  connection_retry_count: 5
+image:
+  image_name: jinstall-host-qfx-10-f-flex-15.1X53-D63.9-domestic-signed.tgz
+  image_version: 15.1X53-D63.9
+  image_family_name: juniper-qfx
+  image_vendor_name: juniper
