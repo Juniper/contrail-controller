@@ -21,6 +21,7 @@ from cfgm_common.exceptions import (
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import Fabric
 from vnc_api.gen.resource_client import FabricNamespace
+from vnc_api.gen.resource_client import DeviceImage
 
 
 # pylint: disable=E1101
@@ -179,6 +180,38 @@ class SanityBase(object):
         return namespace
     # end _add_asn_namespace
 
+    def create_image(self, img_name, img_uri, img_version,
+                                img_family, img_vendor):
+
+        """create image"""
+        img_fqname = None
+        # device_fqname = None
+        try:
+            self._logger.info('Creating image: %s', img_name)
+            img_fqname = ['default-global-system-config', img_name]
+            image = DeviceImage(
+                name=img_name,
+                fq_name=img_fqname,
+                parent_type='global-system-config',
+                device_image_file_uri=img_uri,
+                device_image_os_version=img_version,
+                device_image_device_family=img_family,
+                device_image_vendor_name=img_vendor
+            )
+            img_uuid = self._api.device_image_create(image)
+            image = self._api.device_image_read(id=img_uuid)
+
+        except RefsExistError:
+            self._logger.warn("Image '%s' already exists", img_name)
+            image = self._api.device_image_read(fq_name=img_fqname)
+
+        self._logger.debug(
+            "Image created:\n%s",
+            pprint.pformat(self._api.obj_to_dict(image), indent=4))
+        return image
+
+    # end create_image_and_device
+
     def cleanup_fabric(self, fab_name):
         """delete fabric including all prouters in the fabric"""
         try:
@@ -205,6 +238,19 @@ class SanityBase(object):
         except NoIdError:
             self._logger.warn('Fabric "%s" not found', fab_name)
     # end cleanup_fabric
+
+    def cleanup_image(self, img_name,):
+        # image cleanup
+        self._logger.info("Clean up image and prouter from db")
+        try:
+            img_fqname = ['default-global-system-config', img_name]
+            img = self._api.device_image_read(fq_name=img_fqname)
+            self._logger.debug(
+                "Delete Image: %s", img_fqname)
+            self._api.device_image_delete(img_fqname)
+
+        except NoIdError:
+            self._logger.warn('Image "%s" not found', img_name)
 
     def _delete_prouter(self, uuid):
         prouter = self._api.physical_router_read(id=uuid)
