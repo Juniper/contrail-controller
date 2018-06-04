@@ -208,6 +208,15 @@ class DeviceManager(object):
 
     _device_manager = None
 
+    def get_analytics_config(self):
+        return {
+            'ip': self._args.analytics_server_ip,
+            'port': self._args.analytics_server_port,
+            'username': self._args.analytics_username,
+            'password': self._args.analytics_password
+        }
+    # end get_analytics_config
+
     def __init__(self, dm_logger=None, args=None):
         self._args = args
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
@@ -427,6 +436,10 @@ def parse_args(args_str):
                          --api_server_ip 10.1.2.3
                          --api_server_port 8082
                          --api_server_use_ssl False
+                         --analytics_server_ip 10.1.2.3
+                         --analytics_server_port 8181
+                         --analytics_username admin
+                         --analytics_password admin
                          --zk_server_ip 10.1.2.3
                          --zk_server_port 2181
                          --collectors 127.0.0.1:8086
@@ -465,6 +478,10 @@ def parse_args(args_str):
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
         'api_server_use_ssl': False,
+        'analytics_server_ip': '127.0.0.1',
+        'analytics_server_port': '8081',
+        'analytics_username': None,
+        'analytics_password': None,
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
         'collectors': None,
@@ -557,6 +574,14 @@ def parse_args(args_str):
                         help="Port of API server")
     parser.add_argument("--api_server_use_ssl",
                         help="Use SSL to connect with API server")
+    parser.add_argument("--analytics_server_ip",
+                        help="IP address of Analytics server")
+    parser.add_argument("--analytics_server_port",
+                        help="Port of Analytics server")
+    parser.add_argument("--analytics_username",
+                        help="Username for Analytics server")
+    parser.add_argument("--analytics_password",
+                        help="Password for Analytics server")
     parser.add_argument("--zk_server_ip",
                         help="IP address:port of zookeeper server")
     parser.add_argument("--collectors",
