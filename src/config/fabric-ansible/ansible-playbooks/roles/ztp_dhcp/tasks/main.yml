@@ -1,0 +1,84 @@
+---
+
+- name: Insert/update global section in DHCP config file on remote host
+  block:
+    - name: Insert/update global section in config file on remote host
+      blockinfile:
+        block: "{{ lookup('file', dhcp_gconf_path) }}"
+        dest: "{{ DHCPD_CONFIG_PATH }}"
+        marker: '########## {mark} GLOBAL BLOCK ##########'
+        create: yes
+      register: cmd_res
+  rescue:
+    - set_fact:
+        output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to insert/update global dhcp config"},
+          "message": "{{cmd_res.msg}}"
+        }
+    - name: print output
+      debug: var=output verbosity=1
+    - meta: end_play
+
+- name: Insert/update subsection in DHCP config file on remote host
+  block:
+    - name: Insert/update subsection in DHCP config file on remote host
+      blockinfile:
+        block: "{{ lookup('file', dhcp_conf_path) }}"
+        dest: "{{ DHCPD_CONFIG_PATH }}"
+        marker: '########## {mark} GLOBAL BLOCK ##########'
+        create: yes
+      register: cmd_res
+  rescue:
+    - set_fact:
+        output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to insert/update dhcp config"},
+          "message": "{{cmd_res.msg}}"
+        }
+    - name: print output
+      debug: var=output verbosity=1
+    - meta: end_play
+
+- name: Restart dhcpd server
+  block:
+    - name: Restart dhcpd server
+      service:
+        name: dhcpd
+        state: restarted
+      register: cmd_res
+  rescue:
+    - set_fact:
+        output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to restart dhcpd"},
+          "message": "{{cmd_res.msg}}"
+        }
+    - name: print output
+      debug: var=output verbosity=1
+    - meta: end_play
+
+- name: Read DHCP lease table and return addresses of devices contained in IPAM subnets
+  block:
+    - name: Read DHCP lease table and return addresses of devices contained in IPAM subnets
+      dhcp_leases:
+        device_count: "{{ device_count }}"
+        ztp_config: "{{ ztp_config }}"
+      register: cmd_res
+    - name: Save device ip table
+      set_fact: 
+        output: {
+          "status": "Success",
+          "results": "{{cmd_res}}"
+        }
+  rescue:
+    - set_fact:
+        output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to generate IP table from DHCP lease table"},
+          "message": "{{cmd_res.msg}}"
+        }
+    - name: print output
+      debug: var=output verbosity=1
+    - meta: end_play
+
