@@ -1,0 +1,15 @@
+---
+
+- name: Copy script files on remote host
+  block:
+    - copy:
+        src: "{{ tftp_dir }}/"
+        dest: "{{ TFTP_BOOT_PATH }}"
+      register: cmd_res
+  rescue:
+    - set_fact:
+        output: {
+          "status": "Failed to copy TFTP script files",
+          "message": "{{cmd_res.msg}}"
+        }
+

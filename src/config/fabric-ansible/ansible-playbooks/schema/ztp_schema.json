@@ -1,0 +1,60 @@
+{
+   "input_schema":{
+      "type":"object",
+      "definitions":{
+
+      },
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "properties":{
+          "fabric_uuid":{
+              "$id":"/properties/input/properties/fabric_uuid",
+              "format":"uuid",
+              "type":"string",
+              "title":"The Fabric_uuid Schema",
+              "description":"UUID of the fabric object created",
+              "default":"",
+              "examples":[
+                 "123456789"
+              ]
+          },
+          "device_count":{
+              "$id":"/properties/input/properties/device_count",
+              "type":"integer",
+              "title":"The Device Count Schema",
+              "description":"Number of devices to discover",
+              "default":0,
+              "examples":[
+                 1,2,3,4,5
+              ]
+          }
+      }
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Generic Job Output",
+      "type":"object",
+      "properties":{
+         "status":{
+            "type":"string",
+            "enum":[
+               "Success",
+               "Failure",
+               "Timeout"
+            ],
+            "description":"Result status of the job"
+         },
+         "message":{
+            "type":"string",
+            "description":"Should capture a summarized error message in case of Failures."
+         },
+         "results":{
+            "type":"object",
+            "description":"JSON object holding the job specific output details"
+         }
+      },
+      "required":[
+         "status"
+      ]
+   }
+}
+
