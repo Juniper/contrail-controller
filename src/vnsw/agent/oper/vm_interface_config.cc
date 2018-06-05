@@ -1694,6 +1694,8 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     if (data->device_type_ == VmInterface::REMOTE_VM_VLAN_ON_VMI &&
         (rx_vlan_id == VmInterface::kInvalidVlanId ||
          tx_vlan_id == VmInterface::kInvalidVlanId)) {
+         req.key.reset(key);
+         req.data.reset(data);
         return false;
     }
 
