@@ -44,7 +44,7 @@ void Pkt0Interface::InitControlInterface() {
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE-1);
     if (ioctl(tap_fd_, TUNSETIFF, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
             strerror(errno) << "> creating " << name_ << "tap-device");
@@ -66,7 +66,7 @@ void Pkt0Interface::InitControlInterface() {
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE-1);
     if (ioctl(tap_fd_, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " << strerror(errno) <<
             "> retrieving MAC address of the tap interface");
@@ -82,7 +82,7 @@ void Pkt0Interface::InitControlInterface() {
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE-1);
     if (ioctl(raw, SIOCGIFINDEX, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
             strerror(errno) << "> getting ifindex of the tap interface");
@@ -103,7 +103,7 @@ void Pkt0Interface::InitControlInterface() {
 
     // Set tx-buffer count
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE-1);
     if (ioctl(raw, SIOCGIFTXQLEN, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " << strerror(errno) <<
             "> getting tx-buffer size");
@@ -121,7 +121,7 @@ void Pkt0Interface::InitControlInterface() {
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE-1);
     if (ioctl(raw, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
             strerror(errno) << "> getting socket flags");
@@ -166,7 +166,7 @@ void Pkt0RawInterface::InitControlInterface() {
 
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name,
-            pkt_handler()->agent()->pkt_interface_name().c_str(), IF_NAMESIZE);
+            pkt_handler()->agent()->pkt_interface_name().c_str(), IF_NAMESIZE-1);
     if (ioctl(raw_, SIOCGIFINDEX, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
                 strerror(errno) << "> getting ifindex of the " <<
@@ -187,7 +187,7 @@ void Pkt0RawInterface::InitControlInterface() {
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE-1);
     if (ioctl(raw_, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
                 strerror(errno) << "> getting socket flags");
