@@ -1,0 +1,9 @@
+---
+# vars file for ztp_dhcp role
+
+fabric_uuid: "{{hostvars['localhost']['fabric_uuid']}}"
+device_count: "{{hostvars['localhost']['device_count']}}"
+ztp_config: "{{hostvars['localhost']['ztp_config']}}"
+dhcp_gconf_path: "{{hostvars['localhost']['ztp_dhcp_gconf_path']}}"
+dhcp_conf_path: "{{hostvars['localhost']['ztp_dhcp_conf_path']}}"
+dhcp_connection: "{{hostvars['localhost']['dhcp_connection']}}"
