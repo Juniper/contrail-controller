@@ -1,0 +1,5 @@
+---
+# vars file for ztp_tftp role
+
+tftp_dir: "{{hostvars['localhost']['ztp_tftp_dir']}}"
+tftp_connection: "{{hostvars['localhost']['tftp_connection']}}"
