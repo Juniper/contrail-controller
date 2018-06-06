@@ -22,7 +22,7 @@ class NamespaceMonitor(KubeMonitor):
         populated for namespace entries. Once that bug is fixed, this method
         should be removed.
         """
-        return self.v1_url + "/namespaces/" +  entry['metadata']['name']
+        return self.base_url + "/namespaces/" +  entry['metadata']['name']
 
     def process_event(self, event):
         namespace_data = event['object']
