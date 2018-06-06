@@ -8,6 +8,10 @@
 
   pre_tasks:
     - set_fact:
+        job_ctx: "{{job_ctx|combine({'current_task_index':1,
+          'total_task_count':3, 'task_weightage_array':[10, 85, 5] })}}"
+
+    - set_fact:
         fabric_fq_name: "{{ playbook_input.input.fabric_fq_name }}"
       when: playbook_input.input.fabric_fq_name is defined
 
@@ -29,3 +33,8 @@
 
     - name: print output
       debug: var=output verbosity=1
+
+    - name: Output the device data results
+      include_tasks: device_data_output.yml
+      vars:
+        device_data_results: "{{discovery_results.output}}"

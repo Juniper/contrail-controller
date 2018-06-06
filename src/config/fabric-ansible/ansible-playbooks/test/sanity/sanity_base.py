@@ -1,7 +1,4 @@
-#!/usr/bin/python
-
-#
-# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+opyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
 """
@@ -476,5 +473,4 @@ class SanityBase(object):
     # end _exit_with_error
 
 # end SanityBase class
-
 
