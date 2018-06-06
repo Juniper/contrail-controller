@@ -23,9 +23,8 @@ from kazoo.client import KazooClient
 
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
-
-kafka_version = 'kafka_2.11-0.9.0.1'
-kafka_dl = '/kafka_2.11-0.9.0.1.orig.tar.gz'
+kafka_version = 'kafka_2.11-1.1.1-1'
+kafka_dl = '/kafka_2.11-1.1.1-1.tar.gz'
 kafka_bdir  = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
 
 def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
@@ -42,7 +41,7 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
 
     basefile = kafka_version
     kafkabase = "/tmp/kafka.%s.%d/" % (os.getenv('USER', 'None'), broker_listen_port)
-    confdir = kafkabase + basefile + "/config/"
+    confdir = kafkabase + basefile + "/etc/kafka/"
     output,_ = call_command_("rm -rf " + kafkabase)
     output,_ = call_command_("mkdir " + kafkabase)
 
@@ -64,29 +63,43 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
     logging.info('kafka Port %d' % broker_listen_port)
  
     replace_string_(confdir+"server.properties",
-        [("#port=9092","port=9092"),
-         ("listeners=PLAINTEXT://:9092","offsets.topic.replication.factor=1")])
+        [("#listeners=PLAINTEXT://:9092", \
+          "port=9092\noffsets.topic.replication.factor=1")])
 
     #Replace the brokerid and port # in the config file
     replace_string_(confdir+"server.properties",
         [("broker.id=0","broker.id="+str(broker_id)),
          ("port=9092","port="+str(broker_listen_port)),
          ("zookeeper.connect=localhost:2181", "zookeeper.connect=localhost:%d" % zk_client_port),
-         ("log.dirs=/tmp/kafka-logs","log.dirs="+kafkabase+"logs")])
+         ("log.dirs=/var/lib/kafka","log.dirs="+kafkabase+basefile+"/logs")])
 
-    replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
+    replace_string_(kafkabase + basefile + "/usr/bin/kafka-server-start",
+        [("base_dir=$(dirname $0)", \
+          "base_dir=$(dirname $0)\n"+"LOG_DIR=\""+ \
+           kafkabase+basefile+"/logs"+"\"\n"+"export LOG_DIR")])
+    replace_string_(kafkabase + basefile + "/usr/bin/kafka-server-start",
+        [("LOG4J_CONFIG_ZIP_INSTALL=\"$base_dir/../etc/kafka/log4j.properties\"", \
+          "LOG4J_CONFIG_ZIP_INSTALL=\""+confdir+"/log4j.properties\"")])
+    output,_ = call_command_("chmod +x " + kafkabase + basefile + \
+            "/usr/bin/kafka-server-start") 
+
+    replace_string_(kafkabase + basefile + "/usr/bin/kafka-server-stop",
         [("grep -v grep", "grep %s | grep -v grep" % kafkabase)])
-    replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
+    replace_string_(kafkabase + basefile + "/usr/bin/kafka-server-stop",
         [("SIGINT", "SIGKILL")])
-    replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
+    replace_string_(kafkabase + basefile + "/usr/bin/kafka-server-stop",
         [("#!/bin/sh", "#!/bin/sh -x")])
-    output,_ = call_command_("chmod +x " + kafkabase + basefile + "/bin/kafka-server-stop.sh") 
+    output,_ = call_command_("chmod +x " + kafkabase + basefile + "/usr/bin/kafka-server-stop") 
 
+    logging.info('starting kafka broker with call_command /usr/bin/kafka-server-start') 
     # Extra options for JMX : -Djava.net.preferIPv4Stack=true -Djava.rmi.server.hostname=xx.xx.xx.xx
-    output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-start.sh -daemon " + kafkabase + basefile + "/config/server.properties")
+    output,_ = call_command_(kafkabase + basefile + "/usr/bin/kafka-server-start -daemon " + confdir+"server.properties")
 
     count = 0
     start_wait = os.getenv('CONTRIAL_ANALYTICS_TEST_MAX_START_WAIT_TIME', 15)
+    logging.info('Kafka broker started... cmd: %s'  % \
+            (kafkabase + basefile + "/usr/bin/kafka-server-start -daemon " + \
+            confdir+"server.properties"))
     while count < start_wait:
         try:
             logging.info('Trying to connect...')
@@ -95,6 +108,9 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
             count += 1
             time.sleep(1)
         else:
+            logging.info('connect to kafka success')
+            with open(kafkabase + basefile + "/logs/kafkaServer.out", 'r') as fin:
+                logging.info(fin.read())
             return True
 
     logging.info("Kafka client cannot connect. Kafka logfile below:")
@@ -112,7 +128,7 @@ def stop_kafka(broker_listen_port):
     kafkabase = "/tmp/kafka.%s.%d/" % (os.getenv('USER', 'None'), broker_listen_port)
     basefile = kafka_version
     logging.info('Killing kafka in %s' % (kafkabase + basefile))
-    output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-stop.sh")
+    output,_ = call_command_(kafkabase + basefile + "/usr/bin/kafka-server-stop")
 
     count = 0
     start_wait = os.getenv('CONTRIAL_ANALYTICS_TEST_MAX_START_WAIT_TIME', 15)
