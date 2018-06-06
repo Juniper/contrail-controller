@@ -771,10 +771,28 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
     PathPreferenceSM *path_preference_sm = NULL;
     const PathPreferenceState *cpath_preference = NULL;
 
+    EvpnRouteKey evpn_null_ip_key(NULL, vrf->GetName(), event.mac_,
+                                  Ip4Address(0), event.vxlan_id_);
+    const EvpnRouteEntry *evpn_rt =
+        static_cast<const EvpnRouteEntry *>(
+                    vrf->GetEvpnRouteTable()->FindActiveEntry(&evpn_null_ip_key));
+    if (evpn_rt) {
+        cpath_preference = static_cast<const PathPreferenceState *>(
+                              evpn_rt->GetState(vrf->GetEvpnRouteTable(),
+                               state->evpn_rt_id_));
+        if (cpath_preference) {
+            path_preference = const_cast<PathPreferenceState *>(cpath_preference);
+            path_preference_sm = path_preference->GetSM(vm_intf->peer());
+            if (path_preference_sm) {
+                EvTrafficSeen ev;
+                path_preference_sm->process_event(ev);
+            }
+        }
+    }
+
     EvpnRouteKey evpn_key(NULL, vrf->GetName(), event.mac_,
                           event.ip_, event.vxlan_id_);
-    const EvpnRouteEntry *evpn_rt =
-              static_cast<const EvpnRouteEntry *>(
+    evpn_rt = static_cast<const EvpnRouteEntry *>(
               vrf->GetEvpnRouteTable()->FindActiveEntry(&evpn_key));
 
     if (evpn_rt) {
