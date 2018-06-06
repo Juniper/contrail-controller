@@ -806,6 +806,20 @@ class TestCrud(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_network_create(vn)
     # end test_invalid_parent_type
 
+    def test_routing_policy_create_w_asn_of_cluster_asn_negative(self):
+        rp_name = self.id() + 'rp1'
+        gsc = self._vnc_lib.global_system_config_read(GlobalSystemConfig().fq_name)
+        asn = gsc.autonomous_system
+        rp_entry = PolicyStatementType(term=[PolicyTermType(
+                                                   term_action_list=TermActionListType(
+                                                       update=ActionUpdateType(
+                                                           as_path=ActionAsPathType(
+                                                               expand=AsListType(asn_list=[asn])))))])
+        rp = RoutingPolicy(rp_name, routing_policy_entries=rp_entry)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.routing_policy_create(rp)
+        # end test_routing_policy_create_w_asn_of_cluster_asn_negative
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
