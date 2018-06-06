@@ -116,9 +116,17 @@ class VncIngress(VncCommon):
             self._logger.error("%s - %s Not Found" %(self._name, ipam_fq_name))
         return pod_ipam_subnet_uuid
 
-    def _get_public_fip_pool(self, fip_pool_fq_name):
-        if self._fip_pool_obj:
-            return self._fip_pool_obj
+    def _get_specified_fip_pool(self, specified_fip_pool_fq_name_str):
+        if specified_fip_pool_fq_name_str == None:
+            return None
+        fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(specified_fip_pool_fq_name_str)
+        try:
+            fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
+        except NoIdError:
+            return None
+        return fip_pool_obj
+
+    def _get_fip_pool_obj(self, fip_pool_fq_name):
         try:
             fip_pool_obj = self._vnc_lib. \
                            floating_ip_pool_read(fq_name=fip_pool_fq_name)
@@ -129,20 +137,26 @@ class VncIngress(VncCommon):
         self._fip_pool_obj = fip_pool_obj
         return fip_pool_obj
 
-    def _get_floating_ip(self, name,
-            proj_obj, external_ip=None, vmi_obj=None):
-        if not vnc_kube_config.is_public_fip_pool_configured():
-            return None
-
-        try:
-            fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
-                self._args.public_fip_pool)
-        except Exception as e:
-            string_buf = StringIO()
-            cgitb_hook(file=string_buf, format="text")
-            err_msg = string_buf.getvalue()
-            self._logger.error("%s - %s" %(self._name, err_msg))
-            return None
+    def _get_floating_ip(self, name, ns_name,
+            proj_obj, external_ip=None, vmi_obj=None, specified_fip_pool_fq_name_str=None):
+        fip_pool_fq_name = None
+        if specified_fip_pool_fq_name_str != None:
+            fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(specified_fip_pool_fq_name_str)
+        if fip_pool_fq_name is None:
+            ns = self._get_namespace(ns_name)
+            fip_pool_fq_name = ns.get_annotated_ns_fip_pool_fq_name()
+        if fip_pool_fq_name is None: 
+            if not vnc_kube_config.is_public_fip_pool_configured():
+                return None
+            try:
+                fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
+                    self._args.public_fip_pool)
+            except Exception as e:
+                string_buf = StringIO()
+                cgitb_hook(file=string_buf, format="text")
+                err_msg = string_buf.getvalue()
+                self._logger.error("%s - %s" %(self._name, err_msg))
+                return None
 
         if vmi_obj:
             fip_refs = vmi_obj.get_floating_ip_back_refs()
@@ -152,7 +166,7 @@ class VncIngress(VncCommon):
                     return fip
                 else:
                     break
-        fip_pool = self._get_public_fip_pool(fip_pool_fq_name)
+        fip_pool = self._get_fip_pool_obj(fip_pool_fq_name)
         if fip_pool is None:
             return None
         fip_uuid = str(uuid.uuid4())
@@ -175,14 +189,14 @@ class VncIngress(VncCommon):
             return None
         return fip
 
-    def _allocate_floating_ip(self, lb_obj, name, proj_obj, external_ip):
+    def _allocate_floating_ip(self, lb_obj, name, ns_name, proj_obj, external_ip, specified_fip_pool_fq_name_str=None):
         vmi_id = lb_obj.virtual_machine_interface_refs[0]['uuid']
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
         if vmi_obj is None:
             self._logger.error("%s - %s Vmi %s Not Found" \
                  %(self._name, lb_obj.name, vmi_id))
             return None
-        fip = self._get_floating_ip(name, proj_obj, external_ip, vmi_obj)
+        fip = self._get_floating_ip(name, ns_name, proj_obj, external_ip, vmi_obj, specified_fip_pool_fq_name_str)
         return fip
 
     def _deallocate_floating_ip(self, lb):
@@ -200,10 +214,10 @@ class VncIngress(VncCommon):
             self._vnc_lib.floating_ip_delete(id=fip_obj.uuid)
             FloatingIpKM.delete(fip_obj.uuid)
 
-    def _update_floating_ip(self, name, ns_name, external_ip, lb_obj):
+    def _update_floating_ip(self, name, ns_name, external_ip, lb_obj, specified_fip_pool_fq_name_str=None):
         proj_obj = self._get_project(ns_name)
         fip = self._allocate_floating_ip(lb_obj,
-                        name, proj_obj, external_ip)
+                        name, ns_name, proj_obj, external_ip, specified_fip_pool_fq_name_str)
         if fip:
             lb_obj.add_annotations(
                 KeyValuePair(key='externalIP', value=external_ip))
@@ -313,8 +327,11 @@ class VncIngress(VncCommon):
             external_ip = None
             if annotations and 'externalIP' in annotations:
                 external_ip = annotations['externalIP']
+            specified_fip_pool_fq_name_str = None
+            if annotations and 'opencontrail.org/fip-pool' in annotations:
+                specified_fip_pool_fq_name_str = annotations['opencontrail.org/fip-pool']
             fip = self._update_floating_ip(name,
-                            ns_name, external_ip, lb_obj)
+                            ns_name, external_ip, lb_obj, specified_fip_pool_fq_name_str)
             self._update_kube_api_server(name, ns_name, lb_obj, fip)
         else:
             self._logger.error("%s - %s LB Not Created" %(self._name, name))
@@ -669,11 +686,14 @@ class VncIngress(VncCommon):
             external_ip = None
             if annotations and 'externalIP' in annotations:
                 external_ip = annotations['externalIP']
+            specified_fip_pool_fq_name_str = None
+            if annotations and 'opencontrail.org/fip-pool' in annotations:
+                specified_fip_pool_fq_name_str = annotations['opencontrail.org/fip-pool']
             if external_ip != lb.external_ip:
                 self._deallocate_floating_ip(lb)
                 lb_obj = self._vnc_lib.loadbalancer_read(id=lb.uuid)
                 fip = self._update_floating_ip(name, ns_name,
-                            external_ip, lb_obj)
+                            external_ip, lb_obj, specified_fip_pool_fq_name_str)
                 if fip:
                     lb.external_ip = external_ip
                 self._update_kube_api_server(name, ns_name, lb_obj, fip)

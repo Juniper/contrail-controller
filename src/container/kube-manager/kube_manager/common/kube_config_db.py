@@ -12,6 +12,7 @@ from cfgm_common.vnc_db import DBBase
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from ast import literal_eval
 from utils import get_vn_fq_name_from_dict_string
+from utils import get_fip_pool_fq_name_from_dict_string
 
 class KubeDBBase(DBBase):
     obj_type = __name__
@@ -33,6 +34,14 @@ class KubeDBBase(DBBase):
         vn_ann = annotations.get('opencontrail.org/network', None)
         if vn_ann:
             return get_vn_fq_name_from_dict_string(vn_ann)
+        return None
+
+    def get_fip_pool_from_annotation(self, annotations):
+        """ Get fip-pool-fq-name if specified in annotations of a k8s object.
+        """
+        fip_pool_ann = annotations.get('opencontrail.org/fip-pool', None)
+        if fip_pool_ann:
+            return get_fip_pool_fq_name_from_dict_string(fip_pool_ann)
         return None
 
 #
@@ -166,6 +175,7 @@ class NamespaceKM(KubeDBBase):
         self.np_annotations = None
         self.ip_fabric_forwarding = None
         self.ip_fabric_snat = None
+        self.annotated_ns_fip_pool_fq_name = None
 
         # Status.
         self.phase = None
@@ -239,6 +249,16 @@ class NamespaceKM(KubeDBBase):
             self.np_annotations = json.loads(
                 annotations['net.beta.kubernetes.io/network-policy'])
 
+        # Parse fip pool annotations.
+        if 'opencontrail.org/fip-pool' in annotations:
+            try:
+                self.annotated_ns_fip_pool_fq_name = self.get_fip_pool_from_annotation(
+                    annotations)
+            except Exception as e:
+                err_msg = "Failed to parse annotations for fip-pool [%s]."\
+                " Error[%s]" % (self.name, str(e))
+                raise Exception(err_msg)
+
     def _update_status(self, status):
         if status is None:
             return
@@ -276,6 +296,9 @@ class NamespaceKM(KubeDBBase):
 
     def get_annotated_network_fq_name(self):
         return self.annotated_vn_fq_name
+
+    def get_annotated_ns_fip_pool_fq_name(self):
+        return self.annotated_ns_fip_pool_fq_name
 
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):

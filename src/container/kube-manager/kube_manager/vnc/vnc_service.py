@@ -85,6 +85,14 @@ class VncService(VncCommon):
     def _get_namespace(service_namespace):
         return NamespaceKM.find_by_name_or_uuid(service_namespace)
 
+    def _get_annotated_ns_fip_pool(self, service_namespace):
+        ns = self._get_namespace(service_namespace)
+        try:
+            fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=ns.get_annotated_ns_fip_pool_fq_name())
+        except NoIdError:
+            return None
+        return fip_pool_obj
+
     def _get_cluster_service_network(self, service_namespace):
         ns = self._get_namespace(service_namespace)
         if ns and ns.is_isolated():
@@ -275,7 +283,7 @@ class VncService(VncCommon):
 
         return floating_ips
 
-    def _allocate_floating_ips(self, service_id, specified_fip_pool_fq_name_str, external_ips=set()):
+    def _allocate_floating_ips(self, service_id, specified_fip_pool_fq_name_str, service_namespace, external_ips=set()):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return None
@@ -298,6 +306,9 @@ class VncService(VncCommon):
         fip_pool = None
         if specified_fip_pool_fq_name_str != None:
             fip_pool = self._get_specified_fip_pool(specified_fip_pool_fq_name_str)
+        if self._get_annotated_ns_fip_pool(service_namespace) != None:
+            fip_pool = self._get_annotated_ns_fip_pool(service_namespace)
+            print "Fip pool object found"
         if fip_pool is None:
             fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
@@ -388,6 +399,7 @@ class VncService(VncCommon):
                 if loadBalancerIp:
                     allocated_fip = self._allocate_floating_ips(service_id,
                                                                 specified_fip_pool_fq_name_str,
+                                                                service_namespace,
                                                                 set([loadBalancerIp]))
                     if allocated_fip:
                         self._update_service_external_ip(service_namespace,
@@ -396,10 +408,12 @@ class VncService(VncCommon):
                 elif external_ips:
                     allocated_fips = self._allocate_floating_ips(service_id,
                                                                  specified_fip_pool_fq_name_str,
+                                                                 service_namespace,
                                                                  external_ips)
                 else:
                     allocated_fip = self._allocate_floating_ips(service_id,
-                                                                specified_fip_pool_fq_name_str)
+                                                                specified_fip_pool_fq_name_str,
+                                                                service_namespace)
                     if allocated_fip:
                         self._update_service_external_ip(service_namespace,
                                                          service_name,
@@ -412,6 +426,7 @@ class VncService(VncCommon):
                     self._deallocate_floating_ips(service_id)
                     self._allocate_floating_ips(service_id,
                                                 specified_fip_pool_fq_name_str,
+                                                service_namespace,
                                                 set([loadBalancerIp]))
                     self._update_service_external_ip(service_namespace,
                                                      service_name,
@@ -424,6 +439,7 @@ class VncService(VncCommon):
                     self._deallocate_floating_ips(service_id)
                     self._allocate_floating_ips(service_id,
                                                 specified_fip_pool_fq_name_str,
+                                                service_namespace,
                                                 external_ips)
                     return
 
@@ -441,11 +457,13 @@ class VncService(VncCommon):
                         self._deallocate_floating_ips(service_id)
                         self._allocate_floating_ips(service_id,
                                                     specified_fip_pool_fq_name_str,
+                                                    service_namespace,
                                                     external_ips)
             else:  #allocated_fip is None
                 if external_ips:
                     self._allocate_floating_ips(service_id,
                                                 specified_fip_pool_fq_name_str,
+                                                service_namespace,
                                                 external_ips)
             return
 
