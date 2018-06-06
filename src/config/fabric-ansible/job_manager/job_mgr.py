@@ -29,35 +29,27 @@ monkey.patch_socket()
 
 class JobManager(object):
 
-    def __init__(self, logger, vnc_api, job_input, job_log_utils):
+    def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
+                 result_handler, job_utils, playbook_seq=None):
         self._logger = logger
         self._vnc_api = vnc_api
-        self.job_template_id = None
         self.job_execution_id = None
         self.job_data = None
         self.job_params = dict()
         self.device_json = None
         self.auth_token = None
+        self.job_template = job_template
         self.job_log_utils = job_log_utils
         self.sandesh_args = None
         self.max_job_task = JobLogUtils.TASK_POOL_SIZE
         self.parse_job_input(job_input)
-        self.job_utils = JobUtils(self.job_execution_id, self.job_template_id,
-                                  self._logger, self._vnc_api)
-        self.result_handler = None
+        self.job_utils = job_utils
+        self.playbook_seq = playbook_seq
+        self.result_handler = result_handler
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
-        # job input should have job_template_id and execution_id field
-        if job_input_json.get('job_template_id') is None:
-            msg = MsgBundle.getMessage(MsgBundle.JOB_TEMPLATE_MISSING)
-            raise Exception(msg)
 
-        if job_input_json.get('job_execution_id') is None:
-            msg = MsgBundle.getMessage(MsgBundle.JOB_EXECUTION_ID_MISSING)
-            raise Exception(msg)
-
-        self.job_template_id = job_input_json['job_template_id']
         self.job_execution_id = job_input_json['job_execution_id']
 
         self.job_data = job_input_json.get('input')
@@ -77,10 +69,70 @@ class JobManager(object):
         self.sandesh_args = job_input_json['args']
         self.max_job_task = self.job_log_utils.args.max_job_task
 
+    def start_job(self):
+        import pdb; pdb.set_trace()
+
+        # spawn job greenlets
+        job_handler = JobHandler(self._logger, self._vnc_api,
+                                 self.job_template, self.job_execution_id,
+                                 self.job_data, self.job_params,
+                                 self.job_utils, self.device_json,
+                                 self.auth_token, self.job_log_utils,
+                                 self.sandesh_args,
+                                 self.job_log_utils.args.playbook_timeout,
+                                 self.playbook_seq)
+        if self.device_json and len(self.device_json) >= 1:
+            self.handle_multi_device_job(job_handler, self.result_handler)
+        else:
+            self.handle_single_job(job_handler, self.result_handler)
+
+    def handle_multi_device_job(self, job_handler, result_handler):
+        job_worker_pool = Pool(self.max_job_task)
+        for device_id in self.device_json:
+            job_worker_pool.start(Greenlet(job_handler.handle_job,
+                                           result_handler, device_id))
+        job_worker_pool.join()
+
+    def handle_single_job(self, job_handler, result_handler):
+        job_handler.handle_job(result_handler)
+
+class WFManager(object):
+
+    def __init__(self, logger, vnc_api, job_input, job_log_utils):
+        self._logger = logger
+        self._vnc_api = vnc_api
+        self.job_input = job_input
+        self.job_log_utils = job_log_utils
+        self.job_execution_id = None
+        self.job_template_id = None
+        self.device_json = None
+        self.result_handler = None
+        self.job_data = None
+        self.parse_job_input(job_input)
+        self.job_utils = JobUtils(self.job_execution_id,
+                                  self.job_template_id,
+                                  self._logger, self._vnc_api)
+        logger.debug("Job manager initialized")
+
+    def parse_job_input(self, job_input_json):
+        # job input should have job_template_id and execution_id field
+        if job_input_json.get('job_template_id') is None:
+            msg = MsgBundle.getMessage(MsgBundle.JOB_TEMPLATE_MISSING)
+            raise Exception(msg)
+
+        if job_input_json.get('job_execution_id') is None:
+            msg = MsgBundle.getMessage(
+                MsgBundle.JOB_EXECUTION_ID_MISSING)
+            raise Exception(msg)
+
+        self.job_template_id = job_input_json.get('job_template_id')
+        self.job_execution_id = job_input_json['job_execution_id']
+        self.job_data = job_input_json.get('input')
+
     def _validate_job_input(self, input_schema, ip_json):
         if ip_json == None:
             msg = MsgBundle.getMessage(
-                                MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND)
+                MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND)
             raise JobException(msg,
                                self.job_execution_id)
         try:
@@ -92,66 +144,73 @@ class JobManager(object):
                                "for template %s" % self.job_template_id)
         except Exception, e:
             msg = MsgBundle.getMessage(
-                                MsgBundle.INVALID_SCHEMA,
-                                job_template_id=self.job_template_id,
-                                exc_obj=e)
+                MsgBundle.INVALID_SCHEMA,
+                job_template_id=self.job_template_id,
+                exc_obj=e)
             raise JobException(msg, self.job_execution_id)
 
     def start_job(self):
         job_error_msg = None
+        job_template = None
         try:
             # create job UVE and log
             msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
-                                       job_template_id=self.job_template_id,
                                        job_execution_id=self.job_execution_id)
             self._logger.debug(msg)
-            self.result_handler = JobResultHandler(self.job_template_id,
-                                                   self.job_execution_id,
-                                                   self._logger,
-                                                   self.job_utils,
-                                                   self.job_log_utils)
 
-            # read the job template object
-            job_template = None
             job_template = self.job_utils.read_job_template()
+
+            timestamp = int(round(time.time() * 1000))
+            self.job_log_utils.send_job_execution_uve(
+                job_template.fq_name, self.job_execution_id, timestamp,
+                0)
+            self.job_log_utils.send_job_log(job_template.fq_name,
+                                            self.job_execution_id,
+                                            msg,
+                                            JobStatus.STARTING.value,
+                                            timestamp=timestamp)
 
             # validate job input if required by job_template input_schema
             input_schema = job_template.get_job_template_input_schema()
             if input_schema:
                 self._validate_job_input(input_schema, self.job_data)
 
-            timestamp = int(round(time.time()*1000))
-            self.job_log_utils.send_job_execution_uve(
-                job_template.fq_name, self.job_execution_id, timestamp, 0)
-            self.job_log_utils.send_job_log(job_template.fq_name,
-                                            self.job_execution_id,
-                                            msg, JobStatus.STARTING.value,
-                                            timestamp=timestamp)
+            self.result_handler = JobResultHandler(self.job_template_id,
+                                                   self.job_execution_id,
+                                                   self._logger,
+                                                   self.job_utils,
+                                                   self.job_log_utils)
 
-            # spawn job greenlets
-            job_handler = JobHandler(self._logger, self._vnc_api,
-                                     job_template, self.job_execution_id,
-                                     self.job_data, self.job_params,
-                                     self.job_utils, self.device_json,
-                                     self.auth_token, self.job_log_utils,
-                                     self.sandesh_args,
-                                     self.job_log_utils.args.playbook_timeout)
-            if job_template.get_job_template_multi_device_job():
-                self.handle_multi_device_job(job_handler, self.result_handler)
-            else:
-                self.handle_single_job(job_handler, self.result_handler)
+            playbook_list = job_template.get_job_template_playbooks()\
+                .get_playbook_info()
+            import pdb; pdb.set_trace()
+            for i in range(0, len(playbook_list)):
+                job_mgr = JobManager(self._logger, self._vnc_api,
+                                     self.job_input, self.job_log_utils,
+                                     job_template,
+                                     self.result_handler, self.job_utils, i)
+
+                job_mgr.start_job()
+
+                # read the output of job manager and update the job input
+                # so that it can be used in next iteration
+                device_json = self.result_handler.get_device_data()
+                self.job_input['device_json'] = device_json
 
             # create job completion log and update job UVE
-            self.result_handler.create_job_summary_log(job_template.fq_name)
+            self.result_handler.create_job_summary_log(
+                job_template.fq_name)
 
             # in case of failures, exit the job manager process with failure
             if self.result_handler.job_result_status == JobStatus.FAILURE:
                 job_error_msg = self.result_handler.job_summary_message
+
         except JobException as e:
             err_msg = "Job Exception recieved: %s " % repr(e)
             self._logger.error(err_msg)
             self._logger.error("%s" % traceback.format_exc())
-            self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+            self.result_handler.update_job_status(JobStatus.FAILURE,
+                                                  err_msg)
             if job_template:
                 self.result_handler.create_job_summary_log(
                      job_template.fq_name)
@@ -160,7 +219,8 @@ class JobManager(object):
             err_msg = "Error while executing job %s " % repr(e)
             self._logger.error(err_msg)
             self._logger.error("%s" % traceback.format_exc())
-            self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+            self.result_handler.update_job_status(JobStatus.FAILURE,
+                                                  err_msg)
             self.result_handler.create_job_summary_log(job_template.fq_name)
             job_error_msg = err_msg
         finally:
@@ -171,16 +231,6 @@ class JobManager(object):
             self._logger.info("Closed Sandesh connection")
             if job_error_msg is not None:
                 sys.exit(job_error_msg)
-
-    def handle_multi_device_job(self, job_handler, result_handler):
-        job_worker_pool = Pool(self.max_job_task)
-        for device_id in self.job_params['device_list']:
-            job_worker_pool.start(Greenlet(job_handler.handle_job,
-                                           result_handler, device_id))
-        job_worker_pool.join()
-
-    def handle_single_job(self, job_handler, result_handler):
-        job_handler.handle_job(result_handler)
 
 
 def parse_args():
@@ -228,18 +278,19 @@ if __name__ == "__main__":
                                    msg, JobStatus.FAILURE)
         sys.exit(msg)
 
-    # invoke job manager
+    # invoke workflow manager
     try:
-        job_manager = JobManager(logger, vnc_api, job_input_json,
-                                 job_log_utils)
+        workflow_manager = WFManager(logger, vnc_api, job_input_json,
+                                     job_log_utils)
         logger.info("Job Manager is initialized. Starting job.")
-        job_manager.start_job()
+        workflow_manager.start_job()
+
     except Exception as e:
         logger.error(MsgBundle.getMessage(MsgBundle.JOB_ERROR,
-                                   exc_msg=traceback.format_exc()))
-        msg = MsgBundle.getMessage(MsgBundle.JOB_ERROR,
-                                   exc_msg=repr(e))
+                                          exc_msg=traceback.format_exc()))
+        msg = MsgBundle.getMessage(MsgBundle.JOB_ERROR, exc_msg=repr(e))
         job_log_utils.send_job_log(job_input_json['job_template_fqname'],
-                                   job_input_json['job_execution_id'],
-                                   msg, JobStatus.FAILURE)
+                                       job_input_json['job_execution_id'],
+                                       msg, JobStatus.FAILURE)
         sys.exit(msg)
+
