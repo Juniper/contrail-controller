@@ -5,11 +5,9 @@ import gevent
 import gevent.monkey
 gevent.monkey.patch_all(thread=False)
 import sys
-import uuid
 import os
 import logging
 from flexmock import flexmock
-import json
 import subprocess32
 
 from vnc_api.vnc_api import PlaybookInfoType
@@ -19,10 +17,8 @@ from vnc_api.vnc_api import JobTemplate
 sys.path.append('../common/tests')
 
 import test_case
-from job_mgr import JobManager
-from job_log_utils import JobLogUtils
-from job_utils import JobStatus
-from sandesh_utils import SandeshUtils
+from job_manager.job_mgr import JobManager
+from job_manager.job_utils import JobStatus
 
 from test_job_manager_utils import TestJobManagerUtils
 
@@ -217,3 +213,4 @@ class TestJobManager(test_case.JobTestCase):
 
         # mock sys exit call
         flexmock(sys).should_receive('exit')
+

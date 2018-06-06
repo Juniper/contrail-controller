@@ -1,12 +1,11 @@
+import json
 from flexmock import flexmock
 
 from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
 
-from job_log_utils import JobLogUtils
-from sandesh_utils import SandeshUtils
-
-import json
+from job_manager.job_log_utils import JobLogUtils
+from job_manager.sandesh_utils import SandeshUtils
 
 
 class TestJobManagerUtils(object):
@@ -42,6 +41,7 @@ class TestJobManagerUtils(object):
                           "job_template_id": job_template_id,
                           "input": {"playbook_data": "some playbook data"},
                           "job_execution_id": TestJobManagerUtils.execution_id,
+                          "fabric_fq_name": "Global-system-config:fabric-1",
                           "auth_token": "6e7d7f87faa54fac96a2a28ec752336a",
                           "args": TestJobManagerUtils.args
                          }
@@ -57,3 +57,4 @@ class TestJobManagerUtils(object):
         mocked_sandesh_utils.should_receive('__init__')
         mocked_sandesh_utils.should_receive('wait_for_connection_establish')
         mocked_sandesh_utils.should_receive('close_sandesh_connection')
+
