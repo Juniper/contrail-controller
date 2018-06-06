@@ -332,7 +332,7 @@ class SanityBase(object):
                 [
                     {
                         'name': 'ObjectId',
-                        'value': "%s:%d" % (job_execution_id, status),
+                        'value': "%s:%s" % (job_execution_id, status),
                         'op': 1
                     }
                 ]
@@ -354,8 +354,8 @@ class SanityBase(object):
     # end _post_for_json_response
 
     def _wait_for_job_to_finish(self, job_name, job_execution_id):
-        completed = 2
-        failed = 3
+        completed = "SUCCESS"
+        failed = "FAILURE"
         url = "http://%s:%d/analytics/query" %\
               (self._analytics['host'], self._analytics['port'])
         retry_count = 0
@@ -411,6 +411,41 @@ class SanityBase(object):
         self._logger.info(msg)
         return discovered_prouters
     # end discover_fabric_device
+
+    def discover_fabric_workflow(self, fab):
+        """Discover all devices specified by the fabric management namespaces
+        """
+        self._logger.info('Discover devices in fabric "%s" ...', fab.fq_name)
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=[
+                'default-global-system-config', 'workflow_template_test'],
+            job_input={'fabric_uuid': fab.uuid}
+        )
+
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.debug(
+            "Device discovery job started with execution id: %s",
+            job_execution_id)
+        self._wait_for_job_to_finish('Device discovery', job_execution_id)
+
+        fab = self._api.fabric_read(fab.fq_name)
+        discovered_prouter_refs = fab.get_physical_router_refs()
+        self._logger.debug(
+            "Disovered devices:\n%s",
+            pprint.pformat(discovered_prouter_refs, indent=4))
+
+        msg = "Discovered following devices in fabric '%s':" % fab.fq_name
+        discovered_prouters = []
+        for prouter_ref in discovered_prouter_refs:
+            prouter = self._api.physical_router_read(prouter_ref.get('to'))
+            discovered_prouters.append(prouter)
+            msg += "\n - %s (%s)" % (
+                prouter.name, prouter.physical_router_management_ip)
+
+        self._logger.info(msg)
+        return discovered_prouters
+
+    # end discover_fabric_workflow
 
     def device_import(self, prouters):
         """import device inventories for the prouters specified in the

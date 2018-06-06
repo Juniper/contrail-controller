@@ -83,14 +83,16 @@ class SanityTest01(SanityBase):
                                        mgmt_namespace['cidrs'])
             self.add_asn_namespace(fabric, self._namespaces['asn'])
 
-            prouters = self.discover_fabric_device(fabric)
-            self._validate_discovered_prouters(prouters)
+            prouters = self.discover_fabric_workflow(fabric)
 
-            self.device_import(prouters)
-            self._validate_imported_prouters(prouters)
-
-            self.underlay_config(prouters)
-            self._validate_underlay_config(prouters)
+            # prouters = self.discover_fabric_device(fabric)
+            # self._validate_discovered_prouters(prouters)
+            #
+            # self.device_import(prouters)
+            # self._validate_imported_prouters(prouters)
+            #
+            # self.underlay_config(prouters)
+            # self._validate_underlay_config(prouters)
 
         except Exception as ex:
             self._exit_with_error(

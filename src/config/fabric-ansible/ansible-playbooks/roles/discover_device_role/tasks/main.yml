@@ -12,3 +12,6 @@
         device_family_info: "{{ device_family_info }}"
         vendor_mapping: "{{ vendor_mapping }}"
         pool_size: "{{ POOL_SIZE }}"
+      register: discovery_results
+
+    - debug: var=discovery_results.output
