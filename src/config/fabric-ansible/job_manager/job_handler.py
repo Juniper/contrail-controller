@@ -10,6 +10,7 @@ import os
 import json
 import subprocess32
 import traceback
+import ast
 
 from job_exception import JobException
 from job_utils import JobStatus
@@ -20,7 +21,7 @@ class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
                  params, job_utils, device_json, auth_token, job_log_utils,
-                 sandesh_args, playbook_timeout):
+                 sandesh_args, playbook_timeout, playbook_seq=None):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -33,6 +34,8 @@ class JobHandler(object):
         self._job_log_utils = job_log_utils
         self._sandesh_args = sandesh_args
         self._playbook_timeout = playbook_timeout
+        self._playbook_seq = playbook_seq
+        self._device_data = None
 
     def handle_job(self, result_handler, device_id=None):
         try:
@@ -53,6 +56,9 @@ class JobHandler(object):
                       job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
+
+            self.update_result_handler_device_data(result_handler)
+
         except JobException as e:
             self._logger.error("%s" % e.msg)
             self._logger.error("%s" % traceback.format_exc())
@@ -65,6 +71,8 @@ class JobHandler(object):
                                              device_id)
 
     def find_playbook_info(self, device_family, device_vendor, playbook_list):
+        if self._playbook_seq:
+            return playbook_list[self._playbook_seq]
 
         for playbook_info in playbook_list:
             pb_vendor_name = playbook_info.get_vendor()
@@ -122,6 +130,7 @@ class JobHandler(object):
 
                 # check for credentials,required param; else playbooks
                 # will fail
+                import pdb; pdb.set_trace()
                 device_username = device_data.get('device_username')
                 device_password = device_data.get('device_password')
 
@@ -154,7 +163,7 @@ class JobHandler(object):
                                                     playbooks.playbook_info)
             else:
                 # get the playbook uri from the job template
-                play_info = playbooks.playbook_info[0]
+                play_info = playbooks.playbook_info[self._playbook_seq]
 
             playbook_input = {'playbook_input': extra_vars}
 
@@ -178,9 +187,37 @@ class JobHandler(object):
             playbook_exec_path = os.path.dirname(__file__) \
                                  + "/playbook_helper.py"
             p = subprocess32.Popen(["python", playbook_exec_path, "-i",
-                                   json.dumps(playbook_info)],
-                                   close_fds=True, cwd='/')
+                                    json.dumps(playbook_info)],
+                                   close_fds=True, cwd='/',
+                                   stdout=subprocess32.PIPE)
+            device_data_output = ""
+            device_data_keyword = 'DEVICEDATA##'
+            while True:
+                output = p.stdout.readline()
+                if output == '' and p.poll() is not None:
+                    break
+                if output:
+                    self._logger.error("------SIRISHA---" + str(output))
+                    # read device list data and store in variable result handler
+                    if device_data_keyword in output:
+                        device_data_output = output
+
+            if device_data_output != "":
+                #strip of the data before and after from the device_data_output
+                device_data_output = device_data_output[device_data_output.index
+                                                        (device_data_keyword) +
+                                                        len(device_data_keyword):
+                                                        device_data_output.
+                                                        rindex(device_data_keyword)]
+                self._logger.error("------device_data---" + str(device_data_output))
+                try:
+                    self._device_data = json.loads(device_data_output)
+                except ValueError, e:
+                    self._device_data = ast.literal_eval(device_data_output)
+                self._logger.error("------json device data---" + str(self._device_data))
+
             p.wait(timeout=self._playbook_timeout)
+
         except subprocess32.TimeoutExpired as e:
             if p is not None:
                 os.kill(p.pid, 9)
@@ -249,3 +286,9 @@ class JobHandler(object):
                                        playbook_uri=playbook_info['uri'],
                                        exc_msg=repr(e))
             raise JobException(msg, self._execution_id)
+
+    def update_result_handler_device_data(self, result_handler):
+        if self._device_data:
+            for device_id in self._device_data:
+                result_handler.update_device_data(device_id, self._device_data[device_id])
+
