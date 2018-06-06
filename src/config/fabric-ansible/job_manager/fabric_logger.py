@@ -23,6 +23,7 @@ extra_list = {
     # add more entries here...
 }
 
+
 def fabric_ansible_logger(name, ctx=None):
     name = name
     ctx = ctx

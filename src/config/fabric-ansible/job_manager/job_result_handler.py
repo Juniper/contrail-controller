@@ -8,17 +8,18 @@ results from the job executions
 """
 import time
 
-from job_utils import JobStatus
-from job_exception import JobException
-from job_messages import MsgBundle
+from job_manager.job_utils import JobStatus
+from job_manager.job_messages import MsgBundle
 
 
 class JobResultHandler(object):
 
-    def __init__(self, job_template_id, execution_id, logger, job_utils,
+    def __init__(self, job_template_id, execution_id, fabric_fq_name,
+                 logger, job_utils,
                  job_log_utils):
         self._job_template_id = job_template_id
         self._execution_id = execution_id
+        self._fabric_fq_name = fabric_fq_name
         self._logger = logger
         self._job_utils = job_utils
         self.job_log_utils = job_log_utils
@@ -29,6 +30,8 @@ class JobResultHandler(object):
         self.job_result = dict()   # map of the device_id to job result msg
         self.job_summary_message = None
         self.failed_device_jobs = list()
+        self.device_data = dict()  # map of device_id and its details like
+                                   # device_management_ip, device_username, etc
 
     def update_job_status(self, status, message=None, device_id=None):
         # update cummulative job status
@@ -47,6 +50,12 @@ class JobResultHandler(object):
             else:
                 self.job_result_message = message
 
+    def update_device_data(self, device_id, data):
+        self.device_data.update({device_id: data})
+
+    def get_device_data(self):
+        return self.device_data
+
     def create_job_summary_log(self, job_template_fqname):
         # generate job result summary
         self.job_summary_message = self.create_job_summary_message()
@@ -54,10 +63,14 @@ class JobResultHandler(object):
         timestamp = int(round(time.time()*1000))
         # create the job log
         self._logger.debug("%s" % self.job_summary_message)
+        job_status = None
+        if self.job_result_status:
+            job_status = self.job_result_status.value
         self.job_log_utils.send_job_log(job_template_fqname,
                                         self._execution_id,
+                                        self._fabric_fq_name,
                                         self.job_summary_message,
-                                        self.job_result_status.value,
+                                        job_status, 100,
                                         timestamp=timestamp)
         # create the job complete uve
         self.job_log_utils.send_job_execution_uve(job_template_fqname,

@@ -10,17 +10,18 @@ import os
 import json
 import subprocess32
 import traceback
+import ast
 
-from job_exception import JobException
-from job_utils import JobStatus
-from job_messages import MsgBundle
+from job_manager.job_exception import JobException
+from job_manager.job_utils import JobStatus
+from job_manager.job_messages import MsgBundle
 
 
 class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
                  params, job_utils, device_json, auth_token, job_log_utils,
-                 sandesh_args, playbook_timeout):
+                 sandesh_args, fabric_fq_name, playbook_timeout, playbook_seq):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -32,9 +33,12 @@ class JobHandler(object):
         self._auth_token = auth_token
         self._job_log_utils = job_log_utils
         self._sandesh_args = sandesh_args
+        self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
+        self._playbook_seq = playbook_seq
+        self._device_data = None
 
-    def handle_job(self, result_handler, device_id=None):
+    def handle_job(self, result_handler, job_percent_per_task, device_id=None):
         try:
             msg = "Starting playbook execution for job template %s with " \
                   "execution id %s" % (self._job_template.get_uuid(),
@@ -42,7 +46,8 @@ class JobHandler(object):
             self._logger.debug(msg)
 
             # get the playbook information from the job template
-            playbook_info = self.get_playbook_info(device_id)
+            playbook_info = self.get_playbook_info(job_percent_per_task,
+                                                   device_id)
 
             # run the playbook
             self.run_playbook(playbook_info)
@@ -53,39 +58,41 @@ class JobHandler(object):
                       job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
-        except JobException as e:
-            self._logger.error("%s" % e.msg)
+            self.update_result_handler_device_data(result_handler)
+
+        except JobException as job_exp:
+            self._logger.error("%s" % job_exp.msg)
             self._logger.error("%s" % traceback.format_exc())
-            result_handler.update_job_status(JobStatus.FAILURE, e.msg,
+            result_handler.update_job_status(JobStatus.FAILURE, job_exp.msg,
                                              device_id)
-        except Exception as e:
-            self._logger.error("Error while executing job %s " % repr(e))
+        except Exception as exp:
+            self._logger.error("Error while executing job %s " % repr(exp))
             self._logger.error("%s" % traceback.format_exc())
-            result_handler.update_job_status(JobStatus.FAILURE, e.message,
+            result_handler.update_job_status(JobStatus.FAILURE, exp.message,
                                              device_id)
 
-    def find_playbook_info(self, device_family, device_vendor, playbook_list):
+    # def find_playbook_info(self, device_family, device_vendor, playbook_list):
+    #
+    #     for playbook_info in playbook_list:
+    #         pb_vendor_name = playbook_info.get_vendor()
+    #         if not pb_vendor_name:
+    #             # device_vendor agnostic
+    #             return playbook_info
+    #         if pb_vendor_name.lower() == device_vendor.lower():
+    #             pb_device_family = playbook_info.get_device_family()
+    #             if pb_device_family:
+    #                 if device_family.lower() == pb_device_family.lower():
+    #                     return playbook_info
+    #             else:
+    #                 # device_family agnostic
+    #                 return playbook_info
+    #     msg = MsgBundle.getMessage(MsgBundle.
+    #                                PLAYBOOK_INFO_DEVICE_MISMATCH,
+    #                                device_vendor=device_vendor,
+    #                                device_family=device_family)
+    #     raise JobException(msg, self._execution_id)
 
-        for playbook_info in playbook_list:
-            pb_vendor_name = playbook_info.get_vendor()
-            if not pb_vendor_name:
-                # device_vendor agnostic
-                return playbook_info
-            if pb_vendor_name.lower() == device_vendor.lower():
-                pb_device_family = playbook_info.get_device_family()
-                if pb_device_family:
-                    if device_family.lower() == pb_device_family.lower():
-                        return playbook_info
-                else:
-                    # device_family agnostic
-                    return playbook_info
-        msg = MsgBundle.getMessage(MsgBundle.
-                                   PLAYBOOK_INFO_DEVICE_MISMATCH,
-                                   device_vendor=device_vendor,
-                                   device_family=device_family)
-        raise JobException(msg, self._execution_id)
-
-    def get_playbook_info(self, device_id=None):
+    def get_playbook_info(self, job_percent_per_task, device_id=None):
         try:
             # create the cmd line param for the playbook
             extra_vars = {
@@ -93,9 +100,11 @@ class JobHandler(object):
                 'params': self._job_params,
                 'job_template_id': self._job_template.get_uuid(),
                 'job_template_fqname': self._job_template.fq_name,
+                'fabric_fq_name': self._fabric_fq_name,
                 'auth_token': self._auth_token,
                 'job_execution_id': self._execution_id,
-                'args': self._sandesh_args
+                'args': self._sandesh_args,
+                'playbook_job_percentage': job_percent_per_task
             }
             playbooks = self._job_template.get_job_template_playbooks()
 
@@ -149,12 +158,13 @@ class JobHandler(object):
                                    "ip to playbook %s " % device_management_ip)
 
                 # get the playbook uri from the job template
-                play_info = self.find_playbook_info(device_family,
-                                                    device_vendor,
-                                                    playbooks.playbook_info)
-            else:
-                # get the playbook uri from the job template
-                play_info = playbooks.playbook_info[0]
+                # play_info = self.find_playbook_info(device_family,
+                #                                     device_vendor,
+                #                                     playbooks.playbook_info)
+
+            # else:
+            # get the playbook uri from the job template
+            play_info = playbooks.playbook_info[self._playbook_seq]
 
             playbook_input = {'playbook_input': extra_vars}
 
@@ -165,38 +175,66 @@ class JobHandler(object):
             return playbook_info
         except JobException:
             raise
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(
                       MsgBundle.GET_PLAYBOOK_INFO_ERROR,
                       job_template_id=self._job_template.get_uuid(),
-                      exc_msg=repr(e))
+                      exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
 
     def run_playbook_process(self, playbook_info):
-        p = None
+        playbook_process = None
         try:
             playbook_exec_path = os.path.dirname(__file__) \
                                  + "/playbook_helper.py"
-            p = subprocess32.Popen(["python", playbook_exec_path, "-i",
-                                   json.dumps(playbook_info)],
-                                   close_fds=True, cwd='/')
-            p.wait(timeout=self._playbook_timeout)
-        except subprocess32.TimeoutExpired as e:
-            if p is not None:
-                os.kill(p.pid, 9)
+            playbook_process = subprocess32.Popen(["python",
+                                                   playbook_exec_path,
+                                                   "-i",
+                                                   json.dumps(playbook_info)],
+                                                  close_fds=True, cwd='/',
+                                                  stdout=subprocess32.PIPE)
+            device_data_output = ""
+            device_data_keyword = 'DEVICEDATA##'
+
+            while True:
+                output = playbook_process.stdout.readline()
+                if output == '' and playbook_process.poll() is not None:
+                    break
+                if output:
+                    self._logger.debug(output)
+                    # read device list data and store in variable result handler
+                    if device_data_keyword in output:
+                        device_data_output = output
+
+            if device_data_output != "":
+                device_data_output = self._extract_device_data_output(device_data_output,
+                                                 device_data_keyword)
+                import pdb; pdb.set_trace()
+                self._logger.info("Device data extracted from output" + str(device_data_output))
+                try:
+                    self._device_data = json.loads(device_data_output)
+                except ValueError, e:
+                    self._device_data = ast.literal_eval(device_data_output)
+
+                self._logger.info("Device data json: " + str(self._device_data))
+
+            playbook_process.wait(timeout=self._playbook_timeout)
+        except subprocess32.TimeoutExpired as timeout_exp:
+            if playbook_process is not None:
+                os.kill(playbook_process.pid, 9)
             msg = MsgBundle.getMessage(
                       MsgBundle.RUN_PLAYBOOK_PROCESS_TIMEOUT,
                       playbook_uri=playbook_info['uri'],
-                      exc_msg=repr(e))
+                      exc_msg=repr(timeout_exp))
             raise JobException(msg, self._execution_id)
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.
                                        RUN_PLAYBOOK_PROCESS_ERROR,
                                        playbook_uri=playbook_info['uri'],
-                                       exc_msg=repr(e))
+                                       exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
 
-        if p.returncode != 0:
+        if playbook_process.returncode != 0:
             msg = MsgBundle.getMessage(MsgBundle.
                                        PLAYBOOK_EXIT_WITH_ERROR,
                                        playbook_uri=playbook_info['uri'])
@@ -222,6 +260,7 @@ class JobHandler(object):
             self._logger.debug(msg)
             self._job_log_utils.send_job_log(self._job_template.fq_name,
                                              self._execution_id,
+                                             self._fabric_fq_name,
                                              msg, JobStatus.IN_PROGRESS.value)
 
             if not os.path.exists(playbook_info['uri']):
@@ -241,11 +280,28 @@ class JobHandler(object):
             self._logger.debug(msg)
             self._job_log_utils.send_job_log(self._job_template.fq_name,
                                              self._execution_id,
+                                             self._fabric_fq_name,
                                              msg, JobStatus.IN_PROGRESS.value)
         except JobException:
             raise
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.RUN_PLAYBOOK_ERROR,
                                        playbook_uri=playbook_info['uri'],
-                                       exc_msg=repr(e))
+                                       exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
+
+    def update_result_handler_device_data(self, result_handler):
+        if self._device_data:
+            for device_id in self._device_data:
+                result_handler.update_device_data(device_id,
+                                                  self._device_data[device_id])
+
+    def _extract_device_data_output(self, device_data_output,
+                                   device_data_keyword):
+        # extract the data before and after device_data_keyword from the
+        # device_data_output
+        device_data_output = device_data_output[device_data_output.index(
+            device_data_keyword) + len(
+            device_data_keyword): device_data_output.rindex(
+            device_data_keyword)]
+        return device_data_output
