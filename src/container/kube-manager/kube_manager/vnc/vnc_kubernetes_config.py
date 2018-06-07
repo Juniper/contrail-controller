@@ -135,7 +135,8 @@ class VncKubernetesConfig(object):
 
     @classmethod
     def cluster_project_fq_name(cls, namespace=None):
-        return [cls.cluster_domain(), cls.cluster_project_name(namespace)]
+        return [cls.cluster_domain(), cls.cluster_domain()+'-'+
+                cls.cluster_project_name(namespace)]
 
     @classmethod
     def cluster_default_project_name(cls):
@@ -146,7 +147,8 @@ class VncKubernetesConfig(object):
 
     @classmethod
     def cluster_default_project_fq_name(cls):
-        return [cls.cluster_domain(), cls.cluster_default_project_name()]
+        return [cls.cluster_domain(), cls.cluster_domain()+'-'+
+                cls.cluster_default_project_name()]
 
     @classmethod
     def get_configured_network_name(cls):
