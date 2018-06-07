@@ -372,14 +372,14 @@ class VncKubernetes(VncCommon):
             pass
 
     def _provision_cluster(self):
-        proj_obj = self._create_project(
-            vnc_kube_config.cluster_default_project_name())
+        # Pre creating default project before namespace add event.
+        proj_obj = self._create_project('default')
 
         # Create application policy set for the cluster project.
         VncSecurityPolicy.create_application_policy_set(
             vnc_kube_config.application_policy_set_name())
 
-        # Allocate fabric snat port translation pools
+        # Allocate fabric snat port translation pools.
         self._allocate_fabric_snat_port_translation_pools()
 
         ip_fabric_fq_name = vnc_kube_config.cluster_ip_fabric_network_fq_name()
@@ -394,6 +394,7 @@ class VncKubernetes(VncCommon):
             except NoIdError:
                 pass
 
+        # Pre creating kube-system project before namespace add event.
         self._create_project('kube-system')
         # Create ip-fabric IPAM.
         ipam_name = vnc_kube_config.cluster_name() + '-ip-fabric-ipam'
@@ -407,7 +408,7 @@ class VncKubernetes(VncCommon):
         # Cache cluster pod ipam name.
         # This will be referenced by ALL pods that are spawned in the cluster.
         self._cluster_pod_ipam_fq_name = pod_ipam_obj.get_fq_name()
-        # Create a cluster-pod-network
+        # Create a cluster-pod-network.
         if self.args.ip_fabric_forwarding:
             cluster_pod_vn_obj = self._create_network(
                 vnc_kube_config.cluster_default_pod_network_name(),
@@ -423,7 +424,7 @@ class VncKubernetes(VncCommon):
         service_ipam_update, service_ipam_obj, service_ipam_subnets = \
             self._create_ipam(ipam_name, self.args.service_subnets, proj_obj)
         self._cluster_service_ipam_fq_name = service_ipam_obj.get_fq_name()
-        # Create a cluster-service-network
+        # Create a cluster-service-network.
         cluster_service_vn_obj = self._create_network(
             vnc_kube_config.cluster_default_service_network_name(),
             'service-network', proj_obj, service_ipam_obj, service_ipam_update)
