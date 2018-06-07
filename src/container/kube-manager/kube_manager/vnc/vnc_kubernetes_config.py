@@ -131,7 +131,7 @@ class VncKubernetesConfig(object):
         project_name = cls.get_configured_project_name()
         if project_name:
             return project_name
-        return namespace
+        return "-".join([cls.cluster_domain(), namespace])
 
     @classmethod
     def cluster_project_fq_name(cls, namespace=None):
@@ -142,7 +142,7 @@ class VncKubernetesConfig(object):
         project_name = cls.get_configured_project_name()
         if project_name:
             return project_name
-        return "default"
+        return "-".join([cls.cluster_domain(), "default"])
 
     @classmethod
     def cluster_default_project_fq_name(cls):
