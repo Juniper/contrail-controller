@@ -277,14 +277,18 @@ TEST_F(BgpXmppUnitTest, WriteReadyTest) {
     WAIT_EQ(4, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received route for blue at Server \n ");
 
+    // We may receive one or two routes depending on when the write-block
+    // takes effect.
+    TASK_UTIL_EXPECT_GE(2, agent_a_->RouteCount());
+
     agent_a_->AddRoute("red","20.1.1.1/32");
     WAIT_EQ(5, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received route for red at Server \n ");
 
-    // send blocked, no route should be reflected back after the first one.
-    // check a few times to make sure that no more routes are reflected
+    // send blocked, no route should be reflected back after the first one
+    // or two. check a few times to make sure that no more routes are reflected.
     for (int idx = 0; idx < 10; ++idx) {
-        WAIT_EQ(1, agent_a_->RouteCount());
+        TASK_UTIL_EXPECT_GE(2, agent_a_->RouteCount());
         usleep(10000);
         task_util::WaitForIdle();
     }
