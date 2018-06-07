@@ -4365,7 +4365,6 @@ static bool ControllerCleanupTrigger(BgpPeer *bgp_peer) {
         Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
                                             GetXmppServerIdx());
     }
-    Agent::GetInstance()->controller()->Cleanup();
     return true;
 }
 
@@ -4378,7 +4377,6 @@ void DeleteBgpPeer(Peer *peer) {
                          task_id, 0));
     trigger_->Set();
     client->WaitForIdle();
-    Agent::GetInstance()->reset_controller_xmpp_channel(0);
     Agent::GetInstance()->reset_controller_xmpp_channel(1);
     WAIT_FOR(1000, 1000, (trigger_->IsSet() == false));
 }
