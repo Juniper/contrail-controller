@@ -372,8 +372,8 @@ class VncKubernetes(VncCommon):
             pass
 
     def _provision_cluster(self):
-        proj_obj = self._create_project(
-            vnc_kube_config.cluster_default_project_name())
+        # pre creating project before namespace add event
+        proj_obj = self._create_project('default')
 
         # Create application policy set for the cluster project.
         VncSecurityPolicy.create_application_policy_set(
@@ -394,6 +394,7 @@ class VncKubernetes(VncCommon):
             except NoIdError:
                 pass
 
+        # pre creating project before namespace add event
         self._create_project('kube-system')
         # Create ip-fabric IPAM.
         ipam_name = vnc_kube_config.cluster_name() + '-ip-fabric-ipam'

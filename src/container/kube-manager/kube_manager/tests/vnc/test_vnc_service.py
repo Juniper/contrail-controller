@@ -45,9 +45,11 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_service_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        self.create_project(cluster_project)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(cluster_project)
+
+        self.create_project(proj_name)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
-        network_uuid = self._create_virtual_network(cluster_project)
+        network_uuid = self._create_virtual_network(proj_name)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
 
@@ -57,7 +59,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self._delete_virtual_network(network_uuid)
-        self._delete_project(cluster_project)
+        self._delete_project(proj_name)
 
         self._assert_all_is_down(uuids, skip_vn=False, check_public_fip=True)
 
@@ -75,7 +77,8 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_service_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        self.create_project(cluster_project)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(cluster_project)
+        self.create_project(proj_name)
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
 
@@ -86,10 +89,10 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         # wait till isolated service-network get deleted
-        vn_fq_name = ['default-domain', cluster_project, \
+        vn_fq_name = ['default-domain', proj_name, \
             self.cluster_name() + '-' + namespace_name + '-service-network']
         self.wait_isolated_service_vn_get_deleted(vn_fq_name)
-        self._delete_project(cluster_project)
+        self._delete_project(proj_name)
 
         self._assert_all_is_down(uuids, skip_vn=False, check_public_fip=True)
 
@@ -128,12 +131,13 @@ class VncServiceTest(KMTestCase):
     def test_add_delete_service_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         custom_network = 'custom-service-network'
-        self.create_project(cluster_project)
-        network_uuid = self._create_virtual_network(cluster_project,
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(cluster_project)
+        self.create_project(proj_name)
+        network_uuid = self._create_virtual_network(proj_name,
                                                     network=custom_network)
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(
-                cluster_project, custom_network)
+                proj_name, custom_network)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
 
@@ -143,15 +147,16 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self._delete_virtual_network(network_uuid)
-        self._delete_project(cluster_project)
+        self._delete_project(proj_name)
 
         self._assert_all_is_down(uuids, skip_vn=False, check_public_fip=True)
 
     def test_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        self.create_project(cluster_project)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(cluster_project)
+        self.create_project(proj_name)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
-        network_uuid = self._create_virtual_network(cluster_project)
+        network_uuid = self._create_virtual_network(proj_name)
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
@@ -162,7 +167,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self._delete_virtual_network(network_uuid)
-        self._delete_project(cluster_project)
+        self._delete_project(proj_name)
 
         self._assert_all_is_down(uuids, check_public_fip=True)
 
@@ -181,7 +186,8 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_loadbalancer_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        self.create_project(cluster_project)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(cluster_project)
+        self.create_project(proj_name)
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
 
@@ -193,10 +199,10 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         # wait till isolated service-network get deleted
-        vn_fq_name = ['default-domain', cluster_project, \
+        vn_fq_name = ['default-domain', proj_name, \
             self.cluster_name() + '-' + namespace_name + '-service-network']
         self.wait_isolated_service_vn_get_deleted(vn_fq_name)
-        self._delete_project(cluster_project)
+        self._delete_project(proj_name)
 
         self._assert_all_is_down(uuids, check_public_fip=True)
 
@@ -217,7 +223,8 @@ class VncServiceTest(KMTestCase):
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom-service-network'
         project = 'default'
-        network_uuid = self._create_virtual_network(project,
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(project)
+        network_uuid = self._create_virtual_network(proj_name,
                                                     network=custom_network)
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(project, custom_network)
@@ -236,9 +243,10 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(cluster_project)
         custom_network = 'custom-service-network'
-        self.create_project(cluster_project)
-        network_uuid = self._create_virtual_network(cluster_project,
+        self.create_project(proj_name)
+        network_uuid = self._create_virtual_network(proj_name,
                                                     network=custom_network)
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(cluster_project,
@@ -253,7 +261,7 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self._delete_virtual_network(network_uuid)
-        self._delete_project(cluster_project)
+        self._delete_project(proj_name)
 
         self._assert_all_is_down(uuids, check_public_fip=True)
 
@@ -280,8 +288,10 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta, wait=False)
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name,
                                                               wait=False)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                                'default')
         public_fip_pool_config = str({
-            'project': 'default',
+            'project': proj_name,
             'domain': 'default-domain',
             'network': 'public',
             'name': 'public_fip_pool'
@@ -302,9 +312,12 @@ class VncServiceTest(KMTestCase):
             'ServiceData', ['uuids', 'uuid', 'name', 'ports', 'meta'])
         scale = 50
         cluster_project = self._set_cluster_project()
-        self.create_project(cluster_project)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                               cluster_project)
+
+	self.create_project(proj_name)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
-        network_uuid = self._create_virtual_network(cluster_project)
+        network_uuid = self._create_virtual_network(proj_name)
 
         srvs_data = []
         first_ip = self.external_ip
@@ -326,7 +339,7 @@ class VncServiceTest(KMTestCase):
 
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self._delete_virtual_network(network_uuid)
-        self._delete_project(cluster_project)
+        self._delete_project(proj_name)
         self.external_ip = first_ip
 
     def _assert_all_is_up(self, ports, srv_uuid, expected_vn_uuid=None):
@@ -344,11 +357,9 @@ class VncServiceTest(KMTestCase):
         lb_pool -> lb_listener -> lb -> vmi -> vn
         fip -> iip -> vn
         """
-
         # loadbalancer
         lb = self._vnc_lib.loadbalancer_read(
             id=srv_uuid, fields=['loadbalancer_listener_back_refs'])
-
         # loadbalancer listener -> loadbalancer
         lb_listeners = lb.loadbalancer_listener_back_refs
         #self.assertEqual(1, len(lb_listeners))
@@ -405,9 +416,9 @@ class VncServiceTest(KMTestCase):
             id=self.pub_fip_pool_uuid, fields=['floating-ip-pool-floating-ip'])
         pub_fips = pub_fip_pool.get_floating_ips()
         #self.assertEqual(1, len(pub_fips))
-	if pub_fips == None:
-	    self.pub_fip_obj_uuid = None
-	else:
+        if pub_fips == None:
+            self.pub_fip_obj_uuid = None
+        else:
             pub_fip_objs = \
                 [self._vnc_lib.floating_ip_read(id=pub_fips[i]['uuid'])
                  for i in xrange(len(pub_fips))]
@@ -446,7 +457,7 @@ class VncServiceTest(KMTestCase):
         self.assertRaises(NoIdError,
                           self._vnc_lib.loadbalancer_pool_read,
                           id=uuids.lb_pool_uuid)
-	if check_public_fip:
+        if check_public_fip:
             self.assertRaises(NoIdError,
                               self._vnc_lib.floating_ip_pool_read,
                               id=uuids.pub_fip_uuid)
@@ -458,9 +469,11 @@ class VncServiceTest(KMTestCase):
         net_obj = self._vnc_lib.virtual_network_read(id=net_uuid)
         fip_pool_obj = FloatingIpPool('public_fip_pool', parent_obj=net_obj)
         fip_pool_uuid = self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                                'default')
 
         kube_config.VncKubernetesConfig.args().public_fip_pool = str({
-            'project': 'default',
+            'project': proj_name,
             'domain': 'default-domain',
             'network': 'public',
             'name': 'public_fip_pool'
@@ -497,8 +510,10 @@ class VncServiceTest(KMTestCase):
     @staticmethod
     def _set_cluster_project():
         cluster_project = 'cluster_project'
+        proj_name = kube_config.VncKubernetesConfig.\
+                    cluster_project_name(cluster_project)
         kube_config.VncKubernetesConfig.args().cluster_project = str(
-            {'project': cluster_project})
+                                                {'project': proj_name})
         return cluster_project
 
     @staticmethod
@@ -593,6 +608,9 @@ class VncServiceTest(KMTestCase):
 
     def _create_virtual_network(self, project='default',
                                 network='cluster-default-service-network'):
+        if project is 'default' :
+            project = kube_config.VncKubernetesConfig.\
+                        cluster_project_name('default')
         proj_fq_name = ['default-domain', project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj = VirtualNetwork(
@@ -649,6 +667,3 @@ class VncServiceTest(KMTestCase):
 
     def _delete_project(self, project_name):
         self._vnc_lib.project_delete(fq_name=['default-domain', project_name])
-
-
-

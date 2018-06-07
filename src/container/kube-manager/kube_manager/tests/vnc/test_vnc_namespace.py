@@ -83,12 +83,13 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
     def test_add_namespace(self):
         ns_uuid = self._create_and_add_namespace(self.ns_name, {},
             None, locate=True)
-
         # Check for project
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                    self.cluster_project)
         proj = self._vnc_lib.project_read(fq_name=["default-domain",
-                                                   self.cluster_project])
+                                                   proj_name])
         self.assertIsNotNone(proj)
-        self.assertEquals(self.cluster_project, proj.name)
+        self.assertEquals(proj_name, proj.name)
 
         NamespaceKM.delete(ns_uuid)
         NamespaceKM.delete(self.ns_name)
@@ -98,13 +99,14 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
 
         ns_uuid = self._create_and_add_namespace(self.ns_name, {},
                                                  ns_annotations, locate=True)
-
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                    self.cluster_project)
         proj = self._vnc_lib.project_read(fq_name=["default-domain",
-                                                   self.cluster_project])
+                                                   proj_name])
         self.assertIsNotNone(proj)
-        self.assertEquals(self.cluster_project, proj.name)
+        self.assertEquals(proj_name, proj.name)
 
-        fqname = ['default-domain', self.cluster_project, \
+        fqname = ['default-domain', proj_name, \
             self.cluster_name() + '-' + self.ns_name + '-pod-network']
         vn = self._vnc_lib.virtual_network_read(fq_name=fqname)
         self.assertIsNotNone(vn)
@@ -155,26 +157,30 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTest):
         kube_config.VncKubernetesConfig.args().cluster_network = None
 
     def test_add_namespace_with_custom_network_annotation(self):
-        proj_fq_name = [self.domain, self.cluster_project]
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                    self.cluster_project)
+        proj_fq_name = [self.domain, proj_name]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
         self.create_network(self.vn_name, proj_obj, '10.32.0.0/12',
                             'pod-ipam')
 
         vn_dict = {'domain': self.domain,
-                   'project': self.cluster_project,
+                   'project': proj_name,
                    'name': self.vn_name}
         ns_annotations = {'opencontrail.org/network': repr(vn_dict)}
 
         self._create_and_add_namespace(self.ns_name, {}, ns_annotations,
            locate=True)
 
+        ns_proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                            self.ns_name)
         proj = self._vnc_lib.project_read(fq_name=["default-domain",
-                                                   self.ns_name])
+                                                   ns_proj_name])
         self.assertIsNotNone(proj)
-        self.assertEquals(self.ns_name, proj.name)
+        self.assertEquals(ns_proj_name, proj.name)
 
-        fqname = [self.domain, self.cluster_project, self.vn_name]
+        fqname = [self.domain, proj_name, self.vn_name]
         vn = self._vnc_lib.virtual_network_read(fq_name=fqname)
         self.assertIsNotNone(vn)
 
@@ -189,14 +195,15 @@ class VncNamespaceTestScaling(VncNamespaceTest):
     def test_add_namespace_scaling(self):
         scale = 100
         ns_uuids = []
-
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                    self.cluster_project)
         for i in xrange(scale):
             ns_uuid = self._create_and_add_namespace(self.ns_name + str(i), {},
                                                      None, locate=True)
             proj = self._vnc_lib.project_read(fq_name=["default-domain",
-                                                       self.cluster_project])
+                                                       proj_name])
             self.assertIsNotNone(proj)
-            self.assertEquals(self.cluster_project, proj.name)
+            self.assertEquals(proj_name, proj.name)
 
             ns_uuids.append(ns_uuid)
 
