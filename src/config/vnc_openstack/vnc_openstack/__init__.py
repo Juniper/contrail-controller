@@ -209,7 +209,12 @@ def ensure_default_security_group(vnc_lib, proj_obj):
     for sg_group in sg_groups or []:
         if sg_group['to'][-1] == 'default':
             return
-    _create_default_security_group(vnc_lib, proj_obj)
+    try:
+        _create_default_security_group(vnc_lib, proj_obj)
+    except vnc_api.RefsExistError:
+        # Created by different worker/node
+        # so we can ignore the RefsExistError exception
+        pass
 
 
 openstack_driver = None
