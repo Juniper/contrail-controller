@@ -77,6 +77,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 300);
     EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 10);
+    EXPECT_EQ(options_.ifmap_stale_or_eor_timeout_increment(), 45);
     EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(),
@@ -486,6 +487,7 @@ TEST_F(OptionsTest, CustomIFMapConfigFileAndOverrideFromCommandLine) {
         "user=test-user\n"
         "stale_entries_cleanup_timeout=120\n"
         "end_of_rib_timeout=110\n"
+        "stale_or_eor_timeout_increment=52\n"
         "peer_response_wait_time=100\n";
 
     ofstream config_file;
@@ -521,6 +523,7 @@ TEST_F(OptionsTest, CustomIFMapConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.ifmap_server_url(), "https://11.10.10.1:100");
     EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 21);
     EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 31);
+    EXPECT_EQ(options_.ifmap_stale_or_eor_timeout_increment(), 52);
     EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 41);
     EXPECT_EQ(options_.ifmap_user(), "new-test-user");
 }
