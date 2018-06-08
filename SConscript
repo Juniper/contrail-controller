@@ -2,12 +2,17 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import platform
+
 env = DefaultEnvironment()
 
 SConscript(dirs=['lib', 'src'])
-SConscript(dirs=['../src/contrail-analytics'])
+
 env['api_repo_path'] = '#/src/contrail-api-client'
 SConscript(dirs=['../src/contrail-api-client'])
+
+if platform.system() != 'Windows':
+    SConscript(dirs=['../src/contrail-analytics'])
 
 env.Alias('controller/test', [
     'controller/src/agent:test',
