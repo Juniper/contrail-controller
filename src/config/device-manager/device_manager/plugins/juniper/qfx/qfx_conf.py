@@ -677,7 +677,7 @@ class QfxConf(JuniperConf):
         self.interfaces_config = interfaces_config
     # end build_ae_config
 
-    def add_addr_term(self, ff, addr_match, is_src):
+    def add_addr_term(self, term, addr_match, is_src):
         if not addr_match:
             return None
         subnet = addr_match.get_subnet()
@@ -687,22 +687,15 @@ class QfxConf(JuniperConf):
         subnet_len = subnet.get_ip_prefix_len()
         if not subnet_ip or not subnet_len:
             return None
-        term = Term()
-        from_ = From()
+        from_ = term.get_from() or From()
         term.set_from(from_)
         if is_src:
-            term.set_name("src-addr-prefix")
-            src_prefix_list = SourcePrefixList(name=str(subnet_ip) + "/" + str(subnet_len))
-            from_.set_source_prefix_list(src_prefix_list)
+            from_.add_ip_source_address(str(subnet_ip) + "/" + str(subnet_len))
         else:
-            term.set_name("dst-addr-prefix")
-            dst_prefix_list = DestinationPrefixList(name=str(subnet_ip) + "/" + str(subnet_len))
-            from_.set_destination_prefix_list(dst_prefix_list)
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
+            from_.add_ip_destination_address(str(subnet_ip) + "/" + str(subnet_len))
     # end add_addr_term
 
-    def add_port_term(self, ff, port_match, is_src):
+    def add_port_term(self, term, port_match, is_src):
         if not port_match:
             return None
         start_port = port_match.get_start_port()
@@ -710,29 +703,27 @@ class QfxConf(JuniperConf):
         if not start_port or not end_port:
             return None
         port_str = str(start_port) + "-" + str(end_port)
-        term = Term()
-        from_ = From()
+        from_ = term.get_from() or From()
         term.set_from(from_)
         if is_src:
-            term.set_name("src-port")
-            from_.add_destination_port(port_str)
-        else:
-            term.set_name("dst-port")
             from_.add_source_port(port_str)
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
+        else:
+            from_.add_destination_port(port_str)
     # end add_port_term
 
-    def add_protocol_term(self, ff, protocol_match):
+    def add_filter_term(self, ff, name):
+        term = Term()
+        term.set_name(name)
+        ff.add_term(term)
+        term.set_then(Then(accept=''))
+        return term
+
+    def add_protocol_term(self, term, protocol_match):
         if not protocol_match or protocol_match == 'any':
             return None
-        term = Term()
-        from_ = From()
+        from_ = term.get_from() or From()
         term.set_from(from_)
-        term.set_name("protocol")
         from_.set_ip_protocol(protocol_match)
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
     # end add_protocol_term
 
     def add_dns_dhcp_terms(self, ff):
@@ -793,15 +784,17 @@ class QfxConf(JuniperConf):
             filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
             f = FirewallFilter(name=filter_name)
             f.set_comment(DMUtils.sg_firewall_comment(sg.name, ether_type_match, rule_uuid))
-            self.add_addr_term(f, dst_addr_match, False)
-            self.add_addr_term(f, src_addr_match, True)
-            self.add_port_term(f, dst_port_match, False)
-            self.add_port_term(f, src_port_match, False)
             # allow arp ether type always
             self.add_ether_type_term(f, 'arp')
-            self.add_protocol_term(f, protocol_match)
             # allow dhcp/dns always
             self.add_dns_dhcp_terms(f)
+            default_term = self.add_filter_term(f, "default-term")
+            self.add_addr_term(default_term, dst_addr_match, False)
+            self.add_addr_term(default_term, src_addr_match, True)
+            self.add_port_term(default_term, dst_port_match, False)
+            # source port match is not needed for now (BMS source port)
+            #self.add_port_term(default_term, src_port_match, True)
+            self.add_protocol_term(default_term, protocol_match)
             eswitching.add_filter(f)
         if not eswitching.get_filter():
             ff.set_ethernet_switching(None)
