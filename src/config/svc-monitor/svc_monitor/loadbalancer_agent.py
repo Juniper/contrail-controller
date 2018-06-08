@@ -607,15 +607,16 @@ class LoadbalancerAgent(Agent):
         }
 
         props = pool.params
-        for key, mapping in self._loadbalancer_pool_type_mapping.iteritems():
-            if key in props and props[key]:
-                res[mapping] = props[key]
+        if props:
+            for key, mapping in self._loadbalancer_pool_type_mapping.iteritems():
+                if key in props and props[key]:
+                    res[mapping] = props[key]
 
-        if 'session_persistence' in props and  props['session_persistence']:
-            sp = {'type': props['session_persistence']}
-            if props['session_persistence'] == 'APP_COOKIE':
-                sp['cookie_name'] = props['persistence_cookie_name']
-            res['session_persistence'] = sp
+            if 'session_persistence' in props and  props['session_persistence']:
+                sp = {'type': props['session_persistence']}
+                if props['session_persistence'] == 'APP_COOKIE':
+                    sp['cookie_name'] = props['persistence_cookie_name']
+                res['session_persistence'] = sp
 
         # provider
         res['provider'] = pool.provider
