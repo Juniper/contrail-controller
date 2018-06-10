@@ -165,7 +165,9 @@ void Agent::SetAgentTaskPolicy() {
         INSTANCE_MANAGER_TASK_NAME,
         kAgentResourceBackUpTask,
         kAgentResourceRestoreTask,
-        kTaskMacLearning
+        kTaskMacLearning,
+        "Ksync::KSyncSockTcpRead",
+        "Ksync::KSyncSockUdsRead"
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list,
                      sizeof(db_exclude_list) / sizeof(char *));
@@ -255,7 +257,9 @@ void Agent::SetAgentTaskPolicy() {
     const char *ksync_exclude_list[] = {
         "db::DBTable",
         AGENT_SHUTDOWN_TASKNAME,
-        AGENT_INIT_TASKNAME
+        AGENT_INIT_TASKNAME,
+        "Ksync::KSyncSockTcpRead",
+        "Ksync::KSyncSockUdsRead"
     };
     SetTaskPolicyOne("Agent::KSync", ksync_exclude_list,
                      sizeof(ksync_exclude_list) / sizeof(char *));
@@ -364,7 +368,28 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne(kTaskHealthCheck, health_check_exclude_list,
                      sizeof(health_check_exclude_list) / sizeof(char *));
-
+    // ksync TCP sock read task
+    const char *ksync_sock_tcp_exclude_list[] = {
+        "db::DBTable",
+        "Agent::KSync",
+        "Agent::Uve",
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne("Ksync::KSyncSockTcpRead", 
+                        ksync_sock_tcp_exclude_list,
+            sizeof(ksync_sock_tcp_exclude_list) / sizeof(char *));
+    // ksync UDS sock read task
+    const char *ksync_sock_uds_exclude_list[] = {
+        "db::DBTable",
+        "Agent::KSync",
+        "Agent::Uve",
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne("Ksync::KSyncSockUdsRead", 
+                        ksync_sock_uds_exclude_list,
+            sizeof(ksync_sock_uds_exclude_list) / sizeof(char *));
 }
 
 void Agent::CreateLifetimeManager() {
