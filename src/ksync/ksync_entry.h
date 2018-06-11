@@ -56,7 +56,8 @@ public:
         DEL_ADD_REQ,
         DEL_ACK,
         RE_EVAL,
-        INT_PTR_REL
+        INT_PTR_REL,
+        INVALID
     };
 
     std::string StateString() const;

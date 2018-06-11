@@ -182,6 +182,7 @@ private:
     KSyncEntry *entry_;
     KSyncEntry::KSyncEvent event_;
     AgentSandeshContext *agent_sandesh_ctx_;
+    KSyncSock *sock_;
 };
 
 /*
@@ -342,6 +343,16 @@ public:
         }
     };
     typedef WorkQueue<KSyncRxData> KSyncReceiveQueue;
+    // structure for ksyncrprocess Rx queue
+    struct KSyncRxQueueData {
+         KSyncEntry             *entry_;
+         KSyncEntry::KSyncEvent event_;
+         KSyncRxQueueData():entry_(NULL),event_(KSyncEntry::INVALID) {}
+         KSyncRxQueueData(KSyncEntry *entry, KSyncEntry::KSyncEvent event) :
+                 entry_(entry), event_(event) {
+         }
+     };
+    typedef WorkQueue<KSyncRxQueueData> KSyncRxWorkQueue;
 
     KSyncSock();
     virtual ~KSyncSock();
@@ -404,6 +415,8 @@ public:
     void SetMeasureQueueDelay(bool val);
     void reset_use_wait_tree() { use_wait_tree_ = false; }
     void set_process_data_inline() { process_data_inline_ = true; }
+    // API to enqueue ksync events to rx process work queue
+    void EnqueueRxProcessData(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
 protected:
     static void Init(bool use_work_queue, const std::string &cpu_pin_policy);
     static void SetSockTableEntry(KSyncSock *sock);
@@ -459,6 +472,7 @@ private:
 
     bool ProcessKernelData(KSyncBulkSandeshContext *ksync_context,
                            const KSyncRxData &data);
+    bool ProcessRxData(KSyncRxQueueData data);
     bool SendAsyncImpl(IoContext *ioc);
     bool SendAsyncStart() {
         tbb::mutex::scoped_lock lock(mutex_);
@@ -482,7 +496,11 @@ private:
     int tx_count_;
     int ack_count_;
     int err_count_;
-
+    
+    // IO context can defer ksync event processing 
+    // by defering them to this work queue, this queue gets 
+    // processed in Agent::KSync context
+    KSyncRxWorkQueue  rx_process_queue_;
     static std::auto_ptr<KSyncSock> sock_;
     static pid_t pid_;
     static int vnsw_netlink_family_id_;

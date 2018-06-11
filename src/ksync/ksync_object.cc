@@ -659,8 +659,10 @@ std::string KSyncEntry::EventString(KSyncEvent event) const {
     case INT_PTR_REL:
         str << "Reference release";
         break;
+    case INVALID:
+        str << "Invalid";
+        break;
     }
-
     str << '(' << event << ')';
     return str.str();
 }
