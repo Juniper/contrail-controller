@@ -24,14 +24,17 @@ from db import GlobalSystemConfigDM
 from db import VirtualMachineInterfaceDM
 from abstract_device_api.abstract_device_xsd import *
 
+
 class AnsibleConf(AnsibleBase):
     @classmethod
     def register(cls, plugin_info):
-        #plugin_info.update(common_params)
+        # plugin_info.update(common_params)
         return super(AnsibleConf, cls).register(plugin_info)
     # end register
 
     def __init__(self):
+        # initialize data structures
+        self.initialize()
         self.user_creds = self.physical_router.user_credentials
         self.management_ip = self.physical_router.management_ip
         self.timeout = 120
@@ -40,16 +43,29 @@ class AnsibleConf(AnsibleBase):
     # end __init__
 
     def plugin_init(self):
-        self.plugin_init_done = False
-        # initialize data structures
-        self.initialize()
         # build and push underlay config, onetime job
         self.underlay_config()
-        self.plugin_init_done = True
         super(AnsibleConf, self).plugin_init()
     # end plugin_init
 
     def initialize(self):
+        self.ri_config = None
+        self.routing_instances = {}
+        self.interfaces_config = None
+        self.services_config = None
+        self.policy_config = None
+        self.firewall_config = None
+        self.inet4_forwarding_filter = None
+        self.inet6_forwarding_filter = None
+        self.forwarding_options_config = None
+        self.global_routing_options_config = None
+        self.global_switch_options_config = None
+        self.vlans_config = None
+        self.proto_config = None
+        self.route_targets = set()
+        self.bgp_peers = {}
+        self.chassis_config = None
+        self.external_peers = {}
         super(AnsibleConf, self).initialize()
     # end initialize
 
@@ -79,7 +95,7 @@ class AnsibleConf(AnsibleBase):
     def are_creds_modified(self):
         user_creds = self.physical_router.user_credentials
         management_ip = self.physical_router.management_ip
-        if (self.user_creds != user_creds or self.management_ip != management_ip):
+        if self.user_creds != user_creds or self.management_ip != management_ip:
             return True
         return False
     # end are_creds_modified
@@ -95,26 +111,6 @@ class AnsibleConf(AnsibleBase):
     def is_connected(self):
         return True
     # end is_connected
-
-    def initialize(self):
-        self.ri_config = None
-        self.routing_instances = {}
-        self.interfaces_config = None
-        self.services_config = None
-        self.policy_config = None
-        self.firewall_config = None
-        self.inet4_forwarding_filter = None
-        self.inet6_forwarding_filter = None
-        self.forwarding_options_config = None
-        self.global_routing_options_config = None
-        self.global_switch_options_config = None
-        self.vlans_config = None
-        self.proto_config = None
-        self.route_targets = set()
-        self.bgp_peers = {}
-        self.chassis_config = None
-        self.external_peers = {}
-    # ene initialize
 
     def device_send(self, conf, default_operation="merge",
                      operation="replace"):
