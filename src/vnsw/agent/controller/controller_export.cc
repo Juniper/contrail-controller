@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
+error-delete
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
