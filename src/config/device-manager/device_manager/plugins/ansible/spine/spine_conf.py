@@ -13,10 +13,8 @@ class SpineConf(AnsibleRoleCommon):
     _roles = ['spine']
 
     def __init__(self, vnc_lib, logger, params={}):
-        self._logger = logger
         self._vnc_lib = vnc_lib
-        self.physical_router = params.get("physical_router")
-        super(SpineConf, self).__init__()
+        super(SpineConf, self).__init__(logger, params)
     # end __init__
 
     @classmethod

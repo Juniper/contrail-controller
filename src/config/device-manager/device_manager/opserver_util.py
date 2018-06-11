@@ -36,12 +36,12 @@ class OpServerUtils(object):
         try:
             response = requests.post(url, **request_args)
         except requests.exceptions.ConnectionError, e:
-            logger.error("Connection to %s failed %s", (url, str(e)))
+            logger.error("Connection to %s failed %s" % (url, str(e)))
             return None
         if response.status_code == 202 or response.status_code == 200:
             return response.text
         else:
-            logger.error("HTTP error code: %d", response.status_code)
+            logger.error("HTTP error code: %d" % response.status_code)
         return None
     # end post_url_http
 

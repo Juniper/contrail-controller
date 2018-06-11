@@ -114,7 +114,7 @@ class TestJobHandler(unittest.TestCase):
                                       self.JOB_LOG_RESPONSE]
 
         self.assertEqual(self.job_handler.get_job_status(), JobStatus.INIT)
-        self.job_handler.push()
+        self.assertRaises(Exception, self.job_handler.push)
 
         self.vnc_api.execute_job.assert_called_with(
             job_template_fq_name=self.job_type,
@@ -133,7 +133,7 @@ class TestJobHandler(unittest.TestCase):
             cfgm_common.exceptions.HttpError(500, "execute-job failed")
 
         self.assertEqual(self.job_handler.get_job_status(), JobStatus.INIT)
-        self.job_handler.push()
+        self.assertRaises(Exception, self.job_handler.push)
 
         self.vnc_api.execute_job.assert_called_with(
             job_template_fq_name=self.job_type,
@@ -152,7 +152,7 @@ class TestJobHandler(unittest.TestCase):
         self.post_mock.side_effect = requests.exceptions.HTTPError()
 
         self.assertEqual(self.job_handler.get_job_status(), JobStatus.INIT)
-        self.job_handler.push()
+        self.assertRaises(Exception, self.job_handler.push)
 
         self.vnc_api.execute_job.assert_called_with(
             job_template_fq_name=self.job_type,
@@ -176,7 +176,7 @@ class TestJobHandler(unittest.TestCase):
                                       self.NO_LOG_RESPONSE]
 
         self.assertEqual(self.job_handler.get_job_status(), JobStatus.INIT)
-        self.job_handler.push(self.TIMEOUT, 3)
+        self.assertRaises(Exception, self.job_handler.push, self.TIMEOUT, 3)
 
         self.vnc_api.execute_job.assert_called_with(
             job_template_fq_name=self.job_type,

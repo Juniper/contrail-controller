@@ -7,9 +7,11 @@ from cStringIO import StringIO
 from lxml import etree
 from test_utils import stub
 
+
 class FakeNetconfManager(object):
     model = 'mx480'
     version = '14.2R6'
+
     def __init__(self, host, *args, **kwargs):
         self.host = host
         self.connected = True
@@ -64,9 +66,13 @@ class FakeNetconfManager(object):
     commit = stub
 # end FakeNetconfManager
 
+
 netconf_managers = {}
+
+
 def fake_netconf_connect(host, *args, **kwargs):
     return netconf_managers.setdefault(host, FakeNetconfManager(host, args, kwargs))
+
 
 class FakeDeviceConnect(object):
     params = {}
@@ -82,11 +88,11 @@ class FakeDeviceConnect(object):
     def send_netconf(cls, obj, new_config, default_operation="merge", operation="replace"):
         config = new_config.get_configuration().get_groups()
         cls.params = {
-                                     "pr_config": obj,
-                                     "config": config,
-                                     "default_operation": default_operation,
-                                     "operation": operation
-                                   }
+            "pr_config": obj,
+            "config": config,
+            "default_operation": default_operation,
+            "operation": operation
+        }
         return len(cls.get_xml_data(new_config))
     # end send_netconf
 
@@ -101,5 +107,41 @@ class FakeDeviceConnect(object):
     # end get_xml_config
 # end
 
+
 def fake_send_netconf(self, new_config, default_operation="merge", operation="replace"):
     return FakeDeviceConnect.send_netconf(self, new_config, default_operation, operation)
+
+
+class FakeJobHandler(object):
+    params = {}
+
+    @classmethod
+    def send(cls, plugin, job_template, job_input, retry):
+        cls.params = {
+            'plugin': plugin,
+            'job_template':  job_template,
+            'job_input':  job_input,
+            'retry': retry
+        }
+    # end push
+
+    @classmethod
+    def get_job_template(cls):
+        return cls.params.get('job_template')
+    # end get_job_template
+
+    @classmethod
+    def get_job_input(cls):
+        return cls.params.get('job_input')
+    # end get_job_input
+
+    @classmethod
+    def reset(cls):
+        cls.params = {}
+    # end reset
+# end FakeJobHandler
+
+
+def fake_job_handler_push(plugin, job_template, job_input, retry):
+    return FakeJobHandler.send(plugin, job_template, job_input, retry)
+# end fake_job_handler_push
