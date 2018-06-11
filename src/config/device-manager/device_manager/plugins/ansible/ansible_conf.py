@@ -7,12 +7,9 @@ This file contains generic plugin implementation device configuration using ansi
 """
 
 import abc
-from ncclient import manager
-from ncclient.xml_ import new_ele
-from ncclient.operations.errors import TimeoutExpiredError
-from ncclient.transport.errors import TransportError
 import time
 import datetime
+import json
 from cStringIO import StringIO
 from dm_utils import DMUtils
 from ansible_base import AnsibleBase
@@ -20,32 +17,28 @@ from dm_utils import PushConfigState
 from db import PhysicalInterfaceDM
 from db import LogicalInterfaceDM
 from db import BgpRouterDM
-from db import GlobalSystemConfigDM
 from db import VirtualMachineInterfaceDM
+from db import NodeProfileDM
 from abstract_device_api.abstract_device_xsd import *
+from device_manager import DeviceManager
+from job_handler import JobHandler
+
 
 class AnsibleConf(AnsibleBase):
     @classmethod
     def register(cls, plugin_info):
-        #plugin_info.update(common_params)
+        # plugin_info.update(common_params)
         return super(AnsibleConf, cls).register(plugin_info)
     # end register
 
-    def __init__(self):
-        self.user_creds = self.physical_router.user_credentials
-        self.management_ip = self.physical_router.management_ip
-        self.timeout = 120
-        self.push_config_state = PushConfigState.PUSH_STATE_INIT
-        super(AnsibleConf, self).__init__()
+    def __init__(self, logger, params={}):
+        self.physical_router = params.get("physical_router")
+        super(AnsibleConf, self).__init__(logger)
     # end __init__
 
     def plugin_init(self):
-        self.plugin_init_done = False
-        # initialize data structures
-        self.initialize()
         # build and push underlay config, onetime job
         self.underlay_config()
-        self.plugin_init_done = True
         super(AnsibleConf, self).plugin_init()
     # end plugin_init
 
@@ -75,7 +68,7 @@ class AnsibleConf(AnsibleBase):
     def are_creds_modified(self):
         user_creds = self.physical_router.user_credentials
         management_ip = self.physical_router.management_ip
-        if (self.user_creds != user_creds or self.management_ip != management_ip):
+        if self.user_creds != user_creds or self.management_ip != management_ip:
             return True
         return False
     # end are_creds_modified
@@ -112,8 +105,16 @@ class AnsibleConf(AnsibleBase):
         self.bgp_peers = {}
         self.chassis_config = None
         self.external_peers = {}
+        self.timeout = 120
+        self.push_config_state = PushConfigState.PUSH_STATE_INIT
         self.init_system_config()
-    # ene initialize
+    # end initialize
+
+    def update_system(self):
+            self.system.set_credentials(credentials)
+        if self.physical_router.loopback_ip:
+            self.system.add_loopback_ip_list(self.physical_router.loopback_ip)
+    # end update_system
 
     def init_system_config(self):
         self.system_config = System()
@@ -121,10 +122,37 @@ class AnsibleConf(AnsibleBase):
         self.system_config.set_uuid(self.physical_router.uuid)
         self.system_config.set_vendor_name(self.physical_router.vendor)
         self.system_config.set_product_name(self.physical_router.product)
-        self.system_config.set_management_ip(self.management_ip)
-        self.system_config.set_credentials(Credentials(authentication_method="PasswordBasedAuthentication", \
-                                           user_name=self.user_creds['username'], password=self.user_creds['password']))
+        self.system_config.set_device_family(self.physical_router.device_family)
+        self.system_config.set_management_ip(self.physical_router.management_ip)
+        if self.physical_router.user_credentials:
+            self.system_config.set_credentials(Credentials(
+                authentication_method="PasswordBasedAuthentication",
+                user_name=self.physical_router.user_credentials.get('username'),
+                password=self.physical_router.user_credentials.get('password')))
     # end init_system_config
+
+    def add_interfaces(self):
+        self.interfaces_config = self.interfaces_config or []
+        for pi_uuid in self.physical_router.physical_interfaces:
+            pi_obj = PhysicalInterfaceDM.get(pi_uuid)
+            if pi_obj is None:
+                continue
+            pi = PhysicalInterface(uuid=pi_uuid, name=pi_obj.name,
+                                   comment=DMUtils.ip_clos_comment())
+            self.interfaces_config.append(pi)
+
+            for li_uuid in pi.logical_interfaces:
+                li_obj = LogicalInterfaceDM.get(li_uuid)
+                if li_obj is None:
+                    continue
+                li = LogicalInterface(uuid=li_uuid, name=li_obj.name,
+                                      comment=DMUtils.ip_clos_comment())
+                pi.add_interfaces(li)
+                if li_obj.instance_ip:
+                    iip_obj = InstanceIpDM.get(li.instance_ip)
+                    if iip_obj is not None:
+                        li.set_ip_address(iip_obj.get('instance_ip_address'))
+    # end add_interfaces
 
     def device_send(self, conf, default_operation="merge",
                      operation="replace"):
@@ -235,7 +263,25 @@ class AnsibleConf(AnsibleBase):
         pass
     # end add_product_specific_config
 
-    def prepare_device(self, is_delete=False):
+    @staticmethod
+    def serialize(config):
+        return config.exportDict(name_=None)
+    # end serialize
+
+    def read_feature_configs(self):
+        feature_configs = {}
+        job_template = None
+        if self.physical_router.node_profile is not None:
+            node_profile = NodeProfileDM.get(self.physical_router.node_profile)
+            if node_profile is not None:
+                for role_config in node_profile.role_configs:
+                    if job_template is None:
+                        job_template = role_config.job_template_fq_name
+                    feature_configs[role_config.name] = role_config.config
+        return feature_configs, job_template
+    # end read_feature_configs
+
+    def prepare_conf(self, is_delete=False):
         device = Device()
         if is_delete:
             return device
@@ -248,61 +294,56 @@ class AnsibleConf(AnsibleBase):
         device.set_polices(self.policy_config)
         device.set_firewalls(self.firewall_config)
         return device
-    # end prepare_device
-
-    def build_conf(self, device, operation='replace'):
-        return device
-    # end build_conf
-
-    def serialize(self, config):
-        # TBD: get json data instead of xml data
-        xml_data = StringIO()
-        config.export_xml(xml_data, 1)
-        return xml_data.getvalue()
-    # end serialize
-
-    def prepare_conf(self, default_operation="merge", operation="replace"):
-        device = self.prepare_device(is_delete = True if operation is 'delete' else False)
-        return self.build_conf(device, operation)
     # end prepare_conf
 
     def has_conf(self):
-        if not self.system_config or not self.bgp_configs:
-            return False
-        return True
+        return self.system_config or self.bgp_configs or self.interfaces_config
     # end has_conf
 
     def send_conf(self, is_delete=False):
         if not self.has_conf() and not is_delete:
-            return 0
-        default_operation = "none" if is_delete else "merge"
-        operation = "delete" if is_delete else "replace"
-        conf = self.prepare_conf(default_operation, operation)
-        return self.device_send(conf, default_operation, operation)
+            return
+        config = self.prepare_conf()
+        feature_params, job_template = self.read_feature_configs()
+        job_input = {
+            'device_abstract_config': config.exportDict(name_=None),
+            'additional_feature_params': feature_params
+        }
+        device_manager = DeviceManager.get_instance()
+        job_handler = JobHandler(job_template, json.dumps(job_input),
+                                 [self.management_ip],
+                                 device_manager.get_analytics_config(),
+                                 device_manager.get_vnc(), self._logger)
+        job_handler.push()
     # end send_conf
 
     def add_lo0_unit_0_interface(self, loopback_ip=''):
         if not loopback_ip:
             return
         if not self.interfaces_config:
-            self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
+            self.interfaces_config = Interfaces(
+                comment=DMUtils.interfaces_comment())
         lo_intf = PhysicalInterface(name="lo0", interface_type="loopback")
         self.interfaces_config.add_interface(lo_intf)
-        li = LogicalInterface(name="lo0", unit=0, comment=DMUtils.lo0_unit_0_comment(), family="inet")
+        li = LogicalInterface(name="lo0", unit=0,
+                              comment=DMUtils.lo0_unit_0_comment(),
+                              family="inet")
         li.add_ip_list(IpType(address=loopback_ip))
         lo_intf.add_interfaces(li)
     # end add_lo0_unit_0_interface
 
     def add_dynamic_tunnels(self, tunnel_source_ip,
-                             ip_fabric_nets, bgp_router_ips):
+                            ip_fabric_nets, bgp_router_ips):
         if not self.system_config:
             self.system_config = System()
         self.system_config.set_tunnel_ip(tunnel_source_ip)
-        dynamic_tunnel = DynamicTunnel(name=DMUtils.dynamic_tunnel_name(self.get_asn()),
-                                       source_address=tunnel_source_ip, gre='')
+        dynamic_tunnel = DynamicTunnel(
+            name=DMUtils.dynamic_tunnel_name(self.get_asn()),
+            source_address=tunnel_source_ip, gre='')
         if ip_fabric_nets is not None:
             for subnet in ip_fabric_nets.get("subnet", []):
-                dest_net = Subnet(prefix=subnet['ip_prefix'], prefix_len=subnet['ip_prefix_len'])
+                dest_net = Subnet(prefix=subnet['ip_prefix'],
+                                  prefix_len=subnet['ip_prefix_len'])
                 self.system_config.add_tunnel_destination_networks(dest_net)
 
         for r_name, bgp_router_ip in bgp_router_ips.items():
@@ -317,7 +358,7 @@ class AnsibleConf(AnsibleBase):
         if family_name in families:
             return True
         return False
-     # end is_family_configured
+    # end is_family_configured
 
     def add_families(self, parent, params):
         if params.get('address_families') is None:
@@ -336,7 +377,8 @@ class AnsibleConf(AnsibleBase):
         if not families:
             return
         if self.policy_config is None:
-            self.policy_config = Policy(comment=DMUtils.policy_options_comment())
+            self.policy_config = Policy(
+                comment=DMUtils.policy_options_comment())
         ps = PolicyRule(name=DMUtils.make_ibgp_export_policy_name())
         self.policy_config.add_policy_rule(ps)
         ps.set_comment(DMUtils.ibgp_export_policy_comment())
@@ -453,15 +495,16 @@ class AnsibleConf(AnsibleBase):
         if bgp_router:
             for peer_uuid, attr in bgp_router.bgp_routers.items():
                 peer = BgpRouterDM.get(peer_uuid)
-                if not peer or not peer.params or not peer.params.get('address'):
+                if not peer or not peer.params or not peer.params.get(
+                        'address'):
                     continue
                 local_as = (bgp_router.params.get('local_autonomous_system') or
-                               bgp_router.params.get('autonomous_system'))
+                            bgp_router.params.get('autonomous_system'))
                 peer_as = (peer.params.get('local_autonomous_system') or
-                               peer.params.get('autonomous_system'))
+                           peer.params.get('autonomous_system'))
                 external = (local_as != peer_as)
                 self.add_bgp_peer(peer.params['address'],
-                                                 peer.params, attr, external, peer)
+                                  peer.params, attr, external, peer)
             self.set_bgp_config(bgp_router.params, bgp_router)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
             tunnel_ip = self.physical_router.dataplane_ip

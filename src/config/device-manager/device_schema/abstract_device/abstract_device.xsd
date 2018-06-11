@@ -27,6 +27,7 @@
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="uuid" type="xsd:string"/>
        <xsd:element name="vendor-name" type="xsd:string"/>
+       <xsd:element name="device-family" type="xsd:string"/>
        <xsd:element name="product-name" type="xsd:string"/>
        <xsd:element name="management-ip" type="xsd:string"/>
        <xsd:element name="roles" type="dac:Role" maxOccurs="unbounded"/>

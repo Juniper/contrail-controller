@@ -30,11 +30,8 @@ class AnsibleRoleCommon(AnsibleConf):
         return False
     # end is_role_supported
 
-    def __init__(self):
-        super(AnsibleRoleCommon, self).__init__()
-        self.evpn = None
-        self.global_switch_options_config = None
-        self.vlans_config = None
+    def __init__(self, logger, params={}):
+        super(AnsibleRoleCommon, self).__init__(logger, params)
     # end __init__
 
     def is_spine(self):
@@ -45,10 +42,10 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def underlay_config(self):
         self._logger.info("underlay config start: %s\n" % self.physical_router.name)
-        # build underlay config using VNC API
-        # push underlay config
-        # config = self.build()
-        # job_handler = JobHandler()
+        self.update_system()
+        self.add_interfaces()
+        self.build_bgp_config()
+        self.send_conf()
         self._logger.info("underlay config end: %s\n" % self.physical_router.name)
         pass
     # end underlay_config
