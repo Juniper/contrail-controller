@@ -15,6 +15,7 @@ from test_dm_utils import FakeDeviceConnect
 from test_dm_utils import FakeNetconfManager
 from test_dm_utils import fake_netconf_connect
 from test_dm_utils import fake_send_netconf
+from test_dm_utils import fake_job_handler_push
 import device_manager
 
 class DMTestCase(test_common.TestCase):
@@ -48,6 +49,8 @@ class DMTestCase(test_common.TestCase):
         setattr(device_manager.mx_conf.MxConf, 'device_send', fake_send_netconf)
         setattr(device_manager.qfx_5k.Qfx5kConf, 'device_send', fake_send_netconf)
         setattr(device_manager.qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
+        setattr(device_manager.job_handler.JobHandler, 'push',
+                fake_job_handler_push)
         FakeNetconfManager.set_model(self.product)
         return
 
