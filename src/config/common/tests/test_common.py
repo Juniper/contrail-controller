@@ -366,7 +366,8 @@ def launch_schema_transformer(cluster_id, test_id, api_server_ip,
     to_bgp.main(args_str)
 # end launch_schema_transformer
 
-def launch_device_manager(test_id, api_server_ip, api_server_port):
+def launch_device_manager(test_id, api_server_ip, api_server_port,
+                          conf_sections=None):
     wait_for_device_manager_down()
     allocated_sockets = []
     args_str = ""
@@ -377,7 +378,17 @@ def launch_device_manager(test_id, api_server_ip, api_server_port):
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file device_manager_%s.log " %(test_id)
-    device_manager.main(args_str)
+
+    if conf_sections is not None:
+        with tempfile.NamedTemporaryFile() as conf:
+            cfg_parser = generate_conf_file_contents(conf_sections)
+            cfg_parser.write(conf)
+            conf.flush()
+            args_str = args_str + "--conf_file %s " % conf.name
+            device_manager.main(args_str)
+    else:
+        device_manager.main(args_str)
+
 # end launch_device_manager
 
 @retries(5, hook=retry_exc_handler)
