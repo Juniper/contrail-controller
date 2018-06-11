@@ -11,3 +11,4 @@ sandesh_common
 junitxml
 timeout-decorator
 requests
+python-swiftclient
