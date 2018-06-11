@@ -13,10 +13,11 @@
        <!-- L2 Vlans/Bridge Domains-->
        <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
        <!-- System Firewalls for FIP/SNAP/Policies/ACLs -->
-       <xsd:element name="firewalls" type="dac:Firewall" maxOccurs="unbounded"/>
+       <xsd:element name="firewall" type="dac:Firewall"/>
        <!-- L2/L3 Policies -->
-       <xsd:element name="policies" type="dac:Policy" maxOccurs="unbounded"/>
+       <xsd:element name="policies" type="dac:Policy"/>
        <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -29,11 +30,10 @@
        <xsd:element name="product-name" type="xsd:string"/>
        <xsd:element name="roles" type="dac:Role" maxOccurs="unbounded"/>
        <xsd:element name="credentials" type="dac:Credentials"/>
-       <xsd:element name="loopback-ip-list" type="dac:IpType" maxOccurs="unbounded"/>
+       <xsd:element name="loopback-ip-list" type="dac:IpType" maxOccurs="unbounded"/><!--Interfaces (JUNOS) - lo0 interface-->
        <xsd:element name="highest-encapsulation-priority" type="xsd:string"/>
        <xsd:element name="tunnel-ip" type="xsd:string"/>
        <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
-       <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -48,6 +48,23 @@
     <xsd:all>
        <xsd:element name="prefix" type="xsd:string"/>
        <xsd:element name="prefix-len" type="xsd:integer"/>
+       <xsd:element name="comment" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Route">
+    <xsd:all>
+       <xsd:element name="prefix" type="xsd:string"/>
+       <xsd:element name="prefix-len" type="xsd:integer"/>
+       <xsd:element name="next-hop" type="xsd:string"/>
+       <xsd:element name="comment" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="GatewayRoute">
+    <xsd:all>
+       <xsd:element name="ip-address" type="dac:Subnet"/>
+       <xsd:element name="gateway" type="dac:Subnet"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -106,18 +123,21 @@
 
 <xsd:complexType name="RoutingInstance">
     <xsd:all>
+       <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="virtual-network-uuid" type="xsd:string"/>
        <xsd:element name="virtual-network-id" type="xsd:string"/>
+       <xsd:element name="virtual-network-mode" type="xsd:string"/><!-- L2 or L3 or L2-L3 -->
        <xsd:element name="routing-instance-type" type="xsd:string"/>
-       <xsd:element name="is-public-network" type="xsd:boolean"/>
+       <xsd:element name="is-public-network" type="xsd:boolean"/><!--router_external, restrict_proxy_arp-->
        <xsd:element name="import-targets" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="export-targets" type="xsd:string" maxOccurs="unbounded"/>
-       <xsd:element name="static-routes" type="dac:Subnet" maxOccurs="unbounded"/>
-       <xsd:element name="gateways" type="dac:Subnet" maxOccurs="unbounded"/>
+       <xsd:element name="static-routes" type="dac:Route" maxOccurs="unbounded"/>
+       <xsd:element name="prefixes" type="dac:Subnet" maxOccurs="unbounded"/>
+       <xsd:element name="gateways" type="dac:GatewayRoute" maxOccurs="unbounded"/>
        <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
-       <xsd:element name="routing-interface" type="dac:LogicalInterface"/>
-       <xsd:element name="loopback-interface" type="dac:LogicalInterface"/>
+       <xsd:element name="routing-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="loopback-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
        <xsd:element name="service-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
        <!-- for SNAT & FIP -->
        <xsd:element name="nat-rules" type="dac:NatRules" maxOccurs="unbounded"/>
@@ -148,8 +168,8 @@
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="vlan-id" type="xsd:integer"/>
        <xsd:element name="vxlan-id" type="xsd:integer"/>
-       <!-- FOr L2 EVPN on LEAF and MX : L2 Bridge Domains-->
-       <xsd:element name="vlan_or_bridge_domain" type="xsd:boolean"/>
+       <!-- VLAN: for L2 EVPN on QFX Spine & LEAF, Bridge Domains: on MX-->
+       <xsd:element name="vlan-or-bridge-domain" type="xsd:boolean"/>
        <xsd:element name="l3-interface" type="xsd:string"/>
        <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
@@ -181,10 +201,11 @@
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="uuid" type="xsd:string"/>
-       <xsd:element name="vlan_tag" type="xsd:string"/>
+       <xsd:element name="vlan-tag" type="xsd:string"/>
+       <xsd:element name="ip-address" type="xsd:string"/>
        <xsd:element name="unit" type="xsd:integer"/>
        <xsd:element name="family" type="xsd:string"/>
-       <xsd:element name="firewall_filters" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="firewall-filters" type="xsd:string" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -217,8 +238,8 @@
         <xsd:element name="routing-instance" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="source-prefix" type="xsd:string"/>
         <xsd:element name="destination-prefix" type="xsd:string"/>
-        <xsd:element name="accept_or_reject" type="xsd:boolean"/>
-        <xsd:element name="translation_type" type="xsd:string"/>
+        <xsd:element name="accept-or-reject" type="xsd:boolean"/>
+        <xsd:element name="translation-type" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -260,6 +281,7 @@
 
 <xsd:complexType name="Firewall">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
          <!-- inet, inet6, ethernet-switching -->
         <xsd:element name="family" type="xsd:string"/>
         <xsd:element name="firewall-filters" type="dac:FirewallFilter" maxOccurs="unbounded"/>
@@ -275,9 +297,19 @@
 
 <xsd:complexType name="Policy">
     <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="policy-rule" type="dac:PolicyRule" maxOccurs="unbounded"/>
         <xsd:element name="community" type="dac:CommunityType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PolicyRule">
+    <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="term" type="dac:Term" maxOccurs="unbounded"/>
+        <xsd:element name="then" type="dac:Then"/>
     </xsd:all>
 </xsd:complexType>
 
