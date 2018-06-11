@@ -45,7 +45,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
-    SecurityGroupDM, AccessControlListDM
+    SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
+    RoleConfigDM, FabricDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -80,10 +81,27 @@ class DeviceManager(object):
             'service_connection_module': [],
             'service_object': [],
             'e2_service_provider': [],
+            'fabric_namespace': [],
+            'node_profile': [],
+            'role_config': [],
         },
         'global_system_config': {
             'self': ['physical_router'],
             'physical_router': [],
+        },
+        'fabric': {
+            'self': [],
+        },
+        'fabric_namespace': {
+            'self': [],
+        },
+        'node_profile': {
+            'self': [],
+            'role_config': ['physical_router'],
+        },
+        'role_config': {
+            'self': ['node_profile'],
+            'node_profile': [],
         },
         'bgp_router': {
             'self': ['bgp_router', 'physical_router'],
@@ -290,11 +308,17 @@ class DeviceManager(object):
         for obj in GlobalSystemConfigDM.list_obj():
             GlobalSystemConfigDM.locate(obj['uuid'], obj)
 
+        for obj in NodeProfileDM.list_obj():
+            NodeProfileDM.locate(obj['uuid'], obj)
+
         for obj in GlobalVRouterConfigDM.list_obj():
             GlobalVRouterConfigDM.locate(obj['uuid'], obj)
 
         for obj in VirtualNetworkDM.list_obj():
             VirtualNetworkDM.locate(obj['uuid'], obj)
+
+        for obj in FabricNamespaceDM.list_obj():
+            FabricDM.locate(obj['uuid'], obj)
 
         for obj in LogicalRouterDM.list_obj():
             LogicalRouterDM.locate(obj['uuid'], obj)
