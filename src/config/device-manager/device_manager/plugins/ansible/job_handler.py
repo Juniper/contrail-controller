@@ -47,12 +47,12 @@ class JobHandler(object):
     # end __init__
 
     def push(self, timeout=15, max_retries=20):
-        self._logger.info("job handler: push for (%s, %s): ",
-                          self._device_list, str(self._job_type))
+        self._logger.info("job handler: push for (%s, %s): " %
+                          (self._device_list, str(self._job_type)))
         self._job_status = JobStatus.IN_PROGRESS
         try:
-            self._logger.debug("job handler: executing job for (%s, %s): ",
-                              self._device_list, str(self._job_type))
+            self._logger.debug("job handler: executing job for (%s, %s): " %
+                               (self._device_list, str(self._job_type)))
             job_execution_info = self._vnc_api.execute_job(
                 job_template_fq_name=self._job_type,
                 job_input=self._job_input,
@@ -60,12 +60,12 @@ class JobHandler(object):
             )
 
             job_execution_id = job_execution_info.get('job_execution_id')
-            self._logger.debug("job started with execution id: %s",
+            self._logger.debug("job started with execution id: %s" %
                                job_execution_id)
             self._wait(job_execution_id, timeout, max_retries)
         except Exception as e:
-            self._logger.error("job handler: push failed for (%s, %s): %s",
-                               self._device_list, str(self._job_type), str(e))
+            self._logger.error("job handler: push failed for (%s, %s): %s" %
+                               (self._device_list, str(self._job_type), str(e)))
             self._job_status = JobStatus.FAILED
     # end push
 
@@ -93,8 +93,8 @@ class JobHandler(object):
             if resp and resp['value'] and len(resp['value']) > 0:
                 return True
         else:
-            self._logger.debug("job handler: invalid response for (%s, %s):",
-                               self._device_list, str(self._job_type))
+            self._logger.debug("job handler: invalid response for (%s, %s):" %
+                               (self._device_list, str(self._job_type)))
 
         return False
     # end _check_job_status
@@ -120,8 +120,8 @@ class JobHandler(object):
             if not self.is_job_done():
                 if retry_count >= max_retries:
                     self._logger.error(
-                        "job handler: timed out waiting for (%s, %s):",
-                        self._device_list, str(self._job_type))
+                        "job handler: timed out waiting for (%s, %s):" %
+                        (self._device_list, str(self._job_type)))
                     self._job_status = JobStatus.FAILED
                 else:
                     retry_count += 1
