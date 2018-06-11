@@ -504,6 +504,10 @@ class DMUtils(object):
             return "inet6-vpn"
         return "inet-vpn"
 
+    @staticmethod
+    def ip_clos_comment():
+        return "ip_clos"
+
     @classmethod
     def get_lr_internal_vn_prefix(cls):
         return '__contrail_lr_internal_vn_'

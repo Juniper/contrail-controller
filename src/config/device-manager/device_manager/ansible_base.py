@@ -21,7 +21,7 @@ class AnsibleBase(object):
         # end __init__
 
         def __str__(self):
-            return "Ansible Plugin Error, Configuration = %s" % str(plugin_info)
+            return "Ansible Plugin Error, Configuration = %s" % str(self.plugin_info)
         # end __str__
     # end PluginError
 
@@ -32,15 +32,15 @@ class AnsibleBase(object):
 
         def __str__(self):
             ex_mesg = "Plugin Registrations Failed:\n"
-            for ex in exceptions or []:
+            for ex in self.exceptions or []:
                 ex_mesg += ex + "\n"
             return ex_mesg
         # end __str__
     # end PluginsRegistrationFailed
 
-    def __init__(self):
+    def __init__(self, logger):
+        self._logger = logger
         self.plugin_init_done = False
-        self.plugin_init()
         self.device_config = {}
         self.commit_stats = {
             'last_commit_time': '',
@@ -48,6 +48,7 @@ class AnsibleBase(object):
             'commit_status_message': '',
             'total_commits_sent_since_up': 0,
         }
+        self.initialize()
         self.device_connect()
     # end __init__
 
@@ -69,7 +70,7 @@ class AnsibleBase(object):
         if pconf:
             pconf = pconf[0] #for now one only
             inst_cls = pconf.get('class')
-            return  inst_cls(vnc_lib, logger, params)
+            return inst_cls(vnc_lib, logger, params)
         name = pr.physical_router_role + ":" + vendor + ":" + product
         logger.warning("No ansible plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
         return None
@@ -126,16 +127,14 @@ class AnsibleBase(object):
         return False
     # end is_role_supported
 
-    @abc.abstractmethod
     def plugin_init(self):
-        # derived class must implement this method
-        pass
+        self.plugin_init_done = True
     # end plugin_init
 
     @abc.abstractmethod
     def initialize(self):
         """Initialize local data structures"""
-    # ene initialize
+    # end initialize
 
     def get_device_config(self):
         return self.device_config
