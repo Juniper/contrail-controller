@@ -173,7 +173,9 @@ KSyncSock::KSyncSock() :
     rx_buff_(NULL), read_inline_(true), bulk_msg_context_(NULL),
     use_wait_tree_(true), process_data_inline_(false),
     ksync_bulk_sandesh_context_(), uve_bulk_sandesh_context_(),
-    tx_count_(0), ack_count_(0), err_count_(0) {
+    tx_count_(0), ack_count_(0), err_count_(0), 
+    rx_process_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+                    boost::bind(&KSyncSock::ProcessRxData, this, _1)) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
     uint32_t uve_task_id =
@@ -321,7 +323,14 @@ KSyncSock::KSyncReceiveQueue *KSyncSock::GetReceiveQueue(uint32_t seqno) {
     uint32_t instance = (seqno >> 1) % kRxWorkQueueCount;
     return GetReceiveQueue(type, instance);
 }
-
+void KSyncSock::EnqueueRxProcessData(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
+    rx_process_queue_.Enqueue(KSyncRxQueueData(entry, event));
+}
+bool KSyncSock::ProcessRxData(KSyncRxQueueData data) {
+    KSyncObject *object = data.entry_->GetObject();
+    object->NetlinkAck(data.entry_, data.event_);
+    return true;
+}
 KSyncBulkSandeshContext *KSyncSock::GetBulkSandeshContext(uint32_t seqno) {
 
     uint32_t instance = (seqno >> 1) % kRxWorkQueueCount;
@@ -913,14 +922,17 @@ KSyncIoContext::KSyncIoContext(KSyncSock *sock, KSyncEntry *sync_entry,
     IoContext(msg, msg_len, 0,
               sock->GetAgentSandeshContext(sync_entry->GetTableIndex()),
               IoContext::IOC_KSYNC, sync_entry->GetTableIndex()),
-    entry_(sync_entry), event_(event) {
+    entry_(sync_entry), event_(event), sock_(sock) {
     SetSeqno(sock->AllocSeqNo(type(), index()));
 }
 
 void KSyncIoContext::Handler() {
+    sock_->EnqueueRxProcessData(entry_, event_);
+#if 0
     if (KSyncObject *obj = entry_->GetObject()) {
         obj->NetlinkAck(entry_, event_);
     }
+#endif
 }
 
 void KSyncIoContext::ErrorHandler(int err) {
