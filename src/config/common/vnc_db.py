@@ -146,7 +146,7 @@ class DBBase(object):
         self.parent_type = parent_type.replace('-', '_')
         if self._indexed_by_name:
             if isinstance(obj, dict):
-                fq_name = obj_dict.get('fq_name', [])
+                fq_name = obj.get('fq_name', [])
                 if fq_name:
                     self.parent_key = ':'.join(fq_name[:-1])
                 else:
@@ -157,7 +157,7 @@ class DBBase(object):
             if isinstance(obj, dict):
                 self.parent_key = obj.get('parent_uuid')
             else:
-                self.parent_key = obj.get_parent_uuid
+                self.parent_key = obj.get_parent_uuid(obj)
         if not self.parent_type or not self.parent_key:
             return
         self.add_ref(self.parent_type, self.parent_key)
