@@ -15,21 +15,23 @@ from test_dm_utils import FakeDeviceConnect
 from test_dm_utils import FakeNetconfManager
 from test_dm_utils import fake_netconf_connect
 from test_dm_utils import fake_send_netconf
+from test_dm_utils import fake_job_handler_push
 import device_manager
 
 class DMTestCase(test_common.TestCase):
 
     @classmethod
-    def setUpClass(cls, extra_config_knobs=None):
+    def setUpClass(cls, extra_config_knobs=None, dm_config_knobs=None):
         extra_config = [
             ('DEFAULTS', 'multi_tenancy', 'False'),
             ('DEFAULTS', 'aaa_mode', 'no-auth'),
         ]
         if extra_config_knobs:
-            extra_config.append(extra_config_knobs)
+            extra_config = extra_config + extra_config_knobs
         super(DMTestCase, cls).setUpClass(extra_config_knobs=extra_config)
         cls._dm_greenlet = gevent.spawn(test_common.launch_device_manager,
-            cls.__name__, cls._api_server_ip, cls._api_server_port)
+                                        cls.__name__, cls._api_server_ip,
+                                        cls._api_server_port, dm_config_knobs)
         test_common.wait_for_device_manager_up()
         cls._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             cls._cluster_id, cls.__name__, cls._api_server_ip,
@@ -48,7 +50,12 @@ class DMTestCase(test_common.TestCase):
         setattr(device_manager.mx_conf.MxConf, 'device_send', fake_send_netconf)
         setattr(device_manager.qfx_5k.Qfx5kConf, 'device_send', fake_send_netconf)
         setattr(device_manager.qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
-        FakeNetconfManager.set_model(self.product)
+        setattr(device_manager.leaf_conf.LeafConf, 'device_send',
+                fake_job_handler_push)
+        setattr(device_manager.spine_conf.SpineConf, 'device_send',
+                fake_job_handler_push)
+        if hasattr(self, 'product'):
+            FakeNetconfManager.set_model(self.product)
         return
 
     def tearDown(self):
