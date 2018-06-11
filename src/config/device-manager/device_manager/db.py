@@ -35,6 +35,7 @@ class DBBaseDM(DBBase):
     obj_type = __name__
 # end DBBaseDM
 
+
 class BgpRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'bgp_router'
@@ -104,6 +105,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
         self.ae_id_map = {}
+        self.allocated_asn = None
         self.config_sent = False
         self.ae_index_allocator = DMIndexer(
                         DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
@@ -111,6 +113,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.config_manager = None
         self.ansible_manager = None
         self.plugin_init_done = False
+        self.fabric_uuid = None
         self.update(obj_dict)
         if self.config_manager:
             self.set_conf_sent_state(False)
@@ -187,11 +190,12 @@ class PhysicalRouterDM(DBBaseDM):
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
+        # Read the fabric associated with the PR
+        pr_fabric_refs = obj.get('fabric_back_refs')
+        if pr_fabric_refs and len(pr_fabric_refs) > 0:
+            self.fabric_uuid = pr_fabric_refs[0].get('uuid')
         self.update_multiple_refs('service_endpoint', obj)
         self.update_multiple_refs('e2_service_provider', obj)
-        plugin_params = {
-                "physical_router": self
-            }
         self.reinit_device_plugin()
     # end update
 
@@ -282,6 +286,13 @@ class PhysicalRouterDM(DBBaseDM):
             if ae_id:
                 self.ae_id_map[esi] = ae_id
                 self.ae_index_allocator.reserve_index(ae_id)
+        pr_asn_map = self._object_db.get_pr_asn_map(self.uuid)
+        if not pr_asn_map:
+            return
+        asn = self._object_db.get_asn(self.uuid)
+        if asn:
+            self.allocated_asn = asn
+
     # end init_cs_state
 
     def reserve_ip(self, vn_uuid, subnet_uuid):
@@ -701,6 +712,7 @@ class GlobalSystemConfigDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.physical_routers = set()
+        self.node_profiles = set()
         self.update(obj_dict)
     # end __init__
 
@@ -710,6 +722,7 @@ class GlobalSystemConfigDM(DBBaseDM):
         GlobalSystemConfigDM.global_asn = obj.get('autonomous_system')
         GlobalSystemConfigDM.ip_fabric_subnets = obj.get('ip_fabric_subnets')
         self.set_children('physical_router', obj)
+        self.set_children('node_profile', obj)
     # end update
 
     @classmethod
@@ -1585,6 +1598,167 @@ class NetworkDeviceConfigDM(DBBaseDM):
         del cls._dict[uuid]
 # end class NetworkDeviceConfigDM
 
+
+class FabricDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'fabric'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.lo0_ipam_subnet = None
+        self.ip_fabric_ipam_subnet = None
+        self.update(obj_dict)
+    # end __init__
+
+    @staticmethod
+    def _get_ipam_subnets_for_virtual_network(obj, vn_type):
+        vn_uuid = None
+        virtual_network_refs = obj.get('virtual_network_refs') or []
+        for ref in virtual_network_refs:
+            if vn_type in ref['attr']['network_type']:
+                vn_uuid = ref['uuid']
+                break
+
+        # Get the IPAM attached to the virtual network
+        ipam_subnets = None
+        if vn_uuid is not None:
+            vn = VirtualNetworkDM.get(vn_uuid)
+            ipam_refs = vn.get('network_ipam_refs')
+            if ipam_refs:
+                ipam_ref = ipam_refs[0]
+                ipam_subnets = ipam_ref['attr'].get('ipam_subnets')
+        return ipam_subnets
+    # end _get_ipam_for_virtual_network
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+
+        # Get the 'loopback' type virtual network
+        self.lo0_ipam_subnet =\
+            self._get_ipam_subnets_for_virtual_network(obj, 'loopback')
+
+        # Get the 'ip_fabric' type virtual network
+        self.ip_fabric_ipam_subnet = \
+            self._get_ipam_subnets_for_virtual_network(obj, 'ip_fabric')
+    # end update
+# end class FabricDM
+
+
+class FabricNamespaceDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'fabric_namespace'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.as_numbers = None
+        self.asn_ranges = None
+        self.update(obj_dict)
+    # end __init__
+
+    def _read_as_numbers(self, obj):
+        fabric_namespace_type = obj.get('fabric_namespace_type')
+        if fabric_namespace_type != "ASN":
+            return
+        tag_ids = set([tag['uuid'] for tag in obj.get('tag_refs', [])])
+        if len(tag_ids) == 0:
+            return
+        tag = self.read_obj(tag_ids[0], "tag")
+        # TODO: Match specific EBGP ASN tag
+        if tag.get('tag_type_name') != 'label' or\
+                tag.get('tag_value') != 'fabric-as_number':
+            return
+        value = self.get('fabric_namespace_value')
+        # TODO: use EBGP ASN attributes
+        if value is not None and value['asn'] is not None and\
+                value['asn']['asn'] is not None:
+            self.as_numbers = value['asn']['asn']
+    # end _read_as_numbers
+
+    def _read_asn_ranges(self, obj):
+        fabric_namespace_type = obj.get('fabric_namespace_type')
+        if fabric_namespace_type != "ASN_RANGE":
+            return
+        tag_ids = set([tag['uuid'] for tag in obj.get('tag_refs', [])])
+        if len(tag_ids) == 0:
+            return
+        tag = self.read_obj(tag_ids[0], "tag")
+        # TODO: Match specific ASN_RANGE tag
+        if tag.get('tag_type_name') != 'label' or \
+                tag.get('tag_value') != 'fabric-asn_range':
+            return
+        value = self.get('fabric_namespace_value')
+        # TODO: use ASN_RANGE attributes
+        if value is not None and value['asn_range'] is not None and \
+                value['asn_range']['asn_ranges'] is not None:
+            self.asn_ranges = value['asn_range']['asn_ranges']
+    # end _read_asn_ranges
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self._read_as_numbers(obj)
+        self._read_asn_ranges(obj)
+    # end update
+# end class FabricNamespaceDM
+
+
+class RoleConfigDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'role_config'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.node_profile = None
+        self.update(obj_dict)
+        self.add_to_parent(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.node_profile = self.get_parent_uuid(obj)
+    # end update
+# end class RoleConfigDM
+
+
+class NodeProfileDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'node_profile'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.physical_routers = set()
+        self.update(obj_dict)
+        self.add_to_parent(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.update_multiple_refs('physical_router', obj)
+        self.set_children('role_config', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('physical_router', {})
+        del cls._dict[uuid]
+    # end delete
+# end class NodeProfileDM
+
+
 class E2ServiceProviderDM(DBBaseDM):
     _dict = {}
     obj_type = 'e2_service_provider'
@@ -1641,10 +1815,12 @@ class PeeringPolicyDM(DBBaseDM):
         del cls._dict[uuid]
 # end class PeeringPolicyDM
 
+
 class DMCassandraDB(VncObjectDBClient):
     _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
     _PR_AE_ID_CF = 'dm_pr_ae_id_table'
+    _PR_ASN_CF = 'dm_pr_asn_table'
     # PNF table
     _PNF_RESOURCE_CF = 'dm_pnf_resource_table'
 
@@ -1663,7 +1839,7 @@ class DMCassandraDB(VncObjectDBClient):
 
     @classmethod
     def get_instance(cls, manager=None, zkclient=None):
-        if cls.dm_object_db_instance == None:
+        if cls.dm_object_db_instance is None:
             cls.dm_object_db_instance = DMCassandraDB(manager, zkclient)
         return cls.dm_object_db_instance
     # end
@@ -1681,6 +1857,7 @@ class DMCassandraDB(VncObjectDBClient):
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
                              self._PR_AE_ID_CF: {},
+                             self._PR_ASN_CF: {},
                              self._PNF_RESOURCE_CF: {}}}
 
         cass_server_list = self._args.cassandra_server_list
@@ -1698,8 +1875,10 @@ class DMCassandraDB(VncObjectDBClient):
 
         self.pr_vn_ip_map = {}
         self.pr_ae_id_map = {}
+        self.pr_asn_map = {}
         self.init_pr_map()
         self.init_pr_ae_map()
+        self.init_pr_asn_map()
 
         self.pnf_vlan_allocator_map = {}
         self.pnf_unit_allocator_map = {}
@@ -1838,6 +2017,18 @@ class DMCassandraDB(VncObjectDBClient):
                 self.pr_ae_id_map[pr_uuid][esi] = ae_id
     # end
 
+    def init_pr_asn_map(self):
+        cf = self.get_cf(self._PR_ASN_CF)
+        pr_entries = dict(cf.get_range(column_count=0, filter_empty=False))
+        for key in pr_entries.keys():
+            key_data = key.split(':', 1)
+            pr_uuid = key_data[0]
+            asn = pr_entries[key] or {}
+            if asn:
+                if pr_uuid not in self.pr_asn_map:
+                    self.pr_asn_map[pr_uuid] = asn
+    # end init_pr_asn_map
+
     def get_ip(self, key, ip_used_for):
         return self.get_one_col(self._PR_VN_IP_CF, key,
                       DMUtils.get_ip_cs_column_name(ip_used_for))
@@ -1846,6 +2037,10 @@ class DMCassandraDB(VncObjectDBClient):
     def get_ae_id(self, key):
         return self.get_one_col(self._PR_AE_ID_CF, key, "index")
     # end
+
+    def get_asn(self, key):
+        return self.get_one_col(self._PR_ASN_CF, key)
+    #end
 
     def add_ip(self, key, ip_used_for, ip):
         self.add(self._PR_VN_IP_CF, key, {DMUtils.get_ip_cs_column_name(ip_used_for): ip})
@@ -1917,6 +2112,10 @@ class DMCassandraDB(VncObjectDBClient):
 
     def get_pr_ae_id_map(self, pr_uuid):
         return self.pr_ae_id_map.get(pr_uuid, {})
+    # end
+
+    def get_pr_asn_map(self, pr_uuid):
+        return self.pr_asn_map.get(pr_uuid)
     # end
 
     @classmethod
