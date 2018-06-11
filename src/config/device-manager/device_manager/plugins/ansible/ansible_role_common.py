@@ -45,10 +45,8 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def underlay_config(self):
         self._logger.info("underlay config start: %s\n" % self.physical_router.name)
-        # build underlay config using VNC API
-        # push underlay config
-        # config = self.build()
-        # job_handler = JobHandler()
+        self.build_bgp_config()
+        self.send_conf()
         self._logger.info("underlay config end: %s\n" % self.physical_router.name)
         pass
     # end underlay_config
