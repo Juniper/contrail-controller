@@ -14,6 +14,7 @@ class PushConfigState(object):
     PUSH_STATE_INIT = 0
     PUSH_STATE_SUCCESS = 1
     PUSH_STATE_RETRY = 2
+    PUSH_STATE_FAILED = 3
     REPUSH_INTERVAL = 15
     REPUSH_MAX_INTERVAL = 300
     PUSH_DELAY_PER_KB = 0.01
@@ -503,6 +504,10 @@ class DMUtils(object):
         if is_v6:
             return "inet6-vpn"
         return "inet-vpn"
+
+    @staticmethod
+    def ip_clos_comment():
+        return "ip_clos"
 
     @classmethod
     def get_lr_internal_vn_prefix(cls):
