@@ -45,7 +45,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
-    SecurityGroupDM, AccessControlListDM
+    SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
+    RoleConfigDM, FabricDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -80,10 +81,29 @@ class DeviceManager(object):
             'service_connection_module': [],
             'service_object': [],
             'e2_service_provider': [],
+            'node_profile': [],
+            'role_config': [],
+            'fabric': [],
+            'fabric_namespace': [],
         },
         'global_system_config': {
             'self': ['physical_router'],
             'physical_router': [],
+        },
+        'node_profile': {
+            'self': ['physical_router'],
+            'role_config': ['physical_router'],
+        },
+        'role_config': {
+            'self': ['node_profile'],
+            'node_profile': [],
+        },
+        'fabric': {
+            'self': ['physical_router'],
+            'fabric_namespace': ['physical_router'],
+        },
+        'fabric_namespace': {
+            'self': ['fabric'],
         },
         'bgp_router': {
             'self': ['bgp_router', 'physical_router'],
@@ -123,31 +143,31 @@ class DeviceManager(object):
             'logical_router': [],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
-            'routing_instance': ['port_tuple','physical_interface'],
+            'routing_instance': ['port_tuple', 'physical_interface'],
             'port_tuple': ['physical_interface'],
             'service_endpoint': ['physical_router'],
             'security_group': ['logical_interface'],
         },
         'security_group': {
             'self': [],
-            'access_control_list':['virtual_machine_interface'],
+            'access_control_list': ['virtual_machine_interface'],
         },
         'access_control_list': {
             'self': ['security_group'],
-            'security_group':[],
+            'security_group': [],
         },
         'service_instance': {
             'self': ['port_tuple'],
-            'port_tuple':[],
+            'port_tuple': [],
         },
-        'port_tuple':{
-            'self':['virtual_machine_interface','service_instance'],
-            'service_instance':['virtual_machine_interface'],
-            'virtual_machine_interface':['service_instance']
+        'port_tuple': {
+            'self': ['virtual_machine_interface', 'service_instance'],
+            'service_instance': ['virtual_machine_interface'],
+            'virtual_machine_interface': ['service_instance']
         },
         'virtual_network': {
             'self': ['physical_router',
-                     'virtual_machine_interface', 'logical_router'],
+                     'virtual_machine_interface', 'logical_router', 'fabric'],
             'routing_instance': ['physical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
@@ -290,11 +310,23 @@ class DeviceManager(object):
         for obj in GlobalSystemConfigDM.list_obj():
             GlobalSystemConfigDM.locate(obj['uuid'], obj)
 
+        for obj in NodeProfileDM.list_obj():
+            NodeProfileDM.locate(obj['uuid'], obj)
+
+        for obj in RoleConfigDM.list_obj():
+            RoleConfigDM.locate(obj['uuid'], obj)
+
         for obj in GlobalVRouterConfigDM.list_obj():
             GlobalVRouterConfigDM.locate(obj['uuid'], obj)
 
         for obj in VirtualNetworkDM.list_obj():
             VirtualNetworkDM.locate(obj['uuid'], obj)
+
+        for obj in FabricDM.list_obj():
+            FabricDM.locate(obj['uuid'], obj)
+
+        for obj in FabricNamespaceDM.list_obj():
+            FabricNamespaceDM.locate(obj['uuid'], obj)
 
         for obj in LogicalRouterDM.list_obj():
             LogicalRouterDM.locate(obj['uuid'], obj)
