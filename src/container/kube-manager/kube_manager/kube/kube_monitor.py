@@ -73,11 +73,26 @@ class KubeMonitor(object):
 
         self.logger.info("%s - KubeMonitor init done." % self.name)
 
-    def _is_kube_api_server_alive(self):
+    def _is_kube_api_server_alive(self, wait=False):
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex((self.kubernetes_api_server,
-                                  self.kubernetes_api_server_port))
-        return result == 0
+
+        while True:
+            result = sock.connect_ex((self.kubernetes_api_server,
+                                      self.kubernetes_api_server_port))
+
+            if wait == True and result != 0:
+                # Connect to Kubernetes API server was not successful.
+                # If requested, wait indefinitely till connection is up.
+
+                msg = "kube_api_service is not reachable. Retry in %s secs." %\
+                          (self.timeout)
+                self.logger.error("%s - %s" %(self.name, msg))
+                time.sleep(self.timeout)
+                continue
+
+            # Return result of connection attempt to kubernetes api server.
+            return result == 0
 
     @classmethod
     def _get_base_url(cls, url, beta, api_group, api_version):
@@ -162,11 +177,9 @@ class KubeMonitor(object):
         """
         if self.kube_api_resp:
             self.kube_api_resp.close()
-        if not self._is_kube_api_server_alive():
-            msg = "kube_api_service is not available"
-            self.logger.error("%s - %s" %(self.name, msg))
-            time.sleep(self.timeout)
-            return
+
+        # Check if kubernetes api service is up. If not, wait till its up.
+        self._is_kube_api_server_alive(wait=True)
 
         url = self.get_component_url()
         try:
