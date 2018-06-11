@@ -371,6 +371,8 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close,
     HttpConnection *conn = http_client_->CreateConnection(http_ep);
     conn->RegisterEventCb(
              boost::bind(&MetadataProxy::OnClientSessionEvent, this, _1, _2));
+    map<CURLoption, int> *curl_options = conn->curl_options();
+    curl_options->insert(std::make_pair(CURLOPT_HTTP_TRANSFER_DECODING, 0L));
     conn->set_use_ssl(services_->agent()->params()->metadata_use_ssl());
     if (conn->use_ssl()) {
         conn->set_client_cert(
