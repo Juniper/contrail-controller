@@ -44,3 +44,4 @@ class DMAmqpHandle(VncAmqpHandle):
             pr = PhysicalRouterDM.get(pr_id)
             if pr is not None:
                 pr.set_config_state()
+                pr.uve_send()

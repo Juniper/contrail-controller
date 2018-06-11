@@ -2,7 +2,7 @@
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.juniper.net/2016/device-abstract-config"
     xmlns:dac="http://www.juniper.net/2016/device-abstract-config">
 
-<xsd:complexType name="Device"><!--ROOT-->
+<xsd:complexType name="Device">
     <xsd:all>
        <!-- General Router's config parameters, tunnel config, interfaces -->
        <xsd:element name="system" type="dac:System"/>
@@ -17,16 +17,17 @@
        <!-- L2/L3 Policies -->
        <xsd:element name="policies" type="dac:Policy"/>
        <xsd:element name="comment" type="xsd:string"/>
-       <xsd:element name="interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="System">
-    <xsd:all><!--PR object-->
+    <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="uuid" type="xsd:string"/>
        <xsd:element name="vendor-name" type="xsd:string"/>
+       <xsd:element name="device-family" type="xsd:string"/>
        <xsd:element name="product-name" type="xsd:string"/>
        <xsd:element name="management-ip" type="xsd:string"/>
        <xsd:element name="roles" type="dac:Role" maxOccurs="unbounded"/>
@@ -184,7 +185,7 @@
        <xsd:element name="interface-type" type="dac:InterfaceTypes"/>
        <xsd:element name="mac-address" type="xsd:string"/>
        <xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
-       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="logical-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
