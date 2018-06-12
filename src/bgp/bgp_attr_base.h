@@ -161,13 +161,17 @@ private:
         boost::hash_combine(hash, *attr);
         return hash % hash_size_;
     }
+    static const unsigned int kMaxDbHashSize = 64;
 
     static size_t GetHashSize() {
         char *str = getenv("BGP_PATH_ATTRIBUTE_DB_HASH_SIZE");
-
+        size_t bkts;
         // Use just one bucket for now.
         if (!str) return 1;
-        return strtoul(str, NULL, 0);
+
+        bkts=strtoul(str, NULL, 0);
+        
+        return (bkts==0 || bkts > kMaxDbHashSize) ? 1 : bkts;
     }
 
     // This template safely retrieves an attribute entry from its data base.
