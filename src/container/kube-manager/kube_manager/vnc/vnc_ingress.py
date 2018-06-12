@@ -854,6 +854,7 @@ class VncIngress(VncCommon):
     def ingress_timer(self):
         self._sync_ingress_lb()
 
+    @classmethod
     def get_ingress_label_name(self, ns_name, name):
         return "-".join([vnc_kube_config.cluster_name(), ns_name, name])
 
@@ -952,7 +953,7 @@ class VncIngress(VncCommon):
         if VncSecurityPolicy.ingress_svc_fw_policy_uuid:
 
             ingress_labels = XLabelCache.get_ingress_label(
-                "-".join([ns_name, ingress_name]))
+                cls.get_ingress_label_name(ns_name, ingress_name))
             service_labels = XLabelCache.get_service_label(service_name)
 
             rule_name = VncIngress._get_ingress_firewall_rule_name(
