@@ -955,7 +955,7 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname,
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, ifname.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, ifname.c_str(), IF_NAMESIZE-1);
     int err = ioctl(fd, SIOCGIFFLAGS, (void *)&ifr);
     close (fd);
 
@@ -979,6 +979,7 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname,
                 *eth_encap = "none";
             }
         }
+        fclose(f);
     }
 #endif
 
