@@ -1,0 +1,133 @@
+{
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "device_info": {
+        "type": "object",
+        "description": "Device information",
+        "additionalProperties": false,
+        "required": ["fq_name", "vendor", "device_family", "management_ip", "auth"],
+        "properties": {
+          "fq_name": {
+            "type": "array",
+            "description": "Device FQ name",
+            "items": {
+              "type": "string"
+            }
+          },
+          "vendor": {
+            "type": "string",
+            "description": "Vendor name"
+          },
+          "device_family": {
+            "type": "string",
+            "description": "Device family name"
+          },
+          "management_ip": {
+            "type": "string",
+            "description": "Device management IP",
+            "format": "ipv4"
+          },
+          "auth": {
+            "type": "object",
+            "description": "Device authentication info",
+            "additionalProperties": false,
+            "required": ["basic"],
+            "properties": {
+              "basic": {
+                "type": "object",
+                "description": "Username/password based authentication",
+                "additionalProperties": false,
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "device_abstract_config": {
+        "type": "string",
+        "description": "JSON string of the device abstract config derived from VNC data model"
+      },
+      "additional_feature_params": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Additional feature specific parameters that are not defined in the VNC data model. These could be vendor specific parameters.",
+        "properties": {
+          "basic": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "snmp": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "communities": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "readonly": {
+                          "type": "boolean",
+                          "default": true
+                        }
+                      },
+                      "required": [ "name" ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "ip_clos": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "bgp_hold_time": {
+                "type": "integer",
+                "default": 90
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+       "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "object",
+          "description": "JSON object holding the job specific output details"
+       }
+    },
+    "required": [ "status" ]
+  }
+}

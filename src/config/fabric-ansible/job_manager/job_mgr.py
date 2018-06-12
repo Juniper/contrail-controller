@@ -202,7 +202,9 @@ class WFManager(object):
             job_percent = None
             # calculate job percentage for each playbook
             if len(playbook_list) > 1:
-                task_weightage_array = [30, 30, 40]  # todo: get from job_template
+                task_weightage_array = [
+                    pb_info.job_completion_weightage
+                    for pb_info in playbook_list ]
 
             for i in range(0, len(playbook_list)):
 
@@ -235,8 +237,9 @@ class WFManager(object):
 
                 # read the device_data output of the playbook
                 # and update the job input so that it can be used in next iteration
-                device_json = self.result_handler.get_device_data()
-                self.job_input['device_json'] = device_json
+                if not self.job_input.get('device_json'):
+                    device_json = self.result_handler.get_device_data()
+                    self.job_input['device_json'] = device_json
 
                 # update the job input with marked playbook output json
                 pb_output = self.result_handler.playbook_output or {}
