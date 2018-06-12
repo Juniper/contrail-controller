@@ -16,21 +16,75 @@ import config
 # pylint: disable=E1101
 class SanityTest03(SanityBase):
     """
-    Sanity test for ZTP
+    Sanity test on full ztp workflow:
+     - fabric onboard
+     - ztp
+     - device discovery
+     - device import
+     - topology discovery
     """
 
     def __init__(self, cfg):
         SanityBase.__init__(self, cfg, 'sanity_test_03')
+        self._namespaces = cfg['namespaces']
         self._prouter = cfg['prouter']
     # end __init__
 
+    def onboard_fabric(self, fabric_info):
+        """Onboard fabric"""
+        self._logger.info("Onboard fabric ...")
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=[
+                'default-global-system-config', 'fabric_onboard_template'],
+            job_input=fabric_info
+        )
+
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.debug(
+            "Onboard fabric job started with execution id: %s", job_execution_id)
+        self._wait_for_job_to_finish('Onboard fabric', job_execution_id)
+    # end onboard_fabric
+
     def test(self):
         try:
+#            import pdb; pdb.set_trace()
             self.cleanup_fabric('fab01')
-            fabric = self.create_fabric('fab01', self._prouter['passwords'])
-
-            self.ztp(fabric.uuid)
-
+            self.onboard_fabric(
+                fabric_info={
+                    "fabric_fq_name": ["default-global-system-config", "fab01"],
+                    "device_auth": {
+                        "root_password": "Embe1mpls"
+                    },
+                    "fabric_asn_pool": [
+                        {
+                            "asn_max": 65000,
+                            "asn_min": 64000
+                        },
+                        {
+                            "asn_max": 65100,
+                            "asn_min": 65000
+                        }
+                    ],
+                    "fabric_subnets": [
+                        "30.1.1.1/24"
+                    ],
+                    "loopback_subnets": [
+                        "20.1.1.1/24"
+                    ],
+                    "management_subnets": [
+                        { "cidr": "192.168.10.1/24", "gateway": "192.168.10.1" }
+                    ],
+                    "node_profiles": [
+                        {
+                            "node_profile_name": "juniper-qfx5100"
+                        },
+                        {
+                            "node_profile_name": "juniper-qfx10002"
+                        }
+                    ],
+                    "device_count": 1
+                }
+            )
         except Exception as ex:
             self._exit_with_error(
                 "Test failed due to unexpected error: %s" % str(ex))

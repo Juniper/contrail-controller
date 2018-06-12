@@ -32,14 +32,17 @@ for file in setup_sources:
         env.Install(Dir('.'), "#controller/src/config/fabric-ansible/ansible-playbooks/" + file))
 
 local_sources = [
+    'delete_fabric.yml',
     'device_import.yml',
     'discover_device.yml',
     'generate_underlay_config.yml',
     'image_upgrade.yml',
+    'fabric_onboard.yml',
     'error_handler.yml',
     'ansible.cfg',
     'postscript.yml',
-    'ztp.yml',
+    'role_assignment.yml',
+    'ztp.yml'
 ]
 
 local_sources_rules = []
