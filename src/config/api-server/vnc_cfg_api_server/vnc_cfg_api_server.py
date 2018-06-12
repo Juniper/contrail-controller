@@ -3339,6 +3339,29 @@ class VncApiServer(object):
                 for object in item.get("objects"):
                     instance_obj = cls_ob(**object)
                     self.create_singleton_entry(instance_obj)
+
+            for item in json_data.get("refs"):
+                from_type = item.get("from_type")
+                from_fq_name = item.get("from_fq_name")
+                from_uuid = self._db_conn._object_db.fq_name_to_uuid(
+                    from_type, from_fq_name
+                )
+
+                to_type = item.get("to_type")
+                to_fq_name = item.get("to_fq_name")
+                to_uuid = self._db_conn._object_db.fq_name_to_uuid(
+                    to_type, to_fq_name
+                )
+
+                ok, result = self._db_conn.ref_update(
+                    from_type,
+                    from_uuid,
+                    to_type,
+                    to_uuid,
+                    { 'attr': None },
+                    'ADD',
+                    None,
+                )
         except Exception as e:
             self.config_log('error while loading init data: ' + str(e),
                             level=SandeshLevel.SYS_NOTICE)

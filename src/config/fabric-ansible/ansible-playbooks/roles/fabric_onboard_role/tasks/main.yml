@@ -1,0 +1,16 @@
+---
+# main tasks for the fabric onbaarding
+- name: onboard fabric
+  set_fact:
+    fabric_onboard_result: "{{ job_ctx | onboard_fabric }}"
+
+- debug: var=fabric_onboard_result
+
+- name: check failure
+  include_tasks: error_handler.yml
+  when: fabric_onboard_result.status == 'failure'
+  vars:
+    op_err_message: "Unable to onboard fabric due to error"
+    jl_err_message: "Failed to onboard fabric {{ playbook_input.input.fabric.name }} due to error."
+    results:
+      fabric_uuid: "{{ fabric_onboard_result.result.fabric_uuid }}"
