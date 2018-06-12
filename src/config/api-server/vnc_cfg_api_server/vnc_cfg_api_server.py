@@ -3366,15 +3366,38 @@ class VncApiServer(object):
                 cls_ob = cfgm_common.utils.str_to_class(cls_name, __name__)
 
                 # saving the objects to the database
-                for object in item.get("objects"):
-                    instance_obj = cls_ob(**object)
+                for obj in item.get("objects"):
+                    instance_obj = cls_ob(**obj)
                     self.create_singleton_entry(instance_obj)
+
                     # update default-global-system-config for supported_device_families
                     if object_type =='global_system_config':
                         fq_name = instance_obj.get_fq_name()
                         uuid = self._db_conn.fq_name_to_uuid(object_type, fq_name)
-                        self._db_conn.dbe_update(object_type, uuid, object)
+                        self._db_conn.dbe_update(object_type, uuid, obj)
 
+            for item in json_data.get("refs"):
+                from_type = item.get("from_type")
+                from_fq_name = item.get("from_fq_name")
+                from_uuid = self._db_conn._object_db.fq_name_to_uuid(
+                    from_type, from_fq_name
+                )
+
+                to_type = item.get("to_type")
+                to_fq_name = item.get("to_fq_name")
+                to_uuid = self._db_conn._object_db.fq_name_to_uuid(
+                    to_type, to_fq_name
+                )
+
+                ok, result = self._db_conn.ref_update(
+                    from_type,
+                    from_uuid,
+                    to_type,
+                    to_uuid,
+                    { 'attr': None },
+                    'ADD',
+                    None,
+                )
         except Exception as e:
             self.config_log('error while loading init data: ' + str(e),
                             level=SandeshLevel.SYS_NOTICE)
