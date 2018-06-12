@@ -63,7 +63,7 @@ class PlaybookHelper(object):
                                   'verbosity', 'check', 'diff'])
             options = Options(listtags=False, listtasks=False, listhosts=False,
                               syntax=False, connection='ssh', module_path=None,
-                              forks=100, remote_user='slotlocker',
+                              forks=100, remote_user=None,
                               private_key_file=None, ssh_common_args=None,
                               ssh_extra_args=None, sftp_extra_args=None,
                               scp_extra_args=None, become=None,
