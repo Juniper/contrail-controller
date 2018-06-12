@@ -1,0 +1,74 @@
+{
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "basic_config": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snmp": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "communities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "readonly": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  },
+                  "required": [ "name" ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "role_config": {
+        "type": "object",
+        "properties": {
+          "leaf": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "bgp_hold_time": {
+                "type": "integer",
+                "default": 90
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+       "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "object",
+          "description": "JSON object holding the job specific output details"
+       }
+    },
+    "required": [ "status" ]
+  }
+}
