@@ -23,6 +23,7 @@ setup_sources = [
            'module_utils',
            'roles',
            'schema',
+           'filter_plugins',
           ]
 
 setup_sources_rules = []
@@ -35,6 +36,7 @@ local_sources = [
     'discover_device.yml',
     'generate_underlay_config.yml',
     'image_upgrade.yml',
+    'fabric_onboard.yml',
     'error_handler.yml',
     'ansible.cfg',
     'postscript.yml',
