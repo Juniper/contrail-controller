@@ -8,13 +8,13 @@ wait_for_job:
   timeout: 15
   max_retries: 15
 api_server:
-  host: 10.155.75.131
+  host: localhost
   port: 8082
   username: admin
   password: c0ntrail123
   tenant: admin
 analytics:
-  host: 10.155.75.131
+  host: localhost
   port: 8081
 prouter:
   passwords:
