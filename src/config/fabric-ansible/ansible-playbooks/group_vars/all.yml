@@ -20,6 +20,8 @@ job_ctx:
   config_args: "{{ playbook_input.args }}"
   job_input: "{{ playbook_input.input }}"
   auth_token: "{{ playbook_input.auth_token }}"
+  prev_pb_output: "{{ playbook_input.prev_pb_output }}"
+
 
 #pool size
 POOL_SIZE: 500
@@ -58,3 +60,15 @@ device_family_info:
         data_format: xml
       - command: show system information | display xml
         data_format: xml
+
+# Paths for DHCP and TFTP config files
+DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
+TFTP_BOOT_PATH: "/var/lib/tftpboot"
+
+# DHCP and TFTP servers
+DHCP_SERVER: "b2s32.englab.juniper.net"
+TFTP_SERVER: "b2s32.englab.juniper.net"
+
+# MARKERS
+DEVICE_DATA_MARKER: "DEVICEDATA##"
+PB_OUTPUT_MARKER: "PLAYBOOK_OUTPUT##"
