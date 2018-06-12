@@ -34,6 +34,8 @@ job_ctx:
   # This is used for job percentage calcualtions. Dataype is a array of int
   # For example for image upgrade it could be set to [5, 40, 45, 10]
   task_weightage_array:
+  # This attribute stores the output form previous playbook
+  prev_pb_output: "{{ playbook_input.prev_pb_output }}"
 
 #pool size
 POOL_SIZE: 500
@@ -81,3 +83,6 @@ TFTP_BOOT_PATH: "/var/lib/tftpboot"
 DHCP_SERVER: "b2s32.englab.juniper.net"
 TFTP_SERVER: "b2s32.englab.juniper.net"
 
+# MARKERS
+DEVICE_DATA_MARKER: "DEVICEDATA##"
+PB_OUTPUT_MARKER: "PLAYBOOK_OUTPUT##"
