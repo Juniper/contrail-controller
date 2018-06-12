@@ -34,6 +34,7 @@ for file in setup_sources:
 local_sources = [
     'device_import.yml',
     'discover_device.yml',
+    'greenfield_discover_device.yml',
     'generate_underlay_config.yml',
     'image_upgrade.yml',
     'error_handler.yml',
