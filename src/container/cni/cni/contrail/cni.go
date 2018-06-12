@@ -5,19 +5,17 @@
 package contrailCni
 
 import (
+	"encoding/json"
+
 	"../common"
 	log "../logging"
-	"encoding/json"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/version"
 )
-
-const CniVersion = "0.2.0"
 
 /* Example configuration file
 {
-    "cniVersion": "0.2.0",
+    "cniVersion": "0.3.1",
     "contrail" : {
         "vrouter-ip"    : "127.0.0.1",
         "vrouter-port"  : 9092,
@@ -31,8 +29,8 @@ const CniVersion = "0.2.0"
         "parent-interface" : "eth0"
     },
 
-    "name": "contrail",
-    "type": "contrail"
+    "name": "contrail-k8s-cni",
+    "type": "contrail-k8s-cni"
 }
 */
 
@@ -54,6 +52,7 @@ const CONTRAIL_PARENT_INTERFACE = "eth0"
 
 // Definition of Logging arguments in form of json in STDIN
 type ContrailCni struct {
+	CNIConf       types.NetConf
 	cniArgs       *skel.CmdArgs
 	Mode          string `json:"mode"`
 	VifType       string `json:"vif-type"`
@@ -86,14 +85,23 @@ func (cni *ContrailCni) Log() {
 	log.Infof("NetNS : %s\n", cni.cniArgs.Netns)
 	log.Infof("Container Ifname : %s\n", cni.cniArgs.IfName)
 	log.Infof("Args : %s\n", cni.cniArgs.Args)
-	log.Infof("Config File : %s\n", cni.cniArgs.StdinData)
+	log.Infof("CNI VERSION : %s\n", cni.CNIConf.CNIVersion)
+	log.Infof("Config File : %s\n", cni.CNIConf)
 	log.Infof("%+v\n", cni)
 	cni.VRouter.Log()
 }
 
 func Init(args *skel.CmdArgs) (*ContrailCni, error) {
 	vrouter, _ := VRouterInit(args.StdinData)
-	cni := ContrailCni{cniArgs: args, Mode: CNI_MODE_K8S,
+
+	// Unmarshal the network config, and store
+	conf := types.NetConf{}
+	if err := json.Unmarshal(args.StdinData, &conf); err != nil {
+		log.Errorf("Error loading network config. \n %s \n. Error %+v",
+                        string(args.StdinData), err)
+	}
+
+	cni := ContrailCni{CNIConf: conf, cniArgs: args, Mode: CNI_MODE_K8S,
 		VifType: VIF_TYPE_VETH, VifParent: CONTRAIL_PARENT_INTERFACE,
 		LogDir: LOG_DIR, LogLevel: LOG_LEVEL, VRouter: *vrouter}
 	json_args := cniJson{ContrailCni: cni}
@@ -186,13 +194,13 @@ func (cni *ContrailCni) CmdAdd() error {
 		return err
 	}
 
-	versionDecoder := &version.ConfigDecoder{}
-	confVersion, err := versionDecoder.Decode(cni.cniArgs.StdinData)
-	if err != nil {
-		log.Errorf("Error decoding VRouter response")
-		return err
+	// As per CNI spec 0.3.1, If empty CNI version is passed, then reutrn
+	// result in spec version 0.2.0
+	if cni.CNIConf.CNIVersion == "" {
+            cni.CNIConf.CNIVersion = "0.2.0"
 	}
-	types.PrintResult(typesResult, confVersion)
+
+	types.PrintResult(typesResult, cni.CNIConf.CNIVersion)
 	return nil
 }
 

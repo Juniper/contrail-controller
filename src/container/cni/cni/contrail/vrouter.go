@@ -8,18 +8,19 @@
 package contrailCni
 
 import (
-	log "../logging"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	log "../logging"
+	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 )
 
 // Default VRouter values
