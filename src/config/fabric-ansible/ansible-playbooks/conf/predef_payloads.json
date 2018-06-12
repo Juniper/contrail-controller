@@ -8,6 +8,7 @@
             "default-global-system-config",
             "image_upgrade_template"
           ],
+          "name": "image_upgrade_template",
           "job_template_multi_device_job": true,
           "job_template_playbooks": {
             "playbook_info": [
@@ -27,6 +28,7 @@
             "default-global-system-config",
             "discover_device_template"
           ],
+          "name": "discover_device_template",
           "job_template_multi_device_job": false,
           "job_template_playbooks": {
             "playbook_info": [
@@ -42,6 +44,11 @@
           "parent_type": "global-system-config"
         },
         {
+          "fq_name": [
+            "default-global-system-config",
+            "generate_underlay_template"
+          ],
+          "name": "generate_underlay_template",
           "job_template_multi_device_job": true,
           "job_template_playbooks": {
             "playbook_info": [
@@ -54,13 +61,14 @@
           },
           "job_template_output_schema": "",
           "job_template_input_schema": "",
-          "parent_type": "global-system-config",
-          "fq_name": [
-            "default-global-system-config",
-            "generate_underlay_template"
-          ]
+          "parent_type": "global-system-config"
         },
         {
+          "fq_name": [
+            "default-global-system-config",
+            "device_import_template"
+          ],
+          "name": "device_import_template",
           "job_template_multi_device_job": true,
           "job_template_playbooks": {
             "playbook_info": [
@@ -73,30 +81,72 @@
           },
           "job_template_output_schema": "",
           "job_template_input_schema": "",
-          "parent_type": "global-system-config",
-          "fq_name": [
-            "default-global-system-config",
-            "device_import_template"
-          ]
+          "parent_type": "global-system-config"
         },
         {
+          "fq_name": [
+            "default-global-system-config",
+            "fabric_config_template"
+          ],
+          "name": "fabric_config_template",
           "job_template_multi_device_job": false,
           "job_template_playbooks": {
             "playbook_info": [
               {
-                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/ztp.yml",
-                "vendor": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/fabric_config.yml",
+                "vendor": "Juniper",
                 "device_family": ""
               }
             ]
           },
           "job_template_output_schema": "",
           "job_template_input_schema": "",
-          "parent_type": "global-system-config",
+          "parent_type": "global-system-config"
+        },
+        {
           "fq_name": [
             "default-global-system-config",
-            "ztp_template"
-          ]
+            "fabric_onboard_template"
+          ],
+          "name": "fabric_onboard_template",
+          "job_template_multi_device_job": false,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/fabric_onboard.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 10
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/ztp.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 20
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/greeenfield_discover_device.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 20
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 30
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topo_discovery.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 20
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "parent_type": "global-system-config"
         }
       ]
     },
@@ -105,19 +155,43 @@
       "objects": [
         {
           "fq_name": [
-            "label=fabric-management_ip"
+            "label=fabric-management-ip"
           ],
-          "name": "label=fabric-management_ip",
+          "name": "label=fabric-management-ip",
           "tag_type_name": "label",
-          "tag_value": "fabric-management_ip"
+          "tag_value": "fabric-management-ip"
         },
         {
           "fq_name": [
-            "label=fabric-management_ip"
+            "label=fabric-loopback-ip"
           ],
-          "name": "label=fabric-as_number",
+          "name": "label=fabric-loopback-ip",
           "tag_type_name": "label",
-          "tag_value": "fabric-as_number"
+          "tag_value": "fabric-loopback-ip"
+        },
+        {
+          "fq_name": [
+            "label=fabric-fabric-peer-ip"
+          ],
+          "name": "label=fabric-peer-ip",
+          "tag_type_name": "label",
+          "tag_value": "fabric-peer-ip"
+        },
+        {
+          "fq_name": [
+            "label=fabric-as-number"
+          ],
+          "name": "label=fabric-as-number",
+          "tag_type_name": "label",
+          "tag_value": "fabric-as-number"
+        },
+        {
+          "fq_name": [
+            "label=fabric-ebgp-as-number"
+          ],
+          "name": "label=fabric-ebgp-as-number",
+          "tag_type_name": "label",
+          "tag_value": "fabric-ebgp-as-number"
         }
       ]
     },
@@ -136,6 +210,88 @@
           }
         }
       ]
+    },
+    {
+      "object_type": "hardware",
+      "objects": [
+        {
+          "fq_name": [
+            "juniper-qfx5100-48s-6q"
+          ],
+          "name": "juniper-qfx5100-48s-6q"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx10002-36q"
+          ],
+          "name": "juniper-qfx10002-36q"
+        }
+      ]
+    },
+    {
+      "object_type": "node-profile",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-qfx5100"
+          ],
+          "name": "juniper-qfx5100",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos",
+          "node_profile_physical_roles": {
+              "physical_role": [ "leaf" ]
+          }
+        }
+      ]
+    },
+    {
+      "object_type": "role-config",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-qfx5100", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-qfx5100", "leaf"
+          ],
+          "name": "leaf",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5100" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx5100-48s-6q" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5100", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5100", "leaf" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     }
   ]
 }

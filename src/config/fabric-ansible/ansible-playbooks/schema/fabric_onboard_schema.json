@@ -1,0 +1,122 @@
+{
+  "input_schema": {
+    "title": "fabric info",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "fabric_fq_name", "management_subnets", "loopback_subnets", "fabric_subnets", "fabric_asn_pool", "device_auth", "node_profiles", "device_count"
+    ],
+    "properties": {
+      "fabric_fq_name": { 
+         "type": "array",
+         "items": {
+            "type": "string"
+         }
+       },
+      "management_subnets": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "description": "List of the management network subnets for the fabric",
+          "additionalProperties": false,
+          "required": [ "cidr", "gateway" ],
+          "properties": {
+            "cidr": {
+              "type": "string",
+              "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+            },
+            "gateway": {
+              "type": "string",
+              "format": "ipv4"
+            }
+          }
+        }
+      },
+      "loopback_subnets": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "List of the subnet prefixes that fabric device loopback ips can be allocated.",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+        }
+      },
+      "fabric_subnets": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "List of the subnet prefixes that could be carved out for the p2p networks between fabric devices.",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+        }
+      },
+      "fabric_asn_pool": {
+        "type": "array",
+        "items": {
+          "title": "ASN Range",
+          "type": "object",
+          "description": "List of the ASN pools that could be used to configure the eBGP peers for the IP fabric",
+          "properties": {
+            "asn_min": { "type": "integer" },
+            "asn_max": { "type": "integer" }
+          },
+          "required": [ "asn_min", "asn_max" ]
+        }
+      },
+      "device_auth": {
+        "title": "Device Auth",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "root_password" ],
+        "properties": {
+          "root_password": { "type": "string" }
+        }
+      },
+      "node_profiles": {
+        "type": "array",
+        "items": {
+          "title": "Node profile",
+          "type": "object",
+          "description": "List of node profiles to be used by the fabric.",
+          "additionalProperties": false,
+          "properties": {
+            "node_profile_name": { "type": "string" },
+            "serial_nums": {
+              "type": "array",
+              "description": "Optional list of serial numbers of fabric devices that we want to associate with this node profile.",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [ "node_profile_name" ]
+        }
+      },
+      "device_count": {
+        "title": "Number of fabric devices",
+        "type": "integer",
+        "description": "Total number of devices in the fabric that needs to be zero-touch provisioned"
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+       "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "object",
+          "description": "JSON object holding the job specific output details"
+       }
+    },
+    "required": [ "status" ]
+  }
+}
