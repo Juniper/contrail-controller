@@ -1,5 +1,0 @@
-- name: print device data
-  debug:
-    msg: "DEVICEDATA##{{device_data_results}}DEVICEDATA##"
-    verbosity: 0
-
