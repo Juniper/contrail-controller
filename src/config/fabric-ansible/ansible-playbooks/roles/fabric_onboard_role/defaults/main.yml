@@ -1,0 +1,4 @@
+---
+output:
+   status: Success
+   message: "Successfully onboarded fabric: {{playbook_input.input.fabric.name}}"
