@@ -35,6 +35,7 @@ local_sources = [
     'discover_device.yml',
     'generate_underlay_config.yml',
     'image_upgrade.yml',
+    'fabric_onboard.yml',
     'error_handler.yml',
     'ansible.cfg',
     'postscript.yml',
