@@ -61,20 +61,54 @@ def _read_cfg(cfg_parser, section, option, default):
 # end _read_cfg
 
 
-def _cfg_curl_logging(api_curl_log_file=None):
-    formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s',
-                                  datefmt='%Y/%m/%d %H:%M:%S')
-    curl_logger = logging.getLogger('log_curl')
-    curl_logger.setLevel(logging.DEBUG)
-    api_curl_log_file = "/var/log/contrail/%s" % (api_curl_log_file)
-    if os.path.exists(api_curl_log_file):
-        curl_log_handler = logging.FileHandler(api_curl_log_file, mode='a')
-    else:
-        curl_log_handler = logging.FileHandler(api_curl_log_file, mode='w')
-    curl_log_handler.setFormatter(formatter)
-    curl_logger.addHandler(curl_log_handler)
-    return curl_logger
-# End _cfg_curl_logging
+class CurlLogger(object):
+    def __init__(self, log_file="/var/log/contrail/vnc-api.log"):
+        if os.path.dirname(log_file):
+            self.log_file = log_file
+        else:
+            self.log_file = os.path.join("/var/log/contrail", log_file)
+        formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s',
+                                      datefmt='%Y/%m/%d %H:%M:%S')
+        self.curl_logger = logging.getLogger('log_curl')
+        self.curl_logger.setLevel(logging.DEBUG)
+        if os.path.exists(self.log_file):
+            curl_log_handler = logging.FileHandler(self.log_file, mode='a')
+        else:
+            curl_log_handler = logging.FileHandler(self.log_file, mode='w')
+        curl_log_handler.setFormatter(formatter)
+        self.curl_logger.addHandler(curl_log_handler)
+    # end __init__
+
+    def log(self, op, url, data=None, headers=None):
+        if not headers:
+            headers = {}
+        op_str = {'get': 'GET', 'post': 'POST',
+                  'delete': 'DELETE', 'put': 'PUT'}
+        cmd_url = url
+        cmd_hdr = None
+        cmd_op = str(op_str[op])
+        cmd_data = None
+        header_list = [j + ":" + k for (j, k) in headers.items()]
+        header_string = ''.join(['-H "' + str(i) + '" ' for i in header_list])
+        pattern = re.compile(r'(.*-H "X-AUTH-TOKEN:)[0-9a-z]+(")')
+        cmd_hdr = re.sub(pattern, r'\1$TOKEN\2', header_string)
+        if op == 'get':
+            if data:
+                query_string = "?" + "&".join([str(i) + "=" + str(j)
+                                               for (i, j) in data.items()])
+                cmd_url = url + query_string
+        elif op == 'delete':
+            pass
+        else:
+            cmd_data = str(data)
+        if cmd_data:
+            cmd = "curl -X %s %s -d '%s' %s" % (cmd_op, cmd_hdr,
+                                                cmd_data, cmd_url)
+        else:
+            cmd = "curl -X %s %s %s" % (cmd_op, cmd_hdr, cmd_url)
+        self.curl_logger.debug(cmd)
+    # end _log_curl
+# end CurlLogger
 
 
 class ActionUriDict(dict):
@@ -96,10 +130,12 @@ class ActionUriDict(dict):
 
 
 class ApiServerSession(object):
-    def __init__(self, api_server_hosts, max_conns_per_pool, max_pools):
+    def __init__(self, api_server_hosts, max_conns_per_pool,
+                 max_pools, logger=None):
         self.api_server_hosts = api_server_hosts
         self.max_conns_per_pool = max_conns_per_pool
         self.max_pools = max_pools
+        self.logger = logger
         self.api_server_sessions = {}
         self.active_session = (None, None)
         self.create()
@@ -154,6 +190,12 @@ class ApiServerSession(object):
                 url = self.get_url(url, active_host)
             crud_method = getattr(active_session, '%s' % method)
             try:
+                if self.logger:
+                    data = kwargs.get('params',
+                        kwargs.get('data', None))
+                    headers = kwargs.get('headers', None)
+                    self.logger.log(op=method, url=url,
+                            data=data, headers=headers)
                 return crud_method(url, *args, **kwargs)
             except ConnectionError:
                 self.active_session = (None, None)
@@ -163,6 +205,12 @@ class ApiServerSession(object):
                 url = self.get_url(url, host)
             crud_method = getattr(session, '%s' % method)
             try:
+                if self.logger:
+                    data = kwargs.get('params',
+                        kwargs.get('data', None))
+                    headers = kwargs.get('headers', None)
+                    self.logger.log(op=method, url=url,
+                            data=data, headers=headers)
                 result = crud_method(url, *args, **kwargs)
                 self.active_session = (host, session)
                 return result
@@ -420,11 +468,10 @@ class VncApi(object):
             cfg_parser, 'global', 'MAX_CONNS_PER_POOL',
             self._DEFAULT_MAX_CONNS_PER_POOL))
 
-        self._curl_logging = False
+        self.curl_logger = None
         if _read_cfg(cfg_parser, 'global', 'curl_log', False):
-            self._curl_logging = True
-            self._curl_logger = _cfg_curl_logging(_read_cfg(
-                cfg_parser, 'global', 'curl_log', False))
+            self.curl_logger = CurlLogger(
+                    _read_cfg(cfg_parser, 'global', 'curl_log', False))
 
         # Where client's view of world begins
         if not api_server_url:
@@ -682,7 +729,8 @@ class VncApi(object):
 
     def _create_api_server_session(self):
         self._api_server_session = ApiServerSession(
-                self._web_hosts, self._max_conns_per_pool, self._max_pools)
+                self._web_hosts, self._max_conns_per_pool,
+                self._max_pools, self.curl_logger)
     # end _create_api_server_session
 
     def _discover(self):
@@ -889,40 +937,9 @@ class VncApi(object):
                 retry_after_authn=retry_after_authn, retry_count=retry_count)
     # end _request_server
 
-    def _log_curl(self, op, url, data=None):
-        op_str = {rest.OP_GET: 'GET', rest.OP_POST: 'POST',
-                  rest.OP_DELETE: 'DELETE', rest.OP_PUT: 'PUT'}
-        base_url = "http://%s:%s" % (self._authn_server, self._web_port)
-        cmd_url = "%s%s" % (base_url, url)
-        cmd_hdr = None
-        cmd_op = str(op_str[op])
-        cmd_data = None
-        header_list = [j + ":" + k for (j, k) in self._headers.items()]
-        header_string = ''.join(['-H "' + str(i) + '" ' for i in header_list])
-        pattern = re.compile(r'(.*-H "X-AUTH-TOKEN:)[0-9a-z]+(")')
-        cmd_hdr = re.sub(pattern, r'\1$TOKEN\2', header_string)
-        if op == rest.OP_GET:
-            if data:
-                query_string = "?" + "&".join([str(i) + "=" + str(j)
-                                               for (i, j) in data.items()])
-                cmd_url = base_url + url+query_string
-        elif op == rest.OP_DELETE:
-            pass
-        else:
-            cmd_data = str(data)
-        if cmd_data:
-            cmd = "curl -X %s %s -d '%s' %s" % (cmd_op, cmd_hdr,
-                                                cmd_data, cmd_url)
-        else:
-            cmd = "curl -X %s %s %s" % (cmd_op, cmd_hdr, cmd_url)
-        self._curl_logger.debug(cmd)
-    # end _log_curl
-
     def _request(self, op, url, data=None, retry_on_error=True,
                  retry_after_authn=False, retry_count=30):
         retried = 0
-        if self._curl_logging:
-            self._log_curl(op=op, url=url, data=data)
         while True:
             headers = self._headers
             user_token = headers.pop('X-USER-TOKEN', None)
