@@ -100,16 +100,16 @@ int main(int argc, char *argv[]) {
         init.set_create_vhost(false);
     }
 
-    string build_info;
-    GetBuildInfo(build_info);
-    MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
-
     init.set_agent_param(&params);
     // kick start initialization
     int ret = 0;
     if ((ret = init.Start()) != 0) {
         return ret;
     }
+
+    string build_info;
+    GetBuildInfo(build_info);
+    MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
     Agent *agent = init.agent();
     TaskScheduler::GetInstance()->set_event_manager(agent->event_manager());
