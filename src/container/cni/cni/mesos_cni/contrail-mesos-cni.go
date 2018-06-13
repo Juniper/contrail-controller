@@ -82,5 +82,5 @@ func CmdDel(skelArgs *skel.CmdArgs) error {
 func main() {
 	// Let CNI skeletal code handle demux based on env variables
 	skel.PluginMain(CmdAdd, CmdDel,
-		version.PluginSupports(contrailCni.CniVersion))
+		version.PluginSupports("0.2.0"))
 }
