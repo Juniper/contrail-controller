@@ -347,6 +347,30 @@ void AgentParam::ParseQueue() {
     }
 }
 
+void AgentParam::ParseSessionDestinationArguments
+    (const boost::program_options::variables_map &var_map) {
+    slo_destination_.clear();
+    sample_destination_.clear();
+    GetOptValue< vector<string> >(var_map, slo_destination_,
+                                  "SESSION.slo_destination");
+    GetOptValue< vector<string> >(var_map, sample_destination_,
+                                  "SESSION.sample_destination");
+    //validate the string
+    std::set<string> valid_dest_values;
+    valid_dest_values.insert("collector");
+    valid_dest_values.insert("file");
+    valid_dest_values.insert("syslog");
+    valid_dest_values.insert("");
+    for (uint32_t i=0; i<slo_destination_.size(); i++) {
+        assert(valid_dest_values.find(slo_destination_[i]) !=
+            valid_dest_values.end());
+    }
+    for (uint32_t i=0; i<sample_destination_.size(); i++) {
+        assert(valid_dest_values.find(sample_destination_[i]) !=
+            valid_dest_values.end());
+    }
+}
+
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     collector_server_list_.clear();
@@ -809,6 +833,7 @@ void AgentParam::ProcessArguments() {
     ParseMacLearning(var_map_);
     ParseTsnServersArguments(var_map_);
     ParseCryptArguments(var_map_);
+    ParseSessionDestinationArguments(var_map_);
     return;
 }
 
@@ -827,6 +852,7 @@ void AgentParam::ReInitFromConfig() {
         ParseDnsServersArguments(var_map);
         ParseCollectorArguments(var_map);
         ParseTsnServersArguments(var_map);
+        ParseSessionDestinationArguments(var_map);
 
         LogFilteredConfig();
     }
@@ -1059,7 +1085,6 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
 
     config_file_ = config_file;
     program_name_ = program_name;
-
     InitFromSystem();
     InitFromConfig();
     ProcessArguments();
@@ -1549,8 +1574,10 @@ AgentParam::AgentParam(bool enable_flow_options,
          "List of 2M Huge pages to be used by vrouter");
     options_.add(restart);
     config_file_options_.add(restart);
-
     opt::options_description log("Logging options");
+    std::vector<std::string> default_session_destination;
+    std::vector<std::string> implicit_session_destination;
+    default_session_destination.push_back("collector");
     log.add_options()
         ("DEFAULT.log_category", opt::value<string>()->default_value(""),
          "Category filter for local logging of sandesh messages")
@@ -1573,7 +1600,16 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Enable local logging of flow sandesh messages")
         ("DEFAULT.log_property_file", opt::value<string>()->default_value(""),
          "Log Property File")
-        ;
+        ("SESSION.slo_destination",
+         opt::value<vector<string> >()
+             ->default_value(default_session_destination, std::string("collector"))
+             ->implicit_value(implicit_session_destination, std::string("")),
+        "List of destinations. valid values are collector, file, syslog. Space delimited")
+        ("SESSION.sample_destination",
+         opt::value<std::vector<std::string> >()
+             ->default_value(default_session_destination, std::string("collector"))
+             ->implicit_value(implicit_session_destination, std::string("")),
+        "List of destinations. valid values are collector, file, syslog. Space delimited");
     options_.add(log);
     config_file_options_.add(log);
 
