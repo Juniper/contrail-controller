@@ -5,19 +5,20 @@
 package contrailCni
 
 import (
+	"encoding/json"
+
 	"../common"
 	log "../logging"
-	"encoding/json"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/version"
 )
 
-const CniVersion = "0.2.0"
+// CNIVersion is the version from the network configuration
+var CNIVersion string
 
 /* Example configuration file
 {
-    "cniVersion": "0.2.0",
+    "cniVersion": "0.3.1",
     "contrail" : {
         "vrouter-ip"    : "127.0.0.1",
         "vrouter-port"  : 9092,
@@ -69,6 +70,7 @@ type ContrailCni struct {
 
 type cniJson struct {
 	ContrailCni ContrailCni `json:"contrail"`
+	CniVersion string `json:"cniVersion"`
 }
 
 // Apply logging configuration. We use log packet for logging.
@@ -86,6 +88,7 @@ func (cni *ContrailCni) Log() {
 	log.Infof("NetNS : %s\n", cni.cniArgs.Netns)
 	log.Infof("Container Ifname : %s\n", cni.cniArgs.IfName)
 	log.Infof("Args : %s\n", cni.cniArgs.Args)
+	log.Infof("CNI VERSION : %s\n", CNIVersion)
 	log.Infof("Config File : %s\n", cni.cniArgs.StdinData)
 	log.Infof("%+v\n", cni)
 	cni.VRouter.Log()
@@ -93,6 +96,7 @@ func (cni *ContrailCni) Log() {
 
 func Init(args *skel.CmdArgs) (*ContrailCni, error) {
 	vrouter, _ := VRouterInit(args.StdinData)
+
 	cni := ContrailCni{cniArgs: args, Mode: CNI_MODE_K8S,
 		VifType: VIF_TYPE_VETH, VifParent: CONTRAIL_PARENT_INTERFACE,
 		LogDir: LOG_DIR, LogLevel: LOG_LEVEL, VRouter: *vrouter}
@@ -102,6 +106,12 @@ func Init(args *skel.CmdArgs) (*ContrailCni, error) {
 		log.Errorf("Error decoding stdin\n %s \n. Error %+v",
 			string(args.StdinData), err)
 		return nil, err
+	}
+
+	// If CNI version is blank, set to "0.2.0"
+	CNIVersion = json_args.CniVersion
+	if (CNIVersion == "") {
+		CNIVersion = "0.2.0"
 	}
 
 	json_args.ContrailCni.loggingInit()
@@ -186,13 +196,7 @@ func (cni *ContrailCni) CmdAdd() error {
 		return err
 	}
 
-	versionDecoder := &version.ConfigDecoder{}
-	confVersion, err := versionDecoder.Decode(cni.cniArgs.StdinData)
-	if err != nil {
-		log.Errorf("Error decoding VRouter response")
-		return err
-	}
-	types.PrintResult(typesResult, confVersion)
+	types.PrintResult(typesResult, CNIVersion)
 	return nil
 }
 
