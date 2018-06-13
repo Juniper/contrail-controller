@@ -288,7 +288,7 @@ bool PktSandeshFlow::SetFlowKey(string key) {
     }
     stringstream ss(key);
     string item, sip, dip;
-    uint32_t proto;
+    uint32_t proto = 0;
 
     if (getline(ss, item, ch)) {
         istringstream(item) >> partition_id_;
@@ -714,8 +714,8 @@ static InetRouteFlowMgmtKey* StringToInetRouteFlowMgmtKey(const string &key,
     }
     stringstream ss(key);
     string item, ip_str;
-    uint32_t vrf_id;
-    uint16_t plen, mgr_id;
+    uint32_t vrf_id = 0;
+    uint16_t plen = 0, mgr_id = 0;
 
     if (getline(ss, item, ch)) {
         istringstream(item) >> mgr_id;
