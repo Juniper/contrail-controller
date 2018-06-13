@@ -110,6 +110,7 @@ void SegmentHealthCheckPkt::SendRequest() {
         bool l3_mode = false;
         MacAddress    dest_mac;
         if (service_mode == VmInterface::SERVICE_MODE_ERROR) {
+            delete pkt_handler;
             return;
         }
 
