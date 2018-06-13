@@ -30,12 +30,19 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.1"
+__version__ = "1.2"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.2:
+  - Re-define the way the script recovers the route target inconsistencies.
+    The source of trust move from the schema transformer DB to the
+    zookeeper DB. If Config or Schema DBs contains a RT not locked in
+    zookeeper, it removes it. It does not heal missing RT in Config and
+    Schema DBs, it lets the schema transformer takes care of that when it'll
+    be re-initialized. It also cleans stale lock in zookeeper.
 * 1.1:
   - Fix RT duplicate detection from schema cassandra DB
 * 1.0:
@@ -82,23 +89,49 @@ class AuditError(object):
 # class AuditError
 
 
-exceptions = ['ZkStandaloneError', 'ZkStandaloneError', 'ZkFollowersError',
-              'ZkNodeCountsError', 'CassWrongRFError', 'FQNIndexMissingError',
-              'FQNStaleIndexError', 'FQNMismatchError',
-              'MandatoryFieldsMissingError', 'IpSubnetMissingError',
-              'VirtualNetworkMissingError', 'VirtualNetworkIdMissingError',
-              'IpAddressMissingError', 'IpAddressDuplicateError',
-              'UseragentSubnetExtraError', 'UseragentSubnetMissingError',
-              'SubnetCountMismatchError', 'SubnetUuidMissingError',
-              'SubnetIdToKeyMissingError', 'ZkRTgtIdMissingError',
-              'ZkRTgtIdExtraError', 'ZkSGIdMissingError', 'ZkSGIdExtraError',
-              'SG0UnreservedError', 'SGDuplicateIdError', 'ZkVNIdExtraError',
-              'ZkVNIdMissingError', 'VNDuplicateIdError', 'RTDuplicateIdError',
-              'CassRTRangeError', 'ZkRTRangeError', 'ZkIpMissingError',
-              'ZkIpExtraError', 'ZkSubnetMissingError', 'ZkSubnetExtraError',
-              'ZkVNMissingError', 'ZkVNExtraError', 'CassRTgtIdExtraError',
-              'CassRTgtIdMissingError', 'OrphanResourceError',
-              'ZkSubnetPathInvalid', 'FqNameDuplicateError']
+exceptions = [
+    'ZkStandaloneError',
+    'ZkStandaloneError',
+    'ZkFollowersError',
+    'ZkNodeCountsError',
+    'CassWrongRFError',
+    'FQNIndexMissingError',
+    'FQNStaleIndexError',
+    'FQNMismatchError',
+    'MandatoryFieldsMissingError',
+    'IpSubnetMissingError',
+    'VirtualNetworkMissingError',
+    'VirtualNetworkIdMissingError',
+    'IpAddressMissingError',
+    'IpAddressDuplicateError',
+    'UseragentSubnetExtraError',
+    'UseragentSubnetMissingError',
+    'SubnetCountMismatchError',
+    'SubnetUuidMissingError',
+    'SubnetIdToKeyMissingError',
+    'ZkSGIdMissingError',
+    'ZkSGIdExtraError',
+    'SG0UnreservedError',
+    'SGDuplicateIdError',
+    'ZkVNIdExtraError',
+    'ZkVNIdMissingError',
+    'VNDuplicateIdError',
+    'RTDuplicateIdError',
+    'CassRTRangeError',
+    'ZkRTRangeError',
+    'ZkIpMissingError',
+    'ZkIpExtraError',
+    'ZkSubnetMissingError',
+    'ZkSubnetExtraError',
+    'ZkVNMissingError',
+    'ZkVNExtraError',
+    'SchemaRTgtIdExtraError',
+    'ConfigRTgtIdExtraError',
+    'ZkRTgtIdExtraError',
+    'OrphanResourceError',
+    'ZkSubnetPathInvalid',
+    'FqNameDuplicateError',
+]
 for exception_class in exceptions:
     setattr(sys.modules[__name__],
             exception_class,
@@ -395,96 +428,99 @@ class DatabaseManager(object):
 
     def audit_route_targets_id(self):
         logger = self._logger
-        ret_errors = []
         fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
         rt_table = self._cf_dict['route_target_table']
+        ret_errors = []
+        zk_set = set()
+        schema_set = set()
+        config_set = set()
 
         # read in route-target ids from zookeeper
         base_path = self.base_rtgt_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
-        zk_all_rtgts = {}
-        num_bad_rtgts = 0
-        for rtgt_id in self._zk_client.get_children(base_path) or []:
-            rtgt_fq_name_str = self._zk_client.get(
-                base_path + '/' + rtgt_id)[0]
-            zk_all_rtgts[int(rtgt_id) - RT_ID_MIN_ALLOC] = rtgt_fq_name_str
-            if int(rtgt_id) >= RT_ID_MIN_ALLOC:
-                continue  # all good
-            errmsg = 'Wrong route-target range in zookeeper %s' % rtgt_id
-            ret_errors.append(ZkRTRangeError(errmsg))
-            num_bad_rtgts += 1
-        logger.debug("Got %d route-targets with id in zookeeper %d from wrong "
-                     "range", len(zk_all_rtgts), num_bad_rtgts)
+        num_bad_rts = 0
+        for id in self._zk_client.get_children(base_path) or []:
+            res_fq_name_str = self._zk_client.get(base_path + '/' + id)[0]
+            id = int(id)
+            zk_set.add((id, res_fq_name_str))
+            if id < RT_ID_MIN_ALLOC:
+                # ZK contain RT ID lock only for system RT
+                errmsg = 'Wrong Route Target range in zookeeper %d' % id
+                ret_errors.append(ZkRTRangeError(errmsg))
+                num_bad_rts += 1
+        logger.debug("Got %d Route Targets with ID in zookeeper %d from wrong "
+                     "range", len(zk_set), num_bad_rts)
 
         # read route-targets from schema transformer cassandra keyspace
-        logger.debug("Reading route-target IDs from cassandra schema "
+        logger.debug("Reading Route Target IDs from cassandra schema "
                      "transformer keyspace")
-        cassandra_schema_all_rtgts = {}
-        cassandra_schema_duplicate_rtgts = {}
-        first_found_rt = {}
-        for fq_name_str, rtgt_num in rt_table.get_range(columns=['rtgt_num']):
-            rtgt_id = int(rtgt_num['rtgt_num'])
-            if rtgt_id < RT_ID_MIN_ALLOC:
+        num_bad_rts = 0
+        for res_fq_name_str, cols in rt_table.get_range(columns=['rtgt_num']):
+            id = int(cols['rtgt_num'])
+            if id < RT_ID_MIN_ALLOC:
                 # Should never append
-                logger.error("Route-target ID %d allocated for %s by the "
-                             "schema transformer is not contained in the "
-                             "system range", rtgt_id, fq_name_str)
-            try:
-                rtgt_fq_name_str = 'target:%d:%d' % (
-                    self.get_autonomous_system(), rtgt_id)
-                rtgt_cols = fq_name_table.get(
-                    'route_target',
-                    column_start='%s:' % rtgt_fq_name_str,
-                    column_finish='%s;' % rtgt_fq_name_str)
-                rtgt_uuid = rtgt_cols.keys()[0].split(':')[-1]
-            except pycassa.NotFoundException:
-                rtgt_uuid = 'UUID not found'
-            rtgt_id = rtgt_id - RT_ID_MIN_ALLOC
-            if rtgt_id in first_found_rt:
-                cassandra_schema_duplicate_rtgts.setdefault(
-                    rtgt_id, [first_found_rt[rtgt_id]]).append(
-                        (fq_name_str, rtgt_uuid))
-            else:
-                cassandra_schema_all_rtgts[rtgt_id] = fq_name_str
-                first_found_rt[rtgt_id] = (fq_name_str, rtgt_uuid)
+                msg = ("Route Target ID %d allocated for %s by the schema "
+                       "transformer is not contained in the system range" %
+                       (id, res_fq_name_str))
+                ret_errors.append(ZkRTRangeError(msg))
+                num_bad_rts += 1
+            schema_set.add((id, res_fq_name_str))
+        logger.debug("Got %d Route Targets with ID in schema DB %d from wrong "
+                     "range", len(schema_set), num_bad_rts)
 
         # read in route-targets from API server cassandra keyspace
-        logger.debug("Reading route-target objects from cassandra API server "
+        logger.debug("Reading Route Target objects from cassandra API server "
                      "keyspace")
-        rtgt_row = fq_name_table.xget('route_target')
-        rtgt_fq_name_uuid = [(x.split(':')[:-1], x.split(':')[-1])
-                             for x, _ in rtgt_row]
-        cassandra_api_all_rtgts = {}
-        cassandra_api_duplicate_rtgts = {}
-        first_found_rt = {}
-        user_rtgts = 0
-        for rtgt_fq_name, rtgt_uuid in rtgt_fq_name_uuid:
-            rtgt_asn, rtgt_id = _parse_rt(rtgt_fq_name)
-            if rtgt_asn != self.global_asn or rtgt_id < RT_ID_MIN_ALLOC:
-                user_rtgts += 1
+        user_rts = 0
+        no_assoc_msg = "No Routing Instance or Logical Router associated"
+        for fq_name_uuid_str, _ in fq_name_table.xget('route_target'):
+            fq_name_str, _, uuid = fq_name_uuid_str.rpartition(':')
+            asn, id = _parse_rt(fq_name_str)
+            if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
+                user_rts += 1
                 continue  # Ignore user defined RT
-            rtgt_id = rtgt_id - RT_ID_MIN_ALLOC
-            fq_name_str = cassandra_schema_all_rtgts.get(rtgt_id)
-            if rtgt_id in first_found_rt:
-                cassandra_api_duplicate_rtgts.setdefault(
-                    rtgt_id, [first_found_rt[rtgt_id]]).append(
-                        (fq_name_str, rtgt_uuid))
-            else:
-                cassandra_api_all_rtgts[rtgt_id] = fq_name_str
-                first_found_rt[rtgt_id] = (fq_name_str, rtgt_uuid)
+            try:
+                cols = uuid_table.xget(uuid, column_start='backref:',
+                                       column_finish='backref;')
+            except pycassa.NotFoundException:
+                continue
+            backref_uuids = {col.rpartition(':')[-1] for col, _ in cols}
+            if not backref_uuids or len(backref_uuids) != 1:
+                config_set.add((id, no_assoc_msg))
+                continue
+            try:
+                cols = uuid_table.get(backref_uuids.pop(), columns=['fq_name'])
+            except pycassa.NotFoundException:
+                config_set.add((id, no_assoc_msg))
+                continue
+            config_set.add((id, ':'.join(json.loads(cols['fq_name']))))
+        logger.debug("Got %d system defined Route Targets in cassandra and "
+                     "%d defined by users", len(config_set), user_rts)
 
-        logger.debug("Got %d system defined route-targets id in cassandra and "
-                     "%d defined by users", len(cassandra_schema_all_rtgts),
-                     user_rtgts)
-        zk_set = set([(id, fqns) for id, fqns in zk_all_rtgts.items()])
-        cassandra_schema_set = set([(id, fqns) for id, fqns
-                                    in cassandra_schema_all_rtgts.items()])
-        cassandra_api_set = set([(id, fqns) for id, fqns
-                                 in cassandra_api_all_rtgts.items()])
+        return zk_set, schema_set, config_set, ret_errors
 
-        return (zk_set, cassandra_schema_set, cassandra_schema_duplicate_rtgts,
-                cassandra_api_set, cassandra_api_duplicate_rtgts, ret_errors)
-    # end audit_route_targets_id
+    def get_stale_zk_rt(self, zk_set, schema_set, config_set):
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        stale_zk_entry = set()
+        zk_set_copy = zk_set.copy()
+
+        # in ZK but not in config and schema, stale entry => delete it in ZK
+        stale_zk_entry |= (zk_set_copy - (schema_set & config_set))
+        zk_set_copy -= (zk_set_copy - (schema_set & config_set))
+        # in ZK and schema but not in config
+        for id, res_fq_name_str in (zk_set_copy & schema_set) - config_set:
+            try:
+                fq_name_table.get(
+                    'routing_instance',
+                    column_start='%s:' % res_fq_name_str,
+                    column_finish='%s;' % res_fq_name_str,
+                )
+            except pycassa.NotFoundException:
+                stale_zk_entry.add((id, res_fq_name_str))
+        # in ZK and config but not in schema, schema will fix it, nothing to do
+
+        return stale_zk_entry
 
     def audit_security_groups_id(self):
         logger = self._logger
@@ -1283,58 +1319,43 @@ class DatabaseChecker(DatabaseManager):
     @checker
     def check_route_targets_id(self):
         """Displays route targets ID inconsistencies between zk and cassandra.
+
+        Route target IDs locked in the ZK database are considered as the source
+        of trust. Config and Schema DB tables will be updated accordingly.
+        Then in different cases, the ZK stale lock will be cleaned.
         """
         ret_errors = []
         logger = self._logger
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        obj_uuid_table = self._cf_dict['obj_uuid_table']
 
-        # read in route-target ids from zookeeper and cassandra
-        zk_set, schema_set, schema_duplicate, api_set, api_duplicate, errors =\
-            self.audit_route_targets_id()
+        zk_set, schema_set, config_set, errors = self.audit_route_targets_id()
         ret_errors.extend(errors)
 
-        for rtgt_id, fq_name_uuids in schema_duplicate.items():
-            msg = ("In schema cassandra keyspace, RT ID %s is duplicated "
-                   "between %s" % (rtgt_id, fq_name_uuids))
-            ret_errors.append(RTDuplicateIdError(msg))
+        extra = dict()
+        [extra.setdefault(id, set()).add(fq) for id, fq in schema_set - zk_set]
+        for id, res_fq_name_strs in extra.items():
+            msg = ("Extra Route Target ID in schema DB for ID %d, used by: "
+                   "%s" % (id, ', '.join(res_fq_name_strs)))
+            ret_errors.append(SchemaRTgtIdExtraError(msg))
 
-        for rtgt_id, fq_name_uuids in api_duplicate.items():
-            msg = ("In API server cassandra keyspace, RT ID %s is duplicated "
-                   "between %s" % (rtgt_id, fq_name_uuids))
-            ret_errors.append(RTDuplicateIdError(msg))
+        extra = dict()
+        [extra.setdefault(id, set()).add(fq) for id, fq in config_set - zk_set]
+        for id, res_fq_name_strs in extra.items():
+            msg = ("Extra Route Target ID in API server DB for ID %d, used "
+                   "by: %s" % (id, ', '.join(res_fq_name_strs)))
+            ret_errors.append(ConfigRTgtIdExtraError(msg))
 
-        extra_rtgt_ids = zk_set - schema_set
-        for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
-            errmsg = ("Extra route target ID in zookeeper for RTgt %s %s" %
-                      (rtgt_fq_name_str, rtgt_id))
-            ret_errors.append(ZkRTgtIdExtraError(errmsg))
-
-        extra_rtgt_ids = schema_set - zk_set
-        for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
-            errmsg = ("Missing route target ID in zookeeper for RTgt %s %s" %
-                      (rtgt_fq_name_str, rtgt_id))
-            ret_errors.append(ZkRTgtIdMissingError(errmsg))
-
-        extra_rtgt_ids = api_set - schema_set
-        for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
-            errmsg = ("Extra route target ID in API server cassandra "
-                      "keyspace for RTgt %s %s" % (rtgt_fq_name_str, rtgt_id))
-            ret_errors.append(CassRTgtIdExtraError(errmsg))
-
-        extra_rtgt_ids = schema_set - api_set
-        for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
-            errmsg = ("Missing route target ID in API server cassandra "
-                      "keyspace for RTgt %s %s. If that error persists after "
-                      "ran 'clean' command, that script will not fix it but "
-                      "schema-transformer will do the job when it'll "
-                      "initializing)" % (rtgt_fq_name_str, rtgt_id))
-            ret_errors.append(CassRTgtIdMissingError(errmsg))
+        for id, res_fq_name_str in self.get_stale_zk_rt(
+                zk_set, schema_set,config_set):
+            msg = ("Extra route target ID in zookeeper for ID %s, used by: %s"
+                   % (id, res_fq_name_str))
+            ret_errors.append(ZkRTgtIdExtraError(msg))
 
         # read in virtual-networks from cassandra to find user allocated rtgts
         # and ensure they are not from auto-allocated range
         num_user_rtgts = 0
         num_bad_rtgts = 0
-        fq_name_table = self._cf_dict['obj_fq_name_table']
-        obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading virtual-network objects from cassandra")
         vn_row = fq_name_table.xget('virtual_network')
         vn_uuids = [x.split(':')[-1] for x, _ in vn_row]
@@ -1473,6 +1494,27 @@ class DatabaseCleaner(DatabaseManager):
         wrapper.func_dict['is_cleaner'] = True
         return wrapper
     # end cleaner
+
+    def _remove_config_object(self, type, uuids):
+        uuid_table = self._cf_dict['obj_uuid_table']
+
+        for uuid in uuids:
+            try:
+                cols = uuid_table.get(uuid, column_start='backref:',
+                                      column_finish='backref;')
+                for backref_str in cols.keys():
+                    backref_uuid = backref_str.rpartition(':')[-1]
+                    ref_str = 'ref:%s:%s' % (type, uuid)
+                    try:
+                        uuid_table.remove(backref_uuid, columns=[ref_str])
+                    except pycassa.NotFoundException:
+                        continue
+            except pycassa.NotFoundException:
+                pass
+            try:
+                uuid_table.remove(uuid)
+            except pycassa.NotFoundException:
+                continue
 
     @cleaner
     def clean_stale_fq_names(self, res_type=None):
@@ -1657,27 +1699,41 @@ class DatabaseCleaner(DatabaseManager):
     @cleaner
     def clean_stale_route_target_id(self):
         """Removes stale RT ID's from route_target_table of cassandra and zk.
+
+        Route target IDs locked in the ZK database are considered as the source
+        of trust. Config and Schema DB tables will be updated accordingly.
+        Then in different cases, the ZK stale lock will be cleaned.
         """
         logger = self._logger
         ret_errors = []
-        need_to_re_clean_rt = False
-        obj_fq_name_table = self._cf_dict['obj_fq_name_table']
-        obj_uuid_table = self._cf_dict['obj_uuid_table']
+        fq_name_table = self._cf_dict['obj_fq_name_table']
         rt_table = self._cf_dict['route_target_table']
 
-        zk_set, schema_set, schema_dup, api_set, api_dup, errors =\
-            self.audit_route_targets_id()
+        zk_set, schema_set, config_set, errors = self.audit_route_targets_id()
         ret_errors.extend(errors)
 
-        for id, _ in api_set - schema_set:
-            fq_name_str = 'target:%d:%d' % (
-                self.global_asn, id + RT_ID_MIN_ALLOC)
-            cols = obj_fq_name_table.get(
-                'route_target',
-                column_start='%s:' % fq_name_str,
-                column_finish='%s;' % fq_name_str,
-            )
-            uuid = cols.keys()[0].split(':')[-1]
+        # Remove extra RT in Schema DB
+        for id, res_fq_name_str in schema_set - zk_set:
+            if not self._args.execute:
+                logger.info("Would removed stale route target %s in schema "
+                            "cassandra keyspace", res_fq_name_str)
+            else:
+                logger.info("Removing stale route target %s in schema "
+                            "cassandra keyspace", res_fq_name_str)
+                rt_table.remove(res_fq_name_str)
+
+        # Remove extra RT in Config DB
+        for id, _ in config_set - zk_set:
+            fq_name_str = 'target:%d:%d' % (self.global_asn, id)
+            try:
+                cols = fq_name_table.get(
+                    'route_target',
+                    column_start='%s:' % fq_name_str,
+                    column_finish='%s;' % fq_name_str,
+                )
+            except pycassa.NotFoundException:
+                continue
+            uuid = cols.keys()[0].rpartition(':')[-1]
             fq_name_uuid_str = '%s:%s' % (fq_name_str, uuid)
             if not self._args.execute:
                 logger.info("Would removed stale route target %s (%s) in API "
@@ -1685,50 +1741,26 @@ class DatabaseCleaner(DatabaseManager):
             else:
                 logger.info("Removing stale route target %s (%s) in API "
                             "server cassandra keyspace ", fq_name_str, uuid)
-                obj_uuid_table.remove(uuid)
-                obj_fq_name_table.remove('route_target',
-                                         columns=[fq_name_uuid_str])
+                self._remove_config_object('route_target', [uuid])
+                fq_name_table.remove('route_target',
+                                     columns=[fq_name_uuid_str])
 
-        for _, fq_name_str in schema_set - api_set:
-            found_ri = True
-            found_lr = True
-            try:
-                obj_fq_name_table.get(
-                    'routing_instance',
-                    column_start='%s:' % fq_name_str,
-                    column_finish='%s;' % fq_name_str,
-                )
-            except pycassa.NotFoundException:
-                found_ri = False
-            try:
-                obj_fq_name_table.get(
-                    'logical_router',
-                    column_start='%s:' % fq_name_str,
-                    column_finish='%s;' % fq_name_str,
-                )
-            except pycassa.NotFoundException:
-                found_lr = False
-            if found_lr or found_ri:
-                continue
-            if not self._args.execute:
-                logger.info("Would removed stale route target %s in schema "
-                            "cassandra keyspace", fq_name_str)
-            else:
-                logger.info("Removing stale route target %s in schema "
-                            "cassandra keyspace", fq_name_str)
-                rt_table.remove(fq_name_str)
-                need_to_re_clean_rt = True
-
-        self._clean_zk_id_allocation(self.base_rtgt_id_zk_path,
-                                     schema_set,
-                                     zk_set,
-                                     id_oper='%%s + %d' % RT_ID_MIN_ALLOC)
-
-        if need_to_re_clean_rt:
-            self.clean_stale_route_target_id()
+        stale_zk_entry = self.get_stale_zk_rt(zk_set, schema_set, config_set)
+        self._clean_zk_id_allocation(
+            self.base_rtgt_id_zk_path, set([]), stale_zk_entry)
+        if stale_zk_entry & schema_set and not self._args.execute:
+            logger.info("Would removed stale route target(s) in schema "
+                        "cassandra keyspace: %s",
+                        ', '.join([f for _, f in stale_zk_entry]))
+        elif stale_zk_entry & schema_set:
+            logger.info("Removing stale route target(s) in schema cassandra "
+                        "keyspace: %s",
+                        ', '.join([f for _, f in stale_zk_entry]))
+            bch = rt_table.batch()
+            [bch.remove(key) for _, key in stale_zk_entry]
+            bch.send()
 
         return ret_errors
-    # end clean_stale_route_target_id
 
     @cleaner
     def clean_stale_security_group_id(self):
@@ -2310,26 +2342,6 @@ class DatabaseHealer(DatabaseManager):
     # end heal_subnet_uuid
 
     @healer
-    def heal_route_targets_id(self):
-        """Creates missing route-targets id's in zk."""
-        ret_errors = []
-
-        zk_set, schema_set, _, _, _, errors =\
-            self.audit_route_targets_id()
-        ret_errors.extend(errors)
-
-        # TODO: Create missing rt in api cassandra keyspace
-        #       (schema_set - api_set)
-
-        self._heal_zk_id_allocation(self.base_rtgt_id_zk_path,
-                                    schema_set,
-                                    zk_set,
-                                    id_oper='%%s + %d' % RT_ID_MIN_ALLOC)
-
-        return ret_errors
-    # end heal_route_targets_id
-
-    @healer
     def heal_virtual_networks_id(self):
         """Creates missing virtual-network id's in zk."""
         ret_errors = []
@@ -2553,7 +2565,6 @@ def db_heal(args, api_args):
     db_healer.heal_children_index()
     # ID allocation inconsistencies
     db_healer.heal_subnet_uuid()
-    db_healer.heal_route_targets_id()
     db_healer.heal_virtual_networks_id()
     db_healer.heal_security_groups_id()
     db_healer.heal_subnet_addr_alloc()
