@@ -341,15 +341,7 @@ struct VrouterStatsAgent {  // Agent stats
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm
                      (mstats="phy_band_out_bps:DSEWM:0.1")
 
-    /** @display_name:Physical Interface Flow Setup Statistics*/
-    68: optional map<string, VrouterFlowRate> phy_flow_rate  (tags="name:.__key")
-    69: optional map<string, derived_stats_results.AnomalyResult> phy_added_flows_ewm
-                     (mstats="phy_flow_rate.added_flows:DSAnomaly:EWM:0.1")
-    70: optional map<string, derived_stats_results.AnomalyResult> phy_deleted_flows_ewm
-                     (mstats="phy_flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
-    71: optional map<string, derived_stats_results.AnomalyResult> phy_active_flows_ewm
-                     (mstats="phy_flow_rate.active_flows:DSAnomaly:EWM:0.1")
-
+    /** Statistics for physical interface */
     72: optional map<string, PhyIfStats> raw_phy_if_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter Physical Interface Traffic Statistics*/
     73: optional map<string, PhyIfStats> phy_if_stats (mstats="raw_phy_if_stats:DSNon0:", tags="name:.__key")
