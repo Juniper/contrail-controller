@@ -17,3 +17,4 @@ schema_transformer
 junitxml
 xmltodict
 pyOpenSSL
+mock
