@@ -202,11 +202,16 @@ class VncNetworkPolicyTest(KMTestCase):
 
     def test_add_network_policy(self):
         np_name = unittest.TestCase.id(self)
-        np_uuid = self._add_update_network_policy(np_name)
-        self._validate_network_policy_resources(np_name, np_uuid)
+        np_spec = {
+                      'podSelector': {}
+                  }
+        np_uuid = self._add_update_network_policy(np_name, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec)
 
-        self._delete_network_policy(unittest.TestCase.id(self), np_uuid)
-        self._validate_network_policy_resources(np_name, np_uuid, validate_delete=True)
+        self._delete_network_policy(unittest.TestCase.id(self), np_uuid,
+                                    np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                validate_delete=True)
 
     def test_add_np_allow_all(self):
         # Create namespace.
