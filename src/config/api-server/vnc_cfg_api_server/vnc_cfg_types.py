@@ -1948,6 +1948,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         bindings = obj_dict.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
 
+        # Manage baremetal provisioning here
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             vnic_type = kvp_dict.get('vnic_type')
@@ -1955,22 +1956,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 # Process only if port profile exists and physical links are specified
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
-                    link_information = phy_links['local_link_information'][0]
-                    vlan_tag = 0
-                    li_fq_name = ['default-global-system-config',
-                                  link_information['switch_info'],
-                                  link_information['port_id'],]
-                    li_fq_name = li_fq_name + ['%s.%s' %(link_information['port_id'], vlan_tag)]
-                    li_obj = LogicalInterface(
-                        parent_type='physical-interface', fq_name=li_fq_name,
-                        logical_interface_vlan_tag=vlan_tag)
-                    ok, resp = api_server.internal_request_create('logical-interface',
-                        li_obj.serialize_to_json())
-                    li_uuid = resp['logical-interface']['uuid']
-                    api_server.internal_request_ref_update('logical-interface',
-                                   li_uuid, 'ADD',
-                                   'virtual-machine-interface', obj_dict['uuid'],
-                                   relax_ref_for_delete=True)
+                    links  = phy_links['local_link_information']
+                    if len(links) > 1:
+                        cls._manage_lag_interface(obj_dict['uuid'], api_server, db_conn, links)
+                    else:
+                        cls._create_logical_interface(obj_dict['uuid'], api_server, db_conn,
+                             links[0]['switch_info'], links[0]['port_id'])
 
         # Create ref to native/vn-default routing instance
         vn_refs = obj_dict.get('virtual_network_refs')
@@ -2127,6 +2118,101 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end pre_dbe_update
 
     @classmethod
+    def _create_lag_interface(cls, api_server, db_conn, prouter_name, phy_interfaces):
+        lag_interface_name = "ae" + phy_interfaces[0][2:]
+
+        # create lag object
+        lag_obj = LinkAggregationGroup(parent_type='physical-router',
+            fq_name=['default-global-system-config', prouter_name, lag_interface_name],
+            link_aggregation_group_lacp_enabled=True)
+
+        ok, resp = api_server.internal_request_create('link-aggregation-group',
+            lag_obj.serialize_to_json())
+
+        lag_uuid = resp['link-aggregation-group']['uuid']
+
+        # create lag interface
+        lag_interface_obj = PhysicalInterface(parent_type='physical-router',
+            fq_name=['default-global-system-config', prouter_name, lag_interface_name],
+            physical_interface_type='lag')
+
+        ok, resp = api_server.internal_request_create(
+            'physical-interface',
+            lag_interface_obj.serialize_to_json()
+        )
+        phy_interface_uuid = resp['physical-interface']['uuid']
+
+        # get physical interface uuids
+        phy_interface_uuids = [phy_interface_uuid]
+        for phy_interface_name in phy_interfaces:
+            fq_name = ['default-global-system-config', prouter_name, phy_interface_name]
+            phy_interface_uuids.append(
+                db_conn.fq_name_to_uuid('physical_interface', fq_name))
+
+        # add physical interfaces to the lag
+        for uuid in phy_interface_uuids:
+            api_server.internal_request_ref_update('link-aggregation-group',
+                lag_uuid, 'ADD', 'physical-interface', uuid, relax_ref_for_delete=True)
+
+        return lag_interface_name
+    # end _create_lag_interface
+
+    @classmethod
+    def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links):
+	tors = {}
+        for link in phy_links:
+            tor_name = link['switch_info']
+            port_name = link['port_id']
+            if not tors.get(tor_name):
+                tors[tor_name] = { 'phy_interfaces': [port_name] }
+            else:
+                tors[tor_name]['phy_interfaces'].append(port_name)
+
+        for tor_name, tor_info in tors.iteritems():
+            if len(tor_info['phy_interfaces']) > 1:
+                # need to create lag interface and lag group
+                vmi_connected_phy_interface = cls._create_lag_interface(
+                    api_server, db_conn, tor_name, tor_info['phy_interfaces'])
+            else:
+                vmi_connected_phy_interface = tor_info['phy_interfaces'][0]
+
+            # Get Mac address for vmi
+            ok, result = cls.dbe_read(db_conn,'virtual_machine_interface', vmi_id)
+            if ok:
+                mac = result['virtual_machine_interface_mac_addresses']['mac_address']
+                esi = "00:00:00:00:" + mac[0]
+            cls._create_logical_interface(vmi_id, api_server, db_conn, tor_name,
+                                          vmi_connected_phy_interface, esi=esi)
+
+    @classmethod
+    def _create_logical_interface(cls, vim_id, api_server, db_conn, tor, link, esi=None):
+        vlan_tag = 0
+        li_fq_name = ['default-global-system-config', tor, link]
+        li_fq_name = li_fq_name + ['%s.%s' %(link, vlan_tag)]
+
+        li_obj = LogicalInterface(parent_type='physical-interface',
+            fq_name=li_fq_name,
+            logical_interface_vlan_tag=vlan_tag)
+
+        ok, resp = api_server.internal_request_create('logical-interface',
+            li_obj.serialize_to_json())
+        li_uuid = resp['logical-interface']['uuid']
+        api_server.internal_request_ref_update('logical-interface',
+                       li_uuid, 'ADD', 'virtual-machine-interface', vim_id,
+                       relax_ref_for_delete=True)
+
+        # If this is a multi-homed interface, set the Ethernet Segment Identifier
+        if esi:
+            # Set the ESI for this multi-homed interface
+            fq_name = ['default-global-system-config', tor, link]
+            pi_uuid = db_conn.fq_name_to_uuid('physical_interface', fq_name)
+            ok, pi_obj = cls.dbe_read(db_conn,'physical_interface', pi_uuid)
+            if ok:
+                pi_obj['ethernet_segment_identifier'] = esi
+                db_conn.dbe_update('physical_interface', pi_uuid, pi_obj)
+
+
+    @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
             prop_collection_updates=None, ref_update=None):
         api_server = db_conn.get_api_server()
@@ -2139,27 +2225,19 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     oper_param['operation'] == 'set'):
                 kvps.append(oper_param['value'])
 
+        # Manage the bindings for baremetal servers
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             vnic_type = kvp_dict.get('vnic_type')
             if vnic_type == 'baremetal':
                 phy_links = json.loads(kvp_dict.get('profile'))
-                link_information = phy_links['local_link_information'][0]
-                vlan_tag = 0
-                li_fq_name = ['default-global-system-config',
-                              link_information['switch_info'],
-                              link_information['port_id'],]
-                li_fq_name = li_fq_name + ['%s.%s' %(link_information['port_id'], vlan_tag)]
-                li_obj = LogicalInterface(
-                    parent_type='physical-interface', fq_name=li_fq_name,
-                    logical_interface_vlan_tag=vlan_tag)
-                ok, resp = api_server.internal_request_create('logical-interface',
-                    li_obj.serialize_to_json())
-                li_uuid = resp['logical-interface']['uuid']
-                api_server.internal_request_ref_update('logical-interface',
-                               li_uuid, 'ADD',
-                               'virtual-machine-interface', id,
-                               relax_ref_for_delete=True)
+                if phy_links and phy_links.get('local_link_information'):
+                    links  = phy_links['local_link_information']
+                    if len(links) > 1:
+                        cls._manage_lag_interface(id, api_server, db_conn, links)
+                    else:
+                        cls._create_logical_interface(id, api_server, db_conn,
+                             links[0]['switch_info'], links[0]['port_id'], esi=None)
 
         return True, ''
     # end post_dbe_update
@@ -2182,9 +2260,23 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             delete_dict = {'virtual_machine_refs' : []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
 
-        # For baremetal, delete the logical interface
+        # For baremetal, delete the logical interface and related objects
         for lri_back_ref in obj_dict.get('logical_interface_back_refs') or []:
-            api_server.internal_request_delete('logical_interface', lri_back_ref['uuid'])
+	    fqname = lri_back_ref['to'][:-1]
+	    interface_name = fqname[-1]
+
+            # Check if LAG interfaces are involved. If yes, clean then up
+            if interface_name.startswith('ae'):
+		# In addition to LAG interface, delete the physical interface created for LAG
+                phy_interface_uuid = db_conn.fq_name_to_uuid('physical_interface', fqname)
+                lag_interface_uuid = db_conn.fq_name_to_uuid('link_aggregation_group', fqname)
+                # Note: ths order of delettion is important
+                api_server.internal_request_delete('logical_interface', lri_back_ref['uuid'])
+                api_server.internal_request_delete('link_aggregation_group', lag_interface_uuid)
+                api_server.internal_request_delete('physical_interface', phy_interface_uuid)
+            else:
+                api_server.internal_request_delete('logical_interface', lri_back_ref['uuid'])
+
 
         return True, ""
     # end pre_dbe_delete
