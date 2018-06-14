@@ -11,7 +11,7 @@ import (
 	"../contrail"
 	log "../logging"
 	"github.com/containernetworking/cni/pkg/skel"
-	"github.com/containernetworking/cni/pkg/version"
+	cniSpecVersion "github.com/containernetworking/cni/pkg/version"
 )
 
 // Get UUID and Name for container. UUID is same as container-id
@@ -81,6 +81,5 @@ func CmdDel(skelArgs *skel.CmdArgs) error {
 
 func main() {
 	// Let CNI skeletal code handle demux based on env variables
-	skel.PluginMain(CmdAdd, CmdDel,
-		version.PluginSupports(contrailCni.CniVersion))
+	skel.PluginMain(CmdAdd, CmdDel, cniSpecVersion.All)
 }
