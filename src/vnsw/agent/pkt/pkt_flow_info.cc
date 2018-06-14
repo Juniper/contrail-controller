@@ -1471,9 +1471,14 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
         if (vrf == NULL)
             return NULL;
 
-        // In case of VXLAN, the NH points to VrfNH. Need to do route lookup
-        // on dmac to find the real nexthop
-        AgentRoute *rt = FlowEntry::GetL2Route(vrf, pkt->dmac);
+        AgentRoute *rt = NULL;
+        if (vrf->vn()->vxlan_routing_vn()) {
+            rt = FlowEntry::GetUcRoute(vrf, pkt->ip_daddr);
+        } else {
+            // In case of VXLAN, the NH points to VrfNH. Need to do route lookup
+            // on dmac to find the real nexthop
+            rt = FlowEntry::GetL2Route(vrf, pkt->dmac);
+        }
         if (rt != NULL) {
             return rt->GetActiveNextHop();
         }

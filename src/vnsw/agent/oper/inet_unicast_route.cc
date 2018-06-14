@@ -431,9 +431,6 @@ bool InetUnicastRouteEntry::ReComputePathAdd(AgentPath *path) {
     bool ret = false;
     InetUnicastAgentRouteTable *uc_rt_table =
         static_cast<InetUnicastAgentRouteTable *>(get_table());
-    if (path->peer() == uc_rt_table->agent()->evpn_routing_peer()) {
-    }
-
     if (IsHostRoute() == false)
         uc_rt_table->TraverseHostRoutesInSubnet(this,
                                                 uc_rt_table->agent()->
@@ -1546,10 +1543,15 @@ void InetUnicastAgentRouteTable::DeleteEvpnRoute(const AgentRoute *rt) {
 }
 
 void InetUnicastAgentRouteTable::AddEvpnRoutingRoute(const IpAddress &ip_addr,
-                                                     uint8_t plen,
-                                                     const VrfEntry *vrf,
-                                                     const Peer *peer,
-                                                     DBRequest &nh_req) {
+                                    uint8_t plen,
+                                    const VrfEntry *vrf,
+                                    const Peer *peer,
+                                    const SecurityGroupList &sg_list,
+                                    const CommunityList &communities,
+                                    const PathPreference &path_preference,
+                                    const EcmpLoadBalance &ecmp_load_balance,
+                                    const TagList &tag_list,
+                                    DBRequest &nh_req) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     //Set key and data
@@ -1557,6 +1559,12 @@ void InetUnicastAgentRouteTable::AddEvpnRoutingRoute(const IpAddress &ip_addr,
                                           vrf_entry()->GetName(),
                                           ip_addr,
                                           plen));
-    req.data.reset(new EvpnRoutingData(nh_req, vrf));
+    req.data.reset(new EvpnRoutingData(nh_req,
+                                       sg_list,
+                                       communities,
+                                       path_preference,
+                                       ecmp_load_balance,
+                                       tag_list,
+                                       vrf));
     Process(req);
 }

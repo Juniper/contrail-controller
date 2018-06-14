@@ -125,6 +125,7 @@ struct KSyncNhInfo {
    18: optional string crypt_intf_name;
    19: optional u32 crypt_out_if_index;
    20: optional bool crypt_traffic;
+   21: optional string rewrite_dmac;
 }
 
 /**
