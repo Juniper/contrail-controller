@@ -43,8 +43,6 @@ private:
                                          map<string,uint64_t> &omp,
                                          uint8_t mins, double &in_util,
                                          double &out_util) const;
-    bool BuildPhysicalInterfaceFlowRate(std::map<std::string,
-                                        VrouterFlowRate> *rate) const;
     bool BuildPhysicalInterfaceList(std::map<std::string, PhyIfStats> &list,
                                     std::map<std::string, PhyIfInfo> &info,
                                     std::map<std::string, AgentDropStats> &dsmap) const;
