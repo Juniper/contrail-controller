@@ -332,8 +332,10 @@ class DBBase(object):
 
         changed = []
         for field in self.ref_fields or []:
-            old_field = getattr(old_obj, field+'_refs', None)
-            new_field = getattr(self.obj, field+'_refs', None)
+            old_field = getattr(old_obj, field + '_refs', None) or \
+                getattr(old_obj, field + '_back_refs', None)
+            new_field = getattr(self.obj, field + '_refs', None) or \
+                getattr(self.obj, field + '_back_refs', None)
             if compare_refs(old_field, new_field):
                 continue
             self.update_refs(field, self.obj)

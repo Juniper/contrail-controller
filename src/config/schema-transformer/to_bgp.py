@@ -306,7 +306,6 @@ class SchemaTransformer(object):
         NetworkPolicyST.reinit()
         gevent.sleep(0.001)
         VirtualMachineInterfaceST.reinit()
-
         gevent.sleep(0.001)
         InstanceIpST.reinit()
         gevent.sleep(0.001)
@@ -371,10 +370,9 @@ class SchemaTransformer(object):
                 sc.destroy()
             if sc.present_stale:
                 sc.delete()
-            for rinst in RoutingInstanceST.values():
-                if rinst.stale_route_targets:
-                    rinst.update_route_target_list(
-                            rt_del=rinst.stale_route_targets)
+        for rinst in RoutingInstanceST.values():
+            if rinst.stale_route_targets:
+                rinst.update_route_target_list(rt_del=rinst.stale_route_targets)
     # end process_stale_objects
 
     def reset(self):

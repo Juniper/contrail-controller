@@ -3473,6 +3473,8 @@ class VirtualMachineInterfaceST(DBBaseST):
             self.set_properties()
         if 'routing_instance' in changed:
             self.update_routing_instances(self.obj.get_routing_instance_refs())
+        if 'logical_router' in changed:
+            LogicalRouterST.locate(self.logical_router).update_virtual_networks()
         self.update_multiple_refs('port_tuple', self.obj)
         return changed
     # end update
