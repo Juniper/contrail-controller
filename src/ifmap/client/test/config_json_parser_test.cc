@@ -2282,7 +2282,7 @@ TEST_F(ConfigJsonParserTest, ServerParser18InParts) {
 }
 
 // Verify that Draft objects are ignored
-TEST_F(ConfigJsonParserTest, DISABLED_ServerParserDraftObject) {
+TEST_F(ConfigJsonParserTest, ServerParserDraftObject) {
     IFMapTable *pmtable = IFMapTable::FindTable(&db_, "policy-management");
     TASK_UTIL_EXPECT_EQ(0, pmtable->Size());
     IFMapTable *frtable = IFMapTable::FindTable(&db_, "firewall-rule");
