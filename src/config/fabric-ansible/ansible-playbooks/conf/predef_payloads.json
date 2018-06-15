@@ -1,106 +1,122 @@
 {
-   "data": [
-      {
-         "object_type": "job_template",
-         "objects": [
-           {
-             "fq_name":[
-                "default-global-system-config",
-                "image_upgrade_template"
-             ],
-             "job_template_multi_device_job":true,
-             "job_template_playbooks":{
-                "playbook_info":[
-                   {
-                      "device_family":"",
-                      "vendor":"Juniper",
-                      "playbook_uri":"./opt/contrail/fabric_ansible_playbooks/image_upgrade.yml"
-                   }
-                ]
-             },
-             "job_template_input_schema":"",
-             "job_template_output_schema":"",
-             "parent_type":"global-system-config"
+  "data": [
+    {
+      "object_type": "job_template",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "image_upgrade_template"
+          ],
+          "job_template_multi_device_job": true,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "vendor": "Juniper",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/image_upgrade.yml"
+              }
+            ]
           },
-          {
-             "fq_name":[
-                "default-global-system-config",
-                "discover_device_template"
-             ],
-             "job_template_multi_device_job":false,
-             "job_template_playbooks":{
-                "playbook_info":[
-                   {
-                      "device_family":"",
-                      "vendor":"",
-                      "playbook_uri":"./opt/contrail/fabric_ansible_playbooks/discover_device.yml"
-                   }
-                ]
-             },
-             "job_template_input_schema":"",
-             "job_template_output_schema":"",
-             "parent_type":"global-system-config"
+          "job_template_input_schema": "",
+          "job_template_output_schema": "",
+          "parent_type": "global-system-config"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "discover_device_template"
+          ],
+          "job_template_multi_device_job": false,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "vendor": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml"
+              }
+            ]
           },
-          {
-             "job_template_multi_device_job":true,
-             "job_template_playbooks":{
-                "playbook_info":[
-                   {
-                      "playbook_uri":"./opt/contrail/fabric_ansible_playbooks/generate_underlay_config.yml",
-                      "vendor":"Juniper",
-                      "device_family":""
-                   }
-                ]
-             },
-             "job_template_output_schema":"",
-             "job_template_input_schema":"",
-             "parent_type":"global-system-config",
-             "fq_name":[
-                "default-global-system-config",
-                "generate_underlay_template"
-             ]
+          "job_template_input_schema": "",
+          "job_template_output_schema": "",
+          "parent_type": "global-system-config"
+        },
+        {
+          "job_template_multi_device_job": true,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/generate_underlay_config.yml",
+                "vendor": "Juniper",
+                "device_family": ""
+              }
+            ]
           },
-          {
-             "job_template_multi_device_job":true,
-             "job_template_playbooks":{
-                "playbook_info":[
-                   {
-                      "playbook_uri":"./opt/contrail/fabric_ansible_playbooks/device_import.yml",
-                      "vendor":"Juniper",
-                      "device_family":""
-                   }
-                ]
-             },
-             "job_template_output_schema":"",
-             "job_template_input_schema":"",
-             "parent_type":"global-system-config",
-             "fq_name":[
-                "default-global-system-config",
-                "device_import_template"
-             ]
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "parent_type": "global-system-config",
+          "fq_name": [
+            "default-global-system-config",
+            "generate_underlay_template"
+          ]
+        },
+        {
+          "job_template_multi_device_job": true,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
+                "vendor": "Juniper",
+                "device_family": ""
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "parent_type": "global-system-config",
+          "fq_name": [
+            "default-global-system-config",
+            "device_import_template"
+          ]
+        }
+      ]
+    },
+    {
+      "object_type": "tag",
+      "objects": [
+        {
+          "fq_name": [
+            "label=fabric-management_ip"
+          ],
+          "name": "label=fabric-management_ip",
+          "tag_type_name": "label",
+          "tag_value": "fabric-management_ip"
+        },
+        {
+          "fq_name": [
+            "label=fabric-management_ip"
+          ],
+          "name": "label=fabric-as_number",
+          "tag_type_name": "label",
+          "tag_value": "fabric-as_number"
+        }
+      ]
+    },
+    {
+      "object_type": "global_system_config",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config"
+          ],
+          "supported_device_families": {
+            "device_family": [
+              "junos",
+              "jonos-qfx"
+            ]
           }
-         ]
-      },
-     {
-       "object_type": "tag",
-         "objects": [
-            {
-                "fq_name": [
-                    "label=fabric-management_ip"
-                ],
-                "name": "label=fabric-management_ip",
-                "tag_type_name": "label",
-                "tag_value": "fabric-management_ip"
-            },
-           {
-                "fq_name": [
-                    "label=fabric-management_ip"
-                ],
-                "name": "label=fabric-as_number",
-                "tag_type_name": "label",
-                "tag_value": "fabric-as_number"
-           }
-         ]
-     }
-   ]
+        }
+      ]
+    }
+  ]
 }
