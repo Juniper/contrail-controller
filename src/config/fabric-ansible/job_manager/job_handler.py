@@ -10,6 +10,7 @@ import os
 import json
 import subprocess32
 import traceback
+import ast
 
 from job_manager.job_exception import JobException
 from job_manager.job_utils import JobStatus
@@ -20,7 +21,7 @@ class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
                  params, job_utils, device_json, auth_token, job_log_utils,
-                 sandesh_args, fabric_fq_name, playbook_timeout):
+                 sandesh_args, fabric_fq_name, playbook_timeout, playbook_seq):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -34,6 +35,8 @@ class JobHandler(object):
         self._sandesh_args = sandesh_args
         self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
+        self._playbook_seq = playbook_seq
+        self._device_data = None
 
     def handle_job(self, result_handler, job_percent_per_task, device_id=None):
         try:
@@ -55,6 +58,8 @@ class JobHandler(object):
                       job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
+            self.update_result_handler_device_data(result_handler)
+
         except JobException as job_exp:
             self._logger.error("%s" % job_exp.msg)
             self._logger.error("%s" % traceback.format_exc())
@@ -66,26 +71,26 @@ class JobHandler(object):
             result_handler.update_job_status(JobStatus.FAILURE, exp.message,
                                              device_id)
 
-    def find_playbook_info(self, device_family, device_vendor, playbook_list):
-
-        for playbook_info in playbook_list:
-            pb_vendor_name = playbook_info.get_vendor()
-            if not pb_vendor_name:
-                # device_vendor agnostic
-                return playbook_info
-            if pb_vendor_name.lower() == device_vendor.lower():
-                pb_device_family = playbook_info.get_device_family()
-                if pb_device_family:
-                    if device_family.lower() == pb_device_family.lower():
-                        return playbook_info
-                else:
-                    # device_family agnostic
-                    return playbook_info
-        msg = MsgBundle.getMessage(MsgBundle.
-                                   PLAYBOOK_INFO_DEVICE_MISMATCH,
-                                   device_vendor=device_vendor,
-                                   device_family=device_family)
-        raise JobException(msg, self._execution_id)
+    # def find_playbook_info(self, device_family, device_vendor, playbook_list):
+    #
+    #     for playbook_info in playbook_list:
+    #         pb_vendor_name = playbook_info.get_vendor()
+    #         if not pb_vendor_name:
+    #             # device_vendor agnostic
+    #             return playbook_info
+    #         if pb_vendor_name.lower() == device_vendor.lower():
+    #             pb_device_family = playbook_info.get_device_family()
+    #             if pb_device_family:
+    #                 if device_family.lower() == pb_device_family.lower():
+    #                     return playbook_info
+    #             else:
+    #                 # device_family agnostic
+    #                 return playbook_info
+    #     msg = MsgBundle.getMessage(MsgBundle.
+    #                                PLAYBOOK_INFO_DEVICE_MISMATCH,
+    #                                device_vendor=device_vendor,
+    #                                device_family=device_family)
+    #     raise JobException(msg, self._execution_id)
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
         try:
@@ -152,13 +157,8 @@ class JobHandler(object):
                 self._logger.debug("Passing the following device "
                                    "ip to playbook %s " % device_management_ip)
 
-                # get the playbook uri from the job template
-                play_info = self.find_playbook_info(device_family,
-                                                    device_vendor,
-                                                    playbooks.playbook_info)
-            else:
-                # get the playbook uri from the job template
-                play_info = playbooks.playbook_info[0]
+            # get the playbook uri from the job template
+            play_info = playbooks.playbook_info[self._playbook_seq]
 
             playbook_input = {'playbook_input': extra_vars}
 
@@ -185,7 +185,32 @@ class JobHandler(object):
                                                    playbook_exec_path,
                                                    "-i",
                                                    json.dumps(playbook_info)],
-                                                  close_fds=True, cwd='/')
+                                                  close_fds=True, cwd='/',
+                                                  stdout=subprocess32.PIPE)
+            device_data_output = ""
+            device_data_keyword = 'DEVICEDATA##'
+
+            while True:
+                output = playbook_process.stdout.readline()
+                if output == '' and playbook_process.poll() is not None:
+                    break
+                if output:
+                    self._logger.debug(output)
+                    # read device list data and store in variable result handler
+                    if device_data_keyword in output:
+                        device_data_output = output
+
+            if device_data_output != "":
+                device_data_output = self._extract_device_data_output(device_data_output,
+                                                 device_data_keyword)
+                self._logger.info("Device data extracted from output" + str(device_data_output))
+                try:
+                    self._device_data = json.loads(device_data_output)
+                except ValueError, e:
+                    self._device_data = ast.literal_eval(device_data_output)
+
+                self._logger.info("Device data json: " + str(self._device_data))
+
             playbook_process.wait(timeout=self._playbook_timeout)
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:
@@ -257,4 +282,20 @@ class JobHandler(object):
                                        playbook_uri=playbook_info['uri'],
                                        exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
+
+    def update_result_handler_device_data(self, result_handler):
+        if self._device_data:
+            for device_id in self._device_data:
+                result_handler.update_device_data(device_id,
+                                                  self._device_data[device_id])
+
+    def _extract_device_data_output(self, device_data_output,
+                                   device_data_keyword):
+        # extract the data before and after device_data_keyword from the
+        # device_data_output
+        device_data_output = device_data_output[device_data_output.index(
+            device_data_keyword) + len(
+            device_data_keyword): device_data_output.rindex(
+            device_data_keyword)]
+        return device_data_output
 
