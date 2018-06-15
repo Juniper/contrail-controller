@@ -45,7 +45,7 @@
         "type": "\"firewall_rule\"",
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
         "parent:policy_management:f178bfd9-16bc-4a42-8187-9b09fa544cb1" : ["null", 1483451383823467],
-        "draft_mode_state": ["\"created\"", 1483451383823467]
+        "prop:draft_mode_state": ["\"created\"", 1483451383823467]
       }
     }
   },
@@ -71,7 +71,7 @@
         "type": "\"firewall_rule\"",
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
         "parent:policy_management:f178bfd9-16bc-4a42-8187-9b09fa544cb1" : ["null", 1483451383823467],
-        "draft_mode_state": ["\"updated\"", 1483451383823567]
+        "prop:draft_mode_state": ["\"updated\"", 1483451383823567]
       }
     }
   },
@@ -90,7 +90,9 @@
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
       "fq_name": "[\"normal-policy-management\"]",
       "type": "\"policy_management\"",
-      "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}"
+      "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"},\"created\":null,\"last_modified\":null}",
+      "parent:policy_management:f178bfd9-16bc-4a42-8187-9b09fa544cb1" : ["null", 1483451383823467],
+      "prop:draft_mode_state": ["\"updated\"", 1483451383823567]
       }
     }
   },
@@ -116,7 +118,7 @@
         "type": "\"firewall_rule\"",
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
         "parent:policy_management:634ae160-d3ef-4e81-b58d-d196211eb4d9" : ["null", 1483451383823767],
-        "draft_mode_state": ["", 1483451383823767]
+        "prop:draft_mode_state": ["", 1483451383823767]
       }
     }
   },
@@ -137,7 +139,7 @@
         "type": "\"firewall_rule\"",
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
         "parent:policy_management:634ae160-d3ef-4e81-b58d-d196211eb4d9" : ["null", 1483451383823767],
-        "draft_mode_state": ["", 1483451383823767]
+        "prop:draft_mode_state": ["", 1483451383823767]
       }
     }
   },
@@ -150,7 +152,7 @@
         "type": "\"firewall_rule\"",
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"4683011200224676616\",\"uuid_lslong\":\"10591289800942672284\"},\"created\":null,\"last_modified\":null}",
         "parent:policy_management:634ae160-d3ef-4e81-b58d-d196211eb4d9" : ["null", 1483451383823767],
-        "draft_mode_state": ["", 1483451383823767]
+        "prop:draft_mode_state": ["", 1483451383823767]
       }
     }
   },
