@@ -118,6 +118,10 @@ public:
 };
 
 struct SessionConfig {
+    SessionConfig() : desiredMinTxInterval(boost::posix_time::seconds(1)),
+        requiredMinRxInterval(boost::posix_time::seconds(0)),
+        detectionTimeMultiplier(1) {}
+
     TimeInterval desiredMinTxInterval;  // delay
     TimeInterval requiredMinRxInterval; // timeout
     int detectionTimeMultiplier;        // max-retries ?
