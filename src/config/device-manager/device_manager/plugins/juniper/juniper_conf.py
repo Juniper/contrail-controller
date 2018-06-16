@@ -166,7 +166,7 @@ class JuniperConf(DeviceConf):
                           "(%s, %ss), Reconnecting" % (self.management_ip, self.timeout))
             # unset connection handler, and retry immediately
             self._nc_manager = None
-            self.timeout = 0
+            self.timeout = 120
             self.push_config_state = PushConfigState.PUSH_STATE_RETRY
         except Exception as e:
             self._logger.error("Router %s: %s" % (self.management_ip,
