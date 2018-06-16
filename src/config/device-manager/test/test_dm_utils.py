@@ -7,9 +7,11 @@ from cStringIO import StringIO
 from lxml import etree
 from test_utils import stub
 
+
 class FakeNetconfManager(object):
     model = 'mx480'
     version = '14.2R6'
+
     def __init__(self, host, *args, **kwargs):
         self.host = host
         self.connected = True
@@ -64,9 +66,13 @@ class FakeNetconfManager(object):
     commit = stub
 # end FakeNetconfManager
 
+
 netconf_managers = {}
+
+
 def fake_netconf_connect(host, *args, **kwargs):
     return netconf_managers.setdefault(host, FakeNetconfManager(host, args, kwargs))
+
 
 class FakeDeviceConnect(object):
     params = {}
@@ -82,11 +88,11 @@ class FakeDeviceConnect(object):
     def send_netconf(cls, obj, new_config, default_operation="merge", operation="replace"):
         config = new_config.get_configuration().get_groups()
         cls.params = {
-                                     "pr_config": obj,
-                                     "config": config,
-                                     "default_operation": default_operation,
-                                     "operation": operation
-                                   }
+            "pr_config": obj,
+            "config": config,
+            "default_operation": default_operation,
+            "operation": operation
+        }
         return len(cls.get_xml_data(new_config))
     # end send_netconf
 
@@ -101,5 +107,40 @@ class FakeDeviceConnect(object):
     # end get_xml_config
 # end
 
+
 def fake_send_netconf(self, new_config, default_operation="merge", operation="replace"):
     return FakeDeviceConnect.send_netconf(self, new_config, default_operation, operation)
+
+
+class FakeJobHandler(object):
+    params = {}
+
+    @classmethod
+    def push(cls, obj, timeout, max_retries):
+        cls.params = {
+            'job_type':  obj._job_type,
+            'job_input':  obj._job_input,
+            'device_list':  obj._device_list,
+            'analytics_config':  obj._analytics_config,
+            'vnc_api':  obj._vnc_api,
+            'logger':  obj._logger,
+            'timeout': timeout,
+            'max_retries': max_retries
+        }
+    # end push
+
+    @classmethod
+    def get_job_input(cls):
+        return cls.params.get('job_input')
+    # end get_xml_config
+
+    @classmethod
+    def reset(cls):
+        cls.params = {}
+    # end reset
+# end FakeJobHandler
+
+
+def fake_job_handler_push(self, timeout, max_retries):
+    return FakeJobHandler.push(self, timeout, max_retries)
+# end fake_job_handler_push
