@@ -1018,7 +1018,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.virtual_network = None
         self.floating_ip = None
         self.instance_ip = None
-        self.logical_interface = None
+        self.logical_interface = set()
         self.physical_interface = None
         self.service_interface_type = None
         self.port_tuple = None
@@ -1039,7 +1039,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             self.service_interface_type = self.params.get(
                 'service_interface_type', None)
         self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
-        self.update_single_ref('logical_interface', obj)
+        self.update_multiple_refs('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
         self.update_single_ref('instance_ip', obj)
@@ -1066,7 +1066,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        obj.update_single_ref('logical_interface', {})
+        obj.update_multiple_refs('logical_interface', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_single_ref('floating_ip', {})
         obj.update_single_ref('instance_ip', {})
