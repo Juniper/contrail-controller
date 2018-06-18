@@ -111,6 +111,11 @@ VmFlowRef::VmFlowRef() :
 }
 
 VmFlowRef::VmFlowRef(const VmFlowRef &rhs) {
+
+    fd_ = VmFlowRef::kInvalidFd;
+    port_ = 0;
+    flow_ = NULL;
+
     // UPDATE on linklocal flows is not supported. So, fd_ should be invalid
     assert(fd_ == VmFlowRef::kInvalidFd);
     assert(rhs.fd_ == VmFlowRef::kInvalidFd);
