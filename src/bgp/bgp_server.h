@@ -176,6 +176,8 @@ public:
     DB *database() { return &db_; }
     const std::string &localname() const;
     bool admin_down() const { return admin_down_; }
+    uint32_t cluster_id() const { return cluster_id_; }
+    void set_cluster_id(uint32_t id) { cluster_id_ = id; }
     as_t autonomous_system() const { return autonomous_system_; }
     as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
@@ -297,6 +299,7 @@ private:
     bool admin_down_;
     AdminDownListenersList admin_down_listeners_;
     boost::dynamic_bitset<> admin_down_bmap_;  // free list.
+    uint32_t cluster_id_;
     as_t autonomous_system_;
     as_t local_autonomous_system_;
     ASNUpdateListenersList asn_listeners_;

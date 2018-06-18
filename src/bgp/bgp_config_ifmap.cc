@@ -652,6 +652,7 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
     bgp_router_.reset(router);
     const autogen::BgpRouterParams &params = router->parameters();
     data_.set_admin_down(params.admin_down);
+    data_.set_cluster_id(params.cluster_id);
     data_.set_autonomous_system(params.autonomous_system);
     data_.set_local_autonomous_system(params.local_autonomous_system);
     data_.set_port(params.port ?: BgpConfigManager::kDefaultPort);

@@ -536,6 +536,9 @@ public:
     bool admin_down() const { return admin_down_; }
     void set_admin_down(bool admin_down) { admin_down_ = admin_down; }
 
+    uint32_t cluster_id() const { return cluster_id_; }
+    void set_cluster_id(uint32_t cluster_id) { cluster_id_ = cluster_id; }
+
     uint32_t identifier() const { return identifier_; }
     void set_identifier(uint32_t identifier) { identifier_ = identifier; }
 
@@ -569,6 +572,7 @@ public:
 private:
     std::string instance_name_;
     bool admin_down_;
+    uint32_t cluster_id_;
     uint32_t autonomous_system_;
     uint32_t local_autonomous_system_;
     uint32_t identifier_;

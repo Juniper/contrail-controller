@@ -247,6 +247,7 @@ public:
 
     static void GlobalSetUp();
     void set_autonomous_system(as_t as) { autonomous_system_ = as; }
+    void set_cluster_id(uint32_t cid) { cluster_id_ = cid; }
     void set_local_autonomous_system(as_t local_as) {
         local_autonomous_system_ = local_as;
     }
@@ -331,14 +332,17 @@ public:
         is_ready_fnc_ = is_ready_fnc;
     }
 
-    bool BgpPeerCheckSplitHorizon() { return BgpPeer::CheckSplitHorizon(); }
-    virtual bool CheckSplitHorizon() const {
+    bool BgpPeerCheckSplitHorizon(uint32_t cluster_id, uint32_t ribout_cid) {
+        return BgpPeer::CheckSplitHorizon(cluster_id, ribout_cid);
+    }
+    virtual bool CheckSplitHorizon(uint32_t cluster_id = 0,
+                  uint32_t ribout_cid = 0) const {
         tbb::mutex::scoped_lock lock(fnc_mutex_);
-        return check_split_horizon_fnc_();
+        return check_split_horizon_fnc_(cluster_id, ribout_cid);
     }
 
     void set_check_split_horizon_fnc(
-            boost::function<bool()> check_split_horizon_fnc) {
+            boost::function<bool(uint32_t, uint32_t)> check_split_horizon_fnc) {
         tbb::mutex::scoped_lock lock(fnc_mutex_);
         check_split_horizon_fnc_ = check_split_horizon_fnc;
     }
@@ -378,7 +382,7 @@ private:
     mutable tbb::mutex fnc_mutex_;
     boost::function<bool(const uint8_t *, size_t)> send_update_fnc_;
     boost::function<bool(uint16_t, uint8_t)> mp_nlri_allowed_fnc_;
-    boost::function<bool()> check_split_horizon_fnc_;
+    boost::function<bool(uint32_t, uint32_t)> check_split_horizon_fnc_;
     boost::function<bool()> process_session_fnc_;
     boost::function<bool()> is_ready_fnc_;
 };
