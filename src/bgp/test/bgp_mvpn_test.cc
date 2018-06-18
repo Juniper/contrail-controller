@@ -634,6 +634,56 @@ protected:
         }
     }
 
+    bool CheckMvpnNeighborRoute(size_t i) const {
+        if (red_[i-1]->Size() != 1)
+            return false;
+        if (!red_[i-1]->FindType1ADRoute())
+            return false;
+
+        if (blue_[i-1]->Size() != 1)
+            return false;
+        if (!blue_[i-1]->FindType1ADRoute())
+            return false;
+
+        if (green_[i-1]->Size() != 3) // 1 green1+1 red1+1 blue1
+            return false;
+        if (!green_[i-1]->FindType1ADRoute())
+            return false;
+
+        // Verify that only green1 has discovered a neighbor from red1.
+        if (red_[i-1]->manager()->neighbors_count())
+            return false;
+        if (blue_[i-1]->manager()->neighbors_count())
+            return false;
+        if (green_[i-1]->manager()->neighbors_count() != 2)
+            return false;
+
+        MvpnNeighbor neighbor;
+        if (!green_[i-1]->manager()->FindNeighbor(
+                *(red_[i-1]->routing_instance()->GetRD()), &neighbor)) {
+            return false;
+        }
+        if (!(*(red_[i-1]->routing_instance()->GetRD()) == neighbor.rd()))
+            return false;
+        if (neighbor.source_as())
+            return false;
+        error_code err;
+        if (IpAddress::from_string("127.0.0.2", err) != neighbor.originator())
+            return false;
+
+        if (!green_[i-1]->manager()->FindNeighbor(
+                *(blue_[i-1]->routing_instance()->GetRD()), &neighbor)) {
+            return false;
+        }
+        if (!(*(blue_[i-1]->routing_instance()->GetRD()) == neighbor.rd()))
+            return false;
+        if (neighbor.source_as())
+            return false;
+        if (IpAddress::from_string("127.0.0.2", err) != neighbor.originator())
+            return false;
+        return true;
+    }
+
     void VerifyInitialState(bool pm_configure = true,
             size_t red1c = 0, size_t blue1c = 0, size_t green1c = 0,
             size_t masterc = 0, size_t red1_nopm_c = 0, size_t blue1_nopm_c = 0,
