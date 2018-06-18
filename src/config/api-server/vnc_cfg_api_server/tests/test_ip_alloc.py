@@ -474,6 +474,113 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
     #end test_subnet_quota
 
+    def test_flat_subnetted_ipam_crud(self):
+        # Create Project
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+        ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 30))
+        ipam2_sn_v4 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 30))
+
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"),
+                           ipam_subnet_method="flat-subnet",
+                           ipam_subnets=IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]), ipam_subnetting=True)
+        self._vnc_lib.network_ipam_create(ipam)
+
+        logger.debug('create l3 virtual network')
+        vn = VirtualNetwork('my-v4-v6-vn', project,
+                            virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
+                            address_allocation_mode='flat-subnet-only')
+
+        vn.add_network_ipam(ipam, VnSubnetsType([]))
+        # put a add method to add flag for ip allocation user-only
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Create v4 Ip objects
+        ipv4_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4',
+                                        instance_ip_subscriber_tag='tag1')
+        ipv4_obj1.uuid = ipv4_obj1.name
+        logger.debug('Created Instance IPv4 object 1 %s', ipv4_obj1.uuid)
+
+        ipv4_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4',
+                                        instance_ip_subscriber_tag='tag1')
+        ipv4_obj2.uuid = ipv4_obj2.name
+        logger.debug('Created Instance IPv4 object 2 %s', ipv4_obj2.uuid)
+
+        ipv4_obj3 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4',
+                                        instance_ip_subscriber_tag='tag2')
+        ipv4_obj3.uuid = ipv4_obj3.name
+        logger.debug('Created Instance IPv4 object 3 %s', ipv4_obj3.uuid)
+
+        ipv4_obj4 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4',
+                                        instance_ip_subscriber_tag='tag2')
+        ipv4_obj4.uuid = ipv4_obj4.name
+        logger.debug('Created Instance IPv4 object 4 %s', ipv4_obj4.uuid)
+
+        # Create VM
+        vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
+        vm_inst_obj1.uuid = vm_inst_obj1.name
+        self._vnc_lib.virtual_machine_create(vm_inst_obj1)
+
+        id_perms = IdPermsType(enable=True)
+        port_obj1 = VirtualMachineInterface(
+            str(uuid.uuid4()), vm_inst_obj1, id_perms=id_perms)
+        port_obj1.uuid = port_obj1.name
+        port_obj1.set_virtual_network(vn)
+        ipv4_obj1.set_virtual_machine_interface(port_obj1)
+        ipv4_obj1.set_virtual_network(net_obj)
+
+        ipv4_obj2.set_virtual_machine_interface(port_obj1)
+        ipv4_obj2.set_virtual_network(net_obj)
+
+        ipv4_obj3.set_virtual_machine_interface(port_obj1)
+        ipv4_obj3.set_virtual_network(net_obj)
+
+        ipv4_obj4.set_virtual_machine_interface(port_obj1)
+        ipv4_obj4.set_virtual_network(net_obj)
+
+        port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
+
+        logger.debug('Allocating an IPV4 address for first VM')
+        ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
+        ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
+        ipv4_addr1 = ipv4_obj1.get_instance_ip_address()
+        if ipv4_addr1 != '11.1.1.2':
+            self.fail('Allocation failed, expected v4 IP Address 11.1.1.2')
+
+        logger.debug('Allocating an IPV4 address for Third VM')
+        ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
+        ipv4_obj3 = self._vnc_lib.instance_ip_read(id=ipv4_id3)
+        ipv4_addr3 = ipv4_obj3.get_instance_ip_address()
+        if ipv4_addr3 != '12.1.1.2':
+            logger.debug('Allocation failed, expected v4 IP Address 12.1.1.2')
+
+        logger.debug('Allocating an IPV4 address for second VM')
+        ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
+        ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
+        ipv4_addr2 = ipv4_obj2.get_instance_ip_address()
+        if ipv4_addr2 != '11.1.1.1':
+            self.fail('Allocation failed, expected v4 IP Address 11.1.1.1')
+
+        logger.debug('Allocating an IPV4 address for Fourth VM')
+        ipv4_id4 = self._vnc_lib.instance_ip_create(ipv4_obj4)
+        ipv4_obj4 = self._vnc_lib.instance_ip_read(id=ipv4_id4)
+        ipv4_addr4 = ipv4_obj4.get_instance_ip_address()
+        if ipv4_addr4 != '12.1.1.1':
+            logger.debug('Allocation failed, expected v4 IP Address 12.1.1.1')
+
+        #clean up
+        self._vnc_lib.instance_ip_delete(id=ipv4_id1)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id2)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id3)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id4)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+    #end test_flat_subnetted_ipam_crud
+
     def test_flat_subnet_ipam_crud(self):
         # Create Project
         project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
