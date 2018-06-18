@@ -3747,8 +3747,13 @@ class NetworkIpamServer(Resource, NetworkIpam):
         if ((ipam_subnets != None) and (subnet_method != 'flat-subnet')):
             return (False, (400, 'ipam-subnets are allowed only with flat-subnet'))
 
+        ipam_subnetting = obj_dict.get('ipam_subnetting', False)
+        if (ipam_subnetting and (subnet_method != 'flat-subnet')):
+            return (False, (400, 'subnetting is allowed only with flat-subnet'))
+
         if  (subnet_method != 'flat-subnet'):
             return True, ""
+
 
         ipam_subnets = obj_dict.get('ipam_subnets')
         if ipam_subnets is None:
@@ -3814,6 +3819,12 @@ class NetworkIpamServer(Resource, NetworkIpam):
                 return (False,
                         (400, 'ipam-subnets are allowed only with flat-subnet'))
             return True, ""
+
+        old_subnetting = read_result.get('ipam_subnetting')
+        if 'ipam_subnetting' in obj_dict:
+            subnetting = obj_dict.get('ipam_subnetting', False)
+            if (old_subnetting != subnetting):
+                return (False, (400, 'ipam_subnetting can not be changed'))
 
         if 'ipam_subnets' in obj_dict:
             req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
