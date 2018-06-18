@@ -22,7 +22,6 @@ from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import Fabric
 from vnc_api.gen.resource_client import FabricNamespace
 from vnc_api.gen.resource_client import DeviceImage
-from vnc_api.gen.resource_client import PhysicalRouter
 
 
 # pylint: disable=E1101
@@ -181,13 +180,10 @@ class SanityBase(object):
         return namespace
     # end _add_asn_namespace
 
-    def create_image_and_device(self, img_name, img_uri, img_version,
-                                img_family, img_vendor, device_family,
-                                device_vendor, prouter_ip, prouter_password, device_name):
-
-        """create image and physical device"""
+    def create_image(self, img_name, img_uri, img_version,
+                                img_family, img_vendor):
+        """create image"""
         img_fqname = None
-        device_fqname = None
         try:
             self._logger.info('Creating image: %s', img_name)
             img_fqname = ['default-global-system-config', img_name]
@@ -210,34 +206,9 @@ class SanityBase(object):
         self._logger.debug(
             "Image created:\n%s",
             pprint.pformat(self._api.obj_to_dict(image), indent=4))
+        return image
 
-        try:
-            self._logger.info('Creating device: %s', device_name)
-            device_fqname = ['default-global-system-config', device_name]
-            device = PhysicalRouter(
-                name=device_name,
-                fq_name=device_fqname,
-                physical_router_device_family=device_family,
-                physical_router_management_ip=prouter_ip,
-                physical_router_vendor_name=device_vendor,
-                physical_router_user_credentials={
-                    'username': 'root', 'password': prouter_password
-                }
-            )
-            device_uuid = self._api.physical_router_create(device)
-            device = self._api.physical_router_read(id=device_uuid)
-
-        except RefsExistError:
-            self._logger.warn("Device '%s' already exists", device_name)
-            device = self._api.physical_router_read(fq_name=device_fqname)
-
-        self._logger.debug(
-            "Device created:\n%s",
-            pprint.pformat(self._api.obj_to_dict(device), indent=4))
-
-        return image, device
-
-    # end create_image_and_device
+    # end create_image
 
     def cleanup_fabric(self, fab_name):
         """delete fabric including all prouters in the fabric"""
@@ -266,7 +237,7 @@ class SanityBase(object):
             self._logger.warn('Fabric "%s" not found', fab_name)
     # end cleanup_fabric
 
-    def cleanup_image_prouter(self, img_name, device_name):
+    def cleanup_image(self, img_name,):
         # image cleanup
         self._logger.info("Clean up image and prouter from db")
         try:
@@ -278,18 +249,6 @@ class SanityBase(object):
 
         except NoIdError:
             self._logger.warn('Image "%s" not found', img_name)
-
-        # device cleanup
-        try:
-            device_fqname = ['default-global-system-config', device_name]
-            device = self._api.physical_router_read(fq_name=device_fqname)
-            self._logger.debug(
-                "Delete Physical Router: %s", device_fqname)
-            self._api.physical_router_delete(device_fqname)
-        except NoIdError:
-            self._logger.warn('Device "%s" not found', device_name)
-
-    # end cleanup_image_prouter
 
     def _delete_prouter(self, uuid):
         prouter = self._api.physical_router_read(id=uuid)
