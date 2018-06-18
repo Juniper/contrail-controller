@@ -7,6 +7,8 @@
 """
 This file contains implementation of checking for successful SSH connections
 """
+import os
+import ssl
 import subprocess
 import socket
 import xml.etree.ElementTree as etree
@@ -22,6 +24,9 @@ from gevent import Greenlet, monkey, pool
 monkey.patch_all()
 from ansible.module_utils.fabric_pysnmp import snmp_walk
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
+from netmiko import ConnectHandler
+from netmiko.ssh_autodetect import SSHDetect
+import napalm
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
@@ -109,28 +114,38 @@ RETURN = '''
 REF_EXISTS_ERROR = 3
 JOB_IN_PROGRESS = "IN_PROGRESS"
 
+# Maps netmiko drivers to NAPALM drivers.
+# This is not an exhaustive list, but a good start
+NETMIKO_NAPALM_DICT = {
+    "cisco_ios": "ios",
+    "cisco_nxos": "nxos",
+    "cisco_xr": "iosxr",
+    "arista_eos": "eos",
+    "juniper": "junos"
+}
 
-def _parse_xml_response(xml_response, oid_mapped):
+
+def _parse_xml_response(xml_response, device_info):
     xml_response = xml_response.split('">')
     output = xml_response[1].split('<cli')
     final = etree.fromstring(output[0])
-    oid_mapped['product'] = final.find('hardware-model').text
-    oid_mapped['family'] = final.find('os-name').text
-    oid_mapped['os-version'] = final.find('os-version').text
-    oid_mapped['serial-number'] = final.find('serial-number').text
-    oid_mapped['hostname'] = final.find('host-name').text
+    device_info['product'] = final.find('hardware-model').text
+    device_info['family'] = final.find('os-name').text
+    device_info['os-version'] = final.find('os-version').text
+    device_info['serial-number'] = final.find('serial-number').text
+    device_info['hostname'] = final.find('host-name').text
 # end _parse_xml_response
 
 def _ssh_connect(ssh_conn, username, password, hostname,
-                 commands, oid_mapped, logger):
+                 commands, device_info, logger):
     try:
         ssh_conn.connect(
             username=username,
             password=password,
             hostname=hostname)
-        oid_mapped['username'] = username
-        oid_mapped['password'] = password
-        oid_mapped['host'] = hostname
+        device_info['username'] = username
+        device_info['password'] = password
+        device_info['host'] = hostname
         if commands:
             num_commands = len(commands) - 1
             for index, command in enumerate(commands):
@@ -147,7 +162,7 @@ def _ssh_connect(ssh_conn, username, password, hostname,
                                            .format(hostname))
                 else:
                     break
-            _parse_xml_response(response, oid_mapped)
+            _parse_xml_response(response, device_info)
         return True
     except RuntimeError as rex:
         logger.info("RunTimeError: {}".format(str(rex)))
@@ -157,7 +172,8 @@ def _ssh_connect(ssh_conn, username, password, hostname,
         return False
 # end _ssh_connect
 
-def _ssh_check(host, credentials, oid_mapped, logger):
+
+def _ssh_check(host, credentials, device_info, logger):
     remove_null = []
     ssh_conn = paramiko.SSHClient()
     ssh_conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -190,8 +206,8 @@ def _ssh_check(host, credentials, oid_mapped, logger):
     prioritized_creds = sorted(remove_null, key=len, reverse=True)
     try:
         for device_cred in prioritized_creds:
-            oid_vendor = oid_mapped['vendor']
-            oid_family = oid_mapped['family']
+            oid_vendor = device_info['vendor']
+            oid_family = device_info['family']
             device_family = device_cred.get('device_family', None)
             vendor = device_cred.get('vendor', None)
             cred = device_cred.get('credential', None)
@@ -213,7 +229,7 @@ def _ssh_check(host, credentials, oid_mapped, logger):
                 password,
                 host,
                 None,
-                oid_mapped,
+                device_info,
                 logger)
             if response:
                 return True
@@ -240,9 +256,11 @@ def _ping_sweep(host, logger):
 # end _ping_sweep
 
 
-def _get_device_vendor(oid, vendor_mapping):
+def _get_device_vendor(oid, vendor_mapping, napalm_driver=""):
     for vendor in vendor_mapping:
-        if vendor.get('oid') in oid:
+        if oid and vendor.get('oid') in oid:
+            return vendor.get('vendor')
+        if napalm_driver and vendor.get('napalm_driver') in napalm_driver:
             return vendor.get('vendor')
     return None
 # end _get_device_vendor
@@ -285,37 +303,52 @@ def _oid_mapping(host, pysnmp_output, module):
     return matched_oid_mapping
 # end _oid_mapping
 
+def _send_netmiko_config_commands(commands, device_type, host, username, password):
+    """Send a list of commands to network device in config mode
+    """
 
-def _get_device_info_ssh(host, oid_mapped, module):
+    connection = ConnectHandler(device_type=device_type,
+                                host=host, username=username, password=password)
+    connection.enable()
+
+    return connection.send_config_set(commands)
+
+def _get_device_drivers(host, module):
+    """Use netmiko autodetect to get netmiko and NAPALM drivers
+    """
+
     # find a credential that matches this host
     credentials = module.params['credentials']
-    device_family_info = module.params['device_family_info']
     logger = module.logger
 
-    sshconn = paramiko.SSHClient()
-    sshconn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    try:
-        for info in device_family_info:
-            for cred in credentials:
-                success = _ssh_connect(
-                    sshconn,
-                    cred['credential']['username'],
-                    cred['credential']['password'],
-                    host,
-                    info['ssh_probe'],
-                    oid_mapped,
-                    logger)
-                if success:
-                    oid_mapped['vendor'] = info['vendor']
-                    break
-    finally:
-        sshconn.close()
-# end _get_device_info_ssh
+    for cred in credentials:
+        try:
+            guesser = SSHDetect(
+                device_type="autodetect",
+                host=host,
+                username=cred['credential']['username'],
+                password=cred['credential']['password'],
+            )
+            netmiko_driver = guesser.autodetect()
+
+        except Exception as e:
+            logger.error("Problem detecting device type via netmiko - %s" % e)
+            continue
+
+        try:
+            napalm_driver = NETMIKO_NAPALM_DICT[netmiko_driver]
+        except KeyError:
+            logger.error("Detected device vendor not currently supported")
+            return "", "", ""
+
+        return netmiko_driver, napalm_driver, cred
+
+    return "", "", ""
 
 
 def _pr_object_create_update(
         vncapi,
-        oid_mapped,
+        device_info,
         fq_name,
         module,
         update,
@@ -323,19 +356,19 @@ def _pr_object_create_update(
     pr_uuid = None
     logger = module.logger
     try:
-        os_version = oid_mapped.get('os-version', None)
-        serial_num = oid_mapped.get('serial-number', None)
+        os_version = device_info.get('os-version', None)
+        serial_num = device_info.get('serial-number', None)
         physicalrouter = PhysicalRouter(
             parent_type='global-system-config',
             fq_name=fq_name,
-            physical_router_management_ip=oid_mapped.get('host'),
-            physical_router_vendor_name=oid_mapped.get('vendor'),
-            physical_router_product_name=oid_mapped.get('product'),
-            physical_router_device_family=oid_mapped.get('family'),
+            physical_router_management_ip=device_info.get('host'),
+            physical_router_vendor_name=device_info.get('vendor'),
+            physical_router_product_name=device_info.get('product'),
+            physical_router_device_family=device_info.get('family'),
             physical_router_vnc_managed=True,
             physical_router_user_credentials={
-                'username': oid_mapped.get('username'),
-                'password': oid_mapped.get('password')
+                'username': device_info.get('username'),
+                'password': device_info.get('password')
             }
         )
         if update:
@@ -344,14 +377,14 @@ def _pr_object_create_update(
                 pr_obj_dict = ast.literal_eval(pr_unicode_obj)
                 pr_uuid = pr_obj_dict['physical-router']['uuid']
                 msg = "Updated device info for: {} : {} : {}".format(
-                    oid_mapped.get('host'), fq_name[1], oid_mapped.get('product'))
-                logger.info("Updated device info for: {} : {}".format(oid_mapped.get(
+                    device_info.get('host'), fq_name[1], device_info.get('product'))
+                logger.info("Updated device info for: {} : {}".format(device_info.get(
                     'host'), pr_uuid))
         else:
             pr_uuid = vncapi.physical_router_create(physicalrouter)
             msg = "Discovered device details: {} : {} : {}".format(
-                oid_mapped.get('host'), fq_name[1], oid_mapped.get('product'))
-            logger.info("Device created with uuid- {} : {}".format(oid_mapped.get(
+                device_info.get('host'), fq_name[1], device_info.get('product'))
+            logger.info("Device created with uuid- {} : {}".format(device_info.get(
                 'host'), pr_uuid))
             module.send_prouter_object_log(fq_name, "DISCOVERED",
                                                os_version, serial_num)
@@ -367,66 +400,123 @@ def _pr_object_create_update(
 
 def _device_info_processing(host, vncapi, module, fabric_uuid,
                             per_greenlet_percentage):
-    oid_mapped = {}
+    """Get info about a single device and populate VNC api
+    """
+
+    device_info = {}
     valid_creds = False
     return_code = True
     credentials = module.params['credentials']
+    autoenable_api = module.params['autoenable_api']
+    enable_api_commands = module.params['enable_api_commands']
+    vendor_mapping = module.params['vendor_mapping']
+
     logger = module.logger
 
     if _ping_sweep(host, logger):
         logger.info("HOST {}: REACHABLE".format(host))
-        snmp_result = snmp_walk(host, '2vc', 'public')
 
+        # Attempt to get device info from SNMP first
+        snmp_result = snmp_walk(host, '2vc', 'public')
         if snmp_result.get('error') is False:
-            oid_mapped = _oid_mapping(host, snmp_result, module)
-            if oid_mapped:
+            # Determine vendor from SNMP OID
+            device_info = _oid_mapping(host, snmp_result, module)
+            if device_info:
                 logger.info("HOST {}: SNMP SUCCEEDED".format(host))
+                if device_info.get('host'):
+                    if not _ssh_check(host, credentials, device_info, logger):
+                        logger.debug("Post-SNMP credentials check failed; nothing to update in DB")
+                        device_info = {}
+
         else:
             logger.info(
                 "SNMP failed for host {} with error {}".format(
                     host, snmp_result['error_msg']))
 
-        if not oid_mapped or snmp_result.get('error') is True:
-            _get_device_info_ssh(host, oid_mapped, module)
-            if not oid_mapped.get('family') or not oid_mapped.get('vendor'):
-                logger.info("Could not retrieve family/vendor info for the \
-                    host: {}, not creating PR object".format(host))
-                logger.info("vendor: {}, family: {}".format(
-                    oid_mapped.get('vendor'), oid_mapped.get('family')))
-                oid_mapped = {}
+        # If SNMP failed, try to get info via netmiko and NAPALM
+        if not device_info or snmp_result.get('error') is True:
 
-        if oid_mapped.get('host'):
-            valid_creds = _ssh_check(host, credentials, oid_mapped, logger)
+            logger.info("Attempting to get device info via netmiko and NAPALM")
 
-        if not valid_creds and oid_mapped:
+            # Autodetect device vendor and retrieve driver names and valid creds
+            netmiko_driver, napalm_driver, cred = _get_device_drivers(host, module)
+
+            logger.info("Netmiko discovery results: %s" % {
+                "netmiko_driver": netmiko_driver,
+                "napalm_driver": napalm_driver
+            })
+
+            if cred:
+                valid_creds = True
+
+            if autoenable_api:
+                _send_netmiko_config_commands(
+                    commands=enable_api_commands[netmiko_driver],
+                    device_type=netmiko_driver,
+                    host=host,
+                    username=cred['credential']['username'],
+                    password=cred['credential']['password']
+                )
+
+            driver = napalm.get_network_driver(napalm_driver)
+
+            # https://github.com/arista-eosplus/pyeapi/issues/149
+            if (not os.environ.get('PYTHONHTTPSVERIFY', '') and
+                getattr(ssl, '_create_unverified_context', None)):
+                ssl._create_default_https_context = ssl._create_unverified_context
+
+            try:
+                # Test connection
+                with driver(
+                    hostname=host,
+                    username=cred['credential']['username'],
+                    password=cred['credential']['password']) as napalm_device:
+                        facts = napalm_device.get_facts()
+
+            except Exception as e:
+                logger.error("Problem getting device info via NAPALM - %s" % e)
+                device_info = {}
+            else:
+                # Connection successful, update device info
+                #
+                # We only want to do it this way if netmiko was used to classify. The
+                # existing SNMP classification sets device_info with a few function calls
+                # i.e. to _ssh_connect
+                device_info['hostname'] = facts['hostname']
+                device_info['host'] = host
+                device_info['username'] = cred['credential']['username']
+                device_info['password'] = cred['credential']['password']
+                device_info['vendor'] = _get_device_vendor(oid="", vendor_mapping=vendor_mapping, napalm_driver=napalm_driver)
+
+        if not valid_creds and device_info:
             logger.info("No credentials matched for host: {}, nothing to update in DB".format(host))
-            oid_mapped = {}
+            device_info = {}
 
-        if oid_mapped:
+        if device_info:
             fq_name = [
                 'default-global-system-config',
-                oid_mapped.get('hostname')]
+                device_info.get('hostname')]
             return_code, pr_uuid = _pr_object_create_update(
-                vncapi, oid_mapped, fq_name, module, False, per_greenlet_percentage)
+                vncapi, device_info, fq_name, module, False, per_greenlet_percentage)
             if return_code == REF_EXISTS_ERROR:
                 physicalrouter = vncapi.physical_router_read(
                     fq_name=fq_name)
                 phy_router = vncapi.obj_to_dict(physicalrouter)
                 if (phy_router.get('physical_router_management_ip')
-                        == oid_mapped.get('host')):
+                        == device_info.get('host')):
                     logger.info(
                         "Device with same mgmt ip already exists {}".format(
                             phy_router.get('physical_router_management_ip')))
                     return_code, pr_uuid = _pr_object_create_update(
-                        vncapi, oid_mapped, fq_name, module, True)
+                        vncapi, device_info, fq_name, module, True, per_greenlet_percentage)
                 else:
                     fq_name = [
                         'default-global-system-config',
-                        oid_mapped.get('hostname') +
+                        device_info.get('hostname') +
                         '_' +
-                        oid_mapped.get('host')]
+                        device_info.get('host')]
                     return_code, pr_uuid = _pr_object_create_update(
-                        vncapi, oid_mapped, fq_name, module,
+                        vncapi, device_info, fq_name, module,
                         False, per_greenlet_percentage)
                     if return_code == REF_EXISTS_ERROR:
                         logger.debug("Object already exists")
@@ -566,7 +656,9 @@ def main():
             community=dict(required=True),
             device_family_info=dict(required=True, type='list'),
             vendor_mapping=dict(required=True, type='list'),
-            pool_size=dict(default=500, type='int')
+            pool_size=dict(default=500, type='int'),
+            autoenable_api=dict(default=False, type='bool'),
+            enable_api_commands=dict(default=500, type='dict')
         ),
         supports_check_mode=True,
         required_one_of=[['hosts', 'subnets']]
