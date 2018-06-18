@@ -1131,6 +1131,7 @@ class InstanceIpServer(Resource, InstanceIp):
                 alloc_pool_list.extend(
                     [(vr_alloc_pool) for vr_alloc_pool in vr_alloc_pools])
 
+        subscriber_tag = obj_dict.get('instance_ip_subscriber_tag')
         try:
             (ip_addr, sn_uuid) = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, vn_dict=vn_dict, sub=subnet_uuid,
@@ -1138,7 +1139,8 @@ class InstanceIpServer(Resource, InstanceIp):
                 asked_ip_version=req_ip_version,
                 alloc_id=obj_dict['uuid'],
                 ipam_refs=ipam_refs,
-                alloc_pools=alloc_pool_list)
+                alloc_pools=alloc_pool_list,
+                iip_subscriber_tag=subscriber_tag)
 
             def undo():
                 db_conn.config_log('AddrMgmt: free IP %s, vn=%s tenant=%s on post fail'
@@ -3747,8 +3749,13 @@ class NetworkIpamServer(Resource, NetworkIpam):
         if ((ipam_subnets != None) and (subnet_method != 'flat-subnet')):
             return (False, (400, 'ipam-subnets are allowed only with flat-subnet'))
 
+        ipam_subnetting = obj_dict.get('ipam_subnetting', False)
+        if (ipam_subnetting and (subnet_method != 'flat-subnet')):
+            return (False, (400, 'subnetting is allowed only with flat-subnet'))
+
         if  (subnet_method != 'flat-subnet'):
             return True, ""
+
 
         ipam_subnets = obj_dict.get('ipam_subnets')
         if ipam_subnets is None:
@@ -3814,6 +3821,12 @@ class NetworkIpamServer(Resource, NetworkIpam):
                 return (False,
                         (400, 'ipam-subnets are allowed only with flat-subnet'))
             return True, ""
+
+        old_subnetting = read_result.get('ipam_subnetting')
+        if 'ipam_subnetting' in obj_dict:
+            subnetting = obj_dict.get('ipam_subnetting', False)
+            if (old_subnetting != subnetting):
+                return (False, (400, 'ipam_subnetting can not be changed'))
 
         if 'ipam_subnets' in obj_dict:
             req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
