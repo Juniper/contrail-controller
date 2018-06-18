@@ -26,14 +26,14 @@ using namespace OVSDB;
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const std::string &physical_device, const std::string &physical_port,
         uint16_t vlan_tag, const std::string &logical_switch) :
-    OvsdbDBEntry(table_), logical_switch_name_(logical_switch),
+    OvsdbDBEntry(table), logical_switch_name_(logical_switch),
     physical_port_name_(physical_port), physical_device_name_(physical_device),
     vlan_(vlan_tag), vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
     logical_switch_(NULL, this) {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
-        const VlanLogicalInterface *entry) : OvsdbDBEntry(table_),
+        const VlanLogicalInterface *entry) : OvsdbDBEntry(table),
     logical_switch_name_(), physical_port_name_(entry->phy_intf_display_name()),
     physical_device_name_(entry->phy_dev_display_name()), vlan_(entry->vlan()),
     vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
