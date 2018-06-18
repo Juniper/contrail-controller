@@ -72,3 +72,12 @@ device_family_info:
         data_format: xml
       - command: show system information | display xml
         data_format: xml
+
+# Paths for DHCP and TFTP config files
+DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
+TFTP_BOOT_PATH: "/var/lib/tftpboot"
+
+# DHCP and TFTP servers
+DHCP_SERVER: "b2s32.englab.juniper.net"
+TFTP_SERVER: "b2s32.englab.juniper.net"
+

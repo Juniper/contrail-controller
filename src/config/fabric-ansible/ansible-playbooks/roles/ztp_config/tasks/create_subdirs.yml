@@ -1,0 +1,23 @@
+---
+
+- name: Save ZTP config directory
+  set_fact:
+    ztp_conf_dir: ./config/ztp
+
+- name: Save ZTP TFTP directory
+  set_fact:
+    ztp_tftp_dir: "{{ ztp_conf_dir }}/tftpboot"
+
+- name: create conf and tftpboot directory
+  file:
+    path: "{{ ztp_tftp_dir }}"
+    state: directory
+
+- name: Save ZTP DHCP config path
+  set_fact:
+    ztp_dhcp_conf_path: "{{ ztp_conf_dir  }}/dhcpd_config.conf"
+
+- name: Save ZTP DHCP global config path
+  set_fact:
+    ztp_dhcp_gconf_path: "{{ ztp_conf_dir  }}/dhcpd_global_config.conf"
+
