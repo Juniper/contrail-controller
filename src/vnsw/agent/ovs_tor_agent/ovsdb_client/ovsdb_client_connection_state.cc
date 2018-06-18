@@ -129,7 +129,7 @@ void ConnectionStateTable::PhysicalDeviceNotify(DBTablePartBase *part,
             }
             dev->ClearState(table_, id_);
 
-            if (state->ha_stale_dev_vn_table_ != NULL) {
+            if (state && state->ha_stale_dev_vn_table_ != NULL) {
                 state->ha_stale_dev_vn_table_->DeleteTable();
                 state->ha_stale_dev_vn_table_ = NULL;
             }
