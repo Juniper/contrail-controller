@@ -207,10 +207,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         stats.set_flow_rate(flow_rate);
     }
 
-    map<string, VrouterFlowRate> rate;
-    if (BuildPhysicalInterfaceFlowRate(&rate)) {
-        stats.set_phy_flow_rate(rate);
-    }
     DispatchVrouterStatsMsg(stats);
     first = false;
 
@@ -329,37 +325,6 @@ bool VrouterUveEntry::BuildPhysicalInterfaceBandwidth
         phy_if_list.push_back(phy_stat_entry);
         changed = true;
         ++it;
-    }
-    return changed;
-}
-
-bool VrouterUveEntry::BuildPhysicalInterfaceFlowRate
-    (std::map<std::string, VrouterFlowRate> *rate) const {
-    bool changed = false;
-    PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
-    while (it != phy_intf_set_.end()) {
-        const Interface *intf = *it;
-        ++it;
-        AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
-        StatsManager::InterfaceStats *s =
-              uve->stats_manager()->GetInterfaceStats(intf);
-        if (s == NULL) {
-            continue;
-        }
-        VrouterFlowRate flow_rate;
-        uint64_t created = 0, aged = 0;
-        uint32_t active_flows = 0;
-        agent_->pkt()->get_flow_proto()->InterfaceFlowCount(intf, &created,
-                                                            &aged,
-                                                            &active_flows);
-        bool built = uve->stats_manager()->BuildFlowRate(s->added, s->deleted,
-                                                         s->flow_info,
-                                                         flow_rate);
-        if (built) {
-            flow_rate.set_active_flows(active_flows);
-            rate->insert(make_pair(intf->name(), flow_rate));
-            changed = true;
-        }
     }
     return changed;
 }
