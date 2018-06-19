@@ -5,36 +5,38 @@
 """
 Contains functions that invoke the playbook.
 """
-
 import sys
 import json
 import traceback
 import argparse
 from collections import namedtuple
 
-import ansible.utils.display as default_display
-from ansible.parsing.dataloader import DataLoader
-from ansible.vars.manager import VariableManager
-from ansible.inventory.manager import InventoryManager
-from ansible.executor.playbook_executor import PlaybookExecutor
-from ansible.utils.display import Display
 from ansible import constants as CONST
-
-from job_manager.job_messages import MsgBundle
-from job_manager.fabric_logger import fabric_ansible_logger
-from job_manager.job_manager_logger import job_mgr_logger
-
-logger = fabric_ansible_logger("ansible")
-JM_LOGGER = job_mgr_logger("FabricAnsible")
+verbosity = CONST.DEFAULT_VERBOSITY or 0
 
 # Overrides the default logger from ansible/utils/display.py.
 # fabric_ansible_logger customizes log message formatting
 # Note that some internal ansible code inherits "display" from __main__,
 # which is this file.
 # Also note that CONST is from ansible.cfg
-verbosity = CONST.DEFAULT_VERBOSITY or 0
+#
+from job_manager.fabric_logger import fabric_ansible_logger
+logger = fabric_ansible_logger("ansible")
+
+import ansible.utils.display as default_display
 default_display.logger = logger
+
+from ansible.utils.display import Display
 display = Display(verbosity)
+
+from ansible.parsing.dataloader import DataLoader
+from ansible.vars.manager import VariableManager
+from ansible.inventory.manager import InventoryManager
+from ansible.executor.playbook_executor import PlaybookExecutor
+
+from job_manager.job_messages import MsgBundle
+from job_manager.job_manager_logger import job_mgr_logger
+JM_LOGGER = job_mgr_logger("FabricAnsible")
 
 
 class PlaybookHelper(object):
