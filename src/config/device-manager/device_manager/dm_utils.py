@@ -129,6 +129,11 @@ class DMUtils(object):
         return DMUtils.contrail_prefix() + "asn-" + str(asn)
 
     @staticmethod
+    def get_internal_vn_target(asn, net_id):
+        return 'target:' + str(asn) + ':' + str(net_id)
+    # end get_internal_vn_target
+
+    @staticmethod
     def get_network_gateways(ipam_refs=[]):
         gateways = {}
         for ipam_ref in ipam_refs or []:
