@@ -34,3 +34,9 @@
     - name: print output
       debug: var=output verbosity=1
 
+
+    - name: Output the device data results
+      include_tasks: device_data_output.yml
+      vars:
+        device_data_results: "{{discovery_results.output}}"
+

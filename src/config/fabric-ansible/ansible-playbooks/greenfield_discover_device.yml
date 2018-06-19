@@ -1,0 +1,42 @@
+- name: Gather fabric details and discover device
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+     output: {"status":"", "message":""}
+
+  tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'current_task_index':1,
+          'total_task_count':3, 'task_weightage_array':[5, 90, 5] })}}"
+
+    - set_fact:
+        fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+      when: playbook_input.input.fabric_uuid is defined
+
+    - set_fact:
+        host_list: "{{ playbook_input.input.host_list }}"
+      when: playbook_input.input.host_list is defined
+
+    - name: discover device
+      greenfield_device_info:
+        fabric_uuid: "{{ fabric_uuid }}"
+        host_list: "{{ host_list }}"
+        job_ctx: "{{ job_ctx }}"
+        device_family_info: "{{ device_family_info }}"
+        vendor_mapping: "{{ vendor_mapping }}"
+        pool_size: "{{ POOL_SIZE }}"
+        total_retry_timeout: "{{ TOTAL_RETRY_TIMEOUT }}"
+      register: discovery_results
+
+    - name: set output parameter
+      set_fact:
+         output: "{{ output|combine({'status':'SUCCESS', 'message':'Discover playbook successfully executed'})}}"
+
+    - name: print output
+      debug: var=output verbosity=1
+
+    - name: print marked output
+      debug:
+        msg: "{{PB_OUTPUT_MARKER}}{{discovery_results}}{{PB_OUTPUT_MARKER}}"
+        verbosity: 0
