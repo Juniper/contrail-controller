@@ -2,7 +2,7 @@
 # tasks file for discover_device_role
 
     - name: get device info
-      device_info:
+      brownfield_device_info:
         fabric_uuid: "{{ fabric_uuid }}"
         job_ctx: "{{ job_ctx }}"
         credentials: "{{ credentials }}"
@@ -12,3 +12,4 @@
         device_family_info: "{{ device_family_info }}"
         vendor_mapping: "{{ vendor_mapping }}"
         pool_size: "{{ POOL_SIZE }}"
+      register: discovery_results
