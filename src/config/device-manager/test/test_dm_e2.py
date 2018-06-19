@@ -192,7 +192,7 @@ class TestE2DM(test_case.DMTestCase):
         self.assertTrue(result)
 
     def test_dm_physical_router_mode_and_params(self):
-        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        bgp_router, pr = self.create_router(self.id() + 'router1', '1.1.1.1')
         bgp_router.get_bgp_router_parameters().set_hold_time(100)
         self._vnc_lib.bgp_router_update(bgp_router)
 
@@ -243,7 +243,7 @@ class TestE2DM(test_case.DMTestCase):
     #end set_telemetry_info
 
     def test_dm_telemetry(self):
-        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        bgp_router, pr = self.create_router(self.id() + 'router1', '1.1.1.1')
         bgp_router.get_bgp_router_parameters().set_hold_time(100)
         self._vnc_lib.bgp_router_update(bgp_router)
 
@@ -448,7 +448,7 @@ class TestE2DM(test_case.DMTestCase):
     #end test_dm_e2_services
 
     def test_dm_network_object(self):
-        bgp_router, pr = self.create_router('router1', '10.92.36.9')
+        bgp_router, pr = self.create_router(self.id() + 'router1', '10.92.36.9')
         bgp_router.get_bgp_router_parameters().set_hold_time(100)
         self._vnc_lib.bgp_router_update(bgp_router)
 
