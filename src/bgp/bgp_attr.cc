@@ -710,14 +710,14 @@ string BgpOListSpec::ToString() const {
     int idx = 0;
     for (Elements::const_iterator it = elements.begin();
          it != elements.end(); ++it, ++idx) {
-        BgpOListElem *elem = new BgpOListElem(*it);
+        BgpOListElem elem(*it);
         oss << "OList[" << idx << "] = (";
-        oss << "address: " << elem->address << ", ";
-        oss << "label: " << elem->label << ", ";
+        oss << "address: " << elem.address << ", ";
+        oss << "label: " << elem.label << ", ";
         oss << "encap-list:";
         int eid = 0;
-        for (vector<string>::const_iterator e_it = elem->encap.begin();
-             e_it != elem->encap.end(); ++e_it, ++eid) {
+        for (vector<string>::const_iterator e_it = elem.encap.begin();
+             e_it != elem.encap.end(); ++e_it, ++eid) {
              oss << " " << *e_it;
         }
         oss << ")";
