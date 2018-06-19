@@ -233,6 +233,13 @@ class QfxConf(JuniperConf):
             self.add_irb_config(ri_conf)
             self.attach_irb(ri_conf, ri)
 
+        if is_internal_vn and vn.logical_router:
+            # do type5 config
+            vrf_target = VniTarget()
+            vrf_target.set_community(DMUtils.get_internal_vn_target(
+                                       self.get_asn(), network_id))
+            ri.set_vrf_target(vrf_target)
+
         # add policies for export route targets
         if self.is_spine():
             ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
@@ -279,14 +286,23 @@ class QfxConf(JuniperConf):
             self.build_l2_evpn_interface_config(interfaces_config,
                                               interfaces, vn, vlan_conf)
 
-        if (not is_l2 and vni is not None and
+        if (not is_l2 and (vni is not None or (is_internal_vn and vn.logical_router)) and \
                 self.is_family_configured(self.bgp_params, "e-vpn")):
-            ri.set_vtep_source_interface("lo0.0")
             evpn = self.build_evpn_config()
             if evpn:
                 ri.set_protocols(RoutingInstanceProtocols(evpn=evpn))
-            #add vlans
-            self.add_ri_vlan_config(ri, vni)
+                if is_internal_vn and vn.logical_router:
+                    ip_prefix_support = IpPrefixSupport()
+                    #ip_prefix_support.set_forwarding_mode("symmetric")
+                    ip_prefix_support.set_encapsulation("vxlan")
+                    ip_prefix_support.set_vni(str(network_id))
+                    evpn.set_ip_prefix_support(ip_prefix_support)
+                else:
+                    ri.set_vtep_source_interface("lo0.0")
+            if not is_internal_vn:
+                #add vlans
+                self.add_ri_vlan_config(ri, vni)
+
 
         if (not is_l2 and not is_l2_l3 and gateways):
             interfaces_config = self.interfaces_config or \
