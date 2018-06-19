@@ -29,9 +29,13 @@ class Qfx10kConf(QfxConf):
         return super(Qfx10kConf, cls).register(qconf)
     # end register
 
-    def build_evpn_config(self):
-        evpn = Evpn(encapsulation='vxlan')
-        if self.is_spine():
+    def build_evpn_config(self, int_vn = False):
+        # for internal VN (intervxlan routing) do not set anything
+        if not int_vn:
+            evpn = Evpn(encapsulation='vxlan')
+        else:
+            evpn = Evpn()
+        if self.is_spine() and not int_vn:
             evpn.set_default_gateway("no-gateway-community")
         return evpn
     # end build_evpn_config
