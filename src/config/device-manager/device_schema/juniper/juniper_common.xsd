@@ -495,6 +495,15 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:complexType name="IpPrefixSupport">
+    <xsd:all>
+        <xsd:element name="forwarding-mode" type="xsd:string"/>
+        <xsd:element name="encapsulation" type="xsd:string"/>
+        <xsd:element name="vni" type="xsd:integer"/>
+        <xsd:element name="advertise" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Evpn">
     <xsd:all>
         <xsd:element name="comment" type="xsd:string"/>
@@ -504,6 +513,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="vni-options" type="VniOptions"/>
         <xsd:element name="multicast-mode" type="xsd:string"/>
         <xsd:element name="default-gateway" type="EvpnGateway"/>
+        <xsd:element name="ip-prefix-support" type="IpPrefixSupport"/>
     </xsd:all>
 </xsd:complexType>
 
