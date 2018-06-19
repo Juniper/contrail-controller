@@ -32,6 +32,7 @@ class JobResultHandler(object):
         self.failed_device_jobs = list()
         self.device_data = dict()  # map of device_id and its details like
                                    # device_management_ip, device_username, etc
+        self.playbook_output = None  # marked output from the playbook stdout
 
     def update_job_status(self, status, message=None, device_id=None):
         # update cummulative job status
@@ -49,12 +50,22 @@ class JobResultHandler(object):
                 self.job_result.update({device_id: message})
             else:
                 self.job_result_message = message
+    # end update_job_status
 
     def update_device_data(self, device_id, data):
         self.device_data.update({device_id: data})
+    # end update_device_data
 
     def get_device_data(self):
         return self.device_data
+    # end get_device_data
+
+    def update_playbook_output(self, pb_output):
+        if self.playbook_output:
+            self.playbook_output.update(pb_output)
+        else:
+            self.playbook_output = pb_output
+    # end update_playbook_output
 
     def create_job_summary_log(self, job_template_fqname):
         # generate job result summary
@@ -76,6 +87,7 @@ class JobResultHandler(object):
         self.job_log_utils.send_job_execution_uve(job_template_fqname,
                                                   self._execution_id,
                                                   timestamp, 100)
+    # end create_job_summary_log
 
     def create_job_summary_message(self):
         job_summary_message = MsgBundle.getMessage(
@@ -111,4 +123,4 @@ class JobResultHandler(object):
             job_summary_message += self.job_result_message
 
         return job_summary_message
-
+    # end create_job_summary_message

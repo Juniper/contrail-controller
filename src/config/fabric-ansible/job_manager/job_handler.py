@@ -16,12 +16,15 @@ from job_manager.job_exception import JobException
 from job_manager.job_utils import JobStatus
 from job_manager.job_messages import MsgBundle
 
+DEVICE_DATA = 'DEVICEDATA##'
+PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
 
 class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
                  params, job_utils, device_json, auth_token, job_log_utils,
-                 sandesh_args, fabric_fq_name, playbook_timeout, playbook_seq):
+                 sandesh_args, fabric_fq_name, playbook_timeout, playbook_seq,
+                 prev_pb_output):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -37,6 +40,8 @@ class JobHandler(object):
         self._playbook_timeout = playbook_timeout
         self._playbook_seq = playbook_seq
         self._device_data = None
+        self._playbook_output = prev_pb_output
+    # end __init__
 
     def handle_job(self, result_handler, job_percent_per_task, device_id=None):
         try:
@@ -58,7 +63,7 @@ class JobHandler(object):
                       job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
-            self.update_result_handler_device_data(result_handler)
+            self.update_result_handler(result_handler)
 
         except JobException as job_exp:
             self._logger.error("%s" % job_exp.msg)
@@ -70,33 +75,14 @@ class JobHandler(object):
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, exp.message,
                                              device_id)
-
-    # def find_playbook_info(self, device_family, device_vendor, playbook_list):
-    #
-    #     for playbook_info in playbook_list:
-    #         pb_vendor_name = playbook_info.get_vendor()
-    #         if not pb_vendor_name:
-    #             # device_vendor agnostic
-    #             return playbook_info
-    #         if pb_vendor_name.lower() == device_vendor.lower():
-    #             pb_device_family = playbook_info.get_device_family()
-    #             if pb_device_family:
-    #                 if device_family.lower() == pb_device_family.lower():
-    #                     return playbook_info
-    #             else:
-    #                 # device_family agnostic
-    #                 return playbook_info
-    #     msg = MsgBundle.getMessage(MsgBundle.
-    #                                PLAYBOOK_INFO_DEVICE_MISMATCH,
-    #                                device_vendor=device_vendor,
-    #                                device_family=device_family)
-    #     raise JobException(msg, self._execution_id)
+    # end handle_job
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
         try:
             # create the cmd line param for the playbook
             extra_vars = {
                 'input': self._job_input,
+                'prev_pb_output': self._playbook_output,
                 'params': self._job_params,
                 'job_template_id': self._job_template.get_uuid(),
                 'job_template_fqname': self._job_template.fq_name,
@@ -175,6 +161,7 @@ class JobHandler(object):
                       job_template_id=self._job_template.get_uuid(),
                       exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
+    # end get_playbook_info
 
     def run_playbook_process(self, playbook_info):
         playbook_process = None
@@ -187,8 +174,9 @@ class JobHandler(object):
                                                    json.dumps(playbook_info)],
                                                   close_fds=True, cwd='/',
                                                   stdout=subprocess32.PIPE)
-            device_data_output = ""
-            device_data_keyword = 'DEVICEDATA##'
+
+            marked_output = {}
+            markers = [ DEVICE_DATA, PLAYBOOK_OUTPUT ]
 
             while True:
                 output = playbook_process.stdout.readline()
@@ -197,21 +185,15 @@ class JobHandler(object):
                 if output:
                     self._logger.debug(output)
                     # read device list data and store in variable result handler
-                    if device_data_keyword in output:
-                        device_data_output = output
+                    for marker in markers:
+                        if marker in output:
+                            marked_output[marker] = output
 
-            if device_data_output != "":
-                device_data_output = self._extract_device_data_output(device_data_output,
-                                                 device_data_keyword)
-                self._logger.info("Device data extracted from output" + str(device_data_output))
-                try:
-                    self._device_data = json.loads(device_data_output)
-                except ValueError, e:
-                    self._device_data = ast.literal_eval(device_data_output)
-
-                self._logger.info("Device data json: " + str(self._device_data))
-
+            marked_jsons = self._extract_marked_json(marked_output)
+            self._device_data = marked_jsons.get(DEVICE_DATA)
+            self._playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
             playbook_process.wait(timeout=self._playbook_timeout)
+
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:
                 os.kill(playbook_process.pid, 9)
@@ -220,6 +202,7 @@ class JobHandler(object):
                       playbook_uri=playbook_info['uri'],
                       exc_msg=repr(timeout_exp))
             raise JobException(msg, self._execution_id)
+
         except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.
                                        RUN_PLAYBOOK_PROCESS_ERROR,
@@ -232,6 +215,7 @@ class JobHandler(object):
                                        PLAYBOOK_EXIT_WITH_ERROR,
                                        playbook_uri=playbook_info['uri'])
             raise JobException(msg, self._execution_id)
+    # end run_playbook_process
 
     def run_playbook(self, playbook_info):
         try:
@@ -282,20 +266,32 @@ class JobHandler(object):
                                        playbook_uri=playbook_info['uri'],
                                        exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
+    # end run_playbook
 
-    def update_result_handler_device_data(self, result_handler):
+    def update_result_handler(self, result_handler):
         if self._device_data:
             for device_id in self._device_data:
                 result_handler.update_device_data(device_id,
                                                   self._device_data[device_id])
+        if self._playbook_output:
+            result_handler.update_playbook_output(self._playbook_output)
+    # end update_result_handler
 
-    def _extract_device_data_output(self, device_data_output,
-                                   device_data_keyword):
-        # extract the data before and after device_data_keyword from the
-        # device_data_output
-        device_data_output = device_data_output[device_data_output.index(
-            device_data_keyword) + len(
-            device_data_keyword): device_data_output.rindex(
-            device_data_keyword)]
-        return device_data_output
+    def _extract_marked_json(self, marked_output):
+        retval = {}
+        for marker, output in marked_output.iteritems():
+            start = output.index(marker) + len(marker)
+            end = output.rindex(marker)
+            if start > end:
+                self._logger.error("Invalid marked output: %s" % output)
+                continue
+            json_str = output[start:end]
+            self._logger.info("Extracted marked output: %s" % json_str)
+            try:
+                retval[marker] = json.loads(json_str)
+            except ValueError, e:
+                # assuming failure is due to unicoding in the json string
+                retval[marker] = ast.literal_eval(json_str)
 
+        return retval
+    # end _extrace_marked_json
