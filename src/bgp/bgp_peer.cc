@@ -188,6 +188,11 @@ public:
         } else {
             peer_->server()->decrement_deleting_count();
         }
+        if (peer_->dscp_listener_id_ >= 0) {
+            peer_->server()->UnregisterDSCPUpdateCallback(
+                                        peer_->dscp_listener_id_);
+            peer_->dscp_listener_id_ = -1;
+        }
         assert(!peer_->membership_req_pending());
         assert(!peer_->close_manager_->IsMembershipInUse());
         peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
@@ -498,6 +503,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           flap_count_(0),
           total_flap_count_(0),
           last_flap_(0),
+          dscp_listener_id_(-1),
           inuse_authkey_type_(AuthenticationData::NIL) {
     buffer_.reserve(buffer_capacity_);
     close_manager_.reset(
@@ -521,6 +527,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     } else {
         peer_is_control_node_ = false;
     }
+
+    dscp_listener_id_ = server_->RegisterDSCPUpdateCallback(boost::bind(
+                &BgpPeer::DSCPUpdateCallback, this, _1));
 
     membership_req_pending_ = 0;
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
@@ -739,6 +748,17 @@ void BgpPeer::SetSessionSocketAuthKey(TcpSession *session) {
                            inuse_authkey_type_);
         session->SetMd5SocketOption(PeerAddress(), inuse_auth_key_.value);
     }
+}
+
+void BgpPeer::SetSessionSocketOptionDscp(TcpSession *session) {
+    uint8_t dscp_value = server_->global_qos()->control_dscp();
+
+    if (!session->socket()) {
+        return;
+    }
+   if (dscp_value != 0xFF) {
+        session->SetDscpSocketOption(server_->global_qos()->control_dscp());
+   }
 }
 
 string BgpPeer::GetInuseAuthKeyValue() const {
@@ -1179,6 +1199,9 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
 
     // Set valid keys, if any, in the socket.
     SetSessionSocketAuthKey(session);
+
+    // Set control dscp, if any
+    SetSessionSocketOptionDscp(session);
 
     return state_machine_->PassiveOpen(session);
 }
@@ -2480,4 +2503,11 @@ void BgpPeer::reset_flap_count() {
 // combination.
 bool BgpPeer::ProcessSession() const {
     return PeerType() != BgpProto::IBGP || router_type() != "bgpaas-client";
+}
+
+// Update control DSCP
+void BgpPeer::DSCPUpdateCallback(uint8_t dscp_value) {
+    if ((session_ != NULL) && (dscp_value != 0xFF)) {
+        session_->SetDscpSocketOption(dscp_value);
+    }
 }
