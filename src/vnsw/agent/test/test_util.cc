@@ -598,7 +598,7 @@ bool PortSubscribe(const std::string &ifname,
                             ip4_addr, ip6_addr, mac_addr,
                             VmInterface::kInvalidVlanId,
                             VmInterface::kInvalidVlanId,
-                            VmInterface::vHostUserClient);
+                            VmInterface::vHostUserClient, 1);
     return PortSubscribe(&entry);
 }
 
@@ -634,7 +634,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     VmiSubscribeEntry entry(PortSubscribeEntry::VMPORT, name, 0,
                             MakeUuid(intf_id), MakeUuid(vm_id), vm_name,
                             MakeUuid(vn_id), MakeUuid(project_id), ip, ip6,
-                            mac, vlan, vlan, vhostuser_mode);
+                            mac, vlan, vlan, vhostuser_mode, 1);
     string json;
     Agent *agent = Agent::GetInstance();
     agent->port_ipc_handler()->MakeVmiUuidJson(&entry, json, false);

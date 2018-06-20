@@ -1350,7 +1350,7 @@ public:
                         uint16_t tx_vlan_id, uint16_t rx_vlan_id,
                         const std::string &parent, const Ip6Address &ipv6,
                         uint8_t vhostuser_mode,
-                        Interface::Transport transport);
+                        Interface::Transport transport, uint8_t link_state);
     // Del a vm-interface
     static void Delete(InterfaceTable *table,
                        const boost::uuids::uuid &intf_uuid,
@@ -1766,7 +1766,8 @@ struct VmInterfaceNovaData : public VmInterfaceData {
                         VmInterface::DeviceType device_type,
                         VmInterface::VmiType vmi_type,
                         uint8_t vhostuser_mode,
-                        Interface::Transport transport);
+                        Interface::Transport transport,
+                        uint8_t link_state);
     virtual ~VmInterfaceNovaData();
     virtual VmInterface *OnAdd(const InterfaceTable *table,
                                const VmInterfaceKey *key) const;
@@ -1787,6 +1788,7 @@ struct VmInterfaceNovaData : public VmInterfaceData {
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
     uint8_t vhostuser_mode_;
+    uint8_t link_state_;
 };
 
 struct VmInterfaceGlobalVrouterData : public VmInterfaceData {
