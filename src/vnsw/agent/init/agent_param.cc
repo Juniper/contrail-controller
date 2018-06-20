@@ -534,6 +534,10 @@ void AgentParam::ParseDefaultSection() {
                                 "DEFAULT.measure_queue_delay")) {
         measure_queue_delay_ = false;
     }
+    if (!GetValueFromTree<uint16_t>(vmi_vm_vn_uve_interval_,
+                                    "DEFAULT.vmi_vm_vn_uve_interval")) {
+        vmi_vm_vn_uve_interval_ = Agent::kDefaultVmiVmVnUveInterval;
+    }
 }
 
 void AgentParam::ParseTaskSection() {
@@ -772,6 +776,10 @@ void AgentParam::ParseHypervisorArguments
             return;
         }
     }
+    if (!GetValueFromTree<uint16_t>(vmi_vm_vn_uve_interval_,
+                                    "DEFAULT.vmi_vm_vn_uve_interval")) {
+        vmi_vm_vn_uve_interval_ = Agent::kDefaultVmiVmVnUveInterval;
+    }
 }
 
 void AgentParam::ParseDefaultSectionArguments
@@ -819,6 +827,8 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.pkt0_tx_buffers");
     GetOptValue<bool>(var_map, measure_queue_delay_,
                       "DEFAULT.measure_queue_delay");
+    GetOptValue<uint16_t>(var_map, vmi_vm_vn_uve_interval_,
+                          "DEFAULT.vmi_vm_vn_uve_interval");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1437,7 +1447,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
-        task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout) {
+        task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout),
+        vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval) {
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()
@@ -1468,6 +1479,9 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Run compute-node in headless mode")
         ("DEFAULT.dhcp_relay_mode", opt::value<bool>(),
          "Enable / Disable DHCP relay of DHCP packets from virtual instance")
+        ("DEFAULT.vmi_vm_vn_uve_interval",
+         opt::value<uint16_t>()->default_value(Agent::kDefaultVmiVmVnUveInterval),
+         "UVE send interval in seconds")
         ("DEFAULT.http_server_port",
          opt::value<uint16_t>()->default_value(ContrailPorts::HttpPortAgent()),
          "Sandesh HTTP listener port")
