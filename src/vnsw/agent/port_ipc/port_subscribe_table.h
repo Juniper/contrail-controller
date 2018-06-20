@@ -74,7 +74,7 @@ public:
                       const Ip4Address &ip4_addr, const Ip6Address &ip6_addr,
                       const std::string &mac_addr, uint16_t tx_vlan_id,
                       uint16_t rx_vlan_id,
-                      uint8_t vhostuser_mode);
+                      uint8_t vhostuser_mode, uint8_t link_state);
     ~VmiSubscribeEntry();
 
     virtual bool MatchVn(const boost::uuids::uuid &u) const;
@@ -95,6 +95,8 @@ public:
     uint16_t tx_vlan_id() const { return tx_vlan_id_; }
     uint16_t rx_vlan_id() const { return rx_vlan_id_; }
     uint8_t vhostuser_mode() const { return vhostuser_mode_; }
+    uint8_t link_state() const { return link_state_; }
+    void set_link_state(uint8_t value) { link_state_ = value; }
 private:
     boost::uuids::uuid vmi_uuid_;
     boost::uuids::uuid vm_uuid_;
@@ -107,6 +109,7 @@ private:
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
     uint8_t vhostuser_mode_;
+    uint8_t link_state_;
     DISALLOW_COPY_AND_ASSIGN(VmiSubscribeEntry);
 };
 
