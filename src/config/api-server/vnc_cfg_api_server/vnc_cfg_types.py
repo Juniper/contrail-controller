@@ -585,10 +585,6 @@ class SecurityResourceBase(Resource):
         # Set draft mode to created, if draft resource already exists, property
         # will be read from the DB, if not state need to be set to 'created'
         obj_dict['draft_mode_state'] = draft_mode_state
-        if draft_mode_state == 'deleted':
-            # remove all resource references
-            [obj_dict.pop(ref_field, None) for ref_field in cls.ref_fields]
-
         ok, result = cls.locate(fq_name=draft_fq_name, **obj_dict)
         if not ok:
             return False, result
@@ -2588,12 +2584,12 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
     def _frs_fix_service(cls, service, service_group_refs):
         if service and service_group_refs:
             msg = ("Firewall Rule cannot have both defined 'service' property "
-                   "and Service Group reference(s)" )
+                   "and Service Group reference(s)")
             return False, (400, msg)
 
         if not service and not service_group_refs:
             msg = ("Firewall Rule requires at least 'service' property or "
-                   "Service Group references(s)" )
+                   "Service Group references(s)")
             return False, (400, msg)
         return True, ''
 
