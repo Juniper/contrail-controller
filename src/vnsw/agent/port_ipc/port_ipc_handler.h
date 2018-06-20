@@ -107,10 +107,8 @@ class PortIpcHandler {
     void ProcessFile(const std::string &file, bool check_port, bool vm_vn_port);
     void AddMember(const char *key, const char *value,
                    contrail_rapidjson::Document *doc) const;
-    bool WriteJsonToFile(const contrail_rapidjson::Value &v,
-                         VmiSubscribeEntry *entry) const;
-    bool WriteJsonToFile(const contrail_rapidjson::Value &v,
-                         VmVnPortSubscribeEntry *entry) const;
+    bool WriteJsonToFile(VmiSubscribeEntry *entry, bool overwrite) const;
+    bool WriteJsonToFile(VmVnPortSubscribeEntry *entry) const;
 
     void MakeVmVnPortJson(const VmVnPortSubscribeEntry *entry, string &info,
                           bool meta_info) const;

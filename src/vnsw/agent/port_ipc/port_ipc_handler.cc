@@ -278,10 +278,13 @@ VmiSubscribeEntry *PortIpcHandler::MakeAddVmiUuidRequest
     }
 
     PortSubscribeEntry::Type vmi_type = PortSubscribeEntry::VMPORT;
+    uint32_t link_state = 1;
     if (val == 1) {
         vmi_type = PortSubscribeEntry::NAMESPACE;
     } else if (val == 2) {
         vmi_type = PortSubscribeEntry::REMOTE_PORT;
+        /* Default port-state is disabled for REMOTE_PORT */
+        link_state = 0;
     }
     if (vmi_type == PortSubscribeEntry::VMPORT) {
         if (vn_uuid == nil_uuid()) {
@@ -333,17 +336,22 @@ VmiSubscribeEntry *PortIpcHandler::MakeAddVmiUuidRequest
     // DPDK/vhostuser
     uint32_t vhostuser_mode = 0;
     GetUint32Member(d, "vhostuser-mode", &vhostuser_mode, &err_msg);
+    /* Don't return error in case link-state is not found. This is required
+     * for backward compatibility when old files are used with new
+     * vrouter-agent. If field is absent then value as initialized above
+     * for link_state gets used */
+    GetUint32Member(d, "link-state", &link_state, NULL);
 
     CONFIG_TRACE(AddPortEnqueue, "Add", UuidToString(vmi_uuid),
                  UuidToString(instance_uuid), UuidToString(vn_uuid),
                  ip4.to_string(), ifname, mac, vm_name, tx_vlan_id, rx_vlan_id,
                  UuidToString(project_uuid),
                  PortSubscribeEntry::TypeToString(vmi_type),
-                 ip6.to_string(), version_, vhostuser_mode);
+                 ip6.to_string(), version_, vhostuser_mode, link_state);
     return new VmiSubscribeEntry(vmi_type, ifname, version_, vmi_uuid,
                                  instance_uuid, vm_name, vn_uuid, project_uuid,
                                  ip4, ip6, mac, tx_vlan_id, rx_vlan_id,
-                                 vhostuser_mode);
+                                 vhostuser_mode, link_state);
 }
 
 bool PortIpcHandler::AddVmiUuidEntry(PortSubscribeEntryPtr entry_ref,
@@ -352,7 +360,7 @@ bool PortIpcHandler::AddVmiUuidEntry(PortSubscribeEntryPtr entry_ref,
     VmiSubscribeEntry *entry =
         dynamic_cast<VmiSubscribeEntry *>(entry_ref.get());
     // If Writing to file fails return error
-    if(write_file && WriteJsonToFile(d, entry) == false) {
+    if(write_file && WriteJsonToFile(entry, false) == false) {
         err_msg += "Writing of Json string to file failed for " +
             UuidToString(entry->vmi_uuid());
         CONFIG_TRACE(PortInfo, err_msg.c_str());
@@ -366,18 +374,18 @@ bool PortIpcHandler::AddVmiUuidEntry(PortSubscribeEntryPtr entry_ref,
                  entry->rx_vlan_id(), UuidToString(entry->project_uuid()),
                  PortSubscribeEntry::TypeToString(entry->type()),
                  entry->ip6_addr().to_string(), entry->version(),
-                 entry->vhostuser_mode());
+                 entry->vhostuser_mode(), entry->link_state());
     port_subscribe_table_->AddVmi(entry->vmi_uuid(), entry_ref);
     return true;
 }
 
-bool PortIpcHandler::WriteJsonToFile(const contrail_rapidjson::Value &v,
-                                     VmiSubscribeEntry *entry) const {
+bool PortIpcHandler::WriteJsonToFile(VmiSubscribeEntry *entry, bool overwrite)
+                                     const {
     string filename = ports_dir_ + "/" + UuidToString(entry->vmi_uuid());
     fs::path file_path(filename);
 
     /* Don't overwrite if the file already exists */
-    if (fs::exists(file_path)) {
+    if (!overwrite && fs::exists(file_path)) {
         return true;
     }
 
@@ -456,9 +464,27 @@ bool PortIpcHandler::EnablePort(const string &url, string &err_msg) {
         err_msg = "Incorrect Port type for " + url;
         return false;
     }
+    VmiSubscribeEntry *ventry =
+        dynamic_cast<VmiSubscribeEntry *>(entry.get());
+    if (ventry == NULL) {
+        err_msg = "Invalid Port " + url;
+        return false;
+    }
+    int written_to_file = 0;
+    if (!ventry->link_state()) {
+        ventry->set_link_state(1);
+        written_to_file = 1;
+        if (WriteJsonToFile(ventry, true) == false) {
+            err_msg += "Writing of Json to file failed on enable for " +
+                UuidToString(ventry->vmi_uuid());
+            CONFIG_TRACE(PortInfo, err_msg.c_str());
+            written_to_file = 0;
+        }
+    }
     InterfaceResync(agent_, u, entry->ifname(), true);
     string msg = "Enable state for " + url + " version " +
-        integerToString(entry->version());
+        integerToString(entry->version()) + " written to file : " +
+        integerToString(written_to_file);
     CONFIG_TRACE(PortInfo, msg);
     return true;
 }
@@ -478,9 +504,27 @@ bool PortIpcHandler::DisablePort(const string &url, string &err_msg) {
         err_msg = "Incorrect Port type for " + url;
         return false;
     }
+    VmiSubscribeEntry *ventry =
+        dynamic_cast<VmiSubscribeEntry *>(entry.get());
+    if (ventry == NULL) {
+        err_msg = "Invalid Port " + url;
+        return false;
+    }
+    int written_to_file = 0;
+    if (ventry->link_state()) {
+        ventry->set_link_state(0);
+        written_to_file = 1;
+        if (WriteJsonToFile(ventry, true) == false) {
+            err_msg += "Writing of Json to file failed on disable for " +
+                UuidToString(ventry->vmi_uuid());
+            CONFIG_TRACE(PortInfo, err_msg.c_str());
+            written_to_file = 0;
+        }
+    }
     InterfaceResync(agent_, u, entry->ifname(), false);
     string msg = "Disable state for " + url + " version " +
-        integerToString(entry->version());
+        integerToString(entry->version()) + " written to file : " +
+        integerToString(written_to_file);
     CONFIG_TRACE(PortInfo, msg);
     return true;
 }
@@ -526,6 +570,12 @@ void PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
     doc.AddMember("rx-vlan-id", (int)entry->rx_vlan_id(), a);
     doc.AddMember("tx-vlan-id", (int)entry->tx_vlan_id(), a);
     doc.AddMember("vhostuser-mode", (int)entry->vhostuser_mode(), a);
+    /* link-state has to be persisted for port-type of REMOTE_PORT.
+     * REMOTE_PORT will NOT have corresponding tap interface in OS to pick
+     * operational state. */
+    if (entry->type() == PortSubscribeEntry::REMOTE_PORT) {
+        doc.AddMember("link-state", (int)entry->link_state(), a);
+    }
     if (meta_info) {
         AddMember("author", agent_->program_name().c_str(), &doc);
         string now = duration_usecs_to_string(UTCTimestampUsec());
@@ -779,7 +829,7 @@ bool PortIpcHandler::AddVmVnPortEntry(PortSubscribeEntryPtr entry_ref,
     VmVnPortSubscribeEntry *entry =
         dynamic_cast<VmVnPortSubscribeEntry *>(entry_ref.get());
     // If Writing to file fails return error
-    if(write_file && WriteJsonToFile(d, entry) == false) {
+    if(write_file && WriteJsonToFile(entry) == false) {
         err_msg += "Writing of Json string to file failed for Vm " +
             UuidToString(entry->vm_uuid());
         CONFIG_TRACE(VmVnPortInfo, err_msg.c_str());
@@ -864,8 +914,7 @@ void PortIpcHandler::MakeVmVnPortJson(const VmVnPortSubscribeEntry *entry,
     return;
 }
 
-bool PortIpcHandler::WriteJsonToFile(const contrail_rapidjson::Value &v,
-                                     VmVnPortSubscribeEntry *entry) const {
+bool PortIpcHandler::WriteJsonToFile(VmVnPortSubscribeEntry *entry) const {
     string filename = vmvn_dir_ + "/" + UuidToString(entry->vm_uuid());
     fs::path file_path(filename);
 
