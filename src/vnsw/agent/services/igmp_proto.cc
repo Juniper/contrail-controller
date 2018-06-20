@@ -288,6 +288,12 @@ bool IgmpProto::SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet) {
         if (!vm_itf) {
             continue;
         }
+        if (vm_itf->vmi_type() == VmInterface::VHOST) {
+            continue;
+        }
+        if (vrf->GetName() != vm_itf->vrf()->GetName()) {
+            continue;
+        }
         if (!ipam->IsSubnetMember(IpAddress(vm_itf->primary_ip_addr()))) {
             break;
         }
@@ -305,13 +311,11 @@ bool IgmpProto::SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet) {
 
 void IgmpProto::IncrSendStats(const VmInterface *vm_itf, bool tx_done) {
 
-    IgmpProto *igmp_proto = agent()->GetIgmpProto();
-
     const VnEntry *vn = vm_itf->vn();
     IgmpInfo::VnIgmpDBState *state = NULL;
     state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
                                 vn->get_table_partition()->parent(),
-                                igmp_proto->vn_listener_id()));
+                                vn_listener_id()));
     const VnIpam *ipam = vn->GetIpam(vm_itf->primary_ip_addr());
     IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
                             state->igmp_state_map_.find(ipam->default_gw);
