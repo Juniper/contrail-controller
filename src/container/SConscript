@@ -4,10 +4,6 @@
 #
 # src directory
 
-import os
-import re
-import sys
-
 Import('BuildEnv')
 
 CfgmEnv = BuildEnv.Clone()
