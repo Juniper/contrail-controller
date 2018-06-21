@@ -159,7 +159,7 @@ class VncMod(object):
     This class encaptulates vnc crud apis and some action apis in the Ansible
     module to make it easy for Ansible playbook to invoke vnc apis
     """
-    JOB_IN_PROGRESS = 1
+    JOB_IN_PROGRESS = "IN_PROGRESS"
 
     def __init__(self, module):
         self.cls = None

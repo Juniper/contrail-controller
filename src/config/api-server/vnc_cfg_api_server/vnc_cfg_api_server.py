@@ -422,6 +422,8 @@ class VncApiServer(object):
             # read the device object and pass the necessary data to the job
             if device_list:
                 self.read_device_data(device_list, request_params)
+            else:
+                self.read_fabric_data(request_params)
 
             # generate the job execution id
             execution_id = uuid.uuid4()
@@ -456,6 +458,27 @@ class VncApiServer(object):
             err_msg = "Error while executing job request: %s" % repr(e)
             raise cfgm_common.exceptions.HttpError(500, err_msg)
 
+    def read_fabric_data(self, request_params):
+        if request_params.get('input') is None:
+            err_msg = "Missing job input"
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+        # get the fabric fq_name from the database if fabric_uuid is provided
+        fabric_fq_name = None
+        if request_params.get('input').get('fabric_uuid'):
+            fabric_uuid = request_params.get('input').get('fabric_uuid')
+            try:
+                fabric_fq_name = self._db_conn.uuid_to_fq_name(fabric_uuid)
+            except NoIdError as e:
+                raise cfgm_common.exceptions.HttpError(404, str(e))
+        elif request_params.get('input').get('fabric_fq_name'):
+            fabric_fq_name = request_params.get('input').get('fabric_fq_name')
+        else:
+            err_msg = "Missing fabric details in the job input"
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+        if fabric_fq_name:
+            fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
+            request_params['fabric_fq_name'] = fabric_fq_name_str
+
     def read_device_data(self, device_list, request_params):
         device_data = dict()
         for device_id in device_list:
@@ -466,8 +489,8 @@ class VncApiServer(object):
                     ['physical_router_user_credentials',
                      'physical_router_management_ip', 'fq_name',
                      'physical_router_device_family',
-                     'physical_router_vendor_name'])
-
+                     'physical_router_vendor_name',
+                     'fabric_back_refs'])
                 if not ok:
                     self.config_object_error(device_id, None,
                                              "physical-router  ",
@@ -492,6 +515,13 @@ class VncApiServer(object):
                 device_json.update({"device_vendor": device_vendor_name})
 
             device_data.update({device_id: device_json})
+
+            fabric_refs = result.get('fabric_back_refs')
+            if fabric_refs and len(fabric_refs) > 0:
+                fabric_fq_name = result.get('fabric_back_refs')[0].get('to')
+                fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
+                request_params['fabric_fq_name'] = fabric_fq_name_str
+
         if len(device_data) > 0:
             request_params.update({"device_json": device_data})
 

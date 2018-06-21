@@ -11,16 +11,16 @@ import json
 import subprocess32
 import traceback
 
-from job_exception import JobException
-from job_utils import JobStatus
-from job_messages import MsgBundle
+from job_manager.job_exception import JobException
+from job_manager.job_utils import JobStatus
+from job_manager.job_messages import MsgBundle
 
 
 class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
                  params, job_utils, device_json, auth_token, job_log_utils,
-                 sandesh_args, playbook_timeout):
+                 sandesh_args, fabric_fq_name, playbook_timeout):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -32,9 +32,10 @@ class JobHandler(object):
         self._auth_token = auth_token
         self._job_log_utils = job_log_utils
         self._sandesh_args = sandesh_args
+        self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
 
-    def handle_job(self, result_handler, device_id=None):
+    def handle_job(self, result_handler, job_percent_per_task, device_id=None):
         try:
             msg = "Starting playbook execution for job template %s with " \
                   "execution id %s" % (self._job_template.get_uuid(),
@@ -42,7 +43,8 @@ class JobHandler(object):
             self._logger.debug(msg)
 
             # get the playbook information from the job template
-            playbook_info = self.get_playbook_info(device_id)
+            playbook_info = self.get_playbook_info(job_percent_per_task,
+                                                   device_id)
 
             # run the playbook
             self.run_playbook(playbook_info)
@@ -53,15 +55,15 @@ class JobHandler(object):
                       job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
-        except JobException as e:
-            self._logger.error("%s" % e.msg)
+        except JobException as job_exp:
+            self._logger.error("%s" % job_exp.msg)
             self._logger.error("%s" % traceback.format_exc())
-            result_handler.update_job_status(JobStatus.FAILURE, e.msg,
+            result_handler.update_job_status(JobStatus.FAILURE, job_exp.msg,
                                              device_id)
-        except Exception as e:
-            self._logger.error("Error while executing job %s " % repr(e))
+        except Exception as exp:
+            self._logger.error("Error while executing job %s " % repr(exp))
             self._logger.error("%s" % traceback.format_exc())
-            result_handler.update_job_status(JobStatus.FAILURE, e.message,
+            result_handler.update_job_status(JobStatus.FAILURE, exp.message,
                                              device_id)
 
     def find_playbook_info(self, device_family, device_vendor, playbook_list):
@@ -85,7 +87,7 @@ class JobHandler(object):
                                    device_family=device_family)
         raise JobException(msg, self._execution_id)
 
-    def get_playbook_info(self, device_id=None):
+    def get_playbook_info(self, job_percent_per_task, device_id=None):
         try:
             # create the cmd line param for the playbook
             extra_vars = {
@@ -93,9 +95,11 @@ class JobHandler(object):
                 'params': self._job_params,
                 'job_template_id': self._job_template.get_uuid(),
                 'job_template_fqname': self._job_template.fq_name,
+                'fabric_fq_name': self._fabric_fq_name,
                 'auth_token': self._auth_token,
                 'job_execution_id': self._execution_id,
-                'args': self._sandesh_args
+                'args': self._sandesh_args,
+                'playbook_job_percentage': job_percent_per_task
             }
             playbooks = self._job_template.get_job_template_playbooks()
 
@@ -165,38 +169,40 @@ class JobHandler(object):
             return playbook_info
         except JobException:
             raise
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(
                       MsgBundle.GET_PLAYBOOK_INFO_ERROR,
                       job_template_id=self._job_template.get_uuid(),
-                      exc_msg=repr(e))
+                      exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
 
     def run_playbook_process(self, playbook_info):
-        p = None
+        playbook_process = None
         try:
             playbook_exec_path = os.path.dirname(__file__) \
                                  + "/playbook_helper.py"
-            p = subprocess32.Popen(["python", playbook_exec_path, "-i",
-                                   json.dumps(playbook_info)],
-                                   close_fds=True, cwd='/')
-            p.wait(timeout=self._playbook_timeout)
-        except subprocess32.TimeoutExpired as e:
-            if p is not None:
-                os.kill(p.pid, 9)
+            playbook_process = subprocess32.Popen(["python",
+                                                   playbook_exec_path,
+                                                   "-i",
+                                                   json.dumps(playbook_info)],
+                                                  close_fds=True, cwd='/')
+            playbook_process.wait(timeout=self._playbook_timeout)
+        except subprocess32.TimeoutExpired as timeout_exp:
+            if playbook_process is not None:
+                os.kill(playbook_process.pid, 9)
             msg = MsgBundle.getMessage(
                       MsgBundle.RUN_PLAYBOOK_PROCESS_TIMEOUT,
                       playbook_uri=playbook_info['uri'],
-                      exc_msg=repr(e))
+                      exc_msg=repr(timeout_exp))
             raise JobException(msg, self._execution_id)
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.
                                        RUN_PLAYBOOK_PROCESS_ERROR,
                                        playbook_uri=playbook_info['uri'],
-                                       exc_msg=repr(e))
+                                       exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
 
-        if p.returncode != 0:
+        if playbook_process.returncode != 0:
             msg = MsgBundle.getMessage(MsgBundle.
                                        PLAYBOOK_EXIT_WITH_ERROR,
                                        playbook_uri=playbook_info['uri'])
@@ -222,6 +228,7 @@ class JobHandler(object):
             self._logger.debug(msg)
             self._job_log_utils.send_job_log(self._job_template.fq_name,
                                              self._execution_id,
+                                             self._fabric_fq_name,
                                              msg, JobStatus.IN_PROGRESS.value)
 
             if not os.path.exists(playbook_info['uri']):
@@ -241,11 +248,13 @@ class JobHandler(object):
             self._logger.debug(msg)
             self._job_log_utils.send_job_log(self._job_template.fq_name,
                                              self._execution_id,
+                                             self._fabric_fq_name,
                                              msg, JobStatus.IN_PROGRESS.value)
         except JobException:
             raise
-        except Exception as e:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.RUN_PLAYBOOK_ERROR,
                                        playbook_uri=playbook_info['uri'],
-                                       exc_msg=repr(e))
+                                       exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
+

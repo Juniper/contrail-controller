@@ -291,7 +291,7 @@ class SanityBase(object):
                 [
                     {
                         'name': 'ObjectId',
-                        'value': "%s:%d" % (job_execution_id, status),
+                        'value': "%s:%s" % (job_execution_id, status),
                         'op': 1
                     }
                 ]
@@ -313,8 +313,8 @@ class SanityBase(object):
     # end _post_for_json_response
 
     def _wait_for_job_to_finish(self, job_name, job_execution_id):
-        completed = 2
-        failed = 3
+        completed = "SUCCESS"
+        failed = "FAILURE"
         url = "http://%s:%d/analytics/query" %\
               (self._analytics['host'], self._analytics['port'])
         retry_count = 0
