@@ -1,0 +1,11 @@
+- project:
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - contrail-sanity-centos7-kolla-queens-multinode:
+            dependencies:
+              - contrail-vnc-build-containers-centos7-queens
+              - contrail-vnc-build-test-containers-queens
+    experimental:
+      jobs:
+        - contrail-sanity-centos7-kolla-queens-multinode
