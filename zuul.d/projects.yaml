@@ -1,0 +1,8 @@
+- project:
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - contrail-sanity-centos7-kolla-ocata-multinode:
+            dependencies:
+              - contrail-vnc-build-containers-centos7-ocata
+              - contrail-vnc-build-test-containers
