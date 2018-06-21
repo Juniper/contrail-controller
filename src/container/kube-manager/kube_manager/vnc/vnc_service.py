@@ -116,6 +116,10 @@ class VncService(VncCommon):
         try:
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
+            self.logger.notice("FIP Pool %s not found. "
+                                "Floating IP will not be available "
+                                "until FIP pool is configured."
+                                % (specified_fip_pool_fq_name_str))
             return None
         return fip_pool_obj
 
@@ -131,6 +135,10 @@ class VncService(VncCommon):
         try:
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
+            self.logger.notice("Public FIP Pool %s not found. "
+                                "Floating IP will not be available "
+                                "until FIP pool is configured."
+                                % (fip_pool_fq_name))
             return None
 
         self._fip_pool_obj = fip_pool_obj
@@ -378,7 +386,7 @@ class VncService(VncCommon):
         allocated_fips = self._read_allocated_floating_ips(service_id)
 
         if service_type in ["LoadBalancer"]:
-            if len(allocated_fips) is 0:
+            if allocated_fips is not None and len(allocated_fips) is 0:
                 # Allocate floating-ip from public-pool, if none exists.
                 # if "loadBalancerIp" if specified in Service definition, allocate
                 #     loadBalancerIp as floating-ip.
@@ -407,7 +415,7 @@ class VncService(VncCommon):
 
                 return
 
-            if len(allocated_fips):
+            if allocated_fips is not None and len(allocated_fips):
                 if loadBalancerIp and loadBalancerIp in allocated_fips:
                     self._deallocate_floating_ips(service_id)
                     self._allocate_floating_ips(service_id,
