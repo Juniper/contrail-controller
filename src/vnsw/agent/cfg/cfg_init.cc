@@ -271,6 +271,11 @@ void AgentConfig::RegisterDBClients(DB *db) {
                             (IFMapTable::FindTable(agent_->db(),
                                                    "port-tuple")));
     assert(cfg_port_tuple_table_);
+
+    cfg_multicast_policy_table_ = (static_cast<IFMapAgentTable *>
+                                (IFMapTable::FindTable(agent_->db(),
+                                        "multicast-policy")));
+    assert(cfg_multicast_policy_table_);
 }
 
 void AgentConfig::Init() {

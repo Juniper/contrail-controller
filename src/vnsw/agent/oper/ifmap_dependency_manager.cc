@@ -29,6 +29,7 @@
 #include "filter/policy_set.h"
 #include "cfg/cfg_init.h"
 #include "oper/security_logging_object.h"
+#include "oper/multicast_policy.h"
 #include "oper/project_config.h"
 
 #include <boost/assign/list_of.hpp>
@@ -131,7 +132,8 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "bridge-domain",
         "virtual-machine-interface-bridge-domain",
         "firewall-policy-firewall-rule",
-        "port-tuple"
+        "port-tuple",
+        "multicast-policy"
     };
 
     // Link table
@@ -598,11 +600,15 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     RegisterConfigHandler(this, "access-control-list",
                           agent ? agent->acl_table() : NULL);
 
+    RegisterConfigHandler(this, "multicast-policy",
+                          agent ? agent->mp_table() : NULL);
+
     ////////////////////////////////////////////////////////////////////////
     // VN <----> RI
     //    <----> ACL
     //    <----> VN-IPAM <----> IPAM
     //    <----> SecurityLoggingObject
+    //    <----> Multicast Policy
     ////////////////////////////////////////////////////////////////////////
     AddDependencyPath("virtual-network",
                       MakePath("virtual-network-routing-instance",
@@ -626,6 +632,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "logical-router-virtual-network", true,
                                "logical-router-virtual-network",
                                "logical-router", true));
+    AddDependencyPath("virtual-network",
+                      MakePath("virtual-network-multicast-policy",
+                               "multicast-policy", true));
     RegisterConfigHandler(this, "virtual-network",
                           agent ? agent->vn_table() : NULL);
 

@@ -36,6 +36,7 @@
 #include <oper/bridge_domain.h>
 #include <oper/project_config.h>
 #include <oper/security_logging_object.h>
+#include <oper/multicast_policy.h>
 #include <filter/policy_set.h>
 #include <vector>
 #include <string>
@@ -290,6 +291,7 @@ void ConfigManager::Init() {
             ConfigManagerNodeList(agent_->forwarding_class_table()));
     slo_list_.reset(new
             ConfigManagerNodeList(agent_->slo_table()));
+    mp_list_.reset(new ConfigManagerNodeList(agent_->mp_table()));
 
     OperDB *oper_db = agent()->oper_db();
     global_vrouter_list_.reset
@@ -329,7 +331,8 @@ uint32_t ConfigManager::Size() const {
         qos_config_list_->Size() +
         bridge_domain_list_->Size() +
         project_list_->Size() +
-        policy_set_list_->Size();
+        policy_set_list_->Size() +
+        mp_list_->Size();
 }
 
 uint32_t ConfigManager::ProcessCount() const {
@@ -353,7 +356,8 @@ uint32_t ConfigManager::ProcessCount() const {
         device_vn_list_->process_count() +
         qos_config_list_->process_count() +
         project_list_->process_count() +
-        policy_set_list_->process_count();
+        policy_set_list_->process_count() +
+        mp_list_->process_count();
 }
 
 void ConfigManager::Start() {
@@ -423,6 +427,7 @@ int ConfigManager::Run() {
     count += device_vn_list_->Process(max_count - count);
     count += slo_list_->Process(max_count - count);
     count += project_list_->Process(max_count - count);
+    count += mp_list_->Process(max_count - count);
     return count;
 }
 
@@ -492,6 +497,10 @@ void ConfigManager::AddForwardingClassNode(IFMapNode *node) {
 
 void ConfigManager::AddSecurityLoggingObjectNode(IFMapNode *node) {
     slo_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddMulticastPolicyNode(IFMapNode *node) {
+    mp_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddQosQueueNode(IFMapNode *node) {

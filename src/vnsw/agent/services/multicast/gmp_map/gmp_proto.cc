@@ -73,6 +73,7 @@ GmpProto::GmpProto(GmpType::Type type, Agent *agent,
     gmp_trigger_timer_ = NULL;
     gmp_notif_trigger_ = NULL;
     gd_ = NULL;
+    policy_cb_ = NULL;
     cb_ = NULL;
 
     stats_.gmp_sgh_add_count_ = 0;
@@ -297,6 +298,15 @@ void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
     }
 }
 
+bool GmpProto::MulticastPolicyCheck(GmpIntf *gif, IpAddress source,
+                            IpAddress group) {
+    if (policy_cb_) {
+        return policy_cb_(gif, source, group);
+    }
+
+    return false;
+}
+
 bool GmpProto::SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
                             IpAddress dest) {
 
@@ -328,6 +338,35 @@ bool GmpProtoManager::DeleteGmpProto(GmpProto *proto_inst) {
     delete proto_inst;
 
     return true;
+}
+
+boolean gmp_policy_check(mgm_global_data *gd, gmp_intf *intf,
+                            gmp_addr_string source, gmp_addr_string group)
+{
+    if (!gd || !intf) {
+        return FALSE;
+    }
+
+    if (gd->mgm_gd_af != MCAST_AF_IPV4) {
+        return FALSE;
+    }
+
+    GmpProto *gmp_proto = (GmpProto *)gd->gmp_sm;
+    GmpIntf *gif = (GmpIntf *)intf->vm_interface;
+
+    if (!gmp_proto || !gif) {
+        return FALSE;
+    }
+
+    uint32_t addr;
+    memcpy(&addr, &source, IPV4_ADDR_LEN);
+    IpAddress source_addr = Ip4Address(ntohl(addr));
+    memcpy(&addr, &group, IPV4_ADDR_LEN);
+    IpAddress group_addr = Ip4Address(ntohl(addr));
+
+    bool permit = gmp_proto->MulticastPolicyCheck(gif, source_addr, group_addr);
+
+    return (permit ? TRUE : FALSE);
 }
 
 void gmp_notification_ready(mgm_global_data *gd)
