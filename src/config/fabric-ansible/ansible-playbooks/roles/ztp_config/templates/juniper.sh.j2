@@ -1,6 +1,8 @@
 #!/bin/sh
+serial_number=$(echo "show system information | display xml" | cli | grep serial-number | awk -F">" '{print $2}' | awk -F"<" '{print $1}')
 cat <<EOF > /tmp/juniper.config
 system {
+    host-name "$serial_number"
     root-authentication {
         encrypted-password "{{ ztp_config.password | encrypt | shell_escape }}";
     }
