@@ -10,6 +10,9 @@ import json
 import traceback
 import argparse
 from collections import namedtuple
+import errno
+from ansible.module_utils._text import to_bytes, to_text
+from ansible.utils.color import stringc
 
 from ansible import constants as CONST
 verbosity = CONST.DEFAULT_VERBOSITY or 0
@@ -23,8 +26,68 @@ verbosity = CONST.DEFAULT_VERBOSITY or 0
 from job_manager.fabric_logger import fabric_ansible_logger
 logger = fabric_ansible_logger("ansible")
 
+# Overrides the default display processing from ansible/utils/display.py
+# The default display method supresses certain output for remote hosts
+# while we want this information sent to the logs
+#
+def fabric_ansible_display(self, msg, color=None, stderr=False, screen_only=False, log_only=False):
+    """ Display a message to the user
+
+    Note: msg *must* be a unicode string to prevent UnicodeError tracebacks.
+    """
+
+    nocolor = msg
+    if color:
+        msg = stringc(msg, color)
+
+    if not log_only:
+        if not msg.endswith(u'\n'):
+            msg2 = msg + u'\n'
+        else:
+            msg2 = msg
+
+        msg2 = to_bytes(msg2, encoding=self._output_encoding(stderr=stderr))
+        if sys.version_info >= (3,):
+            # Convert back to text string on python3
+            # We first convert to a byte string so that we get rid of
+            # characters that are invalid in the user's locale
+            msg2 = to_text(msg2, self._output_encoding(stderr=stderr), errors='replace')
+
+        # Note: After Display() class is refactored need to update the log capture
+        # code in 'bin/ansible-connection' (and other relevant places).
+        if not stderr:
+            fileobj = sys.stdout
+        else:
+            fileobj = sys.stderr
+
+        fileobj.write(msg2)
+
+        try:
+            fileobj.flush()
+        except IOError as e:
+            # Ignore EPIPE in case fileobj has been prematurely closed, eg.
+            # when piping to "head -n1"
+            if e.errno != errno.EPIPE:
+                raise
+
+    if logger:
+        msg2 = nocolor.lstrip(u'\n')
+
+        msg2 = to_bytes(msg2)
+        if sys.version_info >= (3,):
+            # Convert back to text string on python3
+            # We first convert to a byte string so that we get rid of
+            # characters that are invalid in the user's locale
+            msg2 = to_text(msg2, self._output_encoding(stderr=stderr))
+
+        if color == CONST.COLOR_ERROR:
+            logger.error(msg2)
+        else:
+            logger.info(msg2)
+
 import ansible.utils.display as default_display
 default_display.logger = logger
+default_display.Display.display = fabric_ansible_display
 
 from ansible.utils.display import Display
 display = Display(verbosity)
