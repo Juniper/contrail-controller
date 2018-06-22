@@ -26,7 +26,6 @@ from gevent.pool import Pool
 from gevent import monkey
 monkey.patch_socket()
 
-
 class JobManager(object):
 
     def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
@@ -72,6 +71,7 @@ class JobManager(object):
         self.max_job_task = self.job_log_utils.args.max_job_task
 
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
+        self.prev_pb_output = job_input_json.get('prev_pb_output') or {}
 
     def start_job(self):
         # spawn job greenlets
@@ -82,7 +82,7 @@ class JobManager(object):
                                  self.auth_token, self.job_log_utils,
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
-                                 self.playbook_seq)
+                                 self.playbook_seq, self.prev_pb_output)
 
         if self.device_json and len(self.device_json) >= 1:
             self.handle_multi_device_job(job_handler, self.result_handler)
@@ -202,7 +202,7 @@ class WFManager(object):
             job_percent = None
             # calculate job percentage for each playbook
             if len(playbook_list) > 1:
-                task_weightage_array = [45, 55]  # todo: get from job_template
+                task_weightage_array = [30, 30, 40]  # todo: get from job_template
 
             for i in range(0, len(playbook_list)):
 
@@ -228,10 +228,23 @@ class WFManager(object):
 
                 job_mgr.start_job()
 
+                # stop the workflow if playbook failed
+                if self.result_handler.job_result_status == JobStatus.FAILURE:
+                    self._logger.error("Stop the workflow on the failed Playbook.")
+                    break
+
                 # read the device_data output of the playbook
                 # and update the job input so that it can be used in next iteration
                 device_json = self.result_handler.get_device_data()
                 self.job_input['device_json'] = device_json
+
+                # update the job input with marked playbook output json
+                pb_output = self.result_handler.playbook_output or {}
+                if not self.job_input.get('prev_pb_output'):
+                    self.job_input['prev_pb_output'] = pb_output
+                else:
+                    self.job_input['prev_pb_output'].update(pb_output)
+                self.job_input.get('input', {}).update(pb_output)
 
             # create job completion log and update job UVE
             self.result_handler.create_job_summary_log(
