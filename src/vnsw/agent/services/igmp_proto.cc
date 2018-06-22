@@ -7,6 +7,7 @@
 #include "oper/vn.h"
 #include "oper/route_common.h"
 #include "oper/multicast.h"
+#include "oper/multicast_policy.h"
 #include "services/igmp_proto.h"
 
 IgmpProto::IgmpProto(Agent *agent, boost::asio::io_service &io) :
@@ -29,6 +30,9 @@ void IgmpProto::IgmpProtoInit(void) {
     gmp_proto_ = GmpProtoManager::CreateGmpProto(GmpType::IGMP, agent_,
                                     task_name_, PktHandler::IGMP, io_);
     if (gmp_proto_) {
+        gmp_proto_->RegisterPolicyCallback(
+                        boost::bind(&IgmpProto::MulticastPolicyCheck, this, _1,
+                                    _2, _3));
         gmp_proto_->Register(
                         boost::bind(&IgmpProto::SendIgmpPacket, this, _1, _2));
         gmp_proto_->Start();
@@ -233,6 +237,41 @@ DBTableBase::ListenerId IgmpProto::vn_listener_id () {
 
 DBTableBase::ListenerId IgmpProto::itf_listener_id () {
     return itf_listener_id_;
+}
+
+bool IgmpProto::MulticastPolicyCheck(GmpIntf *gmp_intf, IpAddress source,
+                                    IpAddress group) {
+
+    if (!gmp_intf) {
+        return false;
+    }
+
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(
+                                    gmp_intf->get_vrf_name());
+    VnEntry *vn = vrf ? vrf->vn() : NULL;
+    if (!vn) {
+        return false;
+    }
+
+    const UuidList &mp_list = vn->mp_list();
+    if (!mp_list.size()) {
+        return true;
+    }
+
+    UuidList::const_iterator it = mp_list.begin();
+    MulticastPolicyTable *table = agent()->mp_table();
+    while (it != mp_list.end()) {
+        MulticastPolicyKey key(*it);
+        MulticastPolicyEntry *entry = static_cast<MulticastPolicyEntry *>
+                                            (table->FindActiveEntry(&key));
+        SourceGroupInfo::Action action = entry->GetAction(source, group);
+        if (action == SourceGroupInfo::ACTION_PASS) {
+            return true;
+        }
+        it++;
+    }
+
+    return false;
 }
 
 bool IgmpProto::SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet) {

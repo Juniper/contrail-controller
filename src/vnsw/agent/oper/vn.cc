@@ -294,6 +294,10 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
         ret = true;
     }
 
+    if (mp_list_ != data->mp_list_) {
+        mp_list_ = data->mp_list_;
+    }
+
     if (cfg_igmp_enable_ != data->cfg_igmp_enable_) {
         cfg_igmp_enable_ = data->cfg_igmp_enable_;
     }
@@ -958,6 +962,8 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool underlay_forwarding = false;
     bool vxlan_routing_vn = false;
     boost::uuids::uuid logical_router_uuid = nil_uuid();
+    boost::uuids::uuid mp_uuid = nil_uuid();
+    UuidList mp_list;
 
     // Find link with ACL / VRF adjacency
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
@@ -1071,6 +1077,17 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                 }
             }
         }
+
+        if (adj_node->table() ==
+                            agent()->cfg()->cfg_multicast_policy_table()) {
+            MulticastPolicy *mcast_group = static_cast<MulticastPolicy *>
+                            (adj_node->GetObject());
+            assert(mcast_group);
+            autogen::IdPermsType id_perms = mcast_group->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           mp_uuid);
+            mp_list.push_back(mp_uuid);
+        }
     }
 
     uuid mirror_acl_uuid = agent()->mirror_cfg_table()->GetMirrorUuid(node->name());
@@ -1096,7 +1113,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
                       pbb_evpn_enable, layer2_control_word, slo_list,
                       underlay_forwarding, vxlan_routing_vn,
-                      logical_router_uuid, cfg_igmp_enable);
+                      logical_router_uuid, mp_list, cfg_igmp_enable);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -1154,7 +1171,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
                               pbb_evpn_enable, layer2_control_word, empty_list,
-                              false, false, nil_uuid(), false);
+                              false, false, nil_uuid(), empty_list, false);
 
     req.data.reset(data);
     Enqueue(&req);
@@ -1260,6 +1277,15 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     std::vector<VnSandeshData> &list =
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);
+    std::vector<MulticastPolicyLink> mp_list;
+    UuidList::const_iterator mpit = mp_list_.begin();
+    while (mpit != mp_list_.end()) {
+        MulticastPolicyLink mp_entry;
+        mp_entry.set_mp_uuid(to_string(*mpit));
+        mp_list.push_back(mp_entry);
+        ++mpit;
+    }
+    data.set_mp_list(mp_list);
     data.set_cfg_igmp_enable(cfg_igmp_enable());
     return true;
 }

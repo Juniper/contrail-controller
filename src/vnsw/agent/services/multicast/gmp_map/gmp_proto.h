@@ -54,6 +54,7 @@ struct GmpType {
 class GmpProto {
 public:
     static const int kGmpTriggerRestartTimer = 100; /* milli-seconds */
+    typedef boost::function<bool(GmpIntf *, IpAddress, IpAddress)> PolicyCb;
     typedef boost::function<bool(GmpIntf *, GmpPacket *)> Callback;
     struct GmpStats {
         GmpStats() { Reset(); }
@@ -72,6 +73,7 @@ public:
     GmpIntf *CreateIntf();
 
     bool DeleteIntf(GmpIntf *gif);
+    void RegisterPolicyCallback(PolicyCb cb) { policy_cb_ = cb; }
     void Register(Callback cb) { cb_ = cb; }
     bool Start();
     bool Stop();
@@ -86,6 +88,7 @@ public:
     void ResyncNotify(GmpIntf *gif, IpAddress source, IpAddress group);
     void UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
                             IpAddress source, IpAddress group);
+    bool MulticastPolicyCheck(GmpIntf *gif, IpAddress source, IpAddress group);
     bool SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
                             IpAddress dest);
     const GmpStats &GetStats() const { return stats_; }
@@ -102,6 +105,7 @@ private:
     Timer *gmp_trigger_timer_;
     TaskTrigger *gmp_notif_trigger_;
     mgm_global_data *gd_;
+    PolicyCb policy_cb_;
     Callback cb_;
 
     GmpStats stats_;
