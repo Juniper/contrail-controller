@@ -51,18 +51,61 @@ extern void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
 char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 
-IpamInfo ipam_info[] = {
-    {"10.1.1.0", 24, "10.1.1.1", true},
+struct PortInfo input[] = {
+    {"vnet1-0", 1, "10.2.1.3", "00:00:10:01:01:03", 1, 1},
+    {"vnet1-1", 2, "10.2.1.4", "00:00:10:01:01:04", 1, 1},
+    {"vnet1-2", 3, "10.2.1.5", "00:00:10:01:01:05", 1, 1},
+    {"vnet1-3", 4, "10.2.1.6", "00:00:10:01:01:06", 1, 1},
+    {"vnet1-4", 5, "10.2.1.7", "00:00:10:01:01:07", 1, 1},
+    {"vnet1-5", 6, "10.2.1.8", "00:00:10:01:01:08", 1, 1},
+    {"vnet1-6", 7, "10.2.1.9", "00:00:10:01:01:09", 1, 1},
 };
 
-struct PortInfo input[] = {
-    {"vnet1-0", 1, "10.1.1.3", "00:00:10:01:01:03", 1, 1},
-    {"vnet1-1", 2, "10.1.1.4", "00:00:10:01:01:04", 1, 1},
-    {"vnet1-2", 3, "10.1.1.5", "00:00:10:01:01:05", 1, 1},
-    {"vnet1-3", 4, "10.1.1.6", "00:00:10:01:01:06", 1, 1},
-    {"vnet1-4", 5, "10.1.1.7", "00:00:10:01:01:07", 1, 1},
-    {"vnet1-5", 6, "10.1.1.8", "00:00:10:01:01:08", 1, 1},
-    {"vnet1-6", 7, "10.1.1.9", "00:00:10:01:01:09", 1, 1},
+IpamInfo ipam_info[] = {
+    {"10.2.1.0", 24, "10.2.1.1", true},
+};
+
+#define MSUBNET_SYSTEMS     "224.0.0.1"
+#define MSUBNET_ROUTERS     "224.0.0.2"
+#define MIGMP_ADDRESS       "224.0.0.22"
+
+#define MGROUP_ADDR_1       "224.1.0.10"
+#define MGROUP_ADDR_2       "224.2.0.10"
+#define MGROUP_ADDR_3       "224.3.0.10"
+
+#define MSOURCE_ADDR_11     "100.1.0.10"
+#define MSOURCE_ADDR_12     "100.1.0.20"
+#define MSOURCE_ADDR_13     "100.1.0.30"
+#define MSOURCE_ADDR_14     "100.1.0.40"
+#define MSOURCE_ADDR_15     "100.1.0.50"
+
+#define MSOURCE_ADDR_21     "100.2.0.10"
+#define MSOURCE_ADDR_22     "100.2.0.20"
+#define MSOURCE_ADDR_23     "100.2.0.30"
+#define MSOURCE_ADDR_24     "100.2.0.40"
+#define MSOURCE_ADDR_25     "100.2.0.50"
+
+#define MSOURCE_ADDR_31     "100.3.0.10"
+#define MSOURCE_ADDR_32     "100.3.0.20"
+#define MSOURCE_ADDR_33     "100.3.0.30"
+#define MSOURCE_ADDR_34     "100.3.0.40"
+#define MSOURCE_ADDR_35     "100.3.0.50"
+
+MulticastPolicy policy[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_1, false},
+    {MSOURCE_ADDR_13, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_14, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_1[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_2[] = {
+    {MSOURCE_ADDR_21, MGROUP_ADDR_2, true},
+    {MSOURCE_ADDR_22, MGROUP_ADDR_2, false},
 };
 
 char print_buf[1024*3];
@@ -158,26 +201,26 @@ public:
                 boost::bind(&IgmpTest::ItfUpdate, this, _2));
 
         memset(igmp_gs, 0x00, sizeof(igmp_gs));
-        igmp_gs[0].group = ntohl(inet_addr("224.1.0.10"));
-        igmp_gs[0].sources[0] = ntohl(inet_addr("100.1.0.10"));
-        igmp_gs[0].sources[1] = ntohl(inet_addr("100.1.0.20"));
-        igmp_gs[0].sources[2] = ntohl(inet_addr("100.1.0.30"));
-        igmp_gs[0].sources[3] = ntohl(inet_addr("100.1.0.40"));
-        igmp_gs[0].sources[4] = ntohl(inet_addr("100.1.0.50"));
+        igmp_gs[0].group = ntohl(inet_addr(MGROUP_ADDR_1));
+        igmp_gs[0].sources[0] = ntohl(inet_addr(MSOURCE_ADDR_11));
+        igmp_gs[0].sources[1] = ntohl(inet_addr(MSOURCE_ADDR_12));
+        igmp_gs[0].sources[2] = ntohl(inet_addr(MSOURCE_ADDR_13));
+        igmp_gs[0].sources[3] = ntohl(inet_addr(MSOURCE_ADDR_14));
+        igmp_gs[0].sources[4] = ntohl(inet_addr(MSOURCE_ADDR_15));
 
-        igmp_gs[1].group = ntohl(inet_addr("224.2.0.10"));
-        igmp_gs[1].sources[0] = ntohl(inet_addr("100.2.0.10"));
-        igmp_gs[1].sources[1] = ntohl(inet_addr("100.2.0.20"));
-        igmp_gs[1].sources[2] = ntohl(inet_addr("100.2.0.30"));
-        igmp_gs[1].sources[3] = ntohl(inet_addr("100.2.0.40"));
-        igmp_gs[1].sources[4] = ntohl(inet_addr("100.2.0.50"));
+        igmp_gs[1].group = ntohl(inet_addr(MGROUP_ADDR_2));
+        igmp_gs[1].sources[0] = ntohl(inet_addr(MSOURCE_ADDR_21));
+        igmp_gs[1].sources[1] = ntohl(inet_addr(MSOURCE_ADDR_22));
+        igmp_gs[1].sources[2] = ntohl(inet_addr(MSOURCE_ADDR_23));
+        igmp_gs[1].sources[3] = ntohl(inet_addr(MSOURCE_ADDR_24));
+        igmp_gs[1].sources[4] = ntohl(inet_addr(MSOURCE_ADDR_25));
 
-        igmp_gs[2].group = ntohl(inet_addr("224.3.0.10"));
-        igmp_gs[2].sources[0] = ntohl(inet_addr("100.3.0.10"));
-        igmp_gs[2].sources[1] = ntohl(inet_addr("100.3.0.20"));
-        igmp_gs[2].sources[2] = ntohl(inet_addr("100.3.0.30"));
-        igmp_gs[2].sources[3] = ntohl(inet_addr("100.3.0.40"));
-        igmp_gs[2].sources[4] = ntohl(inet_addr("100.3.0.50"));
+        igmp_gs[2].group = ntohl(inet_addr(MGROUP_ADDR_3));
+        igmp_gs[2].sources[0] = ntohl(inet_addr(MSOURCE_ADDR_31));
+        igmp_gs[2].sources[1] = ntohl(inet_addr(MSOURCE_ADDR_32));
+        igmp_gs[2].sources[2] = ntohl(inet_addr(MSOURCE_ADDR_33));
+        igmp_gs[2].sources[3] = ntohl(inet_addr(MSOURCE_ADDR_34));
+        igmp_gs[2].sources[4] = ntohl(inet_addr(MSOURCE_ADDR_35));
 
         rx_count = 0;
     }
@@ -353,7 +396,7 @@ public:
         if (igmp_type == IgmpTypeV1Query) {
 
             if (igmp_gs == NULL) {
-                ip->ip_dst.s_addr = inet_addr("224.0.0.1");
+                ip->ip_dst.s_addr = inet_addr(MSUBNET_SYSTEMS);
             } else {
                 ip->ip_dst.s_addr = htonl(igmp_gs[0].group);
             }
@@ -363,10 +406,10 @@ public:
             ip->ip_dst.s_addr = htonl(igmp_gs[0].group);
         } else if (igmp_type == IgmpTypeV2Leave) {
 
-            ip->ip_dst.s_addr = inet_addr("224.0.0.2");
+            ip->ip_dst.s_addr = inet_addr(MSUBNET_ROUTERS);
         } else if (igmp_type == IgmpTypeV3Report) {
 
-            ip->ip_dst.s_addr = inet_addr("224.0.0.22");
+            ip->ip_dst.s_addr = inet_addr(MIGMP_ADDRESS);
         }
 
         uint32_t igmp_length = 0;
@@ -608,67 +651,67 @@ TEST_F(IgmpTest, PrintPackets) {
 
     cout << "Not Printing for now. TEST_LOG is commented." << endl;
 
-    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Query, NULL, 0);
+    len = FormIgmp(buf, buf_len, 0, "10.2.1.3", IgmpTypeV1Query, NULL, 0);
     TEST_LOG(DEBUG, "IgmpTypeV1Query Packet : " << endl);
     PrintIgmp(buf, len);
 
-    igmp_gs[0].group = inet_addr("224.0.0.10");
+    igmp_gs[0].group = inet_addr(MGROUP_ADDR_1);
     igmp_gs[0].source_count = 0;
-    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Query, igmp_gs, 1);
+    len = FormIgmp(buf, buf_len, 0, "10.2.1.3", IgmpTypeV1Query, igmp_gs, 1);
     TEST_LOG(DEBUG, "IgmpTypeV2Query Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
-    igmp_gs[0].group = inet_addr("224.0.0.10");
-    igmp_gs[0].group = inet_addr("224.0.0.11");
-    igmp_gs[0].group = inet_addr("224.0.0.12");
-    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Query, igmp_gs, 3);
+    igmp_gs[0].group = inet_addr(MGROUP_ADDR_1);
+    igmp_gs[1].group = inet_addr(MGROUP_ADDR_2);
+    igmp_gs[2].group = inet_addr(MGROUP_ADDR_3);
+    len = FormIgmp(buf, buf_len, 0, "10.2.1.3", IgmpTypeV1Query, igmp_gs, 3);
     TEST_LOG(DEBUG, "IgmpTypeV3Query Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
-    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV2Leave, igmp_gs, 0);
+    len = FormIgmp(buf, buf_len, 0, "10.2.1.3", IgmpTypeV2Leave, igmp_gs, 0);
     TEST_LOG(DEBUG, "IgmpTypeV2Leave Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
-    igmp_gs[0].group = inet_addr("224.0.0.10");
-    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV1Report, igmp_gs, 1);
+    igmp_gs[0].group = inet_addr(MGROUP_ADDR_1);
+    len = FormIgmp(buf, buf_len, 0, "10.2.1.3", IgmpTypeV1Report, igmp_gs, 1);
     TEST_LOG(DEBUG, "IgmpTypeV1Report Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
-    igmp_gs[0].group = inet_addr("224.0.0.10");
-    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV2Report, igmp_gs, 1);
+    igmp_gs[0].group = inet_addr(MGROUP_ADDR_1);
+    len = FormIgmp(buf, buf_len, 0, "10.2.1.3", IgmpTypeV2Report, igmp_gs, 1);
     TEST_LOG(DEBUG, "IgmpTypeV2Report Packet : " << endl);
     PrintIgmp(buf, len);
 
     memset(igmp_gs, 0x00, sizeof(igmp_gs));
-    igmp_gs[0].group = inet_addr("224.1.0.10");
+    igmp_gs[0].group = inet_addr(MGROUP_ADDR_1);
     igmp_gs[0].record_type = 1;
     igmp_gs[0].source_count = 3;
-    igmp_gs[0].sources[0] = inet_addr("100.1.0.10");
-    igmp_gs[0].sources[0] = inet_addr("100.1.0.20");
-    igmp_gs[0].sources[0] = inet_addr("100.1.0.30");
+    igmp_gs[0].sources[0] = inet_addr(MSOURCE_ADDR_11);
+    igmp_gs[0].sources[0] = inet_addr(MSOURCE_ADDR_12);
+    igmp_gs[0].sources[0] = inet_addr(MSOURCE_ADDR_13);
 
-    igmp_gs[1].group = inet_addr("224.2.0.10");
+    igmp_gs[1].group = inet_addr(MGROUP_ADDR_2);
     igmp_gs[1].record_type = 1;
     igmp_gs[1].source_count = 4;
-    igmp_gs[1].sources[0] = inet_addr("100.2.0.10");
-    igmp_gs[1].sources[0] = inet_addr("100.2.0.20");
-    igmp_gs[1].sources[0] = inet_addr("100.2.0.30");
-    igmp_gs[1].sources[0] = inet_addr("100.2.0.40");
+    igmp_gs[1].sources[0] = inet_addr(MSOURCE_ADDR_21);
+    igmp_gs[1].sources[0] = inet_addr(MSOURCE_ADDR_22);
+    igmp_gs[1].sources[0] = inet_addr(MSOURCE_ADDR_23);
+    igmp_gs[1].sources[0] = inet_addr(MSOURCE_ADDR_24);
 
-    igmp_gs[2].group = inet_addr("224.3.0.10");
+    igmp_gs[2].group = inet_addr(MGROUP_ADDR_3);
     igmp_gs[2].record_type = 1;
     igmp_gs[2].source_count = 5;
-    igmp_gs[2].sources[0] = inet_addr("100.3.0.10");
-    igmp_gs[2].sources[0] = inet_addr("100.3.0.20");
-    igmp_gs[2].sources[0] = inet_addr("100.3.0.30");
-    igmp_gs[2].sources[0] = inet_addr("100.3.0.40");
-    igmp_gs[2].sources[0] = inet_addr("100.3.0.50");
+    igmp_gs[2].sources[0] = inet_addr(MSOURCE_ADDR_31);
+    igmp_gs[2].sources[0] = inet_addr(MSOURCE_ADDR_32);
+    igmp_gs[2].sources[0] = inet_addr(MSOURCE_ADDR_33);
+    igmp_gs[2].sources[0] = inet_addr(MSOURCE_ADDR_34);
+    igmp_gs[2].sources[0] = inet_addr(MSOURCE_ADDR_35);
 
-    len = FormIgmp(buf, buf_len, 0, "1.1.1.1", IgmpTypeV3Report, igmp_gs, 3);
+    len = FormIgmp(buf, buf_len, 0, "10.2.1.3", IgmpTypeV3Report, igmp_gs, 3);
     TEST_LOG(DEBUG, "IgmpTypeV3Report Packet : " << endl);
     PrintIgmp(buf, len);
 
@@ -785,8 +828,8 @@ TEST_F(IgmpTest, SendV3Reports) {
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
-    Ip4Address group = Ip4Address::from_string("224.1.0.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.0.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -948,8 +991,8 @@ TEST_F(IgmpTest, SendV3ReportsAndFabricOlist) {
     const TunnelNH *tnh;
     const InterfaceNH *inh;
 
-    Ip4Address group = Ip4Address::from_string("224.1.0.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.0.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -1128,8 +1171,8 @@ TEST_F(IgmpTest, SendV3ReportsAndNoFabricOlist) {
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
-    Ip4Address group = Ip4Address::from_string("224.1.0.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.0.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -1285,8 +1328,8 @@ TEST_F(IgmpTest, IgmpIntfConfig) {
     ret = WaitForSghCount(true, local_sgh_add_count);
     EXPECT_EQ(ret, true);
 
-    Ip4Address group = Ip4Address::from_string("224.1.0.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.0.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
@@ -1803,8 +1846,8 @@ TEST_F(IgmpTest, IgmpTaskTrigger) {
 
     uint32_t local_sgh_add_count = 0;
     uint32_t local_sgh_del_count = 0;
-    uint32_t group = inet_addr("224.1.0.10");
-    uint32_t source = inet_addr("100.1.0.10");
+    uint32_t group = inet_addr(MGROUP_ADDR_1);
+    uint32_t source = inet_addr(MSOURCE_ADDR_11);
 
     memset(&igmp_gs, 0x00, sizeof(igmp_gs));
 
@@ -1885,6 +1928,229 @@ TEST_F(IgmpTest, IgmpTaskTrigger) {
 
     actual_count = stats.gmp_sgh_del_count_;
     EXPECT_EQ(actual_count, ex_count);
+
+    IgmpGlobalClear();
+
+    Tear_Down();
+    client->WaitForIdle();
+
+    return;
+}
+
+TEST_F(IgmpTest, MulticastPolicy) {
+
+    bool ret = false;
+    uint32_t idx = 0;
+    boost::system::error_code ec;
+    struct IgmpGroupSource igmp_gs;
+
+    Set_Up();
+
+    AddMulticastPolicy("policy-1", 1, policy, 4);
+    AddLink("multicast-policy", "policy-1", "virtual-network", "vn1");
+
+    IgmpGlobalEnable(true);
+
+    Agent::GetInstance()->GetIgmpProto()->ClearStats();
+    Agent::GetInstance()->GetIgmpProto()->GetGmpProto()->ClearStats();
+    client->WaitForIdle();
+
+    uint32_t report_count = 0;
+    uint32_t local_sgh_add_count = 0;
+    uint32_t local_sgh_del_count = 0;
+
+    memset(&igmp_gs, 0x00, sizeof(igmp_gs));
+
+    igmp_gs.record_type = 1;
+    igmp_gs.source_count = 4;
+    igmp_gs.group = ntohl(inet_addr(policy[0].grp));
+    igmp_gs.sources[0] = ntohl(inet_addr(policy[0].src));
+    igmp_gs.sources[1] = ntohl(inet_addr(policy[1].src));
+    igmp_gs.sources[2] = ntohl(inet_addr(policy[2].src));
+    igmp_gs.sources[3] = ntohl(inet_addr(policy[3].src));
+    local_sgh_add_count += 2;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
+
+    Ip4Address group;
+    Ip4Address source;
+
+    Agent *agent = Agent::GetInstance();
+    const NextHop *nh;
+
+    group = Ip4Address::from_string(policy[0].grp, ec);
+    source = Ip4Address::from_string(policy[0].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy[0].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    group = Ip4Address::from_string(policy[0].grp, ec);
+    source = Ip4Address::from_string(policy[1].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy[1].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    group = Ip4Address::from_string(policy[0].grp, ec);
+    source = Ip4Address::from_string(policy[2].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy[2].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    group = Ip4Address::from_string(policy[0].grp, ec);
+    source = Ip4Address::from_string(policy[3].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy[3].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    igmp_gs.record_type = 6;
+    igmp_gs.source_count = 4;
+    local_sgh_del_count += 2;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    DelLink("multicast-policy", "policy-1", "virtual-network", "vn1");
+    DelMulticastPolicy("policy-1");
+
+    IgmpGlobalClear();
+
+    Tear_Down();
+    client->WaitForIdle();
+
+    return;
+}
+
+TEST_F(IgmpTest, MulticastPolicy_2) {
+
+    bool ret = false;
+    uint32_t idx = 0;
+    boost::system::error_code ec;
+    struct IgmpGroupSource igmp_gs[2];
+
+    Set_Up();
+
+    AddMulticastPolicy("policy-1", 1, policy_1, 2);
+    AddLink("multicast-policy", "policy-1", "virtual-network", "vn1");
+
+    AddMulticastPolicy("policy-2", 2, policy_2, 2);
+    AddLink("multicast-policy", "policy-2", "virtual-network", "vn1");
+
+    IgmpGlobalEnable(true);
+
+    Agent::GetInstance()->GetIgmpProto()->ClearStats();
+    Agent::GetInstance()->GetIgmpProto()->GetGmpProto()->ClearStats();
+    client->WaitForIdle();
+
+    uint32_t report_count = 0;
+    uint32_t local_sgh_add_count = 0;
+    uint32_t local_sgh_del_count = 0;
+
+    memset(&igmp_gs[0], 0x00, sizeof(igmp_gs[2]));
+
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 2;
+    igmp_gs[0].group = ntohl(inet_addr(policy_1[0].grp));
+    igmp_gs[0].sources[0] = ntohl(inet_addr(policy_1[0].src));
+    igmp_gs[0].sources[1] = ntohl(inet_addr(policy_1[1].src));
+    igmp_gs[1].record_type = 1;
+    igmp_gs[1].source_count = 2;
+    igmp_gs[1].group = ntohl(inet_addr(policy_2[0].grp));
+    igmp_gs[1].sources[0] = ntohl(inet_addr(policy_2[0].src));
+    igmp_gs[1].sources[1] = ntohl(inet_addr(policy_2[1].src));
+    local_sgh_add_count += 2;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[0], 2);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSghCount(true, local_sgh_add_count);
+    EXPECT_EQ(ret, true);
+
+    Ip4Address group;
+    Ip4Address source;
+
+    Agent *agent = Agent::GetInstance();
+    const NextHop *nh;
+
+    group = Ip4Address::from_string(policy_1[0].grp, ec);
+    source = Ip4Address::from_string(policy_1[0].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy_1[0].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    group = Ip4Address::from_string(policy_1[0].grp, ec);
+    source = Ip4Address::from_string(policy_1[1].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy_1[1].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    group = Ip4Address::from_string(policy_2[0].grp, ec);
+    source = Ip4Address::from_string(policy_2[0].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy_2[0].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    group = Ip4Address::from_string(policy_2[0].grp, ec);
+    source = Ip4Address::from_string(policy_2[1].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(),
+                                    agent->fabric_policy_vrf_name(), group,
+                                    source);
+    if (policy_2[1].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 2;
+    igmp_gs[1].record_type = 6;
+    igmp_gs[1].source_count = 2;
+    local_sgh_del_count += 2;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[0], 2);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSghCount(false, local_sgh_del_count);
+    EXPECT_EQ(ret, true);
+
+    DelLink("multicast-policy", "policy-2", "virtual-network", "vn1");
+    DelMulticastPolicy("policy-2");
+
+    DelLink("multicast-policy", "policy-1", "virtual-network", "vn1");
+    DelMulticastPolicy("policy-1");
 
     IgmpGlobalClear();
 

@@ -229,11 +229,36 @@ boolean gmp_oif_map_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
     return TRUE;
 }
 
-boolean gmp_policy_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
+boolean gmp_policy_cb(void *inst_context, gmp_intf_handle *handle,
                 u_int8_t *group_addr, u_int8_t *source_addr,
                 boolean static_group)
 {
-    return TRUE;
+    mgm_global_data *gd = (mgm_global_data *)inst_context;
+    gmp_intf *gif;
+    gmp_addr_string g;
+    gmp_addr_string s;
+
+    if (!inst_context) {
+        return TRUE;
+    }
+
+    gif = gmp_handle_to_gif(handle);
+    if (!gif) {
+        return TRUE;
+    }
+
+    if (static_group) {
+        return TRUE;
+    }
+
+    if (!group_addr || !source_addr) {
+        return TRUE;
+    }
+
+    memcpy(&g, group_addr, IPV4_ADDR_LEN);
+    memcpy(&s, source_addr, IPV4_ADDR_LEN);
+
+    return gmp_policy_check(gd, gif, s, g);
 }
 
 boolean gmp_ssm_check_cb(void *inst_context UNUSED, gmp_intf_handle *handle,

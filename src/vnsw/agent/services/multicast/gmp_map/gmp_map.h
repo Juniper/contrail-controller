@@ -45,7 +45,7 @@ extern boolean gmp_process_pkt(mgm_global_data *gd, gmp_intf *gif,
 extern boolean gmp_oif_map_cb (void *inst_context UNUSED, gmp_intf_handle *handle,
                 uint8_t *group_addr, uint8_t *source_addr,
                 gmp_intf_handle **output_handle);
-extern boolean gmp_policy_cb (void *inst_context UNUSED, gmp_intf_handle *handle,
+extern boolean gmp_policy_cb (void *inst_context, gmp_intf_handle *handle,
                 uint8_t *group_addr, uint8_t *source_addr,
                 boolean static_group);
 extern void igmp_notification_ready (void *context);
@@ -58,6 +58,8 @@ extern void gmp_xmit_ready(gmp_role role, gmp_proto proto, gmpx_intf_id intf_id)
 extern void gmp_static_peek(gmp_intf_handle *handle, gmp_proto proto,
                  gmp_packet *rcv_packet);
 
+extern boolean gmp_policy_check(mgm_global_data *gd, gmp_intf *intf,
+                            gmp_addr_string source, gmp_addr_string group);
 extern void gmp_group_notify(mgm_global_data *gd, gmp_intf *gif,
                             int group_action, gmp_addr_string source,
                             gmp_addr_string group);

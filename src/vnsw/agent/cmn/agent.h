@@ -106,6 +106,12 @@ typedef boost::intrusive_ptr<VxLanId> VxLanIdRef;
 void intrusive_ptr_release(const VxLanId* p);
 void intrusive_ptr_add_ref(const VxLanId* p);
 
+class MulticastPolicyEntry;
+typedef boost::intrusive_ptr<MulticastPolicyEntry> MulticastPolicyEntryRef;
+typedef boost::intrusive_ptr<const MulticastPolicyEntry> MulticastPolicyEntryConstRef;
+void intrusive_ptr_release(const MulticastPolicyEntry* p);
+void intrusive_ptr_add_ref(const MulticastPolicyEntry* p);
+
 class InetUnicastRouteEntry;
 class Inet4MulticastRouteEntry;
 class EvpnRouteEntry;
@@ -197,6 +203,12 @@ typedef std::vector<int> TagList;
 typedef std::vector<boost::uuids::uuid> UuidList;
 typedef std::vector<std::string> CommunityList;
 
+class MulticastPolicyEntry;
+typedef boost::intrusive_ptr<MulticastPolicyEntry> MulticastPolicyEntryRef;
+typedef boost::intrusive_ptr<const MulticastPolicyEntry> MulticastPolicyEntryConstRef;
+void intrusive_ptr_release(const MulticastPolicyEntry* p);
+void intrusive_ptr_add_ref(const MulticastPolicyEntry* p);
+
 typedef std::set<std::string> VnListType;
 
 class AgentDBTable;
@@ -231,6 +243,7 @@ class QosQueueTable;
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
 class BridgeDomainTable;
+class MulticastPolicyTable;
 
 class XmppInit;
 class AgentXmppChannel;
@@ -588,6 +601,11 @@ public:
     }
     void set_physical_device_vn_table(PhysicalDeviceVnTable *table) {
          physical_device_vn_table_ = table;
+    }
+
+    MulticastPolicyTable *mp_table() const {return mp_table_;}
+    void set_mp_table(MulticastPolicyTable *table) {
+        mp_table_ = table;
     }
 
     // VHOST related
@@ -1351,6 +1369,7 @@ private:
     PolicySetTable *policy_set_table_;
     CryptTunnelTable *crypt_tunnel_table_;
     std::auto_ptr<ConfigManager> config_manager_;
+    MulticastPolicyTable *mp_table_;
 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;
