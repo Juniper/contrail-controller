@@ -63,6 +63,7 @@ env.Alias('src/bfd:bfd_client_test', bfd_client_test)
 
 # All Tests
 test_suite = [
+    bfd_client_test,
     bfd_parser_test,
     bfd_session_test,
     bfd_state_machine_test,
@@ -70,7 +71,6 @@ test_suite = [
 ]
 
 flaky_test_suite = [
-    bfd_client_test,
     bfd_server_test,
 #   bfd_external_test,
 ]
