@@ -134,7 +134,6 @@ env.Prepend(LIBS = [
     'io',
     'ssl',
     'crypto',
-    'sandesh',
     'nodeinfo',
     'cpuinfo',
     'process_info',
@@ -146,6 +145,7 @@ env.Prepend(LIBS = [
     'boost_filesystem',
     'boost_program_options',
     'boost_regex',
+    'sandesh',
     'rt',
 ])
 
