@@ -1,0 +1,23 @@
+---
+# tasks file for discover_role
+
+- debug: var=job_ctx
+- name: Start discovering roles for prouters in the fabric
+  set_fact:
+    role_discovery_result: "{{ job_ctx | discover_role}}"
+
+- debug: var=role_discovery_result
+
+- name: check failure
+  include_tasks: error_handler.yml
+  when: role_discovery_result.status == 'failure'
+  vars:
+    op_err_message: "Unable to discover role due to error"
+    jl_err_message: "Failed to discover roles for fabric {{ job_ctx.fabric_fqname }} due to error. Here is role_discovery log: {{ role_discovery_result.role_discovery_log }}"
+    results:
+      fabric_fqname: "{{ job_ctx.fabric_fqname }}"
+
+- name: print marked output
+  debug:
+    msg: "{{PB_OUTPUT_MARKER}}{{role_discovery_result}}{{PB_OUTPUT_MARKER}}"
+    verbosity: 0
