@@ -15,7 +15,7 @@ from cfgm_common.uve.msg_traces.ttypes import MessageBusNotifyTrace,\
 class VncAmqpHandle(object):
 
     def __init__(self, sandesh, logger, db_cls, reaction_map, q_name_prefix,
-                 rabbitmq_cfg, trace_file=None):
+                 rabbitmq_cfg, trace_file=None, timer_obj=None):
         self.sandesh = sandesh
         self.logger = logger
         self.db_cls = db_cls
@@ -24,6 +24,7 @@ class VncAmqpHandle(object):
         self._db_resync_done = gevent.event.Event()
         self._rabbitmq_cfg = rabbitmq_cfg
         self._trace_file = trace_file
+        self.timer = timer_obj
 
     def establish(self):
         q_name = '.'.join([self.q_name_prefix, socket.gethostname()])
@@ -233,6 +234,8 @@ class VncAmqpHandle(object):
                 res_obj = cls.get(res_id)
                 if res_obj is not None:
                     res_obj.evaluate()
+                    if self.timer:
+                        self.timer.timed_yield()
 
     def close(self):
         self._vnc_kombu.shutdown()
