@@ -13,7 +13,7 @@ from config_db import DBBaseST, VirtualNetworkST
 
 class STAmqpHandle(VncAmqpHandle):
 
-    def __init__(self, logger, reaction_map, args):
+    def __init__(self, logger, reaction_map, args, timer_obj=None):
         q_name_prefix = 'schema_transformer'
         rabbitmq_cfg = {
             'servers': args.rabbit_server, 'port': args.rabbit_port,
@@ -27,7 +27,8 @@ class STAmqpHandle(VncAmqpHandle):
         }
         super(STAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseST,
                                            reaction_map, q_name_prefix,
-                                           rabbitmq_cfg, args.trace_file)
+                                           rabbitmq_cfg, args.trace_file, 
+                                           timer_obj=timer_obj)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
