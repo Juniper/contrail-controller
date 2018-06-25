@@ -818,7 +818,8 @@ VmInterfaceNovaData::VmInterfaceNovaData(const Ip4Address &ipv4_addr,
                                          VmInterface::DeviceType device_type,
                                          VmInterface::VmiType vmi_type,
                                          uint8_t vhostuser_mode,
-                                         Interface::Transport transport) :
+                                         Interface::Transport transport,
+                                         uint8_t link_state) :
     VmInterfaceData(NULL, NULL, INSTANCE_MSG, transport),
     ipv4_addr_(ipv4_addr),
     ipv6_addr_(ipv6_addr),
@@ -831,7 +832,7 @@ VmInterfaceNovaData::VmInterfaceNovaData(const Ip4Address &ipv4_addr,
     rx_vlan_id_(rx_vlan_id),
     device_type_(device_type),
     vmi_type_(vmi_type),
-    vhostuser_mode_(vhostuser_mode) {
+    vhostuser_mode_(vhostuser_mode), link_state_(link_state) {
 }
 
 VmInterfaceNovaData::~VmInterfaceNovaData() {
@@ -855,9 +856,9 @@ VmInterface *VmInterfaceNovaData::OnAdd(const InterfaceTable *table,
         mac.Zero();
     }
 
-    Agent *agent = table->agent();
-    /* OS oper state is disabled by default in Vmware mode */
-    bool os_oper_state = !agent->isVmwareMode();
+    /* OS oper state is passed by PortIpc module (VmiSubscribeEntry) which
+     * invokes NovaAdd in case of vmware */
+    bool os_oper_state = link_state_;
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, ipv4_addr_, mac, vm_name_,
                         vm_project_uuid_, tx_vlan_id_, rx_vlan_id_,
@@ -927,7 +928,8 @@ void VmInterface::NovaAdd(InterfaceTable *table, const uuid &intf_uuid,
                           uint16_t rx_vlan_id, const std::string &parent,
                           const Ip6Address &ip6,
                           uint8_t vhostuser_mode,
-                          Interface::Transport transport) {
+                          Interface::Transport transport,
+                          uint8_t link_state) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
                                      os_name));
@@ -938,7 +940,7 @@ void VmInterface::NovaAdd(InterfaceTable *table, const uuid &intf_uuid,
                                            VmInterface::VM_ON_TAP,
                                            VmInterface::INSTANCE,
                                            vhostuser_mode,
-                                           transport));
+                                           transport, link_state));
     table->Enqueue(&req);
 }
 
