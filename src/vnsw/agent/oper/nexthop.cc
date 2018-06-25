@@ -2852,6 +2852,7 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
 void NextHop::SetNHSandeshData(NhSandeshData &data) const {
     data.set_nh_index(id());
     data.set_vxlan_flag(false);
+    data.set_intf_flags(0);
     switch (type_) {
         case DISCARD:
             data.set_type("discard");
@@ -2913,6 +2914,8 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             else
                 data.set_mcast("disabled");
             data.set_layer2_control_word(itf->layer2_control_word());
+            data.set_vxlan_flag(itf->IsVxlanRouting());
+            data.set_intf_flags(itf->GetFlags());
             break;
         }
         case TUNNEL: {
@@ -2939,6 +2942,10 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             if (tun->GetCryptTunnelAvailable()) {
                 data.set_crypt_path_available(tun->GetCryptTunnelAvailable());
                 data.set_crypt_interface(tun->GetCryptInterface()->name());
+            }
+            if (tun->rewrite_dmac().IsZero() == false) {
+                data.set_vxlan_flag(true);
+                data.set_pbb_bmac(tun->rewrite_dmac().ToString());
             }
             break;
         }
