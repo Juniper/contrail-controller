@@ -88,7 +88,7 @@ protected:
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
             EXPECT_TRUE(sm_->session() == NULL);
-            // Cases like HoldTimerExpiry,TcpClose need to cleanup 
+            // Cases like HoldTimerExpiry,TcpClose need to cleanup
             // connection_ on server side.
             EXPECT_TRUE(connection_->session() == NULL);
             break;
@@ -168,24 +168,31 @@ protected:
         msg_->strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
         msg_->from = "agent";
         msg_->to = "bgp.contrail.com";
-        sm_->OnMessage(session_, msg_);     
+        sm_->OnMessage(session_, msg_);
     }
 
     void EvXmppKeepalive() {
-        XmppStanza::XmppMessage *msg_; 
+        XmppStanza::XmppMessage *msg_;
         msg_ = new XmppStanza::XmppMessage(XmppStanza::WHITESPACE_MESSAGE_STANZA);
         msg_->type =  XmppStanza::WHITESPACE_MESSAGE_STANZA;
         sm_->OnMessage(session_, msg_);
     }
 
     void EvTcpClose() {
-        sm_->OnSessionEvent(session_,TcpSession::CLOSE); 
+        sm_->OnSessionEvent(session_,TcpSession::CLOSE);
     }
-   
-    void EvXmppMessageReceive() {
-        XmppStanza::XmppMessage *msg_; 
+
+    void EvXmppMessageStanza() {
+        XmppStanza::XmppMessage *msg_;
         msg_ = new XmppStanza::XmppMessage(XmppStanza::MESSAGE_STANZA);
         msg_->type =  XmppStanza::MESSAGE_STANZA;
+        sm_->OnMessage(session_, msg_);
+    }
+
+    void EvXmppMessageStreamHeader() {
+        XmppStanza::XmppStreamMessage *msg_;
+        msg_ = new XmppStanza::XmppStreamMessage();
+        msg_->strmtype =  XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
         sm_->OnMessage(session_, msg_);
     }
 
@@ -268,7 +275,7 @@ TEST_F(XmppStateMachineTest, Active_EvPassive_EvStop) {
 }
 
 
-// Old State : OpenConfirm 
+// Old State : OpenConfirm
 // Event     : EvTcpClose
 // New State : Idle
 TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvTcpClose) {
@@ -284,7 +291,7 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvTcpClose) {
     VerifyState(xmsm::IDLE);
 }
 
-// Old State : OpenConfirm 
+// Old State : OpenConfirm
 // Event     : EvHoldTimerExpired
 // New State : Idle
 TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvHoldTimerExpired) {
@@ -301,7 +308,7 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvHoldTimerExpired) {
 }
 
 //EvXmppOpen & EvXmppKeepalive
-// Old State : OpenConfirm 
+// Old State : OpenConfirm
 // Event     : EvXmppKeepalive
 // New State : Established
 TEST_F(XmppStateMachineTest, EvXmppOpen) {
@@ -313,7 +320,7 @@ TEST_F(XmppStateMachineTest, EvXmppOpen) {
     EvXmppOpen();
     VerifyState(xmsm::ESTABLISHED);
 
-    // Old State : Established 
+    // Old State : Established
     // Event     : EvXmppKeepalive
     // New State : Established
     EvXmppKeepalive();
@@ -343,7 +350,7 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
     VerifyState(xmsm::IDLE);
 }
 
-// Old State : Established 
+// Old State : Established
 // Event     : EvTcpClose
 // New State : Idle
 TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
@@ -360,7 +367,31 @@ TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
     VerifyState(xmsm::IDLE);
 }
 
-// Old State : Established 
+// Old State : Established
+// Event     : EvTcpClose + EvXmppMessageStreamHeader
+// New State : Idle
+// Intent    : EvXmppMessageStreamHeader should not be processed when the
+//             session is no longer associated with the connection due to
+//             processing of EvTcpClose
+TEST_F(XmppStateMachineTest,
+       Established_EvTcpClose_Then_EvXmppMessageStreamHeader) {
+    VerifyState(xmsm::ACTIVE);
+
+    EvTcpPassiveOpenFake();
+    VerifyState(xmsm::ACTIVE);
+
+    EvXmppOpen();
+
+    VerifyState(xmsm::ESTABLISHED);
+
+    EvTcpClose();
+    VerifyState(xmsm::IDLE);
+
+    EvXmppMessageStreamHeader();
+    VerifyState(xmsm::IDLE);
+}
+
+// Old State : Established
 // Event     : EvStop
 // New State : Idle
 TEST_F(XmppStateMachineTest, Established_EvStop) {
@@ -378,10 +409,10 @@ TEST_F(XmppStateMachineTest, Established_EvStop) {
 }
 
 
-// Old State : Established 
-// Event     : EvXmppMessageReceive
-// New State : Established 
-TEST_F(XmppStateMachineTest, EvXmppMessageReceive) {
+// Old State : Established
+// Event     : EvXmppMessageStanza
+// New State : Established
+TEST_F(XmppStateMachineTest, EvXmppMessageStanza) {
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -390,7 +421,7 @@ TEST_F(XmppStateMachineTest, EvXmppMessageReceive) {
     EvXmppOpen();
     VerifyState(xmsm::ESTABLISHED);
 
-    EvXmppMessageReceive();
+    EvXmppMessageStanza();
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();
