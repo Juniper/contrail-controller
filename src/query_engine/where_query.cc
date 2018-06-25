@@ -1098,57 +1098,58 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
         if (subquery->query_status == QUERY_FAILURE) {
             QE_QUERY_FETCH_ERROR();
         }
-    }
-
-    if (sub_queries.size() == inp.size()) {
-        // Handle if any of the sub query has failed.
-        if (m_query->qperf_.error) {
-            m_query->qperf_.chunk_where_time =
-            static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
-            /1000);
-            where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
+        if (sub_queries.size() != inp.size()) {
             return;
         }
-        SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
-            *where_result_, inp);
-        m_query->query_status = query_status;
-
-        QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
-
-        if (m_query->table() == g_viz_constants.FLOW_TABLE) {
-            // weed out duplicates
-            QE_TRACE(DEBUG,
-                "Weeding out duplicates for the Flow Records Table query");
-            std::vector<query_result_unit_t> uniqued_result;
-            std::map<boost::uuids::uuid, int> uuid_list;
-            // reverse iterate to make sure the latest entries are there
-            for (int i = (int)(where_result_->size() -1); i>=0; i--) {
-                boost::uuids::uuid u; flow_stats stats;
-                where_result_->at(i).get_uuid_stats(u, stats);
-                std::map<boost::uuids::uuid, int>::iterator it;
-                it = uuid_list.find(u);
-                if (it == uuid_list.end()) {
-                    uuid_list.insert(std::pair<boost::uuids::uuid, int>(u, 0));
-                    // this is first instance of the UUID, hence insert in the
-                    // results table
-                    uniqued_result.push_back(where_result_->at(i));
-                }
-            }
-            *where_result_ = uniqued_result;
-        }
-        // Have the result ready and processing is done
-        QE_TRACE(DEBUG, "WHERE processing done row #s:" <<
-             where_result_->size());
-        QE_TRACE_NOQID(DEBUG, " Finished where processing for QID " << m_query->query_id
-            << " chunk:" << m_query->parallel_batch_num);
-        status_details = 0;
-        parent_query->subquery_processed(this);
-        m_query->status_details = status_details;
-        m_query->qperf_.chunk_where_time =
-            static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
-            /1000);
-        where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
     }
+
+    // Handle if any of the sub query has failed.
+    if (m_query->qperf_.error) {
+        m_query->qperf_.chunk_where_time =
+        static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
+        /1000);
+        where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
+        return;
+    }
+    SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
+        *where_result_, inp);
+    m_query->query_status = query_status;
+
+    QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
+
+    if (m_query->table() == g_viz_constants.FLOW_TABLE) {
+        // weed out duplicates
+        QE_TRACE(DEBUG,
+            "Weeding out duplicates for the Flow Records Table query");
+        std::vector<query_result_unit_t> uniqued_result;
+        std::map<boost::uuids::uuid, int> uuid_list;
+        // reverse iterate to make sure the latest entries are there
+        for (int i = (int)(where_result_->size() -1); i>=0; i--) {
+            boost::uuids::uuid u; flow_stats stats;
+            where_result_->at(i).get_uuid_stats(u, stats);
+            std::map<boost::uuids::uuid, int>::iterator it;
+            it = uuid_list.find(u);
+            if (it == uuid_list.end()) {
+                uuid_list.insert(std::pair<boost::uuids::uuid, int>(u, 0));
+                // this is first instance of the UUID, hence insert in the
+                // results table
+                uniqued_result.push_back(where_result_->at(i));
+            }
+        }
+        *where_result_ = uniqued_result;
+    }
+    // Have the result ready and processing is done
+    QE_TRACE(DEBUG, "WHERE processing done row #s:" <<
+         where_result_->size());
+    QE_TRACE_NOQID(DEBUG, " Finished where processing for QID " << m_query->query_id
+        << " chunk:" << m_query->parallel_batch_num);
+    status_details = 0;
+    parent_query->subquery_processed(this);
+    m_query->status_details = status_details;
+    m_query->qperf_.chunk_where_time =
+        static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
+        /1000);
+    where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
 }
 
 query_status_t WhereQuery::process_query()
