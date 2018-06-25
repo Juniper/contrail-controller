@@ -104,6 +104,7 @@ struct ActionSpec {
 };
 
 typedef enum AclTypeSpec {
+    NOT_USED = 0,
     TERM = 1,
     NON_TERM = 2,
 } AclTypeSpecT;
@@ -112,7 +113,7 @@ class AclEntrySpec {
 public:
     //XXX Any field addition update Reverse API also
     //so that bidirectionaly ACL spec can be update
-    AclEntrySpec(): id(0), src_addr_type(AddressMatch::UNKNOWN_TYPE),
+    AclEntrySpec(): type(NOT_USED), id(0), src_addr_type(AddressMatch::UNKNOWN_TYPE),
         dst_addr_type(AddressMatch::UNKNOWN_TYPE), terminal(true) { }
     //AclEntrySpec(const AclEntrySpec &rhs);
     typedef boost::uuids::uuid uuid;
