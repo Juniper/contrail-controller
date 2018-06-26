@@ -233,6 +233,10 @@ class QfxConf(JuniperConf):
             self.add_irb_config(ri_conf)
             self.attach_irb(ri_conf, ri)
 
+        lr_uuid = None
+        if is_internal_vn:
+            lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(ri_name)
+
         # add policies for export route targets
         if self.is_spine():
             ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
@@ -279,14 +283,24 @@ class QfxConf(JuniperConf):
             self.build_l2_evpn_interface_config(interfaces_config,
                                               interfaces, vn, vlan_conf)
 
-        if (not is_l2 and vni is not None and
+        if (not is_l2 and (vni is not None or (is_internal_vn and lr_uuid)) and \
                 self.is_family_configured(self.bgp_params, "e-vpn")):
-            ri.set_vtep_source_interface("lo0.0")
-            evpn = self.build_evpn_config()
+            evpn = self.build_evpn_config(int_vn = is_internal_vn)
             if evpn:
                 ri.set_protocols(RoutingInstanceProtocols(evpn=evpn))
-            #add vlans
-            self.add_ri_vlan_config(ri, vni)
+                if is_internal_vn and lr_uuid:
+                    ip_prefix_support = IpPrefixSupport()
+                    #ip_prefix_support.set_forwarding_mode("symmetric")
+                    ip_prefix_support.set_encapsulation("vxlan")
+                    ip_prefix_support.set_vni(str(vni))
+                    ip_prefix_support.set_advertise("direct-nexthop")
+                    evpn.set_ip_prefix_support(ip_prefix_support)
+                else:
+                    ri.set_vtep_source_interface("lo0.0")
+            if not is_internal_vn:
+                #add vlans
+                self.add_ri_vlan_config(ri, vni)
+
 
         if (not is_l2 and not is_l2_l3 and gateways):
             interfaces_config = self.interfaces_config or \
@@ -918,6 +932,7 @@ class QfxConf(JuniperConf):
                         ri_conf['network_id'] = vn_obj.vn_network_id
                         self.add_routing_instance(ri_conf)
 
+                    is_internal_vn = True if '_contrail_lr_internal_vn_' in vn_obj.name else False
                     if vn_obj.get_forwarding_mode() in ['l3'] and self.is_l3_supported(vn_obj):
                         interfaces = []
                         lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
@@ -928,6 +943,8 @@ class QfxConf(JuniperConf):
                         ri_conf['export_targets'] = export_set
                         ri_conf['prefixes'] = vn_obj.get_prefixes()
                         ri_conf['interfaces'] = interfaces
+                        if is_internal_vn:
+                            ri_conf['vni'] = vn_obj.get_vxlan_vni()
                         ri_conf['gateways'] = lo0_ips
                         ri_conf['network_id'] = vn_obj.vn_network_id
                         self.add_routing_instance(ri_conf)

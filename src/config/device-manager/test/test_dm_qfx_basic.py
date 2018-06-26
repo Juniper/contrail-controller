@@ -306,6 +306,38 @@ class TestQfxBasicDM(TestCommonDM):
     # end check_spine_bogus_lo0_ip
 
     @retries(5, hook=retry_exc_handler)
+    def check_spine_evpn_type5_config(self, int_vn, lr_obj):
+        vrf_name = DMUtils.make_vrf_name(int_vn.fq_name[-1],
+                                  int_vn.virtual_network_network_id, "l3")
+        config = FakeDeviceConnect.get_xml_config()
+        ris = self.get_routing_instances(config, vrf_name)
+        if not ris:
+            raise Exception("No RI Config found for internal vn %s" %vrf_name)
+        ri = ris[0]
+        internal_vn_name = DMUtils.get_lr_internal_vn_name(lr_obj.uuid)
+        vn_fq = lr_obj.get_fq_name()[:-1] + [internal_vn_name]
+        vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq)
+        vn_obj_properties = vn_obj.get_virtual_network_properties()
+        # check ri has protocol evpn
+        if not ri.protocols:
+            raise Exception("protocol not present in internal vn %s" %vrf_name)
+        if not ri.protocols.evpn:
+            raise Exception("evpn not present in ri_protocols for internal vn \
+                                                                 %s" %vrf_name)
+        # get ip_prefix config
+        ip_pfx_obj = ri.protocols.evpn.ip_prefix_support
+        vnc_vni = vn_obj_properties.vxlan_network_identifier
+        if ip_pfx_obj.encapsulation != "vxlan":
+            raise Exception("vxlan encaps not set in ip_prefix for int vn \
+                                                             %s" %vrf_name)
+        if (ip_pfx_obj.vni != '1111') or (vnc_vni != '1111'):
+            raise Exception("vni mismatch for int vn %s: \
+                             in vnc %s, confiugured %s" %(vrf_name,
+                                                           vnc_vni,
+                                                   ip_pfx_obj.vni))
+    # end check_spine_evpn_type5_config
+
+    @retries(5, hook=retry_exc_handler)
     def check_spine_irb_config(self, int_vn, vn_obj):
         vrf_name = DMUtils.make_vrf_name(int_vn.fq_name[-1],
                                   int_vn.virtual_network_network_id, "l3")
@@ -900,7 +932,7 @@ class TestQfxBasicDM(TestCommonDM):
         self._vnc_lib.virtual_machine_interface_create(vmi1)
 
         fq_name = ['default-domain', 'default-project', 'lr1' + self.id() + "-" + product]
-        lr = LogicalRouter(fq_name=fq_name, parent_type = 'project')
+        lr = LogicalRouter(fq_name=fq_name, parent_type = 'project', vxlan_network_identifier='1111')
         lr.set_physical_router(pr)
         lr.add_virtual_machine_interface(vmi1)
         lr_uuid = self._vnc_lib.logical_router_create(lr)
@@ -919,6 +951,8 @@ class TestQfxBasicDM(TestCommonDM):
             self.check_spine_irb_config(int_vn, vn1_obj)
             # check bogus lo0 config
             self.check_spine_bogus_lo0_ip(int_vn)
+            # check evpn type config
+            self.check_spine_evpn_type5_config(int_vn, lr)
         else:
             self.check_ri_config(vn1_obj, 'l2', False)
             self.check_ri_config(vn1_obj, 'l3', False)
