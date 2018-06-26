@@ -13,7 +13,8 @@ from kube_manager.common.kube_config_db import NamespaceKM, PodKM, ServiceKM
 from kube_manager.tests.vnc import test_case
 from kube_manager.tests.vnc.db_mock import DBBaseKM
 from kube_manager.vnc.vnc_kubernetes import VncKubernetes
-from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as \
+                                                    vnc_kube_config
 
 TEST_NAMESPACE = 'test-namespace'
 TEST_SERVICE_NAME = 'test-service'
@@ -71,7 +72,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         return self._vnc_lib.virtual_network_delete(id=vn_obj.get_uuid())
 
     def _create_cluster_network(self):
-        proj_fq_name = ['default-domain', 'default']
+        proj_fq_name = vnc_kube_config.cluster_default_project_fq_name()
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj = VirtualNetwork(
             name='cluster-network',
