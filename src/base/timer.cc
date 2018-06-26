@@ -97,7 +97,10 @@ Timer::Timer(boost::asio::io_service &service, const std::string &name,
 }
 
 Timer::~Timer() {
-    assert(state_ != Running && state_ != Fired);
+    if (state_ != Running && state_ != Fired) {
+        cout << name_ << " state: " << state_ << endl;
+        assert(0);
+    }
 }
 
 //
