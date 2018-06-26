@@ -127,6 +127,12 @@ class VncNamespace(VncCommon):
             return ns.get_annotated_network_fq_name()
         return None
 
+    def _get_annotated_ns_fip_pool(self, ns_name):
+        ns = self._get_namespace(ns_name)
+        if ns:
+            return ns.get_annotated_ns_fip_pool_fq_name()
+        return None
+
     def _set_namespace_pod_virtual_network(self, ns_name, fq_name):
         ns = self._get_namespace(ns_name)
         if ns:
@@ -499,7 +505,6 @@ class VncNamespace(VncCommon):
                 self._vnc_lib.set_tags(proj_obj,
                     self._labels.get_labels_dict(
                         VncSecurityPolicy.cluster_aps_uuid))
-
         return project
 
     def vnc_namespace_delete(self, namespace_id, name):
