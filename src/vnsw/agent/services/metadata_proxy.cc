@@ -369,8 +369,8 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close,
     http_ep.port(nova_port);
 
     HttpConnection *conn = http_client_->CreateConnection(http_ep);
-    conn->RegisterEventCb(
-             boost::bind(&MetadataProxy::OnClientSessionEvent, this, _1, _2));
+    map<CURLoption, int> *curl_options = conn->curl_options();
+    curl_options->insert(std::make_pair(CURLOPT_HTTP_TRANSFER_DECODING, 0L));
     conn->set_use_ssl(services_->agent()->params()->metadata_use_ssl());
     if (conn->use_ssl()) {
         conn->set_client_cert(
@@ -382,6 +382,8 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close,
         conn->set_ca_cert(
               services_->agent()->params()->metadata_ca_cert());
     }
+    conn->RegisterEventCb(
+             boost::bind(&MetadataProxy::OnClientSessionEvent, this, _1, _2));
     session->RegisterEventCb(
              boost::bind(&MetadataProxy::OnServerSessionEvent, this, _1, _2));
     SessionData data(conn, conn_close);
