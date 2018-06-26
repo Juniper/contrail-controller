@@ -3,6 +3,7 @@ graft conf
 graft group_vars
 graft roles
 graft schema
+graft filter_plugins
 graft library
 graft module_utils
 graft test
