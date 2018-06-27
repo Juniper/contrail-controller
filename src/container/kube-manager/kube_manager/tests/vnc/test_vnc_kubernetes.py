@@ -42,6 +42,7 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.cassandra_server_list = ()
         self.args.aps_name="test-aps"
         self.args.rabbit_port = None
+        self.args.collectors = ""
 
         api = VncApiMock(
             self.args.auth_user,

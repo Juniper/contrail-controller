@@ -71,7 +71,7 @@ def parse_args(args_str=None):
     defaults = {
         'http_server_port': HttpPortKubeManager,
         'worker_id': '0',
-        'collectors': None,
+        'collectors': '',
         'logger_class': None,
         'logging_conf': '',
         'log_local': False,
