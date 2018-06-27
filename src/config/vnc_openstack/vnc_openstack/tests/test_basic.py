@@ -819,6 +819,235 @@ class TestBasic(test_case.NeutronBackendTestCase):
             self._vnc_lib.physical_router_delete(id=pr_uuid[t])
     # end test_baremetal_logical_interface_bindings_with_multi_homing
 
+    def test_baremetal_logical_interface_bindings_multiple_bonds(self):
+
+        def _test_multiple_bonds(tors=None, bonds=None):
+            """ This test tests the Bond interface that connects to two Tors.
+
+            Multiple physical interfaces are created to represent
+            members of a Lag group. These physical interfaces are connected
+            two differnt TORs to create a multi-homing Lag. A Baremetal Server
+            is launched on a virtual network. As a part of this operation,
+            two logical interfaces are created and mapped to the VMI and
+            connected to respective physical interfaces. Additionally, ESI
+            (Ethernet Segment Identifier) is computed based upon the MAC of
+            VMI and added to physical interface properties.
+            This verfies that these objects are appropriately created.
+            Additionally, it verifies that they are cleaned it up when the
+            Baremetal server is decommisioned.
+            """
+            vn_obj = vnc_api.VirtualNetwork(self.id())
+            vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+                vnc_api.VnSubnetsType(
+                    [vnc_api.IpamSubnetType(
+                             vnc_api.SubnetType('1.1.1.0', 24))]))
+            self._vnc_lib.virtual_network_create(vn_obj)
+
+            vr_obj = vnc_api.VirtualRouter("myhost")
+            vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
+
+            sg_obj = vnc_api.SecurityGroup('default')
+            try:
+                self._vnc_lib.security_group_create(sg_obj)
+            except vnc_api.RefsExistError:
+                pass
+
+            binding_profile = {'local_link_information':[]}
+
+            # Create required resources
+            for tor_name, tor_info in tors.iteritems():
+                pr_name = tor_name
+                pr = vnc_api.PhysicalRouter(pr_name)
+                tor_info['pr_uuid'] = self._vnc_lib.physical_router_create(pr)
+                tor_info['pr_obj'] = self._vnc_lib.physical_router_read(id=tor_info['pr_uuid'])
+
+                for i in range(len(tor_info['interfaces'])):
+                    pi_name = tor_info['interfaces'][i]
+                    pi = vnc_api.PhysicalInterface(name=pi_name,
+                                           parent_obj=tor_info['pr_obj'])
+                    tor_info['pi_uuid'][pi_name] = self._vnc_lib.physical_interface_create(pi)
+
+            for bond, bond_info in bonds.iteritems():
+                binding_profile['local_link_information'] = []
+                for t in range(len(bond_info['tors'])):
+                    for i in range(len(bond_info['tors'][t]['interfaces'])):
+                        switch = bond_info['tors'][t]['name']
+                        port = bond_info['tors'][t]['interfaces'][i]
+                        profile = {'port_id': port,
+                                   'switch_id': 'anyThing',
+                                   'switch_info': switch}
+                        binding_profile['local_link_information'].append(profile)
+                bond_info['binding_profile'] = copy.deepcopy(binding_profile)
+
+            proj_uuid = self._vnc_lib.fq_name_to_id('project',
+                fq_name=['default-domain', 'default-project'])
+
+            for bond, bond_info in bonds.iteritems():
+                context = {'operation': 'CREATE',
+                           'user_id': '',
+                           'is_admin': True,
+                           'roles': ''}
+                vnic_type = 'baremetal'
+                data = {'resource':{'network_id': vn_obj.uuid,
+                                    'tenant_id': proj_uuid,
+                                    'binding:profile': bond_info['binding_profile'],
+                                    'binding:vnic_type': vnic_type,
+                                    'binding:host_id': 'myhost'}}
+                body = {'context': context, 'data': data}
+                resp = self._api_svr_app.post_json('/neutron/port', body)
+                port_dict = json.loads(resp.text)
+                bond_info['port_dict'] = port_dict
+                # Make sure that the binding profile for baremetal is set correctly
+                match = port_dict['binding:profile'] == bond_info['binding_profile']
+                self.assertTrue(match)
+
+                for t in range(len(bond_info['tors'])):
+                    switch_name = bond_info['tors'][t]['name']
+                    switch_interfaces = bond_info['tors'][t]['interfaces']
+                    if len(switch_interfaces) > 1:
+                        # Make sure LAG is created
+	                lag_found = False
+                        lag_dict = self._vnc_lib.link_aggregation_groups_list()
+                        lags = lag_dict['link-aggregation-groups']
+                        for l in lags:
+                            lag_obj = self._vnc_lib.link_aggregation_group_read(id=l['uuid'])
+                            if lag_obj.parent_uuid == tors[bond_info['tors'][t]['name']]['pr_uuid']:
+                                lag_found = True
+                                break
+                        self.assertTrue(lag_found)
+
+                        # Make sure physical interface starting with "ae" got created
+                        phy_interface_found = False
+                        pi_dict = self._vnc_lib.physical_interfaces_list()
+                        lis = pi_dict['physical-interfaces']
+                        for l in lis:
+                            pi_obj = self._vnc_lib.physical_interface_read(id=l['uuid'])
+                            if pi_obj.name.startswith('ae'):
+                                phy_interface_found = True
+                                new_pi_uuid = pi_obj.uuid
+                                break
+                        self.assertTrue(phy_interface_found)
+
+                    bound_logical_interface_found = False
+                    li_dict = self._vnc_lib.logical_interfaces_list()
+                    lis = li_dict['logical-interfaces']
+                    for l in lis:
+                        li_obj = self._vnc_lib.logical_interface_read(id=l['uuid'])
+                        if len(bond_info['tors'][t]['interfaces']) > 1:
+                        #if len(tor_info['interfaces']) > 1:
+                            expected_parent_uuid = new_pi_uuid
+                        else:
+                            expected_parent_uuid = (
+                               tors[bond_info['tors'][t]['name']]['pi_uuid'][switch_interfaces[0]])
+                        if li_obj.parent_uuid == expected_parent_uuid:
+                            bound_logical_interface_found = True
+                            break
+
+                    self.assertTrue(bound_logical_interface_found)
+
+                    # Verify that the ESI is set correctly in the physical interfaces
+                    if tors.keys() > 1 and len(switch_interfaces) > 1:
+                        switch_intf = "ae" + switch_interfaces[0][2:]
+                    else:
+                        switch_intf = switch_interfaces[0]
+
+                    fq_name = ['default-global-system-config', switch_name, switch_intf]
+                    pi_uuid = self._vnc_lib.fq_name_to_id('physical-interface', fq_name)
+                    pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
+                    if pi_obj.ethernet_segment_identifier:
+                        esi = pi_obj.ethernet_segment_identifier
+                        if not esi.startswith('00:00:00:00'):
+                            self.assertTrue(False)
+
+            # Now verify the delete funtion to ensure that the resources
+            # created to facilitate LAG interface are deleted with the
+            # deleetion of portDed and/or bound.
+
+            for bond, bond_info in bonds.iteritems():
+                port_dict = bond_info['port_dict']
+                self.delete_resource('port', proj_uuid, port_dict['id'])
+
+            # Ensure that LAG interface is deleted
+            lag_dict = self._vnc_lib.link_aggregation_groups_list()
+            lags = lag_dict['link-aggregation-groups']
+            if len(lags) > 0:
+                self.assertFalse(True)
+
+            # Make sure physical interface starting with "ae" got deleted
+            phy_interface_found = False
+            pi_dict = self._vnc_lib.physical_interfaces_list()
+            lis = pi_dict['physical-interfaces']
+            for l in lis:
+                pi_obj = self._vnc_lib.physical_interface_read(id=l['uuid'])
+                if pi_obj.name.startswith('ae'):
+                    phy_interface_found = True
+                    break
+            self.assertFalse(phy_interface_found)
+
+            # Verify that the ESI is cleared from the physical interfaces
+            esi = []
+            pi_dict = self._vnc_lib.physical_interfaces_list()
+            lis = pi_dict['physical-interfaces']
+            for l in lis:
+                pi_obj = self._vnc_lib.physical_interface_read(id=l['uuid'])
+                if pi_obj.ethernet_segment_identifier:
+                    esi.append(pi_obj.ethernet_segment_identifier)
+            if len(esi) > 0:
+                self.assertTrue(False)
+
+            # Ensure that the Logical Interface got deleted as well
+            li_dict = self._vnc_lib.logical_interfaces_list()
+            lis = li_dict['logical-interfaces']
+            if len(lis) > 0:
+                self.assertFalse(True)
+
+            # Clen up the resources
+            for tor_name, tor_info in tors.iteritems():
+                interfaces = tor_info['pi_uuid']
+                for i in interfaces.values():
+                   self._vnc_lib.physical_interface_delete(id=i)
+            self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+            self._vnc_lib.virtual_router_delete(id=vr_obj)
+            self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+            for tor_name, tor_info in tors.iteritems():
+                self._vnc_lib.physical_router_delete(id=tor_info['pr_uuid'])
+
+
+        # Build various test topoloties with different set of bond configurations
+        tors = {
+            'tor-1': {'interfaces': ['int11', 'int12', 'int13', 'int14'], 'pi_uuid': {}, 'pr_uuid': None, 'pr_obj': None},
+            'tor-2': {'interfaces': ['int21', 'int22', 'int23', 'int24'], 'pi_uuid': {}, 'pr_uuid': None, 'pr_obj': None},
+            }
+        b1 = {
+            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11', 'int12']}]},
+            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int13']}, {'name': 'tor-2', 'interfaces': ['int23']}]},
+            }
+        b2 = {
+            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11', 'int12']}]},
+            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int13', 'int14']}]},
+            'bond-3': {'tors': [{'name': 'tor-2', 'interfaces': ['int21', 'int22']}]},
+            'bond-4': {'tors': [{'name': 'tor-2', 'interfaces': ['int23', 'int24']}]},
+            }
+        b3 = {
+            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11']}, {'name': 'tor-2', 'interfaces': ['int21']}]},
+            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int12']}, {'name': 'tor-2', 'interfaces': ['int22']}]},
+            'bond-3': {'tors': [{'name': 'tor-1', 'interfaces': ['int13']}, {'name': 'tor-2', 'interfaces': ['int23']}]},
+            'bond-3': {'tors': [{'name': 'tor-1', 'interfaces': ['int14']}, {'name': 'tor-2', 'interfaces': ['int24']}]},
+            }
+        b4 = {
+            'bond-1': {'tors': [{'name': 'tor-1', 'interfaces': ['int11', 'int12']},
+                                {'name': 'tor-2', 'interfaces': ['int21', 'int22']}]},
+            'bond-2': {'tors': [{'name': 'tor-1', 'interfaces': ['int13', 'int14']},
+                                {'name': 'tor-2', 'interfaces': ['int23', 'int24']}]},
+            }
+
+        test_scenarios = [b1,b2,b3,b4]
+        # Execute test for each bonding topology
+        for bonds in test_scenarios:
+            _test_multiple_bonds(tors=tors, bonds=bonds)
+
+    # end test_baremetal_logical_interface_bindings_multiple_bonds
+
     def test_sg_rules_delete_when_peer_group_deleted_on_read_sg(self):
         sg1_obj = vnc_api.SecurityGroup('sg1-%s' %(self.id()))
         self._vnc_lib.security_group_create(sg1_obj)
