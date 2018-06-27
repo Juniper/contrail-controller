@@ -1955,3 +1955,31 @@ class AddressGroupKM(DBBaseKM):
         super(AddressGroupKM, cls).delete(uuid)
         del cls._dict[uuid]
 # end class AddressGroupKM
+
+class GlobalVrouterConfigKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'global_vrouter_config'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        super(GlobalVrouterConfigKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.build_fq_name_to_uuid(self.uuid, obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        super(GlobalVrouterConfigKM, cls).delete(uuid)
+        del cls._dict[uuid]
+# end class GlobalVrouterConfigKM
+

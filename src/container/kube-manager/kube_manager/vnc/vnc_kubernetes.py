@@ -63,12 +63,15 @@ class VncKubernetes(VncCommon):
         self.vnc_kube_config = vnc_kube_config(logger=self.logger,
             vnc_lib=self.vnc_lib, args=self.args, queue=self.q, kube=self.kube)
 
-        # HACK ALERT.
-        # Till we have an alternate means to get config objects,  we will
-        # direcly connect to cassandra and rabbitmq. Such a persistant connection
-        # is discouraged, but is the only option we have for now.
         #
-        # Disable flow timeout on this connection, so the flow persists.
+        # In nested mode, kube-manager connects to contrail components running
+        # in underlay via global link local services. TCP flows established on
+        # link local services will be torn down by vrouter, if there is no
+        # activity for configured(or default) timeout. So disable flow timeout
+        # on these connections, so these flows will persist.
+        #
+        # Note: The way to disable flow timeout is to set timeout to max
+        #       possible value.
         #
         if self.args.nested_mode is '1':
             for cassandra_server in self.args.cassandra_server_list:
@@ -79,6 +82,15 @@ class VncKubernetes(VncCommon):
             if self.args.rabbit_port:
                 flow_aging_manager.create_flow_aging_timeout_entry(
                     self.vnc_lib, "tcp", self.args.rabbit_port, 2147483647)
+
+            if self.args.vnc_endpoint_port:
+                flow_aging_manager.create_flow_aging_timeout_entry(
+                    self.vnc_lib, "tcp", self.args.vnc_endpoint_port, 2147483647)
+
+            for collector in self.args.collectors:
+                collector_port = collector.split(':')[-1]
+                flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
+                    "tcp", collector_port, 2147483647)
 
         # init access to db
         self._db = db.KubeNetworkManagerDB(self.args, self.logger)
