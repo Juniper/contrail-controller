@@ -1508,8 +1508,11 @@ EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
     if (vrf == NULL)
         return NULL;
 
+    uint32_t plen = 32;
+    if (ip_addr.is_v6())
+        plen = 128;
     EvpnRouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr,
-                     ethernet_tag);
+                     plen, ethernet_tag);
     EvpnRouteEntry *route =
         static_cast<EvpnRouteEntry *>
         (static_cast<EvpnAgentRouteTable *>
@@ -1646,7 +1649,7 @@ bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                               PathPreference(), false, EcmpLoadBalance(),
                               leaf);
     EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
-                                        vm_addr, tag, data);
+                                        vm_addr, 32, tag, data);
     return true;
 }
 
@@ -1667,7 +1670,7 @@ bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                               PathPreference(), false, EcmpLoadBalance(),
                               leaf);
     EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
-                                        vm_addr, tag, data);
+                                        vm_addr, 32, tag, data);
     return true;
 }
 

@@ -530,7 +530,7 @@ TEST_F(FlowMgmtRouteTest, UnknownUnicast_L2Route_Add_1) {
     EXPECT_TRUE(rflow->rpf_nh() != NULL);
 
     EvpnAgentRouteTable::DeleteReq(peer_, "vrf1", mac,
-                                   Ip4Address::from_string(remote_vm_ip), 0,
+                                   Ip4Address::from_string(remote_vm_ip), 32, 0,
                                    (new ControllerVmRoute(peer_)));
     client->WaitForIdle();
 
@@ -590,7 +590,7 @@ TEST_F(FlowMgmtRouteTest, MacMovement_1) {
     EXPECT_TRUE(*tnh->GetDip() == remote_server2);
 
     EvpnAgentRouteTable::DeleteReq(peer_, "vrf1", mac,
-                                   Ip4Address::from_string(remote_vm_ip), 0,
+                                   Ip4Address::from_string(remote_vm_ip), 32, 0,
                                    (new ControllerVmRoute(peer_)));
     client->WaitForIdle();
 

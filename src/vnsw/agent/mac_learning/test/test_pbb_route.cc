@@ -108,7 +108,7 @@ TEST_F(PbbRouteTest, RouteTest1) {
     PBBRoute *data = new PBBRoute(VrfKey("evpn_vrf"), b_smac_, 0, VnListType(),
                                   SecurityGroupList(), TagList());
     EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "pbb_vrf", c_smac_,
-                                             Ip4Address(0), 0, data);
+                                             Ip4Address(0), 32, 0, data);
     client->WaitForIdle();
 
     EvpnRouteEntry *evpn_rt = EvpnRouteGet("evpn_vrf", b_smac_, Ip4Address(0), 0);
@@ -126,9 +126,9 @@ TEST_F(PbbRouteTest, RouteTest1) {
     EXPECT_TRUE(pbb_nh->label() == MplsTable::kStartLabel + 60);
 
     EvpnAgentRouteTable::DeleteReq(bgp_peer_, "evpn_vrf", b_smac_,
-            Ip4Address(0), 0, NULL);
+            Ip4Address(0), 32, 0, NULL);
     EvpnAgentRouteTable::DeleteReq(bgp_peer_, "pbb_vrf", c_smac_,
-            Ip4Address(0), 0, NULL);
+            Ip4Address(0), 32, 0, NULL);
     client->WaitForIdle();
 }
 
@@ -163,7 +163,7 @@ TEST_F(PbbRouteTest, RouteTest2) {
     EXPECT_TRUE(pbb_nh->label() == MplsTable::kStartLabel + 60);
 
     EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf1", b_smac_,
-            Ip4Address(0), 0, NULL);
+            Ip4Address(0), 32, 0, NULL);
     client->WaitForIdle();
 
     EXPECT_TRUE(EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0) == NULL);
@@ -207,7 +207,7 @@ TEST_F(PbbRouteTest, RouteTest3) {
     EXPECT_TRUE(pbb_nh->etree_leaf() == false);
 
     EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf1", b_smac_,
-                                   Ip4Address(0), 0, NULL);
+                                   Ip4Address(0), 32, 0, NULL);
     client->WaitForIdle();
 
     EXPECT_TRUE(EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0) == NULL);

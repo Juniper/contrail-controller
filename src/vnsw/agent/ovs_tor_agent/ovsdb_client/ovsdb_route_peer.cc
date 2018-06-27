@@ -60,7 +60,7 @@ bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
     }
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    EvpnRouteEntry *route = table->FindRoute(mac, prefix_ip, vxlan_id);
+    EvpnRouteEntry *route = table->FindRoute(mac, prefix_ip, 32, vxlan_id);
     uint32_t sequence = 0;
     if (ha_stale_export_ == false) {
         // for non-ha-stale route sequence number starts from 1
@@ -80,7 +80,7 @@ bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
                                               agent->fabric_vrf_name(),
                                               dest_vn, sg_list,
                                               ha_stale_export_, sequence);
-    table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
+    table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip, 32,
                                vxlan_id, data);
     return true;
 }
@@ -96,7 +96,7 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
     IpAddress prefix_ip = IpAddress(Ip4Address::from_string("0.0.0.0"));
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id, NULL);
+    table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, 32, vxlan_id, NULL);
     return;
 }
 

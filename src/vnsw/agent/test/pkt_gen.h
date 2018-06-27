@@ -150,6 +150,7 @@ public:
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
+        /*
         pkt.tcp.th_sport = htons(sport);
         pkt.tcp.th_dport = htons(dport);
         pkt.tcp.th_seq = htonl(1);
@@ -161,6 +162,7 @@ private:
         pkt.tcp.th_win = htons(0);
         pkt.tcp.th_sum = htons(0);
         pkt.tcp.th_urp = htons(0);
+        */
     }
     struct tcp_packet pkt;
 };
@@ -235,6 +237,7 @@ public:
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
+        /*
         pkt.tcp.th_sport = htons(sport);
         pkt.tcp.th_dport = htons(dport);
         pkt.tcp.th_seq = htonl(1);
@@ -246,6 +249,7 @@ private:
         pkt.tcp.th_win = htons(0);
         pkt.tcp.th_sum = htons(0);
         pkt.tcp.th_urp = htons(0);
+        */
     }
     struct tcp6_packet pkt;
 };
@@ -355,16 +359,20 @@ public:
     void AddTcpHdr(uint16_t sport, uint16_t dport, bool syn, bool fin, bool ack,
                    int plen) {
         struct tcphdr *tcp = (struct tcphdr *)(buff + len);
+        /*
         tcp->th_dport = htons(dport);
         tcp->th_sport = htons(sport);
         tcp->th_flags = (fin ? TH_FIN : 0) | (syn ? TH_SYN : 0) | (ack ? TH_ACK : 0);
+        */
         len += sizeof(tcphdr) + plen;
     };
 
     void AddSctpHdr(uint16_t sport, uint16_t dport, int plen) {
         struct sctphdr *sctp = (struct sctphdr *)(buff + len);
+        /*
         sctp -> th_dport = htons(dport);
         sctp -> th_sport = htons(sport);
+        */
         len += sizeof(sctphdr) + plen;
     };
 

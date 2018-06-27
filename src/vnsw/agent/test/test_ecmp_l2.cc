@@ -112,7 +112,7 @@ TEST_F(L2Ecmpest, Controller_verify_evpn) {
 
     //ECMP create component NH
     EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf10", mac, prefix,
-                                             0, data);
+                                             32, 0, data);
     client->WaitForIdle();
     EvpnRouteEntry *rt = EvpnRouteGet("vrf10", mac, prefix, 0);
     EXPECT_TRUE(rt != NULL);
@@ -124,7 +124,7 @@ TEST_F(L2Ecmpest, Controller_verify_evpn) {
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
 
     //cleanup
-    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 0,
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 32, 0,
                                    new ControllerVmRoute(bgp_peer_));
     client->WaitForIdle();
     DeleteVmportEnv(input1, 1, true);
@@ -183,7 +183,7 @@ TEST_F(L2Ecmpest, Controller_verify_l2) {
 
     //ECMP create component NH
     EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf10", mac, prefix,
-                                             0, data);
+                                             32, 0, data);
     client->WaitForIdle();
     EvpnRouteEntry *rt = EvpnRouteGet("vrf10", mac, prefix, 0);
     EXPECT_TRUE(rt != NULL);
@@ -199,7 +199,7 @@ TEST_F(L2Ecmpest, Controller_verify_l2) {
     EXPECT_TRUE(l2_rt->GetActiveNextHop() == cnh);
 
     //cleanup
-    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 0,
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 32, 0,
                                    new ControllerVmRoute(bgp_peer_));
     client->WaitForIdle();
     DeleteVmportEnv(input1, 1, true);
@@ -267,7 +267,7 @@ TEST_F(L2Ecmpest, Controller_tunnel_to_ecmp) {
 
     //ECMP create component NH
     EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf10", mac, prefix,
-                                             0, data);
+                                             32, 0, data);
     client->WaitForIdle();
     rt = EvpnRouteGet("vrf10", mac, prefix, 0);
     EXPECT_TRUE(rt != NULL);
@@ -279,7 +279,7 @@ TEST_F(L2Ecmpest, Controller_tunnel_to_ecmp) {
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
 
     //cleanup
-    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 0,
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 32, 0,
                                    new ControllerVmRoute(bgp_peer_));
     client->WaitForIdle();
     DeleteVmportEnv(input1, 1, true);
@@ -339,7 +339,7 @@ TEST_F(L2Ecmpest, Controller_ecmp_to_tunnel) {
 
     //ECMP create component NH
     EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf10", mac, prefix,
-                                             0, data);
+                                             32, 0, data);
     client->WaitForIdle();
     EvpnRouteEntry *rt = EvpnRouteGet("vrf10", mac, prefix, 0);
     EXPECT_TRUE(rt != NULL);
@@ -360,7 +360,7 @@ TEST_F(L2Ecmpest, Controller_ecmp_to_tunnel) {
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
 
     //cleanup
-    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 0,
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf10", mac, prefix, 32, 0,
                                    new ControllerVmRoute(bgp_peer_));
     client->WaitForIdle();
     DeleteVmportEnv(input1, 1, true);

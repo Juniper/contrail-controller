@@ -327,6 +327,15 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         flood = true;
     }
 
+    // For evpn type 5 routes dont do any flood and proxy mac.
+    const InetEvpnRoutePath *inet_evpn_path =
+        dynamic_cast<const InetEvpnRoutePath *>(rt->FindPath(agent->
+                                                             inet_evpn_peer()));
+    if (inet_evpn_path) {
+        proxy_arp = true;
+        flood = false;
+    }
+
     // If the route crosses a VN, we want packet to be routed. So, override
     // the flags set above and set only Proxy flag
     // When L2 forwarding mode is disabled, reset the proxy arp to true and flood
@@ -958,6 +967,15 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
             return false;
     }
 
+    // If its type-5 evpn route, return as no mac binding is needed.
+    const InetEvpnRoutePath *inet_evpn_path =
+        dynamic_cast<const InetEvpnRoutePath *>(rt->FindPath(ksync_->agent()->
+                                                             inet_evpn_peer()));
+    if (inet_evpn_path) {
+        return true;
+    }
+
+    // If the route crosses a VN, we want packet to be routed. So, override
     const NextHop *nh = rt->GetActiveNextHop();
     if (nh == NULL)
         return false;
@@ -965,6 +983,7 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
     if (nh->GetType() != NextHop::INTERFACE &&
         nh->GetType() != NextHop::TUNNEL &&
         nh->GetType() != NextHop::VLAN &&
+        nh->GetType() != NextHop::VRF &&
         nh->GetType() != NextHop::ARP)
         return false;
 

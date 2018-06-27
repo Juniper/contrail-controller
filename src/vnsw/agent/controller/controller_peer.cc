@@ -44,7 +44,9 @@ using process::ConnectionState;
 
 // Parses string ipv4-addr/plen or ipv6-addr/plen
 // Stores address in addr and returns plen
-static int ParseAddress(const string &str, IpAddress *addr) {
+static int ParseEvpnAddress(const string &str, IpAddress *addr,
+                            const MacAddress &mac) {
+    bool is_type5 = mac.IsZero();
     size_t pos = str.find('/');
     if (pos == string::npos) {
         return -1;
@@ -53,22 +55,32 @@ static int ParseAddress(const string &str, IpAddress *addr) {
     int plen = 0;
     boost::system::error_code ec;
     string plen_str = str.substr(pos + 1);
-    if (plen_str == "32") {
-        Ip4Address ip4_addr;
-        ec = Ip4PrefixParse(str, &ip4_addr, &plen);
-        if (ec || plen != 32) {
+    if (is_type5) {
+        //IpAddress::from_string
+        string addrstr = str.substr(0, pos);
+        boost::system::error_code ec1;
+        *addr = IpAddress::from_string(addrstr, ec1);
+        if (ec1)
             return -1;
-        }
-        *addr = ip4_addr;
-    } else if (plen_str == "128") {
-        Ip6Address ip6_addr;
-        ec = Inet6PrefixParse(str, &ip6_addr, &plen);
-        if (ec || plen != 128) {
-            return -1;
-        }
-        *addr = ip6_addr;
+        return atoi(plen_str.c_str());
     } else {
-        return -1;
+        if (plen_str == "32") {
+            Ip4Address ip4_addr;
+            ec = Ip4PrefixParse(str, &ip4_addr, &plen);
+            if (ec || plen != 32) {
+                return -1;
+            }
+            *addr = ip4_addr;
+        } else if (plen_str == "128") {
+            Ip6Address ip6_addr;
+            ec = Inet6PrefixParse(str, &ip6_addr, &plen);
+            if (ec || plen != 128) {
+                return -1;
+            }
+            *addr = ip6_addr;
+        } else {
+            return -1;
+        }
     }
     return plen;
 }
@@ -228,7 +240,9 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
 
                 offset += strlen(token) + 1;
                 IpAddress ip_addr;
-                if (ParseAddress(buff.get() + offset, &ip_addr) < 0) {
+                uint32_t plen = ParseEvpnAddress(buff.get() + offset,
+                                                 &ip_addr, mac);
+                if (plen < 0) {
                     CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                                      "Error decoding IP address from "
                                      "retract-id: "+id);
@@ -257,7 +271,7 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
                     rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
-                                        ip_addr, ethernet_tag,
+                                        ip_addr, plen, ethernet_tag,
                                         new ControllerVmRoute(bgp_peer_id()));
                 }
             }
@@ -282,7 +296,9 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
          iter != items->item.end(); iter++) {
         item = &*iter;
         IpAddress ip_addr;
-        if (ParseAddress(item->entry.nlri.address, &ip_addr) < 0) {
+        uint32_t plen = ParseEvpnAddress(item->entry.nlri.address, &ip_addr,
+                                         MacAddress(item->entry.nlri.mac));
+        if (plen < 0) {
             CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                              "Error parsing address : " + item->entry.nlri.address);
             return;
@@ -290,9 +306,9 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
 
         if (IsEcmp(item->entry.next_hops.next_hop)) {
             AddEvpnEcmpRoute(vrf_name, MacAddress(item->entry.nlri.mac),
-                             ip_addr, item, VnListType());
+                             ip_addr, plen, item, VnListType());
         } else {
-            AddEvpnRoute(vrf_name, item->entry.nlri.mac, ip_addr, item);
+            AddEvpnRoute(vrf_name, item->entry.nlri.mac, ip_addr, plen, item);
         }
     }
 }
@@ -753,6 +769,7 @@ void AgentXmppChannel::AddInetEcmpRoute(string vrf_name, IpAddress prefix_addr,
 void AgentXmppChannel::AddEvpnEcmpRoute(string vrf_name,
                                         const MacAddress &mac,
                                         const IpAddress &prefix_addr,
+                                        uint32_t plen,
                                         EnetItemType *item,
                                         const VnListType &vn_list) {
     BgpPeer *bgp_peer = bgp_peer_id();
@@ -780,7 +797,7 @@ void AgentXmppChannel::AddEvpnEcmpRoute(string vrf_name,
     }
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, prefix_addr,
-                                  item->entry.nlri.ethernet_tag, data);
+                                  plen, item->entry.nlri.ethernet_tag, data);
 }
 
 template <typename TYPE>
@@ -906,6 +923,7 @@ void AgentXmppChannel::AddFabricVrfRoute(const Ip4Address &prefix_addr,
 void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                     std::string mac_str,
                                     const IpAddress &ip_addr,
+                                    uint32_t plen,
                                     EnetItemType *item) {
     // Validate VRF first
     EvpnAgentRouteTable *rt_table =
@@ -965,7 +983,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                               EcmpLoadBalance(),
                               item->entry.etree_leaf);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
-                                      item->entry.nlri.ethernet_tag, data);
+                                     plen, item->entry.nlri.ethernet_tag, data);
         return;
     }
 
@@ -982,7 +1000,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     }
 
     EvpnRouteKey key(agent_->local_vm_peer(), vrf_name, mac,
-                       ip_addr, item->entry.nlri.ethernet_tag);
+                     ip_addr, plen, item->entry.nlri.ethernet_tag);
     EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>
         (rt_table->FindActiveEntry(&key));
     if (route == NULL) {

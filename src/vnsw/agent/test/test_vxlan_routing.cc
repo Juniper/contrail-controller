@@ -464,7 +464,7 @@ TEST_F(VxlanRoutingTest, Route_5) {
                    Ip4Address::from_string("2.2.2.20"), 32, false);
     EvpnAgentRouteTable::DeleteReq(bgp_peer_, "l3evpn_1",
                                    MacAddress(),
-                                   Ip4Address::from_string("1.1.1.20"), 0, NULL);
+                                   Ip4Address::from_string("1.1.1.20"), 32, 0, NULL);
     DelBridgeVrf("vn1", 1);
     DelRoutingVrf(1);
     DeleteEnvironment(true);
