@@ -70,9 +70,10 @@ class ResourceDbMixin(object):
         if proj_uuid is None:
             return True, -1, None
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
+        ok, result = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
         if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)), None)
+            return False, result
+        proj_dict = result
 
         quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
         return True, quota_limit, proj_uuid
@@ -122,15 +123,15 @@ class ResourceDbMixin(object):
 
     @classmethod
     def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
-        pass
+        return True, ''
 
     @classmethod
     def dbe_update_notification(cls, obj_id, extra_dict=None):
-        pass
+        return True, ''
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
-        pass
+        return True, ''
 
     @classmethod
     def pre_dbe_read(cls, id, fq_name, db_conn):
@@ -922,19 +923,22 @@ class FloatingIpServer(Resource, FloatingIp):
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_alloc_notify(fip_addr, vn_fq_name)
+
+        return True, ''
     # end dbe_create_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         if obj_dict['parent_type'] == 'instance-ip':
-            return
+            return True, ''
 
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name,
-                                     alloc_id=obj_dict['uuid'])
-    # end dbe_delete_notification
+        return cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name,
+                                            alloc_id=obj_dict['uuid'])
 
+        return True, ''
+    # end dbe_delete_notification
 # end class FloatingIpServer
 
 
@@ -990,14 +994,16 @@ class AliasIpServer(Resource, AliasIp):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_alloc_notify(aip_addr, vn_fq_name)
+
+        return True, ''
     # end dbe_create_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free_notify(aip_addr, vn_fq_name,
-                                     alloc_id=obj_dict['uuid'])
+        return cls.addr_mgmt.ip_free_notify(aip_addr, vn_fq_name,
+                                            alloc_id=obj_dict['uuid'])
     # end dbe_delete_notification
 
 # end class AliasIpServer
@@ -1266,6 +1272,8 @@ class InstanceIpServer(Resource, InstanceIp):
         else:
             return True, ''
         cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name, ipam_refs=ipam_refs)
+
+        return True, ''
     # end dbe_create_notification
 
     @classmethod
@@ -1273,7 +1281,7 @@ class InstanceIpServer(Resource, InstanceIp):
         try:
             ip_addr = obj_dict['instance_ip_address']
         except KeyError:
-            return
+            return True, ''
         vn_fq_name = None
         ipam_refs = None
         if obj_dict.get('virtual_network_refs', []):
@@ -1282,7 +1290,8 @@ class InstanceIpServer(Resource, InstanceIp):
             ipam_refs = obj_dict['network_ipam_refs']
         else:
             return True, ''
-        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name, ipam_refs=ipam_refs)
+        return cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name,
+                                            ipam_refs=ipam_refs)
     # end dbe_delete_notification
 
 # end class InstanceIpServer
@@ -2475,8 +2484,10 @@ class TagTypeServer(Resource, TagType):
 
     @classmethod
     def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
-        vn_id = cls.vnc_zk_client.alloc_tag_type_id(
+        cls.vnc_zk_client.alloc_tag_type_id(
             ':'.join(obj_dict['fq_name']), int(obj_dict['tag_type_id'], 0))
+
+        return True, ''
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
@@ -2484,6 +2495,8 @@ class TagTypeServer(Resource, TagType):
         cls.vnc_zk_client.free_tag_type_id(int(obj_dict['tag_type_id'], 0),
                                            obj_dict['fq_name'][-1],
                                            notify=True)
+
+        return True, ''
 
     @classmethod
     def get_tag_type_id(cls, type_str):
@@ -2609,11 +2622,13 @@ class TagServer(Resource, Tag):
 
     @classmethod
     def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
-        vn_id = cls.vnc_zk_client.alloc_tag_value_id(
+        cls.vnc_zk_client.alloc_tag_value_id(
             obj_dict['tag_type_name'],
             ':'.join(obj_dict['fq_name']),
             int(obj_dict['tag_id'], 0) & 0x0000ffff,
         )
+
+        return True, ''
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
@@ -2623,6 +2638,8 @@ class TagServer(Resource, Tag):
             ':'.join(obj_dict['fq_name']),
             notify=True,
         )
+
+        return True, ''
 
 
 class FirewallRuleServer(SecurityResourceBase, FirewallRule):
@@ -3779,11 +3796,11 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         cls.addr_mgmt.net_delete_req(obj_dict)
         if obj_dict['id_perms'].get('user_visible', True) is not False:
-            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            ok, result = QuotaHelper.get_project_dict_for_quota(
                 obj_dict['parent_uuid'], db_conn)
             if not ok:
-                return (False,
-                        (500, 'Bad Project error : ' + pformat(proj_dict)))
+                return False, result
+            proj_dict = result
             ok, (subnet_count, counter) = cls.addr_mgmt.get_subnet_quota_counter(
                     obj_dict, proj_dict)
             if subnet_count:
@@ -3884,16 +3901,18 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
-        vn_id = cls.vnc_zk_client.alloc_vn_id(
+        cls.vnc_zk_client.alloc_vn_id(
             ':'.join(obj_dict['fq_name']),
             obj_dict['virtual_network_network_id'],
         )
-        cls.addr_mgmt.net_create_notify(obj_id)
+        cls.addr_mgmt.net_create_notify(obj_id, obj_dict)
+
+        return True, ''
     # end dbe_create_notification
 
     @classmethod
     def dbe_update_notification(cls, obj_id, extra_dict=None):
-        cls.addr_mgmt.net_update_notify(obj_id)
+        return cls.addr_mgmt.net_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
@@ -3904,6 +3923,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             notify=True,
         )
         cls.addr_mgmt.net_delete_notify(obj_id, obj_dict)
+
+        return True, ''
     # end dbe_delete_notification
 
 # end class VirtualNetworkServer
@@ -4123,16 +4144,20 @@ class NetworkIpamServer(Resource, NetworkIpam):
     @classmethod
     def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
         cls.addr_mgmt.ipam_create_notify(obj_dict)
+
+        return True, ''
     # end dbe_create_notification
 
     @classmethod
     def dbe_update_notification(cls, obj_id, extra_dict=None):
-        cls.addr_mgmt.ipam_update_notify(obj_id)
+        return cls.addr_mgmt.ipam_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         cls.addr_mgmt.ipam_delete_notify(obj_id, obj_dict)
+
+        return True, ''
     # end dbe_delete_notification
 
     @classmethod
@@ -4563,10 +4588,11 @@ class SecurityGroupServer(Resource, SecurityGroup):
             return (False, (403, "Cannot set the security group ID"))
 
         if obj_dict['id_perms'].get('user_visible', True):
-            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            ok, result = QuotaHelper.get_project_dict_for_quota(
                 obj_dict['parent_uuid'], db_conn)
             if not ok:
-                return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+                return False, result
+            proj_dict = result
 
             rule_count = len(
                     obj_dict.get('security_group_entries',
@@ -4613,10 +4639,11 @@ class SecurityGroupServer(Resource, SecurityGroup):
             return ok, result
 
         if sg_dict['id_perms'].get('user_visible', True):
-            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            ok, result = QuotaHelper.get_project_dict_for_quota(
                 sg_dict['parent_uuid'], db_conn)
             if not ok:
-                return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+                return False, result
+            proj_dict = result
             new_rule_count = len(
                     obj_dict.get('security_group_entries',
                         {}).get('policy_rule', []))
@@ -4642,10 +4669,11 @@ class SecurityGroupServer(Resource, SecurityGroup):
         sg_dict = result
 
         if sg_dict['id_perms'].get('user_visible', True) is not False:
-            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            ok, result = QuotaHelper.get_project_dict_for_quota(
                 sg_dict['parent_uuid'], db_conn)
             if not ok:
-                return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+                return False, result
+            proj_dict = result
             obj_type = 'security_group_rule'
             quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
 
@@ -4692,12 +4720,14 @@ class SecurityGroupServer(Resource, SecurityGroup):
     def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
         cls._notify_sg_id_modified(obj_dict)
 
+        return True, ''
+
     @classmethod
     def dbe_update_notification(cls, obj_id, extra_dict=None):
         ok, result = cls.dbe_read(cls.db_conn, cls.object_type, obj_id,
                                   obj_fields=['fq_name', 'security_group_id'])
         if not ok:
-            return
+            return False, result
         obj_dict = result
 
         if extra_dict is not None:
@@ -4706,6 +4736,8 @@ class SecurityGroupServer(Resource, SecurityGroup):
         else:
             cls._notify_sg_id_modified(obj_dict)
 
+        return True, ''
+
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         cls.vnc_zk_client.free_sg_id(
@@ -4713,6 +4745,8 @@ class SecurityGroupServer(Resource, SecurityGroup):
             ':'.join(obj_dict['fq_name']),
             notify=True,
         )
+
+        return True, ''
 # end class SecurityGroupServer
 
 
@@ -5185,31 +5219,37 @@ class ProjectServer(Resource, Project):
         return cls._ensure_default_application_policy_set(id, fq_name)
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids, extra_dict=None):
+    def dbe_update_notification(cls, obj_id, extra_dict=None):
         quota_counter = cls.server.quota_counter
         db_conn = cls.server._db_conn
-        ok, proj_dict = QuotaHelper.get_project_dict_for_quota(obj_ids, db_conn)
+        ok, result = QuotaHelper.get_project_dict_for_quota(obj_id, db_conn)
         if not ok:
-            raise cfgm_common.exceptions.NoIdError(pformat(proj_dict))
+            return False, result
+        proj_dict = result
+
         for obj_type, quota_limit in proj_dict.get('quota', {}).items():
-            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_id
             path = path_prefix + "/" + obj_type
             if (quota_counter.get(path) and (quota_limit == -1 or
                                             quota_limit is None)):
                 # free the counter from cache for resources updated
                 # with unlimted quota
                 del quota_counter[path]
+
+        return True, ''
     #end dbe_update_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         quota_counter = cls.server.quota_counter
         for obj_type in obj_dict.get('quota', {}).keys():
-            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids['uuid']
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_id
             path = path_prefix + "/" + obj_type
             if quota_counter.get(path):
                 # free the counter from cache
                 del quota_counter[path]
+
+        return True, ''
     #end dbe_delete_notification
 # end ProjectServer
 
