@@ -2131,7 +2131,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         # create lag object
         lag_obj = LinkAggregationGroup(parent_type='physical-router',
             fq_name=['default-global-system-config', prouter_name, lag_interface_name],
-            link_aggregation_group_lacp_enabled=True)
+            link_aggregation_group_lacp_enabled=False)
 
         ok, resp = api_server.internal_request_create('link-aggregation-group',
             lag_obj.serialize_to_json())
@@ -2178,10 +2178,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         for tor_name, tor_info in tors.iteritems():
             if len(tor_info['phy_interfaces']) > 1:
                 # need to create lag interface and lag group
-                vmi_connected_phy_interface = cls._create_lag_interface(
+                lag_interface = cls._create_lag_interface(
                     api_server, db_conn, tor_name, tor_info['phy_interfaces'])
+                vmi_connected_phy_interface = lag_interface
             else:
                 vmi_connected_phy_interface = tor_info['phy_interfaces'][0]
+
+            # If LAG interface is multi-homed, then logical i/f should be attahed to it
+            if tors.keys() > 1 and len(tor_info['phy_interfaces']) > 1:
+                vmi_connected_phy_interface = lag_interface
 
             # Get Mac address for vmi
             ok, result = cls.dbe_read(db_conn,'virtual_machine_interface', vmi_id)
