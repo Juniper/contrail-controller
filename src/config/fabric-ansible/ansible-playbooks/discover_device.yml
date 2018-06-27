@@ -33,4 +33,3 @@
 
     - name: print output
       debug: var=output verbosity=1
-
