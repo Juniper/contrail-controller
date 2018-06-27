@@ -57,13 +57,13 @@ string EvpnRouteKey::ToString() const {
 
 EvpnRouteKey *EvpnRouteKey::Clone() const {
     return new EvpnRouteKey(peer(), vrf_name_, dmac_, ip_addr_,
-                              ethernet_tag_);
+                            plen_, ethernet_tag_);
 }
 
 AgentRoute *
 EvpnRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const
 {
-    EvpnRouteEntry *entry = new EvpnRouteEntry(vrf, dmac_, ip_addr_,
+    EvpnRouteEntry *entry = new EvpnRouteEntry(vrf, dmac_, ip_addr_, plen_,
                                                ethernet_tag_, is_multicast);
     return static_cast<AgentRoute *>(entry);
 }
@@ -80,8 +80,9 @@ DBTableBase *EvpnAgentRouteTable::CreateTable(DB *db,
 
 EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const MacAddress &mac,
                                                const IpAddress &ip_addr,
+                                               uint32_t plen,
                                                uint32_t ethernet_tag) {
-    EvpnRouteKey key(NULL, vrf_name(), mac, ip_addr, ethernet_tag);
+    EvpnRouteKey key(NULL, vrf_name(), mac, ip_addr, plen, ethernet_tag);
     EvpnRouteEntry *route =
         static_cast<EvpnRouteEntry *>(FindActiveEntry(&key));
     return route;
@@ -89,8 +90,9 @@ EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const MacAddress &mac,
 
 EvpnRouteEntry *EvpnAgentRouteTable::FindRouteNoLock(const MacAddress &mac,
                                                      const IpAddress &ip_addr,
+                                                     uint32_t plen,
                                                      uint32_t ethernet_tag) {
-    EvpnRouteKey key(NULL, vrf_name(), mac, ip_addr, ethernet_tag);
+    EvpnRouteKey key(NULL, vrf_name(), mac, ip_addr, plen, ethernet_tag);
     EvpnRouteEntry *route =
         static_cast<EvpnRouteEntry *>(FindActiveEntryNoLock(&key));
     return route;
@@ -100,6 +102,7 @@ EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const Agent *agent,
                                                    const string &vrf_name,
                                                    const MacAddress &mac,
                                                    const IpAddress &ip_addr,
+                                                   uint32_t plen,
                                                    uint32_t ethernet_tag) {
     VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
@@ -107,7 +110,7 @@ EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const Agent *agent,
 
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    return table->FindRoute(mac, ip_addr, ethernet_tag);
+    return table->FindRoute(mac, ip_addr, plen, ethernet_tag);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -128,10 +131,11 @@ void EvpnAgentRouteTable::AddOvsPeerMulticastRouteInternal(const Peer *peer,
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer,
-                                   vrf->GetName(),
-                                   MacAddress::BroadcastMac(),
-                                   tor_ip,
-                                   vxlan_id));
+                               vrf->GetName(),
+                               MacAddress::BroadcastMac(),
+                               tor_ip,
+                               EvpnAgentRouteTable::ComputeHostIpPlen(tor_ip),
+                               vxlan_id));
     req.data.reset(new MulticastRoute(vn_name, 0, vxlan_id,
                                       TunnelType::VxlanType(),
                                       nh_req, Composite::L2COMP,
@@ -177,7 +181,8 @@ void EvpnAgentRouteTable::AddControllerReceiveRouteReq(const Peer *peer,
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                   ethernet_tag));
+                               EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
+                               ethernet_tag));
     req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag,
                                                 label, path_pref,
                                                 sequence_number));
@@ -194,7 +199,8 @@ void EvpnAgentRouteTable::AddReceiveRouteReq(const Peer *peer,
                                              const PathPreference &pref) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                   ethernet_tag));
+                               EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
+                               ethernet_tag));
     req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref,
                                       peer->sequence_number()));
     agent()->fabric_evpn_table()->Enqueue(&req);
@@ -210,7 +216,8 @@ void EvpnAgentRouteTable::AddReceiveRoute(const Peer *peer,
                                           const PathPreference &pref) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                   ethernet_tag));
+                               EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
+                               ethernet_tag));
     req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref,
                                       peer->sequence_number()));
     Process(req);
@@ -226,7 +233,8 @@ void EvpnAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
 
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                   ethernet_tag));
+                               EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
+                               ethernet_tag));
     data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     EvpnTableEnqueue(Agent::GetInstance(), &req);
@@ -265,7 +273,9 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip, ethernet_tag));
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip,
+                               EvpnAgentRouteTable::ComputeHostIpPlen(ip),
+                               ethernet_tag));
     req.data.reset(data);
     EvpnTableProcess(agent, vrf_name, req);
 }
@@ -302,7 +312,9 @@ void EvpnAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip, ethernet_tag));
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip,
+                               EvpnAgentRouteTable::ComputeHostIpPlen(ip),
+                               ethernet_tag));
     req.data.reset(data);
     EvpnTableEnqueue(agent, &req);
 }
@@ -317,6 +329,7 @@ void EvpnAgentRouteTable::DeleteOvsPeerMulticastRouteInternal(const Peer *peer,
                                    vrf->GetName(),
                                    MacAddress::BroadcastMac(),
                                    tor_ip,
+                                   EvpnAgentRouteTable::ComputeHostIpPlen(tor_ip),
                                    vxlan_id));
     req.data.reset(NULL);
     if (enqueue) {
@@ -348,6 +361,7 @@ void EvpnAgentRouteTable::DelLocalVmRoute(const Peer *peer,
     Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, IpAddress(ip),
+                                   EvpnAgentRouteTable::ComputeHostIpPlen(ip),
                                    ethernet_tag));
     req.data.reset(NULL);
     EvpnTableProcess(agent, vrf_name, req);
@@ -361,7 +375,8 @@ void EvpnAgentRouteTable::ResyncVmRoute(const Peer *peer,
                                         AgentRouteData *data) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     EvpnRouteKey *key = new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                         ethernet_tag);
+                                EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
+                                ethernet_tag);
     key->sub_op_ = AgentKey::RESYNC;
     req.key.reset(key);
     req.data.reset(data);
@@ -373,11 +388,12 @@ void EvpnAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                               const string &vrf_name,
                                               const MacAddress &mac,
                                               const IpAddress &ip_addr,
+                                              uint32_t plen,
                                               uint32_t ethernet_tag,
                                               AgentRouteData *data) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                   ethernet_tag));
+                                   plen, ethernet_tag));
     req.data.reset(data);
 
     EvpnTableEnqueue(Agent::GetInstance(), &req);
@@ -387,11 +403,12 @@ void EvpnAgentRouteTable::AddRemoteVmRoute(const Peer *peer,
                                            const string &vrf_name,
                                            const MacAddress &mac,
                                            const IpAddress &ip_addr,
+                                           uint32_t plen,
                                            uint32_t ethernet_tag,
                                            AgentRouteData *data) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                   ethernet_tag));
+                                   plen, ethernet_tag));
     req.data.reset(data);
 
     EvpnTableProcess(Agent::GetInstance(), vrf_name, req);
@@ -404,6 +421,7 @@ void EvpnAgentRouteTable::AddType5Route(const Peer *peer,
                                         EvpnRoutingData *data) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, MacAddress(), ip_addr,
+                                   EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
                                    ethernet_tag));
     req.data.reset(data);
 
@@ -413,11 +431,12 @@ void EvpnAgentRouteTable::AddType5Route(const Peer *peer,
 void EvpnAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
                                       const MacAddress &mac,
                                       const IpAddress &ip_addr,
+                                      uint32_t plen,
                                       uint32_t ethernet_tag,
                                       AgentRouteData *data) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                     ethernet_tag));
+                                   plen, ethernet_tag));
     req.data.reset(data);
     EvpnTableEnqueue(Agent::GetInstance(), &req);
 }
@@ -428,7 +447,8 @@ void EvpnAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
                                    uint32_t ethernet_tag) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                     ethernet_tag));
+                                   EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
+                                   ethernet_tag));
     req.data.reset(NULL);
     EvpnTableProcess(Agent::GetInstance(), vrf_name, req);
 }
@@ -441,9 +461,19 @@ void EvpnAgentRouteTable::AddClonedLocalPathReq(const Peer *peer,
                                                 ClonedLocalPath *data) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
+                                   EvpnAgentRouteTable::ComputeHostIpPlen(ip_addr),
                                    ethernet_tag));
     req.data.reset(data);
     EvpnTableEnqueue(Agent::GetInstance(), &req);
+}
+
+uint32_t EvpnAgentRouteTable::ComputeHostIpPlen
+(const IpAddress &addr) {
+    if (addr.is_v4())
+        return 32;
+    if (addr.is_v6())
+        return 128;
+    assert(0);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -452,12 +482,18 @@ void EvpnAgentRouteTable::AddClonedLocalPathReq(const Peer *peer,
 EvpnRouteEntry::EvpnRouteEntry(VrfEntry *vrf,
                                const MacAddress &mac,
                                const IpAddress &ip_addr,
+                               uint32_t plen,
                                uint32_t ethernet_tag,
                                bool is_multicast) :
     AgentRoute(vrf, is_multicast), mac_(mac), ip_addr_(ip_addr),
+    plen_(plen),
     ethernet_tag_(ethernet_tag),
     publish_to_inet_route_table_(true),
     publish_to_bridge_route_table_(true) {
+        if (IsType5()) {
+            publish_to_inet_route_table_ = false;
+            publish_to_bridge_route_table_ = false;
+        }
 }
 
 string EvpnRouteEntry::ToString() const {
@@ -470,6 +506,8 @@ string EvpnRouteEntry::ToString() const {
         str << mac_.ToString();
         str << "-";
         str << ip_addr_.to_string();
+        str << "/";
+        str << plen_;
     }
     return str.str();
 }
@@ -493,6 +531,12 @@ int EvpnRouteEntry::CompareTo(const Route &rhs) const {
     if (ip_addr_ > a.ip_addr_)
         return 1;
 
+    if (plen_ < a.plen_)
+        return -1;
+
+    if (plen_ > a.plen_)
+        return 1;
+
     return 0;
 }
 
@@ -500,7 +544,7 @@ DBEntryBase::KeyPtr EvpnRouteEntry::GetDBRequestKey() const {
     EvpnRouteKey *key =
         new EvpnRouteKey(Agent::GetInstance()->local_vm_peer(),
                            vrf()->GetName(), mac_, ip_addr_,
-                           ethernet_tag_);
+                           plen_, ethernet_tag_);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -513,11 +557,7 @@ void EvpnRouteEntry::SetKey(const DBRequestKey *key) {
 }
 
 const uint32_t EvpnRouteEntry::GetVmIpPlen() const {
-    if (ip_addr_.is_v4())
-        return 32;
-    if (ip_addr_.is_v6())
-        return 128;
-    assert(0);
+    return plen_;
 }
 
 uint32_t EvpnRouteEntry::GetActiveLabel() const {

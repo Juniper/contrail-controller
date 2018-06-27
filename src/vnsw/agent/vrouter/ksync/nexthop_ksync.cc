@@ -941,6 +941,8 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 rewrite_dmac.push_back(rewrite_dmac_[i]);
             }
             encoder.set_nhr_rw_dst_mac(rewrite_dmac);
+            //TODO remove set_nhr_pbb_mac
+            encoder.set_nhr_pbb_mac(rewrite_dmac);
             if (rewrite_dmac_.IsZero() == false) {
                 flags |= NH_FLAG_L3_VXLAN;
             }

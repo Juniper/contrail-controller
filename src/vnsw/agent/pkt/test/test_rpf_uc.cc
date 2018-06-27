@@ -163,7 +163,7 @@ public:
     void DeleteL2RemoteRoute(const char *vrf, const char *mac) {
         MacAddress m = MacAddress::FromString(mac);
         EvpnAgentRouteTable::DeleteReq
-            (peer_, vrf, m, Ip4Address(0), 0,
+            (peer_, vrf, m, Ip4Address(0), 32, 0,
              new ControllerVmRoute(static_cast<BgpPeer *>(peer_)));
         client->WaitForIdle();
         WAIT_FOR(1000, 500, (L2RouteFind(vrf, m) == false));

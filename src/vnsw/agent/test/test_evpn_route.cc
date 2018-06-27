@@ -149,7 +149,7 @@ protected:
                      MacAddress &remote_vm_mac, const IpAddress &ip_addr) {
         const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
         EvpnAgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
-                                        ip_addr, 0,
+                                        ip_addr, 32, 0,
                                         ((bgp_peer == NULL) ? NULL :
                                          (new ControllerVmRoute(bgp_peer))));
         client->WaitForIdle();
@@ -296,7 +296,7 @@ TEST_F(RouteTest, RemoteVmRoute_with_zero_ip) {
     EvpnAgentRouteTable::DeleteReq(bgp_peer, vrf_name_,
                                    remote_vm_mac_,
                                    Ip4Address::from_string("0.0.0.0"),
-                                   0, new ControllerVmRoute(bgp_peer));
+                                   32, 0, new ControllerVmRoute(bgp_peer));
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);
@@ -372,7 +372,7 @@ TEST_F(RouteTest, RemoteVmRoute_with_ipam) {
     EvpnAgentRouteTable::DeleteReq(bgp_peer, vrf_name_,
                                    remote_vm_mac_,
                                    Ip4Address::from_string("1.1.1.99"),
-                                   0, new ControllerVmRoute(bgp_peer));
+                                   32, 0, new ControllerVmRoute(bgp_peer));
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);
@@ -446,7 +446,7 @@ TEST_F(RouteTest, RemoteVmRoute_with_ipam_2) {
     EvpnAgentRouteTable::DeleteReq(bgp_peer, vrf_name_,
                                    remote_vm_mac_,
                                    Ip4Address::from_string("1.1.1.99"),
-                                     0, new ControllerVmRoute(bgp_peer));
+                                   32, 0, new ControllerVmRoute(bgp_peer));
     client->WaitForIdle();
     DeleteRoute(vrf_name_.c_str(), "1.1.1.100", 26,
                 bgp_peer);

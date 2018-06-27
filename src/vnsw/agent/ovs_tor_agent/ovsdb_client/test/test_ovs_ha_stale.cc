@@ -188,7 +188,7 @@ TEST_F(HaStaleRouteTest, ConnectionCloseWhileUnicastLocalPresent) {
         if (rt_table != NULL) {
             MacAddress mac("00:00:00:00:01:01");
             Ip4Address default_ip;
-            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 100);
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 32, 100);
             // stale route should be present even after session close
             EXPECT_TRUE(evpn_rt != NULL);
         }
@@ -280,7 +280,7 @@ TEST_F(HaStaleRouteTest, ConnectionCloseWhileMulticastLocalPresent) {
         EXPECT_TRUE(rt_table != NULL);
         if (rt_table != NULL) {
             Ip4Address tor_ip = Ip4Address::from_string("111.111.111.111");
-            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, tor_ip, 100);
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, tor_ip, 32, 100);
             // stale route should be present even after session close
             EXPECT_TRUE(evpn_rt != NULL);
             EXPECT_TRUE(evpn_rt->GetActivePath()->path_preference().preference()
@@ -356,7 +356,7 @@ TEST_F(HaStaleRouteTest, ToRRouteAddDelonBackupToRAgent) {
         if (rt_table != NULL) {
             MacAddress mac("00:00:00:00:01:01");
             Ip4Address default_ip;
-            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 100);
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 32, 100);
             // stale route should be present even after remote route delete
             EXPECT_TRUE(evpn_rt != NULL);
         }
@@ -420,7 +420,7 @@ TEST_F(HaStaleRouteTest, HaStaleRouteDeleteOnVxLanIdChange) {
         if (rt_table != NULL) {
             MacAddress mac("00:00:00:00:01:01");
             Ip4Address default_ip;
-            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 100);
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 32, 100);
             // stale route should be present even after remote route delete
             EXPECT_TRUE(evpn_rt != NULL);
         }
@@ -433,7 +433,7 @@ TEST_F(HaStaleRouteTest, HaStaleRouteDeleteOnVxLanIdChange) {
             Ip4Address default_ip;
             // stale route should be deleted on VxLan Id Change
             WAIT_FOR(1000, 1000,
-                     (NULL == rt_table->FindRoute(mac, default_ip, 100)));
+                     (NULL == rt_table->FindRoute(mac, default_ip, 32, 100)));
         }
 
         // Revert VxLanID change
@@ -489,7 +489,7 @@ TEST_F(HaStaleRouteTest, HaStaleRouteDeleteToRIPChange) {
         if (rt_table != NULL) {
             MacAddress mac("00:00:00:00:01:01");
             Ip4Address default_ip;
-            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 100);
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 32, 100);
             // stale route should be present even after remote route delete
             EXPECT_TRUE(evpn_rt != NULL);
         }
@@ -502,7 +502,7 @@ TEST_F(HaStaleRouteTest, HaStaleRouteDeleteToRIPChange) {
             Ip4Address default_ip;
             // stale route should be deleted on ToR IP Change
             WAIT_FOR(1000, 1000,
-                     (NULL == rt_table->FindRoute(mac, default_ip, 100)));
+                     (NULL == rt_table->FindRoute(mac, default_ip, 32, 100)));
         }
 
         // simulate route addition via BGP to backup ToR
@@ -520,7 +520,7 @@ TEST_F(HaStaleRouteTest, HaStaleRouteDeleteToRIPChange) {
         if (rt_table != NULL) {
             MacAddress mac("00:00:00:00:01:01");
             Ip4Address default_ip;
-            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 100);
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 32, 100);
             // stale route should be present even after remote route delete
             EXPECT_TRUE(evpn_rt != NULL);
         }
@@ -574,7 +574,7 @@ TEST_F(HaStaleRouteTest, HaStaleRouteDeleteMACMove) {
         if (rt_table != NULL) {
             MacAddress mac("00:00:00:00:01:01");
             Ip4Address default_ip;
-            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 100);
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, default_ip, 32, 100);
             // stale route should be present even after remote route delete
             EXPECT_TRUE(evpn_rt != NULL);
         }
@@ -591,7 +591,7 @@ TEST_F(HaStaleRouteTest, HaStaleRouteDeleteMACMove) {
             Ip4Address default_ip;
             // stale route should be deleted on MAC Move
             WAIT_FOR(1000, 1000,
-                     (NULL == rt_table->FindRoute(mac, default_ip, 100)));
+                     (NULL == rt_table->FindRoute(mac, default_ip, 32, 100)));
         }
 
         // enable reconnect to Ovsdb Server

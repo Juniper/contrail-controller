@@ -202,7 +202,7 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
     EvpnAgentRouteTable *evpn_table =
         static_cast<EvpnAgentRouteTable *>(vrf->GetEvpnRouteTable());
     Ip4Address default_ip;
-    EvpnRouteEntry *evpn_rt = evpn_table->FindRoute(entry->mac(), default_ip,
+    EvpnRouteEntry *evpn_rt = evpn_table->FindRoute(entry->mac(), default_ip, 32,
                                                     entry->GetActiveLabel());
 
     bool self_exported_route = false;
