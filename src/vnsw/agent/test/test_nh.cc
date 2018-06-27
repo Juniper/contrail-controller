@@ -666,7 +666,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     DoNextHopSandesh();
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
                                      "vrf10", remote_vm_mac, IpAddress(vm_ip),
-                                     0, NULL);
+                                     32, 0, NULL);
     client->WaitForIdle();
 
     //CompositeNHKey

@@ -954,8 +954,10 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
     PathPreferenceSM *path_preference_sm = NULL;
     const PathPreferenceState *cpath_preference = NULL;
 
-    EvpnRouteKey evpn_key(NULL, vrf->GetName(), event.mac_,
-                          event.ip_, event.vxlan_id_);
+    EvpnRouteKey evpn_key(NULL, vrf->GetName(),
+                 event.mac_, event.ip_,
+                 EvpnAgentRouteTable::ComputeHostIpPlen(event.ip_),
+                 event.vxlan_id_);
     const EvpnRouteEntry *evpn_rt =
               static_cast<const EvpnRouteEntry *>(
               vrf->GetEvpnRouteTable()->FindActiveEntry(&evpn_key));
@@ -975,7 +977,7 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
     }
 
     EvpnRouteKey evpn_null_ip_key(NULL, vrf->GetName(), event.mac_,
-                                  Ip4Address(0), event.vxlan_id_);
+                                  Ip4Address(0), 32, event.vxlan_id_);
     evpn_rt = static_cast<const EvpnRouteEntry *>(
               vrf->GetEvpnRouteTable()->FindActiveEntry(&evpn_null_ip_key));
     if (evpn_rt) {
@@ -1066,6 +1068,7 @@ void PathPreferenceModule::EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
 
     InetUnicastRouteEntry *rt = vrf->GetUcRoute(ip);
     EvpnRouteKey key(vm_intf->peer(), vrf->GetName(), mac, ip,
+                     EvpnAgentRouteTable::ComputeHostIpPlen(ip),
                      vm_intf->ethernet_tag());
     EvpnRouteEntry *evpn_rt = static_cast<EvpnRouteEntry *>(
         vrf->GetEvpnRouteTable()->FindActiveEntry(&key));

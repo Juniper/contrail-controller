@@ -157,11 +157,11 @@ protected:
         const BgpPeer *bgp_peer = static_cast<const BgpPeer *>(peer);
         if (bgp_peer) {
             EvpnAgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
-                                           ip_addr, 0,
+                                           ip_addr, 32, 0,
                                            (new ControllerVmRoute(bgp_peer)));
         } else {
             EvpnAgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
-                                           ip_addr, 0, NULL);
+                                           ip_addr, 32, 0, NULL);
         }
         client->WaitForIdle();
         WAIT_FOR(1000, 1000, (L2RouteFind(vrf_name, remote_vm_mac, ip_addr) ==

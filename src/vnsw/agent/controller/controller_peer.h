@@ -178,7 +178,8 @@ public:
                                    const AgentPath *path,
                                    bool assisted_replication);
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
-                      const IpAddress &ip, autogen::EnetItemType *item);
+                      const IpAddress &ip, uint32_t plen,
+                      autogen::EnetItemType *item);
     template <typename TYPE>
     void BuildTagList(const TYPE *item, TagList *tag_list);
     uint64_t route_published_time() const {return route_published_time_;}
@@ -215,7 +216,8 @@ private:
                           autogen::ItemType *item,
                           const VnListType &vn_list);
     void AddEvpnEcmpRoute(std::string vrf_name, const MacAddress &mac,
-                          const IpAddress &ip, autogen::EnetItemType *item,
+                          const IpAddress &ip, uint32_t plen,
+                          autogen::EnetItemType *item,
                           const VnListType &vn_list);
     template <typename TYPE>
     ControllerEcmpRoute *BuildEcmpData(TYPE *item,
