@@ -829,10 +829,11 @@ class QfxConf(JuniperConf):
 
     def has_terms(self, rule):
         match = rule.get_match_condition()
-        if not match or match.get_protocol() == 'any':
+        if not match:
             return False
         return match.get_dst_address() or match.get_dst_port() or \
-              match.get_ethertype() or match.get_src_address() or match.get_src_port()
+              match.get_ethertype() or match.get_src_address() or match.get_src_port() or \
+              (match.get_protocol() and match.get_protocol() != 'any')
 
     def get_firewall_filters(self, sg, acl, is_egress=False):
         if not sg or not acl or not acl.vnc_obj:
