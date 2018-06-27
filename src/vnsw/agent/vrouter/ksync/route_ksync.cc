@@ -958,6 +958,7 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
             return false;
     }
 
+    // If the route crosses a VN, we want packet to be routed. So, override
     const NextHop *nh = rt->GetActiveNextHop();
     if (nh == NULL)
         return false;
@@ -965,6 +966,7 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
     if (nh->GetType() != NextHop::INTERFACE &&
         nh->GetType() != NextHop::TUNNEL &&
         nh->GetType() != NextHop::VLAN &&
+        nh->GetType() != NextHop::VRF &&
         nh->GetType() != NextHop::ARP)
         return false;
 

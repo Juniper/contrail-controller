@@ -112,7 +112,7 @@ public:
              "vrf1", Ip4Address::from_string("10.10.10.2"), TunnelType::GREType(),
              100, MacAddress(), vn_list, sg_list, TagList(), path_pref, false,
              EcmpLoadBalance(), false);
-        vrf1_evpn_table_->AddRemoteVmRouteReq(peer, "vrf1", mac, addr,
+        vrf1_evpn_table_->AddRemoteVmRouteReq(peer, "vrf1", mac, addr, 32,
                                               ethernet_tag, data);
         client->WaitForIdle();
     }
@@ -233,7 +233,7 @@ TEST_F(TestKSyncRoute, remote_evpn_route_1) {
     ksync->Sync(rt);
     EXPECT_TRUE(ksync->flood_dhcp()); // flood DHCP set for MAC without VMI
 
-    vrf1_evpn_table_->DeleteReq(bgp_peer_, "vrf1", mac, addr, ethernet_tag,
+    vrf1_evpn_table_->DeleteReq(bgp_peer_, "vrf1", mac, addr, 32, ethernet_tag,
                                 (new ControllerVmRoute(bgp_peer_)));
     client->WaitForIdle();
     EXPECT_TRUE(vrf1_obj_->GetIpMacBinding(vrf1_, addr, NULL)

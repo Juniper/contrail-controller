@@ -21,6 +21,7 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::EVPN;
     }
+    static uint32_t ComputeHostIpPlen(const IpAddress &addr);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
 
@@ -99,12 +100,14 @@ public:
                                     const std::string &vrf_name,
                                     const MacAddress &mac,
                                     const IpAddress &ip_addr,
+                                    uint32_t plen,
                                     uint32_t ethernet_tag,
                                     AgentRouteData *data);
     static void AddRemoteVmRoute(const Peer *peer,
                                  const std::string &vrf_name,
                                  const MacAddress &mac,
                                  const IpAddress &ip_addr,
+                                 uint32_t plen,
                                  uint32_t ethernet_tag,
                                  AgentRouteData *data);
     void AddType5Route(const Peer *peer,
@@ -125,19 +128,25 @@ public:
                          const IpAddress &ip, uint32_t ethernet_tag);
     static void DeleteReq(const Peer *peer, const std::string &vrf_name,
                           const MacAddress &mac, const IpAddress &ip_addr,
-                          uint32_t ethernet_tag, AgentRouteData *data);
+                          uint32_t plen, uint32_t ethernet_tag,
+                          AgentRouteData *data);
     static void Delete(const Peer *peer, const std::string &vrf_name,
                        const MacAddress &mac, const IpAddress &ip_addr,
                        uint32_t ethernet_tag);
+    static void DeleteType5Req(const Peer *peer, const std::string &vrf_name,
+                               const MacAddress &mac, const IpAddress &ip_addr,
+                               uint32_t plen, uint32_t ethernet_tag);
     EvpnRouteEntry *FindRoute(const MacAddress &mac, const IpAddress &ip_addr,
-                              uint32_t ethernet_tag);
+                              uint32_t plen, uint32_t ethernet_tag);
     EvpnRouteEntry *FindRouteNoLock(const MacAddress &mac,
                                     const IpAddress &ip_addr,
+                                    uint32_t plen,
                                     uint32_t ethernet_tag);
     static EvpnRouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
                                        const MacAddress &mac,
                                        const IpAddress &ip_addr,
+                                       uint32_t plen,
                                        uint32_t ethernet_tag);
 
 private:
@@ -161,10 +170,12 @@ public:
     EvpnRouteEntry(VrfEntry *vrf,
                    const MacAddress &mac,
                    const IpAddress &ip_addr,
+                   uint32_t plen,
                    uint32_t ethernet_tag,
                    bool is_multicast);
     virtual ~EvpnRouteEntry() { }
 
+    virtual uint8_t plen() const { return plen_; }
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const;
     virtual void UpdateDependantRoutes() { }
@@ -218,6 +229,7 @@ private:
 
     MacAddress mac_;
     IpAddress ip_addr_;
+    uint32_t plen_;
     uint32_t ethernet_tag_;
     bool publish_to_inet_route_table_;
     bool publish_to_bridge_route_table_;
@@ -228,9 +240,9 @@ class EvpnRouteKey : public AgentRouteKey {
 public:
     EvpnRouteKey(const Peer *peer, const std::string &vrf_name,
                  const MacAddress &mac, const IpAddress &ip_addr,
-                 uint32_t ethernet_tag) :
+                 uint32_t plen, uint32_t ethernet_tag) :
         AgentRouteKey(peer, vrf_name), dmac_(mac), ip_addr_(ip_addr),
-        ethernet_tag_(ethernet_tag) {
+        plen_(plen), ethernet_tag_(ethernet_tag) {
     }
 
     virtual ~EvpnRouteKey() { }
@@ -246,6 +258,7 @@ public:
 private:
     MacAddress dmac_;
     IpAddress ip_addr_;
+    uint32_t plen_;
     //ethernet_tag is the segment identifier for VXLAN. In control node its used
     //as a key however for forwarding only MAC is used as a key.
     //To handle this ethernet_tag is sent as part of key for all remote routes

@@ -112,7 +112,7 @@ public:
 
         //ECMP create component NH
         EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer, "vrf1", mac, prefix,
-                                             0, data);
+                                             32, 0, data);
     }
 
     FlowProto *get_flow_proto() const { return flow_proto_; }
@@ -158,7 +158,7 @@ TEST_F(EcmpTest, EcmpTest_1) {
 
     EvpnAgentRouteTable::DeleteReq(bgp_peer, "vrf1",
                                    MacAddress("00:00:00:09:09:09"),
-                                   Ip4Address::from_string("9.9.9.9"), 0,
+                                   Ip4Address::from_string("9.9.9.9"), 32, 0,
                                    new ControllerVmRoute(bgp_peer));
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
@@ -200,7 +200,7 @@ TEST_F(EcmpTest, EcmpTest_2) {
 
     EvpnAgentRouteTable::DeleteReq(bgp_peer, "vrf1",
                                    MacAddress("00:00:00:09:09:09"),
-                                   Ip4Address::from_string("9.9.9.9"), 0,
+                                   Ip4Address::from_string("9.9.9.9"), 32, 0,
                                    new ControllerVmRoute(bgp_peer));
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));

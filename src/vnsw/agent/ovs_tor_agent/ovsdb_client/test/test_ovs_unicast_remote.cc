@@ -176,7 +176,7 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     Ip4Address zero_ip;
     EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0, NULL);
+                                   mac, zero_ip, 32, 0, NULL);
     client->WaitForIdle();
 
     // Add Route with new tunnel dest
@@ -203,14 +203,14 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     // Delete route
     EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0, NULL);
+                                   mac, zero_ip, 32, 0, NULL);
     client->WaitForIdle();
 
     // Add new route for same mac but with receive route to have empty dest ip
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(bgp_peer_,
                                    std::string("test-vrf1"), mac,
-                                   zero_ip, 0));
+                                   zero_ip, 32, 0));
     req.data.reset(new L2ReceiveRoute(std::string("test-vn1"), 0, 101,
                                       PathPreference(), 0));
     if (agent_->fabric_evpn_table()) {
@@ -236,7 +236,7 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     // Delete route
     EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0, NULL);
+                                   mac, zero_ip, 32, 0, NULL);
     client->WaitForIdle();
 
     // Delete DevVN
@@ -305,7 +305,7 @@ TEST_F(UnicastRemoteTest, LogicalSwitchDeleteOnRefRelease) {
     Ip4Address zero_ip;
     EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
-                                   mac, zero_ip, 0, NULL);
+                                   mac, zero_ip, 32, 0, NULL);
     client->WaitForIdle();
     agent_->vrf_table()->DeleteVrfReq("test-vrf1");
     VnDelReq(2);
@@ -389,10 +389,10 @@ TEST_F(UnicastRemoteTest, PhysicalLocatorCreateWait) {
     Ip4Address zero_ip;
     EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
-                                   mac1, zero_ip, 0, NULL);
+                                   mac1, zero_ip, 32, 0, NULL);
     EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
-                                   mac2, zero_ip, 0, NULL);
+                                   mac2, zero_ip, 32, 0, NULL);
     client->WaitForIdle();
 
     // Delete DevVN
