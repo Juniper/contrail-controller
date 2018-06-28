@@ -314,7 +314,7 @@ bool Options::Process(int argc, char *argv[],
     return true;
 }
 
-void Options::ParseReConfig() {
+void Options::ParseReConfig(bool force_reinit) {
     // ReParse the filtered config params
     opt::variables_map var_map;
     ifstream config_file_in;
@@ -343,7 +343,8 @@ void Options::ParseReConfig() {
 
     uint32_t old_config_chksum = configdb_chksum_;
     ParseConfigOptions(var_map);
-    if ((old_config_chksum != configdb_chksum_) && config_client_manager_) {
+    if ((force_reinit || old_config_chksum != configdb_chksum_) &&
+            config_client_manager_) {
         config_client_manager_->ReinitConfigClient(configdb_options());
     }
 }

@@ -81,7 +81,7 @@ public:
     }
     const SandeshConfig &sandesh_config() const { return sandesh_config_; }
 
-    void ParseReConfig();
+    void ParseReConfig(bool force_reinit);
 
     void set_config_client_manager(ConfigClientManager *mgr) {
         config_client_manager_ = mgr;
