@@ -3201,6 +3201,7 @@ class VncApiServer(object):
         cassandra_password = self._args.cassandra_password
         cassandra_use_ssl = self._args.cassandra_use_ssl
         cassandra_ca_certs = self._args.cassandra_ca_certs
+        cassandra_gc_grace_seconds = self._args.cassandra_gc_grace_seconds
         obj_cache_entries = int(self._args.object_cache_entries)
         obj_cache_exclude_types = \
             [t.replace('-', '_').strip() for t in
@@ -3232,7 +3233,8 @@ class VncApiServer(object):
             obj_cache_exclude_types=obj_cache_exclude_types,
             debug_obj_cache_types=debug_obj_cache_types,
             cassandra_use_ssl=self._args.cassandra_use_ssl,
-            cassandra_ca_certs=self._args.cassandra_ca_certs)
+            cassandra_ca_certs=self._args.cassandra_ca_certs,
+            cassandra_gc_grace_seconds=self._args.cassandra_gc_grace_seconds)
 
         #TODO refacter db connection management.
         self._addr_mgmt._get_db_conn()

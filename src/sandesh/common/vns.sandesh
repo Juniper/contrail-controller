@@ -629,6 +629,9 @@ const list<string> RepairNeededKeyspaces = [
 // Set to default of 10 days
 const u32 CASSANDRA_DEFAULT_GC_GRACE_SECONDS = 864000
 
+// Set gc time of api server uuid keyspace to 1 day
+const u32 CASSANDRA_UUID_KS_GC_GRACE_SECONDS = 86400
+
 // Define the threadpool names
 const string READSTAGE = "ReadStage"
 const string MUTATIONSTAGE = "MutationStage"
