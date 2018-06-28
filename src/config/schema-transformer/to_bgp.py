@@ -140,6 +140,17 @@ class SchemaTransformer(object):
         }
     }
 
+    #
+    # Sleep if we are continuously running for more than 1.5 secs
+    #
+    def timed_yield(self):
+        if time.time() > self.timeout:
+            gevent.sleep(0.001)
+            self.timeout = time.time() + 1.5
+            self.total_yield_stats += 1
+    # end timed_yield
+
+
     def __init__(self, st_logger=None, args=None):
         self._args = args
         self._fabric_rt_inst_obj = None
@@ -170,6 +181,8 @@ class SchemaTransformer(object):
         self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
                                       self._args)
         self._vnc_amqp.establish()
+        self.total_yield_stats = 0
+        self.timeout = time.time() + 1.5
         try:
             # Initialize cassandra
             self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
@@ -228,6 +241,7 @@ class SchemaTransformer(object):
                     self.logger.error(
                         "Error while deleting routing instance %s: %s"%(
                         ri.get_fq_name_str(), str(e)))
+            self.timed_yield()
         # end for ri
 
         sg_list = list(SecurityGroupST.list_vnc_obj())
@@ -257,12 +271,14 @@ class SchemaTransformer(object):
                 except Exception as e:
                     self.logger.error("Error while deleting acl %s: %s"%(
                             acl.uuid, str(e)))
+            self.timed_yield()
         # end for acl
 
         gevent.sleep(0.001)
         for sg in sg_list:
             try:
                 SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
+                self.timed_yield()
             except Exception as e:
                 self.logger.error("Error in reinit security-group %s: %s" % (
                     sg.get_fq_name_str(), str(e)))
@@ -272,6 +288,7 @@ class SchemaTransformer(object):
         for sg in SecurityGroupST.values():
             try:
                 sg.update_policy_entries()
+                self.timed_yield()
             except Exception as e:
                 self.logger.error("Error in updating SG policies %s: %s" % (
                     sg.name, str(e)))
@@ -323,6 +340,7 @@ class SchemaTransformer(object):
                     vm_name = ':'.join(ref['to'])
                     vm = VirtualMachineST.locate(vm_name)
                     si_st.virtual_machines.add(vm_name)
+                    self.timed_yield()
                 props = si.get_service_instance_properties()
                 if not props.auto_policy:
                     continue
@@ -345,6 +363,7 @@ class SchemaTransformer(object):
         for vn_obj in VirtualNetworkST.values():
             try:
                 vn_obj.evaluate()
+                self.timed_yield()
             except Exception as e:
                 self.logger.error("Error in reinit evaluate virtual network %s: %s" % (
                     vn_obj.name, str(e)))
@@ -354,6 +373,7 @@ class SchemaTransformer(object):
             for obj in cls.values():
                 try:
                     obj.evaluate()
+                    self.timed_yield()
                 except Exception as e:
                     self.logger.error("Error in reinit evaluate %s %s: %s" % (
                         cls.obj_type, obj.name, str(e)))
