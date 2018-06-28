@@ -5,7 +5,6 @@ import sys
 import gevent.monkey
 gevent.monkey.patch_all()
 
-import shutil
 import logging
 import tempfile
 from pprint import pformat
@@ -210,7 +209,7 @@ class VncTestApp(TestApp):
         return resp
 #end class VncTestApp
 
-def create_api_server_instance(test_id, config_knobs, db=None):
+def create_api_server_instance(test_id, config_knobs, db='cassandra'):
     ret_server_info = {}
     allocated_sockets = []
     ret_server_info['ip'] = socket.gethostbyname(socket.gethostname())
@@ -218,17 +217,15 @@ def create_api_server_instance(test_id, config_knobs, db=None):
     ret_server_info['introspect_port'] = get_free_port(allocated_sockets)
     ret_server_info['admin_port'] = get_free_port(allocated_sockets)
     ret_server_info['allocated_sockets'] = allocated_sockets
-    if db == "rdbms":
-        ret_server_info['greenlet'] = gevent.spawn(launch_api_server_rdbms,
-            test_id, ret_server_info['ip'], ret_server_info['service_port'],
-            ret_server_info['introspect_port'], ret_server_info['admin_port'],
-            config_knobs)
-    else:
-        # default cassandra backend
+    if db == "cassandra":
         ret_server_info['greenlet'] = gevent.spawn(launch_api_server,
             test_id, ret_server_info['ip'], ret_server_info['service_port'],
             ret_server_info['introspect_port'], ret_server_info['admin_port'],
             config_knobs)
+    else:
+        msg = ("Contrail API server does not support database backend "
+               "'%s'" % db)
+        raise NotImplementedError(msg)
     block_till_port_listened(ret_server_info['ip'],
         ret_server_info['service_port'])
     extra_env = {'HTTP_HOST': ret_server_info['ip'],
@@ -306,42 +303,6 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
         vnc_cfg_api_server.main(args_str, server)
 # end launch_api_server
 
-def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
-                      admin_port, conf_sections):
-    db_file = "./test_db_%s_%d.db" % (test_id, os.getpid())
-
-    args_str = ""
-    args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
-    args_str = args_str + "--listen_port %s " % (listen_port)
-    args_str = args_str + "--http_server_port %s " % (http_server_port)
-    args_str = args_str + "--admin_port %s " % (admin_port)
-    args_str = args_str + "--db_engine rdbms "
-    args_str = args_str + "--rdbms_connection sqlite:///%s " % db_file
-    args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file api_server_%s.log " %(test_id)
-    vnc_cgitb.enable(format='text')
-    try:
-        os.remove(db_file)
-        shutil.copyfile('./base_db.db', db_file)
-    except:
-        pass
-
-
-    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
-        cfg_parser = generate_conf_file_contents(conf_sections)
-        cfg_parser.write(conf)
-        conf.flush()
-
-        cfg_parser = generate_logconf_file_contents()
-        cfg_parser.write(logconf)
-        logconf.flush()
-
-        args_str = args_str + "--conf_file %s " %(conf.name)
-        args_str = args_str + "--logging_conf %s " %(logconf.name)
-        server = vnc_cfg_api_server.VncApiServer(args_str)
-        gevent.getcurrent().api_server = server
-        vnc_cfg_api_server.main(args_str, server)
-# end launch_api_server_rdbms
 
 def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port, **extra_args):
     allocated_sockets = []
@@ -733,7 +694,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
 
     @classmethod
-    def setUpClass(cls, extra_mocks=None, extra_config_knobs=None, db=None):
+    def setUpClass(cls, extra_mocks=None, extra_config_knobs=None,
+                   db='cassandra'):
         super(TestCase, cls).setUpClass()
         global cov_handle
         if not cov_handle:

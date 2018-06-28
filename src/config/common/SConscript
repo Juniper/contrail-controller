@@ -35,7 +35,6 @@ local_sources = [
                   'vnc_cassandra.py',
                   'vnc_kombu.py',
                   'vnc_db.py',
-                  'vnc_rdbms.py',
                   'vnc_object_db.py',
                   'dependency_tracker.py',
                   'vnc_api_stats.py',

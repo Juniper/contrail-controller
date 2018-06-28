@@ -22,7 +22,6 @@ from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
-from vnc_rdbms import VncServerRDBMSClient
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.utils import shareinfo_from_perms2
@@ -748,8 +747,7 @@ class VncDbClient(object):
                  reset_config=False, zk_server_ip=None, db_prefix='',
                  db_credential=None, obj_cache_entries=0,
                  obj_cache_exclude_types=None, db_engine='cassandra',
-                 connection=None, cassandra_use_ssl=False,
-                 cassandra_ca_certs=None, **kwargs):
+                 cassandra_use_ssl=False, cassandra_ca_certs=None, **kwargs):
         self._db_engine = db_engine
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
@@ -803,13 +801,10 @@ class VncDbClient(object):
                     ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs)
 
             self._zk_db.master_election("/api-server-election", db_client_init)
-        elif db_engine == 'rdbms':
-            self._object_db = VncServerRDBMSClient(self,
-                server_list=db_srv_list, reset_config=reset_config,
-                generate_url=self.generate_url,
-                connection=connection,
-                db_prefix=db_prefix, credential=db_credential)
-            self._zk_db = self._object_db
+        else:
+            msg = ("Contrail API server does not support database backend "
+                   "'%s'" % db_engine)
+            raise NotImplementedError(msg)
 
         health_check_interval = api_svr_mgr.get_rabbit_health_check_interval()
         if api_svr_mgr.get_worker_id() > 0:
@@ -1437,30 +1432,10 @@ class VncDbClient(object):
             domain = domain.replace('-', '')
         return domain, tenant_uuid
 
-    def dbe_list_rdbms(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                       obj_uuids=None, is_count=False, filters=None,
-                       paginate_start=None, paginate_count=None, is_detail=False,
-                       field_names=None, include_shared=False):
-        domain = None
-        tenant_id = None
-        if include_shared:
-            domain, tenant_id = self._owner_id()
-
-        return self._object_db.object_list(
-            obj_type, parent_uuids=parent_uuids,
-            back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-            count=is_count, filters=filters, is_detail=is_detail,
-            field_names=field_names, tenant_id=tenant_id, domain=domain)
-
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, is_count=False, filters=None,
                  paginate_start=None, paginate_count=None, is_detail=False,
                  field_names=None, include_shared=False):
-        if self._db_engine == 'rdbms':
-            return self.dbe_list_rdbms(obj_type, parent_uuids, back_ref_uuids,
-                 obj_uuids, is_count, filters,
-                 paginate_start, paginate_count, is_detail,
-                 field_names, include_shared)
 
         def collect_shared(owned_fq_name_uuids=None, start=None, count=None):
             shared_result = []

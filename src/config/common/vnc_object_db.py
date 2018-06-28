@@ -7,7 +7,6 @@ This file contains implementation of object db
 """
 
 import vnc_cassandra
-import vnc_rdbms
 
 class VncObjectDBClient(object):
     def __init__(self, server_list=None, db_prefix=None, rw_keyspaces=None, ro_keyspaces=None,
@@ -19,10 +18,10 @@ class VncObjectDBClient(object):
                 self._object_db = vnc_cassandra.VncCassandraClient(server_list, db_prefix, rw_keyspaces,
                     ro_keyspaces, logger, generate_url, reset_config, credential, walk, obj_cache_entries,
                     obj_cache_exclude_types, None, ssl_enabled, ca_certs)
-            elif db_engine == 'rdbms':
-                self._object_db = vnc_rdbms.VncRDBMSClient(
-                    server_list, db_prefix, logger, generate_url,
-                    connection, reset_config, credential, obj_cache_entries)
+            else:
+                msg = ("Contrail API server does not support database backend "
+                       "'%s'" % db_engine)
+                raise NotImplementedError(msg)
 
     def __getattr__(self, name):
         return getattr(self._object_db, name)
