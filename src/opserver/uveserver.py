@@ -361,15 +361,32 @@ class UVEServer(object):
     # end get_uve_regex
 
     def get_alarms(self, filters):
-        tables = filters.get('tablefilt')
+        tablesfilt = filters.get('tablefilt')
         kfilter = filters.get('kfilt')
         patterns = None
         if kfilter is not None:
             patterns = set()
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
-
-        rsp = self._uvedbcache.get_uve_list(tables, filters, patterns, False)
+        if self._usecache:
+            rsp = self._uvedbcache.get_uve_list(tablesfilt, filters, patterns, False)
+        else:
+            tables = self.get_tables()
+            rsp = {}
+            uve_list = {}
+            for table in tables:
+                if tablesfilt is not None:
+                    if table not in tablesfilt:
+                        continue
+                uve_keys = self.get_uve_list(table, filters, False)
+                for uve_key in uve_keys:
+                    _,uve_val = self.get_uve(
+                        table + ':' + uve_key, True, filters)
+                    if uve_val == {}:
+                        continue
+                    else:
+                        uve_list[uve_key] = uve_val
+                rsp[table] = uve_list
         return rsp
     # end get_alarms
 
