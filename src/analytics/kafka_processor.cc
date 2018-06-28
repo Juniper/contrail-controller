@@ -418,6 +418,8 @@ KafkaProcessor::KafkaTimer() {
                     k_event_cb.disableKafka = false;
                 }
             }
+            LOG(DEBUG, "Deleting metadata !!!");
+            delete metadata;
         }
     } 
 
