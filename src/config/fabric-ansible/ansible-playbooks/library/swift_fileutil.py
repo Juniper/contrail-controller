@@ -5,7 +5,7 @@
 #
 
 """
-This file contains implementation of getting swift temp URL for image upload
+This file contains implementation of getting the swift download URL for the uploaded image file
 """
 
 DOCUMENTATION = '''
@@ -13,9 +13,9 @@ DOCUMENTATION = '''
 
 module: Swift file util
 author: Juniper Networks
-short_description: Private module to get swift temp url of the file
+short_description: Private module to get swift download url of the image file
 description:
-    - Pass the required swift config info and get the temp url of the file
+    - Pass the required swift config info and get the download url of the image file
 requirements:
     -
 options:
@@ -29,7 +29,7 @@ options:
         required: true
     user:
         description:
-            - Swift Username
+            - Swift username
         type: string
         required: true
     key:
@@ -75,11 +75,6 @@ options:
         description:
             - Name of the image file
         required: true
-    expirytime:
-        description:
-            - Integer. Expiry time in seconds
-        type: int
-        required: true
 
 '''
 
@@ -89,8 +84,7 @@ EXAMPLES = '''
 RETURN = '''
 url:
   description:
-    - An image file url that can be downloaded without authentication for
-      the specified time period.
+    - An image file url that can be used to download the file without authentication.
   returned: on success always
   type: str
 error_msg:
@@ -175,30 +169,23 @@ class FileSvcUtil(object):  # pragma: no cover
             raise Exception("Update account failed with swift file server: " + str(err))
 
     def getobjectFileUri(self, filename):
-        return self.getFileObjUri(self.storageurl, self.container_name, filename)
+        return self.getFileObjUri(self.container_name, filename)
 
-    def getFileObjUri(self, accountpath, container_name, fileobj_name):
-        return urlparse('%s/%s/%s' % (accountpath, container_name, fileobj_name)).path
+    def getFileObjUri(self, container_name, fileobj_name):
+        return urlparse('/%s/%s' % (container_name, fileobj_name)).path
 
-    def getObjTempUrl(self, filename, expires):
-        objectfile_uri = self.getobjectFileUri(filename)
+    def getObjUrl(self, filename):
+        image_path = self.getobjectFileUri(filename)
         try:
-            image_path = swiftclient.utils.generate_temp_url(
-                objectfile_uri, expires,
-                getattr(self, self.chosen_temp_url_key),
-                'GET')
             image_url = self.getPublicDownloadUrl(image_path)
             return image_url
         except Exception as e:
             logging.error(str(e))
-            raise Exception("Get object temp url failed with swift file server: " + str(e))
+            raise Exception("Get object url failed with swift file server: " + str(e))
 
     def getPublicDownloadUrl(self, image_path):
-
-        path = urlparse(self.storageurl).path
-        public_url = self.storageurl.split(path)[0]
         return '%s/%s' % (
-            re.sub(r'([^/])/*$', r'\1', public_url),
+            re.sub(r'([^/])/*$', r'\1', self.storageurl),
             re.sub(r'^/*([^/])', r'\1', image_path))
 
     def close(self):
@@ -219,8 +206,7 @@ def main():
             chosen_temp_url_key=dict(required=False, default="temp_url_key"),
             container_name=dict(required=True),
             filename=dict(required=True),
-            connection_retry_count=dict(required=False, default=5, type='int'),
-            expirytime=dict(required=True, type='int')),
+            connection_retry_count=dict(required=False, default=5, type='int')),
         supports_check_mode=False)
 
     m_args = module.params
@@ -236,7 +222,6 @@ def main():
     container_name = m_args['container_name']
     filename = m_args['filename']
     connection_retry_count = m_args['connection_retry_count']
-    expirytime = m_args['expirytime']
 
     url = None
     error_msg = ''
@@ -245,7 +230,7 @@ def main():
                                auth_version, container_name, temp_url_key,
                                temp_url_key_2, connection_retry_count, chosen_temp_url_key)
 
-        url = fileutil.getObjTempUrl(filename, int(expirytime))
+        url = fileutil.getObjUrl(filename)
 
         fileutil.close()
 

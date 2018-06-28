@@ -6,7 +6,7 @@
           user: "{{pr_user}}"
           passwd: "{{pr_password}}"
           port: 22
-        remote_package: "{{enc_tempurl}}"
+        remote_package: "{{downloadurl}}"
       register: junos_response
     #  ignore_errors: True
   rescue:
