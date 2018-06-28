@@ -1,0 +1,39 @@
+---
+
+- name: Push fabric config to device and read back facts
+  hosts: localhost
+  connection: local
+  vars:
+    input: "{{ playbook_input.input }}"
+    device_info: "{{ input.device_info }}"
+    output: {"status":"", "message":"", "results":""}
+
+  pre_tasks:
+    - set_fact:
+        conf_dir: "./config/{{ device_info.management_ip }}"
+
+    - name: Remove build folder if it already exists
+      file:
+        path: "{{ conf_dir }}"
+        state: absent
+
+    - name: Create build folder
+      file:
+        path: "{{ conf_dir }}/build_config"
+        state: directory
+
+  roles:
+    - basic_config
+    - ip_clos
+    - commit_fabric_config
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Underlay config successful for: {{device_info.management_ip}}"
+          }
+
+    - name: print output
+      debug: var=output verbosity=1
+
