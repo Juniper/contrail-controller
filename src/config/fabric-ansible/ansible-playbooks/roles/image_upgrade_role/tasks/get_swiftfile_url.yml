@@ -1,4 +1,4 @@
-- name: Get swift tempurl for the image
+- name: Get swift download url for the image
   swift_fileutil:
     authtoken: "{{auth_token}}"
     authurl: "{{auth_url}}"
@@ -11,7 +11,6 @@
     chosen_temp_url_key: "{{chosen_temp_url_key}}"
     container_name: "{{container_name}}"
     filename: "{{filename}}"
-    expirytime: "{{expirytime}}"
   register: swift_results
 
 - name: Print the complete response.
@@ -34,4 +33,4 @@
     jl_err_message: "Upgrade device {{pr_fqname}}, Image name: {{filename}}. Unable to get image file url from Swift. {{swift_results.error_msg}}"
 
 - set_fact:
-    tempurl: "{{swift_results.url}}"
+    downloadurl: "{{swift_results.url}}"

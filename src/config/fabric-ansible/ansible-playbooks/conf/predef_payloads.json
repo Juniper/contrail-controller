@@ -251,7 +251,13 @@
           "supported_device_families": {
             "device_family": [
               "junos",
-              "jonos-qfx"
+              "junos-qfx"
+            ]
+          },
+          "supported_vendor_hardwares": {
+           "vendor_hardware": [
+                "juniper-qfx10002-36q",
+                "juniper-qfx5100-48s-6q"
             ]
           }
         }
@@ -341,3 +347,4 @@
     }
   ]
 }
+
