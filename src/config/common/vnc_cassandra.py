@@ -605,18 +605,21 @@ class VncCassandraClient(object):
         gc_grace_sec = vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
         for cf_name in cf_dict:
+            gc_grace_time = gc_grace_sec
+            if keyspace_name == self._UUID_KEYSPACE_NAME:
+                gc_grace_time = vns_constants.CASSANDRA_OPTIMAL_GC_GRACE_SECONDS
             create_cf_kwargs = cf_dict[cf_name].get('create_cf_args', {})
             try:
                 self.sys_mgr.create_column_family(
                     keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
+                    gc_grace_seconds=gc_grace_time,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
+                    gc_grace_seconds=gc_grace_time,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
     # end _cassandra_ensure_keyspace
