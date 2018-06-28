@@ -120,7 +120,8 @@ def parse_args(args_str):
     # cassandra options
     cassandraopts = {
         'cassandra_user'     : None,
-        'cassandra_password' : None
+        'cassandra_password' : None,
+        'cassandra_gc_grace_seconds': None
     }
     # rdbms options
     rdbmsopts = {
@@ -328,6 +329,9 @@ def parse_args(args_str):
     parser.add_argument("--enable_fabric_ansible",
                         help="Enables/disables execute-job api and the initial"
                              "data loading for the job manager.")
+    parser.add_argument("--cassandra_gc_grace_seconds", type=int,
+            help="Allows to set the gc_grace_time for api server uuid keyspace "
+                 "in cassandra")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file

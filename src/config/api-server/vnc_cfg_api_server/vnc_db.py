@@ -85,7 +85,7 @@ class VncServerCassandraClient(VncCassandraClient):
                  cassandra_credential, walk, obj_cache_entries,
                  obj_cache_exclude_types, debug_obj_cache_types,
                  log_response_time=None, ssl_enabled=False, ca_certs=None,
-                 pool_size=20):
+                 gc_grace_seconds=None, pool_size=20):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
@@ -98,7 +98,7 @@ class VncServerCassandraClient(VncCassandraClient):
             obj_cache_exclude_types=obj_cache_exclude_types,
             debug_obj_cache_types=debug_obj_cache_types,
             log_response_time=log_response_time, ssl_enabled=ssl_enabled,
-            ca_certs=ca_certs)
+            ca_certs=ca_certs,gc_grace_seconds=gc_grace_seconds)
     # end __init__
 
     def config_log(self, msg, level):
@@ -789,7 +789,8 @@ class VncDbClient(object):
                  db_credential=None, obj_cache_entries=0,
                  obj_cache_exclude_types=None, debug_obj_cache_types=None,
                  db_engine='cassandra', connection=None,
-                 cassandra_use_ssl=False, cassandra_ca_certs=None, **kwargs):
+                 cassandra_use_ssl=False, cassandra_ca_certs=None,
+                 cassandra_gc_grace_seconds=None, **kwargs):
         self._db_engine = db_engine
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
@@ -841,7 +842,8 @@ class VncDbClient(object):
                     db_credential, walk, obj_cache_entries,
                     obj_cache_exclude_types, debug_obj_cache_types,
                     self.log_cassandra_response_time,
-                    ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs)
+                    ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs,
+                    gc_grace_seconds=cassandra_gc_grace_seconds)
 
             self._zk_db.master_election("/api-server-election", db_client_init)
         elif db_engine == 'rdbms':
