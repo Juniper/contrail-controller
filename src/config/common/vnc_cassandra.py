@@ -119,7 +119,7 @@ class VncCassandraClient(object):
             logger, generate_url=None, reset_config=False, credential=None,
             walk=True, obj_cache_entries=0, obj_cache_exclude_types=None,
             log_response_time=None, ssl_enabled=False, ca_certs=None,
-            pool_size=0):
+            gc_grace_seconds=864000,pool_size=0):
         self._reset_config = reset_config
         if db_prefix:
             self._db_prefix = '%s_' % (db_prefix)
@@ -139,6 +139,7 @@ class VncCassandraClient(object):
         self.log_response_time = log_response_time
         self._ssl_enabled = ssl_enabled
         self._ca_certs = ca_certs
+        self._gc_grace_seconds = gc_grace_seconds
 
         # if no generate_url is specified, use a dummy function that always
         # returns an empty string
@@ -605,18 +606,21 @@ class VncCassandraClient(object):
         gc_grace_sec = vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
         for cf_name in cf_dict:
+            gc_grace_time = gc_grace_sec
+            if keyspace_name == self._UUID_KEYSPACE_NAME:
+                gc_grace_time = self._gc_grace_seconds
             create_cf_kwargs = cf_dict[cf_name].get('create_cf_args', {})
             try:
                 self.sys_mgr.create_column_family(
                     keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
+                    gc_grace_seconds=gc_grace_time,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
+                    gc_grace_seconds=gc_grace_time,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
     # end _cassandra_ensure_keyspace
