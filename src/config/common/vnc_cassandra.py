@@ -121,7 +121,7 @@ class VncCassandraClient(object):
                  credential=None, walk=True, obj_cache_entries=0,
                  obj_cache_exclude_types=None, debug_obj_cache_types=None,
                  log_response_time=None, ssl_enabled=False, ca_certs=None,
-                 pool_size=0):
+                 gc_grace_seconds=None, pool_size=0):
         self._reset_config = reset_config
         if db_prefix:
             self._db_prefix = '%s_' % (db_prefix)
@@ -141,6 +141,7 @@ class VncCassandraClient(object):
         self.log_response_time = log_response_time
         self._ssl_enabled = ssl_enabled
         self._ca_certs = ca_certs
+        self._gc_grace_seconds = gc_grace_seconds
 
         # if no generate_url is specified, use a dummy function that always
         # returns an empty string
@@ -189,6 +190,11 @@ class VncCassandraClient(object):
         if walk:
             self.walk()
     # end __init__
+
+    def get_gc_grace_time(self):
+        if self._gc_grace_seconds:
+            return vns_constants.CASSANDRA_UUID_KS_GC_GRACE_SECONDS
+        return vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
     def get_cf(self, cf_name):
         return self._cf_dict.get(cf_name)
@@ -609,21 +615,21 @@ class VncCassandraClient(object):
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
-        gc_grace_sec = vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS
+        gc_grace_time = self.get_gc_grace_time()
 
         for cf_name in cf_dict:
             create_cf_kwargs = cf_dict[cf_name].get('create_cf_args', {})
             try:
                 self.sys_mgr.create_column_family(
                     keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
+                    gc_grace_seconds=gc_grace_time,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
+                    gc_grace_seconds=gc_grace_time,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
     # end _cassandra_ensure_keyspace
