@@ -1,0 +1,20 @@
+---
+- name: get node profile hint for physical routers in the fabric
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - discover_role
+
+  tasks:
+
+    - set_fact:
+        output: "{{output }}"
+
+    - name: Update Job log with role discovery job completed status
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+        message: "Role Discovery succeeded discovering roles for the prouter {{prouter_name}} in the fabric"
