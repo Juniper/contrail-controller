@@ -1,0 +1,7 @@
+---
+# defaults file for topology_discovery_role
+
+output: {
+              "status": "Success",
+              "message": "Topology discovery for device: {{prouter_name}} successful"
+        }
