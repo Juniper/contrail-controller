@@ -1,0 +1,8 @@
+---
+# vars file for discover_role
+
+prouter_fqname: "{{playbook_input.device_fqname}}"
+prouter_name: "{{playbook_input.device_fqname[-1]}}"
+prouter_uuid: "{{playbook_input.device_id}}"
+prouter_vendor_name: "{{playbook_input.vendor}}"
+prouter_product_name: "{{playbook_input.product_name}}"
