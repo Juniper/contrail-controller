@@ -212,7 +212,12 @@ class MxE2Conf(JuniperConf):
                 vmi    = VirtualMachineInterfaceDM.get(vmi_id)
                 if vmi is None:
                     continue
-                li_id = vmi.logical_interface
+                li_list = list(vmi.logical_interfaces)
+                if not li_list:
+                    continue
+                li_id = li_list[0]
+                if not li_id:
+                    continue
                 li    = LogicalInterfaceDM.get(li_id)
                 if li is None:
                     continue
