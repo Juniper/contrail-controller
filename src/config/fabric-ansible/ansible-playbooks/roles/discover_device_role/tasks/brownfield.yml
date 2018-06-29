@@ -1,0 +1,18 @@
+- name: get device info
+  discover_device:
+    fabric_uuid: "{{ fabric_uuid }}"
+    job_ctx: "{{ job_ctx }}"
+    credentials: "{{ credentials }}"
+    subnets: "{{ host_prefix }}"
+    version: "v2c"
+    community: "public"
+    device_family_info: "{{ device_family_info }}"
+    vendor_mapping: "{{ vendor_mapping }}"
+    pool_size: "{{ POOL_SIZE }}"
+    total_retry_timeout: 0
+  register: discovery_results
+
+- name: print marked output
+  debug:
+    msg: "{{DEVICE_DATA_MARKER}}{{discovery_results.device_info}}{{DEVICE_DATA_MARKER}}"
+    verbosity: 0

@@ -1,14 +1,10 @@
 ---
 # tasks file for discover_device_role
 
-    - name: get device info
-      device_info:
-        fabric_uuid: "{{ fabric_uuid }}"
-        job_ctx: "{{ job_ctx }}"
-        credentials: "{{ credentials }}"
-        subnets: "{{ host_prefix }}"
-        version: "v2c"
-        community: "public"
-        device_family_info: "{{ device_family_info }}"
-        vendor_mapping: "{{ vendor_mapping }}"
-        pool_size: "{{ POOL_SIZE }}"
+- name: call brownfield module if no host_list in input
+  import_tasks: brownfield.yml
+  when: host_list is undefined
+
+- name: call greenfield if input has host_list
+  import_tasks: greenfield.yml
+  when: host_list is defined
