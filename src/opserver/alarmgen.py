@@ -1916,9 +1916,6 @@ class Controller(object):
             for k,v in output.iteritems():
                 if isinstance(v,dict):
                     uveq_trace.uves.append(str((k,v.keys())))
-                    for ut in v:
-                        if isinstance(v[ut],dict):
-                            v[ut]["__T"] = uts
                 else:
                     uveq_trace.uves.append(str((k,None)))
             uveq_trace.part = part
