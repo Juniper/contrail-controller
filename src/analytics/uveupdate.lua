@@ -11,6 +11,7 @@ local val = ARGV[9]
 local db = tonumber(ARGV[10])
 local part = ARGV[11]
 local is_alarm = tonumber(ARGV[12])
+local ts_string = ARGV[13]
 
 local _types = KEYS[1]
 local _origins = KEYS[2]
@@ -36,6 +37,9 @@ redis.call('sadd',_origins,sm..":"..typ)
 redis.call('sadd',_table,key..':'..sm..":"..typ)
 redis.call('zadd',_uves,seq,key)
 redis.call('hset',_values,attr,val)
+if typ ~= "UVEAlarms" then
+    redis.call('hset',_values,'__T',ts_string)
+end
 
 redis.log(redis.LOG_DEBUG,"UVEUpdate for "..sm.." key "..key.." done")
 
