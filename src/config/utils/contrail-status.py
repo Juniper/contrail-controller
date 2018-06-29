@@ -354,6 +354,8 @@ def check_svc(svc, initd_svc=False, check_return_code=False,
             status = get_svc_uve_info(svc, status, options.debug,
                 options.detail, options.timeout, options.keyfile,
                 options.certfile, options.cacert)
+        if "confluent-kafka" in psvc:
+            psvc = "kafka:"
         print '{0:<30}{1:<20}{2}'.format(psvc, status, bootstatus)
     else:
         if svc in SHOW_IF_DISABLED and SHOW_IF_DISABLED[svc] == False:
@@ -362,6 +364,8 @@ def check_svc(svc, initd_svc=False, check_return_code=False,
             bootstatus = ' (disabled on boot)'
             status='inactive'
         if show == True:
+            if "confluent-kafka" in psvc:
+                psvc = "kafka:"
             print '%-30s%s%s' %(psvc, status, bootstatus)
 
 def get_http_server_port_from_cmdline_options(svc_name, debug):
