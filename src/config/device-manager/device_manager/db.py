@@ -1018,7 +1018,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.virtual_network = None
         self.floating_ip = None
         self.instance_ip = None
-        self.logical_interface = None
+        self.logical_interfaces = set()
         self.physical_interface = None
         self.service_interface_type = None
         self.port_tuple = None
@@ -1038,8 +1038,9 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             self.params = obj['virtual_machine_interface_properties']
             self.service_interface_type = self.params.get(
                 'service_interface_type', None)
+        self.bindings = obj.get('virtual_machine_interface_bindings') or {}
         self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
-        self.update_single_ref('logical_interface', obj)
+        self.update_multiple_refs('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
         self.update_single_ref('instance_ip', obj)
@@ -1056,7 +1057,13 @@ class VirtualMachineInterfaceDM(DBBaseDM):
     # end update
 
     def is_device_owner_bms(self):
-        if self.logical_interface and self.device_owner.lower() in ['physicalrouter', 'physical-router']:
+        if self.logical_interfaces and len(self.logical_interfaces) >= 1 and \
+                 self.device_owner.lower() in ['physicalrouter', 'physical-router']:
+            return True
+        kvps = self.bindings.get('key_value_pair') or []
+        kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+        vnic_type = kvp_dict.get('vnic_type') or ''
+        if vnic_type == 'baremetal':
             return True
         return False
     # end
@@ -1066,7 +1073,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        obj.update_single_ref('logical_interface', {})
+        obj.update_multiple_refs('logical_interface', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_single_ref('floating_ip', {})
         obj.update_single_ref('instance_ip', {})
