@@ -49,10 +49,6 @@ class AnsibleConf(AnsibleBase):
         super(AnsibleConf, self).plugin_init()
     # end plugin_init
 
-    def initialize(self):
-        super(AnsibleConf, self).initialize()
-    # end initialize
-
     @abc.abstractmethod
     def underlay_config(self):
         # abstract method
@@ -97,6 +93,9 @@ class AnsibleConf(AnsibleBase):
     # end is_connected
 
     def initialize(self):
+        super(AnsibleConf, self).initialize()
+        self.system_config = None
+        self.bgp_configs = None
         self.ri_config = None
         self.routing_instances = {}
         self.interfaces_config = None
@@ -109,12 +108,23 @@ class AnsibleConf(AnsibleBase):
         self.global_routing_options_config = None
         self.global_switch_options_config = None
         self.vlans_config = None
-        self.proto_config = None
         self.route_targets = set()
         self.bgp_peers = {}
         self.chassis_config = None
         self.external_peers = {}
+        self.init_system_config()
     # ene initialize
+
+    def init_system_config(self):
+        self.system_config = System()
+        self.system_config.set_name(self.physical_router.name)
+        self.system_config.set_uuid(self.physical_router.uuid)
+        self.system_config.set_vendor_name(self.physical_router.vendor)
+        self.system_config.set_product_name(self.physical_router.product)
+        self.system_config.set_management_ip(self.management_ip)
+        self.system_config.set_credentials(Credentials(authentication_method="PasswordBasedAuthentication", \
+                                           user_name=self.user_creds['username'], password=self.user_creds['password']))
+    # end init_system_config
 
     def device_send(self, conf, default_operation="merge",
                      operation="replace"):
@@ -126,6 +136,7 @@ class AnsibleConf(AnsibleBase):
             self._logger.info("\nplaybook send message: %s\n" % config_str)
             config_size = len(config_str)
             #do op
+            # invoke JOB HANDLER Function
             #TODO
             self.commit_stats['total_commits_sent_since_up'] += 1
             start_time = time.time()
@@ -224,49 +235,39 @@ class AnsibleConf(AnsibleBase):
         pass
     # end add_product_specific_config
 
-    def prepare_groups(self, is_delete=False):
-        groups = Groups()
+    def prepare_device(self, is_delete=False):
+        device = Device()
         if is_delete:
-            return groups
-        groups.set_comment(DMUtils.groups_comment())
-        groups.set_routing_instances(self.ri_config)
-        groups.set_interfaces(self.interfaces_config)
-        groups.set_services(self.services_config)
-        groups.set_policy_options(self.policy_config)
-        groups.set_firewall(self.firewall_config)
-        groups.set_forwarding_options(self.forwarding_options_config)
-        groups.set_routing_options(self.global_routing_options_config)
-        groups.set_protocols(self.proto_config)
-        self.add_product_specific_config(groups)
-        return groups
-    # end prepare_groups
+            return device
+        device.set_comment(DMUtils.groups_comment())
+        device.set_system(self.system_config)
+        device.set_bgp(self.bgp_configs)
+        device.set_routing_instances(self.ri_config)
+        device.set_interfaces(self.interfaces_config)
+        device.set_vlans(self.vlans_config)
+        device.set_polices(self.policy_config)
+        device.set_firewalls(self.firewall_config)
+        return device
+    # end prepare_device
 
-    def build_conf(self, groups, operation='replace'):
-        groups.set_name("__contrail__")
-        configuraion = Configuration(groups=groups)
-        groups.set_operation(operation)
-        apply_groups = ApplyGroups(name="__contrail__")
-        configuraion.set_apply_groups(apply_groups)
-        if operation == "delete":
-            apply_groups.set_operation(operation)
-        conf = config(configuration=configuraion)
-        return conf
+    def build_conf(self, device, operation='replace'):
+        return device
     # end build_conf
 
     def serialize(self, config):
+        # TBD: get json data instead of xml data
         xml_data = StringIO()
         config.export_xml(xml_data, 1)
-        xml_str = xml_data.getvalue()
-        return xml_str.replace("comment>", "junos:comment>", -1)
+        return xml_data.getvalue()
     # end serialize
 
     def prepare_conf(self, default_operation="merge", operation="replace"):
-        groups = self.prepare_groups(is_delete = True if operation is 'delete' else False)
-        return self.build_conf(groups, operation)
+        device = self.prepare_device(is_delete = True if operation is 'delete' else False)
+        return self.build_conf(device, operation)
     # end prepare_conf
 
     def has_conf(self):
-        if not self.proto_config or not self.proto_config.get_bgp():
+        if not self.system_config or not self.bgp_configs:
             return False
         return True
     # end has_conf
@@ -285,45 +286,29 @@ class AnsibleConf(AnsibleBase):
             return
         if not self.interfaces_config:
             self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
-        lo_intf = Interface(name="lo0")
+        lo_intf = PhysicalInterface(name="lo0", interface_type="loopback")
         self.interfaces_config.add_interface(lo_intf)
-        fam_inet = FamilyInet(address=[Address(name=loopback_ip + "/32",
-                                                   primary='', preferred='')])
-        intf_unit = Unit(name="0", family=Family(inet=fam_inet),
-                             comment=DMUtils.lo0_unit_0_comment())
-        lo_intf.add_unit(intf_unit)
+        li = LogicalInterface(name="lo0", unit=0, comment=DMUtils.lo0_unit_0_comment(), family="inet")
+        li.add_ip_list(IpType(address=loopback_ip))
+        lo_intf.add_interfaces(li)
     # end add_lo0_unit_0_interface
 
     def add_dynamic_tunnels(self, tunnel_source_ip,
                              ip_fabric_nets, bgp_router_ips):
+        if not self.system_config:
+            self.system_config = System()
+        self.system_config.set_tunnel_ip(tunnel_source_ip)
         dynamic_tunnel = DynamicTunnel(name=DMUtils.dynamic_tunnel_name(self.get_asn()),
                                        source_address=tunnel_source_ip, gre='')
         if ip_fabric_nets is not None:
             for subnet in ip_fabric_nets.get("subnet", []):
-                dest_net = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len'])
-                dynamic_tunnel.add_destination_networks(
-                    DestinationNetworks(name=dest_net,
-                                        comment=DMUtils.ip_fabric_subnet_comment()))
+                dest_net = Subnet(prefix=subnet['ip_prefix'], prefix_len=subnet['ip_prefix_len'])
+                self.system_config.add_tunnel_destination_networks(dest_net)
 
         for r_name, bgp_router_ip in bgp_router_ips.items():
-            dynamic_tunnel.add_destination_networks(
-                DestinationNetworks(name=bgp_router_ip + '/32',
-                                    comment=DMUtils.bgp_router_subnet_comment(r_name)))
-
-        dynamic_tunnels = DynamicTunnels()
-        dynamic_tunnels.add_dynamic_tunnel(dynamic_tunnel)
-        if self.global_routing_options_config is None:
-            self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
-        self.global_routing_options_config.set_dynamic_tunnels(dynamic_tunnels)
+            dest_net = Subnet(prefix=bgp_router_ip, prefix_len=32)
+            self.system_config.add_tunnel_destination_networks(dest_net)
     # end add_dynamic_tunnels
-
-    def set_global_routing_options(self, bgp_params):
-        router_id = bgp_params.get('identifier') or bgp_params.get('address')
-        if router_id:
-            if not self.global_routing_options_config:
-                self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
-            self.global_routing_options_config.set_router_id(router_id)
-    # end set_global_routing_options
 
     def is_family_configured(self, params, family_name):
         if params is None or params.get('address_families') is None:
@@ -340,19 +325,8 @@ class AnsibleConf(AnsibleBase):
         families = params['address_families'].get('family', [])
         if not families:
             return
-        family_etree = Family()
-        parent.set_family(family_etree)
         for family in families:
-            fam = family.replace('-', '_')
-            if family in ['e-vpn', 'e_vpn']:
-                fam = 'evpn'
-            if family in self._FAMILY_MAP:
-                getattr(family_etree, "set_" + fam)(self._FAMILY_MAP[family])
-            else:
-                try:
-                    getattr(family_etree, "set_" + fam)('')
-                except AttributeError:
-                    self._logger.info("DM does not support address family: %s" % fam)
+            parent.add_families(family)
     # end add_families
 
     def add_ibgp_export_policy(self, params, bgp_group):
@@ -362,9 +336,9 @@ class AnsibleConf(AnsibleBase):
         if not families:
             return
         if self.policy_config is None:
-            self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
-        ps = PolicyStatement(name=DMUtils.make_ibgp_export_policy_name())
-        self.policy_config.add_policy_statement(ps)
+            self.policy_config = Policy(comment=DMUtils.policy_options_comment())
+        ps = PolicyRule(name=DMUtils.make_ibgp_export_policy_name())
+        self.policy_config.add_policy_rule(ps)
         ps.set_comment(DMUtils.ibgp_export_policy_comment())
         vpn_types = []
         for family in ['inet-vpn', 'inet6-vpn']:
@@ -379,8 +353,7 @@ class AnsibleConf(AnsibleBase):
             term.set_from(from_)
             term.set_then(then)
             from_.set_family(DMUtils.get_inet_family_name(is_v6))
-            then.set_next_hop(NextHop(selfxx=''))
-        bgp_group.set_export(DMUtils.make_ibgp_export_policy_name())
+        bgp_group.set_export_policy(DMUtils.make_ibgp_export_policy_name())
     # end add_ibgp_export_policy
 
     def add_bgp_auth_config(self, bgp_config, bgp_params):
@@ -405,21 +378,21 @@ class AnsibleConf(AnsibleBase):
     def _get_bgp_config_xml(self, external=False):
         if self.bgp_params is None or not self.bgp_params.get('address'):
             return None
-        bgp_group = BgpGroup()
-        bgp_group.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
+        bgp = Bgp()
+        bgp.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
         if external:
-            bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), True))
-            bgp_group.set_type('external')
-            bgp_group.set_multihop('')
+            bgp.set_name(DMUtils.make_bgp_group_name(self.get_asn(), True))
+            bgp.set_type('external')
         else:
-            bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
-            bgp_group.set_type('internal')
-            self.add_ibgp_export_policy(self.bgp_params, bgp_group)
-        bgp_group.set_local_address(self.bgp_params['address'])
-        self.add_families(bgp_group, self.bgp_params)
-        self.add_bgp_auth_config(bgp_group, self.bgp_params)
-        self.add_bgp_hold_time_config(bgp_group, self.bgp_params)
-        return bgp_group
+            bgp.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
+            bgp.set_type('internal')
+            self.add_ibgp_export_policy(self.bgp_params, bgp)
+        bgp.set_ip_address(self.bgp_params['address'])
+        bgp.set_autonomous_system(self.get_asn())
+        self.add_families(bgp, self.bgp_params)
+        self.add_bgp_auth_config(bgp, self.bgp_params)
+        self.add_bgp_hold_time_config(bgp, self.bgp_params)
+        return bgp
     # end _get_bgp_config_xml
 
     def add_bgp_peer(self, router, params, attr, external, peer):
@@ -438,9 +411,9 @@ class AnsibleConf(AnsibleBase):
             obj = peer_data.get('obj')
             params = peer_data.get('params', {})
             attr = peer_data.get('attr', {})
-            nbr = BgpGroup(name=peer)
+            nbr = Bgp(name=peer)
             nbr.set_comment(DMUtils.bgp_group_comment(obj))
-            bgp_config.add_neighbor(nbr)
+            bgp_config.add_peers(nbr)
             bgp_sessions = attr.get('session')
             if bgp_sessions:
                 # for now assume only one session
@@ -453,35 +426,22 @@ class AnsibleConf(AnsibleBase):
                         self.add_bgp_auth_config(nbr, session_attr)
                         break
             peer_as = params.get('local_autonomous_system') or params.get('autonomous_system')
-            nbr.set_peer_as(peer_as)
+            nbr.set_autonomous_system(peer_as)
     # end _get_neighbor_config_xml
 
     def get_asn(self):
         return self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
     # end get_asn
 
-    def set_as_config(self):
-        if not self.bgp_params.get("identifier"):
-            return
-        if self.global_routing_options_config is None:
-            self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
-        self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])
-        self.global_routing_options_config.set_autonomous_system(str(self.get_asn()))
-    # end set_as_config
-
     def set_bgp_group_config(self):
         bgp_config = self._get_bgp_config_xml()
         if not bgp_config:
             return
-        if not self.proto_config:
-            self.proto_config = Protocols(comment=DMUtils.protocols_comment())
-        bgp = Bgp()
-        self.proto_config.set_bgp(bgp)
-        bgp.add_group(bgp_config)
+        self.bgp_configs.append(bgp_config)
         self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
         if self.external_peers:
             ext_grp_config = self._get_bgp_config_xml(True)
-            bgp.add_group(ext_grp_config)
+            self.bgp_configs.append(ext_grp_config)
             self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
         return
     # end set_bgp_group_config
@@ -503,7 +463,6 @@ class AnsibleConf(AnsibleBase):
                 self.add_bgp_peer(peer.params['address'],
                                                  peer.params, attr, external, peer)
             self.set_bgp_config(bgp_router.params, bgp_router)
-            self.set_global_routing_options(bgp_router.params)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
             tunnel_ip = self.physical_router.dataplane_ip
             if not tunnel_ip and bgp_router.params:
@@ -516,7 +475,6 @@ class AnsibleConf(AnsibleBase):
 
         if self.physical_router.loopback_ip:
             self.add_lo0_unit_0_interface(self.physical_router.loopback_ip)
-        self.set_as_config()
         self.set_bgp_group_config()
     # end build_bgp_config
 
