@@ -9,6 +9,7 @@ import sys
 import os
 import logging
 import json
+import time
 
 sys.path.append('../common/tests')
 import test_case
@@ -16,54 +17,6 @@ import shutil
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-
-# Positive test case - using the actual json & schema files
-# Tags and Job templates should be created
-class TestInitData1(test_case.ApiServerTestCase):
-    @classmethod
-    def setUpClass(cls, *args, **kwargs):
-        cls.console_handler = logging.StreamHandler()
-        cls.console_handler.setLevel(logging.DEBUG)
-        logger.addHandler(cls.console_handler)
-        super(TestInitData1, cls).setUpClass(
-            extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
-                                 "../fabric-ansible/ansible-playbooks/")])
-
-    # end setUpClass
-
-    @classmethod
-    def tearDownClass(cls, *args, **kwargs):
-        logger.removeHandler(cls.console_handler)
-        super(TestInitData1, cls).tearDownClass(*args, **kwargs)
-
-    # end tearDownClass
-
-    def test_load_init_data1(self):
-        expected_jb_count = 0
-        expected_tag_count = 0
-        exepected_object_type_count = 0
-
-        # read the conf file to get the actual count
-        with open("../fabric-ansible/ansible-playbooks/conf/predef_payloads.json", "r") as f:
-            json_data = json.load(f)
-
-        if json_data:
-            data = json_data.get("data")
-            exepected_object_type_count = len(data)
-            for d in data:
-                if d.get("object_type") == 'job_template':
-                    expected_jb_count = len(d.get("objects"))
-                if d.get("object_type") == 'tag':
-                    expected_tag_count = len(d.get("objects"))
-
-        self.assertEqual(exepected_object_type_count, 3)
-        jb_list = self._vnc_lib.job_templates_list()
-        self.assertTrue(jb_list)
-        self.assertEqual(len(jb_list.get('job-templates')), expected_jb_count)
-        tags = self._vnc_lib.tags_list()
-        self.assertTrue(tags)
-        self.assertEqual(len(tags.get('tags')), expected_tag_count)
 
 
 # Testing when schema file is empty for the job template, tags and
@@ -119,6 +72,14 @@ class TestInitData2(test_case.ApiServerTestCase):
     # end tearDownClass
 
     def test_load_init_data_2(self):
+        ipam_fq_name = ['default-domain', 'default-project',
+                        'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        while (True):
+            if (ipam_obj.get_perms2().global_access != 5):
+                time.sleep(10)
+            else:
+                break
         jb_list = self._vnc_lib.job_templates_list()
         self.assertTrue(len(jb_list.get('job-templates')) > 0)
         tags = self._vnc_lib.tags_list()
@@ -175,6 +136,14 @@ class TestInitDataError1(test_case.ApiServerTestCase):
     # end tearDownClass
 
     def test_load_init_data_01(self):
+        ipam_fq_name = ['default-domain', 'default-project',
+                        'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        while (True):
+            if (ipam_obj.get_perms2().global_access != 5):
+                time.sleep(10)
+            else:
+                break
         jb_list = self._vnc_lib.job_templates_list()
         self.assertEquals(len(jb_list.get('job-templates')), 0)
         tags = self._vnc_lib.tags_list()
@@ -229,6 +198,14 @@ class TestInitDataError2(test_case.ApiServerTestCase):
     # end tearDownClass
 
     def test_load_init_data_02(self):
+        ipam_fq_name = ['default-domain', 'default-project',
+                        'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        while (True):
+            if (ipam_obj.get_perms2().global_access != 5):
+                time.sleep(10)
+            else:
+                break
         jb_list = self._vnc_lib.job_templates_list()
         self.assertEquals(len(jb_list.get('job-templates')), 0)
         tags = self._vnc_lib.tags_list()
@@ -280,11 +257,18 @@ class TestInitDataError3(test_case.ApiServerTestCase):
         # end tearDownClass
 
     def test_load_init_data_03(self):
+        ipam_fq_name = ['default-domain', 'default-project',
+                        'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        while (True):
+            if (ipam_obj.get_perms2().global_access != 5):
+                time.sleep(10)
+            else:
+                break
         jb_list = self._vnc_lib.job_templates_list()
         self.assertEquals(len(jb_list.get('job-templates')), 0)
         tags = self._vnc_lib.tags_list()
         self.assertEquals(len(tags.get('tags')), 0)
-
 
 # Testing when json is invalid
 class TestInitDataError4(test_case.ApiServerTestCase):
@@ -314,11 +298,18 @@ class TestInitDataError4(test_case.ApiServerTestCase):
     # end tearDownClass
 
     def test_load_init_data_04(self):
+        ipam_fq_name = ['default-domain', 'default-project',
+                        'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        while (True):
+            if (ipam_obj.get_perms2().global_access != 5):
+                time.sleep(10)
+            else:
+                break
         jb_list = self._vnc_lib.job_templates_list()
         self.assertEquals(len(jb_list.get('job-templates')), 0)
         tags = self._vnc_lib.tags_list()
         self.assertEquals(len(tags.get('tags')), 0)
-
 
 # Testing when tag type is unknown
 class TestInitDataError5(test_case.ApiServerTestCase):
@@ -367,8 +358,15 @@ class TestInitDataError5(test_case.ApiServerTestCase):
     # end tearDownClass
 
     def test_load_init_data_05(self):
+        ipam_fq_name = ['default-domain', 'default-project',
+                        'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        while(True):
+            if (ipam_obj.get_perms2().global_access != 5):
+                time.sleep(10)
+            else:
+                break
         jb_list = self._vnc_lib.job_templates_list()
         self.assertEquals(len(jb_list.get('job-templates')), 0)
         tags = self._vnc_lib.tags_list()
         self.assertEquals(len(tags.get('tags')), 0)
-
