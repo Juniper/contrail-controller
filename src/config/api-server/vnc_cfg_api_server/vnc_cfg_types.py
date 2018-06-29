@@ -1463,6 +1463,61 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return ok, proj_dict
 
     @classmethod
+    def post_dbe_update(cls, uuid, fq_name, obj_dict, db_conn,
+                        prop_collection_updates=None):
+        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        if not ok:
+            return ok, vxlan_routing
+        ok, lr_orig_dict = db_conn.dbe_read('logical_router', obj_dict['uuid'],
+                                    obj_fields=['virtual_network_refs'])
+        if not ok:
+            return ok, lr_orig_dict
+        if obj_dict.get('configured_route_target_list') is None:
+            return True, ''
+        if vxlan_routing == True:
+            vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
+            vn_id = None
+            for vn_ref in lr_orig_dict['virtual_network_refs']:
+                if vn_ref.get('attr',
+                   {}).get(
+                   'logical_router_virtual_network_type') == 'InternalVirtualNetwork':
+                    vn_id = vn_ref.get('uuid')
+                    break
+            if vn_id is None:
+                return True, ''
+            ok, vn_dict = db_conn.dbe_read('virtual_network', vn_id,
+                                            obj_fields=['route_target_list',
+                                                        'fq_name',
+                                                        'uuid',
+                                                        'parent_uuid'])
+            if not ok:
+                return ok, vn_dict
+            vn_rt_dict_list = vn_dict.get('route_target_list')
+            vn_rt_list = []
+            if vn_rt_dict_list:
+                vn_rt_list = vn_rt_dict_list.get('route_target', [])
+            lr_rt_list_obj = obj_dict.get('configured_route_target_list')
+            lr_rt_list = []
+            if lr_rt_list_obj:
+                lr_rt_list = lr_rt_list_obj.get('route_target', [])
+            if set(vn_rt_list) != set(lr_rt_list):
+                ok, proj_dict = db_conn.dbe_read('project', vn_dict['parent_uuid'])
+                if not ok:
+                    return (ok, proj_dict)
+                proj_obj = Project(name=vn_dict.get('fq_name')[-2],
+                               parent_type='domain',
+                               fq_name=proj_dict.get('fq_name'))
+
+                vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
+                vn_obj.set_route_target_list(lr_rt_list_obj)
+                vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
+                status, obj = cls.server.internal_request_update('virtual-network',
+                                                            vn_dict['uuid'],
+                                                            json.loads(vn_int_dict))
+        return True, ''
+
+
+    @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
         if not ok:
@@ -1490,6 +1545,11 @@ class LogicalRouterServer(Resource, LogicalRouter):
                 vni_id = obj_dict['vxlan_network_identifier']
                 int_vn_property.set_vxlan_network_identifier(vni_id)
             vn_obj.set_virtual_network_properties(int_vn_property)
+
+            rt_list = obj_dict.get('configured_route_target_list',
+                                   {}).get('route_target')
+            if rt_list:
+                vn_obj.set_route_target_list(RouteTargetList(rt_list))
 
             vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
             api_server = db_conn.get_api_server()
