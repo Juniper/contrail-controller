@@ -4265,15 +4265,22 @@ class LogicalRouterST(DBBaseST):
         if not (rt_add or rt_add_import or rt_add_export or rt_del):
             return
 
-        for vn in self.virtual_networks:
-            # do not add RT assigned to LR to the VN
-            # when vxlan_routing is enabled
-            if self.vxlan_routing:
-                continue
+        if self.vxlan_routing:
+            vn = ':'.join((self.obj.fq_name[:-1] +
+                             [common.get_lr_internal_vn_name(self.obj.uuid)]))
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
                 ri_obj.update_route_target_list(rt_add=rt_add,
+                                            rt_add_import=rt_add_import,
+                                            rt_add_export=rt_add_export,
+                                            rt_del=rt_del)
+        else:
+            for vn in self.virtual_networks:
+                vn_obj = VirtualNetworkST.get(vn)
+                if vn_obj is not None:
+                    ri_obj = vn_obj.get_primary_routing_instance()
+                    ri_obj.update_route_target_list(rt_add=rt_add,
                                                 rt_add_import=rt_add_import,
                                                 rt_add_export=rt_add_export,
                                                 rt_del=rt_del)

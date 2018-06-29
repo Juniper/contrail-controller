@@ -132,6 +132,38 @@ class VerifyBgp(VerifyRouteTarget):
                 gateway)
 
 class TestBgp(STTestCase, VerifyBgp):
+
+    def get_lr_internal_vn_name(self, uuid):
+        return '__contrail_lr_internal_vn_' + uuid + '__'
+
+    def test_vn_internal_lr(self):
+        proj_obj = self._vnc_lib.project_read(
+                fq_name=['default-domain', 'default-project'])
+        proj_obj.set_vxlan_routing(True)
+        self._vnc_lib.project_update(proj_obj)
+        lr_name = self.id() + '_logicarouter'
+        lr = LogicalRouter(lr_name)
+        rtgt_list = RouteTargetList(route_target=['target:3:1'])
+        lr.set_configured_route_target_list(rtgt_list)
+        self._vnc_lib.logical_router_create(lr)
+        lr_read = self._vnc_lib.logical_router_read(fq_name=lr.get_fq_name())
+        lr_target = self.check_lr_target(lr_read.get_fq_name())
+        ivn_name = self.get_lr_internal_vn_name(lr_read.uuid)
+        lr_ivn_read = self._vnc_lib.virtual_network_read(
+                                   fq_name=proj_obj.get_fq_name()+[ivn_name])
+        ri_name = self.get_ri_name(lr_ivn_read)
+        self.check_route_target_in_routing_instance(
+                                        ri_name,rtgt_list.get_route_target())
+        # change RT and see it is getting updated
+        rtgt_list.delete_route_target('target:3:1')
+        rtgt_list.add_route_target('target:4:1')
+        lr.set_configured_route_target_list(rtgt_list)
+        self._vnc_lib.logical_router_update(lr)
+
+        self.check_route_target_in_routing_instance(
+                                        ri_name,rtgt_list.get_route_target())
+    # end test_vn_internal_lr
+
     def test_vxlan_routing(self):
         proj_obj = self._vnc_lib.project_read(
                 fq_name=['default-domain', 'default-project'])
