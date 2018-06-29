@@ -335,6 +335,13 @@ class UVEServer(object):
                             "Found Dup %s:%s:%s:%s:%s = %s" % \
                                 (key, typ, attr, source, mdule, state[
                                 key][typ][attr][dsource]))
+                        # To timestamp, we only keep latest source
+                        if attr == '__T' and flat:
+                            if len(state[key][typ][attr]) > 0:
+                                if state[key][typ][attr].values()[0] > snhdict[attr]:
+                                    continue
+                                else:
+                                    state[key][typ][attr].clear()
                         state[key][typ][attr][dsource] = snhdict[attr]
 
                 pa = ParallelAggregator(state, self._uve_reverse_map)

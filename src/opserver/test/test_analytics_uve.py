@@ -1876,6 +1876,23 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 assert(vizd_obj.verify_get_alarms(vn_table,
                     filts=filters, exp_uves=filt_test[i]['get_alarms']))
     # end test_08_uve_alarm_filter
+    #@unittest.skip('Skipping UVE timestamp test')
+    def test_09_uve_timestamp(self):
+        '''
+        This test verifies uve timestamp.
+        '''
+        logging.info('%%% test_07_uve_timestamp %%%')
+
+        if AnalyticsUveTest._check_skip_kafka() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, 0,
+                collector_ha_test=True, start_kafka = True))
+        assert vizd_obj.verify_on_setup()
+        table = 'analytics-node/' + socket.gethostname()
+        assert(vizd_obj.verify_uve_timestamp(table, 'NodeStatus'))
+    # end test_09_uve_timestamp
 
     #
     #               disk                compaction
