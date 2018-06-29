@@ -263,9 +263,6 @@ void ArpPathPreferenceState::SendArpRequestForAllIntf(const
             if (path->subnet_service_ip().is_v4() == false) {
                 continue;
             }
-            if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
-                gw_ip_ = path->subnet_service_ip();
-            }
             if (path->path_preference().IsDependentRt() == true) {
                 continue;
             }
@@ -449,7 +446,7 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
                 arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
                         route->addr().to_v4().to_ulong(), intf->vrf(), intf);
             }
-       }
+        }
     }
 
     //Check if there is a local VM path, if yes send a

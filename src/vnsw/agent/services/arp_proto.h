@@ -257,7 +257,6 @@ public:
     }
 
     const IpAddress& ip() const { return vm_ip_; }
-    const IpAddress& gw_ip() const { return gw_ip_; }
     uint8_t plen() const { return plen_; }
     uint32_t vrf_id() const { return vrf_id_; }
     void HandleArpReply(Ip4Address sip, uint32_t itf);
@@ -302,7 +301,6 @@ private:
     uint32_t vrf_id_;
     IpAddress vm_ip_;
     uint8_t plen_;
-    IpAddress gw_ip_;
     WaitForTrafficIntfMap l3_wait_for_traffic_map_;
     WaitForTrafficIntfMap evpn_wait_for_traffic_map_;
     tbb::atomic<int> refcount_;
