@@ -379,14 +379,16 @@ void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
 void ArpHandler::SendArpRequestByPlen(const VmInterface *vm_interface, const MacAddress &smac,
                                       const ArpPathPreferenceState *data,
                                       const Ip4Address &tpa) {
+    Ip4Address service_ip = vm_interface->GetServiceIp(data->ip()).to_v4();
+
     if (data->plen() == Address::kMaxV4PrefixLen) {
-        SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
+        SendArp(ARPOP_REQUEST, smac, service_ip.to_ulong(),
                 MacAddress(), vm_interface->vm_mac(),
                 data->ip().to_v4().to_ulong(), vm_interface->id(), data->vrf_id());
         agent()->GetArpProto()->IncrementStatsVmArpReq();
     } else {
         if (!tpa.is_unspecified()) {
-            SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
+            SendArp(ARPOP_REQUEST, smac, service_ip.to_ulong(),
                     MacAddress(), vm_interface->vm_mac(), tpa.to_ulong(),
                     vm_interface->id(), data->vrf_id());
             agent()->GetArpProto()->IncrementStatsVmArpReq();
@@ -414,7 +416,7 @@ void ArpHandler::SendArpRequestByPlen(const VmInterface *vm_interface, const Mac
         uint32_t base_addr = data->ip().to_v4().to_ulong();
         for (uint32_t i = 1; i < num_addresses; ++i) {
             uint32_t addr = base_addr + i;
-            SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
+            SendArp(ARPOP_REQUEST, smac, service_ip.to_ulong(),
                     MacAddress(), vm_interface->vm_mac(), addr,
                     vm_interface->id(),
                     data->vrf_id());
