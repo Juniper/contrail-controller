@@ -1865,6 +1865,44 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                     filts=filters, exp_uves=filt_test[i]['get_alarms']))
     # end test_08_uve_alarm_filter
 
+    #@unittest.skip('Skipping UVE timestamp test')
+    def test_09_uve_timestamp(self):
+        '''
+        This test verifies uve timestamp.
+        '''
+        logging.info('%%% test_07_uve_timestamp %%%')
+
+        if AnalyticsUveTest._check_skip_kafka() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, 0,
+                collector_ha_test=True, start_kafka = True))
+        assert vizd_obj.verify_on_setup()
+        collectors = [vizd_obj.collectors[0].get_addr(),
+                      vizd_obj.collectors[1].get_addr()]
+        vr_agent_1_name = socket.gethostname()+'_1'
+        vr_agent_1 = self.useFixture(
+            GeneratorFixture('contrail-vrouter-agent', [collectors[0]], logging,
+                             None, node_type='Compute',
+                             hostname=vr_agent_1_name))
+        vr_agent_2_name = socket.gethostname()+'_2'
+        vr_agent_2 = self.useFixture(
+            GeneratorFixture('contrail-vrouter-agent', [collectors[1]],
+                             logging, None, node_type='Compute',
+                             hostname=vr_agent_2_name))
+        vr_agent_1.verify_on_setup()
+        vr_agent_2.verify_on_setup()
+
+        vn_list = ['default-domain:project1:vn1']
+        # generate UVEs for the filter test
+        vr_agent_1.send_vn_agent_uve(name=vn_list[0], ipkts=4, ibytes=128)
+        vr_agent_2.send_vn_agent_uve(name=vn_list[0], ipkts=8, ibytes=256)
+
+        table = 'virtual-network/' + vn_list[0]
+        assert(vizd_obj.verify_uve_timestamp(table, 'UveVirtualNetworkAgent'))
+    # end test_09_uve_timestamp
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
