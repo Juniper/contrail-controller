@@ -87,12 +87,24 @@ std::string Session::toString() const {
 }
 
 void Session::ScheduleSendTimer() {
+    int elapsed_time_ms;
+    int remaining_time_ms;
     TimeInterval ti = tx_interval();
     LOG(DEBUG, __func__ << " " << ti);
 
+    // get the elapsed time
+    elapsed_time_ms = sendTimer_->GetElapsedTime();
     sendTimer_->Cancel();
-    sendTimer_->Start(ti.total_milliseconds(),
-                      boost::bind(&Session::SendTimerExpired, this));
+
+    remaining_time_ms = ti.total_milliseconds() - elapsed_time_ms;
+    if (remaining_time_ms > 0) {
+        sendTimer_->Start(remaining_time_ms,
+                boost::bind(&Session::SendTimerExpired, this));
+    } else {
+        // fire the timer now!
+        sendTimer_->Start(0,
+                boost::bind(&Session::SendTimerExpired, this));
+    }
 }
 
 void Session::ScheduleRecvDeadlineTimer() {
@@ -223,8 +235,6 @@ TimeInterval Session::tx_interval() {
         maxInterval = negotiatedInterval;
     }
 
-    std::ostringstream out;
-    LOG(DEBUG, "LocalDiscriminator: 0x" << std::hex << localDiscriminator_);
     boost::random::uniform_int_distribution<>
                 dist(minInterval.total_microseconds(),
                 maxInterval.total_microseconds());
