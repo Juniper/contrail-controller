@@ -69,7 +69,8 @@
       set_fact:
         dhcp_output: {
           "status": "Success",
-          "results": "{{cmd_res}}"
+          "results": "{{cmd_res}}",
+          "device_list": "{{cmd_res.device_list}}"
         }
   rescue:
     - set_fact:
