@@ -1892,15 +1892,11 @@ class Controller(object):
             # Examine UVE to check if alarm need to be raised/deleted
             self.examine_uve_for_alarms(part, uv, local_uve)
         if success:
-            uts = UTCTimestampUsec()
             uveq_trace = UVEQTrace()
             uveq_trace.uves = []
             for k,v in output.iteritems():
                 if isinstance(v,dict):
                     uveq_trace.uves.append(str((k,v.keys())))
-                    for ut in v:
-                        if isinstance(v[ut],dict):
-                            v[ut]["__T"] = uts
                 else:
                     uveq_trace.uves.append(str((k,None)))
             uveq_trace.part = part
