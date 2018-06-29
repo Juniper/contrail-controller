@@ -15,8 +15,10 @@
 package cniIntf
 
 import (
-	log "../logging"
 	"fmt"
+	"strconv"
+
+	log "../logging"
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/vishvananda/netlink"
@@ -70,8 +72,14 @@ func (intf *MacVlan) ensureVlanIntf() (*netlink.Link, error) {
 	}
 
 	// Create Vlan Interface
-	vlanIntf := &netlink.Vlan{netlink.LinkAttrs{Name: intf.vlanIfName,
-		ParentIndex: parentIntf.Attrs().Index}, intf.vlanId}
+	vlanIntf := &netlink.Vlan{
+		netlink.LinkAttrs{
+			MTU:         intf.mtu,
+			Name:        intf.vlanIfName,
+			ParentIndex: parentIntf.Attrs().Index,
+		},
+		intf.vlanId,
+	}
 	if err := netlink.LinkAdd(vlanIntf); err != nil {
 		log.Errorf("Error creating vlan interface %s vlan-id %d"+
 			"parent-intf %s. Error : %+v", intf.vlanIfName, intf.vlanId,
@@ -86,6 +94,20 @@ func (intf *MacVlan) ensureVlanIntf() (*netlink.Link, error) {
 			intf.vlanIfName, err)
 		return nil, err
 	}
+
+	log.Infof("Created new link -  %+v", vlanLink)
+
+	// Set alias for link to identify and delete, if the given
+	// vlan id is in use.
+	interfaceAlias := INTF_ALIAS + strconv.Itoa(intf.vlanId)
+	err = netlink.LinkSetAlias(vlanLink, interfaceAlias)
+	if err != nil {
+		log.Errorf("Error setting link alias %s. Error %+v",
+			interfaceAlias, err)
+		return nil, err
+	}
+
+	log.Infof("Set alias - %s for the new link -  %+v", interfaceAlias, vlanLink)
 
 	// Bringup oper-state of Vlan Interface
 	err = netlink.LinkSetUp(vlanLink)
@@ -231,6 +253,16 @@ func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
 // Create MacVlan interfaces.
 func (intf MacVlan) Create() error {
 	log.Infof("Creating MacVlan interface %+v", intf)
+
+	// Delete any existing links with same Vlan Id
+	interfaceAlias := "Vlan-" + strconv.Itoa(intf.vlanId)
+	err := intf.DeleteByAlias(interfaceAlias)
+	if err != nil {
+		log.Errorf("Could not delete existing link with alias %s. Error %+v",
+			interfaceAlias, err)
+		return err
+	}
+
 	// Ensure Vlan Interface is created
 	vlanLink, err := intf.ensureVlanIntf()
 	if err != nil {
@@ -268,7 +300,7 @@ func (intf MacVlan) Log() {
 
 // Create MacVlan interface object
 func InitMacVlan(parentIfName, containerIfName, containerId, containerUuid,
-	containerNamespace string, vlanId int) MacVlan {
+	containerNamespace string, mtu, vlanId int) MacVlan {
 
 	intf := MacVlan{
 		CniIntf: CniIntf{
@@ -276,7 +308,7 @@ func InitMacVlan(parentIfName, containerIfName, containerId, containerUuid,
 			containerUuid:      containerUuid,
 			containerIfName:    containerIfName,
 			containerNamespace: containerNamespace,
-			mtu:                CNI_MTU,
+			mtu:                mtu,
 		},
 		ParentIfName:       parentIfName,
 		vlanIfName:         "",
