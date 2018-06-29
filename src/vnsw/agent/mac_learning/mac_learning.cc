@@ -31,7 +31,7 @@ void MacLearningEntry::Delete() {
 
     mac_learning_table_->agent()->fabric_evpn_table()->
         DeleteReq(mac_learning_table_->agent()->mac_learning_peer(),
-                  vrf()->GetName(), mac(), Ip4Address(0), 0, NULL);
+                  vrf()->GetName(), mac(), Ip4Address(0), 32, 0, NULL);
 }
 
 void MacLearningEntry::AddWithToken() {
@@ -119,7 +119,7 @@ bool MacLearningEntryPBB::Add() {
     EvpnAgentRouteTable::AddRemoteVmRouteReq(mac_learning_table_->agent()->
                                              mac_learning_peer(),
                                              vrf()->GetName(),
-                                             mac(), Ip4Address(0), 0, data);
+                                             mac(), Ip4Address(0), 32, 0, data);
     return true;
 }
 

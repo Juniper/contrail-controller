@@ -929,7 +929,9 @@ AgentRoute *FlowEntry::GetEvpnRoute(const VrfEntry *vrf,
                                     uint32_t ethernet_tag) {
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>(
             vrf->GetEvpnRouteTable());
-    return table->FindRouteNoLock(mac, ip, ethernet_tag);
+    return table->FindRouteNoLock(mac, ip,
+                      EvpnAgentRouteTable::ComputeHostIpPlen(ip),
+                      ethernet_tag);
 }
 
 uint32_t FlowEntry::reverse_flow_fip() const {

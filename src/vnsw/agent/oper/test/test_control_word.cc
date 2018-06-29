@@ -144,7 +144,7 @@ TEST_F(TestControlWord, RemoteBridgeRoute) {
     EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
 
     EvpnAgentRouteTable::DeleteReq(bgp_peer_ptr, "vrf1", smac,
-                                   Ip4Address(0), 0, NULL);
+                                   Ip4Address(0), 0, 0, NULL);
     client->WaitForIdle();
     DeleteBgpPeer(bgp_peer_ptr);
     client->WaitForIdle();
