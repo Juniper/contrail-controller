@@ -43,7 +43,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     std::ostringstream seqstr;
     seqstr << seq;
     std::ostringstream tsstr;
-    tsstr << "{\"ts\":" << ts << "}";
+    tsstr << "<__T type=\"string\">" << ts << "</__T>";
     const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
     const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
     string ngen_inst = instance_id;
@@ -66,7 +66,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                 source)(node_type)(module)(instance_id)(type)(attr)(key)
                 (seqstr.str())(msg)(integerToString(REDIS_DB_UVE))
                 (integerToString(part))(integerToString(is_alarm))(
-                ngen_inst));
+                ngen_inst)(tsstr.str()));
     }
     return ret;
 }
