@@ -82,12 +82,12 @@ VmiSubscribeEntry::VmiSubscribeEntry(PortSubscribeEntry::Type type,
                                      const Ip6Address &ip6_addr,
                                      const std::string &mac_addr,
                                      uint16_t tx_vlan_id, uint16_t rx_vlan_id,
-                                     uint8_t vhostuser_mode) :
+                                     uint8_t vhostuser_mode, uint8_t link_state) :
     PortSubscribeEntry(type, ifname, version), vmi_uuid_(vmi_uuid),
     vm_uuid_(vm_uuid), vm_name_(vm_name), vn_uuid_(vn_uuid),
     project_uuid_(project_uuid), ip4_addr_(ip4_addr), ip6_addr_(ip6_addr),
     mac_addr_(mac_addr), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
-    vhostuser_mode_(vhostuser_mode) {
+    vhostuser_mode_(vhostuser_mode), link_state_(link_state) {
 }
 
 VmiSubscribeEntry::~VmiSubscribeEntry() {
@@ -124,8 +124,7 @@ void VmiSubscribeEntry::OnAdd(Agent *agent, PortSubscribeTable *table) const {
     VmInterface::NovaAdd(agent->interface_table(), vmi_uuid_, ifname_,
                          ip4_addr_, mac_addr_, vm_name_, project_uuid_,
                          tx_vlan_id_p, rx_vlan_id_p, port, ip6_addr_,
-                         vhostuser_mode_,
-                         transport);
+                         vhostuser_mode_, transport, link_state_);
 
     // Notify controller module about new port
     if (type_ == PortSubscribeEntry::NAMESPACE)

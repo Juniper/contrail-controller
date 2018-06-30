@@ -29,7 +29,7 @@ static void NovaIntfAdd(int id, const char *name, const char *addr,
                          MakeUuid(kProjectUuid), VmInterface::kInvalidVlanId,
                          VmInterface::kInvalidVlanId, Agent::NullString(),
                          Ip6Address(), VmInterface::vHostUserClient,
-                         Interface::TRANSPORT_ETHERNET);
+                         Interface::TRANSPORT_ETHERNET, 1);
 }
 
 static void NovaDel(int id) {
