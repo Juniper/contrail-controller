@@ -1990,3 +1990,135 @@ class TestFirewallDraftModeProjectScope(TestFirewallBase,
         except RefsExistError as e:
             self.fail("Fail to delete project %s because still have a "
                       "reference: %s" % (project.get_fq_name_str(), str(e)))
+
+
+class TestFirewallDraftModeMixedScopes(TestFirewallBase):
+    def test_commit_created_global_and_project_resource_with_ref(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.enable_security_policy_draft = True
+        self.api.global_system_config_update(gsc)
+        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=global_pm)
+        self.api.firewall_policy_create(global_fp)
+        project = Project('project-%s' % self.id())
+        project.enable_security_policy_draft = True
+        self.api.project_create(project)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=project)
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+        self.api.application_policy_set_create(project_aps)
+
+        self.api.commit_security(project)
+        self.api.commit_security(gsc)
+
+        project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
+        global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
+        self.assertIsNotNone(project_aps.get_firewall_policy_refs())
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['uuid'],
+                         global_fp.uuid)
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['to'],
+                         global_fp.fq_name)
+
+    def test_commit_created_global_and_project_resource_with_ref2(self):
+        # same as test_commit_created_global_and_project_resource_with_ref but
+        # first commit pending security resources on global scope and then on
+        # project
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.enable_security_policy_draft = True
+        self.api.global_system_config_update(gsc)
+        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=global_pm)
+        self.api.firewall_policy_create(global_fp)
+        project = Project('project-%s' % self.id())
+        project.enable_security_policy_draft = True
+        self.api.project_create(project)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=project)
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+        self.api.application_policy_set_create(project_aps)
+
+        self.api.commit_security(gsc)
+        self.api.commit_security(project)
+
+        project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
+        global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
+        self.assertIsNotNone(project_aps.get_firewall_policy_refs())
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['uuid'],
+                         global_fp.uuid)
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['to'],
+                         global_fp.fq_name)
+
+    def test_commit_updated_global_and_project_resource_with_ref(self):
+        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=global_pm)
+        self.api.firewall_policy_create(global_fp)
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=project)
+        self.api.application_policy_set_create(project_aps)
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.enable_security_policy_draft = True
+        self.api.global_system_config_update(gsc)
+        project.enable_security_policy_draft = True
+        self.api.project_update(project)
+        new_name = 'new_name_%s' % global_fp.display_name
+        global_fp.display_name = new_name
+        self.api.firewall_policy_update(global_fp)
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+        self.api.application_policy_set_update(project_aps)
+
+        self.api.commit_security(project)
+        self.api.commit_security(gsc)
+
+        project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
+        global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
+        self.assertIsNotNone(project_aps.get_firewall_policy_refs())
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['uuid'],
+                         global_fp.uuid)
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['to'],
+                         global_fp.fq_name)
+        self.assertEqual(global_fp.display_name, new_name)
+
+    def test_commit_updated_global_and_project_resource_with_ref2(self):
+        # Same as test_commit_updated_global_and_project_resource_with_ref2 but
+        # update project APS ref to global FP before updating global FP
+
+        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=global_pm)
+        self.api.firewall_policy_create(global_fp)
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=project)
+        self.api.application_policy_set_create(project_aps)
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.enable_security_policy_draft = True
+        self.api.global_system_config_update(gsc)
+        project.enable_security_policy_draft = True
+        self.api.project_update(project)
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+        self.api.application_policy_set_update(project_aps)
+        new_name = 'new_name_%s' % global_fp.display_name
+        global_fp.display_name = new_name
+        self.api.firewall_policy_update(global_fp)
+
+        self.api.commit_security(project)
+        self.api.commit_security(gsc)
+
+        project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
+        global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
+        self.assertIsNotNone(project_aps.get_firewall_policy_refs())
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['uuid'],
+                         global_fp.uuid)
+        self.assertEqual(project_aps.get_firewall_policy_refs()[0]['to'],
+                         global_fp.fq_name)
+        self.assertEqual(global_fp.display_name, new_name)
