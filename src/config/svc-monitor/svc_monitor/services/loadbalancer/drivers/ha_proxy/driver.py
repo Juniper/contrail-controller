@@ -405,8 +405,8 @@ class OpencontrailLoadbalancerDriver(
         vip = VirtualIpSM.get(pool.virtual_ip)
         if not vip:
             return port_list
-        if vip.params.get('port', None):
-            port_list.add(vip.params.get('port'))
+        if vip.params.get('protocol_port', None):
+            port_list.add(vip.params.get('protocol_port'))
         return port_list
 
     def get_port_list_v2(self, lb):
