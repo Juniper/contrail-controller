@@ -440,8 +440,10 @@ class OpencontrailLoadbalancerDriver(
             try:
                 vmi_obj = self._api.virtual_machine_interface_read(id=vmi.uuid)
                 ffp = FatFlowProtocols()
+                ''' since contrail flow is based on tcp or udp and
+                haproxy does not support udp, tcp is hardcoded. '''
                 for port in port_list:
-                    ffp.add_fat_flow_protocol(ProtocolType(port=port))
+                    ffp.add_fat_flow_protocol(ProtocolType(port=port, protocol='tcp'))
                 vmi_obj.set_virtual_machine_interface_fat_flow_protocols(ffp)
                 self._api.virtual_machine_interface_update(vmi_obj)
                 vmi.update()
