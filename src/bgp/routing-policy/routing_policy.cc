@@ -326,6 +326,13 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(
         matches.push_back(community);
     }
 
+    if (!cfg_term.match.ext_community_match.empty()) {
+        MatchExtCommunity *ext_community = new MatchExtCommunity(
+            cfg_term.match.ext_community_match,
+            cfg_term.match.ext_community_match_all);
+        matches.push_back(ext_community);
+    }
+
     if (!cfg_term.match.protocols_match.empty()) {
         MatchProtocol *protocol =
          new MatchProtocol(cfg_term.match.protocols_match);
@@ -394,6 +401,24 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(
     if (!cfg_term.action.update.community_add.empty()) {
         UpdateCommunity *add_comm =
             new UpdateCommunity(cfg_term.action.update.community_add, "add");
+        actions.push_back(add_comm);
+    }
+
+    if (!cfg_term.action.update.ext_community_set.empty()) {
+        UpdateExtCommunity *set_comm = new UpdateExtCommunity(
+                cfg_term.action.update.ext_community_set, "set");
+        actions.push_back(set_comm);
+    }
+
+    if (!cfg_term.action.update.ext_community_remove.empty()) {
+        UpdateExtCommunity *remove_comm = new UpdateExtCommunity(
+                cfg_term.action.update.ext_community_remove, "remove");
+        actions.push_back(remove_comm);
+    }
+
+    if (!cfg_term.action.update.ext_community_add.empty()) {
+        UpdateExtCommunity *add_comm = new UpdateExtCommunity(
+                cfg_term.action.update.ext_community_add, "add");
         actions.push_back(add_comm);
     }
 
