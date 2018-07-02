@@ -38,6 +38,9 @@ job_ctx:
 #pool size
 POOL_SIZE: 500
 
+#Device Retry Timeout in Seconds
+TOTAL_RETRY_TIMEOUT: 3600
+
 #vendor mapping
 vendor_mapping:
   - vendor: Juniper
