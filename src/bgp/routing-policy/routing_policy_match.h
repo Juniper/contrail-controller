@@ -74,6 +74,40 @@ private:
     CommunityRegexList to_match_regexs_;
 };
 
+class MatchExtCommunity: public RoutingPolicyMatch {
+public:
+    typedef std::vector<std::string> CommunityRegexStringList;
+    typedef std::vector<contrail::regex> CommunityRegexList;
+
+    MatchExtCommunity(const std::vector<std::string> &communities,
+                      bool match_all);
+    virtual ~MatchExtCommunity();
+    virtual bool Match(const BgpRoute *route,
+                       const BgpPath *path, const BgpAttr *attr) const;
+    virtual std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyMatch &community) const;
+    bool match_all() const { return match_all_; }
+    const ExtCommunity::ExtCommunityList &communities() const {
+        return to_match_;
+    }
+    const CommunityRegexStringList &regex_strings() const {
+        return to_match_regex_strings_;
+    }
+    const CommunityRegexList &regexs() const { return to_match_regexs_; }
+    bool Find(const ExtCommunity::ExtCommunityValue &community) const;
+
+private:
+    bool MatchAll(const BgpAttr *attr) const;
+    bool MatchAny(const BgpAttr *attr) const;
+    const ExtCommunity::ExtCommunityList ExtCommunityFromString(
+                        const std::string &comm);
+
+    bool match_all_;
+    ExtCommunity::ExtCommunityList to_match_;
+    CommunityRegexStringList to_match_regex_strings_;
+    CommunityRegexList to_match_regexs_;
+};
+
 class MatchProtocol: public RoutingPolicyMatch {
 public:
     enum MatchProtocolType {

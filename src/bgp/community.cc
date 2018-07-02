@@ -12,8 +12,21 @@
 #include "base/string_util.h"
 #include "bgp/bgp_proto.h"
 #include "bgp/extended-community/tag.h"
-#include "bgp/tunnel_encap/tunnel_encap.h"
+#include "bgp/extended-community/default_gateway.h"
+#include "bgp/extended-community/es_import.h"
+#include "bgp/extended-community/esi_label.h"
+#include "bgp/extended-community/etree.h"
+#include "bgp/extended-community/load_balance.h"
+#include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/router_mac.h"
+#include "bgp/extended-community/site_of_origin.h"
+#include "bgp/extended-community/source_as.h"
+#include "bgp/extended-community/tag.h"
+#include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/rtarget/rtarget_address.h"
+#include "bgp/security_group/security_group.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
 
 using std::sort;
@@ -210,8 +223,24 @@ int ExtCommunity::CompareTo(const ExtCommunity &rhs) const {
     return 0;
 }
 
+void ExtCommunity::Remove(const ExtCommunityList &list) {
+    for (ExtCommunityList::const_iterator it = list.begin();
+         it != list.end(); ++it) {
+        communities_.erase(
+               std::remove(communities_.begin(), communities_.end(), *it),
+               communities_.end());
+    }
+}
 void ExtCommunity::Remove() {
     extcomm_db_->Delete(this);
+}
+
+void ExtCommunity::Set(const ExtCommunityList &list) {
+    communities_.clear();
+    for (ExtCommunityList::const_iterator it = list.begin();
+         it != list.end(); ++it) {
+        communities_.push_back(*it);
+    }
 }
 
 void ExtCommunity::Append(const ExtCommunityList &list) {
@@ -228,6 +257,78 @@ void ExtCommunity::Append(const ExtCommunityValue &value) {
     ExtCommunityList::iterator it =
         unique(communities_.begin(), communities_.end());
     communities_.erase(it, communities_.end());
+}
+
+string ExtCommunity::ToString(const ExtCommunityValue &comm) {
+    if (ExtCommunity::is_route_target(comm)) {
+        RouteTarget rt(comm);
+        return(rt.ToString());
+    } else if (ExtCommunity::is_default_gateway(comm)) {
+        DefaultGateway dgw(comm);
+        return(dgw.ToString());
+    } else if (ExtCommunity::is_es_import(comm)) {
+        EsImport es_import(comm);
+        return(es_import.ToString());
+    } else if (ExtCommunity::is_esi_label(comm)) {
+        EsiLabel esi_label(comm);
+        return(esi_label.ToString());
+    } else if (ExtCommunity::is_mac_mobility(comm)) {
+        MacMobility mm(comm);
+        return(mm.ToString());
+    } else if (ExtCommunity::is_etree(comm)) {
+        ETree etree(comm);
+        return(etree.ToString());
+    } else if (ExtCommunity::is_router_mac(comm)) {
+        RouterMac router_mac(comm);
+        return(router_mac.ToString());
+    } else if (ExtCommunity::is_origin_vn(comm)) {
+        OriginVn origin_vn(comm);
+        return(origin_vn.ToString());
+    } else if (ExtCommunity::is_security_group(comm)) {
+        SecurityGroup sg(comm);
+        return(sg.ToString());
+    } else if (ExtCommunity::is_site_of_origin(comm)) {
+        SiteOfOrigin soo(comm);
+        return(soo.ToString());
+    } else if (ExtCommunity::is_tunnel_encap(comm)) {
+        TunnelEncap encap(comm);
+        return(encap.ToString());
+    } else if (ExtCommunity::is_load_balance(comm)) {
+        LoadBalance load_balance(comm);
+        return(load_balance.ToString());
+    } else if (ExtCommunity::is_tag(comm)) {
+        Tag tag(comm);
+        return(tag.ToString());
+    } else if (ExtCommunity::is_source_as(comm)) {
+        SourceAs sas(comm);
+        return(sas.ToString());
+    } else if (ExtCommunity::is_vrf_route_import(comm)) {
+        VrfRouteImport rt_import(comm);
+        return(rt_import.ToString());
+    }
+    char temp[50];
+    int len = 0;
+    for (size_t i = 0; i < comm.size(); i++) {
+        len += snprintf(temp+len, sizeof(temp) - len, "%02x", (comm)[i]);
+    }
+    return(string(temp));
+}
+
+string ExtCommunity::ToString() const {
+    string repr;
+    char start[32];
+    snprintf(start, sizeof(start), "ExtCommunities: %zu [",
+             communities_.size());
+    repr += start;
+
+    for (size_t i = 0; i < communities_.size(); ++i) {
+        if (i != 0)
+            repr += ", ";
+        ExtCommunityValue comm = communities_[i];
+        repr += ToString(comm);
+    }
+    repr += " ]";
+    return repr;
 }
 
 bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
@@ -433,6 +534,19 @@ ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
 ExtCommunityDB::ExtCommunityDB(BgpServer *server) {
 }
 
+ExtCommunityPtr ExtCommunityDB::SetAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &value) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->Set(value);
+    return Locate(clone);
+}
+
 ExtCommunityPtr ExtCommunityDB::AppendAndLocate(const ExtCommunity *src,
         const ExtCommunity::ExtCommunityList &list) {
     ExtCommunity *clone;
@@ -451,6 +565,19 @@ ExtCommunityPtr ExtCommunityDB::AppendAndLocate(const ExtCommunity *src,
     ExtCommunity::ExtCommunityList list;
     list.push_back(value);
     return AppendAndLocate(src, list);
+}
+
+ExtCommunityPtr ExtCommunityDB::RemoveAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &list) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->Remove(list);
+    return Locate(clone);
 }
 
 ExtCommunityPtr ExtCommunityDB::ReplaceRTargetAndLocate(const ExtCommunity *src,

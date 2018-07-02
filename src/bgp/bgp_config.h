@@ -358,6 +358,8 @@ struct RoutingPolicyMatchConfig {
     PrefixMatchConfigList prefixes_to_match;
     CommunityList community_match;
     bool community_match_all;
+    CommunityList ext_community_match;
+    bool ext_community_match_all;
     std::string ToString() const;
 };
 

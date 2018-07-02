@@ -326,6 +326,13 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(
         matches.push_back(community);
     }
 
+    if (!cfg_term.match.ext_community_match.empty()) {
+        MatchExtCommunity *ext_community = new MatchExtCommunity(
+            cfg_term.match.ext_community_match,
+            cfg_term.match.ext_community_match_all);
+        matches.push_back(ext_community);
+    }
+
     if (!cfg_term.match.protocols_match.empty()) {
         MatchProtocol *protocol =
          new MatchProtocol(cfg_term.match.protocols_match);
