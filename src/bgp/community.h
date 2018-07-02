@@ -321,6 +321,9 @@ public:
         return hash;
     }
 
+    std::string ToString() const;
+    static std::string ToString(const ExtCommunityValue &val);
+
 private:
     friend int intrusive_ptr_add_ref(const ExtCommunity *cextcomm);
     friend int intrusive_ptr_del_ref(const ExtCommunity *cextcomm);
@@ -330,6 +333,7 @@ private:
 
     void Append(const ExtCommunityValue &value);
     void Append(const ExtCommunityList &list);
+    void Remove(const ExtCommunityList &list);
     void RemoveRTarget();
     void RemoveSGID();
     void RemoveTag();
@@ -339,6 +343,7 @@ private:
     void RemoveOriginVn();
     void RemoveTunnelEncapsulation();
     void RemoveLoadBalance();
+    void Set(const ExtCommunityList &list);
 
     mutable tbb::atomic<int> refcount_;
     ExtCommunityDB *extcomm_db_;
@@ -382,6 +387,8 @@ public:
             const ExtCommunity::ExtCommunityList &list);
     ExtCommunityPtr AppendAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &value);
+    ExtCommunityPtr RemoveAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &list);
 
     ExtCommunityPtr ReplaceRTargetAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &export_list);
@@ -406,6 +413,8 @@ public:
             const ExtCommunity::ExtCommunityList &tunnel_encaps);
     ExtCommunityPtr ReplaceLoadBalanceAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &lb);
+    ExtCommunityPtr SetAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityList &list);
 
 private:
 };

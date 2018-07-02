@@ -5,6 +5,9 @@
 #ifndef ctrlplane_communitytype_h
 #define ctrlplane_communitytype_h
 
+#include <vector>
+
+#include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
 #include "base/util.h"
 
@@ -27,6 +30,16 @@ public:
                        boost::system::error_code *perr = NULL);
 
     static const std::string CommunityToString(uint32_t comm);
+};
+
+class ExtCommunityType {
+public:
+    typedef boost::array<uint8_t, 8> ExtCommunityValue;
+    typedef std::vector<ExtCommunityValue> ExtCommunityList;
+    ExtCommunityType();
+
+    static ExtCommunityList GetWellKnownExtCommunity(const std::string &comm);
+    static ExtCommunityList ExtCommunityFromString(const std::string &comm);
 };
 
 #endif

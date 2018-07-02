@@ -12,7 +12,6 @@
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_server.h"
 #include "bgp/community.h"
-#include "net/community_type.h"
 
 using std::copy;
 using std::ostringstream;
@@ -111,6 +110,69 @@ string UpdateCommunity::ToString() const {
 bool UpdateCommunity::IsEqual(const RoutingPolicyAction &community) const {
     const UpdateCommunity in_comm =
         static_cast<const UpdateCommunity&>(community);
+    if (op_ == in_comm.op_)
+        return (communities() == in_comm.communities());
+    return false;
+}
+
+UpdateExtCommunity::UpdateExtCommunity(const std::vector<string> communities,
+                                       string op) {
+    BOOST_FOREACH(const string &community, communities) {
+        const ExtCommunityType::ExtCommunityList list =
+            ExtCommunityType::ExtCommunityFromString(community);
+        if (list.size())
+            communities_.push_back(list[0]);
+    }
+    std::sort(communities_.begin(), communities_.end());
+    ExtCommunityType::ExtCommunityList::iterator it =
+        std::unique(communities_.begin(), communities_.end());
+    communities_.erase(it, communities_.end());
+
+    if (strcmp(op.c_str(), "add") == 0) {
+        op_ = ADD;
+    } else if (strcmp(op.c_str(), "remove") == 0) {
+        op_ = REMOVE;
+    } else if (strcmp(op.c_str(), "set") == 0) {
+        op_ = SET;
+    }
+}
+
+void UpdateExtCommunity::operator()(BgpAttr *attr) const {
+    if (!attr) return;
+    const ExtCommunity *comm = attr->ext_community();
+    BgpAttrDB *attr_db = attr->attr_db();
+    BgpServer *server = attr_db->server();
+    ExtCommunityDB *comm_db = server->extcomm_db();
+    ExtCommunityPtr new_community = NULL;
+    if (op_ == SET) {
+        new_community = comm_db->SetAndLocate(comm, communities_);
+    } else if (op_ == ADD) {
+        new_community = comm_db->AppendAndLocate(comm, communities_);
+    } else if (op_ == REMOVE) {
+        new_community = comm_db->RemoveAndLocate(comm, communities_);
+    }
+    attr->set_ext_community(new_community);
+}
+
+string UpdateExtCommunity::ToString() const {
+    ostringstream oss;
+    if (op_ == SET) oss << "Extcommunity set [ ";
+    else if  (op_ == ADD) oss << "Extcommunity add [ ";
+    else if (op_ == REMOVE) oss << "Extcommunity remove [ ";
+
+    BOOST_FOREACH(ExtCommunityType::ExtCommunityValue community,
+                  communities()) {
+        string name = ExtCommunity::ToString(community);
+        oss << name << ",";
+    }
+    oss.seekp(-1, oss.cur);
+    oss << " ]";
+    return oss.str();
+}
+
+bool UpdateExtCommunity::IsEqual(const RoutingPolicyAction &community) const {
+    const UpdateExtCommunity in_comm =
+        static_cast<const UpdateExtCommunity&>(community);
     if (op_ == in_comm.op_)
         return (communities() == in_comm.communities());
     return false;

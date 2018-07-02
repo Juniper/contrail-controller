@@ -15,7 +15,25 @@
 #include "bgp/ipeer.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_path.h"
+#include "bgp/extended-community/default_gateway.h"
+#include "bgp/extended-community/es_import.h"
+#include "bgp/extended-community/esi_label.h"
+#include "bgp/extended-community/etree.h"
+#include "bgp/extended-community/load_balance.h"
+#include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/router_mac.h"
+#include "bgp/extended-community/site_of_origin.h"
+#include "bgp/extended-community/source_as.h"
+#include "bgp/extended-community/tag.h"
+#include "bgp/extended-community/vrf_route_import.h"
+#include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/routepath_replicator.h"
+#include "bgp/routing-instance/routing_instance.h"
+#include "bgp/rtarget/rtarget_address.h"
+#include "bgp/security_group/security_group.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
+
 
 using contrail::regex;
 using contrail::regex_match;
@@ -160,6 +178,158 @@ string MatchCommunity::ToString() const {
 bool MatchCommunity::IsEqual(const RoutingPolicyMatch &community) const {
     const MatchCommunity in_community =
         static_cast<const MatchCommunity &>(community);
+    if (match_all() != in_community.match_all())
+        return false;
+    if (communities() != in_community.communities())
+        return false;
+    if (regex_strings() != in_community.regex_strings())
+        return false;
+    return true;
+}
+
+MatchExtCommunity::MatchExtCommunity(const vector<string> &communities,
+    bool match_all) : match_all_(match_all) {
+    // Assume that the each community string that doesn't correspond to a
+    // community name or value is a regex string.
+    BOOST_FOREACH(const string &community, communities) {
+        const ExtCommunityType::ExtCommunityList list =
+            ExtCommunityType::ExtCommunityFromString(community);
+        if (list.size()) {
+            if(!Find(list[0]))
+                to_match_.push_back(list[0]);
+        } else {
+            to_match_regex_strings_.push_back(community);
+        }
+    }
+
+    // Sort and uniquify the vector of regex strings.
+    sort(to_match_.begin(), to_match_.end());
+    sort(to_match_regex_strings_.begin(), to_match_regex_strings_.end());
+    vector<string>::iterator it =
+        unique(to_match_regex_strings_.begin(), to_match_regex_strings_.end());
+    to_match_regex_strings_.erase(it, to_match_regex_strings_.end());
+
+    // Build a vector of regexs corresponding to the regex strings.
+    BOOST_FOREACH(string regex_str, regex_strings()) {
+        to_match_regexs_.push_back(regex(regex_str));
+    }
+}
+
+MatchExtCommunity::~MatchExtCommunity() {
+}
+
+//
+// Return true if all community strings (normal or regex) are matched by the
+// community values in the BgpAttr.
+//
+bool MatchExtCommunity::MatchAll(const BgpAttr *attr) const {
+    // Bail if there's no community values in the BgpAttr.
+    const ExtCommunity *comm = attr->ext_community();
+    if (!comm)
+        return false;
+
+    // Make sure that all non-regex communities in this MatchExtCommunity are
+    // present in the BgpAttr.
+    ExtCommunity::ExtCommunityList list = comm->communities();
+    sort(list.begin(), list.end());
+    if (!includes(list.begin(), list.end(),
+        communities().begin(), communities().end())) {
+        return false;
+    }
+
+    // Make sure that each regex in this MatchExtCommunity is matched by one
+    // of the communities in the BgpAttr.
+    BOOST_FOREACH(const regex &match_expr, regexs()) {
+        bool matched = false;
+        BOOST_FOREACH(ExtCommunity::ExtCommunityValue community,
+                      comm->communities()) {
+            string community_str = ExtCommunity::ToString(community);
+            if (regex_match(community_str, match_expr)) {
+                matched = true;
+                break;
+            }
+        }
+        if (!matched)
+            return false;
+    }
+
+    return true;
+}
+
+bool MatchExtCommunity::Find(const ExtCommunity::ExtCommunityValue &community)
+                            const {
+    return (std::find(communities().begin(), communities().end(), community) !=
+            communities().end());
+}
+
+//
+// Return true if any community strings (normal or regex) is matched by the
+// community values in the BgpAttr.
+//
+bool MatchExtCommunity::MatchAny(const BgpAttr *attr) const {
+    // Bail if there's no community values in the BgpAttr.
+    const ExtCommunity *comm = attr->ext_community();
+    if (!comm)
+        return false;
+
+    // Check if any of the community values in the BgpAttr matches one of
+    // the normal community strings.
+    BOOST_FOREACH(ExtCommunity::ExtCommunityValue community,
+                  comm->communities()) {
+        if (Find(community))
+            return true;
+    }
+
+    // Check if any of the community values in the BgpAttr matches one of
+    // the community regexs.
+    BOOST_FOREACH(ExtCommunity::ExtCommunityValue community,
+                  comm->communities()) {
+        string community_str = ExtCommunity::ToString(community);
+        BOOST_FOREACH(const regex &match_expr, regexs()) {
+            if (regex_match(community_str, match_expr))
+                return true;
+        }
+    }
+
+    return false;
+}
+
+//
+// Return true if the BgpPath matches this MatchExtCommunity.
+//
+bool MatchExtCommunity::Match(const BgpRoute *route, const BgpPath *path,
+                              const BgpAttr *attr) const {
+    return (match_all_ ? MatchAll(attr) : MatchAny(attr));
+}
+
+//
+// Return string representation of this MatchExtCommunity.
+//
+string MatchExtCommunity::ToString() const {
+    ostringstream oss;
+    if (match_all_) {
+        oss << "Extcommunity (all) [ ";
+    } else {
+        oss << "Extcommunity (any) [ ";
+    }
+    BOOST_FOREACH(ExtCommunityType::ExtCommunityValue community, communities()) {
+        string name = ExtCommunity::ToString(community);
+        oss << name << ",";
+    }
+    BOOST_FOREACH(string regex_str, regex_strings()) {
+        oss << regex_str << ",";
+    }
+    oss.seekp(-1, oss.cur);
+    oss << " ]";
+    return oss.str();
+}
+
+//
+// Return true if this MatchExtCommunity is equal to the one supplied.
+//
+bool MatchExtCommunity::IsEqual(const RoutingPolicyMatch &community) const {
+    const MatchExtCommunity in_community =
+        static_cast<const MatchExtCommunity &>(community);
     if (match_all() != in_community.match_all())
         return false;
     if (communities() != in_community.communities())

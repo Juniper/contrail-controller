@@ -9,9 +9,14 @@
 #include <boost/assign/list_of.hpp>
 
 #include "base/string_util.h"
+#include "bgp/extended-community/site_of_origin.h"
+#include "bgp/extended-community/source_as.h"
+#include "bgp/extended-community/vrf_route_import.h"
+#include "bgp/rtarget/rtarget_address.h"
 
 using std::map;
 using std::string;
+using std::set;
 
 CommunityType::CommunityType() {
 }
@@ -82,4 +87,60 @@ const string CommunityType::CommunityToString(uint32_t comm) {
     }
     return integerToString(comm / 65536) + ":" +
         integerToString(comm % 65536);
+}
+
+ExtCommunityType::ExtCommunityType() {
+}
+
+ExtCommunityType::ExtCommunityList
+           ExtCommunityType::GetWellKnownExtCommunity(const string &comm) {
+    ExtCommunityType::ExtCommunityList commList;
+    size_t pos = comm.find(':');
+    string first(comm.substr(0, pos));
+    boost::system::error_code error;
+    if (first == "soo") {
+        SiteOfOrigin soo = SiteOfOrigin::FromString(comm, &error);
+        if (error) {
+            return commList;
+        }
+        commList.push_back(soo.GetExtCommunity());
+    } else if (first == "target") {
+        RouteTarget rt = RouteTarget::FromString(comm, &error);
+        if (error) {
+            return commList;
+        }
+        commList.push_back(rt.GetExtCommunity());
+    } else if (first == "source-as") {
+        SourceAs sas = SourceAs::FromString(comm, &error);
+        if (error) {
+            return commList;
+        }
+        commList.push_back(sas.GetExtCommunity());
+    } else if (first == "rt-import") {
+        VrfRouteImport vit = VrfRouteImport::FromString(comm, &error);
+        if (error) {
+            return commList;
+        }
+        commList.push_back(vit.GetExtCommunity());
+    }
+    return commList;
+}
+
+static const set<string> KnownExtCommunities = boost::assign::list_of
+        ("soo")("source-as")("target")("rt-import");
+
+ExtCommunityType::ExtCommunityList
+                  ExtCommunityType::ExtCommunityFromString(const string &comm) {
+    ExtCommunityType::ExtCommunityList comm_list;
+    size_t pos = comm.find(':');
+    if (pos != string::npos) {
+        string first(comm.substr(0, pos));
+        set<string>::const_iterator it = KnownExtCommunities.find(first);
+        if (it != KnownExtCommunities.end()) {
+            comm_list = GetWellKnownExtCommunity(comm);
+            if (comm_list.size())
+                return comm_list;
+        }
+    }
+    return comm_list;
 }
