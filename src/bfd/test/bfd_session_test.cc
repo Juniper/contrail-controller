@@ -91,7 +91,7 @@ TEST_F(SessionTest, UpTest) {
     TestConnection tc;
     SessionMock session(localDiscriminator, addr, &evm, config, &tc);
 
-    EXPECT_EQ(kInit, session.local_state());
+    EXPECT_EQ(kDown, session.local_state());
     packet.state = kInit;
     session.ProcessControlPacket(&packet);
     EXPECT_EQ(kUp, session.local_state());
@@ -142,7 +142,7 @@ TEST_F(SessionTest, RecvTimerExpiredTest) {
     TestConnection tc;
     SessionMock session(localDiscriminator, addr, &evm, config, &tc);
 
-    EXPECT_EQ(kInit, session.local_state());
+    EXPECT_EQ(kDown, session.local_state());
     packet.state = kInit;
     session.ProcessControlPacket(&packet);
     EXPECT_EQ(kUp, session.local_state());

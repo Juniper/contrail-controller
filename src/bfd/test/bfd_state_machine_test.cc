@@ -24,7 +24,7 @@ class StateMachineTest : public ::testing::Test {
 };
 
 TEST_F(StateMachineTest, Test1) {
-    EXPECT_EQ(kInit, sm->GetState());
+    EXPECT_EQ(kDown, sm->GetState());
     sm->ProcessRemoteState(kInit);
     EXPECT_EQ(kUp, sm->GetState());
     sm->ProcessRemoteState(kInit);
@@ -46,7 +46,7 @@ TEST_F(StateMachineTest, Test1) {
 }
 
 TEST_F(StateMachineTest, Test2) {
-    EXPECT_EQ(kInit, sm->GetState());
+    EXPECT_EQ(kDown, sm->GetState());
     sm->ProcessTimeout();
     EXPECT_EQ(kDown, sm->GetState());
     sm->ProcessTimeout();
@@ -71,14 +71,7 @@ TEST_F(StateMachineTest, Test_Callback) {
     boost::optional<ChangeCb> cb(boost::bind(&ChangeCallback, _1, _2, &state));
     sm->SetCallback(cb);
 
-    EXPECT_EQ(kInit, sm->GetState());
-
-    sm->ProcessTimeout();
-    TASK_UTIL_EXPECT_TRUE(state.is_initialized());
-    EXPECT_EQ(kDown, state.get());
     EXPECT_EQ(kDown, sm->GetState());
-    state.reset();
-
     sm->ProcessTimeout();
     boost::this_thread::sleep(boost::posix_time::seconds(1));
     EXPECT_FALSE(state.is_initialized());

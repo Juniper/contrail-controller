@@ -25,8 +25,8 @@ struct BFDRemoteSessionState {
     BFDRemoteSessionState() : discriminator(0),
         minRxInterval(boost::posix_time::seconds(1)),
         minTxInterval(boost::posix_time::seconds(0)),
-        detectionTimeMultiplier(0),
-        state(kInit) {}
+        detectionTimeMultiplier(1),
+        state(kDown) {}
 
     Discriminator discriminator;
     TimeInterval minRxInterval;
