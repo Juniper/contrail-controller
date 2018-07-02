@@ -38,27 +38,29 @@ MvpnPrefix::MvpnPrefix() : type_(MvpnPrefix::Unspecified), ip_prefixlen_(0),
 
 MvpnPrefix::MvpnPrefix(uint8_t type, const RouteDistinguisher &rd,
     const uint32_t asn)
-    : type_(type), rd_(rd), asn_(asn) {
+    : type_(type), rd_(rd), ip_prefixlen_(0), asn_(asn) {
 
     assert(type == InterASPMSIADRoute);
 }
 
 MvpnPrefix::MvpnPrefix(uint8_t type, const Ip4Address &originator)
-    : type_(type), originator_(originator) {
+    : type_(type), originator_(originator), ip_prefixlen_(0), asn_(0) {
 
     assert(type == LeafADRoute);
 }
 
 MvpnPrefix::MvpnPrefix(uint8_t type, const RouteDistinguisher &rd,
     const Ip4Address &originator)
-    : type_(type), rd_(rd), originator_(originator) {
+    : type_(type), rd_(rd), originator_(originator), ip_prefixlen_(0),
+      asn_(0) {
 
     assert(type == IntraASPMSIADRoute);
 }
 
 MvpnPrefix::MvpnPrefix(uint8_t type, const RouteDistinguisher &rd,
     const Ip4Address &group, const Ip4Address &source)
-    : type_(type), rd_(rd), group_(group), source_(source) {
+    : type_(type), rd_(rd), group_(group), source_(source),
+      ip_prefixlen_(0), asn_(0) {
 
     assert(type == SourceActiveADRoute);
 }
@@ -67,14 +69,15 @@ MvpnPrefix::MvpnPrefix(uint8_t type, const RouteDistinguisher &rd,
     const Ip4Address &originator,
     const Ip4Address &group, const Ip4Address &source)
     : type_(type), rd_(rd), originator_(originator),
-      group_(group), source_(source) {
+      group_(group), source_(source), ip_prefixlen_(0), asn_(0) {
 
     assert(type == SPMSIADRoute);
 }
 
 MvpnPrefix::MvpnPrefix(uint8_t type, const RouteDistinguisher &rd,
     const uint32_t asn, const Ip4Address &group, const Ip4Address &source)
-    : type_(type), rd_(rd), group_(group), source_(source), asn_(asn) {
+    : type_(type), rd_(rd), group_(group), source_(source), ip_prefixlen_(0),
+      asn_(asn) {
 
     assert((type == SharedTreeJoinRoute) || (type == SourceTreeJoinRoute));
 }
