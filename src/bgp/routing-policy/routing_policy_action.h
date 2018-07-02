@@ -9,6 +9,7 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
+#include "net/community_type.h"
 
 class BgpAttr;
 
@@ -110,6 +111,28 @@ public:
 
 private:
     CommunityList communities_;
+    CommunityUpdateOp op_;
+};
+
+class UpdateExtCommunity : public RoutingPolicyUpdateAction {
+public:
+    enum CommunityUpdateOp {
+        ADD,
+        REMOVE,
+        SET
+    };
+    UpdateExtCommunity(const std::vector<std::string> communities,
+                       std::string op);
+    virtual ~UpdateExtCommunity() {}
+    virtual void operator()(BgpAttr *out_attr) const;
+    std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyAction &community) const;
+    const ExtCommunityType::ExtCommunityList &communities() const {
+        return communities_;
+    }
+
+private:
+    ExtCommunityType::ExtCommunityList communities_;
     CommunityUpdateOp op_;
 };
 
