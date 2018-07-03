@@ -431,6 +431,41 @@ TEST_F(FlowTest, Layer2PrefixManipulation) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowUpdateTest, evictflowreverse) {
+    //TxTcpPacket(flow5->id(), vm_a_ip, vm_b_ip, 1000, 200, 1, 1, flow5->vrf()->vrf_id(),64);
+    TxL2Packet(flow5->id(), input4[0].mac, input4[1].mac,vm_a_ip, vm_b_ip,
+              IPPROTO_TCP,  1,  flow5->vrf()->vrf_id(), 1000,200);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(vm_a_ip, vm_b_ip, IPPROTO_TCP, 1000,
+                              200, flow5->flow_key_nh()->id(), 1);
+    EXPECT_TRUE(flow != NULL);
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow != NULL);
+
+    uint32_t flow_handle = flow->flow_handle();
+    EXPECT_TRUE(flow_handle != FlowEntry::kInvalidFlowHandle);
+    uint32_t rflow_handle = rflow->flow_handle();
+    EXPECT_TRUE(rflow_handle != FlowEntry::kInvalidFlowHandle);
+    KSyncSock *sock = KSyncSock::Get(0);
+    // Disable flow-event queue to ensure state compression
+    event_queue_->set_disable(true);
+
+    client->WaitForIdle();
+    //Set Evicted flag for the flow
+    KSyncSockTypeMap::SetEvictedFlag(flow_handle);
+    KSyncSockTypeMap::SetEvictedFlag(rflow_handle);
+    TxTcpPacket(flow6->id(), vm_b_ip, vm_a_ip, 200, 1000, 1, rflow_handle, flow6->vrf()->vrf_id(),64);
+    FlowEntry *flow2 = FlowGet(vm_b_ip, vm_a_ip, IPPROTO_TCP, 200, 1000, flow6->flow_key_nh()->id(),rflow_handle);
+
+    client->WaitForIdle();
+    client->WaitForIdle();
+    flow_proto_->MessageRequest(flow);
+    // Enable flow-event queue and validate statistics
+    event_queue_->set_disable(false);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
