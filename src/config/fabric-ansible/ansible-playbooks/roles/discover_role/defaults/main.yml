@@ -1,0 +1,8 @@
+---
+# defaults file for discover_role
+
+output: {
+               "status": "Success",
+               "message": "Role discovery completed"
+        }
+
