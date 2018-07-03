@@ -114,7 +114,6 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
         NamespaceKM.delete(ns_uuid)
         NamespaceKM.delete(self.ns_name)
 
-
 class VncNamespaceTestClusterProjectUndefined(
         VncNamespaceTestClusterProjectDefined):
     def setUp(self, extra_config_knobs=None):
@@ -135,6 +134,27 @@ class VncNamespaceTestClusterProjectUndefined(
         kube_config.VncKubernetesConfig.args().cluster_project = None
         kube_config.VncKubernetesConfig.args().cluster_network = None
 
+    def test_add_namespace(self):
+        ns_uuid = self._create_and_add_namespace(self.ns_name, {},
+            None, locate=True)
+        proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
+                                                    self.ns_name)
+        proj = self._vnc_lib.project_read(fq_name=["default-domain",
+                                                   proj_name])
+        self.assertIsNotNone(proj)
+        self.assertEquals(proj_name, proj.name)
+
+        self._delete_namespace(self.ns_name, ns_uuid)
+
+        # Validate that the project is deleted.
+        try:
+            self._vnc_lib.project_read(fq_name=["default-domain",
+                                                       proj_name])
+        except NoIdError:
+            pass
+        else:
+            # Project exists. Assert.
+            self.assertIsNotNone(None)
 
 class VncNamespaceTestCustomNetwork(VncNamespaceTest):
     def setUp(self, extra_config_knobs=None):
