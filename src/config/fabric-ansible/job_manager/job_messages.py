@@ -42,7 +42,8 @@ class MsgBundle(object):
     EXC_JOB_ERR_HDR = 40,
     PLAYBOOK_STATUS_FAILED = 41,
     PLAYBOOK_OUTPUT_MISSING = 42,
-    EMPTY_DEVICE_LIST = 43
+    EMPTY_DEVICE_LIST = 43,
+    PRODUCT_NAME_MISSING = 44
     _msgs = {
         'en': {
             JOB_TEMPLATE_MISSING: 'job_template_id is missing '
@@ -103,6 +104,8 @@ class MsgBundle(object):
             DEVICE_VENDOR_FAMILY_MISSING: 'device_vendor or '
                                           'device_family not found'
                                           ' for "{device_id}"',
+            PRODUCT_NAME_MISSING: 'device_product name not found '
+                                  ' for "{device_id}"',
             READ_JOB_TEMPLATE_ERROR: 'Error while reading the '
                                      'job template "{job_template_id}"'
                                      ' from database',
