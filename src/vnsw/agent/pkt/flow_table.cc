@@ -932,7 +932,6 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
 }
 
 void FlowEntryFreeList::Free(FlowEntry *flow) {
-    assert(table_->ConcurrencyCheck(table_->flow_task_id()) == true);
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);
