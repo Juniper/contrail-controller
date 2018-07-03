@@ -62,6 +62,7 @@ type ContrailCni struct {
 	LogDir        string `json:"log-dir"`
 	LogFile       string `json:"log-file"`
 	LogLevel      string `json:"log-level"`
+	Mtu           int    `json:"mtu"`
 	ContainerUuid string
 	ContainerName string
 	ContainerVn   string
@@ -70,7 +71,7 @@ type ContrailCni struct {
 
 type cniJson struct {
 	ContrailCni ContrailCni `json:"contrail"`
-	CniVersion string `json:"cniVersion"`
+	CniVersion  string      `json:"cniVersion"`
 }
 
 // Apply logging configuration. We use log packet for logging.
@@ -89,6 +90,7 @@ func (cni *ContrailCni) Log() {
 	log.Infof("Container Ifname : %s\n", cni.cniArgs.IfName)
 	log.Infof("Args : %s\n", cni.cniArgs.Args)
 	log.Infof("CNI VERSION : %s\n", CNIVersion)
+	log.Infof("MTU : %d\n", cni.Mtu)
 	log.Infof("Config File : %s\n", cni.cniArgs.StdinData)
 	log.Infof("%+v\n", cni)
 	cni.VRouter.Log()
@@ -99,7 +101,8 @@ func Init(args *skel.CmdArgs) (*ContrailCni, error) {
 
 	cni := ContrailCni{cniArgs: args, Mode: CNI_MODE_K8S,
 		VifType: VIF_TYPE_VETH, VifParent: CONTRAIL_PARENT_INTERFACE,
-		LogDir: LOG_DIR, LogLevel: LOG_LEVEL, VRouter: *vrouter}
+		LogDir: LOG_DIR, LogLevel: LOG_LEVEL, Mtu: cniIntf.CNI_MTU,
+		VRouter: *vrouter}
 	json_args := cniJson{ContrailCni: cni}
 
 	if err := json.Unmarshal(args.StdinData, &json_args); err != nil {
@@ -110,7 +113,7 @@ func Init(args *skel.CmdArgs) (*ContrailCni, error) {
 
 	// If CNI version is blank, set to "0.2.0"
 	CNIVersion = json_args.CniVersion
-	if (CNIVersion == "") {
+	if CNIVersion == "" {
 		CNIVersion = "0.2.0"
 	}
 
@@ -129,11 +132,11 @@ func (cni *ContrailCni) makeInterface(vlanId int) cniIntf.CniIntfMethods {
 	if cni.VifType == VIF_TYPE_MACVLAN {
 		return cniIntf.CniIntfMethods(cniIntf.InitMacVlan(cni.VifParent,
 			cni.cniArgs.IfName, cni.cniArgs.ContainerID, cni.ContainerUuid,
-			cni.cniArgs.Netns, vlanId))
+			cni.cniArgs.Netns, cni.Mtu, vlanId))
 	}
 
 	return cniIntf.CniIntfMethods(cniIntf.InitVEth(cni.cniArgs.IfName,
-		cni.cniArgs.ContainerID, cni.ContainerUuid, cni.cniArgs.Netns))
+		cni.cniArgs.ContainerID, cni.ContainerUuid, cni.cniArgs.Netns, cni.Mtu))
 }
 
 /****************************************************************************

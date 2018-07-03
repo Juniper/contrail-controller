@@ -9,12 +9,13 @@
 package cniIntf
 
 import (
-	log "../logging"
 	"fmt"
+	"net"
+
+	log "../logging"
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/vishvananda/netlink"
-	"net"
 )
 
 // Definition for veth interface
@@ -178,14 +179,14 @@ func buildTmpHostIfName(str string) string {
 }
 
 func InitVEth(containerIfName, containerId, containerUuid,
-	containerNamespace string) VEth {
+	containerNamespace string, mtu int) VEth {
 	intf := VEth{
 		CniIntf: CniIntf{
 			containerId:        containerId,
 			containerUuid:      containerUuid,
 			containerIfName:    containerIfName,
 			containerNamespace: containerNamespace,
-			mtu:                CNI_MTU,
+			mtu:                mtu,
 		},
 		HostIfName: "",
 	}
