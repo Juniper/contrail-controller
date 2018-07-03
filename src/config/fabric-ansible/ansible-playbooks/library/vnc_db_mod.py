@@ -121,6 +121,17 @@ REF-UPDATE opreation:
               "ref_uuid": "{{ item.uuid }}"
           }
 
+BULK REF-UPDATE operation:
+    vnc_db_mod:
+        job_ctx: "{{job_ctx}}"
+        object_type: "physical_interface"
+        object_dict: {
+                      "ref_type": "physical_interface",
+                      "ignore_unknown_id_err": True
+                     }
+        object_op: "bulk_ref_update"
+        object_list: [[obj_fqname, ref_fqname], [obj_fqname, ref_fqname]]
+
 ID_TO_FQNAME operation:
     vnc_db_mod:
         job_ctx: "{{ job_ctx }}"
@@ -151,6 +162,13 @@ LIST with filters and detail operation:
               "filters": {"physical_router_management_ip":"{{ item.hostname }}"},
               "detail": "True",
           }
+BULK QUERY operation:
+    vnc_db_mod:
+        job_ctx: "{{job_ctx}}"
+        object_type: "physical_interface"
+        object_op: "bulk_query"
+        object_dict: {"fields": ['physical_interface_port_id']}
+        object_list: [prouter_fqname, prouter_fqname, <parent_fqname>]
 '''
 
 
@@ -239,6 +257,9 @@ class VncMod(object):
         elif self.object_op == 'bulk_update':
             results = self._bulk_update_oper()
 
+        elif self.object_op == 'bulk_query':
+            results = self._bulk_query_oper()
+
         elif self.object_op == 'delete':
             results = self._delete_oper()
 
@@ -248,8 +269,14 @@ class VncMod(object):
         elif self.object_op == 'list':
             results = self._list_oper()
 
-        elif self.object_op == 'ref_update' or self.object_op == 'ref_delete':
-            results = self._ref_update_delete_oper()
+        elif self.object_op == 'ref_delete':
+            results = self._ref_delete_oper()
+
+        elif self.object_op == 'ref_update':
+            results = self._ref_update_oper()
+
+        elif self.object_op == 'bulk_ref_update':
+            results = self._bulk_ref_update_oper()
 
         elif self.object_op == 'fq_name_to_id':
             results = self._fq_name_to_id_oper()
@@ -270,8 +297,8 @@ class VncMod(object):
         method = self._str_to_vnc_method(method_name)
         if method is None:
             raise ValueError(
-                "Operation '%s' is not supported on '%s'",
-                self.object_op, self.object_type)
+                "Operation '%s' is not supported on '%s'"
+                %(self.object_op, self.object_type))
 
         return method
     # end _obtain_vnc_method
@@ -430,9 +457,25 @@ class VncMod(object):
         return results
     # end _read_oper
 
+    def _bulk_query_oper(self):
+        results = dict()
+        results['list_objects'] = []
+        for parent_fqname in self.object_list:
+            self.object_dict['parent_fq_name'] = parent_fqname
+            res = self._list_oper()
+            if res.get('failed'):
+                results['failed'] = True
+                results['msg'] = res.get('msg')
+                break
+            else:
+                results['list_objects'].append(res)
+        return results
+    # end _bulk_query_oper
+
     def _list_oper(self):
         method = self._obtain_vnc_method('s_list')
         results = dict()
+        parent_fqname = self.object_dict.get('parent_fq_name')
         filters = self.object_dict.get('filters')
         fields = self.object_dict.get('fields')
         back_ref_id = self.object_dict.get('back_ref_id')
@@ -442,14 +485,16 @@ class VncMod(object):
                 objs = method(back_ref_id=back_ref_id,
                               filters=filters,
                               fields=fields,
-                              detail=True)
+                              detail=True,
+                              parent_fq_name=parent_fqname)
                 results['obj'] = []
                 for obj in objs:
                     results['obj'].append(self.vnc_lib.obj_to_dict(obj))
             else:
                 obj = method(back_ref_id=back_ref_id,
                              filters=filters,
-                             fields=fields)
+                             fields=fields,
+                             parent_fq_name=parent_fqname)
                 results['obj'] = obj
         except Exception as ex:
             results['failed'] = True
@@ -458,9 +503,34 @@ class VncMod(object):
         return results
     # end _list_oper
 
-    def _ref_update_delete_oper(self):
+    def _bulk_ref_update_oper(self):
         results = dict()
-        method = self._obtain_vnc_method(self.object_op, False)
+        results['refs_upd_resp'] = []
+        results['failed_uuids'] = []
+        for obj_ref_pair in self.object_list:
+            self.object_dict['fq_name'] = obj_ref_pair[0]
+            local_uuid = self._fq_name_to_id_oper()
+            self.object_dict['obj_uuid'] = local_uuid['uuid']
+            self.object_dict['ref_fqname'] = obj_ref_pair[1]
+            res = self._ref_update_oper()
+            if res.get('failed'):
+                if not self.object_dict.get('ignore_unknown_id_err'):
+                    results['failed'] = True
+                    results['msg'] = res.get('msg')
+                    break
+                elif self.object_dict.get('ignore_unknown_id_err') and 'Unknown id' not in res.get('msg'):
+                    results['failed'] = True
+                    results['msg'] = res.get('msg')
+                    break
+                results['failed_uuids'] = res
+            else:
+                results['refs_upd_resp'].append(res)
+        return results
+    # end _bulk_ref_update_oper
+
+    def _ref_update_oper(self):
+        results = dict()
+        method = self._obtain_vnc_method('ref_update', False)
 
         # Get the input params from the object dict
         obj_type = self.object_type.replace('_', '-')
@@ -470,23 +540,43 @@ class VncMod(object):
         ref_fqname = self.object_dict.get('ref_fqname')
 
         try:
-            if self.object_op == 'ref_update':
-                obj_uuid = method(obj_type, obj_uuid, ref_type,
+            obj_uuid = method(obj_type, obj_uuid, ref_type,
                                   ref_uuid, ref_fqname, 'ADD')
-            else:
-                obj_uuid = method(obj_type, obj_uuid, ref_type,
-                                  ref_uuid, ref_fqname, 'DELETE')
-                results['uuid'] = obj_uuid
+            results['uuid'] = obj_uuid
         except Exception as ex:
             results['failed'] = True
             results['msg'] = \
                 "Failed to update ref (%s, %s) -> (%s, %s, %s) due to error: %s"\
                 % (obj_type, obj_uuid, ref_type, ref_uuid, ref_fqname, str(ex))
         return results
-    # _ref_update_delete_oper
+    # _ref_update_oper
+
+    def _ref_delete_oper(self):
+        results = dict()
+        method = self._obtain_vnc_method('ref_delete', False)
+
+        # Get the input params from the object dict
+        obj_type = self.object_type.replace('_', '-')
+        obj_uuid = self.object_dict.get('obj_uuid')
+        ref_type = self.object_dict.get('ref_type')
+        ref_uuid = self.object_dict.get('ref_uuid')
+        ref_fqname = self.object_dict.get('ref_fqname')
+
+        try:
+
+            obj_uuid = method(obj_type, obj_uuid, ref_type,
+                                  ref_uuid, ref_fqname, 'DELETE')
+            results['uuid'] = obj_uuid
+        except Exception as ex:
+            results['failed'] = True
+            results['msg'] = \
+                "Failed to delete ref (%s, %s) -> (%s, %s, %s) due to error: %s"\
+                % (obj_type, obj_uuid, ref_type, ref_uuid, ref_fqname, str(ex))
+        return results
+    # _ref_delete_oper
 
     def _fq_name_to_id_oper(self):
-        method = self._obtain_vnc_method(self.object_op, False)
+        method = self._obtain_vnc_method('fq_name_to_id', False)
         results = dict()
         try:
             obj_type = self.object_type.replace('_', '-')
@@ -547,8 +637,8 @@ def main():
                 type='str', required=True,
                 choices=[
                     'create', 'update', 'delete', 'read', 'list',
-                    'bulk_create', 'bulk_update',
-                    'ref_update', 'ref_delete',
+                    'bulk_create', 'bulk_update', 'bulk_query',
+                    'ref_update', 'ref_delete', 'bulk_ref_update',
                     'fq_name_to_id', 'id_to_fq_name'
                 ]
             ),
