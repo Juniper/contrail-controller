@@ -93,6 +93,10 @@ def parse_args(args_str=None):
         'odb_prefix' : '',
         'ndb_prefix': '',
         'reset_config': None,
+        'old_cassandra_user': None,
+        'old_cassandra_password': None,
+        'new_cassandra_user': None,
+        'new_cassandra_password': None,
         'old_cassandra_address_list': '10.84.24.35:9160',
         'old_zookeeper_address_list': '10.84.24.35:2181',
         'old_rabbit_address_list': '10.84.24.35',
@@ -161,6 +165,18 @@ def parse_args(args_str=None):
     parser.add_argument(
         "--new_rabbit_port",
         help="New RMQ port")
+    parser.add_argument(
+        "--old_cassandra_user",
+        help="Old Cassandra user name")
+    parser.add_argument(
+        "--old_cassandra_password",
+        help="Old Cassandra passwd")
+    parser.add_argument(
+        "--new_cassandra_user",
+        help="New Cassandra user name")
+    parser.add_argument(
+        "--new_cassandra_password",
+        help="New Cassandra passwd")
     parser.add_argument(
         "--old_rabbit_address_list",
         help="Old RMQ addresses")
