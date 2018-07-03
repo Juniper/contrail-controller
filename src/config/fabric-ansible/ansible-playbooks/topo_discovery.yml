@@ -1,0 +1,20 @@
+---
+- name: Get the Topology Information from this device
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - topology_discovery_role
+
+  tasks:
+
+    - set_fact:
+        output: "{{output }}"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 4
+        jl_message: "Topology Discovery: {{prouter_name}} succeeded discovering topology"
