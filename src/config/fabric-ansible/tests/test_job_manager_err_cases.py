@@ -490,7 +490,8 @@ class TestJobManagerEC(test_case.JobTestCase):
                                "device_json": {
                                    device_id:
                                        {"device_family": "MX",
-                                        "device_vendor": "Juniper"}}})
+                                        "device_vendor": "Juniper",
+                                        "device_product": "Some random product"}}})
 
         wm = WFManager(log_utils.get_config_logger(),
                           self._vnc_lib, job_input_json, log_utils)
