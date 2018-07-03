@@ -127,13 +127,30 @@ class VncKubernetesConfig(object):
         return None
 
     @classmethod
+    def construct_project_name_for_namespace(cls, namespace):
+        return "-".join([cls.cluster_name(), namespace])
+
+    @classmethod
     def cluster_project_name(cls, namespace=None):
         project_name = cls.get_configured_project_name()
         if project_name:
             return project_name
         if namespace:
-            return "-".join([cls.cluster_name(), namespace])
+            return cls.construct_project_name_for_namespace(namespace)
         return None
+
+    @classmethod
+    def get_project_name_for_namespace(cls, namespace):
+        """
+        Given a namespace name, construct a project name for the namespace.
+
+        If a project name is pre-configured, then configured project will be
+        used and no project will be created for the namespace. So this method
+        will return None, if a project name is already configued.
+        """
+        if cls.get_configured_project_name():
+            return None
+        return cls.construct_project_name_for_namespace(namespace)
 
     @classmethod
     def cluster_project_fq_name(cls, namespace=None):
@@ -144,7 +161,7 @@ class VncKubernetesConfig(object):
         project_name = cls.get_configured_project_name()
         if project_name:
             return project_name
-        return "-".join([cls.cluster_name(), "default"])
+        return cls.construct_project_name_for_namespace("default")
 
     @classmethod
     def cluster_default_project_fq_name(cls):

@@ -554,9 +554,11 @@ class VncNamespace(VncCommon):
             # delete the namespace
             self._delete_namespace(name)
 
-            # If namespace=project, delete the project
-            if vnc_kube_config.cluster_project_name(name) == name:
+            # If project was created for this namesspace, delete the project.
+            if vnc_kube_config.get_project_name_for_namespace(name) ==\
+               project.name:
                 self._vnc_lib.project_delete(fq_name=proj_fq_name)
+
         except:
             # Raise it up to be logged.
             raise
