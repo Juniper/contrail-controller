@@ -22,8 +22,12 @@
     - set_fact:
          tag_fq_name: "label=fabric-management_ip"
 
+    - set_fact:
+        host_list: "{{ playbook_input.input.device_list }}"
+      when: playbook_input.input.device_list is defined
+
   roles:
-   - fabric_namespace_read
+   - { role: fabric_namespace_read, when: host_list is undefined }
    - discover_device_role
 
   post_tasks:
@@ -33,4 +37,3 @@
 
     - name: print output
       debug: var=output verbosity=1
-
