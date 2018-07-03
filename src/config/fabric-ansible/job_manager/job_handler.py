@@ -108,10 +108,17 @@ class JobHandler(object):
 
                 device_family = device_data.get('device_family')
                 device_vendor = device_data.get('device_vendor')
+                device_product = device_data.get('device_product')
 
                 if not device_vendor or not device_family:
                     msg = MsgBundle.getMessage(MsgBundle.
                                                DEVICE_VENDOR_FAMILY_MISSING,
+                                               device_id=device_id)
+                    raise JobException(msg, self._execution_id)
+
+                if not device_product:
+                    msg = MsgBundle.getMessage(MsgBundle.
+                                               PRODUCT_NAME_MISSING,
                                                device_id=device_id)
                     raise JobException(msg, self._execution_id)
 
@@ -137,7 +144,8 @@ class JobHandler(object):
                     'vendor': device_vendor,
                     'device_family': device_family,
                     'device_username': device_username,
-                    'device_password': device_password
+                    'device_password': device_password,
+                    'product_name': device_product
                 })
 
                 self._logger.debug("Passing the following device "
