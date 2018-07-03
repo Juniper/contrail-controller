@@ -37,12 +37,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.2"
+__version__ = "1.3"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.3:
+  - Fix issue in the VN/subnet/IP address zookeeper lock clean method
+    'clean_subnet_addr_alloc' which tried to clean 2 times same stale lock
 * 1.2:
   - Re-define the way the script recovers the route target inconsistencies.
     The source of trust move from the schema transformer DB to the
@@ -2117,19 +2120,6 @@ class DatabaseCleaner(DatabaseManager):
                 logger.info("Deleting zk path: %s", path)
                 self._zk_client.delete(path, recursive=True)
 
-        zk_all_vn_sn = []
-        for vn_key, vn in zk_all_vns.items():
-            zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
-        cassandra_all_vn_sn = []
-        # ignore subnet without address and not lock in zk
-        for vn_key, vn in cassandra_all_vns.items():
-            for sn_key, addrs in vn.items():
-                if not addrs['addrs']:
-                    if (vn_key not in zk_all_vns or
-                            sn_key not in zk_all_vns[vn_key]):
-                        continue
-                cassandra_all_vn_sn.extend([(vn_key, sn_key)])
-
         # Clean extra net in zk
         extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
         for vn in extra_vn:
@@ -2142,6 +2132,19 @@ class DatabaseCleaner(DatabaseManager):
                     logger.info("Deleting zk path: %s", path)
                     self._zk_client.delete(path, recursive=True)
             zk_all_vns.pop(vn, None)
+
+        zk_all_vn_sn = []
+        for vn_key, vn in zk_all_vns.items():
+            zk_all_vn_sn.extend([(vn_key, sn_key) for sn_key in vn])
+        cassandra_all_vn_sn = []
+        # ignore subnet without address and not lock in zk
+        for vn_key, vn in cassandra_all_vns.items():
+            for sn_key, addrs in vn.items():
+                if not addrs['addrs']:
+                    if (vn_key not in zk_all_vns or
+                            sn_key not in zk_all_vns[vn_key]):
+                        continue
+                cassandra_all_vn_sn.extend([(vn_key, sn_key)])
 
         # Clean extra subnet in zk
         extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
