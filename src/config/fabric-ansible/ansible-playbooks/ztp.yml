@@ -85,3 +85,7 @@
         status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
         message: "{{ output.results.jl_message if output.status == 'Failure' else 'Finished ZTP'}}"
 
+    - name: print marked output
+      debug:
+       msg: "{{PB_OUTPUT_MARKER}}{{output}}{{PB_OUTPUT_MARKER}}"
+       verbosity: 0

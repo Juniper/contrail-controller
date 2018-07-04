@@ -38,6 +38,9 @@ job_ctx:
 #pool size
 POOL_SIZE: 500
 
+#Device Retry Timeout in Seconds
+TOTAL_RETRY_TIMEOUT: 3600
+
 #vendor mapping
 vendor_mapping:
   - vendor: Juniper
@@ -81,3 +84,5 @@ TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"
 DHCP_SERVER: "localhost"
 TFTP_SERVER: "localhost"
 
+# MARKERS
+JOB_PROGRESS_MARKER: "JOB_PROGRESS##"
