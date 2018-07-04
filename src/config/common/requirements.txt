@@ -2,4 +2,3 @@ bitarray
 bottle
 geventhttpclient
 psutil>=0.6.0
-sqlalchemy

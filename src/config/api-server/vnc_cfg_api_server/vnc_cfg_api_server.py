@@ -3000,11 +3000,6 @@ class VncApiServer(object):
             [t.replace('-', '_').strip() for t in
              self._args.object_cache_exclude_types.split(',')]
 
-        rdbms_server_list = self._args.rdbms_server_list
-        rdbms_user = self._args.rdbms_user
-        rdbms_password = self._args.rdbms_password
-        rdbms_connection = self._args.rdbms_connection
-
         db_engine = self._args.db_engine
         self._db_engine = db_engine
         cred = None
@@ -3014,11 +3009,6 @@ class VncApiServer(object):
             if cassandra_user is not None and cassandra_password is not None:
                 cred = {'username':cassandra_user,'password':cassandra_password}
             db_server_list = cass_server_list
-
-        if db_engine == 'rdbms':
-            db_server_list = rdbms_server_list
-            if rdbms_user is not None and rdbms_password is not None:
-                cred = {'username': rdbms_user,'password': rdbms_password}
 
         self._db_conn = VncDbClient(
             self, db_server_list, rabbit_servers, rabbit_port, rabbit_user,
@@ -3031,7 +3021,6 @@ class VncApiServer(object):
             kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs,
             obj_cache_entries=obj_cache_entries,
             obj_cache_exclude_types=obj_cache_exclude_types,
-            connection=rdbms_connection,
             cassandra_use_ssl=self._args.cassandra_use_ssl,
             cassandra_ca_certs=self._args.cassandra_ca_certs)
 
@@ -3648,7 +3637,6 @@ class VncApiServer(object):
                         obj_dicts.append(obj_result)
             else:
                 for obj_result in result:
-                    # TODO(nati) we should do this using sql query
                     id_perms = obj_result.get('id_perms')
 
                     if not id_perms:

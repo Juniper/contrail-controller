@@ -48,8 +48,6 @@ def parse_args(args_str):
         'listen_port': _WEB_PORT,
         'admin_port': _ADMIN_PORT,
         'cassandra_server_list': "127.0.0.1:9160",
-        'rdbms_server_list': "127.0.0.1:3306",
-        'rdbms_connection_config': "",
         'collectors': None,
         'http_server_port': '8084',
         'log_local': True,
@@ -121,12 +119,6 @@ def parse_args(args_str):
         'cassandra_user'     : None,
         'cassandra_password' : None
     }
-    # rdbms options
-    rdbmsopts = {
-        'rdbms_user'     : None,
-        'rdbms_password' : None,
-        'rdbms_connection': None
-    }
     # sandesh options
     sandeshopts = SandeshConfig.get_default_options()
 
@@ -154,8 +146,6 @@ def parse_args(args_str):
                     pass
         if 'CASSANDRA' in config.sections():
                 cassandraopts.update(dict(config.items('CASSANDRA')))
-        if 'RDBMS' in config.sections():
-                rdbmsopts.update(dict(config.items('RDBMS')))
         SandeshConfig.update_options(sandeshopts, config)
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -169,7 +159,6 @@ def parse_args(args_str):
     )
     defaults.update(ksopts)
     defaults.update(cassandraopts)
-    defaults.update(rdbmsopts)
     defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
 
@@ -183,13 +172,6 @@ def parse_args(args_str):
     parser.add_argument(
         "--cassandra_ca_certs",
         help="Cassandra CA certs")
-    parser.add_argument(
-        "--rdbms_server_list",
-        help="List of cassandra servers in IP Address:Port format",
-        nargs='+')
-    parser.add_argument(
-        "--rdbms_connection",
-        help="DB Connection string")
     parser.add_argument(
         "--redis_server_ip",
         help="IP address of redis server")
@@ -330,9 +312,6 @@ def parse_args(args_str):
     if type(args_obj.cassandra_server_list) is str:
         args_obj.cassandra_server_list =\
             args_obj.cassandra_server_list.split()
-    if type(args_obj.rdbms_server_list) is str:
-        args_obj.rdbms_server_list =\
-            args_obj.rdbms_server_list.split()
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
     args_obj.sandesh_config = SandeshConfig.from_parser_arguments(args_obj)

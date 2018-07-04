@@ -705,9 +705,6 @@ class AddrMgmt(object):
 
             # check of this alloc_pool is not overalapping
             # with other alloc_pools
-            # This check is not needed if zkeeper and rdbms API checks
-            # overlapping condition, it works with zkeeper api
-            # rdbms reallocate/allocate needs a fix for it.
             pool_idx = alloc_pool_list.index(alloc_pool)
             for idx in range(pool_idx+1, len(alloc_pool_list)):
                 next_alloc_pool = alloc_pool_list[idx]

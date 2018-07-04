@@ -1,14 +1,8 @@
-import os
-import os.path
-import fcntl
-
 import sys
-import sqlalchemy
 
 sys.path.append("../common/tests")
 
 from vnc_api import vnc_api
-from cfgm_common import vnc_rdbms
 from test_utils import *
 import test_common
 
@@ -69,26 +63,3 @@ class ApiServerTestCase(test_common.TestCase):
     def assert_vnc_db_has_ident(self, test_obj):
         self.assertTill(self.vnc_db_has_ident, obj=test_obj)
 # end class ApiServerTestCase
-
-
-def init_base_db():
-    try:
-        connection = "sqlite:///base_db.db"
-        engine_args = {
-            'echo': False,
-        }
-        engine = sqlalchemy.create_engine(connection, **engine_args)
-        vnc_rdbms.VncRDBMSClient.create_sqalchemy_models()
-        vnc_rdbms.Base.metadata.create_all(engine)
-    except:
-        pass
-
-
-class ApiServerRDBMSTestCase(ApiServerTestCase):
-    @classmethod
-    def setUpClass(cls, extra_config_knobs=None, extra_mocks=None):
-        init_base_db()
-        super(ApiServerRDBMSTestCase, cls).setUpClass(
-            db="rdbms", extra_config_knobs=extra_config_knobs,
-            extra_mocks=extra_mocks)
-# end class ApiServerRDBMSTestCase
