@@ -32,6 +32,7 @@ from cfgm_common import svc_info
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
+from cfgm_common.exceptions import ResourceExhaustionError
 
 from config_db import *
 
