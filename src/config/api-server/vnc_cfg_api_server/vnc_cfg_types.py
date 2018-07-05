@@ -2127,7 +2127,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         # create lag object
         lag_obj = LinkAggregationGroup(parent_type='physical-router',
             fq_name=['default-global-system-config', prouter_name, lag_interface_name],
-            link_aggregation_group_lacp_enabled=True)
+            link_aggregation_group_lacp_enabled=False)
 
         ok, resp = api_server.internal_request_create('link-aggregation-group',
             lag_obj.serialize_to_json())
