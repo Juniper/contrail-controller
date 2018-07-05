@@ -1004,6 +1004,8 @@ class Controller(object):
             self._libpart = self.start_libpart(self._conf.alarmgen_list())
             self._ad = None
 
+        self._us.set_ad_handle(self._ad)
+
         self._workers = {}
         self._uvestats = {}
         self._alarmstats = {}
