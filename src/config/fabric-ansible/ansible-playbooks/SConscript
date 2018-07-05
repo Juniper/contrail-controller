@@ -37,6 +37,7 @@ local_sources = [
     'generate_underlay_config.yml',
     'image_upgrade.yml',
     'error_handler.yml',
+    'discover_role.yml',
     'topo_discovery.yml',
     'ansible.cfg',
     'postscript.yml',
