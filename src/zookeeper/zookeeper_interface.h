@@ -25,6 +25,8 @@ class ZookeeperInterface {
     virtual int ZooDelete(zhandle_t *zh, const char *path, int version) = 0;
     virtual int ZooGet(zhandle_t *zh, const char *path, int watch,
         char *buffer, int* buffer_len, struct Stat *stat) = 0;
+    virtual int ZooExists(zhandle_t *zh, const char *path, int watch,
+                                         struct Stat *stat) = 0;
 };
 
 } // namespace interface

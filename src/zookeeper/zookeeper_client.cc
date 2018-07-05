@@ -62,6 +62,10 @@ class ZookeeperCBindings : public ZookeeperInterface {
         char *buffer, int* buffer_len, struct Stat *stat) {
         return zoo_get(zh, path, watch, buffer, buffer_len, stat);
     }
+    virtual int ZooExists(zhandle_t *zh, const char *path, int watch,
+                                         struct Stat *stat) {
+        return zoo_exists(zh, path, watch, stat);
+    }
 };
 
 } // namespace interface
@@ -150,12 +154,12 @@ static inline bool IsZooErrorUnrecoverable(int zerror) {
 }
 
 int ZookeeperClientImpl::CreateNodeSync(const char *path, const char *value,
-    int *err) {
+    int *err, int flag) {
     int rc;
  retry:
     do {
         rc = zki_->ZooCreate(zk_handle_, path, value, strlen(value),
-            &ZOO_OPEN_ACL_UNSAFE, 0, NULL, -1);
+            &ZOO_OPEN_ACL_UNSAFE, flag, NULL, -1);
     } while (IsZooErrorRecoverable(rc));
     if (IsZooErrorUnrecoverable(rc)) {
         // Reconnect
@@ -186,6 +190,40 @@ int ZookeeperClientImpl::GetNodeDataSync(const char *path, char *buf,
     return rc;
 }
 
+bool ZookeeperClientImpl::CreateNode(const char * path, const char *value,
+                                     int flag) {
+    int err = 0;
+    int rc;
+    if (!IsConnected()) {
+        bool success(Connect());
+        if (!success) {
+            ZOO_LOG_ERR("Zookeeper Client Connect FAILED");
+            return false;
+        }
+    }
+    rc = CreateNodeSync(path, value, &err, flag);
+    if (rc != ZOK && rc != ZNODEEXISTS) {
+        ZOO_LOG_ERR("Creation of ZNODE(" << path << "): " << value
+                    << ": FAILED: (" << rc << ") error: " << err);
+        return false;
+    }
+    return true;
+}
+
+bool ZookeeperClientImpl::CheckNodeExist(const char *path) {
+    if (!IsConnected()) {
+        bool success(Connect());
+        if (!success) {
+            ZOO_LOG_ERR("Zookeeper Client Connect FAILED");
+            return false;
+        }
+    }
+
+    struct Stat stat;
+    int rc = zki_->ZooExists(zk_handle_, path, 0, &stat);
+    return (rc == ZOK);
+}
+
 int ZookeeperClientImpl::DeleteNodeSync(const char *path, int *err) {
     int rc;
  retry:
@@ -203,6 +241,27 @@ int ZookeeperClientImpl::DeleteNodeSync(const char *path, int *err) {
     return rc;
 }
 
+bool ZookeeperClientImpl::DeleteNode(const char *path) {
+    int err = 0;
+    int rc;
+    if (!IsConnected()) {
+        bool success(Connect());
+        if (!success) {
+            ZOO_LOG_ERR("Zookeeper Client Connect FAILED");
+            return false;
+        }
+    }
+
+    rc = DeleteNodeSync(path, &err);
+    if (rc != ZOK) {
+        ZOO_LOG_ERR("Deletion of ZNODE(" << path << "): "
+                    << ": FAILED: (" << rc << ") error: " << err);
+        return false;
+    }
+
+    return (rc == ZOK);
+}
+
 std::string ZookeeperClientImpl::Name() const {
     return hostname_;
 }
@@ -217,6 +276,30 @@ ZookeeperClient::ZookeeperClient(const char *hostname, const char *servers) :
 
 ZookeeperClient::ZookeeperClient(impl::ZookeeperClientImpl *impl) :
     impl_(impl) {
+}
+
+bool ZookeeperClient::CreateNode(const char * path, const char *value,
+                                                    int type) {
+    int flag = 0;
+    if (type == Z_NODE_TYPE_EPHEMERAL) {
+        flag |= ZOO_EPHEMERAL;
+    }
+    if (type == Z_NODE_TYPE_SEQUENCE) {
+        flag |= ZOO_SEQUENCE;
+    }
+    return impl_->CreateNode(path, value, flag);
+}
+
+bool ZookeeperClient::CheckNodeExist(const char *path) {
+    return impl_->CheckNodeExist(path);
+}
+
+bool ZookeeperClient::DeleteNode(const char *path) {
+    return impl_->DeleteNode(path);
+}
+
+void ZookeeperClient::Shutdown() {
+    return impl_->Shutdown();
 }
 
 ZookeeperClient::~ZookeeperClient() {
@@ -251,7 +334,7 @@ class ZookeeperLock::ZookeeperLockImpl {
             // Try creating the znode
             int err;
             int rc(clientImpl_->CreateNodeSync(path_.c_str(), id_.c_str(),
-                &err));
+                        &err, 0));
             switch (rc) {
               case ZOK: {
                 // We acquired the lock

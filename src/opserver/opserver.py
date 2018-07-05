@@ -810,6 +810,7 @@ class OpServer(object):
                                  self._uvedbstream, self._usecache,
                                  freq = us_freq)
         self._state_server.update_redis_list(self.redis_uve_list)
+        self._uve_server.set_ad_handle(self._ad)
 
         self._analytics_links = ['uves', 'uve-types', 'tables',
             'queries', 'alarms', 'uve-stream', 'alarm-stream']

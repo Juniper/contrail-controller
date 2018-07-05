@@ -29,6 +29,13 @@ class SFlowCollector;
 class IpfixCollector;
 class Options;
 
+namespace zookeeper {
+namespace client {
+class ZookeeperClient;
+class ZookeeperLock;
+} // namespace client
+} // namespace zookeeper
+
 class VizCollector {
 public:
     VizCollector(EventManager *evm, unsigned short listen_port,
@@ -56,7 +63,8 @@ public:
             ConfigClientCollector *config_client,
             bool grok_enabled,
             const std::vector<std::string> &grok_key_list,
-            const std::vector<std::string> &grok_attrib_list);
+            const std::vector<std::string> &grok_attrib_list,
+            std::string host_ip);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
@@ -137,6 +145,8 @@ public:
         }
         return std::make_pair(bpart, npart);
     }
+    void AddNodeToZooKeeper();
+    void DelNodeFromZoo();
 private:
     std::string DbGlobalName(bool dup=false);
     void DbInitializeCb();
@@ -150,6 +160,8 @@ private:
     IpfixCollector *ipfix_collector_;
     boost::scoped_ptr<ProtobufCollector> protobuf_collector_;
     boost::scoped_ptr<StructuredSyslogCollector> structured_syslog_collector_;
+    boost::scoped_ptr<zookeeper::client::ZookeeperClient> zoo_collector_disc_;
+    std::string host_ip_;
     std::string name_;
     unsigned short listen_port_;
     uint32_t redis_gen_;
