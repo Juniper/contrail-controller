@@ -5,10 +5,11 @@
         - import_role:
             name: Juniper.junos
         - juniper_junos_config:
-            load: "merge"
+            load: "set"
             src: "{{ conf_dir }}/final_config/combined_config.conf"
             comment: "Applied by Ansible"
             ignore_warning: "True"
+            format: "set"
             provider:
               host: "{{ device_mgmt_ip }}"
               username: "{{ device_username }}"
