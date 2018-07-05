@@ -31,29 +31,33 @@ class SanityTest01(SanityBase):
     def _validate_discovered_prouters(self, prouters):
         assert len(prouters) == len(self._prouter['ips'])
         for i in range(len(prouters)):
-            assert prouters[i].physical_router_management_ip\
-                   == self._prouter['ips'][i]
-            assert prouters[i].physical_router_user_credentials.username\
-                   == 'root'
+            assert prouters[i].physical_router_management_ip == \
+                self._prouter['ips'][i]
+            assert prouters[i].physical_router_user_credentials.username == \
+                'root'
             assert prouters[i].physical_router_vendor_name
             assert prouters[i].physical_router_product_name
             assert prouters[i].physical_router_device_family
-            assert (prouters[i].physical_router_management_ip
-            == self._prouter['ips'][i]), ("The IP address of the discovered"
-            " device {}, does not match the given IP address range,{}."
-            .format(prouters[i].physical_router_management_ip,
-                            self._prouter['ips'][i]))
-            assert (prouters[i].physical_router_user_credentials.username
-            == 'root'), ("The username of the discovered"
-            " device {}, does not match the configured username, {}."
-            .format(prouters[i].physical_router_user_credentials.username,'root'))
-            assert (prouters[i].physical_router_vendor_name == 'Juniper'),("The vendor name of the discovered"
-            " device {}, does not match the configured vendor name, Juniper."
-            .format(prouters[i].physical_router_vendor_name))
-            assert (prouters[i].physical_router_product_name),("The discovered"
-            " device does not contain a product name.")
-            assert (prouters[i].physical_router_device_family),("The discovered"
-            " device does not have a device family.")
+            assert (prouters[i].physical_router_management_ip ==
+                    self._prouter['ips'][i],
+                    "The IP address of the discovered device {}, does not "
+                    "match the given IP address range,{}.".format(
+                        prouters[i].physical_router_management_ip,
+                        self._prouter['ips'][i]))
+            assert (prouters[i].physical_router_user_credentials.username ==
+                    'root',
+                    "The username of the discovered device {}, does not match "
+                    "the configured username, {}.".format(
+                        prouters[i].physical_router_user_credentials.username,
+                        'root'))
+            assert (prouters[i].physical_router_vendor_name == 'Juniper'), (
+                "The vendor name of the discovered device {}, does not match "
+                "the configured vendor name, Juniper.".format(
+                    prouters[i].physical_router_vendor_name))
+            assert prouters[i].physical_router_product_name, \
+                "The discovered device does not contain a product name."
+            assert prouters[i].physical_router_device_family, \
+                "The discovered device does not have a device family."
 
     # end _validate_discovered_prouters
 
@@ -61,8 +65,9 @@ class SanityTest01(SanityBase):
         for prouter in prouters:
             ifd_refs = self._api.physical_interfaces_list(
                 parent_id=prouter.uuid)
-            assert (ifd_refs.get('physical-interfaces') > 0),("No Physical interfaces"
-            "were imported for the given device.")
+            assert (ifd_refs.get('physical-interfaces') > 0,
+                    "No Physical interfaces were imported for "
+                    "the given device.")
 
     # end _validate_imported_prouters
 
@@ -70,8 +75,9 @@ class SanityTest01(SanityBase):
         for prouter in prouters:
             prouter = self._api.physical_router_read(prouter.fq_name)
             bgp_router_refs = prouter.get_bgp_router_refs() or []
-            assert (len(bgp_router_refs) == 1), ("No bgp router references "
-            "were created for the discovered device {}.".format(prouter))
+            assert (len(bgp_router_refs) == 1,
+                    "No bgp router references were created for the discovered "
+                    "device {}.".format(prouter))
     # end _validate_underlay_config
 
     def test(self):
