@@ -32,10 +32,12 @@ try:
     from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
 	ConnectionType
     from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+    from sandesh_common.vns.constants import SERVICE_COLLECTOR
 except:
     class SandeshType(object):
         SYSTEM = 1
         TRACE = 4
+        SERVICE_COLLECTOR = "contrail-collector"
 from requests.auth import HTTPBasicAuth
 try:
     from collections import OrderedDict
@@ -317,6 +319,18 @@ class AnalyticsDiscovery(gevent.Greenlet):
                     (messag, traceback.format_exc(), self._svc_name, str(self._pubinfo)))
             raise SystemExit
 
+    def get_active_collectors(self):
+        ret = []
+        try:
+            path = "/" + SERVICE_COLLECTOR;
+            ret = self._zk.get_children(path)
+        except Exception as ex:
+            template = "Exception {0} in AnalyticsDiscovery run. Args:\n{1!r}"
+            messag = template.format(type(ex).__name__, ex.args)
+            self._logger.error("%s : traceback %s for %s info %s" % \
+                    (messag, traceback.format_exc(), self._svc_name, str(self._pubinfo)))
+            ret = []
+        return ret
 
 class OpServerUtils(object):
 
