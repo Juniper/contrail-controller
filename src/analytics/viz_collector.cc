@@ -22,12 +22,14 @@
 #include "sflow_collector.h"
 #include "ipfix_collector.h"
 #include "viz_sandesh.h"
+#include <zookeeper/zookeeper_client.h>
 
 using std::stringstream;
 using std::string;
 using std::map;
 using std::make_pair;
 using boost::system::error_code;
+using namespace zookeeper::client;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             bool protobuf_collector_enabled,
@@ -54,7 +56,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             ConfigClientCollector *config_client,
             bool grok_enabled,
             const std::vector<std::string> &grok_key_list,
-            const std::vector<std::string> &grok_attrib_list) :
+            const std::vector<std::string> &grok_attrib_list,
+            std::string host_ip) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup),
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
@@ -104,6 +107,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             structured_syslog_kafka_partitions,
             db_initializer_->GetDbHandler(), gp_.get(), grok_enabled));
     }
+    host_ip_ = host_ip;
+    AddNodeToZooKeeper(evm, zookeeper_server_list);
 }
 
 VizCollector::VizCollector(EventManager *evm, DbHandlerPtr db_handler,
@@ -152,8 +157,9 @@ void VizCollector::WaitForIdle() {
 }
 
 void VizCollector::Shutdown() {
-    // First shutdown collector
+    // First shutdown collector 
     collector_->Shutdown();
+    DelNodeFromZoo();
     WaitForIdle();
 
     // Wait until all connections are cleaned up.
@@ -278,3 +284,52 @@ bool VizCollector::GetCqlMetrics(cass::cql::Metrics *metrics) {
     return db_handler->GetCqlMetrics(metrics);
 }
 
+bool VizCollector::RetryAddNodeToZoo() {
+    std::string path = "/" + g_vns_constants.SERVICE_COLLECTOR
+                           + "/" + host_ip_;
+    if (zoo_collector_disc_->CheckNodeExist(path.c_str())) {
+        return true;
+    }
+    zoo_collector_disc_->CreateNode(path.c_str(), Z_NODE_TYPE_EPHEMERAL);
+    return true;
+}
+
+void VizCollector::AddNodeToZooKeeper(EventManager *evm,
+                       const std::string &zookeeper_server_list) {
+    error_code error;
+    std::string hostname = boost::asio::ip::host_name(error);
+    Module::type module = Module::COLLECTOR;
+    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    NodeType::type node_type =
+        g_vns_constants.Module2NodeType.find(module)->second;
+    std::string type_name =
+    g_vns_constants.NodeTypeNames.find(node_type)->second;
+    std::ostringstream instance_str;
+    instance_str << getpid();
+    std::string instance_id = instance_str.str();
+    std::string zoo_val = hostname + ":" + type_name + ":"\
+                          + module_id + ":" + instance_id;
+    zoo_collector_disc_.reset(new ZookeeperClient(zoo_val.c_str(),
+            zookeeper_server_list.c_str()));
+    std::string path = "/" + g_vns_constants.SERVICE_COLLECTOR;
+    // To persisten znode, even zookeeper service totally down and
+    // come back, znode still can be restored.
+    zoo_collector_disc_->CreateNode(path.c_str(), Z_NODE_TYPE_PERSISTENT);
+
+    // start timer to monitor zookeeper state
+    zookeeper_state_monitor_timer_ = TimerManager::CreateTimer(
+        *evm->io_service(),
+        "Zookeeper State Moniter Timer",
+        TaskScheduler::GetInstance()->GetTaskId(
+        "Zookeeper State Moniter Timer"));
+    zookeeper_state_monitor_timer_->Start(1000,
+            boost::bind(
+                &VizCollector::RetryAddNodeToZoo, this), NULL);
+}
+
+
+void VizCollector::DelNodeFromZoo() {
+    TimerManager::DeleteTimer(zookeeper_state_monitor_timer_);
+    zookeeper_state_monitor_timer_ = NULL; 
+    zoo_collector_disc_->Shutdown();
+}
