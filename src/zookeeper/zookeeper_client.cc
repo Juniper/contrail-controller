@@ -84,7 +84,7 @@ ZookeeperClientImpl::ZookeeperClientImpl(const char *hostname,
 ZookeeperClientImpl::~ZookeeperClientImpl() {
 }
 
-bool ZookeeperClientImpl::Connect() {
+bool ZookeeperClientImpl::Connect(bool blocking) {
     while (true) {
         zk_handle_ = zki_->ZookeeperInit(servers_.c_str(),
                                          NULL,
@@ -94,6 +94,9 @@ bool ZookeeperClientImpl::Connect() {
                                          0);
         if (zk_handle_ == NULL) {
             int zerrno(errno);
+            if (!blocking) {
+                return false;
+            }
             ZOO_LOG_ERR("zookeeper_init FAILED: (" << zerrno <<
                 "): servers: " << servers_ << " retrying in 1 second");
             sleep(1);
@@ -107,6 +110,9 @@ bool ZookeeperClientImpl::Connect() {
                 ZOO_LOG(DEBUG, "Session CONNECTED");
                 break;
             } else {
+                if (!blocking) {
+                    return false;
+                }
                 ZOO_LOG(DEBUG, "Session NOT CONNECTED: retrying in 1 second");
                 sleep(1);
                 continue;
@@ -150,12 +156,12 @@ static inline bool IsZooErrorUnrecoverable(int zerror) {
 }
 
 int ZookeeperClientImpl::CreateNodeSync(const char *path, const char *value,
-    int *err) {
+    int *err, int flag = 0) {
     int rc;
  retry:
     do {
         rc = zki_->ZooCreate(zk_handle_, path, value, strlen(value),
-            &ZOO_OPEN_ACL_UNSAFE, 0, NULL, -1);
+            &ZOO_OPEN_ACL_UNSAFE, flag, NULL, -1);
     } while (IsZooErrorRecoverable(rc));
     if (IsZooErrorUnrecoverable(rc)) {
         // Reconnect
@@ -186,6 +192,55 @@ int ZookeeperClientImpl::GetNodeDataSync(const char *path, char *buf,
     return rc;
 }
 
+bool ZookeeperClientImpl::CreateNode(const char * path,
+                                     int flag,
+                                     bool blocking) {
+    int err;
+    int rc;
+    if (!IsConnected()) {
+        bool success(Connect(blocking));
+        if (!success) {
+            ZOO_LOG_ERR("Zookeeper Client Connect FAILED");
+            return false;
+        }
+    }
+    if (blocking) {
+        rc = CreateNodeSync(path, hostname_.c_str(), &err, flag);
+    } else {
+       rc = zki_->ZooCreate(zk_handle_, path, hostname_.c_str(),
+                            strlen(hostname_.c_str()), &ZOO_OPEN_ACL_UNSAFE,
+                            flag, NULL, -1);
+    }
+    switch (rc) {
+        case ZOK: {
+            std::string Path(path);
+            ZOO_LOG(DEBUG, "CREATE ZNODE:"<< Path << "/" << hostname_);
+            break;
+        }
+        case ZNODEEXISTS: {
+            std::string Path(path);
+            ZOO_LOG(DEBUG, "CREATE ZNODE:"<< Path << "/" << hostname_ << " exist");
+            break;
+        }
+        default: {
+            std::string Path(path);
+            ZOO_LOG_ERR("CreateNode(" << Path << "): " << hostname_
+                    << ": FAILED: (" << rc << ") error: " << err);
+            Shutdown();
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ZookeeperClientImpl::CheckNodeExist(const char *path) {
+    int rc;
+    char buf[256];
+    int buf_len(sizeof(buf));
+    rc = zki_->ZooGet(zk_handle_, path, 0, buf, &buf_len, NULL);
+    return (rc == ZOK);
+}
+
 int ZookeeperClientImpl::DeleteNodeSync(const char *path, int *err) {
     int rc;
  retry:
@@ -203,6 +258,7 @@ int ZookeeperClientImpl::DeleteNodeSync(const char *path, int *err) {
     return rc;
 }
 
+
 std::string ZookeeperClientImpl::Name() const {
     return hostname_;
 }
@@ -217,6 +273,25 @@ ZookeeperClient::ZookeeperClient(const char *hostname, const char *servers) :
 
 ZookeeperClient::ZookeeperClient(impl::ZookeeperClientImpl *impl) :
     impl_(impl) {
+}
+
+bool ZookeeperClient::CreateNode(const char * path, int type, bool blocking) {
+    int flag = 0;
+    if (type == Z_NODE_TYPE_EPHEMERAL) {
+        flag |= ZOO_EPHEMERAL;
+    }
+    if (type == Z_NODE_TYPE_SEQUENCE) {
+        flag |= ZOO_SEQUENCE;
+    }
+    return impl_->CreateNode(path, flag, blocking);
+}
+
+bool ZookeeperClient::CheckNodeExist(const char *path) {
+    return impl_->CheckNodeExist(path);
+}
+
+void ZookeeperClient::Shutdown() {
+    return impl_->Shutdown();
 }
 
 ZookeeperClient::~ZookeeperClient() {
