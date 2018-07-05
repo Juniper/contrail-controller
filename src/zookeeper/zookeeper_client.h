@@ -15,6 +15,11 @@ namespace impl {
 class ZookeeperClientImpl;
 } // namespace impl
 
+typedef enum Z_NODE_TYPE {
+    Z_NODE_TYPE_PERSISTENT = 1,
+    Z_NODE_TYPE_EPHEMERAL,
+    Z_NODE_TYPE_SEQUENCE,
+}Z_NODE_TYPE_E;
 //
 // Blocking, synchronous, non-thread safe Zookeeper client
 //
@@ -22,8 +27,15 @@ class ZookeeperClient {
  public:
     ZookeeperClient(const char *hostname, const char *servers);
     virtual ~ZookeeperClient();
-
- private:
+    bool CreateNode(const char *path, const char *value,
+                    int type = Z_NODE_TYPE_PERSISTENT);
+    bool CreateNode(const char *path,
+                    const char *data,
+                    int type = Z_NODE_TYPE_PERSISTENT);
+    bool CheckNodeExist(const char* path);
+    bool DeleteNode(const char* path);
+    void Shutdown();
+private:
     ZookeeperClient(impl::ZookeeperClientImpl *impl);
 
     friend class ZookeeperLock;

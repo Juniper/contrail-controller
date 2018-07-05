@@ -26,9 +26,12 @@ class ZookeeperClientImpl {
     void Shutdown();
     bool Reconnect();
     bool IsConnected() const;
-    int CreateNodeSync(const char *path, const char *value, int *err);
+    int CreateNodeSync(const char *path, const char *value, int *err, int flag);
     int GetNodeDataSync(const char *path, char *buf, int *buf_len, int *err);
     int DeleteNodeSync(const char *path, int *err);
+    bool CreateNode(const char * path, const char *value, int flag = 0);
+    bool CheckNodeExist(const char * path);
+    bool DeleteNode(const char * path);
     std::string Name() const;
 
  private:
