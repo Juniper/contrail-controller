@@ -22,13 +22,15 @@ class ZookeeperClientImpl {
         zookeeper::interface::ZookeeperInterface *zki);
     virtual ~ZookeeperClientImpl();
 
-    bool Connect();
+    bool Connect(bool blocking = true);
     void Shutdown();
     bool Reconnect();
     bool IsConnected() const;
-    int CreateNodeSync(const char *path, const char *value, int *err);
+    int CreateNodeSync(const char *path, const char *value, int *err, int flag);
     int GetNodeDataSync(const char *path, char *buf, int *buf_len, int *err);
     int DeleteNodeSync(const char *path, int *err);
+    bool CreateNode(const char * path, int flag = 0, bool blocking = true);
+    bool CheckNodeExist(const char * path);
     std::string Name() const;
 
  private:
