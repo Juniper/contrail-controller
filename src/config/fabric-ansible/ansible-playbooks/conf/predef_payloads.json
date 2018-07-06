@@ -66,6 +66,26 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "discover_role_template"
+          ],
+          "name": "discover_role_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_role.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "device_import_template"
           ],
           "name": "device_import_template",
@@ -362,7 +382,8 @@
           "supported_vendor_hardwares": {
             "vendor_hardware": [
               "juniper-qfx10002-36q",
-              "juniper-qfx5100-48s-6q"
+              "juniper-qfx5100-48s-6q",
+              "juniper-mx80"
             ]
           }
         }
@@ -382,6 +403,12 @@
             "juniper-qfx10002-36q"
           ],
           "name": "juniper-qfx10002-36q"
+        },
+        {
+          "fq_name": [
+            "juniper-mx80"
+          ],
+          "name": "juniper-mx80"
         }
       ]
     },
@@ -394,7 +421,7 @@
           ],
           "name": "juniper-qfx5100",
           "node_profile_vendor": "Juniper",
-          "node_profile_device_family": "junos",
+          "node_profile_device_family": "junos-qfx",
           "node_profile_physical_roles": {
               "physical_role": [ "leaf" ]
           }
@@ -404,6 +431,20 @@
             "default-global-system-config", "juniper-qfx10002"
           ],
           "name": "juniper-qfx10002",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_physical_roles": {
+              "physical_role": [ "spine" ]
+          },
+          "node_profile_routing_bridging_roles": {
+              "rb_role": [ "centrally-routed-bridging" ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-mx80"
+          ],
+          "name": "juniper-mx80",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
           "node_profile_physical_roles": {
@@ -465,6 +506,20 @@
           "role_config_config": {
             "bgp_hold_time": 90
           }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-mx80", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
         }
       ]
     }
@@ -481,6 +536,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10002" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-36q" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx80" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-mx80" ]
     },
     {
       "from_type": "role_config",
@@ -505,8 +566,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10002", "ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx80", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     }
   ]
 }
-
-
