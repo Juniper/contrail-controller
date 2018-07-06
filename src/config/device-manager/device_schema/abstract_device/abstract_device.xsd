@@ -131,6 +131,8 @@
        <xsd:element name="virtual-network-uuid" type="xsd:string"/>
        <xsd:element name="virtual-network-id" type="xsd:string"/>
        <xsd:element name="virtual-network-mode" type="xsd:string"/><!-- L2 or L3 or L2-L3 -->
+       <xsd:element name="virtual-network-is-internal" type="xsd:boolean"/>
+       <xsd:element name="vxlan-id" type="xsd:integer"/>
        <xsd:element name="routing-instance-type" type="xsd:string"/>
        <xsd:element name="is-public-network" type="xsd:boolean"/><!--router_external, restrict_proxy_arp-->
        <xsd:element name="import-targets" type="xsd:string" maxOccurs="unbounded"/>
@@ -143,7 +145,7 @@
        <xsd:element name="loopback-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
        <xsd:element name="service-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
        <!-- for SNAT & FIP -->
-       <xsd:element name="nat-rules" type="dac:NatRules" maxOccurs="unbounded"/>
+       <xsd:element name="nat-rules" type="dac:NatRules"/>
        <!-- for Private IP to Public IP Map, and public vrf map -->
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
        <!-- Evpn Configuration -->
@@ -205,6 +207,7 @@
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="uuid" type="xsd:string"/>
        <xsd:element name="vlan-tag" type="xsd:string"/>
+       <xsd:element name="gateway" type="xsd:string"/>
        <xsd:element name="unit" type="xsd:integer"/>
        <xsd:element name="ip-list" type="dac:IpType" maxOccurs="unbounded"/>
        <xsd:element name="family" type="xsd:string"/>
@@ -217,6 +220,7 @@
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="encapsulation" type="xsd:string"/>
        <xsd:element name="multicast-mode" type="xsd:string"/>
+       <xsd:element name="default-gateway" type="xsd:string"/>
        <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
@@ -228,8 +232,8 @@
         <xsd:element name="source-address" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="destination-prefix-list" type="dac:Subnet" maxOccurs="unbounded"/>
         <xsd:element name="source-prefix-list" type="dac:Subnet" maxOccurs="unbounded"/>
-        <xsd:element name="source-port" type="xsd:string"/>
-        <xsd:element name="destination-port" type="xsd:string"/>
+        <xsd:element name="source-ports" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="destination-ports" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="ip-protocol" type="xsd:string"/>
         <xsd:element name="ether-type" type="xsd:string"/>
         <xsd:element name="family" type="xsd:string"/>
@@ -260,7 +264,11 @@
         <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="direction" type="xsd:string"/>
-        <xsd:element name="term" type="dac:Term"/>
+        <xsd:element name="source-addresses" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="source-prefixes" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="destination-addresses" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="destination-prefixes" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="translation-type" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
