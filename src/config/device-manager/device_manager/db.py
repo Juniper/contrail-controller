@@ -172,7 +172,7 @@ class PhysicalRouterDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
-        self.loopback_ip = obj.get('physical_router_loopback_ip', '')
+        self.loopback_ip = obj.get('physical_router_loopback_ip')
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
         self.vendor = obj.get('physical_router_vendor_name') or ''
