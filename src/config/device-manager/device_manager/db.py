@@ -141,7 +141,6 @@ class PhysicalRouterDM(DBBaseDM):
                                                           self.product,
                                                           plugin_params,
                                                           vnc_lib, self._logger)
-                self.set_config_state()
         if PushConfigState.is_push_mode_ansible() and\
                 not self.no_ansible_support_for_role():
             self.config_manager = self.ansible_manager
