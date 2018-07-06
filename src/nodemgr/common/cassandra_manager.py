@@ -193,7 +193,7 @@ class CassandraManager(object):
         try:
             self.exec_cmd(cqlsh_cmd)
             event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_SERVER_PORT
-        except:
+        except Exception as e:
             msg = "Failed to connect to database by CQL: " + str(e)
             event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
             event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_SERVER_PORT
