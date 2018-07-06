@@ -6,7 +6,7 @@ from gevent import monkey
 monkey.patch_all()
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
-from nodemgr.vrouter_nodemgr.vrouter_process_stat import VrouterProcessStat
+from nodemgr.vrouter_nodemgr.process_stat import VrouterProcessStat
 from pysandesh.sandesh_base import sandesh_global
 from sandesh_common.vns.ttypes import Module
 from loadbalancer_stats import LoadbalancerStatsUVE
