@@ -143,7 +143,7 @@
        <xsd:element name="loopback-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
        <xsd:element name="service-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
        <!-- for SNAT & FIP -->
-       <xsd:element name="nat-rules" type="dac:NatRules" maxOccurs="unbounded"/>
+       <xsd:element name="nat-rules" type="dac:NatRules"/>
        <!-- for Private IP to Public IP Map, and public vrf map -->
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
        <!-- Evpn Configuration -->
@@ -217,6 +217,7 @@
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="encapsulation" type="xsd:string"/>
        <xsd:element name="multicast-mode" type="xsd:string"/>
+       <xsd:element name="default-gateway" type="xsd:string"/>
        <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
@@ -260,7 +261,11 @@
         <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="direction" type="xsd:string"/>
-        <xsd:element name="term" type="dac:Term"/>
+        <xsd:element name="source-addresses" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="source-prefixes" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="destination-addresses" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="destination-prefixes" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="translation-type" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
