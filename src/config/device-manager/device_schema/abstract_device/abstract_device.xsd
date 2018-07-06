@@ -217,6 +217,7 @@
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="encapsulation" type="xsd:string"/>
        <xsd:element name="multicast-mode" type="xsd:string"/>
+       <xsd:element name="default-gateway" type="xsd:string"/>
        <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
