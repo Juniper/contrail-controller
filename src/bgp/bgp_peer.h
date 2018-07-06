@@ -248,6 +248,8 @@ public:
     uint64_t last_flap() const { return last_flap_; }
     uint64_t total_flap_count() const { return total_flap_count_; }
 
+    void DSCPUpdateCallback(uint8_t dscp_value);
+
     std::string last_flap_at() const;
 
     void inc_rx_open();
@@ -327,6 +329,7 @@ public:
                                 KeyType key_type);
     void ClearListenSocketAuthKey();
     void SetSessionSocketAuthKey(TcpSession *session);
+    void SetSessionSocketOptionDscp(TcpSession *session);
     bool AttemptGRHelperMode(int code, int subcode) const;
     void Register(BgpTable *table, const RibExportPolicy &policy);
     void Register(BgpTable *table);
@@ -516,6 +519,7 @@ private:
     uint64_t flap_count_;
     uint64_t total_flap_count_;
     uint64_t last_flap_;
+    int dscp_listener_id_;
     AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;
     KeyType inuse_authkey_type_;

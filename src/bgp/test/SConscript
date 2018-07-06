@@ -156,6 +156,9 @@ env.Alias('src/bgp:bgp_authentication_test', bgp_authentication_test)
 bgp_bgpaas_test = env.UnitTest('bgp_bgpaas_test', ['bgp_bgpaas_test.cc'])
 env.Alias('src/bgp:bgp_bgpaas_test', bgp_bgpaas_test)
 
+bgp_dscp_test = env.UnitTest('bgp_dscp_test', ['bgp_dscp_test.cc'])
+env.Alias('src/bgp:bgp_dscp_test', bgp_dscp_test)
+
 bgp_condition_listener_test = env.UnitTest('bgp_condition_listener_test',
                                      ['bgp_condition_listener_test.cc'])
 env.Alias('src/bgp:bgp_condition_listener_test', bgp_condition_listener_test)
@@ -642,6 +645,7 @@ test_suite = [
     bgp_bgpaas_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
+    bgp_dscp_test,
     bgp_ifmap_config_manager_test,
     bgp_config_test,
     bgp_evpn_aliasing_test,
