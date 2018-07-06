@@ -1555,7 +1555,14 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
     if (data_.intf_entry == NULL)
         return;
 
-    if  (data_.intf_entry->type() != Interface::VM_INTERFACE)
+    bool vgw_pass = true;
+    if (data_.intf_entry->type() == Interface::INET) {
+        vgw_pass = false;
+        InetInterface* inet_intf = (InetInterface*)(data_.intf_entry).get();
+        if ((inet_intf != NULL) && (inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY))
+               vgw_pass = true;
+    }
+    if ((data_.intf_entry->type() != Interface::VM_INTERFACE) && !vgw_pass)
         return;
 
     // Get Network policy/mirror cfg policy/mirror policies
@@ -1700,13 +1707,21 @@ void FlowEntry::GetSgList(const Interface *intf) {
 
     // Get virtual-machine port for forward flow
     const VmInterface *vm_port = NULL;
+    bool vgw_pass = false;
     if (intf != NULL) {
-        if (intf->type() == Interface::VM_INTERFACE) {
+        if (intf->type() == Interface::INET) {
+            const InetInterface* inet_intf = static_cast<const InetInterface *>(intf);
+            if ((inet_intf != NULL) && (inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY)) {
+                vgw_pass = true;
+            }
+        }
+        if (intf->type() == Interface::VM_INTERFACE)  {
             vm_port = static_cast<const VmInterface *>(intf);
-         }
+            vgw_pass = true;
+        }
     }
 
-    if (vm_port == NULL) {
+    if (!vgw_pass) {
         return;
     }
 
@@ -1834,8 +1849,10 @@ static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
 void FlowEntry::GetLocalFlowSgList(const VmInterface *vm_port,
                                    const VmInterface *reverse_vm_port) {
     // Get SG-Rule for the forward flow
-    data_.match_p.sg_policy.rule_present = CopySgEntries(vm_port, true,
-                                                  data_.match_p.sg_policy.m_acl_l);
+    if (vm_port) {
+        data_.match_p.sg_policy.rule_present =
+            CopySgEntries(vm_port, true, data_.match_p.sg_policy.m_acl_l);
+    }
     // For local flow, we need to simulate SG lookup at both ends.
     // Assume packet is from VM-A to VM-B.
     // If we apply Ingress-ACL from VM-A, then apply Egress-ACL from VM-B
@@ -1854,9 +1871,11 @@ void FlowEntry::GetLocalFlowSgList(const VmInterface *vm_port,
     //   the flow if either forward or reverse flow is allowed
 
     // Copy the SG rules to be applied for reverse flow
-    data_.match_p.sg_policy.reverse_out_rule_present =
-        CopySgEntries(vm_port, false,
-                      data_.match_p.sg_policy.m_reverse_out_acl_l);
+    if (vm_port) {
+        data_.match_p.sg_policy.reverse_out_rule_present =
+            CopySgEntries(vm_port, false,
+                          data_.match_p.sg_policy.m_reverse_out_acl_l);
+    }
 
     if (reverse_vm_port) {
         data_.match_p.sg_policy.reverse_rule_present =
@@ -1868,8 +1887,12 @@ void FlowEntry::GetLocalFlowSgList(const VmInterface *vm_port,
 void FlowEntry::GetNonLocalFlowSgList(const VmInterface *vm_port) {
     // Get SG-Rule for the forward flow
     bool ingress = is_flags_set(FlowEntry::IngressDir);
-    data_.match_p.sg_policy.rule_present = CopySgEntries(vm_port, ingress,
-                                                  data_.match_p.sg_policy.m_acl_l);
+    if (vm_port) {
+        data_.match_p.sg_policy.rule_present =
+            CopySgEntries(vm_port, ingress,
+                          data_.match_p.sg_policy.m_acl_l);
+    }
+
     data_.match_p.sg_policy.out_rule_present = false;
 
     //Update reverse SG flow entry so that it can be used in below 2 scenario
@@ -1881,9 +1904,11 @@ void FlowEntry::GetNonLocalFlowSgList(const VmInterface *vm_port) {
     //   the flow if either forward or reverse flow is allowed
 
     // Copy the SG rules to be applied for reverse flow
-    data_.match_p.sg_policy.reverse_out_rule_present =
-        CopySgEntries(vm_port, !ingress,
-                      data_.match_p.sg_policy.m_reverse_out_acl_l);
+    if (vm_port) {
+        data_.match_p.sg_policy.reverse_out_rule_present =
+            CopySgEntries(vm_port, !ingress,
+                          data_.match_p.sg_policy.m_reverse_out_acl_l);
+    }
     data_.match_p.sg_policy.reverse_rule_present = false;
 }
 
