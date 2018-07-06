@@ -151,7 +151,7 @@ class AnsibleConf(AnsibleBase):
                 pi = PhysicalInterface(uuid=pi_obj.uuid, name=pi_obj.name,
                                        comment=DMUtils.ip_clos_comment())
                 li = LogicalInterface(uuid=li_obj.uuid, name=li_obj.name,
-                                      unit=0,
+                                      unit=int(li_obj.name.split('.')[-1]),
                                       comment=DMUtils.ip_clos_comment())
                 li.add_ip_list(IpType(address=iip_obj.instance_ip_address))
                 pi.add_logical_interfaces(li)
@@ -481,8 +481,7 @@ class AnsibleConf(AnsibleBase):
         bgp_config = self._get_bgp_config_xml()
         if not bgp_config:
             return
-        if not self.bgp_configs:
-            self.bgp_configs = []
+        self.bgp_configs = self.bgp_configs or []
         self.bgp_configs.append(bgp_config)
         self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
         if self.external_peers:
