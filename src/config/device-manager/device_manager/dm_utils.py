@@ -303,11 +303,12 @@ class DMUtils(object):
 
     @staticmethod
     def bgp_group_comment(bgp_obj):
-        return "/* BGP Router: %s, UUID: %s */"%(bgp_obj.name, bgp_obj.uuid)
+        return "/* overlay_bgp: BGP Router: %s, UUID: %s */" %\
+               (bgp_obj.name, bgp_obj.uuid)
 
     @staticmethod
     def public_vrf_filter_comment():
-        return "/* Public VRF Filter for Floating IPs */"
+        return "/* fip: Public VRF Filter for Floating IPs */"
 
     @staticmethod
     def vn_ps_comment(vn, target_type):
@@ -320,7 +321,7 @@ class DMUtils(object):
 
     @staticmethod
     def vn_firewall_comment(vn, mode):
-        return "/* Virtual Network: %s, UUID: %s, Filter Type: %s */"%(vn.fq_name[-1],
+        return "/* fip: Virtual Network: %s, UUID: %s, Filter Type: %s */"%(vn.fq_name[-1],
                                                                        vn.uuid, mode)
 
     @staticmethod
