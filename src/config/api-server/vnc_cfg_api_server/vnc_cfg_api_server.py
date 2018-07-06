@@ -3300,6 +3300,10 @@ class VncApiServer(object):
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
 
+        # Load init data for job playbooks like JobTemplates, Tags, etc
+        if self._args.enable_fabric_ansible:
+            self._load_init_data()
+
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
         fq_name = ['default-domain', 'default-project', 'default-network-ipam']
@@ -3309,9 +3313,6 @@ class VncApiServer(object):
         obj_dict['perms2']['global_access'] = PERMS_RX
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
 
-        # Load init data for job playbooks like JobTemplates, Tags, etc
-        if self._args.enable_fabric_ansible:
-            self._load_init_data()
     # end _db_init_entries
 
     # Load init data for job playbooks like JobTemplates, Tags, etc
@@ -4728,4 +4729,3 @@ def server_main(args_str=None):
 
 if __name__ == "__main__":
     server_main()
-
