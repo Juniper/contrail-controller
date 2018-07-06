@@ -827,9 +827,29 @@ class QfxConf(JuniperConf):
                     self.build_firewall_filters(sg, acl)
     # end build_firewall_config
 
+    def is_default_sg(self, match):
+        if ((str(match.get_dst_address().get_subnet().get_ip_prefix()) == "0.0.0.0") or \
+            (str(match.get_dst_address().get_subnet().get_ip_prefix()) == "::")) and \
+           (str(match.get_dst_address().get_subnet().get_ip_prefix_len()) == "0") and \
+           (str(match.get_dst_port().get_start_port()) == "0") and \
+           (str(match.get_dst_port().get_end_port()) == "65535") and \
+           ((str(match.get_ethertype()) == "IPv4") or \
+            (str(match.get_ethertype()) == "IPv6")) and \
+           (not match.get_src_address().get_subnet()) and \
+           (not match.get_src_address().get_subnet_list()) and \
+           (str(match.get_src_port().get_start_port()) == "0") and \
+           (str(match.get_src_port().get_end_port()) == "65535") and \
+           (str(match.get_protocol()) == "any"):
+            return True
+        return False
+    # end is_default_sg
+
     def has_terms(self, rule):
         match = rule.get_match_condition()
         if not match:
+            return False
+        # return False if it is default SG, no filter is applied
+        if self.is_default_sg(match):
             return False
         return match.get_dst_address() or match.get_dst_port() or \
               match.get_ethertype() or match.get_src_address() or match.get_src_port() or \
