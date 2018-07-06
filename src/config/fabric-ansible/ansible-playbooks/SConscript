@@ -41,6 +41,8 @@ local_sources = [
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
+    'fabric_config.yml',
+    'feature_config.yml',
 ]
 
 local_sources_rules = []

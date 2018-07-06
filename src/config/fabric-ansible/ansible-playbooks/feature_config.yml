@@ -1,0 +1,43 @@
+# Generic feature config tasks
+
+    - name: Calculate feature name specific to the vendor and family
+      set_fact:
+        vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ feature }}"
+
+    - name: Check whether Jinja file exists for this vendor/family/feature
+      stat:
+        path: "./roles/{{ feature }}/templates/{{ vf_feature }}.j2"
+      register: p
+
+    - name: Check whether feature is needed
+      debug: msg="Feature {{ vf_feature }} not found, skipping..."
+      when: p.stat.exists == False
+
+    - name: Generate feature config
+      block:
+        - debug: msg="Generate '{{ feature }}' for {{ device_vendor }} {{ device_family }} {{ device_name }}" verbosity=1
+        - template:
+            src: "{{ vf_feature }}.j2"
+            dest: "{{ conf_dir }}/build_config/{{ vf_feature }}.conf"
+          register: cmd_res
+        - name: print command response
+          debug: var=cmd_res verbosity=1
+      when: p.stat.exists
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failure",
+              "message": "{{cmd_res.msg}}"
+            }
+
+        - name: print output
+          debug: var=output verbosity=1
+
+        - name: Appending job log for reading necessary info from database
+          job_objectlog:
+            job_ctx: "{{ job_ctx }}"
+            message: "Failed to generate configuration: {{ vf_feature }}\n{{ cmd_res.msg }}"
+            status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+
+        - meta: end_play
+
