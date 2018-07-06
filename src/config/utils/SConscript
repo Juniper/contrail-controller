@@ -17,7 +17,6 @@ utils_scripts = [
   'chmod.py',
   'contrail',
   'contrail-version',
-  'contrail-status.py',
   'demo_cfg.py',
   'provision_control.py',
   'provision_static_route.py',

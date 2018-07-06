@@ -305,15 +305,6 @@ class CmdServiceTemplateDel(Command):
         sp.delete_st()
 
 
-class CmdContrailStatus(Command):
-
-    "Option to check contrail status"
-
-    def take_action(self, parsed_args):
-        self.app.stdout.write('Option to check contrail status\n')
-        os.system("/usr/bin/contrail-status")
-
-
 class CmdContrailVersion(Command):
 
     "Option to check contrail version"

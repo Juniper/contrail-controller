@@ -30,7 +30,7 @@ for file in local_sources:
 
 analytics_sources = [
            '__init__.py',
-           'analytics_nodemgr/analytics_event_manager.py'
+           'analytics_nodemgr/event_manager.py'
           ]
 analytics_sources_rules = []
 for file in analytics_sources:
@@ -38,7 +38,7 @@ for file in analytics_sources:
 
 control_sources = [
            '__init__.py',
-           'control_nodemgr/control_event_manager.py'
+           'control_nodemgr/event_manager.py'
           ]
 control_sources_rules = []
 for file in control_sources:
@@ -46,7 +46,7 @@ for file in control_sources:
 
 config_sources = [
            '__init__.py',
-           'config_nodemgr/config_event_manager.py'
+           'config_nodemgr/event_manager.py'
           ]
 config_sources_rules = []
 for file in config_sources:
@@ -54,10 +54,10 @@ for file in config_sources:
 
 vrouter_sources = [
            '__init__.py',
-           'vrouter_nodemgr/vrouter_process_stat.py',
+           'vrouter_nodemgr/process_stat.py',
            'vrouter_nodemgr/loadbalancer_stats.py',
            'vrouter_nodemgr/haproxy_stats.py',
-           'vrouter_nodemgr/vrouter_event_manager.py'
+           'vrouter_nodemgr/event_manager.py'
           ]
 vrouter_sources_rules = []
 for file in vrouter_sources:
@@ -65,7 +65,7 @@ for file in vrouter_sources:
 
 database_sources = [
            '__init__.py',
-           'database_nodemgr/database_event_manager.py'
+           'database_nodemgr/event_manager.py'
           ]
 database_sources_rules = []
 for file in database_sources:
@@ -121,31 +121,6 @@ OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-contro
             'control_nodemgr/contrail-control-nodemgr.conf'))
 OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-vrouter-nodemgr.conf',
             'vrouter_nodemgr/contrail-vrouter-nodemgr.conf'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_INITD'] + '/contrail-config-nodemgr',
-            'config_nodemgr/contrail-config-nodemgr.initd.supervisord'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_INITD'] + '/contrail-database-nodemgr',
-            'database_nodemgr/contrail-database-nodemgr.initd.supervisord'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_INITD'] + '/contrail-analytics-nodemgr',
-            'analytics_nodemgr/contrail-analytics-nodemgr.initd.supervisord'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_INITD'] + '/contrail-control-nodemgr',
-            'control_nodemgr/contrail-control-nodemgr.initd.supervisord'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_INITD'] + '/contrail-vrouter-nodemgr',
-            'vrouter_nodemgr/contrail-vrouter-nodemgr.initd.supervisord'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + \
-            '/supervisord_config_files/contrail-config-nodemgr.ini',
-            'config_nodemgr/contrail-config-nodemgr.ini'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + \
-            '/supervisord_database_files/contrail-database-nodemgr.ini',
-            'database_nodemgr/contrail-database-nodemgr.ini'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + \
-            '/supervisord_analytics_files/contrail-analytics-nodemgr.ini',
-            'analytics_nodemgr/contrail-analytics-nodemgr.ini'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + \
-            '/supervisord_control_files/contrail-control-nodemgr.ini',
-            'control_nodemgr/contrail-control-nodemgr.ini'))
-OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + \
-            '/supervisord_vrouter_files/contrail-vrouter-nodemgr.ini',
-            'vrouter_nodemgr/contrail-vrouter-nodemgr.ini'))
 
 OpEnv.Alias("src:nodemgr", sdist_gen)
 OpEnv.Alias("contrail-nodemgr", sdist_gen)
