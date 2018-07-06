@@ -47,11 +47,11 @@ import sys
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
-from analytics_nodemgr.analytics_event_manager import AnalyticsEventManager
-from config_nodemgr.config_event_manager import ConfigEventManager
-from control_nodemgr.control_event_manager import ControlEventManager
-from database_nodemgr.database_event_manager import DatabaseEventManager
-from vrouter_nodemgr.vrouter_event_manager import VrouterEventManager
+from analytics_nodemgr.event_manager import AnalyticsEventManager
+from config_nodemgr.event_manager import ConfigEventManager
+from control_nodemgr.event_manager import ControlEventManager
+from database_nodemgr.event_manager import DatabaseEventManager
+from vrouter_nodemgr.event_manager import VrouterEventManager
 
 
 unit_names_dict = {
