@@ -149,9 +149,10 @@ class AnsibleConf(AnsibleBase):
                 fetch_pi_li_iip(self.physical_router.physical_interfaces):
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
                 pi = PhysicalInterface(uuid=pi_obj.uuid, name=pi_obj.name,
+                                       interface_type='regular',
                                        comment=DMUtils.ip_clos_comment())
                 li = LogicalInterface(uuid=li_obj.uuid, name=li_obj.name,
-                                      unit=0,
+                                      unit=int(li_obj.name.split('.')[-1]),
                                       comment=DMUtils.ip_clos_comment())
                 li.add_ip_list(IpType(address=iip_obj.instance_ip_address))
                 pi.add_logical_interfaces(li)
@@ -320,20 +321,6 @@ class AnsibleConf(AnsibleBase):
         return self.device_send(job_template, job_input, is_delete, retry)
     # end send_conf
 
-    def add_lo0_unit_0_interface(self, loopback_ip=''):
-        if not loopback_ip:
-            return
-        if not self.interfaces_config:
-            self.interfaces_config = []
-        lo_intf = PhysicalInterface(name="lo0", interface_type="loopback")
-        self.interfaces_config.append(lo_intf)
-        li = LogicalInterface(name="lo0", unit=0,
-                              comment=DMUtils.lo0_unit_0_comment(),
-                              family="inet")
-        li.add_ip_list(IpType(address=loopback_ip))
-        lo_intf.add_logical_interfaces(li)
-    # end add_lo0_unit_0_interface
-
     def add_dynamic_tunnels(self, tunnel_source_ip,
                             ip_fabric_nets, bgp_router_ips):
         if not self.system_config:
@@ -481,8 +468,7 @@ class AnsibleConf(AnsibleBase):
         bgp_config = self._get_bgp_config_xml()
         if not bgp_config:
             return
-        if not self.bgp_configs:
-            self.bgp_configs = []
+        self.bgp_configs = self.bgp_configs or []
         self.bgp_configs.append(bgp_config)
         self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
         if self.external_peers:
@@ -514,14 +500,11 @@ class AnsibleConf(AnsibleBase):
             tunnel_ip = self.physical_router.dataplane_ip
             if not tunnel_ip and bgp_router.params:
                 tunnel_ip = bgp_router.params.get('address')
-            if (tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip)):
-                self.add_dynamic_tunnels(
-                    tunnel_ip,
-                    GlobalSystemConfigDM.ip_fabric_subnets,
-                    bgp_router_ips)
+            if tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip):
+                self.add_dynamic_tunnels(tunnel_ip,
+                                         GlobalSystemConfigDM.ip_fabric_subnets,
+                                         bgp_router_ips)
 
-        if self.physical_router.loopback_ip:
-            self.add_lo0_unit_0_interface(self.physical_router.loopback_ip)
         self.set_bgp_group_config()
     # end build_bgp_config
 
