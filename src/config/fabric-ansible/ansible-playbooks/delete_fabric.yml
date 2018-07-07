@@ -1,0 +1,44 @@
+---
+- name: Delete fabric and all the devices in the fabric
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: delete fabric and devices in it
+      set_fact:
+        output: "{{ job_ctx | delete_fabric }}"
+
+    - debug: var=output
+
+    - name: check failure
+      include_tasks: error_handler.yml
+      when: output.status == 'failure'
+      vars:
+        op_err_message: "Unable to delete fabric due to error"
+        jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error. Here is deletion log\n: {{ output.deletion_log }}"
+        results:
+          fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
+
+    - name: Update Job log with fabric deletion job status
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+        message: "Successfully deleted fabric: {{ playbook_input.input.fabric_fq_name }}"
+
+    - name: print marked output
+      debug:
+        msg: "{{PB_OUTPUT_MARKER}}{{output}}{{PB_OUTPUT_MARKER}}"
+        verbosity: 0
+
+    - name: insert/update in /tmp/<exec-id> file
+      lineinfile:
+        path: "/tmp/{{job_ctx.job_execution_id}}"
+        create: yes
+        insertafter: EOF
+        line: "{{job_ctx.unique_pb_id}} {{PB_OUTPUT_MARKER}}{{output}}{{PB_OUTPUT_MARKER}}"
+
+    - name: insert/update in /tmp/<exec-id> file
+      lineinfile:
+        path: "/tmp/{{job_ctx.job_execution_id}}"
+        create: yes
+        insertafter: EOF
+        line: "{{job_ctx.unique_pb_id}} END"

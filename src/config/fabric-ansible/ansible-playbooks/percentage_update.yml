@@ -12,3 +12,17 @@
   debug:
     msg: "{{JOB_PROGRESS_MARKER}}{{jl_output.percentage_completed}}{{JOB_PROGRESS_MARKER}}"
     verbosity: 0
+
+- name: insert/update in /tmp/<exec-id> file
+  lineinfile:
+    path: "/tmp/{{job_ctx.job_execution_id}}"
+    create: yes
+    insertafter: EOF
+    line: "{{job_ctx.unique_pb_id}} {{JOB_PROGRESS_MARKER}}{{jl_output.percentage_completed}}{{JOB_PROGRESS_MARKER}}"
+
+- name: insert/update in /tmp/<exec-id> file
+  lineinfile:
+    path: "/tmp/{{job_ctx.job_execution_id}}"
+    create: yes
+    insertafter: EOF
+    line: "{{job_ctx.unique_pb_id}} END"
