@@ -21,7 +21,7 @@ logger.setLevel(logging.DEBUG)
 
 # Testing when schema file is empty for the job template, tags and
 # job templates should still be created
-class TestInitData2(test_case.ApiServerTestCase):
+class TestInitData1(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
@@ -50,11 +50,11 @@ class TestInitData2(test_case.ApiServerTestCase):
             os.makedirs("conf")
         if not os.path.exists("schema"):
             os.makedirs("schema")
-        with open("conf/predef_payloads.json", "a+") as f:
+        with open("conf/predef_payloads.json", "w") as f:
             json.dump(json_data, f)
-        with open("schema/image_upgrade_schema.json", "a+") as file:
+        with open("schema/image_upgrade_schema.json", "w") as file:
             json.dump(schema_data, file)
-        super(TestInitData2, cls).setUpClass(
+        super(TestInitData1, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
                                  ".")])
 
@@ -67,11 +67,11 @@ class TestInitData2(test_case.ApiServerTestCase):
             shutil.rmtree("conf")
         if os.path.exists("schema"):
             shutil.rmtree("schema")
-        super(TestInitData2, cls).tearDownClass(*args, **kwargs)
+        super(TestInitData1, cls).tearDownClass(*args, **kwargs)
 
     # end tearDownClass
 
-    def test_load_init_data_2(self):
+    def test_load_init_data_1(self):
         ipam_fq_name = ['default-domain', 'default-project',
                         'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
@@ -116,7 +116,7 @@ class TestInitDataError1(test_case.ApiServerTestCase):
             os.makedirs("conf")
         if not os.path.exists("schema"):
             os.makedirs("schema")
-        with open("conf/predef_payloads.json", "a+") as f:
+        with open("conf/predef_payloads.json", "w") as f:
             json.dump(data, f)
         super(TestInitDataError1, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
@@ -180,7 +180,7 @@ class TestInitDataError2(test_case.ApiServerTestCase):
         }
         if not os.path.exists("conf"):
             os.makedirs("conf")
-        with open("conf/predef_payloads.json", "a+") as f:
+        with open("conf/predef_payloads.json", "w") as f:
             json.dump(json_data, f)
         super(TestInitDataError2, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
@@ -240,7 +240,7 @@ class TestInitDataError3(test_case.ApiServerTestCase):
 
         if not os.path.exists("conf"):
             os.makedirs("conf")
-        with open("conf/predef_payloads.json", "a+") as f:
+        with open("conf/predef_payloads.json", "w") as f:
             json.dump(json_data, f)
         super(TestInitDataError3, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
@@ -280,7 +280,7 @@ class TestInitDataError4(test_case.ApiServerTestCase):
         json_data = "abc"
         if not os.path.exists("conf"):
             os.makedirs("conf")
-        with open("conf/predef_payloads.json", "a+") as f:
+        with open("conf/predef_payloads.json", "w") as f:
             f.write(json_data)
         super(TestInitDataError4, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
@@ -340,7 +340,7 @@ class TestInitDataError5(test_case.ApiServerTestCase):
 
         if not os.path.exists("conf"):
             os.makedirs("conf")
-        with open("conf/predef_payloads.json", "a+") as f:
+        with open("conf/predef_payloads.json", "w") as f:
             json.dump(json_data, f)
         super(TestInitDataError5, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
