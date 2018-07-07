@@ -13,10 +13,8 @@ class LeafConf(AnsibleRoleCommon):
     _roles = ['leaf']
 
     def __init__(self, vnc_lib, logger, params={}):
-        self._logger = logger
         self._vnc_lib = vnc_lib
-        self.physical_router = params.get("physical_router")
-        super(LeafConf, self).__init__()
+        super(LeafConf, self).__init__(logger, params)
     # end __init__
 
     @classmethod
@@ -54,7 +52,7 @@ class LeafConf(AnsibleRoleCommon):
             return self.send_conf(is_delete=True)
         if not self.ensure_bgp_config():
             return 0
-        self.set_qfx_common_config()
+        self.set_common_config()
         return self.send_conf()
     # end push_conf
 
