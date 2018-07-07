@@ -119,94 +119,84 @@ class AnsibleConf(AnsibleBase):
                     address=self.physical_router.loopback_ip))
     # end update_system_config
 
+    def fetch_pi_li_iip(self, pi_uuid):
+        li_obj = None
+        iip_obj = None
+        pi_obj = PhysicalInterfaceDM.get(pi_uuid)
+        if pi_obj is None:
+            self._logger.error("unable to read physical interface %s" %
+                               pi_uuid)
+        elif len(pi_obj.logical_interfaces) > 0:
+            # Read unit 0 only
+            li_uuid = next(iter(pi_obj.logical_interfaces))
+            li_obj = LogicalInterfaceDM.get(li_uuid)
+            if li_obj is None:
+                self._logger.error("unable to read logical interface %s" %
+                                   li_uuid)
+            elif li_obj.instance_ip is not None:
+                iip_obj = InstanceIpDM.get(li_obj.instance_ip)
+                if iip_obj is None:
+                    self._logger.error("unable to read instance ip %s" %
+                                       li_obj.instance_ip)
+        return pi_obj, li_obj, iip_obj
+    # end fetch_pi_li_iip
+
     def build_underlay_bgp(self):
         self.bgp_configs = self.bgp_configs or []
         self.interfaces_config = self.interfaces_config or []
 
-        if self.physical_router.loopback_ip is None:
-            self._logger.error("physical router %s(%s) does not have loopback"
-                               " ip" % (self.physical_router.name,
-                                        self.physical_router.uuid))
-            return
         if self.physical_router.allocated_asn is None:
             self._logger.error("physical router %s(%s) does not have asn"
                                " allocated" % (self.physical_router.name,
                                                self.physical_router.uuid))
             return
 
-        bgp = Bgp(ip_address=self.physical_router.loopback_ip,
-                  autonomous_system=self.physical_router.allocated_asn,
-                  comment=DMUtils.ip_clos_comment())
-        self.bgp_configs.append(bgp)
-
-        peers = []
         for pi_uuid in self.physical_router.physical_interfaces:
-            pi = None
-            pi_obj = PhysicalInterfaceDM.get(pi_uuid)
-            if pi_obj is None:
-                self._logger.error("unable to read physical interface %s" %
-                                   pi_uuid)
-                continue
-            if len(pi_obj.logical_interfaces) == 0:
-                self._logger.debug("physical interface %s has no logical"
-                                   " interfaces" % pi_uuid)
-                continue
-            # Read unit 0 only
-            for li_uuid in pi_obj.logical_interfaces:
-                li_obj = LogicalInterfaceDM.get(li_uuid)
-                if li_obj is None:
-                    self._logger.error("unable to read logical interface %s" %
-                                       li_uuid)
-                    continue
-                if li_obj.instance_ip is None:
-                    self._logger.debug("logical interface %s does not have"
-                                       " instance ip" % li_uuid)
-                    continue
-                iip_obj = InstanceIpDM.get(li_obj.instance_ip)
-                if iip_obj is None:
-                    self._logger.error("unable to read instance ip %s" %
-                                       li_obj.instance_ip)
-                    continue
-                if iip_obj.instance_ip_address is not None:
-                    pi = PhysicalInterface(uuid=pi_uuid, name=pi_obj.name,
-                                           comment=DMUtils.ip_clos_comment())
-                    li = LogicalInterface(uuid=li_uuid, name=li_obj.name, unit=0,
-                                          comment=DMUtils.ip_clos_comment())
-                    li.add_ip_list(IpType(address=iip_obj.instance_ip_address))
-                    pi.add_logical_interfaces(li)
-                    break
+            pi_obj, li_obj, iip_obj = self.fetch_pi_li_iip(pi_uuid)
+            if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
+                self._logger.debug("looking for peers for physical"
+                                   " interface %s(%s)" % (pi_obj.name, pi_uuid))
+                # Add this bgp object only if it has a peer
+                bgp = Bgp(ip_address=iip_obj.instance_ip_address,
+                          autonomous_system=self.physical_router.allocated_asn,
+                          comment=DMUtils.ip_clos_comment())
+                # Assumption: PIs are connected for IP-CLOS peering only
+                for peer_pi_uuid in pi_obj.physical_interfaces:
+                    peer_pi_obj, peer_li_obj, peer_iip_obj =\
+                        self.fetch_pi_li_iip(peer_pi_uuid)
+                    if peer_pi_obj and peer_li_obj and peer_iip_obj and\
+                            peer_iip_obj.instance_ip_address:
 
-            if pi is None:
-                self._logger.debug("not looking for peers for physical"
-                                   " interface %s" % pi_uuid)
-                continue
-            self.interfaces_config.append(pi)
+                        peer_pr = PhysicalRouterDM.get(
+                            peer_pi_obj.physical_router)
+                        if peer_pr is None:
+                            self._logger.error(
+                                "unable to read peer physical router %s"
+                                % pi_uuid)
+                        elif peer_pr.allocated_asn is None:
+                            self._logger.error(
+                                "peer physical router %s does not have"
+                                " asn allocated" % pi_uuid)
+                        elif peer_pr != self.physical_router:
+                            if bgp not in self.bgp_configs:
+                                self.bgp_configs.append(bgp)
 
-            # Assumption: PIs are connected for IP-CLOS peering only
-            for peer_pi_uuid in pi_obj.physical_interfaces:
-                peer_pi_obj = PhysicalInterfaceDM.get(peer_pi_uuid)
-                if peer_pi_obj is None:
-                    self._logger.error("unable to read peer physical interface"
-                                       " %s" % pi_uuid)
-                    continue
-                if peer_pi_obj.physical_router in peers:
-                    continue
-                peer_pr = PhysicalRouterDM.get(peer_pi_obj.physical_router)
-                if peer_pr is None:
-                    self._logger.error("unable to read peer physical router %s"
-                                       % pi_uuid)
-                elif peer_pr.loopback_ip is None:
-                    self._logger.error("peer physical router %s does not have"
-                                       " loopback ip" % pi_uuid)
-                elif peer_pr.allocated_asn is None:
-                    self._logger.error("peer physical router %s does not have"
-                                       " asn allocated" % pi_uuid)
-                elif peer_pr != self.physical_router:
-                    peer = Bgp(ip_address=peer_pr.loopback_ip,
-                               autonomous_system=peer_pr.allocated_asn,
-                               comment=peer_pr.name)
-                    bgp.add_peers(peer)
-                    peers.append(peer_pi_obj.physical_router)
+                            pi = PhysicalInterface(
+                                uuid=pi_uuid, name=pi_obj.name,
+                                comment=DMUtils.ip_clos_comment())
+                            li = LogicalInterface(
+                                uuid=li_obj.uuid, name=li_obj.name, unit=0,
+                                comment=DMUtils.ip_clos_comment())
+                            li.add_ip_list(
+                                IpType(address=iip_obj.instance_ip_address))
+                            pi.add_logical_interfaces(li)
+                            self.interfaces_config.append(pi)
+
+                            peer = Bgp(
+                                ip_address=peer_iip_obj.instance_ip_address,
+                                autonomous_system=peer_pr.allocated_asn,
+                                comment=peer_pr.name)
+                            bgp.add_peers(peer)
     # end build_bgp_config
 
     def device_send(self, job_template, job_input, retry):
