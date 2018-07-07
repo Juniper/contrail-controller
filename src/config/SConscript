@@ -23,6 +23,7 @@ CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/service_instance.sandesh')
 CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/vnc_api.sandesh')
 CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/virtual_machine.sandesh')
 CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/virtual_network.sandesh')
+CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/config_database.sandesh')
 CfgmEnv['CFGM_DOC_FILES'] = CfgmDocFiles
 
 #

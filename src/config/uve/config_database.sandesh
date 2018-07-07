@@ -13,54 +13,53 @@ include "base/sandesh/process_info.sandesh"
 /**
  * Database disk usage stats struct
  */
-struct DatabaseUsageStats {
+struct ConfigDatabaseUsageStats {
     1: u64                                 disk_space_used_1k
     2: u64                                 disk_space_available_1k
     3: optional u64                        db_size_1k
 }
 
 /**
- * Database Usage info added into the Database Node UVE by
- * contrail-database-nodemgr
+ * Database Usage info added into the Config Node UVE by
+ * contrail-config-nodemgr
  */
-struct DatabaseUsageInfo {
+struct ConfigDatabaseUsageInfo {
     1: string                              name (key="ObjectDatabaseInfo")
     2: optional bool                       deleted
-    3: optional list<DatabaseUsageStats>   database_usage (tags="")
+    3: optional list<ConfigDatabaseUsageStats>   database_usage (tags="")
 }
 
 /**
- * @description: Database Usage info added into the Database Node UVE by
- * contrail-database-nodemgr
- * @object: database-node
+ * @description: Database Usage info added into the Config Node UVE by
+ * contrail-config-nodemgr
+ * @object: config-node
  */
-uve sandesh DatabaseUsage {
-    1: DatabaseUsageInfo                   data
+uve sandesh ConfigDatabaseUsage {
+    1: ConfigDatabaseUsageInfo                   data
 }
 
-struct CassandraThreadPoolStats {
+struct ConfigCassandraThreadPoolStats {
     1: string pool_name
     2: u64 active
     3: u64 pending
     4: u64 all_time_blocked
 }
 
-struct CassandraCompactionTask {
+struct ConfigCassandraCompactionTask {
     1: u64 pending_compaction_tasks
 }
-struct CassandraStatusData {
+struct ConfigCassandraStatusData {
     1: string name (key="ObjectDatabaseInfo")
     2: optional bool deleted
-    3: CassandraCompactionTask cassandra_compaction_task (tags="")
-    4: list<CassandraThreadPoolStats>  thread_pool_stats (tags=".pool_name")
+    3: ConfigCassandraCompactionTask cassandra_compaction_task (tags="")
+    4: list<ConfigCassandraThreadPoolStats>  thread_pool_stats (tags=".pool_name")
 }
 
 /**
  * @description: For monitoring nodetool tpstats and compaction pending counts
- * contrail-database-nodemgr
- * @object: database-node
+ * contrail-config-nodemgr
+ * @object: config-node
  */
-uve sandesh CassandraStatusUVE {
-    1: CassandraStatusData data
+uve sandesh ConfigCassandraStatusUVE {
+    1: ConfigCassandraStatusData data
 }
-

@@ -75,6 +75,7 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
        env.SandeshGenPy('#controller/src/config/uve/virtual_network.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/physical_router.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/acl.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/config_database.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/greenlets.sandesh', 'cfgm_common/uve/', False),
 ]

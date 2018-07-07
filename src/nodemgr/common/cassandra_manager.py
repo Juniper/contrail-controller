@@ -18,6 +18,7 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
     CassandraStatusUVE,CassandraStatusData,CassandraThreadPoolStats,\
     CassandraCompactionTask, DatabaseUsageStats, DatabaseUsageInfo,\
     DatabaseUsage
+from cfgm_common.uve.config_database.ttypes import *
 
 
 class CassandraManager(object):
@@ -30,8 +31,12 @@ class CassandraManager(object):
         self.db_port = db_port
         self.minimum_diskgb = minimum_diskgb
         # Initialize tpstat structures
-        self.cassandra_status_old = CassandraStatusData()
-        self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
+        if db_name == 'configDb':
+            self.cassandra_status_old = ConfigCassandraStatusData()
+            self.cassandra_status_old.cassandra_compaction_task = ConfigCassandraCompactionTask()
+        else:
+            self.cassandra_status_old = CassandraStatusData()
+            self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
         self.cassandra_status_old.thread_pool_stats = []
 
     def status(self):
@@ -75,7 +80,7 @@ class CassandraManager(object):
            percent, mountpoint = output.split("\n")[1].split()
         return (disk_space_used, disk_space_available)
 
-    def get_tp_status(self,tp_stats_output):
+    def get_tp_status(self,tp_stats_output, db_name):
         tpstats_rows = tp_stats_output.split('\n')
         thread_pool_stats_list = []
         for row_index in range(1, len(tpstats_rows)):
@@ -84,7 +89,10 @@ class CassandraManager(object):
             if len(cols) > 2:
                 if (cols[0] in ThreadPoolNames):
                     # Create a CassandraThreadPoolStats for matching entries
-                    tpstat = CassandraThreadPoolStats()
+                    if self._db_name == 'configDb':
+                        tpstat = ConfigCassandraThreadPoolStats()
+                    else:
+                        tpstat = CassandraThreadPoolStats()
                     tpstat.pool_name = cols[0]
                     tpstat.active = int(cols[1])
                     tpstat.pending = int(cols[2])
@@ -200,19 +208,23 @@ class CassandraManager(object):
             else:
                 event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_DISK_SPACE_NA
 
-                db_stat = DatabaseUsageStats()
-                db_info = DatabaseUsageInfo()
+                if self._db_name == 'configDb':
+                    db_stat = ConfigDatabaseUsageStats()
+                    db_info = ConfigDatabaseUsageInfo()
+                else:
+                    db_stat = DatabaseUsageStats()
+                    db_info = DatabaseUsageInfo()
 
                 db_stat.disk_space_used_1k = int(total_disk_space_used)
                 db_stat.disk_space_available_1k = int(total_disk_space_available)
-                if self._db_name == 'analyticsDb':
-                    db_stat.analytics_db_size_1k = int(total_db_size)
-                elif self._db_name == 'configDb':
-                    db_stat.config_db_size_1k = int(total_db_size)
+                db_stat.db_size_1k = int(total_db_size)
 
                 db_info.name = socket.gethostname()
                 db_info.database_usage = [db_stat]
-                usage_stat = DatabaseUsage(data=db_info)
+                if self._db_name == 'configDb':
+                    usage_stat = ConfigDatabaseUsage(data=db_info)
+                else:
+                    usage_stat = DatabaseUsage(data=db_info)
                 usage_stat.send()
         except:
             msg = "Failed to get database usage"
@@ -235,9 +247,14 @@ class CassandraManager(object):
     # end database_periodic
 
     def send_database_status(self, event_mgr):
-        cassandra_status_uve = CassandraStatusUVE()
-        cassandra_status = CassandraStatusData()
-        cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
+        if self._db_name== 'configDb':
+            cassandra_status_uve = ConfigCassandraStatusUVE()
+            cassandra_status = ConfigCassandraStatusData()
+            cassandra_status.cassandra_compaction_task = ConfigCassandraCompactionTask()
+        else:
+            cassandra_status_uve = CassandraStatusUVE()
+            cassandra_status = CassandraStatusData()
+            cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
         # Get compactionstats
         compaction_count = subprocess.Popen("nodetool compactionstats|grep 'pending tasks:'",
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -259,7 +276,10 @@ class CassandraManager(object):
             return
         cassandra_status.thread_pool_stats = self.get_tp_status(op)
         cassandra_status.name = socket.gethostname()
-        cassandra_status_uve = CassandraStatusUVE(data=cassandra_status)
+        if db_name == 'configDb':
+            cassandra_status_uve = ConfigCassandraStatusUVE(data=cassandra_status)
+        else:
+            cassandra_status_uve = CassandraStatusUVE(data=cassandra_status)
         msg = 'Sending UVE: ' + str(cassandra_status_uve)
         event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
         cassandra_status_uve.send()
