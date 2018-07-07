@@ -1,4 +1,4 @@
-#
+#!/usr/bin/python
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
@@ -6,10 +6,10 @@ import gevent.monkey
 gevent.monkey.patch_all(thread=False)
 import sys
 import os
+import io
 import logging
 from flexmock import flexmock
 import subprocess32
-
 from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
 from vnc_api.vnc_api import JobTemplate
@@ -17,13 +17,14 @@ from vnc_api.vnc_api import JobTemplate
 sys.path.append('../common/tests')
 
 import test_case
-from job_manager.job_mgr import JobManager
+from job_manager.job_mgr import WFManager
 from job_manager.job_utils import JobStatus
 
 from test_job_manager_utils import TestJobManagerUtils
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+loop_var = 0
 
 
 class TestJobManager(test_case.JobTestCase):
@@ -33,17 +34,20 @@ class TestJobManager(test_case.JobTestCase):
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
         super(TestJobManager, cls).setUpClass(*args, **kwargs)
+
     # end setUpClass
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
         super(TestJobManager, cls).tearDownClass(*args, **kwargs)
+
     # end tearDownClass
 
+    #Test for a single playbook in the workflow template
     def test_execute_job_success(self):
         # create job template
-        play_info = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
+        play_info = PlaybookInfoType(playbook_uri='job_manager_test.yml',
                                      vendor='Juniper',
                                      device_family='MX')
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
@@ -54,21 +58,61 @@ class TestJobManager(test_case.JobTestCase):
                                    name='Test_template')
         job_template_uuid = self._vnc_lib.job_template_create(job_template)
 
+        # mocking creation of a process
         self.mock_play_book_execution()
+        # mocking Sandesh
         TestJobManagerUtils.mock_sandesh_check()
+        # getting details required for job manager execution
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                        job_template_uuid)
-        jm = JobManager(log_utils.get_config_logger(),
-                        self._vnc_lib, job_input_json, log_utils)
-        jm.start_job()
-        self.assertEqual(jm.result_handler.job_result_status,
+            job_template_uuid)
+
+        wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
+                       job_input_json, log_utils)
+        wm.start_job()
+        self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    # to test the case when only device vendor is passed in job_template_input
+    #Test for job success with multiple playbooks in the workflow template
+    def test_execute_job_success_multiple_templates(self):
+        # create job template
+        play_info = PlaybookInfoType(playbook_uri='job_manager_test.yml',
+                                     vendor='Juniper',
+                                     device_family='MX')
+        play_info1 = PlaybookInfoType(
+            playbook_uri='job_manager_test_multiple.yml',
+                                      vendor='Juniper',
+                                      device_family='QFX')
+        playbooks_list = PlaybookInfoListType(playbook_info=[play_info,
+                                                             play_info1])
+        job_template = JobTemplate(job_template_type='device',
+                                   job_template_job_runtime='ansible',
+                                   job_template_multi_device_job=False,
+                                   job_template_playbooks=playbooks_list,
+                                   name='Test_template1')
+        job_template_uuid = self._vnc_lib.job_template_create(job_template)
+
+        # mocking creation of a process
+        self.mock_play_book_execution()
+        # mocking Sandesh
+        TestJobManagerUtils.mock_sandesh_check()
+        # getting details required for job manager execution
+        job_input_json, log_utils = TestJobManagerUtils.get_min_details(
+            job_template_uuid)
+
+        wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
+                       job_input_json, log_utils)
+        wm.start_job()
+        self.assertEqual(wm.result_handler.job_result_status,
+                         JobStatus.SUCCESS)
+
+    #to test the case when only device vendor is passed in job_template_input
     def test_execute_job_with_vendor_only(self):
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
                                      vendor='Juniper')
-        playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
+        play_info1 = PlaybookInfoType(playbook_uri='job_manager_test_multiple.yml',
+                                      vendor='Juniper')
+
+        playbooks_list = PlaybookInfoListType(playbook_info=[play_info,play_info1])
         job_template = JobTemplate(job_template_type='device',
                                    job_template_job_runtime='ansible',
                                    job_template_multi_device_job=True,
@@ -81,22 +125,25 @@ class TestJobManager(test_case.JobTestCase):
         TestJobManagerUtils.mock_sandesh_check()
 
         job_input_json, log_utils = self.get_details(job_template_uuid)
-        jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
-                        job_input_json, log_utils)
-        jm.start_job()
-        self.assertEqual(jm.result_handler.job_result_status,
+        wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
+                       job_input_json, log_utils)
+
+        wm.start_job()
+        self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    # to test the case when device vendor and multiple device families are
-    # passed in job_template_input
+    #to test the case when device vendor and multiple device families are
+    #passed in job_template_input
     def test_execute_job_multiple_device_families(self):
-        play_info_mx = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
-                                        vendor='Juniper', device_family='MX')
-        play_info_qfx = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
-                                         vendor='Juniper', device_family='QFX')
+        play_info_mx = PlaybookInfoType(
+            playbook_uri='job_manager_test.yaml',
+            vendor='Juniper', device_family='MX')
+        play_info_qfx = PlaybookInfoType(
+            playbook_uri='job_manager_test.yaml',
+            vendor='Juniper', device_family='QFX')
 
         playbooks_list = PlaybookInfoListType(
-                                   playbook_info=[play_info_qfx, play_info_mx])
+            playbook_info=[play_info_qfx, play_info_mx])
         job_template = JobTemplate(job_template_type='device',
                                    job_template_job_runtime='ansible',
                                    job_template_multi_device_job=True,
@@ -111,24 +158,63 @@ class TestJobManager(test_case.JobTestCase):
 
         job_input_json, log_utils = self.get_details(job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
-                        job_input_json, log_utils)
-        jm.start_job()
-        self.assertEqual(jm.result_handler.job_result_status,
+        wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
+                       job_input_json, log_utils)
+
+        wm.start_job()
+        self.assertEqual(wm.result_handler.job_result_status,
+                     JobStatus.SUCCESS)
+
+    #to test the case when device vendor and multiple device families are
+    #passed in workflow_template_input along with multiple playbooks
+    #TODO - The task weightage array from be gotten from the workflow_template. Currently the test case fails beacuse the task weightage array is hard coded.
+    def test_execute_job_multiple_device_families_multiple_playbooks(self):
+        play_info_mx = PlaybookInfoType(
+            playbook_uri='job_manager_test.yaml',
+            vendor='Juniper', device_family='MX')
+        play_info_qfx = PlaybookInfoType(
+            playbook_uri='job_manager_test.yaml',
+            vendor='Juniper', device_family='QFX')
+        play_info_2 = PlaybookInfoType(
+            playbook_uri='job_manager_test2.yaml',
+            vendor='Juniper')
+
+        playbooks_list = PlaybookInfoListType(
+            playbook_info=[play_info_qfx, play_info_mx, play_info_2])
+        job_template = JobTemplate(job_template_type='device',
+                                   job_template_job_runtime='ansible',
+                                   job_template_multi_device_job=True,
+                                   job_template_playbooks=playbooks_list,
+                                   name='Test_template_multi_devfamilies')
+        job_template_uuid = self._vnc_lib.job_template_create(job_template)
+
+        # mock the play book executor call
+        self.mock_play_book_execution()
+
+        TestJobManagerUtils.mock_sandesh_check()
+
+        job_input_json, log_utils = self.get_details(job_template_uuid)
+
+        wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
+                       job_input_json, log_utils)
+
+        wm.start_job()
+        self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    # to test the case when multiple device vendors are
-    # passed in job_template_input
-    def test_execute_job_multiple_vendors(self):
+    #to test the case when multiple device vendors and multiple_playbooks are
+    #passed in job_template_input
+    #TODO - Test case fails for the same reason as above.the hardcoded array only considers chaining of two playbooks.
+    def test_execute_job_multiple_vendors_multiple_playbooks(self):
         play_info_juniper_mx = PlaybookInfoType(
-                                     playbook_uri='job_manager_test.yaml',
-                                     vendor='Juniper', device_family='MX')
+            playbook_uri='job_manager_test.yaml',
+            vendor='Juniper', device_family='MX')
         play_info_juniper_qfx = PlaybookInfoType(
-                                     playbook_uri='job_manager_test.yaml',
-                                     vendor='Juniper', device_family='QFX')
+            playbook_uri='job_manager_test.yaml',
+            vendor='Juniper', device_family='QFX')
         play_info_arista_df = PlaybookInfoType(
-                                     playbook_uri='job_manager_test.yaml',
-                                     vendor='Arista', device_family='df')
+            playbook_uri='job_manager_test2.yaml',
+            vendor='Arista', device_family='df')
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_arista_df,
                            play_info_juniper_qfx,
@@ -144,22 +230,24 @@ class TestJobManager(test_case.JobTestCase):
         self.mock_play_book_execution()
 
         TestJobManagerUtils.mock_sandesh_check()
-
         job_input_json, log_utils = self.get_details(job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
-                        job_input_json, log_utils)
-        jm.start_job()
-        self.assertEqual(jm.result_handler.job_result_status,
+        wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
+                       job_input_json, log_utils)
+
+        wm.start_job()
+        self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    # to test the case when no vendor is passed in job_template_input
+    #to test the case when no vendor is passed in workflow_template_input for
+    #second playbook_info - Depending on the device vendor, the right
+    # playbooks has to be picked.
     def test_execute_job_no_vendor(self):
         play_info_juniper_qfx = PlaybookInfoType(
-                                     playbook_uri='job_manager_test.yaml',
-                                     vendor='Juniper', device_family='QFX')
+            playbook_uri='job_manager_test.yaml',
+            vendor='Juniper', device_family='QFX')
         play_info_vendor_agnostic = PlaybookInfoType(
-            playbook_uri='job_manager_test.yaml')
+            playbook_uri='job_manager_test2.yaml')
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_juniper_qfx,
                            play_info_vendor_agnostic])
@@ -179,38 +267,52 @@ class TestJobManager(test_case.JobTestCase):
 
         job_input_json, log_utils = self.get_details(job_template_uuid)
 
-        jm = JobManager(log_utils.get_config_logger(), self._vnc_lib,
-                        job_input_json, log_utils)
-        jm.start_job()
-        self.assertEqual(jm.result_handler.job_result_status,
-                         JobStatus.SUCCESS)
+        wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
+                       job_input_json, log_utils)
+
+        wm.start_job()
+        self.assertEqual(wm.result_handler.job_result_status,
+                     JobStatus.SUCCESS)
 
     def get_details(self, job_template_uuid):
-
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
-                                        job_template_uuid)
+            job_template_uuid)
         job_input_json.update({
-                          "params": {"device_list":
-                                     ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
-                          "device_json": {
-                              "aad74e24-a00b-4eb3-8412-f8b9412925c3":
-                                  {'device_vendor': 'Juniper',
-                                   'device_family': 'MX',
-                                   'device_username': 'username',
-                                   'device_password': 'pswd'}}
-                          })
+            "params": {"device_list":
+                           ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
+            "device_json": {
+                "aad74e24-a00b-4eb3-8412-f8b9412925c3":
+                    {'device_vendor': 'Juniper',
+                     'device_family': 'MX',
+                     'device_username': 'username',
+                     'device_password': 'pswd'}}
+        })
 
         return job_input_json, log_utils
 
     def mock_play_book_execution(self):
-        # mock the call to invoke the playbook
-        fake_process = flexmock(returncode=0, pid=123)
-        fake_process.should_receive('wait')
-        flexmock(subprocess32).should_receive('Popen').and_return(fake_process)
+        #mocking the loop with the stdout.readline function.
+        loop_var = 0
+        def mock_readline():
+            global loop_var
+            loop_var += 1
+            if loop_var == 1:
+                with open("tests/test.txt",'r') as f:
+                    line = f.readline()
+                    return line
+            if loop_var == 2:
+                fake_process.should_receive("poll").and_return(123)
+                loop_var = 0
+                return ""
 
+        stdout = flexmock(readline=mock_readline)
+        mock_subprocess32 = flexmock(subprocess32)
+        fake_process = flexmock(returncode=0, pid=123,
+                                stdout=stdout)
+        fake_process.should_receive('wait')
+        mock_subprocess32.should_receive('Popen').and_return(
+            fake_process)
         # mock the call to invoke the playbook process
         flexmock(os.path).should_receive('exists').and_return(True)
-
         # mock sys exit call
         flexmock(sys).should_receive('exit')
-
