@@ -45,7 +45,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
-    SecurityGroupDM, AccessControlListDM
+    SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
+    RoleConfigDM, FabricDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -80,10 +81,29 @@ class DeviceManager(object):
             'service_connection_module': [],
             'service_object': [],
             'e2_service_provider': [],
+            'node_profile': [],
+            'role_config': [],
+            'fabric': [],
+            'fabric_namespace': [],
         },
         'global_system_config': {
             'self': ['physical_router'],
             'physical_router': [],
+        },
+        'node_profile': {
+            'self': ['physical_router'],
+            'role_config': ['physical_router'],
+        },
+        'role_config': {
+            'self': ['node_profile'],
+            'node_profile': [],
+        },
+        'fabric': {
+            'self': ['physical_router'],
+            'fabric_namespace': ['physical_router'],
+        },
+        'fabric_namespace': {
+            'self': ['fabric'],
         },
         'bgp_router': {
             'self': ['bgp_router', 'physical_router'],
@@ -108,6 +128,7 @@ class DeviceManager(object):
             'virtual_machine_interface': ['physical_router',
                                           'physical_interface'],
             'physical_router': ['virtual_machine_interface'],
+            'instance_ip': ['physical_interface'],
         },
         'virtual_machine_interface': {
             'self': ['logical_interface',
@@ -123,31 +144,31 @@ class DeviceManager(object):
             'logical_router': [],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
-            'routing_instance': ['port_tuple','physical_interface'],
+            'routing_instance': ['port_tuple', 'physical_interface'],
             'port_tuple': ['physical_interface'],
             'service_endpoint': ['physical_router'],
             'security_group': ['logical_interface'],
         },
         'security_group': {
             'self': [],
-            'access_control_list':['virtual_machine_interface'],
+            'access_control_list': ['virtual_machine_interface'],
         },
         'access_control_list': {
             'self': ['security_group'],
-            'security_group':[],
+            'security_group': [],
         },
         'service_instance': {
             'self': ['port_tuple'],
-            'port_tuple':[],
+            'port_tuple': [],
         },
-        'port_tuple':{
-            'self':['virtual_machine_interface','service_instance'],
-            'service_instance':['virtual_machine_interface'],
-            'virtual_machine_interface':['service_instance']
+        'port_tuple': {
+            'self': ['virtual_machine_interface', 'service_instance'],
+            'service_instance': ['virtual_machine_interface'],
+            'virtual_machine_interface': ['service_instance']
         },
         'virtual_network': {
             'self': ['physical_router',
-                     'virtual_machine_interface', 'logical_router'],
+                     'virtual_machine_interface', 'logical_router', 'fabric'],
             'routing_instance': ['physical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
@@ -173,7 +194,7 @@ class DeviceManager(object):
             'virtual_machine_interface': [],
         },
         'instance_ip': {
-            'self': ['virtual_machine_interface'],
+            'self': ['virtual_machine_interface', 'logical_interface'],
             'virtual_machine_interface': [],
         },
         'service_endpoint': {
@@ -210,17 +231,22 @@ class DeviceManager(object):
     _device_manager = None
 
     def __init__(self, dm_logger=None, args=None):
+        DeviceManager._device_manager = self
         self._args = args
         PushConfigState.set_push_mode(int(self._args.push_mode))
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
-        PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
-        PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
+        PushConfigState.set_repush_max_interval(
+            int(self._args.repush_max_interval))
+        PushConfigState.set_push_delay_per_kb(
+            float(self._args.push_delay_per_kb))
         PushConfigState.set_push_delay_max(int(self._args.push_delay_max))
-        PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
+        PushConfigState.set_push_delay_enable(
+            bool(self._args.push_delay_enable))
 
-        self._chksum = "";
+        self._chksum = ""
         if self._args.collectors:
-            self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
+            self._chksum = hashlib.md5(
+                ''.join(self._args.collectors)).hexdigest()
 
         # Initialize logger
         self.logger = dm_logger or DeviceManagerLogger(args)
@@ -232,7 +258,8 @@ class DeviceManager(object):
             self.logger.error("Exception: " + str(e))
         except Exception as e:
             tb = traceback.format_exc()
-            self.logger.error("Internal error while registering plugins: " + str(e) + tb)
+            self.logger.error(
+                "Internal error while registering plugins: " + str(e) + tb)
 
         # Register Ansible Plugins
         try:
@@ -241,7 +268,9 @@ class DeviceManager(object):
             self.logger.error("Exception: " + str(e))
         except Exception as e:
             tb = traceback.format_exc()
-            self.logger.error("Internal error while registering ansible plugins: " + str(e) + tb)
+            self.logger.error(
+                "Internal error while registering ansible plugins: " +
+                str(e) + tb)
 
         # Retry till API server is up
         connected = False
@@ -281,11 +310,23 @@ class DeviceManager(object):
         for obj in GlobalSystemConfigDM.list_obj():
             GlobalSystemConfigDM.locate(obj['uuid'], obj)
 
+        for obj in NodeProfileDM.list_obj():
+            NodeProfileDM.locate(obj['uuid'], obj)
+
+        for obj in RoleConfigDM.list_obj():
+            RoleConfigDM.locate(obj['uuid'], obj)
+
         for obj in GlobalVRouterConfigDM.list_obj():
             GlobalVRouterConfigDM.locate(obj['uuid'], obj)
 
         for obj in VirtualNetworkDM.list_obj():
             VirtualNetworkDM.locate(obj['uuid'], obj)
+
+        for obj in FabricDM.list_obj():
+            FabricDM.locate(obj['uuid'], obj)
+
+        for obj in FabricNamespaceDM.list_obj():
+            FabricNamespaceDM.locate(obj['uuid'], obj)
 
         for obj in LogicalRouterDM.list_obj():
             LogicalRouterDM.locate(obj['uuid'], obj)
@@ -296,30 +337,30 @@ class DeviceManager(object):
         for obj in BgpRouterDM.list_obj():
             BgpRouterDM.locate(obj['uuid'], obj)
 
+        for obj in PortTupleDM.list_obj():
+            PortTupleDM.locate(obj['uuid'], obj)
+
+        for obj in PhysicalInterfaceDM.list_obj():
+            PhysicalInterfaceDM.locate(obj['uuid'], obj)
+
+        for obj in LogicalInterfaceDM.list_obj():
+            LogicalInterfaceDM.locate(obj['uuid'], obj)
+
         pr_obj_list = PhysicalRouterDM.list_obj()
         for obj in pr_obj_list:
-            PhysicalRouterDM.locate(obj['uuid'],obj)
+            PhysicalRouterDM.locate(obj['uuid'], obj)
 
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
         self._object_db.handle_pr_deletes(pr_uuid_set)
 
-        for obj in PortTupleDM.list_obj():
-            PortTupleDM.locate(obj['uuid'],obj)
-
-        for obj in PhysicalInterfaceDM.list_obj():
-            PhysicalInterfaceDM.locate(obj['uuid'],obj)
-
-        for obj in LogicalInterfaceDM.list_obj():
-            LogicalInterfaceDM.locate(obj['uuid'],obj)
-
         for obj in VirtualMachineInterfaceDM.list_obj():
-            VirtualMachineInterfaceDM.locate(obj['uuid'],obj)
+            VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
 
         for obj in SecurityGroupDM.list_obj():
-            SecurityGroupDM.locate(obj['uuid'],obj)
+            SecurityGroupDM.locate(obj['uuid'], obj)
 
         for obj in AccessControlListDM.list_obj():
-            AccessControlListDM.locate(obj['uuid'],obj)
+            AccessControlListDM.locate(obj['uuid'], obj)
 
         for obj in pr_obj_list:
             pr = PhysicalRouterDM.locate(obj['uuid'], obj)
@@ -373,8 +414,8 @@ class DeviceManager(object):
 
         for pr in PhysicalRouterDM.values():
             pr.set_config_state()
+            pr.uve_send()
 
-        DeviceManager._device_manager = self
         self._vnc_amqp._db_resync_done.set()
         try:
             gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
