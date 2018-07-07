@@ -7,10 +7,12 @@ This file contains job manager api which involves playbook interactions
 """
 
 import os
+import uuid
 import json
 import subprocess32
 import traceback
 import ast
+import time
 
 from job_manager.job_exception import JobException
 from job_manager.job_utils import JobStatus
@@ -176,26 +178,42 @@ class JobHandler(object):
         try:
             playbook_exec_path = os.path.dirname(__file__) \
                                  + "/playbook_helper.py"
+
+            unique_pb_id = str(uuid.uuid4())
+            playbook_info['extra_vars']['playbook_input']['unique_pb_id'] = unique_pb_id
+            exec_id = playbook_info['extra_vars']['playbook_input']['job_execution_id']
+
             playbook_process = subprocess32.Popen(["python",
                                                    playbook_exec_path,
                                                    "-i",
                                                    json.dumps(playbook_info)],
-                                                  close_fds=True, cwd='/',
-                                                  stdout=subprocess32.PIPE)
+                                                  close_fds=True, cwd='/')
 
             marked_output = {}
             markers = [ DEVICE_DATA, PLAYBOOK_OUTPUT ]
 
             while True:
-                output = playbook_process.stdout.readline()
-                if output == '' and playbook_process.poll() is not None:
-                    break
-                if output:
-                    self._logger.debug(output)
-                    # read device list data and store in variable result handler
-                    for marker in markers:
-                        if marker in output:
-                            marked_output[marker] = output
+                # wait for sub-process to die
+                if playbook_process.poll() is not None:
+                    try:
+                        f_read = open("/tmp/"+exec_id, "r")
+                        line_read = f_read.readline()
+                        while line_read != '':
+                            if unique_pb_id in line_read:
+                                total_output = line_read.split(unique_pb_id)[-1].strip()
+                                if total_output == 'END':
+                                    break
+                                for marker in markers:
+                                    if marker in total_output:
+                                        marked_output[marker] = total_output
+                            line_read = f_read.readline()
+                        f_read.close()
+                        break
+                    except IOError, file_not_found_err:
+                        self._logger.info("No markers found....")
+                        break
+                else:
+                    time.sleep(20)
 
             marked_jsons = self._extract_marked_json(marked_output)
             self._device_data = marked_jsons.get(DEVICE_DATA)
