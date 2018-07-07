@@ -34,22 +34,13 @@
 - name: Read swift conf info
   include_tasks: read_swift_conf_info.yml
 
-- name: Get swift temp url
+- name: Get swift download url
   include_tasks: get_swiftfile_url.yml
-
-- name: encode temp url
-  set_fact:
-    enc_tempurl: "{{tempurl.split('?')[0]+'?'+tempurl.split('?')[-1]|urlencode()}}"
-
-- name: Debug encode temp url
-  debug:
-    var: enc_tempurl
-    verbosity: 1
 
 - name: Appending job log for retreiving image download link and starting image upgrade
   job_objectlog:
     message: >
-      Upgrade device {{pr_fqname}}, Image name {{filename}}. Retreived image download link: {{enc_tempurl}}.
+      Upgrade device {{pr_fqname}}, Image name {{filename}}. Retreived image download link: {{downloadurl}}.
       Now starting image upgrade on the device. It may take 10 to 15 mins.
     status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
     job_ctx: "{{ job_ctx }}"
@@ -136,4 +127,3 @@
     message: Upgrade device {{pr_fqname}} Image name {{filename}}. Image upgrade version validated.
     status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
     job_ctx: "{{ job_ctx }}"
-
