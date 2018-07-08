@@ -7,7 +7,8 @@ from setuptools import setup, find_packages
 setup(
     name='nodemgr',
     version='0.1dev',
-    packages=['nodemgr', 'nodemgr.analytics_nodemgr',
+    packages=['nodemgr',
+              'nodemgr.analytics_nodemgr',
               'nodemgr.control_nodemgr',
               'nodemgr.config_nodemgr',
               'nodemgr.database_nodemgr',

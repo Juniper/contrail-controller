@@ -268,7 +268,5 @@ env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
     '/contrail-control', 'contrail-control.initd.supervisord'))
 env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
     '/contrail-control.service', 'systemd/contrail-control.service'))
-env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-    '/contrail-control-nodemgr.service', 'systemd/contrail-control-nodemgr.service'))
 env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
     '/contrail-control/', doc_files))
