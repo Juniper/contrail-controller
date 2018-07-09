@@ -2,6 +2,7 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <boost/intrusive/avl_set.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/bind.hpp>
