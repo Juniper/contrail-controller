@@ -1,0 +1,38 @@
+# -*- mode: python; -*-
+import os
+
+vpath = '#third_party/grpc'
+inspath = '#third_party'
+cpppath = '#build/debug/grpc'
+libpath = '#build/lib'
+
+env = DefaultEnvironment()
+
+# Pull the grpc repo (if not present), submodule source code and make in #build/debug
+if not os.path.exists(Dir(vpath).abspath) or os.listdir(Dir(vpath).abspath) == []:
+    cmd = ('(cd ' + Dir(inspath).abspath + '; ' + 'git clone -b v1.13.x https://github.com/grpc/grpc; ')
+else:
+    cmd = '('
+
+sub_cmd = ('cd ' + Dir(vpath).abspath + '; ' +
+           'git submodule update --init --recursive; make; ')
+
+# Create #build/debug/grpc directory if not present
+if not os.path.exists(Dir(cpppath).abspath):
+    os.makedirs(Dir(cpppath).abspath)
+
+# Copy the libraries to #build/lib and header files to #build/include/grpc
+target_cmd = ('cd ' + Dir(cpppath).abspath + '; ' + 
+                  'cp ' + Dir(vpath).abspath + '/include/* . -R; ' +
+                  'cp ' + Dir(vpath).abspath + '/third_party/protobuf/src/google . -R; ' + 
+              'cd ' + Dir(libpath).abspath + '; ' +
+                  'cp ' + Dir(vpath).abspath + '/libs/opt/libgrpc.a .; ' +
+                  'cp ' + Dir(vpath).abspath + '/libs/opt/libgrpc++.a .; ' +
+                  'cp ' + Dir(vpath).abspath + '/libs/opt/protobuf/*.a . -R)')
+
+products = [ str(File('#build/lib/libgrpc.a')),
+             str(File('#build/lib/libgrpc++.a')),
+             str(File('#build/lib/libprotobuf.a')),
+             str(File('#build/lib/libprotoc.a')) ]
+
+libgrpc = env.Command(products, None, cmd + sub_cmd + target_cmd)
