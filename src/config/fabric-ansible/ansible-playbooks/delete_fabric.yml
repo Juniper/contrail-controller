@@ -7,10 +7,6 @@
       set_fact:
         output: "{{ job_ctx | delete_devices}}"
 
-    - debug:
-      msg: {{ output.deletion_log }}
-      verbosity: 0
-
     - name: check failure
       include_tasks: error_handler.yml
       when: output.status == 'failure'
