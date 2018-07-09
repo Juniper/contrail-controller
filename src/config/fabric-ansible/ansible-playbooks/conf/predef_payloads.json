@@ -253,6 +253,51 @@
           },
           "job_template_output_schema": "",
           "job_template_input_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "existing_fabric_onboard_template"
+          ],
+          "name": "existing_fabric_onboard_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": false,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/existing_fabric_onboard.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 10
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 20
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_role.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 10
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 40
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topo_discovery.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 20
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": ""
         }
       ]
     },
