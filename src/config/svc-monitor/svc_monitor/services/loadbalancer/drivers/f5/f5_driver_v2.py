@@ -18,18 +18,19 @@ class OpencontrailF5LoadbalancerDriver(
         args_auth = dict(args.config_sections.items('KEYSTONE'))
         self.service = {}
 
+        if not 'device_ip' in args_driver:
+            return None
+
         conf = cfg.ConfigOpts()
+        conf.config_dir = None
+        conf.config_file = None
         conf.register_opts(agent_manager.OPTS)
         conf.register_opts(icontrol_driver.OPTS)
         conf.register_opt(cfg.BoolOpt('debug', default = False))
         conf.f5_global_routed_mode = True
-        if not 'device_ip' in args_driver:
-            return None
         if 'ha_mode' in args_driver:
             conf.f5_ha_type = args_driver['ha_mode']
-        conf.icontrol_hostname = args_driver['device_ip']
-        conf.icontrol_username = args_driver['user']
-        conf.icontrol_password = args_driver['password']
+
         conf.cert_manager = 'f5_openstack_agent.lbaasv2.drivers.bigip' \
                 '.barbican_cert.BarbicanCertManager'
         if 'v2.0' in args_auth['auth_url']:
@@ -46,7 +47,12 @@ class OpencontrailF5LoadbalancerDriver(
             conf.os_project_name = args_auth['admin_tenant_name']
             conf.os_user_domain_name = 'default'
             conf.os_project_domain_name = 'default'
+            conf.os_user_domain_name = args_auth['user_domain_name']
+            conf.os_project_domain_name = args_auth['project_domain_name']
 
+        conf.icontrol_hostname = args_driver['device_ip']
+        conf.icontrol_username = args_driver['user']
+        conf.icontrol_password = args_driver['password']
         self.icontrol = icontrol_driver.iControlDriver(conf,
                 registerOpts = False)
 
@@ -72,12 +78,15 @@ class OpencontrailF5LoadbalancerDriver(
                 'network_id': vn.name}
         self.service['loadbalancer'] = conf
         self.service['networks'] = {vn.name: {'provider:network_type': 'flat'}}
+        self.service['members'] = []
+        self.service['healthmonitors'] = []
 
     def _service_listener(self, l_id, status = 'ACTIVE'):
         lb_conf = self.service['loadbalancer']
         l = LoadbalancerListenerSM.get(l_id)
         conf = {'id': lb_conf['name'] + '_' + l.name,
                 'config': None,
+                'default_pool_id': None,
                 'tenant_id': lb_conf['tenant_id'],
                 'name': l.name,
                 'protocol': l.params['protocol'],
@@ -117,6 +126,8 @@ class OpencontrailF5LoadbalancerDriver(
                 'pool_id': p_conf['id'],
                 'address': m.params['address'],
                 'protocol_port': m.params['protocol_port'],
+                'admin_state_up': m.params['admin_state'],
+                'weight': m.params['weight'],
                 'subnet_id': None,
                 'network_id': None,
                 'description': ""}
@@ -165,11 +176,15 @@ class OpencontrailF5LoadbalancerDriver(
         self._service_listener(listener['id'], status = 'PENDING_DELETE')
         self.icontrol.delete_listener(None, self.service)
 
+    def update_listener_default_pool(self, pool_id=None):
+        self.service['listeners'][0]['default_pool_id'] = pool_id
+
     def create_pool(self, pool):
         self._service_lb(pool['loadbalancer_id'])
         pool_sm = LoadbalancerPoolSM.get(pool['id'])
         self._service_listener(pool_sm.loadbalancer_listener)
         self._service_pool(pool['id'])
+        self.update_listener_default_pool(self.service['pools'][0]['id'])
         self.icontrol.create_pool(None, self.service)
 
     def update_pool(self, old_pool, pool):
@@ -180,6 +195,7 @@ class OpencontrailF5LoadbalancerDriver(
         pool_sm = LoadbalancerPoolSM.get(pool['id'])
         self._service_listener(pool_sm.loadbalancer_listener)
         self._service_pool(pool['id'], status = 'PENDING_DELETE')
+        self.update_listener_default_pool(self.service['pools'][0]['id'])
         self.icontrol.delete_pool(None, self.service)
 
     def create_member(self, member):
@@ -188,6 +204,7 @@ class OpencontrailF5LoadbalancerDriver(
         self._service_lb(listener_sm.loadbalancer)
         self._service_listener(listener_sm.uuid)
         self._service_pool(pool_sm.uuid)
+        self.update_listener_default_pool(self.service['pools'][0]['id'])
         self._service_member(member['id'])
         self.icontrol.create_member(None, self.service)
 
@@ -200,6 +217,7 @@ class OpencontrailF5LoadbalancerDriver(
         self._service_lb(listener_sm.loadbalancer)
         self._service_listener(listener_sm.uuid)
         self._service_pool(pool_sm.uuid)
+        self.update_listener_default_pool(self.service['pools'][0]['id'])
         self._service_member(member['id'], status = 'PENDING_DELETE')
         self.icontrol.delete_member(None, self.service)
 
@@ -209,6 +227,7 @@ class OpencontrailF5LoadbalancerDriver(
         self._service_lb(pool_sm.loadbalancer_id)
         self._service_listener(listener_sm.uuid)
         self._service_pool(pool_id)
+        self.update_listener_default_pool(self.service['pools'][0]['id'])
         self._service_healthmonitor(health_monitor['id'])
         self.icontrol.create_health_monitor(None, self.service)
 
@@ -222,6 +241,7 @@ class OpencontrailF5LoadbalancerDriver(
         self._service_lb(pool_sm.loadbalancer_id)
         self._service_listener(listener_sm.uuid)
         self._service_pool(pool_id)
+        self.update_listener_default_pool(self.service['pools'][0]['id'])
         self._service_healthmonitor(health_monitor['id'],
                 status = 'PENDING_DELETE')
         self.icontrol.delete_health_monitor(None, self.service)
