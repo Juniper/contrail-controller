@@ -25,9 +25,12 @@ _docker_label_to_unit_name = {
         'config-schema': 'contrail-schema',
         'config-svc-monitor': 'contrail-svc-monitor',
         'config-device-manager': 'contrail-device-manager',
-        'config-cassandra': 'cassandra',
-        'config-zookeeper': 'zookeeper',
         'config-nodemgr': 'contrail-config-nodemgr'
+    },
+    Module.CONFIG_DATABASE_NODE_MGR: {
+        'config-database-cassandra': 'cassandra',
+        'config-database-zookeeper': 'zookeeper',
+        'config-database-nodemgr': 'contrail-config-database-nodemgr'
     },
     Module.CONTROL_NODE_MGR: {
         'control-control': 'contrail-control',
