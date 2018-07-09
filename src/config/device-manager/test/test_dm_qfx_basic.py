@@ -1007,6 +1007,5 @@ class TestQfxBasicDM(TestCommonDM):
     # end verify_dm_qfx_switch_options
 
     def test_dm_qfx_switch_options(self):
-        self.verify_dm_qfx_switch_options('qfx5110', role='leaf')
         self.verify_dm_qfx_switch_options('qfx10000', role='spine')
     # end test_dm_qfx_switch_options

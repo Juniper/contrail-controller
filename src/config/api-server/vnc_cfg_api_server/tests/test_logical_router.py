@@ -58,6 +58,76 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.removeHandler(cls.console_handler)
         super(TestLogicalRouter, cls).tearDownClass(*args, **kwargs)
 
+    def test_lr_physical_router_not_added(self):
+        logger.debug('testing creation of LR with a leaf physical router')
+        user_cred_create = UserCredentials(username="test_user",
+                                           password="test_pwd")
+        # Create Domain
+        domain = Domain('my-lr-domain')
+        self._vnc_lib.domain_create(domain)
+        logger.debug('Created domain ')
+
+        # Create Project
+        project = Project('my-lr-proj', domain)
+        self._vnc_lib.project_create(project)
+        logger.debug('Created Project')
+
+        pr = PhysicalRouter('leaf_physical_router', physical_router_user_credentials=user_cred_create)
+        pr.physical_router_role = 'leaf'
+        self._vnc_lib.physical_router_create(pr)
+        logger.debug('Created Physical router that is a leaf')
+
+        lr = LogicalRouter("lr_with_leaf", project)
+        lr.add_physical_router(pr)
+
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+            lr_uuid = self._vnc_lib.logical_router_create(lr)
+
+        logger.debug('Test case completed, could not create a LR with leaf physical router')
+        #cleanup
+        logger.debug('cleaning up')
+        self._vnc_lib.physical_router_delete(id=pr.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+
+    def test_lr_physical_router_not_updated(self):
+        logger.debug('testing creation of LR with a leaf physical router')
+        user_cred_create = UserCredentials(username="test_user",
+                                           password="test_pwd")
+        user_cred_create2 = UserCredentials(username="test_user2",
+                                           password="test_pwd2")
+        # Create Domain
+        domain = Domain('my-lr-domain')
+        self._vnc_lib.domain_create(domain)
+        logger.debug('Created domain ')
+
+        # Create Project
+        project = Project('my-lr-proj', domain)
+        self._vnc_lib.project_create(project)
+        logger.debug('Created Project')
+
+        pr = PhysicalRouter('leaf_physical_router', physical_router_user_credentials=user_cred_create)
+        pr.physical_router_role = 'leaf'
+        self._vnc_lib.physical_router_create(pr)
+        logger.debug('Created Physical router that is a leaf')
+
+        lr = LogicalRouter("lr_with_spine", project)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+
+        lr.add_physical_router(pr)
+
+        logger.debug('Updating LR after adding a leaf node, expecting failure')
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+            self._vnc_lib.logical_router_update(lr)
+
+        logger.debug('Test case completed, could not update a LR with leaf physical router')
+        #cleanup
+        logger.debug('cleaning up')
+        self._vnc_lib.logical_router_delete(id=lr_uuid)
+        self._vnc_lib.physical_router_delete(id=pr.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+
     def test_lr_v4_subnets(self):
         logger.debug('test logical router creation and interface-add of v4 subnets')
 
