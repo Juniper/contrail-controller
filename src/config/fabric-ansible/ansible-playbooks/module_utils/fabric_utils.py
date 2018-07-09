@@ -139,6 +139,8 @@ class FabricAnsibleModule(AnsibleModule):
             job_percentage = job_error_percent
         else:
             job_percentage = job_success_percent
+
+        self.results['percentage_completed'] = job_percentage
         self.logger.debug("Job complete percentage is %s" % job_percentage)
 
         try:
