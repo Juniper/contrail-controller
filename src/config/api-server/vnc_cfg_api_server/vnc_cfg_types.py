@@ -1408,6 +1408,15 @@ class LogicalRouterServer(Resource, LogicalRouter):
         if not ok:
             return ok, result
 
+        ok, result = PhysicalRouterServer.check_physical_router_type(
+                                obj_dict)
+        if not ok:
+            return ok, result
+        else:
+            if result == 'leaf':
+                msg = "Logical Router cannot be extended to a Physical Router that is a leaf"
+                return False, (400,msg)
+
         # Check if type of all associated BGP VPN are 'l3'
         ok, result = BgpvpnServer.check_router_supports_vpn_type(
             db_conn, obj_dict)
@@ -1433,6 +1442,15 @@ class LogicalRouterServer(Resource, LogicalRouter):
         ok, result = cls.is_port_in_use_by_vm(obj_dict, db_conn)
         if not ok:
             return ok, result
+
+        ok, result = PhysicalRouterServer.check_physical_router_type(
+                                obj_dict)
+        if not ok:
+            return ok, result
+        else:
+            if result == 'leaf':
+                msg = "Logical Router cannot be extended to a Physical Router that is a leaf"
+                return False, (400,msg)
 
         # Check if type of all associated BGP VPN are 'l3'
         ok, result = BgpvpnServer.check_router_supports_vpn_type(
@@ -5431,6 +5449,21 @@ class PhysicalRouterServer(Resource, PhysicalRouter):
                 if not ok:
                     return ok, err_msg
         return True, ''
+
+    @classmethod
+    def check_physical_router_type(
+              cls,lr_dict):
+        if ('physical_router_refs' not in lr_dict or
+                 lr_dict['physical_router_refs'] == []):
+            return True, ''
+        physical_router_fq_name = lr_dict['physical_router_refs'][0]['to']
+        ok, result = PhysicalRouterServer.locate(physical_router_fq_name, create_it=False)
+        if not ok:
+            return False, result
+        physical_router = result
+
+        physical_router_role = physical_router['physical_router_role']
+        return True, physical_router_role
 # end class PhysicalRouterServer
 
 
