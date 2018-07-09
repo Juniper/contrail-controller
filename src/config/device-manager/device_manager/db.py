@@ -134,6 +134,11 @@ class PhysicalRouterDM(DBBaseDM):
                                                       self._logger)
         else:
             if self.ansible_manager.verify_plugin(self.physical_router_role):
+                # reinit_device_plugin is invoked on every PR create/update, and this block gets
+                # gets executed only in PR object update case
+                # setting plugin_init_done to False will force plaugin to re-push
+                # underlay config, see nc_handler()
+                self.plugin_init_done = False
                 self.ansible_manager.update()
             else:
                 self.ansible_manager.clear()
