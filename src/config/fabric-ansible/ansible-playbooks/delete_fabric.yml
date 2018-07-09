@@ -5,11 +5,7 @@
   tasks:
     - name: delete devices in a fabric
       set_fact:
-        output: "{{ job_ctx | delete_devices}}"
-
-    - debug:
-      msg: {{ output.deletion_log }}
-      verbosity: 0
+        output: "{{ job_ctx | delete_fabric }}"
 
     - name: check failure
       include_tasks: error_handler.yml
