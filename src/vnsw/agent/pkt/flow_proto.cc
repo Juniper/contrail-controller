@@ -426,11 +426,28 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     case FlowEvent::FLOW_MESSAGE: {
         FlowEntry *flow = req->flow();
-        FlowTaskMsg *flow_msg = new FlowTaskMsg(flow);
-        PktInfoPtr pkt_info(new PktInfo(PktHandler::FLOW, flow_msg));
-        FlowHandler *handler = new FlowHandler(agent(), pkt_info, io_,
+        // process event only for forward flow with same gen_id
+        // it may happen that after enqueued for recompute,
+        // flow become reverse flow when the following sequence of 
+        // events occur.
+        // 1. route is changed , flow is enqueued for recompute
+        // 2. flow get evicted in vrouter
+        // 3. traffic is received for reverse flow and get the same flow handle
+        // 4. since flow handle is same , existing flow entries in agent won't
+        //    be deleted but forward flow become reverse and vice versa
+        //   added check to process events only if gen id matches,
+        //   otherwise ignore it. added assertion not to process reverseflow
+        //   at this stage as we only enqueue forward flows.
+        
+        if ((flow->flow_handle() == req->flow_handle()) &&
+                                (flow->gen_id() == req->gen_id())) {
+            assert(flow->is_flags_set(FlowEntry::ReverseFlow) == false);
+            FlowTaskMsg *flow_msg = new FlowTaskMsg(flow);
+            PktInfoPtr pkt_info(new PktInfo(PktHandler::FLOW, flow_msg));
+            FlowHandler *handler = new FlowHandler(agent(), pkt_info, io_,
                                                this, table->table_index());
-        RunProtoHandler(handler);
+            RunProtoHandler(handler);
+        }
         break;
     }
 
@@ -607,7 +624,8 @@ void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
 }
 
 void FlowProto::MessageRequest(FlowEntry *flow) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::FLOW_MESSAGE, flow));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::FLOW_MESSAGE, flow,
+                            flow->flow_handle(), flow->gen_id()));
     return;
 }
 
