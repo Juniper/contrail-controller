@@ -28,7 +28,7 @@ class SanityTestDeleteDevices(SanityBase):
         self._logger.info("Delete devices ...")
         job_execution_info = self._api.execute_job(
             job_template_fq_name=[
-                'default-global-system-config', 'delete_device_template'],
+                'default-global-system-config', 'device_deletion_template'],
             job_input={
                 "fabric_fq_name": [
                     "default-global-system-config",
