@@ -1408,6 +1408,15 @@ class LogicalRouterServer(Resource, LogicalRouter):
         if not ok:
             return ok, result
 
+        ok, result = PhysicalRouterServer.check_physical_router_type(
+                                db_conn, obj_dict)
+        if not ok:
+            return ok, result
+        else:
+            if result == 'leaf':
+                msg = "Logical Router cannot be extended to a Physical Router that is a leaf"
+                return False, (400,msg)
+
         # Check if type of all associated BGP VPN are 'l3'
         ok, result = BgpvpnServer.check_router_supports_vpn_type(
             db_conn, obj_dict)
@@ -5431,6 +5440,28 @@ class PhysicalRouterServer(Resource, PhysicalRouter):
                 if not ok:
                     return ok, err_msg
         return True, ''
+
+    @classmethod
+    def check_physical_router_type(
+              cls, db_conn,lr_dict):
+        if ('physical_router_refs' not in lr_dict or
+                 lr_dict['physical_router_refs'] == []):
+            return True, ''
+        physical_router_fq_name = lr_dict['physical_router_refs'][0]['to']
+        try:
+            pr_uuid = cls.db_conn.fq_name_to_uuid(PhysicalRouterServer.object_type, physical_router_fq_name)
+        except cfgm_common.exceptions.NoIdError as e:
+            return False, (404, str(e))
+
+        ok, res = cls.dbe_read(db_conn, 'physical_router', pr_uuid)
+        if ok:
+            # Successfully read physical router from DB.
+            physical_router = res
+        else:
+            return ok, res
+
+        physical_router_role = physical_router['physical_router_role']
+        return True, physical_router_role
 # end class PhysicalRouterServer
 
 
