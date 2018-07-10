@@ -33,6 +33,7 @@ for file in setup_sources:
 
 local_sources = [
     'delete_fabric.yml',
+    'delete_fabric_devices.yml',
     'device_import.yml',
     'discover_device.yml',
     'generate_underlay_config.yml',
