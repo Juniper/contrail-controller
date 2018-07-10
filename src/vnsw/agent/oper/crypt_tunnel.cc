@@ -323,6 +323,7 @@ void CryptTunnelTaskBase::UpdateTunnel(const CryptTunnelEntry *entry, bool avail
 void CryptTunnelTaskBase::set_tunnel_entry(CryptTunnelEntry *entry) {
     if (entry_ == entry) {
         UpdateTunnelTask();
+        return;
     }
     entry_ = entry;
     CreateTunnelTask();
@@ -532,7 +533,7 @@ bool CryptTunnelTable::TunnelEventProcess(CryptTunnelEvent *event) {
         break;
 
     case CryptTunnelEvent::STOP_TASK:
-        if (tunnel_task->DestroyTunnelTask()) {
+        if (!tunnel_task->DestroyTunnelTask()) {
             CRYPT_TUNNEL_TASK_TRACE(Trace, "Stopped " + tunnel_task->to_string());
             delete tunnel_task;
         }
