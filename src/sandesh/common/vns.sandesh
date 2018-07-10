@@ -45,15 +45,7 @@ const string SERVICE_CONTROL_NODE_MGR = "contrail-control-nodemgr"
 const string SERVICE_ANALYTICS_NODE_MGR = "contrail-analytics-nodemgr"
 const string SERVICE_CONFIG_NODE_MGR = "contrail-config-nodemgr"
 const string SERVICE_DATABASE_NODE_MGR = "contrail-database-nodemgr"
-
-// Supervisor names
-const string SERVICE_ANALYTICS_SUPERVISOR = "supervisor-analytics"
-const string SERVICE_CONTROL_SUPERVISOR = "supervisor-control"
-const string SERVICE_CONFIG_SUPERVISOR = "supervisor-config"
-const string SERVICE_COMPUTE_SUPERVISOR = "supervisor-vrouter"
-const string SERVICE_DATABASE_SUPERVISOR = "supervisor-database"
-const string SERVICE_WEBUI_SUPERVISOR = "supervisor-webui"
-const string SERVICE_SUPPORT_SUPERVISOR = "supervisor-support-service"
+const string SERVICE_CONFIG_DATABASE_NODE_MGR = "contrail-config-database-nodemgr"
 
 // Http Server (Introspect) Ports
 const u16 HttpPortConfigNodemgr = 8100
@@ -68,6 +60,7 @@ const u16 HttpPortKubeManager = 8108
 const u16 HttpPortMesosManager = 8109
 const u16 HttpPortIronicNotifManager = 8110
 const u16 HttpPortFabricAnsible = 8111
+const u16 HttpPortConfigDatabaseNodemgr = 8112
 
 const u16 HttpPortControl = 8083
 const u16 HttpPortApiServer = 8084
@@ -132,6 +125,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_SVC_MONITOR : HttpPortSvcMonitor,
     SERVICE_DEVICE_MANAGER : HttpPortDeviceManager,
     SERVICE_CONFIG_NODE_MGR : HttpPortConfigNodemgr,
+    SERVICE_CONFIG_DATABASE_NODE_MGR : HttpPortConfigDatabaseNodemgr,
     SERVICE_ANALYTICS_NODE_MGR : HttpPortAnalyticsNodemgr,
     SERVICE_COMPUTE_NODE_MGR : HttpPortVRouterNodemgr,
     SERVICE_CONTROL_NODE_MGR : HttpPortControlNodemgr,
@@ -168,10 +162,10 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_SNMP_COLLECTOR,
     SERVICE_DATABASE_NODE_MGR,
     SERVICE_CONFIG_NODE_MGR,
+    SERVICE_CONFIG_DATABASE_NODE_MGR,
     SERVICE_ANALYTICS_NODE_MGR,
     SERVICE_COMPUTE_NODE_MGR,
     SERVICE_CONTROL_NODE_MGR,
-    SERVICE_DATABASE_NODE_MGR,
     SERVICE_TOPOLOGY,
     SERVICE_DISCOVERY,
     SERVICE_DISCOVERY_0,
@@ -253,6 +247,7 @@ enum Module {
     MAX_MODULE,
     IRONIC_NOTIF_MANAGER,
     FABRIC_ANSIBLE,
+    CONFIG_DATABASE_NODE_MGR,
 }
 
 enum VrouterAgentType {
@@ -324,6 +319,7 @@ const string MODULE_XMPP_SERVER_NAME = "XmppServer"
 const string MODULE_ANALYTICS_NODE_MGR_NAME = SERVICE_ANALYTICS_NODE_MGR
 const string MODULE_CONTROL_NODE_MGR_NAME = SERVICE_CONTROL_NODE_MGR
 const string MODULE_CONFIG_NODE_MGR_NAME = SERVICE_CONFIG_NODE_MGR
+const string MODULE_CONFIG_DATABASE_NODE_MGR_NAME = SERVICE_CONFIG_DATABASE_NODE_MGR
 const string MODULE_DATABASE_NODE_MGR_NAME = SERVICE_DATABASE_NODE_MGR
 const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
 const string MODULE_COMPUTE_NODE_MGR_NAME = SERVICE_COMPUTE_NODE_MGR
@@ -356,6 +352,7 @@ const map<Module, string> ModuleNames = {
     Module.ANALYTICS_NODE_MGR : MODULE_ANALYTICS_NODE_MGR_NAME,
     Module.CONTROL_NODE_MGR   : MODULE_CONTROL_NODE_MGR_NAME,
     Module.CONFIG_NODE_MGR    : MODULE_CONFIG_NODE_MGR_NAME,
+    Module.CONFIG_DATABASE_NODE_MGR : MODULE_CONFIG_DATABASE_NODE_MGR_NAME,
     Module.DATABASE_NODE_MGR  : MODULE_DATABASE_NODE_MGR_NAME,
     Module.WEBUI_NODE_MGR     : MODULE_WEBUI_NODE_MGR_NAME,
     Module.COMPUTE_NODE_MGR   : MODULE_COMPUTE_NODE_MGR_NAME,
@@ -391,6 +388,7 @@ const map<string, Module> ModuleIds = {
     MODULE_ANALYTICS_NODE_MGR_NAME     : Module.ANALYTICS_NODE_MGR,
     MODULE_CONTROL_NODE_MGR_NAME       : Module.CONTROL_NODE_MGR,
     MODULE_CONFIG_NODE_MGR_NAME        : Module.CONFIG_NODE_MGR,
+    MODULE_CONFIG_DATABASE_NODE_MGR_NAME : Module.CONFIG_DATABASE_NODE_MGR,
     MODULE_DATABASE_NODE_MGR_NAME      : Module.DATABASE_NODE_MGR,
     MODULE_WEBUI_NODE_MGR_NAME         : Module.WEBUI_NODE_MGR,
     MODULE_COMPUTE_NODE_MGR_NAME       : Module.COMPUTE_NODE_MGR,
@@ -420,6 +418,7 @@ enum NodeType {
     OPENSTACK,
     SERVERMGR,
     KUBERNETESMGR,
+    CONFIG_DATABASE,
 }
 
 const map<NodeType, string> UVENodeTypeNames = {
@@ -430,6 +429,7 @@ const map<NodeType, string> UVENodeTypeNames = {
     NodeType.COMPUTE         : "vrouter",
     NodeType.DATABASE        : "database-node",
     NodeType.KUBERNETESMGR   : "kubernetes-manager-node",
+    NodeType.CONFIG_DATABASE : "config-database-node",
 }
 
 const map<NodeType, string> NodeTypeNames = {
@@ -440,6 +440,7 @@ const map<NodeType, string> NodeTypeNames = {
     NodeType.COMPUTE         : "Compute",
     NodeType.WEBUI           : "WebUI",
     NodeType.DATABASE        : "Database",
+    NodeType.CONFIG_DATABASE : "ConfigDatabase",
     NodeType.OPENSTACK       : "OpenStack",
     NodeType.SERVERMGR       : "ServerMgr",
     NodeType.KUBERNETESMGR   : "KubernetesMgr",
@@ -447,43 +448,11 @@ const map<NodeType, string> NodeTypeNames = {
 
 const map<NodeType, string> NodeManagerNodeTypeNames = {
     NodeType.ANALYTICS : 'contrail-analytics',
-    NodeType.CONFIG    : 'contrail-config',
-    NodeType.DATABASE  : 'contrail-database',
-    NodeType.CONTROL   : 'contrail-control',
-    NodeType.COMPUTE   : 'contrail-vrouter',
-}
-
-const map <NodeType, list<string> > NodeType2ServicesNamesMap = {
-    NodeType.CONFIG : [ SERVICE_CONFIG_NODE_MGR,
-                        SERVICE_API_SERVER,
-                        SERVICE_SCHEMA_TRANSFORMER,
-                        SERVICE_SVC_MONITOR,
-                        SERVICE_DEVICE_MANAGER,
-                        SERVICE_DISCOVERY,
-                        SERVICE_IFMAP_SERVER,
-                      ],
-    NodeType.CONTROL : [ SERVICE_CONTROL_NODE_MGR,
-                         SERVICE_CONTROL_NODE,
-                         SERVICE_DNSD,
-                         SERVICE_NAMED,
-                       ],
-    NodeType.ANALYTICS : [ SERVICE_ANALYTICS_NODE_MGR,
-                           SERVICE_COLLECTOR,
-                           SERVICE_QUERY_ENGINE,
-                           SERVICE_OPSERVER,
-                           SERVICE_ALARM_GENERATOR,
-                           SERVICE_SNMP_COLLECTOR,
-                           SERVICE_TOPOLOGY,
-                         ],
-    NodeType.DATABASE : [ SERVICE_DATABASE_NODE_MGR,
-                          SERVICE_CONTRAIL_DATABASE,
-                          SERVICE_KAFKA,
-                        ],
-    NodeType.COMPUTE : [ SERVICE_COMPUTE_NODE_MGR,
-                         SERVICE_VROUTER_AGENT,
-                       ],
-    NodeType.KUBERNETESMGR : [ SERVICE_KUBE_MANAGER,
-                       ],
+    NodeType.CONFIG          : 'contrail-config',
+    NodeType.CONFIG_DATABASE : 'contrail-config-database',
+    NodeType.DATABASE        : 'contrail-database',
+    NodeType.CONTROL         : 'contrail-control',
+    NodeType.COMPUTE         : 'contrail-vrouter',
 }
 
 const map <Module, NodeType> Module2NodeType = {
@@ -504,6 +473,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.ANALYTICS_NODE_MGR : NodeType.ANALYTICS,
     Module.CONTROL_NODE_MGR   : NodeType.CONTROL,
     Module.CONFIG_NODE_MGR    : NodeType.CONFIG,
+    Module.CONFIG_DATABASE_NODE_MGR : NodeType.CONFIG_DATABASE,
     Module.DATABASE_NODE_MGR  : NodeType.DATABASE,
     Module.WEBUI_NODE_MGR     : NodeType.WEBUI,
     Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
