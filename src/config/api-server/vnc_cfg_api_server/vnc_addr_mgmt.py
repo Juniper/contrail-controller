@@ -1602,7 +1602,7 @@ class AddrMgmt(object):
                         continue
                     if ip_addr is not None:
                         subnet_obj.subscriber_tag = subscriber_tag
-                        return (ip_addr, subnets_tried)
+                        return (ip_addr, subnets_tried, subnet_name)
                 return (ip_addr, subnets_tried)
             else:
                 # Subnet found with a tag,try to allocate ip address
@@ -1612,7 +1612,9 @@ class AddrMgmt(object):
                                   value=alloc_id,
                                   version=tagged_subnet._network.version,
                                   sn_alloc_pools=[])
-                    return (ip_addr, subnets_tried)
+                    subnet_name = tagged_subnet._prefix + '/' + str(
+                          tagged_subnet._prefix_len)
+                    return (ip_addr, subnets_tried, subnet_name)
 
                 except cfgm_common.exceptions.ResourceExhaustionError as e:
                     ip_addr = None
@@ -1631,9 +1633,9 @@ class AddrMgmt(object):
                     subnet_obj.get_version()):
                 continue
             if asked_ip_addr == str(subnet_obj.gw_ip):
-                return (asked_ip_addr, subnets_tried)
+                return (asked_ip_addr, subnets_tried, None)
             if asked_ip_addr == str(subnet_obj.dns_server_address):
-                return (asked_ip_addr, subnets_tried)
+                return (asked_ip_addr, subnets_tried, None)
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
 
@@ -1663,7 +1665,8 @@ class AddrMgmt(object):
                         asked_ip_addr))
 
                 return (subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
-                                                 value=alloc_id), subnets_tried)
+                                                 value=alloc_id), subnets_tried,
+                                              None)
             try:
                 ip_addr = subnet_obj.ip_alloc(ipaddr=None, value=alloc_id,
                               version=subnet_obj._network.version,
@@ -1671,8 +1674,8 @@ class AddrMgmt(object):
             except cfgm_common.exceptions.ResourceExhaustionError as e:
                 continue
             if ip_addr is not None or sub:
-                return (ip_addr, subnets_tried)
-        return (ip_addr, subnets_tried)
+                return (ip_addr, subnets_tried, None)
+        return (ip_addr, subnets_tried, None)
     # end _ipam_ip_alloc
 
     def _ipam_ip_alloc_from_pools(self, ipam_refs, sub=None,
@@ -1684,11 +1687,11 @@ class AddrMgmt(object):
 
         sn_uuid = None
         for ipam_ref in ipam_refs:
-            ip_addr, _ = \
+            ip_addr, _, _ = \
                 self._ipam_ip_alloc(ipam_ref, sn_uuid, sub,
                         asked_ip_addr, asked_ip_version, alloc_id, alloc_pools)
             if ip_addr:
-                return (ip_addr, None)
+                return (ip_addr, None, None)
         raise AddrMgmtSubnetExhausted('instace_ip_request', alloc_pools)
     # end _ipam_ip_alloc_from_pools
 
@@ -1763,12 +1766,12 @@ class AddrMgmt(object):
             if not vr_pool_found:
                 alloc_pools = []
 
-            ip_addr, subnets_tried = \
+            ip_addr, subnets_tried, alloted_subnet = \
                 self._ipam_ip_alloc(ipam_ref, sn_uuid,
                     sub, asked_ip_addr, asked_ip_version, alloc_id,
                     alloc_pools, subscriber_tag)
             if ip_addr:
-                return (ip_addr, sn_uuid)
+                return (ip_addr, sn_uuid, alloted_subnet)
 
         if sub:
             if not found_subnet_match:
@@ -1814,9 +1817,9 @@ class AddrMgmt(object):
             if asked_ip_version and asked_ip_version != subnet_obj.get_version():
                 continue
             if asked_ip_addr == str(subnet_obj.gw_ip):
-                return (asked_ip_addr, sn_uuid)
+                return (asked_ip_addr, sn_uuid, None)
             if asked_ip_addr == str(subnet_obj.dns_server_address):
-                return (asked_ip_addr, sn_uuid)
+                return (asked_ip_addr, sn_uuid, None)
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
 
@@ -1834,7 +1837,7 @@ class AddrMgmt(object):
                             asked_ip_addr))
 
                 return (subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
-                                              value=alloc_id), sn_uuid)
+                                              value=alloc_id), sn_uuid, None)
             try:
                 ip_addr = subnet_obj.ip_alloc(ipaddr=None,
                                               value=alloc_id)
@@ -1842,7 +1845,7 @@ class AddrMgmt(object):
                 continue
 
             if ip_addr is not None or subnet_uuid:
-                return (ip_addr, sn_uuid)
+                return (ip_addr, sn_uuid, None)
 
         if subnet_uuid:
             if not found_subnet_match:
@@ -1865,19 +1868,19 @@ class AddrMgmt(object):
             # where instace_ip is directly referencing ipam
             # for internal ip address
             sn_uuid = None
-            ip_addr, _ = \
+            ip_addr, _, _ = \
                 self._ipam_ip_alloc(ipam_refs[0], sn_uuid, sub,
                         asked_ip_addr, asked_ip_version, alloc_id)
-            return (ip_addr, sn_uuid)
+            return (ip_addr, sn_uuid, None)
 
         if ipam_refs and alloc_pools:
             # This is a request for ip address from flat subnet
             # where instace_ip is referring to vrouter which has
             # allocation pools on vrouter->ipam link.
-            ip_addr, _ = self._ipam_ip_alloc_from_pools(ipam_refs, sub,
+            ip_addr, _, _ = self._ipam_ip_alloc_from_pools(ipam_refs, sub,
                              asked_ip_addr, asked_ip_version,
                             alloc_id, alloc_pools=alloc_pools)
-            return (ip_addr, None)
+            return (ip_addr, None, None)
 
         # This is a Virtual network based ip allocation either from flat-subnet
         # ipam or user-defined connected ipam
