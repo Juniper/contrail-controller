@@ -18,3 +18,10 @@
       vars:
         current_index: 2
         jl_message: "Role Discovery succeeded discovering roles for the prouter {{prouter_name}} in the fabric"
+
+    - name: insert/update in /tmp/<exec-id> file
+      lineinfile:
+        path: "/tmp/{{job_ctx.job_execution_id}}"
+        create: yes
+        insertafter: EOF
+        line: "{{job_ctx.unique_pb_id}} END"
