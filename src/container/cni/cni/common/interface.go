@@ -9,13 +9,14 @@
 package cniIntf
 
 import (
-	log "../logging"
 	"fmt"
+	"net"
+
+	log "../logging"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/vishvananda/netlink"
-	"net"
 )
 
 // Number of characters to pick from UUID for ifname
@@ -29,6 +30,9 @@ const CNI_ID_IFNAME_END_LEN = 5
 
 // Default MTU for interface configured
 const CNI_MTU = 1500
+
+// Prefix for macvlan interface alias
+const INTF_ALIAS = "contrail-k8s-cni-vlan-"
 
 // Common methods for all CniIntf
 type CniIntfMethods interface {
@@ -70,6 +74,31 @@ func (intf CniIntf) DeleteByName(ifName string) error {
 	}
 
 	log.Infof("Deleted interface %s", ifName)
+	return nil
+}
+
+// DeleteByAlias deletes an interface with the given link alias
+func (intf CniIntf) DeleteByAlias(intfAlias string) error {
+	log.Infof("Delete interface with alias %s", intfAlias)
+	// Get link for the interface
+	link, err := netlink.LinkByAlias(intfAlias)
+	if err != nil {
+		log.Infof("Interface with alias %s is not present. Error %+v",
+			intfAlias, err)
+		return nil
+	}
+
+	log.Infof("Found link %+v with alias %s", link, intfAlias)
+
+	// Delete the link
+	if err = netlink.LinkDel(link); err != nil {
+		msg := fmt.Sprintf("Error deleting interface with alias %s. Error %+v",
+			intfAlias, err)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
+	}
+
+	log.Infof("Deleted interface with alias %s", intfAlias)
 	return nil
 }
 
