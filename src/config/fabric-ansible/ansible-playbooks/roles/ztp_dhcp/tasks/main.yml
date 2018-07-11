@@ -1,39 +1,45 @@
 ---
 
-- name: Insert/update global section in DHCP config file on remote host
+- name: Determine whether insert/update/delete operation
+  set_fact:
+    dhcp_state: "{{ 'present' if ztp_create else 'absent' }}"
+
+- name: Insert/update/delete global section in DHCP config file on remote host
   block:
-    - name: Insert/update global section in config file on remote host
+    - name: Insert/update/delete global section in config file on remote host
       blockinfile:
-        block: "{{ lookup('file', dhcp_gconf_path) }}"
+        block: "{{ lookup('file', dhcp_gconf_path) if dhcp_gconf_path else '' }}"
         dest: "{{ DHCPD_CONFIG_PATH }}"
         marker: '########## {mark} GLOBAL BLOCK ##########'
+        state: "{{ dhcp_state }}"
         create: yes
       register: cmd_res
   rescue:
     - set_fact:
         dhcp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to insert/update global dhcp config"},
+          "results": {"jl_message": "Failed to insert/update/delete global dhcp config"},
           "message": "{{cmd_res.msg}}"
         }
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
 
-- name: Insert/update subsection in DHCP config file on remote host
+- name: Insert/update/delete subsection in DHCP config file on remote host
   block:
-    - name: Insert/update subsection in DHCP config file on remote host
+    - name: Insert/update/delete subsection in DHCP config file on remote host
       blockinfile:
-        block: "{{ lookup('file', dhcp_conf_path) }}"
+        block: "{{ lookup('file', dhcp_conf_path) if dhcp_conf_path else '' }}"
         dest: "{{ DHCPD_CONFIG_PATH }}"
-        marker: '########## {mark} SUBSECTION BLOCK ##########'
+        marker: "{{['########## {mark} SUBSECTION BLOCK', fabric_fq_name[-1], '##########']|join(' ')}}"
+        state: "{{ dhcp_state }}"
         create: yes
       register: cmd_res
   rescue:
     - set_fact:
         dhcp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to insert/update dhcp config"},
+          "results": {"jl_message": "Failed to insert/update/delete dhcp config"},
           "message": "{{cmd_res.msg}}"
         }
     - name: print output
@@ -54,6 +60,7 @@
           "results": {"jl_message": "Failed to restart dhcpd"},
           "message": "{{cmd_res.msg}}"
         }
+
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
@@ -82,4 +89,5 @@
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
+  when: dhcp_state == 'present'
 
