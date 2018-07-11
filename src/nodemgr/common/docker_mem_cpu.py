@@ -9,11 +9,11 @@ from sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
 
 
 class DockerMemCpuUsageData(object):
-    def __init__(self, id, last_cpu, last_time):
+    def __init__(self, _id, last_cpu, last_time):
         self.last_cpu = last_cpu
         self.last_time = last_time
         self.client = docker.from_env()
-        self._id = hex(id)[2:-1].zfill(64)
+        self._id = hex(_id)[2:-1].zfill(64)
 
     def _get_container_stats(self):
         return self.client.stats(self._id, decode=True, stream=False)
