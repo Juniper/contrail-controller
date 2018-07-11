@@ -50,8 +50,6 @@ class LeafConf(AnsibleRoleCommon):
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
-        if not self.ensure_bgp_config():
-            return 0
         self.set_common_config()
         return self.send_conf()
     # end push_conf
