@@ -116,11 +116,12 @@ class FakeJobHandler(object):
     params = {}
 
     @classmethod
-    def send(cls, plugin, job_template, job_input, retry):
+    def send(cls, plugin, job_template, job_input, is_delete, retry):
         cls.params = {
             'plugin': plugin,
             'job_template':  job_template,
             'job_input':  job_input,
+            'is_delete': is_delete,
             'retry': retry
         }
     # end push
@@ -142,6 +143,7 @@ class FakeJobHandler(object):
 # end FakeJobHandler
 
 
-def fake_job_handler_push(plugin, job_template, job_input, retry):
-    return FakeJobHandler.send(plugin, job_template, job_input, retry)
+def fake_job_handler_push(plugin, job_template, job_input, is_delete, retry):
+    return FakeJobHandler.send(plugin, job_template, job_input, is_delete,
+                               retry)
 # end fake_job_handler_push

@@ -10,6 +10,7 @@ import abc
 import time
 import datetime
 import json
+from hashlib import md5
 from dm_utils import DMUtils
 from ansible_base import AnsibleBase
 from dm_utils import PushConfigState
@@ -27,19 +28,13 @@ class AnsibleConf(AnsibleBase):
     # end register
 
     def __init__(self, logger, params={}):
+        self.last_config_hash = None
         self.physical_router = params.get("physical_router")
         super(AnsibleConf, self).__init__(logger)
     # end __init__
 
-    def plugin_init(self):
-        # build and push underlay config, onetime job
-        self.underlay_config()
-        self.plugin_init_done =\
-            self.push_config_state == PushConfigState.PUSH_STATE_SUCCESS
-    # end plugin_init
-
     @abc.abstractmethod
-    def underlay_config(self):
+    def underlay_config(self, is_delete=False):
         # abstract method
         pass
     # end underlay_config
@@ -119,26 +114,25 @@ class AnsibleConf(AnsibleBase):
                     address=self.physical_router.loopback_ip))
     # end update_system_config
 
-    def fetch_pi_li_iip(self, pi_uuid):
-        li_obj = None
-        iip_obj = None
-        pi_obj = PhysicalInterfaceDM.get(pi_uuid)
-        if pi_obj is None:
-            self._logger.error("unable to read physical interface %s" %
-                               pi_uuid)
-        elif len(pi_obj.logical_interfaces) > 0:
-            # Read unit 0 only
-            li_uuid = next(iter(pi_obj.logical_interfaces))
-            li_obj = LogicalInterfaceDM.get(li_uuid)
-            if li_obj is None:
-                self._logger.error("unable to read logical interface %s" %
-                                   li_uuid)
-            elif li_obj.instance_ip is not None:
-                iip_obj = InstanceIpDM.get(li_obj.instance_ip)
-                if iip_obj is None:
-                    self._logger.error("unable to read instance ip %s" %
-                                       li_obj.instance_ip)
-        return pi_obj, li_obj, iip_obj
+    def fetch_pi_li_iip(self, physical_interfaces):
+        for pi_uuid in physical_interfaces:
+            pi_obj = PhysicalInterfaceDM.get(pi_uuid)
+            if pi_obj is None:
+                self._logger.error("unable to read physical interface %s" %
+                                   pi_uuid)
+            else:
+                for li_uuid in pi_obj.logical_interfaces:
+                    li_obj = LogicalInterfaceDM.get(li_uuid)
+                    if li_obj is None:
+                        self._logger.error("unable to read logical interface %s"
+                                           % li_uuid)
+                    elif li_obj.instance_ip is not None:
+                        iip_obj = InstanceIpDM.get(li_obj.instance_ip)
+                        if iip_obj is None:
+                            self._logger.error("unable to read instance ip %s" %
+                                               li_obj.instance_ip)
+                        else:
+                            yield pi_obj, li_obj, iip_obj
     # end fetch_pi_li_iip
 
     def build_underlay_bgp(self):
@@ -151,10 +145,10 @@ class AnsibleConf(AnsibleBase):
                                                self.physical_router.uuid))
             return
 
-        for pi_uuid in self.physical_router.physical_interfaces:
-            pi_obj, li_obj, iip_obj = self.fetch_pi_li_iip(pi_uuid)
+        for pi_obj, li_obj, iip_obj in self.\
+                fetch_pi_li_iip(self.physical_router.physical_interfaces):
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
-                pi = PhysicalInterface(uuid=pi_uuid, name=pi_obj.name,
+                pi = PhysicalInterface(uuid=pi_obj.uuid, name=pi_obj.name,
                                        comment=DMUtils.ip_clos_comment())
                 li = LogicalInterface(uuid=li_obj.uuid, name=li_obj.name,
                                       unit=0,
@@ -164,15 +158,15 @@ class AnsibleConf(AnsibleBase):
                 self.interfaces_config.append(pi)
 
                 self._logger.debug("looking for peers for physical"
-                                   " interface %s(%s)" % (pi_obj.name, pi_uuid))
+                                   " interface %s(%s)" % (pi_obj.name,
+                                                          pi_obj.uuid))
                 # Add this bgp object only if it has a peer
                 bgp = Bgp(ip_address=iip_obj.instance_ip_address,
                           autonomous_system=self.physical_router.allocated_asn,
                           comment=DMUtils.ip_clos_comment())
                 # Assumption: PIs are connected for IP-CLOS peering only
-                for peer_pi_uuid in pi_obj.physical_interfaces:
-                    peer_pi_obj, peer_li_obj, peer_iip_obj =\
-                        self.fetch_pi_li_iip(peer_pi_uuid)
+                for peer_pi_obj, peer_li_obj, peer_iip_obj in\
+                        self.fetch_pi_li_iip(pi_obj.physical_interfaces):
                     if peer_pi_obj and peer_li_obj and peer_iip_obj and\
                             peer_iip_obj.instance_ip_address:
 
@@ -181,11 +175,11 @@ class AnsibleConf(AnsibleBase):
                         if peer_pr is None:
                             self._logger.error(
                                 "unable to read peer physical router %s"
-                                % pi_uuid)
+                                % peer_pi_obj.physical_router)
                         elif peer_pr.allocated_asn is None:
                             self._logger.error(
                                 "peer physical router %s does not have"
-                                " asn allocated" % pi_uuid)
+                                " asn allocated" % peer_pi_obj.physical_router)
                         elif peer_pr != self.physical_router:
                             if bgp not in self.bgp_configs:
                                 self.bgp_configs.append(bgp)
@@ -197,29 +191,37 @@ class AnsibleConf(AnsibleBase):
                             bgp.add_peers(peer)
     # end build_bgp_config
 
-    def device_send(self, job_template, job_input, retry):
-        config_str = json.dumps(job_input)
+    def device_send(self, job_template, job_input, is_delete, retry):
+        config_str = json.dumps(job_input, indent=4, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_INIT
         start_time = None
         config_size = 0
         try:
-            self._logger.debug("playbook send message: %s" % config_str)
             config_size = len(config_str)
-            device_manager = DeviceManager.get_instance()
-            job_handler = JobHandler(job_template, job_input,
-                                     [self.physical_router.uuid],
-                                     device_manager.get_analytics_config(),
-                                     device_manager.get_vnc(), self._logger)
-            self.commit_stats['total_commits_sent_since_up'] += 1
-            start_time = time.time()
-            job_handler.push()
-            end_time = time.time()
-            self.commit_stats['commit_status_message'] = 'success'
-            self.commit_stats['last_commit_time'] = \
-                    datetime.datetime.fromtimestamp(
-                    end_time).strftime('%Y-%m-%d %H:%M:%S')
-            self.commit_stats['last_commit_duration'] = str(
-                    end_time - start_time)
+            current_config_hash = md5(config_str).hexdigest()
+            if self.last_config_hash is None or\
+                    current_config_hash != self.last_config_hash:
+                self._logger.debug("playbook send message: %s" % config_str)
+                device_manager = DeviceManager.get_instance()
+                job_handler = JobHandler(job_template, job_input,
+                                         None if is_delete else
+                                         [self.physical_router.uuid],
+                                         device_manager.get_analytics_config(),
+                                         device_manager.get_vnc(), self._logger)
+                self.commit_stats['total_commits_sent_since_up'] += 1
+                start_time = time.time()
+                job_handler.push()
+                end_time = time.time()
+                self.commit_stats['commit_status_message'] = 'success'
+                self.commit_stats['last_commit_time'] = \
+                        datetime.datetime.fromtimestamp(
+                        end_time).strftime('%Y-%m-%d %H:%M:%S')
+                self.commit_stats['last_commit_duration'] = str(
+                        end_time - start_time)
+                self.last_config_hash = current_config_hash
+            else:
+                self._logger.debug("not pushing since no config change"
+                                   " detected")
             self.push_config_state = PushConfigState.PUSH_STATE_SUCCESS
         except Exception as e:
             self._logger.error("Router %s: %s" %
@@ -287,10 +289,10 @@ class AnsibleConf(AnsibleBase):
 
     def prepare_conf(self, is_delete=False):
         device = Device()
-        if is_delete:
-            return device
         device.set_comment(DMUtils.groups_comment())
         device.set_system(self.system_config)
+        if is_delete:
+            return device
         device.set_bgp(self.bgp_configs)
         device.set_routing_instances(self.ri_config)
         device.set_physical_interfaces(self.interfaces_config)
@@ -306,14 +308,16 @@ class AnsibleConf(AnsibleBase):
 
     def send_conf(self, is_delete=False, retry=True):
         if not self.has_conf() and not is_delete:
-            return
-        config = self.prepare_conf()
+            return 0
+        config = self.prepare_conf(is_delete=is_delete)
         feature_params, job_template = self.read_feature_configs()
         job_input = {
             'device_abstract_config': self.export_dict(config),
-            'additional_feature_params': feature_params
+            'additional_feature_params': feature_params,
+            'fabric_uuid': self.physical_router.fabric,
+            'is_delete': is_delete
         }
-        self.device_send(job_template, job_input, retry)
+        return self.device_send(job_template, job_input, is_delete, retry)
     # end send_conf
 
     def add_lo0_unit_0_interface(self, loopback_ip=''):
@@ -542,6 +546,8 @@ class AnsibleConf(AnsibleBase):
 
     @staticmethod
     def export_dict(obj):
+        if obj is None:
+            return None
         obj_json = json.dumps(obj, default=lambda o: dict(
             (k, v) for k, v in o.__dict__.iteritems()
             if AnsibleConf.do_export(v)))
