@@ -125,10 +125,6 @@ class DeviceConf(object):
         return False
     # end is_product_supported
 
-    def is_plugin_initialized(self):
-        return True
-    # end is_plugin_initialized
-
     @abc.abstractmethod
     def initialize(self):
         """Initialize local data structures"""
