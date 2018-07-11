@@ -31,20 +31,21 @@ class AnsibleConf(AnsibleBase):
         super(AnsibleConf, self).__init__(logger)
     # end __init__
 
-    def plugin_init(self):
+    def plugin_init(self, is_delete=False):
         # build and push underlay config, onetime job
-        self.underlay_config()
+        self.underlay_config(is_delete=is_delete)
         self.plugin_init_done =\
             self.push_config_state == PushConfigState.PUSH_STATE_SUCCESS
     # end plugin_init
 
     @abc.abstractmethod
-    def underlay_config(self):
+    def underlay_config(self, is_delete=False):
         # abstract method
         pass
     # end underlay_config
 
     def update(self):
+        self.plugin_init_done = False
         self.update_system_config()
     # end update
 
@@ -286,9 +287,9 @@ class AnsibleConf(AnsibleBase):
     # end read_feature_configs
 
     def prepare_conf(self, is_delete=False):
-        device = Device()
         if is_delete:
-            return device
+            return None
+        device = Device()
         device.set_comment(DMUtils.groups_comment())
         device.set_system(self.system_config)
         device.set_bgp(self.bgp_configs)
@@ -307,7 +308,7 @@ class AnsibleConf(AnsibleBase):
     def send_conf(self, is_delete=False, retry=True):
         if not self.has_conf() and not is_delete:
             return
-        config = self.prepare_conf()
+        config = self.prepare_conf(is_delete=is_delete)
         feature_params, job_template = self.read_feature_configs()
         job_input = {
             'device_abstract_config': self.export_dict(config),
@@ -542,6 +543,8 @@ class AnsibleConf(AnsibleBase):
 
     @staticmethod
     def export_dict(obj):
+        if obj is None:
+            return None
         obj_json = json.dumps(obj, default=lambda o: dict(
             (k, v) for k, v in o.__dict__.iteritems()
             if AnsibleConf.do_export(v)))
