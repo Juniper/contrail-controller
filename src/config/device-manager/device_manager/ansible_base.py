@@ -127,7 +127,7 @@ class AnsibleBase(object):
     # end is_role_supported
 
     @abc.abstractmethod
-    def plugin_init(self):
+    def plugin_init(self, is_delete=False):
         """Initialize plugin"""
     # end plugin_init
 

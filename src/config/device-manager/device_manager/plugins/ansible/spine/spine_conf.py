@@ -52,6 +52,7 @@ class SpineConf(AnsibleRoleCommon):
     def push_conf(self, is_delete=False):
         if not self.physical_router:
             return 0
+        self.initialize()
         if is_delete:
             return self.send_conf(is_delete=True)
         if not self.ensure_bgp_config():
