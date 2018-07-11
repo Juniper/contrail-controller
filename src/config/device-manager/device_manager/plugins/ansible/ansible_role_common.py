@@ -41,27 +41,26 @@ class AnsibleRoleCommon(AnsibleConf):
         return False
     # end is_spine
 
-    def underlay_config(self):
+    def underlay_config(self, is_delete=False):
         self._logger.info("underlay config start: %s(%s)\n" %
                           (self.physical_router.name,
                            self.physical_router.uuid))
-        self.initialize()
-        self.update_system_config()
-        self.build_underlay_bgp()
-        self.send_conf(retry=False)
+        if not is_delete:
+            self.build_underlay_bgp()
+        self.send_conf(is_delete=is_delete, retry=False)
         self._logger.info("underlay config end: %s(%s)\n" %
                           (self.physical_router.name,
                            self.physical_router.uuid))
     # end underlay_config
 
     def initialize(self):
+        super(AnsibleRoleCommon, self).initialize()
         self.evpn = None
         self.global_switch_options_config = None
         self.chassis_config = None
         self.vlans_config = None
         self.irb_interfaces = []
         self.internal_vn_ris = []
-        super(AnsibleRoleCommon, self).initialize()
     # end initialize
 
     def add_families(self, parent, params):
@@ -905,6 +904,9 @@ class AnsibleRoleCommon(AnsibleConf):
     # end build_ri_config
 
     def set_common_config(self):
+        self.build_underlay_bgp()
+        if not self.ensure_bgp_config():
+            return
         self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
