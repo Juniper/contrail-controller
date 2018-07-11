@@ -13,4 +13,20 @@
           "results": {"jl_message": "Failed to copy TFTP script files"},
           "message": "{{cmd_res.msg}}"
         }
+  when: ztp_create == True
+
+- name: Remove script files from remote host
+  block:
+    - file:
+        state: absent
+        path: "{{ TFTP_BOOT_PATH }}/{{ fabric_fq_name[-1]  }}_juniper.sh"
+      register: cmd_res
+  rescue:
+    - set_fact:
+        tftp_output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to remove TFTP script files"},
+          "message": "{{cmd_res.msg}}"
+        }
+  when: ztp_create == False
 
