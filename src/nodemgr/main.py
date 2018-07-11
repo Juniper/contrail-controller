@@ -50,7 +50,8 @@ from pysandesh.sandesh_base import Sandesh, SandeshConfig
 from analytics_nodemgr.event_manager import AnalyticsEventManager
 from config_nodemgr.event_manager import ConfigEventManager
 from control_nodemgr.event_manager import ControlEventManager
-from database_nodemgr.event_manager import DatabaseEventManager
+from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
+from config_database_nodemgr.event_manager import ConfigDatabaseEventManager
 from vrouter_nodemgr.event_manager import VrouterEventManager
 
 
@@ -67,9 +68,12 @@ unit_names_dict = {
         'contrail-schema',
         'contrail-svc-monitor',
         'contrail-device-manager',
+        'contrail-config-nodemgr'
+    ],
+    'contrail-config-database': [
         'cassandra',
         'zookeeper',
-        'contrail-config-nodemgr'
+        'contrail-config-database-nodemgr'
     ],
     'contrail-control': [
         'contrail-control',
@@ -131,6 +135,8 @@ def main(args_str=' '.join(sys.argv[1:])):
         config_file = '/etc/contrail/contrail-analytics-nodemgr.conf'
     elif (node_type == 'contrail-config'):
         config_file = '/etc/contrail/contrail-config-nodemgr.conf'
+    elif (node_type == 'contrail-config-database'):
+        config_file = '/etc/contrail/contrail-config-database-nodemgr.conf'
     elif (node_type == 'contrail-control'):
         config_file = '/etc/contrail/contrail-control-nodemgr.conf'
     elif (node_type == 'contrail-vrouter'):
@@ -179,7 +185,8 @@ def main(args_str=' '.join(sys.argv[1:])):
     parser.add_argument("--corefile_path",
         help="Location where coredump files are stored")
     SandeshConfig.add_parser_arguments(parser, add_dscp=True)
-    if (node_type == 'contrail-database' or node_type == 'contrail-config'):
+    if (node_type == 'contrail-database'
+            or node_type == 'contrail-config-database'):
         parser.add_argument("--minimum_diskGB",
                             type=int,
                             dest='minimum_diskgb',
@@ -230,7 +237,9 @@ def main(args_str=' '.join(sys.argv[1:])):
     elif node_type == 'contrail-vrouter':
         prog = VrouterEventManager(_args, unit_names)
     elif node_type == 'contrail-database':
-        prog = DatabaseEventManager(_args, unit_names)
+        prog = AnalyticsDatabaseEventManager(_args, unit_names)
+    elif node_type == 'contrail-config-database':
+        prog = ConfigDatabaseEventManager(_args, unit_names)
     else:
         sys.stderr.write("Node type " + str(node_type) + " is incorrect\n")
         return

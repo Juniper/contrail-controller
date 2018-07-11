@@ -11,18 +11,17 @@ from pysandesh.sandesh_base import sandesh_global
 from sandesh_common.vns.ttypes import Module
 
 
-class DatabaseEventManager(EventManager):
+class ConfigDatabaseEventManager(EventManager):
     def __init__(self, config, unit_names):
         type_info = EventManagerTypeInfo(
-            object_table="ObjectDatabaseInfo",
-            module_type=Module.DATABASE_NODE_MGR,
+            object_table="ObjectConfigDatabaseInfo",
+            module_type=Module.CONFIG_DATABASE_NODE_MGR,
             sandesh_packages=['database.sandesh'])
-        super(DatabaseEventManager, self).__init__(
+        super(ConfigDatabaseEventManager, self).__init__(
             config, type_info, sandesh_global, unit_names)
-        # TODO: try to understand is next needed here and use it or remove
-        #self.cassandra_repair_interval = config.cassandra_repair_interval
+        self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_mgr = CassandraManager(
-            config.cassandra_repair_logdir, 'analytics',
+            config.cassandra_repair_logdir, 'config',
             config.contrail_databases, config.hostip, config.minimum_diskgb,
             config.db_port, config.db_jmx_port,
             config.db_user, config.db_password,
@@ -34,4 +33,7 @@ class DatabaseEventManager(EventManager):
 
     def do_periodic_events(self):
         self.cassandra_mgr.database_periodic(self)
-        super(DatabaseEventManager, self).do_periodic_events()
+        # Perform nodetool repair every cassandra_repair_interval hours
+        if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
+            self.cassandra_mgr.repair()
+        super(ConfigDatabaseEventManager, self).do_periodic_events()
