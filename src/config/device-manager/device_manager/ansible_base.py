@@ -40,7 +40,6 @@ class AnsibleBase(object):
 
     def __init__(self, logger):
         self._logger = logger
-        self.plugin_init_done = False
         self.commit_stats = {
             'last_commit_time': '',
             'last_commit_duration': '',
@@ -50,10 +49,6 @@ class AnsibleBase(object):
         self.initialize()
         self.device_connect()
     # end __init__
-
-    def is_plugin_initialized(self):
-        return self.plugin_init_done
-    # end is_plugin_initialized
 
     # instantiate a plugin dynamically
     @classmethod
@@ -127,7 +122,7 @@ class AnsibleBase(object):
     # end is_role_supported
 
     @abc.abstractmethod
-    def plugin_init(self):
+    def plugin_init(self, is_delete=False):
         """Initialize plugin"""
     # end plugin_init
 

@@ -134,11 +134,6 @@ class PhysicalRouterDM(DBBaseDM):
                                                       self._logger)
         else:
             if self.ansible_manager.verify_plugin(self.physical_router_role):
-                # reinit_device_plugin is invoked on every PR create/update, and this block gets
-                # gets executed only in PR object update case
-                # setting plugin_init_done to False will force plaugin to re-push
-                # underlay config, see nc_handler()
-                self.plugin_init_done = False
                 self.ansible_manager.update()
             else:
                 self.ansible_manager.clear()
@@ -146,7 +141,6 @@ class PhysicalRouterDM(DBBaseDM):
                                                           self.product,
                                                           plugin_params,
                                                           vnc_lib, self._logger)
-                self.set_config_state()
         if PushConfigState.is_push_mode_ansible() and\
                 not self.no_ansible_support_for_role():
             self.config_manager = self.ansible_manager
@@ -275,6 +269,10 @@ class PhysicalRouterDM(DBBaseDM):
         if self.is_vnc_managed() and self.is_conf_sent():
             self.config_manager.push_conf(is_delete=True)
             self.config_manager.clear()
+        if self.ansible_manager is not None and\
+                self.ansible_manager != self.config_manager:
+            self.ansible_manager.initialize()
+            self.ansible_manager.underlay_config(is_delete=True)
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
         self.update_single_ref('bgp_router', {})
@@ -320,8 +318,9 @@ class PhysicalRouterDM(DBBaseDM):
         while self.nc_q.get() is not None:
             try:
                 if self.ansible_manager is not None and\
-                        not self.ansible_manager.is_plugin_initialized():
-                    self.ansible_manager.plugin_init()
+                        self.ansible_manager != self.config_manager:
+                    self.ansible_manager.initialize()
+                    self.ansible_manager.underlay_config()
                 self.push_config()
             except Exception as e:
                 tb = traceback.format_exc()
@@ -624,11 +623,6 @@ class PhysicalRouterDM(DBBaseDM):
     def push_config(self):
         if not self.config_manager:
             self._logger.info("plugin not found for vendor family(%s:%s), \
-                  ip: %s, not pushing netconf message" % (str(self.vendor),
-                                     str(self.product), self.management_ip))
-            return
-        if not self.config_manager.is_plugin_initialized():
-            self._logger.info("plugin not initialized yet for vendor family(%s:%s), \
                   ip: %s, not pushing netconf message" % (str(self.vendor),
                                      str(self.product), self.management_ip))
             return
@@ -1003,9 +997,12 @@ class InstanceIpDM(DBBaseDM):
     obj_type = 'instance_ip'
 
     def __init__(self, uuid, obj_dict=None):
+        self.name = None
+        self.fq_name = None
         self.uuid = uuid
         self.instance_ip_address = None
         self.virtual_machine_interface = None
+        self.logical_interface = None
         self.update(obj_dict)
     # end __init__
 
@@ -1016,15 +1013,12 @@ class InstanceIpDM(DBBaseDM):
         self.name = self.fq_name[-1]
         self.instance_ip_address = obj.get("instance_ip_address")
         self.update_single_ref('virtual_machine_interface', obj)
+        self.update_single_ref('logical_interface', obj)
     # end update
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_single_ref('virtual_machine_interface', {})
-        del cls._dict[uuid]
+    def delete_obj(self):
+        self.update_single_ref('virtual_machine_interface', {})
+        self.update_single_ref('logical_interface', {})
     # end delete
 
 # end InstanceIpDM
