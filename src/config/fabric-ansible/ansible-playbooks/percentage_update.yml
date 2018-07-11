@@ -12,3 +12,13 @@
   debug:
     msg: "{{JOB_PROGRESS_MARKER}}{{jl_output.percentage_completed}}{{JOB_PROGRESS_MARKER}}"
     verbosity: 0
+
+- set_fact:
+    percent_op: {"percent_complete": "{{jl_output.percentage_completed}}"}
+
+- set_fact:
+    line: "{{job_ctx.unique_pb_id}}{{JOB_PROGRESS_MARKER}}{{percent_op}}{{JOB_PROGRESS_MARKER}}"
+
+- name: insert/update in /tmp/<exec-id> file
+  set_fact:
+    write_resp: "{{job_ctx.job_execution_id | write_to_file(line)}}"

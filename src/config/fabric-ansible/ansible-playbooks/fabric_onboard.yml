@@ -34,3 +34,17 @@
       debug:
         msg: "{{PB_OUTPUT_MARKER}}{{pb_output}}{{PB_OUTPUT_MARKER}}"
         verbosity: 0
+
+    - set_fact:
+        line: "{{job_ctx.unique_pb_id}}{{PB_OUTPUT_MARKER}}{{pb_output}}{{PB_OUTPUT_MARKER}}"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | write_to_file(line)}}"
+
+    - set_fact:
+        line: "{{job_ctx.unique_pb_id}} END"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | write_to_file(line)}}"
