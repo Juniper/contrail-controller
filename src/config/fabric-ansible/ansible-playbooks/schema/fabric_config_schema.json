@@ -53,6 +53,11 @@
             }
           }
         }
+      },
+      "is_delete": {
+        "type": "boolean",
+        "description": "Set to true for config delete operation",
+        "default": false
       }
     }
   },
