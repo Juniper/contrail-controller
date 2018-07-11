@@ -53,6 +53,18 @@
             }
           }
         }
+      },
+      "is_delete": {
+        "type": "boolean",
+        "description": "Set to true for config delete operation",
+        "default": false
+      },
+      "fabric_uuid": {
+        "format":"uuid",
+        "type":"string",
+        "title":"The Fabric_uuid Schema",
+        "description":"UUID of the fabric object created",
+        "default":"",
       }
     }
   },
