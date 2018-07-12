@@ -1150,7 +1150,8 @@ class FilterModule(object):
             _task_log(
                 'Create instance ip for lo0.0 on device %s' % device_obj.name
             )
-            vnc_api.instance_ip_create(iip_obj)
+            iip_uuid = vnc_api.instance_ip_create(iip_obj)
+            iip_obj = vnc_api.instance_ip_read(id=iip_uuid)
             _task_done()
 
         # update device level properties
@@ -1158,7 +1159,7 @@ class FilterModule(object):
             = iip_obj.get_instance_ip_address()
         device_obj.physical_router_dataplane_ip \
             = iip_obj.get_instance_ip_address()
-    # end _add_logical_interfaces_for_fabric_links
+    # end _add_loopback_interface 
 
     def _add_bgp_router(self, vnc_api, device_obj):
         """
@@ -1289,7 +1290,7 @@ class FilterModule(object):
                         % local_li.fq_name
                     )
                     _task_done()
-    # end _create_logical_interfaces_for_fabric_links
+    # end _add_logical_interfaces_for_fabric_links
 
     @staticmethod
     def _build_li_name(
