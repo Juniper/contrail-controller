@@ -3985,7 +3985,7 @@ class VncApiServer(object):
         if req_obj_dict is not None:
             req_obj_dict['uuid'] = obj_uuid
 
-        # Permit abort resource deletion and retrun 202 status code
+        # Permit abort resource update and retrun 202 status code
         get_context().set_state('PENDING_DBE_UPDATE')
         ok, result = r_class.pending_dbe_update(db_obj_dict, req_obj_dict,
                                                 req_prop_coll_updates)
@@ -4554,7 +4554,7 @@ class VncApiServer(object):
         scope_class = self.get_resource_class(scope_type)
         scope_fq_name = self._db_conn.uuid_to_fq_name(scope_uuid)
         pm_fq_name = [POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]
-        if (scope_type == GlobalSystemConfig().object_type and
+        if (scope_type == GlobalSystemConfig.object_type and
                 scope_fq_name == GlobalSystemConfig().fq_name):
             parent_type = PolicyManagement.resource_type
             parent_fq_name = PolicyManagement().fq_name
@@ -4595,8 +4595,9 @@ class VncApiServer(object):
         if acquired_lock:
             try:
                 if action == 'commit':
-                    self._security_commit_resources(
-                        parent_type, parent_fq_name, parent_uuid, pm)
+                    self._security_commit_resources(scope_type, parent_type,
+                                                    parent_fq_name,
+                                                    parent_uuid, pm)
                 elif action == 'discard':
                     self._security_discard_resources(pm)
                 else:
@@ -4619,10 +4620,11 @@ class VncApiServer(object):
         # actions which were done during commit or discard?
         return {}
 
-    def _security_commit_resources(self, parent_type, parent_fq_name,
-                                   parent_uuid, pm):
+    def _security_commit_resources(self, scope_type, parent_type,
+                                   parent_fq_name, parent_uuid, pm):
         updates = []
         deletes = []
+        held_refs = []
         for type_name in SECURITY_OBJECT_TYPES:
             r_class = self.get_resource_class(type_name)
             for child in pm.get('%ss' % r_class.object_type, []):
@@ -4638,9 +4640,11 @@ class VncApiServer(object):
                 except NoIdError:
                     # No original version found, new resource created
                     uuid = None
+                self._holding_backrefs(held_refs, scope_type,
+                                       r_class.object_type, fq_name, draft)
                 # Purge pending resource as we re-use the same UUID
                 self.internal_request_delete(r_class.object_type,
-                                             child['uuid'])
+                                            child['uuid'])
                 if uuid and draft['draft_mode_state'] == 'deleted':
                     # The resource is removed, we can purge original resource
                     deletes.append((r_class.object_type, uuid))
@@ -4662,7 +4666,7 @@ class VncApiServer(object):
                     self._update_fq_name_security_refs(
                         parent_fq_name, pm['fq_name'], type_name, draft)
                     updates.append(('update', (r_class.resource_type, uuid,
-                                               copy.deepcopy(draft))))
+                                            copy.deepcopy(draft))))
                 elif not uuid and draft['draft_mode_state'] == 'created':
                     # Create new resource with pending values (re-use UUID)
                     draft.pop('id_perms', None)
@@ -4674,14 +4678,14 @@ class VncApiServer(object):
                     self._update_fq_name_security_refs(
                         parent_fq_name, pm['fq_name'], type_name, draft)
                     updates.append(('create', (r_class.resource_type,
-                                               copy.deepcopy(draft))))
+                                            copy.deepcopy(draft))))
                 else:
                     msg = (
                         "Try to commit a security resource %s (%s) with "
                         "invalid state '%s'. Ignore it." %
                         (':'.join(draft.get('fq_name', ['FQ name unknown'])),
-                         draft.get('uuid', 'UUID unknown'),
-                         draft.get('draft_mode_state', 'No draft mode state'))
+                        draft.get('uuid', 'UUID unknown'),
+                        draft.get('draft_mode_state', 'No draft mode state'))
                     )
                     self.config_log(msg, level=SandeshLevel.SYS_WARN)
 
@@ -4695,6 +4699,9 @@ class VncApiServer(object):
         # referenced and delete resource with ref before resource with backref
         for args in deletes:  # order is: APS, FP, FR, SG and AG
             self.internal_request_delete(*args)
+
+        for args, kwargs in held_refs:
+            self.internal_request_ref_update(*args, **kwargs)
 
     @staticmethod
     def _update_fq_name_security_refs(parent_fq_name, pm_fq_name, res_type,
@@ -4711,6 +4718,35 @@ class VncApiServer(object):
                 if ag_fq_name and ag_fq_name.split(':')[:-1] == pm_fq_name:
                     ep['address_group'] = ':'.join(parent_fq_name + [
                         ag_fq_name.split(':')[-1]])
+
+    def _holding_backrefs(self, held_refs, scope_type, obj_type, fq_name,
+                          obj_dict):
+        backref_fields = {'%s_back_refs' % t for t in SECURITY_OBJECT_TYPES}
+        if (scope_type == GlobalSystemConfig().object_type and
+                obj_dict['draft_mode_state'] != 'deleted'):
+            for backref_field in set(obj_dict.keys()) & backref_fields:
+                backref_type = backref_field[:-10]
+                for backref in obj_dict.get(backref_field, []):
+                    # if it's a backref to global resource let it
+                    if backref['to'][0] in [PolicyManagement().name,
+                            POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
+                        continue
+                    self.internal_request_ref_update(
+                        backref_type,
+                        backref['uuid'],
+                        'DELETE',
+                        obj_type,
+                        ref_uuid=obj_dict['uuid'],
+                    )
+                    held_refs.append(
+                        ((backref_type, backref['uuid'], 'ADD', obj_type),
+                         {
+                             'ref_fq_name': fq_name,
+                             'attr': backref.get('attr')
+                         }
+                        )
+                    )
+                    obj_dict[backref_field].remove(backref)
 
     def _security_discard_resources(self, pm):
         for type_name in SECURITY_OBJECT_TYPES:
