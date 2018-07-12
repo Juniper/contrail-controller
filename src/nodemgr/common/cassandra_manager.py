@@ -17,12 +17,11 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 
 
 class CassandraManager(object):
-    def __init__(self, cassandra_repair_logdir, db_owner, contrail_databases,
+    def __init__(self, cassandra_repair_logdir, db_owner,
                  hostip, minimum_diskgb, db_port, db_jmx_port,
                  db_user, db_password, process_info_manager):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_owner = db_owner
-        self.contrail_databases = contrail_databases
         self.hostip = hostip
         self.hostname = socket.gethostname()
         self.minimum_diskgb = minimum_diskgb
@@ -153,10 +152,7 @@ class CassandraManager(object):
                 total_db_size += int(db_size)
 
             if not cassandra_data_dir_exists:
-                if self._db_owner not in self.contrail_databases:
-                    event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_DISK_SPACE_NA
-                else:
-                    event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE_NA
+                event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE_NA
             else:
                 event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_DISK_SPACE_NA
 

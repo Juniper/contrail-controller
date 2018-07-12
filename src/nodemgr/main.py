@@ -118,7 +118,6 @@ def main(args_str=' '.join(sys.argv[1:])):
                'db_password': None,
                'minimum_diskgb': 256,
                'corefile_path': '/var/crashes',
-               'contrail_databases': 'config analytics',
                'cassandra_repair_interval': 24,
                'cassandra_repair_logdir': '/var/log/contrail/',
                'log_local': False,
@@ -191,10 +190,6 @@ def main(args_str=' '.join(sys.argv[1:])):
                             type=int,
                             dest='minimum_diskgb',
                             help="Minimum disk space in GB's")
-        parser.add_argument("--contrail_databases",
-                            nargs='+',
-                            help='Contrail databases on this node' +
-                                 'in format: config analytics')
         parser.add_argument("--hostip",
                             help="IP address of host")
         parser.add_argument("--db_port",
