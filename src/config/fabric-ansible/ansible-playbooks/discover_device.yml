@@ -20,7 +20,7 @@
       when: playbook_input.input.fabric_uuid is defined
 
     - set_fact:
-         tag_fq_name: "label=fabric-management_ip"
+         tag_fq_name: "label=fabric-management-ip"
 
     - set_fact:
         host_list: "{{ playbook_input.input.device_list }}"
