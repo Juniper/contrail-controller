@@ -387,7 +387,8 @@ public:
                                                       uint8_t flags);
     void AddMulticastRoute(MulticastGroupObject *obj, const Peer *peer,
                                     uint32_t ethernet_tag,
-                                    AgentRouteData *data);
+                                    AgentRouteData *data,
+                                    AgentRouteData *bridge_data);
     void DeleteMulticastRoute(const Peer *peer,
                                     const string &vrf_name,
                                     const Ip4Address &src_addr,
@@ -428,6 +429,16 @@ public:
                                     const std::string &vm_vrf_name,
                                     const VmInterface *vm_itf);
     bool FilterVmi(const VmInterface *vmi);
+    static void GetMulticastMacFromIp(const Ip4Address &ip, MacAddress &mac) {
+        const Ip4Address::bytes_type &bytes_v4 = ip.to_bytes();
+        MacAddress mac_address((unsigned int)0x01,
+                            (unsigned int)0x00,
+                            (unsigned int)0x5E,
+                            (unsigned int)(bytes_v4.at(1)&0x7F),
+                            (unsigned int)bytes_v4.at(2),
+                            (unsigned int)bytes_v4.at(3));
+        mac = mac_address;
+    }
 
 private:
     //operations on list of all objectas per group/source/vrf

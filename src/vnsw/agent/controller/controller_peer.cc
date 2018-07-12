@@ -2356,6 +2356,9 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     if (route->is_multicast()) {
         BridgeRouteEntry *l2_route =
             dynamic_cast<BridgeRouteEntry *>(route);
+        if (l2_route && (l2_route->mac() != MacAddress::BroadcastMac())) {
+            return false;
+        }
         if (agent_->tsn_enabled()) {
             //Second subscribe for TSN assited replication
             if (BuildEvpnMulticastMessage(item, ss_node, route, nh_ip, vn,
@@ -2491,15 +2494,6 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     SendUpdate(data_,datalen_);
     end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
-}
-
-bool AgentXmppChannel::ControllerSendIPMcastRouteCommon(AgentRoute *route,
-                                    bool associate) {
-    if (agent_->fabric_policy_vrf_name() != route->vrf()->GetName()) {
-        return ControllerSendMvpnRouteCommon(route, associate);
-    } else {
-        return ControllerSendMcastRouteCommon(route, associate);
-    }
 }
 
 bool AgentXmppChannel::ControllerSendMvpnRouteCommon(AgentRoute *route,
@@ -2746,10 +2740,6 @@ bool AgentXmppChannel::ControllerSendMcastRouteAdd(AgentXmppChannel *peer,
                                 route->vrf()->GetName(),
                                 route->ToString(), true, 0);
 
-    if (route->GetTableType() == Agent::INET4_MULTICAST) {
-        return peer->ControllerSendIPMcastRouteCommon(route, true);
-    }
-
     return peer->ControllerSendMcastRouteCommon(route, true);
 }
 
@@ -2760,10 +2750,6 @@ bool AgentXmppChannel::ControllerSendMcastRouteDelete(AgentXmppChannel *peer,
     CONTROLLER_INFO_TRACE(RouteExport, peer->GetBgpPeerName(),
                                 route->vrf()->GetName(),
                                 route->ToString(), false, 0);
-
-    if (route->GetTableType() == Agent::INET4_MULTICAST) {
-        return peer->ControllerSendIPMcastRouteCommon(route, false);
-    }
 
     return peer->ControllerSendMcastRouteCommon(route, false);
 }

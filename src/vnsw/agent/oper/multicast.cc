@@ -881,6 +881,27 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
         Inet4MulticastAgentRouteTable::AddMulticastRoute(peer,
                                 obj->vrf_name(), obj->GetSourceAddress(),
                                 obj->GetGroupAddress(), 0, data);
+
+        intf_flags = InterfaceNHFlags::BRIDGE;
+        comp_type = Composite::L2INTERFACE;
+        component_nh_key_list =
+            GetInterfaceComponentNHKeyList(obj, intf_flags);
+
+        MacAddress mac;
+        GetMulticastMacFromIp(obj->GetGroupAddress(), mac);
+
+        AgentRouteData *bridge_data =
+            BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
+                                                   obj->GetVnName(),
+                                                   MplsTable::kInvalidLabel,
+                                                   obj->vxlan_id(),
+                                                   route_tunnel_bmap,
+                                                   comp_type,
+                                                   component_nh_key_list,
+                                                   obj->pbb_vrf(),
+                                                   obj->learning_enabled());
+        BridgeAgentRouteTable::AddBridgeRoute(peer, obj->vrf_name(), mac, 0,
+                                bridge_data);
     } else {
         //Add Bridge FF:FF:FF:FF:FF:FF, local_vm_peer
         BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
@@ -893,7 +914,8 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
 void MulticastHandler::AddMulticastRoute(MulticastGroupObject *obj,
                                     const Peer *peer,
                                     uint32_t ethernet_tag,
-                                    AgentRouteData *data) {
+                                    AgentRouteData *data,
+                                    AgentRouteData *bridge_data) {
 
     boost::system::error_code ec;
     Ip4Address bcast_addr =
@@ -903,6 +925,12 @@ void MulticastHandler::AddMulticastRoute(MulticastGroupObject *obj,
         Inet4MulticastAgentRouteTable::AddMulticastRoute(peer,
                                     obj->vrf_name(), obj->GetSourceAddress(),
                                     obj->GetGroupAddress(), ethernet_tag, data);
+
+        MacAddress mac;
+        GetMulticastMacFromIp(obj->GetGroupAddress(), mac);
+
+        BridgeAgentRouteTable::AddBridgeRoute(peer, obj->vrf_name(), mac,
+                                    ethernet_tag, bridge_data);
     } else {
         BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                     obj->vrf_name(), ethernet_tag, data);
@@ -923,6 +951,17 @@ void MulticastHandler::DeleteMulticastRoute(const Peer *peer,
     if (grp != bcast_addr) {
         Inet4MulticastAgentRouteTable::DeleteMulticastRoute(peer, vrf_name,
                                     src, grp, ethernet_tag, comp_type);
+        MacAddress mac;
+        GetMulticastMacFromIp(grp, mac);
+
+        COMPOSITETYPE l2_comp_type;
+        if (comp_type == Composite::L3FABRIC) {
+            l2_comp_type = Composite::FABRIC;
+        } else {
+            l2_comp_type = Composite::L2INTERFACE;
+        }
+        BridgeAgentRouteTable::DeleteBridgeRoute(peer, vrf_name, mac,
+                                    ethernet_tag, l2_comp_type);
     } else {
         BridgeAgentRouteTable::DeleteBroadcastReq(peer, vrf_name, ethernet_tag,
                                     comp_type);
@@ -1035,6 +1074,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
         route_tunnel_bmap = TunnelType::VxlanType();
     const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
     AgentRouteData *data = NULL;
+    AgentRouteData *bridge_data = NULL;
     if (bgp_peer) {
         data = BridgeAgentRouteTable::BuildBgpPeerData(peer,
                                                        obj->vrf_name(),
@@ -1046,6 +1086,16 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                        comp_type,
                                                        component_nh_key_list,
                                                        obj->pbb_vrf(), false);
+        bridge_data = BridgeAgentRouteTable::BuildBgpPeerData(peer,
+                                                       obj->vrf_name(),
+                                                       obj->GetVnName(),
+                                                       label,
+                                                       obj->vxlan_id(),
+                                                       ethernet_tag,
+                                                       route_tunnel_bmap,
+                                                       Composite::FABRIC,
+                                                       component_nh_key_list,
+                                                       obj->pbb_vrf(), false);
     } else {
         data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
                                                           obj->GetVnName(),
@@ -1055,8 +1105,16 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                           comp_type,
                                                           component_nh_key_list,
                                                           obj->pbb_vrf(), false);
+        bridge_data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
+                                                          obj->GetVnName(),
+                                                          label,
+                                                          obj->vxlan_id(),
+                                                          route_tunnel_bmap,
+                                                          Composite::FABRIC,
+                                                          component_nh_key_list,
+                                                          obj->pbb_vrf(), false);
     }
-    AddMulticastRoute(obj, peer, ethernet_tag, data);
+    AddMulticastRoute(obj, peer, ethernet_tag, data, bridge_data);
     MCTRACE(LogSG, "rebake subnet peer for subnet", vrf_name,
             obj->GetSourceAddress().to_string(),
             obj->GetGroupAddress().to_string(), comp_type);
@@ -1497,21 +1555,18 @@ void MulticastHandler::AddVmInterfaceToSourceGroup(
 
     MulticastGroupObject *sg_object = NULL;
     sg_object = FindGroupObject(vm_itf->vrf()->GetName(), src_addr, grp_addr);
-
-    if (sg_object && sg_object->mvpn_registered()) {
-        AddVmInterfaceToVrfSourceGroup(mvpn_vrf_name, vn_name, vm_itf, src_addr,
-                                    grp_addr);
-    } else {
-        bool mvpn_created = false;
-        mvpn_sg_object = FindGroupObject(mvpn_vrf_name, src_addr, grp_addr);
-        if (mvpn_sg_object == NULL) {
-            mvpn_sg_object = CreateMulticastGroupObject(mvpn_vrf_name, vn_name,
-                                        src_addr, grp_addr, 0);
-            mvpn_created = true;
-        }
-
-        if (mvpn_created) {
-            TriggerLocalRouteChange(mvpn_sg_object, agent_->local_vm_peer());
+    if (sg_object) {
+        if (sg_object->mvpn_registered()) {
+            AddVmInterfaceToVrfSourceGroup(mvpn_vrf_name,
+                                    vn_name, vm_itf, src_addr, grp_addr);
+            mvpn_sg_object = FindGroupObject(mvpn_vrf_name, src_addr, grp_addr);
+        } else {
+            mvpn_sg_object = FindGroupObject(mvpn_vrf_name, src_addr, grp_addr);
+            if (mvpn_sg_object == NULL) {
+                mvpn_sg_object = CreateMulticastGroupObject(mvpn_vrf_name,
+                                    vn_name, src_addr, grp_addr, 0);
+                TriggerLocalRouteChange(mvpn_sg_object, agent_->local_vm_peer());
+            }
         }
     }
     if (created) {
