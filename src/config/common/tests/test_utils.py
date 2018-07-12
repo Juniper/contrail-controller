@@ -1180,7 +1180,7 @@ def zk_scrub_path(path):
     # remove trailing slashes if not root
     if len(path) == 1:
         return path
-    return path.rstrip('/')
+    return path.strip('/').rstrip('/')
 # end zk_scrub_path
 
 
@@ -1288,6 +1288,13 @@ class FakeKazooClient(object):
         if scrubbed_path in self._values:
             raise ResourceExistsError(
                 path, str(self._values[scrubbed_path][0]), 'zookeeper')
+        _path = ''
+        # ensure all nodes in the path
+        for p in path.split('/')[:-1]:
+            _path += '/%s' % p
+            _path = zk_scrub_path(_path)
+            if _path not in self._values:
+                self._values[_path] = ('', ZnodeStat(time.time()*1000))
         self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
     # end create
 

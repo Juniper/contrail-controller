@@ -67,7 +67,7 @@ class DatabaseExim(object):
 
     def _parse_args(self, args_str):
         parser = argparse.ArgumentParser()
-  
+
         help="Path to contrail-api conf file, default /etc/contrail-api.conf"
         parser.add_argument(
             "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
@@ -135,7 +135,7 @@ class DatabaseExim(object):
         import_zk_dirs = set([p_v_ts[0].split('/')[1]
             for p_v_ts in json.loads(self.import_data['zookeeper'] or "[]")])
 
-        for non_empty in ((existing_zk_dirs & import_zk_dirs) - 
+        for non_empty in ((existing_zk_dirs & import_zk_dirs) -
                           set(['zookeeper'])):
             non_empty_errors.append(
                 'Zookeeper has entries at /%s.' %(non_empty))
@@ -200,6 +200,9 @@ class DatabaseExim(object):
                     cassandra_contents[ks_name][cf_name][r] = c
 
         def get_nodes(path):
+            if not zk.exists(path):
+                return []
+
             if not zk.get_children(path):
                 return [(path, zk.get(path))]
 
