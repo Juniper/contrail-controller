@@ -22,6 +22,7 @@ job_ctx:
   job_input: "{{ playbook_input.input }}"
   auth_token: "{{ playbook_input.auth_token }}"
   playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
+  unique_pb_id: "{{ playbook_input.unique_pb_id }}"
   # This is used in the job percentage calculations. Dataype is an int
   # Example: For the first task in image upgrade - dowloading the image
   # the current_task_index will be 1. Note: The first task index always needs

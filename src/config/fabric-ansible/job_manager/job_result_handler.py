@@ -33,6 +33,7 @@ class JobResultHandler(object):
         self.device_data = dict()  # map of device_id and its details like
                                    # device_management_ip, device_username, etc
         self.playbook_output = None  # marked output from the playbook stdout
+        self.percentage_completed = 0.0
 
     def update_job_status(self, status, message=None, device_id=None):
         # update cummulative job status
@@ -83,10 +84,6 @@ class JobResultHandler(object):
                                         self.job_summary_message,
                                         job_status, 100,
                                         timestamp=timestamp)
-        # create the job complete uve
-        self.job_log_utils.send_job_execution_uve(job_template_fqname,
-                                                  self._execution_id,
-                                                  timestamp, 100)
     # end create_job_summary_log
 
     def create_job_summary_message(self):

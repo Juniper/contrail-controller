@@ -252,6 +252,8 @@ def module_process(module):
             JOB_IN_PROGRESS,
             None)
 
+    deviceinfo.discovery_percentage_write()
+
     if len(all_hosts) == 0:
         _exit_with_error(module, "NO HOSTS to DISCOVER")
 
@@ -299,6 +301,7 @@ def module_process(module):
         module.results.get('msg'),
         JOB_IN_PROGRESS,
         None)
+    deviceinfo.discovery_percentage_write()
     module.exit_json(**module.results)
 # end module_process
 

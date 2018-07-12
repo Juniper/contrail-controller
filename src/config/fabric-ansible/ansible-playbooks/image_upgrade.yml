@@ -24,3 +24,10 @@
       debug:
         var: output
         verbosity: 1
+
+    - set_fact:
+        line: "{{job_ctx.unique_pb_id}} END"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | write_to_file(line)}}"

@@ -97,6 +97,17 @@ class JobManager(object):
                 len(self.device_json), buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
+            device_data = self.device_json.get(device_id)
+            device_fqname = ':'.join(map(str, device_data.get('device_fqname')))
+            job_template_fq_name = ':'.join(map(str, self.job_template.fq_name))
+            pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                                             self.fabric_fq_name + ":" + \
+                                             job_template_fq_name
+            self.job_log_utils.send_prouter_job_uve(self.job_template.fq_name,
+                                                    pr_fabric_job_template_fq_name,
+                                                    self.job_execution_id,
+                                                    job_status="JOB_IN_PROGRESS")
+
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,
                                            job_percent_per_task, device_id))
@@ -174,9 +185,6 @@ class WFManager(object):
             job_template = self.job_utils.read_job_template()
 
             timestamp = int(round(time.time() * 1000))
-            self.job_log_utils.send_job_execution_uve(
-                job_template.fq_name, self.job_execution_id, timestamp,
-                0)
             self.job_log_utils.send_job_log(job_template.fq_name,
                                             self.job_execution_id,
                                             self.fabric_fq_name,
