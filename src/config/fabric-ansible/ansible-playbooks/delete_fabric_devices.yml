@@ -5,7 +5,7 @@
   tasks:
     - name: delete fabric and devices in it
       set_fact:
-        output: "{{ job_ctx | delete_fabric }}"
+        output: "{{ job_ctx | delete_devices }}"
 
     - debug: var=output
 
