@@ -310,10 +310,10 @@ class ZookeeperCounter(Counter):
 
 class ZookeeperClient(object):
 
-    def __init__(self, module, server_list, logging_fn=None, zk_timeout=400):
+    def __init__(self, module, server_list, logging_fn=None, zk_timeout=400, log_level = logging.DEBUG):
         # logging
         logger = logging.getLogger(module)
-        logger.setLevel(logging.DEBUG)
+        logger.setLevel(log_level)
         try:
             handler = logging.handlers.RotatingFileHandler(
                 LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
