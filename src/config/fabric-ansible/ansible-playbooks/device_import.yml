@@ -30,4 +30,9 @@
         status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
         message: "Import Device: {{prouter_name}} succeeded importing {{bulk_create_phy_int_resp_set|length}} PhysicalInterfaces and {{bulk_create_log_int_resp_set|length}} Logical Interfaces"
 
+    - set_fact:
+        line: "{{job_ctx.unique_pb_id}} END"
 
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | write_to_file(line)}}"

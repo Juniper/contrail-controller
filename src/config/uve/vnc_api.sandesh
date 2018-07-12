@@ -158,3 +158,44 @@ objectlog sandesh VncApiLatencyStatsLog {
 1: string node_name (key="ObjectConfigNode")
 2: VncApiLatencyStats api_latency_stats (tags="node_name,.operation_type,.application,.response_time_in_usec,.response_size,.identifier")
 }
+
+
+/**
+ * UVE that tracks a job execution. This UVE is created when job is started and destroyed when job completes.
+ */
+struct FabricJobExecution {
+    /*  fabric fq_name and job template fq_name as string joined by ':', e.g. default-global-system-config:fab01:default-global-system-config:fabric_onboard_template. */
+    1: string                           name (key="ObjectJobExecutionTable");
+    /* Unique id that identifies a job execution */
+    2: string                           execution_id;
+    3: optional bool                    deleted
+    /* Job start timestamp */
+    4: i64                              job_start_ts;
+    /* Percentage completion for this job execution */
+    5: double                           percentage_completed;
+    // Add additional items here as needed
+}
+
+uve sandesh FabricJobUve {
+    1: FabricJobExecution              data;
+}
+
+/**
+ * UVE that tracks job execution for a particular PR.. This UVE is created when job is started and destroyed when job completes.
+ */
+struct PhysicalRouterJobExecution {
+    /* Fabric fq_name , job template fq_name and pr_uuid as string joined by ':', e.g. 8eb9ae0f-ecee-495e-8ceb-f529d9df30af:a9416f28-6d8a-40ac-b974-9a9bc77b0c13:domain-1:project-1:job-template-1. */
+    1: string                           name (key="ObjectJobExecutionTable");
+    /* Unique id that identifies a job execution */
+    2: string                           execution_id;
+    3: optional bool                    deleted
+    /* Job start timestamp */
+    4: i64                              job_start_ts; 
+    5: string                           prouter_state;
+    6: string                           job_status;
+    // Add additional items here as needed
+}
+
+uve sandesh PhysicalRouterJobUve {
+    1: PhysicalRouterJobExecution              data;
+}

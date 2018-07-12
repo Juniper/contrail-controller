@@ -35,7 +35,7 @@ class JobLogger(ConfigServiceLogger):
             self._module_name, self._hostname, self._node_type_name,
             self.sandesh_instance_id, self._args.random_collectors,
             '%s_context' % self.context, int(http_server_port),
-            ['cfgm_common', '%s.sandesh' % self.module_pkg],
+            ['cfgm_common'],
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)

@@ -20,7 +20,7 @@
       when: playbook_input.input.fabric_uuid is defined
 
     - set_fact:
-         tag_fq_name: "label=fabric-management_ip"
+         tag_fq_name: "label=fabric-management-ip"
 
     - set_fact:
         host_list: "{{ playbook_input.input.device_list }}"
@@ -37,3 +37,10 @@
 
     - name: print output
       debug: var=output verbosity=1
+
+    - set_fact:
+        line: "{{job_ctx.unique_pb_id}} END"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | write_to_file(line)}}"
