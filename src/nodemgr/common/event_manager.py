@@ -177,7 +177,7 @@ class EventManager(object):
         #LOG_DEBUG sys.stderr.write('update_process_core_file_list: begin:')
         ret_value = False
         try:
-            ls_command = "ls -1 /var/crashes"
+            ls_command = "ls -rt -d -1 /var/crashes/*"
             (corenames, stderr) = Popen(
                 ls_command.split(),
                 stdout=PIPE).communicate()
@@ -187,6 +187,8 @@ class EventManager(object):
                 #LOG_DEBUG sys.stderr.write('update_process_core_file_list: key: '+key+'\n')
                 proc_stat = self.get_process_stat_object(key)
                 process_state_db_tmp[key] = proc_stat
+                # clear the core file list
+                process_state_db_tmp[key].core_file_list=[]
 
             #LOG_DEBUG sys.stderr.write('update_process_core_file_list: corenames: '+corenames+'\n')
             for corename in corenames.split():
@@ -194,6 +196,7 @@ class EventManager(object):
                 for key in self.process_state_db:
                     if key.startswith(exec_name):
                         #LOG_DEBUG sys.stderr.write('update_process_core_file_list: startswith: '+exec_name+'\n')
+                        # core files will be oldest to newest in the list
                         process_state_db_tmp[key].core_file_list.append(corename.rstrip())
 
             for key in self.process_state_db:
@@ -326,20 +329,17 @@ class EventManager(object):
                             str(self.max_cores) + "\n")
                         val = self.max_cores - self.max_new_cores + 1
                         core_files_to_be_deleted = \
-                            proc_stat.core_file_list[self.max_old_cores:(val)]
+                            proc_stat.core_file_list[0]
                         sys.stderr.write(
                             'deleting core file list:' +
                             str(core_files_to_be_deleted) + "\n")
-                        for core_file in core_files_to_be_deleted:
-                            sys.stderr.write(
-                                'deleting core file:' + core_file + "\n")
-                            try:
-                                os.remove(core_file)
-                            except OSError as e:
-                                sys.stderr.write('ERROR: ' + str(e) + '\n')
+                        try:
+                            os.remove(core_files_to_be_deleted)
+                        except OSError as e:
+                            sys.stderr.write('ERROR: ' + str(e) + '\n')
                         # now delete the list as well
                         val = self.max_cores - self.max_new_cores + 1
-                        del proc_stat.core_file_list[self.max_old_cores:(val)]
+                        del proc_stat.core_file_list[0]
                     # now add the new core to the core file list
                     proc_stat.core_file_list.append(corename.rstrip())
                     sys.stderr.write(
