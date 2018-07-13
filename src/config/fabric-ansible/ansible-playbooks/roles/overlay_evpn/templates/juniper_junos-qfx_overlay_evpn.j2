@@ -1,0 +1,44 @@
+delete apply-groups __contrail_{{feature}}__
+delete groups __contrail_{{feature}}___
+
+{% set rib_name = 'bgp.rtarget.0' %}
+{% set resolution_rib = 'inet.0' %}
+
+# routing-options
+# should be only one BGP object instance in the abs config
+{% for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%     set router_id = bgp_elem.get('ip_address') %}
+{%     set route_distinguisher = router_id %}
+{%     set as_number bgp_elem.get('autonomous_system') %}
+set groups __contrail_{{feature}}__ routing-options router-id {{router_id}}
+set groups __contrail_{{feature}}__ routing-options route-distinguisher-id {{route_distinguisher}}
+set groups __contrail_{{feature}}__ routing-options autonomous-system {{as_number}}
+set groups __contrail_{{feature}}__ routing-options resolution rib {{rib_name}} resolution-ribs {{resolution_rib}}
+{% endfor %}
+
+# interfaces - irb
+{% for intf in device_abstract_config.routing_instances.get('routing-interfaces', []) %}
+set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
+# check the schema, there should be per unit ip addr and multiple units per interface
+set groups __contrail_{{feature}}__ interfaces irb unit {{intf.unit}} family {{intf.family}} address {{intf.ip_list[0].address}}
+# virtual-gateway address is the VN gateway but it is of static route type
+set groups __contrail_{{feature}}__ interfaces irb unit {{intf.unit}} family {{intf.family}} virtual-gateway-address ??
+set groups __contrail_{{feature}}__ interfaces irb unit {{intf.unit}} proxy-macip-advertisement
+{% endfor %}
+
+# vlans
+{% for vlan in device_abstract_config.get('vlans', []) %}
+{% set vlan_name = vlan.name %}
+{% set vlan_id = vlan.vlan_id %}
+{% set irb_int = vlan.l3_interface %}
+{% set vni = vlan.vxlan_id %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} l3-interface {{irb_int}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
+{% endfor %}
+
+# protocols - bgp, evpn
+# routing-instances
+# policy-options
+# switch-options
+
