@@ -9,3 +9,4 @@ prettytable
 psutil>=0.6.0
 bottle
 sseclient
+supervisor
