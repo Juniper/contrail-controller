@@ -13,6 +13,7 @@ Cython==0.24.1
 cassandra-driver==3.0.0
 amqp==1.4.1
 kombu==3.0.9
+supervisor
 ../../../controller/src/analytics/test/utils/mockredis
 ../../../controller/src/analytics/test/utils/mockcassandra
 ../../../controller/src/analytics/test/utils/mockkafka
