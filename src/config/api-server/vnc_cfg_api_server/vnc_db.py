@@ -470,8 +470,8 @@ class VncZkClient(object):
     def quota_counter_exists(self, path):
         return self._zk_client.exists(path)
 
-    def delete_quota_counter(self, path):
-        self._zk_client.delete_node(path)
+    def delete_quota_counter(self, path, recursive=False):
+        self._zk_client.delete_node(path, recursive)
 
     def _reconnect_zk(self):
         self._zk_client.connect()
