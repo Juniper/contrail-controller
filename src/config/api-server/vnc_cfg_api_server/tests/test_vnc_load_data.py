@@ -3,151 +3,107 @@
 #
 import gevent
 import gevent.monkey
-
 gevent.monkey.patch_all()
 import sys
 import os
 import logging
 import json
-import time
-
-sys.path.append('../common/tests')
 import test_case
+from vnc_api.exceptions import NoIdError, RefsExistError
+from vnc_api.gen.resource_client import *
+from vnc_api.gen.resource_xsd import *
+from vnc_api.utils import obj_type_to_vnc_class
 import shutil
+sys.path.append("../common/tests")
 
+from time import sleep
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-# Testing when schema file is empty for the job template, tags and
-# job templates should still be created
+
+def retry_exc_handler(tries_remaining, exception, delay):
+    print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
+
+def retries(max_tries, delay=5, backoff=1, exceptions=(Exception,),hook=None):
+    def dec(func):
+        def f2(*args, **kwargs):
+            mydelay = delay
+            tries = range(max_tries)
+            tries.reverse()
+            for tries_remaining in tries:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    if tries_remaining > 0:
+                        if hook is not None:
+                            hook(tries_remaining, e, mydelay)
+                        sleep(mydelay)
+                        mydelay = mydelay * backoff
+                    else:
+                        raise
+        return f2
+    return dec
+
+#Testing if all the objects in the json file are created. If not, create them.
+
 class TestInitData1(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
-        json_data = {"data": [{"object_type": "job_template",
-                               "objects": [
-                                   {"fq_name": ["default-global-system-config",
-                                                "image_upgrade_template"],
-                                    "job_template_multi_device_job": "true",
-                                    "job_template_playbooks": {
-                                        "playbook_info": [{"device_family": "",
-                                                           "vendor": "Juniper",
-                                                           "playbook_uri": "./image_upgrade.yml"}]},
-                                    "job_template_input_schema": "",
-                                    "job_template_output_schema": "",
-                                    "parent_type": "global-system-config"}]},
-                              {"object_type": "tag",
-                               "objects": [
-                                   {"fq_name": ["label=fabric-management_ip"],
-                                    "name": "label=fabric-management_ip",
-                                    "tag_type_name": "label",
-                                    "tag_value": "fabric-management_ip"}]}]}
-        schema_data = {}
-        if not os.path.exists("conf"):
-            os.makedirs("conf")
-        if not os.path.exists("schema"):
-            os.makedirs("schema")
-        with open("conf/predef_payloads.json", "w") as f:
-            json.dump(json_data, f)
-        with open("schema/image_upgrade_schema.json", "w") as file:
-            json.dump(schema_data, file)
         super(TestInitData1, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
-                                 ".")])
+                                 "../fabric-ansible/ansible-playbooks")])
 
     # end setUpClass
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
-        if os.path.exists("conf"):
-            shutil.rmtree("conf")
-        if os.path.exists("schema"):
-            shutil.rmtree("schema")
         super(TestInitData1, cls).tearDownClass(*args, **kwargs)
 
     # end tearDownClass
 
-    def test_load_init_data_1(self):
-        ipam_fq_name = ['default-domain', 'default-project',
-                        'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        while (True):
-            if (ipam_obj.get_perms2().global_access != 5):
-                time.sleep(10)
+    def create_object(self, object, res_type, fq_name):
+        # Get the class name from object type
+        vnc_cls = obj_type_to_vnc_class(res_type, __name__)
+        instance_obj = vnc_cls.from_dict(**object)
+        try:
+            if(res_type == "job-template"):
+                schema_name = fq_name.replace('template', 'schema.json')
+                with open(os.path.join("../fabric-ansible/ansible-playbooks" +
+                                               '/schema/', schema_name),'r+') as schema_file:
+                    schema_json = json.load(schema_file)
+                    object["job_template_input_schema"] = schema_json.get(
+                        "input_schema")
+                    object["job_template_output_schema"] = schema_json.get(
+                        "output_schema")
+                self._vnc_lib.job_template_create(instance_obj)
             else:
-                break
-        jb_list = self._vnc_lib.job_templates_list()
-        self.assertTrue(len(jb_list.get('job-templates')) > 0)
-        tags = self._vnc_lib.tags_list()
-        self.assertTrue(len(tags.get('tags')) > 0)
+                self._vnc_lib._object_create(res_type, instance_obj)
+        except RefsExistError:
+            pass
 
+    def test_load_init_data_2(self):
+        object = {}
+        res_type = ""
+        fq_name = ""
+        try:
+            with open("../fabric-ansible/ansible-playbooks/conf"
+                      "/predef_payloads.json") as data_file:
+                input_json = json.load(data_file)
 
-# Test when no schema files are present.
-class TestInitDataError1(test_case.ApiServerTestCase):
-    @classmethod
-    def setUpClass(cls, *args, **kwargs):
-        cls.console_handler = logging.StreamHandler()
-        cls.console_handler.setLevel(logging.DEBUG)
-        logger.addHandler(cls.console_handler)
-
-        data = {"data": [{"object_type": "job_template",
-                          "objects": [
-                              {"fq_name": ["default-global-system-config",
-                                           "image_upgrade_template"],
-                               "job_template_multi_device_job": "true",
-                               "job_template_playbooks": {
-                                   "playbook_info": [{"device_family": "",
-                                                      "vendor": "Juniper",
-                                                      "playbook_uri": "./image_upgrade.yml"}]},
-                               "job_template_input_schema": "",
-                               "job_template_output_schema": "",
-                               "parent_type": "global-system-config"}]},
-                         {"object_type": "tag",
-                          "objects": [
-                              {"fq_name": ["label=fabric-management_ip"],
-                               "name": "label=fabric-management_ip",
-                               "tag_type_name": "label",
-                               "tag_value": "fabric-management_ip"}]}]}
-        if not os.path.exists("conf"):
-            os.makedirs("conf")
-        if not os.path.exists("schema"):
-            os.makedirs("schema")
-        with open("conf/predef_payloads.json", "w") as f:
-            json.dump(data, f)
-        super(TestInitDataError1, cls).setUpClass(
-            extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
-                                 ".")])
-
-    # end setUpClass
-
-    @classmethod
-    def tearDownClass(cls, *args, **kwargs):
-        logger.removeHandler(cls.console_handler)
-        if os.path.exists("conf"):
-            shutil.rmtree("conf")
-        if os.path.exists("schema"):
-            shutil.rmtree("schema")
-        super(TestInitDataError1, cls).tearDownClass(*args, **kwargs)
-
-    # end tearDownClass
-
-    def test_load_init_data_01(self):
-        ipam_fq_name = ['default-domain', 'default-project',
-                        'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        while (True):
-            if (ipam_obj.get_perms2().global_access != 5):
-                time.sleep(10)
-            else:
-                break
-        jb_list = self._vnc_lib.job_templates_list()
-        self.assertEquals(len(jb_list.get('job-templates')), 0)
-        tags = self._vnc_lib.tags_list()
-        self.assertEquals(len(tags.get('tags')), 0)
+            for item in input_json.get('data'):
+                res_type = item.get("object_type")
+                for object in item.get("objects"):
+                    fq_name = object.get("fq_name")
+                    self._vnc_lib._object_read(res_type=res_type, fq_name=fq_name)
+        except NoIdError:
+            self.create_object(object, res_type, fq_name)
+        except Exception as e:
+            print ("Test failed due to unexpected error: %s" % str(e))
 
 
 # Test when object_type having invalid name
@@ -162,20 +118,8 @@ class TestInitDataError2(test_case.ApiServerTestCase):
                 {
                     "object_type": "abc",
                     "objects": [{"fq_name": ["test"]}]
-                },
-                {
-                    "object_type": "tag",
-                    "objects": [
-                        {
-                            "fq_name": [
-                                "label=fabric-management_ip"
-                            ],
-                            "name": "label=fabric-management_ip",
-                            "tag_type_name": "label",
-                            "tag_value": "fabric-management_ip"
-                        }
-                    ]
                 }
+
             ]
         }
         if not os.path.exists("conf"):
@@ -196,82 +140,22 @@ class TestInitDataError2(test_case.ApiServerTestCase):
         super(TestInitDataError2, cls).tearDownClass(*args, **kwargs)
 
     # end tearDownClass
-
+    @retries(5, hook=retry_exc_handler)
     def test_load_init_data_02(self):
-        ipam_fq_name = ['default-domain', 'default-project',
-                        'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        while (True):
-            if (ipam_obj.get_perms2().global_access != 5):
-                time.sleep(10)
-            else:
-                break
-        jb_list = self._vnc_lib.job_templates_list()
-        self.assertEquals(len(jb_list.get('job-templates')), 0)
-        tags = self._vnc_lib.tags_list()
-        self.assertEquals(len(tags.get('tags')), 0)
+        try:
+            ipam_fq_name = ['default-domain', 'default-project',
+                            'service-chain-flat-ipam']
+            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+            if (ipam_obj):
+                jb_list = self._vnc_lib.job_templates_list()
+                self.assertEquals(len(jb_list.get('job-templates')), 0)
+        except Exception as e:
+            print( "Test failed due to unexpected error: %s" % str(e))
 
 
-# Testing when schema directory is not present.
-class TestInitDataError3(test_case.ApiServerTestCase):
-    @classmethod
-    def setUpClass(cls, *args, **kwargs):
-        cls.console_handler = logging.StreamHandler()
-        cls.console_handler.setLevel(logging.DEBUG)
-        logger.addHandler(cls.console_handler)
-        json_data = {"data": [{"object_type": "job_template",
-                               "objects": [
-                                   {"fq_name": ["default-global-system-config",
-                                                "image_upgrade_template"],
-                                    "job_template_multi_device_job": "true",
-                                    "job_template_playbooks": {
-                                        "playbook_info": [{"device_family": "",
-                                                           "vendor": "Juniper",
-                                                           "playbook_uri": "./image_upgrade.yml"}]},
-                                    "job_template_input_schema": "",
-                                    "job_template_output_schema": "",
-                                    "parent_type": "global-system-config"}]},
-                              {"object_type": "tag",
-                               "objects": [
-                                   {"fq_name": ["label=fabric-management_ip"],
-                                    "name": "label=fabric-management_ip",
-                                    "tag_type_name": "label",
-                                    "tag_value": "fabric-management_ip"}]}]}
-
-        if not os.path.exists("conf"):
-            os.makedirs("conf")
-        with open("conf/predef_payloads.json", "w") as f:
-            json.dump(json_data, f)
-        super(TestInitDataError3, cls).setUpClass(
-            extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
-                                 ".")])
-
-    # end setUpClass
-
-    @classmethod
-    def tearDownClass(cls, *args, **kwargs):
-        logger.removeHandler(cls.console_handler)
-        if os.path.exists("conf"):
-            shutil.rmtree("conf")
-        super(TestInitDataError3, cls).tearDownClass(*args, **kwargs)
-        # end tearDownClass
-
-    def test_load_init_data_03(self):
-        ipam_fq_name = ['default-domain', 'default-project',
-                        'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        while (True):
-            if (ipam_obj.get_perms2().global_access != 5):
-                time.sleep(10)
-            else:
-                break
-        jb_list = self._vnc_lib.job_templates_list()
-        self.assertEquals(len(jb_list.get('job-templates')), 0)
-        tags = self._vnc_lib.tags_list()
-        self.assertEquals(len(tags.get('tags')), 0)
 
 # Testing when json is invalid
-class TestInitDataError4(test_case.ApiServerTestCase):
+class TestInitDataError3(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
@@ -282,10 +166,9 @@ class TestInitDataError4(test_case.ApiServerTestCase):
             os.makedirs("conf")
         with open("conf/predef_payloads.json", "w") as f:
             f.write(json_data)
-        super(TestInitDataError4, cls).setUpClass(
+        super(TestInitDataError3, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
                                  ".")])
-
     # end setUpClass
 
     @classmethod
@@ -293,26 +176,24 @@ class TestInitDataError4(test_case.ApiServerTestCase):
         logger.removeHandler(cls.console_handler)
         if os.path.exists("conf"):
             shutil.rmtree("conf")
-        super(TestInitDataError4, cls).tearDownClass(*args, **kwargs)
+        super(TestInitDataError3, cls).tearDownClass(*args, **kwargs)
 
     # end tearDownClass
-
+    @retries(5, hook=retry_exc_handler)
     def test_load_init_data_04(self):
-        ipam_fq_name = ['default-domain', 'default-project',
-                        'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        while (True):
-            if (ipam_obj.get_perms2().global_access != 5):
-                time.sleep(10)
-            else:
-                break
-        jb_list = self._vnc_lib.job_templates_list()
-        self.assertEquals(len(jb_list.get('job-templates')), 0)
-        tags = self._vnc_lib.tags_list()
-        self.assertEquals(len(tags.get('tags')), 0)
+        try:
+            ipam_fq_name = ['default-domain', 'default-project',
+                            'service-chain-flat-ipam']
+            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+            if (ipam_obj):
+                jb_list = self._vnc_lib.job_templates_list()
+                self.assertEquals(len(jb_list.get('job-templates')), 0)
+        except Exception as e:
+            print("Test failed due to unexpected error: %s" % str(e))
+
 
 # Testing when tag type is unknown
-class TestInitDataError5(test_case.ApiServerTestCase):
+class TestInitDataError4(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
@@ -342,7 +223,7 @@ class TestInitDataError5(test_case.ApiServerTestCase):
             os.makedirs("conf")
         with open("conf/predef_payloads.json", "w") as f:
             json.dump(json_data, f)
-        super(TestInitDataError5, cls).setUpClass(
+        super(TestInitDataError4, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'fabric_ansible_dir',
                                  ".")])
 
@@ -353,20 +234,20 @@ class TestInitDataError5(test_case.ApiServerTestCase):
         logger.removeHandler(cls.console_handler)
         if os.path.exists("conf"):
             shutil.rmtree("conf")
-        super(TestInitDataError5, cls).tearDownClass(*args, **kwargs)
+        super(TestInitDataError4, cls).tearDownClass(*args, **kwargs)
 
     # end tearDownClass
 
+    @retries(5, hook=retry_exc_handler)
     def test_load_init_data_05(self):
-        ipam_fq_name = ['default-domain', 'default-project',
-                        'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        while(True):
-            if (ipam_obj.get_perms2().global_access != 5):
-                time.sleep(10)
-            else:
-                break
-        jb_list = self._vnc_lib.job_templates_list()
-        self.assertEquals(len(jb_list.get('job-templates')), 0)
-        tags = self._vnc_lib.tags_list()
-        self.assertEquals(len(tags.get('tags')), 0)
+        try:
+            ipam_fq_name = ['default-domain', 'default-project',
+                            'service-chain-flat-ipam']
+            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+            if (ipam_obj):
+                tags = self._vnc_lib.tags_list()
+                self.assertEquals(len(tags.get('tags')), 0)
+        except Exception as e:
+             print("Test failed due to unexpected error: %s" % str(e))
+
+
