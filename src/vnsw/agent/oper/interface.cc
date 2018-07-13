@@ -402,28 +402,55 @@ InterfaceConstRef InterfaceTable::FindVmi(const boost::uuids::uuid &vmi_uuid) {
 }
 
 void InterfaceTable::CreateVhost() {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
-                                     agent()->vhost_interface_name()));
+    if (agent()->tsn_enabled()) {
+        Interface::Transport transport = static_cast<Interface::Transport>
+            (agent()->GetInterfaceTransport());
+        AgentParam *params = agent()->params();
+        InetInterface::Create(this, agent()->vhost_interface_name(),
+                              InetInterface::VHOST,
+                              agent()->fabric_vrf_name(),
+                              params->vhost_addr(),
+                              params->vhost_plen(),
+                              params->vhost_gw(),
+                              params->eth_port(),
+                              agent()->fabric_vn_name(), transport);
+    } else {
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                         nil_uuid(),
+                                         agent()->vhost_interface_name()));
 
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
-    data->CopyVhostData(agent());
-
-    data->disable_policy_ = true;
-    req.data.reset(data);
-    Process(req);
+        VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+        data->CopyVhostData(agent());
+        data->disable_policy_ = true;
+        req.data.reset(data);
+        Process(req);
+    }
 }
 
 void InterfaceTable::CreateVhostReq() {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
-                                     agent()->vhost_interface_name()));
+    if (agent()->tsn_enabled()) {
+        Interface::Transport transport = static_cast<Interface::Transport>
+            (agent()->GetInterfaceTransport());
+        InetInterface::CreateReq(this, agent()->vhost_interface_name(),
+                                 InetInterface::VHOST,
+                                 agent()->fabric_vrf_name(),
+                                 agent()->router_id(),
+                                 agent()->vhost_prefix_len(),
+                                 agent()->vhost_default_gateway(),
+                                 Agent::NullString(), agent_->fabric_vrf_name(),
+                                 transport);
+    } else {
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                                         agent()->vhost_interface_name()));
 
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
-    data->CopyVhostData(agent());
+        VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+        data->CopyVhostData(agent());
 
-    req.data.reset(data);
-    Enqueue(&req);
+        req.data.reset(data);
+        Enqueue(&req);
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Interface Base Entry routines

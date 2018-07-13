@@ -1270,6 +1270,7 @@ public:
     const boost::uuids::uuid& fabric_vn_uuid() const {
         return fabric_vn_uuid_;
     }
+    uint8_t GetInterfaceTransport() const;
 private:
 
     uint32_t GenerateHash(std::vector<std::string> &);
