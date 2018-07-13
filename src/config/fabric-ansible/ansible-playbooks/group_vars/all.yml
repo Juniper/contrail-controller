@@ -22,6 +22,9 @@ job_ctx:
   job_input: "{{ playbook_input.input }}"
   auth_token: "{{ playbook_input.auth_token }}"
   playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
+  # This is used to demarcate the marked outputs from playbooks to the common
+  # file
+  unique_pb_id: "{{ playbook_input.unique_pb_id }}"
   # This is used in the job percentage calculations. Dataype is an int
   # Example: For the first task in image upgrade - dowloading the image
   # the current_task_index will be 1. Note: The first task index always needs
@@ -85,8 +88,3 @@ TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"
 # DHCP and TFTP servers
 DHCP_SERVER: "localhost"
 TFTP_SERVER: "localhost"
-
-# MARKERS
-JOB_PROGRESS_MARKER: "JOB_PROGRESS##"
-DEVICE_DATA_MARKER: "DEVICEDATA##"
-PB_OUTPUT_MARKER: "PLAYBOOK_OUTPUT##"

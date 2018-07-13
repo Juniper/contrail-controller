@@ -7,17 +7,21 @@ This file contains job manager api which involves playbook interactions
 """
 
 import os
+import uuid
 import json
 import subprocess32
 import traceback
 import ast
+import time
 
 from job_manager.job_exception import JobException
 from job_manager.job_utils import JobStatus
 from job_manager.job_messages import MsgBundle
 
+JOB_PROGRESS = 'JOB_PROGRESS##'
 DEVICE_DATA = 'DEVICEDATA##'
 PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
+
 
 class JobHandler(object):
 
@@ -163,31 +167,108 @@ class JobHandler(object):
             raise JobException(msg, self._execution_id)
     # end get_playbook_info
 
+
+    def process_file_and_get_marked_output(self, unique_pb_id, exec_id, playbook_process):
+        f_read = None
+        marked_output = {}
+        markers = [DEVICE_DATA, PLAYBOOK_OUTPUT, JOB_PROGRESS]
+        percentage_completed = 0
+        # read file as long as it is not a time out
+        # Adding a residue timeout of 5 mins in case
+        # the playbook dumps all the output towards the
+        # end and it takes sometime to process and read it
+        file_read_timeout = self._playbook_timeout + 300
+        # initialize it to the time when the subprocess
+        # was spawned
+        last_read_time = time.time()
+
+        while True:
+            try:
+                f_read = open("/tmp/"+exec_id, "r")
+                self._logger.info("File got created .. "
+                                  "proceeding to read contents..")
+                current_time = time.time()
+                while current_time - last_read_time < file_read_timeout:
+                    line_read = f_read.readline()
+                    if line_read:
+                        self._logger.info("Line read ..." + line_read)
+                        if unique_pb_id in line_read:
+                            total_output =\
+                                line_read.split(unique_pb_id)[-1].strip()
+                            if total_output == 'END':
+                                break
+                            for marker in markers:
+                                if marker in total_output:
+                                    marked_output[marker] = total_output
+                                    if marker == JOB_PROGRESS:
+                                        marked_jsons =\
+                                            self._extract_marked_json(
+                                                marked_output)
+                                        job_progress =\
+                                            marked_jsons.get(JOB_PROGRESS)
+                                        percentage_completed +=\
+                                            float(job_progress[
+                                                    'percent_complete'])
+                                        self._job_log_utils.\
+                                            send_job_execution_uve(
+                                                self._job_template.fq_name,
+                                                self._execution_id,
+                                                percentage_completed=
+                                                percentage_completed)
+                    else:
+                        # this sleep is essential
+                        # to yield the context to
+                        # sandesh uve for % update
+                        time.sleep(0.5)
+
+                    current_time = time.time()
+                break
+            except IOError as file_not_found_err:
+                self._logger.info("File not yet created !!")
+                # check if the sub-process died but file is not created
+                # if yes, it is old-usecase or there were no markers
+                if playbook_process.poll() is not None:
+                    self._logger.info("No markers found....")
+                    break
+                # for the case when the sub-process hangs for some
+                # reason and does not write to/create file
+                elif time.time() - last_read_time > file_read_timeout:
+                    self._logger.info("Sub process probably hung; "
+                                      "stopping file processing ....")
+                    break
+                time.sleep(10)
+            finally:
+                if f_read is not None:
+                    f_read.close()
+                    self._logger.info("File closed successfully!")
+
+        return marked_output
+    # end process_file_and_get_marked_output
+
     def run_playbook_process(self, playbook_info):
         playbook_process = None
         try:
             playbook_exec_path = os.path.dirname(__file__) \
                                  + "/playbook_helper.py"
+
+            unique_pb_id = str(uuid.uuid4())
+            playbook_info['extra_vars']['playbook_input']['unique_pb_id']\
+                = unique_pb_id
+            exec_id =\
+                playbook_info['extra_vars']['playbook_input'][
+                    'job_execution_id']
+
             playbook_process = subprocess32.Popen(["python",
                                                    playbook_exec_path,
                                                    "-i",
                                                    json.dumps(playbook_info)],
-                                                  close_fds=True, cwd='/',
-                                                  stdout=subprocess32.PIPE)
-
-            marked_output = {}
-            markers = [ DEVICE_DATA, PLAYBOOK_OUTPUT ]
-
-            while True:
-                output = playbook_process.stdout.readline()
-                if output == '' and playbook_process.poll() is not None:
-                    break
-                if output:
-                    self._logger.debug(output)
-                    # read device list data and store in variable result handler
-                    for marker in markers:
-                        if marker in output:
-                            marked_output[marker] = output
+                                                  close_fds=True, cwd='/')
+            # this is to yield the context to the playbooks so that
+            # they start running concurrently
+            time.sleep(0.5)
+            marked_output = self.process_file_and_get_marked_output(
+                unique_pb_id, exec_id, playbook_process
+            )
 
             marked_jsons = self._extract_marked_json(marked_output)
             self._device_data = marked_jsons.get(DEVICE_DATA)

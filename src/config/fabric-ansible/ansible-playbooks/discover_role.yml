@@ -1,12 +1,12 @@
 ---
-- name: Get the Topology Information from this device
+- name: get node profile hint for physical routers in the fabric
 
   hosts: localhost
   connection: local
 
   roles:
     - Juniper.junos
-    - topology_discovery_role
+    - discover_role
 
   tasks:
 
@@ -16,8 +16,8 @@
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
-        current_index: 4
-        jl_message: "Topology Discovery: {{prouter_name}} succeeded discovering topology"
+        current_index: 2
+        jl_message: "Role Discovery succeeded discovering roles for the prouter {{prouter_name}} in the fabric"
 
     - name: insert/update in /tmp/<exec-id> file
       set_fact:
