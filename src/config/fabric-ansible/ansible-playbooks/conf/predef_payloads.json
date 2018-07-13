@@ -1,7 +1,7 @@
 {
   "data": [
     {
-      "object_type": "job_template",
+      "object_type": "job-template",
       "objects": [
         {
           "fq_name": [
@@ -322,7 +322,7 @@
         },
         {
           "fq_name": [
-            "label=fabric-fabric-peer-ip"
+            "label=fabric-peer-ip"
           ],
           "name": "label=fabric-peer-ip",
           "tag_type_name": "label",
@@ -347,7 +347,7 @@
       ]
     },
     {
-      "object_type": "global_system_config",
+      "object_type": "global-system-config",
       "objects": [
         {
           "fq_name": [
@@ -508,4 +508,5 @@
     }
   ]
 }
+
 
