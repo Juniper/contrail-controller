@@ -11,8 +11,3 @@
     pool_size: "{{ POOL_SIZE }}"
     total_retry_timeout: 0
   register: discovery_results
-
-- name: print marked output
-  debug:
-    msg: "{{DEVICE_DATA_MARKER}}{{discovery_results.device_info}}{{DEVICE_DATA_MARKER}}"
-    verbosity: 0
