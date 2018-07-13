@@ -1643,8 +1643,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             if (evaluate_new_mcast_builder) {
                 //Advertise subnet and all broadcast routes to
                 //the new multicast tree builder
-                new_mcast_builder->bgp_peer_id()->
-                    PeerNotifyMulticastRoutes(true);
+                new_mcast_builder->bgp_peer_id()->PeerNotifyRoutes();
                 CONTROLLER_TRACE(Session, peer->GetXmppServer(), "NOT_READY",
                                  agent->mulitcast_builder()->
                                  GetBgpPeerName(),
