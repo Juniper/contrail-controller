@@ -1,0 +1,86 @@
+delete apply-groups __contrail_{{feature}}__
+delete groups __contrail_{{feature}}___
+
+{% set rib_name = 'bgp.rtarget.0' %}
+{% set resolution_rib = 'inet.0' %}
+
+# routing-options
+# should be only one BGP object instance in the abs config
+{% for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%     set router_id = bgp_elem.get('ip_address') %}
+{%     set route_distinguisher = router_id %}
+{%     set as_number bgp_elem.get('autonomous_system') %}
+set groups __contrail_{{feature}}__ routing-options router-id {{router_id}}
+set groups __contrail_{{feature}}__ routing-options route-distinguisher-id {{route_distinguisher}}
+set groups __contrail_{{feature}}__ routing-options autonomous-system {{as_number}}
+set groups __contrail_{{feature}}__ routing-options resolution rib {{rib_name}} resolution-ribs {{resolution_rib}}
+{% endfor %}
+
+# interfaces - irb
+{% for intf in device_abstract_config.routing_instances.get('routing-interfaces', []) %}
+set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
+# check the schema, there should be per unit ip addr and multiple units per interface
+set groups __contrail_{{feature}}__ interfaces irb unit {{intf.unit}} family {{intf.family}} address {{intf.ip_list[0].address}}
+# virtual-gateway address is the VN gateway but it is of static route type
+set groups __contrail_{{feature}}__ interfaces irb unit {{intf.unit}} family {{intf.family}} virtual-gateway-address ??
+set groups __contrail_{{feature}}__ interfaces irb unit {{intf.unit}} proxy-macip-advertisement
+{% endfor %}
+
+# vlans
+{% for vlan in device_abstract_config.get('vlans', []) %}
+{%     set vlan_name = vlan.name %}
+{%     set vlan_id = vlan.vlan_id %}
+{%     set irb_int = vlan.l3_interface %}
+{%     set vni = vlan.vxlan_id %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} l3-interface {{irb_int}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
+{% endfor %}
+
+# protocols - bgp, evpn
+{% for bgp in device_abstract_config.get('bgp', []) %}
+{%     set bgp_group_name = bgp.name %}
+{%     set bgp_group_type = bgp.type %}
+{%     set hold_time = bgp.hold_time %}
+{%     set families = bgp.families %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
+{%     for fam in families %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}}
+{%         if fam == 'evpn' %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}} signaling
+{%         endif %}
+{%     endfor %}
+{%     if bgp_group_type == 'internal' %}
+{%         if fam.startwith('inet') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} from family {{fam}} then next-hop self
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
+{%         endif %}
+{%     endif %}
+{%     for peer in bgp.get('peers', []) %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}} peer-as {{peer.autonomous_system}}
+{%     endfor %}
+
+#routing-instances
+{% for ri in device_abstract_config.get('routing_intances', []) %} 
+{%     if ri.get('evpn', None) %}
+set groups __contrail_{{feature}}__ protocols evpn encapsulation vxlan
+set groups __contrail_{{feature}}__ protocols evpn extended-vni-list all
+#FIX ME
+set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{??}} vrf-target {{ri.export_targets}}
+set groups __contrail_{{feature}}__ protocols evpn default-gateway no-gateway-community
+# FIX ME
+# add type5 config is LR is associated witht the int vn
+set groups __contrail_{{feature}}__ routing-instances {{ri.name}} protocols evpn ip-prefix-routes advertise direct-nexthop
+set groups __contrail_{{feature}}__ routing-instances {{ri.name}} protocols evpn ip-prefix-routes encapsulation vxlan
+# FIX ME
+set groups __contrail_{{feature}}__ routing-instances {{ri.name}} protocols evpn ip-prefix-routes vni {{??}}
+{%     endif %}
+set groups __contrail_{{feature}}__ routing-instances {{ri.name}} instance-type vrf
+{%     for each in ri.get('routing_interfaces', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{ri.name} interface {{each.name}}
+{%     endfor %}
+set groups __contrail_{{feature}}__ routing-instances {{ri.name}} vrf-import {{ri.import_targets}}
+set groups __contrail_{{feature}}__ routing-instances {{ri.name}} vrf-export {{ri.export_targets}}
+set groups __contrail_{{feature}}__ routing-instances {{ri.name}} vrf-table-label
+{% endfor %}
