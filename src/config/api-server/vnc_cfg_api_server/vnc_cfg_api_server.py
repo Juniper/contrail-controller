@@ -48,8 +48,13 @@ from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 from cfgm_common.utils import _DEFAULT_ZK_LOCK_PATH_PREFIX
 from cfgm_common import is_uuid_like
 
-from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats, VncApiLatencyStatsLog
+from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats,\
+    VncApiLatencyStatsLog
 logger = logging.getLogger(__name__)
+
+import time
+import requests
+import xml.etree.ElementTree as etree
 
 """
 Following is needed to silence warnings on every request when keystone
@@ -82,6 +87,8 @@ import cfgm_common
 from cfgm_common import ignore_exceptions
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
     VncApiDebug, VncApiInfo, VncApiNotice, VncApiError
+from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
+    PhysicalRouterJobExecution, PhysicalRouterJobUve
 from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
@@ -104,7 +111,8 @@ import vnc_auth
 import vnc_auth_keystone
 import vnc_perms
 import vnc_rbac
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import ModuleCpuState, ModuleCpuStateTrace
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import ModuleCpuState,\
+    ModuleCpuStateTrace
 from cfgm_common.buildinfo import build_info
 from cfgm_common.vnc_api_stats import log_api_stats
 
@@ -163,6 +171,7 @@ _MANDATORY_PROPS = [
     'loadbalancer_healthmonitor_properties',
 ]
 
+
 def error_400(err):
     return err.body
 # end error_400
@@ -177,18 +186,22 @@ def error_404(err):
     return err.body
 # end error_404
 
+
 def error_405(err):
     return err.body
 # end error_405
+
 
 def error_409(err):
     return err.body
 # end error_409
 
+
 @bottle.error(412)
 def error_412(err):
     return err.body
 # end error_412
+
 
 def error_500(err):
     return err.body
@@ -211,18 +224,19 @@ class VncApiServer(object):
         'virtual_network', 'virtual-network',
         'network_ipam', 'network-ipam',
     ]
+
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
         obj.api_bottle = bottle.Bottle()
         obj.route('/', 'GET', obj.homepage_http_get)
         obj.api_bottle.error_handler = {
-                400: error_400,
-                403: error_403,
-                404: error_404,
-                405: error_405,
-                409: error_409,
-                500: error_500,
-                503: error_503,
+            400: error_400,
+            403: error_403,
+            404: error_404,
+            405: error_405,
+            409: error_409,
+            500: error_500,
+            503: error_503,
             }
 
         cls._generate_resource_crud_methods(obj)
@@ -241,7 +255,7 @@ class VncApiServer(object):
         for key, value in dict_body.items():
             if key not in dict_cls.attr_fields:
                 raise ValueError('class %s does not have field %s' % (
-                                  str(dict_cls), key))
+                    str(dict_cls), key))
             attr_type_vals = dict_cls.attr_field_type_vals[key]
             attr_type = attr_type_vals['attr_type']
             restrictions = attr_type_vals['restrictions']
@@ -250,8 +264,9 @@ class VncApiServer(object):
                 continue
             if is_array:
                 if not isinstance(value, list):
-                    raise ValueError('Field %s must be a list. Received value: %s'
-                                     % (key, str(value)))
+                    raise ValueError(
+                        'Field %s must be a list. Received value: %s' %
+                        (key, str(value)))
                 values = value
             else:
                 values = [value]
@@ -276,13 +291,13 @@ class VncApiServer(object):
            LP #1720118
         '''
         if value['address_mode'] == 'active-standby':
-           ip_net_family = netaddr.IPNetwork(value['ip']['ip_prefix']).version
-           if ip_net_family == 6 and value['ip']['ip_prefix_len'] < 120:
-               raise ValueError('IPv6 Prefix length lesser than 120 is'
-                                ' is not acceptable')
-           if ip_net_family == 4 and value['ip']['ip_prefix_len'] < 24:
-               raise ValueError('IPv4 Prefix length lesser than 24'
-                                ' is not acceptable')
+            ip_net_family = netaddr.IPNetwork(value['ip']['ip_prefix']).version
+            if ip_net_family == 6 and value['ip']['ip_prefix_len'] < 120:
+                raise ValueError('IPv6 Prefix length lesser than 120 is'
+                                 ' is not acceptable')
+            if ip_net_family == 4 and value['ip']['ip_prefix_len'] < 24:
+                raise ValueError('IPv4 Prefix length lesser than 24'
+                                 ' is not acceptable')
     # end _validate_allowed_address_pair_prefix_len
 
     @classmethod
@@ -299,7 +314,7 @@ class VncApiServer(object):
         if res is None:
             raise ValueError('Invalid community format %s. '
                              'Change to \'number:number\''
-                              % value)
+                             % value)
 
         asn = value.split(':')
         if int(asn[0]) > 65535:
@@ -318,9 +333,10 @@ class VncApiServer(object):
 
         res = re.match('other[0-9]*', value)
         if res is None:
-            raise ValueError('Invalid service interface type %s. '
-                             'Valid values are: management|left|right|other[0-9]*'
-                              % value)
+            raise ValueError(
+                'Invalid service interface type %s. '
+                'Valid values are: management|left|right|other[0-9]*' %
+                value)
 
     def validate_execute_job_input_params(self, request_params):
         device_list = None
@@ -340,7 +356,7 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(400, msg)
             try:
                 job_template_fqname = self._db_conn.uuid_to_fq_name(
-                              job_template_id)
+                    job_template_id)
                 request_params['job_template_fqname'] = job_template_fqname
             except NoIdError as no_id_exec:
                 raise cfgm_common.exceptions.HttpError(404, str(no_id_exec))
@@ -351,7 +367,7 @@ class VncApiServer(object):
             # check if the job template fqname is a valid fq_name
             try:
                 job_template_id = self._db_conn.fq_name_to_uuid(
-                                  "job_template", job_template_fq_name)
+                    "job_template", job_template_fq_name)
                 request_params['job_template_id'] = job_template_id
             except NoIdError as no_id_exec:
                 raise cfgm_common.exceptions.HttpError(404, str(no_id_exec))
@@ -381,6 +397,59 @@ class VncApiServer(object):
                         raise cfgm_common.exceptions.HttpError(400, msg)
 
         return device_list
+
+    def job_mgr_signal_handler(self, signalnum, frame):
+        # update job manager execution status uve
+        job_execution_data = FabricJobExecution(
+            name=self.fabric_job_uve_name,
+            percentage_completed=100)
+        job_execution_uve = FabricJobUve(data=job_execution_data,
+                                         sandesh=self._sandesh)
+        job_execution_uve.send(sandesh=self._sandesh)
+
+        elapsed_time = time.time() - self.start_time
+
+        payload = {
+            'start_time': 'now-%ds' % (elapsed_time),
+            'end_time': 'now',
+            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+            'table': 'ObjectJobExecutionTable',
+            'where': [
+                [
+                    {
+                        'name': 'Messagetype',
+                        'value': 'PRouterOnboardingLog',
+                        'op': 1
+                    }
+                ]
+            ]
+        }
+        url = "http://localhost:8081/analytics/query"
+
+        resp = requests.post(url, json=payload)
+        if resp.status_code == 200:
+            PRouterOnboardingLog = resp.json().get('value')
+            for PRObjectLog in PRouterOnboardingLog:
+                resp = PRObjectLog.get('ObjectLog')
+                xmlresp = etree.fromstring(resp)
+                for ele in xmlresp.iter():
+                    if ele.tag == 'name':
+                        device_fqname = ele.text
+                    if ele.tag == 'onboarding_state':
+                        onboarding_state = ele.text
+
+                prouter_uve_name = device_fqname + ":" + \
+                    self.fabric_job_uve_name
+
+                prouter_job_data = PhysicalRouterJobExecution(
+                    name=prouter_uve_name,
+                    job_start_ts=int(round(self.start_time * 1000)),
+                    prouter_state=onboarding_state,
+                    job_status="SUCCESS")
+
+                prouter_job_uve = PhysicalRouterJobUve(data=prouter_job_data,
+                                                       sandesh=self._sandesh)
+                prouter_job_uve.send(sandesh=self._sandesh)
 
     def execute_job_http_post(self):
         ''' Payload of execute_job
@@ -415,14 +484,14 @@ class VncApiServer(object):
             msg = "Job Input %s " % json.dumps(request_params)
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-            device_list = self.validate_execute_job_input_params(
+            self.device_list = self.validate_execute_job_input_params(
                 request_params)
 
             # TODO - pass the job manager config file from api server config
 
             # read the device object and pass the necessary data to the job
-            if device_list:
-                self.read_device_data(device_list, request_params)
+            if self.device_list:
+                self.read_device_data(self.device_list, request_params)
             else:
                 self.read_fabric_data(request_params)
 
@@ -441,6 +510,43 @@ class VncApiServer(object):
                         }
             request_params['args'] = json.dumps(job_args)
 
+            # create job manager execution status uve
+            if request_params.get('fabric_fq_name') is not None:
+                fabric_job_name = request_params.get('job_template_fq_name')
+                fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
+                self.fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+
+                job_execution_data = FabricJobExecution(
+                    name=self.fabric_job_uve_name,
+                    execution_id=request_params.get('job_execution_id'),
+                    job_start_ts=int(round(time.time() * 1000))
+                )
+
+                job_execution_uve = FabricJobUve(data=job_execution_data,
+                                                 sandesh=self._sandesh)
+                job_execution_uve.send(sandesh=self._sandesh)
+
+            if self.device_list:
+                for device_id in self.device_list:
+                    device_fqname = request_params.get(
+                        'device_json').get(device_id).get('device_fqname')
+                    device_fqname = ':'.join(map(str, device_fqname))
+                    prouter_uve_name = device_fqname + ":" + \
+                        self.fabric_job_uve_name
+
+                    prouter_job_data = PhysicalRouterJobExecution(
+                        name=prouter_uve_name,
+                        execution_id=request_params.get('job_execution_id'),
+                        job_start_ts=int(round(time.time() * 1000)),
+                        job_status="JOB_IN_PROGRESS")
+
+                    prouter_job_uve = PhysicalRouterJobUve(
+                        data=prouter_job_data, sandesh=self._sandesh)
+                    prouter_job_uve.send(sandesh=self._sandesh)
+            # handle process exit signal
+            signal.signal(signal.SIGCHLD, self.job_mgr_signal_handler)
+
+            self.start_time = time.time()
             # create job manager subprocess
             job_mgr_path = os.path.dirname(
                 __file__) + "/../job_manager/job_mgr.py"
@@ -474,8 +580,12 @@ class VncApiServer(object):
         elif request_params.get('input').get('fabric_fq_name'):
             fabric_fq_name = request_params.get('input').get('fabric_fq_name')
         else:
-            err_msg = "Missing fabric details in the job input"
-            raise cfgm_common.exceptions.HttpError(400, err_msg)
+            if "device_deletion_template" in request_params.get(
+                   'job_template_fq_name'):
+                fabric_fq_name = "__DEFAULT__"
+            else:
+                err_msg = "Missing fabric details in the job input"
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
         if fabric_fq_name:
             fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
             request_params['fabric_fq_name'] = fabric_fq_name_str
@@ -531,7 +641,13 @@ class VncApiServer(object):
             request_params.update({"device_json": device_data})
 
     @classmethod
-    def _validate_simple_type(cls, type_name, xsd_type, simple_type, value, restrictions=None):
+    def _validate_simple_type(
+        cls,
+        type_name,
+        xsd_type,
+        simple_type,
+        value,
+        restrictions=None):
         if value is None:
             return
         elif xsd_type in ('unsignedLong', 'integer'):
@@ -540,15 +656,16 @@ class VncApiServer(object):
                 try:
                     value = int(value)
                 except (TypeError, ValueError):
-                    raise ValueError('%s: integer value expected instead of %s' %(
-                        type_name, value))
+                    raise ValueError(
+                        '%s: integer value expected instead of %s' %
+                        (type_name, value))
             if restrictions:
                 if not (int(restrictions[0]) <= value <= int(restrictions[1])):
-                    raise ValueError('%s: value must be between %s and %s' %(
-                                type_name, restrictions[0], restrictions[1]))
+                    raise ValueError('%s: value must be between %s and %s' % (
+                        type_name, restrictions[0], restrictions[1]))
         elif xsd_type == 'boolean':
             if not isinstance(value, bool):
-                raise ValueError('%s: true/false expected instead of %s' %(
+                raise ValueError('%s: true/false expected instead of %s' % (
                     type_name, value))
         elif xsd_type == 'string' and simple_type == 'CommunityAttribute':
             cls._validate_communityattribute_type(value)
@@ -556,7 +673,7 @@ class VncApiServer(object):
             cls._validate_serviceinterface_type(value)
         else:
             if not isinstance(value, basestring):
-                raise ValueError('%s: string value expected instead of %s' %(
+                raise ValueError('%s: string value expected instead of %s' % (
                     type_name, value))
             if restrictions and value not in restrictions:
                 raise ValueError('%s: value must be one of %s' % (
@@ -583,15 +700,14 @@ class VncApiServer(object):
                 if operation == 'CREATE' and (
                     prop_field_types['required'] == 'required'):
                     if self._check_mandatory_props_list(prop_name):
-                        err_msg = '%s property is missing' %prop_name
+                        err_msg = '%s property is missing' % prop_name
                         return False, err_msg
                 continue
 
             if is_simple:
                 try:
-                    obj_dict[prop_name] = self._validate_simple_type(prop_name,
-                                              prop_type, simple_type,
-                                              prop_value, restrictions)
+                    obj_dict[prop_name] = self._validate_simple_type(
+                        prop_name, prop_type, simple_type, prop_value, restrictions)
                 except Exception as e:
                     err_msg = 'Error validating property ' + str(e)
                     return False, err_msg
@@ -603,12 +719,12 @@ class VncApiServer(object):
                 try:
                     self._validate_complex_type(prop_cls, prop_value)
                 except Exception as e:
-                    err_msg = 'Error validating property %s value %s ' %(
+                    err_msg = 'Error validating property %s value %s ' % (
                         prop_name, prop_value)
                     err_msg += str(e)
                     return False, err_msg
-            else: # complex-type + value isn't dict or wrapped in list or map
-                err_msg = 'Error in property %s type %s value of %s ' %(
+            else:  # complex-type + value isn't dict or wrapped in list or map
+                err_msg = 'Error in property %s type %s value of %s ' % (
                     prop_name, prop_cls, prop_value)
                 return False, err_msg
         # end for all properties
@@ -629,7 +745,7 @@ class VncApiServer(object):
                     self._validate_complex_type(attr_cls, ref_dict['attr'])
                 except Exception as e:
                     err_msg = 'Error validating reference %s value %s ' \
-                              %(ref_name, ref_dict)
+                              % (ref_name, ref_dict)
                     err_msg += str(e)
                     return False, err_msg
 
@@ -679,7 +795,14 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(500, err_str)
     # end _ensure_services_conn
 
-    def undo(self, result, obj_type, id=None, fq_name=None, counter=None, value=0):
+    def undo(
+        self,
+        result,
+        obj_type,
+        id=None,
+        fq_name=None,
+        counter=None,
+        value=0):
         (code, msg) = result
         if counter:
             counter = counter + value
@@ -700,7 +823,9 @@ class VncApiServer(object):
         obj_dict = get_request().json[resource_type]
 
         # check visibility
-        user_visible = (obj_dict.get('id_perms') or {}).get('user_visible', True)
+        user_visible = (
+            obj_dict.get('id_perms') or {}).get(
+            'user_visible', True)
         if not user_visible and not self.is_admin_request():
             result = 'This object is not visible by users'
             self.config_object_error(None, None, obj_type, 'http_post', result)
@@ -710,19 +835,19 @@ class VncApiServer(object):
         fq_name = obj_dict['fq_name']
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                 'pre_%s_create' %(obj_type), obj_dict)
+                'pre_%s_create' % (obj_type), obj_dict)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
             pass
         except Exception as e:
             err_msg = 'In pre_%s_create an extension had error for %s' \
-                      %(obj_type, obj_dict)
+                      % (obj_type, obj_dict)
             err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         # properties validator
-        ok, result = self._validate_props_in_request(r_class,
-                     obj_dict, operation='CREATE')
+        ok, result = self._validate_props_in_request(
+            r_class, obj_dict, operation='CREATE')
         if not ok:
             result = 'Bad property in create: ' + result
             raise cfgm_common.exceptions.HttpError(400, result)
@@ -753,7 +878,7 @@ class VncApiServer(object):
             rsp_body['parent_type'] = pending_obj_dict['parent_type']
             rsp_body['parent_uuid'] = pending_obj_dict['parent_uuid']
             rsp_body['parent_href'] = self.generate_url(
-                pending_obj_dict['parent_type'],pending_obj_dict['parent_uuid'])
+                pending_obj_dict['parent_type'], pending_obj_dict['parent_uuid'])
             return {resource_type: rsp_body}
 
         get_context().set_state('PRE_DBE_ALLOC')
@@ -768,7 +893,8 @@ class VncApiServer(object):
         if not ok:
             (code, msg) = result
             fq_name_str = ':'.join(obj_dict.get('fq_name', []))
-            self.config_object_error(None, fq_name_str, obj_type, 'http_post', msg)
+            self.config_object_error(
+                None, fq_name_str, obj_type, 'http_post', msg)
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         uuid_in_req = result
@@ -785,7 +911,7 @@ class VncApiServer(object):
         if 'parent_type' in obj_dict:
             # non config-root child, verify parent exists
             parent_res_type, parent_class = self._validate_resource_type(
-                 obj_dict['parent_type'])
+                obj_dict['parent_type'])
             parent_obj_type = parent_class.object_type
             parent_res_type = parent_class.resource_type
             parent_fq_name = obj_dict['fq_name'][:-1]
@@ -803,7 +929,8 @@ class VncApiServer(object):
                 err_msg = 'Parent %s type %s does not exist' % (
                     pformat(parent_fq_name), parent_res_type)
                 fq_name_str = ':'.join(parent_fq_name)
-                self.config_object_error(None, fq_name_str, obj_type, 'http_post', err_msg)
+                self.config_object_error(
+                    None, fq_name_str, obj_type, 'http_post', err_msg)
                 raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         # Validate perms on references
@@ -811,16 +938,18 @@ class VncApiServer(object):
             self._validate_perms_in_request(r_class, obj_type, obj_dict)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
-                400, 'Unknown reference in resource create %s.' %(obj_dict))
+                400, 'Unknown reference in resource create %s.' % (obj_dict))
 
-        # State modification starts from here. Ensure that cleanup is done for all state changes
+        # State modification starts from here. Ensure that cleanup is done for
+        # all state changes
         cleanup_on_failure = []
         quota_counter = []
 
         def stateful_create():
             get_context().set_state('DBE_ALLOC')
             # Alloc and Store id-mappings before creating entry on pubsub store.
-            # Else a subscriber can ask for an id mapping before we have stored it
+            # Else a subscriber can ask for an id mapping before we have stored
+            # it
             (ok, result) = db_conn.dbe_alloc(obj_type, obj_dict, uuid_in_req)
             if not ok:
                 return (ok, result)
@@ -833,16 +962,17 @@ class VncApiServer(object):
             get_context().set_state('PRE_DBE_CREATE')
             # type-specific hook
             (ok, result) = r_class.pre_dbe_create(
-                    tenant_name, obj_dict, db_conn)
+                tenant_name, obj_dict, db_conn)
             if not ok:
                 return (ok, result)
 
             callable = getattr(r_class, 'http_post_collection_fail', None)
             if callable:
-                cleanup_on_failure.append((callable, [tenant_name, obj_dict, db_conn]))
+                cleanup_on_failure.append(
+                    (callable, [tenant_name, obj_dict, db_conn]))
 
-            ok, quota_limit, proj_uuid = r_class.get_quota_for_resource(obj_type,
-                                                                        obj_dict, db_conn)
+            ok, quota_limit, proj_uuid = r_class.get_quota_for_resource(
+                obj_type, obj_dict, db_conn)
             if not ok:
                 return ok, quota_limit
 
@@ -855,23 +985,23 @@ class VncApiServer(object):
                     path_prefix = self._path_prefix + proj_uuid
                     try:
                         QuotaHelper._zk_quota_counter_init(
-                                   path_prefix, {obj_type: quota_limit}, proj_uuid,
-                                   self._db_conn, self.quota_counter)
+                            path_prefix, {obj_type: quota_limit}, proj_uuid,
+                            self._db_conn, self.quota_counter)
                     except NoIdError:
                         msg = "Error in initializing quota "\
                               "Internal error : Failed to read resource count"
                         return (False, (404, msg))
 
                 (ok, result) = QuotaHelper.verify_quota_and_create_resource(
-                                          db_conn, obj_dict, obj_type, obj_id,
-                                          quota_limit, self.quota_counter[path])
+                    db_conn, obj_dict, obj_type, obj_id,
+                    quota_limit, self.quota_counter[path])
                 if not ok:
                     return (ok, result)
                 else:
                     # To be used for reverting back count when undo() is called
                     quota_counter.append(self.quota_counter[path])
             else:
-                #normal execution
+                # normal execution
                 (ok, result) = db_conn.dbe_create(obj_type, obj_id, obj_dict)
                 if not ok:
                     return (ok, result)
@@ -879,7 +1009,8 @@ class VncApiServer(object):
             get_context().set_state('POST_DBE_CREATE')
             # type-specific hook
             try:
-                ok, result = r_class.post_dbe_create(tenant_name, obj_dict, db_conn)
+                ok, result = r_class.post_dbe_create(
+                    tenant_name, obj_dict, db_conn)
             except Exception as e:
                 ok = False
                 msg = ("%s:%s post_dbe_create had an exception: %s\n%s" %
@@ -914,8 +1045,8 @@ class VncApiServer(object):
             path_prefix = self._path_prefix + proj_id
             if quota_dict:
                 try:
-                    QuotaHelper._zk_quota_counter_init(path_prefix, quota_dict,
-                                          proj_id, db_conn, self.quota_counter)
+                    QuotaHelper._zk_quota_counter_init(
+                        path_prefix, quota_dict, proj_id, db_conn, self.quota_counter)
                 except NoIdError:
                     err_msg = "Error in initializing quota "\
                               "Internal error : Failed to read resource count"
@@ -935,13 +1066,13 @@ class VncApiServer(object):
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'post_%s_create' %(obj_type), obj_dict)
+                'post_%s_create' % (obj_type), obj_dict)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
             pass
         except Exception as e:
             err_msg = 'In post_%s_create an extension had error for %s' \
-                      %(obj_type, obj_dict)
+                      % (obj_type, obj_dict)
             err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
@@ -953,7 +1084,7 @@ class VncApiServer(object):
         resource_type, r_class = self._validate_resource_type(obj_type)
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'pre_%s_read' %(obj_type), id)
+                'pre_%s_read' % (obj_type), id)
         except Exception as e:
             pass
 
@@ -963,7 +1094,7 @@ class VncApiServer(object):
             req_obj_type = db_conn.uuid_to_obj_type(id)
             if req_obj_type != obj_type:
                 raise cfgm_common.exceptions.HttpError(
-                    404, 'No %s object found for id %s' %(resource_type, id))
+                    404, 'No %s object found for id %s' % (resource_type, id))
             fq_name = db_conn.uuid_to_fq_name(id)
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
@@ -996,7 +1127,7 @@ class VncApiServer(object):
         obj_fields = r_class.prop_fields | r_class.ref_fields
         if 'fields' in get_request().query:
             obj_fields |= set(get_request().query.fields.split(','))
-        else: # default props + children + refs + backrefs
+        else:  # default props + children + refs + backrefs
             if 'exclude_back_refs' not in get_request().query:
                 obj_fields |= r_class.backref_fields
             if 'exclude_children' not in get_request().query:
@@ -1008,10 +1139,11 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         try:
-            (ok, result) = db_conn.dbe_read(obj_type, id,
-                list(obj_fields), ret_readonly=True)
+            (ok, result) = db_conn.dbe_read(obj_type,
+                                            id, list(obj_fields), ret_readonly=True)
             if not ok:
-                self.config_object_error(id, None, obj_type, 'http_get', result)
+                self.config_object_error(
+                    id, None, obj_type, 'http_get', result)
         except NoIdError as e:
             # Not present in DB
             raise cfgm_common.exceptions.HttpError(404, str(e))
@@ -1020,7 +1152,7 @@ class VncApiServer(object):
 
         # check visibility
         if (not result['id_perms'].get('user_visible', True) and
-            not self.is_admin_request()):
+                not self.is_admin_request()):
             result = 'This object is not visible by users: %s' % id
             self.config_object_error(id, None, obj_type, 'http_get', result)
             raise cfgm_common.exceptions.HttpError(404, result)
@@ -1040,10 +1172,11 @@ class VncApiServer(object):
             result = self.generate_hrefs(resource_type, result)
         rsp_body.update(result)
         id_perms = result['id_perms']
-        bottle.response.set_header('ETag', '"' + id_perms['last_modified'] + '"')
+        bottle.response.set_header(
+            'ETag', '"' + id_perms['last_modified'] + '"')
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'post_%s_read' %(obj_type), id, rsp_body)
+                'post_%s_read' % (obj_type), id, rsp_body)
         except Exception as e:
             pass
 
@@ -1056,22 +1189,24 @@ class VncApiServer(object):
         ret_obj_dict.update(obj_dict)
         r_class = self.get_resource_class(resource_type)
         obj_links = r_class.obj_links & set(obj_dict.keys())
-        obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
-        obj_dicts = self._db_conn._object_db.object_raw_read(obj_uuids, ["perms2"])
+        obj_uuids = [ref['uuid']
+                     for link in obj_links for ref in list(obj_dict[link])]
+        obj_dicts = self._db_conn._object_db.object_raw_read(obj_uuids, [
+                                                             "perms2"])
         uuid_to_obj_dict = dict((o['uuid'], o) for o in obj_dicts)
 
         for link_field in obj_links:
             links = obj_dict[link_field]
 
-            # build new links in returned dict based on permissions on linked object
+            # build new links in returned dict based on permissions on linked
+            # object
             ret_obj_dict[link_field] = [l for l in links
-                if ((l['uuid'] in uuid_to_obj_dict) and
-                    (self._permissions.check_perms_read( get_request(),
-                      l['uuid'], obj_dict=uuid_to_obj_dict[l['uuid']])[0] == True))]
+                                        if ((l['uuid'] in uuid_to_obj_dict) and
+                                            (self._permissions.check_perms_read(get_request(),
+                                                                                l['uuid'], obj_dict=uuid_to_obj_dict[l['uuid']])[0]))]
 
         return ret_obj_dict
     # end obj_view
-
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
@@ -1088,8 +1223,8 @@ class VncApiServer(object):
 
         if 'perms2' in obj_dict:
             if 'owner' not in obj_dict['perms2']:
-                raise cfgm_common.exceptions.HttpError(400,
-                                    'owner in perms2 must be present')
+                raise cfgm_common.exceptions.HttpError(
+                    400, 'owner in perms2 must be present')
 
         fields = r_class.prop_fields | r_class.ref_fields
         try:
@@ -1097,8 +1232,8 @@ class VncApiServer(object):
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
         if not ok:
-            self.config_object_error(id, None, obj_type, 'http_resource_update',
-                                     result[1])
+            self.config_object_error(
+                id, None, obj_type, 'http_resource_update', result[1])
             raise cfgm_common.exceptions.HttpError(result[0], result[1])
         db_obj_dict = result
 
@@ -1140,21 +1275,21 @@ class VncApiServer(object):
             req_obj_type = db_conn.uuid_to_obj_type(id)
             if req_obj_type != obj_type:
                 raise cfgm_common.exceptions.HttpError(
-                    404, 'No %s object found for id %s' %(resource_type, id))
+                    404, 'No %s object found for id %s' % (resource_type, id))
             _ = db_conn.uuid_to_fq_name(id)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
-                404, 'ID %s does not exist' %(id))
+                404, 'ID %s does not exist' % (id))
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'pre_%s_delete' %(obj_type), id)
+                'pre_%s_delete' % (obj_type), id)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
             pass
         except Exception as e:
             err_msg = 'In pre_%s_delete an extension had error for %s' \
-                      %(obj_type, id)
+                      % (obj_type, id)
             err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
@@ -1170,7 +1305,7 @@ class VncApiServer(object):
 
         # check visibility
         if (not read_result['id_perms'].get('user_visible', True) and
-            not self.is_admin_request()):
+                not self.is_admin_request()):
             result = 'This object is not visible by users: %s' % id
             self.config_object_error(id, None, obj_type, 'http_delete', result)
             raise cfgm_common.exceptions.HttpError(404, result)
@@ -1210,17 +1345,17 @@ class VncApiServer(object):
             if is_derived:
                 continue
             child_cls = self.get_resource_class(child_type)
-            default_child_name = 'default-%s' %(
+            default_child_name = 'default-%s' % (
                 child_cls(parent_type=obj_type).get_type())
             exist_hrefs = []
             for child in read_result.get(child_field, []):
                 if child['to'][-1] in [default_child_name,
-                        POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
+                                       POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
                     continue
                 exist_hrefs.append(
                     self.generate_url(child_type, child['uuid']))
             if exist_hrefs:
-                err_msg = 'Delete when children still present: %s' %(
+                err_msg = 'Delete when children still present: %s' % (
                     exist_hrefs)
                 self.config_object_error(
                     id, None, obj_type, 'http_delete', err_msg)
@@ -1234,24 +1369,26 @@ class VncApiServer(object):
                 continue
             exist_hrefs = [self.generate_url(backref_type, backref['uuid'])
                            for backref in read_result.get(backref_field, [])
-                               if backref['uuid'] not in relaxed_refs]
+                           if backref['uuid'] not in relaxed_refs]
             if exist_hrefs:
-                err_msg = 'Delete when resource still referred: %s' %(
+                err_msg = 'Delete when resource still referred: %s' % (
                     exist_hrefs)
                 self.config_object_error(
                     id, None, obj_type, 'http_delete', err_msg)
                 raise cfgm_common.exceptions.HttpError(409, err_msg)
 
-        # State modification starts from here. Ensure that cleanup is done for all state changes
+        # State modification starts from here. Ensure that cleanup is done for
+        # all state changes
         cleanup_on_failure = []
         quota_counter = []
+
         def stateful_delete():
             get_context().set_state('PRE_DBE_DELETE')
 
-            proj_id = r_class.get_project_id_for_resource(read_result, obj_type,
-                                                          db_conn)
+            proj_id = r_class.get_project_id_for_resource(
+                read_result, obj_type, db_conn)
             (ok, del_result) = r_class.pre_dbe_delete(
-                    id, read_result, db_conn)
+                id, read_result, db_conn)
             if not ok:
                 return (ok, del_result)
 
@@ -1265,7 +1402,8 @@ class VncApiServer(object):
 
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
-                cleanup_on_failure.append((callable, [id, read_result, db_conn]))
+                cleanup_on_failure.append(
+                    (callable, [id, read_result, db_conn]))
 
             get_context().set_state('DBE_DELETE')
             (ok, del_result) = db_conn.dbe_delete(obj_type, id, read_result)
@@ -1274,7 +1412,7 @@ class VncApiServer(object):
 
             if proj_id:
                 (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
-                                      proj_id, db_conn)
+                    proj_id, db_conn)
                 if not ok:
                     return ok, proj_dict
                 quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
@@ -1287,7 +1425,7 @@ class VncApiServer(object):
                         # in this api-server, Init counter
                         path_prefix = self._path_prefix + proj_id
                         QuotaHelper._zk_quota_counter_init(
-                            path_prefix, {obj_type : quota_limit},
+                            path_prefix, {obj_type: quota_limit},
                             proj_id, db_conn, self.quota_counter)
                         if db_conn._zk_db.quota_counter_exists(path):
                             self.quota_counter[path] -= 1
@@ -1319,7 +1457,7 @@ class VncApiServer(object):
             ok, result = stateful_delete()
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(
-                404, 'No %s object found for id %s' %(resource_type, id))
+                404, 'No %s object found for id %s' % (resource_type, id))
         except Exception as e:
             ok = False
             err_msg = cfgm_common.utils.detailed_traceback()
@@ -1331,13 +1469,13 @@ class VncApiServer(object):
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'post_%s_delete' %(obj_type), id, read_result)
+                'post_%s_delete' % (obj_type), id, read_result)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
             pass
         except Exception as e:
             err_msg = 'In pre_%s_delete an extension had error for %s' \
-                      %(obj_type, id)
+                      % (obj_type, id)
             err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
     # end http_resource_delete
@@ -1387,15 +1525,15 @@ class VncApiServer(object):
                 except cfgm_common.exceptions.NoIdError as e:
                     pass
             if obj_uuids is None:
-                return {'%ss' %(resource_type): []}
+                return {'%ss' % (resource_type): []}
 
         if 'page_marker' in get_request().query:
             pagination['marker'] = self._validate_page_marker(
-                                       get_request().query['page_marker'])
+                get_request().query['page_marker'])
 
         if 'page_limit' in get_request().query:
             pagination['limit'] = self._validate_page_limit(
-                                       get_request().query['page_limit'])
+                get_request().query['page_limit'])
 
         # common handling for all resource get
         for parent_uuid in list(parent_uuids or []):
@@ -1404,7 +1542,7 @@ class VncApiServer(object):
                 parent_uuids.remove(parent_uuid)
 
         if obj_uuids is None and back_ref_uuids is None and parent_uuids == []:
-            return {'%ss' %(resource_type): []}
+            return {'%ss' % (resource_type): []}
 
         if 'count' in get_request().query:
             is_count = 'true' in get_request().query.count.lower()
@@ -1451,11 +1589,11 @@ class VncApiServer(object):
             orig_context = get_context()
             orig_request = get_request()
             b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/%ss' %(resource_type),
+                {'PATH_INFO': '/%ss' % (resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
                  'HTTP_X_ROLE': self.cloud_admin_role})
-            json_as_dict = {'%s' %(resource_type): obj_json}
+            json_as_dict = {'%s' % (resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 json_as_dict, None)
@@ -1472,11 +1610,11 @@ class VncApiServer(object):
             orig_context = get_context()
             orig_request = get_request()
             b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/%ss' %(resource_type),
+                {'PATH_INFO': '/%ss' % (resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
                  'HTTP_X_ROLE': self.cloud_admin_role})
-            json_as_dict = {'%s' %(resource_type): obj_json}
+            json_as_dict = {'%s' % (resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 json_as_dict, None)
@@ -1493,7 +1631,7 @@ class VncApiServer(object):
             orig_context = get_context()
             orig_request = get_request()
             b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/%s/%s' %(resource_type, obj_uuid),
+                {'PATH_INFO': '/%s/%s' % (resource_type, obj_uuid),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
                  'HTTP_X_ROLE': self.cloud_admin_role})
@@ -1612,10 +1750,10 @@ class VncApiServer(object):
             # Delete a default child only if provisioned for
             child_type, is_derived = r_class.children_field_types[child_field]
             if child_type not in self._GENERATE_DEFAULT_INSTANCE:
-               continue
+                continue
             child_cls = self.get_resource_class(child_type)
             # first locate default child then delete it")
-            default_child_name = 'default-%s' %(child_type)
+            default_child_name = 'default-%s' % (child_type)
             child_infos = parent_dict.get(child_field, [])
             for child_info in child_infos:
                 if child_info['to'][-1] == default_child_name:
@@ -1630,27 +1768,27 @@ class VncApiServer(object):
             create_method = functools.partial(obj.http_resource_create,
                                               object_type)
             functools.update_wrapper(create_method, obj.http_resource_create)
-            setattr(obj, '%ss_http_post' %(object_type), create_method)
+            setattr(obj, '%ss_http_post' % (object_type), create_method)
 
             read_method = functools.partial(obj.http_resource_read,
                                             object_type)
             functools.update_wrapper(read_method, obj.http_resource_read)
-            setattr(obj, '%s_http_get' %(object_type), read_method)
+            setattr(obj, '%s_http_get' % (object_type), read_method)
 
             update_method = functools.partial(obj.http_resource_update,
                                               object_type)
             functools.update_wrapper(update_method, obj.http_resource_update)
-            setattr(obj, '%s_http_put' %(object_type), update_method)
+            setattr(obj, '%s_http_put' % (object_type), update_method)
 
             delete_method = functools.partial(obj.http_resource_delete,
                                               object_type)
             functools.update_wrapper(delete_method, obj.http_resource_delete)
-            setattr(obj, '%s_http_delete' %(object_type), delete_method)
+            setattr(obj, '%s_http_delete' % (object_type), delete_method)
 
             list_method = functools.partial(obj.http_resource_list,
                                             object_type)
             functools.update_wrapper(list_method, obj.http_resource_list)
-            setattr(obj, '%ss_http_get' %(object_type), list_method)
+            setattr(obj, '%ss_http_get' % (object_type), list_method)
     # end _generate_resource_crud_methods
 
     @classmethod
@@ -1664,22 +1802,22 @@ class VncApiServer(object):
             # obj.route('/virtual-networks', 'GET', obj.virtual_networks_http_get)
 
             # leaf resource
-            obj.route('/%s/<id>' %(resource_type),
+            obj.route('/%s/<id>' % (resource_type),
                       'GET',
-                      getattr(obj, '%s_http_get' %(object_type)))
-            obj.route('/%s/<id>' %(resource_type),
+                      getattr(obj, '%s_http_get' % (object_type)))
+            obj.route('/%s/<id>' % (resource_type),
                       'PUT',
-                      getattr(obj, '%s_http_put' %(object_type)))
-            obj.route('/%s/<id>' %(resource_type),
+                      getattr(obj, '%s_http_put' % (object_type)))
+            obj.route('/%s/<id>' % (resource_type),
                       'DELETE',
-                      getattr(obj, '%s_http_delete' %(object_type)))
+                      getattr(obj, '%s_http_delete' % (object_type)))
             # collection of leaf
-            obj.route('/%ss' %(resource_type),
+            obj.route('/%ss' % (resource_type),
                       'POST',
-                      getattr(obj, '%ss_http_post' %(object_type)))
-            obj.route('/%ss' %(resource_type),
+                      getattr(obj, '%ss_http_post' % (object_type)))
+            obj.route('/%ss' % (resource_type),
                       'GET',
-                      getattr(obj, '%ss_http_get' %(object_type)))
+                      getattr(obj, '%ss_http_get' % (object_type)))
     # end _generate_resource_crud_uri
 
     def __init__(self, args_str=None):
@@ -1710,7 +1848,10 @@ class VncApiServer(object):
 
         # set python logging level from logging_level cmdline arg
         if not self._args.logging_conf:
-            logging.basicConfig(level = getattr(logging, self._args.logging_level))
+            logging.basicConfig(
+                level=getattr(
+                    logging,
+                    self._args.logging_level))
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -1718,26 +1859,26 @@ class VncApiServer(object):
         # Generate LinkObjects for all entities
         links = []
         # Link for root
-        links.append(LinkObject('root', self._base_url , '/config-root',
+        links.append(LinkObject('root', self._base_url, '/config-root',
                                 'config-root'))
 
         for _, resource_type in all_resource_type_tuples:
             link = LinkObject('collection',
-                              self._base_url , '/%ss' %(resource_type),
-                              '%s' %(resource_type))
+                              self._base_url, '/%ss' % (resource_type),
+                              '%s' % (resource_type))
             links.append(link)
 
         for _, resource_type in all_resource_type_tuples:
             link = LinkObject('resource-base',
-                              self._base_url , '/%s' %(resource_type),
-                              '%s' %(resource_type))
+                              self._base_url, '/%s' % (resource_type),
+                              '%s' % (resource_type))
             links.append(link)
 
         self._homepage_links = links
 
         self._pipe_start_app = None
 
-        #GreenletProfiler.set_clock_type('wall')
+        # GreenletProfiler.set_clock_type('wall')
         self._profile_info = None
 
         for act_res in _ACTION_RESOURCES:
@@ -1746,10 +1887,13 @@ class VncApiServer(object):
             self._homepage_links.append(link)
 
         # Register for VN delete request. Disallow delete of system default VN
-        self.route('/virtual-network/<id>', 'DELETE', self.virtual_network_http_delete)
+        self.route(
+            '/virtual-network/<id>',
+            'DELETE',
+            self.virtual_network_http_delete)
 
         self.route('/documentation/<filename:path>',
-                     'GET', self.documentation_http_get)
+                   'GET', self.documentation_http_get)
         self._homepage_links.insert(
             0, LinkObject('documentation', self._base_url,
                           '/documentation/index.html',
@@ -1757,14 +1901,14 @@ class VncApiServer(object):
 
         # APIs to reserve/free block of IP address from a VN/Subnet
         self.route('/virtual-network/<id>/ip-alloc',
-                     'POST', self.vn_ip_alloc_http_post)
+                   'POST', self.vn_ip_alloc_http_post)
         self._homepage_links.append(
             LinkObject('action', self._base_url,
                        '/virtual-network/%s/ip-alloc',
                        'virtual-network-ip-alloc', 'POST'))
 
         self.route('/virtual-network/<id>/ip-free',
-                     'POST', self.vn_ip_free_http_post)
+                   'POST', self.vn_ip_free_http_post)
         self._homepage_links.append(
             LinkObject('action', self._base_url,
                        '/virtual-network/%s/ip-free',
@@ -1772,35 +1916,36 @@ class VncApiServer(object):
 
         # APIs to find out number of ip instances from given VN subnet
         self.route('/virtual-network/<id>/subnet-ip-count',
-                     'POST', self.vn_subnet_ip_count_http_post)
+                   'POST', self.vn_subnet_ip_count_http_post)
         self._homepage_links.append(
             LinkObject('action', self._base_url,
                        '/virtual-network/%s/subnet-ip-count',
                        'virtual-network-subnet-ip-count', 'POST'))
 
         # Enable/Disable aaa mode
-        self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
-        self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
+        self.route('/aaa-mode', 'GET', self.aaa_mode_http_get)
+        self.route('/aaa-mode', 'PUT', self.aaa_mode_http_put)
 
         # Set Tag actions
         self.route('/set-tag', 'POST', self.set_tag)
         self._homepage_links.append(
-            LinkObject('action', self._base_url,  '/set-tag', 'set-tag',
+            LinkObject('action', self._base_url, '/set-tag', 'set-tag',
                        'POST'))
 
-         # Commit or discard draft security policy
+        # Commit or discard draft security policy
         self.route('/security-policy-draft', 'POST',
                    self.security_policy_draft)
         self._homepage_links.append(
-            LinkObject('action', self._base_url,  '/security-policy-draft',
+            LinkObject('action', self._base_url, '/security-policy-draft',
                        'security-policy-draft', 'POST'))
 
         # randomize the collector list
         self._random_collectors = self._args.collectors
-        self._chksum = "";
+        self._chksum = ""
         if self._args.collectors:
-            self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
-            self._random_collectors = random.sample(self._args.collectors, \
+            self._chksum = hashlib.md5(
+                ''.join(self._args.collectors)).hexdigest()
+            self._random_collectors = random.sample(self._args.collectors,
                                                     len(self._args.collectors))
 
         # sandesh init
@@ -1819,19 +1964,23 @@ class VncApiServer(object):
         else:
             instance_id = INSTANCE_ID_DEFAULT
         hostname = socket.gethostname()
-        self._sandesh.init_generator(module_name, hostname,
-                                     node_type_name, instance_id,
+        self._sandesh.init_generator(module_name,
+                                     hostname,
+                                     node_type_name,
+                                     instance_id,
                                      self._random_collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
-                                     ['cfgm_common', 'vnc_cfg_api_server.sandesh'],
+                                     ['cfgm_common',
+                                      'vnc_cfg_api_server.sandesh'],
                                      logger_class=self._args.logger_class,
                                      logger_config_file=self._args.logging_conf,
                                      config=self._args.sandesh_config)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="RestApiTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="DBRequestTraceBuf", size=1000)
-        self._sandesh.trace_buffer_create(name="DBUVERequestTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(
+            name="DBUVERequestTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
         VncGreenlet.register_sandesh_handler()
@@ -1845,9 +1994,9 @@ class VncApiServer(object):
             syslog_facility=self._args.syslog_facility)
 
         ConnectionState.init(self._sandesh, hostname, module_name,
-                instance_id,
-                staticmethod(ConnectionState.get_conn_state_cb),
-                NodeStatusUVE, NodeStatus, self.table)
+                             instance_id,
+                             staticmethod(ConnectionState.get_conn_state_cb),
+                             NodeStatusUVE, NodeStatus, self.table)
 
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
@@ -1862,17 +2011,17 @@ class VncApiServer(object):
 
         # ZK quota counter initialization
         (ok, project_list, _) = self._db_conn.dbe_list('project',
-                                                    field_names=['quota'])
+                                                       field_names=['quota'])
         if not ok:
-            (code, err_msg) = project_list # status
+            (code, err_msg) = project_list  # status
             raise cfgm_common.exceptions.HttpError(code, err_msg)
         for project in project_list or []:
             if project.get('quota'):
                 path_prefix = self._path_prefix + project['uuid']
                 try:
                     QuotaHelper._zk_quota_counter_init(
-                               path_prefix, project['quota'], project['uuid'],
-                               self._db_conn, self.quota_counter)
+                        path_prefix, project['quota'], project['uuid'],
+                        self._db_conn, self.quota_counter)
                 except NoIdError:
                     err_msg = "Error in initializing quota "\
                               "Internal error : Failed to read resource count"
@@ -1896,14 +2045,16 @@ class VncApiServer(object):
             version = os.popen(command).read()
             _, rpm_version, build_num = version.split()
             cfgm_cpu_uve.build_info = build_info + '"build-id" : "' + \
-                                      rpm_version + '", "build-number" : "' + \
-                                      build_num + '"}]}'
+                rpm_version + '", "build-number" : "' + \
+                build_num + '"}]}'
 
-            cpu_info_trace = ModuleCpuStateTrace(data=cfgm_cpu_uve, sandesh=self._sandesh)
+            cpu_info_trace = ModuleCpuStateTrace(
+                data=cfgm_cpu_uve, sandesh=self._sandesh)
             cpu_info_trace.send(sandesh=self._sandesh)
 
-        self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
-                                  re.IGNORECASE)
+        self.re_uuid = re.compile(
+            '^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
+            re.IGNORECASE)
 
         # Load extensions
         self._extension_mgrs = {}
@@ -1960,7 +2111,7 @@ class VncApiServer(object):
         if not extensions or not extensions.names():
             return None
         return extensions.map_method(
-                    'transform_request', request)
+            'transform_request', request)
     # end _extensions_transform_request
 
     def _extensions_validate_request(self, request):
@@ -1968,7 +2119,7 @@ class VncApiServer(object):
         if not extensions or not extensions.names():
             return None
         return extensions.map_method(
-                    'validate_request', request)
+            'validate_request', request)
     # end _extensions_validate_request
 
     def _extensions_transform_response(self, request, response):
@@ -1976,7 +2127,7 @@ class VncApiServer(object):
         if not extensions or not extensions.names():
             return None
         return extensions.map_method(
-                    'transform_response', request, response)
+            'transform_response', request, response)
     # end _extensions_transform_response
 
     @ignore_exceptions
@@ -1986,7 +2137,7 @@ class VncApiServer(object):
             return None
 
         req_id = get_request().headers.get('X-Request-Id',
-                                            'req-%s' %(str(uuid.uuid4())))
+                                           'req-%s' % (str(uuid.uuid4())))
         gevent.getcurrent().trace_request_id = req_id
         url = get_request().url
         if method == 'DELETE':
@@ -1995,7 +2146,7 @@ class VncApiServer(object):
             try:
                 req_data = json.dumps(get_request().json)
             except Exception as e:
-                req_data = '%s: Invalid request body' %(e)
+                req_data = '%s: Invalid request body' % (e)
         rest_trace = RestApiTrace(request_id=req_id)
         rest_trace.url = url
         rest_trace.method = method
@@ -2005,9 +2156,9 @@ class VncApiServer(object):
         # before returning the trace message.
         if ((get_context().get_keystone_response_time()) is not None):
             response_time = get_context().get_keystone_response_time()
-            response_time_in_usec = ((response_time.days*24*60*60) +
-                                      (response_time.seconds*1000000) +
-                                      response_time.microseconds)
+            response_time_in_usec = ((response_time.days * 24 * 60 * 60) +
+                                     (response_time.seconds * 1000000) +
+                                     response_time.microseconds)
             stats = VncApiLatencyStats(
                 operation_type='VALIDATE',
                 application='KEYSTONE',
@@ -2015,8 +2166,11 @@ class VncApiServer(object):
                 response_size=0,
                 identifier=req_id,
             )
-            stats_log = VncApiLatencyStatsLog(node_name="issu-vm6", api_latency_stats=stats, sandesh=self._sandesh)
-            x=stats_log.send(sandesh=self._sandesh)
+            stats_log = VncApiLatencyStatsLog(
+                node_name="issu-vm6",
+                api_latency_stats=stats,
+                sandesh=self._sandesh)
+            x = stats_log.send(sandesh=self._sandesh)
         return rest_trace
     # end _generate_rest_api_request_trace
 
@@ -2053,8 +2207,9 @@ class VncApiServer(object):
             except Exception as e:
                 if trace:
                     trace.trace_msg(name='RestApiTraceBuf',
-                        sandesh=self._sandesh)
-                # don't log details of cfgm_common.exceptions.HttpError i.e handled error cases
+                                    sandesh=self._sandesh)
+                # don't log details of cfgm_common.exceptions.HttpError i.e
+                # handled error cases
                 if isinstance(e, cfgm_common.exceptions.HttpError):
                     bottle.abort(e.status_code, e.content)
                 else:
@@ -2133,7 +2288,8 @@ class VncApiServer(object):
     def _generate_obj_view_links(self):
         for object_type, resource_type in all_resource_type_tuples:
             r_class = self.get_resource_class(resource_type)
-            r_class.obj_links = (r_class.ref_fields | r_class.backref_fields | r_class.children_fields)
+            r_class.obj_links = (
+                r_class.ref_fields | r_class.backref_fields | r_class.children_fields)
 
     # Check for the system created VN. Disallow such VN delete
     def virtual_network_http_delete(self, id):
@@ -2143,16 +2299,16 @@ class VncApiServer(object):
             obj_type = db_conn.uuid_to_obj_type(id)
             if obj_type != 'virtual_network':
                 raise cfgm_common.exceptions.HttpError(
-                    404, 'No virtual-network object found for id %s' %(id))
+                    404, 'No virtual-network object found for id %s' % (id))
             vn_name = db_conn.uuid_to_fq_name(id)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
-                404, 'ID %s does not exist' %(id))
+                404, 'ID %s does not exist' % (id))
         if (vn_name == cfgm_common.IP_FABRIC_VN_FQ_NAME or
-            vn_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME):
+                vn_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME):
             raise cfgm_common.exceptions.HttpError(
                 409,
-                'Can not delete system created default virtual-network '+id)
+                'Can not delete system created default virtual-network ' + id)
         super(VncApiServer, self).virtual_network_http_delete(id)
    # end
 
@@ -2180,11 +2336,11 @@ class VncApiServer(object):
         doc_root = '/usr/share/doc/contrail-config/doc/contrail-config/html/'
         if not os.path.exists(doc_root):
             # centos packaged path
-            doc_root='/usr/share/doc/python-vnc_cfg_api_server/contrial-config/html/'
+            doc_root = '/usr/share/doc/python-vnc_cfg_api_server/contrial-config/html/'
 
         return bottle.static_file(
-                filename,
-                root=doc_root)
+            filename,
+            root=doc_root)
     # end documentation_http_get
 
     def obj_perms_http_get(self):
@@ -2232,7 +2388,7 @@ class VncApiServer(object):
                 try:
                     domain = token_info['token']['project']['domain']['id']
                     domain = str(uuid.UUID(domain))
-                except ValueError, TypeError:
+                except ValueError as TypeError:
                     if domain == 'default':
                         domain = 'default-domain'
                     domain = self._db_conn.fq_name_to_uuid('domain', [domain])
@@ -2246,7 +2402,7 @@ class VncApiServer(object):
         return self.re_uuid.match(uuid) is None
 
     def invalid_access(self, access):
-        return type(access) is not int or access not in range(0, 8)
+        return not isinstance(access, int) or access not in range(0, 8)
 
     def invalid_share_type(self, share_type):
         return share_type not in cfgm_common.PERMS2_VALID_SHARE_TYPES
@@ -2278,7 +2434,7 @@ class VncApiServer(object):
 
         # ensure user has RW permissions to object
         perms = self._permissions.obj_perms(get_request(), obj_uuid)
-        if not 'RW' in perms:
+        if 'RW' not in perms:
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
         try:
@@ -2293,7 +2449,7 @@ class VncApiServer(object):
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         return {}
-    #end obj_chown_http_post
+    # end obj_chown_http_post
 
     def dump_cache(self):
         try:
@@ -2303,10 +2459,12 @@ class VncApiServer(object):
         val = {}
         if 'uuid' in request:
             obj_uuid = request['uuid']
-            val  = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(obj_uuid=obj_uuid)
+            val = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(
+                obj_uuid=obj_uuid)
         else:
             count = request.get('count', 10)
-            val  = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(count=count)
+            val = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(
+                count=count)
         return val
 
     # chmod for an object
@@ -2329,27 +2487,29 @@ class VncApiServer(object):
 
         # ensure user has RW permissions to object
         perms = self._permissions.obj_perms(get_request(), obj_uuid)
-        if not 'RW' in perms:
+        if 'RW' not in perms:
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
         request_params = get_request().json
-        owner         = request_params.get('owner')
-        share         = request_params.get('share')
-        owner_access  = request_params.get('owner_access')
+        owner = request_params.get('owner')
+        share = request_params.get('share')
+        owner_access = request_params.get('owner_access')
         global_access = request_params.get('global_access')
 
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
-                             obj_fields=['perms2', 'is_shared'])
+        (ok, obj_dict) = self._db_conn.dbe_read(
+            obj_type, obj_uuid, obj_fields=['perms2', 'is_shared'])
         obj_perms = obj_dict['perms2']
         old_perms = '%s/%d %d %s' % (obj_perms['owner'],
-            obj_perms['owner_access'], obj_perms['global_access'],
-            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+                                     obj_perms['owner_access'],
+                                     obj_perms['global_access'],
+                                     ['%s:%d' % (item['tenant'],
+                                                 item['tenant_access']) for item in obj_perms['share']])
 
         if owner:
             if self.invalid_uuid(owner):
                 raise cfgm_common.exceptions.HttpError(
                     400, "Bad Request, invalid owner")
-            obj_perms['owner'] = owner.replace('-','')
+            obj_perms['owner'] = owner.replace('-', '')
         if owner_access is not None:
             if self.invalid_access(owner_access):
                 raise cfgm_common.exceptions.HttpError(
@@ -2362,8 +2522,10 @@ class VncApiServer(object):
                     item['tenant'] := [<share_type>:] <uuid>
                     share_type := ['domain' | 'tenant']
                     """
-                    (share_type, share_id) = cfgm_common.utils.shareinfo_from_perms2_tenant(item['tenant'])
-                    if self.invalid_share_type(share_type) or self.invalid_uuid(share_id) or self.invalid_access(item['tenant_access']):
+                    (share_type, share_id) = cfgm_common.utils.shareinfo_from_perms2_tenant(
+                        item['tenant'])
+                    if self.invalid_share_type(share_type) or self.invalid_uuid(
+                        share_id) or self.invalid_access(item['tenant_access']):
                         raise cfgm_common.exceptions.HttpError(
                             400, "Bad Request, invalid share list")
             except Exception as e:
@@ -2377,11 +2539,14 @@ class VncApiServer(object):
             obj_dict['is_shared'] = (global_access != 0)
 
         new_perms = '%s/%d %d %s' % (obj_perms['owner'],
-            obj_perms['owner_access'], obj_perms['global_access'],
-            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+                                     obj_perms['owner_access'],
+                                     obj_perms['global_access'],
+                                     ['%s:%d' % (item['tenant'],
+                                                 item['tenant_access']) for item in obj_perms['share']])
 
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
-        msg = "chmod: %s perms old=%s, new=%s" % (obj_uuid, old_perms, new_perms)
+        msg = "chmod: %s perms old=%s, new=%s" % (
+            obj_uuid, old_perms, new_perms)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         return {}
@@ -2412,8 +2577,8 @@ class VncApiServer(object):
 
         for obj_field in obj_fields:
             if ((obj_field not in resource_class.prop_list_fields) and
-                (obj_field not in resource_class.prop_map_fields)):
-                err_msg = '%s neither "ListProperty" nor "MapProperty"' %(
+                    (obj_field not in resource_class.prop_map_fields)):
+                err_msg = '%s neither "ListProperty" nor "MapProperty"' % (
                     obj_field)
                 raise cfgm_common.exceptions.HttpError(400, err_msg)
         # request validations over
@@ -2440,7 +2605,7 @@ class VncApiServer(object):
 
         # check visibility
         if (not result['id_perms'].get('user_visible', True) and
-            not self.is_admin_request()):
+                not self.is_admin_request()):
             result = 'This object is not visible by users: %s' % id
             self.config_object_error(
                 id, None, None, 'prop_collection_http_get', result)
@@ -2474,7 +2639,7 @@ class VncApiServer(object):
             elif obj_field in r_class.prop_map_fields:
                 prop_coll_type = 'map'
             else:
-                err_msg = '%s neither "ListProperty" nor "MapProperty"' %(
+                err_msg = '%s neither "ListProperty" nor "MapProperty"' % (
                     obj_field)
                 raise cfgm_common.exceptions.HttpError(400, err_msg)
 
@@ -2484,39 +2649,40 @@ class VncApiServer(object):
             prop_type = r_class.prop_field_types[obj_field]['xsd_type']
             prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
             prop_val_type = prop_cls.attr_field_type_vals[prop_cls.attr_fields[0]]['attr_type']
-            prop_val_cls = cfgm_common.utils.str_to_class(prop_val_type, __name__)
+            prop_val_cls = cfgm_common.utils.str_to_class(
+                prop_val_type, __name__)
             try:
                 self._validate_complex_type(prop_val_cls, field_val)
             except Exception as e:
                 raise cfgm_common.exceptions.HttpError(400, str(e))
             if prop_coll_type == 'list':
                 if req_oper not in ('add', 'modify', 'delete'):
-                    err_msg = 'Unsupported operation %s in request %s' %(
+                    err_msg = 'Unsupported operation %s in request %s' % (
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
                 if ((req_oper == 'add') and field_val is None):
-                    err_msg = 'Add needs field value in request %s' %(
+                    err_msg = 'Add needs field value in request %s' % (
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
                 elif ((req_oper == 'modify') and
-                    None in (field_val, field_pos)):
-                    err_msg = 'Modify needs field value and position in request %s' %(
+                      None in (field_val, field_pos)):
+                    err_msg = 'Modify needs field value and position in request %s' % (
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
                 elif ((req_oper == 'delete') and field_pos is None):
-                    err_msg = 'Delete needs field position in request %s' %(
+                    err_msg = 'Delete needs field position in request %s' % (
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
             elif prop_coll_type == 'map':
                 if req_oper not in ('set', 'delete'):
-                    err_msg = 'Unsupported operation %s in request %s' %(
+                    err_msg = 'Unsupported operation %s in request %s' % (
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
                 if ((req_oper == 'set') and field_val is None):
-                    err_msg = 'Set needs field value in request %s' %(
+                    err_msg = 'Set needs field value in request %s' % (
                         req_oper, json.dumps(req_param))
                 elif ((req_oper == 'delete') and field_pos is None):
-                    err_msg = 'Delete needs field position in request %s' %(
+                    err_msg = 'Delete needs field position in request %s' % (
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
 
@@ -2559,7 +2725,7 @@ class VncApiServer(object):
         res_type, res_class = self._validate_resource_type(type)
         obj_uuid = get_request().json.get('uuid')
         ref_type = get_request().json.get('ref-type')
-        ref_field = '%s_refs' %(ref_type.replace('-', '_'))
+        ref_field = '%s_refs' % (ref_type.replace('-', '_'))
         ref_res_type, ref_class = self._validate_resource_type(ref_type)
         operation = get_request().json.get('operation')
         ref_uuid = get_request().json.get('ref-uuid')
@@ -2571,13 +2737,13 @@ class VncApiServer(object):
         if None in (res_type, obj_uuid, ref_res_type, operation):
             err_msg = 'Bad Request: type/uuid/ref-type/operation is null: '
             err_msg += '%s, %s, %s, %s.' \
-                        %(res_type, obj_uuid, ref_res_type, operation)
+                % (res_type, obj_uuid, ref_res_type, operation)
             raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         operation = operation.upper()
         if operation not in ['ADD', 'DELETE']:
             err_msg = 'Bad Request: operation should be add or delete: %s' \
-                      %(operation)
+                      % (operation)
             raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         if not ref_uuid and not ref_fq_name:
@@ -2588,7 +2754,8 @@ class VncApiServer(object):
         ref_obj_type = ref_class.object_type
         if not ref_uuid:
             try:
-                ref_uuid = self._db_conn.fq_name_to_uuid(ref_obj_type, ref_fq_name)
+                ref_uuid = self._db_conn.fq_name_to_uuid(
+                    ref_obj_type, ref_fq_name)
             except NoIdError:
                 raise cfgm_common.exceptions.HttpError(
                     404, 'Name ' + pformat(ref_fq_name) + ' not found')
@@ -2632,22 +2799,22 @@ class VncApiServer(object):
             obj_dict[ref_field] = copy.deepcopy(db_obj_dict[ref_field])
 
         if operation == 'ADD':
-            if ref_obj_type+'_refs' not in obj_dict:
-                obj_dict[ref_obj_type+'_refs'] = []
-            existing_ref = [ref for ref in obj_dict[ref_obj_type+'_refs']
+            if ref_obj_type + '_refs' not in obj_dict:
+                obj_dict[ref_obj_type + '_refs'] = []
+            existing_ref = [ref for ref in obj_dict[ref_obj_type + '_refs']
                             if ref['uuid'] == ref_uuid]
             if existing_ref:
                 ref['attr'] = attr
             else:
-                obj_dict[ref_obj_type+'_refs'].append(
-                    {'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr})
+                obj_dict[ref_obj_type + '_refs'].append(
+                    {'to': ref_fq_name, 'uuid': ref_uuid, 'attr': attr})
         elif operation == 'DELETE':
-            for old_ref in obj_dict.get(ref_obj_type+'_refs', []):
+            for old_ref in obj_dict.get(ref_obj_type + '_refs', []):
                 if old_ref['to'] == ref_fq_name or old_ref['uuid'] == ref_uuid:
-                    obj_dict[ref_obj_type+'_refs'].remove(old_ref)
+                    obj_dict[ref_obj_type + '_refs'].remove(old_ref)
                     break
 
-        ref_args = {'ref_obj_type':ref_obj_type, 'ref_uuid': ref_uuid,
+        ref_args = {'ref_obj_type': ref_obj_type, 'ref_uuid': ref_uuid,
                     'operation': operation, 'data': {'attr': attr},
                     'relax_ref_for_delete': relax_ref_for_delete}
         self._put_common('ref-update', obj_type, obj_uuid, db_obj_dict,
@@ -2665,7 +2832,7 @@ class VncApiServer(object):
         # validate fields
         if None in (obj_uuid, ref_uuid):
             err_msg = 'Bad Request: Both uuid and ref-uuid should be specified: '
-            err_msg += '%s, %s.' %(obj_uuid, ref_uuid)
+            err_msg += '%s, %s.' % (obj_uuid, ref_uuid)
             raise cfgm_common.exceptions.HttpError(400, err_msg)
 
         try:
@@ -2678,12 +2845,12 @@ class VncApiServer(object):
         apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type
         fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
-        apiConfig.identifier_name=':'.join(fq_name)
+        apiConfig.identifier_name = ':'.join(fq_name)
         apiConfig.identifier_uuid = obj_uuid
         apiConfig.operation = 'ref-relax-for-delete'
         try:
             body = json.dumps(get_request().json)
-        except:
+        except BaseException:
             body = str(get_request().json)
         apiConfig.body = body
 
@@ -2708,7 +2875,7 @@ class VncApiServer(object):
                 resource_type, r_class = self._validate_resource_type(obj_type)
                 try:
                     self._extension_mgrs['resourceApi'].map_method(
-                        'pre_%s_read_fqname' %(obj_type), fq_name)
+                        'pre_%s_read_fqname' % (obj_type), fq_name)
                     id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
                 except Exception as e:
                     raise cfgm_common.exceptions.HttpError(
@@ -2731,7 +2898,8 @@ class VncApiServer(object):
         obj_uuid = get_request().json['uuid']
 
         # ensure user has access to this id
-        ok, result = self._permissions.check_perms_read(get_request(), obj_uuid)
+        ok, result = self._permissions.check_perms_read(
+            get_request(), obj_uuid)
         if not ok:
             err_code, err_msg = result
             raise cfgm_common.exceptions.HttpError(err_code, err_msg)
@@ -2740,7 +2908,7 @@ class VncApiServer(object):
             fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
-               404, 'UUID ' + obj_uuid + ' not found')
+                404, 'UUID ' + obj_uuid + ' not found')
 
         obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
         res_type = self.get_resource_class(obj_type).resource_type
@@ -2763,7 +2931,6 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(400, err_msg)
         key = request_params.get('key')
         val = request_params.get('value', '')
-
 
         # TODO move values to common
         if oper == 'STORE':
@@ -2797,17 +2964,17 @@ class VncApiServer(object):
     # end fetch_records
 
     def start_profile(self):
-        #GreenletProfiler.start()
+        # GreenletProfiler.start()
         pass
     # end start_profile
 
     def stop_profile(self):
         pass
-        #GreenletProfiler.stop()
+        # GreenletProfiler.stop()
         #stats = GreenletProfiler.get_func_stats()
         #self._profile_info = stats.print_all()
 
-        #return self._profile_info
+        # return self._profile_info
     # end stop_profile
 
     def get_profile_info(self):
@@ -2843,7 +3010,7 @@ class VncApiServer(object):
     def list_bulk_collection_http_post(self):
         """ List collection when requested ids don't fit in query params."""
 
-        type = get_request().json.get('type') # e.g. virtual-network
+        type = get_request().json.get('type')  # e.g. virtual-network
         resource_type, r_class = self._validate_resource_type(type)
 
         try:
@@ -2880,11 +3047,11 @@ class VncApiServer(object):
         pagination = {}
         if 'page_marker' in get_request().json:
             pagination['marker'] = self._validate_page_marker(
-                                       get_request().json['page_marker'])
+                get_request().json['page_marker'])
 
         if 'page_limit' in get_request().json:
             pagination['limit'] = self._validate_page_limit(
-                                       get_request().json['page_limit'])
+                get_request().json['page_limit'])
 
         return self._list_collection(r_class.object_type, parent_uuids,
                                      back_ref_uuids, obj_uuids, is_count,
@@ -2946,14 +3113,18 @@ class VncApiServer(object):
             if 'DEFAULTS' in config.sections():
                 try:
                     collectors = config.get('DEFAULTS', 'collectors')
-                    if type(collectors) is str:
+                    if isinstance(collectors, str):
                         collectors = collectors.split()
-                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        new_chksum = hashlib.md5(
+                            "".join(collectors)).hexdigest()
                         if new_chksum != self._chksum:
                             self._chksum = new_chksum
-                            self._random_collectors = random.sample(collectors, len(collectors))
-                        # Reconnect to achieve load-balance irrespective of list
-                        self._sandesh.reconfig_collectors(self._random_collectors)
+                            self._random_collectors = random.sample(
+                                collectors, len(collectors))
+                        # Reconnect to achieve load-balance irrespective of
+                        # list
+                        self._sandesh.reconfig_collectors(
+                            self._random_collectors)
                 except ConfigParser.NoOptionError as e:
                     pass
     # end sighup_handler
@@ -2980,8 +3151,8 @@ class VncApiServer(object):
                 api_server_obj=self)
         except Exception as e:
             err_msg = cfgm_common.utils.detailed_traceback()
-            self.config_log("Exception in extension load: %s" %(err_msg),
-                level=SandeshLevel.SYS_ERR)
+            self.config_log("Exception in extension load: %s" % (err_msg),
+                            level=SandeshLevel.SYS_ERR)
     # end _load_extensions
 
     def _db_connect(self, reset_config):
@@ -3011,7 +3182,9 @@ class VncApiServer(object):
         db_server_list = None
         if db_engine == 'cassandra':
             if cassandra_user is not None and cassandra_password is not None:
-                cred = {'username':cassandra_user,'password':cassandra_password}
+                cred = {
+                    'username': cassandra_user,
+                    'password': cassandra_password}
             db_server_list = cass_server_list
 
         self._db_conn = VncDbClient(
@@ -3020,7 +3193,7 @@ class VncApiServer(object):
             zk_server, self._args.cluster_id, db_credential=cred,
             db_engine=db_engine, rabbit_use_ssl=self._args.rabbit_use_ssl,
             kombu_ssl_version=self._args.kombu_ssl_version,
-            kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
+            kombu_ssl_keyfile=self._args.kombu_ssl_keyfile,
             kombu_ssl_certfile=self._args.kombu_ssl_certfile,
             kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs,
             obj_cache_entries=obj_cache_entries,
@@ -3028,7 +3201,7 @@ class VncApiServer(object):
             cassandra_use_ssl=self._args.cassandra_use_ssl,
             cassandra_ca_certs=self._args.cassandra_ca_certs)
 
-        #TODO refacter db connection management.
+        # TODO refacter db connection management.
         self._addr_mgmt._get_db_conn()
     # end _db_connect
 
@@ -3078,8 +3251,9 @@ class VncApiServer(object):
 
     def _get_default_id_perms(self, **kwargs):
         id_perms = copy.deepcopy(Provision.defaults.perms)
-        id_perms_json = json.dumps(id_perms, default=lambda o: dict((k, v)
-                                   for k, v in o.__dict__.iteritems()))
+        id_perms_json = json.dumps(
+            id_perms, default=lambda o: dict(
+                (k, v) for k, v in o.__dict__.iteritems()))
         id_perms_dict = json.loads(id_perms_json)
         id_perms_dict.update(kwargs)
         return id_perms_dict
@@ -3131,7 +3305,8 @@ class VncApiServer(object):
                     ok, parent_obj_dict = self._db_conn.dbe_read(
                         parent_type, parent_uuid, obj_fields=['perms2'])
                 except NoIdError as e:
-                    msg = "Parent %s cannot be found: %s" % (parent_type, str(e))
+                    msg = "Parent %s cannot be found: %s" % (
+                        parent_type, str(e))
                     raise cfgm_common.exceptions.HttpError(404, msg)
                 perms2['owner'] = parent_obj_dict['perms2']['owner']
 
@@ -3189,8 +3364,9 @@ class VncApiServer(object):
 
     def _get_default_perms2(self):
         perms2 = copy.deepcopy(Provision.defaults.perms2)
-        perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
-                                   for k, v in o.__dict__.iteritems()))
+        perms2_json = json.dumps(
+            perms2, default=lambda o: dict(
+                (k, v) for k, v in o.__dict__.iteritems()))
         perms2_dict = json.loads(perms2_json)
         return perms2_dict
     # end _get_default_perms2
@@ -3240,14 +3416,14 @@ class VncApiServer(object):
 
         # specifying alarm kwargs like contrail_alarm.py
         alarm_kwargs = {"alarm_rules":
-                        {"or_list" : [
+                        {"or_list": [
                          {"and_list": [
-                           { "operand1": "UveConfigReq.err_info.*.",
-                            "operation": "==",
-                            "operand2": {"json_value": "True"}
-                           }          ]
-                         }           ]
-                        },
+                             {"operand1": "UveConfigReq.err_info.*.",
+                              "operation": "==",
+                              "operand2": {"json_value": "True"}
+                              }]
+                          }]
+                         },
                         "alarm_severity": 1,
                         "fq_name": [
                             "default-global-system-config",
@@ -3262,7 +3438,7 @@ class VncApiServer(object):
                                 "config-node"
                             ]
                         }
-                       }
+                        }
         self.create_singleton_entry(Alarm(**alarm_kwargs))
         try:
             self.create_singleton_entry(
@@ -3279,8 +3455,10 @@ class VncApiServer(object):
         sc_ipam_subnet_v4 = IpamSubnetType(subnet=SubnetType('0.0.0.0', 8))
         sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff', 104))
         sc_ipam_subnets = IpamSubnets([sc_ipam_subnet_v4, sc_ipam_subnet_v6])
-        sc_ipam_obj = NetworkIpam('service-chain-flat-ipam',
-                ipam_subnet_method="flat-subnet", ipam_subnets=sc_ipam_subnets)
+        sc_ipam_obj = NetworkIpam(
+            'service-chain-flat-ipam',
+            ipam_subnet_method="flat-subnet",
+            ipam_subnets=sc_ipam_subnets)
         self.create_singleton_entry(sc_ipam_obj)
 
         # Create pre-defined tag-type
@@ -3364,10 +3542,12 @@ class VncApiServer(object):
                     instance_obj = cls_ob(**obj)
                     self.create_singleton_entry(instance_obj)
 
-                    # update default-global-system-config for supported_device_families
-                    if object_type =='global_system_config':
+                    # update default-global-system-config for
+                    # supported_device_families
+                    if object_type == 'global_system_config':
                         fq_name = instance_obj.get_fq_name()
-                        uuid = self._db_conn.fq_name_to_uuid(object_type, fq_name)
+                        uuid = self._db_conn.fq_name_to_uuid(
+                            object_type, fq_name)
                         self._db_conn.dbe_update(object_type, uuid, obj)
 
             for item in json_data.get("refs"):
@@ -3388,7 +3568,7 @@ class VncApiServer(object):
                     from_uuid,
                     to_type,
                     to_uuid,
-                    { 'attr': None },
+                    {'attr': None},
                     'ADD',
                     None,
                 )
@@ -3411,7 +3591,7 @@ class VncApiServer(object):
                     fq_name = object.get("fq_name")[-1]
                     schema_name = fq_name.replace('template', 'schema.json')
                     with open(os.path.join(self._args.fabric_ansible_dir +
-                            '/schema/', schema_name), 'r+') as schema_file:
+                                           '/schema/', schema_name), 'r+') as schema_file:
                         schema_json = json.load(schema_file)
                         object["job_template_input_schema"] = schema_json.get(
                             "input_schema")
@@ -3426,29 +3606,29 @@ class VncApiServer(object):
         # allow full access to cloud admin
         rbac_rules = [
             {
-                'rule_object':'fqname-to-id',
+                'rule_object': 'fqname-to-id',
                 'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
+                'rule_perms': [{'role_name': '*', 'role_crud': 'CRUD'}]
             },
             {
-                'rule_object':'id-to-fqname',
+                'rule_object': 'id-to-fqname',
                 'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
+                'rule_perms': [{'role_name': '*', 'role_crud': 'CRUD'}]
             },
             {
-                'rule_object':'useragent-kv',
+                'rule_object': 'useragent-kv',
                 'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
+                'rule_perms': [{'role_name': '*', 'role_crud': 'CRUD'}]
             },
             {
-                'rule_object':'documentation',
+                'rule_object': 'documentation',
                 'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
+                'rule_perms': [{'role_name': '*', 'role_crud': 'R'}]
             },
             {
-                'rule_object':'/',
+                'rule_object': '/',
                 'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
+                'rule_perms': [{'role_name': '*', 'role_crud': 'R'}]
             },
         ]
 
@@ -3459,7 +3639,8 @@ class VncApiServer(object):
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
             (ok, obj_dict) = self._db_conn.dbe_read(obj_type, id)
             update_obj = False
-            cur_rbac_rules = copy.deepcopy(obj_dict['api_access_list_entries']['rbac_rule'])
+            cur_rbac_rules = copy.deepcopy(
+                obj_dict['api_access_list_entries']['rbac_rule'])
             for rule in rbac_rules:
                 present = False
                 for existing_rule in cur_rbac_rules:
@@ -3468,7 +3649,8 @@ class VncApiServer(object):
                         cur_rbac_rules.remove(existing_rule)
                         break
                 if not present:
-                    obj_dict['api_access_list_entries']['rbac_rule'].append(rule)
+                    obj_dict['api_access_list_entries']['rbac_rule'].append(
+                        rule)
                     update_obj = True
             if update_obj:
                 self._db_conn.dbe_update(obj_type, id, obj_dict)
@@ -3478,14 +3660,21 @@ class VncApiServer(object):
 
         rge = RbacRuleEntriesType([])
         for rule in rbac_rules:
-            rule_perms = [RbacPermType(role_name=p['role_name'], role_crud=p['role_crud']) for p in rule['rule_perms']]
-            rbac_rule = RbacRuleType(rule_object=rule['rule_object'],
-                rule_field=rule['rule_field'], rule_perms=rule_perms)
+            rule_perms = [
+                RbacPermType(
+                    role_name=p['role_name'],
+                    role_crud=p['role_crud']) for p in rule['rule_perms']]
+            rbac_rule = RbacRuleType(
+                rule_object=rule['rule_object'],
+                rule_field=rule['rule_field'],
+                rule_perms=rule_perms)
             rge.add_rbac_rule(rbac_rule)
 
         rge_dict = rge.exportDict('')
-        glb_rbac_cfg = ApiAccessList(parent_type='global-system-config',
-            fq_name=fq_name, api_access_list_entries = rge_dict)
+        glb_rbac_cfg = ApiAccessList(
+            parent_type='global-system-config',
+            fq_name=fq_name,
+            api_access_list_entries=rge_dict)
 
         try:
             self.create_singleton_entry(glb_rbac_cfg)
@@ -3508,13 +3697,15 @@ class VncApiServer(object):
         # TODO remove backward compat create mapping in zk
         # for singleton START
         try:
-            cass_uuid = self._db_conn._object_db.fq_name_to_uuid(obj_type, fq_name)
+            cass_uuid = self._db_conn._object_db.fq_name_to_uuid(
+                obj_type, fq_name)
             try:
                 zk_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
             except NoIdError:
                 # doesn't exist in zookeeper but does so in cassandra,
                 # migrate this info to zookeeper
-                self._db_conn._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name, str(cass_uuid))
+                self._db_conn._zk_db.create_fq_name_to_uuid_mapping(
+                    obj_type, fq_name, str(cass_uuid))
         except NoIdError:
             # doesn't exist in cassandra as well as zookeeper, proceed normal
             pass
@@ -3577,7 +3768,7 @@ class VncApiServer(object):
                 _ = str(uuid.UUID(req_page_marker_uuid))
             except Exception as e:
                 raise cfgm_common.exceptions.HttpError(
-                    400, 'Invalid page_marker %s: %s' %(
+                    400, 'Invalid page_marker %s: %s' % (
                          req_page_marker, e))
         else:
             req_page_marker = None
@@ -3592,7 +3783,7 @@ class VncApiServer(object):
                 raise Exception("page_limit has to be greater than zero")
         except Exception as e:
             raise cfgm_common.exceptions.HttpError(
-                400, 'Invalid page_limit %s: %s' %(
+                400, 'Invalid page_limit %s: %s' % (
                      req_page_limit, e))
         return int(req_page_limit)
     # end _validate_page_limit
@@ -3625,8 +3816,8 @@ class VncApiServer(object):
             else:
                 page_count = self._args.paginate_count
         else:
-            page_start = None # cookie to start next search
-            page_count = None # remainder count to finish page
+            page_start = None  # cookie to start next search
+            page_count = None  # remainder count to finish page
 
         (ok, result) = r_class.pre_dbe_list(obj_uuids, self._db_conn)
         if not ok:
@@ -3634,21 +3825,28 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         while not page_filled:
-            (ok, result, ret_marker) = self._db_conn.dbe_list(obj_type,
-                                 parent_uuids, back_ref_uuids, obj_uuids, is_count and is_admin,
-                                 filters, is_detail=is_detail, field_names=field_names,
-                                 include_shared=include_shared,
-                                 paginate_start=page_start,
-                                 paginate_count=page_count)
+            (ok,
+             result,
+             ret_marker) = self._db_conn.dbe_list(obj_type,
+                                                  parent_uuids,
+                                                  back_ref_uuids,
+                                                  obj_uuids,
+                                                  is_count and is_admin,
+                                                  filters,
+                                                  is_detail=is_detail,
+                                                  field_names=field_names,
+                                                  include_shared=include_shared,
+                                                  paginate_start=page_start,
+                                                  paginate_count=page_count)
             if not ok:
-                self.config_object_error(None, None, '%ss' %(obj_type),
+                self.config_object_error(None, None, '%ss' % (obj_type),
                                          'dbe_list', result)
                 raise cfgm_common.exceptions.HttpError(404, result)
 
             # If only counting, return early
             if is_count and is_admin:
                 ret_result += result
-                return {'%ss' %(resource_type): {'count': ret_result}}
+                return {'%ss' % (resource_type): {'count': ret_result}}
 
             allowed_fields = ['uuid', 'href', 'fq_name'] + (req_fields or [])
             obj_dicts = []
@@ -3677,8 +3875,8 @@ class VncApiServer(object):
                         continue
 
                     (ok, status) = self._permissions.check_perms_read(
-                            get_request(), obj_result['uuid'],
-                            obj_result)
+                        get_request(), obj_result['uuid'],
+                        obj_result)
                     if not ok and status[0] == 403:
                         continue
 
@@ -3692,23 +3890,25 @@ class VncApiServer(object):
                     else:
                         obj_dict.update(obj_result)
                         for key in obj_dict.keys():
-                            if not key in allowed_fields:
+                            if key not in allowed_fields:
                                 del obj_dict[key]
-                        if obj_dict.get('id_perms') and not 'id_perms' in allowed_fields:
+                        if obj_dict.get(
+                            'id_perms') and 'id_perms' not in allowed_fields:
                             del obj_dict['id_perms']
                         obj_dicts.append(obj_dict)
 
                     if not exclude_hrefs:
-                        obj_dict['href'] = self.generate_url(resource_type, obj_result['uuid'])
+                        obj_dict['href'] = self.generate_url(
+                            resource_type, obj_result['uuid'])
                 # end obj_result in result
             # end not admin req
 
             ret_result.extend(obj_dicts)
             if 'marker' not in pagination:
                 page_filled = True
-            elif ret_marker is None: # pagination request and done
+            elif ret_marker is None:  # pagination request and done
                 page_filled = True
-            else: # pagination request and partially filled
+            else:  # pagination request and partially filled
                 page_start = ret_marker
                 page_count -= len(result)
                 if page_count <= 0:
@@ -3720,18 +3920,18 @@ class VncApiServer(object):
             (code, msg) = err_msg
             raise cfgm_common.exceptions.HttpError(code, msg)
 
-        if 'marker' in pagination: # send next marker along with results
+        if 'marker' in pagination:  # send next marker along with results
             if is_count:
-                return {'%ss' %(resource_type): {'count': len(ret_result)},
+                return {'%ss' % (resource_type): {'count': len(ret_result)},
                         'marker': ret_marker}
             else:
-                return {'%ss' %(resource_type): ret_result,
+                return {'%ss' % (resource_type): ret_result,
                         'marker': ret_marker}
 
         if is_count:
-            return {'%ss' %(resource_type): {'count': len(ret_result)}}
+            return {'%ss' % (resource_type): {'count': len(ret_result)}}
         else:
-            return {'%ss' %(resource_type): ret_result}
+            return {'%ss' % (resource_type): ret_result}
     # end _list_collection
 
     def get_db_connection(self):
@@ -3850,7 +4050,7 @@ class VncApiServer(object):
         if int(get_request().headers.get('Content-Length', 0)) > 0:
             try:
                 body = json.dumps(get_request().json)
-            except:
+            except BaseException:
                 body = str(get_request().json)
             apiConfig.body = body
     # end _set_api_audit_info
@@ -3883,13 +4083,13 @@ class VncApiServer(object):
         resource_type, r_class = self._validate_resource_type(obj_type)
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'pre_%s_update' %(obj_type), obj_uuid, req_obj_dict)
+                'pre_%s_update' % (obj_type), obj_uuid, req_obj_dict)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
             pass
         except Exception as e:
             err_msg = 'In pre_%s_update an extension had error for %s' \
-                      %(obj_type, req_obj_dict)
+                      % (obj_type, req_obj_dict)
             err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
@@ -3897,24 +4097,25 @@ class VncApiServer(object):
 
         # check visibility
         if (not db_obj_dict['id_perms'].get('user_visible', True) and
-            not self.is_admin_request()):
+                not self.is_admin_request()):
             result = 'This object is not visible by users: %s' % obj_uuid
-            self.config_object_error(obj_uuid, None, obj_type, api_name, result)
+            self.config_object_error(
+                obj_uuid, None, obj_type, api_name, result)
             raise cfgm_common.exceptions.HttpError(404, result)
 
         # properties validator (for collections validation in caller)
         if req_obj_dict is not None:
-            ok, result = self._validate_props_in_request(r_class,
-                         req_obj_dict, operation='UPDATE')
+            ok, result = self._validate_props_in_request(
+                r_class, req_obj_dict, operation='UPDATE')
             if not ok:
-                result = 'Bad property in %s: %s' %(api_name, result)
+                result = 'Bad property in %s: %s' % (api_name, result)
                 raise cfgm_common.exceptions.HttpError(400, result)
 
         # references validator
         if req_obj_dict is not None:
             ok, result = self._validate_refs_in_request(r_class, req_obj_dict)
             if not ok:
-                result = 'Bad reference in %s: %s' %(api_name, result)
+                result = 'Bad reference in %s: %s' % (api_name, result)
                 raise cfgm_common.exceptions.HttpError(400, result)
 
         # common handling for all resource put
@@ -3947,7 +4148,7 @@ class VncApiServer(object):
         apiConfig.operation = api_name
         self._set_api_audit_info(apiConfig)
         log = VncApiConfigLog(api_log=apiConfig,
-                sandesh=self._sandesh)
+                              sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
 
         if self.is_auth_needed():
@@ -3964,11 +4165,12 @@ class VncApiServer(object):
                 self._validate_perms_in_request(
                     r_class, obj_type, req_obj_dict)
             except NoIdError:
-                raise cfgm_common.exceptions.HttpError(400,
-                    'Unknown reference in resource update %s %s.'
-                    %(obj_type, req_obj_dict))
+                raise cfgm_common.exceptions.HttpError(
+                    400, 'Unknown reference in resource update %s %s.' %
+                    (obj_type, req_obj_dict))
 
-        # State modification starts from here. Ensure that cleanup is done for all state changes
+        # State modification starts from here. Ensure that cleanup is done for
+        # all state changes
         cleanup_on_failure = []
         if req_obj_dict is not None:
             req_obj_dict['uuid'] = obj_uuid
@@ -4005,7 +4207,8 @@ class VncApiServer(object):
                 ref_uuid = ref_args.get('ref_uuid')
                 ref_data = ref_args.get('data')
                 operation = ref_args.get('operation')
-                relax_ref_for_delete = ref_args.get('relax_ref_for_delete', False)
+                relax_ref_for_delete = ref_args.get(
+                    'relax_ref_for_delete', False)
 
                 (ok, result) = db_conn.ref_update(
                     obj_type,
@@ -4032,8 +4235,8 @@ class VncApiServer(object):
                     path_prefix = self._path_prefix + proj_id
                     try:
                         QuotaHelper._zk_quota_counter_update(
-                                   path_prefix, quota_dict, proj_id, db_conn,
-                                   self.quota_counter)
+                            path_prefix, quota_dict, proj_id, db_conn,
+                            self.quota_counter)
                     except NoIdError:
                         msg = "Error in initializing quota "\
                               "Internal error : Failed to read resource count"
@@ -4074,8 +4277,8 @@ class VncApiServer(object):
                 path_prefix = self._path_prefix + proj_id
                 try:
                     QuotaHelper._zk_quota_counter_update(
-                               path_prefix, quota_dict, proj_id, self._db_conn,
-                               self.quota_counter)
+                        path_prefix, quota_dict, proj_id, self._db_conn,
+                        self.quota_counter)
                 except NoIdError:
                     err_msg = "Error in rolling back quota count on undo "\
                               "Internal error : Failed to read resource count"
@@ -4085,14 +4288,14 @@ class VncApiServer(object):
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
-                'post_%s_update' %(obj_type), obj_uuid,
-                 req_obj_dict, db_obj_dict)
+                'post_%s_update' % (obj_type), obj_uuid,
+                req_obj_dict, db_obj_dict)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
             pass
         except Exception as e:
             err_msg = 'In post_%s_update an extension had error for %s' \
-                      %(obj_type, req_obj_dict)
+                      % (obj_type, req_obj_dict)
             err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
     # end _put_common
@@ -4103,8 +4306,8 @@ class VncApiServer(object):
         # If not connected to zookeeper do not allow operations that
         # causes the state change
         if not self._db_conn._zk_db.is_connected():
-            return (False,
-                    (503, "Not connected to zookeeper. Not able to perform requested action"))
+            return (
+                False, (503, "Not connected to zookeeper. Not able to perform requested action"))
 
         # If there are too many pending updates to rabbit, do not allow
         # operations that cause state change
@@ -4116,7 +4319,7 @@ class VncApiServer(object):
         fq_name = self._db_conn.uuid_to_fq_name(uuid)
         apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type
-        apiConfig.identifier_name=':'.join(fq_name)
+        apiConfig.identifier_name = ':'.join(fq_name)
         apiConfig.identifier_uuid = uuid
         apiConfig.operation = 'delete'
         self._set_api_audit_info(apiConfig)
@@ -4143,22 +4346,22 @@ class VncApiServer(object):
             fval = obj_dict.get(fname)
             if not fval:
                 raise cfgm_common.exceptions.HttpError(
-                    400, "Bad Request, no %s in POST body" %(fname))
+                    400, "Bad Request, no %s in POST body" % (fname))
             return fval
         fq_name = _check_field_present('fq_name')
 
         # well-formed name checks
         if illegal_xml_chars_RE.search(fq_name[-1]):
-            raise cfgm_common.exceptions.HttpError(400,
-                "Bad Request, name has illegal xml characters")
+            raise cfgm_common.exceptions.HttpError(
+                400, "Bad Request, name has illegal xml characters")
         if obj_type == 'route_target':
             invalid_chars = self._INVALID_NAME_CHARS - set(':')
         else:
             invalid_chars = self._INVALID_NAME_CHARS
         if any((c in invalid_chars) for c in fq_name[-1]):
-            raise cfgm_common.exceptions.HttpError(400,
-                "Bad Request, name has one of invalid chars %s"
-                %(invalid_chars))
+            raise cfgm_common.exceptions.HttpError(
+                400, "Bad Request, name has one of invalid chars %s" %
+                (invalid_chars))
     # end _post_validate
 
     def validate_parent_type(self, obj_type, obj_dict):
@@ -4166,7 +4369,7 @@ class VncApiServer(object):
         r_class = self.get_resource_class(obj_type)
         allowed_parent_types = r_class.parent_types
         if parent_type:
-            if  parent_type not in allowed_parent_types:
+            if parent_type not in allowed_parent_types:
                 raise cfgm_common.exceptions.HttpError(
                     400, 'Invalid parent type: %s. Allowed types: %s' % (
                         parent_type, allowed_parent_types))
@@ -4181,13 +4384,12 @@ class VncApiServer(object):
             if len(obj_dict['fq_name']) != 1:
                 raise cfgm_common.exceptions.HttpError(
                     400, 'Invalid fq-name of an object with no parent: %s' % (
-                    obj_dict['fq_name']))
+                        obj_dict['fq_name']))
         elif len(obj_dict['fq_name']) < 2:
             raise cfgm_common.exceptions.HttpError(
                 400, 'Invalid fq-name for object with parent_type %s: %s' % (
-                parent_type, obj_dict['fq_name']))
+                    parent_type, obj_dict['fq_name']))
     # end validate_parent_type
-
 
     def _post_common(self, obj_type, obj_dict):
         self._ensure_services_conn(
@@ -4210,8 +4412,13 @@ class VncApiServer(object):
         self.validate_parent_type(obj_type, obj_dict)
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(None, obj_dict)
-        self._ensure_perms2_present(obj_type, None, obj_dict,
-            get_request().headers.environ.get('HTTP_X_PROJECT_ID', None))
+        self._ensure_perms2_present(
+            obj_type,
+            None,
+            obj_dict,
+            get_request().headers.environ.get(
+                'HTTP_X_PROJECT_ID',
+                None))
 
         # TODO check api + resource perms etc.
 
@@ -4219,18 +4426,18 @@ class VncApiServer(object):
 
         # Set the display name
         if (('display_name' not in obj_dict) or
-            (obj_dict['display_name'] is None)):
+                (obj_dict['display_name'] is None)):
             obj_dict['display_name'] = obj_dict['fq_name'][-1]
 
         fq_name_str = ":".join(obj_dict['fq_name'])
         apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type
-        apiConfig.identifier_name=fq_name_str
+        apiConfig.identifier_name = fq_name_str
         apiConfig.identifier_uuid = uuid_in_req
         apiConfig.operation = 'post'
         try:
             body = json.dumps(get_request().json)
-        except:
+        except BaseException:
             body = str(get_request().json)
         apiConfig.body = body
         if uuid_in_req:
@@ -4632,7 +4839,7 @@ class VncApiServer(object):
                                        r_class.object_type, fq_name, draft)
                 # Purge pending resource as we re-use the same UUID
                 self.internal_request_delete(r_class.object_type,
-                                            child['uuid'])
+                                             child['uuid'])
                 if uuid and draft['draft_mode_state'] == 'deleted':
                     # The resource is removed, we can purge original resource
                     deletes.append((r_class.object_type, uuid))
@@ -4654,7 +4861,7 @@ class VncApiServer(object):
                     self._update_fq_name_security_refs(
                         parent_fq_name, pm['fq_name'], type_name, draft)
                     updates.append(('update', (r_class.resource_type, uuid,
-                                            copy.deepcopy(draft))))
+                                               copy.deepcopy(draft))))
                 elif not uuid and draft['draft_mode_state'] == 'created':
                     # Create new resource with pending values (re-use UUID)
                     draft.pop('id_perms', None)
@@ -4666,14 +4873,14 @@ class VncApiServer(object):
                     self._update_fq_name_security_refs(
                         parent_fq_name, pm['fq_name'], type_name, draft)
                     updates.append(('create', (r_class.resource_type,
-                                            copy.deepcopy(draft))))
+                                               copy.deepcopy(draft))))
                 else:
                     msg = (
                         "Try to commit a security resource %s (%s) with "
                         "invalid state '%s'. Ignore it." %
                         (':'.join(draft.get('fq_name', ['FQ name unknown'])),
-                        draft.get('uuid', 'UUID unknown'),
-                        draft.get('draft_mode_state', 'No draft mode state'))
+                         draft.get('uuid', 'UUID unknown'),
+                         draft.get('draft_mode_state', 'No draft mode state'))
                     )
                     self.config_log(msg, level=SandeshLevel.SYS_WARN)
 
@@ -4716,8 +4923,9 @@ class VncApiServer(object):
                 backref_type = backref_field[:-10]
                 for backref in obj_dict.get(backref_field, []):
                     # if it's a backref to global resource let it
-                    if backref['to'][0] in [PolicyManagement().name,
-                            POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
+                    if backref['to'][0] in [
+                        PolicyManagement().name,
+                        POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
                         continue
                     self.internal_request_ref_update(
                         backref_type,
@@ -4731,8 +4939,8 @@ class VncApiServer(object):
                          {
                              'ref_fq_name': fq_name,
                              'attr': backref.get('attr')
-                         }
-                        )
+                            }
+                         )
                     )
                     obj_dict[backref_field].remove(backref)
 
@@ -4772,11 +4980,13 @@ def main(args_str=None, server=None):
 
 # end main
 
+
 def server_main(args_str=None):
     vnc_cgitb.enable(format='text')
 
     main(args_str, VncApiServer(args_str))
-#server_main
+# server_main
+
 
 if __name__ == "__main__":
     server_main()
