@@ -23,7 +23,10 @@
         status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
         message: "Successfully assigned roles to devices"
 
-    - name: print marked output
-      debug:
-        msg: "{{PB_OUTPUT_MARKER}}{{output}}{{PB_OUTPUT_MARKER}}"
-        verbosity: 0
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | report_pb_output(job_ctx.unique_pb_id, output)}}"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | report_end_of_playbook(job_ctx.unique_pb_id)}}"

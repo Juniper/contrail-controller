@@ -37,3 +37,7 @@
 
     - name: print output
       debug: var=output verbosity=1
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx.job_execution_id | report_end_of_playbook(job_ctx.unique_pb_id)}}"
