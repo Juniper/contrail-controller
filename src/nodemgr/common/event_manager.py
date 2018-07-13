@@ -17,7 +17,7 @@ from subprocess import Popen, PIPE
 import supervisor.xmlrpc
 import xmlrpclib
 import platform
-
+import glob
 from supervisor import childutils
 from nodemgr.common.event_listener_protocol_nodemgr import \
     EventListenerProtocolNodeMgr
@@ -177,28 +177,39 @@ class EventManager(object):
         #LOG_DEBUG sys.stderr.write('update_process_core_file_list: begin:')
         ret_value = False
         try:
-            ls_command = "ls -1 /var/crashes"
-            (corenames, stderr) = Popen(
-                ls_command.split(),
-                stdout=PIPE).communicate()
-
+            corenames = glob.glob('/var/crashes/*')
+            corenames.sort(key=os.path.getmtime)
             process_state_db_tmp = {}
             for key in self.process_state_db:
                 #LOG_DEBUG sys.stderr.write('update_process_core_file_list: key: '+key+'\n')
                 proc_stat = self.get_process_stat_object(key)
                 process_state_db_tmp[key] = proc_stat
+                # clear the core file list
+                process_state_db_tmp[key].core_file_list=[]
 
             #LOG_DEBUG sys.stderr.write('update_process_core_file_list: corenames: '+corenames+'\n')
-            for corename in corenames.split():
+            for corename in corenames:
                 exec_name = corename.split('.')[1]
                 for key in self.process_state_db:
                     if key.startswith(exec_name):
                         #LOG_DEBUG sys.stderr.write('update_process_core_file_list: startswith: '+exec_name+'\n')
+                        # core files will be oldest to newest in the list
                         process_state_db_tmp[key].core_file_list.append(corename.rstrip())
 
             for key in self.process_state_db:
                 if set(process_state_db_tmp[key].core_file_list) != set(self.process_state_db[key].core_file_list):
-                    self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
+                    # if core file more than allowed, delete the older one
+                    if len(process_state_db_tmp[key].core_file_list) > self.max_old_cores:
+                        cur_len = len(process_state_db_tmp[key].core_file_list)
+                        del_file_list = process_state_db_tmp[key].core_file_list[0:(cur_len-self.max_old_cores)]
+                        for files in del_file_list:
+                            try:
+                                os.remove(files)
+                            except OSError as e:
+                                sys.stderr.write('ERROR: ' + str(e) + '\n')
+                        self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list[cur_len-self.max_old_cores:]
+                    else:
+                        self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
                     ret_value = True
         except Exception as e:
             sys.stderr.write('update_process_core_file_list: exception: '+str(e))
@@ -297,54 +308,7 @@ class EventManager(object):
             send_uve = True
             proc_stat.exit_time = str(int(time.time() * 1000000))
             if not(int(pheaders['expected'])):
-                self.stderr.write(
-                    pname + " with pid:" + pheaders['pid'] +
-                    " exited abnormally\n")
                 proc_stat.last_exit_unexpected = True
-                # check for core file for this exit
-                find_command_option = \
-                    "find /var/crashes -name core.[A-Za-z]*." + \
-                    pheaders['pid'] + "*"
-                self.stderr.write(
-                    "find command option for cores:" +
-                    find_command_option + "\n")
-                (corename, stderr) = Popen(
-                    find_command_option.split(),
-                    stdout=PIPE).communicate()
-                self.stderr.write("core file: " + corename + "\n")
-
-                if ((corename is not None) and (len(corename.rstrip()) >= 1)):
-                    # before adding to the core file list make
-                    # sure that we do not have too many cores
-                    sys.stderr.write(
-                        'core_file_list:' + str(proc_stat.core_file_list) +
-                        ", self.max_cores:" + str(self.max_cores) + "\n")
-                    if (len(proc_stat.core_file_list) == self.max_cores):
-                        # get rid of old cores
-                        sys.stderr.write(
-                            'max # of cores reached:' +
-                            str(self.max_cores) + "\n")
-                        val = self.max_cores - self.max_new_cores + 1
-                        core_files_to_be_deleted = \
-                            proc_stat.core_file_list[self.max_old_cores:(val)]
-                        sys.stderr.write(
-                            'deleting core file list:' +
-                            str(core_files_to_be_deleted) + "\n")
-                        for core_file in core_files_to_be_deleted:
-                            sys.stderr.write(
-                                'deleting core file:' + core_file + "\n")
-                            try:
-                                os.remove(core_file)
-                            except OSError as e:
-                                sys.stderr.write('ERROR: ' + str(e) + '\n')
-                        # now delete the list as well
-                        val = self.max_cores - self.max_new_cores + 1
-                        del proc_stat.core_file_list[self.max_old_cores:(val)]
-                    # now add the new core to the core file list
-                    proc_stat.core_file_list.append(corename.rstrip())
-                    sys.stderr.write(
-                        "# of cores for " + pname + ":" +
-                        str(len(proc_stat.core_file_list)) + "\n")
 
         # update process state database
         self.process_state_db[pname] = proc_stat
