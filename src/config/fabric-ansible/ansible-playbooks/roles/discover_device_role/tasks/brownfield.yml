@@ -12,7 +12,6 @@
     total_retry_timeout: 0
   register: discovery_results
 
-- name: print marked output
-  debug:
-    msg: "{{DEVICE_DATA_MARKER}}{{discovery_results.device_info}}{{DEVICE_DATA_MARKER}}"
-    verbosity: 0
+- name: insert/update in /tmp/<exec-id> file
+  set_fact:
+    write_resp: "{{job_ctx | report_device_info(discovery_results.device_info)}}"
