@@ -24,7 +24,10 @@
         status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
         message: "Successfully deleted fabric: {{ playbook_input.input.fabric_fq_name }}"
 
-    - name: print marked output
-      debug:
-        msg: "{{PB_OUTPUT_MARKER}}{{output}}{{PB_OUTPUT_MARKER}}"
-        verbosity: 0
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx | report_pb_output(output)}}"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx | report_end_of_playbook()}}"
