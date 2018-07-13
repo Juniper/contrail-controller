@@ -1,8 +1,14 @@
 ---
+
 - name: Delete devices in a specific fabric
   hosts: localhost
   connection: local
   tasks:
+
+    - name: Initialize weights
+      set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':3, 'task_weightage_array':[50, 25, 25] })}}"
+
     - name: delete devices in a fabric
       set_fact:
         output: "{{ job_ctx | delete_fabric }}"
@@ -16,8 +22,138 @@
         results:
           fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
 
-    - name: Update Job log with fabric deletion job status
-      job_objectlog:
-        job_ctx: "{{ job_ctx }}"
-        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-        message: "Successfully deleted fabric: {{ playbook_input.input.fabric_fq_name }}"
+    - name: Prepare to delete TFTP and DHCP config
+      block:
+        - name: Add TFTP host
+          add_host:
+            name: "{{ TFTP_SERVER }}"
+            groups: "tftp"
+
+        - name: Add DHCP host
+          add_host:
+            name: "{{ DHCP_SERVER }}"
+            groups: "dhcp"
+
+        - name: Set DHCP connection to local if DHCP server is on localhost
+          set_fact:
+            dhcp_connection: "{{ 'local' if DHCP_SERVER == 'localhost' else 'ssh' }}"
+
+        - name: Set TFTP connection to local if TFTP server is on localhost
+          set_fact:
+            tftp_connection: "{{ 'local' if TFTP_SERVER == 'localhost' else 'ssh' }}"
+      rescue:
+        - include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Error preparing to delete TFTP and DHCP config"
+            jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error. Here is deletion log\n: {{ output.deletion_log }}"
+            results:
+              fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
+   
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Completed fabric removal from database"
+
+
+
+- name: Delete ansible-created script files from TFTP server
+  hosts: tftp
+  gather_facts: no
+  connection: "{{ tftp_connection }}"
+
+  tasks:
+    - name: Call TFTP role
+      import_role:
+        name: ztp_tftp
+
+
+- name: Gather results from TFTP server
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - name: Get TFTP host
+      set_fact:
+        tftp_host: "{{groups['tftp'][0]}}"
+
+    - name: Get TFTP results
+      set_fact:
+        tftp_results: |
+          {%- set outp = hostvars[tftp_host].get('tftp_output', None) -%} {{ outp }}
+
+    - name: if error, set ouput and bail
+      block:
+        - name: set output
+          set_fact:
+            output: "{{ output | combine(tftp_results) }}"
+        - name: set tftp_err
+          set_fact:
+            tftp_err: True
+      when: tftp_results != "\n"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 2
+        jl_message: "Completed ZTP TFTP: {{tftp_results}}"
+
+
+- name: Delete ansible-created section of DHCP server config file
+  hosts: dhcp
+  gather_facts: no
+  connection: "{{ dhcp_connection }}"
+
+  tasks:
+    - name: Call DHCP role
+      import_role:
+        name: ztp_dhcp
+      when: hostvars['localhost'].tftp_err is undefined
+
+
+- name: Finish up on localhost
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - name: Set final output
+      block:
+        - name: Get DHCP host
+          set_fact:
+            dhcp_host: "{{groups['dhcp'][0]}}"
+
+        - name: Get DHCP results
+          set_fact:
+            dhcp_results: |
+              {%- set outp = hostvars[dhcp_host].get('dhcp_output', None) -%} {{ outp }}
+
+        - name: Set final output
+          set_fact:
+            output: "{{output | combine(dhcp_results)}}"
+          when: dhcp_results != "\n"
+      when: tftp_err is undefined
+
+    - name: check failure
+      include_tasks: error_handler.yml
+      when: output.status == 'Failure'
+      vars:
+        op_err_message: "{{ output.results.jl_message }}"
+        jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error: {{ output.message }}"
+        results:
+          fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
+
+    - name: Update job log with job completed status
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 3
+        jl_message: "Successfully deleted fabric: {{ playbook_input.input.fabric_fq_name }}"
+
+    - name: print marked output
+      debug:
+       msg: "{{PB_OUTPUT_MARKER}}{{output}}{{PB_OUTPUT_MARKER}}"
+       verbosity: 0
+
+
+

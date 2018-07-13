@@ -6,6 +6,11 @@
   roles:
     - ztp_config
 
+  tasks:
+    - name: This is a create operation
+      set_fact:
+        ztp_create: True
+
 
 - name: Copy ansible-created script files to TFTP server
   hosts: tftp
