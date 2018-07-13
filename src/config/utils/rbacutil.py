@@ -6,6 +6,7 @@
 import argparse
 import uuid as __uuid
 import os
+import sys
 import re
 
 from vnc_api.vnc_api import *
