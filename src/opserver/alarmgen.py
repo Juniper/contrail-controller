@@ -1403,7 +1403,8 @@ class Controller(object):
                     self.reconnect_agg_uve(lredis)
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
                           name = 'AggregateRedis', status = ConnectionStatus.UP,
-                          server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port())])
+                          server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port())],
+                          message = "Connect to local Redis for Aggregation")
                 else:
                     if not lredis.exists(self._moduleid+':'+self._instance_id):
                         self._logger.error('Identified redis restart')
@@ -1415,7 +1416,9 @@ class Controller(object):
                     if not len(self._uveq[part]):
                         continue
                     self._logger.info("UVE Process for %d" % part)
-		    kafka_topic_down |= self._workers[part].failed()
+                    if self._workers[part].failed() is True:
+                        kafka_part_failed = part
+		        kafka_topic_down = True
 
                     # Allow the partition handlers to queue new UVEs without
                     # interfering with the work of processing the current UVEs
@@ -1433,10 +1436,19 @@ class Controller(object):
                         pendingset[part])
 		if kafka_topic_down:
                     ConnectionState.update(conn_type = ConnectionType.KAFKA_PUB,
-                        name = 'KafkaTopic', status = ConnectionStatus.DOWN)
+                        name = 'KafkaTopic', status = ConnectionStatus.DOWN,
+                        server_addrs = self._workers[kafka_part_failed]._brokers,
+                        message = "Some Kafka partitions are not reacheable")
 	        else:
+                    if pendingset:
+                        valid_part = list(pendingset.keys())[0]
+                        server_list = self._workers[valid_part]._brokers
+                    else:
+                        server_list = None
                     ConnectionState.update(conn_type = ConnectionType.KAFKA_PUB,
-                        name = 'KafkaTopic', status = ConnectionStatus.UP)
+                        name = 'KafkaTopic', status = ConnectionStatus.UP,
+                        server_addrs = server_list,
+                        message = "All Kafka partitions are reacheable")
 
                 if len(gevs):
                     gevent.joinall(gevs.values())
@@ -1499,7 +1511,8 @@ class Controller(object):
                 lredis = None
                 ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
                       name = 'AggregateRedis', status = ConnectionStatus.DOWN,
-                      server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port())])
+                      server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port())],
+                      message = ('ConnectionError: ' + messag))
                         
                 if self._ad:
                     self._ad.publish(None)

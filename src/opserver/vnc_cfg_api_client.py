@@ -59,7 +59,7 @@ class VncCfgApiClient(object):
         api_server_list = [s.split(':')[0] for s in self._conf_info['api_servers']]
         api_server_port = self._conf_info['api_servers'][0].split(':')[1] \
             if self._conf_info['api_servers'] else None
-        self._update_connection_state(ConnectionStatus.INIT)
+        self._update_connection_state(ConnectionStatus.INIT, "Connection to API Server initialized")
         while not connected:
             try:
                 self._vnc_api_client = vnc_api.VncApi(
@@ -72,7 +72,7 @@ class VncCfgApiClient(object):
                     auth_port=self._conf_info['auth_port'],
                     auth_protocol=self._conf_info['auth_protocol'])
                 connected = True
-                self._update_connection_state(ConnectionStatus.UP)
+                self._update_connection_state(ConnectionStatus.UP, 'Connection to API Server established')
             except Exception as e:
                 # Update connection info
                 self._update_connection_state(ConnectionStatus.DOWN, str(e))
