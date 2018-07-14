@@ -3360,7 +3360,6 @@ class VncApiServer(object):
         }
         """
         try:
-
             json_data = self._load_json_data()
             for item in json_data.get("data"):
                 object_type = item.get("object_type")
@@ -3379,7 +3378,7 @@ class VncApiServer(object):
                     # update default-global-system-config for supported_device_families
                     if object_type =='global-system-config':
                         fq_name = instance_obj.get_fq_name()
-                        uuid = self._db_conn.fq_name_to_uuid(object_type, fq_name)
+                        uuid = self._db_conn.fq_name_to_uuid('global_system_config', fq_name)
                         self._db_conn.dbe_update(object_type, uuid, obj)
 
             for item in json_data.get("refs"):

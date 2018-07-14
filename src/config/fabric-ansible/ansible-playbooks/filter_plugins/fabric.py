@@ -13,7 +13,7 @@ import argparse
 import json
 import uuid
 from netaddr import IPNetwork
-import python_jsonschema_objects as pjs
+import jsonschema
 
 from cfgm_common.exceptions import (
     RefsExistError,
@@ -192,27 +192,89 @@ class FilterModule(object):
     # end _init_vnc_api
 
     @staticmethod
-    def _validate_job_ctx(job_ctx):
+    def _validate_job_ctx(vnc_api, job_ctx, brownfield):
         """
+        :param vnc_api: <vnc_api.VncApi>
         :param job_ctx: Dictionary
-        :return:
+            example:
+            {
+                "auth_token": "EB9ABC546F98",
+                "job_input": {
+                    "fabric_fq_name": [
+                        "default-global-system-config",
+                        "fab01"
+                    ],
+                    "device_auth": {
+                        "root_password": "Embe1mpls"
+                    },
+                    "device_count": 1,
+                    "fabric_asn_pool": [
+                        {
+                            "asn_max": 65000,
+                            "asn_min": 64000
+                        },
+                        {
+                            "asn_max": 65100,
+                            "asn_min": 65000
+                        }
+                    ],
+                    "fabric_subnets": [
+                        "30.1.1.1/24"
+                    ],
+                    "loopback_subnets": [
+                        "20.1.1.1/24"
+                    ],
+                    "management_subnets": [
+                        {
+                            "cidr": "10.87.69.0/25",
+                            "gateway": "10.87.69.1"
+                        }
+                    ],
+                    "node_profiles": [
+                        {
+                            "node_profile_name": "juniper-qfx5100"
+                        }
+                    ]
+                }
+        :param brownfield: True if onboarding a brownfield fabric
+        :return: job_input (Dictionary)
         """
-        if not job_ctx.get('job_template_fqname'):
+        job_template_fqname = job_ctx.get('job_template_fqname')
+        if not job_template_fqname:
             raise ValueError('Invalid job_ctx: missing job_template_fqname')
+
+        job_input = job_ctx.get('job_input')
+        if not job_input:
+            raise ValueError('Invalid job_ctx: missing job_input')
+
+        # retrieve job input schema from job template to validate the job input
+        fabric_onboard_template = vnc_api.job_template_read(
+            fq_name=job_template_fqname
+        )
+        input_schema = fabric_onboard_template.get_job_template_input_schema()
+        jsonschema.validate(job_input, input_schema)
+
+        # make sure there is management subnets are not overlapping with
+        # management subnets of other existing fabrics
+        mgmt_subnets = job_input.get('management_subnets')
+        FilterModule._validate_mgmt_subnets(vnc_api, mgmt_subnets)
+
+        # change device_auth to conform with brownfield device_auth schema
+        if not brownfield:
+            job_input['device_auth'] = [
+                {
+                    'username': 'root',
+                    'password': job_input['device_auth'].get('root_password')
+                }
+            ]
+
+        return job_input
     # end _validate_job_ctx
 
     @staticmethod
-    def _get_job_input_schema(vnc_api, job_template_fq_name):
-        """
-        :param vnc_api: <vnc_api.VncApi>
-        :param job_template_fq_name: list<string>
-        :return: Dictionary that conforms to the job input JSON schema
-        """
-        fabric_onboard_template = vnc_api.job_template_read(
-            fq_name=job_template_fq_name
-        )
-        return fabric_onboard_template.get_job_template_input_schema()
-    # end _get_job_input_schema
+    def _validate_mgmt_subnets(vnc_api, mgmt_subnets):
+        pass
+    # end _validate_mgmt_subnets
 
     def __init__(self):
         self._logger = FilterLog.instance().logger()
@@ -222,6 +284,7 @@ class FilterModule(object):
         """Fabric filters"""
         return {
             'onboard_fabric': self.onboard_fabric,
+            'onboard_existing_fabric': self.onboard_brownfield_fabric,
             'delete_fabric': self.delete_fabric,
             'delete_devices': self.delete_fabric_devices,
             'assign_roles': self.assign_roles
@@ -266,6 +329,7 @@ class FilterModule(object):
                             "gateway": "10.87.69.1"
                         }
                     ],
+                    "overlay_ibgp_asn": 64512,
                     "node_profiles": [
                         {
                             "node_profile_name": "juniper-qfx5100"
@@ -287,108 +351,11 @@ class FilterModule(object):
                 }
         """
         try:
-            FilterModule._validate_job_ctx(job_ctx)
             vnc_api = FilterModule._init_vnc_api(job_ctx)
-
-            # validate and load job input to the FabricInfo object
-            job_input_schema = FilterModule._get_job_input_schema(
-                vnc_api, job_ctx.get('job_template_fqname')
+            fabric_info = FilterModule._validate_job_ctx(
+                vnc_api, job_ctx, False
             )
-            namespace = pjs.ObjectBuilder(job_input_schema).build_classes(
-                strict=True
-            )
-            fabric_info = namespace.FabricInfo.from_json(
-                json.dumps(job_ctx.get('job_input'))
-            )
-
-            # create fabric in db
-            fabric_obj = self._create_fabric(vnc_api, fabric_info)
-
-            # add all the namespaces
-            mgmt_subnets = [
-                {
-                    'cidr': str(subnet.cidr),
-                    'gateway': str(subnet.gateway)
-                } for subnet in fabric_info.management_subnets
-            ]
-            self._add_cidr_namespace(
-                vnc_api,
-                fabric_obj,
-                'management-subnets',
-                mgmt_subnets,
-                'label=fabric-management-ip'
-            )
-
-            loopback_subnets = [
-                {
-                    'cidr': str(subnet)
-                } for subnet in fabric_info.loopback_subnets
-            ]
-            self._add_cidr_namespace(
-                vnc_api,
-                fabric_obj,
-                'loopback-subnets',
-                loopback_subnets,
-                'label=fabric-loopback-ip'
-            )
-
-            fabric_subnets = [
-                {
-                    'cidr': str(subnet)
-                } for subnet in fabric_info.fabric_subnets
-            ]
-            self._add_cidr_namespace(
-                vnc_api,
-                fabric_obj,
-                'fabric-subnets',
-                fabric_subnets,
-                'label=fabric-peer-ip'
-            )
-
-            self._add_asn_range_namespace(
-                vnc_api,
-                fabric_obj,
-                'eBGP-ASN-pool',
-                [{
-                    'asn_min': int(asn_range.asn_min),
-                    'asn_max': int(asn_range.asn_max)
-                } for asn_range in fabric_info.fabric_asn_pool],
-                'label=fabric-ebgp-as-number'
-            )
-
-            # add node profiles
-            self._add_node_profiles(
-                vnc_api,
-                fabric_obj,
-                fabric_info.node_profiles
-            )
-
-            # add management, loopback, and peer networks
-            self._add_fabric_vn(
-                vnc_api,
-                fabric_obj,
-                NetworkType.MGMT_NETWORK,
-                mgmt_subnets,
-                False
-            )
-
-            self._add_fabric_vn(
-                vnc_api,
-                fabric_obj,
-                NetworkType.LOOPBACK_NETWORK,
-                loopback_subnets,
-                False
-            )
-
-            peer_subnets = self._carve_out_peer_subnets(fabric_subnets)
-            self._add_fabric_vn(
-                vnc_api,
-                fabric_obj,
-                NetworkType.FABRIC_NETWORK,
-                peer_subnets,
-                True
-            )
-
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info)
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
@@ -403,6 +370,179 @@ class FilterModule(object):
                 'error_msg': str(ex),
                 'onboard_log': FilterLog.instance().dump()
             }
+    # end onboard_fabric
+
+    # ***************** onboard_brownfield_fabric filter *********************************
+    def onboard_brownfield_fabric(self, job_ctx):
+        """
+        :param job_ctx: Dictionary
+            example:
+            {
+                "auth_token": "EB9ABC546F98",
+                "job_input": {
+                    "fabric_fq_name": [
+                        "default-global-system-config",
+                        "fab01"
+                    ],
+                    "device_auth": [{
+                        "username": "root",
+                        "password": "Embe1mpls"
+                    }],
+                    "management_subnets": [
+                        {
+                            "cidr": "10.87.69.0/25",
+                            "gateway": "10.87.69.1"
+                        }
+                    ],
+                    "overlay_ibgp_asn": 64512,
+                    "node_profiles": [
+                        {
+                            "node_profile_name": "juniper-qfx5100"
+                        }
+                    ]
+                }
+        :return: Dictionary
+            if success, returns
+                {
+                    'status': 'success',
+                    'fabric_uuid': <string: fabric_obj.uuid>,
+                    'onboard_log': <string: onboard_log>
+                }
+            if failure, returns
+                {
+                    'status': 'failure',
+                    'error_msg': <string: error message>,
+                    'onboard_log': <string: onboard_log>
+                }
+        """
+        try:
+            vnc_api = FilterModule._init_vnc_api(job_ctx)
+            fabric_info = FilterModule._validate_job_ctx(
+                vnc_api, job_ctx, True
+            )
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info)
+            return {
+                'status': 'success',
+                'fabric_uuid': fabric_obj.uuid,
+                'onboard_log': FilterLog.instance().dump()
+
+            }
+        except Exception as ex:
+            self._logger.error(str(ex))
+            traceback.print_exc(file=sys.stdout)
+            return {
+                'status': 'failure',
+                'error_msg': str(ex),
+                'onboard_log': FilterLog.instance().dump()
+            }
+    # end onboard_existing_fabric
+
+    def _onboard_fabric(self, vnc_api, fabric_info):
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_info: Dictionary
+        :return: <vnc_api.gen.resource_client.Fabric>
+        """
+        fabric_obj = self._create_fabric(vnc_api, fabric_info)
+
+        # management network
+        mgmt_subnets = [
+            {
+                'cidr': subnet.get('cidr'),
+                'gateway': subnet.get('gateway')
+            } for subnet in fabric_info.get('management_subnets')
+        ]
+        self._add_cidr_namespace(
+            vnc_api,
+            fabric_obj,
+            'management-subnets',
+            mgmt_subnets,
+            'label=fabric-management-ip'
+        )
+        self._add_fabric_vn(
+            vnc_api,
+            fabric_obj,
+            NetworkType.MGMT_NETWORK,
+            mgmt_subnets,
+            False
+        )
+
+        # loopback network
+        if fabric_info.get('loopback_subnets'):
+            loopback_subnets = [
+                {
+                    'cidr': subnet
+                } for subnet in fabric_info.get('loopback_subnets')
+            ]
+            self._add_cidr_namespace(
+                vnc_api,
+                fabric_obj,
+                'loopback-subnets',
+                loopback_subnets,
+                'label=fabric-loopback-ip'
+            )
+            self._add_fabric_vn(
+                vnc_api,
+                fabric_obj,
+                NetworkType.LOOPBACK_NETWORK,
+                loopback_subnets,
+                False
+            )
+
+        # fabric network
+        if fabric_info.get('fabric_subnets'):
+            fabric_subnets = [
+                {
+                    'cidr': subnet
+                } for subnet in fabric_info.get('fabric_subnets')
+            ]
+            self._add_cidr_namespace(
+                vnc_api,
+                fabric_obj,
+                'fabric-subnets',
+                fabric_subnets,
+                'label=fabric-peer-ip'
+            )
+            peer_subnets = self._carve_out_peer_subnets(fabric_subnets)
+            self._add_fabric_vn(
+                vnc_api,
+                fabric_obj,
+                NetworkType.FABRIC_NETWORK,
+                peer_subnets,
+                True
+            )
+
+        # ANS pool for underlay eBGP
+        if fabric_info.get('fabric_asn_range'):
+            self._add_asn_range_namespace(
+                vnc_api,
+                fabric_obj,
+                'eBGP-ASN-pool',
+                [{
+                    'asn_min': int(asn_range.get('asn_min')),
+                    'asn_max': int(asn_range.get('asn_max'))
+                } for asn_range in fabric_info.get('fabric_asn_pool')],
+                'label=fabric-ebgp-as-number'
+            )
+
+        # ASN for iBGP
+        if fabric_info.get('overlay_ibgp_asn'):
+            self._add_overlay_asn_namespace(
+                vnc_api,
+                fabric_obj,
+                'overlay_ibgp_asn',
+                fabric_info.get('overlay_ibgp_asn'),
+                'label=fabric-as-number'
+            )
+
+        # add node profiles
+        self._add_node_profiles(
+            vnc_api,
+            fabric_obj,
+            fabric_info.get('node_profiles')
+        )
+
+        return fabric_obj
     # end onboard_fabric
 
     @staticmethod
@@ -435,7 +575,7 @@ class FilterModule(object):
                             python_jsonschema_objects
         :return: <vnc_api.gen.resource_client.Fabric>
         """
-        fq_name = [str(name) for name in fabric_info.fabric_fq_name]
+        fq_name = [name for name in fabric_info.get('fabric_fq_name')]
         fab_name = fq_name[-1:]
         _task_log('creating fabric: %s' % fab_name)
         fab = Fabric(
@@ -443,14 +583,14 @@ class FilterModule(object):
             fq_name=fq_name,
             parent_type='global-system-config',
             fabric_credentials={
-                'device_credential': [{
-                    'credential': {
-                        'username': 'root',
-                        'password': str(fabric_info.device_auth.root_password)
-                    }
-                }]
+                'device_credential': [
+                    {
+                        'credential': device_auth
+                    } for device_auth in fabric_info.get('device_auth')
+                ]
             }
         )
+
         try:
             vnc_api.fabric_create(fab)
         except RefsExistError:
@@ -506,6 +646,44 @@ class FilterModule(object):
     # end _add_cidr_namespace
 
     @staticmethod
+    def _add_overlay_asn_namespace(vnc_api, fab, ns_name, asn, tag):
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param fab: <vnc_api.gen.resource_client.Fabric>
+        :param ns_name: string, namespace name
+        :param asn: list<Dictionary>
+            [
+                { 'asn_min': 1000, 'asn_max': 2000 }
+            ]
+        :param tag: string
+        :return: <vnc_api.gen.resource_client.FabricNamespace>
+        """
+        _task_log(
+            'adding ASN range namespace "%s" to fabric "%s"'
+            % (ns_name, fab.name)
+        )
+        ns_fq_name = fab.fq_name + [ns_name]
+        namespace = FabricNamespace(
+            name=ns_name,
+            fq_name=ns_fq_name,
+            parent_type='fabric',
+            fabric_namespace_type='ASN',
+            fabric_namespace_value=NamespaceValue(asn={
+                'asn': [asn]
+            })
+        )
+        namespace.set_tag_list([{'to': [tag]}])
+        try:
+            vnc_api.fabric_namespace_create(namespace)
+        except RefsExistError:
+            _task_log("Fabric namespace '%s' already exists" % ns_name)
+        _task_done()
+
+        namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
+        return namespace
+    # end _add_overlay_asn_namespace
+
+    @staticmethod
     def _add_asn_range_namespace(vnc_api, fab, ns_name, asn_ranges, tag):
         """
         :param vnc_api: <vnc_api.VncApi>
@@ -554,7 +732,7 @@ class FilterModule(object):
         node_profile_objs = []
         node_profile_names = []
         for node_profile in node_profiles:
-            name = str(node_profile.node_profile_name)
+            name = str(node_profile.get('node_profile_name'))
             node_profile_names.append(name)
             np_fq_name = ['default-global-system-config', name]
             node_profile_obj = vnc_api.node_profile_read(fq_name=np_fq_name)
@@ -709,10 +887,10 @@ class FilterModule(object):
                 }
         """
         try:
-            FilterModule._validate_job_ctx(job_ctx)
             vnc_api = FilterModule._init_vnc_api(job_ctx)
 
-            fabric_fq_name = job_ctx.get('job_input', {}).get('fabric_fq_name')
+            fabric_info = job_ctx.get('job_input')
+            fabric_fq_name = fabric_info.get('fabric_fq_name')
             fabric_name = fabric_fq_name[-1]
             self._delete_fabric(vnc_api, fabric_fq_name)
 
@@ -978,10 +1156,10 @@ class FilterModule(object):
                 }
         """
         try:
-            FilterModule._validate_job_ctx(job_ctx)
             vnc_api = FilterModule._init_vnc_api(job_ctx)
 
-            fabric_fq_name = job_ctx.get('job_input', {}).get('fabric_fq_name')
+            fabric_info = job_ctx.get('job_input')
+            fabric_fq_name = fabric_info.get('fabric_fq_name')
             fabric_obj = None
             if fabric_fq_name:
                 try:
@@ -1045,11 +1223,10 @@ class FilterModule(object):
                 }
         """
         try:
-            FilterModule._validate_job_ctx(job_ctx)
             vnc_api = FilterModule._init_vnc_api(job_ctx)
 
-            job_input = job_ctx.get('job_input', {})
-            role_assignments = job_input.get('role_assignments', [])
+            fabric_info = job_ctx.get('job_input')
+            role_assignments = fabric_info.get('role_assignments', [])
 
             for device_roles in role_assignments:
                 device_obj = vnc_api.physical_router_read(
@@ -1425,11 +1602,7 @@ def _mock_job_ctx_onbard_fabric():
             ],
             "node_profiles": [
                 {
-                    "node_profile_name": "juniper-qfx5100",
-                    "serial_nums": [
-                        "a",
-                        "b"
-                    ]
+                    "node_profile_name": "juniper-qfx5100"
                 }
             ],
             "device_count": 5
@@ -1437,6 +1610,42 @@ def _mock_job_ctx_onbard_fabric():
         "job_template_fqname": [
             "default-global-system-config",
             "fabric_onboard_template"
+        ]
+    }
+# end _mock_job_ctx_onbard_fabric
+
+def _mock_job_ctx_onboard_brownfield_fabric():
+    return {
+        "auth_token": "",
+        "config_args": {
+            "collectors": [
+                "10.155.75.181:8086"
+            ],
+            "fabric_ansible_conf_file": [
+                "/etc/contrail/contrail-keystone-auth.conf",
+                "/etc/contrail/contrail-fabric-ansible.conf"
+            ]
+        },
+        "job_execution_id": "c37b199a-effb-4469-aefa-77f531f77758",
+        "job_input": {
+            "fabric_fq_name": ["default-global-system-config", "fab01"],
+            "device_auth": [{
+                "username": "root",
+                "password": "Embe1mpls"
+            }],
+            "management_subnets": [
+                {"cidr": "10.1.1.1/24"}
+            ],
+            "overlay_ibgp_asn": 64600,
+            "node_profiles": [
+                {
+                    "node_profile_name": "juniper-qfx5100"
+                }
+            ]
+        },
+        "job_template_fqname": [
+            "default-global-system-config",
+            "existing_fabric_onboard_template"
         ]
     }
 # end _mock_job_ctx_onbard_fabric
@@ -1459,7 +1668,7 @@ def _mock_job_ctx_delete_fabric():
         },
         "job_template_fqname": [
             "default-global-system-config",
-            "fabric_onboard_template"
+            "fabric_deletion_template"
         ]
     }
 # end _mock_job_ctx_delete_fabric
@@ -1483,7 +1692,7 @@ def _mock_job_ctx_delete_devices():
         },
         "job_template_fqname": [
             "default-global-system-config",
-            "fabric_onboard_template"
+            "device_deletion_template"
         ]
     }
 # end _mock_job_ctx_delete_fabric
@@ -1531,6 +1740,8 @@ def _parse_args():
     arg_parser = argparse.ArgumentParser(description='fabric filters tests')
     arg_parser.add_argument('-c', '--create_fabric',
                             action='store_true', help='Onbaord fabric')
+    arg_parser.add_argument('-ce', '--create_existing_fabric',
+                            action='store_true', help='Onbaord existing fabric')
     arg_parser.add_argument('-df', '--delete_fabric',
                             action='store_true', help='Delete fabric')
     arg_parser.add_argument('-dd', '--delete_devices',
@@ -1548,14 +1759,21 @@ def __main__():
     results = {}
     if parser.create_fabric:
         results = fabric_filter.onboard_fabric(_mock_job_ctx_onbard_fabric())
+    elif parser.create_existing_fabric:
+        results = fabric_filter.onboard_brownfield_fabric(
+            _mock_job_ctx_onboard_brownfield_fabric()
+        )
     elif parser.delete_fabric:
         results = fabric_filter.delete_fabric(_mock_job_ctx_delete_fabric())
     elif parser.delete_devices:
-        results = fabric_filter.delete_fabric_devices(_mock_job_ctx_delete_devices())
+        results = fabric_filter.delete_fabric_devices(
+            _mock_job_ctx_delete_devices()
+        )
     elif parser.assign_roles:
         results = fabric_filter.assign_roles(_mock_job_ctx_assign_roles())
     print results
 # end __main__
+
 
 if __name__ == '__main__':
     __main__()

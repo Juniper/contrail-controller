@@ -39,6 +39,7 @@ local_sources = [
     'generate_underlay_config.yml',
     'image_upgrade.yml',
     'fabric_onboard.yml',
+    'existing_fabric_onboard.yml',
     'error_handler.yml',
     'topo_discovery.yml',
     'ansible.cfg',
