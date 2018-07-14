@@ -4,9 +4,9 @@
   set_fact:
     dhcp_state: "{{ 'present' if ztp_create else 'absent' }}"
 
-- name: Insert/update/delete global section in DHCP config file on remote host
+- name: Insert/update global section in DHCP config file on remote host
   block:
-    - name: Insert/update/delete global section in config file on remote host
+    - name: Insert/update global section in config file on remote host
       blockinfile:
         block: "{{ lookup('file', dhcp_gconf_path) if dhcp_gconf_path else '' }}"
         dest: "{{ DHCPD_CONFIG_PATH }}"
@@ -18,12 +18,13 @@
     - set_fact:
         dhcp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to insert/update/delete global dhcp config"},
+          "results": {"jl_message": "Failed to insert/update global dhcp config"},
           "message": "{{cmd_res.msg}}"
         }
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
+  when: dhcp_state == 'present'
 
 - name: Insert/update/delete subsection in DHCP config file on remote host
   block:
@@ -64,6 +65,28 @@
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
+
+- name: Delete global section in DHCP config file on remote host if no more subsections
+  block:
+    - name: Delete global section in config file on remote host
+      blockinfile:
+        block: "{{ lookup('file', dhcp_gconf_path) if dhcp_gconf_path else '' }}"
+        dest: "{{ DHCPD_CONFIG_PATH }}"
+        marker: '########## {mark} GLOBAL BLOCK ##########'
+        state: "{{ dhcp_state }}"
+        create: yes
+      register: cmd_res
+  rescue:
+    - set_fact:
+        dhcp_output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to delete global dhcp config"},
+          "message": "{{cmd_res.msg}}"
+        }
+    - name: print output
+      debug: var=dhcp_output verbosity=1
+    - meta: end_play
+  when: subsections_present is undefined
 
 - name: Restart or stop dhcpd server
   block:
@@ -108,4 +131,5 @@
       debug: var=dhcp_output verbosity=1
     - meta: end_play
   when: dhcp_state == 'present'
+
 
