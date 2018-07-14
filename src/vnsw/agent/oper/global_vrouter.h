@@ -185,6 +185,7 @@ private:
     void ChangeLinkLocalService(const LinkLocalServicesMap::iterator &old_it,
                                 const LinkLocalServicesMap::iterator &new_it);
 
+    bool IsVrouterPresentCryptTunnelConfig(const EncryptionTunnelEndpointList &endpoint_list);
     void UpdateCryptTunnelEndpointConfig(const EncryptionTunnelEndpointList &endpoint_list,
                                          const std::string encrypt_mode_str);
     void DeleteCryptTunnelEndpointConfig();
