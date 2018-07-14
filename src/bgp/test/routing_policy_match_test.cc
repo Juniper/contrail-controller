@@ -11,6 +11,7 @@
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-policy/routing_policy_match.h"
+#include "bgp/rtarget/rtarget_address.h"
 #include "control-node/control_node.h"
 #include "net/community_type.h"
 
@@ -75,6 +76,384 @@ private:
     Ip4Address address_;
     std::string address_str_;
 };
+
+class MatchExtCommunityTest : public ::testing::Test {
+protected:
+    MatchExtCommunityTest() : server_(&evm_), attr_db_(server_.attr_db()) {
+    }
+
+    void TearDown() {
+        server_.Shutdown();
+        task_util::WaitForIdle();
+    }
+
+    EventManager evm_;
+    BgpServer server_;
+    BgpAttrDB *attr_db_;
+};
+
+TEST_F(MatchExtCommunityTest, MatchAny1) {
+    vector<string> communities = list_of("target:23:11")("target:43:11");
+    MatchExtCommunity match(communities, false);
+
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    RouteTarget val0 = RouteTarget::FromString("target:23:11");
+    RouteTarget val1 = RouteTarget::FromString("target:43:11");
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue()-1);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue()+1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue()-1);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue()+1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue()-1);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue()+1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue()-1);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue()+1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+}
+
+TEST_F(MatchExtCommunityTest, MatchAny2) {
+    vector<string> communities = list_of("target:33:.*")("target:53:.*");
+    MatchExtCommunity match(communities, false);
+
+    RouteTarget val0 = RouteTarget::FromString("target:33:11");
+    RouteTarget val1 = RouteTarget::FromString("target:53:11");
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+}
+
+TEST_F(MatchExtCommunityTest, MatchAny3) {
+    vector<string> communities =
+        list_of("target:23:11")("target:33:.*")("target:43:11")("target:53:.*");
+    MatchExtCommunity match(communities, false);
+
+    RouteTarget val0 = RouteTarget::FromString("target:43:11");
+    RouteTarget val1 = RouteTarget::FromString("target:53:11");
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+}
+
+TEST_F(MatchExtCommunityTest, MatchAll1) {
+    vector<string> communities = list_of("target:23:11")("target:43:11");
+    MatchExtCommunity match(communities, true);
+
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    RouteTarget val0 = RouteTarget::FromString("target:23:11");
+    RouteTarget val1 = RouteTarget::FromString("target:43:11");
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue()-1);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue()+1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue()+1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue()-1);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue()-1);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue()+1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+}
+
+TEST_F(MatchExtCommunityTest, MatchAll2) {
+    vector<string> communities = list_of("target:33:.*")("target:53:.*");
+    MatchExtCommunity match(communities, true);
+
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    RouteTarget val0 = RouteTarget::FromString("target:33:11");
+    RouteTarget val1 = RouteTarget::FromString("target:53:11");
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+}
+
+TEST_F(MatchExtCommunityTest, MatchAll3) {
+    vector<string> communities = list_of("target:33:.*")("target:43:11")
+                                        ("target:53:.*");
+    MatchExtCommunity match(communities, true);
+
+    RouteTarget val0 = RouteTarget::FromString("target:33:11");
+    RouteTarget val1 = RouteTarget::FromString("target:43:11");
+    RouteTarget val2 = RouteTarget::FromString("target:53:11");
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 1);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() + 1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 1);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue() + 1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val1.GetExtCommunityValue() - 1);
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue() + 1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 1);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue() + 1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+}
+
+TEST_F(MatchExtCommunityTest, MatchAll4) {
+    vector<string> communities = list_of("target:33:.*")("target:33:11")
+                                        ("target:53:.*");
+    MatchExtCommunity match(communities, true);
+
+    RouteTarget val0 = RouteTarget::FromString("target:33:11");
+    RouteTarget val1 = RouteTarget::FromString("target:43:11");
+    RouteTarget val2 = RouteTarget::FromString("target:53:11");
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_FALSE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 1);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue() + 1);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+
+    comm_spec.communities.clear();
+    comm_spec.communities.push_back(val0.GetExtCommunityValue() - 0x100000000);
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    comm_spec.communities.push_back(val1.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue());
+    comm_spec.communities.push_back(val2.GetExtCommunityValue() + 0x100000000);
+    attr = attr_db_->Locate(spec);
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+}
+
+//
+// community values from hex.
+//
+TEST_F(MatchExtCommunityTest, FromHexValues) {
+    vector<string> communities = list_of(".*200170000000b")("0708000000bc5bf7");
+    MatchExtCommunity match(communities, false);
+    MatchExtCommunity match2(communities, true);
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match2.regex_strings().size());
+
+    ExtCommunitySpec comm_spec;
+    BgpAttrSpec spec;
+    RouteTarget val0 = RouteTarget::FromString("target:23:11");
+    comm_spec.communities.push_back(val0.GetExtCommunityValue());
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+
+    EXPECT_TRUE(match.Match(NULL, NULL, attr.get()));
+    EXPECT_FALSE(match2.Match(NULL, NULL, attr.get()));
+}
 
 class MatchCommunityTest : public ::testing::Test {
 protected:
@@ -735,6 +1114,327 @@ TEST_P(MatchCommunityParamTest, IsEqual2e) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, MatchCommunityParamTest, ::testing::Bool());
+
+// Parameterize match-all vs. match-any in MatchExtCommunity.
+class MatchExtCommunityParamTest:
+    public MatchExtCommunityTest,
+    public ::testing::WithParamInterface<bool> {
+};
+
+//
+// Fixed community values only.
+//
+TEST_P(MatchExtCommunityParamTest, Constructor1a) {
+    vector<string> communities = list_of("target:23:11")("target:43:11");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(GetParam(), match.match_all());
+    EXPECT_EQ(2, match.communities().size());
+    EXPECT_EQ(0, match.regex_strings().size());
+    EXPECT_EQ(0, match.regexs().size());
+
+    RouteTarget val0 = RouteTarget::FromString(communities[0]);
+    EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
+    RouteTarget val1 = RouteTarget::FromString(communities[1]);
+    EXPECT_TRUE(match.Find(val1.GetExtCommunity()));
+}
+
+//
+// Fixed community values only, including duplicates.
+//
+TEST_P(MatchExtCommunityParamTest, Constructor1b) {
+    vector<string> communities =
+        list_of("target:23:11")("target:43:11")("target:23:11")("target:43:11");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(GetParam(), match.match_all());
+    EXPECT_EQ(2, match.communities().size());
+    EXPECT_EQ(0, match.regex_strings().size());
+    EXPECT_EQ(0, match.regexs().size());
+
+    RouteTarget val0 = RouteTarget::FromString(communities[0]);
+    EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
+    RouteTarget val1 = RouteTarget::FromString(communities[1]);
+    EXPECT_TRUE(match.Find(val1.GetExtCommunity()));
+}
+
+//
+// Community regular expressions only.
+//
+TEST_P(MatchExtCommunityParamTest, Constructor2a) {
+    vector<string> communities = list_of("target:33:.*")("target:53:.*");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(GetParam(), match.match_all());
+    EXPECT_EQ(0, match.communities().size());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[0]) != match.regex_strings().end());
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[1]) != match.regex_strings().end());
+}
+
+//
+// Community regular expressions only, including duplicates.
+//
+TEST_P(MatchExtCommunityParamTest, Constructor2b) {
+    vector<string> communities =
+        list_of("target:33:.*")("target:53:.*")("target:33:.*")("target:53:.*");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(GetParam(), match.match_all());
+    EXPECT_EQ(0, match.communities().size());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[0]) != match.regex_strings().end());
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[1]) != match.regex_strings().end());
+}
+
+//
+// Fixed community values and regular expressions.
+//
+TEST_P(MatchExtCommunityParamTest, Constructor3a) {
+    vector<string> communities =
+        list_of("target:23:11")("target:33:.*")("target:43:11")("target:53:.*");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(GetParam(), match.match_all());
+    EXPECT_EQ(2, match.communities().size());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+
+    RouteTarget val0 = RouteTarget::FromString(communities[0]);
+    EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[1]) != match.regex_strings().end());
+    RouteTarget val2 = RouteTarget::FromString(communities[2]);
+    EXPECT_TRUE(match.Find(val2.GetExtCommunity()));
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[3]) != match.regex_strings().end());
+}
+
+//
+// Fixed community values and regular expressions, including duplicates.
+//
+TEST_P(MatchExtCommunityParamTest, Constructor3b) {
+    vector<string> communities = list_of("target:23:11")("target:33:.*")
+                                        ("target:43:11")("target:53:.*")
+                                        ("target:33:.*");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(GetParam(), match.match_all());
+    EXPECT_EQ(2, match.communities().size());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+
+    RouteTarget val0 = RouteTarget::FromString(communities[0]);
+    EXPECT_TRUE(match.Find(val0.GetExtCommunity()));
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[1]) != match.regex_strings().end());
+    RouteTarget val2 = RouteTarget::FromString(communities[2]);
+    EXPECT_TRUE(match.Find(val2.GetExtCommunity()));
+    EXPECT_TRUE(find(match.regex_strings().begin(), match.regex_strings().end(),
+        communities[3]) != match.regex_strings().end());
+}
+
+//
+// Fixed community values only.
+//
+TEST_P(MatchExtCommunityParamTest, ToString1) {
+    vector<string> communities = list_of("target:23:11")("target:43:11");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(2, match.communities().size());
+    if (GetParam()) {
+        EXPECT_EQ("Extcommunity (all) [ target:23:11,target:43:11 ]",
+                  match.ToString());
+    } else {
+        EXPECT_EQ("Extcommunity (any) [ target:23:11,target:43:11 ]",
+                  match.ToString());
+    }
+}
+
+//
+// Community regular expressions only.
+//
+TEST_P(MatchExtCommunityParamTest, ToString2) {
+    vector<string> communities = list_of("target:33:.*")("target:53:.*");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+    if (GetParam()) {
+        EXPECT_EQ("Extcommunity (all) [ target:33:.*,target:53:.* ]",
+                  match.ToString());
+    } else {
+        EXPECT_EQ("Extcommunity (any) [ target:33:.*,target:53:.* ]",
+                  match.ToString());
+    }
+}
+
+//
+// Fixed community values and regular expressions.
+//
+TEST_P(MatchExtCommunityParamTest, ToString3) {
+    vector<string> communities = list_of("target:33:.*")("target:43:11")
+                                        ("target:53:.*");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(1, match.communities().size());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+    if (GetParam()) {
+        EXPECT_EQ("Extcommunity (all) [ target:43:11,"
+                  "target:33:.*,target:53:.* ]", match.ToString());
+    } else {
+        EXPECT_EQ("Extcommunity (any) [ target:43:11,"
+                  "target:33:.*,target:53:.* ]", match.ToString());
+    }
+}
+
+//
+// Invalid Community regular expressions.
+//
+TEST_P(MatchExtCommunityParamTest, InvalidRegex) {
+    vector<string> communities = list_of("target:33:[.*")("target:53:.*]");
+    MatchExtCommunity match(communities, GetParam());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+    if (GetParam()) {
+        EXPECT_NE("Extcommunity (all) [ target:33:.*,"
+                  "target:53:.* ]", match.ToString());
+    } else {
+        EXPECT_NE("Extcommunity (all) [ target:33:.*,"
+                  "target:53:.* ]", match.ToString());
+    }
+}
+
+//
+// Fixed community values only.
+// One value is same and one is different.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual1a) {
+    vector<string> communities1 = list_of("target:23:11")("target:43:11");
+    vector<string> communities2 = list_of("target:23:11")("target:43:12");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+//
+// Fixed community values only.
+// One value is same and one is different.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual1b) {
+    vector<string> communities1 = list_of("target:23:11")("target:43:11");
+    vector<string> communities2 = list_of("target:23:12")("target:43:11");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+//
+// Fixed community values only.
+// One list is a subset of the other.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual1c) {
+    vector<string> communities1 = list_of("target:23:11")("target:43:11")
+                                         ("target:63:11");
+    vector<string> communities2 = list_of("target:23:11")("target:43:11");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+//
+// Fixed community values only.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual1d) {
+    vector<string> communities1 = list_of("target:23:11")("target:43:11");
+    vector<string> communities2 = list_of("target:43:11")("target:23:11");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
+//
+// Fixed community values only.
+// Values of match-all are different.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual1e) {
+    vector<string> communities1 = list_of("target:23:11")("target:43:11");
+    vector<string> communities2 = list_of("target:43:11")("target:23:11");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, !GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+//
+// Community regular expressions only.
+// One value is same and one is different.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual2a) {
+    vector<string> communities1 = list_of("target:23:.*")("target:43:.*");
+    vector<string> communities2 = list_of("target:23:.*")("target:44:.*");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+//
+// Community regular expressions only.
+// One value is same and one is different.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual2b) {
+    vector<string> communities1 = list_of("target:23:.*")("target:43:.*");
+    vector<string> communities2 = list_of("target:24:.*")("target:43:.*");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+//
+// Community regular expressions only.
+// One list is a subset of the other.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual2c) {
+    vector<string> communities1 = list_of("target:23:.*")("target:43:.*")
+                                         ("target:63:.*");
+    vector<string> communities2 = list_of("target:23:.*")("target:43:.*");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+//
+// Community regular expressions only.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual2d) {
+    vector<string> communities1 = list_of("target:23:.*")("target:43:.*");
+    vector<string> communities2 = list_of("target:43:.*")("target:23:.*");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, GetParam());
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
+//
+// Community regular expressions only.
+// Values of match-all are different.
+//
+TEST_P(MatchExtCommunityParamTest, IsEqual2e) {
+    vector<string> communities1 = list_of("target:23:.*")("target:43:.*");
+    vector<string> communities2 = list_of("target:43:.*")("target:23:.*");
+    MatchExtCommunity match1(communities1, GetParam());
+    MatchExtCommunity match2(communities2, !GetParam());
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+INSTANTIATE_TEST_CASE_P(Instance, MatchExtCommunityParamTest,
+                        ::testing::Bool());
 
 class MatchProtocolTest : public ::testing::Test {
 protected:
