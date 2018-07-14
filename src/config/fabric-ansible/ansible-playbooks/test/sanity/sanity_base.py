@@ -232,7 +232,7 @@ class SanityBase(object):
             self._api.fabric_delete(fab_fqname)
 
             # delete all prouters in this fabric
-            for prouter in fab.get_physical_router_refs() or []:
+            for prouter in fab.get_physical_router_back_refs() or []:
                 self._delete_prouter(prouter.get('uuid'))
 
         except NoIdError:
@@ -356,7 +356,7 @@ class SanityBase(object):
         self._wait_for_job_to_finish('Device discovery', job_execution_id)
 
         fab = self._api.fabric_read(fab.fq_name)
-        discovered_prouter_refs = fab.get_physical_router_refs()
+        discovered_prouter_refs = fab.get_physical_router_back_refs()
         self._logger.debug(
             "Disovered devices:\n%s",
             pprint.pformat(discovered_prouter_refs, indent=4))
