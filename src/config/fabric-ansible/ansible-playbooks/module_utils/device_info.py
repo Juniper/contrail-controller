@@ -448,7 +448,7 @@ class DeviceInfo(object):
                         self.logger.debug("Object already exists")
             if return_code is True:
                 self.vncapi.ref_update(
-                    "fabric", self.fabric_uuid, "physical_router", pr_uuid,
+                    "physical_router", pr_uuid, "fabric", self.fabric_uuid,
                     None, "ADD")
                 self.logger.info(
                     "Fabric updated with physical router info for "
