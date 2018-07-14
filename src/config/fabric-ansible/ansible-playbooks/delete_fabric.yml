@@ -149,11 +149,3 @@
       vars:
         current_index: 3
         jl_message: "Successfully deleted fabric: {{ playbook_input.input.fabric_fq_name }}"
-
-    - name: print marked output
-      debug:
-       msg: "{{PB_OUTPUT_MARKER}}{{output}}{{PB_OUTPUT_MARKER}}"
-       verbosity: 0
-
-
-
