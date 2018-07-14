@@ -3287,6 +3287,10 @@ class VncApiServer(object):
         self.create_singleton_entry(DiscoveryServiceAssignment())
         self.create_singleton_entry(GlobalQosConfig())
 
+        #Load init data for job playbooks like JobTemplates, Tags, etc
+        if self._args.enable_fabric_ansible:
+            self._load_init_data()
+
         sc_ipam_subnet_v4 = IpamSubnetType(subnet=SubnetType('0.0.0.0', 8))
         sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff', 104))
         sc_ipam_subnets = IpamSubnets([sc_ipam_subnet_v4, sc_ipam_subnet_v6])
@@ -3303,10 +3307,6 @@ class VncApiServer(object):
 
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
-
-        # Load init data for job playbooks like JobTemplates, Tags, etc
-        if self._args.enable_fabric_ansible:
-            self._load_init_data()
 
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
@@ -3360,6 +3360,7 @@ class VncApiServer(object):
         }
         """
         try:
+
             json_data = self._load_json_data()
             for item in json_data.get("data"):
                 object_type = item.get("object_type")
@@ -3376,7 +3377,7 @@ class VncApiServer(object):
                     self.create_singleton_entry(instance_obj)
 
                     # update default-global-system-config for supported_device_families
-                    if object_type =='global_system_config':
+                    if object_type =='global-system-config':
                         fq_name = instance_obj.get_fq_name()
                         uuid = self._db_conn.fq_name_to_uuid(object_type, fq_name)
                         self._db_conn.dbe_update(object_type, uuid, obj)
@@ -3410,6 +3411,7 @@ class VncApiServer(object):
 
     # Load json data from fabric_ansible_playbooks/conf directory
     def _load_json_data(self):
+
         # open the json file
         with open(self._args.fabric_ansible_dir +
                   '/conf/predef_payloads.json') as data_file:
@@ -3417,7 +3419,7 @@ class VncApiServer(object):
 
         # Loop through the json
         for item in input_json.get("data"):
-            if item.get("object_type") == "job_template":
+            if item.get("object_type") == "job-template":
                 for object in item.get("objects"):
                     fq_name = object.get("fq_name")[-1]
                     schema_name = fq_name.replace('template', 'schema.json')
@@ -3512,6 +3514,7 @@ class VncApiServer(object):
     # end _resync_domains_projects
 
     def create_singleton_entry(self, singleton_obj, user_visible=True):
+
         s_obj = singleton_obj
         obj_type = s_obj.object_type
         fq_name = s_obj.get_fq_name()
@@ -4792,3 +4795,4 @@ def server_main(args_str=None):
 
 if __name__ == "__main__":
     server_main()
+
