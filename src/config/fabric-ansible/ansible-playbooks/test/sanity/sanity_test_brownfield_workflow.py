@@ -16,9 +16,8 @@ import config
 # pylint: disable=E1101
 class SanityTestZtpWorkflow(SanityBase):
     """
-    Sanity test on full ztp workflow:
+    Sanity test on full brown field fabric onborad workflow:
      - fabric onboard
-     - ztp
      - device discovery
      - role discovery
      - device import
@@ -26,7 +25,7 @@ class SanityTestZtpWorkflow(SanityBase):
     """
 
     def __init__(self, cfg):
-        SanityBase.__init__(self, cfg, 'sanity_test_ztp_workflow')
+        SanityBase.__init__(self, cfg, 'sanity_test_brownfield_workflow')
         self._namespaces = cfg['namespaces']
         self._prouter = cfg['prouter']
     # end __init__
@@ -36,7 +35,7 @@ class SanityTestZtpWorkflow(SanityBase):
         self._logger.info("Onboard fabric ...")
         job_execution_info = self._api.execute_job(
             job_template_fq_name=[
-                'default-global-system-config', 'fabric_onboard_template'],
+                'default-global-system-config', 'existing_fabric_onboard_template'],
             job_input=fabric_info
         )
 
