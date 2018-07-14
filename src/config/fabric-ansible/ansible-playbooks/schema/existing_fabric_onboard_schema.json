@@ -5,7 +5,7 @@
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "fabric_fq_name", "management_subnets", "device_auth"
+      "fabric_fq_name", "management_subnets", "device_auth", "node_profiles"
     ],
     "properties": {
       "fabric_fq_name": {
@@ -20,13 +20,46 @@
           "type": "object",
           "description": "List of the management network subnets for the fabric",
           "additionalProperties": false,
-          "required": [ "cidr" ],
+          "required": [ "cidr", "gateway" ],
           "properties": {
             "cidr": {
               "type": "string",
               "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+            },
+            "gateway": {
+              "type": "string",
+              "format": "ipv4"
             }
           }
+        }
+      },
+      "loopback_subnets": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "List of the subnet prefixes that fabric device loopback ips can be allocated.",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+        }
+      },
+      "fabric_subnets": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "List of the subnet prefixes that could be carved out for the p2p networks between fabric devices.",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+        }
+      },
+      "fabric_asn_pool": {
+        "type": "array",
+        "items": {
+          "title": "eBGP ASN Pool for fabric underlay network",
+          "type": "object",
+          "description": "List of the ASN pools that could be used to configure the eBGP peers for the IP fabric",
+          "properties": {
+            "asn_min": { "type": "integer" },
+            "asn_max": { "type": "integer" }
+          },
+          "required": [ "asn_min", "asn_max" ]
         }
       },
       "overlay_ibgp_asn": {
@@ -66,6 +99,11 @@
           },
           "required": [ "node_profile_name" ]
         }
+      },
+      "device_count": {
+        "title": "Number of fabric devices",
+        "type": "integer",
+        "description": "Total number of devices in the fabric that needs to be zero-touch provisioned"
       }
     }
   },
