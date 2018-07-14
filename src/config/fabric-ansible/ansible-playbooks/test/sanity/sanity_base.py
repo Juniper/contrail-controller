@@ -131,7 +131,7 @@ class SanityBase(object):
                 },
             }
         )
-        namespace.set_tag_list([{'to': ['label=fabric-management_ip']}])
+        namespace.set_tag_list([{'to': ['label=fabric-management-ip']}])
         try:
             ns_uuid = self._api.fabric_namespace_create(namespace)
             namespace = self._api.fabric_namespace_read(id=ns_uuid)
@@ -165,7 +165,7 @@ class SanityBase(object):
                 }
             }
         )
-        namespace.set_tag_list([{'to': ['label=fabric-as_number']}])
+        namespace.set_tag_list([{'to': ['label=fabric-as-number']}])
         try:
             ns_uuid = self._api.fabric_namespace_create(namespace)
             namespace = self._api.fabric_namespace_read(id=ns_uuid)
