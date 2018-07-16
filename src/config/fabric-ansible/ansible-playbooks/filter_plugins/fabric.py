@@ -935,7 +935,7 @@ class FilterModule(object):
 
         if fabric_obj:
             # delete all fabric devices
-            for device_ref in list(fabric_obj.get_physical_router_refs() or []):
+            for device_ref in list(fabric_obj.get_physical_router_back_refs() or []):
                 device_uuid = str(device_ref.get('uuid'))
                 self._delete_fabric_device(vnc_api, fabric_obj, device_uuid)
 
@@ -1036,15 +1036,6 @@ class FilterModule(object):
                 % (str(pi_obj.fq_name[1]), str(pi_obj.fq_name[2]))
             )
             vnc_api.physical_interface_delete(id=pi_uuid)
-            _task_done()
-
-        if fabric_obj:
-            _task_log(
-                "Un-assigning deivce %s from fabric %s"
-                % (device_obj.display_name, fabric_obj.display_name)
-            )
-            fabric_obj.del_physical_router(device_obj)
-            vnc_api.fabric_update(fabric_obj)
             _task_done()
 
         # delete the corresponding bgp-router if exist
@@ -1231,7 +1222,7 @@ class FilterModule(object):
             for device_roles in role_assignments:
                 device_obj = vnc_api.physical_router_read(
                     fq_name=device_roles.get('device_fq_name'),
-                    fields=['physical_interfaces', 'fabric_back_refs']
+                    fields=['physical_interfaces', 'fabric_refs']
                 )
                 self._add_loopback_interface(vnc_api, device_obj)
                 self._add_logical_interfaces_for_fabric_links(
@@ -1260,13 +1251,13 @@ class FilterModule(object):
     @staticmethod
     def _get_fabric_name(device_obj):
         # get fabric object that this device belongs to
-        fabric_back_refs = device_obj.get_fabric_back_refs() or []
-        if len(fabric_back_refs) != 1:
+        fabric_refs = device_obj.get_fabric_refs() or []
+        if len(fabric_refs) != 1:
             raise ValueError(
                 "Unable to assign roles for device %s that does not belong to "
                 "any fabric" % str(device_obj.fq_name)
             )
-        return str(fabric_back_refs[0].get('to')[-1])
+        return str(fabric_refs[0].get('to')[-1])
     # end _get_fabric_name
 
     @staticmethod
