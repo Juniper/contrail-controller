@@ -208,6 +208,7 @@ protected:
     void AddRoute(IPeer *peer, const string &table_name,
                   const string &prefix, int localpref,
                   const vector<string> &community_list = vector<string>(),
+                  const vector<string> &extcomm_list = vector<string>(),
                   const string &intf_route_type = "") {
         typedef typename T::TableT TableT;
         typedef typename T::PrefixT PrefixT;
@@ -231,6 +232,15 @@ protected:
             }
             attr_spec.push_back(&spec);
         }
+        ExtCommunity::ExtCommunityList ext_comm_list;
+        if (!extcomm_list.empty()) {
+            BOOST_FOREACH(string comm, extcomm_list) {
+                const ExtCommunity::ExtCommunityList list =
+                    ExtCommunity::ExtCommunityFromString(comm);
+                if (list.size())
+                    ext_comm_list.push_back(list[0]);
+            }
+        }
 
         boost::scoped_ptr<BgpAttrSubProtocol> sbp(
                             new BgpAttrSubProtocol(intf_route_type));
@@ -246,6 +256,14 @@ protected:
         }
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
+        if (ext_comm_list.size()) {
+            const ExtCommunity *comm = attr->ext_community();
+            ExtCommunityDB *comm_db = bgp_server_->extcomm_db();
+            ExtCommunityPtr new_community =
+                            comm_db->SetAndLocate(comm, ext_comm_list);
+            attr = bgp_server_->attr_db()->ReplaceExtCommunityAndLocate(
+                                           attr.get(), new_community);
+        }
         request.data.reset(new BgpTable::RequestData(attr, 0, 0));
         BgpTable *table = static_cast<BgpTable *>
             (bgp_server_->database()->FindTable(table_name));
@@ -319,6 +337,30 @@ protected:
         vector<string> list;
         BOOST_FOREACH(uint32_t community, comm->communities()) {
             list.push_back(CommunityType::CommunityToString(community));
+        }
+        sort(list.begin(), list.end());
+        return list;
+    }
+
+    vector<string> GetOriginalExtCommunityListFromRoute(const BgpPath *path) {
+        const ExtCommunity *comm = path->GetOriginalAttr()->ext_community();
+        if (comm == NULL) return vector<string>();
+        vector<string> list;
+        BOOST_FOREACH(ExtCommunity::ExtCommunityValue community,
+                      comm->communities()) {
+            list.push_back(ExtCommunity::ToString(community));
+        }
+        sort(list.begin(), list.end());
+        return list;
+    }
+
+    vector<string> GetExtCommunityListFromRoute(const BgpPath *path) {
+        const ExtCommunity *comm = path->GetAttr()->ext_community();
+        if (comm == NULL) return vector<string>();
+        vector<string> list;
+        BOOST_FOREACH(ExtCommunity::ExtCommunityValue community,
+                      comm->communities()) {
+            list.push_back(ExtCommunity::ToString(community));
         }
         sort(list.begin(), list.end());
         return list;
@@ -465,7 +507,7 @@ TEST_F(RoutingPolicyTest, PolicySubProtocolMatchUpdateLocalPrefXmppPeer) {
 
     AddRoute<InetDefinition>(peers_[0], "test.inet.0",
                              "10.0.1.1/32", 100,
-                             vector<string>(), "interface");
+                             vector<string>(), vector<string>(), "interface");
     task_util::WaitForIdle();
 
     VERIFY_EQ(1, RouteCount("test.inet.0"));
@@ -495,7 +537,7 @@ TEST_F(RoutingPolicyTest, PolicySubProtocolMatchUpdateLocalPrefBgpPeer) {
 
     AddRoute<InetDefinition>(peers_[0], "test.inet.0",
                              "10.0.1.1/32", 100,
-                             vector<string>(), "bgpaas");
+                             vector<string>(), vector<string>(), "bgpaas");
     task_util::WaitForIdle();
 
     VERIFY_EQ(1, RouteCount("test.inet.0"));
@@ -1444,7 +1486,6 @@ TEST_F(RoutingPolicyTest, PolicyPrefixMatchAddMultipleCommunity_1) {
               vector<string>());
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
 }
-
 
 TEST_F(RoutingPolicyTest, PolicyPrefixMatchSetMultipleCommunity) {
     string content =
@@ -3122,6 +3163,591 @@ TEST_F(RoutingPolicyTest, MultiplePolicies_UpdateOrder_1) {
                                  "2001:db8:85a3::8a2e:370:7334/128");
 }
 
+TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchReject) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32",
+                        100, vector<string>(), list_of("target:11:13"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    EXPECT_EQ(rt->BestPath()->GetFlags() & BgpPath::RoutingPolicyReject,
+              BgpPath::RoutingPolicyReject);
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == false);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
+}
+
+//
+// Test match community all with fixed community values as the values to
+// match against.
+// Communities are specified using community-list only.
+//
+TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAll1a) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_0ma.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:11")
+                                 ("target:63:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32", 100,
+        vector<string>(), list_of("target:13:11")("target:23:11")
+                                 ("target:43:11"));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:12"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.5/32", 100,
+        vector<string>(), list_of("target:23:12")("target:43:11"));
+
+    task_util::WaitForIdle();
+    VERIFY_EQ(5, RouteCount("test.inet.0"));
+
+    BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
+    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
+    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
+    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+
+    BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
+    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
+    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.5/32");
+}
+
+//
+// Test match community all with regular expressions as the values to match
+// against.
+// Communities are specified using community-list only.
+//
+TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAll2a) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_0na.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11")
+                                 ("target:63:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32", 100,
+        vector<string>(), list_of("target:13:11")("target:23:11")
+                                 ("target:33:11"));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.5/32", 100,
+        vector<string>(), list_of("target:13:11")("target:33:11"));
+
+    task_util::WaitForIdle();
+    VERIFY_EQ(5, RouteCount("test.inet.0"));
+
+    BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
+    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
+    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
+    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+
+    BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
+    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
+    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.5/32");
+}
+
+//
+// Test match community all with a mix of fixed community values and regular
+// expressions as the values to match against.
+// Communities are specified using community-list only.
+//
+TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAll3a) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_0oa.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11")
+                                 ("target:43:11")("target:53:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11")
+                             ("target:43:11")("target:53:11")("target:63:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32", 100,
+        vector<string>(), list_of("target:13:11")("target:23:11")
+                             ("target:33:11")("target:43:11")("target:53:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11")
+                             ("target:33:12")("target:43:11")("target:53:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.5/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11")
+                             ("target:43:11")("target:53:11")("target:53:12"));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.1/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.2/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:11")
+                                 ("target:63:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.3/32", 100,
+        vector<string>(), list_of("target:33:11")("target:53:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.4/32", 100,
+        vector<string>(), list_of("target:13:11")("target:33:11")
+                                 ("target:53:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.5/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11")
+                                 ("target:43:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.6/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:11")
+                                 ("target:53:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.7/32", 100,
+        vector<string>(), list_of("target:33:11")("target:43:11")
+                                 ("target:53:11"));
+
+    task_util::WaitForIdle();
+    VERIFY_EQ(12, RouteCount("test.inet.0"));
+
+    BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
+    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
+    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
+    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt14 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
+    VERIFY_EQ(99, rt14->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt15 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.5/32");
+    VERIFY_EQ(99, rt15->BestPath()->GetAttr()->local_pref());
+
+    BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.1/32");
+    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt22 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.2/32");
+    VERIFY_EQ(100, rt22->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt23 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.3/32");
+    VERIFY_EQ(100, rt23->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt24 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.4/32");
+    VERIFY_EQ(100, rt24->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt25 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.5/32");
+    VERIFY_EQ(100, rt25->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt26 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.6/32");
+    VERIFY_EQ(100, rt26->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt27 = RouteLookup<InetDefinition>("test.inet.0", "10.1.2.7/32");
+    VERIFY_EQ(100, rt27->BestPath()->GetAttr()->local_pref());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.5/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.2/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.4/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.5/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.6/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.2.7/32");
+}
+
+//
+// Test match community any with fixed community values as the values to
+// match against.
+// Communities are specified using community-list only.
+//
+TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAny1a) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_0pa.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32", 100,
+        vector<string>(), list_of("target:23:11")("target:23:99"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32", 100,
+        vector<string>(), list_of("target:23:1")("target:43:11"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:11"));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32", 100,
+        vector<string>(), list_of("target:23:0")("target:43:99"));
+
+    task_util::WaitForIdle();
+    VERIFY_EQ(4, RouteCount("test.inet.0"));
+
+    BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
+    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
+    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
+    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+
+    BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
+    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32");
+}
+
+//
+// Test match community any with regular expressions as the values to match
+// against.
+// Communities are specified using community-list only.
+//
+TEST_F(RoutingPolicyTest, PolicyExtCommunityMatchAny2a) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_0qa.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32", 100,
+        vector<string>(), list_of("target:23:11")("target:43:12"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32", 100,
+        vector<string>(), list_of("target:13:11")("target:33:12"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32", 100,
+        vector<string>(), list_of("target:23:11")("target:33:12"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32", 100,
+        vector<string>(), list_of("target:43:11")("target:43:12"));
+
+    task_util::WaitForIdle();
+    VERIFY_EQ(4, RouteCount("test.inet.0"));
+
+    BgpRoute *rt11 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.1/32");
+    VERIFY_EQ(99, rt11->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt12 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.2/32");
+    VERIFY_EQ(99, rt12->BestPath()->GetAttr()->local_pref());
+    BgpRoute *rt13 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.3/32");
+    VERIFY_EQ(99, rt13->BestPath()->GetAttr()->local_pref());
+
+    BgpRoute *rt21 = RouteLookup<InetDefinition>("test.inet.0", "10.1.1.4/32");
+    VERIFY_EQ(100, rt21->BestPath()->GetAttr()->local_pref());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.2/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.1.1.4/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchAddExtCommunity) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
+        vector<string>(), list_of("target:11:13"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:13")("target:11:44"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:13"));
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchRemoveExtCommunity) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
+        vector<string>(), list_of("target:11:13")("target:11:44"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:44"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:13")("target:11:44"));
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchSetExtCommunity) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:13"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              vector<string>());
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchRemoveMultipleExtCommunity) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
+             vector<string>(), list_of("target:11:13")("target:11:22")
+             ("target:11:44")("target:22:44")("target:33:66")("target:44:88"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:13")("target:11:44")("target:33:66"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:13")("target:11:22")("target:11:44")
+              ("target:22:44")("target:33:66")("target:44:88"));
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchRemoveMultipleExtCommunity_1) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
+             vector<string>(), list_of("target:11:13")("target:11:22")
+             ("target:11:44")("target:22:44")("target:33:66")("target:77:88"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+      list_of("target:11:13")("target:11:44")("target:33:66")("target:77:88"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+      list_of("target:11:13")("target:11:22")("target:11:44")("target:22:44")
+             ("target:33:66")("target:77:88"));
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+// Input route has no community to begin with
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchRemoveMultipleExtCommunity_2) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()), vector<string>());
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              vector<string>());
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchAddMultipleExtCommunity) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2e.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
+              vector<string>(), list_of("target:11:13")("target:11:44")
+                                       ("target:33:66")("target:77:88"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+      list_of("target:11:13")("target:11:22")("target:11:44")("target:22:44")
+             ("target:33:66")("target:44:88")("target:77:88"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+      list_of("target:11:13")("target:11:44")("target:33:66")("target:77:88"));
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+// Route has not community to start with
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchAddMultipleExtCommunity_1) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2e.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+      list_of("target:11:22")("target:22:44")("target:44:88"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              vector<string>());
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchSetMultipleExtCommunity) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2f.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
+              vector<string>(), list_of("target:11:13")("target:11:44")
+                                       ("target:33:66")("target:77:88"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:22")("target:22:44")("target:44:88"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:13")("target:11:44")("target:33:66")
+                     ("target:77:88"));
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
+TEST_F(RoutingPolicyTest, PolicyPrefixMatch_MultipleExtCommunityAction) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_ext_2g.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
+              vector<string>(), list_of("target:22:44"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:11:22"));
+    ASSERT_EQ(GetOriginalExtCommunityListFromRoute(rt->BestPath()),
+              list_of("target:22:44"));
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
 TEST_F(RoutingPolicyTest, ProtocolMatchServiceChain) {
     string content =
         FileRead("controller/src/bgp/testdata/routing_policy_0f.xml");
@@ -3177,10 +3803,10 @@ TEST_F(RoutingPolicyTest, ProtocolMatchServiceChainWithSubprotocol) {
 
     AddRoute<InetDefinition>(peers_[0], "red.inet.0",
                              "1.1.2.3/32", 100,
-                             vector<string>(), "interface");
+                             vector<string>(), vector<string>(), "interface");
     AddRoute<InetDefinition>(peers_[0], "blue.inet.0",
                              "192.168.1.1/32", 100,
-                             vector<string>(), "bgpaas");
+                             vector<string>(), vector<string>(), "bgpaas");
     task_util::WaitForIdle();
 
     VERIFY_EQ(2, RouteCount("red.inet.0"));
