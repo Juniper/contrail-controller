@@ -118,7 +118,6 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
 }
 
 DbHandler::~DbHandler() {
-    TimerManager::DeleteTimer(udc_cfg_poll_timer_);
 }
 
 uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,
@@ -300,6 +299,7 @@ bool DbHandler::CreateTables() {
 void DbHandler::UnInit(int instance) {
     dbif_->Db_Uninit("analytics::DbHandler", instance);
     dbif_->Db_SetInitDone(false);
+    TimerManager::DeleteTimer(udc_cfg_poll_timer_);
 }
 
 // The caller *SHOULD* ensure that UnInit() is not called from another
