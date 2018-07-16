@@ -37,14 +37,6 @@
 - name: Get swift download url
   include_tasks: get_swiftfile_url.yml
 
-- name: encode temp url
-  set_fact:
-    enc_tempurl: "{{tempurl.split('?')[0]+'?'+tempurl.split('?')[-1]|urlencode()}}"
-
-- name: Debug encode temp url
-  debug:
-    var: enc_tempurl
-
 - name: Appending job log for retreiving image download link and starting image upgrade
   job_objectlog:
     message: >
