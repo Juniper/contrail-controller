@@ -340,9 +340,9 @@ class LoadbalancerKM(DBBaseKM):
                     name=lb.fq_name[-1],
                     fq_name=lb.fq_name,
                     annotations=lb_annotations,
+                    selectors=None,
                     external_ip=str(lb.external_ip),
                     lb_listeners=lb_listeners,
-                    selectors=selectors,
                     vm_interfaces=vmis)
             else:
                 lb_instance = introspect.LoadbalancerInstance(
@@ -350,9 +350,9 @@ class LoadbalancerKM(DBBaseKM):
                     name=lb.fq_name[-1],
                     fq_name=lb.fq_name,
                     annotations=lb_annotations,
+                    selectors=None,
                     external_ip=str(lb.external_ip),
                     lb_listeners=lb_listeners,
-                    selectors=selectors,
                     vm_interfaces=vmis)
 
             # Append the constructed element info to the response.
