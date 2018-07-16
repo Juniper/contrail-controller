@@ -386,7 +386,7 @@ class ServiceKM(KubeDBBase):
             return
         self.name = md.get('name')
         self.namespace = md.get('namespace')
-        self.labels = md.get('labels')
+        self.labels = md.get('labels', {})
 
     def _update_spec(self, spec):
         if spec is None:
