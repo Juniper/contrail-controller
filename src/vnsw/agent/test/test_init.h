@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_test_init_h
 #define vnsw_agent_test_init_h
 
+#include "base/os.h"
 #include <sys/socket.h>
 #include <net/if.h>
 #if defined(__linux__)
