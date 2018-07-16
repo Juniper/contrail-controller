@@ -1,0 +1,38 @@
+delete apply-groups __contrail_{{feature}}__
+delete groups __contrail_{{feature}}__
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups __contrail_{{feature}}__
+{%     for bgp in device_abstract_config.get('bgp', []) %}
+{%         if feature in bgp.get('comment') %}
+{%             set contrail_asn_group = '_contrail_asn-'+(bgp.autonomous_system|string) %}
+set groups __contrail_{{feature}}__ routing-options dynamic-tunnels {{contrail_asn_group}} source-address {{bgp.get('ip_address')}}
+set groups __contrail_{{feature}}__ routing-options dynamic-tunnels {{contrail_asn_group}} gre
+{%             for peer in bgp.get('peers', []) %}
+set groups __contrail_{{feature}}__ routing-options dynamic-tunnels {{contrail_asn_group}} destination-networks {{peer.get('ip_address')}}/32
+set groups __contrail_{{feature}}__ protocols bgp group {{contrail_asn_group}} neighbor {{peer.get('ip_address')}} peer-as {{peer.get('autonomous_system')}} 
+{%             endfor %}
+set groups __contrail_{{feature}}__ protocols bgp group {{contrail_asn_group}} type {{bgp.get('type_')}}
+set groups __contrail_{{feature}}__ protocols bgp group {{contrail_asn_group}} local-address {{bgp.get('ip_address')}}
+set groups __contrail_{{feature}}__ protocols bgp group {{contrail_asn_group}} hold-time {{bgp.hold_time}}
+{%             for family in bgp.get('families', []) %}
+{%                 if family.startswith('inet') %}
+{%                     set mode='unicast' %}
+{%                 elif family == 'evpn' %}
+{%                     set mode='signaling' %}
+{%                 else %}
+{%                     set mode='' %}
+{%                 endif %}
+set groups __contrail_{{feature}}__ protocols bgp group {{contrail_asn_group}} family {{family}} {{mode}} 
+{%             endfor %}
+{%             if bgp.get('type_') == 'internal' %}
+set groups __contrail_{{feature}}__ protocols bgp group {{contrail_asn_group}} export _contrail_ibgp_export_policy
+{%                 for family in bgp.get('families', []) %}
+{%                     if family.startswith('inet') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement _contrail_ibgp_export_policy term {{family}} from family {{family}} then next-hop self
+{%                     endif %}
+{%                 endfor %}
+{%             endif %}
+{%         endif %}
+{%     endfor %}
+set apply-groups __contrail_{{feature}}__
+{% endif %}
