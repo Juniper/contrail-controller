@@ -11,7 +11,3 @@
     pool_size: "{{ POOL_SIZE }}"
     total_retry_timeout: 0
   register: discovery_results
-
-- name: insert/update in /tmp/<exec-id> file
-  set_fact:
-    write_resp: "{{job_ctx | report_device_info(discovery_results.device_info)}}"
