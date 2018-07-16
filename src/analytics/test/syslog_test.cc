@@ -149,6 +149,7 @@ class SyslogCollectorTest : public ::testing::Test
     virtual void TearDown() {
         task_util::WaitForIdle();
         gen_->Shutdown();
+        db_handler_->Shutdown();
         task_util::WaitForIdle();
         UdpServerManager::DeleteServer(gen_);
         task_util::WaitForIdle();

@@ -21,6 +21,9 @@ class DbHandlerMock : public DbHandler {
             VncApiConfig()) {
 
     }
+    void Shutdown() {
+        UnInit(-1);
+    }
     void StartDbifReinit() {
         UnInit();
     }
