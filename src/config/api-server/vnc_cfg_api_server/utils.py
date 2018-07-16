@@ -75,7 +75,6 @@ def parse_args(args_str):
         'cluster_id': '',
         'max_requests': 1024,
         'paginate_count': 256,
-        'region_name': 'RegionOne',
         'stale_lock_seconds': '5', # lock but no resource past this => stale
         'cloud_admin_role': cfgm_common.CLOUD_ADMIN_ROLE,
         'global_read_only_role': cfgm_common.GLOBAL_READ_ONLY_ROLE,
@@ -114,6 +113,7 @@ def parse_args(args_str):
         'keyfile': '',
         'auth_type': 'password',
         'auth_url': '',
+        'region_name': 'RegionOne',
     }
     # cassandra options
     cassandraopts = {

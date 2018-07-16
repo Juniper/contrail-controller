@@ -54,6 +54,8 @@ def fill_keystone_opts(obj, conf_sections):
     obj._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
     obj._admin_token = conf_sections.get('KEYSTONE', 'admin_token')
     obj._admin_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+    obj._region_name = conf_sections.get('KEYSTONE', 'region_name')
+
     try:
         obj._keystone_sync_on_demand = conf_sections.getboolean('KEYSTONE',
                                                'keystone_sync_on_demand')
@@ -329,7 +331,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         sess = ksession.Session(auth=auth, verify=verify)
 
         try:
-            self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
+            self._ks = kclient.Client(session=sess, auth_url=self._auth_url, region_name=self._region_name)
         except kexceptions.DiscoveryFailure:
             # Probably a v2 Keytone API, remove v3 args and try again
             v3_args = ['user_domain_name', 'project_domain_name', 'domain_id']
@@ -338,7 +340,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             kwargs['project_name'] = self._admin_tenant
             auth = kauth.password.Password(self._auth_url, **kwargs)
             sess = ksession.Session(auth=auth, verify=verify)
-            self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
+            self._ks = kclient.Client(session=sess, auth_url=self._auth_url, region_name=self._region_name)
 
         if self._endpoint_type and auth.auth_ref.service_catalog:
             self._ks.management_url = \
