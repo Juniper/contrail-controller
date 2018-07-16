@@ -1013,6 +1013,19 @@ void LinkLocalServiceInfo::HandleRequest() const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+bool GlobalVrouter::IsVrouterPresentCryptTunnelConfig(
+    const EncryptionTunnelEndpointList &endpoint_list) {
+    bool vrouter_present = false;
+    for (EncryptionTunnelEndpointList::const_iterator it = endpoint_list.begin();
+         it != endpoint_list.end(); it++) {
+         if (it->tunnel_remote_ip_address.compare(agent()->router_id().to_string()) == 0) {
+             vrouter_present = true;
+             break;
+         }
+    }
+    return vrouter_present;
+}
+
 // Handle changes for cryptunnels
 void GlobalVrouter::UpdateCryptTunnelEndpointConfig(
     const EncryptionTunnelEndpointList &endpoint_list, const std::string encrypt_mode_str) {
@@ -1020,15 +1033,17 @@ void GlobalVrouter::UpdateCryptTunnelEndpointConfig(
     CryptTunnelsMap crypt_tunnels_map;
     if (!agent()->crypt_interface())
         return;
-    if (boost::iequals(encrypt_mode_str, "all"))
-        mode = GlobalVrouter::CRYPT_ALL_TRAFFIC;
-    for (EncryptionTunnelEndpointList::const_iterator it = endpoint_list.begin();
-         it != endpoint_list.end(); it++) {
-        if (it->tunnel_remote_ip_address.compare(agent()->router_id().to_string()) == 0) {
-            continue;
-        }
-        crypt_tunnels_map.insert(CryptTunnelsPair(CryptTunnelKey(it->tunnel_remote_ip_address),
+    if (IsVrouterPresentCryptTunnelConfig(endpoint_list)) {
+        if (boost::iequals(encrypt_mode_str, "all"))
+            mode = GlobalVrouter::CRYPT_ALL_TRAFFIC;
+        for (EncryptionTunnelEndpointList::const_iterator it = endpoint_list.begin();
+            it != endpoint_list.end(); it++) {
+            if (it->tunnel_remote_ip_address.compare(agent()->router_id().to_string()) == 0) {
+                continue;
+            }
+            crypt_tunnels_map.insert(CryptTunnelsPair(CryptTunnelKey(it->tunnel_remote_ip_address),
                                                   CryptTunnel(mode)));
+        }
     }
     crypt_tunnels_map_.swap(crypt_tunnels_map);
     ChangeNotifyCryptTunnels(&crypt_tunnels_map, &crypt_tunnels_map_);
