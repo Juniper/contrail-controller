@@ -5829,3 +5829,32 @@ class RouteTargetServer(Resource, RouteTarget):
         if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
             return True, False
         return True, True
+
+class RoutingPolicyServer(Resource, RoutingPolicy):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        asn_list = None
+        rp_entries = obj_dict.get('routing_policy_entries')
+        if rp_entries:
+            term = rp_entries.get('term')[0]
+            if term:
+                action_list = term.get('term_action_list')
+                if action_list:
+                    action = action_list.get('update')
+                    if action:
+                        as_path = action.get('as_path')
+                        if as_path:
+                            expand = as_path.get('expand')
+                            if expand:
+                                asn_list = expand.get('asn_list')
+
+        try:
+            global_asn = cls.server.global_autonomous_system
+        except cfgm_common.exceptions.VncError as e:
+            return False, (400, str(e))
+
+        if asn_list and global_asn in asn_list:
+            msg = ("ASN can't be same as global system config asn")
+            return False, (400, msg)
+        return True, ""
+# end class RoutingPolicyServer
