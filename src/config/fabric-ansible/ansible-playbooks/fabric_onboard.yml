@@ -5,6 +5,9 @@
   connection: local
 
   tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':1, 'task_weightage_array':[100] })}}"
+
     - name: onboard fabric
       set_fact:
         output: "{{ job_ctx | onboard_fabric }}"
@@ -20,11 +23,11 @@
         results:
           fabric_uuid: "{{ output.fabric_uuid }}"
 
-    - name: Update Job log with fabric onboarding job status
-      job_objectlog:
-        job_ctx: "{{ job_ctx }}"
-        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-        message: "Successfully onboarded fabric: {{ playbook_input.input.fabric_fq_name }}"
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Successfully onboarded fabric: {{ playbook_input.input.fabric_fq_name }}"
 
     - set_fact:
         pb_output:

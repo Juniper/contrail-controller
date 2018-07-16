@@ -45,9 +45,8 @@ class FilterModule(object):
             write_to_file_log = "Attempting to create or open file.. \n"
             with open("/tmp/"+exec_id, "a") as f:
                 write_to_file_log += "Opened file in /tmp ... \n"
-                percentage_data = {'percent_complete': percentage}
                 line_in_file = unique_pb_id + 'JOB_PROGRESS##' +\
-                    json.dumps(percentage_data) + 'JOB_PROGRESS##'
+                    str(percentage) + 'JOB_PROGRESS##'
                 f.write(line_in_file + '\n')
                 write_to_file_log += "Written line %s to the /tmp/exec-id" \
                                      " file \n" % line_in_file
