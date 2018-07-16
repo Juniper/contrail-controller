@@ -383,6 +383,7 @@ class DeviceInfo(object):
             JOB_IN_PROGRESS,
             None,
             job_success_percent=self.per_greenlet_percentage)
+        self.discovery_percentage_write()
         return True, pr_uuid
 
     def device_info_processing(self, host, oid_mapped):
@@ -463,3 +464,36 @@ class DeviceInfo(object):
                 temp['device_product'] = oid_mapped.get('product')
                 temp['device_serial_number'] = oid_mapped.get('serial-number')
                 DeviceInfo.output.update({pr_uuid: temp})
+
+    def _write_to_file(self, exec_id, line_in_file):
+
+        write_to_file_log = "\n"
+
+        try:
+            write_to_file_log = "Attempting to create or open file.. \n"
+            with open("/tmp/" + exec_id, "a") as f:
+                write_to_file_log += "Opened file in /tmp ... \n"
+                f.write(line_in_file + '\n')
+                write_to_file_log += "Written line %s to the /tmp/exec-id" \
+                                     " file \n" % line_in_file
+
+            return {
+                'status': 'success',
+                'write_to_file_log': write_to_file_log
+            }
+        except Exception as ex:
+            self._logger.info(write_to_file_log)
+            self._logger.error(str(ex))
+            traceback.print_exc(file=sys.stdout)
+            return {
+                'status': 'failure',
+                'error_msg': str(ex),
+                'write_to_file_log': write_to_file_log
+            }
+
+    def discovery_percentage_write(self):
+        if self.module.results.get('percentage_completed'):
+            file_msg = self.job_ctx.get('unique_pb_id') + "JOB_PROGRESS##" + \
+                str(self.module.results.get('percentage_completed')) + \
+                "JOB_PROGRESS##"
+            self._write_to_file(self.job_ctx.get('job_execution_id'), file_msg)
