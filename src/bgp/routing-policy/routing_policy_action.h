@@ -122,7 +122,7 @@ public:
         REMOVE,
         SET
     };
-    UpdateExtCommunity(const std::vector<std::string> communities,
+    UpdateExtCommunity(const std::vector<std::string> &communities,
                        std::string op);
     virtual ~UpdateExtCommunity() {}
     virtual void operator()(BgpAttr *out_attr) const;
