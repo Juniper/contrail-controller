@@ -5,9 +5,8 @@
   connection: local
   vars:
     input: "{{ playbook_input.input }}"
-    device_abstract_config: "{{ input.device_abstract_config }}"
     additional_feature_params: "{{ input.additional_feature_params }}"
-    device_info: "{{ device_abstract_config.system }}"
+    device_info: "{{ input.device_abstract_config.system }}"
     device_name: "{{ device_info.name }}"
     device_vendor: "{{ device_info.vendor_name|lower }}"
     device_family: "{{ device_info.device_family|lower }}"
@@ -19,6 +18,10 @@
   pre_tasks:
     - set_fact:
         job_ctx: "{{job_ctx|combine({'current_task_index':1, 'total_task_count':2, 'task_weightage_array':[10, 90] })}}"
+
+    - set_fact:
+        device_abstract_config: "{{input.device_abstract_config}}"
+      when: input.is_delete is undefined or input.is_delete == False
 
     - set_fact:
         conf_dir: "./config/{{ device_mgmt_ip }}"
