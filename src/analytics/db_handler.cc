@@ -170,10 +170,6 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
 }
 
 DbHandler::~DbHandler() {
-    if (udc_cfg_poll_timer_) {
-        TimerManager::DeleteTimer(udc_cfg_poll_timer_);
-        udc_cfg_poll_timer_ = NULL;
-    }
 }
 
 uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,
@@ -461,6 +457,10 @@ bool DbHandler::CreateTables() {
 void DbHandler::UnInit() {
     dbif_->Db_Uninit();
     dbif_->Db_SetInitDone(false);
+    if (udc_cfg_poll_timer_) {
+        TimerManager::DeleteTimer(udc_cfg_poll_timer_);
+        udc_cfg_poll_timer_ = NULL;
+    }
 }
 
 bool DbHandler::Init(bool initial) {
