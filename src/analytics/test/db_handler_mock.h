@@ -17,6 +17,9 @@ class DbHandlerMock : public DbHandler {
             std::vector<int>(1, 9160), "localhost", ttl_map, "", "",
             "", "", "", false, false, false, false, false) {
     }
+    void Shutdown() {
+        UnInit(-1);
+    }
     void StartDbifReinit() {
         UnInit(-1);
     }
