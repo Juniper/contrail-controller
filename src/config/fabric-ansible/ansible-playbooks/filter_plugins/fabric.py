@@ -513,7 +513,7 @@ class FilterModule(object):
             )
 
         # ANS pool for underlay eBGP
-        if fabric_info.get('fabric_asn_range'):
+        if fabric_info.get('fabric_asn_pool'):
             self._add_asn_range_namespace(
                 vnc_api,
                 fabric_obj,
