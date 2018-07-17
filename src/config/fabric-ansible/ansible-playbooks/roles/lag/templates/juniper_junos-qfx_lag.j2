@@ -1,0 +1,22 @@
+delete apply-groups __{{feature}}__
+delete groups __{{feature}}___
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+{%     for ifd in device_abstract_config.get('physical_interfaces', []) %}
+{%         if ifd.get('interface_type') == 'lag' and  ifd.get('link_aggregation_group')!= None %}
+set groups __{{feature}}__ chassis aggregated-devices ethernet device-count 1
+set groups __{{feature}}__ interfaces {{ifd.name}} aggregated-ether-options minimum-links 1
+{%             for inter in ifd.link_aggregation_group.link_members %}
+set groups __{{feature}}__ interfaces {{inter}} ether-options 802.3ad {{ifd.name}}
+{%                 if ifd.link_aggregation_group.lacp_enabled == True %}
+set groups __{{feature}}__ interfaces {{ifd.name}} aggregated-ether-options lacp active
+set groups __{{feature}}__ interfaces {{ifd.name}} aggregated-ether-options lacp periodic fast
+{%                 else %}
+delete interfaces {{ifd.name}} aggregated-ether-options lacp
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%      endfor %}
+
+set apply-groups __{{feature}}__
+{% endif %}
