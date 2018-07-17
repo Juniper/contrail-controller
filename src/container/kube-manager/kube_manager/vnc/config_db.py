@@ -325,9 +325,6 @@ class LoadbalancerKM(DBBaseKM):
 
             lb_annotations = cls._build_annotation_dict(lb.annotations)
 
-            selectors = []
-            if lb.selectors:
-                selectors = lb.selectors
             lb_listeners = cls._build_cls_uuid_list(
                     introspect.LbListenerUuid, lb.loadbalancer_listeners)
             vmis = cls._build_cls_uuid_list(
@@ -342,7 +339,7 @@ class LoadbalancerKM(DBBaseKM):
                     annotations=lb_annotations,
                     external_ip=str(lb.external_ip),
                     lb_listeners=lb_listeners,
-                    selectors=selectors,
+                    selectors=None,
                     vm_interfaces=vmis)
             else:
                 lb_instance = introspect.LoadbalancerInstance(
@@ -352,7 +349,7 @@ class LoadbalancerKM(DBBaseKM):
                     annotations=lb_annotations,
                     external_ip=str(lb.external_ip),
                     lb_listeners=lb_listeners,
-                    selectors=selectors,
+                    selectors=None,
                     vm_interfaces=vmis)
 
             # Append the constructed element info to the response.
