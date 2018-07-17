@@ -8,7 +8,6 @@
     message: "{{ jl_message }}"
   register: jl_output
 
-- name: print percentage data
-  debug:
-    msg: "{{JOB_PROGRESS_MARKER}}{{jl_output.percentage_completed}}{{JOB_PROGRESS_MARKER}}"
-    verbosity: 0
+- name: insert/update in /tmp/<exec-id> file
+  set_fact:
+    write_resp: "{{job_ctx | report_percentage_completion(jl_output.percentage_completed)}}"
