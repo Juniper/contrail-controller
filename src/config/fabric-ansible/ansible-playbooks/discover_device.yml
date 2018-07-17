@@ -31,13 +31,14 @@
    - discover_device_role
 
   post_tasks:
+    - name: set device_info if present
+      set_fact: 
+        output: "{{output|combine({'device_json': discovery_results.device_info})}}"
+      when: discovery_results.device_info is defined
+
     - name: set output parameter
       set_fact:
          output: "{{ output|combine({'status':'SUCCESS', 'message':'Discover playbook successfully executed'})}}"
 
     - name: print output
       debug: var=output verbosity=1
-
-    - name: insert/update in /tmp/<exec-id> file
-      set_fact:
-        write_resp: "{{job_ctx | report_end_of_playbook()}}"
