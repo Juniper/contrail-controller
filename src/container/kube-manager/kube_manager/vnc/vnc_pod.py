@@ -457,7 +457,10 @@ class VncPod(VncCommon):
         # Cleanup floating ip's on this interface.
         for fip_id in list(vmi.floating_ips):
             try:
-                self._vnc_lib.floating_ip_delete(id=fip_id)
+                self._vnc_lib.ref_update('floating-ip', fip_id,
+                                         'virtual-machine-interface', vmi_id, None,
+                                         'DELETE')
+                FloatingIpKM.update(fip_id)
             except NoIdError:
                 pass
 
@@ -465,6 +468,8 @@ class VncPod(VncCommon):
             self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
         except NoIdError:
             pass
+
+        VirtualMachineInterfaceKM.delete(vmi_id)
 
     def vnc_pod_delete(self, pod_id):
         vm = VirtualMachineKM.get(pod_id)
