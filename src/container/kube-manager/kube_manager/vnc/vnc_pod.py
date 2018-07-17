@@ -183,11 +183,10 @@ class VncPod(VncCommon):
         pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(ipam_fq_name)
 
         # Create instance-ip.
-        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
         iip_uuid = str(uuid.uuid1())
         iip_name = VncCommon.make_name(pod_name, iip_uuid)
         iip_obj = InstanceIp(name=iip_name, subnet_uuid=pod_ipam_subnet_uuid,
-                             display_name=display_name)
+                             display_name=iip_name)
         iip_obj.uuid = iip_uuid
         iip_obj.add_virtual_network(vn_obj)
 
@@ -247,11 +246,10 @@ class VncPod(VncCommon):
 
         obj_uuid = str(uuid.uuid1())
         name = VncCommon.make_name(pod_name, obj_uuid)
-        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
         vmi_obj = VirtualMachineInterface(
             name=name, parent_obj=proj_obj,
             virtual_machine_interface_properties=vmi_prop,
-            display_name=display_name)
+            display_name=name)
 
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
