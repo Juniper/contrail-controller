@@ -51,6 +51,11 @@ from cfgm_common import is_uuid_like
 from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats, VncApiLatencyStatsLog
 logger = logging.getLogger(__name__)
 
+import time
+import requests
+import xml.etree.ElementTree as etree
+from functools import partial
+
 """
 Following is needed to silence warnings on every request when keystone
     auth_token middleware + Sandesh is used. Keystone or Sandesh alone
@@ -82,6 +87,8 @@ import cfgm_common
 from cfgm_common import ignore_exceptions
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
     VncApiDebug, VncApiInfo, VncApiNotice, VncApiError
+from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
+    PhysicalRouterJobExecution, PhysicalRouterJobUve
 from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
@@ -382,6 +389,68 @@ class VncApiServer(object):
 
         return device_list
 
+    def job_mgr_signal_handler(self, fabric_job_uve_name, start_time, signalnum, frame):
+        # update job manager execution status uve
+        dfqname_list = []
+        job_execution_data = FabricJobExecution(
+            name=fabric_job_uve_name,
+            percentage_completed=100)
+        job_execution_uve = FabricJobUve(data=job_execution_data,
+                                         sandesh=self._sandesh)
+        job_execution_uve.send(sandesh=self._sandesh)
+
+        elapsed_time = time.time() - start_time
+
+        payload = {
+            'start_time': 'now-%ds' % (elapsed_time),
+            'end_time': 'now',
+            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+            'table': 'ObjectJobExecutionTable',
+            'where': [
+                [
+                    {
+                        'name': 'Messagetype',
+                        'value': 'PRouterOnboardingLog',
+                        'op': 1
+                    }
+                ]
+            ]
+        }
+        url = "http://localhost:8081/analytics/query"
+
+        resp = requests.post(url, json=payload)
+        if resp.status_code == 200:
+            PRouterOnboardingLog = resp.json().get('value')
+            for PRObjectLog in PRouterOnboardingLog:
+                resp = PRObjectLog.get('ObjectLog')
+                xmlresp = etree.fromstring(resp)
+                for ele in xmlresp.iter():
+                    if ele.tag == 'name':
+                        device_fqname = ele.text
+                    if ele.tag == 'onboarding_state':
+                        onboarding_state = ele.text
+
+                #to make sure we read only the latest PRouter state from
+                #the PRouterOnboarding Job log as it is in the reverse
+                #chronological order
+                if device_fqname in dfqname_list:
+                    break
+                else:
+                    dfqname_list.append(device_fqname)
+
+                prouter_uve_name = device_fqname + ":" + \
+                    fabric_job_uve_name
+
+                prouter_job_data = PhysicalRouterJobExecution(
+                    name=prouter_uve_name,
+                    job_start_ts=int(round(start_time * 1000)),
+                    prouter_state=onboarding_state,
+                    job_status="SUCCESS")
+
+                prouter_job_uve = PhysicalRouterJobUve(data=prouter_job_data,
+                                                       sandesh=self._sandesh)
+                prouter_job_uve.send(sandesh=self._sandesh)
+
     def execute_job_http_post(self):
         ''' Payload of execute_job
             job_template_id (Mandatory if no job_template_fq_name): <uuid> of
@@ -441,6 +510,45 @@ class VncApiServer(object):
                         }
             request_params['args'] = json.dumps(job_args)
 
+            # create job manager execution status uve
+            if request_params.get('fabric_fq_name') is not None:
+                fabric_job_name = request_params.get('job_template_fq_name')
+                fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
+                fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+
+                job_execution_data = FabricJobExecution(
+                    name=fabric_job_uve_name,
+                    execution_id=request_params.get('job_execution_id'),
+                    job_start_ts=int(round(time.time() * 1000))
+                )
+
+                job_execution_uve = FabricJobUve(data=job_execution_data,
+                                                 sandesh=self._sandesh)
+                job_execution_uve.send(sandesh=self._sandesh)
+
+            if device_list:
+                for device_id in device_list:
+                    device_fqname = request_params.get(
+                        'device_json').get(device_id).get('device_fqname')
+                    device_fqname = ':'.join(map(str, device_fqname))
+                    prouter_uve_name = device_fqname + ":" + \
+                        fabric_job_uve_name
+
+                    prouter_job_data = PhysicalRouterJobExecution(
+                        name=prouter_uve_name,
+                        execution_id=request_params.get('job_execution_id'),
+                        job_start_ts=int(round(time.time() * 1000)),
+                        job_status="JOB_IN_PROGRESS")
+
+                    prouter_job_uve = PhysicalRouterJobUve(
+                        data=prouter_job_data, sandesh=self._sandesh)
+                    prouter_job_uve.send(sandesh=self._sandesh)
+
+            start_time = time.time()
+
+            # handle process exit signal
+            signal.signal(signal.SIGCHLD,  partial(self.job_mgr_signal_handler, fabric_job_uve_name, start_time))
+
             # create job manager subprocess
             job_mgr_path = os.path.dirname(
                 __file__) + "/../job_manager/job_mgr.py"
@@ -474,8 +582,12 @@ class VncApiServer(object):
         elif request_params.get('input').get('fabric_fq_name'):
             fabric_fq_name = request_params.get('input').get('fabric_fq_name')
         else:
-            err_msg = "Missing fabric details in the job input"
-            raise cfgm_common.exceptions.HttpError(400, err_msg)
+            if "device_deletion_template" in request_params.get(
+                   'job_template_fq_name'):
+                fabric_fq_name = "__DEFAULT__"
+            else:
+                err_msg = "Missing fabric details in the job input"
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
         if fabric_fq_name:
             fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
             request_params['fabric_fq_name'] = fabric_fq_name_str
@@ -492,7 +604,7 @@ class VncApiServer(object):
                      'physical_router_device_family',
                      'physical_router_vendor_name',
                      'physical_router_product_name',
-                     'fabric_back_refs'])
+                     'fabric_refs'])
                 if not ok:
                     self.config_object_error(device_id, None,
                                              "physical-router  ",
@@ -521,9 +633,9 @@ class VncApiServer(object):
 
             device_data.update({device_id: device_json})
 
-            fabric_refs = result.get('fabric_back_refs')
+            fabric_refs = result.get('fabric_refs')
             if fabric_refs and len(fabric_refs) > 0:
-                fabric_fq_name = result.get('fabric_back_refs')[0].get('to')
+                fabric_fq_name = result.get('fabric_refs')[0].get('to')
                 fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
                 request_params['fabric_fq_name'] = fabric_fq_name_str
 
