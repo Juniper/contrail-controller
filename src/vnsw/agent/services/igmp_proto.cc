@@ -78,7 +78,7 @@ void IgmpProto::VnNotify(DBTablePartBase *part, DBEntryBase *entry) {
         }
         IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::iterator it =
                             state->igmp_state_map_.begin();
-        while (it != state->igmp_state_map_.end()) {
+        for (;it != state->igmp_state_map_.end(); ++it) {
             igmp_intf = it->second;
             // Cleanup the GMP database and timers
             igmp_intf->gmp_intf_->set_vrf_name(string());
@@ -86,9 +86,9 @@ void IgmpProto::VnNotify(DBTablePartBase *part, DBEntryBase *entry) {
             gmp_proto_->DeleteIntf(igmp_intf->gmp_intf_);
             itf_attach_count_--;
             delete igmp_intf;
-            state->igmp_state_map_.erase(it->first);
-            it++;
         }
+        state->igmp_state_map_.clear();
+
         if (vn->IsDeleted()) {
             entry->ClearState(part->parent(), vn_listener_id_);
             delete state;
@@ -127,8 +127,7 @@ void IgmpProto::VnNotify(DBTablePartBase *part, DBEntryBase *entry) {
         gmp_proto_->DeleteIntf(igmp_intf->gmp_intf_);
         itf_attach_count_--;
         delete igmp_intf;
-        state->igmp_state_map_.erase(it->first);
-        it++;
+        state->igmp_state_map_.erase(it++);
     }
 
     const std::vector<VnIpam> &ipam = vn->GetVnIpam();
