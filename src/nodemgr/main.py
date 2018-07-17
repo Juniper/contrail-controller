@@ -59,8 +59,10 @@ unit_names_dict = {
     'contrail-analytics': [
         'contrail-collector',
         'contrail-analytics-api',
+        'contrail-snmp-collector',
         'contrail-query-engine',
         'contrail-alarm-gen',
+        'contrail-topology',
         'contrail-analytics-nodemgr'
     ],
     'contrail-config': [
