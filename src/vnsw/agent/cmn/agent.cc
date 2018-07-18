@@ -466,7 +466,7 @@ void Agent::CopyConfig(AgentParam *params) {
     prefix_len_ = params_->vhost_plen();
     gateway_id_ = params_->vhost_gw();
     router_id_ = params_->vhost_addr();
-    if (router_id_.to_ulong()) {
+    if (!router_id_.to_ulong()) {
         router_id_configured_ = false;
     }
 
