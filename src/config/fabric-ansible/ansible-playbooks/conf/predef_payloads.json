@@ -66,6 +66,26 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "discover_role_template"
+          ],
+          "name": "discover_role_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_role.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "device_import_template"
           ],
           "name": "device_import_template",
@@ -508,5 +528,3 @@
     }
   ]
 }
-
-
