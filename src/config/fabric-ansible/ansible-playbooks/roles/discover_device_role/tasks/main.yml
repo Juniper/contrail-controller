@@ -2,9 +2,9 @@
 # tasks file for discover_device_role
 
 - name: call brownfield module if no host_list in input
-  import_tasks: brownfield.yml
+  include_tasks: brownfield.yml
   when: host_list is undefined
 
 - name: call greenfield if input has host_list
-  import_tasks: greenfield.yml
+  include_tasks: greenfield.yml
   when: host_list is defined
