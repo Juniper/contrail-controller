@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <term-match-condition>
+                <prefix>
+                    <prefix>1/8</prefix>
+                    <prefix-type>orlonger</prefix-type>
+                </prefix>
+            </term-match-condition>
+            <term-action-list>
+                <update>
+                    <extcommunity>
+                        <add>
+                            <community>target:11:22</community>
+                        </add>
+                        <remove>
+                            <community>target:22:44</community>
+                        </remove>
+                    </extcommunity>
+                </update>
+                <action>accept</action>
+            </term-action-list>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

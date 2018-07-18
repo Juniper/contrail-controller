@@ -115,7 +115,7 @@ bool UpdateCommunity::IsEqual(const RoutingPolicyAction &community) const {
     return false;
 }
 
-UpdateExtCommunity::UpdateExtCommunity(const std::vector<string> communities,
+UpdateExtCommunity::UpdateExtCommunity(const std::vector<string> &communities,
                                        string op) {
     BOOST_FOREACH(const string &community, communities) {
         const ExtCommunity::ExtCommunityList list =

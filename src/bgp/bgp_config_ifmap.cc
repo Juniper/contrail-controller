@@ -1783,6 +1783,12 @@ static void BuildPolicyTermConfig(autogen::PolicyTermType cfg_term,
         term->match.community_match.push_back(
             cfg_term.term_match_condition.community);
     }
+    term->match.ext_community_match_all =
+        cfg_term.term_match_condition.extcommunity_match_all;
+    if (!cfg_term.term_match_condition.extcommunity_list.empty()) {
+        term->match.ext_community_match =
+            cfg_term.term_match_condition.extcommunity_list;
+    }
 
     BOOST_FOREACH(uint16_t asn,
         cfg_term.term_action_list.update.as_path.expand.asn_list) {
@@ -1799,6 +1805,18 @@ static void BuildPolicyTermConfig(autogen::PolicyTermType cfg_term,
     BOOST_FOREACH(const string community,
                   cfg_term.term_action_list.update.community.set.community) {
         term->action.update.community_set.push_back(community);
+    }
+    BOOST_FOREACH(const string community,
+                  cfg_term.term_action_list.update.extcommunity.add.community) {
+        term->action.update.ext_community_add.push_back(community);
+    }
+    BOOST_FOREACH(const string community,
+                  cfg_term.term_action_list.update.extcommunity.remove.community) {
+        term->action.update.ext_community_remove.push_back(community);
+    }
+    BOOST_FOREACH(const string community,
+                  cfg_term.term_action_list.update.extcommunity.set.community) {
+        term->action.update.ext_community_set.push_back(community);
     }
     term->action.update.local_pref =
         cfg_term.term_action_list.update.local_pref;
