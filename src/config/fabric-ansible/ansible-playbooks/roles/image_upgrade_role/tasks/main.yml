@@ -37,31 +37,29 @@
 - name: Get swift download url
   include_tasks: get_swiftfile_url.yml
 
-- name: Appending job log for retreiving image download link and starting image upgrade
-  job_objectlog:
-    message: >
+- name: Appending job log for retreiving image download link and starting image upgrade with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 1
+    jl_message: >
       Upgrade device {{pr_fqname}}, Image name {{filename}}. Retreived image download link: {{downloadurl}}.
-      Now starting image upgrade on the device. It may take 10 to 15 mins.
-    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-    job_ctx: "{{ job_ctx }}"
+      Now starting image upgrade on the device. It may take 10 to 15 mins. 
+
 
 - name: Do junos upgrade
   include_tasks: junos_upgrade.yml
 
 # Initialize job data
-- set_fact:
-    job_ctx: "{{job_ctx|combine({'current_task_index':2})}}"
-
-- name: Job logs for image upgrade task
-  job_objectlog:
-    message: >
+- name: Job logs for image upgrade task with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 2
+    jl_message: >
       {% if 'Reboot' in junos_response.msg -%}
         Upgrade device {{pr_fqname}}, Image name:{{filename}}. Image upgrade task completed on this device: {{junos_response.msg}}. Device reboot may take 15 to 20 mins.
       {% else -%}
         Upgrade device {{pr_fqname}}, Image name:{{filename}}. Image upgrade task completed on this device. Same version found.
       {%- endif %}
-    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-    job_ctx: "{{ job_ctx }}"
 
 
 # Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
@@ -76,19 +74,16 @@
   when: "'Reboot' in junos_response.msg"
 
 # Initialize job data
-- set_fact:
-    job_ctx: "{{job_ctx|combine({'current_task_index':3})}}"
-
-- name: Append job logs after device is up
-  job_objectlog:
-    message: >
+- name: Append job logs after device is up with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 3
+    jl_message: >
       {% if 'Reboot' in junos_response.msg -%}
         Device is up after reboot. Now validating image version on device.
       {% else -%}
         Validating image version on device.
       {%- endif %}
-    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-    job_ctx: "{{ job_ctx }}"
 
 - name: check device OS version
   include_tasks: check_version_rpc.yml
@@ -118,12 +113,8 @@
     os_version: "{{device_version}}"
 
 # Initialize job data
-- set_fact:
-    job_ctx: "{{job_ctx|combine({'current_task_index':4})}}"
-
-# update job log
-- name: Job logs for version validation status
-  job_objectlog:
-    message: Upgrade device {{pr_fqname}} Image name {{filename}}. Image upgrade version validated.
-    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-    job_ctx: "{{ job_ctx }}"
+- name: Job logs for version validation status with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 4
+    jl_message: Upgrade device {{pr_fqname}} Image name {{filename}}. Image upgrade version validated.

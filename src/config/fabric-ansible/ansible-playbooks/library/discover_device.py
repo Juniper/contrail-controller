@@ -114,8 +114,8 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
         try:
             host_params = retry_queue.get_nowait()
 
-            # this is the time when 'host_params' is put into the retry_queue after it
-            # fails the first time.
+            # this is the time when 'host_params' is put into the retry_queue
+            # after it fails the first time.
             if host_params.get('time') is not 0:
                 current_time = datetime.now()
                 time_diff = current_time - host_params.get('time')
@@ -252,6 +252,8 @@ def module_process(module):
             JOB_IN_PROGRESS,
             None)
 
+    deviceinfo.discovery_percentage_write()
+
     if len(all_hosts) == 0:
         _exit_with_error(module, "NO HOSTS to DISCOVER")
 
@@ -299,6 +301,7 @@ def module_process(module):
         module.results.get('msg'),
         JOB_IN_PROGRESS,
         None)
+    deviceinfo.discovery_percentage_write()
     module.exit_json(**module.results)
 # end module_process
 

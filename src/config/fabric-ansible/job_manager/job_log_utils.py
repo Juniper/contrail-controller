@@ -21,8 +21,8 @@ from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh.job.ttypes import JobLogEntry
 from sandesh.job.ttypes import JobLog
-from sandesh.job.ttypes import JobExecution
-from sandesh.job.ttypes import UveJobExecution
+from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
+    PhysicalRouterJobExecution, PhysicalRouterJobUve
 from sandesh.job.ttypes import PRouterOnboardingLogEntry
 from sandesh.job.ttypes import PRouterOnboardingLog
 
@@ -64,7 +64,7 @@ class JobLogUtils(object):
             sandesh_util.wait_for_connection_establish()
         except JobException:
             msg = MsgBundle.getMessage(
-                                MsgBundle.SANDESH_INITIALIZATION_TIMEOUT_ERROR)
+                MsgBundle.SANDESH_INITIALIZATION_TIMEOUT_ERROR)
             raise JobException(msg)
         logger.info("Sandesh is initialized. Config logger instance created.")
         return logger
@@ -199,19 +199,59 @@ class JobLogUtils(object):
                                        exc_msg=repr(e))
             raise JobException(msg, job_execution_id)
 
-    def send_job_execution_uve(self, job_template_fqname, job_execution_id,
-                               timestamp=None, percentage_completed=None):
+    def send_job_execution_uve(
+            self,
+            fabric_fq_name,
+            job_template_fqname,
+            job_execution_id,
+            timestamp=None,
+            percentage_completed=None):
+        try:
+            fabric_job_name = list(job_template_fqname)
+            fabric_job_name.insert(0, fabric_fq_name)
+            fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+
+            job_exe_data = FabricJobExecution(
+                name=fabric_job_uve_name,
+                job_status='IN_PROGRESS',
+                percentage_completed=percentage_completed)
+            job_uve = FabricJobUve(
+                data=job_exe_data,
+                sandesh=self.config_logger._sandesh)
+            job_uve.send(sandesh=self.config_logger._sandesh)
+        except Exception as exp:
+            job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
+            msg = MsgBundle.getMessage(MsgBundle.SEND_JOB_EXC_UVE_ERROR,
+                                       job_template_fqname=job_template_fqname,
+                                       job_execution_id=job_execution_id,
+                                       exc_msg=repr(exp))
+            raise JobException(msg, job_execution_id)
+
+    def send_prouter_job_uve(
+            self,
+            job_template_fqname,
+            fq_names,
+            job_execution_id,
+            prouter_state=None,
+            job_status=None):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
-            if timestamp is None:
-                timestamp = int(round(time.time() * 1000))
-            job_exe_data = JobExecution(
-                name=job_template_fqname,
+            if prouter_state is None:
+                prouter_job_data = PhysicalRouterJobExecution(
+                    name=fq_names,
+                    execution_id=job_execution_id,
+                    job_status=job_status)
+
+            prouter_job_data = PhysicalRouterJobExecution(
+                name=fq_names,
                 execution_id=job_execution_id,
-                job_start_ts=timestamp,
-                percentage_completed=percentage_completed)
-            job_uve = UveJobExecution(data=job_exe_data)
-            job_uve.send(sandesh=self.config_logger._sandesh)
+                prouter_state=prouter_state,
+                job_status=job_status)
+
+            prouter_job_uve = PhysicalRouterJobUve(
+                data=prouter_job_data, sandesh=self.config_logger._sandesh)
+            prouter_job_uve.send(sandesh=self.config_logger._sandesh)
+
         except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.SEND_JOB_EXC_UVE_ERROR,
                                        job_template_fqname=job_template_fqname,
@@ -271,10 +311,10 @@ class JobLogUtils(object):
     # value while calculating the per task percentage (to avoid overflows)
     # total_percent - Total percentage alloted to the job, that needs to be
     # split amongst the tasks
-    # task_weightage_array - The weightage array which gives the weightage of 
+    # task_weightage_array - The weightage array which gives the weightage of
     # the tasks for calculating the per task percentage
     # task_seq_number - If the weightage array is provided, then this should
-    # indicate the sequence number of the task within the array. 
+    # indicate the sequence number of the task within the array.
     # Note: The task_seq_number is initialized at 1.
     def calculate_job_percentage(self, num_tasks, buffer_task_percent=False,
                                  task_seq_number=None, total_percent=100,
@@ -304,7 +344,7 @@ class JobLogUtils(object):
                                        "percentage since the task sequence "
                                        "number is not provided")
                 success_task_percent = float(Decimal(
-                    task_weightage_array[task_seq_number - 1] *\
+                    task_weightage_array[task_seq_number - 1] *
                     total_percent) / 100)
 
             # based on the task sequence number calculate the percentage to be
@@ -315,12 +355,12 @@ class JobLogUtils(object):
             if task_seq_number:
                 if task_weightage_array is None:
                     failed_task_percent = (num_tasks - task_seq_number + 1) *\
-                                          success_task_percent
+                        success_task_percent
                 else:
                     failed_task_percent = 0.00
                     for task_index in range(task_seq_number, num_tasks):
                         task_percent = float(Decimal(
-                            task_weightage_array[task_index-1] *\
+                            task_weightage_array[task_index - 1] *
                             total_percent) / 100)
                         failed_task_percent += task_percent
             self.config_logger.info("success_task_percent %s "
@@ -334,4 +374,3 @@ class JobLogUtils(object):
             self.config_logger.error(msg)
             self.config_logger.error("%s" % traceback.format_exc())
             raise JobException(e)
-

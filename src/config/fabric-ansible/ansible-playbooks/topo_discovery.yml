@@ -18,7 +18,3 @@
       vars:
         current_index: 4
         jl_message: "Topology Discovery: {{prouter_name}} succeeded discovering topology"
-
-    - name: insert/update in /tmp/<exec-id> file
-      set_fact:
-        write_resp: "{{job_ctx | report_end_of_playbook()}}"

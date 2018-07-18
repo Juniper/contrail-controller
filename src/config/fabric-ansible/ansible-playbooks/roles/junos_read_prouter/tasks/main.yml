@@ -2,17 +2,17 @@
     - name: get fabric namespaces for a tag
       vnc_db_mod:
         job_ctx: "{{ job_ctx }}"
-        object_type: "fabric"
-        object_op: "list"
+        object_type: "physical_router"
+        object_op: "read"
         object_dict: |
           {
-            "back_ref_id": "{{ prouter_uuid }}"
+            "uuid": "{{ prouter_uuid }}"
           }
-      register: fabric_obj
+      register: prouter_obj
 
     - name: get fabric uuid
       set_fact:
-        fabric_uuid: "{{ fabric_obj.obj.fabrics[0].uuid }}"
+        fabric_uuid: "{{ prouter_obj.obj.fabric_refs[0].uuid }}"
 
     - set_fact:
         tag_fq_name: "label=fabric-as-number"
