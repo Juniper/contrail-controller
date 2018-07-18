@@ -837,7 +837,7 @@ class PhysicalInterfaceDM(DBBaseDM):
                 self.lacp_enabled = link_aggr_group_obj.get('lacp_enabled')
                 for ref in link_aggr_group_obj.get('physical_interface_refs', []):
                      if not self.uuid == ref['uuid']:
-                         self.link_members.append(ref['uuid'])
+                         self.link_members.append(ref['to'][2])
         return obj
     # end update
 
