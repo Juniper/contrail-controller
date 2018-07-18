@@ -2075,7 +2075,7 @@ class DMCassandraDB(VncObjectDBClient):
 
     def init_pr_map(self):
         cf = self.get_cf(self._PR_VN_IP_CF)
-        pr_entries = dict(cf.get_range(column_count=0, filter_empty=False))
+        pr_entries = dict(cf.get_range(column_count=1000000))
         for key in pr_entries.keys():
             key_data = key.split(':', 1)
             cols = pr_entries[key] or {}
@@ -2087,7 +2087,7 @@ class DMCassandraDB(VncObjectDBClient):
 
     def init_pr_ae_map(self):
         cf = self.get_cf(self._PR_AE_ID_CF)
-        pr_entries = dict(cf.get_range(column_count=0, filter_empty=False))
+        pr_entries = dict(cf.get_range(column_count=1000000))
         for key in pr_entries.keys():
             key_data = key.split(':', 1)
             (pr_uuid, esi) = (key_data[0], key_data[1])
