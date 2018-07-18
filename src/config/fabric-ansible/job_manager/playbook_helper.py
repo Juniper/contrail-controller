@@ -194,5 +194,31 @@ if __name__ == "__main__":
         sys.exit(MsgBundle.getMessage(MsgBundle.PLAYBOOK_INPUT_PARSING_ERROR,
                                       exc_msg=repr(exp)))
     playbook_helper = PlaybookHelper()
-    playbook_helper.execute_playbook(playbook_input_json)
+    pb_output = playbook_helper.execute_playbook(playbook_input_json)
 
+    # if it comes here, it implies the pb_output is of correct
+    # format and is present. So derive the playbook output to be
+    # written to file and finally write END to the file
+
+    try:
+        unique_pb_id = playbook_input_json['extra_vars'][
+            'playbook_input']['unique_pb_id']
+        exec_id = playbook_input_json['extra_vars']['playbook_input'][
+            'job_execution_id']
+
+        # messages to be given to next playbooks(s)
+
+        JM_LOGGER.info("Printing pb output results from pb_helper.py -->>>")
+        JM_LOGGER.info(pb_output)
+        line_in_file = unique_pb_id + 'PLAYBOOK_OUTPUT##' + json.dumps(pb_output) + 'PLAYBOOK_OUTPUT##' + '\n'
+        with open("/tmp/"+exec_id, "a") as f:
+            f.write(line_in_file + unique_pb_id + 'END' + '\n')
+    except Exception, exc:
+        ERR_MSG = "Error while trying to parse output"\
+                  " from playbook due to exception: %s"\
+                  % str(exc)
+        with open("/tmp/"+exec_id, "a") as f:
+            f.write(unique_pb_id + 'END' + '\n')
+        JM_LOGGER.error(ERR_MSG)
+        # not stopping execution just because of  parsing error
+        # no sys.exit therefore
