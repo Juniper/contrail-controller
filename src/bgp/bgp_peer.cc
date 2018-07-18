@@ -948,18 +948,36 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     ProcessEndpointConfig(config);
 
     if (local_as_ != config->local_as()) {
+        BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                BGP_LOG_FLAG_SYSLOG,
+                "Updated Local Autonomous System from " <<
+                local_as_ << " to " <<
+                config->local_as());
+
         local_as_ = config->local_as();
         peer_info.set_local_asn(local_as_);
         clear_session = true;
     }
 
     if (hold_time_ != config->hold_time()) {
+        BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                BGP_LOG_FLAG_SYSLOG,
+                "Updated Hold Time from " <<
+                hold_time_ << " to " <<
+                config->hold_time());
+
         hold_time_ = config->hold_time();
         peer_info.set_hold_time(hold_time_);
         clear_session = true;
     }
 
     if (peer_as_ != config->peer_as()) {
+        BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                BGP_LOG_FLAG_SYSLOG,
+                "Updated Peer Autonomous System from " <<
+                peer_as_ << " to " <<
+                config->peer_as());
+
         peer_as_ = config->peer_as();
         peer_info.set_peer_asn(peer_as_);
         clear_session = true;
