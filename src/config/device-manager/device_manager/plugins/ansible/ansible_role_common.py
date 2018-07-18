@@ -657,6 +657,23 @@ class AnsibleRoleCommon(AnsibleConf):
             self.interfaces_config.append(intf)
     # end build_esi_config
 
+    def build_lag_config(self):
+        pr = self.physical_router
+        if not pr:
+            return
+        self.interfaces_config = self.interfaces_config or []
+        for pi_uuid in pr.physical_interfaces:
+            pi = PhysicalInterfaceDM.get(pi_uuid)
+            if not pi or not pi.link_aggregation_group:
+                continue
+            lag = LinkAggrGroup(lacp_enabled=pi.lacp_enabled,
+                                member_list=pi.link_members)
+            intf = PhysicalInterface(name=pi.name,
+                                     interface_type=pi.interface_type,
+                                     link_aggregation_group=lag)
+            self.interfaces_config.append(intf)
+    # end build_lag_config
+
     def get_vn_li_map(self):
         pr = self.physical_router
         vn_list = []
@@ -1094,6 +1111,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.init_evpn_config()
         self.build_firewall_config()
         self.build_esi_config()
+        self.build_lag_config()
         self.set_route_targets_config()
     # end set_common_config
 

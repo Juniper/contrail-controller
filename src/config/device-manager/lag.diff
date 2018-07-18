@@ -1,0 +1,141 @@
+diff --git a/src/config/device-manager/device_manager/db.py b/src/config/device-manager/device_manager/db.py
+index 9fba6b1..a8d1659 100644
+--- a/src/config/device-manager/device_manager/db.py
++++ b/src/config/device-manager/device_manager/db.py
+@@ -810,6 +810,7 @@ class PhysicalInterfaceDM(DBBaseDM):
+         self.logical_interfaces = set()
+         self.virtual_machine_interfaces = set()
+         self.physical_interfaces = set()
++        self.link_aggregation_group = None
+         self.mtu = 0
+         self.esi = None
+         self.parent_ae_id = None
+@@ -820,13 +821,23 @@ class PhysicalInterfaceDM(DBBaseDM):
+     def update(self, obj=None):
+         if obj is None:
+             obj = self.read_obj(self.uuid)
++        self.link_members = []
+         self.physical_router = self.get_parent_uuid(obj)
+         self.logical_interfaces = set([li['uuid'] for li in
+                                        obj.get('logical_interfaces', [])])
+         self.name = obj.get('fq_name')[-1]
+         self.esi = obj.get('ethernet_segment_identifier')
++        self.interface_type = obj.get('physical_interface_type')
+         self.update_multiple_refs('virtual_machine_interface', obj)
+         self.update_multiple_refs('physical_interface', obj)
++        if self.interface_type == 'lag':
++           self.update_single_ref('link_aggregation_group', obj)
++           if self.link_aggregation_group is not None:
++               link_aggr_group_obj = self.read_obj(self.link_aggregation_group)
++               self.lacp_enabled = link_aggr_group_obj.get('lacp_enabled')
++               for ref in link_aggr_group_obj.get('physical_interface_refs', []):
++                    if not self.uuid == ref['uuid']:
++                        self.link_members.append(ref['uuid'])
+         return obj
+     # end update
+ 
+diff --git a/src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py b/src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py
+index 6d3c933..4252c2a 100644
+--- a/src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py
++++ b/src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py
+@@ -498,6 +498,23 @@ class AnsibleRoleCommon(AnsibleConf):
+             self.interfaces_config.append(intf)
+     # end build_esi_config
+ 
++    def build_lag_config(self):
++        pr = self.physical_router
++        if not pr:
++            return
++        self.interfaces_config = self.interfaces_config or []
++        for pi_uuid in pr.physical_interfaces:
++            pi = PhysicalInterfaceDM.get(pi_uuid)
++            if not pi or not pi.link_aggregation_group:
++                continue
++            lag = LinkAggrGroup(lacp_enabled=pi.lacp_enabled,
++                                member_list=pi.link_members)
++            intf = PhysicalInterface(name=pi.name,
++                                     interface_type=pi.interface_type,
++                                     link_aggr_group=lag)
++            self.interfaces_config.append(intf)
++     # end build_lag_config
++
+     def get_vn_li_map(self):
+         pr = self.physical_router
+         vn_list = []
+@@ -913,6 +930,7 @@ class AnsibleRoleCommon(AnsibleConf):
+         self.init_evpn_config()
+         self.build_firewall_config()
+         self.build_esi_config()
++        self.build_lag_config()
+         self.set_route_targets_config()
+     # end set_common_config
+ 
+diff --git a/src/config/device-manager/device_manager/plugins/juniper/qfx/qfx_conf.py b/src/config/device-manager/device_manager/plugins/juniper/qfx/qfx_conf.py
+index a8eb7f0..eb6ac84 100644
+--- a/src/config/device-manager/device_manager/plugins/juniper/qfx/qfx_conf.py
++++ b/src/config/device-manager/device_manager/plugins/juniper/qfx/qfx_conf.py
+@@ -691,6 +691,25 @@ class QfxConf(JuniperConf):
+         self.interfaces_config = interfaces_config
+     # end build_ae_config
+ 
++    def build_lag_config(self):
++        pr = self.physical_router
++        if not pr:
++            return
++        self.interfaces_config = self.interfaces_config or []
++        for pi_uuid in pr.physical_interfaces:
++            pi = PhysicalInterfaceDM.get(pi_uuid)
++            if not pi or not pi.link_aggregation_group:
++                continue
++            self.set_chassis_config()
++            for pi_mem_uuid in pi.link_members or []:
++                pi_mem = PhysicalInterfaceDM.get(pi_mem_uuid)
++                intf = Interface(name=pi_mem.name)
++                interfaces_config.add_interface(intf)
++                etherOptions = EtherOptions(ieee_802_3ad=Ieee802(bundle=pi_mem.name))
++                intf.set_gigether_options(etherOptions)
++        self.interfaces_config = interfaces_config
++    # end build_lag_config
++
+     def add_addr_term(self, term, addr_match, is_src):
+         if not addr_match:
+             return None
+@@ -991,6 +1010,7 @@ class QfxConf(JuniperConf):
+         self.init_global_switch_opts()
+         self.set_resolve_bgp_route_target_family_config()
+         self.build_esi_config()
++        self.build_lag_config()
+         self.set_route_targets_config()
+         self.set_route_distinguisher_config()
+     # end set_qfx_common_config
+diff --git a/src/config/device-manager/device_schema/abstract_device/abstract_device.xsd b/src/config/device-manager/device_schema/abstract_device/abstract_device.xsd
+index 1b3eda6..0b9040c 100644
+--- a/src/config/device-manager/device_schema/abstract_device/abstract_device.xsd
++++ b/src/config/device-manager/device_schema/abstract_device/abstract_device.xsd
+@@ -186,6 +186,7 @@
+        <xsd:element name="interface-type" type="dac:InterfaceTypes"/>
+        <xsd:element name="mac-address" type="xsd:string"/>
+        <xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
++       <xsd:element name="link-aggr-group" type="dac:LinkAggrGroup"/>
+        <xsd:element name="logical-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+     </xsd:all>
+ </xsd:complexType>
+@@ -196,9 +197,18 @@
+         <xsd:enumeration value="loopback"/>
+         <xsd:enumeration value="service"/>
+         <xsd:enumeration value="regular"/>
++        <xsd:enumeration value="lag"/>
+     </xsd:restriction>
+ </xsd:simpleType>
+ 
++<xsd:simpleType name="LinkAggrGroup">
++    <xsd:all>
++       <xsd:element name="comment" type="xsd:string"/>
++       <xsd:element name="lacp-enabled" type="xsd:boolean"/>
++       <xsd:element name="link-members" type=xsd:string" maxOccurs="unbounded"/>
++    </xsd:all>
++</xsd:simpleType>
++
+ <xsd:complexType name="LogicalInterface">
+     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
