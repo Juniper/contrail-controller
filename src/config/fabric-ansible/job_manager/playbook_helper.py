@@ -99,8 +99,6 @@ from ansible.executor.playbook_executor import PlaybookExecutor
 
 from job_manager.job_messages import MsgBundle
 from job_manager.job_manager_logger import job_mgr_logger
-
-logger = fabric_ansible_logger("ansible")
 JM_LOGGER = job_mgr_logger("FabricAnsible")
 
 

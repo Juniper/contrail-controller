@@ -5,8 +5,8 @@
 
 - name: Print the object type.
   debug:
-    msg: "{{ob_type}}"
-
+    var: ob_type
+    verbosity: 1
 
 - name: Iterate over objects for this object type and create objects
   include_tasks: create_objects.yml

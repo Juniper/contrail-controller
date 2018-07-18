@@ -16,6 +16,7 @@
 - name: Print the complete response.
   debug:
     var: swift_results
+    verbosity: 1
 
 # handle error/exception from swift and set output
 - name: Fail if swift module returned error

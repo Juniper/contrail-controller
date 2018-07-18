@@ -5,7 +5,8 @@
        "results": "{{results}}"
     }
 
-- debug: var=output
+- name: print output
+  debug: var=output verbosity=1
 
 - name: "Append job log for the error"
   job_objectlog:

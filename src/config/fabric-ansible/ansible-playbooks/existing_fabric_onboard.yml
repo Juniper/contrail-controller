@@ -7,7 +7,7 @@
   tasks:
     - name: onboard fabric
       set_fact:
-        output: "{{ job_ctx | onboard_fabric }}"
+        output: "{{ job_ctx | onboard_existing_fabric }}"
 
     - debug: var=output
 

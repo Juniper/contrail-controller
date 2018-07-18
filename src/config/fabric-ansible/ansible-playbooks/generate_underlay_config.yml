@@ -23,4 +23,5 @@
               "message": "Underlay config successful for: {{junos_host}}"
           }
 
-    - debug: msg={{output}}
+    - name: print output
+      debug: var=output verbosity=1

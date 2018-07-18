@@ -153,7 +153,7 @@ class TestFabricVncDbModule(TestFabricModule):
         object_list = [{"parent_type": "global-system-config",
                         "fq_name": ["default-global-system-config", "mx-240"],
                         "physical_router_management_ip": "172.10.68.1",
-                        "physical_router_vendor_name": "Juniper",
+                        "physical_router_vendor_name": "Juni",
                         "physical_router_product_name": "MX",
                         "physical_router_device_family": "junos"}]
         fake_vnc_lib = flexmock()
