@@ -55,6 +55,14 @@ class TestExecuteJob(test_case.ApiServerTestCase):
         job_template_id = self._vnc_lib.job_template_create(
                                             job_template_object)
 
+        # craete test fabric object
+        fabric_obj = Fabric(
+            name="fab_name",
+            fq_name=["default-global-system-config", "fab_name"],
+            parent_type='global-system-config'
+        )
+        fabric_uuid = self._vnc_lib.fabric_create(fabric_obj)
+
         # create test device object
         phy_router_obj = PhysicalRouter(
             parent_type='global-system-config',
@@ -66,6 +74,8 @@ class TestExecuteJob(test_case.ApiServerTestCase):
                                               "password": "password"},
             physical_router_device_family='juniper-mx')
         pr_uuid = self._vnc_lib.physical_router_create(phy_router_obj)
+
+        self._vnc_lib.ref_update("physical_router", pr_uuid, "fabric", fabric_uuid, None, "ADD")
 
         execute_job_body = json.dumps({'job_template_id': str(job_template_id),
                                        'input':
