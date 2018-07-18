@@ -10,6 +10,7 @@ import io
 import logging
 from flexmock import flexmock
 import subprocess32
+import requests
 from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
 from vnc_api.vnc_api import JobTemplate
@@ -44,7 +45,7 @@ class TestJobManager(test_case.JobTestCase):
 
     # end tearDownClass
 
-    #Test for a single playbook in the workflow template
+    # Test for a single playbook in the workflow template
     def test_execute_job_success(self):
         # create job template
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yml',
@@ -72,7 +73,7 @@ class TestJobManager(test_case.JobTestCase):
         self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    #Test for job success with multiple playbooks in the workflow template
+    # Test for job success with multiple playbooks in the workflow template
     def test_execute_job_success_multiple_templates(self):
         # create job template
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yml',
@@ -80,8 +81,8 @@ class TestJobManager(test_case.JobTestCase):
                                      device_family='MX')
         play_info1 = PlaybookInfoType(
             playbook_uri='job_manager_test_multiple.yml',
-                                      vendor='Juniper',
-                                      device_family='QFX')
+            vendor='Juniper',
+            device_family='QFX')
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info,
                                                              play_info1])
         job_template = JobTemplate(job_template_type='device',
@@ -105,14 +106,16 @@ class TestJobManager(test_case.JobTestCase):
         self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    #to test the case when only device vendor is passed in job_template_input
+    # to test the case when only device vendor is passed in job_template_input
     def test_execute_job_with_vendor_only(self):
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
                                      vendor='Juniper')
-        play_info1 = PlaybookInfoType(playbook_uri='job_manager_test_multiple.yml',
-                                      vendor='Juniper')
+        play_info1 = PlaybookInfoType(
+            playbook_uri='job_manager_test_multiple.yml',
+            vendor='Juniper')
 
-        playbooks_list = PlaybookInfoListType(playbook_info=[play_info,play_info1])
+        playbooks_list = PlaybookInfoListType(
+            playbook_info=[play_info, play_info1])
         job_template = JobTemplate(job_template_type='device',
                                    job_template_job_runtime='ansible',
                                    job_template_multi_device_job=True,
@@ -132,8 +135,8 @@ class TestJobManager(test_case.JobTestCase):
         self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    #to test the case when device vendor and multiple device families are
-    #passed in job_template_input
+    # to test the case when device vendor and multiple device families are
+    # passed in job_template_input
     def test_execute_job_multiple_device_families(self):
         play_info_mx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
@@ -163,11 +166,13 @@ class TestJobManager(test_case.JobTestCase):
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
-                     JobStatus.SUCCESS)
+                         JobStatus.SUCCESS)
 
-    #to test the case when device vendor and multiple device families are
-    #passed in workflow_template_input along with multiple playbooks
-    #TODO - The task weightage array from be gotten from the workflow_template. Currently the test case fails beacuse the task weightage array is hard coded.
+    # to test the case when device vendor and multiple device families are
+    # passed in workflow_template_input along with multiple playbooks
+    # TODO - The task weightage array from be gotten from the
+    # TODO - workflow_template. Currently the test case
+    # TODO - fails beacuse the task weightage array is hard coded.
     def test_execute_job_multiple_device_families_multiple_playbooks(self):
         play_info_mx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
@@ -202,9 +207,10 @@ class TestJobManager(test_case.JobTestCase):
         self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    #to test the case when multiple device vendors and multiple_playbooks are
-    #passed in job_template_input
-    #TODO - Test case fails for the same reason as above.the hardcoded array only considers chaining of two playbooks.
+    # to test the case when multiple device vendors and multiple_playbooks are
+    # passed in job_template_input
+    # TODO - Test case fails for the same reason as above. The
+    # TODO - hardcoded array only considers chaining of two playbooks.
     def test_execute_job_multiple_vendors_multiple_playbooks(self):
         play_info_juniper_mx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
@@ -239,8 +245,8 @@ class TestJobManager(test_case.JobTestCase):
         self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
 
-    #to test the case when no vendor is passed in workflow_template_input for
-    #second playbook_info - Depending on the device vendor, the right
+    # to test the case when no vendor is passed in workflow_template_input for
+    # second playbook_info - Depending on the device vendor, the right
     # playbooks has to be picked.
     def test_execute_job_no_vendor(self):
         play_info_juniper_qfx = PlaybookInfoType(
@@ -272,32 +278,36 @@ class TestJobManager(test_case.JobTestCase):
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
-                     JobStatus.SUCCESS)
+                         JobStatus.SUCCESS)
 
     def get_details(self, job_template_uuid):
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
             job_template_uuid)
         job_input_json.update({
-            "params": {"device_list":
-                           ["aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
+            "params": {"device_list": [
+                "aad74e24-a00b-4eb3-8412-f8b9412925c3"]},
             "device_json": {
                 "aad74e24-a00b-4eb3-8412-f8b9412925c3":
                     {'device_vendor': 'Juniper',
                      'device_family': 'MX',
                      'device_username': 'username',
-                     'device_password': 'pswd'}}
+                     'device_password': 'pswd',
+                     'device_product': 'QFX-10002',
+                     'device_fqname': ['default-global-system-config',
+                                       'random_device_fqname']}}
         })
 
         return job_input_json, log_utils
 
     def mock_play_book_execution(self):
-        #mocking the loop with the stdout.readline function.
+        # mocking the loop with the stdout.readline function.
         loop_var = 0
+
         def mock_readline():
             global loop_var
             loop_var += 1
             if loop_var == 1:
-                with open("tests/test.txt",'r') as f:
+                with open("tests/test.txt", 'r') as f:
                     line = f.readline()
                     return line
             if loop_var == 2:
@@ -312,7 +322,11 @@ class TestJobManager(test_case.JobTestCase):
         fake_process.should_receive('wait')
         mock_subprocess32.should_receive('Popen').and_return(
             fake_process)
+        fake_process.should_receive('poll').and_return(123)
         # mock the call to invoke the playbook process
         flexmock(os.path).should_receive('exists').and_return(True)
         # mock sys exit call
         flexmock(sys).should_receive('exit')
+        fake_resp = flexmock(status_code=123)
+        fake_request = flexmock(requests).should_receive(
+                           'post').and_return(fake_resp)

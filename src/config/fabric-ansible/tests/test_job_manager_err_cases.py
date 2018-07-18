@@ -4,6 +4,7 @@
 import sys
 import uuid
 import subprocess32
+import requests
 import os
 import json
 import logging
@@ -54,9 +55,8 @@ class TestJobManagerEC(test_case.JobTestCase):
         super(TestJobManagerEC, cls).tearDownClass(*args, **kwargs)
     # end tearDownClass
 
-    #to test the case when sandesh initialization times out
+    # to test the case when sandesh initialization times out
     def test_sandesh_timeout(self):
-        import pdb; pdb.set_trace()
         mocked_sandesh_utils = flexmock()
         flexmock(SandeshUtils, __new__=mocked_sandesh_utils)
         mocked_sandesh_utils.should_receive('__init__')
@@ -87,8 +87,8 @@ class TestJobManagerEC(test_case.JobTestCase):
         self.assertEqual(str(exc_msg), MsgBundle.getMessage(
             MsgBundle.JOB_TEMPLATE_MISSING))
 
-    #to test the case when job_execution_id is missing while initializing the
-    #workflow_manager
+    # to test the case when job_execution_id is missing while initializing the
+    # workflow_manager
     def test_execute_job_no_execution_id(self):
         job_input_json = {"job_template_id": "template_id"}
         exc_msg = self.assertRaises(
@@ -101,7 +101,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         self.assertEqual(str(exc_msg), MsgBundle.getMessage(
             MsgBundle.JOB_EXECUTION_ID_MISSING))
 
-    #to test the case when there is no job_template
+    # to test the case when there is no job_template
     def test_execute_job_read_job_template(self):
         job_template_id = str(uuid.uuid4())
 
@@ -117,16 +117,15 @@ class TestJobManagerEC(test_case.JobTestCase):
             .with_args(id=job_template_id) \
             .and_raise(Exception('No such job Template id'))
         wm = WFManager(log_utils.get_config_logger(),
-                          mock_vnc, job_input_json, log_utils)
+                       mock_vnc, job_input_json, log_utils)
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
         self.assertEqual(
             sys_exit_msg.code,
             MsgBundle.getMessage(MsgBundle.JOB_EXC_REC_HDR) +
             MsgBundle.getMessage(MsgBundle.READ_JOB_TEMPLATE_ERROR,
-                                 job_template_id=job_template_id)
-            + " ")
+                                 job_template_id=job_template_id) + " ")
 
-    #to test the generic exception in handle_job for single device
+    # to test the generic exception in handle_job for single device
     def test_execute_job_generic_exception_handle_job(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -146,17 +145,16 @@ class TestJobManagerEC(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         # mock the job_handler to raise a general exception
         mock_job_handler = flexmock()
         flexmock(JobHandler).new_instances(mock_job_handler)
 
         flexmock(mock_job_handler).should_receive('handle_job')
-        flexmock(mock_job_handler).should_receive('get_playbook_info') \
-           .and_raise(
-           Exception("Job Handler "
-                     "Generic Exception"))
+        flexmock(mock_job_handler).should_receive(
+            'get_playbook_info').and_raise(
+            Exception("Job Handler Generic Exception"))
         mock_result_handler = flexmock(job_result_status=JobStatus.FAILURE,
                                        job_summary_message=exc_msg)
         flexmock(JobResultHandler).new_instances(mock_result_handler)
@@ -171,9 +169,8 @@ class TestJobManagerEC(test_case.JobTestCase):
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
         self.assertEqual(sys_exit_msg.code, exc_msg)
 
-
-    #to test generic exception from get_playbook_info
-    #TODO - THIS test case it not longer necessary. GET_PLAYBOOK_INFO_ERROR
+    # to test generic exception from get_playbook_info
+    # TODO - THIS test case it not longer necessary. GET_PLAYBOOK_INFO_ERROR
     # def test_execute_job_handler_gen_exc(self):
     #     # create job template
     #     fake_job_template = flexmock(
@@ -229,6 +226,7 @@ class TestJobManagerEC(test_case.JobTestCase):
     #
 
     # #to test single_device_job when playbook is not present in the path
+
     def test_execute_job_no_pb_file_on_path(self):
         # create job template
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yaml')
@@ -249,7 +247,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         # mock the call to invoke the playbook process
         flexmock(os.path).should_receive('exists').and_return(False)
@@ -265,7 +263,7 @@ class TestJobManagerEC(test_case.JobTestCase):
                          getMessage(MsgBundle.PLAYBOOK_NOT_FOUND,
                                     playbook_uri=playbook_info['uri']))
 
-    #To test generic job exception in handle_job
+    # To test generic job exception in handle_job
     def test_execute_job_generic_exception(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -282,7 +280,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         # mock the job_handler to raise a general exception
         mock_job_handler = flexmock()
@@ -302,8 +300,7 @@ class TestJobManagerEC(test_case.JobTestCase):
                              MsgBundle.EXC_JOB_ERR_HDR) +
                          exc_msg + " ")
 
-
-    #TODO this test case can be removed becuase id device id is omitted,
+    # TODO this test case can be removed becuase id device id is omitted,
     # to test generic exception in job_manager
     # Simulate this by omitting (device_id in) job_params
     # def test_execute_job_generic_exception_multi_device(self):
@@ -332,8 +329,9 @@ class TestJobManagerEC(test_case.JobTestCase):
     #                          MsgBundle.EXC_JOB_ERR_HDR) +
     #                      exc_msg + " ")
 
-    #to test the generic exception in handle_device_job when executing for
-    #multiple devices.
+    # to test the generic exception in handle_device_job when executing for
+    # multiple devices.
+
     def test_execute_job_generic_exception_handle_device_job(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -350,12 +348,11 @@ class TestJobManagerEC(test_case.JobTestCase):
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
             job_template_uuid)
-        job_input_json["params"] = {"device_list":
-                                        [
-                                            "aad74e24-a00b-4eb3-8412-f8b9412925c3"]}
+        job_input_json["params"] = {"device_list": [
+            "aad74e24-a00b-4eb3-8412-f8b9412925c3"]}
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         # mock the job_handler to raise a general exception
         mock_job_handler = flexmock()
@@ -381,9 +378,9 @@ class TestJobManagerEC(test_case.JobTestCase):
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
         self.assertEqual(sys_exit_msg.code, exc_msg)
 
+    # to test multi_device_job when device_vendor is not found.
+    # get_playbook_info fails.
 
-    #to test multi_device_job when device_vendor is not found.
-    #get_playbook_info fails.
     def test_execute_job_no_device_vendor(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -400,14 +397,15 @@ class TestJobManagerEC(test_case.JobTestCase):
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
             job_template_uuid)
         job_input_json.update({
-            "params": {"device_list":
-                           [device_id]},
+            "params": {"device_list": [device_id]},
             "device_json": {
                 device_id:
-                    {"device_family": "MX"}}})
+                    {"device_family": "MX",
+                     "device_fqname": [
+                         "default-global-system-config", "random_fqname"]}}})
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
         self.assertEqual(sys_exit_msg.code, MsgBundle.getMessage(
@@ -423,11 +421,10 @@ class TestJobManagerEC(test_case.JobTestCase):
                                               device_id=device_id) + " \n"
                          )
 
-
-
     # # to test multi_device_job when there is explicit mismatch, between
     # device vendor and playbok vendor
-    # #TODO this is not necessary because depending on the device vendor family, the right playbook will be chosen
+    # # TODO this is not necessary because depending on the device vendor
+    # # TODO family, the right playbook will be chosen
     # def test_execute_job_explicit_mismatch(self):
     #     # create job template
     #     job_template = JobTemplate(job_template_type='device',
@@ -467,8 +464,8 @@ class TestJobManagerEC(test_case.JobTestCase):
     #                              device_vendor="Arista",
     #                              device_family="MX") + " \n")
 
+    # to test multi_device_job when credentials are not provided
 
-    #to test multi_device_job when credentials are not provided
     def test_execute_job_no_credentials(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -485,16 +482,19 @@ class TestJobManagerEC(test_case.JobTestCase):
 
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
             job_template_uuid)
-        job_input_json.update({"params": {"device_list":
-                                              [device_id]},
+        job_input_json.update({"params": {"device_list": [device_id]},
                                "device_json": {
                                    device_id:
                                        {"device_family": "MX",
                                         "device_vendor": "Juniper",
-                                        "device_product": "Some random product"}}})
+                                        "device_product":
+                                            "Some random product",
+                                        "device_fqname": [
+                                            "default-global-system-config",
+                                            "random_fqname"]}}})
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
         self.assertEqual(
@@ -508,11 +508,9 @@ class TestJobManagerEC(test_case.JobTestCase):
             device_id +
             ":" +
             MsgBundle.getMessage(
-                MsgBundle.
-                    NO_CREDENTIALS_FOUND,
+                MsgBundle.NO_CREDENTIALS_FOUND,
                 device_id=device_id) +
             " \n")
-
 
     # # to test multi_device_job when device details for given device
     # # cannot be found
@@ -559,8 +557,9 @@ class TestJobManagerEC(test_case.JobTestCase):
     #                              device_id=device_id)
     #         + " \n")
 
-    # to test multi_device_job when no device json does not contain any details.
-    #TODO device_json cannot be empty for multi job, so not necessary.
+    # to test multi_device_job when no device json does not
+    # contain any details.
+    # TODO device_json cannot be empty for multi job, so not necessary.
     # def test_execute_job_no_device_json(self):
     #     # create job template
     #     job_template = JobTemplate(job_template_type='device',
@@ -604,7 +603,8 @@ class TestJobManagerEC(test_case.JobTestCase):
     #         " \n")
     #
 
-    #to test run_playbook generic exception- fail json.
+    # to test run_playbook generic exception- fail json.
+
     def test_execute_job_run_pb_gen_exc(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -621,7 +621,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         exc = Exception('some gen exc')
 
@@ -642,8 +642,8 @@ class TestJobManagerEC(test_case.JobTestCase):
                                               playbook_uri,
                                               exc_msg=repr(exc)))
 
+    # to handle run playbook process rc =1 exception
 
-    #to handle run playbook process rc =1 exception
     def test_execute_job_run_pb_process_rc1(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -660,7 +660,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
         loop_var = 0
 
         def mock_readline():
@@ -681,27 +681,30 @@ class TestJobManagerEC(test_case.JobTestCase):
         flexmock(os.path).should_receive('exists').and_return(True)
         # mock the call to raise exception
 
-        fake_process = flexmock(returncode=1,stdout=stdout)
+        fake_resp = flexmock(status_code=123)
+        fake_request = flexmock(requests).should_receive(
+            'post').and_return(fake_resp)
+
+        fake_process = flexmock(returncode=1, stdout=stdout)
         fake_process.should_receive('wait')
+        fake_process.should_receive('poll').and_return(123)
         # flexmock(subprocess).should_receive('TimeoutExpired')
         flexmock(subprocess32).should_receive('Popen').and_return(
             fake_process)
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
 
         self.assertEqual(sys_exit_msg.code,
-                         MsgBundle.getMessage(MsgBundle.
-                                              JOB_SUMMARY_MESSAGE_HDR) +
                          MsgBundle.getMessage(
-                             MsgBundle.
-                                 JOB_SINGLE_DEVICE_FAILED_MESSAGE_HDR) +
+                             MsgBundle.JOB_SUMMARY_MESSAGE_HDR) +
+                         MsgBundle.getMessage(
+                             MsgBundle.JOB_SINGLE_DEVICE_FAILED_MESSAGE_HDR) +
                          MsgBundle.getMessage(
                              MsgBundle.PLAYBOOK_EXIT_WITH_ERROR,
                              playbook_uri=TestJobManagerUtils.
-                                 play_info.
-                                 playbook_uri, )
+                             play_info.playbook_uri)
                          )
 
-    #to handle run playbook process generic exception
+    # to handle run playbook process generic exception
     def test_execute_job_run_pb_process_gen_exc(self):
         # create job template
         job_template = JobTemplate(job_template_type='device',
@@ -718,7 +721,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(),
-                          self._vnc_lib, job_input_json, log_utils)
+                       self._vnc_lib, job_input_json, log_utils)
 
         flexmock(os.path).should_receive('exists').and_return(True)
         # mock the call to raise exception
@@ -740,15 +743,14 @@ class TestJobManagerEC(test_case.JobTestCase):
                                  playbook_uri,
                                  exc_msg=repr(exc)))
 
-    #Test run_playbook_process for TimeoutExpired
+    # Test run_playbook_process for TimeoutExpired
     def test_execute_job_run_pb_process_timeout_expired(self):
         # create job template
         job_template = JobTemplate(
             job_template_type='device',
             job_template_job_runtime='ansible',
             job_template_multi_device_job=False,
-            job_template_playbooks=TestJobManagerUtils.
-                playbooks_list,
+            job_template_playbooks=TestJobManagerUtils.playbooks_list,
             name='run_pb_prc_rc_timeout')
         job_template_uuid = self._vnc_lib.job_template_create(job_template)
 
@@ -761,6 +763,7 @@ class TestJobManagerEC(test_case.JobTestCase):
                        self._vnc_lib, job_input_json, log_utils)
 
         loop_var = 0
+
         def mock_readline():
             global loop_var
 
@@ -783,6 +786,7 @@ class TestJobManagerEC(test_case.JobTestCase):
         fake_process = flexmock(returncode=1, pid=1234, stdout=stdout)
         exc = subprocess32.TimeoutExpired(cmd='Mock timeout exc cmd',
                                           timeout=3600)
+        fake_process.should_receive('poll').and_return(123)
         fake_process.should_receive('wait').and_raise(exc)
         flexmock(subprocess32).should_receive('Popen').and_return(
             fake_process)
@@ -797,15 +801,14 @@ class TestJobManagerEC(test_case.JobTestCase):
                                  playbook_uri,
                                  exc_msg=repr(exc)))
 
-    #to test job_input_schema_validation
+    # to test job_input_schema_validation
     def test_execute_job_input_schema(self):
         # create job template
         fake_job_template = flexmock(
             job_template_type='device',
             job_template_job_runtime='ansible',
             job_template_multi_device_job=False,
-            job_template_playbooks=TestJobManagerUtils.
-                playbooks_list,
+            job_template_playbooks=TestJobManagerUtils.playbooks_list,
             name='input_schema_template',
             fq_name=["default-global-system-config",
                      "input_schema_template"],
@@ -824,7 +827,7 @@ class TestJobManagerEC(test_case.JobTestCase):
             id="random_uuid").and_return(fake_job_template)
 
         wm = WFManager(log_utils.get_config_logger(),
-                          mock_vnc, job_input_json, log_utils)
+                       mock_vnc, job_input_json, log_utils)
 
         exc = Exception("'name' is a required property")
 
@@ -845,15 +848,14 @@ class TestJobManagerEC(test_case.JobTestCase):
                                               exc_obj=exc) +
                          " ")
 
-    #Test when input is not found when input schema is specified.
+    # Test when input is not found when input schema is specified.
     def test_execute_job_input_schema_ip_not_found(self):
         # create job template
         fake_job_template = flexmock(
             job_template_type='device',
             job_template_job_runtime='ansible',
             job_template_multi_device_job=False,
-            job_template_playbooks=TestJobManagerUtils.
-                playbooks_list,
+            job_template_playbooks=TestJobManagerUtils.playbooks_list,
             name='input_schema_template_ip',
             fq_name=["default-global-system-config",
                      "input_schema_template_ip"],
@@ -880,22 +882,21 @@ class TestJobManagerEC(test_case.JobTestCase):
             config_args=json.dumps(TestJobManagerUtils.args))
 
         wm = WFManager(log_utils.get_config_logger(),
-                          mock_vnc, job_input_json, log_utils)
+                       mock_vnc, job_input_json, log_utils)
 
         fake_schema = TestJobManagerUtils.fake_schema
 
-        fake_job_template.should_receive('get_job_template_input_schema') \
-        .and_return(fake_schema)
         fake_job_template.should_receive(
-        'get_job_template_multi_device_job') \
-        .and_return(False)
+            'get_job_template_input_schema').and_return(fake_schema)
+        fake_job_template.should_receive(
+            'get_job_template_multi_device_job').and_return(False)
         fake_job_template.should_receive('get_uuid').and_return('random_uuid')
 
         # mock the job_handler to raise an exception
         fake_job_template.should_receive('get_job_template_playbooks')
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
-        self.assertEqual(sys_exit_msg.code,
-                     MsgBundle.getMessage(MsgBundle.JOB_EXC_REC_HDR) +
-                     MsgBundle.getMessage(
-                         MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND) +
-                     " ")
+        self.assertEqual(
+            sys_exit_msg.code,
+            MsgBundle.getMessage(MsgBundle.JOB_EXC_REC_HDR) +
+            MsgBundle.getMessage(
+                MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND) + " ")
