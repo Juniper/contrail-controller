@@ -429,7 +429,7 @@ class DeviceManager(object):
 
     def get_analytics_config(self):
         return {
-            'ip': self._args.analytics_server_ip,
+            'ip': self._args.analytics_server_ip.split(',')[0],
             'port': self._args.analytics_server_port,
             'username': self._args.analytics_username,
             'password': self._args.analytics_password
