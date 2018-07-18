@@ -36,8 +36,8 @@ options:
         required: true
     os_version:
         description:
-            - optional 'os_version' field of the device object log for the device
-              running image version
+            - optional 'os_version' field of the device object log for the
+              device running image version
         required: false
     serial_num:
         description:
@@ -66,8 +66,8 @@ def process_module(module):
     onboarding_state = module.params['onboarding_state']
 
     module.send_prouter_object_log(prouter_fqname,
-                                   os_version, serial_num,
-                                   onboarding_state)
+                                   onboarding_state,
+                                   os_version, serial_num)
 
     module.exit_json(**module.results)
 
