@@ -30,9 +30,6 @@ class FilterModule(object):
     def filters(self):
         return {
             'report_percentage_completion': self.report_percentage_completion,
-            'report_device_info': self.report_device_info,
-            'report_pb_output': self.report_pb_output,
-            'report_end_of_playbook': self.report_end_of_playbook,
         }
 
     def get_job_ctx_details(self, job_ctx):
@@ -45,86 +42,8 @@ class FilterModule(object):
             write_to_file_log = "Attempting to create or open file.. \n"
             with open("/tmp/"+exec_id, "a") as f:
                 write_to_file_log += "Opened file in /tmp ... \n"
-                percentage_data = {'percent_complete': percentage}
                 line_in_file = unique_pb_id + 'JOB_PROGRESS##' +\
-                    json.dumps(percentage_data) + 'JOB_PROGRESS##'
-                f.write(line_in_file + '\n')
-                write_to_file_log += "Written line %s to the /tmp/exec-id" \
-                                     " file \n" % line_in_file
-                return {
-                    'status': 'success',
-                    'write_to_file_log': write_to_file_log
-            }
-        except Exception as ex:
-            self._logger.info(write_to_file_log)
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
-            return {
-                'status': 'failure',
-                'error_msg': str(ex),
-                'write_to_file_log': write_to_file_log
-            }
-
-    def report_pb_output(self, job_ctx, pb_output):
-        exec_id, unique_pb_id = self.get_job_ctx_details(job_ctx)
-        write_to_file_log = "\n"
-        try:
-            write_to_file_log = "Attempting to create or open file.. \n"
-            with open("/tmp/"+exec_id, "a") as f:
-                write_to_file_log += "Opened file in /tmp ... \n"
-                line_in_file = unique_pb_id + 'PLAYBOOK_OUTPUT##' +\
-                    json.dumps(pb_output) + 'PLAYBOOK_OUTPUT##'
-                f.write(line_in_file + '\n')
-                write_to_file_log += "Written line %s to the /tmp/exec-id" \
-                                     " file \n" % line_in_file
-                return {
-                    'status': 'success',
-                    'write_to_file_log': write_to_file_log
-            }
-        except Exception as ex:
-            self._logger.info(write_to_file_log)
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
-            return {
-                'status': 'failure',
-                'error_msg': str(ex),
-                'write_to_file_log': write_to_file_log
-            }
-
-    def report_end_of_playbook(self, job_ctx):
-        exec_id, unique_pb_id = self.get_job_ctx_details(job_ctx)
-        write_to_file_log = "\n"
-        try:
-            write_to_file_log = "Attempting to create or open file.. \n"
-            with open("/tmp/"+exec_id, "a") as f:
-                write_to_file_log += "Opened file in /tmp ... \n"
-                line_in_file = unique_pb_id + 'END'
-                f.write(line_in_file + '\n')
-                write_to_file_log += "Written line %s to the /tmp/exec-id" \
-                                     " file \n" % line_in_file
-                return {
-                    'status': 'success',
-                    'write_to_file_log': write_to_file_log
-            }
-        except Exception as ex:
-            self._logger.info(write_to_file_log)
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
-            return {
-                'status': 'failure',
-                'error_msg': str(ex),
-                'write_to_file_log': write_to_file_log
-            }
-
-    def report_device_info(self, job_ctx, device_data):
-        exec_id, unique_pb_id = self.get_job_ctx_details(job_ctx)
-        write_to_file_log = "\n"
-        try:
-            write_to_file_log = "Attempting to create or open file.. \n"
-            with open("/tmp/"+exec_id, "a") as f:
-                write_to_file_log += "Opened file in /tmp ... \n"
-                line_in_file = unique_pb_id + 'DEVICEDATA##' +\
-                    json.dumps(device_data) + 'DEVICEDATA##'
+                    str(percentage) + 'JOB_PROGRESS##'
                 f.write(line_in_file + '\n')
                 write_to_file_log += "Written line %s to the /tmp/exec-id" \
                                      " file \n" % line_in_file
@@ -148,15 +67,6 @@ def _parse_args():
     parser.add_argument('-pc', '--percentage_complete',
                         action='store_true',
                         help='write percentage completion to file')
-    parser.add_argument('-po', '--playbook_output',
-                        action='store_true',
-                        help='write playbook_output to file')
-    parser.add_argument('-e', '--mark_end',
-                        action='store_true',
-                        help='write playbook end to file')
-    parser.add_argument('-dd', '--device_data',
-                        action='store_true',
-                        help='write device info to file')
     return parser.parse_args()
 # end _parse_args
 
@@ -171,18 +81,4 @@ if __name__ == '__main__':
             "sample_exec_id_filename",
             "sample_unique_pb_id",
             10)
-    elif parser.playbook_output:
-        results = fabric_filter.report_pb_output(
-            "sample_exec_id_filename",
-            "sample_unique_pb_id",
-            {"pb_op": "sample pb_op"})
-    elif parser.mark_end:
-        results = fabric_filter.report_end_of_playbook(
-            "sample_exec_id_filename",
-            "sample_unique_pb_id")
-    elif parser.device_data:
-        results = fabric_filter.report_device_info(
-            "sample_exec_id_filename",
-            "sample_unique_pb_id",
-            {"dd": "sample device_info"})
     print results

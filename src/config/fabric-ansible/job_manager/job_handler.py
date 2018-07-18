@@ -13,13 +13,14 @@ import subprocess32
 import traceback
 import ast
 import time
+import requests
+import xml.etree.ElementTree as etree
 
 from job_manager.job_exception import JobException
 from job_manager.job_utils import JobStatus
 from job_manager.job_messages import MsgBundle
 
 JOB_PROGRESS = 'JOB_PROGRESS##'
-DEVICE_DATA = 'DEVICEDATA##'
 PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
 
 
@@ -43,7 +44,6 @@ class JobHandler(object):
         self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
         self._playbook_seq = playbook_seq
-        self._device_data = None
         self._playbook_output = prev_pb_output
     # end __init__
 
@@ -59,12 +59,14 @@ class JobHandler(object):
                                                    device_id)
 
             # run the playbook
-            self.run_playbook(playbook_info)
+            self.run_playbook(
+                playbook_info,
+                result_handler.percentage_completed)
 
             msg = MsgBundle.getMessage(
-                      MsgBundle.PLAYBOOK_EXECUTION_COMPLETE,
-                      job_template_id=self._job_template.get_uuid(),
-                      job_execution_id=self._execution_id)
+                MsgBundle.PLAYBOOK_EXECUTION_COMPLETE,
+                job_template_id=self._job_template.get_uuid(),
+                job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
             self.update_result_handler(result_handler)
@@ -179,8 +181,7 @@ class JobHandler(object):
     def process_file_and_get_marked_output(self, unique_pb_id, exec_id, playbook_process):
         f_read = None
         marked_output = {}
-        markers = [DEVICE_DATA, PLAYBOOK_OUTPUT, JOB_PROGRESS]
-        percentage_completed = 0
+        markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS]
         # read file as long as it is not a time out
         # Adding a residue timeout of 5 mins in case
         # the playbook dumps all the output towards the
@@ -212,17 +213,15 @@ class JobHandler(object):
                                         marked_jsons =\
                                             self._extract_marked_json(
                                                 marked_output)
-                                        job_progress =\
+                                        self._job_progress =\
                                             marked_jsons.get(JOB_PROGRESS)
-                                        percentage_completed +=\
-                                            float(job_progress[
-                                                    'percent_complete'])
-                                        self._job_log_utils.\
-                                            send_job_execution_uve(
-                                                self._job_template.fq_name,
-                                                self._execution_id,
-                                                percentage_completed=
-                                                percentage_completed)
+                                        self.current_percentage += float(
+                                            self._job_progress)
+                                        self._job_log_utils.send_job_execution_uve(
+                                            self._fabric_fq_name,
+                                            self._job_template.fq_name,
+                                            exec_id,
+                                            percentage_completed=self.current_percentage)
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -253,11 +252,61 @@ class JobHandler(object):
         return marked_output
     # end process_file_and_get_marked_output
 
-    def run_playbook_process(self, playbook_info):
+    def send_pr_object_log(self, exec_id, start_time, end_time, pb_status):
+        status = "SUCCESS"
+        elapsed_time = end_time - start_time
+
+        if pb_status != 0:
+            status="FAILURE"
+        
+        payload = {
+            'start_time': 'now-%ds' % (elapsed_time),
+            'end_time': 'now',
+            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+            'table': 'ObjectJobExecutionTable',
+            'where': [
+                [
+                    {
+                        'name': 'ObjectId',
+                        'value': '%s' % exec_id,
+                        'op': 1
+                    }
+                ]
+            ]
+        }
+        url = "http://localhost:8081/analytics/query"
+
+        resp = requests.post(url, json=payload)
+        if resp.status_code == 200:
+            PRouterOnboardingLog = resp.json().get('value')
+            for PRObjectLog in PRouterOnboardingLog:
+                resp = PRObjectLog.get('ObjectLog')
+                xmlresp = etree.fromstring(resp)
+                for ele in xmlresp.iter():
+                    if ele.tag == 'name':
+                        device_fqname = ele.text
+                    if ele.tag == 'onboarding_state':
+                        onboarding_state = ele.text
+                job_template_fq_name = ':'.join(
+                    map(str, self._job_template.fq_name))
+                pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                    self._fabric_fq_name + ":" + \
+                    job_template_fq_name
+                self._job_log_utils.send_prouter_job_uve(
+                    self._job_template.fq_name,
+                    pr_fabric_job_template_fq_name,
+                    exec_id,
+                    prouter_state=onboarding_state,
+                    job_status=status)
+
+    # end send_pr_object_log
+
+    def run_playbook_process(self, playbook_info, percentage_completed):
         playbook_process = None
+        self.current_percentage = percentage_completed
         try:
             playbook_exec_path = os.path.dirname(__file__) \
-                                 + "/playbook_helper.py"
+                + "/playbook_helper.py"
 
             unique_pb_id = str(uuid.uuid4())
             playbook_info['extra_vars']['playbook_input']['unique_pb_id']\
@@ -265,6 +314,8 @@ class JobHandler(object):
             exec_id =\
                 playbook_info['extra_vars']['playbook_input'][
                     'job_execution_id']
+
+            pr_object_log_start_time = time.time()
 
             playbook_process = subprocess32.Popen(["python",
                                                    playbook_exec_path,
@@ -279,9 +330,15 @@ class JobHandler(object):
             )
 
             marked_jsons = self._extract_marked_json(marked_output)
-            self._device_data = marked_jsons.get(DEVICE_DATA)
             self._playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
             playbook_process.wait(timeout=self._playbook_timeout)
+            pr_object_log_end_time = time.time()
+
+            self.send_pr_object_log(
+                exec_id,
+                pr_object_log_start_time,
+                pr_object_log_end_time,
+                playbook_process.returncode)
 
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:
@@ -306,7 +363,7 @@ class JobHandler(object):
             raise JobException(msg, self._execution_id)
     # end run_playbook_process
 
-    def run_playbook(self, playbook_info):
+    def run_playbook(self, playbook_info, percentage_completed):
         try:
             # create job log to capture the start of the playbook
             device_id = \
@@ -316,13 +373,13 @@ class JobHandler(object):
                                        playbook_uri=playbook_info['uri'],
                                        device_id=device_id,
                                        input_params=json.dumps(
-                                                    playbook_info['extra_vars']
-                                                    ['playbook_input']
-                                                    ['input']),
+                                           playbook_info['extra_vars']
+                                           ['playbook_input']
+                                           ['input']),
                                        extra_params=json.dumps(
-                                                    playbook_info['extra_vars']
-                                                    ['playbook_input']
-                                                    ['params']))
+                                           playbook_info['extra_vars']
+                                           ['playbook_input']
+                                           ['params']))
             self._logger.debug(msg)
             self._job_log_utils.send_job_log(self._job_template.fq_name,
                                              self._execution_id,
@@ -337,7 +394,7 @@ class JobHandler(object):
 
             # Run playbook in a separate process. This is needed since
             # ansible cannot be used in a greenlet based patched environment
-            self.run_playbook_process(playbook_info)
+            self.run_playbook_process(playbook_info, percentage_completed)
 
             # create job log to capture completion of the playbook execution
             msg = MsgBundle.getMessage(MsgBundle.PB_EXEC_COMPLETE_WITH_INFO,
@@ -358,12 +415,11 @@ class JobHandler(object):
     # end run_playbook
 
     def update_result_handler(self, result_handler):
-        if self._device_data:
-            for device_id in self._device_data:
-                result_handler.update_device_data(device_id,
-                                                  self._device_data[device_id])
         if self._playbook_output:
             result_handler.update_playbook_output(self._playbook_output)
+
+        if self.current_percentage:
+            result_handler.percentage_completed = self.current_percentage
     # end update_result_handler
 
     def _extract_marked_json(self, marked_output):
@@ -378,7 +434,7 @@ class JobHandler(object):
             self._logger.info("Extracted marked output: %s" % json_str)
             try:
                 retval[marker] = json.loads(json_str)
-            except ValueError, e:
+            except ValueError as e:
                 # assuming failure is due to unicoding in the json string
                 retval[marker] = ast.literal_eval(json_str)
 
