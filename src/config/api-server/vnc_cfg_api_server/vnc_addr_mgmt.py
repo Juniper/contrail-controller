@@ -1572,7 +1572,7 @@ class AddrMgmt(object):
         subnet_objs = self._get_ipam_subnet_objs_from_ipam_uuid(
                                 ipam_fq_name, ipam_uuid, False)
         if not subnet_objs:
-            return (ip_addr, subnets_tried)
+            return (ip_addr, subnets_tried, None)
 
         if subscriber_tag:
             # This is a ip alloc for fabric iip and does not need to go through
@@ -1603,7 +1603,7 @@ class AddrMgmt(object):
                     if ip_addr is not None:
                         subnet_obj.subscriber_tag = subscriber_tag
                         return (ip_addr, subnets_tried, subnet_name)
-                return (ip_addr, subnets_tried)
+                return (ip_addr, subnets_tried, None)
             else:
                 # Subnet found with a tag,try to allocate ip address
                 subnets_tried.append(subnet_name)
@@ -1618,7 +1618,7 @@ class AddrMgmt(object):
 
                 except cfgm_common.exceptions.ResourceExhaustionError as e:
                     ip_addr = None
-                    return (ip_addr, subnets_tried)
+                    return (ip_addr, subnets_tried, None)
 
         # This is for tenant based ip allocation not for fabric
         # and subnet with subnetting flag should not be consider
