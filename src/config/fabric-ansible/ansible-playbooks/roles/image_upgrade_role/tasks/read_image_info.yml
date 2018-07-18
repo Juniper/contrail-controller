@@ -14,6 +14,7 @@
 - name: Read Image object dict response
   debug:
     var: image_details
+    verbosity: 1
 
 - set_fact:
     image_info: "{{image_details.obj}}"

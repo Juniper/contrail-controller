@@ -21,10 +21,10 @@
           jl_err_message: "Upgrade device {{pr_fqname}}, Image name {{filename}}. Unable to check version on the device. {{sys_info.msg}}"
 
 - name: Print sys info
-  debug: msg="{{sys_info}}"
+  debug: var=sys_info verbosity=1
 
 - set_fact:
     device_version: "{{sys_info.parsed_output['system-information']['os-version']}}"
 
 - name: Print device OS version
-  debug: msg="{{device_version}}"
+  debug: var=device_version verbosity=1

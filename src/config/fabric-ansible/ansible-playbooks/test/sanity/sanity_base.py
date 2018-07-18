@@ -182,8 +182,10 @@ class SanityBase(object):
 
     def create_image(self, img_name, img_uri, img_version,
                                 img_family, img_vendor):
+
         """create image"""
         img_fqname = None
+        # device_fqname = None
         try:
             self._logger.info('Creating image: %s', img_name)
             img_fqname = ['default-global-system-config', img_name]
@@ -208,7 +210,7 @@ class SanityBase(object):
             pprint.pformat(self._api.obj_to_dict(image), indent=4))
         return image
 
-    # end create_image
+    # end create_image_and_device
 
     def cleanup_fabric(self, fab_name):
         """delete fabric including all prouters in the fabric"""
