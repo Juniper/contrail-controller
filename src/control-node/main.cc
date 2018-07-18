@@ -205,12 +205,14 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
     }
 }
 
-void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
+void ReConfigSignalHandler(const boost::system::error_code &error, int sig,
+                           bool force_reinit) {
     if (error) {
         LOG(ERROR, "SIGHUP handler ERROR: " << error);
         return;
     }
-    options.ParseReConfig();
+    LOG(WARN, "Received signal " << sig << " inside ReConfigSignalHandler()");
+    options.ParseReConfig(force_reinit);
 }
 
 int main(int argc, char *argv[]) {
@@ -221,9 +223,13 @@ int main(int argc, char *argv[]) {
 
     srand(unsigned(time(NULL)));
     std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
-        (boost::bind(&ReConfigSignalHandler, _1, _2));
+        (boost::bind(&ReConfigSignalHandler, _1, _2, false));
+    std::vector<Signal::SignalHandler> sigusr1_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigSignalHandler, _1, _2, true));
     Signal::SignalCallbackMap smap = boost::assign::map_list_of
-        (SIGHUP, sighup_handlers);
+        (SIGHUP, sighup_handlers)
+        (SIGUSR1, sigusr1_handlers)
+    ;
     Signal signal(&evm, smap);
 
     ControlNode::SetProgramName(argv[0]);
