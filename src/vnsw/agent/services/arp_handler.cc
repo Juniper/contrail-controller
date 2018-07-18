@@ -356,6 +356,13 @@ uint16_t ArpHandler::ArpHdr(const MacAddress &smac, in_addr_t sip,
 void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
                          const MacAddress &tmac, const MacAddress &dmac,
                          in_addr_t tip, uint32_t itf, uint32_t vrf) {
+    /* ARP request with source address set to 0.0.0.0
+    fits the ARP probe definition and sending it may
+    cause VM to drop its IP address.
+    If you really need to send an ARP probe create another
+    function especially for it. */
+    in_addr_t all_zero_address = Ip4Address::from_string("0.0.0.0").to_ulong();
+    assert(!(sip == all_zero_address && op == ARPOP_REQUEST));
 
     if (pkt_info_->packet_buffer() == NULL) {
         pkt_info_->AllocPacketBuffer(agent(), PktHandler::ARP, ARP_TX_BUFF_LEN,
