@@ -3276,10 +3276,6 @@ class VncApiServer(object):
         self.create_singleton_entry(DiscoveryServiceAssignment())
         self.create_singleton_entry(GlobalQosConfig())
 
-        #Load init data for job playbooks like JobTemplates, Tags, etc
-        if self._args.enable_fabric_ansible:
-            self._load_init_data()
-
         sc_ipam_subnet_v4 = IpamSubnetType(subnet=SubnetType('0.0.0.0', 8))
         sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff', 104))
         sc_ipam_subnets = IpamSubnets([sc_ipam_subnet_v4, sc_ipam_subnet_v6])
@@ -3296,6 +3292,10 @@ class VncApiServer(object):
 
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
+
+        #Load init data for job playbooks like JobTemplates, Tags, etc
+        if self._args.enable_fabric_ansible:
+            self._load_init_data()
 
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
