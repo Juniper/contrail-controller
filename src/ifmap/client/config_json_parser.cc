@@ -171,6 +171,9 @@ bool ConfigJsonParser::ParseOneProperty(const ConfigCass2JsonAdapter &adapter,
         return true;
     }
 
+    // Treat updates with NULL value as deletes.
+    if (add_change && value_node.IsNull())
+        add_change = false;
     auto_ptr<AutogenProperty> pvalue;
     if (add_change) {
         bool success = (loc->second)(value_node, &pvalue);
