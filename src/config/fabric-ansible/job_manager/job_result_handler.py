@@ -30,14 +30,14 @@ class JobResultHandler(object):
         self.job_result = dict()   # map of the device_id to job result msg
         self.job_summary_message = None
         self.failed_device_jobs = list()
-        self.device_data = dict()  # map of device_id and its details like
-                                   # device_management_ip, device_username, etc
+        # device_management_ip, device_username, etc
         self.playbook_output = None  # marked output from the playbook stdout
+        self.percentage_completed = 0.0
 
     def update_job_status(self, status, message=None, device_id=None):
         # update cummulative job status
         if self.job_result_status is None or \
-                        self.job_result_status != JobStatus.FAILURE:
+                self.job_result_status != JobStatus.FAILURE:
             self.job_result_status = status
 
         # collect failed device ids
@@ -52,14 +52,6 @@ class JobResultHandler(object):
                 self.job_result_message = message
     # end update_job_status
 
-    def update_device_data(self, device_id, data):
-        self.device_data.update({device_id: data})
-    # end update_device_data
-
-    def get_device_data(self):
-        return self.device_data
-    # end get_device_data
-
     def update_playbook_output(self, pb_output):
         if self.playbook_output:
             self.playbook_output.update(pb_output)
@@ -71,7 +63,7 @@ class JobResultHandler(object):
         # generate job result summary
         self.job_summary_message = self.create_job_summary_message()
 
-        timestamp = int(round(time.time()*1000))
+        timestamp = int(round(time.time() * 1000))
         # create the job log
         self._logger.debug("%s" % self.job_summary_message)
         job_status = None
@@ -83,24 +75,20 @@ class JobResultHandler(object):
                                         self.job_summary_message,
                                         job_status, 100,
                                         timestamp=timestamp)
-        # create the job complete uve
-        self.job_log_utils.send_job_execution_uve(job_template_fqname,
-                                                  self._execution_id,
-                                                  timestamp, 100)
     # end create_job_summary_log
 
     def create_job_summary_message(self):
         job_summary_message = MsgBundle.getMessage(
-                              MsgBundle.JOB_SUMMARY_MESSAGE_HDR)
+            MsgBundle.JOB_SUMMARY_MESSAGE_HDR)
 
         if self.job_result_status is None:
             job_summary_message += MsgBundle.getMessage(
-                                   MsgBundle.JOB_RESULT_STATUS_NONE)
+                MsgBundle.JOB_RESULT_STATUS_NONE)
         elif self.job_result_status == JobStatus.FAILURE:
             if len(self.failed_device_jobs) > 0:
                 job_summary_message += MsgBundle.getMessage(
-                                       MsgBundle.
-                                       JOB_MULTI_DEVICE_FAILED_MESSAGE_HDR)
+                    MsgBundle.
+                    JOB_MULTI_DEVICE_FAILED_MESSAGE_HDR)
                 for failed_device in self.failed_device_jobs:
                     msg = failed_device + ','
                     job_summary_message += msg
@@ -109,14 +97,14 @@ class JobResultHandler(object):
             job_summary_message += "\n"
         elif self.job_result_status == JobStatus.SUCCESS:
             job_summary_message += MsgBundle.getMessage(
-                                   MsgBundle.JOB_EXECUTION_COMPLETE)
+                MsgBundle.JOB_EXECUTION_COMPLETE)
         if len(self.job_result) > 0:
             job_summary_message += MsgBundle.getMessage(
-                                   MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
+                MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
         result_summary = ""
         for entry in self.job_result:
             result_summary += \
-                    "%s:%s \n" % (entry, self.job_result[entry])
+                "%s:%s \n" % (entry, self.job_result[entry])
         job_summary_message += result_summary
 
         if self.job_result_message is not None:

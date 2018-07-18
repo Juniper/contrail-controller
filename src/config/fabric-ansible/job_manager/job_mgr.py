@@ -26,6 +26,7 @@ from gevent.pool import Pool
 from gevent import monkey
 monkey.patch_socket()
 
+
 class JobManager(object):
 
     def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
@@ -97,15 +98,28 @@ class JobManager(object):
                 len(self.device_json), buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
+            device_data = self.device_json.get(device_id)
+            device_fqname = ':'.join(
+                map(str, device_data.get('device_fqname')))
+            job_template_fq_name = ':'.join(
+                map(str, self.job_template.fq_name))
+            pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                self.fabric_fq_name + ":" + \
+                job_template_fq_name
+            self.job_log_utils.send_prouter_job_uve(
+                self.job_template.fq_name,
+                pr_fabric_job_template_fq_name,
+                self.job_execution_id,
+                job_status="IN_PROGRESS")
+
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,
                                            job_percent_per_task, device_id))
         job_worker_pool.join()
 
     def handle_single_job(self, job_handler, result_handler):
-        job_percent_per_task = \
-            self.job_log_utils.calculate_job_percentage(
-                1, buffer_task_percent=False, total_percent=self.job_percent)[0]
+        job_percent_per_task = self.job_log_utils.calculate_job_percentage(
+            1, buffer_task_percent=False, total_percent=self.job_percent)[0]
         job_handler.handle_job(result_handler, job_percent_per_task)
 
 
@@ -146,7 +160,7 @@ class WFManager(object):
     def _validate_job_input(self, input_schema, ip_json):
         if ip_json is None:
             msg = MsgBundle.getMessage(
-                                MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND)
+                MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND)
             raise JobException(msg,
                                self.job_execution_id)
         try:
@@ -156,7 +170,7 @@ class WFManager(object):
             jsonschema.validate(ip_json, ip_schema_json)
             self._logger.debug("Input Schema Validation Successful"
                                "for template %s" % self.job_template_id)
-        except Exception, exp:
+        except Exception as exp:
             msg = MsgBundle.getMessage(MsgBundle.INVALID_SCHEMA,
                                        job_template_id=self.job_template_id,
                                        exc_obj=exp)
@@ -174,9 +188,6 @@ class WFManager(object):
             job_template = self.job_utils.read_job_template()
 
             timestamp = int(round(time.time() * 1000))
-            self.job_log_utils.send_job_execution_uve(
-                job_template.fq_name, self.job_execution_id, timestamp,
-                0)
             self.job_log_utils.send_job_log(job_template.fq_name,
                                             self.job_execution_id,
                                             self.fabric_fq_name,
@@ -204,7 +215,7 @@ class WFManager(object):
             if len(playbook_list) > 1:
                 task_weightage_array = [
                     pb_info.job_completion_weightage
-                    for pb_info in playbook_list ]
+                    for pb_info in playbook_list]
 
             for i in range(0, len(playbook_list)):
 
@@ -214,7 +225,7 @@ class WFManager(object):
                     job_percent = \
                         self.job_log_utils.calculate_job_percentage(
                             len(playbook_list), buffer_task_percent=True,
-                            total_percent=100, task_seq_number=i+1,
+                            total_percent=100, task_seq_number=i + 1,
                             task_weightage_array=task_weightage_array)[0]
                 else:
                     job_percent = \
@@ -232,17 +243,20 @@ class WFManager(object):
 
                 # stop the workflow if playbook failed
                 if self.result_handler.job_result_status == JobStatus.FAILURE:
-                    self._logger.error("Stop the workflow on the failed Playbook.")
+                    self._logger.error(
+                        "Stop the workflow on the failed Playbook.")
                     break
-
-                # read the device_data output of the playbook
-                # and update the job input so that it can be used in next iteration
-                if not self.job_input.get('device_json'):
-                    device_json = self.result_handler.get_device_data()
-                    self.job_input['device_json'] = device_json
 
                 # update the job input with marked playbook output json
                 pb_output = self.result_handler.playbook_output or {}
+
+                # read the device_data output of the playbook
+                # and update the job input so that it can be used in next
+                # iteration
+                if not self.job_input.get('device_json'):
+                    device_json = pb_output.get('device_json')
+                    self.job_input['device_json'] = device_json
+
                 if not self.job_input.get('prev_pb_output'):
                     self.job_input['prev_pb_output'] = pb_output
                 else:
@@ -265,7 +279,7 @@ class WFManager(object):
                                                   err_msg)
             if job_template:
                 self.result_handler.create_job_summary_log(
-                     job_template.fq_name)
+                    job_template.fq_name)
             job_error_msg = err_msg
         except Exception as exp:
             err_msg = "Error while executing job %s " % repr(exp)
@@ -283,6 +297,7 @@ class WFManager(object):
             self._logger.info("Closed Sandesh connection")
             if job_error_msg is not None:
                 sys.exit(job_error_msg)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Job manager parameters')
@@ -346,4 +361,3 @@ if __name__ == "__main__":
                                    job_input_json.get('fabric_fq_name'),
                                    msg, JobStatus.FAILURE)
         sys.exit(msg)
-
