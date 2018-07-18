@@ -643,6 +643,23 @@ class AnsibleRoleCommon(AnsibleConf):
             self.interfaces_config.append(intf)
     # end build_esi_config
 
+    def build_lag_config(self):
+        pr = self.physical_router
+        if not pr:
+            return
+        self.interfaces_config = self.interfaces_config or []
+        for pi_uuid in pr.physical_interfaces:
+            pi = PhysicalInterfaceDM.get(pi_uuid)
+            if not pi or not pi.link_aggregation_group:
+                continue
+            lag = LinkAggrGroup(lacp_enabled=pi.lacp_enabled,
+                                member_list=pi.link_members)
+            intf = PhysicalInterface(name=pi.name,
+                                     interface_type=pi.interface_type,
+                                     link_aggregation_group=lag)
+            self.interfaces_config.append(intf)
+    # end build_lag_config
+
     def get_vn_li_map(self):
         pr = self.physical_router
         vn_list = []
@@ -759,14 +776,19 @@ class AnsibleRoleCommon(AnsibleConf):
         for esi, ae_id in self.physical_router.ae_id_map.items():
             # config ae interface
             ae_name = "ae" + str(ae_id)
-            intf = PhysicalInterface(name=ae_name)
+            intf = PhysicalInterface(name=ae_name,
+                                     interface_type='lag')
             self.interfaces_config.append(intf)
             # associate 'ae' membership
             pi_list = esi_map.get(esi)
+            member_list = []
             for pi in pi_list or []:
-                intf = PhysicalInterface(name=pi.name,
-                                         ethernet_segment_identifier=ae_name)
-                self.interfaces_config.append(intf)
+                 member_list.append(pi.name)
+                 lag = LinkAggrGroup(member_list=member_list)
+                 intf = PhysicalInterface(name=pi.name,
+                                          interface_type=pi.interface_type,
+                                          link_aggregation_group=lag)
+                 self.interfaces_config.append(intf)
     # end build_ae_config
 
     def add_addr_term(self, ff, addr_match, is_src):
@@ -1088,6 +1110,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.init_evpn_config()
         self.build_firewall_config()
         self.build_esi_config()
+        self.build_lag_config()
         self.set_route_targets_config()
     # end set_common_config
 
