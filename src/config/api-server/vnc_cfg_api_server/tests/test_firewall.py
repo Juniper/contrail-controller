@@ -1828,21 +1828,6 @@ class FirewallDraftModeBase(object):
         self.api.firewall_rule_delete(id=fr.uuid)
         self.api.commit_security(self._scope)
 
-    def test_pending_delete_does_not_have_reference(self):
-        self.set_scope_instance(draft_enable=False)
-        fr = FirewallRule('fr-%s' % self.id(), parent_obj=self._owner)
-        fr.set_service(FirewallServiceType())
-        self.api.firewall_rule_create(fr)
-        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
-        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
-        self.api.firewall_policy_create(fp)
-
-        self.draft_mode = True
-        self.api.firewall_policy_delete(id=fp.uuid)
-        draft_pm = self.api.firewall_policy_read_draft(id=fp.uuid)
-        for ref_field in FirewallPolicy.ref_fields:
-            self.assertIsNone(getattr(draft_pm, 'get_%s' % ref_field)())
-
     def test_cannot_delete_referenced_resource(self):
         self.set_scope_instance(draft_enable=False)
         fr = FirewallRule('fr-%s' % self.id(), parent_obj=self._owner)
@@ -1861,7 +1846,7 @@ class FirewallDraftModeBase(object):
         self.assertRaises(RefsExistError, self.api.firewall_rule_delete,
                           id=fr.uuid)
 
-    def test_can_delete_security_resource_with_ref(self):
+    def test_can_delete_security_resource_with_backref(self):
         self.set_scope_instance(draft_enable=False)
         sg = ServiceGroup(
             name='sg-%s' % self.id(),
@@ -1884,8 +1869,29 @@ class FirewallDraftModeBase(object):
         fr.set_service(FirewallServiceType())
         self.api.firewall_rule_update(fr)
         self.api.service_group_delete(id=sg.uuid)
-        # self.api.commit_security(self._scope)
-        self.api.discard_security(self._scope)
+        self.api.commit_security(self._scope)
+
+    def test_can_delete_security_resource_with_ref(self):
+        self.set_scope_instance(draft_enable=False)
+        sg = ServiceGroup(
+            name='sg-%s' % self.id(),
+            parent_obj=self._owner,
+            service_group_firewall_service_list=FirewallServiceGroupType(
+                firewall_service=[FirewallServiceType()]),
+        )
+        self.api.service_group_create(sg)
+        fr = FirewallRule(
+            name='fr-%s' % self.id(),
+            parent_obj=self._owner,
+            action_list=ActionListType(simple_action='pass'),
+            direction='<>',
+        )
+        fr.set_service_group(sg)
+        self.api.firewall_rule_create(fr)
+        self.draft_mode = True
+        self.api.firewall_rule_delete(id=fr.uuid)
+
+        self.api.commit_security(self._scope)
 
 
 class TestFirewallDraftModeGlobalScope(TestFirewallBase,
