@@ -1,0 +1,4 @@
+- project: Juniper/contrail-controller
+  check:
+    jobs:
+      - contrail-sanity-rhel7-kolla-queens
