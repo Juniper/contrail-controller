@@ -39,7 +39,8 @@ class SanityTestFabricDeletion(SanityBase):
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
             "fabric deletion job started with execution id: %s", job_execution_id)
-        self._wait_for_job_to_finish('fabric deletion', job_execution_id)
+        self._wait_and_display_job_progress('fabric deletion', job_execution_info)
+        self._logger.info("... Fabric deletion complete")
     # end delete_fabric 
 
     def test(self):

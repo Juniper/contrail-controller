@@ -43,7 +43,8 @@ class SanityTestZtpWorkflow(SanityBase):
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
             "Onboard fabric job started with execution id: %s", job_execution_id)
-        self._wait_for_job_to_finish('Onboard fabric', job_execution_id)
+        self._wait_and_display_job_progress('Onboard fabric', job_execution_info)
+        self._logger.info("... ZTP workflow complete")
     # end onboard_fabric
 
     def test(self):
