@@ -26,21 +26,23 @@ class SanityTestFabricDeletion(SanityBase):
     def delete_fabric(self, fabric_name):
         """delete fabric and all objects in it"""
         self._logger.info("Delete fabric ...")
+        job_template_fq_name = [
+            'default-global-system-config', 'fabric_deletion_template']
+        fabric_fq_name = [
+            'default-global-system-config', fabric_name]
+
         job_execution_info = self._api.execute_job(
-            job_template_fq_name=[
-                'default-global-system-config', 'fabric_deletion_template'],
+            job_template_fq_name=job_template_fq_name, 
             job_input={
-                "fabric_fq_name": [
-                    "default-global-system-config",
-                    fabric_name
-                ],
+                "fabric_fq_name": fabric_fq_name
             }
         )
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
             "fabric deletion job started with execution id: %s", job_execution_id)
-        self._wait_for_job_to_finish('fabric deletion', job_execution_id)
-    # end delete_fabric 
+        self._wait_and_display_job_progress('fabric deletion', job_execution_id, fabric_fq_name, job_template_fq_name)
+        self._logger.info("... Fabric deletion complete")
+    # end delete_fabric
 
     def test(self):
         try:
