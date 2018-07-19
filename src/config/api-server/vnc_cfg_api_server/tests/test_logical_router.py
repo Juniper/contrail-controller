@@ -622,6 +622,128 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             logger.debug('PASS - VxLAN Routing update successful')
     #end test_vxlan_routing
 
+    def test_vxlan_create_for_lr(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+        mock_zk = self._api_server._db_conn._zk_db
+
+        # Create Logical Router
+        lr = LogicalRouter('router-test-v4-%s' %(self.id()), project)
+        lr.set_vxlan_network_identifier('5000')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        vxlan_id = lr.get_vxlan_network_identifier()
+        self.assertEqual(vxlan_id, '5000')
+
+        int_vn_name = get_lr_internal_vn_name(lr_uuid)
+        int_vn_fqname = ['default-domain', 'default-project', int_vn_name]
+
+        self.assertEqual( ':'.join(int_vn_fqname) +"_vxlan",
+                         mock_zk.get_vn_from_id(int(vxlan_id)))
+        self._vnc_lib.logical_router_delete(id=lr_uuid)
+        logger.debug('PASS - test_vxlan_create_for_lr')
+    #end test_vxlan_create_for_lr
+
+    def test_vxlan_update_for_lr(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+        mock_zk = self._api_server._db_conn._zk_db
+
+        # Create Logical Router
+        lr = LogicalRouter('router-test-v4-%s' %(self.id()), project)
+        lr.set_vxlan_network_identifier('5000')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr_read = self._vnc_lib.logical_router_read(id=lr_uuid)
+        vxlan_id = lr_read.get_vxlan_network_identifier()
+        self.assertEqual(vxlan_id, '5000')
+
+        lr.set_vxlan_network_identifier('5001')
+        self._vnc_lib.logical_router_update(lr)
+        lr_read = self._vnc_lib.logical_router_read(id=lr_uuid)
+        vxlan_id = lr_read.get_vxlan_network_identifier()
+        self.assertEqual(vxlan_id, '5001')
+
+        int_vn_name = get_lr_internal_vn_name(lr_uuid)
+        int_vn_fqname = ['default-domain', 'default-project', int_vn_name]
+
+        self.assertEqual( ':'.join(int_vn_fqname) +"_vxlan",
+                         mock_zk.get_vn_from_id(int(vxlan_id)))
+
+        self._vnc_lib.logical_router_delete(id=lr_uuid)
+        logger.debug('PASS - test_vxlan_update_for_lr')
+    #end test_vxlan_update_for_lr
+
+    def test_vxlan_update_failure_for_lr(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+        mock_zk = self._api_server._db_conn._zk_db
+
+        # Create Logical Router
+        lr1 = LogicalRouter('router-test-v4-%s' %(self.id()), project)
+        lr1.set_vxlan_network_identifier('5000')
+        lr1_uuid = self._vnc_lib.logical_router_create(lr1)
+        lr1_read = self._vnc_lib.logical_router_read(id=lr1_uuid)
+        vxlan_id1 = lr1_read.get_vxlan_network_identifier()
+        self.assertEqual(vxlan_id1, '5000')
+
+        lr2 = LogicalRouter('router-test-v4-%s-2' %(self.id()), project)
+        lr2.set_vxlan_network_identifier('5001')
+        lr2_uuid = self._vnc_lib.logical_router_create(lr2)
+        lr2_read = self._vnc_lib.logical_router_read(id=lr2_uuid)
+        vxlan_id2 = lr2_read.get_vxlan_network_identifier()
+        self.assertEqual(vxlan_id2, '5001')
+
+        lr2.set_vxlan_network_identifier('5000')
+
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+            self._vnc_lib.logical_router_update(lr2)
+
+        lr_read = self._vnc_lib.logical_router_read(id=lr2_uuid)
+        vxlan_id = lr_read.get_vxlan_network_identifier()
+        self.assertEqual(vxlan_id, '5001')
+
+        int_vn_name = get_lr_internal_vn_name(lr2_uuid)
+        int_vn_fqname = ['default-domain', 'default-project', int_vn_name]
+
+        self.assertEqual( ':'.join(int_vn_fqname) +"_vxlan",
+                         mock_zk.get_vn_from_id(int(vxlan_id)))
+
+        self._vnc_lib.logical_router_delete(id=lr1_uuid)
+        self._vnc_lib.logical_router_delete(id=lr2_uuid)
+        logger.debug('PASS - test_vxlan_update_failure_for_lr')
+    #end test_vxlan_update_failure_for_lr
+
+    def test_vxlan_deallocate_for_lr(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+        mock_zk = self._api_server._db_conn._zk_db
+
+        # Create Logical Router
+        lr = LogicalRouter('router-test-v4-%s' %(self.id()), project)
+        lr.set_vxlan_network_identifier('5000')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        vxlan_id = lr.get_vxlan_network_identifier()
+        self.assertEqual(vxlan_id, '5000')
+
+        int_vn_name = get_lr_internal_vn_name(lr_uuid)
+        int_vn_fqname = ['default-domain', 'default-project', int_vn_name]
+
+        self._vnc_lib.logical_router_delete(id=lr_uuid)
+        self.assertNotEqual( ':'.join(int_vn_fqname) +"_vxlan",
+                         mock_zk.get_vn_from_id(int(vxlan_id)))
+
+        logger.debug('PASS - test_vxlan_deallocate_for_lr')
+    #end test_vxlan_deallocate_for_lr
+
 #end class TestLogicalRouter
 
 if __name__ == '__main__':
