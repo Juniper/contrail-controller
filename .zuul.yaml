@@ -1,0 +1,8 @@
+- project: 
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - contrail-vnc-build-package-rhel7-queens
+        - contrail-sanity-rhel7-kolla-queens:
+            dependencies:
+              - contrail-vnc-build-package-rhel7-queens
