@@ -341,11 +341,6 @@ class SanityBase(object):
             time.sleep(self._timeout)
     # end _wait_for_job_to_finish
 
-
-
-
-
-
     @staticmethod
     def _get_jobs_query_payload(job_execution_id, last_log_ts):
         now = time.time() * 1000000
@@ -397,8 +392,9 @@ class SanityBase(object):
         log_ts = time.time() * 1000000
         return False, log_ts
 
+    def _wait_and_display_job_progress(self, job_name, job_execution_info):
 
-    def _wait_and_display_job_progress(self, job_name, job_execution_id, fabric_fq_name, job_template_fq_name):
+        job_execution_id = job_execution_info.get('job_execution_id')
         completed = "SUCCESS"
         failed = "FAILURE"
         url = "http://%s:%d/analytics/query" %\
@@ -411,10 +407,7 @@ class SanityBase(object):
             if status:
                 self._logger.debug("%s job '%s' log records non-zero status", job_name,
                                    job_execution_id)
-
-            # display job percentage complete
-            self._display_job_percentage_complete(job_execution_id, fabric_fq_name, job_template_fq_name)
-
+ 
             # check if job completed successfully
             if SanityBase._check_job_status(url, job_execution_id, completed):
                 self._logger.debug("%s job '%s' finished", job_name,
@@ -426,29 +419,17 @@ class SanityBase(object):
                                    job_execution_id)
                 raise Exception("%s job '%s' failed" %
                                 (job_name, job_execution_id))
-
+            # # display job percentage complete
+            # status = self._display_job_percentage_complete(job_execution_info)
+            # if status:
+            #     self._logger.debug("%s job '%s' uve records non-zero status", job_name,
+            #                        job_execution_id)
             # Check for timeout
             if retry_count > self._max_retries:
                 raise Exception("Timed out waiting for '%s' job to complete" %
                                 job_name)
             retry_count += 1
             time.sleep(self._timeout)
-
-    def _display_job_percentage_complete(self, job_execution_id, fabric_fq_name, job_template_fq_name):
-        url = "http://%s:%d/analytics/uves/job-execution/%s:%s:%s:%s?flat" %\
-              (self._analytics['host'], self._analytics['port'],
-               fabric_fq_name[0], fabric_fq_name[1],
-               job_template_fq_name[0], job_template_fq_name[1])
-        r = requests.get(url)
-        if r.status_code == 200:
-            response = r.json()
-            job_uve = response.get('FabricJobExecution')
-            if job_uve:
-                print "****** Job is {} percent completed ******\n".format(job_uve['percentage_completed'][-1][0]["#text"])
-            else:
-                print "percentage output: {}\n".format(response)
-        else:
-            print "No percentage status\n"
 
     def discover_fabric_device(self, fab):
         """Discover all devices specified by the fabric management namespaces
@@ -563,4 +544,3 @@ class SanityBase(object):
     # end _exit_with_error
 
 # end SanityBase class
-
