@@ -26,15 +26,20 @@ class SanityTestAssignRoles(SanityBase):
     def assign_roles(self, role_assignment):
         """Assign roles to devices"""
         self._logger.info("Role assignment ...")
+        job_template_fq_name = [
+            'default-global-system-config', 'role_assignment_template']
+        fabric_fq_name = role_assignment['fabric_fq_name']
+
         job_execution_info = self._api.execute_job(
-            job_template_fq_name=[
-                'default-global-system-config', 'role_assignment_template'],
+            job_template_fq_name=job_template_fq_name,
             job_input=role_assignment
         )
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
-            "Role assignement job started with execution id: %s", job_execution_id)
-        self._wait_for_job_to_finish('Role assignment', job_execution_id)
+            "Role assignment job started with execution id: %s", job_execution_id)
+        self._wait_and_display_job_progress('Role assignment', job_execution_id,
+                                            fabric_fq_name, job_template_fq_name)
+        self._logger.info("... Role assignment complete")
     # end assign_roles
 
     def test(self):
