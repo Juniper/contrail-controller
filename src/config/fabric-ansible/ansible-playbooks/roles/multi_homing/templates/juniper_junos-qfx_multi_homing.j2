@@ -1,0 +1,24 @@
+delete apply-groups __{{feature}}__
+delete groups __{{feature}}___
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+{%     for ifd in device_abstract_config.get('physical_interfaces', []) %}
+{%         if ifd.get('ethernet_segment_identifier') != None %}
+{%-            set sys_id = ifd.ethernet_segment_identifier[-17:] %}
+set groups __{{feature}}__ chassis aggregated-devices ethernet device-count 1
+set groups __{{feature}}__ interfaces {{ifd.name}} esi {{ifd.ethernet_segment_identifier}}
+set groups __{{feature}}__ interfaces {{ifd.name}} esi all-active
+set groups __{{feature}}__ interfaces {{ifd.name}} aggregated-ether-options lacp active
+set groups __{{feature}}__ interfaces {{ifd.name}} aggregated-ether-options lacp system-id {{sys_id}}
+set groups __{{feature}}__ interfaces {{ifd.name}} aggregated-ether-options lacp system-priority 100
+set groups __{{feature}}__ interfaces {{ifd.name}} aggregated-ether-options lacp admin-key 1
+{%             if ifd.get('link_aggregation_group')!= None %}
+{%                 for inter in ifd.link_aggregation_group.link_members %}
+set groups __{{feature}}__ interfaces {{inter}} ether-options 802.3ad {{ifd.name}}
+{%                  endfor %}
+{%             endif %}
+set apply-groups __{{feature}}__
+{%         endif %}
+{%     endfor %}
+{% endif %}
+
