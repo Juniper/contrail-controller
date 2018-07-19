@@ -3,10 +3,11 @@
     - name: Calculate feature name specific to the vendor and family
       set_fact:
         vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ feature }}"
+        feature_role_dir: "./roles/{{ feature }}"
 
     - name: Check whether Jinja file exists for this vendor/family/feature
       stat:
-        path: "./roles/{{ feature }}/templates/{{ vf_feature }}.j2"
+        path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
       register: p
 
     - name: Check whether feature is needed
