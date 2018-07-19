@@ -5,8 +5,8 @@ log:
     dir: /var/log
   console: INFO
 wait_for_job:
-  timeout: 15
-  max_retries: 15
+  timeout: 3
+  max_retries: 75
 api_server:
   host: localhost
   port: 8082
