@@ -13,6 +13,8 @@ import pprint
 import time
 import sys
 import requests
+import json
+import xmltodict
 
 from cfgm_common.exceptions import (
     RefsExistError,
@@ -339,6 +341,109 @@ class SanityBase(object):
             time.sleep(self._timeout)
     # end _wait_for_job_to_finish
 
+    @staticmethod
+    def _get_jobs_query_payload(job_execution_id, last_log_ts):
+        now = time.time() * 1000000
+        #print "***************** now=%i, last_log_ts=%i" % (now, last_log_ts)
+        return {
+            'start_time': int('%i' % last_log_ts),
+            'end_time': int('%i' % now),
+            'select_fields': ['MessageTS', 'Messagetype', 'ObjectId', 'ObjectLog'],
+            'table': 'ObjectJobExecutionTable',
+            'where': [
+                [
+                    {
+                        'name': 'ObjectId',
+                        'value': "%s" % (job_execution_id),
+                        'op': 7
+                    },
+                    {
+                        'name': 'Messagetype',
+                        'value': 'JobLog',
+                        'op': 1
+                    }
+                ]
+            ]
+        }
+
+    @staticmethod
+    def _display_job_records(url, job_execution_id, last_log_ts):
+        log_ts = last_log_ts
+        payload = SanityBase._get_jobs_query_payload(job_execution_id, last_log_ts)
+        r = requests.post(url, json=payload)
+        if r.status_code == 200:
+            response = r.json()
+            if len(response['value']) > 0:
+                log_entries = response['value']
+                for log_entry in log_entries:
+                    log_msg = json.loads(json.dumps(xmltodict.parse(log_entry['ObjectLog'])))
+                    log_text = log_msg['JobLog']['log_entry']['JobLogEntry']['message']['#text']
+                    log_ts_us = int(log_entry['MessageTS'])
+                    log_ts_ms = log_ts_us / 1000
+                    log_ts_sec = log_ts_ms / 1000
+                    log_ts_sec_gm = time.gmtime(log_ts_sec)
+                    log_ts_fmt = time.strftime("%m/%d/%Y %H:%M:%S", log_ts_sec_gm) + ".%s" % (str(log_ts_ms))[-3:]
+                    pprint.pprint("{}: {}".format(log_ts_fmt, log_text))
+                    print("\n")
+                    log_ts = (log_ts_us + 1)
+                return True, log_ts
+        else:
+            print("RESPONSE: {}".format(r))
+        log_ts = time.time() * 1000000
+        return False, log_ts
+
+    def _wait_and_display_job_progress(self, job_name, job_execution_id, fabric_fq_name, job_template_fq_name):
+        completed = "SUCCESS"
+        failed = "FAILURE"
+        url = "http://%s:%d/analytics/query" %\
+              (self._analytics['host'], self._analytics['port'])
+        retry_count = 0
+        last_log_ts = time.time() * 1000000
+        while True:
+            # display job records
+            status, last_log_ts = SanityBase._display_job_records(url, job_execution_id, last_log_ts)
+            if status:
+                self._logger.debug("%s job '%s' log records non-zero status", job_name,
+                                   job_execution_id)
+
+            # display job percentage complete
+            self._display_job_percentage_complete(job_execution_id, fabric_fq_name, job_template_fq_name)
+
+            # check if job completed successfully
+            if SanityBase._check_job_status(url, job_execution_id, completed):
+                self._logger.debug("%s job '%s' finished", job_name,
+                                   job_execution_id)
+                break
+            # check if job failed
+            if SanityBase._check_job_status(url, job_execution_id, failed):
+                self._logger.debug("%s job '%s' failed", job_name,
+                                   job_execution_id)
+                raise Exception("%s job '%s' failed" %
+                                (job_name, job_execution_id))
+
+            # Check for timeout
+            if retry_count > self._max_retries:
+                raise Exception("Timed out waiting for '%s' job to complete" %
+                                job_name)
+            retry_count += 1
+            time.sleep(self._timeout)
+
+    def _display_job_percentage_complete(self, job_execution_id, fabric_fq_name, job_template_fq_name):
+        url = "http://%s:%d/analytics/uves/job-execution/%s:%s:%s:%s" %\
+              (self._analytics['host'], self._analytics['port'],
+               fabric_fq_name[0], fabric_fq_name[1],
+               job_template_fq_name[0], job_template_fq_name[1])
+        r = requests.get(url)
+        if r.status_code == 200:
+            response = r.json()
+            job_uve = response.get('FabricJobExecution')
+            if job_uve:
+                print "****** Job is {} percent completed ******\n\n".format(job_uve['percentage_completed'][-1][0]["#text"])
+            else:
+                print "percentage output: {}\n\n".format(response)
+        else:
+            print "No percentage status\n\n"
+
     def discover_fabric_device(self, fab):
         """Discover all devices specified by the fabric management namespaces
         """
@@ -452,3 +557,4 @@ class SanityBase(object):
     # end _exit_with_error
 
 # end SanityBase class
+
