@@ -1377,6 +1377,23 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
         return (True, vxlan_routing)
 
+    @staticmethod
+    def _check_vxlan_id_in_lr(obj_dict):
+        #UI as of July 2018 can still send empty vxlan_network_identifier
+        #the empty value is one of 'None', None or ''.
+        #Handle all these scenarios
+        if ('vxlan_network_identifier' in obj_dict):
+            vxlan_network_identifier = obj_dict['vxlan_network_identifier']
+            if(vxlan_network_identifier != 'None'
+                      and vxlan_network_identifier != None
+                      and vxlan_network_identifier != ''):
+                return vxlan_network_identifier
+            else:
+                return None
+        else:
+            return None
+    #end _check_vxlan_id_in_lr
+
     @classmethod
     def check_for_external_gateway(cls, db_conn, obj_dict):
         if 'virtual_network_refs' in obj_dict:
@@ -1411,6 +1428,56 @@ class LogicalRouterServer(Resource, LogicalRouter):
         if not ok:
             return ok, result
 
+        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        if not ok:
+            return (ok, vxlan_routing)
+
+        vxlan_id = None
+        vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
+
+        if vxlan_routing and vxlan_id:
+
+            #If input vxlan_id is not None, that means we need to reserve it. 
+            #First, check if vxlan_id is set for other fq_name
+            existing_fq_name = cls.vnc_zk_client.get_vn_from_id(int(vxlan_id))
+            if(existing_fq_name != None):
+                msg = 'Cannot set VXLAN_ID: %s, it has already been set' % vxlan_id
+                return False, (400, msg)
+
+            #Second, if vxlan_id is not None, set it in Zookeeper and set the
+            #undo function for when any failures happen later. 
+            #But first, get the internal_vlan name using which the resource
+            #in zookeeper space will be reserved.
+
+            ok, proj_dict = db_conn.dbe_read('project', obj_dict['parent_uuid'])
+            if not ok:
+                return (ok, proj_dict)
+
+            vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
+            proj_obj = Project(name=proj_dict.get('fq_name')[-1],
+                           parent_type='domain',
+                           fq_name=proj_dict.get('fq_name'))
+
+            vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
+
+            try:
+                vxlan_fq_name = ':'.join(vn_obj.fq_name) + '_vxlan'
+                #Now that we have the internal VN name, allocate it in zookeeper
+                #only if the resource hasn't been reserved already
+                cls.vnc_zk_client.alloc_vxlan_id(
+                      vxlan_fq_name,
+                      int(vxlan_id))
+            except cfgm_common.exceptions.ResourceExistsError as e:
+                msg = 'Cannot set VXLAN_ID: %s, it has already been set' % vxlan_id
+                return False, (400, msg)
+
+            def undo_vxlan_id():
+                cls.vnc_zk_client.free_vxlan_id(
+                   int(vxlan_id),
+                   vxlan_fq_name)
+                return True, ""
+            get_context().push_undo(undo_vxlan_id)
+
         # Check if type of all associated BGP VPN are 'l3'
         ok, result = BgpvpnServer.check_router_supports_vpn_type(
             db_conn, obj_dict)
@@ -1436,6 +1503,65 @@ class LogicalRouterServer(Resource, LogicalRouter):
         ok, result = cls.is_port_in_use_by_vm(obj_dict, db_conn)
         if not ok:
             return ok, result
+
+        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        if not ok:
+            return (ok, vxlan_routing)
+
+        if (vxlan_routing and 'vxlan_network_identifier' in obj_dict):
+            new_vxlan_id = None
+            old_vxlan_id = None
+
+            new_vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
+
+            #To get the current vxlan_id, read the LR from the DB
+            ok, read_result = cls.dbe_read(db_conn, 'logical_router', id)
+            if not ok:
+                return ok, read_result
+
+            old_vxlan_id = cls._check_vxlan_id_in_lr(read_result)
+
+            if(new_vxlan_id != old_vxlan_id):
+
+                int_fq_name = None
+                for vn_ref in read_result['virtual_network_refs']:
+                    if vn_ref.get('attr',
+                       {}).get(
+                       'logical_router_virtual_network_type') == 'InternalVirtualNetwork':
+                       int_fq_name = vn_ref.get('to')
+                       break
+
+                if int_fq_name is None:
+                    return True, ''
+
+                vxlan_fq_name = ':'.join(int_fq_name) + '_vxlan'
+                #First, check if the new_vxlan_id being updated exist for some other VN.
+                if(new_vxlan_id != None ):
+                    new_vxlan_fq_name_in_db = cls.vnc_zk_client.get_vn_from_id(int(new_vxlan_id))
+                    if(new_vxlan_fq_name_in_db != None):
+                        if(new_vxlan_fq_name_in_db != vxlan_fq_name):
+                            msg = 'Cannot set VXLAN_ID: %s, it has already been set' % (new_vxlan_id)
+                            return (False, (400, msg))
+
+                #Second, check if old_vxlan_id is not None, if so, delete it from Zookeeper
+                if(old_vxlan_id != None):
+                    cls.vnc_zk_client.free_vxlan_id(
+                         int(old_vxlan_id),
+                         vxlan_fq_name)
+                    def undo_free():
+                        cls.vnc_zk_client.alloc_vxlan_id(
+                            vxlan_fq_name, int(old_vxlan_id))
+                    get_context().push_undo(undo_free)
+
+                #Third, set the new_vxlan_id in Zookeeper.
+                if(new_vxlan_id != None):
+                    cls.vnc_zk_client.alloc_vxlan_id(
+                           vxlan_fq_name,
+                           int(new_vxlan_id))
+                    def undo_alloc():
+                        cls.vnc_zk_client.free_vxlan_id(
+                            int(old_vxlan_id), vxlan_fq_name)
+                    get_context().push_undo(undo_alloc)
 
         # Check if type of all associated BGP VPN are 'l3'
         ok, result = BgpvpnServer.check_router_supports_vpn_type(
@@ -1468,7 +1594,8 @@ class LogicalRouterServer(Resource, LogicalRouter):
                                     obj_fields=['virtual_network_refs'])
         if not ok:
             return ok, lr_orig_dict
-        if obj_dict.get('configured_route_target_list') is None:
+        if( obj_dict.get('configured_route_target_list') is None
+             and obj_dict.get('vxlan_network_identifier') is None):
             return True, ''
         if vxlan_routing == True:
             vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
@@ -1485,7 +1612,8 @@ class LogicalRouterServer(Resource, LogicalRouter):
                                             obj_fields=['route_target_list',
                                                         'fq_name',
                                                         'uuid',
-                                                        'parent_uuid'])
+                                                        'parent_uuid',
+                                                        'virtual_network_properties'])
             if not ok:
                 return ok, vn_dict
             vn_rt_dict_list = vn_dict.get('route_target_list')
@@ -1496,7 +1624,12 @@ class LogicalRouterServer(Resource, LogicalRouter):
             lr_rt_list = []
             if lr_rt_list_obj:
                 lr_rt_list = lr_rt_list_obj.get('route_target', [])
-            if set(vn_rt_list) != set(lr_rt_list):
+
+            vxlan_id_in_db = None
+            vxlan_id_in_db = vn_dict['virtual_network_properties']['vxlan_network_identifier']
+
+            if (set(vn_rt_list) != set(lr_rt_list) or
+                  vxlan_id_in_db != obj_dict['vxlan_network_identifier'] ):
                 ok, proj_dict = db_conn.dbe_read('project', vn_dict['parent_uuid'])
                 if not ok:
                     return (ok, proj_dict)
@@ -1505,7 +1638,16 @@ class LogicalRouterServer(Resource, LogicalRouter):
                                fq_name=proj_dict.get('fq_name'))
 
                 vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
-                vn_obj.set_route_target_list(lr_rt_list_obj)
+
+                if (set(vn_rt_list) != set(lr_rt_list)):
+                    vn_obj.set_route_target_list(lr_rt_list_obj)
+
+                #If vxlan_id has been set, we need to propogate it to the internal VN.
+                if (obj_dict.get('vxlan_network_identifier') is not None):
+                    if(vxlan_id_in_db != obj_dict['vxlan_network_identifier']):
+                        vn_dict['virtual_network_properties']['vxlan_network_identifier'] = obj_dict['vxlan_network_identifier']
+                        vn_obj.set_virtual_network_properties(vn_dict['virtual_network_properties'])
+
                 vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
                 status, obj = cls.server.internal_request_update('virtual-network',
                                                             vn_dict['uuid'],
@@ -3300,6 +3442,20 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         return (True, '')
     # end _check_route_targets
 
+    @staticmethod
+    def _check_vxlan_id(obj_dict):
+        if ('virtual_network_properties' in obj_dict 
+                 and obj_dict['virtual_network_properties'] != None 
+                 and 'vxlan_network_identifier' in obj_dict['virtual_network_properties']):
+            virtual_network_properties = obj_dict['virtual_network_properties']
+            if virtual_network_properties['vxlan_network_identifier'] != None:
+                return True, virtual_network_properties['vxlan_network_identifier']
+            else:
+                return True, None
+        else:
+            return False, None
+    #end _check_vxlan_id
+
     @classmethod
     def _check_provider_details(cls, obj_dict, db_conn, create):
 
@@ -3528,12 +3684,34 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         # by the vnc server
         if obj_dict.get('virtual_network_network_id') is not None:
             return (False, (403, "Cannot set the virtual network ID"))
+
+        #Allocate vxlan_id if it's present in request.
+        vxlan_id = None
+        (ok, vxlan_id) = cls._check_vxlan_id(obj_dict)
+        if vxlan_id != None:
+            try:
+                vxlan_fq_name = ':'.join(obj_dict['fq_name']) + '_vxlan'
+                cls.vnc_zk_client.alloc_vxlan_id(
+                          vxlan_fq_name,
+                          int(vxlan_id))
+            except cfgm_common.exceptions.ResourceExistsError as e:
+                msg = 'Cannot set VXLAN_ID: %s, it has already been set' % vxlan_id
+                return False, (400, msg)
+
+            def undo_vxlan_id():
+                cls.vnc_zk_client.free_vxlan_id(
+                    int(vxlan_id),
+                    vxlan_fq_name)
+                return True, ""
+            get_context().push_undo(undo_vxlan_id)
+
         # Allocate virtual network ID
         vn_id = cls.vnc_zk_client.alloc_vn_id(
             ':'.join(obj_dict['fq_name']))
         def undo_vn_id():
             cls.vnc_zk_client.free_vn_id(
                 vn_id, ':'.join(obj_dict['fq_name']))
+
             return True, ""
         get_context().push_undo(undo_vn_id)
         obj_dict['virtual_network_network_id'] = vn_id
@@ -3671,6 +3849,47 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 new_vn_id != read_result.get('virtual_network_network_id')):
             return (False, (403, "Cannot update the virtual network ID"))
 
+        new_vxlan_id = None
+        old_vxlan_id = None
+        deallocated_vxlan_network_identifier = None
+
+        (new_vxlan_status, new_vxlan_id) = cls._check_vxlan_id(obj_dict)
+        (old_vxlan_status, old_vxlan_id) = cls._check_vxlan_id(read_result)
+
+        if(new_vxlan_status and new_vxlan_id != old_vxlan_id ):
+
+            vxlan_fq_name = ':'.join(fq_name) + '_vxlan'
+            #First, check if the new_vxlan_id being updated exist for some other VN.
+            if(new_vxlan_id != None):
+                new_vxlan_fq_name_in_db = cls.vnc_zk_client.get_vn_from_id(int(new_vxlan_id))
+                if(new_vxlan_fq_name_in_db != None):
+                    if(new_vxlan_fq_name_in_db != vxlan_fq_name):
+                        msg = 'Cannot set VXLAN_ID: %s, it has already been set' % (new_vxlan_id)
+                        return (False, (400, msg))
+
+            #Second, check if old_vxlan_id is not None, if so, delete it from Zookeeper
+            if(old_vxlan_id != None):
+                cls.vnc_zk_client.free_vxlan_id(
+                    int(old_vxlan_id),
+                    vxlan_fq_name)
+                #Add old vxlan_network_identifier to handle dbe_update_notification
+                deallocated_vxlan_network_identifier = old_vxlan_id
+                def undo_free():
+                    cls.vnc_zk_client.alloc_vxlan_id(
+                       vxlan_fq_name, int(old_vxlan_id))
+                get_context().push_undo(undo_free)
+
+            #Third, set the new_vxlan_id in Zookeeper.
+            if(new_vxlan_id != None):
+                cls.vnc_zk_client.alloc_vxlan_id(
+                  vxlan_fq_name,
+                  int(new_vxlan_id))
+
+                def undo_alloc():
+                    cls.vnc_zk_client.free_vxlan_id(
+                       int(old_vxlan_id), vxlan_fq_name)
+                get_context().push_undo(undo_alloc)
+
         (ok, error) = cls._check_is_provider_network_property(obj_dict,
             db_conn, vn_ref=read_result)
         if not ok:
@@ -3751,7 +3970,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         except Exception as e:
             return (False, (500, str(e)))
 
-        return True, ""
+        return True, {
+            'deallocated_vxlan_network_identifier': deallocated_vxlan_network_identifier,
+        }
     # end pre_dbe_update
 
     @classmethod
@@ -3845,6 +4066,13 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             ':'.join(obj_dict['fq_name']),
         )
 
+        (ok, vxlan_id) = cls._check_vxlan_id(obj_dict)
+        if vxlan_id != None:
+            vxlan_fq_name = ':'.join(obj_dict['fq_name']) + '_vxlan'
+            cls.vnc_zk_client.free_vxlan_id(
+                  int(vxlan_id),
+                  vxlan_fq_name)
+
         return True, ""
     # end post_dbe_delete
 
@@ -3888,11 +4116,62 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             ':'.join(obj_dict['fq_name']),
             obj_dict['virtual_network_network_id'],
         )
+        vxlan_id = None
+        (ok, vxlan_id) = cls._check_vxlan_id(obj_dict)
+        if vxlan_id != None:
+            try:
+                vxlan_fq_name = ':'.join(obj_dict['fq_name']) + '_vxlan'
+                cls.vnc_zk_client.alloc_vxlan_id(
+                          vxlan_fq_name,
+                          int(vxlan_id),
+                          notify=True)
+            except cfgm_common.exceptions.ResourceExistsError as e:
+                msg = 'Cannot set VXLAN_ID: %s, it has already been set' % vxlan_id
+                return
         cls.addr_mgmt.net_create_notify(obj_id)
     # end dbe_create_notification
 
     @classmethod
     def dbe_update_notification(cls, obj_id, extra_dict=None):
+
+        ok, read_result = cls.dbe_read(cls.db_conn, 'virtual_network', obj_id)
+        if not ok:
+            return ok, read_result
+
+        obj_dict = read_result
+        new_vxlan_id = None
+        old_vxlan_id = None
+
+        (new_vxlan_status, new_vxlan_id) = cls._check_vxlan_id(obj_dict)
+
+        if extra_dict is not None:
+            old_vxlan_id = extra_dict.get('deallocated_vxlan_network_identifier')
+
+        if(new_vxlan_status and new_vxlan_id != old_vxlan_id):
+
+            vxlan_fq_name = ':'.join(obj_dict['fq_name']) + '_vxlan'
+            #First, check if the new_vxlan_id being updated exist for some other VN.
+            if(new_vxlan_id != None):
+                new_vxlan_fq_name_in_db = cls.vnc_zk_client.get_vn_from_id(int(new_vxlan_id))
+                if(new_vxlan_fq_name_in_db != None):
+                    if(new_vxlan_fq_name_in_db != vxlan_fq_name):
+                        msg = 'Cannot set VXLAN_ID: %s, it has already been set' % (new_vxlan_id)
+                        return 
+
+            #Second, check if old_vxlan_id is not None, if so, delete it from Zookeeper
+            if(old_vxlan_id != None):
+                cls.vnc_zk_client.free_vxlan_id(
+                    int(old_vxlan_id),
+                    vxlan_fq_name,
+                    notify=True)
+
+            #Third, set the new_vxlan_id in Zookeeper.
+            if(new_vxlan_id != None):
+                cls.vnc_zk_client.alloc_vxlan_id(
+                  vxlan_fq_name,
+                  int(new_vxlan_id),
+                  notify=True)
+
         cls.addr_mgmt.net_update_notify(obj_id)
     # end dbe_update_notification
 
@@ -3903,6 +4182,16 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             ':'.join(obj_dict['fq_name']),
             notify=True,
         )
+
+        vxlan_id = None
+        (ok, vxlan_id) = cls._check_vxlan_id(obj_dict)
+        if vxlan_id != None:
+            vxlan_fq_name = ':'.join(obj_dict['fq_name']) + '_vxlan'
+            cls.vnc_zk_client.free_vxlan_id(
+                  int(vxlan_id),
+                  vxlan_fq_name,
+                  notify=True )
+
         cls.addr_mgmt.net_delete_notify(obj_id, obj_dict)
     # end dbe_delete_notification
 
