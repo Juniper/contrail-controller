@@ -372,7 +372,7 @@ class FilterModule(object):
             }
     # end onboard_fabric
 
-    # ***************** onboard_brownfield_fabric filter *********************************
+    # ***************** onboard_brownfield_fabric filter ***********************
     def onboard_brownfield_fabric(self, job_ctx):
         """
         :param job_ctx: Dictionary
@@ -935,7 +935,7 @@ class FilterModule(object):
 
         if fabric_obj:
             # delete all fabric devices
-            for device_ref in list(fabric_obj.get_physical_router_back_refs() or []):
+            for device_ref in fabric_obj.get_physical_router_back_refs() or []:
                 device_uuid = str(device_ref.get('uuid'))
                 self._delete_fabric_device(vnc_api, fabric_obj, device_uuid)
 
@@ -1420,7 +1420,7 @@ class FilterModule(object):
                     'creating logical interface %s for physical link from %s to'
                     ' %s' % (local_li.name, local_pi.fq_name, remote_pi.fq_name)
                 )
-                vnc_api.local_interface_create(local_li)
+                vnc_api.logical_interface_create(local_li)
                 _task_done()
 
             iip_refs = local_li.get_instance_ip_back_refs()
