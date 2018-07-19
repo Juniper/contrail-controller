@@ -372,7 +372,7 @@ class FilterModule(object):
             }
     # end onboard_fabric
 
-    # ***************** onboard_brownfield_fabric filter *********************************
+    # ***************** onboard_brownfield_fabric filter ***********************
     def onboard_brownfield_fabric(self, job_ctx):
         """
         :param job_ctx: Dictionary
@@ -935,7 +935,7 @@ class FilterModule(object):
 
         if fabric_obj:
             # delete all fabric devices
-            for device_ref in list(fabric_obj.get_physical_router_back_refs() or []):
+            for device_ref in fabric_obj.get_physical_router_back_refs() or []:
                 device_uuid = str(device_ref.get('uuid'))
                 self._delete_fabric_device(vnc_api, fabric_obj, device_uuid)
 
