@@ -1061,3 +1061,10 @@ void Agent::SetResourceManagerReady() {
     resource_manager_ready_ = true;
     config_manager_->Start();
 }
+
+uint8_t Agent::GetInterfaceTransport() const {
+    if (params()->vrouter_on_host_dpdk()) {
+        return Interface::TRANSPORT_PMD;
+    }
+    return Interface::TRANSPORT_ETHERNET;
+}

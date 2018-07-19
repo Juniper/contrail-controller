@@ -218,10 +218,16 @@ void ContrailInitCommon::CreateInterfaces() {
     table->CreateVhost();
     //Trigger explicit change to sync the configuration
     table->CreateVhost();
-    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
-                       agent()->vhost_interface_name());
-    agent()->set_vhost_interface
-        (static_cast<Interface *>(table->FindActiveEntry(&key)));
+    if (agent()->tsn_enabled()) {
+        InetInterfaceKey key(agent()->vhost_interface_name());
+        agent()->set_vhost_interface
+            (static_cast<Interface *>(table->FindActiveEntry(&key)));
+    } else {
+        VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                           agent()->vhost_interface_name());
+        agent()->set_vhost_interface
+            (static_cast<Interface *>(table->FindActiveEntry(&key)));
+    }
     assert(agent()->vhost_interface());
 
     // Add L2 Receive route for vhost. We normally add L2 Receive route on

@@ -177,11 +177,8 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
 //3> Resolve route to be added
 //4> Multicast receive route
 void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
-    if (agent->params()->vrouter_on_host_dpdk()) {
-        transport_ = Interface::TRANSPORT_PMD;
-    } else {
-        transport_ = Interface::TRANSPORT_ETHERNET;
-    }
+    transport_ = static_cast<Interface::Transport>
+        (agent->GetInterfaceTransport());
 
     proxy_arp_mode_ = VmInterface::PROXY_ARP_NONE;
     device_type_ = VmInterface::LOCAL_DEVICE;
