@@ -37,8 +37,8 @@
         state: directory
 
   roles:
-    - basic_config
-    - ip_clos
+    - cfg_basic
+    - cfg_ip_clos
     - commit_fabric_config
 
   tasks:
