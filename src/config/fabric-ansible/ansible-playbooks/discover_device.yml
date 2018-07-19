@@ -33,11 +33,7 @@
   post_tasks:
     - name: set output parameter
       set_fact:
-         output: "{{ output|combine({'status':'SUCCESS', 'message':'Discover playbook successfully executed'})}}"
+         output: "{{ output|combine({'status':'SUCCESS', 'message':'Discover playbook successfully executed', 'device_json': discovery_results.device_info})}}"
 
     - name: print output
       debug: var=output verbosity=1
-
-    - name: insert/update in /tmp/<exec-id> file
-      set_fact:
-        write_resp: "{{job_ctx | report_end_of_playbook()}}"

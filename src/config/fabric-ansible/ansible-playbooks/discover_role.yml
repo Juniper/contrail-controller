@@ -18,7 +18,3 @@
       vars:
         current_index: 2
         jl_message: "Role Discovery succeeded discovering roles for the prouter {{prouter_name}} in the fabric"
-
-    - name: insert/update in /tmp/<exec-id> file
-      set_fact:
-        write_resp: "{{job_ctx | report_end_of_playbook()}}"
