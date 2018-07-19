@@ -33,6 +33,7 @@ set groups __{{feature}}__ routing-options forwarding-table export PFE-LB
 set groups __{{feature}}__ routing-options forwarding-table ecmp-fast-reroute
 set groups __{{feature}}__ routing-options autonomous-system {{bgp.autonomous_system}}
 set groups __{{feature}}__ routing-options router-id {{bgp.ip_address}}
+set groups __{{feature}}__ routing-options route-distinguisher-id {{bgp.ip_address}}
 
 set groups __{{feature}}__ protocols bgp log-updown
 set groups __{{feature}}__ protocols bgp graceful-restart
