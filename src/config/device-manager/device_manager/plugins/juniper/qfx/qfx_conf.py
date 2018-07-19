@@ -291,7 +291,7 @@ class QfxConf(JuniperConf):
                 if is_internal_vn and lr_uuid:
                     ip_prefix_support = IpPrefixSupport()
                     #ip_prefix_support.set_forwarding_mode("symmetric")
-                    ip_prefix_support.set_encapsulation("vxlan")
+                    ip_prefix_support.set_vni(vn.virtual_network_properties.get("vxlan_network_identifier"))
                     ip_prefix_support.set_vni(str(vni))
                     ip_prefix_support.set_advertise("direct-nexthop")
                     evpn.set_ip_prefix_support(ip_prefix_support)
