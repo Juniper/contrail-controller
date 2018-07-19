@@ -1,0 +1,113 @@
+delete apply-groups __contrail_{{feature}}__
+delete groups __contrail_{{feature}}___
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+{%     set rib_name = 'bgp.rtarget.0' %}
+{%     set resolution_rib = 'inet.0' %}
+
+# physical interfaces
+{%     for intf in device_abstract_config.get('physical_interfaces', []) %}
+{%         set name = intf.get('name') %}
+{%         set unit = intf.get('unit') %}
+{%         set family = intf.get('family') %}
+{%         set addr = intf.get('ip_list')[0].get('address') %}
+set groups __contrail_{{feature}}__ interface {{name}} unit {{unit}} family {{family}} address {{addr}}
+set groups __contrail_{{feature}}__ interface {{name}} flexible-vlan-tagging
+set groups __contrail_{{feature}}__ interface {{name}} encapsulation extended-vlan-bridge
+set groups __contrail_{{feature}}__ interface {{name}} unit {{unit}} vlan-id ??
+
+# routing-options
+{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%         set router_id = bgp_elem.get('ip_address') %}
+{%         set route_distinguisher = router_id %}
+{%         set as_number = bgp_elem.get('autonomous_system') %}
+set groups __contrail_{{feature}}__ routing-options router-id {{router_id}}
+set groups __contrail_{{feature}}__ routing-options route-distinguisher-id {{route_distinguisher}}
+set groups __contrail_{{feature}}__ routing-options autonomous-system {{as_number}}
+set groups __contrail_{{feature}}__ routing-options resolution rib {{rib_name}} resolution-ribs {{resolution_rib}}
+{%     endfor %}
+
+# protocols - bgp, evpn
+{%     for bgp in device_abstract_config.get('bgp', []) %}
+{%         set bgp_group_name = bgp.get('name') %}
+{%         set bgp_group_type = bgp.get('type') %}
+{%         set hold_time = bgp.get('hold_time') %}
+{%         set families = bgp.get('families') %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
+{%         for fam in families %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}}
+{%             if fam == 'evpn' %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}} signaling
+{%             endif %}
+{%         endfor %}
+{%         if bgp_group_type == 'internal' %}
+{%             if fam.startswith('inet') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} from family {{fam}} then next-hop self
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
+{%             endif %}
+{%         endif %}
+{%         for peer in bgp.get('peers', []) %}
+{%             set peer_addr = peer.get('ip_address') %}
+{%             set peer_as = peer.get('autonomous_system') %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} neighbor {{peer_addr}} peer-as {{peer.as}}
+{%         endfor %}
+{%     endfor %}
+
+#evpn protocol
+{%     for ri in device_abstract_config.get('routing_intances', []) %}
+{%         set name = ri.get('name') %}
+{%         if ri.get('evpn', None) %}
+set groups __contrail_{{feature}}__ protocols evpn encapsulation vxlan
+set groups __contrail_{{feature}}__ protocols evpn extended-vni-list all
+set groups __contrail_{{feature}}__ protocols evpn multicast-mode ingress-replication
+{%         for import_target in ri.get('import_targets', []) %}
+{%             set vxlan_id = ri.get('vxlan_id') %}
+set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{vxlan_id}} vrf-target {{import_target}}
+{%         endfor %}
+
+# policy-options
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         set ri_vn_mode = ri.get('virtual_network_mode') %}
+{%         if (ri_vn_mode == 'l2') or ('l2' in ri.name)  %}
+{%             set contrail_l2_ri = ri.name %}
+{%             set l2_vrf_import = ri.name+'-import' %}
+{%             set l2_vrf_export = ri.name+'-export' %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_import}} term t1
+set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_export}} term t1
+{%             for import_target in ri.get('import_targets', []) %}
+{%                 set community_target = import_target.replace(':', '_') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_import}} term t1 from community {{community_target}}
+set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{import_target}}
+{%             endfor %}
+set policy-options policy-statement {{l2_vrf_import}} term t1 then accept
+set policy-options policy-statement {{l2_vrf_import}} then reject
+set groups __contrail_{{feature}}__ switch-options vrf-import {{community_target}}
+
+{%             for export_target in ri.get('export_targets', []) %}
+{%                 set community_target = export_target.replace(':', '_') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_export}} term t1 from community {{community_target}}
+set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{export_target}}
+{%             endfor %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_export}} term t1 then accept
+set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_export}} then reject
+set groups __contrail_{{feature}}__ switch-options vrf-export {{community_target}}
+{%         endif %}
+{%     endfor %}
+
+{%     for vlan in device_abstract_config.get('vlans', []) %}
+{%         set vlan_name = vlan.get('name') %}
+{%         set vlan_id = vlan.get('vlan_id') %}
+{%         set irb_int = vlan.get('l3_interface') %}
+{%         set vni = vlan.get('vxlan_id') %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} l3-interface {{irb_int}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
+{%     endfor %}
+
+set groups __contrail_{{feature}}__ switch-options vtep-source-interface lo0.0
+set groups __contrail_{{feature}}__ switch-options vrf-target auto
+set groups __contrail_{{feature}}__ switch-options route-distinguisher {{route_distinguisher}}
+set groups __contrail_{{feature}}__ switch-options vrf-target community target:64512:1
+set apply-groups __contrail_{{feature}}__
+{% endif %}
