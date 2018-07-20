@@ -974,7 +974,7 @@ class QfxConf(JuniperConf):
                         ri_conf['prefixes'] = vn_obj.get_prefixes()
                         ri_conf['interfaces'] = interfaces
                         if is_internal_vn:
-                            ri_conf['vni'] = vn_obj.get_vxlan_vni()
+                            ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                         ri_conf['gateways'] = lo0_ips
                         ri_conf['network_id'] = vn_obj.vn_network_id
                         self.add_routing_instance(ri_conf)
