@@ -1273,7 +1273,10 @@ class VirtualNetworkDM(DBBaseDM):
         return set(self.gateways.keys())
     # end get_prefixes
 
-    def get_vxlan_vni(self):
+    def get_vxlan_vni(self, is_internal_vn = False):
+        if is_internal_vn:
+            props = self.virtual_network_properties or {}
+            return props.get("vxlan_network_identifier") or self.vn_network_id
         if GlobalVRouterConfigDM.is_global_vxlan_id_mode_auto():
             return self.vn_network_id
         props = self.virtual_network_properties or {}
