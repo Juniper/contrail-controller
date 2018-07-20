@@ -951,8 +951,7 @@ class VncIngress(VncCommon):
         """
         if not VncSecurityPolicy.ingress_svc_fw_policy_uuid:
             VncSecurityPolicy.ingress_svc_fw_policy_uuid =\
-              VncSecurityPolicy.create_firewall_policy(
-                "-".join([vnc_kube_config.cluster_name(), self._k8s_event_type]),
+              VncSecurityPolicy.create_firewall_policy(self._k8s_event_type,
                 None, None, is_global=True)
             VncSecurityPolicy.add_firewall_policy(
                 VncSecurityPolicy.ingress_svc_fw_policy_uuid)

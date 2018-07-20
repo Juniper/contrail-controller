@@ -480,9 +480,12 @@ class VncSecurityPolicy(VncCommon):
     @classmethod
     def get_firewall_policy_name(cls, name, namespace, is_global):
         if is_global:
-            return name
+            policy_name = name
         else:
-            return "-".join([namespace, name])
+            policy_name = "-".join([namespace, name])
+
+        # Always prepend firewall policy name with cluster name.
+        return "-".join([vnc_kube_config.cluster_name(), policy_name])
 
     @classmethod
     def create_firewall_policy(cls, name, namespace, spec, tag_last=False,
@@ -1003,8 +1006,7 @@ class VncSecurityPolicy(VncCommon):
     def create_allow_all_security_policy(cls):
         if not cls.allow_all_fw_policy_uuid:
             allow_all_fw_policy_uuid =\
-                VncSecurityPolicy.create_firewall_policy(
-                    "-".join([vnc_kube_config.cluster_name(), "allowall"]),
+                VncSecurityPolicy.create_firewall_policy("allowall",
                  None, None, is_global=True)
             VncSecurityPolicy.add_firewall_policy(allow_all_fw_policy_uuid,
                                                   append_after_tail=True)
@@ -1014,8 +1016,7 @@ class VncSecurityPolicy(VncCommon):
     def create_deny_all_security_policy(cls):
         if not cls.deny_all_fw_policy_uuid:
             cls.deny_all_fw_policy_uuid =\
-                VncSecurityPolicy.create_firewall_policy(
-                    "-".join([vnc_kube_config.cluster_name(), "denyall"]),
+                VncSecurityPolicy.create_firewall_policy("denyall",
                  None, None, tag_last=True, is_global=True)
             VncSecurityPolicy.add_firewall_policy(cls.deny_all_fw_policy_uuid)
 
