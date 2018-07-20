@@ -30,7 +30,10 @@ logger = fabric_ansible_logger("ansible")
 # The default display method supresses certain output for remote hosts
 # while we want this information sent to the logs
 #
-def fabric_ansible_display(self, msg, color=None, stderr=False, screen_only=False, log_only=False):
+
+
+def fabric_ansible_display(self, msg, color=None, stderr=False,
+                           screen_only=False, log_only=False):
     """ Display a message to the user
 
     Note: msg *must* be a unicode string to prevent UnicodeError tracebacks.
@@ -51,10 +54,12 @@ def fabric_ansible_display(self, msg, color=None, stderr=False, screen_only=Fals
             # Convert back to text string on python3
             # We first convert to a byte string so that we get rid of
             # characters that are invalid in the user's locale
-            msg2 = to_text(msg2, self._output_encoding(stderr=stderr), errors='replace')
+            msg2 = to_text(msg2, self._output_encoding(stderr=stderr),
+                           errors='replace')
 
-        # Note: After Display() class is refactored need to update the log capture
-        # code in 'bin/ansible-connection' (and other relevant places).
+        # Note: After Display() class is refactored need to update the
+        # log capture code in 'bin/ansible-connection' (and other
+        # relevant places).
         if not stderr:
             fileobj = sys.stdout
         else:
@@ -85,6 +90,7 @@ def fabric_ansible_display(self, msg, color=None, stderr=False, screen_only=Fals
         else:
             logger.info(msg2)
 
+
 import ansible.utils.display as default_display
 default_display.logger = logger
 default_display.Display.display = fabric_ansible_display
@@ -106,7 +112,7 @@ class PlaybookHelper(object):
 
     def get_plugin_output(self, pbex):
         output_json = pbex._tqm._variable_manager._nonpersistent_fact_cache[
-            'localhost']['output']
+            'localhost'].get('output')
         return output_json
 
     def execute_playbook(self, playbook_info):
@@ -148,36 +154,6 @@ class PlaybookHelper(object):
 
             output = self.get_plugin_output(pbex)
 
-            # if it comes here, it implies the pb has ended
-            # So derive the playbook output to be
-            # written to file and finally write END to the file
-
-            try:
-                unique_pb_id = playbook_input_json['extra_vars'][
-                    'playbook_input']['unique_pb_id']
-                exec_id = playbook_input_json['extra_vars']['playbook_input'][
-                    'job_execution_id']
-
-                # messages to be given to next playbooks(s)
-
-                JM_LOGGER.info("Printing pb output results "
-                               "from pb_helper.py -->>>")
-                JM_LOGGER.info(output)
-                line_in_file = unique_pb_id + 'PLAYBOOK_OUTPUT##' + \
-                               json.dumps(output) + 'PLAYBOOK_OUTPUT##' + \
-                               '\n'
-                with open("/tmp/"+exec_id, "a") as f:
-                    f.write(line_in_file + unique_pb_id + 'END' + '\n')
-            except Exception, exc:
-                ERR_MSG = "Error while trying to parse output"\
-                          " from playbook due to exception: %s"\
-                          % str(exc)
-                with open("/tmp/"+exec_id, "a") as f:
-                    f.write(unique_pb_id + 'END' + '\n')
-                JM_LOGGER.error(ERR_MSG)
-                # not stopping execution just because of  parsing error
-                # no sys.exit therefore
-
             if output is None or output.get('status') is None:
                 msg = MsgBundle.getMessage(MsgBundle.
                                            PLAYBOOK_OUTPUT_MISSING)
@@ -199,6 +175,16 @@ class PlaybookHelper(object):
                 msg = msg + "\n" + exp.message
 
             JM_LOGGER.error(msg)
+
+            # after handling exception, write an END
+            # to stop listening to the file if created
+            unique_pb_id = playbook_info['extra_vars'][
+                'playbook_input']['unique_pb_id']
+            exec_id = playbook_info['extra_vars']['playbook_input'][
+                'job_execution_id']
+            with open("/tmp/"+exec_id, "a") as f:
+                f.write(unique_pb_id + 'END' + '\n')
+
             sys.exit(msg)
 
 
@@ -225,4 +211,33 @@ if __name__ == "__main__":
         sys.exit(MsgBundle.getMessage(MsgBundle.PLAYBOOK_INPUT_PARSING_ERROR,
                                       exc_msg=repr(exp)))
     playbook_helper = PlaybookHelper()
-    playbook_helper.execute_playbook(playbook_input_json)
+    pb_output = playbook_helper.execute_playbook(playbook_input_json)
+
+    # if it comes here, it implies the pb_output is of correct
+    # format and is present with status Sucess. So derive the
+    # playbook output to be written to file and finally write END to the file
+
+    try:
+        unique_pb_id = playbook_input_json['extra_vars'][
+            'playbook_input']['unique_pb_id']
+        exec_id = playbook_input_json['extra_vars']['playbook_input'][
+            'job_execution_id']
+
+        # messages to be given to next playbooks(s)
+
+        JM_LOGGER.info("Printing pb output results from pb_helper.py -->>>")
+        JM_LOGGER.info(pb_output)
+        line_in_file = unique_pb_id + 'PLAYBOOK_OUTPUT##'\
+            + json.dumps(pb_output) + 'PLAYBOOK_OUTPUT##'\
+            + '\n'
+        with open("/tmp/"+exec_id, "a") as f:
+            f.write(line_in_file + unique_pb_id + 'END' + '\n')
+    except Exception, exc:
+        ERR_MSG = "Error while trying to parse output"\
+                  " from playbook due to exception: %s"\
+                  % str(exc)
+        with open("/tmp/"+exec_id, "a") as f:
+            f.write(unique_pb_id + 'END' + '\n')
+        JM_LOGGER.error(ERR_MSG)
+        # not stopping execution just because of  parsing error
+        # no sys.exit therefore
