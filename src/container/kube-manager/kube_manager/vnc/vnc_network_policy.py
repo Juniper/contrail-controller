@@ -560,8 +560,9 @@ class VncNetworkPolicy(VncCommon):
 
         # Update kube config db entry for the network policy.
         np = NetworkPolicyKM.find_by_name_or_uuid(uid)
-        fw_policy_obj = self._vnc_lib.firewall_policy_read(id=fw_policy_uuid)
-        np.set_vnc_fq_name(":".join(fw_policy_obj.get_fq_name()))
+        if np:
+            fw_policy_obj = self._vnc_lib.firewall_policy_read(id=fw_policy_uuid)
+            np.set_vnc_fq_name(":".join(fw_policy_obj.get_fq_name()))
 
     def _vnc_delete_sg(self, sg):
         for vmi_id in list(sg.virtual_machine_interfaces):
