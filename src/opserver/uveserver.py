@@ -374,8 +374,8 @@ class UVEServer(object):
         else:
             tables = self.get_tables()
             rsp = {}
-            uve_list = {}
             for table in tables:
+                uve_list = {}
                 if tablesfilt is not None:
                     if table not in tablesfilt:
                         continue
@@ -387,7 +387,8 @@ class UVEServer(object):
                         continue
                     else:
                         uve_list[uve_key] = uve_val
-                rsp[table] = uve_list
+                if len(uve_list):
+                    rsp[table] = uve_list
         return rsp
     # end get_alarms
 
