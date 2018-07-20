@@ -1420,7 +1420,7 @@ class FilterModule(object):
                     'creating logical interface %s for physical link from %s to'
                     ' %s' % (local_li.name, local_pi.fq_name, remote_pi.fq_name)
                 )
-                vnc_api.local_interface_create(local_li)
+                vnc_api.logical_interface_create(local_li)
                 _task_done()
 
             iip_refs = local_li.get_instance_ip_back_refs()
