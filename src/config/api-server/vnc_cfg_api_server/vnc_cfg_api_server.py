@@ -161,6 +161,8 @@ _ACTION_RESOURCES = [
     {'uri': '/aaa-mode', 'link_name': 'aaa-mode',
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
     {'uri': '/obj-cache', 'link_name': 'obj-cache',
+     'method': 'GET', 'method_name': 'dump_cache'},
+    {'uri': '/obj-cache', 'link_name': 'obj-cache',
      'method': 'POST', 'method_name': 'dump_cache'},
     {'uri': '/execute-job', 'link_name': 'execute-job',
      'method': 'POST', 'method_name': 'execute_job_http_post'},
@@ -1207,7 +1209,8 @@ class VncApiServer(object):
         r_class = self.get_resource_class(resource_type)
         obj_links = r_class.obj_links & set(obj_dict.keys())
         obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
-        obj_dicts = self._db_conn._object_db.object_raw_read(obj_uuids, ["perms2"])
+        obj_dicts = self._db_conn._object_db.object_raw_read(
+            r_class.object_type, obj_uuids, ["perms2"])
         uuid_to_obj_dict = dict((o['uuid'], o) for o in obj_dicts)
 
         for link_field in obj_links:
@@ -2446,18 +2449,14 @@ class VncApiServer(object):
     #end obj_chown_http_post
 
     def dump_cache(self):
-        try:
-            request = json.loads((get_request().body.buf))
-        except Exception as e:
-            request = {}
-        val = {}
-        if 'uuid' in request:
-            obj_uuid = request['uuid']
-            val  = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(obj_uuid=obj_uuid)
-        else:
-            count = request.get('count', 10)
-            val  = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(count=count)
-        return val
+        self._post_common(None, {})
+
+        req_dict = get_request().json or {}
+        obj_uuids = req_dict.get('uuids', [])
+        count = req_dict.get('count', 10)
+
+        return self._db_conn._object_db._obj_cache_mgr.dump_cache(
+            obj_uuids=obj_uuids, count=count)
 
     # chmod for an object
     def obj_chmod_http_post(self):
@@ -3153,6 +3152,9 @@ class VncApiServer(object):
         obj_cache_exclude_types = \
             [t.replace('-', '_').strip() for t in
              self._args.object_cache_exclude_types.split(',')]
+        debug_obj_cache_types = \
+            [t.replace('-', '_').strip() for t in
+             self._args.debug_object_cache_types.split(',')]
 
         db_engine = self._args.db_engine
         self._db_engine = db_engine
@@ -3175,6 +3177,7 @@ class VncApiServer(object):
             kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs,
             obj_cache_entries=obj_cache_entries,
             obj_cache_exclude_types=obj_cache_exclude_types,
+            debug_obj_cache_types=debug_obj_cache_types,
             cassandra_use_ssl=self._args.cassandra_use_ssl,
             cassandra_ca_certs=self._args.cassandra_ca_certs)
 

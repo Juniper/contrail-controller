@@ -10,6 +10,7 @@ from pycassa.batch import Mutator
 from pycassa.system_manager import SystemManager, SIMPLE_STRATEGY
 from pycassa.pool import AllServersUnavailable, MaximumRetryException
 import gevent
+from pprint import pformat
 
 from vnc_api import vnc_api
 from exceptions import NoIdError, DatabaseUnavailableError, VncError
@@ -116,10 +117,11 @@ class VncCassandraClient(object):
         return column_name[:9] == 'children:'
 
     def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
-            logger, generate_url=None, reset_config=False, credential=None,
-            walk=True, obj_cache_entries=0, obj_cache_exclude_types=None,
-            log_response_time=None, ssl_enabled=False, ca_certs=None,
-            pool_size=0):
+                 logger, generate_url=None, reset_config=False,
+                 credential=None, walk=True, obj_cache_entries=0,
+                 obj_cache_exclude_types=None, debug_obj_cache_types=None,
+                 log_response_time=None, ssl_enabled=False, ca_certs=None,
+                 pool_size=0):
         self._reset_config = reset_config
         if db_prefix:
             self._db_prefix = '%s_' % (db_prefix)
@@ -158,13 +160,18 @@ class VncCassandraClient(object):
             self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
 
         self._obj_cache_mgr = ObjectCacheManager(
-            self, max_entries=obj_cache_entries)
+            logger,
+            self,
+            max_entries=obj_cache_entries,
+            obj_cache_exclude_types=obj_cache_exclude_types,
+            debug_obj_cache_types=debug_obj_cache_types,
+        )
         self._obj_cache_exclude_types = obj_cache_exclude_types or []
 
         # these functions make calls to pycassa xget() and get_range()
         # generator functions which can't be wrapped around handle_exceptions()
         # at the time of cassandra init, hence need to wrap these functions that
-        # uses it to catch cassandara connection failures.
+        # uses it to catch cassandra connection failures.
         self.object_update = self._handle_exceptions(self.object_update)
         self.object_list = self._handle_exceptions(self.object_list)
         self.object_read = self._handle_exceptions(self.object_read)
@@ -398,7 +405,7 @@ class VncCassandraClient(object):
             if ref_obj_type == obj_type:
                 # evict other side of ref since it is stale from
                 # GET /<old-ref-uuid> pov.
-                self._obj_cache_mgr.evict([ref_uuid])
+                self._obj_cache_mgr.evict(obj_type, [ref_uuid])
             else:
                 self.update_latest_col_ts(bch, ref_uuid)
         return symmetric_ref_updates
@@ -450,7 +457,7 @@ class VncCassandraClient(object):
             if ref_obj_type == obj_type:
                 # evict other side of ref since it is stale from
                 # GET /<old-ref-uuid> pov.
-                self._obj_cache_mgr.evict([old_ref_uuid])
+                self._obj_cache_mgr.evict(obj_type, [old_ref_uuid])
             else:
                 self.update_latest_col_ts(bch, old_ref_uuid)
         return symmetric_ref_updates
@@ -483,7 +490,7 @@ class VncCassandraClient(object):
             if ref_obj_type == obj_type:
                 # evict other side of ref since it is stale from
                 # GET /<old-ref-uuid> pov.
-                self._obj_cache_mgr.evict([ref_uuid])
+                self._obj_cache_mgr.evict(obj_type, [ref_uuid])
             else:
                 self.update_latest_col_ts(bch, ref_uuid)
 
@@ -783,9 +790,10 @@ class VncCassandraClient(object):
         return (True, symmetric_ref_updates)
     # end object_create
 
-    def object_raw_read(self, obj_uuids, prop_names):
+    def object_raw_read(self, obj_type, obj_uuids, prop_names):
+        obj_class = self._get_resource_class(obj_type)
         hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
-            obj_uuids, prop_names, False)
+            obj_class, obj_uuids, prop_names, False)
         miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME, miss_uuids,
                                       ['prop:' + x for x in prop_names])
 
@@ -835,7 +843,11 @@ class VncCassandraClient(object):
                 miss_uuids = obj_uuids
             else:
                 hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
-                    obj_uuids, field_names, include_backrefs_children)
+                    obj_class,
+                    obj_uuids,
+                    field_names,
+                    include_backrefs_children,
+                )
             miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME, miss_uuids,
                                           timestamp=True)
         else:
@@ -846,7 +858,11 @@ class VncCassandraClient(object):
                 miss_uuids = obj_uuids
             else:
                 hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
-                    obj_uuids, field_names, include_backrefs_children)
+                    obj_class,
+                    obj_uuids,
+                    field_names,
+                    include_backrefs_children,
+                )
             miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                           miss_uuids,
                                           start='d',
@@ -870,8 +886,11 @@ class VncCassandraClient(object):
                 obj_class, miss_obj_rows, None,
                 include_backrefs_children)
             field_filtered_objs = self._obj_cache_mgr.set(
-                obj_class, rendered_objs_to_cache, req_fields,
-                include_backrefs_children)
+                obj_type,
+                rendered_objs_to_cache,
+                req_fields,
+                include_backrefs_children,
+            )
             obj_dicts = hit_obj_dicts + field_filtered_objs
 
         if not obj_dicts:
@@ -1052,7 +1071,7 @@ class VncCassandraClient(object):
             try:
                 bch.send()
             finally:
-                self._obj_cache_mgr.evict([obj_uuid])
+                self._obj_cache_mgr.evict(obj_type, [obj_uuid])
 
         return (True, symmetric_ref_updates)
     # end object_update
@@ -1333,7 +1352,7 @@ class VncCassandraClient(object):
         try:
             bch.send()
         finally:
-            self._obj_cache_mgr.evict([obj_uuid])
+            self._obj_cache_mgr.evict(obj_type, [obj_uuid])
 
         # Update fqname table
         fq_name_str = ':'.join(fq_name)
@@ -1769,29 +1788,47 @@ class ObjectCacheManager(object):
 
     # end class CachedObject
 
-    def __init__(self, db_client, max_entries):
+    def __init__(self, logger, db_client, max_entries,
+                 obj_cache_exclude_types=None, debug_obj_cache_types=None):
+        self._logger = logger
         self.max_entries = max_entries
         self._db_client = db_client
         self._cache = OrderedDict()
+        self._obj_cache_exclude_types = set(obj_cache_exclude_types) or set()
+        self._debug_obj_cache_types = set(debug_obj_cache_types) or set()
+        self._debug_obj_cache_types -= self._obj_cache_exclude_types
     # end __init__
 
-    def evict(self, obj_uuids):
+    def _log(self, msg, level=SandeshLevel.SYS_DEBUG):
+        msg = 'Object UUID cache manager: %s' % msg
+        self._logger(msg, level)
+
+    def evict(self, obj_type, obj_uuids):
         for obj_uuid in obj_uuids:
             try:
-                del self._cache[obj_uuid]
+                obj_dict = self._cache.pop(obj_uuid).obj_dict
+                if obj_type in self._debug_obj_cache_types:
+                    self._log("%s %s (%s) was evicted from cache. Cache "
+                              "contained: %s" % (
+                                  obj_type.replace('_', '-').title(),
+                                  ':'.join(obj_dict['fq_name']),
+                                  obj_uuid,
+                                  pformat(obj_dict),
+                              ),
+                             )
             except KeyError:
                 continue
     # end evict
 
-    def set(self, obj_class, db_rendered_objs, req_fields,
+    def set(self, obj_type, db_rendered_objs, req_fields,
             include_backrefs_children):
-        # evict to accomodate new entries
+        # evict to accommodate new entries
         new_size = len(set(self._cache.keys()) |
                        set(db_rendered_objs.keys()))
         if new_size > self.max_entries:
             for i in range(new_size - self.max_entries):
                 # Evict the oldest entry
-                self._cache.pop(self._cache.keys()[0])
+                self.evict(obj_type, self._cache.keys()[0])
 
         # build up results with field filter
         result_obj_dicts = []
@@ -1813,10 +1850,18 @@ class ObjectCacheManager(object):
                 cached_obj = self.CachedObject(
                     render_info['obj_dict'],
                     id_perms_ts,
-                    row_latest_ts)
+                    row_latest_ts,
+                )
 
             self._cache[obj_uuid] = cached_obj
-
+            if obj_type in self._debug_obj_cache_types:
+                self._log("%s %s (%s) was set in cache with values: %s" % (
+                              obj_type.replace('_', ' ').title(),
+                              ':'.join(cached_obj.obj_dict['fq_name']),
+                              obj_uuid,
+                              pformat(cached_obj.obj_dict),
+                          ),
+                         )
             if req_fields:
                 result_obj_dicts.append(
                     self._cache[obj_uuid].get_filtered_copy(result_fields))
@@ -1827,7 +1872,7 @@ class ObjectCacheManager(object):
         return result_obj_dicts
     # end set
 
-    def read(self, obj_uuids, req_fields, include_backrefs_children):
+    def read(self, obj_class, obj_uuids, req_fields, include_backrefs_children):
         # find which keys are a hit, find which hit keys are not stale
         # return hit entries and miss+stale uuids.
         cached_uuid_set = set(self._cache.keys())
@@ -1874,30 +1919,50 @@ class ObjectCacheManager(object):
                 obj_dicts.append(cached_obj.get_filtered_copy(result_fields))
             else:
                 obj_dicts.append(cached_obj.get_filtered_copy())
+
+            if obj_class.object_type in self._debug_obj_cache_types:
+                obj_rows = self._db_client.multiget(
+                    self._db_client._OBJ_UUID_CF_NAME, [hit_uuid], timestamp=True)
+                rendered_objs = self._db_client._render_obj_from_db(
+                    obj_class, obj_rows, req_fields, include_backrefs_children)
+                db_obj_dict = rendered_objs[hit_uuid]['obj_dict']
+                self._log("%s %s (%s) was read from cache.\nDB values: %s\n"
+                          "Cache value: %s\n" % (
+                              obj_class.object_type.replace('_', ' ').title(),
+                              ':'.join(cached_obj.obj_dict['fq_name']),
+                              hit_uuid,
+                              pformat(db_obj_dict),
+                              pformat(cached_obj.obj_dict),
+                          ),
+                         )
         # end for all hit in cache
 
-        self.evict(stale_uuids)
+        self.evict(obj_class.object_type, stale_uuids)
         return obj_dicts, list(miss_uuid_set)
     # end read
-    def dump_cache(self, obj_uuid=None, count=10):
-        if obj_uuid:
-            obj = self._cache.get(obj_uuid)
-            obj_json = json.dumps(obj, default=lambda o: dict((k, v)
-                               for k, v in o.__dict__.iteritems()))
-            obj_dict = json.loads(obj_json)
-            return obj_dict
+
+    def dump_cache(self, obj_uuids=None, count=10):
+        obj_dicts = {}
+        i = 1
+        if obj_uuids:
+            for obj_uuid in obj_uuids:
+                try:
+                    obj = self._cache[obj_uuid]
+                except KeyError:
+                    continue
+                obj_json = json.dumps(obj, default=lambda o: dict((k, v)
+                                      for k, v in o.__dict__.iteritems()))
+                obj_dicts[i] = json.loads(obj_json)
+                i += 1
         else:
-            obj_dicts = {}
-            i = 1
             for key in self._cache:
                 if i > count:
                     break
                 obj = self._cache[key]
                 obj_json = json.dumps(obj, default=lambda o: dict((k, v)
-                               for k, v in o.__dict__.iteritems()))
-                obj_dict = json.loads(obj_json)
-                obj_dicts[i] = obj_dict
-                i = i+1
-            return obj_dicts
+                                      for k, v in o.__dict__.iteritems()))
+                obj_dicts[i] = json.loads(obj_json)
+                i += 1
+        return obj_dicts
 
 # end class ObjectCacheManager
