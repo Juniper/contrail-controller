@@ -179,6 +179,7 @@ struct VirtualDnsConfig : public DnsConfig {
     }
     bool DynamicUpdatesEnabled() const;
     int GetTtl() const { return rec_.default_ttl_seconds; }
+    int GetNegativeCacheTtl() const { return rec_.soa_record.negative_cache_ttl_seconds; }
 
     static VirtualDnsConfig *Find(std::string name);
     static DataMap &GetVirtualDnsMap() { return virt_dns_config_; }

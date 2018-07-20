@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <network-ipam name='ipam1'>
+        <ipam-method>dhcp</ipam-method>
+        <ipam-dns-method>virtual-dns-server</ipam-dns-method>
+        <ipam-dns-server>
+            <virtual-dns-server-name>test-DNS</virtual-dns-server-name>
+        </ipam-dns-server>
+        <dhcp-option-list></dhcp-option-list>
+    </network-ipam>
+    <virtual-network-network-ipam name='ipam1,vn1' ipam='ipam1' vn='vn1'>
+        <ipam-subnets>
+            <subnet>
+                <ip-prefix>1.2.3.0</ip-prefix>
+                <ip-prefix-len>24</ip-prefix-len>
+            </subnet>
+            <default-gateway>1.2.3.254</default-gateway>
+        </ipam-subnets>
+    </virtual-network-network-ipam>
+
+    <virtual-DNS-record name='record1' dns='test-DNS'>
+        <record-name>host1</record-name>
+        <record-type>A</record-type>
+        <record-class>IN</record-class>
+        <record-data>1.2.3.4</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+
+    <virtual-DNS name='test-DNS' domain='default-domain'>
+        <domain-name>soa.juniper.net</domain-name>
+        <dynamic-records-from-client>0</dynamic-records-from-client>
+        <record-order>random</record-order>
+        <default-ttl-seconds>120</default-ttl-seconds>
+        <next-virtual-DNS>example.com</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
+        <soa-record>
+                <negative-cache-ttl-seconds>100</negative-cache-ttl-seconds>
+        </soa-record>
+    </virtual-DNS>
+</config>

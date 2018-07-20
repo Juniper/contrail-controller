@@ -1,0 +1,12 @@
+$ORIGIN .
+$TTL 120
+soa.juniper.net                IN  SOA contrail-ns.soa.juniper.net  contrail-mx.soa.juniper.net (
+                                      54        
+                                      10800     
+                                      900       
+                                      604800    
+                                      100       
+                                      )
+                                   NS contrail-ns.soa.juniper.net   
+$ORIGIN soa.juniper.net
+contrail-ns                    IN  A   
