@@ -213,6 +213,10 @@ response sandesh ArpStats {
 struct BfdSandeshStats {
     1: i32 rx_count;
     2: i32 tx_count;
+    3: i32 rx_err_count;
+    4: i32 tx_err_count;
+    5: u32 receive_timer_expired_count;
+    6: u32 send_timer_expired_count;
 }
 
 /**

@@ -189,15 +189,14 @@ ResultCode Server::ProcessControlPacketActual(const ControlPacket *packet) {
             packet->receiver_discriminator);
         return kResultCode_UnknownSession;
     }
-    LOG(DEBUG, __func__ << " Found session: " << session->toString());
     session->Stats().rx_count++;
     result = session->ProcessControlPacket(packet);
     if (result != kResultCode_Ok) {
-        LOG(ERROR, "Unable to process session: " << result);
+        LOG(ERROR,
+            "Unable to process session: " << result << session->toString());
         session->Stats().rx_err_count++;
         return result;
     }
-    LOG(DEBUG, "Packet correctly processed");
     return kResultCode_Ok;
 }
 

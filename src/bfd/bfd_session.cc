@@ -33,6 +33,7 @@ Session::Session(Discriminator localDiscriminator,
         communicator_(communicator),
         local_endpoint_(key.local_address, GetRandomLocalPort()),
         remote_endpoint_(key.remote_address, key.remote_port),
+        started_(false),
         stopped_(false) {
     ScheduleSendTimer();
     ScheduleRecvDeadlineTimer();
@@ -50,9 +51,9 @@ Session::~Session() {
 }
 
 bool Session::SendTimerExpired() {
-    LOG(DEBUG, __func__);
-
     ControlPacket packet;
+
+    stats_.send_timer_expired_count++;
     PreparePacket(nextConfig_, &packet);
     SendPacket(&packet);
 
@@ -62,8 +63,9 @@ bool Session::SendTimerExpired() {
 }
 
 bool Session::RecvTimerExpired() {
-    LOG(DEBUG, __func__);
+
     sm_->ProcessTimeout();
+    stats_.receive_timer_expired_count++;
 
     return false;
 }
@@ -90,12 +92,22 @@ void Session::ScheduleSendTimer() {
     int elapsed_time_ms;
     int remaining_time_ms;
     TimeInterval ti = tx_interval();
-    LOG(DEBUG, __func__ << " " << ti);
 
-    // get the elapsed time
-    elapsed_time_ms = sendTimer_->GetElapsedTime();
-    sendTimer_->Cancel();
-    remaining_time_ms = ti.total_milliseconds() - elapsed_time_ms;
+    // get the elapsed time only if the bfd session timer is running,
+    // otherwise program the config send timer value
+    if (started_ == true) {
+        elapsed_time_ms = sendTimer_->GetElapsedTime();
+        sendTimer_->Cancel();
+        if (elapsed_time_ms < 0) {
+            remaining_time_ms = 0;
+        } else {
+            remaining_time_ms = ti.total_milliseconds() - elapsed_time_ms;
+        }
+    } else {
+        // timer not yet started, program with config value
+        remaining_time_ms = ti.total_milliseconds();
+    }
+
     if (remaining_time_ms > 0) {
         sendTimer_->Start(remaining_time_ms,
                 boost::bind(&Session::SendTimerExpired, this));
@@ -104,11 +116,13 @@ void Session::ScheduleSendTimer() {
         sendTimer_->Start(0,
                 boost::bind(&Session::SendTimerExpired, this));
     }
+    if (started_ != true) {
+        started_ = true;
+    }
 }
 
 void Session::ScheduleRecvDeadlineTimer() {
     TimeInterval ti = detection_time();
-    LOG(DEBUG, __func__ << ti);
 
     recvTimer_->Cancel();
     recvTimer_->Start(ti.total_milliseconds(),
@@ -199,14 +213,15 @@ ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
 }
 
 void Session::SendPacket(const ControlPacket *packet) {
-    LOG(DEBUG, __func__ << " session:" << toString());
+    // LOG(DEBUG, __func__ << " session:" << toString());
     boost::asio::mutable_buffer buffer =
         boost::asio::mutable_buffer(new uint8_t[kMinimalPacketLength],
                                     kMinimalPacketLength);
     int pktSize = EncodeControlPacket(packet,
         boost::asio::buffer_cast<uint8_t *>(buffer), kMinimalPacketLength);
     if (pktSize != kMinimalPacketLength) {
-        LOG(ERROR, "Unable to encode packet");
+        LOG(ERROR,
+           "Unable to encode packet " << __func__ << " session:" << toString());
     } else {
         communicator_->SendPacket(local_endpoint_, remote_endpoint_,
                                   key_.index, buffer, pktSize);
@@ -249,6 +264,7 @@ void Session::Stop() {
         TimerManager::DeleteTimer(sendTimer_);
         TimerManager::DeleteTimer(recvTimer_);
         stopped_ = true;
+        started_ = false;
         sm_->SetCallback(boost::optional<ChangeCb>());
     }
 }

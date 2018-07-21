@@ -43,6 +43,8 @@ struct BFDStats {
     int tx_count;
     int rx_err_count;
     int tx_err_count;
+    uint32_t receive_timer_expired_count;
+    uint32_t send_timer_expired_count;
 };
 
 class Session {
@@ -105,6 +107,7 @@ class Session {
     Connection               *communicator_;
     boost::asio::ip::udp::endpoint local_endpoint_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
+    bool                     started_;
     bool                     stopped_;
     Callbacks                callbacks_;
     BFDStats                 stats_;
