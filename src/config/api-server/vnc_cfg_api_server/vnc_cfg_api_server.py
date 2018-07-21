@@ -47,6 +47,7 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 from cfgm_common.utils import _DEFAULT_ZK_LOCK_PATH_PREFIX
 from cfgm_common import is_uuid_like
+from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
 
 from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats, VncApiLatencyStatsLog
 logger = logging.getLogger(__name__)
@@ -3422,6 +3423,21 @@ class VncApiServer(object):
             self.config_log('error while creating primary routing instance for'
                             'default-virtual-network: ' + str(e),
                             level=SandeshLevel.SYS_NOTICE)
+        # Create singleton SG __no_rule__ object for openstack
+        domain_obj = Domain(SG_NO_RULE_FQ_NAME[0])
+        proj_obj = Project(SG_NO_RULE_FQ_NAME[1], domain_obj)
+        sg_rules = PolicyEntriesType()
+        id_perms = IdPermsType(enable=True,
+                               description="Security group with no rules",
+                               user_visible=True)
+        perms2 = PermType2(owner='cloud-admin')
+        perms2.set_global_access(PERMS_RX)
+        sg_obj = SecurityGroup(name=SG_NO_RULE_NAME,
+                               parent_obj=proj_obj,
+                               security_group_entries=sg_rules.exportDict(''),
+                               id_perms=id_perms.exportDict(''),
+                               perms2=perms2.exportDict(''))
+        self.create_singleton_entry(sg_obj)
 
         self.create_singleton_entry(DiscoveryServiceAssignment())
         self.create_singleton_entry(GlobalQosConfig())
@@ -3678,9 +3694,16 @@ class VncApiServer(object):
         except NoIdError:
             obj_json = json.dumps(s_obj, default=_obj_serializer_all)
             obj_dict = json.loads(obj_json)
-            obj_dict['id_perms'] = self._get_default_id_perms(
-                user_visible=user_visible)
-            obj_dict['perms2'] = self._get_default_perms2()
+            if s_obj.get_id_perms():
+                obj_dict['id_perms'] = s_obj.get_id_perms()
+            else:
+                obj_dict['id_perms'] = self._get_default_id_perms(
+                                                user_visible=user_visible)
+            if s_obj.get_perms2():
+                obj_dict['perms2'] = s_obj.get_perms2()
+            else:
+                obj_dict['perms2'] = self._get_default_perms2()
+
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_id = result
             s_obj.uuid = obj_id
