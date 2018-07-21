@@ -149,9 +149,10 @@ class AnsibleConf(AnsibleBase):
                 fetch_pi_li_iip(self.physical_router.physical_interfaces):
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
                 pi = PhysicalInterface(uuid=pi_obj.uuid, name=pi_obj.name,
+                                       interface_type='regular',
                                        comment=DMUtils.ip_clos_comment())
                 li = LogicalInterface(uuid=li_obj.uuid, name=li_obj.name,
-                                      unit=0,
+                                      unit=int(li_obj.name.split('.')[-1]),
                                       comment=DMUtils.ip_clos_comment())
                 li.add_ip_list(IpType(address=iip_obj.instance_ip_address))
                 pi.add_logical_interfaces(li)
@@ -192,7 +193,7 @@ class AnsibleConf(AnsibleBase):
     # end build_bgp_config
 
     def device_send(self, job_template, job_input, is_delete, retry):
-        config_str = json.dumps(job_input, indent=4, sort_keys=True)
+        config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_INIT
         start_time = None
         config_size = 0
@@ -201,7 +202,9 @@ class AnsibleConf(AnsibleBase):
             current_config_hash = md5(config_str).hexdigest()
             if self.last_config_hash is None or\
                     current_config_hash != self.last_config_hash:
-                self._logger.debug("playbook send message: %s" % config_str)
+                self._logger.debug("playbook send message: %s" %
+                                   json.dumps(job_input, indent=4,
+                                              sort_keys=True))
                 device_manager = DeviceManager.get_instance()
                 job_handler = JobHandler(job_template, job_input,
                                          None if is_delete else
@@ -239,32 +242,6 @@ class AnsibleConf(AnsibleBase):
                 else PushConfigState.PUSH_STATE_FAILED
         return config_size
     # end device_send
-
-    def get_vn_li_map(self):
-        pr = self.physical_router
-        vn_dict = {}
-        for vn_id in pr.virtual_networks:
-            vn_dict[vn_id] = []
-
-        li_set = pr.logical_interfaces
-        for pi_uuid in pr.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if pi is None:
-                continue
-            li_set |= pi.logical_interfaces
-        for li_uuid in li_set:
-            li = LogicalInterfaceDM.get(li_uuid)
-            if li is None:
-                continue
-            vmi_id = li.virtual_machine_interface
-            vmi = VirtualMachineInterfaceDM.get(vmi_id)
-            if vmi is None:
-                continue
-            vn_id = vmi.virtual_network
-            vn_dict.setdefault(vn_id, []).append(
-                JunosInterface(li.name, li.li_type, li.vlan_tag, li_uuid=li.uuid))
-        return vn_dict
-    # end
 
     def add_product_specific_config(self, groups):
         # override this method to add any product specific configurations
@@ -320,20 +297,6 @@ class AnsibleConf(AnsibleBase):
         return self.device_send(job_template, job_input, is_delete, retry)
     # end send_conf
 
-    def add_lo0_unit_0_interface(self, loopback_ip=''):
-        if not loopback_ip:
-            return
-        if not self.interfaces_config:
-            self.interfaces_config = []
-        lo_intf = PhysicalInterface(name="lo0", interface_type="loopback")
-        self.interfaces_config.append(lo_intf)
-        li = LogicalInterface(name="lo0", unit=0,
-                              comment=DMUtils.lo0_unit_0_comment(),
-                              family="inet")
-        li.add_ip_list(IpType(address=loopback_ip))
-        lo_intf.add_logical_interfaces(li)
-    # end add_lo0_unit_0_interface
-
     def add_dynamic_tunnels(self, tunnel_source_ip,
                             ip_fabric_nets, bgp_router_ips):
         if not self.system_config:
@@ -369,7 +332,13 @@ class AnsibleConf(AnsibleBase):
         if not families:
             return
         for family in families:
-            parent.add_families(family)
+            if family in self._FAMILY_MAP:
+                if family in ['e-vpn', 'e_vpn']:
+                    family = 'evpn'
+                parent.add_families(family)
+            else:
+                self._logger.info("DM does not support address family: %s on "
+                                  "QFX" % family)
     # end add_families
 
     def add_ibgp_export_policy(self, params, bgp_group):
@@ -455,7 +424,7 @@ class AnsibleConf(AnsibleBase):
             obj = peer_data.get('obj')
             params = peer_data.get('params', {})
             attr = peer_data.get('attr', {})
-            nbr = Bgp(name=peer)
+            nbr = Bgp(name=peer, ip_address=peer)
             nbr.set_comment(DMUtils.bgp_group_comment(obj))
             bgp_config.add_peers(nbr)
             bgp_sessions = attr.get('session')
@@ -481,8 +450,7 @@ class AnsibleConf(AnsibleBase):
         bgp_config = self._get_bgp_config_xml()
         if not bgp_config:
             return
-        if not self.bgp_configs:
-            self.bgp_configs = []
+        self.bgp_configs = self.bgp_configs or []
         self.bgp_configs.append(bgp_config)
         self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
         if self.external_peers:
@@ -514,14 +482,11 @@ class AnsibleConf(AnsibleBase):
             tunnel_ip = self.physical_router.dataplane_ip
             if not tunnel_ip and bgp_router.params:
                 tunnel_ip = bgp_router.params.get('address')
-            if (tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip)):
-                self.add_dynamic_tunnels(
-                    tunnel_ip,
-                    GlobalSystemConfigDM.ip_fabric_subnets,
-                    bgp_router_ips)
+            if tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip):
+                self.add_dynamic_tunnels(tunnel_ip,
+                                         GlobalSystemConfigDM.ip_fabric_subnets,
+                                         bgp_router_ips)
 
-        if self.physical_router.loopback_ip:
-            self.add_lo0_unit_0_interface(self.physical_router.loopback_ip)
         self.set_bgp_group_config()
     # end build_bgp_config
 
