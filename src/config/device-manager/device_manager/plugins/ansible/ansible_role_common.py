@@ -16,11 +16,6 @@ import abc
 
 class AnsibleRoleCommon(AnsibleConf):
 
-    _FAMILY_MAP = {
-        'route-target': '',
-        'e-vpn': ''
-    }
-
     @classmethod
     def is_role_supported(cls, role):
         if role and role.lower().startswith('e2-'):
