@@ -332,13 +332,9 @@ class AnsibleConf(AnsibleBase):
         if not families:
             return
         for family in families:
-            if family in self._FAMILY_MAP:
-                if family in ['e-vpn', 'e_vpn']:
-                    family = 'evpn'
-                parent.add_families(family)
-            else:
-                self._logger.info("DM does not support address family: %s on "
-                                  "QFX" % family)
+            if family in ['e-vpn', 'e_vpn']:
+                family = 'evpn'
+            parent.add_families(family)
     # end add_families
 
     def add_ibgp_export_policy(self, params, bgp_group):
