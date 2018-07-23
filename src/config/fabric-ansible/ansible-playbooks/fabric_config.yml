@@ -17,7 +17,7 @@
 
   pre_tasks:
     - set_fact:
-        job_ctx: "{{job_ctx|combine({'current_task_index':1, 'total_task_count':2, 'task_weightage_array':[10, 90] })}}"
+        job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[20, 80] })}}"
 
     - set_fact:
         device_abstract_config: "{{input.device_abstract_config}}"
@@ -42,6 +42,15 @@
     - commit_fabric_config
 
   tasks:
+    - set_fact:
+        prouter_fqname: ['default-global-system-config', '{{ device_name }}' ]
+
+    - name: PR objectlog update to set onboarding state
+      prouter_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        prouter_fqname: "{{ prouter_fqname }}"
+        onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
+
     - set_fact:
         output: {
               "status": "Success",
