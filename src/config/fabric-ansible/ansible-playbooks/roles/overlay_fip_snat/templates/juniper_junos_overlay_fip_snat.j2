@@ -1,0 +1,145 @@
+delete apply-groups __contrail_{{feature}}__
+delete groups __contrail_{{feature}}__
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups __contrail_{{feature}}__ 
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         set ri_vn_mode = ri.get('virtual_network_mode') %}
+{%         if (ri_vn_mode == 'l2') or ('l2' in ri.get('name', '')) %}
+{%             continue %}
+{%         endif %}
+{%         set contrail_l3_ri = ri.get('name') %}
+{%         set service_interfaces = ri.get('service_interfaces') %}
+{%         if service_interfaces != None %}
+{%             set ri_type = ri.get('routing_instance_type') %}
+{%             for intf in service_interfaces %}
+{%                 set intf_name = intf.get('name') %}
+{%                 set phy_intf = intf_name.split(".")[0] %}
+{%                 set lo_unit = intf_name.split(".")[1] %}
+set groups __contrail_{{feature}}__ interfaces {{phy_intf}} unit {{lo_unit}} family inet
+{%                 if 'Ingress' in intf.get('comment', '') %}
+{%                     set nat_ingress_import = contrail_l3_ri + '-import' %}
+{%                     set nat_ingress_export = contrail_l3_ri + '-export' %}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} instance-type {{ri_type}}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} interface {{intf_name}}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} vrf-import {{nat_ingress_import}}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} vrf-export {{nat_ingress_export}}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} vrf-table-label
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} routing-options static route 0.0.0.0/0 next-hop {{intf_name}}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} routing-options auto-export family inet unicast
+{%                     for import_target in ri.get('import_targets', []) %}
+{%                         set community_target = import_target.replace(':', '_') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{nat_ingress_import}} term t1 from community {{community_target}}
+set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{import_target}}
+{%                     endfor %}
+set policy-options policy-statement {{nat_ingress_import}} term t1 then accept
+set policy-options policy-statement {{nat_ingress_import}} then reject
+set groups __contrail_{{feature}}__ policy-options policy-statement {{nat_ingress_export}} term t1 then reject
+set groups __contrail_{{feature}}__ interfaces {{phy_intf}} unit {{lo_unit}} service-domain inside
+{%                 endif %}
+{%                 if 'Egress' in intf.get('comment', '') %}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} interface {{intf_name}}
+{%                     for route in ri.get('static_routes', []) %}
+{%                         set cidr = route.get('prefix') + '/' + route.get('prefix_len')|string %}
+set groups __contrail_{{feature}}__ routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} next-hop {{intf_name}}
+{%                     endfor %}
+set groups __contrail_{{feature}}__ interfaces {{phy_intf}} unit {{lo_unit}} service-domain outside
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%         set nat_rules = ri.get('nat_rules') %}
+{%         if nat_rules != None %}
+{%             set nat_rules_name = nat_rules.get('name') %}
+{%             if nat_rules_name == None %}
+{%                 set nat_rules_name = 'sv-'+contrail_l3_ri %}
+{%             endif %}
+{%             set rules = nat_rules.get('rules', []) %}
+{%             for rule in rules %}
+set groups __contrail_{{feature}}__ services service-set {{nat_rules_name}} nat-rules {{rule.get('name')}}
+set groups __contrail_{{feature}}__ services nat rule {{rule.get('name')}} match-direction {{rule.get('direction')}}
+{%                 set source_addrs = rule.get('source_addresses', []) %}
+{%                 set source_prefixes = rule.get('source_prefixes', []) %}
+{%                 for index in range(source_addrs|length) %}
+{%                     set source_addr = source_addrs[index] %}
+{%                     set source_prefix = source_prefixes[index] %}
+{%                     set term_name = 'term_'+source_addr.get('prefix', '').replace('.','_') %}
+{%                     set cidr = source_addr.get('prefix') + '/' + source_addr.get('prefix_len')|string %}
+set groups __contrail_{{feature}}__ services nat rule {{rule.name}} term {{term_name}} from source-address {{cidr}}
+{%                     set cidr = source_prefix.get('prefix') + '/' + source_prefix.get('prefix_len')|string %}
+set groups __contrail_{{feature}}__ services nat rule {{rule.get('name')}} term {{term_name}} then translated source-prefix {{cidr}}
+set groups __contrail_{{feature}}__ services nat rule {{rule.get('name')}} term {{term_name}} then translated translation-type {{rule.get('translation_type')}}
+{%                 endfor %}
+{%                 set dst_addrs = rule.get('destination_addresses', []) %}
+{%                 set dst_prefixes = rule.get('destination_prefixes', []) %}
+{%                 for index in range(dst_addrs|length) %}
+{%                     set dst_addr = dst_addrs[index] %}
+{%                     set dst_prefix = dst_prefixes[index] %}
+{%                     set term_name = 'term_'+dst_addr.prefix.replace('.','_') %}
+{%                     set cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
+set groups __contrail_{{feature}}__ services nat rule {{rule.name}} term {{term_name}} from destination-address {{cidr}}
+{%                     set cidr = dst_prefix.get('prefix') + '/' + dst_prefix.get('prefix_len')|string %}
+set groups __contrail_{{feature}}__ services nat rule {{rule.name}} term {{term_name}} then translated destination-prefix {{cidr}}
+set groups __contrail_{{feature}}__ services nat rule {{rule.name}} term {{term_name}} then translated translation-type {{rule.translation_type}}
+{%                 endfor %}
+{%             endfor %}
+{%             if nat_rules.get('inside_interface') != None %}
+set groups __contrail_{{feature}}__ services service-set {{nat_rules_name}} next-hop-service inside-service-interface {{nat_rules.get('inside_interface')}}
+{%             endif %}
+{%             if nat_rules.get('outside_interface') != None %}
+set groups __contrail_{{feature}}__ services service-set {{nat_rules_name}} next-hop-service outside-service-interface {{nat_rules.get('outside_interface')}}
+{%             endif %}
+{%         endif %}
+{%     endfor %}
+{%     set firewall = device_abstract_config.get('firewall') %}
+{%     if firewall != None %}
+{%         set family = firewall.get('family') %}
+{%         set firewall_filters = firewall.get('firewall_filters', []) %}
+{%         for filter in firewall_filters %}
+{%             if 'fip' not in filter.get('comment', '') %}
+{%                 continue %}
+{%             endif %}
+{%             set filter_name = filter.get('name', '') %}
+{%             if 'private' in filter.get('comment', '') %}
+{%                 set irb_filter = filter_name %}
+{%             endif %}
+{%             set terms = filter.get('terms', []) %}
+{%             for term in terms %}
+{%                 set term_name = term.get('name') %}
+{%                 set term_from = term.get('from') %}
+{%                 if term_from == None %}
+{%                     continue %}
+{%                 endif %}
+{%                 set src_addrs = term_from.get('source_address', []) %}
+{%                 set dest_addrs = term_from.get('destination_address', []) %}
+{%                 set term_then = term.get('then') %}
+{%                 if term_then == None %}
+{%                     continue %}
+{%                 endif %}
+{%                 set then_ris = term_then.get('routing_instance', []) %}
+{%                 for dst_addr in dest_addrs %}
+set groups __contrail_{{feature}}__ firewall family {{family}} filter {{filter_name}} term {{term_name}} from destination-address {{dst_addr}}
+{%                 endfor %}
+{%                 for src_addr in src_addrs %}
+set groups __contrail_{{feature}}__ firewall family {{family}} filter {{filter_name}} term {{term_name}} from source-address {{src_addr}}
+{%                 endfor %}
+{%                 for then_ri in then_ris %}
+set groups __contrail_{{feature}}__ firewall family {{family}} filter {{filter_name}} term {{term_name}} then routing-instance {{then_ri}}
+{%                 endfor %}
+{%             endfor %}
+set groups __contrail_{{feature}}__ firewall family {{family}} filter {{filter_name}} term default-term then accept
+{%         endfor %}
+{%     endif %}
+{%     set intfs = device_abstract_config.get('physical-interfaces', []) %}
+{%     for intf in intfs %}
+{%         set intf_type = intf.get('interface_type') %}
+{%         if intf_type == 'irb' %} 
+{%             set irb_intf = intf.get('logical_interfaces')[0] %}
+{%             set irb_unit = irb_intf.get('unit') %}
+{%             set irb_family = irb_intf.get('family') %}
+{%             set irb_family = irb_intf.get('family') %}
+set group __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
+set group __contrail_{{feature}}__ interfaces irb unit {{irb_unit}} family {{irb_family}} filter input {{irb_filter}}
+{%         endif %}
+{%     endfor %}
+set apply-groups __contrail_{{feature}}__
+{% endif %}
+
