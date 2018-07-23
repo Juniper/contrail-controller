@@ -589,8 +589,7 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         //vhost attributes
         VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                            agent_->vhost_interface_name());
-        const Interface *vhost = static_cast<const Interface *>(
-             agent_->interface_table()->FindActiveEntry(&key));
+        const Interface *vhost = agent_->vhost_interface();
         if (vhost) {
             AgentInterface vitf;
             vitf.set_name(vhost->name());
