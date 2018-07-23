@@ -13,6 +13,7 @@ import subprocess32
 import traceback
 import ast
 import time
+import gevent
 import requests
 import xml.etree.ElementTree as etree
 
@@ -177,8 +178,8 @@ class JobHandler(object):
             raise JobException(msg, self._execution_id)
     # end get_playbook_info
 
-
-    def process_file_and_get_marked_output(self, unique_pb_id, exec_id, playbook_process):
+    def process_file_and_get_marked_output(self, unique_pb_id,
+                                           exec_id, playbook_process):
         f_read = None
         marked_output = {}
         markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS]
@@ -217,16 +218,18 @@ class JobHandler(object):
                                             marked_jsons.get(JOB_PROGRESS)
                                         self.current_percentage += float(
                                             self._job_progress)
-                                        self._job_log_utils.send_job_execution_uve(
-                                            self._fabric_fq_name,
-                                            self._job_template.fq_name,
-                                            exec_id,
-                                            percentage_completed=self.current_percentage)
+                                        self._job_log_utils.\
+                                            send_job_execution_uve(
+                                                self._fabric_fq_name,
+                                                self._job_template.fq_name,
+                                                exec_id,
+                                                percentage_completed=
+                                                self.current_percentage)
                     else:
                         # this sleep is essential
                         # to yield the context to
                         # sandesh uve for % update
-                        time.sleep(0.5)
+                        gevent.sleep(0)
 
                     current_time = time.time()
                 break
@@ -243,7 +246,7 @@ class JobHandler(object):
                     self._logger.info("Sub process probably hung; "
                                       "stopping file processing ....")
                     break
-                time.sleep(10)
+                time.sleep(0.5)
             finally:
                 if f_read is not None:
                     f_read.close()
@@ -257,7 +260,7 @@ class JobHandler(object):
         elapsed_time = end_time - start_time
 
         if pb_status != 0:
-            status="FAILURE"
+            status = "FAILURE"
 
         payload = {
             'start_time': 'now-%ds' % (elapsed_time),
@@ -324,7 +327,7 @@ class JobHandler(object):
                                                   close_fds=True, cwd='/')
             # this is to yield the context to the playbooks so that
             # they start running concurrently
-            time.sleep(0.5)
+            gevent.sleep(0)
             marked_output = self.process_file_and_get_marked_output(
                 unique_pb_id, exec_id, playbook_process
             )
@@ -439,4 +442,4 @@ class JobHandler(object):
                 retval[marker] = ast.literal_eval(json_str)
 
         return retval
-    # end _extrace_marked_json
+    # end _extract_marked_json
