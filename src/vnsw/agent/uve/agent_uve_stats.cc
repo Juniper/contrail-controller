@@ -48,6 +48,7 @@ void AgentUveStats::RegisterDBClients() {
 }
 
 void AgentUveStats::InitDone() {
+    AgentUveBase::InitDone();
     stats_manager_->InitDone();
 }
 
