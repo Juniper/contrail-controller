@@ -27,14 +27,17 @@ public:
                           boost::bind(&StatsCollector::RestartTimer, this),
                           task_id, instance)),
                    expiry_time_(exp) {
-        timer_->Start(expiry_time_,
-                      boost::bind(&StatsCollector::TimerExpiry, this));
     };
 
     virtual ~StatsCollector() {
         Shutdown();
         timer_restart_trigger_->Reset();
         delete timer_restart_trigger_;
+    }
+
+    void InitDone() {
+        timer_->Start(expiry_time_,
+                      boost::bind(&StatsCollector::TimerExpiry, this));
     }
 
     virtual bool Run() = 0;

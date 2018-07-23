@@ -52,6 +52,7 @@ SessionStatsCollector::SessionStatsCollector(boost::asio::io_service &io,
             (boost::bind(&SessionStatsCollector::RequestHandlerEntry, this));
         request_queue_.SetExitCallback
             (boost::bind(&SessionStatsCollector::RequestHandlerExit, this, _1));
+        InitDone();
 }
 
 SessionStatsCollector::~SessionStatsCollector() {

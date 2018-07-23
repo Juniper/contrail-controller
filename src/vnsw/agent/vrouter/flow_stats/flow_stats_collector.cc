@@ -78,6 +78,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         // Aging timer fires every kFlowStatsTimerInterval msec. Compute
         // number of timer fires needed to scan complete table
         timers_per_scan_ = TimersPerScan();
+        InitDone();
 }
 
 FlowStatsCollector::~FlowStatsCollector() {
