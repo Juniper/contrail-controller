@@ -4,6 +4,27 @@
   set_fact:
     dhcp_state: "{{ 'present' if ztp_create else 'absent' }}"
 
+- name: Check whether dhcpd directory exists
+  stat:
+    path: "/etc/dhcp"
+  register: dhcp_dir
+
+- name: Check whether dhcpd conf file exists
+  stat:
+    path: "{{ DHCPD_CONFIG_PATH }}"
+  register: dhcp_file
+
+- name: If DHCP directory does not exist, just bail
+  block:
+    - debug: msg="dhcpd directory does not exist, skipping..."
+    - set_fact:
+        dhcp_output: {
+          "status": "{{ 'Failure' if ztp_create else 'Success' }}",
+          "results": {"jl_message": "Warning: dhcpd server not installed"}
+        }
+    - meta: end_play
+  when: dhcp_dir.stat.exists == False
+
 - name: Insert/update global section in DHCP config file on remote host
   block:
     - name: Insert/update global section in config file on remote host
@@ -46,6 +67,7 @@
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
+  when: dhcp_file.stat.exists == True
 
 - name: Check for absence of subsections
   block:
@@ -65,6 +87,7 @@
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
+  when: dhcp_file.stat.exists == True
 
 - name: Delete global section in DHCP config file on remote host if no more subsections
   block:
@@ -86,7 +109,7 @@
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
-  when: subsections_present is undefined
+  when: dhcp_file.stat.exists == True and subsections_present is undefined
 
 - name: Restart or stop dhcpd server
   block:
@@ -105,6 +128,7 @@
     - name: print output
       debug: var=dhcp_output verbosity=1
     - meta: end_play
+  when: dhcp_file.stat.exists == True
 
 - name: Read DHCP lease table and return addresses of devices contained in IPAM subnets
   block:
@@ -131,5 +155,4 @@
       debug: var=dhcp_output verbosity=1
     - meta: end_play
   when: dhcp_state == 'present'
-
 
