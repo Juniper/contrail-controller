@@ -392,98 +392,145 @@ class VncApiServer(object):
 
         return device_list
 
-    def job_mgr_signal_handler(self, signal_var, signalnum, frame):
-        if signal_var.get('fabric_name') is "__DEFAULT__":
-            return
-        # update job manager execution status uve
-        elapsed_time = time.time() - signal_var.get('start_time')
+    def job_mgr_signal_handler(self, signalnum, frame):
+        try:
+            #get the child process id that called the signal handler
+            pid = os.waitpid(-1, os.WNOHANG)
+            signal_var = self._job_mgr_running_instances.get(str(pid[0]))
+            if not signal_var:
+                self.config_log("job mgr process %s not found in the instance "
+                                "map!" % str(pid), level=SandeshLevel.SYS_ERR)
+                return
 
-        # read the job object log for a particulare job to check if
-        # it succeeded or not
-        jobObjLog_payload = {
-            'start_time': 'now-%ds' % (elapsed_time),
-            'end_time': 'now',
-            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-            'table': 'ObjectJobExecutionTable',
-            'where': [
-                [
-                    {
-                        'name': 'ObjectId',
-                        'value': '%s:SUCCESS' % signal_var.get('exec_id'),
-                        'op': 1
+            msg = "Entered job_mgr_signal_handler for: %s" % signal_var
+            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+            # update job manager execution status uve
+            elapsed_time = time.time() - signal_var.get('start_time')
+            status = "UNKNOWN"
+            if signal_var.get('fabric_name') is not "__DEFAULT__":
+                try:
+                    # read the job object log for a particular job to check if
+                    # it succeeded or not
+                    jobObjLog_payload = {
+                        'start_time': 'now-%ds' % (elapsed_time),
+                        'end_time': 'now',
+                        'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+                        'table': 'ObjectJobExecutionTable',
+                        'where': [
+                            [
+                                {
+                                    'name': 'ObjectId',
+                                    'value': '%s:SUCCESS' % signal_var.get('exec_id'),
+                                    'op': 1
+                                }
+                            ]
+                        ]
                     }
-                ]
-            ]
-        }
 
-        url = "http://localhost:8081/analytics/query"
+                    url = "http://localhost:8081/analytics/query"
 
-        resp = requests.post(url, json=jobObjLog_payload)
-        if resp.status_code == 200:
-            JobLog = resp.json().get('value')
-            if JobLog is None:
-                status = 'FAILURE'
-            else:
-                status = 'SUCCESS'
+                    resp = requests.post(url, json=jobObjLog_payload)
+                    if resp.status_code == 200:
+                        JobLog = resp.json().get('value')
+                        if JobLog is None:
+                            status = 'FAILURE'
+                        else:
+                            status = 'SUCCESS'
+                    else:
+                        self.config_log("POST request to query job object log "
+                                        "failed with error %s" %
+                                        resp.status_code,
+                                        level=SandeshLevel.SYS_ERR)
 
-        job_execution_data = FabricJobExecution(
-            name=signal_var.get('fabric_name'),
-            job_status=status,
-            percentage_completed=100)
-        job_execution_uve = FabricJobUve(data=job_execution_data,
-                                         sandesh=self._sandesh)
-        job_execution_uve.send(sandesh=self._sandesh)
+                except (requests.ConnectionError, requests.ConnectTimeout,
+                        requests.HTTPError, requests.Timeout) as ex:
+                    self.config_log("POST request to query job object log "
+                                    "failed with error %s" % str(ex),
+                                    level=SandeshLevel.SYS_ERR)
+                    pass
+                #send uve irrespective of the job log query
+                # success/failure with job status
+                job_execution_data = FabricJobExecution(
+                    name=signal_var.get('fabric_name'),
+                    job_status=status,
+                    percentage_completed=100)
+                job_execution_uve = FabricJobUve(data=job_execution_data,
+                                                 sandesh=self._sandesh)
+                job_execution_uve.send(sandesh=self._sandesh)
 
-        # read the last PRouter state for all Prouetrs
-        payload = {
-            'sort':1,
-            'start_time': 'now-%ds' % (elapsed_time),
-            'sort_fields': ['MessageTS'],
-            'end_time': 'now',
-            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-            'table': 'ObjectJobExecutionTable',
-            'where': [
-                [
-                    {
-                        'name': 'Messagetype',
-                        'value': 'PRouterOnboardingLog',
-                        'op': 1
-                    },
-                    {
-                        'name': 'ObjectId',
-                        'value': '%s' % signal_var.get('exec_id'),
-                        'op': 1
-                    }
-                ]
-            ]
-        }
-        url = "http://localhost:8081/analytics/query"
+            try:
+                # read the last PRouter state for all Prouetrs
+                payload = {
+                    'sort':1,
+                    'start_time': 'now-%ds' % (elapsed_time),
+                    'sort_fields': ['MessageTS'],
+                    'end_time': 'now',
+                    'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+                    'table': 'ObjectJobExecutionTable',
+                    'where': [
+                        [
+                            {
+                                'name': 'Messagetype',
+                                'value': 'PRouterOnboardingLog',
+                                'op': 1
+                            },
+                            {
+                                'name': 'ObjectId',
+                                'value': '%s' % signal_var.get('exec_id'),
+                                'op': 1
+                            }
+                        ]
+                    ]
+                }
+                url = "http://localhost:8081/analytics/query"
 
-        resp = requests.post(url, json=payload)
-        if resp.status_code == 200:
-            PRouterOnboardingLog = resp.json().get('value')
-            for PRObjectLog in PRouterOnboardingLog:
-                resp = PRObjectLog.get('ObjectLog')
-                xmlresp = etree.fromstring(resp)
-                for ele in xmlresp.iter():
-                    if ele.tag == 'name':
-                        device_fqname = ele.text
-                    if ele.tag == 'onboarding_state':
-                        onboarding_state = ele.text
+                resp = requests.post(url, json=payload)
+                if resp.status_code == 200:
+                    PRouterOnboardingLog = resp.json().get('value')
+                    for PRObjectLog in PRouterOnboardingLog:
+                        resp = PRObjectLog.get('ObjectLog')
+                        xmlresp = etree.fromstring(resp)
+                        for ele in xmlresp.iter():
+                            if ele.tag == 'name':
+                                device_fqname = ele.text
+                            if ele.tag == 'onboarding_state':
+                                onboarding_state = ele.text
 
-                prouter_uve_name = device_fqname + ":" + \
-                    signal_var.get('fabric_name')
+                        if device_fqname and onboarding_state:
+                            prouter_uve_name = device_fqname + ":" + \
+                                signal_var.get('fabric_name')
 
-                prouter_job_data = PhysicalRouterJobExecution(
-                    name=prouter_uve_name,
-                    execution_id=signal_var.get('exec_id'),
-                    job_start_ts=int(round(signal_var.get('start_time') * 1000)),
-                    prouter_state=onboarding_state
-                )
+                            prouter_job_data = PhysicalRouterJobExecution(
+                                name=prouter_uve_name,
+                                execution_id=signal_var.get('exec_id'),
+                                job_start_ts=int(round(signal_var.get('start_time') * 1000)),
+                                prouter_state=onboarding_state
+                            )
 
-                prouter_job_uve = PhysicalRouterJobUve(data=prouter_job_data,
-                                                       sandesh=self._sandesh)
-                prouter_job_uve.send(sandesh=self._sandesh)
+                            prouter_job_uve = PhysicalRouterJobUve(
+                                data=prouter_job_data, sandesh=self._sandesh)
+                            prouter_job_uve.send(sandesh=self._sandesh)
+                else:
+                        self.config_log("POST request to query Prouter job "
+                                        "object log failed with error %s" %
+                                        resp.status_code,
+                                        level=SandeshLevel.SYS_ERR)
+            except (requests.ConnectionError, requests.ConnectTimeout,
+                        requests.HTTPError, requests.Timeout) as ex:
+                    self.config_log("POST request to query Prouter job object "
+                                    "log failed with error %s" % str(ex),
+                                    level=SandeshLevel.SYS_ERR)
+
+            finally:
+                #remove the pid entry of the processed job_mgr process
+                del self._job_mgr_running_instances[str(pid[0])]
+
+        except OSError as process_error:
+            self.config_log("Couldn retrieve the child process id. OS call "
+                            "returned with error %s" % str(process_error),
+                            level=SandeshLevel.SYS_ERR)
+
 
     def execute_job_http_post(self):
         ''' Payload of execute_job
@@ -544,13 +591,12 @@ class VncApiServer(object):
                         }
             request_params['args'] = json.dumps(job_args)
 
-            fabric_job_uve_name = ''
-            # create job manager execution status uve
-            if request_params.get('fabric_fq_name') is not "__DEFAULT__":
-                fabric_job_name = request_params.get('job_template_fq_name')
-                fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
-                fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+            fabric_job_name = request_params.get('job_template_fq_name')
+            fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
+            fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
 
+            # create job manager fabric execution status uve
+            if request_params.get('fabric_fq_name') is not "__DEFAULT__":
                 job_execution_data = FabricJobExecution(
                     name=fabric_job_uve_name,
                     execution_id=request_params.get('job_execution_id'),
@@ -589,13 +635,15 @@ class VncApiServer(object):
             }
 
             # handle process exit signal
-            signal.signal(signal.SIGCHLD,  partial(self.job_mgr_signal_handler, signal_var))
+            signal.signal(signal.SIGCHLD,  self.job_mgr_signal_handler)
 
             # create job manager subprocess
             job_mgr_path = os.path.dirname(__file__) + "/../job_manager/job_mgr.py"
             job_process = subprocess.Popen(["python", job_mgr_path, "-i",
                                             json.dumps(request_params)],
                                            cwd="/", close_fds=True)
+
+            self._job_mgr_running_instances[str(job_process.pid)] = signal_var
 
             self.config_log("Created job manager process. Execution id: %s" %
                             execution_id,
@@ -2090,6 +2138,10 @@ class VncApiServer(object):
         ]
 
         self._global_asn = None
+
+        # map of running job instances. Key is the pid and value is job
+        # instance info
+        self._job_mgr_running_instances = {}
     # end __init__
 
     @property
