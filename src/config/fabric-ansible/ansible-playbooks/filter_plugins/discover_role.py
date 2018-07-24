@@ -33,6 +33,16 @@ class FilterModule(object):
         )
     # end _init_vnc_api
 
+    @staticmethod
+    def _validate_job_ctx(job_ctx):
+        """
+        :param job_ctx: Dictionary
+        :return:
+        """
+        if not job_ctx.get('fabric_fqname'):
+            raise ValueError('Invalid job_ctx: missing fabric_fqname')
+    # end _validate_job_ctx
+
     def __init__(self):
         self._logger = FilterModule._init_logging()
     # end __init__
@@ -44,8 +54,12 @@ class FilterModule(object):
 
     def discover_role(self, job_ctx, prouter_name, prouter_uuid,
                       prouter_vendor_name, prouter_product_name):
+
         role_discovery_log = "\n"
+
         try:
+            FilterModule._validate_job_ctx(job_ctx)
+            fabric_fqname = job_ctx.get('fabric_fqname')
             vnc_lib = FilterModule._init_vnc_api(job_ctx)
 
             # form the hardware fqname from prouter_vendor_name and
@@ -55,19 +69,32 @@ class FilterModule(object):
 
             # read the hardware object with this fq_name
             role_discovery_log += "Reading the hardware object ...."
-            hw_obj = vnc_lib.hardware_read(fq_name=hw_fq_name)
+            try:
+                hw_obj = vnc_lib.hardware_read(fq_name=hw_fq_name)
+            except NoIdError as no_id_exc:
+                self._logger.info(role_discovery_log)
+                self._logger.info("\nHardware Object not present in"
+                                  "database: " + str(no_id_exc))
+                traceback.print_exc(file=sys.stdout)
+                self._logger.info("\nCompleting role discovery for device.. ")
+                return {
+                    'status': 'success',
+                    'fabric_fqname': fabric_fqname,
+                    'device_name': prouter_name,
+                    'role_discovery_log': role_discovery_log
+                }
+
             role_discovery_log += "done\n"
 
             # get all the node-profile back-refs for this hardware object
             role_discovery_log += "Getting all the node-profile back refs" \
                                   " for the hardware: %s" % hw_fq_name[-1]
-            np_back_refs = hw_obj.get_node_profile_back_refs()
+            np_back_refs = hw_obj.get_node_profile_back_refs() or []
             role_discovery_log += "done\n"
 
             # get the fabric object fq_name to check if the node-profile
             # is in the same fabric
             role_discovery_log += "Fetching the fabric fq_name ..."
-            fabric_fqname = job_ctx.get('fabric_fqname')
             fab_fq_name = fabric_fqname.split(":")
             role_discovery_log += "done\n"
 
@@ -80,7 +107,7 @@ class FilterModule(object):
             # get the list of node profile_uuids under the given fabric
             role_discovery_log += "Getting the list of node-profile-uuids" \
                                   " under this fabric object .... "
-            node_profiles_list = fabric_obj.get_node_profile_refs()
+            node_profiles_list = fabric_obj.get_node_profile_refs() or []
             node_profile_obj_uuid_list = self._get_object_uuid_list(
                 node_profiles_list)
             role_discovery_log += "done\n"
@@ -101,7 +128,7 @@ class FilterModule(object):
             self._logger.info(role_discovery_log)
             return {
                 'status': 'success',
-                'fabric_uuid': fabric_obj.uuid,
+                'fabric_fqname': fabric_fqname,
                 'device_name': prouter_name,
                 'role_discovery_log': role_discovery_log
             }
@@ -136,7 +163,7 @@ class FilterModule(object):
     def _do_role_discovery(self, np_back_refs, prouter_name, vnc_lib,
                            prouter_uuid, node_profile_obj_uuid_list):
         upd_resp = ""
-        for np_back_ref in np_back_refs or []:
+        for np_back_ref in np_back_refs:
             if np_back_ref['uuid'] in node_profile_obj_uuid_list:
                 upd_resp += "Creating ref between %s and %s ...."\
                             % (prouter_name, np_back_ref['to'][-1])
