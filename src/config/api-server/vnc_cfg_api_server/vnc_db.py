@@ -81,9 +81,10 @@ class VncServerCassandraClient(VncCassandraClient):
     # end get_db_info
 
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
-                      cassandra_credential, walk, obj_cache_entries,
-                      obj_cache_exclude_types, log_response_time=None,
-                      ssl_enabled=False, ca_certs=None, pool_size=20):
+                 cassandra_credential, walk, obj_cache_entries,
+                 obj_cache_exclude_types, debug_obj_cache_types,
+                 log_response_time=None, ssl_enabled=False, ca_certs=None,
+                 pool_size=20):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
@@ -94,6 +95,7 @@ class VncServerCassandraClient(VncCassandraClient):
             credential=cassandra_credential, walk=walk,
             obj_cache_entries=obj_cache_entries,
             obj_cache_exclude_types=obj_cache_exclude_types,
+            debug_obj_cache_types=debug_obj_cache_types,
             log_response_time=log_response_time, ssl_enabled=ssl_enabled,
             ca_certs=ca_certs)
     # end __init__
@@ -746,8 +748,9 @@ class VncDbClient(object):
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
                  reset_config=False, zk_server_ip=None, db_prefix='',
                  db_credential=None, obj_cache_entries=0,
-                 obj_cache_exclude_types=None, db_engine='cassandra',
-                 cassandra_use_ssl=False, cassandra_ca_certs=None, **kwargs):
+                 obj_cache_exclude_types=None, debug_obj_cache_types=None,
+                 db_engine='cassandra', cassandra_use_ssl=False,
+                 cassandra_ca_certs=None, **kwargs):
         self._db_engine = db_engine
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
@@ -797,7 +800,8 @@ class VncDbClient(object):
                 self._object_db = VncServerCassandraClient(
                     self, db_srv_list, reset_config, db_prefix,
                     db_credential, walk, obj_cache_entries,
-                    obj_cache_exclude_types, self.log_cassandra_response_time,
+                    obj_cache_exclude_types, debug_obj_cache_types,
+                    self.log_cassandra_response_time,
                     ssl_enabled=cassandra_use_ssl, ca_certs=cassandra_ca_certs)
 
             self._zk_db.master_election("/api-server-election", db_client_init)
