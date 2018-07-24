@@ -776,6 +776,8 @@ TEST_F(TagTest, InheritanceSubInterface) {
 
     DelLink("virtual-machine", "vm1", "tag", "VmTag2");
     client->WaitForIdle();
+    DelLink("virtual-machine-interface", "intf1",
+            "virtual-machine-interface", "intf2");
     DelNode("tag", "VmTag1");
     DelNode("tag", "VmTag2");
     client->WaitForIdle();
