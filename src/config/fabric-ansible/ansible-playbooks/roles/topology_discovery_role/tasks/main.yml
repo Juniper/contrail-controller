@@ -19,10 +19,22 @@
   rescue:
     - name: Perform the necessary error handling
       include_tasks: error_handler.yml
-      when: "interface_info.failed == true"
+      when: resp is defined and resp.failed == true
       vars:
-        op_err_message: "{{interface_info.msg}}"
+        op_err_message: "{{resp.msg}}"
         jl_err_message: "Execute 'show lldp neighbors' command on Juniper Device: {{prouter_name}} failed"
+
+- name: check if resp is defined with neighbor info. If not, end play and stop playbook with status success
+  block:
+    - name: End Task gracefully if no neighbors are found
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 4
+        jl_message: "Execute 'show lldp neighbors' command on Juniper Device {{prouter_name}} did not record any neighbors. Stopping play..."
+    - set_fact:
+        output: "{{output }}"
+    - meta: end_play
+  when: 'lldp-neighbor-information' not in resp.parsed_output['lldp-neighbors-information']
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
