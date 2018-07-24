@@ -160,18 +160,18 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
             IsLinkWithAttr(obj_type, ref_type);
         if (link_with_attr) {
             Document ref_document(&a);
-            string c_value = c.value;
-            c_value.erase(remove(c_value.begin(), c_value.end(), ' '),
-                          c_value.end());
-            if (c_value == "{\"attr\":null}")
-                c_value = "{\"attr\":{}}";
-            ref_document.Parse<0>(c_value.c_str());
+            ref_document.Parse<0>(c.value.c_str());
             CONFIG_PARSE_ASSERT(ReferenceLinkAttributes,
                                 !ref_document.HasParseError());
             CONFIG_PARSE_ASSERT(ReferenceLinkAttributes,
                                 ref_document.HasMember("attr"));
             Value &attr_value = ref_document["attr"];
-            v.AddMember("attr", attr_value, a);
+            if (!attr_value.IsNull()) {
+                v.AddMember("attr", attr_value, a);
+            } else {
+                Value vm;
+                v.AddMember("attr", vm.SetObject(), a);
+            }
         } else {
             Value vm;
             v.AddMember("attr", vm.SetObject(), a);
