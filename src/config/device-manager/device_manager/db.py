@@ -810,8 +810,10 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.logical_interfaces = set()
         self.virtual_machine_interfaces = set()
         self.physical_interfaces = set()
+        self.link_aggregation_group = None
         self.mtu = 0
         self.esi = None
+        self.interface_type = None
         self.parent_ae_id = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
@@ -820,13 +822,23 @@ class PhysicalInterfaceDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.link_members = []
         self.physical_router = self.get_parent_uuid(obj)
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
         self.name = obj.get('fq_name')[-1]
         self.esi = obj.get('ethernet_segment_identifier')
+        self.interface_type = obj.get('physical_interface_type')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
+        if self.interface_type is not None and self.interface_type == 'lag':
+            self.update_single_ref('link_aggregation_group', obj)
+            if self.link_aggregation_group is not None:
+                link_aggr_group_obj = self.read_obj(self.link_aggregation_group)
+                self.lacp_enabled = link_aggr_group_obj.get('lacp_enabled')
+                for ref in link_aggr_group_obj.get('physical_interface_refs', []):
+                     if not self.uuid == ref['uuid']:
+                         self.link_members.append(ref['to'][2])
         return obj
     # end update
 
@@ -862,6 +874,7 @@ class PhysicalInterfaceDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.set_parent_ae_id(None)
+        obj.update_single_ref('link_aggregation_group', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
