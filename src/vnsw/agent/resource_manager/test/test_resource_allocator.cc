@@ -8,6 +8,7 @@
 // Sandesh Read-Write Test
 //
 
+#include "base/os.h"
 #include "base/time_util.h"
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
