@@ -188,6 +188,7 @@
        <xsd:element name="interface-type" type="dac:InterfaceTypes"/>
        <xsd:element name="mac-address" type="xsd:string"/>
        <xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
+       <xsd:element name="link-aggregation-group" type="dac:LinkAggrGroup"/>
        <xsd:element name="logical-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
@@ -198,8 +199,17 @@
         <xsd:enumeration value="loopback"/>
         <xsd:enumeration value="service"/>
         <xsd:enumeration value="regular"/>
+        <xsd:enumeration value="lag"/>
     </xsd:restriction>
 </xsd:simpleType>
+
+<xsd:complexType name="LinkAggrGroup">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="lacp-enabled" type="xsd:boolean"/>
+       <xsd:element name="link-members" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
 
 <xsd:complexType name="LogicalInterface">
     <xsd:all>
