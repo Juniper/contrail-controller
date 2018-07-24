@@ -12,12 +12,6 @@
 
 - debug: var=role_discovery_result
 
-- name: Update job log with percentage
-  include_tasks: percentage_update.yml
-  vars:
-    current_index: 1
-    jl_message: "Role Discovery completed adding appropriate node profile refs"
-
 - name: check failure
   include_tasks: error_handler.yml
   when: role_discovery_result.status == 'failure'
@@ -26,3 +20,9 @@
     jl_err_message: "Failed to discover roles for prouter {{ prouter_name }} due to error. Here is role_discovery log: {{ role_discovery_result.role_discovery_log }}"
     results:
       prouter_fqname: "{{ prouter_fqname }}"
+
+- name: Update job log with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 1
+    jl_message: "Role Discovery completed adding appropriate node profile refs"
