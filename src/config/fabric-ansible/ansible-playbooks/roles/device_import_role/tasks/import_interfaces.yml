@@ -1,7 +1,7 @@
 - name: Execute commands on a Juniper Device
   block:
     - junos_command:
-        commands: show configuration
+        commands: show configuration interfaces
         display: xml
         provider:
           host: "{{junos_host}}"
