@@ -17,11 +17,12 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 
 
 class CassandraManager(object):
-    def __init__(self, cassandra_repair_logdir, db_owner,
+    def __init__(self, cassandra_repair_logdir, db_owner, table,
                  hostip, minimum_diskgb, db_port, db_jmx_port,
                  db_user, db_password, process_info_manager):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_owner = db_owner
+        self.table = table
         self.hostip = hostip
         self.hostname = socket.gethostname()
         self.minimum_diskgb = minimum_diskgb
@@ -173,7 +174,7 @@ class CassandraManager(object):
 
                 db_info.name = self.hostname
                 db_info.database_usage = [db_stat]
-                usage_stat = DatabaseUsage(data=db_info)
+                usage_stat = DatabaseUsage(table=self.table, data=db_info)
                 usage_stat.send()
         except Exception as e:
             msg = "Failed to get database usage: " + str(e)
@@ -224,7 +225,7 @@ class CassandraManager(object):
             return
 
         status.name = self.hostname
-        status_uve = CassandraStatusUVE(data=status)
+        status_uve = CassandraStatusUVE(table=self.table, data=status)
         if self.has_cassandra_status_changed(status, self.status_old):
             # Assign status to status_old
             self.status_old.thread_pool_stats = status.thread_pool_stats
