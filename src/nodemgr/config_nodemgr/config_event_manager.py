@@ -23,6 +23,7 @@ class ConfigEventManager(EventManager):
         else:
             supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
 
+        self.table = 'ObjectConfigNode'
         self.db = package_installed('contrail-openstack-database')
         self.config_db = package_installed('contrail-database-common')
         if not self.db and self.config_db:
@@ -30,7 +31,7 @@ class ConfigEventManager(EventManager):
 
         type_info = EventManagerTypeInfo(package_name = 'contrail-config',
             module_type = Module.CONFIG_NODE_MGR,
-            object_table = 'ObjectConfigNode',
+            object_table = self.table,
             supervisor_serverurl = supervisor_serverurl,
             third_party_processes =  {
                 "cassandra" : "Dcassandra-pidfile=.*cassandra\.pid",
@@ -49,7 +50,8 @@ class ConfigEventManager(EventManager):
         self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_repair_logdir = config.cassandra_repair_logdir
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
-                                              'configDb', self.contrail_databases,
+                                              'configDb', self.table,
+                                              self.contrail_databases,
                                               self.hostip, self.minimum_diskgb,
                                               self.db_port, self.db_user, self.db_password)
     # end __init__

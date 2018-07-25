@@ -21,9 +21,10 @@ class DatabaseEventManager(EventManager):
             supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
         else:
             supervisor_serverurl = "unix:///var/run/supervisord_database.sock"
+        self.table = 'ObjectDatabaseInfo'
         type_info = EventManagerTypeInfo(
             package_name = 'contrail-database-common',
-            object_table = "ObjectDatabaseInfo",
+            object_table = self.table,
             module_type = Module.DATABASE_NODE_MGR,
             supervisor_serverurl = supervisor_serverurl,
             third_party_processes =  {
@@ -43,7 +44,8 @@ class DatabaseEventManager(EventManager):
         self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_repair_logdir = config.cassandra_repair_logdir
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
-                                              'analyticsDb', self.contrail_databases,
+                                              'analyticsDb', self.table,
+                                              self.contrail_databases,
                                               self.hostip, self.minimum_diskgb,
                                               self.db_port, self.db_user, self.db_password)
     # end __init__
