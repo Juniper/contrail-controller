@@ -8,6 +8,7 @@ from ConfigParser import NoOptionError
 import os
 import socket
 import time
+import platform
 import subprocess
 from subprocess import Popen, PIPE
 import random
@@ -15,8 +16,6 @@ import hashlib
 import copy
 
 from buildinfo import build_info
-
-from sys_mem_cpu import SysMemCpuUsageData
 
 from process_stat import ProcessStat
 
@@ -43,6 +42,12 @@ except Exception:
     DockerProcessInfoManager = None
 
 import utils
+
+if platform.system() == 'Windows':
+    from windows_sys_mem_cpu import WindowsSysMemCpuUsageData as SysMemCpuUsageData
+    from windows_process_manager import WindowsProcessInfoManager
+else:
+    from linux_sys_mem_cpu import LinuxSysMemCpuUsageData as SysMemCpuUsageData
 
 
 class EventManagerTypeInfo(object):
@@ -115,7 +120,9 @@ class EventManager(object):
             syslog_facility=self.config.syslog_facility)
         self.logger = self.sandesh_instance.logger()
 
-        if DockerProcessInfoManager and (utils.is_running_in_docker()
+        if platform.system() == 'Windows':
+            self.process_info_manager = WindowsProcessInfoManager()
+        elif DockerProcessInfoManager and (utils.is_running_in_docker()
                                          or utils.is_running_in_kubepod()):
             self.process_info_manager = DockerProcessInfoManager(
                 type_info._module_type, unit_names, event_handlers,
@@ -215,31 +222,37 @@ class EventManager(object):
         return state, description
 
     def check_ntp_status(self):
-        ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
-        proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE,
-                     close_fds=True)
-        (_, _) = proc.communicate()
-        if proc.returncode != 0:
-            self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
-        else:
-            self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
+        if platform.system() != 'Windows':
+            ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
+            proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE,
+                         close_fds=True)
+            (_, _) = proc.communicate()
+            if proc.returncode != 0:
+                self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
+            else:
+                self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
         self.send_nodemgr_process_status()
 
     def get_build_info(self):
-        # Retrieve build_info from package/rpm and cache it
-        if self.curr_build_info is not None:
-            return self.curr_build_info
-
-        command = "contrail-version contrail-nodemgr | grep contrail-nodemgr"
-        version = os.popen(command).read()
-        version_partials = version.split()
-        if len(version_partials) < 3:
-            self.msg_log('Not enough values to parse package version %s'
-                             % version,
-                         SandeshLevel.SYS_ERR)
-            return ""
+        if platform.system() == 'Windows':
+            rpm_version = ""
+            build_num = "unknown"
         else:
-            _, rpm_version, build_num = version_partials
+            # Retrieve build_info from package/rpm and cache it
+            if self.curr_build_info is not None:
+                return self.curr_build_info
+
+            command = "contrail-version contrail-nodemgr | grep contrail-nodemgr"
+            version = os.popen(command).read()
+            version_partials = version.split()
+            if len(version_partials) < 3:
+                self.msg_log('Not enough values to parse package version %s'
+                                 % version,
+                             SandeshLevel.SYS_ERR)
+                return ""
+            else:
+                _, rpm_version, build_num = version_partials
+
         self.new_build_info = build_info + '"build-id" : "' + \
             rpm_version + '", "build-number" : "' + \
             build_num + '"}]}'
@@ -248,6 +261,9 @@ class EventManager(object):
         return self.curr_build_info
 
     def get_corefile_path(self):
+        if platform.system() == 'Windows':
+            return ""
+
         self.core_file_path = self.config.corefile_path
         cat_command = "cat /proc/sys/kernel/core_pattern"
         (core_pattern, _) = Popen(
@@ -261,6 +277,9 @@ class EventManager(object):
         return self.core_file_path.rstrip()
 
     def get_corefiles(self):
+        if platform.system() == 'Windows':
+            return []
+
         try:
             # Get the core files list in the chronological order
             ls_command = "ls -1tr " + self.get_corefile_path()
@@ -354,6 +373,9 @@ class EventManager(object):
     # end send_process_state_db
 
     def update_all_core_file(self):
+        if platform.system() == 'Windows':
+            return False
+
         stat_command_option = "stat --printf=%Y " + self.get_corefile_path()
         modified_time = Popen(
             stat_command_option.split(),
@@ -529,6 +551,9 @@ class EventManager(object):
 
     def get_disk_usage(self):
         disk_usage_info = {}
+        if platform.system() == 'Windows':
+            return disk_usage_info
+
         partition = subprocess.Popen(
             "df -PT -t ext2 -t ext3 -t ext4 -t xfs",
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
