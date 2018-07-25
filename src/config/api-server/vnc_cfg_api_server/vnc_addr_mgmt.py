@@ -897,22 +897,7 @@ class AddrMgmt(object):
                                      alloc_pool_change=[])
     # end net_create_req
 
-    def net_create_notify(self, obj_id):
-        db_conn = self._get_db_conn()
-        try:
-            (ok, result) = db_conn.dbe_read(
-                               'virtual_network',
-                               obj_id=obj_id,
-                               obj_fields=['fq_name', 'network_ipam_refs'])
-        except cfgm_common.exceptions.NoIdError:
-            return
-
-        if not ok:
-            db_conn.config_log("Error: %s in net_create_notify" %(result),
-                               level=SandeshLevel.SYS_ERR)
-            return
-
-        vn_dict = result
+    def net_create_notify(self, obj_id, vn_dict):
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
         self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False,
@@ -976,18 +961,15 @@ class AddrMgmt(object):
     def net_update_notify(self, obj_id):
         db_conn = self._get_db_conn()
         try:
-            (ok, result) = db_conn.dbe_read(
-                                obj_type='virtual_network',
-                                obj_id=obj_id,
-                                obj_fields=['fq_name', 'network_ipam_refs'])
-        except cfgm_common.exceptions.NoIdError:
-            return
-
+            ok, result = db_conn.dbe_read(
+                obj_type='virtual_network',
+                obj_id=obj_id,
+                obj_fields=['fq_name', 'network_ipam_refs'],
+            )
+        except cfgm_common.exceptions.NoIdError as e:
+            return False, (404, str(e))
         if not ok:
-            db_conn.config_log("Error: %s in net_update_notify" %(result),
-                               level=SandeshLevel.SYS_ERR)
-            return
-
+            return False, result
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
 
@@ -1005,6 +987,8 @@ class AddrMgmt(object):
         self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False,
                                      alloc_pool_change=[])
+
+        return True, ''
     # end net_update_notify
 
     def get_subnet_quota_counter(self, obj_dict, proj_dict, db_vn_dict=None):
@@ -2131,11 +2115,11 @@ class AddrMgmt(object):
         if not ipam_refs:
             # Read in the VN
             obj_fields=['network_ipam_refs']
-            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', vn_uuid,
-                                               obj_fields)
+            ok, result = self._uuid_to_obj_dict('virtual_network', vn_uuid,
+                                                 obj_fields)
             if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
-            ipam_refs = vn_dict['network_ipam_refs']
+                raise False, result
+            ipam_refs = result['network_ipam_refs']
 
         for ipam_ref in ipam_refs:
             ipam_uuid = ipam_ref['uuid']
@@ -2144,9 +2128,9 @@ class AddrMgmt(object):
                 subnet_obj = self._subnet_objs[ipam_uuid][subnet_name]
                 if subnet_obj.ip_belongs(ip_addr):
                     subnet_obj.ip_reset_in_use(ip_addr)
-                    return True
+                    return True, ''
 
-        return False
+        return True, ''
     # end _ipam_ip_free_notify
 
     def _net_ip_free_notify(self, ip_addr, vn_uuid):
@@ -2158,25 +2142,32 @@ class AddrMgmt(object):
         return False
     # end _net_ip_free_notify
 
-    def ip_free_notify(self, ip_addr, vn_fq_name, alloc_id=None, ipam_refs=None):
+    def ip_free_notify(self, ip_addr, vn_fq_name, alloc_id=None,
+                       ipam_refs=None):
         db_conn = self._get_db_conn()
         if ipam_refs:
-            self._ipam_ip_free_notify(ip_addr, None, ipam_refs)
-            return
-        vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+            return self._ipam_ip_free_notify(ip_addr, None, ipam_refs)
+
+        try:
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            return False, (400, str(e))
+
         if alloc_id:
             # In case of inconsistency in the zk db, we should read and check
-            # the allocated IP belongs to the interface we are freing. If not
+            # the allocated IP belongs to the interface we are freeing. If not
             # continuing to delete the interface and keeping the zk IP lock.
             # That permits to recover from the zk inconsistency.
             # https://bugs.launchpad.net/juniperopenstack/+bug/1702596
             allocated_id = self.is_ip_allocated(ip_addr, vn_fq_name,
                                                 vn_uuid=vn_uuid)
             if allocated_id is not None and alloc_id != allocated_id:
-                return
+                return True, ''
 
         if not (self._net_ip_free_notify(ip_addr, vn_uuid)):
-            self._ipam_ip_free_notify(ip_addr, vn_uuid)
+            return self._ipam_ip_free_notify(ip_addr, vn_uuid)
+
+        return True, ''
     # end _ip_free_notify
 
     def mac_alloc(self, obj_dict):
@@ -2311,16 +2302,13 @@ class AddrMgmt(object):
     def ipam_update_notify(self, obj_id):
         db_conn = self._get_db_conn()
         try:
-            (ok, result) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
-        except cfgm_common.exceptions.NoIdError:
-            return
-
+            ok, result = db_conn.dbe_read('network_ipam', obj_id=obj_id)
+        except cfgm_common.exceptions.NoIdError as e:
+            return False, (404, str(e))
         if not ok:
-            db_conn.config_log("Error: %s in ipam_update_notify" %(result),
-                               level=SandeshLevel.SYS_ERR)
-            return
-
+            return False, result
         ipam_dict = result
+
         ipam_fq_name_str = ':'.join(ipam_dict['fq_name'])
         ipam_list_subnets = self._ipam_to_subnets(ipam_dict) or []
         if obj_id in self._subnet_objs:
@@ -2334,6 +2322,8 @@ class AddrMgmt(object):
 
         self._create_ipam_subnet_objs(obj_id, ipam_dict,
                                      should_persist=False)
+
+        return True, ''
     # end ipam_update_notify
 
     def _ipam_is_gateway_ip(self, vn_dict, ip_addr):
