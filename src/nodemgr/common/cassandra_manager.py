@@ -21,10 +21,11 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 
 
 class CassandraManager(object):
-    def __init__(self, cassandra_repair_logdir, db_name, contrail_databases,
+    def __init__(self, cassandra_repair_logdir, db_name, table, contrail_databases,
                  hostip, minimum_diskgb, db_port):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_name = db_name
+        self.table = table
         self.contrail_databases = contrail_databases
         self.hostip = hostip
         self.db_port = db_port
@@ -212,7 +213,7 @@ class CassandraManager(object):
 
                 db_info.name = socket.gethostname()
                 db_info.database_usage = [db_stat]
-                usage_stat = DatabaseUsage(data=db_info)
+                usage_stat = DatabaseUsage(table=self.table, data=db_info)
                 usage_stat.send()
         except:
             msg = "Failed to get database usage"
@@ -235,7 +236,6 @@ class CassandraManager(object):
     # end database_periodic
 
     def send_database_status(self, event_mgr):
-        cassandra_status_uve = CassandraStatusUVE()
         cassandra_status = CassandraStatusData()
         cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
         # Get compactionstats
@@ -259,7 +259,7 @@ class CassandraManager(object):
             return
         cassandra_status.thread_pool_stats = self.get_tp_status(op)
         cassandra_status.name = socket.gethostname()
-        cassandra_status_uve = CassandraStatusUVE(data=cassandra_status)
+        cassandra_status_uve = CassandraStatusUVE(table=self.table, data=cassandra_status)
         msg = 'Sending UVE: ' + str(cassandra_status_uve)
         event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
         cassandra_status_uve.send()

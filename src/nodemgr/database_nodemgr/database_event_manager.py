@@ -52,7 +52,8 @@ class DatabaseEventManager(EventManager):
         self.cassandra_repair_interval = cassandra_repair_interval
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
-                                              'analyticsDb', self.contrail_databases,
+                                              'analyticsDb', self.table,
+                                              self.contrail_databases,
                                               self.hostip, self.minimum_diskgb,
                                               self.db_port)
         if os.path.exists('/tmp/supervisord_database.sock'):

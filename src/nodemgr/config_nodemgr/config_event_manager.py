@@ -55,7 +55,8 @@ class ConfigEventManager(EventManager):
         self.minimum_diskgb = minimum_diskgb
         self.contrail_databases = contrail_databases
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
-                                              'configDb', self.contrail_databases,
+                                              'configDb', self.table,
+                                              self.contrail_databases,
                                               self.hostip, self.minimum_diskgb,
                                               self.db_port)
         if os.path.exists('/tmp/supervisord_config.sock'):
