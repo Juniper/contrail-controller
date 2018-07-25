@@ -13,8 +13,9 @@ from sandesh_common.vns.ttypes import Module
 
 class AnalyticsDatabaseEventManager(EventManager):
     def __init__(self, config, unit_names):
+        table = 'ObjectDatabaseInfo'
         type_info = EventManagerTypeInfo(
-            object_table="ObjectDatabaseInfo",
+            object_table=table,
             module_type=Module.DATABASE_NODE_MGR,
             sandesh_packages=['database.sandesh'])
         super(AnalyticsDatabaseEventManager, self).__init__(
@@ -22,7 +23,7 @@ class AnalyticsDatabaseEventManager(EventManager):
         # TODO: try to understand is next needed here and use it or remove
         #self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_mgr = CassandraManager(
-            config.cassandra_repair_logdir, 'analytics',
+            config.cassandra_repair_logdir, 'analytics', table,
             config.hostip, config.minimum_diskgb,
             config.db_port, config.db_jmx_port,
             config.db_user, config.db_password,

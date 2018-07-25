@@ -13,15 +13,16 @@ from sandesh_common.vns.ttypes import Module
 
 class ConfigDatabaseEventManager(EventManager):
     def __init__(self, config, unit_names):
+        table = 'ObjectConfigDatabaseInfo'
         type_info = EventManagerTypeInfo(
-            object_table="ObjectConfigDatabaseInfo",
+            object_table=table,
             module_type=Module.CONFIG_DATABASE_NODE_MGR,
             sandesh_packages=['database.sandesh'])
         super(ConfigDatabaseEventManager, self).__init__(
             config, type_info, sandesh_global, unit_names)
         self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_mgr = CassandraManager(
-            config.cassandra_repair_logdir, 'config',
+            config.cassandra_repair_logdir, 'config', table,
             config.hostip, config.minimum_diskgb,
             config.db_port, config.db_jmx_port,
             config.db_user, config.db_password,
