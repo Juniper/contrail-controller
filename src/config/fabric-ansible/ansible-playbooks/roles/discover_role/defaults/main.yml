@@ -1,6 +1,6 @@
 ---
 # defaults file for discover_role
-percent_init_dict: {'current_task_index':1, 'total_task_count':2, 'task_weightage_array':[96, 4] }
+percent_init_dict: { 'total_task_count':2, 'task_weightage_array':[96, 4] }
 output: {
                "status": "Success",
                "message": "Role discovery completed"
