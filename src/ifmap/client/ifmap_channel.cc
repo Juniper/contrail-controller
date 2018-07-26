@@ -122,7 +122,7 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
 IFMapChannel::IFMapChannel(IFMapManager *manager,
                            const IFMapConfigOptions& config_options)
     : manager_(manager), resolver_(*(manager->io_service())),
-      ctx_(*(manager->io_service()), boost::asio::ssl::context::tlsv1_client),
+      ctx_(*(manager->io_service()), boost::asio::ssl::context::sslv23_client),
       io_strand_(*(manager->io_service())),
       ssrc_socket_(new SslStream((*manager->io_service()), ctx_)),
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
@@ -152,6 +152,18 @@ IFMapChannel::IFMapChannel(IFMapManager *manager,
     set_start_stale_entries_cleanup(false);
     set_end_of_rib_computed(false);
     boost::system::error_code ec;
+
+    //set mode
+    ctx_.set_options(ssl::context::default_workarounds |
+                     ssl::context::no_sslv3 |
+                     ssl::context::no_sslv2 |
+                     ssl::context::no_tlsv1, ec);
+
+    if (ec.value() != 0) {
+        LOG(ERROR, "Error : " << ec.message() << ", setting ssl options");
+        exit(EINVAL);
+    }
+
     if (config_options.certs_store.empty()) {
         ctx_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
     } else {
