@@ -533,7 +533,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2001)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -559,6 +559,7 @@ class TestQfxBasicDM(TestCommonDM):
         self.check_firewall_config(filters, True)
         self.check_acl_config('li1', filters, True)
 
+        pr.del_virtual_network(vn1_obj)
         self._vnc_lib.logical_interface_delete(fq_name=li1.get_fq_name())
         self._vnc_lib.physical_interface_delete(fq_name=pi1.get_fq_name())
     # end test_acl_config
@@ -583,7 +584,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2002)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -672,6 +673,7 @@ class TestQfxBasicDM(TestCommonDM):
         self.check_esi_config('ae127', esi_value, True)
         '''
 
+        pr.del_virtual_network(vn1_obj)
         self._vnc_lib.logical_interface_delete(fq_name=li1.get_fq_name())
         self._vnc_lib.logical_interface_delete(fq_name=li2.get_fq_name())
         self._vnc_lib.physical_interface_delete(fq_name=pi1.get_fq_name())
@@ -805,7 +807,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2003)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -822,6 +824,8 @@ class TestQfxBasicDM(TestCommonDM):
         li1.set_virtual_machine_interface(vmi1)
         li1_id = self._vnc_lib.logical_interface_create(li1)
         self.check_l2_evpn_native_vlan_config(vn1_obj, 'l2', 'intf-native')
+
+        pr.del_virtual_network(vn1_obj)
     # end test_native_vlan_config
 
     def test_vlan_config(self):
@@ -843,7 +847,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2004)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -860,6 +864,8 @@ class TestQfxBasicDM(TestCommonDM):
         li1.set_virtual_machine_interface(vmi1)
         li1_id = self._vnc_lib.logical_interface_create(li1)
         self.check_l2_evpn_vlan_config(vn1_obj, 'l2', 'intf-vlan', '50')
+
+        pr.del_virtual_network(vn1_obj)
     # end test_vlan_config
 
     @retries(5, hook=retry_exc_handler)
@@ -919,7 +925,6 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -994,6 +999,7 @@ class TestQfxBasicDM(TestCommonDM):
             self.check_policy_options_config(False)
 
         # cleanup
+        pr.del_virtual_network(vn1_obj)
         pr = self._vnc_lib.physical_router_read(fq_name=pr.get_fq_name())
         lr = self._vnc_lib.logical_router_read(fq_name=lr.get_fq_name())
         lr.del_physical_router(pr)
