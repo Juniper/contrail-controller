@@ -729,7 +729,7 @@ class PartitionHandler(gevent.Greenlet):
                     consumer.assign([common.TopicPartition(self._topic,0)])
                 except Exception as ex:
                     self.part_cur_time = time.time()
-                    if slef.part_prev_time == 0 or self.part_cur_time - self.part_prev_time > 60:
+                    if self.part_prev_time == 0 or self.part_cur_time - self.part_prev_time > 60:
                         self.part_prev_time = self.part_cur_time
                         template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
                         messag = template.format(type(ex).__name__, ex.args)
