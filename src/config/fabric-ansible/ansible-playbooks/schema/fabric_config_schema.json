@@ -39,6 +39,34 @@
                     }
                   }
                 }
+              },
+              "static_routes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["subnets", "nexthop"],
+                  "properties": {
+                    "subnets": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "title": "Subnet",
+                        "examples":[
+                           "10.1.1.0/24",
+                           "10.1.2.0/24"
+                        ]
+                      }
+                    },
+                    "nexthop": {
+                      "type":"string",
+                      "title":"Next hop IP",
+                      "examples":[
+                        "10.1.1.254"
+                      ]
+                    }
+                  }
+                }
               }
             }
           },
