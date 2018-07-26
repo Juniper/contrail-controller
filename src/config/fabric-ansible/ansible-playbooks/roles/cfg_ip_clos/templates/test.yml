@@ -3,6 +3,7 @@
 
   hosts: localhost
   connection: local
+  gather_facts: no
 
   vars:
     feature: ip_clos
@@ -77,7 +78,6 @@
             "uuid": "2956c26f-8a56-48a2-a12c-2eeb4a653edf"
           }
         }
-    - debug: var=device_abstract_config
 
     - template:
         src: juniper_junos-qfx_ip_clos.j2
