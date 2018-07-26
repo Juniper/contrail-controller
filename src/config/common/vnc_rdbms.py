@@ -2042,7 +2042,7 @@ class VncRDBMSClient(object):
     def is_latest(self, *args, **kwargs):
         return False
 
-    def object_raw_read(self, obj_uuids, prop_names):
+    def object_raw_read(self, obj_type, obj_uuids, prop_names):
         raw_objects = []
         for obj_uuid in obj_uuids:
             type = self.uuid_to_obj_type(obj_uuid)
