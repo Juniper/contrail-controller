@@ -112,7 +112,6 @@ static void start_ovsdb_server(bool use_ssl) {
         count++;
         std::string cmd("netstat -anp | grep tcp | grep ");
         cmd += boost::lexical_cast<std::string>(server_pid);
-        cmd += "/ovsdb-server";
         FILE* pipe = popen(cmd.c_str(), "r");
         if (!pipe) assert(false);
         char buffer[128];
