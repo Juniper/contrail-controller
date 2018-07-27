@@ -42,14 +42,17 @@ from vnc_api.gen.resource_xsd import (
     SubnetListType
 )
 
+
 def dump(vnc_api, res_type, fq_name):
     obj = vnc_api._object_read(res_type=res_type, fq_name=fq_name)
     dumpobj(vnc_api, obj)
 # end dump
 
+
 def dumpobj(vnc_api, obj):
     print json.dumps(vnc_api.obj_to_dict(obj), indent=4)
 # end dumpobj
+
 
 def _fabric_network_name(fabric_name, network_type):
     """
@@ -60,6 +63,7 @@ def _fabric_network_name(fabric_name, network_type):
     return '%s-%s-network' % (fabric_name, network_type)
 # end _fabric_network_name
 
+
 def _fabric_network_ipam_name(fabric_name, network_type):
     """
     :param fabric_name: string
@@ -68,6 +72,7 @@ def _fabric_network_ipam_name(fabric_name, network_type):
     """
     return '%s-%s-network-ipam' % (fabric_name, network_type)
 # end _fabric_network_ipam_name
+
 
 def _bgp_router_fq_name(device_name):
     return [
@@ -78,6 +83,7 @@ def _bgp_router_fq_name(device_name):
         device_name + '-bgp'
     ]
 # end _bgp_router_fq_name
+
 
 def _subscriber_tag(local_mac, remote_mac):
     """
@@ -90,6 +96,7 @@ def _subscriber_tag(local_mac, remote_mac):
     return "%s-%s" % (macs[0], macs[1])
 # end _subscriber_tag
 
+
 class NetworkType(object):
     """Pre-defined network types"""
     MGMT_NETWORK = 'management'
@@ -99,6 +106,7 @@ class NetworkType(object):
     def __init__(self):
         pass
 # end NetworkType
+
 
 class FilterLog(object):
     _instance = None
@@ -162,15 +170,18 @@ class FilterLog(object):
     # end dump
 # end FilterLog
 
+
 def _task_log(msg):
     FilterLog.instance().msg_append(msg)
 # end _msg
+
 
 def _task_done(msg=None):
     if msg:
         _task_log(msg)
     FilterLog.instance().msg_end()
 # end _msg_end
+
 
 class FilterModule(object):
     """Fabric filter plugins"""
@@ -273,7 +284,37 @@ class FilterModule(object):
 
     @staticmethod
     def _validate_mgmt_subnets(vnc_api, mgmt_subnets):
-        pass
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param mgmt_subnets: List<Dict>
+            example:
+            [
+                { "cidr": "10.87.69.0/25", "gateway": "10.87.69.1" }
+            ]
+        :return: <boolean>
+        """
+        _task_log(
+            'Validating management subnets not overlapping with management '
+            'subnets of any existing fabric'
+        )
+        mgmt_networks = [IPNetwork(sn.get('cidr')) for sn in mgmt_subnets]
+        mgmt_tag = vnc_api.tag_read(fq_name=['label=fabric-management-ip'])
+        for ref in mgmt_tag.get_fabric_namespace_back_refs() or []:
+            namespace_obj = vnc_api.fabric_namespace_read(id=ref.get('uuid'))
+            if str(namespace_obj.fabric_namespace_type) == 'IPV4-CIDR':
+                ipv4_cidr = namespace_obj.fabric_namespace_value.ipv4_cidr
+                for sn in ipv4_cidr.subnet:
+                    network = IPNetwork(sn.ip_prefix + '/' + sn.ip_prefix_len)
+                    for mgmt_network in mgmt_networks:
+                        if network in mgmt_network or mgmt_network in network:
+                            _task_done(
+                                'detected overlapping management subnet %s '
+                                'in fabric %s' % (
+                                    str(network), namespace_obj.fq_name[-2]
+                                )
+                            )
+                            raise ValueError("Overlapping mgmt subnet detected")
+        _task_done()
     # end _validate_mgmt_subnets
 
     def __init__(self):
@@ -1387,10 +1428,16 @@ class FilterModule(object):
 
     @staticmethod
     def _get_ibgp_asn(vnc_api, fabric_name):
-        gsc_obj = vnc_api.global_system_config_read(
-            fq_name=['default-global-system-config']
-        )
-        return gsc_obj.autonomous_system
+        try:
+            ibgp_asn_namespace_obj = vnc_api.fabric_namespace_read(fq_name=[
+                'defaut-global-system-config', fabric_name, 'overlay_ibgp_asn'
+            ])
+            return ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
+        except NoIdError:
+            gsc_obj = vnc_api.global_system_config_read(
+                fq_name=['default-global-system-config']
+            )
+            return gsc_obj.autonomous_system
     # end _get_ibgp_asn
 
     def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj):
