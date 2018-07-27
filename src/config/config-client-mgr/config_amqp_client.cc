@@ -293,10 +293,18 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
             }
         }
         if ((oper == "") || (uuid_str == "") || (obj_type == "")) {
-            assert(0);
+            CONFIG_CLIENT_WARN(ConfigClientFQNameCache,
+                    "Empty object name or empty type or empty uuid", obj_type,
+                    obj_name, uuid_str);
+            return false;
         }
         if (oper == "CREATE") {
-            assert(obj_name != "");
+            if (obj_name.empty()) {
+                CONFIG_CLIENT_WARN(ConfigClientFQNameCache,
+                    "Empty object name during CREATE", obj_type, obj_name,
+                    uuid_str);
+                return false;
+            }
             config_manager()->config_db_client()->AddFQNameCache(uuid_str,
                                                             obj_type, obj_name);
         } else if (oper == "UPDATE") {
