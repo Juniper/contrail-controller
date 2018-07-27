@@ -1133,7 +1133,10 @@ class DBInterface(object):
         else:
             sg_q_dict['name'] = sg_obj.display_name
 
+        # If description is not specified by the user, assign empty string
         sg_q_dict['description'] = sg_obj.get_id_perms().get_description()
+        if not sg_q_dict['description']:
+            sg_q_dict['description'] = ""
 
         # get security group rules
         sg_q_dict['security_group_rules'] = []
