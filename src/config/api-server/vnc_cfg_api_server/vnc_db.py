@@ -322,9 +322,24 @@ class VncServerKombuClient(VncKombuClient):
 
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_type)
-            if r_class:
-                r_class.dbe_create_notification(self._db_client_mgr, obj_uuid,
-                                                obj_info.get('obj_dict'))
+            ok, result = r_class.dbe_create_notification(
+                self._db_client_mgr,
+                obj_uuid,
+                obj_info.get('obj_dict'),
+            )
+            if not ok:
+                if result[0] == 404 and obj_uuid in result[1]:
+                    raise NoIdError(obj_uuid)
+                else:
+                    raise VncError(result)
+        except NoIdError as e:
+            # if NoIdError is for obj itself (as opposed to say for parent
+            # or ref), ignore notification
+            if e._unknown_id == obj_uuid:
+                msg = ("Create notification ignored as resource %s '%s' does "
+                       "not exists anymore" % (obj_type, obj_uuid))
+                self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                return
         except Exception as e:
             err_msg = ("Failed in dbe_create_notification: " + str(e))
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
@@ -338,8 +353,20 @@ class VncServerKombuClient(VncKombuClient):
 
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_type)
-            if r_class:
-                r_class.dbe_update_notification(obj_uuid, extra_dict)
+            ok, result = r_class.dbe_update_notification(obj_uuid, extra_dict)
+            if not ok:
+                if result[0] == 404 and obj_uuid in result[1]:
+                    raise NoIdError(obj_uuid)
+                else:
+                    raise VncError(result)
+        except NoIdError as e:
+            # if NoIdError is for obj itself (as opposed to say for parent
+            # or ref), ignore notification
+            if e._unknown_id == obj_uuid:
+                msg = ("Update notification ignored as resource %s '%s' does "
+                       "not exists anymore" % (obj_type, obj_uuid))
+                self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                return
         except Exception as e:
             msg = "Failure in dbe_update_notification: " + str(e)
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
@@ -356,14 +383,25 @@ class VncServerKombuClient(VncKombuClient):
 
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_type)
-            if r_class:
-                r_class.dbe_delete_notification(obj_uuid, obj_dict)
+            ok, result = r_class.dbe_delete_notification(obj_uuid, obj_dict)
+            if not ok:
+                if result[0] == 404 and obj_uuid in result[1]:
+                    raise NoIdError(obj_uuid)
+                else:
+                    raise VncError(result)
+        except NoIdError as e:
+            # if NoIdError is for obj itself (as opposed to say for parent
+            # or ref), ignore notification
+            if e._unknown_id == obj_uuid:
+                msg = ("Delete notification ignored as resource %s '%s' does "
+                       "not exists anymore" % (obj_type, obj_uuid))
+                self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+                return
         except Exception as e:
             msg = "Failure in dbe_delete_notification: " + str(e)
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_delete_notification
-
 # end class VncKombuClient
 
 

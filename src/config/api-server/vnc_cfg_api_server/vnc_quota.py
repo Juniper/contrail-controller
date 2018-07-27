@@ -15,12 +15,9 @@ class QuotaHelper(object):
     @classmethod
     def get_project_dict_for_quota(cls, proj_uuid, db_conn):
         try:
-            (ok, proj_dict) = db_conn.dbe_read('project', proj_uuid,
-                                               obj_fields=['quota'])
+            return db_conn.dbe_read('project', proj_uuid, obj_fields=['quota'])
         except cfgm_common.exceptions.NoIdError as e:
-            return (False, str(e))
-
-        return (ok, proj_dict)
+            return False, (404, str(e))
 
     @classmethod
     def get_quota_limit(cls, proj_dict, obj_type):
