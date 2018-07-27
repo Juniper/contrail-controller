@@ -78,9 +78,6 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
 
     // Process scalar property values.
     if (boost::starts_with(c.key, prop_prefix)) {
-        if (c.value == "null")
-            return;
-
         string c_value = c.value;
         if (c.key == "prop:bgpaas_session_attributes")
             c_value = "\"\"";
