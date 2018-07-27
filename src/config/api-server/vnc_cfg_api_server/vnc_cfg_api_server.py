@@ -433,7 +433,7 @@ class VncApiServer(object):
                     resp = requests.post(url, json=jobObjLog_payload)
                     if resp.status_code == 200:
                         JobLog = resp.json().get('value')
-                        if JobLog is None:
+                        if not JobLog:
                             status = 'FAILURE'
                         else:
                             status = 'SUCCESS'
