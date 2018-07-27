@@ -1271,10 +1271,13 @@ class FilterModule(object):
         fabric_name = FilterModule._get_fabric_name(device_obj)
 
         # get network-ipam object for the fabric network
-        network_name = _fabric_network_name(fabric_name, network_type)
-        network_obj = vnc_api.virtual_network_read(
-            fq_name=['default-domain', 'default-project', network_name]
-        )
+        try:
+            network_name = _fabric_network_name(fabric_name, network_type)
+            network_obj = vnc_api.virtual_network_read(
+                fq_name=['default-domain', 'default-project', network_name]
+            )
+        except NoIdError:
+            network_obj = None
         return network_obj
     # end _get_device_network
 
@@ -1286,6 +1289,11 @@ class FilterModule(object):
         loopback_network_obj = self._get_device_network(
             vnc_api, device_obj, NetworkType.LOOPBACK_NETWORK
         )
+        if not loopback_network_obj:
+            self._logger.debug(
+                "Loopback network does not exist, thereofore skip the loopback\
+                 interface creation.")
+            return
 
         # create loopback logical interface if needed
         loopback_li_fq_name = device_obj.fq_name + ['lo0', 'lo0.0']
@@ -1395,6 +1403,11 @@ class FilterModule(object):
         fabric_network_obj = self._get_device_network(
             vnc_api, device_obj, NetworkType.FABRIC_NETWORK
         )
+        if not fabric_network_obj:
+            self._logger.debug(
+                "fabric network does not exist, hence skip the fabric\
+                 interface creation.")
+            return
 
         # create logical interfaces for all the fabric links from this device's
         # physical interfaces and assign instance-ip to the logical interface
