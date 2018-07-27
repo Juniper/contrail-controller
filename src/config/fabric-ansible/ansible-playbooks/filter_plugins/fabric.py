@@ -42,14 +42,17 @@ from vnc_api.gen.resource_xsd import (
     SubnetListType
 )
 
+
 def dump(vnc_api, res_type, fq_name):
     obj = vnc_api._object_read(res_type=res_type, fq_name=fq_name)
     dumpobj(vnc_api, obj)
 # end dump
 
+
 def dumpobj(vnc_api, obj):
     print json.dumps(vnc_api.obj_to_dict(obj), indent=4)
 # end dumpobj
+
 
 def _fabric_network_name(fabric_name, network_type):
     """
@@ -60,6 +63,7 @@ def _fabric_network_name(fabric_name, network_type):
     return '%s-%s-network' % (fabric_name, network_type)
 # end _fabric_network_name
 
+
 def _fabric_network_ipam_name(fabric_name, network_type):
     """
     :param fabric_name: string
@@ -68,6 +72,7 @@ def _fabric_network_ipam_name(fabric_name, network_type):
     """
     return '%s-%s-network-ipam' % (fabric_name, network_type)
 # end _fabric_network_ipam_name
+
 
 def _bgp_router_fq_name(device_name):
     return [
@@ -78,6 +83,7 @@ def _bgp_router_fq_name(device_name):
         device_name + '-bgp'
     ]
 # end _bgp_router_fq_name
+
 
 def _subscriber_tag(local_mac, remote_mac):
     """
@@ -90,6 +96,7 @@ def _subscriber_tag(local_mac, remote_mac):
     return "%s-%s" % (macs[0], macs[1])
 # end _subscriber_tag
 
+
 class NetworkType(object):
     """Pre-defined network types"""
     MGMT_NETWORK = 'management'
@@ -99,6 +106,7 @@ class NetworkType(object):
     def __init__(self):
         pass
 # end NetworkType
+
 
 class FilterLog(object):
     _instance = None
@@ -162,15 +170,18 @@ class FilterLog(object):
     # end dump
 # end FilterLog
 
+
 def _task_log(msg):
     FilterLog.instance().msg_append(msg)
 # end _msg
+
 
 def _task_done(msg=None):
     if msg:
         _task_log(msg)
     FilterLog.instance().msg_end()
 # end _msg_end
+
 
 class FilterModule(object):
     """Fabric filter plugins"""
@@ -273,7 +284,37 @@ class FilterModule(object):
 
     @staticmethod
     def _validate_mgmt_subnets(vnc_api, mgmt_subnets):
-        pass
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param mgmt_subnets: List<Dict>
+            example:
+            [
+                { "cidr": "10.87.69.0/25", "gateway": "10.87.69.1" }
+            ]
+        :return: <boolean>
+        """
+        _task_log(
+            'Validating management subnets not overlapping with management '
+            'subnets of any existing fabric'
+        )
+        mgmt_networks = [IPNetwork(sn.get('cidr')) for sn in mgmt_subnets]
+        mgmt_tag = vnc_api.tag_read(fq_name=['label=fabric-management-ip'])
+        for ref in mgmt_tag.get_fabric_namespace_back_refs() or []:
+            namespace_obj = vnc_api.fabric_namespace_read(id=ref.get('uuid'))
+            if str(namespace_obj.fabric_namespace_type) == 'IPV4-CIDR':
+                ipv4_cidr = namespace_obj.fabric_namespace_value.ipv4_cidr
+                for sn in ipv4_cidr.subnet:
+                    network = IPNetwork(sn.ip_prefix + '/' + sn.ip_prefix_len)
+                    for mgmt_network in mgmt_networks:
+                        if network in mgmt_network or mgmt_network in network:
+                            _task_done(
+                                'detected overlapping management subnet %s '
+                                'in fabric %s' % (
+                                    str(network), namespace_obj.fq_name[-2]
+                                )
+                            )
+                            raise ValueError("Overlapping mgmt subnet detected")
+        _task_done()
     # end _validate_mgmt_subnets
 
     def __init__(self):
@@ -892,7 +933,15 @@ class FilterModule(object):
             fabric_info = job_ctx.get('job_input')
             fabric_fq_name = fabric_info.get('fabric_fq_name')
             fabric_name = fabric_fq_name[-1]
-            self._delete_fabric(vnc_api, fabric_fq_name)
+            fabric_obj = vnc_api.fabric_read(
+                fq_name=fabric_fq_name, fields=['fabric_namespaces']
+            )
+
+            # validate fabric deletion
+            self._validate_fabric_deletion(vnc_api, fabric_obj)
+
+            # delete fabric
+            self._delete_fabric(vnc_api, fabric_obj)
 
             # delete fabric networks
             self._delete_fabric_network(
@@ -904,9 +953,16 @@ class FilterModule(object):
             self._delete_fabric_network(
                 vnc_api, fabric_name, NetworkType.FABRIC_NETWORK
             )
+
             return {
                 'status': 'success',
                 'deletion_log': FilterLog.instance().dump()
+            }
+        except NoIdError:
+            self._logger.warn('Fabric does not exist in the database')
+            return {
+                'status': 'success',
+                'deletion_log': 'Fabric does not exist in the database'
             }
         except Exception as ex:
             self._logger.error(str(ex))
@@ -918,26 +974,40 @@ class FilterModule(object):
             }
     # end delete_fabric
 
-    def _delete_fabric(self, vnc_api, fabric_fq_name):
+    @staticmethod
+    def _validate_fabric_deletion(vnc_api, fabric_obj):
+        _task_log('Validating no tenant virtual network created on the fabric')
+        if fabric_obj.get_physical_router_back_refs():
+            vn_refs = vnc_api.virtual_networks_list().get('virtual-networks')
+            for vn_ref in vn_refs or []:
+                vn_fq_name = vn_ref.get('fq_name')
+                if vn_fq_name[1] != 'default-project':
+                    _task_done(
+                        'Please delete tenant virtual network %s/%s first '
+                        'before deleting this fabric' % (
+                            vn_fq_name[1], vn_fq_name[2]
+                        )
+                    )
+                    raise ValueError(
+                        'Failed to delete fabric %s due to existing tenant '
+                        'virtual network %s/%s.' % (
+                            fabric_obj.name, vn_fq_name[1], vn_fq_name[2]
+                        )
+                    )
+        _task_done()
+    # end _validate_fabric_deletion
+
+    def _delete_fabric(self, vnc_api, fabric_obj):
         """
         :param vnc_api: <vnc_api.VncApi>
-        :param fabric_fq_name: list<string>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
         :return: None
         """
-        try:
-            fabric_obj = vnc_api.fabric_read(
-                fq_name=fabric_fq_name, fields=['fabric_namespaces']
-            )
-        except NoIdError:
-            self._logger.warn(
-                'Fabric object "%s" not found', str(fabric_fq_name))
-            fabric_obj = None
-
         if fabric_obj:
             # delete all fabric devices
             for device_ref in fabric_obj.get_physical_router_back_refs() or []:
                 device_uuid = str(device_ref.get('uuid'))
-                self._delete_fabric_device(vnc_api, fabric_obj, device_uuid)
+                self._delete_fabric_device(vnc_api, device_uuid)
 
             # delete all fabric namespaces
             for ns_ref in list(fabric_obj.get_fabric_namespaces() or []):
@@ -959,16 +1029,15 @@ class FilterModule(object):
             vnc_api.fabric_update(fabric_obj)
             _task_done()
 
-            _task_log('Deleting fabric "%s"' % fabric_fq_name[-1])
-            vnc_api.fabric_delete(fq_name=fabric_fq_name)
+            _task_log('Deleting fabric "%s"' % fabric_obj.fq_name[-1])
+            vnc_api.fabric_delete(fq_name=fabric_obj.fq_name)
             _task_done()
     # end _delete_fabric
 
     def _delete_fabric_device(
-            self, vnc_api, fabric_obj, device_uuid=None, device_fq_name=None):
+            self, vnc_api, device_uuid=None, device_fq_name=None):
         """
         :param vnc_api: <vnc_api.VncApi>
-        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
         :param device_uuid: string
         :param device_fq_name: list<string>: optional if missing device_uuid
         """
@@ -1387,10 +1456,16 @@ class FilterModule(object):
 
     @staticmethod
     def _get_ibgp_asn(vnc_api, fabric_name):
-        gsc_obj = vnc_api.global_system_config_read(
-            fq_name=['default-global-system-config']
-        )
-        return gsc_obj.autonomous_system
+        try:
+            ibgp_asn_namespace_obj = vnc_api.fabric_namespace_read(fq_name=[
+                'defaut-global-system-config', fabric_name, 'overlay_ibgp_asn'
+            ])
+            return ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
+        except NoIdError:
+            gsc_obj = vnc_api.global_system_config_read(
+                fq_name=['default-global-system-config']
+            )
+            return gsc_obj.autonomous_system
     # end _get_ibgp_asn
 
     def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj):
@@ -1567,6 +1642,7 @@ class FilterModule(object):
         _task_done()
     # end _assign_device_roles
 
+
 # ***************** tests *****************************************************
 def _mock_job_ctx_onbard_fabric():
     return {
@@ -1619,6 +1695,7 @@ def _mock_job_ctx_onbard_fabric():
     }
 # end _mock_job_ctx_onbard_fabric
 
+
 def _mock_job_ctx_onboard_brownfield_fabric():
     return {
         "auth_token": "",
@@ -1655,6 +1732,7 @@ def _mock_job_ctx_onboard_brownfield_fabric():
     }
 # end _mock_job_ctx_onbard_fabric
 
+
 def _mock_job_ctx_delete_fabric():
     return {
         "auth_token": "",
@@ -1677,6 +1755,7 @@ def _mock_job_ctx_delete_fabric():
         ]
     }
 # end _mock_job_ctx_delete_fabric
+
 
 def _mock_job_ctx_delete_devices():
     return {
@@ -1701,6 +1780,7 @@ def _mock_job_ctx_delete_devices():
         ]
     }
 # end _mock_job_ctx_delete_fabric
+
 
 def _mock_job_ctx_assign_roles():
     return {
@@ -1741,6 +1821,7 @@ def _mock_job_ctx_assign_roles():
     }
 # end _mock_job_ctx_delete_fabric
 
+
 def _parse_args():
     arg_parser = argparse.ArgumentParser(description='fabric filters tests')
     arg_parser.add_argument('-c', '--create_fabric',
@@ -1755,6 +1836,7 @@ def _parse_args():
                             action='store_true', help='Assign roles')
     return arg_parser.parse_args()
 # end _parse_args
+
 
 def __main__():
     _parse_args()
