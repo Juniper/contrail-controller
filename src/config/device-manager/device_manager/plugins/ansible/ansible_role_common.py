@@ -50,7 +50,6 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def initialize(self):
         super(AnsibleRoleCommon, self).initialize()
-        self.evpn = None
         self.global_switch_options_config = None
         self.chassis_config = None
         self.vlans_config = None
@@ -340,12 +339,16 @@ class AnsibleRoleCommon(AnsibleConf):
             if self.is_spine():
                 if highest_encapsulation_priority == "VXLAN":
                     self.vlans_config = self.vlans_config or []
-                    vlan = Vlan(name=DMUtils.make_bridge_name(vni), vlan_id='none',
+                    vlan = Vlan(name=DMUtils.make_bridge_name(vni),
                                 vxlan_id=vni, vlan_or_bridge_domain=False)
                     vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
                     self.vlans_config.append(vlan)
                     for interface in interfaces:
                         vlan.add_interfaces(LogicalInterface(name=interface.name))
+                    if is_l2_l3:
+                        # network_id is unique, hence irb
+                        irb_intf = "irb." + str(network_id)
+                        vlan.add_interfaces(LogicalInterface(name=irb_intf))
                 elif highest_encapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
                     self.evpn = Evpn(encapsulation=highest_encapsulation_priority)
                     self.evpn.set_comment(
@@ -593,8 +596,8 @@ class AnsibleRoleCommon(AnsibleConf):
             if not irb_intf:
                 self._logger.error("Missing irb interface config l3 vlan: %s" % vrf_name)
             else:
-                vlan.set_vlan_id(str(vni))
-                vlan.set_l3_interface(irb_intf)
+                vlan.set_vlan_id(vni)
+                vlan.add_interfaces(LogicalInterface(name=irb_intf))
         self.vlans_config.append(vlan)
         return vlan
     # end add_vlan_config
