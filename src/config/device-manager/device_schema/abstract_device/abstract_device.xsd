@@ -6,6 +6,8 @@
     <xsd:all>
        <!-- General Router's config parameters, tunnel config, interfaces -->
        <xsd:element name="system" type="dac:System"/>
+       <!-- Evpn Configuration -->
+       <xsd:element name="evpn" type="dac:Evpn"/>
        <!-- BGP configuration -->
        <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
        <!-- Routing Instances -->
@@ -30,7 +32,8 @@
        <xsd:element name="device-family" type="xsd:string"/>
        <xsd:element name="product-name" type="xsd:string"/>
        <xsd:element name="management-ip" type="xsd:string"/>
-       <xsd:element name="roles" type="dac:Role" maxOccurs="unbounded"/>
+       <xsd:element name="physical-role" type="xsd:string"/>
+       <xsd:element name="routing-bridging-roles" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="credentials" type="dac:Credentials"/>
        <xsd:element name="loopback-ip-list" type="dac:IpType" maxOccurs="unbounded"/><!--Interfaces (JUNOS) - lo0 interface-->
        <xsd:element name="highest-encapsulation-priority" type="xsd:string"/>
@@ -87,27 +90,6 @@
     </xsd:all>
 </xsd:complexType>
 
-<xsd:complexType name="Role">
-    <xsd:all>
-       <xsd:element name="role-type" type="dac:RoleTypes"/>
-       <xsd:element name="role-name" type="dac:RoleNames"/>
-    </xsd:all>
-</xsd:complexType>
-
-<xsd:simpleType name="RoleTypes">
-    <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="PhysicalRole"/>
-        <xsd:enumeration value="RoutingBridgingRole"/>
-    </xsd:restriction>
-</xsd:simpleType>
-
-<xsd:simpleType name="RoleNames">
-    <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="Spine"/>
-        <xsd:enumeration value="Leaf"/>
-    </xsd:restriction>
-</xsd:simpleType>
-
 <xsd:complexType name="Credentials">
     <xsd:all>
        <xsd:element name="authentication-method" type="dac:DeviceAuthenticationMethods"/>
@@ -148,8 +130,6 @@
        <xsd:element name="nat-rules" type="dac:NatRules"/>
        <!-- for Private IP to Public IP Map, and public vrf map -->
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
-       <!-- Evpn Configuration -->
-       <xsd:element name="evpn" type="dac:Evpn"/>
     </xsd:all>
 </xsd:complexType>
 

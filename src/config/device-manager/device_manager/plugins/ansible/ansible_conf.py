@@ -68,6 +68,7 @@ class AnsibleConf(AnsibleBase):
     def initialize(self):
         super(AnsibleConf, self).initialize()
         self.system_config = None
+        self.evpn = None
         self.bgp_configs = None
         self.ri_config = None
         self.routing_instances = {}
@@ -98,6 +99,10 @@ class AnsibleConf(AnsibleBase):
         self.system_config.set_product_name(self.physical_router.product)
         self.system_config.set_device_family(self.physical_router.device_family)
         self.system_config.set_management_ip(self.physical_router.management_ip)
+        self.system_config.set_physical_role(
+            self.physical_router.physical_router_role)
+        self.system_config.set_routing_bridging_roles(
+            self.physical_router.routing_bridging_roles)
         if self.physical_router.user_credentials:
             self.system_config.set_credentials(Credentials(
                 authentication_method="PasswordBasedAuthentication",
@@ -270,6 +275,7 @@ class AnsibleConf(AnsibleBase):
         device.set_system(self.system_config)
         if is_delete:
             return device
+        device.set_evpn(self.evpn)
         device.set_bgp(self.bgp_configs)
         device.set_routing_instances(self.ri_config)
         device.set_physical_interfaces(self.interfaces_config)
