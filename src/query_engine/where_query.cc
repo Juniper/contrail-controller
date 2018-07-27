@@ -760,6 +760,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     }
                     GenDb::Op::type comparator;
                     if (op == PREFIX) {
+                        if (value == "") {
+                            continue;
+                        }
                         value += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1198,6 +1201,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                         (boost::get<std::string>(sip)):(boost::get<std::string>(dip));
                     GenDb::Op::type comparator;
                     if (op == PREFIX) {
+                        if (val == "") {
+                            continue;
+                        }
                         val += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1218,6 +1224,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                         (boost::get<std::string>(svn)):(boost::get<std::string>(dvn));
                     GenDb::Op::type comparator;
                     if (op == PREFIX) {
+                        if (val == "") {
+                            continue;
+                        }
                         val += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1238,6 +1247,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     std::string val = direction_ing?
                         (boost::get<std::string>(dvn)):(boost::get<std::string>(svn));
                     if (op == PREFIX) {
+                        if (val == "") {
+                            continue;
+                        }
                         val += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1292,6 +1304,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                         (boost::get<std::string>(sip)):(boost::get<std::string>(dip));
                     GenDb::Op::type comparator;
                     if (op == PREFIX) {
+                        if (val == "") {
+                            continue;
+                        }
                         val += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1312,6 +1327,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                         (boost::get<std::string>(svn)):(boost::get<std::string>(dvn));
                     GenDb::Op::type comparator;
                     if (op == PREFIX) {
+                        if (val == "") {
+                            continue;
+                        }
                         val += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1332,6 +1350,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     std::string val = direction_ing?
                         (boost::get<std::string>(dvn)):(boost::get<std::string>(svn));
                     if (op == PREFIX) {
+                        if (val == "") {
+                            continue;
+                        }
                         val += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1701,6 +1722,9 @@ void WhereQuery::populate_where_vec(DbQueryUnit *db_query,
     value2.append(value);
     if (op == PREFIX) {
         value2.append("%");
+    }
+    if (value2 == "%") {
+        return;
     }
     std::string columnN = MsgTableQueryColumnToColumn(query_col);
     GenDb::WhereIndexInfo where_info =

@@ -1347,6 +1347,14 @@ class AnalyticsFixture(fixtures.Fixture):
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
         assert(len(res)>0)
+        a_query = Query(table="FlowSeriesTable",
+                start_time=(generator_obj.session_start_time),
+                end_time=(generator_obj.session_end_time),
+                select_fields=["destvn","SUM(bytes)"],
+                where=[[{"name":"sourcevn","value":"","op":7}]])
+        json_qstr = json.dumps(a_query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)==2)
         return True
 
     def verify_flow_table(self, generator_obj):
