@@ -760,6 +760,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     }
                     GenDb::Op::type comparator;
                     if (op == PREFIX) {
+                        if (value == "") {
+                            continue;
+                        }
                         value += "%";
                         comparator = GenDb::Op::LIKE;
                     } else {
@@ -1203,9 +1206,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     } else {
                         comparator = GenDb::Op::EQ;
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    client_session_query->where_vec.push_back(where_info);
+                    if (comparator != GenDb::Op::LIKE || val != "%") {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            comparator, val);
+                        client_session_query->where_vec.push_back(where_info);
+                    }
                 }
                 if ((direction_ing == 0 && dvn_match) ||
                     (direction_ing == 1 && svn_match)) {
@@ -1223,9 +1228,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     } else {
                         comparator = GenDb::Op::EQ;
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    client_session_query->where_vec.push_back(where_info);
+                    if (comparator != GenDb::Op::LIKE || val != "%") {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            comparator, val);
+                        client_session_query->where_vec.push_back(where_info);
+                    }
                 }
                 if ((direction_ing == 0 && svn_match) ||
                     (direction_ing == 1 && dvn_match)) {
@@ -1243,9 +1250,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     } else {
                         comparator = GenDb::Op::EQ;
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    client_session_query->where_vec.push_back(where_info);
+                    if (comparator != GenDb::Op::LIKE || val != "%") {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            comparator, val);
+                        client_session_query->where_vec.push_back(where_info);
+                    }
                 }
             }
             {
@@ -1297,9 +1306,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     } else {
                         comparator = GenDb::Op::EQ;
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    server_session_query->where_vec.push_back(where_info);
+                    if (comparator != GenDb::Op::LIKE || val != "%") {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            comparator, val);
+                        server_session_query->where_vec.push_back(where_info);
+                    }
                 }
                 if ((direction_ing == 0 && dvn_match) ||
                     (direction_ing == 1 && svn_match)) {
@@ -1317,9 +1328,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     } else {
                         comparator = GenDb::Op::EQ;
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    server_session_query->where_vec.push_back(where_info);
+                    if (comparator != GenDb::Op::LIKE || val != "%") {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            comparator, val);
+                        server_session_query->where_vec.push_back(where_info);
+                    }
                 }
                 if ((direction_ing == 0 && svn_match) ||
                     (direction_ing == 1 && dvn_match)) {
@@ -1337,9 +1350,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     } else {
                         comparator = GenDb::Op::EQ;
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    server_session_query->where_vec.push_back(where_info);
+                    if (comparator != GenDb::Op::LIKE || val != "%") {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            comparator, val);
+                        server_session_query->where_vec.push_back(where_info);
+                    }
                 }
             }
         }
@@ -1701,6 +1716,9 @@ void WhereQuery::populate_where_vec(DbQueryUnit *db_query,
     value2.append(value);
     if (op == PREFIX) {
         value2.append("%");
+    }
+    if (value2 == "%") {
+        return;
     }
     std::string columnN = MsgTableQueryColumnToColumn(query_col);
     GenDb::WhereIndexInfo where_info =
