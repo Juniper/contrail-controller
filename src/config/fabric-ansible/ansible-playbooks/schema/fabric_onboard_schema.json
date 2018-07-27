@@ -14,6 +14,9 @@
             "type": "string"
          }
        },
+      "fabric_display_name": {
+        "type": "string"
+      },
       "management_subnets": {
         "type": "array",
         "items": {
