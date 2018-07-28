@@ -17,4 +17,4 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 4
-        jl_message: "Topology Discovery: {{prouter_name}} succeeded discovering topology"
+        jl_message: "Completed topology discovery"

@@ -28,7 +28,7 @@
         "msg": "Image compatibility task failed"
       }
     jl_err_message: >
-      "Image {{filename}} is not compatible for upgrade on the physical router device {{pr_fqname}}.
+      "Image {{filename}} is not compatible for upgrade on the physical router device.
        Image family is {{image_family}} and Device family is {{pr_family}}"
 
 - name: Read swift conf info
@@ -42,9 +42,8 @@
   vars:
     current_index: 1
     jl_message: >
-      Upgrade device {{pr_fqname}}, Image name {{filename}}. Retreived image download link: {{downloadurl}}.
+      Upgrade device, Image name {{filename}}. Retreived image download link: {{downloadurl}}.
       Now starting image upgrade on the device. It may take 10 to 15 mins. 
-
 
 - name: Do junos upgrade
   include_tasks: junos_upgrade.yml
@@ -56,9 +55,9 @@
     current_index: 2
     jl_message: >
       {% if 'Reboot' in junos_response.msg -%}
-        Upgrade device {{pr_fqname}}, Image name:{{filename}}. Image upgrade task completed on this device: {{junos_response.msg}}. Device reboot may take 15 to 20 mins.
+        Upgrade device, Image name:{{filename}}. Image upgrade task completed on this device: {{junos_response.msg}}. Device reboot may take 15 to 20 mins.
       {% else -%}
-        Upgrade device {{pr_fqname}}, Image name:{{filename}}. Image upgrade task completed on this device. Same version found.
+        Upgrade device, Image name:{{filename}}. Image upgrade task completed on this device. Same version found.
       {%- endif %}
 
 
@@ -101,7 +100,7 @@
         "msg": "Device version validation task failed"
       }
     jl_err_message: >
-      "Upgrade device {{pr_fqname}} Image name {{filename}}. Device version validation task failed.
+      "Upgrade device, Image name {{filename}}. Device version validation task failed.
        Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
 
 
@@ -117,4 +116,4 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 4
-    jl_message: Upgrade device {{pr_fqname}} Image name {{filename}}. Image upgrade version validated.
+    jl_message: Upgrade device, Image name {{filename}}. Image upgrade version validated.
