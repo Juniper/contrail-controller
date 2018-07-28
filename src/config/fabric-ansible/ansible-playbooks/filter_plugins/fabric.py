@@ -618,10 +618,12 @@ class FilterModule(object):
         """
         fq_name = [name for name in fabric_info.get('fabric_fq_name')]
         fab_name = fq_name[-1:]
+        fab_display_name = fabric_info.get('fabric_display_name', fab_name)
         _task_log('creating fabric: %s' % fab_name)
         fab = Fabric(
             name=fab_name,
             fq_name=fq_name,
+            display_name=fab_display_name,
             parent_type='global-system-config',
             fabric_credentials={
                 'device_credential': [
