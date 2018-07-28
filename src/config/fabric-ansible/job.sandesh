@@ -55,6 +55,8 @@ struct JobLogEntry {
     7: string                           fabric_name (key="ObjectFabricNameTable");
     /* Percentage completion for this job execution */
     8: double                           percentage_completed;
+    /* optional PRouter fq_name as string joined by ':', e.g. domain-1:project-1:mx240-1. */
+    9: string                           device_name (key="ObjectPRouter");
     // Add additional items here as needed
 }
 
