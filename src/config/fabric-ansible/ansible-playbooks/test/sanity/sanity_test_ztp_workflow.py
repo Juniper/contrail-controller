@@ -34,7 +34,8 @@ class SanityTestZtpWorkflow(SanityBase):
     def onboard_fabric(self, fabric_info):
         """Onboard fabric"""
         self._logger.info("Onboard fabric ...")
-        job_template_fq_name = ['default-global-system-config', 'fabric_onboard_template']
+        job_template_fq_name = ['default-global-system-config',
+                                'fabric_onboard_template']
         fabric_fq_name = fabric_info['fabric_fq_name']
         job_execution_info = self._api.execute_job(
             job_template_fq_name,
@@ -44,8 +45,9 @@ class SanityTestZtpWorkflow(SanityBase):
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.debug(
             "Onboard fabric job started with execution id: %s", job_execution_id)
-        self._wait_and_display_job_progress('Onboard fabric', job_execution_id, fabric_fq_name, job_template_fq_name)
-        self._logger.info("... ZTP workflow complete")
+        self._wait_and_display_job_progress('Onboard fabric', job_execution_id,
+                                            fabric_fq_name, job_template_fq_name)
+        self._logger.info("... Onboard fabric complete")
     # end onboard_fabric
 
     def test(self):

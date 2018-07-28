@@ -181,10 +181,6 @@ class WFManager(object):
         job_template = None
         try:
             # create job UVE and log
-            msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
-                                       job_execution_id=self.job_execution_id)
-            self._logger.debug(msg)
-
             self.result_handler = JobResultHandler(self.job_template_id,
                                                    self.job_execution_id,
                                                    self.fabric_fq_name,
@@ -193,6 +189,12 @@ class WFManager(object):
                                                    self.job_log_utils)
 
             job_template = self.job_utils.read_job_template()
+
+            msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
+                                       job_execution_id=self.job_execution_id,
+                                       job_template_name=\
+                                           job_template.fq_name[-1])
+            self._logger.debug(msg)
 
             timestamp = int(round(time.time() * 1000))
             self.job_log_utils.send_job_log(job_template.fq_name,
