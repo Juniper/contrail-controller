@@ -108,7 +108,7 @@ class FabricAnsibleModule(AnsibleModule):
 
     def send_job_object_log(self, message, status, job_result,
                             log_error_percent=False, job_success_percent=None,
-                            job_error_percent=None):
+                            job_error_percent=None, device_name=None):
         if job_success_percent is None or (log_error_percent
                                            and job_error_percent is None):
             try:
@@ -152,7 +152,8 @@ class FabricAnsibleModule(AnsibleModule):
                     message,
                     status,
                     job_percentage,
-                    job_result)
+                    job_result,
+                    device_name=device_name)
             else:
                 raise Exception("job log not initialized")
         except Exception as ex:

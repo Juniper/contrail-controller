@@ -66,7 +66,7 @@ class JobHandler(object):
 
             msg = MsgBundle.getMessage(
                 MsgBundle.PLAYBOOK_EXECUTION_COMPLETE,
-                job_template_id=self._job_template.get_uuid(),
+                job_template_name=self._job_template.get_fq_name()[-1],
                 job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
@@ -369,25 +369,21 @@ class JobHandler(object):
     def run_playbook(self, playbook_info, percentage_completed):
         try:
             # create job log to capture the start of the playbook
-            device_id = \
+            device_name = \
                 playbook_info['extra_vars']['playbook_input'].get(
-                    'device_id', "")
-            msg = MsgBundle.getMessage(MsgBundle.START_EXECUTE_PLAYBOOK_MSG,
-                                       playbook_uri=playbook_info['uri'],
-                                       device_id=device_id,
-                                       input_params=json.dumps(
-                                           playbook_info['extra_vars']
-                                           ['playbook_input']
-                                           ['input']),
-                                       extra_params=json.dumps(
-                                           playbook_info['extra_vars']
-                                           ['playbook_input']
-                                           ['params']))
+                    'device_fqname')
+            if device_name:
+                device_name = device_name[-1]
+            playbook_name = playbook_info['uri'].split('/')[-1]
+
+            msg = MsgBundle.getMessage(MsgBundle.START_EXE_PB_MSG,
+                                       playbook_name=playbook_name)
             self._logger.debug(msg)
             self._job_log_utils.send_job_log(self._job_template.fq_name,
                                              self._execution_id,
                                              self._fabric_fq_name,
-                                             msg, JobStatus.IN_PROGRESS.value)
+                                             msg, JobStatus.IN_PROGRESS.value,
+                                             device_name=device_name)
 
             if not os.path.exists(playbook_info['uri']):
                 msg = MsgBundle.getMessage(MsgBundle.PLAYBOOK_NOT_FOUND,
@@ -400,14 +396,14 @@ class JobHandler(object):
             self.run_playbook_process(playbook_info, percentage_completed)
 
             # create job log to capture completion of the playbook execution
-            msg = MsgBundle.getMessage(MsgBundle.PB_EXEC_COMPLETE_WITH_INFO,
-                                       playbook_uri=playbook_info['uri'],
-                                       device_id=device_id)
+            msg = MsgBundle.getMessage(MsgBundle.STOP_EXE_PB_MSG,
+                                       playbook_name=playbook_name)
             self._logger.debug(msg)
             self._job_log_utils.send_job_log(self._job_template.fq_name,
                                              self._execution_id,
                                              self._fabric_fq_name,
-                                             msg, JobStatus.IN_PROGRESS.value)
+                                             msg, JobStatus.IN_PROGRESS.value,
+                                             device_name=device_name)
         except JobException:
             raise
         except Exception as exp:

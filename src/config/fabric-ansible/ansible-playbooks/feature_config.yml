@@ -60,6 +60,7 @@
             job_ctx: "{{ job_ctx }}"
             message: "Failed to generate configuration: {{ vf_feature }}\n{{ cmd_res.msg }}"
             status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+            device_name: "{{ device_name }}"
         - meta: end_play
       when: found_template == True
 
