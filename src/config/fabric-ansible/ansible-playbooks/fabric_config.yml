@@ -39,6 +39,7 @@
   roles:
     - cfg_basic
     - cfg_ip_clos
+    - cfg_multi_homing
     - commit_fabric_config
 
   tasks:
