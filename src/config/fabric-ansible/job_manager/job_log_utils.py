@@ -169,7 +169,7 @@ class JobLogUtils(object):
 
     def send_job_log(self, job_template_fqname, job_execution_id,
                      fabric_fq_name, message, status, completion_percent=None,
-                     result=None, timestamp=None):
+                     result=None, timestamp=None, device_name=None):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if timestamp is None:
@@ -178,7 +178,8 @@ class JobLogUtils(object):
                 name=job_template_fqname, execution_id=job_execution_id,
                 fabric_name=fabric_fq_name, timestamp=timestamp,
                 message=message, status=status,
-                percentage_completed=completion_percent, result=result)
+                percentage_completed=completion_percent, result=result,
+                device_name=device_name)
             job_log = JobLog(log_entry=job_log_entry)
             job_log.send(sandesh=self.config_logger._sandesh)
             self.config_logger.debug("Created job log for job template: %s, "
