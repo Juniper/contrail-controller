@@ -36,8 +36,8 @@ class MsgBundle(object):
     VNC_INITIALIZATION_ERROR = 34,
     JOB_ERROR = 35,
     JOB_EXECUTION_COMPLETE = 36,
-    START_EXECUTE_PLAYBOOK_MSG = 37,
-    PB_EXEC_COMPLETE_WITH_INFO = 38,
+    START_EXE_PB_MSG = 37,
+    STOP_EXE_PB_MSG = 38,
     JOB_EXC_REC_HDR = 39,
     EXC_JOB_ERR_HDR = 40,
     PLAYBOOK_STATUS_FAILED = 41,
@@ -50,7 +50,7 @@ class MsgBundle(object):
                                   'in the job input',
             JOB_EXECUTION_ID_MISSING: 'job_execution_id is missing'
                                       ' in the job input',
-            JOB_SUMMARY_MESSAGE_HDR: 'Job summary: \n',
+            JOB_SUMMARY_MESSAGE_HDR: 'Job summary: ',
             JOB_RESULT_STATUS_NONE: 'Error in getting the '
                                     'job completion '
                                     'status after job execution. \n',
@@ -143,26 +143,21 @@ class MsgBundle(object):
                                           ' process is aborted.',
             PLAYBOOK_EXECUTION_COMPLETE: 'Completed playbook execution'
                                          ' for job template '
-                                         '"{job_template_id}" with '
+                                         '"{job_template_name}" with '
                                          'execution'
                                          ' id "{job_execution_id}"',
-            START_JOB_MESSAGE: 'Starting execution for job with '
-                               'template id "{job_template_id}"'
+            START_JOB_MESSAGE: 'Starting execution for job '
+                               'template "{job_template_name}"'
                                ' and execution id "{job_execution_id}"',
             VNC_INITIALIZATION_ERROR: 'Exiting due to vnc api '
                                       'initialization error: {exc_msg}',
             JOB_ERROR: 'Exiting job due to error: {exc_msg} ',
             JOB_EXECUTION_COMPLETE: 'Job execution completed '
-                                    'successfully. \n',
-            START_EXECUTE_PLAYBOOK_MSG: 'Starting to execute the '
-                                        'playbook "{playbook_uri}"'
-                                        ' for device '
-                                        '"{device_id}" with input '
-                                        '{input_params} and params'
-                                        ' {extra_params} ',
-            PB_EXEC_COMPLETE_WITH_INFO: 'Completed to execute the '
-                                        'playbook "{playbook_uri}" for'
-                                        ' device "{device_id}"',
+                                    'successfully.',
+            START_EXE_PB_MSG: 'Starting to execute the '
+                              'playbook "{playbook_name}"',
+            STOP_EXE_PB_MSG: 'Finished executing the '
+                             'playbook "{playbook_name}"',
             JOB_EXC_REC_HDR: 'Job Exception recieved: ',
             EXC_JOB_ERR_HDR: 'Error while executing job ',
             EMPTY_DEVICE_LIST: 'Need to pass a valid device list '
@@ -180,6 +175,6 @@ class MsgBundle(object):
         try:
             return MsgBundle._msgs[locale][msg_id].format(*args, **kwargs)
         except KeyError as ex:
-            return 'Failed to contruct job message due to missing message '\
+            return 'Failed to construct job message due to missing message '\
                    'arguments: %s' % ex.message
 

@@ -56,8 +56,10 @@ def process_module(module):
     message = module.params['message']
     status = module.params['status']
     job_result = module.params['result']
+    device_name = module.params['device_name']
 
-    module.send_job_object_log(message, status, job_result)
+    module.send_job_object_log(message, status, job_result,
+                               device_name=device_name)
 
     module.exit_json(**module.results)
 
@@ -69,6 +71,7 @@ def main():
             message=dict(required=True, type=str),
             status=dict(required=True, type=str),
             result=dict(type=dict),
+            device_name=dict(type=str)
         ),
         supports_check_mode=True)
 
