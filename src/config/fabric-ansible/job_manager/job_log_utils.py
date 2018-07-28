@@ -169,8 +169,10 @@ class JobLogUtils(object):
 
     def send_job_log(self, job_template_fqname, job_execution_id,
                      fabric_fq_name, message, status, completion_percent=None,
-                     result=None, timestamp=None):
+                     result=None, timestamp=None, device_name=None):
         try:
+            if device_name:
+                message = "[{}] ".format(device_name) + message
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if timestamp is None:
                 timestamp = int(round(time.time() * 1000))

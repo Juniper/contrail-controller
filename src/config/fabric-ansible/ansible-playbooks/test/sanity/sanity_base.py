@@ -525,19 +525,22 @@ class SanityBase(object):
         self._wait_for_job_to_finish('Underlay config', job_execution_id)
     # end underlay_config
 
-    def image_upgrade(self, image, device):
+    def image_upgrade(self, image, device, fabric):
         """upgrade the physical routers with specified images"""
         self._logger.info("Upgrade image on the physical router ...")
+        job_template_fq_name = [
+            'default-global-system-config', 'image_upgrade_template']
         job_execution_info = self._api.execute_job(
-            job_template_fq_name=[
-                'default-global-system-config', 'image_upgrade_template'],
+            job_template_fq_name=job_template_fq_name,
             job_input={'image_uuid': image.uuid},
             device_list=[device.uuid]
         )
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.info(
             "Image upgrade job started with execution id: %s", job_execution_id)
-        self._wait_for_job_to_finish('Image upgrade', job_execution_id)
+        self._wait_and_display_job_progress('Image upgrade', job_execution_id,
+                                            fabric.fq_name,
+                                            job_template_fq_name)
 
     # end image_upgrade
 

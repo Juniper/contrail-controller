@@ -17,4 +17,4 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 2
-        jl_message: "Role Discovery succeeded discovering roles for the prouter {{prouter_name}} in the fabric"
+        jl_message: "Role discovery succeeded in the fabric"
