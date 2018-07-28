@@ -25,4 +25,4 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 1
-    jl_message: "Role Discovery completed adding appropriate node profile refs"
+    jl_message: "Role discovery completed adding appropriate node profile references"
