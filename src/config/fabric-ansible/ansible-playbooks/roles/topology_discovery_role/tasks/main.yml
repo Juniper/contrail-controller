@@ -22,7 +22,7 @@
       when: resp is defined and resp.failed == true
       vars:
         op_err_message: "{{resp.msg}}"
-        jl_err_message: "Execute 'show lldp neighbors' command on Juniper Device: {{prouter_name}} failed"
+        jl_err_message: "Execute 'show lldp neighbors' command on Juniper device failed"
 
 - name: check if resp is defined with neighbor info. If not, end play and stop playbook with status success
   block:
@@ -30,7 +30,7 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 4
-        jl_message: "Execute 'show lldp neighbors' command on Juniper Device {{prouter_name}} did not record any neighbors. Stopping play..."
+        jl_message: "Execute 'show lldp neighbors' command on Juniper device did not record any neighbors. Stopping play..."
     - set_fact:
         output: "{{output }}"
     - meta: end_play
@@ -40,7 +40,7 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 1
-    jl_message: "Execute 'show lldp neighbors' command on Juniper Device {{prouter_name}} succeeded"
+    jl_message: "Execute 'show lldp neighbors' command on Juniper device succeeded"
 
 - set_fact:
     lldp_neighbor_info: "{{resp.parsed_output['lldp-neighbors-information']['lldp-neighbor-information']}}"
@@ -107,4 +107,4 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 3
-    jl_message: "Created refs between the physcial interfaces for local prouter {{prouter_name}} and its neighbors"
+    jl_message: "Created refs between the physical interfaces for local prouter and its neighbors"

@@ -132,7 +132,7 @@ class SanityTest02(SanityBase):
                                                          self._image_vendor_name,
                                                          )
             # Run image upgrade playbook
-            self.image_upgrade(image, prouters[0])
+            self.image_upgrade(image, prouters[0], fabric)
         except Exception as ex:
             self._exit_with_error(
                 "Image upgrade test failed due to unexpected error: %s"

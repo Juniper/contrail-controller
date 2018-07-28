@@ -6,6 +6,7 @@ pr_fqname: "{{playbook_input.device_fqname}}"
 pr_name: "{{playbook_input.device_fqname[-1]}}"
 pr_family: "{{playbook_input.device_family}}"
 pr_password: "{{playbook_input.device_password}}"
+prouter_name: "{{pr_name}}"
 
 auth_token: "{{playbook_input.auth_token}}"
 image_uuid: "{{playbook_input.input.image_uuid}}"
