@@ -16,7 +16,7 @@
       when: "interface_info.failed == true"
       vars:
         op_err_message: "{{interface_info.msg}}"
-        jl_err_message: "Execute 'show configuration interfaces' command on Juniper Device: {{prouter_name}} failed; see result for more details"
+        jl_err_message: "Execute 'show configuration interfaces' command on Juniper device failed; see result for more details"
 
 - name: settings facts
   set_fact:
@@ -26,7 +26,7 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 2 
-    jl_message: "Execute 'show configuration interfaces' command on Juniper Device {{prouter_name}} succeeded"
+    jl_message: "Execute 'show configuration interfaces' command on Juniper device succeeded"
 
 - name: Execute commands on a Juniper Device
   block:
@@ -46,7 +46,7 @@
       when: "interface_info.failed == true"
       vars:
         op_err_message: "{{interface_info.msg}}"
-        jl_err_message: "Execute 'show interfaces' command on Juniper Device: {{prouter_name}} failed; see result for more details"
+        jl_err_message: "Execute 'show interfaces' command on Juniper device failed; see result for more details"
 
 - set_fact:
     interface_list_new: "{{interface_info|json_query('output[0].\"rpc-reply\".\"interface-information\".\"physical-interface\"[*]')}}"
@@ -54,7 +54,7 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 3
-    jl_message: "Execute 'show interfaces' command on Juniper Device {{prouter_name}} succeeded; Obtained {{interface_list_new|length}} physical interfaces from device; starting import ..." 
+    jl_message: "Execute 'show interfaces' command on Juniper device succeeded; Obtained {{interface_list_new|length}} physical interfaces from device; starting import ..."
 
 - name: Get the pattern object
   set_fact:
@@ -126,5 +126,4 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 4
-    jl_message: "Created phy and logical interfaces. Updated dataplane ip" 
-
+    jl_message: "Created physical and logical interfaces. Updated dataplane ip"

@@ -348,7 +348,8 @@ class SanityBase(object):
         return {
             'start_time': int('%i' % last_log_ts),
             'end_time': int('%i' % now),
-            'select_fields': ['MessageTS', 'Messagetype', 'ObjectId', 'ObjectLog'],
+            'select_fields': ['MessageTS', 'Messagetype', 'ObjectId',
+                              'ObjectLog'],
             'table': 'ObjectJobExecutionTable',
             'where': [
                 [
@@ -367,35 +368,49 @@ class SanityBase(object):
         }
 
     @staticmethod
-    def _display_job_records(url, job_execution_id, last_log_ts, percentage_complete,
-                             fabric_fq_name, job_template_fq_name):
+    def _by_timestamp(elem):
+        return elem['MessageTS']
+
+    @staticmethod
+    def _display_job_records(url, job_execution_id, last_log_ts,
+                             percentage_complete, fabric_fq_name,
+                             job_template_fq_name):
         log_ts = last_log_ts
-        payload = SanityBase._get_jobs_query_payload(job_execution_id, last_log_ts)
+        payload = SanityBase._get_jobs_query_payload(job_execution_id,
+                                                     last_log_ts)
         r = requests.post(url, json=payload)
         if r.status_code == 200:
             response = r.json()
             if len(response['value']) > 0:
-                log_entries = response['value']
+                # sort log entries by MessageTS
+                log_entries = sorted(response['value'], key=SanityBase._by_timestamp)
                 for log_entry in log_entries:
-                    log_msg = json.loads(json.dumps(xmltodict.parse(log_entry['ObjectLog'])))
-                    log_text = log_msg['JobLog']['log_entry']['JobLogEntry']['message']['#text']
+                    log_msg = json.loads(json.dumps\
+                                  (xmltodict.parse(log_entry['ObjectLog'])))
+                    log_text = log_msg['JobLog']['log_entry']['JobLogEntry']\
+                        ['message']['#text']
                     log_ts_us = int(log_entry['MessageTS'])
                     log_ts_ms = log_ts_us / 1000
                     log_ts_sec = log_ts_ms / 1000
                     log_ts_sec_gm = time.gmtime(log_ts_sec)
-                    log_ts_fmt = time.strftime("%m/%d/%Y %H:%M:%S", log_ts_sec_gm) + ".%s" % (str(log_ts_ms))[-3:]
+                    log_ts_fmt = time.strftime("%m/%d/%Y %H:%M:%S",
+                                               log_ts_sec_gm) + ".%s" % \
+                                               (str(log_ts_ms))[-3:]
                     percomp = int(round(float(percentage_complete),0))
-                    pprint.pprint("{} ({}%) {}: {}".format(job_template_fq_name[-1], percomp,
-                                                           log_ts_fmt, log_text))
+                    pprint.pprint("({}%) {}: {}".format(percomp, log_ts_fmt,
+                                                        log_text))
                     print
                     log_ts = (log_ts_us + 1)
                 return True, log_ts
+            else:
+                log_ts = time.time() * 1000000
         else:
             print("RESPONSE: {}".format(r))
-        log_ts = time.time() * 1000000
+            log_ts = time.time() * 1000000
         return False, log_ts
 
-    def _wait_and_display_job_progress(self, job_name, job_execution_id, fabric_fq_name, job_template_fq_name):
+    def _wait_and_display_job_progress(self, job_name, job_execution_id,
+                                       fabric_fq_name, job_template_fq_name):
         completed = "SUCCESS"
         failed = "FAILURE"
         url = "http://%s:%d/analytics/query" %\
@@ -404,15 +419,15 @@ class SanityBase(object):
         last_log_ts = time.time() * 1000000
         while True:
             # get job percentage complete
-            percentage_complete = self._get_job_percentage_complete(job_execution_id, 
-                                                                    fabric_fq_name, job_template_fq_name)
+            percentage_complete = self._get_job_percentage_complete\
+                (job_execution_id, fabric_fq_name, job_template_fq_name)
             # display job records
-            status, last_log_ts = SanityBase._display_job_records(url, job_execution_id, 
-                                                                       last_log_ts, percentage_complete,
-                                                                       fabric_fq_name, job_template_fq_name)
+            status, last_log_ts = SanityBase._display_job_records\
+                (url, job_execution_id, last_log_ts, percentage_complete,
+                 fabric_fq_name, job_template_fq_name)
             if status:
-                self._logger.debug("%s job '%s' log records non-zero status", job_name,
-                                   job_execution_id)
+                self._logger.debug("%s job '%s' log records non-zero status",
+                                   job_name, job_execution_id)
 
             # check if job completed successfully
             if SanityBase._check_job_status(url, job_execution_id, completed):
@@ -433,7 +448,8 @@ class SanityBase(object):
             retry_count += 1
             time.sleep(self._timeout)
 
-    def _get_job_percentage_complete(self, job_execution_id, fabric_fq_name, job_template_fq_name):
+    def _get_job_percentage_complete(self, job_execution_id, fabric_fq_name,
+                                     job_template_fq_name):
         url = "http://%s:%d/analytics/uves/job-execution/%s:%s:%s:%s" %\
               (self._analytics['host'], self._analytics['port'],
                fabric_fq_name[0], fabric_fq_name[1],
@@ -525,19 +541,22 @@ class SanityBase(object):
         self._wait_for_job_to_finish('Underlay config', job_execution_id)
     # end underlay_config
 
-    def image_upgrade(self, image, device):
+    def image_upgrade(self, image, device, fabric):
         """upgrade the physical routers with specified images"""
         self._logger.info("Upgrade image on the physical router ...")
+        job_template_fq_name = [
+            'default-global-system-config', 'image_upgrade_template']
         job_execution_info = self._api.execute_job(
-            job_template_fq_name=[
-                'default-global-system-config', 'image_upgrade_template'],
+            job_template_fq_name=job_template_fq_name,
             job_input={'image_uuid': image.uuid},
             device_list=[device.uuid]
         )
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.info(
             "Image upgrade job started with execution id: %s", job_execution_id)
-        self._wait_for_job_to_finish('Image upgrade', job_execution_id)
+        self._wait_and_display_job_progress('Image upgrade', job_execution_id,
+                                            fabric.fq_name,
+                                            job_template_fq_name)
 
     # end image_upgrade
 
