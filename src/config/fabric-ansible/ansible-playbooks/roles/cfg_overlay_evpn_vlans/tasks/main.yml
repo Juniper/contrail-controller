@@ -1,0 +1,3 @@
+---
+- name: Run feature config template
+  include_tasks: feature_config.yml
