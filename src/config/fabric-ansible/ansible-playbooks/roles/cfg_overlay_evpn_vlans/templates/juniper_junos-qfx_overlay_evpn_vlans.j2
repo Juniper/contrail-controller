@@ -1,0 +1,41 @@
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups {{cfg_group}}
+{%     for vlan in device_abstract_config.get('vlans', []) %}
+{%         set vlan_name = vlan.get('name') %}
+{%         set vni = vlan.get('vxlan_id') %}
+{%         set intfs = vlan.get('interfaces',[]) %}
+{%         if vlan.get('vlan_or_bridge_domain', '') == 'false' %}
+{%             set vni = vlan.get('vxlan_id') %}
+{%             set vlan_id = vni %}
+{%             for irb_int in vlan.get('interfaces', []) %}
+{%                 set name = irb_int.get('name') %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} l3-interface {{name}}
+{%             endfor %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
+{%         else %}
+{%             for each in intfs %}
+{%                 set int_name = each.get('name', '') %}
+{%                 if 'irb' in int_name %}
+{%                     continue %}
+{%                 endif %}
+{%                 for phy_intf in device_abstract_config.get('physical_interfaces', []) %}
+{%                     for li in phy_intf.get('logical_interfaces', []) %}
+{%                         if phy_intf.get('name', '') in int_name %}
+{%                             set vlan_id = li.get('vlan_tag', '') %}
+{%                             set int_name = phy_intf.get('name') %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} interface {{int_name}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
+{%                         endif %}
+{%                     endfor %}
+{%                 endfor %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+set apply-groups {{cfg_group}}
+{% endif %}

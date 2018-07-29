@@ -1,0 +1,43 @@
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups {{cfg_group}}
+{%     set loc_vars = namespace(is_evpn='no', dev_mode='leaf') %}
+{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%         set families = bgp_elem.get('families', []) %}
+{%         for fam in families %}
+{%             if fam == 'evpn' %}
+{%                 set loc_vars.is_evpn = 'yes' %}
+{%             endif %}
+{%         endfor %}
+{%     endfor %}
+
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         if ri.get('virtual_network_is_internal') == true %}
+{%             set loc_vars.dev_mode = 'spine' %}
+{%         endif %}
+{%     endfor %}
+
+{%     if loc_vars.is_evpn == 'yes' %}
+set groups __contrail_{{feature}}__ protocols evpn encapsulation vxlan
+set groups __contrail_{{feature}}__ protocols evpn extended-vni-list all
+set groups __contrail_{{feature}}__ switch-options vtep-source-interface lo0.0
+{%         if (loc_vars.dev_mode == 'leaf') %}
+set groups __contrail_{{feature}}__ protocols evpn multicast-mode ingress-replication
+set groups __contrail_{{feature}}__ switch-options vrf-target auto
+{%         endif %}
+{%     endif %}
+
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         set name = ri.get('name') %}
+{%         set vxlan_id = ri.get('vxlan_id') %}
+{%         if (loc_vars.is_evpn == 'yes') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
+{%             for import_target in ri.get('import_targets', []) %}
+set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{vxlan_id}} vrf-target {{import_target}}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+set apply-groups {{cfg_group}}
+{% endif %}
