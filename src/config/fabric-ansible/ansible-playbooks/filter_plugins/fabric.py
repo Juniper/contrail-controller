@@ -396,7 +396,7 @@ class FilterModule(object):
             fabric_info = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, False
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info)
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, True)
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
@@ -461,7 +461,7 @@ class FilterModule(object):
             fabric_info = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, True
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info)
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, False)
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
@@ -478,13 +478,14 @@ class FilterModule(object):
             }
     # end onboard_existing_fabric
 
-    def _onboard_fabric(self, vnc_api, fabric_info):
+    def _onboard_fabric(self, vnc_api, fabric_info, ztp):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: Dictionary
+        :param ztp: set to True if fabric is to be ZTPed
         :return: <vnc_api.gen.resource_client.Fabric>
         """
-        fabric_obj = self._create_fabric(vnc_api, fabric_info)
+        fabric_obj = self._create_fabric(vnc_api, fabric_info, ztp)
 
         # management network
         mgmt_subnets = [
@@ -609,11 +610,12 @@ class FilterModule(object):
     # end _carve_out_peer_subnets
 
     @staticmethod
-    def _create_fabric(vnc_api, fabric_info):
+    def _create_fabric(vnc_api, fabric_info, ztp):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: dynamic object from job input schema via
                             python_jsonschema_objects
+        :param ztp: set to True if fabric is to be ZTPed
         :return: <vnc_api.gen.resource_client.Fabric>
         """
         fq_name = [name for name in fabric_info.get('fabric_fq_name')]
@@ -629,7 +631,8 @@ class FilterModule(object):
                         'credential': device_auth
                     } for device_auth in fabric_info.get('device_auth')
                 ]
-            }
+            },
+            fabric_ztp=ztp
         )
 
         try:
