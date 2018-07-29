@@ -268,7 +268,7 @@ class FilterModule(object):
         # make sure there is management subnets are not overlapping with
         # management subnets of other existing fabrics
         mgmt_subnets = job_input.get('management_subnets')
-        FilterModule._validate_mgmt_subnets(vnc_api, mgmt_subnets)
+        FilterModule._validate_mgmt_subnets(vnc_api, mgmt_subnets, brownfield)
 
         # change device_auth to conform with brownfield device_auth schema
         if not brownfield:
@@ -283,7 +283,7 @@ class FilterModule(object):
     # end _validate_job_ctx
 
     @staticmethod
-    def _validate_mgmt_subnets(vnc_api, mgmt_subnets):
+    def _validate_mgmt_subnets(vnc_api, mgmt_subnets, brownfield):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param mgmt_subnets: List<Dict>
@@ -293,6 +293,23 @@ class FilterModule(object):
             ]
         :return: <boolean>
         """
+        if not brownfield:
+            _task_log(
+                'Validating management subnets cidr prefix length to be no '
+                'larger than 30 for the greenfield case'
+            )
+            for mgmt_subnet in mgmt_subnets:
+                if int(mgmt_subnet.get('cidr').split('/')[-1]) > 30:
+                    raise ValueError(
+                        "Invalid mgmt subnet %s" % mgmt_subnet.get('cidr')
+                    )
+                if not mgmt_subnet.get('gateway'):
+                    raise ValueError(
+                        "missing gateway ip for subnet %s"
+                        % mgmt_subnet.get('cidr')
+                    )
+            _task_done()
+
         _task_log(
             'Validating management subnets not overlapping with management '
             'subnets of any existing fabric'
@@ -396,7 +413,7 @@ class FilterModule(object):
             fabric_info = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, False
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info)
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, True)
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
@@ -461,7 +478,7 @@ class FilterModule(object):
             fabric_info = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, True
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info)
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, False)
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
@@ -478,13 +495,14 @@ class FilterModule(object):
             }
     # end onboard_existing_fabric
 
-    def _onboard_fabric(self, vnc_api, fabric_info):
+    def _onboard_fabric(self, vnc_api, fabric_info, ztp):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: Dictionary
+        :param ztp: set to True if fabric is to be ZTPed
         :return: <vnc_api.gen.resource_client.Fabric>
         """
-        fabric_obj = self._create_fabric(vnc_api, fabric_info)
+        fabric_obj = self._create_fabric(vnc_api, fabric_info, ztp)
 
         # management network
         mgmt_subnets = [
@@ -609,11 +627,12 @@ class FilterModule(object):
     # end _carve_out_peer_subnets
 
     @staticmethod
-    def _create_fabric(vnc_api, fabric_info):
+    def _create_fabric(vnc_api, fabric_info, ztp):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: dynamic object from job input schema via
                             python_jsonschema_objects
+        :param ztp: set to True if fabric is to be ZTPed
         :return: <vnc_api.gen.resource_client.Fabric>
         """
         fq_name = [name for name in fabric_info.get('fabric_fq_name')]
@@ -629,7 +648,8 @@ class FilterModule(object):
                         'credential': device_auth
                     } for device_auth in fabric_info.get('device_auth')
                 ]
-            }
+            },
+            fabric_ztp=ztp
         )
 
         try:
@@ -845,10 +865,10 @@ class FilterModule(object):
             parent_type='project',
             ipam_subnets=IpamSubnets([
                 IpamSubnetType(
-                    subnet=FilterModule._new_subnet(subnet.get('cidr')),
-                    default_gateway=subnet.get('gateway'),
+                    subnet=FilterModule._new_subnet(sn.get('cidr')),
+                    default_gateway=sn.get('gateway'),
                     subnet_uuid=str(uuid.uuid1())
-                ) for subnet in subnets
+                ) for sn in subnets if int(sn.get('cidr').split('/')[-1]) < 31
             ]),
             ipam_subnet_method='flat-subnet',
             ipam_subnetting=subnetting
