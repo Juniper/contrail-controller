@@ -1,0 +1,28 @@
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups {{cfg_group}}
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         set vrf_import = ri.name+'-import' %}
+{%         set vrf_export = ri.name+'-export' %}
+{%         for import_target in ri.get('import_targets', []) %}
+{%             set community_target = import_target.replace(':', '_') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}
+set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{import_target}}
+{%         endfor %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_import}} term t1 then accept
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_import}} then reject
+set groups __contrail_{{feature}}__ switch-options vrf-import {{vrf_import}}
+{%         for export_target in ri.get('export_targets', []) %}
+{%             set community_target = export_target.replace(':', '_') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_export}} term t1 from community {{community_target}}
+set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{export_target}}
+{%         endfor %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_export}} term t1 then accept
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_export}} then reject
+set groups __contrail_{{feature}}__ switch-options vrf-export {{vrf_export}}
+{%     endfor %}
+set apply-groups {{cfg_group}}
+{% endif %}

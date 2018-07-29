@@ -1,150 +1,43 @@
-delete apply-groups __contrail_{{feature}}__
-delete groups __contrail_{{feature}}___
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
 
 {% if device_abstract_config is defined and device_abstract_config != None %}
-{%     set rib_name = 'bgp.rtarget.0' %}
-{%     set resolution_rib = 'inet.0' %}
-
+set groups {{cfg_group}}
+{%     set loc_vars = namespace(is_evpn='no', dev_mode='leaf') %}
 {%     for bgp_elem in device_abstract_config.get('bgp', []) %}
-{%         if 'overlay_bgp' in bgp_elem.get('comment', '') %}
-{%             set router_id = bgp_elem.get('ip_address') %}
-{%             set route_distinguisher = router_id %}
-{%             set as_number = bgp_elem.get('autonomous_system') %}
-set groups __contrail_{{feature}}__ routing-options router-id {{router_id}}
-set groups __contrail_{{feature}}__ routing-options route-distinguisher-id {{route_distinguisher}}
-set groups __contrail_{{feature}}__ routing-options autonomous-system {{as_number}}
-set groups __contrail_{{feature}}__ routing-options resolution rib {{rib_name}} resolution-ribs {{resolution_rib}}
-set groups __contrail_{{feature}}__ switch-options route-distinguisher {{route_distinguisher}}:1
-set groups __contrail_{{feature}}__ switch-options vrf-target target:{{as_number}}:1
-{%         endif %}
-{%     endfor %}
-
-{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
-{%         if phy_int.get('interface_type') == 'irb' %}
-set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
-{%             for li in phy_int.get('logical_interfaces', []) %}
-{%                 set unit = li.get('unit') %}
-{%                 set gw = li.get('gateway') %}
-{%                 set family = 'inet' %}
-{%                 for ipad in li.get('ip_list', []) %}
-set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} family {{family}} address {{ipad.get('address')}} virtual-gateway-address {{gw}}
-{%                 endfor %}
-set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} proxy-macip-advertisement
-{%             endfor %}
-{%         endif %}
-{%     endfor %}
-
-{%     for vlan in device_abstract_config.get('vlans', []) %}
-{%         set vlan_name = vlan.get('name') %}
-{%         if 'irb' in vlan_name %}
-{%             set irb_int = vlan.get('l3_interface') %}
-{%             set vni = vlan.get('vxlan_id') %}
-{%             set vlan_id = vni %}
-set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
-set groups __contrail_{{feature}}__ vlans {{vlan_name}} l3-interface {{irb_int}}
-set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
-{%         endif %}
-{%     endfor %}
-
-{%     for bgp in device_abstract_config.get('bgp', []) %}
-{%         if 'overlay_bgp' in bgp.get('comment', '') %}
-{%             set bgp_group_name = bgp.get('name') %}
-{%             set bgp_group_type = bgp.get('type_') %}
-{%             set hold_time = bgp.get('hold_time') %}
-{%             set families = bgp.get('families', []) %}
-set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
-set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
-{%             for fam in families %}
-{%                 if fam == 'route-target' %}
-set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}}
-{%                 endif %}
-{%                 if fam == 'evpn' %}
-set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}} signaling
-{%                 endif %}
-{%                 if bgp_group_type == 'internal' %}
-{%                     if fam.startswith('inet') %}
-set groups __contrail_{{feature}}__ policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} then next-hop self
-set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
-{%                     endif %}
-{%                 endif %}
-{%             endfor %}
-{%             for peer in bgp.get('peers', []) %}
-{%                 set peer_addr = peer.get('ip_address') %}
-{%                 set peer_as = peer.get('autonomous_system') %}
-set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} neighbor {{peer_addr}} peer-as {{peer_as}}
-{%             endfor %}
-{%         endif %}
+{%         set families = bgp_elem.get('families', []) %}
+{%         for fam in families %}
+{%             if fam == 'evpn' %}
+{%                 set loc_vars.is_evpn = 'yes' %}
+{%             endif %}
+{%         endfor %}
 {%     endfor %}
 
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
-{%         set name = ri.get('name') %}
-{%         if (ri.get('virtual_network_is_internal') == false) and ('virtual-switch' in ri.get('routing_instance_type', '')) %}
+{%         if ri.get('virtual_network_is_internal') == true %}
+{%             set loc_vars.dev_mode = 'spine' %}
+{%         endif %}
+{%     endfor %}
+
+{%     if loc_vars.is_evpn == 'yes' %}
 set groups __contrail_{{feature}}__ protocols evpn encapsulation vxlan
 set groups __contrail_{{feature}}__ protocols evpn extended-vni-list all
+set groups __contrail_{{feature}}__ switch-options vtep-source-interface lo0.0
+{%         if (loc_vars.dev_mode == 'leaf') %}
+set groups __contrail_{{feature}}__ protocols evpn multicast-mode ingress-replication
+set groups __contrail_{{feature}}__ switch-options vrf-target auto
+{%         endif %}
+{%     endif %}
+
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         set name = ri.get('name') %}
+{%         set vxlan_id = ri.get('vxlan_id') %}
+{%         if (loc_vars.is_evpn == 'yes') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
 {%             for import_target in ri.get('import_targets', []) %}
-{%                 set vxlan_id = ri.get('vxlan_id') %}
 set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{vxlan_id}} vrf-target {{import_target}}
 {%             endfor %}
 {%         endif %}
-{%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
-{%             set vxlan_id = ri.get('vxlan_id') %}
-{%             if vxlan_id == 'None' %}
-{%                 set vxlan_id = ri.get('virtual_network_id') %}     
-{%             endif %}
-set groups __contrail_{{feature}}__ protocols evpn default-gateway no-gateway-community
-set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
-set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
-set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
-set groups __contrail_{{feature}}__ routing-instances {{name}} instance-type vrf
-{%         endif %}
-{%         set ri_vn_mode = ri.get('virtual_network_mode') %}
-{%         set contrail_l2_ri = ri.name %}
-{%         set l2_vrf_import = ri.name+'-import' %}
-{%         set l2_vrf_export = ri.name+'-export' %}
-{%         for import_target in ri.get('import_targets', []) %}
-{%             set community_target = import_target.replace(':', '_') %}
-set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_import}} term t1 from community {{community_target}}
-set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{import_target}}
-set groups __contrail_{{feature}}__ switch-options vrf-import {{l2_vrf_import}}
-{%         endfor %}
-set policy-options policy-statement {{l2_vrf_import}} term t1 then accept
-set policy-options policy-statement {{l2_vrf_import}} then reject
-{%         for export_target in ri.get('export_targets', []) %}
-{%             set community_target = export_target.replace(':', '_') %}
-set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_export}} term t1 from community {{community_target}}
-set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{export_target}}
-set groups __contrail_{{feature}}__ switch-options vrf-export {{l2_vrf_export}}
-{%         endfor %}
-set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_export}} term t1 then accept
-set groups __contrail_{{feature}}__ policy-options policy-statement {{l2_vrf_export}} then reject
-{%         for each in ri.get('routing_interfaces', []) %}
-{%             if ri.get('routing_interfaces') and ('vrf' in ri.get('routing_instance_type')) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{each.name}}
-{%             endif %}
-{%         endfor %}
-{%         for import_target in ri.get('import_targets', []) %}
-{%             if ri.get('routing_interfaces') and ('vrf' in ri.get('routing_instance_type')) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{l2_vrf_import}}
-{%             endif %}
-{%         endfor %}
-{%         for exp_target in ri.get('export_targets', []) %}
-{%             if ri.get('routing_interfaces') and ('vrf' in ri.get('routing_instance_type')) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{l2_vrf_export}}
-{%             endif %}
-{%         endfor %}
-{%             if ri.get('routing_interfaces') and ri.get('routing_instance_type') == 'vrf' %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-table-label
-{%             endif %}
-{%             if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
-{%                 for import_target in ri.get('import_targets', []) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{l2_vrf_import}}
-{%                 endfor %}
-{%                 for exp_target in ri.get('export_targets', []) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{l2_vrf_export}}
-{%                 endfor %}
-{%             endif %}
 {%     endfor %}
-set groups __contrail_{{feature}}__ switch-options vtep-source-interface lo0.0
-set groups __contrail_{{feature}}__ switch-options vrf-target auto
-set apply-groups __contrail_{{feature}}__
+set apply-groups {{cfg_group}}
 {% endif %}
