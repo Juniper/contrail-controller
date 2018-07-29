@@ -1,0 +1,48 @@
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups {{cfg_group}}
+{%     set rib_name = 'bgp.rtarget.0' %}
+{%     set resolution_rib = 'inet.0' %}
+{%     for bgp in device_abstract_config.get('bgp', []) %}
+{%         if 'overlay_bgp' in bgp.get('comment', '') %}
+{%             set router_id = bgp.get('ip_address') %}
+{%             set route_distinguisher = router_id %}
+{%             set as_number = bgp.get('autonomous_system') %}
+set groups __contrail_{{feature}}__ routing-options router-id {{router_id}}
+set groups __contrail_{{feature}}__ routing-options route-distinguisher-id {{route_distinguisher}}
+set groups __contrail_{{feature}}__ routing-options autonomous-system {{as_number}}
+set groups __contrail_{{feature}}__ routing-options resolution rib {{rib_name}} resolution-ribs {{resolution_rib}}
+set groups __contrail_{{feature}}__ switch-options route-distinguisher {{route_distinguisher}}:1
+set groups __contrail_{{feature}}__ switch-options vrf-target target:{{as_number}}:1
+{%             set bgp_group_name = bgp.get('name') %}
+{%             set bgp_group_type = bgp.get('type_') %}
+{%             set hold_time = bgp.get('hold_time') %}
+{%             set families = bgp.get('families', []) %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
+{%             for fam in families %}
+{%                 if fam == 'route-target' %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}}
+{%                 endif %}
+{%                 if fam == 'evpn' %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}} signaling
+{%                 endif %}
+{%                 if bgp_group_type == 'internal' %}
+{%                     if fam.startswith('inet') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} then next-hop self
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
+{%                     endif %}
+{%                 endif %}
+{%             endfor %}
+{%             for peer in bgp.get('peers', []) %}
+{%                 set peer_addr = peer.get('ip_address') %}
+{%                 set peer_as = peer.get('autonomous_system') %}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} neighbor {{peer_addr}} peer-as {{peer_as}}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+set apply-groups {{cfg_group}}
+{% endif %}
