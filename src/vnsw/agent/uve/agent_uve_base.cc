@@ -314,3 +314,6 @@ void AgentUveBase::RegisterDBClients() {
     interface_uve_table_.get()->RegisterDBClients();
 }
 
+void AgentUveBase::InitDone() {
+    vrouter_stats_collector_->InitDone();
+}
