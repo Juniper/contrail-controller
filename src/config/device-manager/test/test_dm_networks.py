@@ -279,7 +279,7 @@ class TestNetworkDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2006)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
