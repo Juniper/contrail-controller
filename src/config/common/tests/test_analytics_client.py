@@ -27,13 +27,42 @@ class TestOpenContrailClient(unittest.TestCase):
 
     def setUp(self):
         super(TestOpenContrailClient, self).setUp()
-        self.client = Client('http://127.0.0.1:8081', {'arg1': 'aaa'})
+        self.client = Client('127.0.0.1', 8081, {'arg1': 'aaa'})
 
         self.get_resp = mock.MagicMock()
         self.get = mock.patch('requests.get',
                               return_value=self.get_resp).start()
         self.get_resp.raw_version = 1.1
         self.get_resp.status_code = 200
+
+    def test_round_robin_client(self):
+        client_ips = "127.0.1.1 127.0.1.2 127.0.1.3"
+        expected_ip_list = ['127.0.1.1', '127.0.1.2', '127.0.1.3']
+        new_client = Client(client_ips, 8081, {'arg1': 'aaaa'})
+
+        self.get_resp_multiple = mock.MagicMock()
+        self.get_multiple = mock.patch('requests.get',
+                              return_value=self.get_resp_multiple).start()
+        self.get_resp_multiple.raw_version = 1.1
+        self.get_resp_multiple.status_code = 200
+
+        index = -1
+        for i in range(6):
+            index += 1
+            if index >= len(expected_ip_list):
+                index = 0
+
+            new_client.request('/fake/path/', 'fake_uuid')
+
+            call_args = self.get_multiple.call_args_list[index][0]
+            call_kwargs = self.get_multiple.call_args_list[index][1]
+
+            expected_url = 'http://%s:8081' % expected_ip_list[index] + '/fake/path/fake_uuid'
+            self.assertEqual(expected_url, call_args[0])
+
+            data = call_kwargs.get('data')
+            expected_data = {'arg1': 'aaaa'}
+            self.assertEqual(expected_data, data)
 
     def test_analytics_request_without_data(self):
         self.client.request('/fake/path/', 'fake_uuid')
