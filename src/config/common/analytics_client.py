@@ -19,6 +19,7 @@
 
 import requests
 import six
+from requests.exceptions import ConnectionError
 from six.moves.urllib import parse as urlparse
 
 
@@ -30,10 +31,19 @@ class Client(object):
     """Opencontrail Base Statistics REST API Client."""
     #TODO: use a pool of servers
 
-    def __init__(self, endpoint, data={}):
-        self.endpoint = endpoint
+    def __init__(self, analytics_api_ip, analytics_api_port, data={}):
         self.data = data
+        #As per requirements, IPs can be space or comma seperated
+        self.analytics_api_servers = analytics_api_ip.replace(',', ' ').split(' ')
+        self.analytics_api_port = analytics_api_port
+        self.index = -1
 
+    def round_robin(self):
+        self.index += 1
+        if self.index >= len(self.analytics_api_servers):
+            self.index = 0
+        return self.index
+ 
     def request(self, path, fqdn_uuid, user_token=None,
                 data=None):
         req_data = dict(self.data)
@@ -42,15 +52,34 @@ class Client(object):
 
         req_params = self._get_req_params(user_token, data=req_data)
 
-        url = urlparse.urljoin(self.endpoint, path + fqdn_uuid)
-        resp = requests.get(url, **req_params)
+        #get the starting index
+        analytics_server_index = self.round_robin()
 
-        if resp.status_code != 200:
-            raise OpenContrailAPIFailed(
-                ('Opencontrail API returned %(status)s %(reason)s') %
-                {'status': resp.status_code, 'reason': resp.reason})
+        client_count = len(self.analytics_api_servers)
+        #once you have a starting index, we need to traverse through
+        #entire list in case of failure.
+        for index in range(client_count):
+            try:
+                analytics_ip = self.analytics_api_servers[analytics_server_index]
+                endpoint = "http://%s:%s" % (analytics_ip,
+                                     self.analytics_api_port)
 
-        return resp.json()
+                url = urlparse.urljoin(endpoint, path + fqdn_uuid)
+                resp = requests.get(url, **req_params)
+                if resp.status_code != 200:
+                    raise OpenContrailAPIFailed(
+                        ('Opencontrail API returned %(status)s %(reason)s') %
+                        {'status': resp.status_code, 'reason': resp.reason})
+                return resp.json()
+
+            except Exception as e:
+                #In case of failure, continue till we check all other
+                #available servers
+                analytics_server_index = self.roundRobin()
+                continue
+
+        #If we reach here, raise the last encountered exception
+        raise e
 
     def _get_req_params(self, user_token, data=None):
         req_params = {
