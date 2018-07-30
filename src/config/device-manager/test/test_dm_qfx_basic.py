@@ -533,7 +533,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2001)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -583,7 +583,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2002)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -805,7 +805,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2003)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -843,7 +843,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2004)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -919,7 +919,7 @@ class TestQfxBasicDM(TestCommonDM):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
 
         vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_vxlan_network_identifier(2005)
         vn1_obj_properties.set_forwarding_mode('l2_l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
@@ -1004,6 +1004,11 @@ class TestQfxBasicDM(TestCommonDM):
         self.delete_routers(bgp_router, pr)
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
 
+        self._vnc_lib.logical_router_delete(id=lr_uuid)
+        vmi1.del_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_update(vmi1)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi1.uuid)
     # end verify_dm_qfx_switch_options
 
     def test_dm_qfx_switch_options(self):
