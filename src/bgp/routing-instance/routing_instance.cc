@@ -900,7 +900,7 @@ bool RoutingInstanceMgr::ProcessNeighborConfigList() {
     return true;
 }
 
-void RoutingInstanceMgr::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
+void RoutingInstanceMgr::ASNUpdateCallback(as4_t old_asn, as4_t old_local_asn) {
     if (server_->local_autonomous_system() == old_local_asn)
         return;
     for (RoutingInstanceIterator it = begin(); it != end(); ++it) {

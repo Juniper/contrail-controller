@@ -371,6 +371,7 @@ public:
     virtual int GetTotalPathCount() const {
         return total_path_count_;
     }
+    virtual bool IsAs4Supported() const { return true; }
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const {
         primary_path_count_ += count;
@@ -1274,10 +1275,18 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         }
 
         // Process tag list.
+        uint16_t tag_index = 0;
         for (TagListType::const_iterator tit = nit->tag_list.begin();
             tit != nit->tag_list.end(); ++tit) {
-            Tag tag(bgp_server_->autonomous_system(), *tit);
-            ext.communities.push_back(tag.GetExtCommunityValue());
+            if (bgp_server_->autonomous_system() <= 0xFFFF) {
+                Tag tag(bgp_server_->autonomous_system(), *tit);
+                ext.communities.push_back(tag.GetExtCommunityValue());
+            } else {
+                Tag tag(tag_index, *tit);
+                Tag4ByteAs tag4(bgp_server_->autonomous_system(), tag_index++);
+                ext.communities.push_back(tag4.GetExtCommunityValue());
+                ext.communities.push_back(tag.GetExtCommunityValue());
+            }
         }
 
         BgpAttrLocalPref local_pref(item.entry.local_preference);
@@ -1294,8 +1303,7 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
             attrs.push_back(&med);
 
         // Process community tags.
-        const CommunityTagListType &ict_list =
-            item.entry.community_tag_list;
+        const CommunityTagListType &ict_list = item.entry.community_tag_list;
         for (CommunityTagListType::const_iterator cit = ict_list.begin();
             cit != ict_list.end(); ++cit) {
             error_code error;
@@ -1326,12 +1334,20 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         }
 
         // Process security group list.
-        const SecurityGroupListType &isg_list =
-            item.entry.security_group_list;
+        uint16_t sg_index = 0;
+        const SecurityGroupListType &isg_list = item.entry.security_group_list;
         for (SecurityGroupListType::const_iterator sit = isg_list.begin();
             sit != isg_list.end(); ++sit) {
-            SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
-            ext.communities.push_back(sg.GetExtCommunityValue());
+            if (bgp_server_->autonomous_system() <= 0xFFFF) {
+                SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
+                ext.communities.push_back(sg.GetExtCommunityValue());
+            } else {
+                SecurityGroup sg(sg_index, *sit);
+                SecurityGroup4ByteAs sg4(bgp_server_->autonomous_system(),
+                                         sg_index++);
+                ext.communities.push_back(sg4.GetExtCommunityValue());
+                ext.communities.push_back(sg.GetExtCommunityValue());
+            }
         }
 
         if (item.entry.mobility.seqno) {
@@ -1569,10 +1585,19 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             }
 
             // Process tag list.
+            uint16_t tag_index = 0;
             for (TagListType::const_iterator tit = nit->tag_list.begin();
                 tit != nit->tag_list.end(); ++tit) {
-                Tag tag(bgp_server_->autonomous_system(), *tit);
-                ext.communities.push_back(tag.GetExtCommunityValue());
+                if (bgp_server_->autonomous_system() <= 0xFFFF) {
+                    Tag tag(bgp_server_->autonomous_system(), *tit);
+                    ext.communities.push_back(tag.GetExtCommunityValue());
+                } else {
+                    Tag tag(tag_index, *tit);
+                    Tag4ByteAs tag4(bgp_server_->autonomous_system(),
+                                    tag_index++);
+                    ext.communities.push_back(tag.GetExtCommunityValue());
+                    ext.communities.push_back(tag4.GetExtCommunityValue());
+                }
             }
 
             BgpAttrLocalPref local_pref(item.entry.local_preference);
@@ -1622,10 +1647,19 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             // Process security group list.
             const SecurityGroupListType &isg_list =
                 item.entry.security_group_list;
+            uint16_t sg_index = 0;
             for (SecurityGroupListType::const_iterator sit = isg_list.begin();
                 sit != isg_list.end(); ++sit) {
-                SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
-                ext.communities.push_back(sg.GetExtCommunityValue());
+                if (bgp_server_->autonomous_system() <= 0xFFFF) {
+                    SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
+                    ext.communities.push_back(sg.GetExtCommunityValue());
+                } else {
+                    SecurityGroup sg(sg_index, *sit);
+                    SecurityGroup4ByteAs sg4(bgp_server_->autonomous_system(),
+                                             sg_index++);
+                    ext.communities.push_back(sg4.GetExtCommunityValue());
+                    ext.communities.push_back(sg.GetExtCommunityValue());
+                }
             }
 
             if (item.entry.mobility.seqno) {
@@ -1886,10 +1920,18 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         }
 
         // Process tag list.
+        uint16_t tag_index = 0;
         for (TagListType::const_iterator tit = nit->tag_list.begin();
             tit != nit->tag_list.end(); ++tit) {
-            Tag tag(bgp_server_->autonomous_system(), *tit);
-            ext.communities.push_back(tag.GetExtCommunityValue());
+            if (bgp_server_->autonomous_system() <= 0xFFFF) {
+                Tag tag(bgp_server_->autonomous_system(), *tit);
+                ext.communities.push_back(tag.GetExtCommunityValue());
+            } else {
+                Tag tag(tag_index, *tit);
+                Tag4ByteAs tag4(bgp_server_->autonomous_system(), tag_index++);
+                ext.communities.push_back(tag.GetExtCommunityValue());
+                ext.communities.push_back(tag4.GetExtCommunityValue());
+            }
         }
 
         BgpAttrLocalPref local_pref(item.entry.local_preference);
@@ -2952,8 +2994,8 @@ void BgpXmppChannelManager::DSCPUpdateCallback(uint8_t dscp_value) {
     xmpp_server_->SetDscpValue(dscp_value);
 }
 
-void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
-    as_t old_local_asn) {
+void BgpXmppChannelManager::ASNUpdateCallback(as4_t old_asn,
+    as4_t old_local_asn) {
     CHECK_CONCURRENCY("bgp::Config");
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         i.second->rtarget_manager()->ASNUpdateCallback(old_asn,

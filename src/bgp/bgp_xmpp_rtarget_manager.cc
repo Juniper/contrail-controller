@@ -118,9 +118,9 @@ void BgpXmppRTargetManager::RTargetRouteOp(as4_t asn,
     Enqueue(&req);
 }
 
-void BgpXmppRTargetManager::ASNUpdateCallback(as_t old_asn,
-                                              as_t old_local_asn) const {
-    if (local_autonomous_system() == old_local_asn)
+void BgpXmppRTargetManager::ASNUpdateCallback(as4_t old_asn,
+                                              as4_t old_local_asn) const {
+    if (local_autonomous_system() == (int)old_local_asn)
         return;
     if (IsSubscriptionEmpty())
         return;

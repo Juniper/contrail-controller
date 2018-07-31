@@ -409,7 +409,7 @@ TEST_F(BgpAttrTest, AsPathAdd) {
 
 TEST_F(BgpAttrTest, AsPathAddList) {
     AsPathSpec path;
-    vector<as_t> asn_list = list_of(1000)(2000);
+    vector<as2_t> asn_list = list_of(1000)(2000);
 
     // Add to an empty path.
     AsPathSpec *p2 = path.Add(asn_list);
@@ -493,7 +493,7 @@ TEST_F(BgpAttrTest, AsPathReplace) {
 //
 // Leftmost AS is private.
 // Peer AS is 0 i.e. not specified.
-// Test combinations of (bool all, as_t asn).
+// Test combinations of (bool all, as4_t asn).
 //
 TEST_F(BgpAttrTest, AsPathRemovePrivate1) {
     AsPathSpec original;
@@ -512,7 +512,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate1) {
     expected.path_segments.push_back(eps1);
     eps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
 
     // All private ASes till first public AS are removed since all is false.
     eps1->path_segment.clear();
@@ -550,7 +550,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate1) {
 //
 // Leftmost AS is non-private.
 // Peer AS is 0 i.e. not specified.
-// Test combinations of (bool all, as_t asn).
+// Test combinations of (bool all, as4_t asn).
 //
 TEST_F(BgpAttrTest, AsPathRemovePrivate2) {
     AsPathSpec original;
@@ -568,7 +568,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate2) {
     expected.path_segments.push_back(eps1);
     eps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
 
     // Nothing is modified since leftmost AS is non-private and all is false.
     eps1->path_segment.clear();
@@ -606,7 +606,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate2) {
 //
 // Leftmost AS is private.
 // Peer AS is same as leftmost AS.
-// Test combinations of (bool all, as_t asn).
+// Test combinations of (bool all, as4_t asn).
 //
 TEST_F(BgpAttrTest, AsPathRemovePrivate3) {
     AsPathSpec original;
@@ -624,7 +624,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate3) {
     expected.path_segments.push_back(eps1);
     eps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
 
     // Nothing is modified since leftmost AS is peer AS and all is false.
     eps1->path_segment.clear();
@@ -662,7 +662,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate3) {
 //
 // Leftmost AS is private.
 // Peer AS is same as 3rd leftmost private AS.
-// Test combinations of (bool all, as_t asn).
+// Test combinations of (bool all, as4_t asn).
 //
 TEST_F(BgpAttrTest, AsPathRemovePrivate4) {
     AsPathSpec original;
@@ -681,7 +681,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate4) {
     expected.path_segments.push_back(eps1);
     eps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
 
     // All private ASes till peer AS are removed since all is false.
     eps1->path_segment.clear();
@@ -719,7 +719,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate4) {
 //
 // Leftmost AS is private.
 // Peer AS is a non-private AS.
-// Test combinations of (bool all, as_t asn).
+// Test combinations of (bool all, as4_t asn).
 //
 TEST_F(BgpAttrTest, AsPathRemovePrivate5) {
     AsPathSpec original;
@@ -738,7 +738,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate5) {
     expected.path_segments.push_back(eps1);
     eps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
 
     // All private ASes till peer AS are removed since all is false.
     eps1->path_segment.clear();
@@ -806,7 +806,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate6) {
     eps2->path_segment.push_back(500);
 
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
     boost::scoped_ptr<AsPathSpec> result;
     all = true; asn = 0; peer_asn = 0;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -854,7 +854,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate7) {
     eps3->path_segment.push_back(500);
 
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
     boost::scoped_ptr<AsPathSpec> result;
     all = true; asn = 300; peer_asn = 0;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -903,7 +903,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate8) {
     eps3->path_segment.push_back(500);
 
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
     boost::scoped_ptr<AsPathSpec> result;
     all = false; asn = 0; peer_asn = 0;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -954,7 +954,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate9) {
     eps3->path_segment.push_back(500);
 
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
     boost::scoped_ptr<AsPathSpec> result;
     all = false; asn = 300; peer_asn = 0;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -977,7 +977,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate10) {
 
     AsPathSpec expected;
     bool all;
-    as_t asn, peer_asn;
+    as4_t asn, peer_asn;
     all = true; asn = 0; peer_asn = 0;
     boost::scoped_ptr<AsPathSpec> result;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
