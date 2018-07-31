@@ -39,7 +39,9 @@ from vnc_api.gen.resource_xsd import (
     FabricNetworkTag,
     NamespaceValue,
     RoutingBridgingRolesType,
-    SubnetListType
+    SubnetListType,
+    KeyValuePairs,
+    KeyValuePair
 )
 
 
@@ -680,6 +682,9 @@ class FilterModule(object):
             },
             fabric_ztp=ztp
         )
+        fab.set_annotations(KeyValuePairs([
+            KeyValuePair(key='user_input', value=json.dumps(fabric_info))
+        ]))
 
         try:
             vnc_api.fabric_create(fab)
@@ -856,8 +861,11 @@ class FilterModule(object):
             address_allocation_mode='flat-subnet-only')
         try:
             vnc_api.virtual_network_create(network)
-        except RefsExistError:
-            _task_log("virtual network '%s' already exists" % network_name)
+        except RefsExistError as ex:
+            _task_log(
+                "virtual network '%s' already exists or other conflict: %s"
+                % (network_name, str(ex))
+            )
 
         network = vnc_api.virtual_network_read(fq_name=nw_fq_name)
         _task_done()
@@ -904,8 +912,11 @@ class FilterModule(object):
         )
         try:
             vnc_api.network_ipam_create(ipam)
-        except RefsExistError:
-            _task_log("network IPAM '%s' already exists" % ipam_name)
+        except RefsExistError as ex:
+            _task_log(
+                "network IPAM '%s' already exists or other conflict: %s"
+                % (ipam_name, str(ex))
+            )
         _task_done()
         return vnc_api.network_ipam_read(fq_name=ipam_fq_name)
     # end _add_network_ipam
@@ -1591,10 +1602,10 @@ class FilterModule(object):
                     )
                     vnc_api.instance_ip_create(iip_obj)
                     _task_done()
-                except RefsExistError:
+                except RefsExistError as ex:
                     _task_log(
-                        'instance ip already exists for logical interface %s'
-                        % local_li.fq_name
+                        'instance ip already exists for logical interface %s '
+                        'or other conflict: %s' % (local_li.fq_name, str(ex))
                     )
                     _task_done()
     # end _add_logical_interfaces_for_fabric_links
