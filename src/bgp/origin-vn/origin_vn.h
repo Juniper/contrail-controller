@@ -21,13 +21,13 @@ public:
     typedef boost::array<uint8_t, kSize> bytes_type;
 
     OriginVn();
-    OriginVn(as_t asn, uint32_t vn_idx);
+    OriginVn(as2_t asn, uint32_t vn_idx);
     explicit OriginVn(const bytes_type &data);
 
     bool IsNull() { return operator==(OriginVn::null_originvn); }
     bool IsGlobal() const;
 
-    as_t as_number() const;
+    as2_t as_number() const;
     int vn_index() const;
 
     const bytes_type &GetExtCommunity() const {
@@ -47,6 +47,46 @@ public:
 
     std::string ToString();
     static OriginVn FromString(const std::string &str,
+        boost::system::error_code *error = NULL);
+
+private:
+    bytes_type data_;
+};
+
+class OriginVn4ByteAs {
+public:
+    static const int kSize = 8;
+    static const int kMinGlobalId = 8000000;
+    static OriginVn4ByteAs null_originvn;
+    typedef boost::array<uint8_t, kSize> bytes_type;
+
+    OriginVn4ByteAs();
+    OriginVn4ByteAs(as4_t asn, uint32_t vn_idx);
+    explicit OriginVn4ByteAs(const bytes_type &data);
+
+    bool IsNull() { return operator==(OriginVn4ByteAs::null_originvn); }
+    bool IsGlobal() const;
+
+    as4_t as_number() const;
+    int vn_index() const;
+
+    const bytes_type &GetExtCommunity() const {
+        return data_;
+    }
+
+    const uint64_t GetExtCommunityValue() const {
+        return get_value(data_.begin(), 8);
+    }
+
+    bool operator<(const OriginVn4ByteAs &rhs) const {
+        return data_ < rhs.data_;
+    }
+    bool operator==(const OriginVn4ByteAs &rhs) const {
+        return data_ == rhs.data_;
+    }
+
+    std::string ToString();
+    static OriginVn4ByteAs FromString(const std::string &str,
         boost::system::error_code *error = NULL);
 
 private:

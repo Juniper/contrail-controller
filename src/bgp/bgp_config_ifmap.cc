@@ -1790,7 +1790,7 @@ static void BuildPolicyTermConfig(autogen::PolicyTermType cfg_term,
             cfg_term.term_match_condition.extcommunity_list;
     }
 
-    BOOST_FOREACH(uint16_t asn,
+    BOOST_FOREACH(uint32_t asn,
         cfg_term.term_action_list.update.as_path.expand.asn_list) {
         term->action.update.aspath_expand.push_back(asn);
     }

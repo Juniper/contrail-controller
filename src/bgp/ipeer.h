@@ -208,6 +208,7 @@ public:
     virtual const std::string GetStateName() const = 0;
     virtual void UpdateTotalPathCount(int count) const = 0;
     virtual int GetTotalPathCount() const = 0;
+    virtual bool IsAs4Supported() const = 0;
     virtual void ProcessPathTunnelEncapsulation(const BgpPath *path,
         BgpAttr *attr, ExtCommunityDB *extcomm_db,
         const BgpTable *table) const = 0;

@@ -246,9 +246,9 @@ public:
     DBGraph *config_graph() { return config_graph_.get(); }
 
     static void GlobalSetUp();
-    void set_autonomous_system(as_t as) { autonomous_system_ = as; }
+    void set_autonomous_system(as4_t as) { autonomous_system_ = as; }
     void set_cluster_id(uint32_t cid) { cluster_id_ = cid; }
-    void set_local_autonomous_system(as_t local_as) {
+    void set_local_autonomous_system(as4_t local_as) {
         local_autonomous_system_ = local_as;
     }
     void set_bgp_identifier(uint32_t bgp_id) {

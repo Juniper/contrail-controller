@@ -410,7 +410,7 @@ private:
     const RoutingInstance *GetInstanceByVnIndex(int vn_index) const;
     int GetVnIndexByRouteTarget(const RouteTarget &rtarget) const;
 
-    void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
+    void ASNUpdateCallback(as4_t old_asn, as4_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
 
     void DisableInstanceConfigListProcessing();

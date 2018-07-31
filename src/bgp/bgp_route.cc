@@ -482,6 +482,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_security_group(*it)) {
             SecurityGroup sg(*it);
             communities->push_back(sg.ToString());
+        } else if (ExtCommunity::is_security_group4(*it)) {
+            SecurityGroup4ByteAs sg(*it);
+            communities->push_back(sg.ToString());
         } else if (ExtCommunity::is_site_of_origin(*it)) {
             SiteOfOrigin soo(*it);
             communities->push_back(soo.ToString());
@@ -499,6 +502,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
             show_path->set_load_balance(show_load_balance);
         } else if (ExtCommunity::is_tag(*it)) {
             Tag tag(*it);
+            communities->push_back(tag.ToString());
+        } else if (ExtCommunity::is_tag4(*it)) {
+            Tag4ByteAs tag(*it);
             communities->push_back(tag.ToString());
         } else if (ExtCommunity::is_source_as(*it)) {
             SourceAs sas(*it);

@@ -166,7 +166,9 @@ public:
     virtual void Remove();
     int CompareTo(const ExtCommunity &rhs) const;
 
+    bool ContainsOriginVn(as4_t asn, uint32_t vn_index) const;
     bool ContainsOriginVn(const ExtCommunityValue &val) const;
+    bool ContainsOriginVn4(const ExtCommunityValue &val) const;
     bool ContainsVrfRouteImport(const ExtCommunityValue &val) const;
     bool ContainsSourceAs(const ExtCommunityValue &val) const;
 
@@ -176,10 +178,21 @@ public:
     }
 
     std::vector<std::string> GetTunnelEncap() const;
-    std::vector<int> GetTagList(as_t asn = 0) const;
+    std::vector<int> GetTagList(as2_t asn = 0) const;
+    std::vector<int> GetTag4List(as4_t asn = 0) const;
     bool ContainsTunnelEncapVxlan() const;
     int GetOriginVnIndex() const;
     static ExtCommunityList ExtCommunityFromString(const std::string &comm);
+
+    static bool is_origin_vn4(const ExtCommunityValue &val) {
+        //
+        // Origin VN extended community
+        // 2 Octet AS specific extended community
+        //
+        return (val[0] == BgpExtendedCommunityType::Experimental4ByteAs) &&
+               (val[1] ==
+                    BgpExtendedCommunityExperimentalSubType::OriginVn);
+    }
 
     static bool is_origin_vn(const ExtCommunityValue &val) {
         //
@@ -262,6 +275,15 @@ public:
                (val[1] == BgpExtendedCommunityExperimentalSubType::SgId);
     }
 
+    static bool is_security_group4(const ExtCommunityValue &val) {
+        //
+        // SG ID extended community
+        // 2 Octet AS specific extended community
+        //
+        return (val[0] == BgpExtendedCommunityType::Experimental4ByteAs) &&
+               (val[1] == BgpExtendedCommunityExperimentalSubType::SgId);
+    }
+
     static bool is_site_of_origin(const ExtCommunityValue &val) {
         //
         // Site of Origin / Route Origin extended community
@@ -310,6 +332,12 @@ public:
     static bool is_tag(const ExtCommunityValue &val) {
         // Tag extended community
         return (val[0] == BgpExtendedCommunityType::Experimental) &&
+               (val[1] == BgpExtendedCommunityExperimentalSubType::Tag);
+    }
+
+    static bool is_tag4(const ExtCommunityValue &val) {
+        // Tag extended community
+        return (val[0] == BgpExtendedCommunityType::Experimental4ByteAs) &&
                (val[1] == BgpExtendedCommunityExperimentalSubType::Tag);
     }
 

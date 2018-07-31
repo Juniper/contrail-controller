@@ -36,6 +36,7 @@ public:
     virtual const std::string GetStateName() const { return "UNKNOWN"; }
     virtual void UpdateTotalPathCount(int count) const { }
     virtual int GetTotalPathCount() const { return 0; }
+    virtual bool IsAs4Supported() const { return false; }
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
