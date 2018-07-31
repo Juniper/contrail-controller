@@ -13,6 +13,7 @@ struct BgpExtendedCommunityType {
         Opaque = 0x03,
         Evpn = 0x06,
         Experimental = 0x80,
+        Experimental4ByteAs = 0x82,
     };
 };
 

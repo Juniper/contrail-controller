@@ -579,12 +579,17 @@ void BgpXmppMessage::ProcessExtCommunity(const ExtCommunity *ext_community) {
     if (ext_community == NULL)
         return;
 
-    as_t as_number =  table_->server()->autonomous_system();
+    as4_t as_number =  table_->server()->autonomous_system();
     for (ExtCommunity::ExtCommunityList::const_iterator iter =
         ext_community->communities().begin();
         iter != ext_community->communities().end(); ++iter) {
         if (ExtCommunity::is_security_group(*iter)) {
             SecurityGroup sg(*iter);
+            if (sg.as_number() != as_number && !sg.IsGlobal())
+                continue;
+            security_group_list_.push_back(sg.security_group_id());
+        } else if (ExtCommunity::is_security_group4(*iter)) {
+            SecurityGroup4ByteAs sg(*iter);
             if (sg.as_number() != as_number && !sg.IsGlobal())
                 continue;
             security_group_list_.push_back(sg.security_group_id());

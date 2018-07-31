@@ -20,7 +20,7 @@ protected:
             int subcode, std::string type, int offset, int err_size) {
         ParseErrorContext ec;
         const BgpProto::BgpMessage *result =
-                BgpProto::Decode(&data[0], size, &ec);
+                BgpProto::Decode(&data[0], size, &ec, false);
         EXPECT_TRUE(result == NULL);
 
         EXPECT_EQ(error, ec.error_code);
@@ -58,7 +58,7 @@ protected:
             new_data[pos] = rand();
         }
 
-        BgpProto::BgpMessage *msg = BgpProto::Decode(new_data, data_size);
+        BgpProto::BgpMessage *msg = BgpProto::Decode(new_data, data_size, NULL, false);
         if (msg) delete msg;
     }
 
@@ -573,7 +573,7 @@ TEST_F(BgpProtoTest, Update) {
     BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::IPv4, BgpAf::Unicast);
     uint8_t data[256];
 
-    int res = BgpProto::Encode(&update, data, 256);
+    int res = BgpProto::Encode(&update, data, 256, NULL, false);
     EXPECT_NE(-1, res);
     if (detail::debug_) {
         for (int i = 0; i < res; i++) {
@@ -583,7 +583,7 @@ TEST_F(BgpProtoTest, Update) {
     }
 
     const BgpProto::Update *result;
-    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res, NULL, false));
     EXPECT_TRUE(result != NULL);
     if (result) {
         EXPECT_EQ(0, result->CompareTo(update));
@@ -596,7 +596,7 @@ TEST_F(BgpProtoTest, L3VPNUpdate) {
     BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::IPv4, BgpAf::Vpn);
     uint8_t data[256];
 
-    int res = BgpProto::Encode(&update, data, 256);
+    int res = BgpProto::Encode(&update, data, 256, NULL, false);
     EXPECT_NE(-1, res);
     if (detail::debug_) {
         for (int i = 0; i < res; i++) {
@@ -606,7 +606,7 @@ TEST_F(BgpProtoTest, L3VPNUpdate) {
     }
 
     const BgpProto::Update *result;
-    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res, NULL, false));
     EXPECT_TRUE(result != NULL);
     if (result) {
         EXPECT_EQ(0, result->CompareTo(update));
@@ -633,7 +633,7 @@ TEST_F(BgpProtoTest, 32PlusExtCommunities) {
         ext_community->communities.push_back(value + i);
     }
 
-    int res = BgpProto::Encode(&update, data, BgpProto::kMaxMessageSize);
+    int res = BgpProto::Encode(&update, data, BgpProto::kMaxMessageSize, NULL, false);
     EXPECT_NE(-1, res);
     if (detail::debug_) {
         for (int i = 0; i < res; i++) {
@@ -643,7 +643,7 @@ TEST_F(BgpProtoTest, 32PlusExtCommunities) {
     }
 
     const BgpProto::Update *result;
-    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res, NULL, false));
     EXPECT_TRUE(result != NULL);
     if (result) {
         EXPECT_EQ(0, result->CompareTo(update));
@@ -665,7 +665,7 @@ TEST_F(BgpProtoTest, EvpnUpdate) {
     BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::L2Vpn, BgpAf::EVpn);
     uint8_t data[256];
 
-    int res = BgpProto::Encode(&update, data, 256);
+    int res = BgpProto::Encode(&update, data, 256, NULL, false);
     EXPECT_NE(-1, res);
     if (detail::debug_) {
         for (int i = 0; i < res; i++) {
@@ -675,7 +675,7 @@ TEST_F(BgpProtoTest, EvpnUpdate) {
     }
 
     const BgpProto::Update *result;
-    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res, NULL, false));
     EXPECT_TRUE(result != NULL);
     if (result) {
         EXPECT_EQ(0, result->CompareTo(update));
@@ -703,7 +703,7 @@ TEST_F(BgpProtoTest, ClusterList) {
     ParseErrorContext context;
     boost::scoped_ptr<const BgpProto::Update> update(
         static_cast<const BgpProto::Update *>(
-            BgpProto::Decode(data, sizeof(data), &context)));
+            BgpProto::Decode(data, sizeof(data), &context, false)));
     ASSERT_TRUE(update.get() != NULL);
 
     const ClusterListSpec *clist_spec = static_cast<const ClusterListSpec *>(
@@ -713,7 +713,7 @@ TEST_F(BgpProtoTest, ClusterList) {
     EXPECT_EQ(0xcafed0d0ul, clist_spec->cluster_list[1]);
 
     uint8_t buffer[4096];
-    int res = BgpProto::Encode(update.get(), buffer, sizeof(buffer));
+    int res = BgpProto::Encode(update.get(), buffer, sizeof(buffer), NULL, false);
     EXPECT_EQ(sizeof(data), res);
     EXPECT_EQ(0, memcmp(buffer, data, sizeof(data)));
 }
@@ -784,7 +784,7 @@ TEST_F(BgpProtoTest, UpdateError) {
                        0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x04, 0x01,
                        0x0a, 0x01, 0x02 };
     const BgpProto::Update *result = static_cast<BgpProto::Update *>(
-        BgpProto::Decode(&data[0], sizeof(data)));
+        BgpProto::Decode(&data[0], sizeof(data), NULL, false));
     EXPECT_TRUE(result != NULL);
     delete result;
 
@@ -825,7 +825,7 @@ TEST_F(BgpProtoTest, UpdateError) {
     // Unknown optional attribute.
     data[30] |= BgpAttribute::Optional;
     result = static_cast<BgpProto::Update *>(
-        BgpProto::Decode(&data[0], sizeof(data)));
+        BgpProto::Decode(&data[0], sizeof(data), NULL, false));
     EXPECT_TRUE(result != NULL);
     BgpAttrUnknown *attr = static_cast<BgpAttrUnknown *>(result->path_attributes[0]);
     EXPECT_EQ(20, attr->code);
@@ -949,14 +949,22 @@ TEST_F(BgpProtoTest, UpdateScale) {
     BgpAttrAggregator *agg = new BgpAttrAggregator(0xface, 0xcafebabe);
     update.path_attributes.push_back(agg);
 
-    AsPathSpec *path_spec = new AsPathSpec;
-    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
-    ps->path_segment_type = AsPathSpec::PathSegment::AS_SET;
-    ps->path_segment.push_back(20);
-    ps->path_segment.push_back(21);
-    ps->path_segment.push_back(22);
-    path_spec->path_segments.push_back(ps);
-    update.path_attributes.push_back(path_spec);
+    AsPath4ByteSpec *path4_spec = new AsPath4ByteSpec;
+    AsPath4ByteSpec::PathSegment *ps3 = new AsPath4ByteSpec::PathSegment;
+    ps3->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SET;
+    ps3->path_segment.push_back(20);
+    ps3->path_segment.push_back(21);
+    path4_spec->path_segments.push_back(ps3);
+    update.path_attributes.push_back(path4_spec);
+
+    As4PathSpec *path_spec4 = new As4PathSpec;
+    As4PathSpec::PathSegment *ps4 = new As4PathSpec::PathSegment;
+    ps4->path_segment_type = As4PathSpec::PathSegment::AS_SET;
+    ps4->path_segment.push_back(20);
+    ps4->path_segment.push_back(21);
+    ps4->path_segment.push_back(22);
+    path_spec4->path_segments.push_back(ps4);
+    update.path_attributes.push_back(path_spec4);
 
     CommunitySpec *community = new CommunitySpec;
     community->communities.push_back(0x87654321);
@@ -985,7 +993,7 @@ TEST_F(BgpProtoTest, UpdateScale) {
 
     uint8_t data[4096];
 
-    int res = BgpProto::Encode(&update, data, 4096);
+    int res = BgpProto::Encode(&update, data, 4096, NULL, true);
     EXPECT_NE(-1, res);
     if (detail::debug_) {
         cout << res << " Bytes encoded" << endl;
@@ -996,7 +1004,7 @@ TEST_F(BgpProtoTest, UpdateScale) {
     }
 
     const BgpProto::Update *result;
-    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res, NULL, true));
     EXPECT_TRUE(result != NULL);
     if (result) {
         EXPECT_EQ(0, result->CompareTo(update));
@@ -1033,7 +1041,7 @@ TEST_F(BgpProtoTest, RandomUpdate) {
     for (int i = 0; i < count; i++) {
         BgpProto::Update update;
         BuildUpdateMessage::Generate(&update);
-        int msglen = BgpProto::Encode(&update, data, sizeof(data));
+        int msglen = BgpProto::Encode(&update, data, sizeof(data), NULL, false);
         /*
          * Some message combinations will generate an update that is too
          * big. Ignore this for now since the test generates useful
@@ -1046,7 +1054,7 @@ TEST_F(BgpProtoTest, RandomUpdate) {
         ParseErrorContext  err;
         std::auto_ptr<const BgpProto::Update> result(
             static_cast<const BgpProto::Update *>(
-                BgpProto::Decode(data, msglen, &err)));
+                BgpProto::Decode(data, msglen, &err, false)));
         EXPECT_TRUE(result.get() != NULL);
         if (result.get() != NULL) {
             EXPECT_EQ(0, result->CompareTo(update));
@@ -1087,7 +1095,7 @@ TEST_F(BgpProtoTest, RandomError) {
     for (int i = 0; i < count; i++) {
         BgpProto::Update update;
         BuildUpdateMessage::Generate(&update);
-        int msglen = BgpProto::Encode(&update, data, sizeof(data));
+        int msglen = BgpProto::Encode(&update, data, sizeof(data), NULL, false);
         if (msglen == -1) {
             continue;
         }
@@ -1109,7 +1117,7 @@ class EncodeLengthTest : public testing::Test {
         BgpProto::Update update;
         EncodeOffsets offsets;
         update.path_attributes.push_back(spec);
-        int msglen = BgpProto::Encode(&update, data_, sizeof(data_), &offsets);
+        int msglen = BgpProto::Encode(&update, data_, sizeof(data_), &offsets, false);
         EXPECT_LT(0, msglen);
 
         int offset = offsets.FindOffset("BgpPathAttribute");

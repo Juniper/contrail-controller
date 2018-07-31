@@ -40,6 +40,7 @@ libsandesh_sandesh = env.Library('sandesh_sandesh', SandeshTableGenSrcs);
 libbgp = env.Library('bgp',
                      SandeshGenSrcs +
                      ['bgp_aspath.cc',
+                      'bgp_as4path.cc',
                       'bgp_attr.cc',
                       'bgp_attr_base.cc',
                       'bgp_config.cc',
@@ -110,10 +111,10 @@ libbgp_xmpp = env.Library('bgp_xmpp',
                               'bgp_xmpp_rtarget_manager.cc',
                           ])
 
-libbgp_yaml_config = env.Library('bgp_yaml_config',
-                                 [
-                                     'bgp_config_yaml.cc',
-                                 ])
+#libbgp_yaml_config = env.Library('bgp_yaml_config',
+                                 #[
+                                     #'bgp_config_yaml.cc',
+                                 #])
 
 test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                              duplicate = 0)

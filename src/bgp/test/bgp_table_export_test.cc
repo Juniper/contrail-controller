@@ -59,6 +59,7 @@ public:
     explicit BgpTestPeer(int index, bool internal)
         : index_(index),
           internal_(internal),
+          as4_supported_(false),
           cluster_id_(100),
           to_str_("Peer " + integerToString(index_)) {
     }
@@ -86,6 +87,8 @@ public:
     virtual const string GetStateName() const { return ""; }
     virtual void UpdateTotalPathCount(int count) const { }
     virtual int GetTotalPathCount() const { return 0; }
+    virtual bool IsAs4Supported() const { return as4_supported_; }
+    void SetAs4Supported() { as4_supported_ = true; }
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
@@ -122,6 +125,7 @@ public:
 private:
     int index_;
     bool internal_;
+    bool as4_supported_;
     uint32_t cluster_id_;
     std::string to_str_;
 };
@@ -188,15 +192,15 @@ protected:
         task_util::WaitForIdle();
     }
 
-    as_t AsNumber() {
+    as4_t AsNumber() {
         return server_.autonomous_system();
     }
 
-    as_t LocalAsNumber() {
+    as4_t LocalAsNumber() {
         return server_.local_autonomous_system();
     }
 
-    as_t PeerAsNumber() const {
+    as4_t PeerAsNumber() const {
         assert(!internal_);
         return 100;
     }
@@ -223,11 +227,15 @@ protected:
         attr_spec.push_back(&nexthop);
 
         AsPathSpec path_spec;
+        AsPath4ByteSpec path_spec4;
+        As4PathSpec path4_spec;
         BgpAttrLocalPref local_pref(100);
         BgpAttrMultiExitDisc med(100);
 
         if (internal_) {
             attr_spec.push_back(&path_spec);
+            attr_spec.push_back(&path_spec4);
+            attr_spec.push_back(&path4_spec);
             attr_spec.push_back(&local_pref);
             attr_spec.push_back(&med);
         } else {
@@ -236,6 +244,17 @@ protected:
             path_seg->path_segment.push_back(100);
             path_spec.path_segments.push_back(path_seg);
             attr_spec.push_back(&path_spec);
+            AsPath4ByteSpec::PathSegment *ps4 =
+                             new AsPath4ByteSpec::PathSegment;
+            ps4->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
+            ps4->path_segment.push_back(100);
+            path_spec4.path_segments.push_back(ps4);
+            attr_spec.push_back(&path_spec4);
+            As4PathSpec::PathSegment *path4_seg = new As4PathSpec::PathSegment;
+            path4_seg->path_segment_type = As4PathSpec::PathSegment::AS_SEQUENCE;
+            path4_seg->path_segment.push_back(100);
+            path4_spec.path_segments.push_back(path4_seg);
+            attr_spec.push_back(&path4_spec);
             attr_spec.push_back(&med);
         }
 
@@ -255,30 +274,32 @@ protected:
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
-            RibExportPolicy::Encoding encoding, as_t as_number = 0,
-            as_t local_as = 0, uint32_t cluster_id = 0) {
-        RibExportPolicy policy(type, encoding, as_number, false, false, -1,
-                               cluster_id, local_as);
+            RibExportPolicy::Encoding encoding, as4_t as_number = 0,
+            as4_t local_as = 0, uint32_t cluster_id = 0,
+            bool as4_supported = false) {
+        RibExportPolicy policy(type, encoding, as_number, false, false,
+                               as4_supported, -1, cluster_id, local_as);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
-            RibExportPolicy::Encoding encoding, as_t as_number,
-            bool as_override, IpAddress nexthop, uint32_t cluster_id = 0) {
+            RibExportPolicy::Encoding encoding, as4_t as_number,
+            bool as_override, IpAddress nexthop, uint32_t cluster_id = 0,
+            bool as4_supported = false) {
         vector<string> default_tunnel_encap_list;
         RibExportPolicy policy(
-            type, encoding, as_number, as_override, false, nexthop, -1,
-            cluster_id, default_tunnel_encap_list);
+            type, encoding, as_number, as_override, false, as4_supported,
+            nexthop, -1, cluster_id, default_tunnel_encap_list);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
-            RibExportPolicy::Encoding encoding, as_t as_number,
-            as_t local_as, bool llgr) {
+            RibExportPolicy::Encoding encoding, as4_t as_number,
+            as4_t local_as, bool llgr) {
         RibExportPolicy policy(
-            type, encoding, as_number, false, llgr, -1, local_as);
+            type, encoding, as_number, false, llgr, false, -1, local_as);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
@@ -310,7 +331,7 @@ protected:
         STLDeleteValues(&ribout_peers_);
     }
 
-    void SetAttrAsPath(as_t as_number) {
+    void SetAttrAsPath(as4_t as_number) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         const AsPathSpec &path_spec = attr_ptr_->as_path()->path();
         AsPathSpec *path_spec_ptr = path_spec.Add(as_number);
@@ -319,9 +340,33 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
+    void SetAttrAsPath4(as4_t as_number) {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        const AsPath4ByteSpec &path_spec = attr_ptr_->aspath_4byte()->path();
+        AsPath4ByteSpec *path_spec_ptr = path_spec.Add(as_number);
+        attr->set_aspath_4byte(path_spec_ptr);
+        delete path_spec_ptr;
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
+    void SetAttrAs4Path(as4_t as_number) {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        const As4PathSpec &path_spec = attr_ptr_->as4_path()->path();
+        As4PathSpec *path_spec_ptr = path_spec.Add(as_number);
+        attr->set_as4_path(path_spec_ptr);
+        delete path_spec_ptr;
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
     void ResetAttrAsPath() {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         attr->set_as_path(NULL);
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
+    void ResetAttrAsPath4() {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        attr->set_aspath_4byte(NULL);
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
@@ -372,7 +417,9 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
-    BgpPath *AddPath() {
+    BgpPath *AddPath(bool as4_supported = false) {
+        if (as4_supported)
+            peer_->SetAs4Supported();
         BgpPath *path =
             new BgpPath(peer_.get(), BgpPath::BGP_XMPP, attr_ptr_, 0, 0);
         rt_.InsertPath(path);
@@ -431,38 +478,107 @@ protected:
         EXPECT_EQ(count, attr->as_path_count());
     }
 
-    void VerifyAttrAsPrepend(as_t local_as = 0) {
+    void VerifyAttrAs4PathCount(uint32_t count) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_EQ(count, attr->as4_path_count());
+    }
+
+    void VerifyAttrAs4BytePathCount(uint32_t count) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_EQ(count, attr->aspath_4byte_count());
+    }
+
+    void VerifyAttrAsPrepend(as4_t local_as = 0) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
-        as_t my_as = server_.autonomous_system();
-        as_t my_local_as = local_as ?: server_.local_autonomous_system();
+        as4_t my_as = server_.autonomous_system();
+        as4_t my_local_as = local_as ?: server_.local_autonomous_system();
         EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
         if (my_as != my_local_as)
             EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+    }
+
+    void VerifyAttrAs4Prepend(as4_t local_as = 0) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath4Byte *as_path = attr->aspath_4byte();
+        as4_t my_as = server_.autonomous_system();
+        as4_t my_local_as = local_as ?: server_.local_autonomous_system();
+        EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
+        if (my_as != my_local_as)
+            EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+    }
+
+    void VerifyAttrAs4BytePrepend(as4_t local_as = 0) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath4Byte *as_path = attr->aspath_4byte();
+        as4_t my_as = server_.autonomous_system();
+        as4_t my_local_as = local_as ?: server_.local_autonomous_system();
+        EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
+        if (my_as != my_local_as)
+            EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+    }
+
+    void VerifyAttrNoAs4Prepend() {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const As4Path *as_path = attr->as4_path();
+        as4_t my_as = server_.autonomous_system();
+        as4_t my_local_as = server_.local_autonomous_system();
+        EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+        EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
     }
 
     void VerifyAttrNoAsPrepend() {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
-        as_t my_as = server_.autonomous_system();
-        as_t my_local_as = server_.local_autonomous_system();
+        as4_t my_as = server_.autonomous_system();
+        as4_t my_local_as = server_.local_autonomous_system();
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
     }
 
-    void VerifyAttrNoAsPathLoop(as_t as_number) {
+    void VerifyAttrNoAsPathLoop(as4_t as_number) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
         EXPECT_FALSE(as_path->path().AsPathLoop(as_number, 0));
     }
 
-    void VerifyAttrAsPathAsCount(as_t as_number, uint8_t count) {
+    void VerifyAttrNoAs4PathLoop(as4_t as_number) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath4Byte *as_path = attr->aspath_4byte();
+        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, 0));
+    }
+
+    void VerifyAttrAsPathAsCount(as4_t as_number, uint8_t count) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
+        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, count));
+        if (count)
+            EXPECT_TRUE(as_path->path().AsPathLoop(as_number, count - 1));
+    }
+
+    void VerifyAttrAs4BytePathAsCount(as4_t as_number, uint8_t count) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath4Byte *as_path = attr->aspath_4byte();
+        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, count));
+        if (count)
+            EXPECT_TRUE(as_path->path().AsPathLoop(as_number, count - 1));
+    }
+
+    void VerifyAttrAs4PathAsCount(as4_t as_number, uint8_t count) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const As4Path *as_path = attr->as4_path();
         EXPECT_FALSE(as_path->path().AsPathLoop(as_number, count));
         if (count)
             EXPECT_TRUE(as_path->path().AsPathLoop(as_number, count - 1));
@@ -731,7 +847,7 @@ TEST_P(BgpTableExportParamTest1, AsOverride) {
 //
 TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
     bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -748,6 +864,25 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
         VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
 }
 
+TEST_P(BgpTableExportParamTest1, RemovePrivateAllAs4) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath4(4294967294);
+    SetAttrAsPath4(65535);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4BytePrepend();
+    VerifyAttrAs4BytePathCount(PeerIsInternal() ? 1 : 2);
+    VerifyAttrAs4BytePathAsCount(LocalAsNumber(), 1);
+    if (!PeerIsInternal())
+        VerifyAttrAs4BytePathAsCount(PeerAsNumber(), 1);
+}
+
 //
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP, iBGP
@@ -757,7 +892,7 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
 //
 TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace1) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -774,6 +909,26 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace1) {
         VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
 }
 
+TEST_P(BgpTableExportParamTest1, RemovePrivateAllAs4Replace1) {
+    bool as4_supported = true;
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    bool all = true; bool replace = true; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath4(4294967294);
+    SetAttrAsPath4(4200000000);
+    AddPath(as4_supported);
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4BytePrepend();
+    VerifyAttrAs4BytePathCount(PeerIsInternal() ? 3 : 4);
+    VerifyAttrAs4BytePathAsCount(LocalAsNumber(), 3);
+    if (!PeerIsInternal())
+        VerifyAttrAs4BytePathAsCount(PeerAsNumber(), 1);
+}
+
 //
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP, iBGP
@@ -784,7 +939,7 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace1) {
 //
 TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace2) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -802,6 +957,29 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace2) {
     VerifyAttrAsPathAsCount(500, 2);
     if (!PeerIsInternal())
         VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
+}
+
+TEST_P(BgpTableExportParamTest1, RemovePrivateAllAs4Replace2) {
+    bool as4_supported = true;
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    bool all = true; bool replace = true; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath4(4294967294);  // replaced by nearest public as (500)
+    SetAttrAsPath4(500);
+    SetAttrAsPath4(4200000000);  // replaced by local as
+    SetAttrAsPath4(4225000000);  // replaced by local as
+    AddPath(as4_supported);
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4BytePrepend();
+    VerifyAttrAs4BytePathCount(PeerIsInternal() ? 5 : 6);
+    VerifyAttrAs4BytePathAsCount(LocalAsNumber(), 3);
+    VerifyAttrAs4BytePathAsCount(500, 2);
+    if (!PeerIsInternal())
+        VerifyAttrAs4BytePathAsCount(PeerAsNumber(), 1);
 }
 
 //
@@ -824,6 +1002,23 @@ TEST_P(BgpTableExportParamTest1, NoRemovePrivate) {
     VerifyAttrAsPathAsCount(65535, 1);
     if (!PeerIsInternal())
         VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
+}
+
+TEST_P(BgpTableExportParamTest1, NoRemovePrivateAs4) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, true, IpAddress(),
+                 0, true);
+    SetAttrAsPath4(4294967294);
+    SetAttrAsPath4(4200000000);
+    AddPath(true);
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4BytePrepend();
+    VerifyAttrAs4BytePathCount(PeerIsInternal() ? 3 : 4);
+    VerifyAttrAs4BytePathAsCount(LocalAsNumber(), 1);
+    VerifyAttrAs4BytePathAsCount(4200000000, 1);
+    VerifyAttrAs4BytePathAsCount(4294967294, 1);
+    if (!PeerIsInternal())
+        VerifyAttrAs4BytePathAsCount(PeerAsNumber(), 1);
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest1,
@@ -970,7 +1165,7 @@ TEST_P(BgpTableExportParamTest2, EBgpRetainMed2) {
 //
 TEST_P(BgpTableExportParamTest2, EBgpNoRetainMed) {
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
-    SetAttrAsPath(100);
+    SetAttrAsPath4(100);
     AddPath();
     RunExport();
     VerifyExportAccept();
@@ -1006,7 +1201,7 @@ TEST_P(BgpTableExportParamTest2, EBgpStripNonTransitive) {
 //
 TEST_P(BgpTableExportParamTest2, RemovePrivateAll1) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
     bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1019,25 +1214,86 @@ TEST_P(BgpTableExportParamTest2, RemovePrivateAll1) {
     VerifyAttrAsPathAsCount(LocalAsNumber(), 1);
 }
 
+TEST_P(BgpTableExportParamTest2, RemovePrivateAll1As4) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+    ResetAttrAsPath4();
+    AddPath(true);
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4BytePrepend();
+    VerifyAttrAs4BytePathCount(1);
+    VerifyAttrAs4BytePathAsCount(LocalAsNumber(), 1);
+}
+
 //
 // Table : inet.0, bgp.l3vpn.0
 // Source: iBGP
 // RibOut: eBGP
 // Intent: Remove private all is handled gracefully when AsPath has no
 //         segments.
-//
+// policy and peer do not understand as4
 TEST_P(BgpTableExportParamTest2, RemovePrivateAll2) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
     bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
+    ResetAttrAsPath4();
     AddPath();
     RunExport();
     VerifyExportAccept();
     VerifyAttrAsPrepend();
     VerifyAttrAsPathCount(1);
     VerifyAttrAsPathAsCount(LocalAsNumber(), 1);
+}
+
+TEST_P(BgpTableExportParamTest2, RemovePrivateAll2As4) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    AddPath(true);
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4BytePrepend();
+    VerifyAttrAs4BytePathCount(1);
+    VerifyAttrAs4BytePathAsCount(LocalAsNumber(), 1);
+}
+
+TEST_P(BgpTableExportParamTest2, RemovePrivateAll3) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    AddPath(true);
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(1);
+    VerifyAttrAsPathAsCount(LocalAsNumber(), 1);
+}
+
+TEST_P(BgpTableExportParamTest2, RemovePrivateAll3As4) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+    ResetAttrAsPath4();
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4BytePrepend();
+    VerifyAttrAs4BytePathCount(1);
+    VerifyAttrAs4BytePathAsCount(LocalAsNumber(), 1);
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest2,
@@ -1122,6 +1378,17 @@ TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend1) {
     VerifyAttrNoAsPrepend();
 }
 
+TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend1As4) {
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber(), 0, 0,
+                 true);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrLocalPref(100);
+    VerifyAttrMed(100);
+    VerifyAttrNoAs4Prepend();
+}
+
 //
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP
@@ -1131,13 +1398,13 @@ TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend1) {
 //
 TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend2) {
     CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
-    ResetAttrAsPath();
+    ResetAttrAsPath4();
     AddPath();
     RunExport();
     VerifyExportAccept();
     VerifyAttrLocalPref(100);
     VerifyAttrMed(100);
-    VerifyAttrNoAsPrepend();
+    VerifyAttrNoAs4Prepend();
 }
 
 //
@@ -1207,6 +1474,19 @@ TEST_P(BgpTableExportParamTest3, AsOverride) {
     UnregisterRibOut();
 }
 
+TEST_P(BgpTableExportParamTest3, As4Override) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 100, true, IpAddress(),
+                 0, true);
+    RegisterRibOut();
+    AddPath(true);
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAs4Prepend();
+    VerifyAttrAs4BytePathCount(PeerIsInternal() ? 1 : 2);
+    VerifyAttrNoAs4PathLoop(100);
+    UnregisterRibOut();
+}
+
 //
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP
@@ -1242,7 +1522,7 @@ TEST_P(BgpTableExportParamTest3, AsOverrideAndRewriteNexthop) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAll) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, false, false, -1, 0);
     bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1265,7 +1545,7 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAll) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace1) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, false, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1290,7 +1570,7 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace1) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace2) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, false, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1319,7 +1599,7 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace2) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace3) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, false, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);

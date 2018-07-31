@@ -210,7 +210,7 @@ protected:
     int TableCount(DBTable *table);
     void VerifyPeers(int line, BgpServerAuthTestMock *cn1,
         BgpServerAuthTestMock *cn2, size_t verify_kacount, const string &id1,
-        const string &id2, as_t asn1, as_t asn2, const string &key);
+        const string &id2, as4_t asn1, as4_t asn2, const string &key);
     void AddPeering(BgpServerAuthTestMock *cn1, BgpServerAuthTestMock *cn2,
         const string &uuid, const vector<autogen::AuthenticationKeyItem> &keys);
     void DeletePeering(BgpServerAuthTestMock *cn1, BgpServerAuthTestMock *cn2);
@@ -309,7 +309,7 @@ void BgpAuthenticationTest::ChangeBgpRouterNode(BgpServerAuthTestMock *cn,
 
 void BgpAuthenticationTest::VerifyPeers(int line, BgpServerAuthTestMock *cn1,
         BgpServerAuthTestMock *cn2, size_t kacount, const string &id1,
-        const string &id2, as_t asn1, as_t asn2, const string &key) {
+        const string &id2, as4_t asn1, as4_t asn2, const string &key) {
     string message = "from line " + integerToString(line);
     std::cout << "VerifyPeers() called from line number " << line << std::endl;
     BgpProto::BgpPeerType peer_type =

@@ -873,6 +873,24 @@ struct BgpAttributeVerifier<AsPathSpec::PathSegment> {
     }
 };
 
+template <>
+struct BgpAttributeVerifier<AsPath4ByteSpec::PathSegment> {
+    static bool Verifier(const AsPath4ByteSpec::PathSegment *obj,
+                         const uint8_t *data, size_t size,
+                         ParseContext *context) {
+        return true;
+    }
+};
+
+template <>
+struct BgpAttributeVerifier<As4PathSpec::PathSegment> {
+    static bool Verifier(const As4PathSpec::PathSegment *obj,
+                         const uint8_t *data, size_t size,
+                         ParseContext *context) {
+        return true;
+    }
+};
+
 template <int Size, class C, typename T, T C::*Member>
 class BgpAttributeValue :
     public ProtoElement<BgpAttributeValue<Size, C, T, Member> > {
@@ -928,7 +946,7 @@ public:
     typedef BgpAttrAggregator ContextType;
     typedef BgpContextSwap<BgpAttrAggregator> ContextSwap;
     typedef mpl::list<BgpPathAttrLength,
-            BgpAttributeValue<2, BgpAttrAggregator, as_t,
+            BgpAttributeValue<2, BgpAttrAggregator, as2_t,
                                   &BgpAttrAggregator::as_num>,
             BgpAttributeValue<4, BgpAttrAggregator, uint32_t,
                                   &BgpAttrAggregator::address>
@@ -956,13 +974,71 @@ public:
     typedef SetLength EncodingCallback;
 };
 
+class BgpPathAttrAsPath4ByteSegmentLength :
+    public ProtoElement<BgpPathAttrAsPath4ByteSegmentLength> {
+public:
+    static const int kSize = 1;
+    struct PathSegmentLength {
+        int operator()(AsPath4ByteSpec::PathSegment *obj,
+                       const uint8_t *data, size_t size) {
+            return get_value(data, 1) * 4;
+        }
+    };
+    typedef PathSegmentLength SequenceLength;
+    struct SetLength {
+        static void Callback(EncodeContext *context, uint8_t *data,
+                             int offset, int element_size) {
+            int len = get_value(data, kSize);
+            put_value(data, kSize, len/4);
+        }
+    };
+    typedef SetLength EncodingCallback;
+};
+
+class BgpPathAttrAs4PathSegmentLength :
+    public ProtoElement<BgpPathAttrAs4PathSegmentLength> {
+public:
+    static const int kSize = 1;
+    struct PathSegmentLength {
+        int operator()(As4PathSpec::PathSegment *obj,
+                       const uint8_t *data, size_t size) {
+            return get_value(data, 1) * 4;
+        }
+    };
+    typedef PathSegmentLength SequenceLength;
+    struct SetLength {
+        static void Callback(EncodeContext *context, uint8_t *data,
+                             int offset, int element_size) {
+            int len = get_value(data, kSize);
+            put_value(data, kSize, len/4);
+        }
+    };
+    typedef SetLength EncodingCallback;
+};
+
 
 class BgpPathAttrAsPathSegmentValue :
     public ProtoElement<BgpPathAttrAsPathSegmentValue> {
 public:
     static const int kSize = -1;
-    typedef VectorAccessor<AsPathSpec::PathSegment, as_t,
+    typedef VectorAccessor<AsPathSpec::PathSegment, as2_t,
                            &AsPathSpec::PathSegment::path_segment> Setter;
+};
+
+class BgpPathAttrAsPath4ByteSegmentValue :
+    public ProtoElement<BgpPathAttrAsPath4ByteSegmentValue> {
+public:
+    static const int kSize = -1;
+    typedef VectorAccessor<AsPath4ByteSpec::PathSegment, as4_t,
+                           &AsPath4ByteSpec::PathSegment::path_segment> Setter;
+};
+
+class BgpPathAttrAs4PathSegmentValue :
+    public ProtoElement<BgpPathAttrAs4PathSegmentValue> {
+public:
+    static const int kSize = -1;
+    typedef VectorAccessor<As4PathSpec::PathSegment, as4_t,
+                           &As4PathSpec::PathSegment::path_segment> Setter;
 };
 
 class BgpPathAttrAsPathSegmentList :
@@ -988,11 +1064,73 @@ public:
     > Sequence;
 };
 
+class BgpPathAttrAsPath4ByteSegmentList :
+    public ProtoSequence<BgpPathAttrAsPath4ByteSegmentList> {
+public:
+    static const int kMinOccurs = 0;
+    static const int kMaxOccurs = -1;
+
+    static bool Verifier(const AsPath4ByteSpec *obj, const uint8_t *data,
+                         size_t size, ParseContext *context) {
+        return BgpAttributeVerifier<AsPath4ByteSpec>::Verifier(obj, data, size,
+                                                          context);
+    }
+
+    typedef CollectionAccessor<AsPath4ByteSpec,
+            vector<AsPath4ByteSpec::PathSegment *>,
+            &AsPath4ByteSpec::path_segments> ContextStorer;
+
+    typedef mpl::list<BgpAttributeValue<1, AsPath4ByteSpec::PathSegment, int,
+                      &AsPath4ByteSpec::PathSegment::path_segment_type>,
+            BgpPathAttrAsPath4ByteSegmentLength,
+            BgpPathAttrAsPath4ByteSegmentValue
+    > Sequence;
+};
+
+class BgpPathAttrAs4PathSegmentList :
+    public ProtoSequence<BgpPathAttrAs4PathSegmentList> {
+public:
+    static const int kMinOccurs = 0;
+    static const int kMaxOccurs = -1;
+
+    static bool Verifier(const As4PathSpec *obj, const uint8_t *data,
+                         size_t size, ParseContext *context) {
+        return BgpAttributeVerifier<As4PathSpec>::Verifier(obj, data, size,
+                                                          context);
+    }
+
+    typedef CollectionAccessor<As4PathSpec,
+            vector<As4PathSpec::PathSegment *>,
+            &As4PathSpec::path_segments> ContextStorer;
+
+    typedef mpl::list<BgpAttributeValue<1, As4PathSpec::PathSegment, int,
+                      &As4PathSpec::PathSegment::path_segment_type>,
+            BgpPathAttrAs4PathSegmentLength,
+            BgpPathAttrAs4PathSegmentValue
+    > Sequence;
+};
+
 class BgpPathAttributeAsPath : public ProtoSequence<BgpPathAttributeAsPath> {
 public:
     typedef AsPathSpec ContextType;
     typedef BgpContextSwap<AsPathSpec> ContextSwap;
     typedef mpl::list<BgpPathAttrLength, BgpPathAttrAsPathSegmentList> Sequence;
+};
+
+class BgpPathAttributeAsPath4Byte :
+    public ProtoSequence<BgpPathAttributeAsPath4Byte> {
+public:
+    typedef AsPath4ByteSpec ContextType;
+    typedef BgpContextSwap<AsPath4ByteSpec> ContextSwap;
+    typedef mpl::list<BgpPathAttrLength,
+            BgpPathAttrAsPath4ByteSegmentList> Sequence;
+};
+
+class BgpPathAttributeAs4Path : public ProtoSequence<BgpPathAttributeAs4Path> {
+public:
+    typedef As4PathSpec ContextType;
+    typedef BgpContextSwap<As4PathSpec> ContextSwap;
+    typedef mpl::list<BgpPathAttrLength, BgpPathAttrAs4PathSegmentList> Sequence;
 };
 
 class BgpPathAttributeFlags : public ProtoElement<BgpPathAttributeFlags> {
@@ -1737,6 +1875,56 @@ public:
     > Choice;
 };
 
+class BgpPathAttributeAs4 : public ProtoChoice<BgpPathAttributeAs4> {
+public:
+    static const int kSize = 1;
+
+    typedef Accessor<BgpAttribute, uint8_t, &BgpAttribute::code> Setter;
+    typedef mpl::map<
+          mpl::pair<mpl::int_<BgpAttribute::Origin>,
+                    BgpAttrTemplate<BgpAttrOrigin, 1, int,
+                                    &BgpAttrOrigin::origin> >,
+          mpl::pair<mpl::int_<BgpAttribute::AsPath>,
+                              BgpPathAttributeAsPath4Byte>,
+          mpl::pair<mpl::int_<BgpAttribute::As4Path>, BgpPathAttributeAs4Path>,
+          mpl::pair<mpl::int_<BgpAttribute::NextHop>,
+                    BgpAttrTemplate<BgpAttrNextHop, 4, uint32_t,
+                                    &BgpAttrNextHop::nexthop> >,
+          mpl::pair<mpl::int_<BgpAttribute::MultiExitDisc>,
+                    BgpAttrTemplate<BgpAttrMultiExitDisc, 4, uint32_t,
+                                    &BgpAttrMultiExitDisc::med> >,
+          mpl::pair<mpl::int_<BgpAttribute::LocalPref>,
+                    BgpAttrTemplate<BgpAttrLocalPref, 4, uint32_t,
+                                    &BgpAttrLocalPref::local_pref> >,
+          mpl::pair<mpl::int_<BgpAttribute::AtomicAggregate>,
+                    BgpPathAttributeAtomicAggregate>,
+          mpl::pair<mpl::int_<BgpAttribute::Aggregator>,
+                    BgpPathAttributeAggregator>,
+          mpl::pair<mpl::int_<BgpAttribute::Communities>,
+                    BgpPathAttributeCommunities>,
+          mpl::pair<mpl::int_<BgpAttribute::OriginatorId>,
+                    BgpAttrTemplate<BgpAttrOriginatorId, 4, uint32_t,
+                                    &BgpAttrOriginatorId::originator_id> >,
+          mpl::pair<mpl::int_<BgpAttribute::ClusterList>,
+                    BgpPathAttributeClusterList>,
+          mpl::pair<mpl::int_<BgpAttribute::MPReachNlri>,
+                    BgpPathAttributeMpReachNlriSequence>,
+          mpl::pair<mpl::int_<BgpAttribute::MPUnreachNlri>,
+                    BgpPathAttributeMpUnreachNlriSequence>,
+          mpl::pair<mpl::int_<BgpAttribute::ExtendedCommunities>,
+                    BgpPathAttributeExtendedCommunities>,
+          mpl::pair<mpl::int_<BgpAttribute::PmsiTunnel>,
+                    BgpPathAttributePmsiTunnel>,
+          mpl::pair<mpl::int_<BgpAttribute::McastEdgeDiscovery>,
+                    BgpPathAttributeEdgeDiscovery>,
+          mpl::pair<mpl::int_<BgpAttribute::McastEdgeForwarding>,
+                    BgpPathAttributeEdgeForwarding>,
+          mpl::pair<mpl::int_<BgpAttribute::OriginVnPath>,
+                    BgpPathAttributeOriginVnPath>,
+          mpl::pair<mpl::int_<-1>, BgpPathAttributeUnknown>
+    > Choice;
+};
+
 class BgpPathAttributeList : public ProtoSequence<BgpPathAttributeList> {
 public:
     static const int kSize = 2;
@@ -1757,6 +1945,26 @@ public:
     typedef mpl::list<BgpPathAttributeFlags, BgpPathAttribute> Sequence;
 };
 
+class BgpPathAttributeAs4List : public ProtoSequence<BgpPathAttributeAs4List> {
+public:
+    static const int kSize = 2;
+    static const int kMinOccurs = 0;
+    static const int kMaxOccurs = -1;
+    static const int kErrorCode = BgpProto::Notification::UpdateMsgErr;
+    static const int kErrorSubcode =
+            BgpProto::Notification::MalformedAttributeList;
+    struct Offset {
+        string operator()() {
+            return "BgpPathAttribute";
+        }
+    };
+    typedef Offset SaveOffset;
+    typedef CollectionAccessor<BgpProto::Update,
+                vector<BgpAttribute *>,
+                &BgpProto::Update::path_attributes> ContextStorer;
+    typedef mpl::list<BgpPathAttributeFlags, BgpPathAttributeAs4> Sequence;
+};
+
 class BgpUpdateNlri : public ProtoSequence<BgpUpdateNlri> {
 public:
     static const int kMinOccurs = 0;
@@ -1773,6 +1981,13 @@ public:
     };
     typedef OptMatch ContextMatch;
     typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
+};
+
+class BgpUpdateMessageAs4 : public ProtoSequence<BgpUpdateMessageAs4> {
+public:
+    typedef mpl::list<BgpUpdateWithdrawnRoutes, BgpPathAttributeAs4List,
+                      BgpUpdateNlri> Sequence;
+    typedef BgpProto::Update ContextType;
 };
 
 class BgpUpdateMessage : public ProtoSequence<BgpUpdateMessage> {
@@ -1795,16 +2010,40 @@ public:
     > Choice;
 };
 
+class BgpMsgTypeAs4 : public ProtoChoice<BgpMsgTypeAs4> {
+public:
+    static const int kSize = 1;
+    static const int kErrorCode = BgpProto::Notification::MsgHdrErr;
+    static const int kErrorSubcode = BgpProto::Notification::BadMsgType;
+    typedef mpl::map<
+        mpl::pair<mpl::int_<BgpProto::OPEN>, BgpOpenMessage>,
+        mpl::pair<mpl::int_<BgpProto::NOTIFICATION>, BgpNotificationMessage>,
+        mpl::pair<mpl::int_<BgpProto::KEEPALIVE>, BgpKeepaliveMessage>,
+        mpl::pair<mpl::int_<BgpProto::UPDATE>, BgpUpdateMessageAs4>
+    > Choice;
+};
+
 class BgpProtocol : public ProtoSequence<BgpProtocol> {
 public:
     typedef mpl::list<BgpMarker, BgpMsgLength, BgpMsgType> Sequence;
 };
 
+class BgpProtocolAs4 : public ProtoSequence<BgpProtocolAs4> {
+public:
+    typedef mpl::list<BgpMarker, BgpMsgLength, BgpMsgTypeAs4> Sequence;
+};
+
 BgpProto::BgpMessage *BgpProto::Decode(const uint8_t *data, size_t size,
-                                       ParseErrorContext *ec) {
+                                       ParseErrorContext *ec, bool as4) {
     ParseContext context;
-    int result = BgpProtocol::Parse(
-        data, size, &context, reinterpret_cast<void *>(NULL));
+    int result;
+    if (as4) {
+       result  = BgpProtocolAs4::Parse(data, size, &context,
+                                       reinterpret_cast<void *>(NULL));
+    } else {
+       result  = BgpProtocol::Parse(data, size, &context,
+                                    reinterpret_cast<void *>(NULL));
+    }
     if (result < 0) {
         if (ec) {
             *ec = context.error_context();
@@ -1815,9 +2054,14 @@ BgpProto::BgpMessage *BgpProto::Decode(const uint8_t *data, size_t size,
 }
 
 int BgpProto::Encode(const BgpMessage *msg, uint8_t *data, size_t size,
-                     EncodeOffsets *offsets) {
+                     EncodeOffsets *offsets, bool as4) {
     EncodeContext ctx;
-    int result = BgpProtocol::Encode(&ctx, msg, data, size);
+    int result;
+    if (as4) {
+        result = BgpProtocolAs4::Encode(&ctx, msg, data, size);
+    } else {
+        result = BgpProtocol::Encode(&ctx, msg, data, size);
+    }
     if (offsets) {
         *offsets = ctx.encode_offsets();
     }

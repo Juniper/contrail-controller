@@ -59,6 +59,17 @@ void OriginVnPath::Prepend(const OriginVnValue &value) {
     origin_vns_.insert(it, value);
 }
 
+bool OriginVnPath::Contains(as4_t asn, uint32_t vn_index) const {
+    if (asn <= 0xffff) {
+        OriginVn origin_vn(asn, vn_index);
+        return Contains(origin_vn.GetExtCommunity());
+    }
+    OriginVn4ByteAs origin_vn4(asn, AS_TRANS);
+    OriginVn origin_vn(AS_TRANS, vn_index);
+    return (Contains(origin_vn.GetExtCommunity()) &&
+                     Contains(origin_vn4.GetExtCommunity()));
+}
+
 bool OriginVnPath::Contains(const OriginVnValue &val) const {
     OriginVn in_origin_vn(val);
     int in_vn_index = in_origin_vn.IsGlobal() ? in_origin_vn.vn_index() : 0;
