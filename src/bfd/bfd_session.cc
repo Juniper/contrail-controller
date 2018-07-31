@@ -50,9 +50,9 @@ Session::~Session() {
 }
 
 bool Session::SendTimerExpired() {
-    LOG(DEBUG, __func__);
-
     ControlPacket packet;
+
+    stats_.send_timer_expired_count++;
     PreparePacket(nextConfig_, &packet);
     SendPacket(&packet);
 
@@ -62,8 +62,9 @@ bool Session::SendTimerExpired() {
 }
 
 bool Session::RecvTimerExpired() {
-    LOG(DEBUG, __func__);
+
     sm_->ProcessTimeout();
+    stats_.receive_timer_expired_count++;
 
     return false;
 }
@@ -90,7 +91,6 @@ void Session::ScheduleSendTimer() {
     int elapsed_time_ms;
     int remaining_time_ms;
     TimeInterval ti = tx_interval();
-    LOG(DEBUG, __func__ << " " << ti);
 
     // get the elapsed time
     elapsed_time_ms = sendTimer_->GetElapsedTime();
@@ -109,7 +109,6 @@ void Session::ScheduleSendTimer() {
 
 void Session::ScheduleRecvDeadlineTimer() {
     TimeInterval ti = detection_time();
-    LOG(DEBUG, __func__ << ti);
 
     recvTimer_->Cancel();
     recvTimer_->Start(ti.total_milliseconds(),
@@ -200,14 +199,16 @@ ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
 }
 
 void Session::SendPacket(const ControlPacket *packet) {
-    LOG(DEBUG, __func__ << " session:" << toString());
     boost::asio::mutable_buffer buffer =
         boost::asio::mutable_buffer(new u_int8_t[kMinimalPacketLength],
                                     kMinimalPacketLength);
     int pktSize = EncodeControlPacket(packet,
         boost::asio::buffer_cast<uint8_t *>(buffer), kMinimalPacketLength);
     if (pktSize != kMinimalPacketLength) {
-        LOG(ERROR, "Unable to encode packet");
+        LOG(ERROR,
+           "Unable to encode packet: pktSize " << pktSize
+           << ", session: " << toString());
+        stats_.tx_error_count++;
     } else {
         communicator_->SendPacket(local_endpoint_, remote_endpoint_,
                                   key_.index, buffer, pktSize);

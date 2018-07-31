@@ -254,6 +254,12 @@ void ServicesSandesh::BfdStatsSandesh(std::string ctxt, bool more) {
 
         session.stats.rx_count = bfd_session->Stats().rx_count;
         session.stats.tx_count = bfd_session->Stats().tx_count;
+        session.stats.rx_error_count = bfd_session->Stats().rx_error_count;
+        session.stats.tx_error_count = bfd_session->Stats().tx_error_count;
+        session.stats.receive_timer_expired_count =
+            bfd_session->Stats().receive_timer_expired_count;
+        session.stats.send_timer_expired_count =
+            bfd_session->Stats().send_timer_expired_count;
 
         bfd_list.push_back(session);
         it++;

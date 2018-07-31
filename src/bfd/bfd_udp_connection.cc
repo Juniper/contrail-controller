@@ -89,7 +89,6 @@ void UDPConnectionManager::RegisterCallback(RecvCallback callback) {
 
 void UDPConnectionManager::SendPacket(boost::asio::ip::address remoteHost,
                                       const ControlPacket *packet) {
-    LOG(DEBUG, __func__);
     boost::asio::mutable_buffer send =
         boost::asio::mutable_buffer(new u_int8_t[kMinimalPacketLength],
                                     kMinimalPacketLength);
@@ -111,7 +110,6 @@ void UDPConnectionManager::SendPacket(
         const boost::asio::ip::udp::endpoint &remote_endpoint,
         const SessionIndex &index, const boost::asio::mutable_buffer &send,
         int pktSize) {
-    LOG(DEBUG, __func__);
     udpSend_->StartSend(remote_endpoint, pktSize, send);
 }
 
