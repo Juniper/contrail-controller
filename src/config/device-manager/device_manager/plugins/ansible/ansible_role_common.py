@@ -781,7 +781,6 @@ class AnsibleRoleCommon(AnsibleConf):
             lag = LinkAggrGroup(link_members=link_members)
             intf = PhysicalInterface(name=ae_name,
                                      ethernet_segment_identifier=esi,
-                                     interface_type='lag',
                                      link_aggregation_group=lag)
             self.interfaces_config.append(intf)
     # end build_ae_config
