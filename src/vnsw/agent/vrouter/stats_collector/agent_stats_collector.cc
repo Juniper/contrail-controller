@@ -37,6 +37,7 @@ AgentStatsCollector::AgentStatsCollector
     intf_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent, true));
     vrf_stats_sandesh_ctx_.reset( new AgentStatsSandeshContext(agent, false));
     drop_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent, false));
+    InitDone();
 }
 
 AgentStatsCollector::~AgentStatsCollector() {
