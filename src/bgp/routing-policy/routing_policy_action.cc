@@ -18,23 +18,23 @@ using std::ostringstream;
 using std::string;
 using std::vector;
 
-UpdateAsPath::UpdateAsPath(const vector<uint16_t> &asn_list)
+UpdateAsPath::UpdateAsPath(const vector<uint32_t> &asn_list)
     : asn_list_(asn_list) {
 }
 
 void UpdateAsPath::operator()(BgpAttr *attr) const {
     if (!attr)
         return;
-    const AsPath *as_path = attr->as_path();
+    const AsPath4Byte *as_path = attr->aspath_4byte();
     if (as_path) {
-        const AsPathSpec &as_path_spec = as_path->path();
-        AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
-        attr->set_as_path(as_path_spec_ptr);
+        const AsPath4ByteSpec &as_path_spec = as_path->path();
+        AsPath4ByteSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+        attr->set_aspath_4byte(as_path_spec_ptr);
         delete as_path_spec_ptr;
     } else {
-        AsPathSpec as_path_spec;
-        AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
-        attr->set_as_path(as_path_spec_ptr);
+        AsPath4ByteSpec as_path_spec;
+        AsPath4ByteSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+        attr->set_aspath_4byte(as_path_spec_ptr);
         delete as_path_spec_ptr;
     }
 }
@@ -42,7 +42,7 @@ void UpdateAsPath::operator()(BgpAttr *attr) const {
 string UpdateAsPath::ToString() const {
     ostringstream oss;
     oss << "as-path expand [ ";
-    BOOST_FOREACH(uint16_t asn, asn_list_) {
+    BOOST_FOREACH(uint32_t asn, asn_list_) {
         oss << asn << ",";
     }
     oss.seekp(-1, oss.cur);

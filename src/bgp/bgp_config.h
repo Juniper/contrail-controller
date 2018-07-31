@@ -339,7 +339,7 @@ struct StaticRouteConfig {
     std::vector<std::string> communities;
 };
 
-typedef std::vector<uint16_t> AsnList;
+typedef std::vector<uint32_t> AsnList;
 typedef std::vector<std::string> CommunityList;
 typedef std::vector<std::string> ProtocolList;
 

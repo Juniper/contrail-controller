@@ -42,6 +42,7 @@ public:
         MPReachNlri = 14,
         MPUnreachNlri = 15,
         ExtendedCommunities = 16,
+        As4Path = 17,
         PmsiTunnel = 22,
         McastEdgeDiscovery = 241,
         McastEdgeForwarding = 242,

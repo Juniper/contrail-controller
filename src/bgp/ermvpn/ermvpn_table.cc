@@ -88,9 +88,8 @@ BgpRoute *ErmVpnTable::RouteReplicate(BgpServer *server,
             return NULL;
 
         // Don't replicate to VRF from the VPN table if OriginVn doesn't match.
-        OriginVn origin_vn(server->autonomous_system(),
-            routing_instance()->virtual_network_index());
-        if (!community->ContainsOriginVn(origin_vn.GetExtCommunity()))
+        if (!community->ContainsOriginVn(server->autonomous_system(),
+                    routing_instance()->virtual_network_index()))
             return NULL;
     }
 

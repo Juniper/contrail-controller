@@ -24,6 +24,8 @@
 #include "net/address.h"
 
 class AsPathDB;
+class AsPath4ByteDB;
+class As4PathDB;
 class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
@@ -56,7 +58,7 @@ class BgpServer {
 public:
     typedef boost::function<void()> AdminDownCb;
     typedef boost::function<void(uint8_t)> DSCPUpdateCb;
-    typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
+    typedef boost::function<void(as4_t, as4_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
     typedef std::set<IStaticRouteMgr *> StaticRouteMgrList;
@@ -154,6 +156,8 @@ public:
     }
 
     AsPathDB *aspath_db() { return aspath_db_.get(); }
+    AsPath4ByteDB *aspath_4byte_db() { return aspath_4byte_db_.get(); }
+    As4PathDB *as4path_db() { return as4path_db_.get(); }
     BgpAttrDB *attr_db() { return attr_db_.get(); }
     BgpOListDB *olist_db() { return olist_db_.get(); }
     ClusterListDB *cluster_list_db() { return cluster_list_db_.get(); }
@@ -178,8 +182,8 @@ public:
     bool admin_down() const { return admin_down_; }
     uint32_t cluster_id() const { return cluster_id_; }
     void set_cluster_id(uint32_t id) { cluster_id_ = id; }
-    as_t autonomous_system() const { return autonomous_system_; }
-    as_t local_autonomous_system() const { return local_autonomous_system_; }
+    as4_t autonomous_system() const { return autonomous_system_; }
+    as4_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
     uint32_t bgp_identifier_u32() const { return bgp_identifier_u32_; }
 
@@ -249,7 +253,7 @@ public:
     void NotifyAdminDown();
     int RegisterASNUpdateCallback(ASNUpdateCb callback);
     void UnregisterASNUpdateCallback(int listener);
-    void NotifyASNUpdate(as_t old_asn, as_t old_local_asn);
+    void NotifyASNUpdate(as4_t old_asn, as4_t old_local_asn);
     int RegisterIdentifierUpdateCallback(IdentifierUpdateCb callback);
     void UnregisterIdentifierUpdateCallback(int listener);
     void NotifyIdentifierUpdate(Ip4Address old_identifier);
@@ -300,8 +304,8 @@ private:
     AdminDownListenersList admin_down_listeners_;
     boost::dynamic_bitset<> admin_down_bmap_;  // free list.
     uint32_t cluster_id_;
-    as_t autonomous_system_;
-    as_t local_autonomous_system_;
+    as4_t autonomous_system_;
+    as4_t local_autonomous_system_;
     ASNUpdateListenersList asn_listeners_;
     boost::dynamic_bitset<> asn_bmap_;     // free list.
     Ip4Address bgp_identifier_;
@@ -333,6 +337,8 @@ private:
 
     // databases
     boost::scoped_ptr<AsPathDB> aspath_db_;
+    boost::scoped_ptr<AsPath4ByteDB> aspath_4byte_db_;
+    boost::scoped_ptr<As4PathDB> as4path_db_;
     boost::scoped_ptr<BgpOListDB> olist_db_;
     boost::scoped_ptr<ClusterListDB> cluster_list_db_;
     boost::scoped_ptr<CommunityDB> comm_db_;

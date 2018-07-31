@@ -75,6 +75,17 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
         update.path_attributes.push_back(path);
     }
 
+    if (attr->aspath_4byte()) {
+        AsPath4ByteSpec *path = new AsPath4ByteSpec(
+                                attr->aspath_4byte()->path());
+        update.path_attributes.push_back(path);
+    }
+
+    if (attr->as4_path()) {
+        As4PathSpec *path = new As4PathSpec(attr->as4_path()->path());
+        update.path_attributes.push_back(path);
+    }
+
     if (attr->edge_discovery()) {
         EdgeDiscoverySpec *edspec =
             new EdgeDiscoverySpec(attr->edge_discovery()->edge_discovery());
@@ -137,8 +148,8 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
     route->BuildProtoPrefix(prefix, attr, label, roattr->l3_label());
     nlri->nlri.push_back(prefix);
 
-    int result =
-        BgpProto::Encode(&update, data_, sizeof(data_), &encode_offsets_);
+    int result = BgpProto::Encode(&update, data_, sizeof(data_),
+                                  &encode_offsets_, ribout->as4_supported());
     if (result <= 0) {
         BGP_LOG_WARNING_STR(BgpMessageSend, BGP_LOG_FLAG_ALL,
             "Error encoding reach message for route " << route->ToString() <<

@@ -29,7 +29,7 @@ public:
                              bool add_change);
     void Close();
 
-    void ASNUpdateCallback(as_t old_asn, as_t old_local_asn) const;
+    void ASNUpdateCallback(as4_t old_asn, as4_t old_local_asn) const;
     void FillInfo(BgpNeighborRoutingInstance *instance,
                   const RouteTargetList &targets) const;
     void Stale(const RouteTargetList &targets) const;
