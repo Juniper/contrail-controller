@@ -1432,6 +1432,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     data->vmi_cfg_uuid_ = vmi_uuid;
     std::list<IFMapNode *> bgp_as_a_service_node_list;
     std::list<IFMapNode *> bgp_router_node_list;
+    bool built_vm_tags = false;
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
@@ -1471,6 +1472,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_table()) {
             BuildVm(data, adj_node, u, &vm_list);
+            built_vm_tags = true;
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_project_table()) {
@@ -1540,7 +1542,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         }
 
     }
-    if (parent_vmi_node) {
+    if ((!built_vm_tags) && parent_vmi_node) {
         IFMapAgentTable *vmi_table = static_cast<IFMapAgentTable *>
                                     (parent_vmi_node->table());
         DBGraph *vmi_graph = vmi_table->GetGraph();
