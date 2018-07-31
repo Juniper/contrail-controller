@@ -17,7 +17,7 @@ set groups {{cfg_group}} interfaces {{ifd.name}} aggregated-ether-options lacp s
 set groups {{cfg_group}} interfaces {{ifd.name}} aggregated-ether-options lacp system-priority 100
 set groups {{cfg_group}} interfaces {{ifd.name}} aggregated-ether-options lacp admin-key 1
 {%                 for inter in ifd.link_aggregation_group.link_members %}
-set groups {{cfg_group}} interfaces {{inter}} ether-options 802.3ad {{ifd.name}}
+set groups {{cfg_group}} interfaces {{inter}} gigether-options 802.3ad {{ifd.name}}
 {%                  endfor %}
 set apply-groups {{cfg_group}}
 {%         endif %}
