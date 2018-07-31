@@ -40,6 +40,11 @@
     - cfg_basic
     - cfg_ip_clos
     - cfg_multi_homing
+    - cfg_overlay_bgp
+    - cfg_overlay_evpn
+    - cfg_overlay_evpn_leaf
+    - cfg_overlay_fip_snat
+    - cfg_overlay_networking
     - commit_fabric_config
 
   tasks:
