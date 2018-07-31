@@ -555,7 +555,8 @@ class VncNetworkPolicy(VncCommon):
                 %(self._name, name, uid))
             return
 
-        fw_policy_uuid = VncSecurityPolicy.create_firewall_policy(name, namespace, spec)
+        fw_policy_uuid = VncSecurityPolicy.create_firewall_policy(name, namespace,
+                                                                  spec, k8s_uuid=uid)
         VncSecurityPolicy.add_firewall_policy(fw_policy_uuid)
 
         # Update kube config db entry for the network policy.
@@ -580,33 +581,59 @@ class VncNetworkPolicy(VncCommon):
     def vnc_network_policy_delete(self, namespace, name, uuid):
         VncSecurityPolicy.delete_firewall_policy(name, namespace)
 
-    def _create_network_policy_event(self, event_type, np_id):
+    def _create_network_policy_delete_event(self, fw_policy_uuid):
+        """
+        Self-create a network policy delete event.
+        """
         event = {}
         object = {}
+        event['type'] = 'DELETED'
         object['kind'] = 'NetworkPolicy'
         object['metadata'] = {}
-        object['metadata']['uid'] = np_id
-        if event_type == 'delete':
-            event['type'] = 'DELETED'
-            event['object'] = object
-            self._queue.put(event)
+
+        fw_policy = FirewallPolicyKM.find_by_name_or_uuid(fw_policy_uuid)
+        object['metadata']['uid'] = fw_policy.k8s_uuid
+        object['metadata']['name'] = fw_policy.k8s_name
+        object['metadata']['namespace'] = fw_policy.k8s_namespace
+
+        event['object'] = object
+        self._queue.put(event)
         return
 
-    def _sync_np_sg(self):
-        sg_uuid_set = set(SecurityGroupKM.keys())
-        np_uuid_set = set(NetworkPolicyKM.keys())
-        deleted_np_set = sg_uuid_set - np_uuid_set
-        for uuid in deleted_np_set:
-            sg = SecurityGroupKM.get(uuid)
-            if not sg or sg.owner != 'k8s':
-                continue
-            if not sg.np_spec:
-                continue
-            self._create_network_policy_event('delete', sg.uuid)
-        return
+    def _network_policy_sync(self):
+        """
+        Validate and synchronize network policy config.
+        """
+
+        # Validate current network policy config.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        if valid == False:
+            # Validation of current network policy config failed.
+            self._logger.error(
+                "%s - Periodic validation of cluster security policy failed."\
+                " Attempting to heal."\
+                % (self._name))
+
+            # Attempt to heal the inconsistency in network policy config.
+            VncSecurityPolicy.recreate_cluster_security_policy()
+
+        # Validate and sync that K8s API and Contrail API.
+        # This handles the cases where kube-manager could have missed delete events
+        # from K8s API, which is possible if kube-manager was down when the policy
+        # was deleted.
+        headless_fw_policy_uuids = VncSecurityPolicy.sync_cluster_security_policy()
+
+        # Delete config objects for network policies not found in K8s API server but
+        # are found in Contrail API.
+        for fw_policy_uuid in headless_fw_policy_uuids:
+            self._logger.error(
+                "%s - Generating delete event for orphaned FW policy [%s]"\
+                % (self._name, fw_policy_uuid))
+            self._create_network_policy_delete_event(fw_policy_uuid)
 
     def network_policy_timer(self):
-        #self._sync_np_sg()
+        # Periodically validate and sync network policy config.
+        self._network_policy_sync()
         return
 
     def process(self, event):
@@ -615,7 +642,6 @@ class VncNetworkPolicy(VncCommon):
         namespace = event['object']['metadata'].get('namespace')
         name = event['object']['metadata'].get('name')
         uid = event['object']['metadata'].get('uid')
-
 
         print("%s - Got %s %s %s:%s:%s"
               %(self._name, event_type, kind, namespace, name, uid))

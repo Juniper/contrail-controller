@@ -431,12 +431,19 @@ class NetworkPolicyKM(KubeDBBase):
     _dict = {}
     obj_type = 'NetworkPolicy'
 
+    # List to track sequence in which network policy is created.
+    #
+    # This is useful during periodic evaluations to track and fix
+    # inconsistencies between k8s and contrail databases.
+    create_sequence = []
+
     def __init__(self, uuid, obj = None):
         self.uuid = uuid
         # Metadata.
         self.name = None
         self.namespace = None
         self.vnc_fq_name = None
+        self.add_entry()
 
         # Spec.
         self.spec = {}
@@ -477,6 +484,24 @@ class NetworkPolicyKM(KubeDBBase):
 
     def get_vnc_fq_name(self):
         return self.vnc_fq_name
+
+    def add_entry(self):
+        # Add if entry not already present.
+        # This handled duplicate add/mod requests.
+        if self.uuid not in self.create_sequence:
+            self.create_sequence.append(self.uuid)
+
+    def remove_entry(self):
+        """
+        Handler for pre-delete processing of network policy delete events.
+        """
+        # Remove if entry is present.
+        if self.uuid in self.create_sequence:
+            self.create_sequence.remove(self.uuid)
+
+    @classmethod
+    def get_configured_policies(cls):
+        return list(cls.create_sequence)
 
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
