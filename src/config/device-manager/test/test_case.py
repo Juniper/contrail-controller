@@ -74,7 +74,9 @@ class DMTestCase(test_common.TestCase):
     def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False, role=None, ignore_bgp=False):
         bgp_router, pr = None, None
         if not ignore_bgp:
-            bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
+            bgp_router = BgpRouter(name,
+                                   display_name=name+"-bgp",
+                                   parent_obj=self._get_ip_fabric_ri_obj())
             params = BgpRouterParams()
             params.address = mgmt_ip
             params.identifier = '1.1.1.1'
@@ -85,7 +87,7 @@ class DMTestCase(test_common.TestCase):
             self._vnc_lib.bgp_router_create(bgp_router)
 
         if not ignore_pr:
-            pr = PhysicalRouter(name)
+            pr = PhysicalRouter(name, display_name=name)
             pr.physical_router_management_ip = mgmt_ip
             pr.physical_router_vendor_name = vendor
             pr.physical_router_product_name = product
