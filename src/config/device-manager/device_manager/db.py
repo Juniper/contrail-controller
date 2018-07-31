@@ -27,6 +27,7 @@ from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 from time import gmtime, strftime
 from cfgm_common.uve.physical_router_config.ttypes import *
 from cfgm_common.uve.service_status.ttypes import *
+import re
 
 
 class DBBaseDM(DBBase):
@@ -830,7 +831,10 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.physical_router = self.get_parent_uuid(obj)
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
-        self.name = obj.get('fq_name')[-1]
+        self.name = obj.get('display_name')
+        if self.name and re.search(r"[0-9]+_[0-9]+$", self.name):
+            # For channelized ports
+            self.name = self.name.replace("_", ":")
         self.esi = obj.get('ethernet_segment_identifier')
         self.interface_type = obj.get('physical_interface_type')
         self.update_multiple_refs('virtual_machine_interface', obj)
@@ -910,7 +914,10 @@ class LogicalInterfaceDM(DBBaseDM):
             self.physical_interface = self.get_parent_uuid(obj)
             self.physical_router = None
 
-        self.name = obj['display_name']
+        self.name = obj.get('display_name')
+        if self.name and re.search(r"[0-9]+(_[0-9]+){2}$", self.name):
+            # For channelized ports
+            self.name = self.name.replace("_", ":")
         self.vlan_tag = obj.get('logical_interface_vlan_tag', 0)
         self.li_type = obj.get('logical_interface_type', 0)
         self.update_single_ref('virtual_machine_interface', obj)

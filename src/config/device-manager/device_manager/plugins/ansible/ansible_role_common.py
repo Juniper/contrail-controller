@@ -67,8 +67,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if (is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             if is_l2_l3:
-                ri.add_routing_interfaces(LogicalInterface(
-                    name="irb." + str(network_id)))
+                self.irb_interfaces.append("irb." + str(network_id))
     # end attach_irb
 
     def set_internal_vn_irb_config(self):
@@ -83,7 +82,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     vn_obj = VirtualNetworkDM.get(vn)
                     irb_name = "irb." + str(vn_obj.vn_network_id)
                     if irb_name in self.irb_interfaces:
-                        int_ri.add_interface(Interface(name=irb_name))
+                        int_ri.add_routing_interfaces(LogicalInterface(name=irb_name))
     # end set_internal_vn_irb_config
 
     def add_irb_config(self, ri_conf):
