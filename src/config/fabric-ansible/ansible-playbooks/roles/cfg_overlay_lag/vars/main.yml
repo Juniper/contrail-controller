@@ -1,3 +1,3 @@
 ---
 # vars input file
-feature: lag
+feature: overlay_lag

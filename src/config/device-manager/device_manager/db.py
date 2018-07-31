@@ -842,9 +842,10 @@ class PhysicalInterfaceDM(DBBaseDM):
         if self.interface_type is not None and self.interface_type == 'lag':
             self.update_single_ref('link_aggregation_group', obj)
             if self.link_aggregation_group is not None:
-                link_aggr_group_obj = self.read_obj(self.link_aggregation_group)
+                link_aggr_group_obj = self.read_obj(self.link_aggregation_group,
+                                                    obj_type='link_aggregation_group')
                 if link_aggr_group_obj is not None:
-                    self.lacp_enabled = link_aggr_group_obj.get('lacp_enabled')
+                    self.lacp_enabled = link_aggr_group_obj.get('link_aggregation_group_lacp_enabled')
                     for ref in link_aggr_group_obj.get('physical_interface_refs', []):
                         if not self.uuid == ref['uuid']:
                             self.link_members.append(ref['to'][-1])
