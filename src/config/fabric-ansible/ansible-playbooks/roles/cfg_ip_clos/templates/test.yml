@@ -20,6 +20,45 @@
             }],
             "ip_address": "20.1.1.252",
             "autonomous_system": 64001
+          }, {
+            "autonomous_system": 64512,
+            "comment": "/* overlay_bgp: BGP Router: 5b11-qfx3-bgp, UUID: 618fe2f2-99e0-4d46-8dbd-1628e356fffb */",
+            "families": [
+              "inet-vpn",
+              "inet6-vpn",
+              "route-target",
+              "evpn"
+            ],
+            "hold_time": 90,
+            "ip_address": "20.1.1.249",
+            "name": "_contrail_asn-64512",
+            "peers": [
+              {
+                "autonomous_system": 64512,
+                "comment": "/* overlay_bgp: BGP Router: 5b11-qfx4-bgp, UUID: 05e4fdea-ade3-4994-9e19-4fe537f8f3e1 */",
+                "ip_address": "20.1.1.252",
+                "name": "20.1.1.252"
+              },
+              {
+                "autonomous_system": 64512,
+                "comment": "/* overlay_bgp: BGP Router: 5b11-qfx5-bgp, UUID: 4dae57e4-d566-48fe-be6a-010680b06da9 */",
+                "ip_address": "20.1.1.251",
+                "name": "20.1.1.251"
+              },
+              {
+                "autonomous_system": 64512,
+                "comment": "/* overlay_bgp: BGP Router: 5b11s14, UUID: 19d94322-71fc-40d7-a0a7-c6caf9a20aa9 */",
+                "ip_address": "172.16.130.101",
+                "name": "172.16.130.101"
+              },
+              {
+                "autonomous_system": 64512,
+                "comment": "/* overlay_bgp: BGP Router: 5b11-qfx2-bgp, UUID: 933960ca-cbf3-4296-85c5-ff38fbd0b299 */",
+                "ip_address": "20.1.1.250",
+                "name": "20.1.1.250"
+              }
+            ],
+            "type_": "internal"
           }],
           "physical_interfaces": [{
             "comment": "ip_clos",
@@ -80,7 +119,7 @@
         }
 
     - template:
-        src: juniper_junos-qfx_ip_clos.j2
+        src: juniper_ip_clos.j2
         dest: /tmp/output.json
 
     - command: cat /tmp/output.json
