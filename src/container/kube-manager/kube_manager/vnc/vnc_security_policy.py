@@ -16,6 +16,7 @@ from kube_manager.vnc.label_cache import XLabelCache
 from kube_manager.vnc.config_db import (FirewallPolicyKM, FirewallRuleKM,
                                         AddressGroupKM)
 from kube_manager.vnc.vnc_common import VncCommon
+from kube_manager.common.kube_config_db import NetworkPolicyKM
 import collections
 import json
 
@@ -414,10 +415,12 @@ class VncSecurityPolicy(VncCommon):
     allow_all_fw_policy_uuid = None
     deny_all_fw_policy_uuid = None
     ingress_svc_fw_policy_uuid = None
+    name = 'VncSecurityPolicy'
 
     def __init__(self, vnc_lib, get_tags_fn):
-        self._k8s_event_type = 'VncSecurityPolicy'
+        self._k8s_event_type = VncSecurityPolicy.name
         VncSecurityPolicy.vnc_lib = vnc_lib
+        self._logger = vnc_kube_config.logger()
         self._labels = XLabelCache(self._k8s_event_type)
         self.reset_resources()
 
@@ -489,7 +492,7 @@ class VncSecurityPolicy(VncCommon):
 
     @classmethod
     def create_firewall_policy(cls, name, namespace, spec, tag_last=False,
-                               is_global=False):
+                               is_global=False, k8s_uuid=None):
 
         if not cls.cluster_aps_uuid:
             raise Exception("Cluster Application Policy Set not available.")
@@ -508,6 +511,7 @@ class VncSecurityPolicy(VncCommon):
             cls.get_firewall_policy_name(name, namespace, is_global), pm_obj)
 
         custom_ann_kwargs = {}
+        custom_ann_kwargs['k8s_uuid'] = k8s_uuid
         curr_fw_policy = None
         fw_rules_del_candidates = set()
 
@@ -1047,3 +1051,272 @@ class VncSecurityPolicy(VncCommon):
             [cls.get_firewall_policy_name(name, namespace, is_global)]
         fw_policy_uuid = FirewallPolicyKM.get_fq_name_to_uuid(fw_policy_fq_name)
         return fw_policy_uuid
+
+    @classmethod
+    def validate_cluster_security_policy(cls):
+
+        # If APS does not exist for this cluster, then there is nothing to do.
+        if not cls.cluster_aps_uuid:
+            return True
+
+        aps = ApplicationPolicySetKM.find_by_name_or_uuid(cls.cluster_aps_uuid)
+
+        # If we are not able to local APS in cache, then there is nothing to do.
+        if not aps:
+            return True
+
+        # If APS does not match this cluster name, then there is nothing to do.
+        if aps.name != vnc_kube_config.cluster_name():
+            return True
+
+        # Update the APS, so we have the latest state.
+        aps.update()
+        fw_policy_uuids = aps.get_firewall_policies()
+
+        # If there are no firewall policies on this APS yet, there is nothing
+        # to verify.
+        if not fw_policy_uuids:
+            if cls.ingress_svc_fw_policy_uuid and\
+               cls.deny_all_fw_policy_uuid and\
+               cls.allow_all_fw_policy_uuid:
+                return False
+            else:
+                return True
+
+        # Validate that ingress firewall policy is the first policy of the
+        # cluster owned firewall policies in the APS.
+        if cls.ingress_svc_fw_policy_uuid:
+            for fw_policy_uuid in fw_policy_uuids:
+                fw_policy = FirewallPolicyKM.find_by_name_or_uuid(fw_policy_uuid)
+                if not fw_policy:
+                    continue
+
+                # Filter out policies not owned by this cluster.
+                if fw_policy.cluster_name != vnc_kube_config.cluster_name():
+                    continue
+
+                # The first policy to reach here should be ingress policy.
+                # Else return validation failure.
+                if cls.ingress_svc_fw_policy_uuid == fw_policy_uuid:
+                    break
+
+                vnc_kube_config.logger().error(
+                 "%s - Ingress FW Policy [%s] not the first policy on APS [%s]"\
+                     %(cls.name, cls.ingress_svc_fw_policy_uuid, aps.name))
+                return False
+
+        # Validate that deny and allow policies of this cluster are found on
+        # on this APS.
+        # The allow policy should follow the deny policy.
+        deny_all_fw_policy_index = None
+        allow_all_fw_policy_index = None
+        if cls.deny_all_fw_policy_uuid and cls.allow_all_fw_policy_uuid:
+            for index, fw_policy_uuid in enumerate(fw_policy_uuids):
+                fw_policy = FirewallPolicyKM.find_by_name_or_uuid(fw_policy_uuid)
+                if not fw_policy:
+                    continue
+
+                # Filter out policies not owned by this cluster.
+                if fw_policy.cluster_name != vnc_kube_config.cluster_name():
+                    continue
+
+                # Allow policy should follow the deny policy.
+                # If not, return validation failure.
+                if deny_all_fw_policy_index:
+                    if cls.allow_all_fw_policy_uuid == fw_policy_uuid:
+                        allow_all_fw_policy_index = index
+                        break
+                elif cls.deny_all_fw_policy_uuid == fw_policy_uuid:
+                    deny_all_fw_policy_index = index
+
+        # If we are unable to locate deny or allow policy, return validation
+        # failure.
+        if not deny_all_fw_policy_index or not allow_all_fw_policy_index:
+            if cls.deny_all_fw_policy_uuid and not deny_all_fw_policy_index:
+                vnc_kube_config.logger().error(
+                    "%s - deny-all FW Policy [%s] not found on APS [%s]"\
+                     %(cls.name, cls.deny_all_fw_policy_uuid, aps.name))
+
+            if cls.allow_all_fw_policy_uuid and not allow_all_fw_policy_index:
+                vnc_kube_config.logger().error(
+                    "%s - allow-all FW Policy [%s] not found (or not found"\
+                    " after deny-all policy) on APS [%s]"\
+                     %(cls.name, cls.allow_all_fw_policy_uuid, aps.name))
+            return False
+
+        # Validation succeeded. All is well.
+        return True
+
+    @classmethod
+    def recreate_cluster_security_policy(cls):
+
+        # If APS does not exist for this cluster, then there is nothing to do.
+        if not cls.cluster_aps_uuid:
+            return
+
+        aps = ApplicationPolicySetKM.find_by_name_or_uuid(cls.cluster_aps_uuid)
+
+        # If APS does not match this cluster name, then there is nothing to do.
+        if aps.name != vnc_kube_config.cluster_name():
+            return
+
+        # Update the APS, so we have the latest state.
+        aps_obj = cls.vnc_lib.application_policy_set_read(
+            id=cls.cluster_aps_uuid)
+        aps.update()
+
+        vnc_kube_config.logger().debug(
+            "%s - Remove existing firewall policies of cluster from APS [%s]"\
+            %(cls.name, aps.name))
+
+        # To begin with, remove all existing firewall policies of this cluster
+        # from the APS.
+        fw_policy_uuids = aps.get_firewall_policies()
+        removed_firewall_policies = []
+        for fw_policy_uuid in fw_policy_uuids if fw_policy_uuids else []:
+            fw_policy = FirewallPolicyKM.find_by_name_or_uuid(fw_policy_uuid)
+
+            # Filter out policies not owned by this cluster.
+            if fw_policy.cluster_name!= vnc_kube_config.cluster_name():
+                continue
+
+            # De-link the firewall policy from APS.
+            try:
+                fw_policy_obj = cls.vnc_lib.firewall_policy_read(id=fw_policy_uuid)
+            except NoIdError:
+                 raise
+            aps_obj.del_firewall_policy(fw_policy_obj)
+            removed_firewall_policies.append(fw_policy_uuid)
+
+        # If we need to remove some policies, update the object accordingly.
+        if removed_firewall_policies:
+            cls.vnc_lib.application_policy_set_update(aps_obj)
+            aps.update()
+
+        # Derive the sequence number we can use to start recreating firewall
+        # policies. If there are existing policies that dont belong and are
+        # not managed by the cluster, recreate the cluster firewall policies
+        # to the tail.
+        fw_policy_refs = aps.get_firewall_policy_refs_sorted()
+
+        # Lets begin with the assumption that we are the first policy.
+        sequence = cls.construct_sequence_number('1.0')
+        if fw_policy_refs:
+            # Get the sequence number of the last policy on this APS.
+            last_entry_sequence = fw_policy_refs[-1]['attr'].get_sequence()
+            # Construct the next sequence number to use.
+            sequence = cls.construct_sequence_number(
+                    float(last_entry_sequence) + float('1.0'))
+
+        # Filter our infra created firewall policies.
+        try:
+            removed_firewall_policies.remove(cls.ingress_svc_fw_policy_uuid)
+        except ValueError:
+            pass
+
+        try:
+            removed_firewall_policies.remove(cls.deny_all_fw_policy_uuid)
+        except ValueError:
+            pass
+
+        try:
+            removed_firewall_policies.remove(cls.allow_all_fw_policy_uuid)
+        except ValueError:
+            pass
+
+        # Reconstruct the policies in the order we want them to be.
+        add_firewall_policies = [cls.ingress_svc_fw_policy_uuid] +\
+                                removed_firewall_policies+\
+                                [cls.deny_all_fw_policy_uuid]+\
+                                [cls.allow_all_fw_policy_uuid]
+
+        # Attach the policies to the APS.
+        for fw_policy_uuid in add_firewall_policies:
+            vnc_kube_config.logger().debug(
+                "%s - Recreate  FW policy [%s] on APS [%s] at sequence [%s]"\
+                %(cls.name, fw_policy_uuid, aps.name, sequence.get_sequence()))
+            try:
+                fw_policy_obj = cls.vnc_lib.firewall_policy_read(id=fw_policy_uuid)
+            except NoIdError:
+                 raise
+            aps_obj.add_firewall_policy(fw_policy_obj, sequence)
+            sequence = cls.construct_sequence_number(
+                    float(sequence.get_sequence()) + float('1.0'))
+
+        # Update the APS.
+        cls.vnc_lib.application_policy_set_update(aps_obj)
+
+    @classmethod
+    def sync_cluster_security_policy(cls):
+        """
+        Synchronize K8s network policies with Contrail Security policy.
+        Expects that FW policies on the APS are in proper order.
+
+        Returns a list of orphaned or invalid firewall policies.
+        """
+
+        # If APS does not exist for this cluster, then there is nothing to do.
+        if not cls.cluster_aps_uuid:
+            return []
+
+        aps = ApplicationPolicySetKM.find_by_name_or_uuid(cls.cluster_aps_uuid)
+        if not aps:
+            return []
+
+        # If APS does not match this cluster name, then there is nothing to do.
+        if aps.name != vnc_kube_config.cluster_name():
+            return []
+
+        # Get the current list of firewall policies on the APS.
+        fw_policy_uuids = aps.get_firewall_policies()
+
+        # Construct list of firewall policies that belong to the cluster.
+        cluster_firewall_policies = []
+        for fw_policy_uuid in fw_policy_uuids:
+            fw_policy = FirewallPolicyKM.find_by_name_or_uuid(fw_policy_uuid)
+            if fw_policy.cluster_name != vnc_kube_config.cluster_name():
+                continue
+            cluster_firewall_policies.append(fw_policy_uuid)
+
+        # We are interested only in policies created by k8s user via network
+        # policy. These policies are sequenced between the infra created ingress
+        # policy and infra created deny-all policy.
+        try:
+            start_index = cluster_firewall_policies.index(
+                              cls.ingress_svc_fw_policy_uuid)
+            end_index = cluster_firewall_policies.index(
+                              cls.deny_all_fw_policy_uuid)
+            curr_user_firewall_policies =\
+                          cluster_firewall_policies[start_index+1:end_index]
+        except ValueError:
+            return []
+
+        # Get list of user created network policies.
+        configured_network_policies = NetworkPolicyKM.get_configured_policies()
+        for nw_policy_uuid in configured_network_policies:
+
+            np = NetworkPolicyKM.find_by_name_or_uuid(nw_policy_uuid)
+            if not np or not np.get_vnc_fq_name():
+                continue
+
+            # Decipher the firewall policy corresponding to the network policy.
+            fw_policy_uuid = FirewallPolicyKM.get_fq_name_to_uuid(
+                                 np.get_vnc_fq_name().split(":"))
+            if not fw_policy_uuid:
+                # We are yet to process this network policy.
+                continue
+
+            # A firewall policy was found but it is not inbetween the infra
+            # created policies as expected. Add it again so it will be inserted
+            # in the right place.
+            if fw_policy_uuid not in curr_user_firewall_policies:
+                cls.add_firewall_policy(fw_policy_uuid)
+            else:
+                # Filter out processed policies.
+                curr_user_firewall_policies.remove(fw_policy_uuid)
+
+        # Return orphaned firewall policies that could not be validated against
+        # user created network policy.
+        headless_fw_policy_uuids = curr_user_firewall_policies
+
+        return headless_fw_policy_uuids

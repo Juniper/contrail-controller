@@ -585,3 +585,279 @@ class VncNetworkPolicyTest(KMTestCase):
             self._validate_network_policy_resources(np_name, np_uuid_dict[i],
                 np_spec, validate_delete=True)
 
+    def test_ingress_policy_periodic_validate(self):
+        """
+        Validate network policy periodic self-healing when
+        ingress-svc firewall policy is detached from APS.
+        """
+
+        # Check if we have a valid config to start with.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Create namespace.
+        self._create_namespace(self.ns_name, None, True)
+
+        # Create a user network policy.
+        np_name = unittest.TestCase.id(self)
+        np_spec = {
+                      'podSelector': {},
+                      'policyTypes': ['Ingress', 'Egress']
+                   }
+        np_uuid = self._add_update_network_policy(np_name, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                namespace=self.ns_name)
+
+        # Validate that config is sane after user policy add.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Get some basic object handles.
+        self.assertIsNotNone(VncSecurityPolicy.ingress_svc_fw_policy_uuid)
+        fw_policy_obj = self._vnc_lib.firewall_policy_read(
+            id=VncSecurityPolicy.ingress_svc_fw_policy_uuid)
+        aps_obj = self._get_default_application_policy_set()
+        self.assertIsNotNone(fw_policy_obj)
+        self.assertIsNotNone(aps_obj)
+
+        # Detach ingress policy from APS to introduce error.
+        aps_obj.del_firewall_policy(fw_policy_obj)
+        self._vnc_lib.application_policy_set_update(aps_obj)
+
+        # Verify that validation of APS will fail.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertFalse(valid)
+
+        # Fix the inconsisteny in APS.
+        VncSecurityPolicy.recreate_cluster_security_policy()
+
+        # Verify that validation of APS will succeed now.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Cleanup user created network policy.
+        self._delete_network_policy(np_name, np_uuid, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                validate_delete=True,
+                                                namespace=self.ns_name)
+
+    def test_deny_all_policy_periodic_validate(self):
+        """
+        Validate network policy periodic self-healing when
+        deny-all firewall policy is detached from APS.
+        """
+
+        # Check if we have a valid config to start with.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Create namespace.
+        self._create_namespace(self.ns_name, None, True)
+
+        # Create a network policy.
+        np_name = unittest.TestCase.id(self)
+        np_spec = {
+                      'podSelector': {},
+                      'policyTypes': ['Ingress', 'Egress']
+                   }
+
+        # Create a user network policy.
+        np_uuid = self._add_update_network_policy(np_name, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                namespace=self.ns_name)
+
+        # Validate that config is sane after user policy add.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Get some basic object handles.
+        self.assertIsNotNone(VncSecurityPolicy.deny_all_fw_policy_uuid)
+        fw_policy_obj = self._vnc_lib.firewall_policy_read(
+            id=VncSecurityPolicy.deny_all_fw_policy_uuid)
+        aps_obj = self._get_default_application_policy_set()
+        self.assertIsNotNone(fw_policy_obj)
+        self.assertIsNotNone(aps_obj)
+
+        # Detach deny-all policy from APS to introduce error.
+        aps_obj.del_firewall_policy(fw_policy_obj)
+        self._vnc_lib.application_policy_set_update(aps_obj)
+
+        # Verify that validation of APS will fail.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertFalse(valid)
+
+        # Fix the inconsisteny in APS.
+        VncSecurityPolicy.recreate_cluster_security_policy()
+
+        # Verify that validation of APS will succeed now.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Cleanup user created network policy.
+        self._delete_network_policy(np_name, np_uuid, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                validate_delete=True,
+                                                namespace=self.ns_name)
+
+    def test_allow_all_policy_periodic_validate(self):
+        """
+        Validate network policy periodic self-healing when
+        ingress-svc firewall policy is detached from APS.
+        """
+
+        # Check if we have a valid config to start with.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Create namespace.
+        self._create_namespace(self.ns_name, None, True)
+
+        # Create a network policy.
+        np_name = unittest.TestCase.id(self)
+        np_spec = {
+                      'podSelector': {},
+                      'policyTypes': ['Ingress', 'Egress']
+                   }
+
+        np_uuid = self._add_update_network_policy(np_name, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                namespace=self.ns_name)
+
+        # Validate that config is sane after user policy add.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Get some basic object handles.
+        self.assertIsNotNone(VncSecurityPolicy.allow_all_fw_policy_uuid)
+        fw_policy_obj = self._vnc_lib.firewall_policy_read(
+            id=VncSecurityPolicy.allow_all_fw_policy_uuid)
+        aps_obj = self._get_default_application_policy_set()
+        self.assertIsNotNone(fw_policy_obj)
+        self.assertIsNotNone(aps_obj)
+
+        # Detach allow-all policy from APS to introduce error.
+        aps_obj.del_firewall_policy(fw_policy_obj)
+        self._vnc_lib.application_policy_set_update(aps_obj)
+
+        # Verify that validation of APS will fail.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertFalse(valid)
+
+        # Fix the inconsisteny in APS.
+        VncSecurityPolicy.recreate_cluster_security_policy()
+
+        # Verify that validation of APS will succeed now.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Cleanup user created network policy.
+        self._delete_network_policy(np_name, np_uuid, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                validate_delete=True,
+                                                namespace=self.ns_name)
+
+    def test_periodic_validate_with_user_policies(self):
+        """
+        Validate network policy periodic self-healing when
+        multiple user created policies are present.
+        """
+
+        np_uuid_dict={}
+        test_range = range(1, 10)
+        for i in test_range:
+            np_spec = {
+                      'podSelector': {},
+                      'ingress': [{}]
+                  }
+            np_name = "-".join([unittest.TestCase.id(self), str(i)])
+            np_uuid_dict[i] = self._add_update_network_policy(np_name, np_spec)
+            self._validate_network_policy_resources(np_name, np_uuid_dict[i],
+                                                    np_spec)
+
+        # Check if we have a valid config to start with.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Get some basic object handles.
+        self.assertIsNotNone(VncSecurityPolicy.allow_all_fw_policy_uuid)
+        fw_policy_obj = self._vnc_lib.firewall_policy_read(
+            id=VncSecurityPolicy.allow_all_fw_policy_uuid)
+        aps_obj = self._get_default_application_policy_set()
+        self.assertIsNotNone(fw_policy_obj)
+        self.assertIsNotNone(aps_obj)
+
+        # Detach allow-all policy from APS to introduce error.
+        aps_obj.del_firewall_policy(fw_policy_obj)
+        self._vnc_lib.application_policy_set_update(aps_obj)
+
+        # Verify that validation of APS will fail.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertFalse(valid)
+
+        # Fix the inconsisteny in APS.
+        VncSecurityPolicy.recreate_cluster_security_policy()
+
+        # Verify that validation of APS will succeed now.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        #
+        # After self-healing, verify that the first on the APS, the FW policies
+        # are ordered as follows:
+        # - Ingress-svc fw policy
+        # - User created policies
+        # - Deny-all fw policy
+        # - Allow-all fw policy
+        #
+        previous_sequence = None
+        aps = ApplicationPolicySetKM.locate(aps_obj.get_uuid())
+        aps.update()
+
+        fw_policy_refs = aps.get_firewall_policy_refs_sorted()
+        ingress_fw_policy_idx = None
+        for index, fw_policy_ref in enumerate(fw_policy_refs):
+            fw_policy = FirewallPolicyKM.locate(fw_policy_ref['uuid'])
+            if fw_policy.owner and\
+               fw_policy.cluster_name == self.cluster_name():
+               self.assertTrue(fw_policy.uuid == VncSecurityPolicy.ingress_svc_fw_policy_uuid)
+               ingress_fw_policy_idx = index
+               break
+
+        last_user_policy_index = None
+        loop_start_index = ingress_fw_policy_idx+1
+        for i in test_range:
+            np_name = "-".join([unittest.TestCase.id(self), str(i)])
+            fw_policy_name = VncSecurityPolicy.get_firewall_policy_name(np_name,
+                self.ns_name, False)
+            for index, fw_policy in enumerate(fw_policy_refs[loop_start_index:]):
+                if fw_policy_name == fw_policy['to'][-1]:
+                    if previous_sequence:
+                        self.assertTrue(previous_sequence < \
+                           fw_policy['attr']['sequence'])
+                    previous_sequence = fw_policy['attr']['sequence']
+                    last_user_policy_index = loop_start_index + index
+                    break
+
+        deny_all_policy_index = None
+        loop_start_index = last_user_policy_index + 1
+        for index, fw_policy_ref in enumerate(fw_policy_refs[loop_start_index:]):
+            fw_policy = FirewallPolicyKM.locate(fw_policy_ref['uuid'])
+            if fw_policy.cluster_name and\
+               fw_policy.cluster_name == self.cluster_name():
+               self.assertTrue(fw_policy.uuid == VncSecurityPolicy.deny_all_fw_policy_uuid)
+               deny_all_policy_index = loop_start_index + index
+               break
+
+        loop_start_index = deny_all_policy_index + 1
+        for fw_policy_ref in fw_policy_refs[loop_start_index:]:
+            fw_policy = FirewallPolicyKM.locate(fw_policy_ref['uuid'])
+            if fw_policy.cluster_name and\
+               fw_policy.cluster_name == self.cluster_name():
+               self.assertTrue(fw_policy.uuid == VncSecurityPolicy.allow_all_fw_policy_uuid)
+               break
+
+        for i in test_range:
+            self._delete_network_policy(unittest.TestCase.id(self), np_uuid_dict[i])
+            self._validate_network_policy_resources(np_name, np_uuid_dict[i],
+                np_spec, validate_delete=True)
+
