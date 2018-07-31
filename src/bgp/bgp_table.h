@@ -118,6 +118,14 @@ public:
                                      ExtCommunityPtr community) = 0;
 
     static bool PathSelection(const Path &path1, const Path &path2);
+    bool IsAsPathLoop(const RibOut *ribout, const BgpAttr *attr) const;
+    void CreateAsPath4Byte(BgpAttr *attr, as4_t local_as) const;
+    void CreateAsPath2Byte(BgpAttr *attr, as4_t local_as) const;
+    void PrependAsToAsPath4Byte(BgpAttr *attr, as4_t asn) const;
+    void PrependAsToAsPath2Byte(BgpAttr *attr, as4_t asn) const;
+    void PrependAsToAsPath2Byte(BgpAttr *attr, as2_t asn) const;
+    void PrependAsToAs4Path(BgpAttr* attr, As4PathSpec::PathSegment *as4ps,
+            As4PathSpec *as4_path, as4_t asn, bool update = false) const;
     UpdateInfo *GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                               const RibPeerSet &peerset);
     void ProcessDefaultTunnelEncapsulation(const RibOut *ribout,
@@ -194,7 +202,12 @@ private:
 
     class DeleteActor;
 
+    void PrependLocalAs(const RibOut *ribout, BgpAttr *attr, const IPeer*) const;
+    void ProcessAsOverride(const RibOut *ribout, BgpAttr *attr) const;
     void ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const;
+    void RemovePrivateAs(const RibOut *ribout, BgpAttr *attr) const;
+    void RemovePrivate4ByteAs(const RibOut *ribout, BgpAttr *attr) const;
+    void RemovePrivateAs4(const RibOut *ribout, BgpAttr *attr) const;
     void ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
                           BgpAttr *attr, bool llgr_stale_comm);
     virtual BgpRoute *TableFind(DBTablePartition *rtp,

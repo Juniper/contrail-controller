@@ -22,6 +22,7 @@ RibExportPolicy::RibExportPolicy()
       as_override(false),
       affinity(-1),
       llgr(false),
+      as4_supported(true),
       cluster_id(0) {
 }
 
@@ -33,6 +34,7 @@ RibExportPolicy::RibExportPolicy(uint32_t cluster_id)
       as_override(false),
       affinity(-1),
       llgr(false),
+      as4_supported(true),
       cluster_id(cluster_id) {
 }
 
@@ -45,6 +47,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
       as_override(false),
       affinity(affinity),
       llgr(false),
+      as4_supported(true),
       cluster_id(cluster_id) {
     if (encoding == XMPP)
         assert(type == BgpProto::XMPP);
@@ -53,8 +56,8 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 }
 
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-    as_t as_number, bool as_override, bool llgr, int affinity,
-    uint32_t cluster_id, as_t local_as_number)
+    as4_t as_number, bool as_override, bool llgr, bool as4, int affinity,
+    uint32_t cluster_id, as4_t local_as_number)
     : type(type),
       encoding(encoding),
       as_number(as_number),
@@ -62,6 +65,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
       as_override(as_override),
       affinity(affinity),
       llgr(llgr),
+      as4_supported(as4),
       cluster_id(cluster_id) {
     if (encoding == XMPP)
         assert(type == BgpProto::XMPP);
@@ -71,9 +75,9 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 
 
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-    as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
+    as4_t as_number, bool as_override, bool llgr, bool as4, IpAddress nexthop,
     int affinity, uint32_t cluster_id,
-    vector<string> &default_tunnel_encap_list, as_t local_as_number) :
+    vector<string> &default_tunnel_encap_list, as4_t local_as_number) :
       type(type),
       encoding(BGP),
       as_number(as_number),
@@ -82,6 +86,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
       nexthop(nexthop),
       affinity(affinity),
       llgr(llgr),
+      as4_supported(as4),
       cluster_id(cluster_id),
       default_tunnel_encap_list(default_tunnel_encap_list) {
     assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
@@ -108,6 +113,7 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     BOOL_KEY_COMPARE(nexthop, rhs.nexthop);
     BOOL_KEY_COMPARE(affinity, rhs.affinity);
     BOOL_KEY_COMPARE(llgr, rhs.llgr);
+    BOOL_KEY_COMPARE(as4_supported, rhs.as4_supported);
     BOOL_KEY_COMPARE(cluster_id, rhs.cluster_id);
     BOOL_KEY_COMPARE(remove_private.enabled, rhs.remove_private.enabled);
     BOOL_KEY_COMPARE(remove_private.all, rhs.remove_private.all);

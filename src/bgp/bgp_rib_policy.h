@@ -36,6 +36,10 @@
 // Instead, we should bring down the local pref to make the paths less
 // preferable.
 //
+// Adding as4_supported so that peers who support 4 byte AS can be grouped
+// together. For non AS4 neighbors, we need to add AS_TRANS in AS_PATH if
+// local AS does not fit in 2 bytes.
+//
 struct RibExportPolicy {
     enum Encoding {
         BGP,
@@ -56,24 +60,25 @@ struct RibExportPolicy {
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         int affinity, uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        as_t as_number, bool as_override, bool llgr,
-        int affinity, uint32_t cluster_id, as_t local_as_number = 0);
+        as4_t as_number, bool as_override, bool llgr, bool as4_supported,
+        int affinity, uint32_t cluster_id, as4_t local_as_number = 0);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
-        int affinity, uint32_t cluster_id,
+        as4_t as_number, bool as_override, bool llgr, bool as4_supported,
+        IpAddress nexthop, int affinity, uint32_t cluster_id,
         std::vector<std::string> &default_tunnel_encap_list,
-        as_t local_as_number = 0);
+        as4_t local_as_number = 0);
     void SetRemovePrivatePolicy(bool all, bool replace, bool peer_loop_check);
     bool operator<(const RibExportPolicy &rhs) const;
 
     BgpProto::BgpPeerType type;
     Encoding encoding;
-    as_t as_number;
-    as_t local_as_number;
+    as4_t as_number;
+    as4_t local_as_number;
     bool as_override;
     IpAddress nexthop;
     int affinity;
     bool llgr;
+    bool as4_supported;
     uint32_t cluster_id;
     RemovePrivatePolicy remove_private;
     std::vector<std::string> default_tunnel_encap_list;
