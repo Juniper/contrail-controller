@@ -16,6 +16,7 @@
 #include "base/parse_object.h"
 #include "base/util.h"
 #include "bgp/bgp_attr_base.h"
+#include "bgp/bgp_common.h"
 
 class BgpAttr;
 class OriginVnPathDB;
@@ -53,6 +54,7 @@ public:
     virtual void Remove();
 
     bool Contains(const OriginVnValue &value) const;
+    bool Contains(as_t asn, uint32_t vn_index) const;
     int CompareTo(const OriginVnPath &rhs) const;
 
     const OriginVnList &origin_vns() const { return origin_vns_; }

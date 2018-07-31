@@ -181,12 +181,12 @@ protected:
                 bool admin_down1, bool admin_down2,
                 bool nbr_admin_down1, bool nbr_admin_down2,
                 bool nbr_passive1, bool nbr_passive2,
-                uint16_t as_num1, uint16_t as_num2,
-                uint16_t local_as_num1, uint16_t local_as_num2);
+                uint32_t as_num1, uint32_t as_num2,
+                uint32_t local_as_num1, uint32_t local_as_num2);
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
-                uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -199,13 +199,13 @@ protected:
                 uint16_t nbr_hold_time2 = 0, uint32_t cluster_id = 0);
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
-                uint16_t as_num1, uint16_t as_num2,
-                uint16_t local_as_num1, uint16_t local_as_num2);
+                uint32_t as_num1, uint32_t as_num2,
+                uint32_t local_as_num1, uint32_t local_as_num2);
     void SetupPeers(BgpServerTest *server, int peer_count,
                 unsigned short port_a, unsigned short port_b,
                 bool verify_keepalives,
-                uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -217,8 +217,8 @@ protected:
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
                 vector<ConfigUTAuthKeyItem> auth_keys,
-                uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -232,8 +232,8 @@ protected:
                 unsigned short port_a, unsigned short port_b,
                 bool verify_keepalives,
                 vector<ConfigUTAuthKeyItem> auth_keys,
-                uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -242,15 +242,15 @@ protected:
                 vector<string> families2 = vector<string>(),
                 bool delete_config = false);
     void VerifyPeers(int peer_count, size_t verify_keepalives_count = 0,
-           uint16_t local_as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-           uint16_t local_as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
+           uint32_t local_as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+           uint32_t local_as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
     string GetConfigStr(int peer_count,
                         unsigned short port_a, unsigned short port_b,
                         bool admin_down1, bool admin_down2,
                         bool nbr_admin_down1, bool nbr_admin_down2,
                         bool nbr_passive1, bool nbr_passive2,
-                        uint16_t as_num1, uint16_t as_num2,
-                        uint16_t local_as_num1, uint16_t local_as_num2,
+                        uint32_t as_num1, uint32_t as_num2,
+                        uint32_t local_as_num1, uint32_t local_as_num2,
                         string peer_address1, string peer_address2,
                         string bgp_identifier1, string bgp_identifier2,
                         vector<string> families1, vector<string> families2,
@@ -2754,9 +2754,9 @@ void BgpServerUnitTest::GRTestCommon(bool hard_reset,
     BgpAttrOrigin origin(BgpAttrOrigin::IGP);
     attr_spec.push_back(&origin);
 
-    AsPathSpec path_spec;
-    AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
-    path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    AsPath4ByteSpec path_spec;
+    AsPath4ByteSpec::PathSegment *path_seg = new AsPath4ByteSpec::PathSegment;
+    path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
     path_seg->path_segment.push_back(65534);
     path_spec.path_segments.push_back(path_seg);
     attr_spec.push_back(&path_spec);
@@ -3544,9 +3544,9 @@ TEST_P(BgpServerUnitTest, BasicAdvertiseWithdraw) {
     BgpAttrOrigin origin(BgpAttrOrigin::IGP);
     attr_spec.push_back(&origin);
 
-    AsPathSpec path_spec;
-    AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
-    path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    AsPath4ByteSpec path_spec;
+    AsPath4ByteSpec::PathSegment *path_seg = new AsPath4ByteSpec::PathSegment;
+    path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
     path_seg->path_segment.push_back(65534);
     path_spec.path_segments.push_back(path_seg);
     attr_spec.push_back(&path_spec);

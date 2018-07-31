@@ -24,6 +24,8 @@
 #include "net/address.h"
 
 class AsPathDB;
+class AsPath4ByteDB;
+class As4PathDB;
 class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
@@ -154,6 +156,8 @@ public:
     }
 
     AsPathDB *aspath_db() { return aspath_db_.get(); }
+    AsPath4ByteDB *aspath_4byte_db() { return aspath_4byte_db_.get(); }
+    As4PathDB *as4path_db() { return as4path_db_.get(); }
     BgpAttrDB *attr_db() { return attr_db_.get(); }
     BgpOListDB *olist_db() { return olist_db_.get(); }
     ClusterListDB *cluster_list_db() { return cluster_list_db_.get(); }
@@ -333,6 +337,8 @@ private:
 
     // databases
     boost::scoped_ptr<AsPathDB> aspath_db_;
+    boost::scoped_ptr<AsPath4ByteDB> aspath_4byte_db_;
+    boost::scoped_ptr<As4PathDB> as4path_db_;
     boost::scoped_ptr<BgpOListDB> olist_db_;
     boost::scoped_ptr<ClusterListDB> cluster_list_db_;
     boost::scoped_ptr<CommunityDB> comm_db_;

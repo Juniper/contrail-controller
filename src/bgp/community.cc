@@ -23,6 +23,7 @@
 #include "bgp/extended-community/source_as.h"
 #include "bgp/extended-community/tag.h"
 #include "bgp/extended-community/vrf_route_import.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "bgp/security_group/security_group.h"
@@ -360,6 +361,26 @@ bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
     return false;
 }
 
+bool ExtCommunity::ContainsOriginVn4(const ExtCommunityValue &val) const {
+    for (ExtCommunityList::const_iterator it = communities_.begin();
+         it != communities_.end(); ++it) {
+        if (ExtCommunity::is_origin_vn4(*it) && *it == val)
+            return true;
+    }
+    return false;
+}
+
+bool ExtCommunity::ContainsOriginVn(as_t asn, uint32_t vn_index) const {
+    if (asn <= 0xffffffff) {
+        OriginVn origin_vn(asn, vn_index);
+        return ContainsOriginVn(origin_vn.GetExtCommunity());
+    }
+    OriginVn4ByteAs origin_vn4(asn, AS_TRANS);
+    OriginVn origin_vn(AS_TRANS, vn_index);
+    return (ContainsOriginVn(origin_vn.GetExtCommunity()) &&
+                ContainsOriginVn(origin_vn4.GetExtCommunity()));
+}
+
 bool ExtCommunity::ContainsSourceAs(const ExtCommunityValue &val) const {
     for (ExtCommunityList::const_iterator it = communities_.begin();
          it != communities_.end(); ++it) {
@@ -392,7 +413,8 @@ void ExtCommunity::RemoveRTarget() {
 void ExtCommunity::RemoveSGID() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
-        if (ExtCommunity::is_security_group(*it)) {
+        if (ExtCommunity::is_security_group(*it) ||
+                ExtCommunity::is_security_group4(*it)) {
             it = communities_.erase(it);
         } else {
             ++it;
@@ -403,7 +425,7 @@ void ExtCommunity::RemoveSGID() {
 void ExtCommunity::RemoveTag() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
-        if (ExtCommunity::is_tag(*it)) {
+        if (ExtCommunity::is_tag(*it) || ExtCommunity::is_tag4(*it)) {
             it = communities_.erase(it);
         } else {
             ++it;
@@ -446,7 +468,8 @@ void ExtCommunity::RemoveVrfRouteImport() {
 void ExtCommunity::RemoveOriginVn() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
-        if (ExtCommunity::is_origin_vn(*it)) {
+        if (ExtCommunity::is_origin_vn(*it) ||
+                ExtCommunity::is_origin_vn4(*it)) {
             it = communities_.erase(it);
         } else {
             ++it;
@@ -495,7 +518,7 @@ vector<string> ExtCommunity::GetTunnelEncap() const {
     return encap_list;
 }
 
-vector<int> ExtCommunity::GetTagList(as_t asn) const {
+vector<int> ExtCommunity::GetTagList(as2_t asn) const {
     vector<int> tag_list;
     for (ExtCommunityList::const_iterator iter = communities_.begin();
          iter != communities_.end(); ++iter) {
@@ -506,6 +529,29 @@ vector<int> ExtCommunity::GetTagList(as_t asn) const {
             continue;
         tag_list.push_back(tag_comm.tag());
     }
+
+    sort(tag_list.begin(), tag_list.end());
+    vector<int>::iterator tag_iter = unique(tag_list.begin(), tag_list.end());
+    tag_list.erase(tag_iter, tag_list.end());
+    return tag_list;
+}
+
+vector<int> ExtCommunity::GetTag4List(as_t asn) const {
+    vector<int> tag_list;
+    for (ExtCommunityList::const_iterator iter = communities_.begin();
+         iter != communities_.end(); ++iter) {
+        if (!ExtCommunity::is_tag4(*iter))
+            continue;
+        Tag4ByteAs tag_comm(*iter);
+        if (asn && tag_comm.as_number() != asn && !tag_comm.IsGlobal())
+            continue;
+        vector<int> matching_tag_list = GetTagList(tag_comm.tag());
+        tag_list.insert(tag_list.end(), matching_tag_list.begin(),
+                        matching_tag_list.end());
+        tag_list.push_back(tag_comm.tag());
+    }
+    if ((asn <= 0xffffffff) && tag_list.size() == 0)
+        tag_list = GetTagList(asn);
 
     sort(tag_list.begin(), tag_list.end());
     vector<int>::iterator tag_iter = unique(tag_list.begin(), tag_list.end());
@@ -528,10 +574,10 @@ bool ExtCommunity::ContainsTunnelEncapVxlan() const {
 int ExtCommunity::GetOriginVnIndex() const {
     for (ExtCommunityList::const_iterator iter = communities_.begin();
          iter != communities_.end(); ++iter) {
-        if (!ExtCommunity::is_origin_vn(*iter))
-            continue;
-        OriginVn origin_vn(*iter);
-        return origin_vn.vn_index();
+        if (ExtCommunity::is_origin_vn(*iter)) {
+            OriginVn origin_vn(*iter);
+            return origin_vn.vn_index();
+        }
     }
     return -1;
 }

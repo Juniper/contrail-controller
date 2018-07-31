@@ -112,15 +112,15 @@ protected:
 };
 
 TEST_F(UpdateAsPathTest, ToString) {
-    vector<uint16_t> asn_list = list_of(1000)(2000);
+    vector<uint32_t> asn_list = list_of(1000)(2000);
     UpdateAsPath action(asn_list);
     EXPECT_EQ(asn_list, action.asn_list());
     EXPECT_EQ("as-path expand [ 1000,2000 ]", action.ToString());
 }
 
 TEST_F(UpdateAsPathTest, IsEqual1) {
-    vector<uint16_t> asn_list1 = list_of(1000)(2000);
-    vector<uint16_t> asn_list2 = list_of(1000)(2000);
+    vector<uint32_t> asn_list1 = list_of(1000)(2000);
+    vector<uint32_t> asn_list2 = list_of(1000)(2000);
     UpdateAsPath action1(asn_list1);
     UpdateAsPath action2(asn_list2);
     EXPECT_TRUE(action1.IsEqual(action2));
@@ -128,8 +128,8 @@ TEST_F(UpdateAsPathTest, IsEqual1) {
 }
 
 TEST_F(UpdateAsPathTest, IsEqual2) {
-    vector<uint16_t> asn_list1 = list_of(1000)(2000);
-    vector<uint16_t> asn_list2 = list_of(1000)(3000);
+    vector<uint32_t> asn_list1 = list_of(1000)(2000);
+    vector<uint32_t> asn_list2 = list_of(1000)(3000);
     UpdateAsPath action1(asn_list1);
     UpdateAsPath action2(asn_list2);
     EXPECT_FALSE(action1.IsEqual(action2));
@@ -137,15 +137,15 @@ TEST_F(UpdateAsPathTest, IsEqual2) {
 }
 
 TEST_F(UpdateAsPathTest, UpdateNull) {
-    vector<uint16_t> asn_list = list_of(1000)(2000);
+    vector<uint32_t> asn_list = list_of(1000)(2000);
     UpdateAsPath action(asn_list);
     EXPECT_EQ(asn_list, action.asn_list());
 
     BgpAttr attr(attr_db_);
     action(&attr);
-    const AsPath *as_path = attr.as_path();
+    const AsPath4Byte *as_path = attr.aspath_4byte();
     EXPECT_TRUE(as_path != NULL);
-    const AsPathSpec &as_path_spec = as_path->path();
+    const AsPath4ByteSpec &as_path_spec = as_path->path();
     EXPECT_EQ(1, as_path_spec.path_segments.size());
     EXPECT_EQ(2, as_path_spec.path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, as_path_spec.path_segments[0]->path_segment[0]);
@@ -153,23 +153,23 @@ TEST_F(UpdateAsPathTest, UpdateNull) {
 }
 
 TEST_F(UpdateAsPathTest, UpdateNonNull) {
-    vector<uint16_t> asn_list = list_of(1000)(2000);
+    vector<uint32_t> asn_list = list_of(1000)(2000);
     UpdateAsPath action(asn_list);
     EXPECT_EQ(asn_list, action.asn_list());
 
     BgpAttrSpec spec;
-    AsPathSpec path;
-    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
-    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    AsPath4ByteSpec path;
+    AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
+    ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
     ps->path_segment = list_of(3000)(4000);
     path.path_segments.push_back(ps);
     spec.push_back(&path);
 
     BgpAttr attr(attr_db_, spec);
     action(&attr);
-    const AsPath *as_path = attr.as_path();
+    const AsPath4Byte *as_path = attr.aspath_4byte();
     EXPECT_TRUE(as_path != NULL);
-    const AsPathSpec &as_path_spec = as_path->path();
+    const AsPath4ByteSpec &as_path_spec = as_path->path();
     EXPECT_EQ(1, as_path_spec.path_segments.size());
     EXPECT_EQ(4, as_path_spec.path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, as_path_spec.path_segments[0]->path_segment[0]);

@@ -276,6 +276,31 @@ protected:
         task_util::WaitForIdle();
     }
 
+    bool WalkCallback(DBTablePartBase *tpart, DBEntryBase *db_entry) {
+        CHECK_CONCURRENCY("db::DBTable");
+        BgpRoute *route = static_cast<BgpRoute *>(db_entry);
+        std::cout << route->ToString() << std::endl;
+        return true;
+    }
+
+    void WalkDoneCallback(DBTable::DBTableWalkRef ref,
+                          DBTableBase *table, bool *complete) {
+        if (complete)
+            *complete = true;
+    }
+
+    void WalkTable(BgpTable *table) {
+        bool complete = false;
+        DBTable::DBTableWalkRef walk_ref = table->AllocWalker(
+            boost::bind(&BgpXmppRTargetTest::WalkCallback, this, _1, _2),
+            boost::bind(&BgpXmppRTargetTest::WalkDoneCallback, this, _1, _2,
+                        &complete));
+        std::cout << "Table " << table->name() << " walk start\n";
+        table->WalkTable(walk_ref);
+        TASK_UTIL_EXPECT_TRUE(complete);
+        std::cout << "Table " << table->name() << " walk end\n";
+    }
+
     void AddDeleteRTargetRoute(BgpServer *server, bool add_change,
         const string &rt_prefix_str) {
         RoutingInstanceMgr *instance_mgr = server->routing_instance_mgr();
@@ -400,8 +425,9 @@ protected:
         return peer;
     }
 
-    void Configure(int cn1_asn, int cn2_asn, int mx_asn,
-        int cn1_local_asn = 0, int cn2_local_asn = 0, int mx_local_asn = 0) {
+    void Configure(as_t cn1_asn, as_t cn2_asn, as_t mx_asn,
+                   as_t cn1_local_asn = 0, as_t cn2_local_asn = 0,
+                   as_t mx_local_asn = 0) {
         if (cn1_local_asn == 0)
             cn1_local_asn = cn1_asn;
         if (cn2_local_asn == 0)
@@ -509,8 +535,9 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void UpdateASN(int cn1_asn, int cn2_asn, int mx_asn,
-        int cn1_local_asn = 0, int cn2_local_asn = 0, int mx_local_asn = 0) {
+    void UpdateASN(as_t cn1_asn, as_t cn2_asn, as_t mx_asn,
+                   as_t cn1_local_asn = 0, as_t cn2_local_asn = 0,
+                   as_t mx_local_asn = 0) {
         if (cn1_local_asn == 0)
             cn1_local_asn = cn1_asn;
         if (cn2_local_asn == 0)
@@ -542,8 +569,8 @@ protected:
         TASK_UTIL_EXPECT_EQ(mx_local_asn, mx_->local_autonomous_system());
     }
 
-    void UpdateIdentifier(int cn1_asn, int cn2_asn, int mx_asn,
-        int cn1_local_asn, int cn2_local_asn, int mx_local_asn) {
+    void UpdateIdentifier(as_t cn1_asn, as_t cn2_asn, as_t mx_asn,
+        as_t cn1_local_asn, as_t cn2_local_asn, as_t mx_local_asn) {
         char config[4096];
         snprintf(config, sizeof(config), config_template1,
                  cn1_asn, cn1_local_asn, cn1_->session_manager()->GetPort(),
