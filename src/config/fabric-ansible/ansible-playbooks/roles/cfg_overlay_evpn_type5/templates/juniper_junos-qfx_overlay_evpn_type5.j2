@@ -1,0 +1,38 @@
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups {{cfg_group}}
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         set name = ri.get('name') %}
+{%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+{%             set vxlan_id = ri.get('vxlan_id') %}
+{%             if vxlan_id == 'None' %}
+{%                 set vxlan_id = ri.get('virtual_network_id') %}
+{%             endif %}
+set groups __contrail_{{feature}}__ protocols evpn default-gateway no-gateway-community
+set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
+set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
+set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
+set groups __contrail_{{feature}}__ routing-instances {{name}} instance-type vrf
+{%             set vrf_import = name+'-import' %}
+{%             set vrf_export = name+'-export' %}
+{%             for import_target in ri.get('import_targets', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{vrf_import}}
+{%             endfor %}
+{%             for exp_target in ri.get('export_targets', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{vrf_export}}
+{%             endfor %}
+
+{%             for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%                 if phy_int.get('interface_type') == 'irb' %}
+{%                     for li in phy_int.get('logical_interfaces', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{li.name}}
+{%                     endfor %}
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+set apply-groups {{cfg_group}}
+{% endif %}
