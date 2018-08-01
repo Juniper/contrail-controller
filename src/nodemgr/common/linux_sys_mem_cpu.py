@@ -14,7 +14,7 @@ def _run_cmd(cmd):
     return int(proc.communicate()[0])
 
 
-class SysMemCpuUsageData(object):
+class LinuxSysMemCpuUsageData(object):
     def __init__(self, last_cpu, last_time):
         self.last_cpu = last_cpu
         self.last_time = last_time

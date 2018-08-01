@@ -218,7 +218,7 @@ class DockerProcessInfoManager(object):
         return processes_info_list
 
     def runforever(self):
-        # TODO: probaly use subscription on events..
+        # TODO: probably use subscription on events..
         while True:
             self._poll_containers()
             gevent.sleep(seconds=5)

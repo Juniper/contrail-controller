@@ -41,6 +41,7 @@ import gevent
 import hashlib
 import random
 import os
+import platform
 import signal
 import sys
 
@@ -132,20 +133,27 @@ def main(args_str=' '.join(sys.argv[1:])):
     default.update(SandeshConfig.get_default_options(['DEFAULTS']))
     sandesh_opts = SandeshConfig.get_default_options()
     node_type = args.nodetype
-    if (node_type == 'contrail-analytics'):
-        config_file = '/etc/contrail/contrail-analytics-nodemgr.conf'
-    elif (node_type == 'contrail-config'):
-        config_file = '/etc/contrail/contrail-config-nodemgr.conf'
-    elif (node_type == 'contrail-config-database'):
-        config_file = '/etc/contrail/contrail-config-database-nodemgr.conf'
-    elif (node_type == 'contrail-control'):
-        config_file = '/etc/contrail/contrail-control-nodemgr.conf'
-    elif (node_type == 'contrail-vrouter'):
-        config_file = '/etc/contrail/contrail-vrouter-nodemgr.conf'
-    elif (node_type == 'contrail-database'):
-        config_file = '/etc/contrail/contrail-database-nodemgr.conf'
+
+    if platform.system() == 'Windows':
+        path_prefix = os.environ['ProgramData'] + '/Contrail'
     else:
-        sys.stderr.write("Node type" + str(node_type) + "is incorrect\n")
+        path_prefix = ""
+
+    config_file = path_prefix
+    if (node_type == 'contrail-analytics'):
+        config_file += '/etc/contrail/contrail-analytics-nodemgr.conf'
+    elif (node_type == 'contrail-config'):
+        config_file += '/etc/contrail/contrail-config-nodemgr.conf'
+    elif (node_type == 'contrail-config-database'):
+        config_file += '/etc/contrail/contrail-config-database-nodemgr.conf'
+    elif (node_type == 'contrail-control'):
+        config_file += '/etc/contrail/contrail-control-nodemgr.conf'
+    elif (node_type == 'contrail-vrouter'):
+        config_file += '/etc/contrail/contrail-vrouter-nodemgr.conf'
+    elif (node_type == 'contrail-database'):
+        config_file += '/etc/contrail/contrail-database-nodemgr.conf'
+    else:
+        sys.stderr.write("Node type" + str(node_type) + " is incorrect\n")
         return
     if (os.path.exists(config_file) == False):
         sys.stderr.write("config file " + config_file + " is not present\n")
@@ -247,10 +255,11 @@ def main(args_str=' '.join(sys.argv[1:])):
     prog.collector_chksum = _args.chksum
     prog.random_collectors = _args.random_collectors
 
-    """ @sighup
-    Reconfig of collector list
-    """
-    gevent.signal(signal.SIGHUP, prog.nodemgr_sighup_handler)
+    if platform.system() != 'Windows':
+        """ @sighup
+        Reconfig of collector list
+        """
+        gevent.signal(signal.SIGHUP, prog.nodemgr_sighup_handler)
 
     gevent.joinall([gevent.spawn(prog.runforever),
         gevent.spawn(prog.run_periodically(prog.do_periodic_events, 60))])
