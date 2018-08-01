@@ -11,14 +11,13 @@ set groups {{cfg_group}}
 {%             set route_distinguisher = bgp.get('ip_address') %}
 {%             set as_number = bgp.get('autonomous_system') %}
 set groups __contrail_{{feature}}__ routing-options resolution rib {{rib_name}} resolution-ribs {{resolution_rib}}
-set groups __contrail_{{feature}}__ switch-options route-distinguisher {{route_distinguisher}}:1
-set groups __contrail_{{feature}}__ switch-options vrf-target target:{{as_number}}:1
 {%             set bgp_group_name = bgp.get('name') %}
 {%             set bgp_group_type = bgp.get('type_') %}
 {%             set hold_time = bgp.get('hold_time') %}
 {%             set families = bgp.get('families', []) %}
 set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
 set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} local-address {{route_distinguisher}}
 {%             for fam in families %}
 {%                 if fam == 'route-target' %}
 set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} family {{fam}}

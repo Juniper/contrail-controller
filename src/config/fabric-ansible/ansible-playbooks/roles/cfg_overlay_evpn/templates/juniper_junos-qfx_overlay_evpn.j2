@@ -10,6 +10,8 @@ set groups {{cfg_group}}
 {%         for fam in families %}
 {%             if fam == 'evpn' %}
 {%                 set loc_vars.is_evpn = 'yes' %}
+{%                 set loc_vars.route_distinguisher = bgp_elem.get('ip_address') %}
+{%                 set loc_vars.as_number = bgp_elem.get('autonomous_system') %}
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
@@ -24,6 +26,8 @@ set groups {{cfg_group}}
 set groups __contrail_{{feature}}__ protocols evpn encapsulation vxlan
 set groups __contrail_{{feature}}__ protocols evpn extended-vni-list all
 set groups __contrail_{{feature}}__ switch-options vtep-source-interface lo0.0
+set groups __contrail_{{feature}}__ switch-options route-distinguisher {{loc_vars.route_distinguisher}}:1
+set groups __contrail_{{feature}}__ switch-options vrf-target target:{{loc_vars.as_number}}:1
 {%         if (loc_vars.dev_mode == 'leaf') %}
 set groups __contrail_{{feature}}__ protocols evpn multicast-mode ingress-replication
 set groups __contrail_{{feature}}__ switch-options vrf-target auto
