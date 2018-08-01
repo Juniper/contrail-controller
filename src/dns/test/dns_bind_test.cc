@@ -232,6 +232,31 @@ TEST_F(DnsBindTest, Config) {
 
 // TODO(WINDOWS): NamedConfig is not used in the Agent
 #ifndef _WIN32
+
+// Create a vdns with negative-cache-ttl of 100 sec, verify same is present in zone file
+TEST_F(DnsBindTest, SoaRecord) {
+    string content = FileRead("controller/src/dns/testdata/config_test_soa.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    NamedConfigTest *cfg = static_cast<NamedConfigTest *>(NamedConfig::GetNamedConfigObject());
+    
+    string dns_domains[] = {
+        "soa.juniper.net"
+    };
+
+    string s1 = cfg->GetZoneFilePath(dns_domains[0]);
+    EXPECT_TRUE(FilesEqual(s1.c_str(),
+                "controller/src/dns/testdata/soa.juniper.net.zone"));
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    EXPECT_FALSE(FileExists(s1.c_str()));
+}
+
+
 TEST_F(DnsBindTest, Reordered) {
     string content = FileRead("controller/src/dns/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));

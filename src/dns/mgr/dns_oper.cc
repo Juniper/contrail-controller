@@ -426,7 +426,8 @@ bool VirtualDnsConfig::HasChanged() {
         rec_.default_ttl_seconds == old_rec_.default_ttl_seconds &&
         rec_.next_virtual_DNS == old_rec_.next_virtual_DNS &&
         rec_.external_visible == old_rec_.external_visible &&
-        rec_.reverse_resolution == old_rec_.reverse_resolution)
+        rec_.reverse_resolution == old_rec_.reverse_resolution &&
+        rec_.soa_record.negative_cache_ttl_seconds == old_rec_.soa_record.negative_cache_ttl_seconds)
         return false;
     return true;
 }
@@ -443,6 +444,7 @@ void VirtualDnsConfig::VirtualDnsTrace(VirtualDnsTraceData &rec) {
     rec.external_visible = (rec_.external_visible ? "yes" : "no");
     rec.reverse_resolution = (rec_.reverse_resolution ? "yes" : "no");
     rec.flags = flags_;
+    rec.negative_cache_ttl_seconds = rec_.soa_record.negative_cache_ttl_seconds;
 }
 
 void VirtualDnsConfig::Trace(const std::string &ev) {
@@ -629,6 +631,7 @@ autogen::VirtualDnsType VirtualDnsRecordConfig::GetVDns() const {
     autogen::VirtualDnsType data;
     data.dynamic_records_from_client = false;
     data.default_ttl_seconds = 0;
+    data.soa_record.negative_cache_ttl_seconds = 0;
     if (virt_dns_)
         data = virt_dns_->GetVDns();
     return data;
