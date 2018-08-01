@@ -41,7 +41,10 @@
     - cfg_ip_clos
     - cfg_overlay_bgp
     - cfg_overlay_evpn
-    - cfg_overlay_evpn_leaf
+    - cfg_overlay_evpn_interfaces
+    - cfg_overlay_evpn_targets
+    - cfg_overlay_evpn_type5
+    - cfg_overlay_evpn_vlans
     - cfg_overlay_fip_snat
     - cfg_overlay_networking
     - cfg_overlay_multi_homing
