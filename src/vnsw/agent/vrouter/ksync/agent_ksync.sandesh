@@ -41,6 +41,10 @@ struct KSyncIntfInfo {
     9: optional string analyzer_name;
    10: optional u32 l2_active;
    11: optional list<KSyncIntfFatFlowInfo> fat_flows;
+   13: optional list<u64> fat_flow_v4_exclude_list;
+   14: optional list<u64> fat_flow_v6_exclude_upper_list;
+   15: optional list<u64> fat_flow_v6_exclude_lower_list;
+   16: optional list<u16> fat_flow_v6_exclude_plen_list;
 }
 
 /**

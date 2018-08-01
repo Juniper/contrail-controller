@@ -421,6 +421,14 @@ public:
     const std::string &program_name() const {return prog_name_;}
     const std::string &config_file() const {return config_file_;}
     const std::string &log_file() const {return log_file_;}
+    const std::string &v4_link_local_subnet() const {
+        return v4_link_local_subnet_;
+    }
+    const std::string &v6_link_local_subnet() const {
+        return v6_link_local_subnet_;
+    }
+    const uint16_t v4_link_local_plen() const { return v4_link_local_plen_; }
+    const uint16_t v6_link_local_plen() const { return v6_link_local_plen_; }
 
     // DB Table accessor methods
     IpAddress GetMirrorSourceIp(const IpAddress &dest);
@@ -1516,6 +1524,10 @@ public:
     static const std::string xmpp_control_node_connection_name_prefix_;
     static const std::string dpdk_exception_pkt_path_;
     static const std::string vnic_exception_pkt_interface_;
+    static const std::string v4_link_local_subnet_;
+    static const std::string v6_link_local_subnet_;
+    static const uint16_t v4_link_local_plen_ = 16;
+    static const uint16_t v6_link_local_plen_ = 10;
 };
 
 #endif // vnsw_agent_hpp
