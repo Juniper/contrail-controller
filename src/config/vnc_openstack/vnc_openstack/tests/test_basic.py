@@ -951,13 +951,14 @@ class TestBasic(test_case.NeutronBackendTestCase):
                     else:
                         switch_intf = switch_interfaces[0]
 
-                    fq_name = ['default-global-system-config', switch_name, switch_intf]
-                    pi_uuid = self._vnc_lib.fq_name_to_id('physical-interface', fq_name)
-                    pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
-                    if pi_obj.ethernet_segment_identifier:
-                        esi = pi_obj.ethernet_segment_identifier
-                        if not esi.startswith('00:00:00:00'):
-                            self.assertTrue(False)
+                        # ESI now is only set for MH case (not LAG case)
+                        fq_name = ['default-global-system-config', switch_name, switch_intf]
+                        pi_uuid = self._vnc_lib.fq_name_to_id('physical-interface', fq_name)
+                        pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
+                        if pi_obj.ethernet_segment_identifier:
+                            esi = pi_obj.ethernet_segment_identifier
+                            if not esi.startswith('00:00:00:00'):
+                                self.assertTrue(False)
 
             # Now verify the delete funtion to ensure that the resources
             # created to facilitate LAG interface are deleted with the
