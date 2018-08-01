@@ -209,7 +209,6 @@
 
 #define DHCP_SHORTLEASE_TIME 4
 #define DHCP_GW_LEASE_TIME   86400
-#define LINK_LOCAL_SUBNET    "169.254.0.0"
 
 struct dhcphdr {
      uint8_t  op;

@@ -959,6 +959,18 @@ public:
         FatFlowEntrySet list_;
     };
 
+    struct FatFlowExcludeList {
+        std::vector<uint64_t> fat_flow_v4_exclude_list_;
+        std::vector<uint64_t> fat_flow_v6_exclude_upper_list_;
+        std::vector<uint64_t> fat_flow_v6_exclude_lower_list_;
+        std::vector<uint16_t> fat_flow_v6_exclude_plen_list_;
+        void Clear() {
+            fat_flow_v4_exclude_list_.clear();
+            fat_flow_v6_exclude_upper_list_.clear();
+            fat_flow_v6_exclude_lower_list_.clear();
+            fat_flow_v6_exclude_plen_list_.clear();
+        }
+    };
     struct BridgeDomain : ListEntry {
         BridgeDomain(): uuid_(nil_uuid()), vlan_tag_(0),
             bridge_domain_(NULL) {}
@@ -1234,6 +1246,8 @@ public:
     }
     bool IsFatFlow(uint8_t protocol, uint16_t port,
                    VmInterface::FatFlowIgnoreAddressType *ignore_addr) const;
+    bool ExcludeFromFatFlow(Address::Family family, const IpAddress &sip,
+                            const IpAddress &dip) const;
 
     const BridgeDomainList &bridge_domain_list() const {
         return bridge_domain_list_;
@@ -1339,6 +1353,7 @@ public:
     }
     const std::string &service_intf_type() const { return service_intf_type_; }
     VmInterface * PortTuplePairedInterface() const;
+    void BuildFatFlowExcludeList(FatFlowExcludeList *list) const;
 
     // Static methods
     // Add a vm-interface
@@ -1387,6 +1402,10 @@ private:
     bool Ipv4Deactivated(bool old_ipv4_active);
     bool Ipv6Deactivated(bool old_ipv6_active);
     bool PolicyEnabled() const;
+    void FillV4ExcludeIp(uint64_t plen, const Ip4Address &ip,
+                         FatFlowExcludeList *list) const;
+    void FillV6ExcludeIp(uint16_t plen, const IpAddress &ip,
+                         FatFlowExcludeList *list) const;
 
     bool CopyConfig(const InterfaceTable *table,
                     const VmInterfaceConfigData *data, bool *sg_changed,

@@ -1726,12 +1726,12 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (nat_done && (pkt->ignore_address == VmInterface::IGNORE_SOURCE ||
-    pkt->ignore_address == VmInterface::IGNORE_DESTINATION)) {
+        pkt->ignore_address == VmInterface::IGNORE_DESTINATION)) {
         /* IGNORE_SOURCE/IGNORE_DESTINATION not supported for NAT flows */
-    LogError(pkt, this, "Flow : Fat-flow and NAT cannot co-exist");
-    short_flow = true;
-    short_flow_reason = FlowEntry::SHORT_FAT_FLOW_NAT_CONFLICT;
-    return false;
+        LogError(pkt, this, "Flow : Fat-flow and NAT cannot co-exist");
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_FAT_FLOW_NAT_CONFLICT;
+        return false;
     }
 
     if (!disable_validation) {

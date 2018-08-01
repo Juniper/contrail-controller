@@ -110,6 +110,9 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
         return;
     }
 
+    if (intf->ExcludeFromFatFlow(pkt->family, pkt->ip_saddr, pkt->ip_daddr)) {
+        return;
+    }
     uint16_t sport = pkt->sport;
     if (pkt->ip_proto == IPPROTO_ICMP || pkt->ip_proto == IPPROTO_IGMP) {
         sport = 0;
