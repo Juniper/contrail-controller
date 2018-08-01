@@ -2198,7 +2198,9 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
     @classmethod
     def _create_lag_interface(cls, api_server, db_conn, prouter_name, phy_interfaces):
-        lag_interface_name = "ae" + phy_interfaces[0][2:]
+        if_num = ''.join([i for i in phy_interfaces[0][2:] if i.isalnum()])
+        if_num = str(int(if_num) % 64)
+        lag_interface_name = "ae" + if_num
 
         # create lag object
         lag_obj = LinkAggregationGroup(parent_type='physical-router',
@@ -2239,6 +2241,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     @classmethod
     def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links):
         tors = {}
+        esi = None
         for link in phy_links:
             tor_name = link['switch_info']
             port_name = link['port_id']
@@ -2255,11 +2258,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             else:
                 vmi_connected_phy_interface = tor_info['phy_interfaces'][0]
 
-            # Get Mac address for vmi
-            ok, result = cls.dbe_read(db_conn,'virtual_machine_interface', vmi_id)
-            if ok:
-                mac = result['virtual_machine_interface_mac_addresses']['mac_address']
-                esi = "00:00:00:00:" + mac[0]
+                # Get Mac address for vmi
+                ok, result = cls.dbe_read(db_conn,'virtual_machine_interface', vmi_id)
+                if ok:
+                    mac = result['virtual_machine_interface_mac_addresses']['mac_address']
+                    esi = "00:00:00:00:" + mac[0]
             cls._create_logical_interface(vmi_id, api_server, db_conn, tor_name,
                                           vmi_connected_phy_interface, esi=esi)
 
