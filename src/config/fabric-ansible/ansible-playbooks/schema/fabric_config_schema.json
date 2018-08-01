@@ -87,6 +87,11 @@
         "description": "Set to true for config delete operation",
         "default": false
       },
+      "push_mode": {
+        "type": "boolean",
+        "description": "Set to true for Ansibilized DM",
+        "default": true
+      },
       "fabric_uuid": {
         "format":"uuid",
         "type":"string",
