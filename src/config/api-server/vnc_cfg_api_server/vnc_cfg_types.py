@@ -3852,8 +3852,14 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         for child_name in children_fields:
             child_res_type = children_field_types[child_name][0]
             for child in ri_obj_dict.get(child_name) or []:
-                api_server.internal_request_delete(child_res_type, child['uuid'])
-
+                try:
+                    api_server.internal_request_delete(child_res_type, child['uuid'])
+                except cfgm_common.exceptions.HttpError as e:
+                    ok, _ = cls.dbe_read(db_conn, child_res_type, child['uuid'])
+                    if ok:
+                        raise
+                except cfgm_common.exceptions.NoIdError as e:
+                    pass
         api_server.internal_request_delete('routing-instance', ri_uuid)
 
         # Deallocate the virtual network ID
