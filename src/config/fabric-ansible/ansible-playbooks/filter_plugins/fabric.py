@@ -27,7 +27,8 @@ from vnc_api.gen.resource_client import (
     NetworkIpam,
     LogicalInterface,
     InstanceIp,
-    BgpRouter
+    BgpRouter,
+    LogicalRouter
 )
 from vnc_api.gen.resource_xsd import (
     IpamSubnets,
@@ -103,6 +104,14 @@ def _bgp_router_fq_name(device_name):
         device_name + '-bgp'
     ]
 # end _bgp_router_fq_name
+
+def _logical_router_fq_name(fabric_name):
+    return [
+        'default-domain',
+        'default-project',
+        fabric_name + '-CRB-gateway-logical-router'
+    ]
+# end _logical_router_fq_name
 
 
 def _subscriber_tag(local_mac, remote_mac):
@@ -1069,7 +1078,8 @@ class FilterModule(object):
             # delete all fabric devices
             for device_ref in fabric_obj.get_physical_router_back_refs() or []:
                 device_uuid = str(device_ref.get('uuid'))
-                self._delete_fabric_device(vnc_api, device_uuid)
+                self._delete_fabric_device(vnc_api, device_uuid,
+                                           fabric_fq_name=fabric_obj.fq_name)
 
             # delete all fabric namespaces
             for ns_ref in list(fabric_obj.get_fabric_namespaces() or []):
@@ -1097,11 +1107,13 @@ class FilterModule(object):
     # end _delete_fabric
 
     def _delete_fabric_device(
-            self, vnc_api, device_uuid=None, device_fq_name=None):
+            self, vnc_api, device_uuid=None, device_fq_name=None,
+            fabric_fq_name=None):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param device_uuid: string
         :param device_fq_name: list<string>: optional if missing device_uuid
+        :param fabric_fq_name: list<string>
         """
         device_obj = None
         try:
@@ -1172,6 +1184,9 @@ class FilterModule(object):
         # delete the corresponding bgp-router if exist
         self._delete_bgp_router(vnc_api, device_obj)
 
+        # delete the corresponding logical-router if exist
+        self._delete_logical_router(vnc_api, device_obj, fabric_fq_name[-1])
+
         # Now we can delete the device finally
         _task_log("Deleting deivce %s" % device_obj.display_name)
         vnc_api.physical_router_delete(id=device_obj.uuid)
@@ -1201,6 +1216,37 @@ class FilterModule(object):
                 'bgp-router for device %s does not exist' % device_obj.name
             )
     # end _delete_bgp_router
+
+    def _delete_logical_router(self, vnc_api, device_obj, fabric_name):
+        """
+        delete reference from logical-router and logical-router itself if
+        this is the last device
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :return: None
+        """
+        try:
+            logical_router_fq_name = _logical_router_fq_name(fabric_name)
+            logical_router_obj = vnc_api.logical_router_read(
+                fq_name=logical_router_fq_name
+            )
+            _task_log(
+                "Removing logical-router ref for device %s" % device_obj.name
+            )
+            logical_router_obj.del_physical_router(device_obj)
+            prouter_refs = logical_router_obj.get_physical_router_refs() or []
+            # if no more physical-routers attached, delete the logical-router
+            if len(prouter_refs) == 0:
+                _task_log(
+                    "Removing logical-router %s" % logical_router_fq_name
+                )
+                vnc_api.logical_router_delete(id=logical_router_obj.uuid)
+            _task_done()
+        except NoIdError:
+            self._logger.debug(
+                'logical-router for device %s does not exist' % device_obj.name
+            )
+    # end _delete_logical_router
 
     def _delete_fabric_network(self, vnc_api, fabric_name, network_type):
         """
@@ -1294,8 +1340,8 @@ class FilterModule(object):
             for device_name in job_ctx.get('job_input', {}).get('devices') or[]:
                 device_fq_name = ['default-global-system-config', device_name]
                 self._delete_fabric_device(
-                    vnc_api, fabric_obj, device_fq_name=device_fq_name
-                )
+                    vnc_api, device_fq_name=device_fq_name,
+                    fabric_fq_name=fabric_fq_name)
 
             return {
                 'status': 'success',
@@ -1360,6 +1406,8 @@ class FilterModule(object):
                     vnc_api, device_obj
                 )
                 self._add_bgp_router(vnc_api, device_obj)
+                self._add_logical_router(vnc_api, device_obj, device_roles,
+                                         fabric_info.get('fabric_fq_name')[-1])
                 device_roles['device_obj'] = device_obj
 
             for device_roles in role_assignments:
@@ -1515,6 +1563,44 @@ class FilterModule(object):
         # end if
         return bgp_router_obj
     # end _add_bgp_router
+
+    def _add_logical_router(self, vnc_api, device_obj, device_roles,
+                            fabric_name):
+        """
+        Add logical-router object for this device if CRB gateway role
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_roles: Dictionary
+            example:
+            {
+                'device_obj': <vnc_api.gen.resource_client.PhysicalRouter>
+                'device_fq_name': ['default-global-system-config', 'qfx-10'],
+                'physical_role": 'leaf',
+                'routing_bridging_roles": ['CRB-Gateway']
+            }
+        :param fabric_info: Fabric information containing fabric name
+        :return: None
+        """
+        logical_router_obj = None
+        rb_roles = device_roles.get('routing_bridging_roles') or []
+        if 'CRB-Gateway' in rb_roles:
+            logical_router_fq_name = _logical_router_fq_name(fabric_name)
+            logical_router_name = logical_router_fq_name[-1]
+            try:
+                logical_router_obj = vnc_api.logical_router_read(
+                    fq_name=logical_router_fq_name
+                )
+            except NoIdError:
+                logical_router_obj = LogicalRouter(
+                    name=logical_router_name,
+                    fq_name=logical_router_fq_name,
+                    parent_type='project'
+                )
+                vnc_api.logical_router_create(logical_router_obj)
+            # Add reference to physical router
+            logical_router_obj.add_physical_router(device_obj)
+            vnc_api.logical_router_update(logical_router_obj)
+        return logical_router_obj
+    # end _add_logical_router
 
     @staticmethod
     def _get_ibgp_asn(vnc_api, fabric_name):
@@ -1685,7 +1771,7 @@ class FilterModule(object):
                 'device_obj': <vnc_api.gen.resource_client.PhysicalRouter>
                 'device_fq_name': ['default-global-system-config', 'qfx-10'],
                 'physical_role": 'leaf',
-                'routing_bridging_roles": ['centrally-routed-bridging']
+                'routing_bridging_roles": ['CRB-Gateway']
             }
         :return: None
         """
@@ -1706,7 +1792,7 @@ class FilterModule(object):
 
 
 # ***************** tests *****************************************************
-def _mock_job_ctx_onbard_fabric():
+def _mock_job_ctx_onboard_fabric():
     return {
         "auth_token": "",
         "config_args": {
@@ -1755,7 +1841,7 @@ def _mock_job_ctx_onbard_fabric():
             "fabric_onboard_template"
         ]
     }
-# end _mock_job_ctx_onbard_fabric
+# end _mock_job_ctx_onboard_fabric
 
 
 def _mock_job_ctx_onboard_brownfield_fabric():
@@ -1792,7 +1878,7 @@ def _mock_job_ctx_onboard_brownfield_fabric():
             "existing_fabric_onboard_template"
         ]
     }
-# end _mock_job_ctx_onbard_fabric
+# end _mock_job_ctx_onboard_fabric
 
 
 def _mock_job_ctx_delete_fabric():
@@ -1858,6 +1944,7 @@ def _mock_job_ctx_assign_roles():
         },
         "job_execution_id": "c37b199a-effb-4469-aefa-77f531f77758",
         "job_input": {
+            "fabric_fq_name": ["default-global-system-config", "fab01"],
             "role_assignments": [
                 {
                     "device_fq_name": [
@@ -1865,7 +1952,7 @@ def _mock_job_ctx_assign_roles():
                         "DK588"
                     ],
                     "physical_role": "spine",
-                    "routing_bridging_roles": ["centrally-routed-bridging"]
+                    "routing_bridging_roles": ["CRB-Gateway"]
                 },
                 {
                     "device_fq_name": [
@@ -1907,7 +1994,7 @@ def __main__():
     parser = _parse_args()
     results = {}
     if parser.create_fabric:
-        results = fabric_filter.onboard_fabric(_mock_job_ctx_onbard_fabric())
+        results = fabric_filter.onboard_fabric(_mock_job_ctx_onboard_fabric())
     elif parser.create_existing_fabric:
         results = fabric_filter.onboard_brownfield_fabric(
             _mock_job_ctx_onboard_brownfield_fabric()
