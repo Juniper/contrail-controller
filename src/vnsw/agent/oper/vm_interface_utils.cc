@@ -4,6 +4,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
+#include <net/address_util.h>
 #include <oper/operdb_init.h>
 #include <oper/route_common.h>
 #include <oper/vm.h>
@@ -845,6 +846,55 @@ bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port,
     if (it != fat_flow_list_.list_.end()) {
         *ignore_addr = it->ignore_address;
         return true;
+    }
+    return false;
+}
+
+bool VmInterface::ExcludeFromFatFlow(Address::Family family,
+                                     const IpAddress &sip,
+                                     const IpAddress &dip) const {
+    if (family == Address::INET) {
+        std::vector<Ip4Address>::const_iterator it =
+            fat_flow_exclude_list_.v4_list_.begin();
+        int i = 0;
+        while (it != fat_flow_exclude_list_.v4_list_.end()) {
+            uint16_t plen = fat_flow_exclude_list_.v4_plen_list_.at(i);
+            if (plen == Address::kMaxV4PrefixLen) {
+                 if ((*it == sip.to_v4()) || (*it == dip.to_v4())) {
+                     return true;
+                 }
+            } else if (plen < Address::kMaxV4PrefixLen) {
+                if (IsIp4SubnetMember(*it, sip.to_v4(), plen)) {
+                    return true;
+                }
+                if (IsIp4SubnetMember(*it, dip.to_v4(), plen)) {
+                    return true;
+                }
+            }
+            ++it;
+            ++i;
+        }
+    } else if (family == Address::INET6) {
+        std::vector<Ip6Address>::const_iterator it =
+            fat_flow_exclude_list_.v6_list_.begin();
+        int i = 0;
+        while (it != fat_flow_exclude_list_.v6_list_.end()) {
+            uint16_t plen = fat_flow_exclude_list_.v6_plen_list_.at(i);
+            if (plen == 128) {
+                 if ((*it == sip.to_v6()) || (*it == dip.to_v6())) {
+                     return true;
+                 }
+            } else if (plen < 128) {
+                if (IsIp6SubnetMember(*it, sip.to_v6(), plen)) {
+                    return true;
+                }
+                if (IsIp6SubnetMember(*it, dip.to_v6(), plen)) {
+                    return true;
+                }
+            }
+            ++it;
+            ++i;
+        }
     }
     return false;
 }

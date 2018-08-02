@@ -67,6 +67,8 @@ const std::string Agent::log_file_ = "/var/log/contrail/vrouter.log";
 const std::string Agent::xmpp_dns_server_connection_name_prefix_ = "dns-server:";
 const std::string Agent::xmpp_control_node_connection_name_prefix_ = "control-node:";
 const uint16_t Agent::kDefaultVmiVmVnUveInterval = 30; //in seconds
+const std::string Agent::v4_link_local_subnet_ = "169.254.0.0";
+const std::string Agent::v6_link_local_subnet_ = "FE80::";
 
 SandeshTraceBufferPtr TaskTraceBuf(SandeshTraceBufferCreate("TaskTrace", 5000));
 Agent *Agent::singleton_;

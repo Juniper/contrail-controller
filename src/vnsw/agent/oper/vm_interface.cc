@@ -307,6 +307,11 @@ bool VmInterface::Resync(const InterfaceTable *table,
     // Apply config based on old and new values
     ApplyConfig(old_ipv4_active, old_l2_active, old_ipv6_active,
                 old_subnet, old_subnet_plen);
+
+    bool updated = BuildFatFlowExcludeList();
+    if (updated) {
+        ret = true;
+    }
     return ret;
 }
 
@@ -2925,4 +2930,53 @@ void VmInterface::CopyTagIdList(TagList *tag_id_list) const {
         tag_id_list->push_back(it->tag_->tag_id());
     }
     std::sort(tag_id_list->begin(), tag_id_list->end());
+}
+
+void VmInterface::FillV4ExcludeIp(uint16_t plen, const IpAddress &ip,
+                                  VmInterface::FatFlowExcludeList *list) {
+    if (ip.is_v4() && !ip.is_unspecified()) {
+        list->v4_list_.push_back(ip.to_v4());
+        list->v4_plen_list_.push_back(plen);
+    }
+}
+
+void VmInterface::FillV6ExcludeIp(uint16_t plen, const IpAddress &ip,
+                                  VmInterface::FatFlowExcludeList *list) {
+    if (ip.is_v6() && !ip.is_unspecified()) {
+        list->v6_list_.push_back(ip.to_v6());
+        list->v6_plen_list_.push_back(plen);
+    }
+}
+
+bool VmInterface::BuildFatFlowExcludeList() {
+    FatFlowExcludeList exclude_list;
+
+    /* Build IPv4 exclude-list */
+    IpAddress gw_ip = GetGatewayIp(primary_ip_addr_);
+    FillV4ExcludeIp(Address::kMaxV4PrefixLen, gw_ip, &exclude_list);
+
+    IpAddress service_ip = GetServiceIp(primary_ip_addr_);
+    FillV4ExcludeIp(Address::kMaxV4PrefixLen, service_ip, &exclude_list);
+
+    boost::system::error_code ec;
+    Ip4Address ll_subnet = Ip4Address::from_string
+        (agent()->v4_link_local_subnet(), ec);
+    FillV4ExcludeIp(agent()->v4_link_local_plen(), ll_subnet, &exclude_list);
+
+    /* Build IPv6 exclude-list */
+    IpAddress gw6_ip = GetGatewayIp(primary_ip6_addr_);
+    FillV6ExcludeIp(128, gw6_ip, &exclude_list);
+
+    IpAddress service6_ip = GetServiceIp(primary_ip6_addr_);
+    FillV6ExcludeIp(128, service6_ip, &exclude_list);
+
+    Ip6Address ll6_subnet = Ip6Address::from_string
+        (agent()->v6_link_local_subnet(), ec);
+    FillV6ExcludeIp(agent()->v6_link_local_plen(), ll6_subnet, &exclude_list);
+
+    if (exclude_list != fat_flow_exclude_list_) {
+        fat_flow_exclude_list_ = exclude_list;
+        return true;
+    }
+    return false;
 }

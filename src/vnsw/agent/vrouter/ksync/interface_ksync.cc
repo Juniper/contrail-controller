@@ -470,9 +470,14 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
-    {    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    {
+        const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
         if (fat_flow_list_.list_ != vm_intf->fat_flow_list().list_) {
             fat_flow_list_ = vm_intf->fat_flow_list();
+            ret = true;
+        }
+        if (fat_flow_exclude_list_ != vm_intf->fat_flow_exclude_list()) {
+            fat_flow_exclude_list_ = vm_intf->fat_flow_exclude_list();
             ret = true;
         }
         std::set<MacAddress> aap_mac_list;
@@ -638,6 +643,62 @@ bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id,
     return false;
 }
 
+void InterfaceKSyncEntry::FillV4ExcludeIp(uint64_t plen, const Ip4Address &ip,
+                                          std::vector<uint64_t> *list) const {
+    uint64_t value = 0;
+    if (!ip.is_unspecified()) {
+        value = plen | htonl(ip.to_ulong());
+        list->push_back(value);
+    }
+}
+
+void InterfaceKSyncEntry::FillV6ExcludeIp(uint16_t plen, const Ip6Address &ip,
+                                          std::vector<uint64_t> *ulist,
+                                          std::vector<uint64_t> *llist,
+                                          std::vector<uint16_t> *plist) const {
+    if (!ip.is_unspecified()) {
+        uint64_t ip_arr[2];
+        Ip6AddressToU64Array(ip, ip_arr, 2);
+        ulist->push_back(ip_arr[0]);
+        llist->push_back(ip_arr[1]);
+        plist->push_back(plen);
+    }
+}
+
+void InterfaceKSyncEntry::EncodeFatFlowExcludeList(vr_interface_req *encoder)
+ const {
+    std::vector<uint64_t> fat_flow_v4_exclude_list;
+    std::vector<uint64_t> fat_flow_v6_exclude_upper_list;
+    std::vector<uint64_t> fat_flow_v6_exclude_lower_list;
+    std::vector<uint16_t> fat_flow_v6_exclude_plen_list;
+
+    std::vector<Ip4Address>::const_iterator it =
+        fat_flow_exclude_list_.v4_list_.begin();
+    int i = 0;
+    while (it != fat_flow_exclude_list_.v4_list_.end()) {
+        uint16_t plen = fat_flow_exclude_list_.v4_plen_list_.at(i);
+        uint64_t eplen = (uint64_t(plen) << 32);
+        FillV4ExcludeIp(eplen, *it, &fat_flow_v4_exclude_list);
+        ++it;
+        ++i;
+    }
+    std::vector<Ip6Address>::const_iterator v6it =
+        fat_flow_exclude_list_.v6_list_.begin();
+    i = 0;
+    while (v6it != fat_flow_exclude_list_.v6_list_.end()) {
+        uint16_t plen = fat_flow_exclude_list_.v6_plen_list_.at(i);
+        FillV6ExcludeIp(plen, *v6it, &fat_flow_v6_exclude_upper_list,
+                        &fat_flow_v6_exclude_lower_list,
+                        &fat_flow_v6_exclude_plen_list);
+        ++v6it;
+        ++i;
+    }
+    encoder->set_vifr_fat_flow_exclude_ip_list(fat_flow_v4_exclude_list);
+    encoder->set_vifr_fat_flow_exclude_ip6_u_list(fat_flow_v6_exclude_upper_list);
+    encoder->set_vifr_fat_flow_exclude_ip6_l_list(fat_flow_v6_exclude_lower_list);
+    encoder->set_vifr_fat_flow_exclude_ip6_plen_list(fat_flow_v6_exclude_plen_list);
+}
+
 int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_interface_req encoder;
     int encode_len;
@@ -768,6 +829,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                                         it->protocol << 16 | it->port);
             }
             encoder.set_vifr_fat_flow_protocol_port(fat_flow_list);
+            EncodeFatFlowExcludeList(&encoder);
         }
 
         if (pbb_interface_) {
@@ -988,6 +1050,31 @@ void InterfaceKSyncEntry::FillObjectLog(sandesh_op::type op,
             fat_flows.push_back(info);
         }
         info.set_fat_flows(fat_flows);
+
+        std::vector<Ip4Address>::const_iterator eit =
+            fat_flow_exclude_list_.v4_list_.begin();
+        int i = 0;
+        std::vector<string> v4_exclude_list;
+        while (eit != fat_flow_exclude_list_.v4_list_.end()) {
+            uint16_t plen = fat_flow_exclude_list_.v4_plen_list_.at(i);
+            string value = eit->to_string() + "/" + integerToString(plen);
+            v4_exclude_list.push_back(value);
+            ++eit;
+            ++i;
+        }
+        std::vector<Ip6Address>::const_iterator v6it =
+            fat_flow_exclude_list_.v6_list_.begin();
+        i = 0;
+        std::vector<string> v6_exclude_list;
+        while (v6it != fat_flow_exclude_list_.v6_list_.end()) {
+            uint16_t plen = fat_flow_exclude_list_.v6_plen_list_.at(i);
+            string value = v6it->to_string() + "/" + integerToString(plen);
+            v6_exclude_list.push_back(value);
+            ++v6it;
+            ++i;
+        }
+        info.set_fat_flow_v4_exclude_list(v4_exclude_list);
+        info.set_fat_flow_v6_exclude_list(v6_exclude_list);
     }
 }
 
