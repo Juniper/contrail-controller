@@ -397,6 +397,28 @@ class VncPod(VncCommon):
                 if vr.name == vm_vmi.host_id:
                     vr_uuid = vr.uuid
                     break
+
+            if not vr_uuid:
+                # Unable to determine VRouter for the parent VM.
+                #
+                # HACK ALERT
+                #
+                # It is possible that this is a case of FQDN mismatch between
+                # the host name associated with the VM and the host name
+                # associated with the corresponding vrouter. So try to look for
+                # vrouter again with a non-FQDN name.
+                #
+                # This needs to be removed when provisioning can guarantee that
+                # FQDN will be uniform across all config objects.
+                #
+                if '.' in vm_vmi.host_id:
+                    # Host name on VM is a FQNAME. Ignore domain name.
+                    host_id_prefix = vm_vmi.host_id.split('.')[0]
+                    for vr in VirtualRouterKM.values():
+                        if vr.name == host_id_prefix:
+                            vr_uuid = vr.uuid
+                            break
+
             if not vr_uuid:
                 self._logger.error("No virtual-router object found for host: "
                                    + vm_vmi.host_id
