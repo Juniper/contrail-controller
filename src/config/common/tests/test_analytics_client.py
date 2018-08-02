@@ -19,6 +19,8 @@
 
 import mock
 import unittest
+from requests.exceptions import ConnectionError
+from testtools import content, content_type, ExpectedException
 
 from cfgm_common.analytics_client import Client
 
@@ -27,13 +29,109 @@ class TestOpenContrailClient(unittest.TestCase):
 
     def setUp(self):
         super(TestOpenContrailClient, self).setUp()
-        self.client = Client('http://127.0.0.1:8081', {'arg1': 'aaa'})
+        self.client = Client('127.0.0.1', 8081, {'arg1': 'aaa'})
 
         self.get_resp = mock.MagicMock()
         self.get = mock.patch('requests.get',
                               return_value=self.get_resp).start()
         self.get_resp.raw_version = 1.1
         self.get_resp.status_code = 200
+
+    def test_round_robin_client(self):
+        client_ips = "127.0.1.1 127.0.1.2 127.0.1.3"
+        expected_ip_list = ['127.0.1.1', '127.0.1.2', '127.0.1.3']
+        new_client = Client(client_ips, 8081, {'arg1': 'aaaa'})
+
+        self.get_resp_multiple = mock.MagicMock()
+        self.get_multiple = mock.patch('requests.get',
+                              return_value=self.get_resp_multiple).start()
+        self.get_resp_multiple.raw_version = 1.1
+        self.get_resp_multiple.status_code = 200
+
+        index = -1
+        for i in range(6):
+            index += 1
+            if index >= len(expected_ip_list):
+                index = 0
+
+            new_client.request('/fake/path/', 'fake_uuid')
+
+            call_args = self.get_multiple.call_args_list[i][0]
+            call_kwargs = self.get_multiple.call_args_list[i][1]
+
+            expected_url = 'http://%s:8081' % expected_ip_list[index] + '/fake/path/fake_uuid'
+            self.assertEqual(expected_url, call_args[0])
+
+            data = call_kwargs.get('data')
+            expected_data = {'arg1': 'aaaa'}
+            self.assertEqual(expected_data, data)
+
+    def mocked_response(*args, **kwargs):
+        class MockResponse:
+            def __init__(self, json_data, status_code):
+                self.status_code = status_code
+                self.json_data = json_data
+                self.raw_version = 1.1
+            def json(self):
+                return self.json_data
+
+        if args[1] == 'http://127.0.1.1:8081/fake/path/fake_uuid':
+            raise ConnectionError
+
+        else:
+            return MockResponse({"response": "success"}, 200)
+
+    def test_round_robin_client_with_failure(self):
+        client_ips = "127.0.1.1 127.0.1.2 127.0.1.3"
+        expected_ip_list = ['127.0.1.1', '127.0.1.2', '127.0.1.3']
+        new_client = Client(client_ips, 8081, {'arg1': 'aaaa'})
+
+        self.get_multiple = mock.patch('requests.get',
+                              side_effect=self.mocked_response).start()
+
+        index = -1
+        failure_count = 0
+
+        for i in range(6):
+            index += 1
+            if index >= len(expected_ip_list):
+                index = 0
+
+            #Since we are making the MOCK fail for 127.0.1.1 (index 0), every time we hit this
+            #increase the failure count to check the call_args_list
+            #We will get response from only 127.0.1.2 and 127.0.1.3
+
+            if index == 0:
+                failure_count += 1
+
+            new_client.request('/fake/path/', 'fake_uuid')
+
+            call_args = self.get_multiple.call_args_list[i+failure_count][0]
+            call_kwargs = self.get_multiple.call_args_list[i+failure_count][1]
+
+            expected_url = 'http://%s:8081' % expected_ip_list[(index+failure_count) %3] + '/fake/path/fake_uuid'
+            self.assertEqual(expected_url, call_args[0])
+
+            data = call_kwargs.get('data')
+            expected_data = {'arg1': 'aaaa'}
+            self.assertEqual(expected_data, data)
+
+    def test_round_robin_client_with_all_failure(self):
+        client_ips = "127.0.1.1 127.0.1.2 127.0.1.3"
+        expected_ip_list = ['127.0.1.1', '127.0.1.2', '127.0.1.3']
+        new_client = Client(client_ips, 8081, {'arg1': 'aaaa'})
+
+        self.get_multiple = mock.patch('requests.get',
+                              side_effect = ConnectionError()).start()
+
+        index = -1
+        for i in range(6):
+            index += 1
+            if index >= len(expected_ip_list):
+                index = 0
+
+            with ExpectedException(ConnectionError) as e:
+                new_client.request('/fake/path/', 'fake_uuid')
 
     def test_analytics_request_without_data(self):
         self.client.request('/fake/path/', 'fake_uuid')
