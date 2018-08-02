@@ -58,7 +58,7 @@ class TestRandomScheduler(unittest.TestCase):
         self.scheduler = \
             scheduler.RandomScheduler(self.vnc_mock, mock.MagicMock(),
                 mock.MagicMock(), mock.MagicMock(), 
-                mock.MagicMock(netns_availability_zone=False))
+                mock.MagicMock(netns_availability_zone=False,analytics_server_list='127.0.0.2:8081'))
 
     def tearDown(self):
         self.analytics_patch.stop()
@@ -191,7 +191,8 @@ class TestRandomScheduler(unittest.TestCase):
         self.scheduler2 = \
             scheduler.RandomScheduler(vnc_lib=self.vnc_mock, nova_client=self.mock_nc,
                 disc=mock.MagicMock(), logger=mock.MagicMock(),
-                args=mock.MagicMock(netns_availability_zone="fake_az1"))
+                args=mock.MagicMock(netns_availability_zone="fake_az1",
+                                    analytics_server_list='127.0.0.2:8081'))
 
         az_vr_list = self.scheduler2._get_az_vrouter_list()
         self.assertEqual(az_vr_list, ['compute1', 'compute3'])
