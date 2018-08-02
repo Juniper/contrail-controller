@@ -1044,6 +1044,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                 'l3', 0)]
                         elif self.is_spine():
                             lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
+                        is_internal_vn = True if '_contrail_lr_internal_vn_' in vn_obj.name else False
                         ri_conf = {'ri_name': vrf_name_l3, 'vn': vn_obj,
                                    'is_l2': False,
                                    'is_l2_l3': vn_obj.get_forwarding_mode() ==
@@ -1055,6 +1056,8 @@ class AnsibleRoleCommon(AnsibleConf):
                                    'interfaces': interfaces,
                                    'gateways': lo0_ips,
                                    'network_id': vn_obj.vn_network_id}
+                        if is_internal_vn:
+                            ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                         self.add_routing_instance(ri_conf)
                     break
 
