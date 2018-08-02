@@ -42,17 +42,16 @@ class VRouterScheduler(object):
         self._nc = nova_client
         self._disc = disc
         self._logger = logger
-        self._analytics_client_list = self._get_analytics_clients()
+        self._analytics_servers = self._args.analytics_server_list
+        self.client = self._get_analytics_clients()
 
     def _get_analytics_clients(self):
-        analytics_client_list = []
-        analytics_servers = self._args.analytics_server_list[:]
-        analytics_server_list = analytics_servers.split()
-        for analytics_server in analytics_server_list or []:
-            endpoint = "http://%s" % analytics_server
-            obj = analytics_client.Client(endpoint)
-            analytics_client_list.append(obj)
-        return analytics_client_list
+        server_port_list = self._analytics_servers.replace(':', ' ').split()
+        analytics_server_list = server_port_list[0::2]
+        analytics_server_list_in_str = ' '.join(analytics_server_list)
+        analytics_port = int(server_port_list[1])
+
+        return analytics_client.Client(analytics_server_list_in_str, analytics_port)
 
     @abc.abstractmethod
     def schedule(self, plugin, context, router_id, candidates=None):
@@ -115,28 +114,15 @@ class VRouterScheduler(object):
         # get az host list
         az_vrs = self._get_az_vrouter_list()
 
-        # read all vrouter information
-        client_cnt = len(self._analytics_client_list)
-        analytics_client_list = random.sample(
-                  self._analytics_client_list, client_cnt)
-        analytics_response = False
-        for analytics in analytics_client_list or []:
-            try:
-                vrouters_mode = self.query_uve(
-                       analytics, "*?cfilt=VrouterAgent:mode")
-                agents_status = self.query_uve(
-                       analytics, "*?cfilt=NodeStatus:process_status")
-                analytics_response = True
-                break
-            except Exception as e:
-                error_msg = "Failed to get vrouter and agent info from " + \
-                            "analytics endpoint %s" %analytics.endpoint
-                self._logger.error(error_msg)
-                self._logger.error(str(e))
-
-        if not analytics_response:
+        try:
+            vrouters_mode = self.query_uve(
+                   self.client, "*?cfilt=VrouterAgent:mode")
+            agents_status = self.query_uve(
+                   self.client, "*?cfilt=NodeStatus:process_status")
+        except Exception as e:
             error_msg = "no response from analytics servers"
             self._logger.error(error_msg)
+            self._logger.error(str(e))
             return
 
         for vr in VirtualRouterSM.values():
