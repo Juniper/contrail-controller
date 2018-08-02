@@ -7,6 +7,7 @@ from setuptools import setup, find_packages
 setup(
     name='nodemgr',
     version='0.1dev',
+    install_requires=['pyyaml'],
     packages=['nodemgr',
               'nodemgr.analytics_nodemgr',
               'nodemgr.control_nodemgr',
