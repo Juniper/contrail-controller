@@ -23,11 +23,14 @@ class NetworkPolicyMonitor(KubeMonitor):
 
         if self.db:
             np_uuid = self.db.get_uuid(np_data)
+            np = self.db.locate(np_uuid)
             if event_type != 'DELETED':
                 # Update Network Policy DB.
-                np = self.db.locate(np_uuid)
                 np.update(np_data)
             else:
+                # Invoke pre-delete processing for network policy delete.
+                np.remove_entry()
+
                 # Remove the entry from Network Policy DB.
                 self.db.delete(np_uuid)
         else:

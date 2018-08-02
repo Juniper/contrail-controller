@@ -1807,6 +1807,10 @@ class ApplicationPolicySetKM(DBBaseKM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.firewall_policy_refs = None
+        # Hold refs to firewall policies on this APS, that are sorted by
+        # sequence number of the refs.
+        self.firewall_policies_sorted = []
         super(ApplicationPolicySetKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
@@ -1817,6 +1821,15 @@ class ApplicationPolicySetKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.parent_uuid = obj.get('parent_uuid', None)
         self.build_fq_name_to_uuid(self.uuid, obj)
+        self.firewall_policy_refs = obj.get('firewall_policy_refs', None)
+
+        # Construct a sorted list of firewall policy refs.
+        if self.firewall_policy_refs:
+            self.firewall_policies_sorted =\
+                sorted(self.firewall_policy_refs,
+                  key = lambda policy_ref: policy_ref['attr'].get('sequence'))
+        else:
+            self.firewall_policies_sorted = []
         return obj
 
     @classmethod
@@ -1828,6 +1841,16 @@ class ApplicationPolicySetKM(DBBaseKM):
 
     def get_fq_name(self):
         return self.fq_name
+
+    def get_firewall_policy_refs_sorted(self):
+        return self.firewall_policies_sorted
+
+    def get_firewall_policies(self):
+        fw_policies = []
+        for policy in self.firewall_policies_sorted:
+            fw_policies.append(policy.get('uuid'))
+        return fw_policies
+
 # end class ApplicationPolicySetKM
 
 class FirewallRuleKM(DBBaseKM):
@@ -1888,6 +1911,11 @@ class FirewallPolicyKM(DBBaseKM):
         # deafult behavior in the APS.
         self.tail = False
         self.spec = None
+        self.cluster_name = None
+        self.owner = None
+        self.k8s_uuid = None
+        self.k8s_name = None
+        self.k8s_namespace = None
 
         super(FirewallPolicyKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
@@ -1908,6 +1936,16 @@ class FirewallPolicyKM(DBBaseKM):
                     self.egress_deny_all_rule_uuid = kvp['value']
                 elif kvp['key'] == 'spec':
                     self.spec = kvp['value']
+                elif kvp['key'] == 'cluster':
+                    self.cluster_name = kvp['value']
+                elif kvp['key'] == 'owner':
+                    self.owner = kvp['value']
+                elif kvp['key'] == 'k8s_uuid':
+                    self.k8s_uuid = kvp['value']
+                elif kvp['key'] == 'name':
+                    self.k8s_name = kvp['value']
+                elif kvp['key'] == 'namespace':
+                    self.k8s_namespace = kvp['value']
 
         self.update_multiple_refs('firewall_rule', obj)
         self.build_fq_name_to_uuid(self.uuid, obj)
