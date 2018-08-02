@@ -27,7 +27,8 @@ from vnc_api.gen.resource_client import (
     NetworkIpam,
     LogicalInterface,
     InstanceIp,
-    BgpRouter
+    BgpRouter,
+    VirtualRouter
 )
 from vnc_api.gen.resource_xsd import (
     IpamSubnets,
@@ -103,6 +104,13 @@ def _bgp_router_fq_name(device_name):
         device_name + '-bgp'
     ]
 # end _bgp_router_fq_name
+
+def _virtual_router_fq_name(device_name):
+    return [
+        "default-global-system-config",
+        device_name + '-virtual'
+    ]
+# end _virtual_router_fq_name
 
 
 def _subscriber_tag(local_mac, remote_mac):
@@ -1172,6 +1180,9 @@ class FilterModule(object):
         # delete the corresponding bgp-router if exist
         self._delete_bgp_router(vnc_api, device_obj)
 
+        # delete the corresponding virtual-router if exist
+        self._delete_virtual_router(vnc_api, device_obj)
+
         # Now we can delete the device finally
         _task_log("Deleting deivce %s" % device_obj.display_name)
         vnc_api.physical_router_delete(id=device_obj.uuid)
@@ -1201,6 +1212,30 @@ class FilterModule(object):
                 'bgp-router for device %s does not exist' % device_obj.name
             )
     # end _delete_bgp_router
+
+    def _delete_virtual_router(self, vnc_api, device_obj):
+        """
+        delete corresponding virtual-router for a specific device
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :return: None
+        """
+        try:
+            virtual_router_obj = vnc_api.virtual_router_read(
+                fq_name=_virtual_router_fq_name(device_obj.name)
+            )
+            _task_log(
+                "Removing virtual-router for device %s" % device_obj.name
+            )
+            device_obj.del_virtual_router(virtual_router_obj)
+            vnc_api.physical_router_update(device_obj)
+            vnc_api.virtual_router_delete(id=virtual_router_obj.uuid)
+            _task_done()
+        except NoIdError:
+            self._logger.debug(
+                'virtual-router for device %s does not exist' % device_obj.name
+            )
+    # end _delete_virtual_router
 
     def _delete_fabric_network(self, vnc_api, fabric_name, network_type):
         """
@@ -1360,6 +1395,7 @@ class FilterModule(object):
                     vnc_api, device_obj
                 )
                 self._add_bgp_router(vnc_api, device_obj)
+                self._add_virtual_router(vnc_api, device_obj)
                 device_roles['device_obj'] = device_obj
 
             for device_roles in role_assignments:
@@ -1515,6 +1551,39 @@ class FilterModule(object):
         # end if
         return bgp_router_obj
     # end _add_bgp_router
+
+    def _add_virtual_router(self, vnc_api, device_obj):
+        """
+        Add corresponding virtual-router object for this device.
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :return: None
+        """
+        virtual_router_obj = None
+        if device_obj.physical_router_loopback_ip:
+            virtual_router_fq_name = _virtual_router_fq_name(device_obj.name)
+            virtual_router_name = virtual_router_fq_name[-1]
+            try:
+                virtual_router_obj = vnc_api.virtual_router_read(
+                    fq_name=virtual_router_fq_name
+                )
+            except NoIdError:
+                virtual_router_obj = VirtualRouter(
+                    name=virtual_router_name,
+                    fq_name=virtual_router_fq_name,
+                    parent_type='global-system-config',
+                    virtual_router_type='embedded', # ???
+                    virtual_router_dpdk_enabled = False, # ???
+                    virtual_router_ip_address = \
+                        device_obj.physical_router_loopback_ip # ???
+                    # TODO
+                )
+                vnc_api.bgp_router_create(virtual_router_obj)
+
+            device_obj.add_virtual_router(virtual_router_obj)
+        # end if
+        return virtual_router_obj
+    # end _add_virtual_router
 
     @staticmethod
     def _get_ibgp_asn(vnc_api, fabric_name):
