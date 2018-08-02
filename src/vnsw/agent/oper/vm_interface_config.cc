@@ -1540,7 +1540,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         }
 
     }
-    if (parent_vmi_node) {
+    if (parent_vmi_node && data->vm_uuid_ == nil_uuid()) {
         IFMapAgentTable *vmi_table = static_cast<IFMapAgentTable *>
                                     (parent_vmi_node->table());
         DBGraph *vmi_graph = vmi_table->GetGraph();
