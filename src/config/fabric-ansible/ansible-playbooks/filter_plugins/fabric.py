@@ -27,7 +27,8 @@ from vnc_api.gen.resource_client import (
     NetworkIpam,
     LogicalInterface,
     InstanceIp,
-    BgpRouter
+    BgpRouter,
+    LogicalRouter
 )
 from vnc_api.gen.resource_xsd import (
     IpamSubnets,
@@ -103,6 +104,14 @@ def _bgp_router_fq_name(device_name):
         device_name + '-bgp'
     ]
 # end _bgp_router_fq_name
+
+def _logical_router_fq_name(device_name):
+    return [
+        'default-domain',
+        'default-project',
+        device_name + '-logical'
+    ]
+# end _logical_router_fq_name
 
 
 def _subscriber_tag(local_mac, remote_mac):
@@ -1172,6 +1181,9 @@ class FilterModule(object):
         # delete the corresponding bgp-router if exist
         self._delete_bgp_router(vnc_api, device_obj)
 
+        # delete the corresponding logical-router if exist
+        self._delete_logical_router(vnc_api, device_obj)
+
         # Now we can delete the device finally
         _task_log("Deleting deivce %s" % device_obj.display_name)
         vnc_api.physical_router_delete(id=device_obj.uuid)
@@ -1201,6 +1213,28 @@ class FilterModule(object):
                 'bgp-router for device %s does not exist' % device_obj.name
             )
     # end _delete_bgp_router
+
+    def _delete_logical_router(self, vnc_api, device_obj):
+        """
+        delete corresponding logical-router for a specific device
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :return: None
+        """
+        try:
+            logical_router_obj = vnc_api.logical_router_read(
+                fq_name=_logical_router_fq_name(device_obj.name)
+            )
+            _task_log(
+                "Removing logical-router for device %s" % device_obj.name
+            )
+            vnc_api.logical_router_delete(id=logical_router_obj.uuid)
+            _task_done()
+        except NoIdError:
+            self._logger.debug(
+                'logical-router for device %s does not exist' % device_obj.name
+            )
+    # end _delete_logical_router
 
     def _delete_fabric_network(self, vnc_api, fabric_name, network_type):
         """
@@ -1360,6 +1394,7 @@ class FilterModule(object):
                     vnc_api, device_obj
                 )
                 self._add_bgp_router(vnc_api, device_obj)
+                self._add_logical_router(vnc_api, device_obj)
                 device_roles['device_obj'] = device_obj
 
             for device_roles in role_assignments:
@@ -1515,6 +1550,36 @@ class FilterModule(object):
         # end if
         return bgp_router_obj
     # end _add_bgp_router
+
+    def _add_logical_router(self, vnc_api, device_obj):
+        """
+        Add corresponding logical-router object for this device.
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :return: None
+        """
+        logical_router_obj = None
+        if device_obj.physical_router_loopback_ip:
+            logical_router_fq_name = _logical_router_fq_name(device_obj.name)
+            logical_router_name = logical_router_fq_name[-1]
+            try:
+                logical_router_obj = vnc_api.logical_router_read(
+                    fq_name=logical_router_fq_name
+                )
+            except NoIdError:
+                logical_router_obj = LogicalRouter(
+                    name=logical_router_name,
+                    fq_name=logical_router_fq_name,
+                    parent_type='project',
+                    configured_route_target_list = None, # ???
+                    vxlan_network_identifier = None, # ???
+                    # TODO add reference to prouter
+                )
+                vnc_api.logical_router_create(logical_router_obj)
+
+        # end if
+        return logical_router_obj
+    # end _add_logical_router
 
     @staticmethod
     def _get_ibgp_asn(vnc_api, fabric_name):
