@@ -121,7 +121,7 @@ class EventManager(object):
         self.logger = self.sandesh_instance.logger()
 
         if platform.system() == 'Windows':
-            self.process_info_manager = WindowsProcessInfoManager()
+            self.process_info_manager = WindowsProcessInfoManager(event_handlers)
         elif DockerProcessInfoManager and (utils.is_running_in_docker()
                                          or utils.is_running_in_kubepod()):
             self.process_info_manager = DockerProcessInfoManager(
