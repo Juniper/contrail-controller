@@ -8,6 +8,7 @@ import time
 
 from docker_mem_cpu import DockerMemCpuUsageData
 from sandesh_common.vns.ttypes import Module
+import common_process_manager as cpm
 
 
 # code calculates name from labels and then translate it to unit_name
@@ -63,24 +64,6 @@ def _convert_to_process_state(state):
     return state_mapping.get(state, 'PROCESS_STATE_UNKNOWN')
 
 
-def _dummy_process_info(name):
-    info = dict()
-    info['name'] = name
-    info['group'] = name
-    info['pid'] = 0
-    info['statename'] = 'PROCESS_STATE_EXITED'
-    info['expected'] = -1
-    return info
-
-
-def _convert_to_pi_event(info):
-    pi_event = info.copy()
-    pi_event['state'] = pi_event.pop('statename')
-    if 'start' in pi_event:
-        del pi_event['start']
-    return pi_event
-
-
 class DockerProcessInfoManager(object):
     def __init__(self, module_type, unit_names, event_handlers,
                  update_process_list):
@@ -88,7 +71,7 @@ class DockerProcessInfoManager(object):
         self._unit_names = unit_names
         self._event_handlers = event_handlers
         self._update_process_list = update_process_list
-        self._cached_process_infos = {}
+        self._process_info_cache = cpm.ProcessInfoCache()
         self._client = docker.from_env()
 
     def _get_full_info(self, cid):
@@ -155,20 +138,6 @@ class DockerProcessInfoManager(object):
                 containers[name] = container
         return containers
 
-    def _update_cache(self, info):
-        name = info['name']
-        cached_info = self._cached_process_infos.get(name)
-        if cached_info is None:
-            self._cached_process_infos[name] = info
-            return True
-        if info['name'] != cached_info['name'] or \
-                info['group'] != cached_info['group'] or \
-                info['pid'] != cached_info['pid'] or \
-                info['statename'] != cached_info['statename']:
-            self._cached_process_infos[name] = info
-            return True
-        return False
-
     def _get_start_time(self, info):
         state = info.get('State')
         start_time = state.get('StartedAt') if state else None
@@ -199,10 +168,10 @@ class DockerProcessInfoManager(object):
         containers = self._list_containers(self._unit_names)
         for name in self._unit_names:
             container = containers.get(name)
-            info = (_dummy_process_info(name) if container is None else
+            info = (cpm.dummy_process_info(name) if container is None else
                     self._container_to_process_info(container))
-            if self._update_cache(info):
-                self._event_handlers['PROCESS_STATE'](_convert_to_pi_event(info))
+            if self._process_info_cache.update_cache(info):
+                self._event_handlers['PROCESS_STATE'](cpm.convert_to_pi_event(info))
                 if self._update_process_list:
                     self._event_handlers['PROCESS_LIST_UPDATE']()
 
@@ -211,10 +180,10 @@ class DockerProcessInfoManager(object):
         containers = self._list_containers(self._unit_names)
         for name in self._unit_names:
             container = containers.get(name)
-            info = (_dummy_process_info(name) if container is None else
+            info = (cpm.dummy_process_info(name) if container is None else
                     self._container_to_process_info(container))
             processes_info_list.append(info)
-            self._update_cache(info)
+            self._process_info_cache.update_cache(info)
         return processes_info_list
 
     def runforever(self):
