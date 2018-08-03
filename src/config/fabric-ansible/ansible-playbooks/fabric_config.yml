@@ -44,6 +44,7 @@
     - cfg_overlay_evpn_type5
     - cfg_overlay_fip_snat
     - cfg_overlay_networking
+    - cfg_overlay_security_group
     - cfg_overlay_multi_homing
     - cfg_overlay_lag
     - commit_fabric_config
