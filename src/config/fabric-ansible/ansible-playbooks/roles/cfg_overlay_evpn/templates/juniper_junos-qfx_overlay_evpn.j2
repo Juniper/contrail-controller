@@ -4,6 +4,89 @@ delete groups {{cfg_group}}
 
 {% if device_abstract_config is defined and device_abstract_config != None %}
 set groups {{cfg_group}}
+
+{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%         if phy_int.get('interface_type') == 'irb' %}
+set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 set unit = li.get('unit') %}
+{%                 set gw = li.get('gateway') %}
+{%                 set family = 'inet' %}
+{%                 for ipad in li.get('ip_list', []) %}
+set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} family {{family}} address {{ipad.get('address')}} virtual-gateway-address {{gw}}
+{%                 endfor %}
+set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} proxy-macip-advertisement
+{%             endfor %}
+{%         else %}
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 if 'EVPN' in li.get('comment', '') %}
+{%                     set name = phy_int.get('name') %}
+{%                     set unit = li.get('unit') %}
+{%                     set vlan_id = li.get('vlan_tag') %}
+set groups __contrail_{{feature}}__ interfaces {{name}} flexible-vlan-tagging
+set groups __contrail_{{feature}}__ interfaces {{name}} encapsulation extended-vlan-bridge
+set groups __contrail_{{feature}}__ interfaces {{name}} unit {{unit}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ interfaces {{name}} native-vlan-id {{vlan_id}}
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+
+{%     for vlan in device_abstract_config.get('vlans', []) %}
+{%         set vlan_name = vlan.get('name') %}
+{%         set vni = vlan.get('vxlan_id') %}
+{%         set intfs = vlan.get('interfaces',[]) %}
+{%         if vlan.get('vlan_or_bridge_domain', '') == 'false' %}
+{%             set vni = vlan.get('vxlan_id') %}
+{%             set vlan_id = vni %}
+{%             for irb_int in vlan.get('interfaces', []) %}
+{%                 set name = irb_int.get('name') %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} l3-interface {{name}}
+{%             endfor %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
+{%         else %}
+{%             for each in intfs %}
+{%                 set int_name = each.get('name', '') %}
+{%                 if 'irb' in int_name %}
+{%                     continue %}
+{%                 endif %}
+{%                 for phy_intf in device_abstract_config.get('physical_interfaces', []) %}
+{%                     for li in phy_intf.get('logical_interfaces', []) %}
+{%                         if phy_intf.get('name', '') in int_name %}
+{%                             set vlan_id = li.get('vlan_tag', '') %}
+{%                             set int_name = phy_intf.get('name') %}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} interface {{int_name}}
+set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
+{%                         endif %}
+{%                     endfor %}
+{%                 endfor %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         if ri.get('routing_instance_type') == 'virtual-switch' or ri.get('virtual_network_is_internal') == true %}
+{%             set vrf_import = ri.name+'-import' %}
+{%             set vrf_export = ri.name+'-export' %}
+{%             for import_target in ri.get('import_targets', []) %}
+{%                 set community_target = import_target.replace(':', '_') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}
+set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{import_target}}
+{%             endfor %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_import}} term t1 then accept
+set groups __contrail_{{feature}}__ switch-options vrf-import {{vrf_import}}
+{%             for export_target in ri.get('export_targets', []) %}
+{%                 set community_target = export_target.replace(':', '_') %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_export}} term t1 then community add {{community_target}}
+set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{export_target}}
+{%             endfor %}
+set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_export}} term t1 then accept
+set groups __contrail_{{feature}}__ switch-options vrf-export {{vrf_export}}
+{%         endif %}
+{%     endfor %}
+
 {%     set loc_vars = namespace(is_evpn='no', dev_mode='leaf') %}
 {%     for bgp_elem in device_abstract_config.get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
