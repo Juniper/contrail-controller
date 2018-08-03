@@ -97,7 +97,7 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 2
-        jl_message: "Completed ZTP TFTP: {{tftp_results}}"
+        jl_message: "Updated TFTP server settings on {{tftp_host}}"
 
 
 - name: Delete ansible-created section of DHCP server config file
@@ -124,6 +124,10 @@
           set_fact:
             dhcp_host: "{{groups['dhcp'][0]}}"
 
+        - name: Set log message
+          set_fact:
+            output_msg: "Updated DHCP server settings on {{dhcp_host}}"
+
         - name: Get DHCP results
           set_fact:
             dhcp_results: |
@@ -148,4 +152,4 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 3
-        jl_message: "Successfully deleted fabric: {{ playbook_input.input.fabric_fq_name }}"
+        jl_message: "{{output_msg}}"
