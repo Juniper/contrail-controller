@@ -1,0 +1,67 @@
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
+
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups {{cfg_group}}
+{%     set firewall = device_abstract_config.get('firewall') %}
+{%     if firewall != None %}
+{%         set firewall_filters = firewall.get('firewall_filters', []) %}
+{%         for filter in firewall_filters %}
+{%             if 'Security Group' not in filter.get('comment', '') %}
+{%                 continue %}
+{%             endif %}
+{%             set filter_name = filter.get('name', '') %}
+{%             set terms = filter.get('terms', []) %}
+{%             for term in terms %}
+{%                 set term_name = term.get('name') %}
+{%                 set term_from = term.get('from') %}
+{%                 if term_from == None %}
+{%                     continue %}
+{%                 endif %}
+{%                 set ip_dst_addrs = term_from.get('ip_destination_address', []) %}
+{%                 set ip_src_addrs = term_from.get('ip_source_address', []) %}
+{%                 set src_ports = term_from.get('source_ports', []) %}
+{%                 set dst_ports = term_from.get('destination_ports', []) %}
+{%                 set ip_proto = term_from.get('ip_protocol', []) %}
+{%                 set ether_type = term_from.get('ether_type', []) %}
+{%                 set term_then = term.get('then') %}
+{%                 if term_then == None %}
+{%                     continue %}
+{%                 endif %}
+{%                 set then_accept_or_reject = term_then.get('accept_or_reject', []) %}
+{%                 for src_port in src_ports %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from source-port {{src_port}}
+{%                 endfor %}
+{%                 for dst_port in dst_ports %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from destination-port {{dst_port}}
+{%                 endfor %}
+{%                 for ip_src_addr in ip_src_addrs %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-source-address {{ip_src_addr}}
+{%                 endfor %}
+{%                 for ip_dst_addr in ip_dst_addrs %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-destination-address {{ip_dst_addr}}
+{%                 endfor %}
+{%                 if ip_proto != None %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-protocol {{ip_proto}}
+{%                 endif %}
+{%                 if ether_type != None %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ether-type {{ether_type}}
+{%                 endif %}
+{%                 if then_accept_or_reject == True %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} then accept
+{%                 endif %}
+{%             endfor %}
+{%         endfor %}
+{%     endif %}
+{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%         for li in phy_int.get('logical_interfaces', []) %}
+{%             set unit = li.get('unit') %}
+{%             set firewall_filters = li.get('firewall_filters', []) %}
+{%             for firewall_filter in firewall_filters %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family ethernet-switching filter input-list {{firewall_filter}}
+{%             endfor %}
+{%         endfor %}
+{%     endfor %}
+set apply-groups {{cfg_group}}
+{% endif %}
