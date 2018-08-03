@@ -106,7 +106,7 @@ set groups {{cfg_group}} services service-set {{nat_rules_name}} next-hop-servic
 {%             set terms = filter.get('terms', []) %}
 {%             for term in terms %}
 {%                 set term_name = term.get('name') %}
-{%                 set term_from = term.get('from') %}
+{%                 set term_from = term.get('fromxx') %}
 {%                 if term_from == None %}
 {%                     continue %}
 {%                 endif %}
