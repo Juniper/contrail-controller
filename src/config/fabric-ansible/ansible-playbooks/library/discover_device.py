@@ -140,8 +140,6 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
 
             if host_params.get('time') == 0 or elapsed_time >= 30:
                 oid_mapped = {}
-                success = False
-
                 if deviceinfo.ping_sweep(host_params.get('host')):
                     logger.info("HOST {}: REACHABLE".format(host_params.get(
                         'host')))
