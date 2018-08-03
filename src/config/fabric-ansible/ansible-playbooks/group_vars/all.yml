@@ -81,6 +81,92 @@ device_family_info:
       - command: show system information | display xml
         data_format: xml
 
+# Supported roles on various vendor hardwares
+supported_roles:
+  juniper-qfx5100-48s-6q:
+    - CRB-Access@leaf
+    - null@spine
+  juniper-qfx5100-24q-2p:
+    - CRB-Access@leaf
+    - null@spine
+  juniper-qfx5110-48s-4c:
+    - CRB-Access@leaf
+    - null@spine
+  juniper-qfx5200-32c-32q:
+    - CRB-Access@leaf
+    - null@spine
+  juniper-qfx10002-72q:
+    - null@spine
+    - CRB-Gateway@spine
+    - DC-Gateway@spine
+    - CRB-Access@leaf
+    - CRB-Gateway@leaf
+    - DC-Gateway@leaf
+  juniper-qfx10002-36q:
+    - null@spine
+    - CRB-Gateway@spine
+    - DC-Gateway@spine
+    - CRB-Access@leaf
+    - CRB-Gateway@leaf
+    - DC-Gateway@leaf
+  juniper-qfx10016:
+    - null@spine
+    - CRB-Gateway@spine
+    - DC-Gateway@spine
+    - CRB-Access@leaf
+    - CRB-Gateway@leaf
+    - DC-Gateway@leaf
+  juniper-qfx10008:
+    - null@spine
+    - CRB-Gateway@spine
+    - DC-Gateway@spine
+    - CRB-Access@leaf
+    - CRB-Gateway@leaf
+    - DC-Gateway@leaf
+  juniper-vqfx-10000:
+    - null@spine
+    - CRB-Gateway@spine
+    - DC-Gateway@spine
+    - CRB-Access@leaf
+    - CRB-Gateway@leaf
+    - DC-Gateway@leaf
+  juniper-vmx:
+    - DC-Gateway@leaf
+  juniper-mx80:
+    - DC-Gateway@leaf
+
+# Role to feature mapping
+role_to_feature_mapping:
+  CRB-Access@leaf:
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+  CRB-Gateway@leaf:
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_networking
+    - overlay_evpn_type5
+  null@spine:
+    - overlay_bgp
+    - overlay_networking
+  CRB-Gateway@spine:
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_networking
+    - overlay_evpn_type5
+  DC-Gateway@leaf:
+    - overlay_bgp
+    - overlay_networking
+    - overlay_fip_snat
+
 # Paths for DHCP and TFTP config files
 DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
 TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"

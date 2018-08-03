@@ -18,12 +18,22 @@
 
     - debug: var=output
 
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      when: output.status == 'failure'
+      vars:
+        current_index: 1
+        jl_message: "Failed to delete fabric devices due to error: {{ output.error_msg }}"
+
+    - pause: seconds=5
+      when: output.status == 'failure'
+
     - name: check failure
       include_tasks: error_handler.yml
       when: output.status == 'failure'
       vars:
         op_err_message: "Unable to delete fabric due to error"
-        jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error. Here is deletion log\n: {{ output.deletion_log }}"
+        jl_err_message: "Failed to delete fabric devices due to error. Here is deletion log\n: {{ output.deletion_log }}"
         results:
           fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
 
