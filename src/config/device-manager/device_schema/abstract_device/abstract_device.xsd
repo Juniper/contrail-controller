@@ -221,6 +221,8 @@
         <xsd:element name="community" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="destination-address" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="source-address" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="ip-destination-address" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="ip-source-address" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="destination-prefix-list" type="dac:Subnet" maxOccurs="unbounded"/>
         <xsd:element name="source-prefix-list" type="dac:Subnet" maxOccurs="unbounded"/>
         <xsd:element name="source-ports" type="xsd:string" maxOccurs="unbounded"/>
