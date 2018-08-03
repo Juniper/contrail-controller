@@ -789,7 +789,7 @@ class AnsibleRoleCommon(AnsibleConf):
             self.interfaces_config.append(intf)
     # end build_ae_config
 
-    def add_addr_term(self, ff, addr_match, is_src):
+    def add_addr_term(self, term, addr_match, is_src):
         if not addr_match:
             return None
         subnet = addr_match.get_subnet()
@@ -799,24 +799,15 @@ class AnsibleRoleCommon(AnsibleConf):
         subnet_len = subnet.get_ip_prefix_len()
         if not subnet_ip or not subnet_len:
             return None
-        term = Term()
-        from_ = From()
+        from_ = term.get_from() or From()
         term.set_from(from_)
         if is_src:
-            term.set_name("src-addr-prefix")
-            src_prefix = Subnet(prefix=str(subnet_ip),
-                                prefix_len=int(subnet_len))
-            from_.add_source_prefix_list(src_prefix)
+            from_.add_ip_source_address(str(subnet_ip) + "/" + str(subnet_len))
         else:
-            term.set_name("dst-addr-prefix")
-            dst_prefix = Subnet(prefix=str(subnet_ip),
-                                prefix_len=int(subnet_len))
-            from_.add_destination_prefix_list(dst_prefix)
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
+            from_.add_ip_destination_address(str(subnet_ip) + "/" + str(subnet_len))
     # end add_addr_term
 
-    def add_port_term(self, ff, port_match, is_src):
+    def add_port_term(self, term, port_match, is_src):
         if not port_match:
             return None
         start_port = port_match.get_start_port()
@@ -824,30 +815,28 @@ class AnsibleRoleCommon(AnsibleConf):
         if not start_port or not end_port:
             return None
         port_str = str(start_port) + "-" + str(end_port)
-        term = Term()
-        from_ = From()
+        from_ = term.get_from() or From()
         term.set_from(from_)
         if is_src:
-            term.set_name("src-port")
             from_.add_source_ports(port_str)
         else:
-            term.set_name("dst-port")
             from_.add_destination_ports(port_str)
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
     # end add_port_term
 
-    def add_protocol_term(self, ff, protocol_match):
+    def add_protocol_term(self, term, protocol_match):
         if not protocol_match or protocol_match == 'any':
             return None
-        term = Term()
-        from_ = From()
+        from_ = term.get_from() or From()
         term.set_from(from_)
-        term.set_name("protocol")
         from_.set_ip_protocol(protocol_match)
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
     # end add_protocol_term
+
+    def add_filter_term(self, ff, name):
+        term = Term()
+        term.set_name(name)
+        ff.add_terms(term)
+        term.set_then(Then(accept_or_reject=True))
+        return term
 
     def add_dns_dhcp_terms(self, ff):
         port_list = [67, 68, 53]
@@ -858,8 +847,8 @@ class AnsibleRoleCommon(AnsibleConf):
         term.set_from(from_)
         for port in port_list:
             from_.add_source_ports(str(port))
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
+        term.set_then(Then(accept_or_reject=True))
+        ff.add_terms(term)
     # end add_dns_dhcp_terms
 
     def add_ether_type_term(self, ff, ether_type_match):
@@ -870,8 +859,9 @@ class AnsibleRoleCommon(AnsibleConf):
         term.set_from(from_)
         term.set_name("ether-type")
         from_.set_ether_type(ether_type_match.lower())
-        term.set_then(Then(accept=''))
-        ff.add_term(term)
+        term.set_then(Then(accept_or_reject=True))
+        ff.add_terms(term)
+
     # end add_ether_type_term
 
     def build_firewall_filters(self, sg, acl, is_egress=False):
@@ -904,15 +894,17 @@ class AnsibleRoleCommon(AnsibleConf):
             filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
             f = FirewallFilter(name=filter_name)
             f.set_comment(DMUtils.sg_firewall_comment(sg.name, ether_type_match, rule_uuid))
-            self.add_addr_term(f, dst_addr_match, False)
-            self.add_addr_term(f, src_addr_match, True)
-            self.add_port_term(f, dst_port_match, False)
-            self.add_port_term(f, src_port_match, True)
             # allow arp ether type always
             self.add_ether_type_term(f, 'arp')
-            self.add_protocol_term(f, protocol_match)
             # allow dhcp/dns always
             self.add_dns_dhcp_terms(f)
+            default_term = self.add_filter_term(f, "default-term")
+            self.add_addr_term(default-term, dst_addr_match, False)
+            self.add_addr_term(default-term, src_addr_match, True)
+            self.add_port_term(default-term, dst_port_match, False)
+            # source port match is not needed for now (BMS source port)
+            self.add_port_term(default-term, src_port_match, True)
+            self.add_protocol_term(default-term, protocol_match)
             self.firewall_config.add_firewall_filters(f)
     # end build_firewall_filters
 
@@ -924,16 +916,46 @@ class AnsibleRoleCommon(AnsibleConf):
             acls = sg.access_control_lists
             for acl in acls or []:
                 acl = AccessControlListDM.get(acl)
-                if acl and acl.is_ingress:
+                if acl and not acl.is_ingress:
                     self.build_firewall_filters(sg, acl)
     # end build_firewall_config
 
+    def is_default_sg(self, match):
+        if (not match.get_dst_address()) or \
+           (not match.get_dst_port()) or \
+           (not match.get_ethertype()) or \
+           (not match.get_src_address()) or \
+           (not match.get_src_port()) or \
+           (not match.get_protocol()):
+            return False
+        if not match.get_dst_address().get_subnet():
+            return False
+        if ((str(match.get_dst_address().get_subnet().get_ip_prefix()) == "0.0.0.0") or \
+            (str(match.get_dst_address().get_subnet().get_ip_prefix()) == "::")) and \
+           (str(match.get_dst_address().get_subnet().get_ip_prefix_len()) == "0") and \
+           (str(match.get_dst_port().get_start_port()) == "0") and \
+           (str(match.get_dst_port().get_end_port()) == "65535") and \
+           ((str(match.get_ethertype()) == "IPv4") or \
+            (str(match.get_ethertype()) == "IPv6")) and \
+           (not match.get_src_address().get_subnet()) and \
+           (not match.get_src_address().get_subnet_list()) and \
+           (str(match.get_src_port().get_start_port()) == "0") and \
+           (str(match.get_src_port().get_end_port()) == "65535") and \
+           (str(match.get_protocol()) == "any"):
+            return True
+        return False
+    # end is_default_sg
+
     def has_terms(self, rule):
         match = rule.get_match_condition()
-        if not match or match.get_protocol() == 'any':
+        if not match:
+            return False
+        # return False if it is default SG, no filter is applied
+        if self.is_default_sg(match):
             return False
         return match.get_dst_address() or match.get_dst_port() or \
-              match.get_ethertype() or match.get_src_address() or match.get_src_port()
+              match.get_ethertype() or match.get_src_address() or match.get_src_port() or \
+              (match.get_protocol() and match.get_protocol() != 'any')
 
     def get_firewall_filters(self, sg, acl, is_egress=False):
         if not sg or not acl or not acl.vnc_obj:
@@ -970,7 +992,7 @@ class AnsibleRoleCommon(AnsibleConf):
         acls = sg.access_control_lists
         for acl in acls or []:
             acl = AccessControlListDM.get(acl)
-            if acl and acl.is_ingress:
+            if acl and not acl.is_ingress:
                 fnames = self.get_firewall_filters(sg, acl)
                 filter_names += fnames
         return filter_names
