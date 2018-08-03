@@ -13,14 +13,23 @@
       set_fact:
         output: "{{ job_ctx | delete_fabric }}"
 
-    - name: check failure
-      include_tasks: error_handler.yml
+    - block:
+        - set_fact:
+            op_err_message: "Failed to delete fabric due to error: {{ output.error_msg }}. Here is the deletion log: {{ output.deletion_log}}"
+            jl_err_message: "Failed to delete fabric due to error: {{ output.error_msg }}"
+
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "{{ jl_err_message }}"
+            results: {}
+
+        - pause: seconds=5
+
+        - name: handle failure
+          include_tasks: error_handler.yml
       when: output.status == 'failure'
-      vars:
-        op_err_message: "Unable to delete fabric due to error"
-        jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error. Here is deletion log\n: {{ output.deletion_log }}"
-        results:
-          fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
 
     - name: Prepare to delete TFTP and DHCP config
       block:
