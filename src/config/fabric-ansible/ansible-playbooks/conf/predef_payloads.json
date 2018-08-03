@@ -381,8 +381,16 @@
           },
           "supported_vendor_hardwares": {
             "vendor_hardware": [
+              "juniper-qfx10002-72q",
               "juniper-qfx10002-36q",
+              "juniper-qfx10016",
+              "juniper-qfx10008",
+              "juniper-vqfx-10000",
               "juniper-qfx5100-48s-6q",
+              "juniper-qfx5100-24q-2p",
+              "juniper-qfx5110-48s-4c",
+              "juniper-qfx5200-32c-32q",
+              "juniper-vmx",
               "juniper-mx80"
             ]
           }
@@ -400,15 +408,63 @@
         },
         {
           "fq_name": [
+            "juniper-qfx5100-24q-2p"
+          ],
+          "name": "juniper-qfx5100-24q-2p"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx5110-48s-4c"
+          ],
+          "name": "juniper-qfx5110-48s-4c"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx5200-32c-32q"
+          ],
+          "name": "juniper-qfx5200-32c-32q"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx10002-72q"
+          ],
+          "name": "juniper-qfx10002-72q"
+        },
+        {
+          "fq_name": [
             "juniper-qfx10002-36q"
           ],
           "name": "juniper-qfx10002-36q"
         },
         {
           "fq_name": [
+            "juniper-qfx10016"
+          ],
+          "name": "juniper-qfx10016"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx10008"
+          ],
+          "name": "juniper-qfx10008"
+        },
+        {
+          "fq_name": [
+            "juniper-vqfx-10000"
+          ],
+          "name": "juniper-vqfx-10000"
+        },
+        {
+          "fq_name": [
             "juniper-mx80"
           ],
           "name": "juniper-mx80"
+        },
+        {
+          "fq_name": [
+            "juniper-vmx"
+          ],
+          "name": "juniper-vmx"
         }
       ]
     },
@@ -417,41 +473,44 @@
       "objects": [
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx5100"
+            "default-global-system-config", "juniper-qfx5k"
           ],
-          "name": "juniper-qfx5100",
+          "name": "juniper-qfx5k",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
           "node_profile_physical_roles": {
-              "physical_role": [ "leaf" ]
-          }
-        },
-        {
-          "fq_name": [
-            "default-global-system-config", "juniper-qfx10002"
-          ],
-          "name": "juniper-qfx10002",
-          "node_profile_vendor": "Juniper",
-          "node_profile_device_family": "junos-qfx",
-          "node_profile_physical_roles": {
-              "physical_role": [ "spine" ]
+            "physical_role": [ "leaf", "spine" ]
           },
           "node_profile_routing_bridging_roles": {
-              "rb_role": [ "centrally-routed-bridging" ]
+            "rb_role": [ "CRB-Access" ]
           }
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-mx80"
+            "default-global-system-config", "juniper-qfx10k"
           ],
-          "name": "juniper-mx80",
+          "name": "juniper-qfx10k",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_physical_roles": {
+              "physical_role": [ "leaf", "spine" ]
+          },
+          "node_profile_routing_bridging_roles": {
+              "rb_role": [ "CRB-Gateway", "CRB-Access", "DC-Gateway" ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-mx"
+          ],
+          "name": "juniper-mx",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
           "node_profile_physical_roles": {
-              "physical_role": [ "spine" ]
+              "physical_role": [ "leaf" ]
           },
           "node_profile_routing_bridging_roles": {
-              "rb_role": [ "centrally-routed-bridging" ]
+              "rb_role": [ "DC-Gateway" ]
           }
         }
       ]
@@ -461,7 +520,7 @@
       "objects": [
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx5100", "basic"
+            "default-global-system-config", "juniper-qfx5k", "basic"
           ],
           "name": "basic",
           "parent_type": "node-profile",
@@ -475,7 +534,7 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx5100", "ip_clos"
+            "default-global-system-config", "juniper-qfx5k", "ip_clos"
           ],
           "name": "ip_clos",
           "parent_type": "node-profile",
@@ -485,7 +544,7 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx10002", "basic"
+            "default-global-system-config", "juniper-qfx10k", "basic"
           ],
           "name": "basic",
           "parent_type": "node-profile",
@@ -499,7 +558,7 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx10002", "ip_clos"
+            "default-global-system-config", "juniper-qfx10k", "ip_clos"
           ],
           "name": "ip_clos",
           "parent_type": "node-profile",
@@ -509,7 +568,7 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-mx80", "basic"
+            "default-global-system-config", "juniper-mx", "basic"
           ],
           "name": "basic",
           "parent_type": "node-profile",
@@ -519,6 +578,16 @@
                 { "name": "public", "readonly": true }
               ]
             }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-mx", "ip_clos"
+          ],
+          "name": "ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
           }
         }
       ]
@@ -527,49 +596,103 @@
   "refs": [
     {
       "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5100" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48s-6q" ]
     },
     {
       "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx10002" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "hardware",
-      "to_fq_name": [ "juniper-qfx10002-36q" ]
+      "to_fq_name": [ "juniper-qfx5100-24q-2p" ]
     },
     {
       "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-mx80" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx5110-48s-4c" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx5200-32c-32q" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx10002-72q" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx10002-36q" ]
+    },
+     {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx10016" ]
+    },
+     {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx10008" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-vqfx-10000" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx80" ]
     },
     {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-vmx" ]
+    },
+    {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5100", "basic" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k", "basic" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5100", "ip_clos" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k", "ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx10002", "basic" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k", "basic" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx10002", "ip_clos" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k", "ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-mx80", "basic" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-mx", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx", "ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     }
