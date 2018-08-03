@@ -969,6 +969,12 @@ KSyncSockTcpSession::KSyncSockTcpSession(TcpServer *server, Socket *sock,
                        boost::bind(&KSyncSockTcp::ReceiveMsg, tcp_ptr, _1, _2));
 }
 
+KSyncSockTcpSession::~KSyncSockTcpSession() {
+    if (reader_) {
+        delete reader_;
+    }
+}
+
 void KSyncSockTcpSession::OnRead(Buffer buffer) {
     reader_->OnRead(buffer);
 }
