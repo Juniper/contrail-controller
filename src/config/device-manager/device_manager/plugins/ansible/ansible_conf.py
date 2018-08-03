@@ -298,6 +298,7 @@ class AnsibleConf(AnsibleBase):
             'device_abstract_config': self.export_dict(config),
             'additional_feature_params': feature_params,
             'fabric_uuid': self.physical_router.fabric,
+            'push_mode': PushConfigState.is_push_mode_ansible(),
             'is_delete': is_delete
         }
         return self.device_send(job_template, job_input, is_delete, retry)
