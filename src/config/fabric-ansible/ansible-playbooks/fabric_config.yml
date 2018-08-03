@@ -10,9 +10,12 @@
     device_name: "{{ device_info.name }}"
     device_vendor: "{{ device_info.vendor_name|lower }}"
     device_family: "{{ device_info.device_family|lower }}"
+    device_model: "{{ device_info.product_name }}"
     device_username: "{{ device_info.credentials.user_name }}"
     device_password: "{{ device_info.credentials.password }}"
     device_mgmt_ip: "{{ device_info.management_ip }}"
+    device_phy_role: "{{ device_info.physical_role }}"
+    device_rb_roles: "{{ device_info.routing_bridging_roles if device_info.routing_bridging_roles is defined else [] }}"
     output: {"status":"", "message":"", "results":""}
 
   pre_tasks:
