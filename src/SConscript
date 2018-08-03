@@ -15,17 +15,13 @@ subdirs = [
            'analytics/database',
            'bfd',
            'bgp',
-           'config',
-           'control-node',
            'db',
            'dns',
            'ifmap',
            'net',
            'route',
            'sandesh',
-           'server-manager',
            'storage',
-           'utils',
            'xml',
            'xmpp',
            'nodemgr',
@@ -35,7 +31,13 @@ if sys.platform != 'darwin':
     subdirs += ['ksync']
 
 if platform.system() != 'Windows':
-    subdirs += ['container']
+    subdirs += [
+        'config',
+        'container',
+        'control-node',
+        'server-manager',
+        'utils',
+    ]
 
 include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#controller/lib']
 

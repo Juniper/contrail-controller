@@ -342,7 +342,6 @@ subdirs = [
     'kstate',
     'mac_learning',
     'oper',
-    'ovs_tor_agent',
     'pkt',
     'port_ipc',
     'resource_manager',
@@ -353,6 +352,11 @@ subdirs = [
     'vrouter',
     'nexthop_server',
 ]
+
+if sys.platform != 'win32':
+    subdirs += [
+        'ovs_tor_agent',
+    ]
 
 AgentUveDocFiles = []
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/vrouter.sandesh')
