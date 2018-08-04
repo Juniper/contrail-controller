@@ -8,8 +8,8 @@ set groups {{cfg_group}}
 {%         if 'nat' in ri.get('name', '') %}
 {%             continue %}
 {%         endif %}
-{%         set ri_vn_mode = ri.get('virtual_network_mode') %}
-{%         if (ri_vn_mode == 'l2') or ('l2' in ri.name)  %}
+{%         set ri_vn_mode = ri.get('virtual_network_mode', '') %}
+{%         if ('l2' in ri_vn_mode) and ('l2' in ri.name)  %}
 {%             set contrail_l2_ri = ri.name %}
 {%             set l2_vrf_import = ri.name+'-import' %}
 {%             set l2_vrf_export = ri.name+'-export' %}
@@ -41,7 +41,7 @@ set groups {{cfg_group}} policy-options community {{community_target}} members {
 set groups {{cfg_group}} policy-options policy-statement {{l2_vrf_export}} term t1 then accept
 set groups {{cfg_group}} policy-options policy-statement {{l2_vrf_export}} then reject
 {%         endif %}
-{%         if (ri_vn_mode == 'l3') or ('l3' in ri.name)  %}
+{%         if ('l3' in ri_vn_mode) and ('l3' in ri.name)  %}
 {%             set contrail_l3_ri = ri.name %}
 {%             set irb_interface = 'irb.'+(ri.get('virtual_network_id')|string)  %}
 {%             set l3_vrf_import = ri.name+'-import' %}
@@ -51,25 +51,24 @@ set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{irb_in
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{l3_vrf_import}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{l3_vrf_export}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
-{%             set inet4 = False %}
-{%             set inet6 = False %}
+{%             set inet_vars = namespace(inet4='no', inet6='no') %}
 {%             for subnet in ri.get('prefixes', []) %}
 {%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
 {%                 if (':' in cidr) %}
-{%                     if inet6 == False %}
-{%                         set inet6 = True %}
+{%                     if inet_vars.inet6 == 'no' %}
+{%                         set inet_vars.inet6 = 'yes' %}
 {%                     endif %}
 {%                 else %}
-{%                     if inet4 == False %}
-{%                         set inet4 = True %}
+{%                     if inet_vars.inet4 == 'no' %}
+{%                         set inet_vars.inet4 = 'yes' %}
 {%                     endif %}
 {%                 endif %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} discard
 {%             endfor %}
-{%             if inet4 == True %}
+{%             if inet_vars.inet4 == 'yes' %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet unicast 
 {%             endif %}
-{%             if inet6 == True %}
+{%             if inet_vars.inet6 == 'yes' %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet6 unicast
 {%             endif %}
 {%             for import_target in ri.get('import_targets', []) %}
@@ -87,7 +86,7 @@ set groups {{cfg_group}} policy-options community {{community_target}} members {
 set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_export}} term t1 then accept
 set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_export}} then reject
 {%         endif %}
-{%         if (ri_vn_mode == 'l3') and (ri.get('is_public_network') == True)  %}
+{%         if ('l3' in ri_vn_mode) and ('l3' in ri.name) and (ri.get('is_public_network') == true)  %}
 {%             set contrail_l3_ri = ri.name %}
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%             for subnet in ri.get('prefixes', []) %}
