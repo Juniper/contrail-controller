@@ -64,7 +64,7 @@ class AnsibleBase(object):
         if pconf:
             pconf = pconf[0] #for now one only
             inst_cls = pconf.get('class')
-            return inst_cls(vnc_lib, logger, params)
+            return inst_cls(logger, params)
         name = pr.physical_router_role + ":" + vendor + ":" + product
         logger.warning("No ansible plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
         return None
