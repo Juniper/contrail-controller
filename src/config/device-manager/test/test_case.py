@@ -50,9 +50,7 @@ class DMTestCase(test_common.TestCase):
         setattr(device_manager.mx_conf.MxConf, 'device_send', fake_send_netconf)
         setattr(device_manager.qfx_5k.Qfx5kConf, 'device_send', fake_send_netconf)
         setattr(device_manager.qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
-        setattr(device_manager.leaf_conf.LeafConf, 'device_send',
-                fake_job_handler_push)
-        setattr(device_manager.spine_conf.SpineConf, 'device_send',
+        setattr(device_manager.ansible_conf.AnsibleConf, 'device_send',
                 fake_job_handler_push)
         if hasattr(self, 'product'):
             FakeNetconfManager.set_model(self.product)
