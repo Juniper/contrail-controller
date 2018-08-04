@@ -50,15 +50,33 @@
 
 - set_fact:
     rt_interfaces: "{{interface_list_new | junos_interface_info(prouter_name, regex_str)}}"
-
-- set_fact:
     cf_interfaces: "{{interface_list | junos_conf_interface_info(prouter_name, regex_str)}}"
 
 - set_fact:
     phy_int_payload: "{{rt_interfaces.phy_interfaces_payload}}+{{cf_interfaces.phy_interfaces_payload}}"
+    log_int_payload: "{{rt_interfaces.log_interfaces_payload}}+{{cf_interfaces.log_interfaces_payload}}"
+
+- name: Get the existing physical interfaces under the prouter
+  vnc_db_mod:
+    job_ctx: "{{job_ctx}}"
+    object_type: "physical_interface"
+    object_op: "list"
+    object_dict: {"parent_fq_name": "{{prouter_fqname}}"}
+  register: existing_phy_interface_list
 
 - set_fact:
-    log_int_payload: "{{rt_interfaces.log_interfaces_payload}}+{{cf_interfaces.log_interfaces_payload}}"
+    existing_phy_intf_fqname_list: "{{existing_phy_interface_list | json_query('obj.\"physical-interfaces\"[*].fq_name')}}"
+
+- name: Get the existing logical interfaces under the prouter
+  vnc_db_mod:
+    job_ctx: "{{job_ctx}}"
+    object_type: "logical_interface"
+    object_op: "bulk_query"
+    object_list: "{{existing_phy_intf_fqname_list}}"
+  register: existing_log_interface_list
+
+- set_fact:
+    interfaces_to_delete: "{{existing_phy_intf_fqname_list | compare_and_return_payload_for_del(existing_log_interface_list, phy_int_payload, log_int_payload)}}"
 
 - set_fact:
     dataplane_ip: "{{cf_interfaces.lo_interface_ip}}"
@@ -82,6 +100,23 @@
 - set_fact:
     bulk_create_phy_int_resp_set: "{{bulk_create_phy_int_resp.list_uuids|unique}}"
     bulk_create_log_int_resp_set: "{{bulk_create_log_int_resp.list_uuids|unique}}"
+
+- debug:
+    msg: "{{interfaces_to_delete}}"
+
+- name: Bulk Delete log interfaces first
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "logical_interface"
+    object_op: "bulk_delete"
+    object_list: "{{interfaces_to_delete.log_int_payload}}"
+
+- name: Bulk Delete Phy interfaces now
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_interface"
+    object_op: "bulk_delete"
+    object_list: "{{interfaces_to_delete.phy_int_payload}}"
 
 - name: update the dataplane ip
   block:

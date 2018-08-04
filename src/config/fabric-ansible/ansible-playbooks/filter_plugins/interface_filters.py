@@ -8,7 +8,79 @@ class FilterModule(object):
         return {
             'junos_interface_info': self.junos_rt_intf_filter,
             'junos_conf_interface_info': self.junos_cf_intf_filter,
+            'compare_and_return_payload_for_del': self.compare_and_delete_intf,
         }
+
+    def compare_and_delete_intf(self, existing_phy_intf_fqname_list,
+                                existing_log_interface_list,
+                                phy_int_payload, log_int_payload):
+
+        """This filter takes the inputs as the existing_phy_interfaces_fqname,
+        existing_log_interface_payloads and the corresponding payloads to be
+        created. It returns the payload_to_be_deleted.
+
+        and returns:
+        {
+         "phy_int_payload": [
+                             {
+                               "fq_name": [
+                                           "default-global-system-config",
+                                           prouter_name,
+                                           phy_interface_name1
+                               ]
+                             },
+                             {
+                               "fq_name": [
+                                           "default-global-system-config",
+                                           prouter_name,
+                                           phy_interface_name2
+                               ]
+                             }
+                            ],
+         "log_int_payload": [{
+                               "fq_name": [
+                                           "default-global-system-config",
+                                           prouter_name,
+                                           phy_interface_name,
+                                           log_interface_name
+                               ]
+                            }]
+        }
+
+
+        """
+
+        payload_for_deletion = {"phy_int_payload": [],
+                                "log_int_payload": []}
+        total_log_intf_list = []
+
+        phy_int_payload_fqname_list = []
+        log_int_payload_fqname_list = []
+
+        for phy_int in phy_int_payload:
+            phy_int_payload_fqname_list.append(phy_int['fq_name'])
+
+        for log_int in log_int_payload:
+            log_int_payload_fqname_list.append(log_int['fq_name'])
+
+        all_existing_log_intf_list =\
+            existing_log_interface_list['list_objects']
+        for existing_log_intfs in all_existing_log_intf_list:
+            existing_log_intf_for_phy_intf =\
+                existing_log_intfs['obj']['logical-interfaces']
+            total_log_intf_list.extend(existing_log_intf_for_phy_intf)
+
+        for phy_intf_fqname in existing_phy_intf_fqname_list:
+            if phy_intf_fqname not in phy_int_payload_fqname_list:
+                payload_for_deletion['phy_int_payload'].append(
+                    {'fq_name': phy_intf_fqname})
+
+        for log_intf in total_log_intf_list:
+            if log_intf['fq_name'] not in log_int_payload_fqname_list:
+                payload_for_deletion['log_int_payload'].append(
+                    {'fq_name': log_intf['fq_name']})
+
+        return payload_for_deletion
 
     def junos_rt_intf_filter(self, interface_list_new,
                              prouter_name, regex_str=".*"):

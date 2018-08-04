@@ -23,9 +23,9 @@ Performs CRUD operation for the objects in database. Following operations are
 supported - ADD, DELETE, UPDATE, READ, LIST, REF-UPDATE, REF-DELETE,
 FQNAME_TO_ID, ID_TO_FQNAME
 
-For CREATE operation, if 'object_obj_if_present' flag is set to True (default value),
-module tries to update the existing object. If this flag is set to False, module
-will return SUCCESS with existing uuid
+For CREATE operation, if 'object_obj_if_present' flag is set to True
+(default value), module tries to update the existing object. If this
+flag is set to False, module will return SUCCESS with existing uuid
 
 LIST operation is supported with filters/fields/back_ref_id and detail clause
 '''
@@ -159,7 +159,8 @@ LIST with filters and detail operation:
         object_op: "list"
         object_dict: |
           {
-              "filters": {"physical_router_management_ip":"{{ item.hostname }}"},
+              "filters":
+                  {"physical_router_management_ip":"{{ item.hostname }}"},
               "detail": "True",
           }
 BULK QUERY operation:
@@ -169,6 +170,22 @@ BULK QUERY operation:
         object_op: "bulk_query"
         object_dict: {"fields": ['physical_interface_port_id']}
         object_list: [prouter_fqname, prouter_fqname, <parent_fqname>]
+
+BULK DELETE operation:
+    vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_interface"
+        object_op: "bulk_delete"
+        object_list: [
+          {
+              "fq_name":
+                  ["default-global-system-config", "mx-240", "xe-0/0/0"],
+          },
+          {
+              "fq_name":
+                  ["default-global-system-config", "mx-240", "et-0/0/3"],
+          }
+        ]
 '''
 
 
@@ -260,6 +277,9 @@ class VncMod(object):
         elif self.object_op == 'bulk_query':
             results = self._bulk_query_oper()
 
+        elif self.object_op == 'bulk_delete':
+            results = self._bulk_delete_oper()
+
         elif self.object_op == 'delete':
             results = self._delete_oper()
 
@@ -298,7 +318,7 @@ class VncMod(object):
         if method is None:
             raise ValueError(
                 "Operation '%s' is not supported on '%s'"
-                %(self.object_op, self.object_type))
+                % (self.object_op, self.object_type))
 
         return method
     # end _obtain_vnc_method
@@ -405,11 +425,33 @@ class VncMod(object):
     # end _bulk_update_oper
 
     def _delete_oper(self):
+        results = dict()
+        self.object_list = [self.object_dict]
+        res = self._bulk_delete_oper()
+        results['msg'] = res['msg']
+        return results
+    # end _delete_oper
+
+    def _bulk_delete_oper(self):
+        results = {'msg': ""}
+        del_obj_cnt = 0
+        for ob_dict in self.object_list:
+            res = self._delete_single(ob_dict)
+            if res.get('failed'):
+                results['failed'] = True
+                results['msg'] = res.get('msg')
+                break
+            else:
+                del_obj_cnt += 1
+        results['msg'] += "Deleted %s %s(s)" % (del_obj_cnt, self.object_type)
+        return results
+    # end _bulk_delete_oper
+
+    def _delete_single(self, obj_dict):
         method = self._obtain_vnc_method('_delete')
         results = dict()
-        obj_uuid = self.object_dict.get('uuid')
-        obj_fq_name = self.object_dict.get('fq_name')
-
+        obj_uuid = obj_dict.get('uuid')
+        obj_fq_name = obj_dict.get('fq_name')
         try:
             if obj_uuid:
                 method(id=obj_uuid)
@@ -425,7 +467,7 @@ class VncMod(object):
                 "Failed to delete object (uuid='%s', fq_name='%s') from the "\
                 "database due to error: %s" % (obj_uuid, obj_fq_name, str(ex))
         return results
-    # end _delete_oper
+    # end _delete_single
 
     def _read_oper(self):
         method = self._obtain_vnc_method('_read')
@@ -458,6 +500,8 @@ class VncMod(object):
     # end _read_oper
 
     def _bulk_query_oper(self):
+        if self.object_dict is None:
+            self.object_dict = {}
         results = dict()
         results['list_objects'] = []
         for parent_fqname in self.object_list:
@@ -518,7 +562,9 @@ class VncMod(object):
                     results['failed'] = True
                     results['msg'] = res.get('msg')
                     break
-                elif self.object_dict.get('ignore_unknown_id_err') and 'Unknown id' not in res.get('msg'):
+                elif self.object_dict.get(
+                        'ignore_unknown_id_err') and 'Unknown id'\
+                        not in res.get('msg'):
                     results['failed'] = True
                     results['msg'] = res.get('msg')
                     break
@@ -541,12 +587,13 @@ class VncMod(object):
 
         try:
             obj_uuid = method(obj_type, obj_uuid, ref_type,
-                                  ref_uuid, ref_fqname, 'ADD')
+                              ref_uuid, ref_fqname, 'ADD')
             results['uuid'] = obj_uuid
         except Exception as ex:
             results['failed'] = True
             results['msg'] = \
-                "Failed to update ref (%s, %s) -> (%s, %s, %s) due to error: %s"\
+                "Failed to update ref (%s, %s) -> (%s, %s, %s)" \
+                " due to error: %s"\
                 % (obj_type, obj_uuid, ref_type, ref_uuid, ref_fqname, str(ex))
         return results
     # _ref_update_oper
@@ -565,12 +612,13 @@ class VncMod(object):
         try:
 
             obj_uuid = method(obj_type, obj_uuid, ref_type,
-                                  ref_uuid, ref_fqname, 'DELETE')
+                              ref_uuid, ref_fqname, 'DELETE')
             results['uuid'] = obj_uuid
         except Exception as ex:
             results['failed'] = True
             results['msg'] = \
-                "Failed to delete ref (%s, %s) -> (%s, %s, %s) due to error: %s"\
+                "Failed to delete ref (%s, %s) -> (%s, %s, %s) " \
+                "due to error: %s"\
                 % (obj_type, obj_uuid, ref_type, ref_uuid, ref_fqname, str(ex))
         return results
     # _ref_delete_oper
@@ -638,8 +686,8 @@ def main():
                 choices=[
                     'create', 'update', 'delete', 'read', 'list',
                     'bulk_create', 'bulk_update', 'bulk_query',
-                    'ref_update', 'ref_delete', 'bulk_ref_update',
-                    'fq_name_to_id', 'id_to_fq_name'
+                    'bulk_delete', 'fq_name_to_id', 'id_to_fq_name',
+                    'ref_update', 'ref_delete', 'bulk_ref_update'
                 ]
             ),
             object_dict=dict(type='dict', required=False),
