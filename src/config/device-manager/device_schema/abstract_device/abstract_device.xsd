@@ -196,6 +196,7 @@
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="uuid" type="xsd:string"/>
+       <xsd:element name="is-tagged" type="xsd:boolean"/>
        <xsd:element name="vlan-tag" type="xsd:string"/>
        <xsd:element name="gateway" type="xsd:string"/>
        <xsd:element name="unit" type="xsd:integer"/>
