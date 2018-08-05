@@ -477,30 +477,34 @@ class AnsibleRoleCommon(AnsibleConf):
                         "invalid logical interfaces config for ifd %s" % (
                             ifd_name))
                     continue
+                unit_name = ifd_name + "." + str(interface_list[0].unit)
                 unit = LogicalInterface(
-                    name=interface_list[0].name,
+                    name=unit_name,
                     unit=interface_list[0].unit,
                     comment=DMUtils.l2_evpn_intf_unit_comment(vn, False),
+                    is_tagged=False,
                     vlan_tag="4094")
                 # attach acls
                 self.attach_acls(interface_list[0], unit)
                 intf.add_logical_interfaces(unit)
                 if vlan_conf:
-                    vlan_conf.add_interfaces(LogicalInterface(
-                        name=ifd_name + ".0"))
+                    vlan_conf.add_interfaces(LogicalInterface(name=unit_name))
             else:
                 for interface in interface_list:
+                    unit_name = ifd_name + "." + str(interface.unit)
                     unit = LogicalInterface(
-                        name=interface.unit,
+                        name=unit_name,
+                        unit=interface.unit,
                         comment=DMUtils.l2_evpn_intf_unit_comment(
                             vn, True, interface.vlan_tag),
+                        is_tagged=True,
                         vlan_tag=str(interface.vlan_tag))
                     # attach acls
                     self.attach_acls(interface, unit)
                     intf.add_logical_interfaces(unit)
                     if vlan_conf:
                         vlan_conf.add_interfaces(LogicalInterface(
-                            name=ifd_name + "." + str(interface.unit)))
+                            name=unit_name))
     # end build_l2_evpn_interface_config
 
     @abc.abstractmethod
