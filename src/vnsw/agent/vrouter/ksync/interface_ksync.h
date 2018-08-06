@@ -123,6 +123,7 @@ private:
     Interface::Transport transport_;
     bool flood_unknown_unicast_;
     VmInterface::FatFlowList fat_flow_list_;
+    VmInterface::FatFlowExcludeList fat_flow_exclude_list_;
     std::set<MacAddress> aap_mac_list_;
     KSyncEntryPtr qos_config_;
     bool learning_enabled_;
