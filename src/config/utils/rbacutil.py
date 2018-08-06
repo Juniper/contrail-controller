@@ -7,6 +7,7 @@ import argparse
 import uuid as __uuid
 import os
 import re
+import sys
 
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import *
