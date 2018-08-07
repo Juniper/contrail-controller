@@ -82,9 +82,12 @@ device_family_info:
         data_format: xml
 
 # Paths for DHCP and TFTP config files
-DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
-TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"
+DHCPD_CONFIG_DIR: "{{ lookup('env', 'DHCP_CONFIG_DIR') }}"
+DHCPD_CONFIG_PATH: "{{ DHCPD_CONFIG_DIR }}/dhcpd.conf"
+DHCPD_LEASES_DIR: "{{ lookup('env', 'DHCP_LEASES_DIR') }}"
+DHCPD_LEASES_PATH: "{{ DHCPD_LEASES_DIR }}/dhcpd.leases"
+TFTP_BOOT_PATH: "{{ lookup('env', 'TFTP_DIR') }}"
 
 # DHCP and TFTP servers
-DHCP_SERVER: "localhost"
-TFTP_SERVER: "localhost"
+DHCP_SERVER: "{{ lookup('env', 'DHCP_NODE') }}"
+TFTP_SERVER: "{{ lookup('env', 'TFTP_NODE') }}"
