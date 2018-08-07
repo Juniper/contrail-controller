@@ -408,47 +408,48 @@ class VncApiServer(object):
             # update job manager execution status uve
             elapsed_time = time.time() - signal_var.get('start_time')
             status = "UNKNOWN"
-            if signal_var.get('fabric_name') is not "__DEFAULT__":
-                try:
-                    # read the job object log for a particular job to check if
-                    # it succeeded or not
-                    jobObjLog_payload = {
-                        'start_time': 'now-%ds' % (elapsed_time),
-                        'end_time': 'now',
-                        'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-                        'table': 'ObjectJobExecutionTable',
-                        'where': [
-                            [
-                                {
-                                    'name': 'ObjectId',
-                                    'value': '%s:SUCCESS' % signal_var.get('exec_id'),
-                                    'op': 1
-                                }
-                            ]
+            try:
+                # read the job object log for a particular job to check if
+                # it succeeded or not
+                jobObjLog_payload = {
+                    'start_time': 'now-%ds' % (elapsed_time),
+                    'end_time': 'now',
+                    'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+                    'table': 'ObjectJobExecutionTable',
+                    'where': [
+                        [
+                            {
+                                'name': 'ObjectId',
+                                'value': '%s:SUCCESS' % signal_var.get('exec_id'),
+                                'op': 1
+                            }
                         ]
-                    }
+                    ]
+                }
 
-                    url = "http://localhost:8081/analytics/query"
+                url = "http://localhost:8081/analytics/query"
 
-                    resp = requests.post(url, json=jobObjLog_payload)
-                    if resp.status_code == 200:
-                        JobLog = resp.json().get('value')
-                        if not JobLog:
-                            status = 'FAILURE'
-                        else:
-                            status = 'SUCCESS'
+                resp = requests.post(url, json=jobObjLog_payload)
+                if resp.status_code == 200:
+                    JobLog = resp.json().get('value')
+                    if not JobLog:
+                        status = 'FAILURE'
                     else:
-                        self.config_log("POST request to query job object log "
-                                        "failed with error %s" %
-                                        resp.status_code,
-                                        level=SandeshLevel.SYS_ERR)
-
-                except (requests.ConnectionError, requests.ConnectTimeout,
-                        requests.HTTPError, requests.Timeout) as ex:
+                        status = 'SUCCESS'
+                else:
                     self.config_log("POST request to query job object log "
-                                    "failed with error %s" % str(ex),
+                                    "failed with error %s" %
+                                    resp.status_code,
                                     level=SandeshLevel.SYS_ERR)
-                    pass
+
+            except (requests.ConnectionError, requests.ConnectTimeout,
+                    requests.HTTPError, requests.Timeout) as ex:
+                self.config_log("POST request to query job object log "
+                                "failed with error %s" % str(ex),
+                                level=SandeshLevel.SYS_ERR)
+                pass
+
+            if signal_var.get('fabric_name') is not "__DEFAULT__" and not signal_var.get('device_fqnames'):
                 #send uve irrespective of the job log query
                 # success/failure with job status
                 job_execution_data = FabricJobExecution(
@@ -458,6 +459,17 @@ class VncApiServer(object):
                 job_execution_uve = FabricJobUve(data=job_execution_data,
                                                  sandesh=self._sandesh)
                 job_execution_uve.send(sandesh=self._sandesh)
+            else:
+                for prouter_uve_name in signal_var.get('device_fqnames'):
+                    prouter_job_data = PhysicalRouterJobExecution(
+                        name=prouter_uve_name,
+                        job_status=status,
+                        percentage_completed=100
+                    )
+
+                    prouter_job_uve = PhysicalRouterJobUve(
+                        data=prouter_job_data, sandesh=self._sandesh)
+                    prouter_job_uve.send(sandesh=self._sandesh) 
 
             try:
                 # read the last PRouter state for all Prouetrs
@@ -594,9 +606,10 @@ class VncApiServer(object):
             fabric_job_name = request_params.get('job_template_fq_name')
             fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
             fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+            device_fqnames = []
 
             # create job manager fabric execution status uve
-            if request_params.get('fabric_fq_name') is not "__DEFAULT__":
+            if request_params.get('fabric_fq_name') is not "__DEFAULT__" and not device_list:
                 job_execution_data = FabricJobExecution(
                     name=fabric_job_uve_name,
                     execution_id=request_params.get('job_execution_id'),
@@ -620,18 +633,22 @@ class VncApiServer(object):
                     prouter_job_data = PhysicalRouterJobExecution(
                         name=prouter_uve_name,
                         execution_id=request_params.get('job_execution_id'),
-                        job_start_ts=int(round(time.time() * 1000))
+                        job_start_ts=int(round(time.time() * 1000)),
+                        job_status="STARTING",
+                        percentage_completed=0.0
                     )
 
                     prouter_job_uve = PhysicalRouterJobUve(
                         data=prouter_job_data, sandesh=self._sandesh)
                     prouter_job_uve.send(sandesh=self._sandesh)
+                    device_fqnames.append(prouter_uve_name)
 
             start_time = time.time()
             signal_var = {
                 'fabric_name': fabric_job_uve_name ,
                 'start_time': start_time ,
-                'exec_id': request_params.get('job_execution_id')
+                'exec_id': request_params.get('job_execution_id'),
+                'device_fqnames': device_fqnames
             }
 
             # handle process exit signal

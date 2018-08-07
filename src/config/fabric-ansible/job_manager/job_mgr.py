@@ -98,19 +98,22 @@ class JobManager(object):
                 len(self.device_json), buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
-            device_data = self.device_json.get(device_id)
-            device_fqname = ':'.join(
-                map(str, device_data.get('device_fqname')))
-            job_template_fq_name = ':'.join(
-                map(str, self.job_template.fq_name))
-            pr_fabric_job_template_fq_name = device_fqname + ":" + \
-                self.fabric_fq_name + ":" + \
-                job_template_fq_name
-            self.job_log_utils.send_prouter_job_uve(
-                self.job_template.fq_name,
-                pr_fabric_job_template_fq_name,
-                self.job_execution_id,
-                job_status="IN_PROGRESS")
+            #create prouter uve only for fabric (new or exisitng)
+            #onboarding jobs
+            if self.job_template.get_fq_name()[-1] is not "fabric_config_template":
+                device_data = self.device_json.get(device_id)
+                device_fqname = ':'.join(
+                    map(str, device_data.get('device_fqname')))
+                job_template_fq_name = ':'.join(
+                    map(str, self.job_template.fq_name))
+                pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                    self.fabric_fq_name + ":" + \
+                    job_template_fq_name
+                self.job_log_utils.send_prouter_job_uve(
+                    self.job_template.fq_name,
+                    pr_fabric_job_template_fq_name,
+                    self.job_execution_id,
+                    job_status="IN_PROGRESS")
 
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,

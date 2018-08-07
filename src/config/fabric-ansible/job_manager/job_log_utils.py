@@ -236,20 +236,23 @@ class JobLogUtils(object):
             fq_names,
             job_execution_id,
             prouter_state=None,
-            job_status=None):
+            job_status=None,
+            percentage_completed=None):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if prouter_state is None:
                 prouter_job_data = PhysicalRouterJobExecution(
                     name=fq_names,
                     execution_id=job_execution_id,
-                    job_status=job_status)
-
-            prouter_job_data = PhysicalRouterJobExecution(
-                name=fq_names,
-                execution_id=job_execution_id,
-                prouter_state=prouter_state,
-                job_status=job_status)
+                    job_status=job_status,
+                    percentage_completed=percentage_completed)
+            else:
+                prouter_job_data = PhysicalRouterJobExecution(
+                    name=fq_names,
+                    execution_id=job_execution_id,
+                    prouter_state=prouter_state,
+                    job_status=job_status,
+                    percentage_completed=percentage_completed)
 
             prouter_job_uve = PhysicalRouterJobUve(
                 data=prouter_job_data, sandesh=self.config_logger._sandesh)

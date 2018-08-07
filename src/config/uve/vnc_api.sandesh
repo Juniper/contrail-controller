@@ -193,7 +193,8 @@ struct PhysicalRouterJobExecution {
     /* Job start timestamp */
     4: i64                              job_start_ts;
     5: string                           prouter_state;
-    6: string                           job_status;
+    6: double                           percentage_completed;
+    7: string                           job_status;
     // Add additional items here as needed
 }
 
