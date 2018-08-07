@@ -22,7 +22,7 @@
       when: resp is defined and resp.failed == true
       vars:
         op_err_message: "{{resp.msg}}"
-        jl_err_message: "Failed to execute 'show lldp neighbors' command on Juniper device"
+        jl_err_message: "Failed to execute <show lldp neighbors> command on Juniper device"
 
 - name: check if resp is defined with neighbor info. If not, end play and stop playbook with status success
   block:

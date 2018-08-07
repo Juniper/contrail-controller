@@ -19,7 +19,7 @@
       when: "dev_info.failed == true"
       vars:
         op_err_message: "{{dev_info.msg}}"
-        jl_err_message: "Execute 'junos_facts' command on Juniper Device: {{prouter_name}} failed; see result for more details"
+        jl_err_message: "Execute <junos_facts> command on Juniper Device: {{prouter_name}} failed; see result for more details"
 
 - set_fact:
     device_info: "{{dev_info.facts}}"

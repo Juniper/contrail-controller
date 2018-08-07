@@ -21,7 +21,7 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 1
-        jl_message: "Deploying following config to device '{{ device_name }}' (it may take a while)\n{{ final_cfg }}"
+        jl_message: "Deploying following config to device {{ device_name }} (it may take a while)\n{{ final_cfg }}"
 
     - name: finish with vendor-specific commit logic
       include_tasks: "{{ device_vendor }}.yml"

@@ -27,4 +27,4 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 1
-        jl_message: "Successfully onboarded fabric '{{ playbook_input.input.fabric_fq_name[-1] }}'"
+        jl_message: "Successfully onboarded fabric {{ playbook_input.input.fabric_fq_name[-1] }}"

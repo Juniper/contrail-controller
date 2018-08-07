@@ -41,7 +41,7 @@
 
     - name: Generate feature config
       block:
-        - debug: msg="Generate '{{ feature }}' for {{ device_vendor }} {{ device_family }} {{ device_name }}" verbosity=1
+        - debug: msg="Generate <{{ feature }}> for {{ device_vendor }} {{ device_family }} {{ device_name }}" verbosity=1
         - template:
             src: "{{ vf_feature }}.j2"
             dest: "{{ conf_dir }}/build_config/{{ vf_feature }}.conf"
