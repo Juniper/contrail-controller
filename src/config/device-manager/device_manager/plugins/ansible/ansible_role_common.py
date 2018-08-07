@@ -366,7 +366,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             self.evpn = self.build_evpn_config()
             # add vlans
-            self.add_ri_vlan_config(ri, vni)
+            self.add_ri_vlan_config(ri_name, vni)
 
         if (not is_l2 and not is_l2_l3 and gateways):
             self.interfaces_config = self.interfaces_config or []
@@ -605,9 +605,9 @@ class AnsibleRoleCommon(AnsibleConf):
         return vlan
     # end add_vlan_config
 
-    def add_ri_vlan_config(self, ri, vni):
+    def add_ri_vlan_config(self, vrf_name, vni):
         self.vlans_config = self.vlans_config or []
-        self.vlans_config.append(Vlan(name=vrf_name[-1], vlan_id=vni, vxlan_id=vni))
+        self.vlans_config.append(Vlan(name=vrf_name[1:], vlan_id=vni, vxlan_id=vni))
     # end add_ri_vlan_config
 
     # Product Specific configuration, called from parent class
