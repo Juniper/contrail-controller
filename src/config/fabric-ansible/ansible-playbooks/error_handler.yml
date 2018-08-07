@@ -13,5 +13,7 @@
     job_ctx: "{{ job_ctx }}"
     status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
     message: "{{ jl_err_message }}"
+    device_name: "{{ prouter_name if prouter_name is defined else '' }}"
+    details: "{{ jl_details if jl_details is defined else {} }}"
 
 - meta: end_play

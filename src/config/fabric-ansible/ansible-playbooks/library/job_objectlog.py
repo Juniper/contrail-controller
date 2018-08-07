@@ -37,6 +37,14 @@ options:
         description:
             - 'result' field to capture the job result if job is completed with success
         required: false
+    device_name:
+        description:
+            - Name of the device, if present.
+        required: false
+    details:
+        description:
+            - Verbose details of the message
+        required: false
 '''
 
 
@@ -56,8 +64,11 @@ def process_module(module):
     message = module.params['message']
     status = module.params['status']
     job_result = module.params['result']
+    device_name = module.params['device_name']
+    details = module.params['details']
 
-    module.send_job_object_log(message, status, job_result)
+    module.send_job_object_log(message, status, job_result,
+                               device_name=device_name, details=details)
 
     module.exit_json(**module.results)
 
@@ -69,6 +80,8 @@ def main():
             message=dict(required=True, type=str),
             status=dict(required=True, type=str),
             result=dict(type=dict),
+            device_name=dict(type=str),
+            details=dict(type=dict),
         ),
         supports_check_mode=True)
 
