@@ -13,6 +13,10 @@ set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} 
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} destination-networks {{peer.get('ip_address')}}/32
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} neighbor {{peer.get('ip_address')}} peer-as {{peer.get('autonomous_system')}} 
 {%             endfor %}
+{%             set system_info = device_abstract_config.get('system') %}
+{%             for lp_ip in system_info.get('loopback_ip_list', []) %}
+set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} destination-networks {{lp_ip.get('address')}}/32
+{%             endfor %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} type {{bgp.get('type_')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} local-address {{bgp.get('ip_address')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} hold-time {{bgp.hold_time}}
