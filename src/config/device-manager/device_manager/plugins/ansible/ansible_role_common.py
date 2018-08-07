@@ -366,7 +366,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             self.evpn = self.build_evpn_config()
             # add vlans
-            self.add_ri_vlan_config(ri, vni)
+            self.add_ri_vlan_config(ri_name, vni)
 
         if (not is_l2 and not is_l2_l3 and gateways):
             self.interfaces_config = self.interfaces_config or []
@@ -594,7 +594,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def add_vlan_config(self, vrf_name, vni, is_l2_l3=False, irb_intf=None):
         self.vlans_config = self.vlans_config or []
-        vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
+        vlan = Vlan(name=vrf_name[-1], vxlan_id=vni)
         if is_l2_l3 and self.is_spine():
             if not irb_intf:
                 self._logger.error("Missing irb interface config l3 vlan: %s" % vrf_name)
@@ -605,7 +605,7 @@ class AnsibleRoleCommon(AnsibleConf):
         return vlan
     # end add_vlan_config
 
-    def add_ri_vlan_config(self, ri, vni):
+    def add_ri_vlan_config(self, vrf_name, vni):
         self.vlans_config = self.vlans_config or []
         self.vlans_config.append(Vlan(name=vrf_name[-1], vlan_id=vni, vxlan_id=vni))
     # end add_ri_vlan_config

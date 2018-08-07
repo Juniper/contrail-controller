@@ -507,7 +507,7 @@
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
           "node_profile_physical_roles": {
-              "physical_role": [ "leaf" ]
+              "physical_role": [ "leaf", "spine" ]
           },
           "node_profile_routing_bridging_roles": {
               "rb_role": [ "DC-Gateway" ]
