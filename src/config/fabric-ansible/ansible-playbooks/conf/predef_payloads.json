@@ -115,7 +115,7 @@
           ],
           "name": "fabric_config_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
+          "job_template_multi_device_job": true,
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
