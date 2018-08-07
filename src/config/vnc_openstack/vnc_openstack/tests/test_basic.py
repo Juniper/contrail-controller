@@ -508,6 +508,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         This test verifies the binidng and unbinding of these objects
         takes place correctly.
         """
+        mock_zk = self._api_server._db_conn._zk_db 
         vn_obj = vnc_api.VirtualNetwork(self.id())
         vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
             vnc_api.VnSubnetsType(
@@ -598,6 +599,16 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         self.assertTrue(bound_logical_interface_found)
 
+        #Now verify that a zk id is reserved for LAG interface. 
+        #First, get the interface name of first physical interface as that's
+        #what will be used to reserve a id in zookeeper. 
+        zk_pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid[0])
+
+        #Compare the fq_name stored in Zookeeper with first physical interface of the LAG
+        #Since we are creating only one LAG, the zookeeper id will be 0.
+        self.assertEqual(mock_zk.get_ae_from_id(0),
+                            zk_pi_obj.get_fq_name_str())
+
         # Now verify the delete funtion to ensure that the resources
         # created to facilitate LAG interface are deleted with the
         # deleetion of portDed and/or bound.
@@ -627,6 +638,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         lis = li_dict['logical-interfaces']
         if len(lis) > 0:
             self.assertFalse(True)
+
+        #Verify that zookeeper entry was deleted. 
+        #Compare the fq_name stored in Zookeeper with first physical interface of the LAG
+        self.assertNotEqual(mock_zk.get_ae_from_id(0),
+                            zk_pi_obj.get_fq_name_str())
 
         # Clen up the resources
         for i in range(num_phy_interfaces):
@@ -836,6 +852,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             Additionally, it verifies that they are cleaned it up when the
             Baremetal server is decommisioned.
             """
+            mock_zk = self._api_server._db_conn._zk_db
             vn_obj = vnc_api.VirtualNetwork(self.id())
             vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
                 vnc_api.VnSubnetsType(
@@ -882,6 +899,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             proj_uuid = self._vnc_lib.fq_name_to_id('project',
                 fq_name=['default-domain', 'default-project'])
 
+            zk_index = 0
             for bond, bond_info in bonds.iteritems():
                 context = {'operation': 'CREATE',
                            'user_id': '',
@@ -913,6 +931,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
                             lag_obj = self._vnc_lib.link_aggregation_group_read(id=l['uuid'])
                             if lag_obj.parent_uuid == tors[bond_info['tors'][t]['name']]['pr_uuid']:
                                 lag_found = True
+                                zk_element_fq_name = ['default-global-system-config', switch_name, switch_interfaces[0]]
+                                zk_element_fq_name_str = ':'.join(zk_element_fq_name)
+                                self.assertEqual(mock_zk.get_ae_from_id(zk_index),
+                                                zk_element_fq_name_str)
+                                zk_index += 1
                                 break
                         self.assertTrue(lag_found)
 
