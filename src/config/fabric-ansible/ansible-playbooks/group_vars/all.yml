@@ -132,8 +132,10 @@ supported_roles:
     - DC-Gateway@leaf
   juniper-vmx:
     - DC-Gateway@leaf
+    - DC-Gateway@spine
   juniper-mx80:
     - DC-Gateway@leaf
+    - DC-Gateway@spine
 
 # Role to feature mapping
 role_to_feature_mapping:
@@ -171,6 +173,12 @@ role_to_feature_mapping:
     - overlay_networking
     - overlay_evpn_type5
   DC-Gateway@leaf:
+    - basic
+    - ip_clos
+    - overlay_bgp
+    - overlay_networking
+    - overlay_fip_snat
+  DC-Gateway@spine:
     - basic
     - ip_clos
     - overlay_bgp
