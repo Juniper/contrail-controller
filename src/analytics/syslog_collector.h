@@ -10,6 +10,8 @@
 #include "io/io_log.h"
 #include "viz_message.h"
 #include "db_handler.h"
+#include "config_client_collector.h"
+
 
 typedef boost::function<bool(const VizMsg*, bool,
     DbHandler *, GenDb::GenDbIf::DbAddColumnCb)> VizCallback;
@@ -80,6 +82,9 @@ class SyslogListeners
       VizCallback ProcessSandeshMsgCb() const { return cb_; }
       DbHandlerPtr GetDbHandler () const { return db_handler_; }
       SandeshMessageBuilder *GetBuilder () const { return builder_; }
+      //StructuredSyslogConfig *GetStructuredSyslogConfig() {
+      //  return structured_syslog_config_;
+   // }
       int GetTcpPort();
       int GetUdpPort();
     private:
@@ -92,6 +97,7 @@ class SyslogListeners
       VizCallback   cb_;
       DbHandlerPtr    db_handler_;
       SandeshMessageBuilder *builder_;
+      
 };
 
 class SyslogParser

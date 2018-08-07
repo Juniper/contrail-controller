@@ -121,23 +121,34 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
   const std::string body(SyslogParser::GetMapVals(v, "body", ""));
   std::size_t start = 0, end = 0;
   v.erase("body");
-
+  LOG(DEBUG, "BODY: " << body);
   end = body.find('[', start);
+  size_t tag_end = end;
+
   if (end == std::string::npos) {
     LOG(ERROR, "BAD structured_syslog: " << body);
     return false;
   }
   end = body.find(']', end+1);
+
   if (end == std::string::npos) {
     LOG(ERROR, "BAD structured_syslog: " << body);
     return false;
   }
   end = body.find(' ', start);
+
   if (end == std::string::npos) {
     LOG(ERROR, "BAD structured_syslog: " << body);
     return false;
   }
-  const std::string tag = body.substr(start, end-start);
+  std::string tag_ = "UNKNOWN";
+  std::string find_tag_str = body.substr(start,tag_end-1);
+  std::size_t tag_index = find_tag_str.find_last_of(' ');
+  if (tag_index !=  std::string::npos){
+      tag_  = find_tag_str.substr(tag_index+1, end-tag_index);
+  }
+  else {tag_ = find_tag_str;}
+  const std::string tag = tag_;
   LOG(DEBUG, "structured_syslog - tag: " << tag );
   boost::shared_ptr<MessageConfig> mc = config_obj->GetMessageConfig(tag);
   if (mc == NULL || ((mc->process_and_store() == false) && (mc->forward() == false)
@@ -148,22 +159,24 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
   LOG(DEBUG, "structured_syslog - message_config: " << mc->name());
   boost::shared_ptr<std::string> msg;
   boost::shared_ptr<std::string> hostname;
-  start = end + 1;
+  start = tag_end;
+
   v.insert(std::pair<std::string, SyslogParser::Holder>("tag",
         SyslogParser::Holder("tag", tag)));
 
   end = body.find(' ', start);
+
   if (end == std::string::npos) {
     LOG(ERROR, "BAD structured_syslog: " << body);
     return false;
   }
   const std::string hardware = body.substr(start+1, end-start-1);
+
   start = end + 1;
   LOG(DEBUG, "structured_syslog - hardware: " << hardware);
   v.insert(std::pair<std::string, SyslogParser::Holder>("hardware",
         SyslogParser::Holder("hardware", hardware)));
-
-  end = body.find(']', start);
+  end = body.find_last_of(']');
   std::string structured_part = body.substr(start, end-start);
   LOG(DEBUG, "structured_syslog - struct_data: " << structured_part);
 
@@ -340,6 +353,7 @@ StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v) {
 void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize_user) {
     SDWANMetricsRecord sdwanmetricrecord;
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
+    SDWANKPIMetricsRecord sdwankpimetricrecord;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
@@ -348,6 +362,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
     const std::string region(SyslogParser::GetMapVals(v, "region", "DEFAULT"));
     const std::string opco(SyslogParser::GetMapVals(v, "OPCO", "DEFAULT"));
+    const std::string hubs_interfaces(SyslogParser::GetMapVals(v, "HUBS", "UNKNOWN"));
     const std::string uvename = tenant + "::" + location + "::" + device_id;
     const std::string tenantuvename = region + "::" + opco + "::" + tenant;
     const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
@@ -364,6 +379,8 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     bool is_close = boost::equals(tag, "APPTRACK_SESSION_CLOSE");
     sdwanmetricrecord.set_name(uvename);
     sdwantenantmetricrecord.set_name(tenantuvename);
+    sdwankpimetricrecord.set_name(uvename);
+
     std::string link1, link2, underlay_link1, underlay_link2;
     int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
     int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
@@ -540,7 +557,33 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
             sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
         }
     }
+
+    //Update maps for SDWANKPI metrics record
+    SDWANKPIMetrics_diff sdwankpimetricdiff;
+    std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff;
+    if (is_close) {
+      const std::string routing_instance (SyslogParser::GetMapVals(v, "routing-instance", "UNKNOWN"));
+      const std::string destination_address (SyslogParser::GetMapVals(v, "destination-address", "UNKNOWN"));
+      const std::string destination_interface_name (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+      sdwankpimetricdiff.set_session_close_count(1);
+      sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
+      std::string kpimetricdiff_key(routing_instance+"::"+destination_address);
+      LOG(DEBUG,"UVE: KPI key :" << kpimetricdiff_key);
+      sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
+
+      std::size_t destination_interface_name_found = hubs_interfaces.find(destination_interface_name);
+      if (destination_interface_name_found != std::string::npos){
+        LOG(DEBUG,"destination_interface_name "<<destination_interface_name <<" found in hubs_interfaces" );
+        sdwankpimetricrecord.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff);
+      }
+      else {
+        LOG(DEBUG,"destination_interface_name "<<destination_interface_name <<" NOT found in hubs_interfaces" );
+        sdwankpimetricrecord.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff);
+      }
+    }
     SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
+    SDWANKPIMetrics::Send(sdwankpimetricrecord,"ObjectCPETable");
+
     return;
 }
 
@@ -983,8 +1026,7 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
 
     if (config_obj != NULL) {
         std::string hn = SyslogParser::GetMapVals(v, "hostname", "");
-        boost::shared_ptr<HostnameRecord> hr =
-                config_obj->GetHostnameRecord(hn);
+        boost::shared_ptr<HostnameRecord> hr = config_obj->GetHostnameRecord(hn);
         if (hr != NULL) {
             LOG(DEBUG, "StructuredSyslogDecorate hostname record: " << hn);
             const std::string tenant = hr->tenant();
@@ -1113,7 +1155,7 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
   const uint8_t *p;
   std::string full_log;
 
-  size_t end, start = 0;
+  size_t end, len_end, start = 0;
   bool r;
 
   while (!*(data + len - 1))
@@ -1140,21 +1182,28 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
   do {
       SyslogParser::syslog_m_t v;
       end = start + 1;
-
-      while ((*(p + end - 1) != ' ') && (end < len))
-        ++end;
+      len_end = start + 1;
+      while ((*(p + len_end - 1) != ' ') && (len_end < len))
+        ++len_end;
 
       /* use prepended msg len to find the end of msg, if it exists */
-      if (end != len) {
-          std::string mlenstr = std::string(p + start, p + end);
+      if (len_end != len) {
+          std::string mlenstr = std::string(p + start, p + len_end);
           long int mlen = strtol(mlenstr.c_str(), NULL, 10);
           if (mlen != 0) {
-            end += mlen;
+            len_end += mlen;
           } else {
-              while ((*(p + end - 1) != ']') && (end < len))
+              while ((*(p + len_end - 1) != ']') && (len_end < len)){
+                /* check for start of message if message length doesn't exist */
+                if (*(p + end - 1 ) == '<'){
+                  start = end - 1;
+                }
                 ++end;
+                ++len_end;
+              }
           }
       }
+      end = len_end;
 
       // check if message delimiter ']' has arrived,
       // if not, wait till it comes in next tcp buffer
@@ -1164,7 +1213,6 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
        LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf);
        return true;
       }
-
       r = SyslogParser::parse_syslog (p + start, p + end, v);
       LOG(DEBUG, "structured_syslog: " << std::string(p + start, p + end) <<
                  " start: " << start << " end: " << end << " parsed " << r);

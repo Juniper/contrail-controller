@@ -43,7 +43,9 @@
 #include "syslog_collector.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-//#define SYSLOG_DEBUG 0
+
+
+#define SYSLOG_DEBUG 1
 /*** test for burst (compile <string> with  -lboost_date_time -lboost_thread and
  * no -fno-exceptions
 #include <boost/thread/thread.hpp>
@@ -58,6 +60,13 @@ namespace phx = boost::phoenix;
 
 
 class SyslogQueueEntry;
+
+//void SyslogDecorate(SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
+//                             boost::shared_ptr<std::string> msg, std::vector<std::string> int_fields);
+//void SyslogDecorate(SyslogParser::syslog_m_t &v);
+
+
+
 
 class SyslogTcpSession : public TcpSession
 {
@@ -396,6 +405,8 @@ void SyslogParser::PostParsing (syslog_m_t &v) {
         Holder("facility", f)));
   v.insert(std::pair<std::string, Holder>("severity",
         Holder("severity", s)));
+
+ 
 }
 
 SyslogGenerator* SyslogParser::GetGenerator (std::string ip)
@@ -533,6 +544,28 @@ void SyslogParser::MakeSandesh (syslog_m_t v) {
     delete smessage;
 }
 
+// void SyslogDecorate(SyslogParser::syslog_m_t &v) {
+//   LOG(DEBUG, __func__ << " syslog msg from hostname: " << SyslogParser::GetMapVals(v, "hostname", "hostname*not*found")<< " : " <<
+//         SyslogParser::GetMapVals (v, "body", "**EMPTY**"));
+//         DbHandlerPtr    db_handler;
+  
+//       ConfigClientCollector *config_client;
+//       StructuredSyslogConfig *structured_syslog_config;
+//   config_client = db_handler->GetConfigClient();
+//   structured_syslog_config =  new StructuredSyslogConfig(config_client);
+//    std::string hn = SyslogParser::GetMapVals(v, "hostname", "");
+//   boost::shared_ptr<HostnameRecord> hr = structured_syslog_config->GetHostnameRecord(hn);
+//         if (hr != NULL) {
+//             LOG(DEBUG, "StructuredSyslogDecorate hostname record: " << hn);
+//             const std::string tenant = hr->tenant();
+
+  
+// }
+// delete structured_syslog_config;
+// }
+
+
+
 bool SyslogParser::ClientParse (SyslogQueueEntry *sqe) {
   std::string ip = sqe->ip;
   const uint8_t *p = buffer_cast<const uint8_t *>(sqe->data);
@@ -558,12 +591,14 @@ bool SyslogParser::ClientParse (SyslogQueueEntry *sqe) {
       v.insert(std::pair<std::string, Holder>("ip",
             Holder("ip", ip)));
       PostParsing(v);
+      //SyslogDecorate(v);
       MakeSandesh(v);
   }
 
+
 #ifdef SYSLOG_DEBUG
   LOG(DEBUG, __func__ << " syslog msg from " << ip << ":" <<
-        GetMapVals (v, "body", "**EMPTY**"));
+        GetMapVals (v, "body", "**EMPTY**")); 
 
   int i = 0;
   while (!v.empty()) {
@@ -659,6 +694,7 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
               builder_ (SandeshMessageBuilder::GetInstance(
                   SandeshMessageBuilder::SYSLOG))
 {
+  
 }
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
@@ -673,6 +709,7 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
           builder_ (SandeshMessageBuilder::GetInstance(
               SandeshMessageBuilder::SYSLOG))
 {
+  
 }
 
 void SyslogListeners::Start ()
