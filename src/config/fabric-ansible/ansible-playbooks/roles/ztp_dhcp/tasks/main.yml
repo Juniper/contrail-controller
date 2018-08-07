@@ -6,13 +6,18 @@
 
 - name: Check whether dhcpd directory exists
   stat:
-    path: "/etc/dhcp"
+    path: "{{ DHCPD_CONFIG_DIR }}"
   register: dhcp_dir
 
 - name: Check whether dhcpd conf file exists
   stat:
     path: "{{ DHCPD_CONFIG_PATH }}"
   register: dhcp_file
+
+- name: Check whether dhcpd leases file exists
+  stat:
+    path: "{{ DHCPD_LEASES_PATH }}"
+  register: dhcp_leases
 
 - name: If DHCP directory does not exist, just bail
   block:
@@ -111,12 +116,32 @@
     - meta: end_play
   when: dhcp_file.stat.exists == True and subsections_present is undefined
 
-- name: Restart or stop dhcpd server
+- name: Delete dhcp leases file if present
   block:
-    - name: Restart/stop dhcpd server
-      service:
-        name: dhcpd
-        state: "{{ 'restarted' if subsections_present is defined else 'stopped' }}"
+    - file:
+        state: absent
+        path: "{{ DHCPD_LEASES_PATH }}"
+      register: cmd_res
+  rescue:
+    - set_fact:
+        dhcp_output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to remove DHCP leases file"},
+          "message": "{{cmd_res.msg}}"
+        }
+    - name: print output
+      debug: var=dhcp_output verbosity=1
+    - meta: end_play
+  when: dhcp_leases.stat.exists == False
+
+- name: Restart or stop dhcpd docker
+  block:
+    - name: Restart/stop dhcpd docker
+      docker_service:
+        project_src: /etc/contrail/dhcp
+        state: present
+        restarted: "{{ 'True' if subsections_present is defined else 'False' }}"
+        stopped: "{{ 'False' if subsections_present is defined else 'True' }}"
       register: cmd_res
   rescue:
     - set_fact:
@@ -136,6 +161,7 @@
       dhcp_leases:
         device_count: "{{ device_count }}"
         ztp_config: "{{ ztp_config }}"
+        file_path: "{{ DHCPD_LEASES_PATH }}"
       register: cmd_res
     - name: Save device ip table
       set_fact:
