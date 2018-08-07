@@ -2045,7 +2045,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         # Create ref to native/vn-default routing instance
         vn_refs = obj_dict.get('virtual_network_refs')
         if not vn_refs:
-            return True, ''
+           return True, ''
 
         vn_fq_name = vn_refs[0].get('to')
         if not vn_fq_name:
@@ -2198,9 +2198,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
     @classmethod
     def _create_lag_interface(cls, api_server, db_conn, prouter_name, phy_interfaces):
-        if_num = ''.join([i for i in phy_interfaces[0][2:] if i.isdigit()])
-        if_num = str(int(if_num) % 64)
-        lag_interface_name = "ae" + if_num
+        phy_if_fq_name=['default-global-system-config', prouter_name, phy_interfaces[0]]
+        ae_id = cls.vnc_zk_client.alloc_ae_id(':'.join(phy_if_fq_name))
+        def undo_ae_id():
+            cls.vnc_zk_client.free_ae_id(':'.join(phy_if_fq_name))
+            return True, ""
+        get_context().push_undo(undo_ae_id)
+        lag_interface_name = "ae" + str(ae_id)
 
         # create lag object
         lag_obj = LinkAggregationGroup(parent_type='physical-router',
@@ -2342,6 +2346,14 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             delete_dict = {'virtual_machine_refs' : []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
 
+        return True, ""
+    # end pre_dbe_delete
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+
+        api_server = db_conn.get_api_server()
+
         # For baremetal, delete the logical interface and related objects
         for lri_back_ref in obj_dict.get('logical_interface_back_refs') or []:
             fqname = lri_back_ref['to'][:-1]
@@ -2356,6 +2368,9 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 api_server.internal_request_delete('logical_interface', lri_back_ref['uuid'])
                 api_server.internal_request_delete('link_aggregation_group', lag_interface_uuid)
                 api_server.internal_request_delete('physical_interface', phy_interface_uuid)
+                id = int(fqname[2][2:])
+                ae_fqname = cls.vnc_zk_client.get_ae_from_id(id)
+                cls.vnc_zk_client.free_ae_id(id, ae_fqname)
             else:
                 # Before deleting the logical interface, check if the parent physical interface
                 # has ESI set. If yes, clear it.
@@ -2370,8 +2385,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
 
         return True, ""
-    # end pre_dbe_delete
-
+    # end post_dbe_delete
 # end class VirtualMachineInterfaceServer
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
