@@ -44,6 +44,11 @@ options:
         description:
             - Number of seconds to wait for devices to come up. Default 300 sec.
         required: false
+    file_path:
+        description:
+            - Path to the location of the dhcp leases file. Defaults to
+              /var/lib/dhcpd/dhcpd.leases
+        required: false
 '''
 
 EXAMPLES = '''
@@ -76,7 +81,7 @@ msg:
 '''
 
 DEFAULT_TIMEOUT = 300
-DHCPD_LEASES_PATH = "/var/lib/dhcpd/dhcpd.leases"
+DEFAULT_DHCPD_LEASES_PATH = "/etc/contrail/dhcp/leases/dhcpd.leases"
 
 
 # Check whether an IP host address is within the list of subnets configured in the IPAM
@@ -104,6 +109,7 @@ def process_dhcp_entries(module):
     device_count = module.params['device_count']
     ztp_config = module.params['ztp_config']
     timeout = module.params['timeout']
+    dhcp_leases_path = module.params['file_path']
 
     while timeout > 0:
         timeout -= 1
@@ -112,7 +118,7 @@ def process_dhcp_entries(module):
 
         # Read DHCP lease database and store by mac. Note that there may be
         # multiple IPs per mac, but the latest one overwrites older entries
-        with open(DHCPD_LEASES_PATH) as lfile:
+        with open(dhcp_leases_path) as lfile:
             for match in pattern.finditer(lfile.read()):
                 ip_addr = match.group(1)
                 mac = match.group(2)
@@ -143,6 +149,8 @@ def main():
             device_count=dict(type=int, required=True),
             ztp_config=dict(type=dict, required=True),
             timeout=dict(type=int, required=False, default=DEFAULT_TIMEOUT),
+            file_path=dict(type=str, required=False,
+                           default=DEFAULT_DHCPD_LEASES_PATH)
             ),
         supports_check_mode=False)
 
