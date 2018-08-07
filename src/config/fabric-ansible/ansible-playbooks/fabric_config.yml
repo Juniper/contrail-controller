@@ -23,6 +23,12 @@
     - set_fact:
         job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[20, 80] })}}"
 
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Config push for device {{ device_mgmt_ip }} started"
+
     - set_fact:
         device_abstract_config: "{{input.device_abstract_config}}"
       when: input.is_delete is undefined or input.is_delete == False
@@ -66,6 +72,12 @@
         onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
       when: input.is_delete is undefined or input.is_delete == False
 
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 2
+        jl_message: "Underlay config successful for: {{device_mgmt_ip}}"
+        
     - set_fact:
         output: {
               "status": "Success",
