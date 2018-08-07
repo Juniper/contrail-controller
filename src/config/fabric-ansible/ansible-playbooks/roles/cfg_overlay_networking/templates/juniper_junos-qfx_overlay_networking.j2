@@ -1,0 +1,119 @@
+{%- set cfg_group = "__contrail_" + feature + "__" %}
+delete apply-groups {{cfg_group}}
+delete groups {{cfg_group}}
+{% if device_abstract_config is defined and device_abstract_config != None %}
+set groups {{cfg_group}}
+{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%         if phy_int.get('interface_type') == 'irb' %}
+set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 set unit = li.get('unit') %}
+{%                 set gw = li.get('gateway') %}
+{%                 set family = 'inet' %}
+{%                 for ipad in li.get('ip_list', []) %}
+set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} family {{family}} address {{ipad.get('address')}} virtual-gateway-address {{gw}}
+{%                 endfor %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         if 'nat' in ri.get('name', '') %}
+{%             continue %}
+{%         endif %}
+{%         set ri_vn_mode = ri.get('virtual_network_mode', '') %}
+{%         if ('l2' in ri_vn_mode) and ('l2' in ri.name)  %}
+{%             set contrail_l2_ri = ri.name %}
+{%             set l2_vrf_import = ri.name+'-import' %}
+{%             set l2_vrf_export = ri.name+'-export' %}
+{%             set bridge_domain_name = 'bd-'+(ri.virtual_network_id|string) %}
+{%             set irb_interface = 'irb.'+(ri.virtual_network_id|string)  %}
+{%             set vn_id  = ri.get('virtual_network_id')  %}
+{%             set ri_type  = ri.get('routing_instance_type')  %}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vtep-source-interface lo0.0
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} instance-type {{ri_type}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vrf-import {{l2_vrf_import}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vrf-export {{l2_vrf_export}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn encapsulation vxlan
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn extended-vni-list all
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} vlan-id none
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} routing-interface {{irb_interface}}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} vxlan vni {{vn_id}}
+{%             for import_target in ri.get('import_targets', []) %}
+{%                 set community_target = import_target.replace(':', '_') %}
+set groups {{cfg_group}} policy-options policy-statement {{l2_vrf_import}} term t1 from community {{community_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target}}
+{%             endfor %}
+set groups {{cfg_group}} policy-options policy-statement {{l2_vrf_import}} term t1 then accept
+set groups {{cfg_group}} policy-options policy-statement {{l2_vrf_import}} then reject
+{%             for export_target in ri.get('export_targets', []) %}
+{%                 set community_target = export_target.replace(':', '_') %}
+set groups {{cfg_group}} policy-options policy-statement {{l2_vrf_export}} term t1 then community add {{community_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target}}
+{%             endfor %}
+set groups {{cfg_group}} policy-options policy-statement {{l2_vrf_export}} term t1 then accept
+{%         endif %}
+{%         if ('l3' in ri_vn_mode) and ('l3' in ri.name)  %}
+{%             set contrail_l3_ri = ri.name %}
+{%             set irb_interface = 'irb.'+(ri.get('virtual_network_id')|string)  %}
+{%             set l3_vrf_import = ri.name+'-import' %}
+{%             set l3_vrf_export = ri.name+'-export' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type vrf
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{irb_interface}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{l3_vrf_import}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{l3_vrf_export}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
+{%             set inet_vars = namespace(inet4='no', inet6='no') %}
+{%             for subnet in ri.get('prefixes', []) %}
+{%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                 if (':' in cidr) %}
+{%                     if inet_vars.inet6 == 'no' %}
+{%                         set inet_vars.inet6 = 'yes' %}
+{%                     endif %}
+{%                 else %}
+{%                     if inet_vars.inet4 == 'no' %}
+{%                         set inet_vars.inet4 = 'yes' %}
+{%                     endif %}
+{%                 endif %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} discard
+{%                 if ri.get('is_public_network') == true  %}
+set groups {{cfg_group}} routing-options static route {{cidr}} discard
+{%                 endif %}
+{%             endfor %}
+{%             if inet_vars.inet4 == 'yes' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet unicast 
+{%             endif %}
+{%             if inet_vars.inet6 == 'yes' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet6 unicast
+{%             endif %}
+{%             for import_target in ri.get('import_targets', []) %}
+{%                 set community_target = import_target.replace(':', '_') %}
+set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_import}} term t1 from community {{community_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target}}
+{%             endfor %}
+set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_import}} term t1 then accept
+set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_import}} then reject
+{%             for export_target in ri.get('export_targets', []) %}
+{%                 set community_target = export_target.replace(':', '_') %}
+set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_export}} term t1 then community add {{community_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target}}
+{%             endfor %}
+set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_export}} term t1 then accept
+{%         endif %}
+{%         if ('l3' in ri_vn_mode) and ('l3' in ri.name) and (ri.get('is_public_network') == true)  %}
+{%             set contrail_l3_ri = ri.name %}
+set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
+{%             for subnet in ri.get('prefixes', []) %}
+{%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                 if (':' in cidr) %}
+set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term term-{{contrail_l3_ri}} from destination-address {{cidr}}
+{%                 else %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{contrail_l3_ri}} from destination-address {{cidr}}
+{%                 endif %}
+{%             endfor %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{contrail_l3_ri}} then routing-instance {{contrail_l3_ri}}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route 0.0.0.0/0 next-table inet.0
+{%         endif %}
+{%     endfor %}
+set apply-groups {{cfg_group}}
+{% endif %}
