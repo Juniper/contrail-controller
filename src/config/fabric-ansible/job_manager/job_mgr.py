@@ -103,20 +103,24 @@ class JobManager(object):
                 self._logger.debug("Not executing the next operation"
                                    "in the workflow for device: %s" % device_id)
                 continue
+
             device_data = self.device_json.get(device_id)
             device_fqname = ':'.join(
                 map(str, device_data.get('device_fqname')))
             device_name = device_data.get('device_fqname', [""])[-1]
-            job_template_fq_name = ':'.join(
-                map(str, self.job_template.fq_name))
-            pr_fabric_job_template_fq_name = device_fqname + ":" + \
-                self.fabric_fq_name + ":" + \
-                job_template_fq_name
-            self.job_log_utils.send_prouter_job_uve(
-                self.job_template.fq_name,
-                pr_fabric_job_template_fq_name,
-                self.job_execution_id,
-                job_status="IN_PROGRESS")
+            # create prouter UVE in job_manager only if it is not a multi
+            # device job template
+            if not self.job_template.get_job_template_multi_device_job():
+                job_template_fq_name = ':'.join(
+                    map(str, self.job_template.fq_name))
+                pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                    self.fabric_fq_name + ":" + \
+                    job_template_fq_name
+                self.job_log_utils.send_prouter_job_uve(
+                    self.job_template.fq_name,
+                    pr_fabric_job_template_fq_name,
+                    self.job_execution_id,
+                    job_status="IN_PROGRESS")
 
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,
