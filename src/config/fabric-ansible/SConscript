@@ -26,7 +26,7 @@ setup_sources = [
            'test-requirements.txt',
            '.testr.conf',
            '.coveragerc',
-           'tests',
+           'test',
           ]
 
 setup_sources_rules = []
