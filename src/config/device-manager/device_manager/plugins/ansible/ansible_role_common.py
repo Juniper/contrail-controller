@@ -647,15 +647,27 @@ class AnsibleRoleCommon(AnsibleConf):
         pr = self.physical_router
         if not pr:
             return
+        link_members = []
         self.interfaces_config = self.interfaces_config or []
-        for pi_uuid in pr.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if not pi or not pi.link_aggregation_group:
+        for lag_uuid in pr.link_aggregation_groups or []:
+            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            if not lag_obj:
                 continue
-            lag = LinkAggrGroup(lacp_enabled=pi.lacp_enabled,
-                                link_members=pi.link_members)
-            intf = PhysicalInterface(name=pi.name,
-                                     interface_type=pi.interface_type,
+            for pi_uuid in lag_obj.physical_interfaces or []:
+                pi = PhysicalInterfaceDM.get(pi_uuid)
+                if not pi:
+                    continue
+                if pi.interface_type != 'lag':
+                   link_members.append(pi.name)
+                else:
+                   ae_intf_name = pi.name
+
+            self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
+                              (lag_uuid, link_members, ae_intf_name))
+            lag = LinkAggrGroup(lacp_enabled=lag_obj.lacp_enabled,
+                                link_members=link_members)
+            intf = PhysicalInterface(name=ae_intf_name,
+                                     interface_type='lag',
                                      link_aggregation_group=lag)
             self.interfaces_config.append(intf)
     # end build_lag_config
