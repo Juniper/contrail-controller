@@ -1,8 +1,6 @@
 {%- set cfg_group = "__contrail_" + feature + "__" %}
-{% if input.push_mode == 'true' %}
 delete apply-groups __contrail__
 delete groups __contrail__
-{% endif %}
 delete apply-groups {{cfg_group}}
 delete groups {{cfg_group}}
 

@@ -12,6 +12,7 @@ import traceback
 import argparse
 import json
 import uuid
+from functools import reduce
 from netaddr import IPNetwork
 import jsonschema
 
@@ -272,7 +273,7 @@ class FilterModule(object):
                     ],
                     "node_profiles": [
                         {
-                            "node_profile_name": "juniper-qfx5100"
+                            "node_profile_name": "juniper-qfx5k"
                         }
                     ]
                 }
@@ -428,7 +429,7 @@ class FilterModule(object):
                     "overlay_ibgp_asn": 64512,
                     "node_profiles": [
                         {
-                            "node_profile_name": "juniper-qfx5100"
+                            "node_profile_name": "juniper-qfx5k"
                         }
                     ]
                 }
@@ -493,7 +494,7 @@ class FilterModule(object):
                     "overlay_ibgp_asn": 64512,
                     "node_profiles": [
                         {
-                            "node_profile_name": "juniper-qfx5100"
+                            "node_profile_name": "juniper-qfx5k"
                         }
                     ]
                 }
@@ -1358,7 +1359,7 @@ class FilterModule(object):
     # end delete_fabric
 
     # ***************** assign_roles filter ***********************************
-    def assign_roles(self, job_ctx):
+    def assign_roles(self, job_ctx, supported_roles):
         """
         :param job_ctx: Dictionary
             example:
@@ -1372,10 +1373,26 @@ class FilterModule(object):
                                 "qfx-10"
                             ],
                             "physical_role": "leaf",
-                            "routing_bridging_roles": [ "CRB" ]
+                            "routing_bridging_roles": [ "CRB-Access" ]
                         }
                     ]
                 }
+            }
+        :param supported_roles: Dictionary
+            example:
+            {
+                "juniper-qfx5100-48s-6q": [
+                    "CRB-Access@leaf",
+                    "null@spine"
+                ],
+                "juniper-qfx10002-72q": [
+                    "null@spine",
+                    "CRB-Gateway@spine",
+                    "DC-Gateway@spine",
+                    "CRB-Access@leaf",
+                    "CRB-Gateway@leaf",
+                    "DC-Gateway@leaf"
+                ]
             }
         :return: Dictionary
             if success, returns
@@ -1396,11 +1413,26 @@ class FilterModule(object):
             fabric_info = job_ctx.get('job_input')
             role_assignments = fabric_info.get('role_assignments', [])
 
+            # load device objects into each device's role assignment data
             for device_roles in role_assignments:
                 device_obj = vnc_api.physical_router_read(
                     fq_name=device_roles.get('device_fq_name'),
-                    fields=['physical_interfaces', 'fabric_refs']
+                    fields=[
+                        'physical_router_vendor_name',
+                        'physical_router_product_name',
+                        'physical_interfaces',
+                        'fabric_refs'
+                    ]
                 )
+                device_roles['device_obj'] = device_obj
+
+            # validate role assignment against device's supported roles
+            self._validate_role_assignment(role_assignments, supported_roles)
+
+            # before assigning roles, let's assign IPs to the loopback and
+            # fabric interfaces, create bgp-router and logical-router, etc.
+            for device_roles in role_assignments:
+                device_obj = device_roles.get('device_obj')
                 self._add_loopback_interface(vnc_api, device_obj)
                 self._add_logical_interfaces_for_fabric_links(
                     vnc_api, device_obj
@@ -1410,6 +1442,9 @@ class FilterModule(object):
                                          fabric_info.get('fabric_fq_name')[-1])
                 device_roles['device_obj'] = device_obj
 
+            # now we are ready to assign the roles to trigger DM to invoke
+            # fabric_config playbook to push the role-based configuration to
+            # the devices
             for device_roles in role_assignments:
                 self._assign_device_roles(vnc_api, device_roles)
 
@@ -1426,6 +1461,72 @@ class FilterModule(object):
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
+
+    @staticmethod
+    def _validate_role_assignment(role_assignments, supported_roles):
+        """
+        :param role_assignments: list<Dictionary>
+            example:
+            [
+                {
+                    "device_fq_name": [
+                        "default-global-system-config",
+                        "qfx-10"
+                    ],
+                    "physical_role": "leaf",
+                    "routing_bridging_roles": [ "CRB-Access" ]
+                }
+            ]
+        :param supported_roles: Dictionary
+            example:
+            {
+                "juniper-qfx5100-48s-6q": [
+                    "CRB-Access@leaf",
+                    "null@spine"
+                ],
+                "juniper-qfx10002-72q": [
+                    "null@spine",
+                    "CRB-Gateway@spine",
+                    "DC-Gateway@spine",
+                    "CRB-Access@leaf",
+                    "CRB-Gateway@leaf",
+                    "DC-Gateway@leaf"
+                ]
+            }
+        """
+        for device_roles in role_assignments:
+            device_obj = device_roles.get('device_obj')
+
+            assigned_roles = []
+            phys_role = device_roles.get('physical_role')
+            if not phys_role:
+                raise ValueError(
+                    'No physical role assigned to %s' % device_obj.display_name
+                )
+
+            rb_roles = device_roles.get('routing_bridging_roles')
+            if not rb_roles:
+                assigned_roles.append('null@%s' % phys_role)
+            else:
+                for rb_role in rb_roles:
+                    assigned_roles.append('%s@%s' % (rb_role, phys_role))
+
+            vendor_hardware = "%s-%s" % (
+                device_obj.physical_router_vendor_name.lower(),
+                device_obj.physical_router_product_name.lower()
+            )
+            for assigned_role in assigned_roles:
+                allowed_roles = supported_roles.get(vendor_hardware)
+                if assigned_role not in allowed_roles:
+                    raise ValueError(
+                        'role "%s" is not supported. Here are the '
+                        'supported roles on %s: %s' % (
+                            assigned_role,
+                            vendor_hardware,
+                            reduce(lambda x, y: "%s, %s" % (x, y), allowed_roles)
+                        )
+                    )
+    # end _validate_role_assignments
 
     @staticmethod
     def _get_fabric_name(device_obj):
@@ -1831,7 +1932,7 @@ def _mock_job_ctx_onboard_fabric():
             ],
             "node_profiles": [
                 {
-                    "node_profile_name": "juniper-qfx5100"
+                    "node_profile_name": "juniper-qfx5k"
                 }
             ],
             "device_count": 5
@@ -1869,7 +1970,7 @@ def _mock_job_ctx_onboard_brownfield_fabric():
             "overlay_ibgp_asn": 64600,
             "node_profiles": [
                 {
-                    "node_profile_name": "juniper-qfx5100"
+                    "node_profile_name": "juniper-qfx5k"
                 }
             ]
         },
@@ -1959,7 +2060,8 @@ def _mock_job_ctx_assign_roles():
                         "default-global-system-config",
                         "VF3717350117"
                     ],
-                    "physical_role": "leaf"
+                    "physical_role": "leaf",
+                    "routing_bridging_roles": ["CRB-Access"]
                 }
             ]
         },
@@ -1969,6 +2071,24 @@ def _mock_job_ctx_assign_roles():
         ]
     }
 # end _mock_job_ctx_delete_fabric
+
+
+def _mock_supported_roles():
+    return {
+        "juniper-qfx5100-48s-6q": [
+            "CRB-Access@leaf",
+            "null@spine"
+        ],
+        "juniper-qfx10002-72q": [
+            "null@spine",
+            "CRB-Gateway@spine",
+            "DC-Gateway@spine",
+            "CRB-Access@leaf",
+            "CRB-Gateway@leaf",
+            "DC-Gateway@leaf"
+        ]
+    }
+# end _mock_supported_roles
 
 
 def _parse_args():
@@ -2006,7 +2126,9 @@ def __main__():
             _mock_job_ctx_delete_devices()
         )
     elif parser.assign_roles:
-        results = fabric_filter.assign_roles(_mock_job_ctx_assign_roles())
+        results = fabric_filter.assign_roles(
+            _mock_job_ctx_assign_roles(), _mock_supported_roles()
+        )
     print results
 # end __main__
 

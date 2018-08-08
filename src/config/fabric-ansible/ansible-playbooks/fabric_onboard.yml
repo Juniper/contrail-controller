@@ -12,16 +12,23 @@
       set_fact:
         output: "{{ job_ctx | onboard_fabric }}"
 
-    - debug: var=output
+    - block:
+        - set_fact:
+            op_err_message: "Failed to onboard fabric due to error: {{ output.error_msg }}. Here is the fabric onboard log: {{ output.onboard_log}}"
+            jl_err_message: "Failed to onboard fabric due to error: {{ output.error_msg }}"
+            results: {}
 
-    - name: check failure
-      include_tasks: error_handler.yml
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "{{ jl_err_message }}"
+
+        - pause: seconds=5
+
+        - name: handle failure
+          include_tasks: error_handler.yml
       when: output.status == 'failure'
-      vars:
-        op_err_message: "Unable to onboard fabric due to error"
-        jl_err_message: "Failed to onboard fabric {{ playbook_input.input.fabric_fq_name[-1] }} due to error. Here is onboarding log\n: {{ output.onboard_log }}"
-        results:
-          fabric_uuid: "{{ output.fabric_uuid }}"
 
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
