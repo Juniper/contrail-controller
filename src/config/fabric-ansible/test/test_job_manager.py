@@ -307,7 +307,7 @@ class TestJobManager(test_case.JobTestCase):
             global loop_var
             loop_var += 1
             if loop_var == 1:
-                with open("tests/test.txt", 'r') as f:
+                with open("test/test.txt", 'r') as f:
                     line = f.readline()
                     return line
             if loop_var == 2:

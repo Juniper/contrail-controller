@@ -22,7 +22,8 @@
             "controller/src/config/device-manager:test",
             "src/contrail-api-client/api-lib:test",
             "controller/src/config/api-server:test",
-            "controller/src/config/vnc_openstack:test"
+            "controller/src/config/vnc_openstack:test",
+            "controller/src/config/fabric-ansible:test"
         ],
         "misc_test_targets" : [ ]
     },
