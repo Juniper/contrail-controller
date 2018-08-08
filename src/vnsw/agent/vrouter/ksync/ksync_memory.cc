@@ -103,7 +103,7 @@ void KSyncMemory::Mmap(bool unlink_node) {
     const char *mmap_error_msg = vr_table_map(major_devid_, minor_devid_, table_path_.c_str(),
                                               table_size_, &table_);
     if (mmap_error_msg) {
-        LOG(DEBUG, "Error mapping KSync memory. Device: " << table_path_ << "; " << mmap_error_msg);
+        LOG(ERROR, "Error mapping KSync memory. Device: " << table_path_ << "; " << mmap_error_msg);
         assert(0);
     }
 
