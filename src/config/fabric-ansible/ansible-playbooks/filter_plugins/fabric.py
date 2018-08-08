@@ -743,7 +743,9 @@ class FilterModule(object):
         try:
             vnc_api.fabric_namespace_create(namespace)
         except RefsExistError:
-            _task_log("Fabric namespace '%s' already exists" % ns_name)
+            _task_log("Fabric namespace '%s' already exists, updating"
+                      % ns_name)
+            vnc_api.fabric_namespace_update(namespace)
         _task_done()
 
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
@@ -781,7 +783,9 @@ class FilterModule(object):
         try:
             vnc_api.fabric_namespace_create(namespace)
         except RefsExistError:
-            _task_log("Fabric namespace '%s' already exists" % ns_name)
+            _task_log("Fabric namespace '%s' already exists, updating"
+                      % ns_name)
+            vnc_api.fabric_namespace_update(namespace)
         _task_done()
 
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
@@ -817,7 +821,9 @@ class FilterModule(object):
         try:
             vnc_api.fabric_namespace_create(namespace)
         except RefsExistError:
-            _task_log("Fabric namespace '%s' already exists" % ns_name)
+            _task_log("Fabric namespace '%s' already exists, updating"
+                      % ns_name)
+            vnc_api.fabric_namespace_update(namespace)
         _task_done()
 
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
@@ -927,6 +933,7 @@ class FilterModule(object):
                 "network IPAM '%s' already exists or other conflict: %s"
                 % (ipam_name, str(ex))
             )
+            vnc_api.network_ipam_update(ipam)
         _task_done()
         return vnc_api.network_ipam_read(fq_name=ipam_fq_name)
     # end _add_network_ipam
@@ -1880,11 +1887,10 @@ class FilterModule(object):
         device_obj.physical_router_role \
             = device_roles.get('physical_role')
 
-        rb_roles = device_roles.get('routing_bridging_roles')
-        if rb_roles:
-            device_obj.routing_bridging_roles = RoutingBridgingRolesType(
-                rb_role=rb_roles
-            )
+        rb_roles = device_roles.get('routing_bridging_roles', [])
+        device_obj.routing_bridging_roles = RoutingBridgingRolesType(
+            rb_role=rb_roles
+        )
 
         _task_log('Assign roles to device "%s"' % device_obj.fq_name)
         vnc_api.physical_router_update(device_obj)
