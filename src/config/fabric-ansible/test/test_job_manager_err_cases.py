@@ -607,11 +607,12 @@ class TestJobManagerEC(test_case.JobTestCase):
 
     def test_execute_job_run_pb_gen_exc(self):
         # create job template
+        play_info = PlaybookInfoType(vendor='Juniper')
+        playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
         job_template = JobTemplate(job_template_type='device',
                                    job_template_job_runtime='ansible',
                                    job_template_multi_device_job=False,
-                                   job_template_playbooks=TestJobManagerUtils.
-                                   playbooks_list,
+                                   job_template_playbooks=playbooks_list,
                                    name='run_pb_gen_exc')
         job_template_uuid = self._vnc_lib.job_template_create(job_template)
 
@@ -623,11 +624,8 @@ class TestJobManagerEC(test_case.JobTestCase):
         wm = WFManager(log_utils.get_config_logger(),
                        self._vnc_lib, job_input_json, log_utils)
 
-        exc = Exception('some gen exc')
+        exc = AttributeError("'NoneType' object has no attribute 'split'")
 
-        # mock the call to raise exception
-        flexmock(json).should_receive('dumps') \
-            .and_raise(exc)
         sys_exit_msg = self.assertRaises(SystemExit, wm.start_job)
 
         self.assertEqual(sys_exit_msg.code,
@@ -637,7 +635,7 @@ class TestJobManagerEC(test_case.JobTestCase):
                          getMessage(MsgBundle.
                                     JOB_SINGLE_DEVICE_FAILED_MESSAGE_HDR) +
                          MsgBundle.getMessage(MsgBundle.RUN_PLAYBOOK_ERROR,
-                                              playbook_uri=TestJobManagerUtils.
+                                              playbook_uri=
                                               play_info.
                                               playbook_uri,
                                               exc_msg=repr(exc)))
@@ -668,7 +666,7 @@ class TestJobManagerEC(test_case.JobTestCase):
 
             loop_var += 1
             if loop_var == 1:
-                with open("tests/test.txt", 'r') as f:
+                with open("test/test.txt", 'r') as f:
                     line = f.readline()
                     return line
             if loop_var == 2:
@@ -769,7 +767,7 @@ class TestJobManagerEC(test_case.JobTestCase):
 
             loop_var += 1
             if loop_var == 1:
-                with open("tests/test.txt", 'r') as f:
+                with open("test/test.txt", 'r') as f:
                     line = f.readline()
                     return line
             if loop_var == 2:

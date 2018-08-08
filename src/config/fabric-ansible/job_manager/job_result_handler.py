@@ -98,14 +98,14 @@ class JobResultHandler(object):
         elif self.job_result_status == JobStatus.SUCCESS:
             job_summary_message += MsgBundle.getMessage(
                 MsgBundle.JOB_EXECUTION_COMPLETE)
-        # if len(self.job_result) > 0:
-        #     job_summary_message += MsgBundle.getMessage(
-        #         MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
-        # result_summary = ""
-        # for entry in self.job_result:
-        #     result_summary += \
-        #         "%s:%s \n" % (entry, self.job_result[entry])
-        # job_summary_message += result_summary
+        if len(self.job_result) > 0:
+            job_summary_message += MsgBundle.getMessage(
+                MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
+        result_summary = ""
+        for entry in self.job_result:
+            result_summary += \
+                "%s:%s \n" % (entry, self.job_result[entry])
+        job_summary_message += result_summary
 
         if self.job_result_message is not None:
             job_summary_message += self.job_result_message
