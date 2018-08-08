@@ -743,7 +743,9 @@ class FilterModule(object):
         try:
             vnc_api.fabric_namespace_create(namespace)
         except RefsExistError:
-            _task_log("Fabric namespace '%s' already exists" % ns_name)
+            _task_log("Fabric namespace '%s' already exists, updating"
+                      % ns_name)
+            vnc_api.fabric_namespace_update(namespace)
         _task_done()
 
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
@@ -781,7 +783,9 @@ class FilterModule(object):
         try:
             vnc_api.fabric_namespace_create(namespace)
         except RefsExistError:
-            _task_log("Fabric namespace '%s' already exists" % ns_name)
+            _task_log("Fabric namespace '%s' already exists, updating"
+                      % ns_name)
+            vnc_api.fabric_namespace_update(namespace)
         _task_done()
 
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
@@ -817,7 +821,9 @@ class FilterModule(object):
         try:
             vnc_api.fabric_namespace_create(namespace)
         except RefsExistError:
-            _task_log("Fabric namespace '%s' already exists" % ns_name)
+            _task_log("Fabric namespace '%s' already exists, updating"
+                      % ns_name)
+            vnc_api.fabric_namespace_update(namespace)
         _task_done()
 
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
