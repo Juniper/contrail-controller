@@ -198,6 +198,8 @@ class PhysicalRouterDM(DBBaseDM):
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
+        self.link_aggregation_groups = set([lag['uuid'] for lag in
+                                           obj.get('link_aggregation_groups', [])])
         self.update_single_ref('fabric', obj)
         self.update_multiple_refs('service_endpoint', obj)
         self.update_multiple_refs('e2_service_provider', obj)
@@ -815,7 +817,6 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.logical_interfaces = set()
         self.virtual_machine_interfaces = set()
         self.physical_interfaces = set()
-        self.link_aggregation_group = None
         self.mtu = 0
         self.esi = None
         self.interface_type = None
@@ -827,7 +828,6 @@ class PhysicalInterfaceDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
-        self.link_members = []
         self.physical_router = self.get_parent_uuid(obj)
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
@@ -839,16 +839,6 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.interface_type = obj.get('physical_interface_type')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
-        if self.interface_type is not None and self.interface_type == 'lag':
-            self.update_single_ref('link_aggregation_group', obj)
-            if self.link_aggregation_group is not None:
-                link_aggr_group_obj = self.read_obj(self.link_aggregation_group,
-                                                    obj_type='link_aggregation_group')
-                if link_aggr_group_obj is not None:
-                    self.lacp_enabled = link_aggr_group_obj.get('link_aggregation_group_lacp_enabled')
-                    for ref in link_aggr_group_obj.get('physical_interface_refs', []):
-                        if not self.uuid == ref['uuid']:
-                            self.link_members.append(ref['to'][-1])
         return obj
     # end update
 
@@ -884,7 +874,6 @@ class PhysicalInterfaceDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.set_parent_ae_id(None)
-        obj.update_single_ref('link_aggregation_group', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
@@ -1832,6 +1821,31 @@ class NodeProfileDM(DBBaseDM):
     # end update
 # end class NodeProfileDM
 
+class LinkAggregationGroupDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'link_aggregation_group'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.physical_interfaces = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.add_to_parent(obj)
+        self.lacp_enabled = obj.get('link_aggregation_group_lacp_enabled')
+        self.update_multiple_refs('physical_interface', obj)
+    # end update
+
+    def delete_obj(self):
+        self.remove_from_parent()
+        self.update_multiple_refs('physical_interface', {})
+    # end delete_obj
+# end class LinkAggregationGroupDM
 
 class RoleConfigDM(DBBaseDM):
     _dict = {}
