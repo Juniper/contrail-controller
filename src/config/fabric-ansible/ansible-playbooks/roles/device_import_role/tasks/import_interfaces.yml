@@ -1,3 +1,7 @@
+- name: Update pb_input
+  set_fact:
+    pb_input: "{{pb_input | combine({'interface_filters': [{'op': 'regex', 'expr': '^xe|^ge|^et|^fxp'}] })}}"
+
 - name: Execute commands on a Juniper Device
   block:
     - junos_command:
