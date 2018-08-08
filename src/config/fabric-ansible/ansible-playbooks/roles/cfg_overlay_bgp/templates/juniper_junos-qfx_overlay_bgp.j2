@@ -17,6 +17,7 @@ set groups __contrail_{{feature}}__ routing-options resolution rib {{rib_name}} 
 {%             set families = bgp.get('families', []) %}
 set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
 set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
+set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} multipath
 set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} local-address {{route_distinguisher}}
 {%             for fam in families %}
 {%                 if fam == 'route-target' %}

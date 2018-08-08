@@ -20,6 +20,7 @@ set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} 
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} type {{bgp.get('type_')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} local-address {{bgp.get('ip_address')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} hold-time {{bgp.hold_time}}
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} multipath
 {%             for family in bgp.get('families', []) %}
 {%                 if family.startswith('inet') %}
 {%                     set mode='unicast' %}
