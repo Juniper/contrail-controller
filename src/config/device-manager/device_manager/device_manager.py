@@ -46,7 +46,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
-    RoleConfigDM, FabricDM
+    RoleConfigDM, FabricDM, LinkAggregationGroupDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -85,6 +85,7 @@ class DeviceManager(object):
             'role_config': [],
             'fabric': [],
             'fabric_namespace': [],
+            'link_aggregation_group': [],
         },
         'global_system_config': {
             'self': ['physical_router'],
@@ -97,6 +98,10 @@ class DeviceManager(object):
         'role_config': {
             'self': ['node_profile'],
             'node_profile': [],
+        },
+        'link_aggregation_group': {
+            'self': ['physical_router'],
+            'physical_router': [],
         },
         'fabric': {
             'self': ['physical_router'],
@@ -351,6 +356,9 @@ class DeviceManager(object):
 
         for obj in PhysicalInterfaceDM.list_obj():
             PhysicalInterfaceDM.locate(obj['uuid'], obj)
+
+        for obj in LinkAggregationGroupDM.list_obj():
+            LinkAggregationGroupDM.locate(obj['uuid'], obj)
 
         for obj in LogicalInterfaceDM.list_obj():
             LogicalInterfaceDM.locate(obj['uuid'], obj)
