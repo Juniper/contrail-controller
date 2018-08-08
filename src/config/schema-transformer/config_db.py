@@ -2521,7 +2521,7 @@ class RoutingInstanceST(DBBaseST):
                     static_routes.add_route(static_route)
                     all_route_targets |= route_targets
 
-        if old_route_target_list != all_route_targets:
+        if old_route_target_list != all_route_targets and si_set is not None:
             self.update_route_target_list(
                     rt_add_import=all_route_targets - old_route_target_list,
                     rt_del=old_route_target_list - all_route_targets)
