@@ -43,7 +43,15 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 1
+    jl_message: "Obtained topology information from the Juniper device [#NeighbourDevices: 1]; starting to parse information ..."
+  when: lldp_neighbor_info is mapping
+
+- name: Update job log with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 1
     jl_message: "Obtained topology information from the Juniper device [#NeighbourDevices: {{lldp_neighbor_info|length}}]; starting to parse information ..."
+  when: lldp_neighbor_info is sequence
 
 - debug:
     msg: "{{lldp_neighbor_info}}"
