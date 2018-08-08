@@ -26,7 +26,7 @@ env.Alias('controller/test', [
     'controller/src/xmpp:test',
     'src/contrail-api-client/api-lib:test',
     'controller/src/config/api-server:test',
-    'controller/src/config/fabric-ansible:tests',
+    'controller/src/config/fabric-ansible:test',
     'controller/src/config/schema-transformer:test',
     'controller/src/ksync:test',
     'src/contrail-common/database/gendb:test',
