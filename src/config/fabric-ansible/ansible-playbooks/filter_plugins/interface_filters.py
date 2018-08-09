@@ -93,6 +93,9 @@ class FilterModule(object):
         }
 
         """
+        if isinstance(interface_list_new, dict):
+            interface_list_new = [interface_list_new]
+
         if not regex_str:
             regex_str = ".*"
 
@@ -110,7 +113,7 @@ class FilterModule(object):
                         prouter_name,
                         phy_interface_name
                     ],
-                    "physical_interface_port_id": phy_interface['snmp-index'],
+                    "physical_interface_port_id": phy_interface.get('snmp-index'),
                     "display_name": physical_intf_name}
                 phy_int_mac_address = phy_interface.get(
                     'current-physical-address')
@@ -235,6 +238,9 @@ class FilterModule(object):
         }
 
         """
+        if isinstance(interface_list, dict):
+            interface_list = [interface_list]
+
         if not regex_str:
             regex_str = ".*"
 
