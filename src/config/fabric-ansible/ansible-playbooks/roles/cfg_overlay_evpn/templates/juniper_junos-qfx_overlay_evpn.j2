@@ -67,7 +67,7 @@ set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
 {%     endfor %}
 
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
-{%         if ri.get('routing_instance_type') == 'virtual-switch' or ri.get('virtual_network_is_internal') == true %}
+{%         if (ri.get('routing_instance_type') == 'virtual-switch') or (ri.get('virtual_network_is_internal') == true) or ((ri.get('routing_instance_type') == 'vrf') and (ri.get('is_public_network') == true)) %}
 {%             set vrf_import = ri.name+'-import' %}
 {%             set vrf_export = ri.name+'-export' %}
 {%             for import_target in ri.get('import_targets', []) %}
