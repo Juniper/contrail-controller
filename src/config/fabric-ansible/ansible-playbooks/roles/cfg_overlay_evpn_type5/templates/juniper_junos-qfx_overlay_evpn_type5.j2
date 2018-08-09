@@ -7,6 +7,12 @@ set groups {{cfg_group}}
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set name = ri.get('name') %}
 {%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+{%             for lo_int in ri.get('loopback_interfaces', []) %}
+{%                 set int_name = lo_int.get('name', '') %}
+{%                 set unit_num = int_name.split('.')[-1] %}
+set groups __contrail_{{feature}}__ interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
+set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{int_name}}
+{%             endfor %}
 {%             set vxlan_id = ri.get('vxlan_id') %}
 {%             if vxlan_id == 'None' %}
 {%                 set vxlan_id = ri.get('virtual_network_id') %}
