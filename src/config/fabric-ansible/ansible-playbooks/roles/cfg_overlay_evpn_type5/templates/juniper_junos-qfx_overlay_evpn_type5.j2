@@ -31,12 +31,24 @@ set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{vrf_
 set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{vrf_export}}
 {%             endfor %}
 
-{%             for phy_int in device_abstract_config.get('physical_interfaces', []) %}
-{%                 if phy_int.get('interface_type') == 'irb' %}
-{%                     for li in phy_int.get('logical_interfaces', []) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{li.name}}
-{%                     endfor %}
-{%                 endif %}
+{%             for irb_int in ri.get('routing_interfaces', []) %}
+{%                 set irb_name = irb_int.get('name') %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{irb_name}}
+{%             endfor %}
+{%         endif %}
+{%         if (ri.get('is_public_network') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} instance-type vrf
+{%             set vrf_import = name+'-import' %}
+{%             set vrf_export = name+'-export' %}
+{%             for import_target in ri.get('import_targets', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{vrf_import}}
+{%             endfor %}
+{%             for exp_target in ri.get('export_targets', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{vrf_export}}
+{%             endfor %}
+{%             for intf in ri.get('interfaces', []) %}
+{%                 set intf_name = intf.get('name') %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{intf_name}}
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
