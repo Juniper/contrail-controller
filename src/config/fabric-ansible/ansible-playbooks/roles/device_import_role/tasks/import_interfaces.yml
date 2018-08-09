@@ -1,3 +1,7 @@
+- name: Update pb_input
+  set_fact:
+    pb_input: "{{pb_input | combine({'interface_filters': [{'op': 'regex', 'expr': '^xe|^ge|^et|^fxp|^xle|^fc|^fte'}] })}}"
+
 - name: Execute commands on a Juniper Device
   block:
     - junos_command:
@@ -22,14 +26,14 @@
 
 - name: settings facts
   set_fact:
-    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
-    interface_list_new: "{{interface_info|json_query('output[1].\"rpc-reply\".\"interface-information\".\"physical-interface\"[*]')}}"
+    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"')}}"
+    interface_list_new: "{{interface_info|json_query('output[1].\"rpc-reply\".\"interface-information\".\"physical-interface\"')}}"
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
     current_index: 2
-    jl_message: "Obtained interface information from the Juniper device [#PhysicalInterfaces: {{interface_list_new|length}}]; starting import ..."
+    jl_message: "Obtained interface information from the Juniper device; starting import ..."
 
 - name: Get the pattern object
   set_fact:
