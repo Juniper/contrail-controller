@@ -36,7 +36,7 @@ set groups __contrail_{{feature}}__ interfaces {{name}} native-vlan-id {{vlan_id
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set intfs = vlan.get('interfaces',[]) %}
-{%         if vlan.get('vlan_or_bridge_domain', '') == 'false' %}
+{%         if vlan.get('vlan_or_bridge_domain', '') == false %}
 {%             set vni = vlan.get('vxlan_id') %}
 {%             set vlan_id = vni %}
 {%             for irb_int in vlan.get('interfaces', []) %}
