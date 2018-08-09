@@ -81,10 +81,10 @@ class SanityTestZtpWorkflow(SanityBase):
                     ],
                     "node_profiles": [
                         {
-                            "node_profile_name": "juniper-qfx5100"
+                            "node_profile_name": "juniper-qfx5k"
                         },
                         {
-                            "node_profile_name": "juniper-qfx10002"
+                            "node_profile_name": "juniper-qfx10k"
                         }
                     ]
                 }
