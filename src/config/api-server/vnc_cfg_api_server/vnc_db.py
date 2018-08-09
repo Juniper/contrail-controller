@@ -665,6 +665,34 @@ class VncZkClient(object):
             else:
                 self._vn_id_allocator.delete(id - VNID_MIN_ALLOC)
 
+    def alloc_vxlan_id(self, fq_name_str, id, notify=False):
+        if notify:
+            if self.get_vn_from_id(id) is not None:
+                self._vn_id_allocator.set_in_use(id - VNID_MIN_ALLOC)
+                return id
+        elif fq_name_str is not None:
+            allocated_fq_name_str = self.get_vn_from_id(id)
+            if (allocated_fq_name_str is not None and
+                     allocated_fq_name_str == fq_name_str):
+                return id
+            return self._vn_id_allocator.reserve(id - VNID_MIN_ALLOC, fq_name_str)
+
+    def free_vxlan_id(self, id, fq_name_str, notify=False):
+        if id is not None and id - VNID_MIN_ALLOC < self._VN_MAX_ID:
+            # If fq_name associated to the allocated ID does not correpond to
+            # freed resource fq_name, keep zookeeper lock
+            allocated_fq_name_str = self.get_vn_from_id(id)
+            if (allocated_fq_name_str is not None and
+                    allocated_fq_name_str != fq_name_str):
+                return
+
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                self._vn_id_allocator.reset_in_use(id - VNID_MIN_ALLOC)
+            else:
+                self._vn_id_allocator.delete(id - VNID_MIN_ALLOC)
+
     def get_vn_from_id(self, id):
         if id is not None and id - VNID_MIN_ALLOC < self._VN_MAX_ID:
             return self._vn_id_allocator.read(id - VNID_MIN_ALLOC)
