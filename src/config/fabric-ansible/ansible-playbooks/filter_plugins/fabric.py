@@ -1243,6 +1243,10 @@ class FilterModule(object):
                 "Removing logical-router ref for device %s" % device_obj.name
             )
             logical_router_obj.del_physical_router(device_obj)
+            vnc_api.logical_router_update(logical_router_obj)
+            logical_router_obj = vnc_api.logical_router_read(
+                fq_name=logical_router_fq_name
+            )
             prouter_refs = logical_router_obj.get_physical_router_refs() or []
             # if no more physical-routers attached, delete the logical-router
             if len(prouter_refs) == 0:
