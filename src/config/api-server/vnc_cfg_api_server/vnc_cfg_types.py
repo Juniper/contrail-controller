@@ -1523,48 +1523,56 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
 
     @classmethod
+    def create_intvn_and_ref(cls, obj_dict, db_conn):
+        ok, proj_dict = db_conn.dbe_read('project', obj_dict['parent_uuid'])
+        if not ok:
+            return (ok, proj_dict)
+
+        vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
+        proj_obj = Project(name=proj_dict.get('fq_name')[-1],
+                           parent_type='domain',
+                           fq_name=proj_dict.get('fq_name'))
+
+        vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
+        id_perms = IdPermsType(enable=True, user_visible=False)
+        vn_obj.set_id_perms(id_perms)
+
+        int_vn_property = VirtualNetworkType(forwarding_mode='l3')
+        if 'vxlan_network_identifier' in obj_dict:
+            vni_id = obj_dict['vxlan_network_identifier']
+            int_vn_property.set_vxlan_network_identifier(vni_id)
+        vn_obj.set_virtual_network_properties(int_vn_property)
+
+        rt_list = obj_dict.get('configured_route_target_list',
+                               {}).get('route_target')
+        if rt_list:
+            vn_obj.set_route_target_list(RouteTargetList(rt_list))
+
+        vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
+        api_server = db_conn.get_api_server()
+        status, obj = api_server.internal_request_create('virtual-network',
+                                                        json.loads(vn_int_dict))
+        attr_obj = LogicalRouterVirtualNetworkType('InternalVirtualNetwork')
+        attr_dict = attr_obj.__dict__
+        api_server.internal_request_ref_update('logical-router', obj_dict['uuid'], 'ADD',
+                                               'virtual-network', obj['virtual-network']['uuid'],
+                                               obj['virtual-network']['fq_name'], attr=attr_dict)
+        return True, ''
+
+    @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
         if not ok:
             return ok, vxlan_routing
 
-        ok, proj_dict = db_conn.dbe_read('project', obj_dict['parent_uuid'])
-        if not ok:
-            return (ok, proj_dict)
-
         # If VxLAN routing is enabled for the Project in which this LR
         # is created, then create an internal VN to export the routes
         # in the private VNs to the VTEPs.
         if vxlan_routing == True:
-            vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
-            proj_obj = Project(name=proj_dict.get('fq_name')[-1],
-                               parent_type='domain',
-                               fq_name=proj_dict.get('fq_name'))
+            ok, result = cls.create_intvn_and_ref(obj_dict, db_conn)
+            if not ok:
+                return ok, result
 
-            vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
-            id_perms = IdPermsType(enable=True, user_visible=False)
-            vn_obj.set_id_perms(id_perms)
-
-            int_vn_property = VirtualNetworkType(forwarding_mode='l3')
-            if 'vxlan_network_identifier' in obj_dict:
-                vni_id = obj_dict['vxlan_network_identifier']
-                int_vn_property.set_vxlan_network_identifier(vni_id)
-            vn_obj.set_virtual_network_properties(int_vn_property)
-
-            rt_list = obj_dict.get('configured_route_target_list',
-                                   {}).get('route_target')
-            if rt_list:
-                vn_obj.set_route_target_list(RouteTargetList(rt_list))
-
-            vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
-            api_server = db_conn.get_api_server()
-            status, obj = api_server.internal_request_create('virtual-network',
-                                                            json.loads(vn_int_dict))
-            attr_obj = LogicalRouterVirtualNetworkType('InternalVirtualNetwork')
-            attr_dict = attr_obj.__dict__
-            api_server.internal_request_ref_update('logical-router', obj_dict['uuid'], 'ADD',
-                                                   'virtual-network', obj['virtual-network']['uuid'],
-                                                   obj['virtual-network']['fq_name'], attr=attr_dict)
         return True, ''
     # end post_dbe_create
 
@@ -1588,6 +1596,9 @@ class LogicalRouterServer(Resource, LogicalRouter):
                                                    'virtual-network', vn_int_uuid, vn_int_fqname,
                                                    attr=attr_dict)
             api_server.internal_request_delete('virtual-network', vn_int_uuid)
+            def undo_int_vn_delete():
+                return cls.create_intvn_and_ref(obj_dict, db_conn)
+            get_context().push_undo(undo_int_vn_delete)
 
         return True,''
     # end pre_dbe_delete
