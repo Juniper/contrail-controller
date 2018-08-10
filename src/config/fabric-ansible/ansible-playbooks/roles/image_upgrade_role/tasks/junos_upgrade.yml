@@ -6,6 +6,7 @@
           user: "{{pr_user}}"
           passwd: "{{pr_password}}"
           port: 22
+        version: "{{image_os_version}}"
         remote_package: "{{downloadurl}}"
       register: junos_response
     #  ignore_errors: True
