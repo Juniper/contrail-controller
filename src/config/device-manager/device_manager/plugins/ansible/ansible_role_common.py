@@ -447,11 +447,31 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_routing_instance
 
     def attach_acls(self, interface, unit):
-        if self.is_spine() or not interface.li_uuid:
+        if self.is_spine():
             return
+
+        pi_list = []
+        esi_map = self.get_ae_alloc_esi_map()
+        for esi, ae_id in self.physical_router.ae_id_map.items():
+            ae_name = "ae" + str(ae_id)
+            if_name, if_unit= interface.name.split('.')
+            if ae_name == if_name:
+                pi_list = esi_map.get(esi)
+                if pi_list:
+                    self._logger.info("attach acls on AE intf:%s, link_member:%s, unit:%s" %
+                                      (ae_name, pi_list[0].name, if_unit))
+                    li_name = pi_list[0].name + '.' + if_unit
+                    break
+
+        if not pi_list and not interface.li_uuid:
+            return
+
         interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
         if not interface:
-            return
+            interface = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
+            if not interface:
+                return
+
         sg_list = interface.get_attached_sgs()
         filter_list = []
         for sg in sg_list:
