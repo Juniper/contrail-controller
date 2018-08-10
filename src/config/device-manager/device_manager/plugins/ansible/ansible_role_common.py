@@ -210,6 +210,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
         if is_internal_vn:
             self.internal_vn_ris.append(ri)
+        if is_internal_vn or router_external:
             self.add_bogus_lo0(ri, network_id, vn)
 
         if self.is_spine() and is_l2_l3:
