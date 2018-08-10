@@ -51,6 +51,11 @@ struct SDWANMetrics_dial {
       9: optional u64                     score
 }
 
+struct SDWANKPIMetrics_diff {
+      1: optional u64                     session_close_count
+      2: optional u64                     bps
+}
+
 struct SDWANMetrics_diff_P_ {
       1: optional SDWANMetrics_diff value (tags="")
       2: optional SDWANMetrics_diff staging
@@ -59,6 +64,11 @@ struct SDWANMetrics_diff_P_ {
 struct SDWANMetrics_dial_P_ {
       1: optional SDWANMetrics_dial value (tags="")
       2: optional SDWANMetrics_dial staging
+}
+
+struct SDWANKPIMetrics_diff_P_ {
+      1: optional SDWANKPIMetrics_diff value (tags="")
+      2: optional SDWANKPIMetrics_diff staging
 }
 
 /*  UVE key -> TENANT::SITE::DEVICE_ID
@@ -176,4 +186,22 @@ struct SDWANTenantMetricsRecord {
 
 uve sandesh SDWANTenantMetrics {
      1: SDWANTenantMetricsRecord          data;
+}
+
+struct SDWANKPIMetricsRecord {
+    1: string                           name (key="ObjectCPETable")
+    2: optional bool                    deleted
+
+    /* kpi_metrics_diff_create_alarm  */
+    3: optional map<string, SDWANKPIMetrics_diff>      kpi_metrics_greater_diff (hidden="yes",metric="diff")
+    4: optional map<string, SDWANKPIMetrics_diff_P_>   kpi_metrics_greater_diff_create (mstats="2-kpi_metrics_greater_diff:DSSum:",tags=".__key")
+
+    /* kpi_metrics_diff_delete_alarm  */
+    5: optional map<string, SDWANKPIMetrics_diff>      kpi_metrics_lesser_diff (hidden="yes",metric="diff")
+    6: optional map<string, SDWANKPIMetrics_diff_P_>   kpi_metrics_lesser_diff_delete (mstats="15-kpi_metrics_lesser_diff:DSSum:",tags=".__key")
+
+}(period="60")
+
+uve sandesh SDWANKPIMetrics {
+    1: SDWANKPIMetricsRecord               data;
 }
