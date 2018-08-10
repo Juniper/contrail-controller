@@ -118,10 +118,12 @@ set groups {{cfg_group}} services service-set {{nat_rules_name}} next-hop-servic
 {%                 endif %}
 {%                 set then_ris = term_then.get('routing_instance', []) %}
 {%                 for dst_addr in dest_addrs %}
-set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} from destination-address {{dst_addr}}
+{%                     set dst_cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} from destination-address {{dst_cidr}}
 {%                 endfor %}
 {%                 for src_addr in src_addrs %}
-set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} from source-address {{src_addr}}
+{%                     set src_cidr = src_addr.get('prefix') + '/' + src_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} from source-address {{src_cidr}}
 {%                 endfor %}
 {%                 for then_ri in then_ris %}
 set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term {{term_name}} then routing-instance {{then_ri}}
