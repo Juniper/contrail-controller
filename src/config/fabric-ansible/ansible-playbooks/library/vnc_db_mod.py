@@ -510,19 +510,12 @@ class VncMod(object):
         for obj_ref_pair in self.object_list:
             self.object_dict['fq_name'] = obj_ref_pair[0]
             local_uuid = self._fq_name_to_id_oper()
-            self.object_dict['obj_uuid'] = local_uuid['uuid']
+            self.object_dict['obj_uuid'] = local_uuid.get('uuid')
             self.object_dict['ref_fqname'] = obj_ref_pair[1]
             res = self._ref_update_oper()
             if res.get('failed'):
-                if not self.object_dict.get('ignore_unknown_id_err'):
-                    results['failed'] = True
-                    results['msg'] = res.get('msg')
-                    break
-                elif self.object_dict.get('ignore_unknown_id_err') and 'Unknown id' not in res.get('msg'):
-                    results['failed'] = True
-                    results['msg'] = res.get('msg')
-                    break
-                results['failed_uuids'] = res
+                results['failed'] = False
+                results['failed_uuids'].append(res.get('msg'))
             else:
                 results['refs_upd_resp'].append(res)
         return results
