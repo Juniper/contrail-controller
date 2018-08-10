@@ -31,13 +31,39 @@ set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{vrf_
 set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{vrf_export}}
 {%             endfor %}
 
-{%             for phy_int in device_abstract_config.get('physical_interfaces', []) %}
-{%                 if phy_int.get('interface_type') == 'irb' %}
-{%                     for li in phy_int.get('logical_interfaces', []) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{li.name}}
-{%                     endfor %}
-{%                 endif %}
+{%             for irb_int in ri.get('routing_interfaces', []) %}
+{%                 set irb_name = irb_int.get('name') %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{irb_name}}
 {%             endfor %}
+{%         endif %}
+{%         if (ri.get('is_public_network') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} instance-type vrf
+{%             set vrf_import = name+'-import' %}
+{%             set vrf_export = name+'-export' %}
+{%             for import_target in ri.get('import_targets', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{vrf_import}}
+{%             endfor %}
+{%             for exp_target in ri.get('export_targets', []) %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{vrf_export}}
+{%             endfor %}
+{%             for lo_int in ri.get('loopback_interfaces', []) %}
+{%                 set int_name = lo_int.get('name', '') %}
+{%                 set unit_num = int_name.split('.')[-1] %}
+set groups __contrail_{{feature}}__ interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
+set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{int_name}}
+{%             endfor %}
+{%             for intf in ri.get('interfaces', []) %}
+{%                 set intf_name = intf.get('name') %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{intf_name}}
+{%             endfor %}
+set groups __contrail_{{feature}}__ routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
+set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
+{%             for subnet in ri.get('prefixes', []) %}
+{%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{name}} from destination-address {{cidr}}
+{%             endfor %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{name}} then routing-instance {{name}}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%         endif %}
 {%     endfor %}
 set apply-groups {{cfg_group}}
