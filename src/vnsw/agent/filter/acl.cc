@@ -560,6 +560,48 @@ void AclTable::FirewallPolicyIFNodeToReq(IFMapNode *node, DBRequest &req,
      }
 }
 
+bool AclTable::SubnetTypeEqual(const autogen::SubnetType &lhs,
+                               const autogen::SubnetType &rhs) const {
+    if (lhs.ip_prefix.compare(rhs.ip_prefix) != 0)
+        return false;
+    if (lhs.ip_prefix_len != rhs.ip_prefix_len)
+        return false;
+    return true;
+}
+
+bool AclTable::AddressTypeEqual(const autogen::AddressType &lhs,
+                                const autogen::AddressType &rhs) const {
+    if (!SubnetTypeEqual(lhs.subnet, rhs.subnet))
+        return false;
+    if (lhs.virtual_network.compare(rhs.virtual_network) != 0)
+        return false;
+    if (lhs.security_group.compare(rhs.security_group) != 0)
+        return false;
+    if (lhs.network_policy.compare(rhs.network_policy) != 0)
+        return false;
+    if (lhs.subnet_list.size() != rhs.subnet_list.size())
+        return false;
+    std::vector<SubnetType>::const_iterator lit = lhs.subnet_list.begin();
+    std::vector<SubnetType>::const_iterator rit = lhs.subnet_list.begin();
+    while ((lit != lhs.subnet_list.end()) &&
+           (rit != rhs.subnet_list.end())) {
+        if (!SubnetTypeEqual(*lit, *rit))
+            return false;
+        ++lit;
+        ++rit;
+    }
+    return true;
+}
+
+bool AclTable::PortTypeEqual(const autogen::PortType &src,
+                             const autogen::PortType &dst) const {
+    if ((src.start_port == dst.start_port) &&
+        (src.end_port == dst.end_port)) {
+        return true;
+    }
+    return false;
+}
+
 void AclTable::AclIFNodeToReq(IFMapNode *node, DBRequest &req,
                               const boost::uuids::uuid &u,
                               AclSpec &acl_spec) {
@@ -576,8 +618,21 @@ void AclTable::AclIFNodeToReq(IFMapNode *node, DBRequest &req,
     for(ir = entrs.begin(); ir != entrs.end(); ++ir) {
         AddAceToAcl(&acl_spec, this, cfg_acl, &(ir->match_condition),
                         ir->action_list, ir->rule_uuid, id++);
+        bool address_same = false;
+        if (AddressTypeEqual(ir->match_condition.src_address,
+                             ir->match_condition.dst_address)) {
+            address_same = true;
+        }
+
+        bool port_same = false;
+        if (PortTypeEqual(ir->match_condition.src_port,
+                          ir->match_condition.dst_port)) {
+            port_same = true;
+        }
+
         //Add reverse rule if needed
-        if ((ir->direction.compare("<>") == 0)) {
+        if ((ir->direction.compare("<>") == 0) &&
+            (!address_same || !port_same)) {
             MatchConditionType rmatch_condition;
             rmatch_condition = ir->match_condition;
             rmatch_condition.src_address = ir->match_condition.dst_address;
