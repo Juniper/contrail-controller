@@ -178,12 +178,16 @@ role_to_feature_mapping:
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_type5
   DC-Gateway@spine:
     - basic
     - ip_clos
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_type5
 
 # Paths for DHCP and TFTP config files
 DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
