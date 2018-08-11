@@ -26,7 +26,9 @@ set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} proxy-macip-adv
 set groups __contrail_{{feature}}__ interfaces {{name}} flexible-vlan-tagging
 set groups __contrail_{{feature}}__ interfaces {{name}} encapsulation extended-vlan-bridge
 set groups __contrail_{{feature}}__ interfaces {{name}} unit {{unit}} vlan-id {{vlan_id}}
+{%                     if li.get('is_tagged', false) == false %}
 set groups __contrail_{{feature}}__ interfaces {{name}} native-vlan-id {{vlan_id}}
+{%                     endif %}
 {%                 endif %}
 {%             endfor %}
 {%         endif %}
@@ -53,9 +55,8 @@ set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
 {%                 endif %}
 {%                 for phy_intf in device_abstract_config.get('physical_interfaces', []) %}
 {%                     for li in phy_intf.get('logical_interfaces', []) %}
-{%                         if phy_intf.get('name', '') in int_name %}
+{%                         if li.get('name', '') == int_name %}
 {%                             set vlan_id = li.get('vlan_tag', '') %}
-{%                             set int_name = phy_intf.get('name') %}
 set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
 set groups __contrail_{{feature}}__ vlans {{vlan_name}} interface {{int_name}}
 set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
