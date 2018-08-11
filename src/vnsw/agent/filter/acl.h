@@ -198,6 +198,12 @@ public:
     void AddUnresolvedEntry(AclDBEntry *entry);
     void DeleteUnresolvedEntry(AclDBEntry *entry);
 private:
+    bool SubnetTypeEqual(const autogen::SubnetType &lhs,
+                         const autogen::SubnetType &rhs) const;
+    bool AddressTypeEqual(const autogen::AddressType &lhs,
+                          const autogen::AddressType &rhs) const;
+    bool PortTypeEqual(const autogen::PortType &src,
+                       const autogen::PortType &dst) const;
     static const AclDBEntry* GetAclDBEntry(const std::string uuid_str,
                                            const std::string ctx,
                                            SandeshResponse *resp);
