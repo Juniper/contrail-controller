@@ -239,11 +239,20 @@ public:
     InetUnicastRouteEntry *FindResolveRoute(const Ip4Address &ip);
     static InetUnicastRouteEntry *FindResolveRoute(const string &vrf_name, 
                                                    const Ip4Address &ip);
+    static bool ShouldAddArp(const Ip4Address &ip);
     static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip,
                                   const Interface *intf,
                                   const VnListType &vn_list,
                                   const SecurityGroupList &sg,
                                   const TagList &tag);
+    static void CheckAndAddArpRoute(const string &route_vrf_name,
+                                    const Ip4Address &ip,
+                                    const MacAddress &mac,
+                                    const Interface *intf,
+                                    bool resolved,
+                                    const VnListType &vn_list,
+                                    const SecurityGroupList &sg,
+                                    const TagList &tag);
     static void AddArpReq(const string &route_vrf_name,
                           const Ip4Address &ip,
                           const string &nh_vrf_name,

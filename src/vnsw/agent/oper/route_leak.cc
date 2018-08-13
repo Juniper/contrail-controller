@@ -18,12 +18,21 @@ void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
     if (gw_ip == uc_rt->addr().to_v4() &&
         InetUnicastAgentRouteTable::FindResolveRoute(dest_vrf_->GetName(),
                                                      uc_rt->addr().to_v4())) {
-        InetUnicastAgentRouteTable::CheckAndAddArpReq(dest_vrf_->GetName(),
-                                                      uc_rt->addr().to_v4(),
-                                                      agent_->vhost_interface(),
-                                                      active_path->dest_vn_list(),
-                                                      active_path->sg_list(),
-                                                      active_path->tag_list());
+        bool resolved = false;
+        MacAddress mac;
+        const Interface *itf = agent_->vhost_interface();
+        ArpNHKey nh_key(dest_vrf_->GetName(), uc_rt->addr().to_v4(), false);
+        ArpNH *arp_nh = static_cast<ArpNH *>(agent_->nexthop_table()->
+                                             FindActiveEntry(&nh_key));
+        if (arp_nh) {
+            resolved = arp_nh->GetResolveState();
+            mac = arp_nh->GetMac();
+            itf = arp_nh->GetInterface();
+        }
+        InetUnicastAgentRouteTable::CheckAndAddArpRoute
+            (dest_vrf_->GetName(), uc_rt->addr().to_v4(), mac, itf,
+             resolved, active_path->dest_vn_list(),
+             active_path->sg_list(), active_path->tag_list());
         return;
     }
 

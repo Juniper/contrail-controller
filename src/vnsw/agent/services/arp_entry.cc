@@ -318,6 +318,9 @@ void ArpEntry::Resync(bool policy, const VnListType &vnlist,
                       const SecurityGroupList &sg,
                       const TagList &tag) {
     Ip4Address ip(key_.ip);
+    const string& vrf_name = key_.vrf->GetName();
+    ARP_TRACE(Trace, "Resync", ip.to_string(), vrf_name,
+              mac_address().ToString());
     handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_ADD_CHANGE, key_.vrf->GetName(), ip,
                        mac_address_, nh_vrf_->GetName(), *interface_, IsResolved(),

@@ -1190,6 +1190,38 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
     Inet4UnicastTableEnqueue(agent, &rt_req);
 }
 
+bool InetUnicastAgentRouteTable::ShouldAddArp(const Ip4Address &ip) {
+    if (ip == Agent::GetInstance()->router_id() ||
+        !IsIp4SubnetMember(ip, Agent::GetInstance()->router_id(),
+                           Agent::GetInstance()->vhost_prefix_len())) {
+        // TODO: add Arp request for GW
+        // Currently, default GW Arp is added during init
+        return false;
+    }
+
+    return true;
+}
+
+void
+InetUnicastAgentRouteTable::CheckAndAddArpRoute(const string &route_vrf_name,
+                                                const Ip4Address &ip,
+                                                const MacAddress &mac,
+                                                const Interface *intf,
+                                                bool resolved,
+                                                const VnListType &vn_list,
+                                                const SecurityGroupList &sg,
+                                                const TagList &tag) {
+    if (!ShouldAddArp(ip)) {
+        return;
+    }
+    std::string nexthop_vrf = intf->vrf()->GetName();
+    if (intf->vrf()->forwarding_vrf()) {
+        nexthop_vrf = intf->vrf()->forwarding_vrf()->GetName();
+    }
+    ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE, route_vrf_name, ip, mac,
+             nexthop_vrf, *intf, resolved, 32, false, vn_list, sg, tag);
+}
+
 void
 InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
                                               const Ip4Address &ip,
@@ -1198,14 +1230,9 @@ InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
                                               const SecurityGroupList &sg,
                                               const TagList &tag) {
 
-    if (ip == Agent::GetInstance()->router_id() ||
-        !IsIp4SubnetMember(ip, Agent::GetInstance()->router_id(),
-                           Agent::GetInstance()->vhost_prefix_len())) {
-        // TODO: add Arp request for GW
-        // Currently, default GW Arp is added during init
+    if (!ShouldAddArp(ip)) {
         return;
     }
-
     std::string nexthop_vrf = intf->vrf()->GetName();
     if (intf->vrf()->forwarding_vrf()) {
         nexthop_vrf = intf->vrf()->forwarding_vrf()->GetName();
