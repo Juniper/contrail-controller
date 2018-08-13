@@ -7,6 +7,7 @@ delete groups {{cfg_group}}
 {%         if ifd.get('comment') == feature %}
 {%             if ifd.name != 'lo0' %}
 set groups {{cfg_group}} interfaces {{ifd.name}} mtu 9192
+delete protocols rstp interface {{ifd.name}}
 {%         endif %}
 {%             for ifl in ifd.get('logical_interfaces', []) %}
 delete interfaces {{ifd.name}} unit {{ifl.unit}}
