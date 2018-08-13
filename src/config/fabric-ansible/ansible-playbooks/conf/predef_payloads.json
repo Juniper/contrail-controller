@@ -388,10 +388,12 @@
               "juniper-vqfx-10000",
               "juniper-qfx5100-48s-6q",
               "juniper-qfx5100-24q-2p",
+              "juniper-qfx5100e-48s-6q",
               "juniper-qfx5110-48s-4c",
               "juniper-qfx5200-32c-32q",
               "juniper-vmx",
-              "juniper-mx80"
+              "juniper-mx80",
+              "juniper-mx240"
             ]
           }
         }
@@ -411,6 +413,12 @@
             "juniper-qfx5100-24q-2p"
           ],
           "name": "juniper-qfx5100-24q-2p"
+        },
+        {
+          "fq_name": [
+            "juniper-qfx5100e-48s-6q"
+          ],
+          "name": "juniper-qfx5100e-48s-6q"
         },
         {
           "fq_name": [
@@ -459,6 +467,12 @@
             "juniper-mx80"
           ],
           "name": "juniper-mx80"
+        },
+        {
+          "fq_name": [
+            "juniper-mx240"
+          ],
+          "name": "juniper-mx240"
         },
         {
           "fq_name": [
@@ -610,6 +624,12 @@
       "from_type": "node_profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "hardware",
+      "to_fq_name": [ "juniper-qfx5100e-48s-6q" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5110-48s-4c" ]
     },
     {
@@ -653,6 +673,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx80" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-mx240" ]
     },
     {
       "from_type": "node_profile",
