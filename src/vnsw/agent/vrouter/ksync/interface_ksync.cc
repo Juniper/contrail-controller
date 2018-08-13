@@ -470,11 +470,13 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
-    {    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    {
+        const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
         if (fat_flow_list_.list_ != vm_intf->fat_flow_list().list_) {
             fat_flow_list_ = vm_intf->fat_flow_list();
             ret = true;
         }
+        vm_intf->BuildFatFlowExcludeList(&fat_flow_exclude_list_);
         std::set<MacAddress> aap_mac_list;
         for (VmInterface::AllowedAddressPairSet::iterator aap_it =
              vm_intf->allowed_address_pair_list().list_.begin();
@@ -768,6 +770,14 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                                         it->protocol << 16 | it->port);
             }
             encoder.set_vifr_fat_flow_protocol_port(fat_flow_list);
+            encoder.set_vifr_fat_flow_exclude_ip_list
+                (fat_flow_exclude_list_.fat_flow_v4_exclude_list_);
+            encoder.set_vifr_fat_flow_exclude_ip6_u_list
+                (fat_flow_exclude_list_.fat_flow_v6_exclude_upper_list_);
+            encoder.set_vifr_fat_flow_exclude_ip6_l_list
+                (fat_flow_exclude_list_.fat_flow_v6_exclude_lower_list_);
+            encoder.set_vifr_fat_flow_exclude_ip6_plen_list
+                (fat_flow_exclude_list_.fat_flow_v6_exclude_plen_list_);
         }
 
         if (pbb_interface_) {
@@ -988,6 +998,14 @@ void InterfaceKSyncEntry::FillObjectLog(sandesh_op::type op,
             fat_flows.push_back(info);
         }
         info.set_fat_flows(fat_flows);
+        info.set_fat_flow_v4_exclude_list
+            (fat_flow_exclude_list_.fat_flow_v4_exclude_list_);
+        info.set_fat_flow_v6_exclude_upper_list
+            (fat_flow_exclude_list_.fat_flow_v6_exclude_upper_list_);
+        info.set_fat_flow_v6_exclude_lower_list
+            (fat_flow_exclude_list_.fat_flow_v6_exclude_lower_list_);
+        info.set_fat_flow_v6_exclude_plen_list
+            (fat_flow_exclude_list_.fat_flow_v6_exclude_plen_list_);
     }
 }
 

@@ -679,7 +679,8 @@ bool DhcpHandler::FindLeaseData() {
     } else {
         // Give a link local address
         boost::system::error_code ec;
-        Ip4Address gwip = Ip4Address::from_string(LINK_LOCAL_SUBNET, ec);
+        Ip4Address gwip = Ip4Address::from_string
+            (agent()->v4_link_local_subnet(), ec);
         gwip = Ip4Address((gwip.to_ulong() & 0xFFFF0000) | (vm_itf_->id() & 0xFF));
         FillDhcpInfo(gwip, 16, unspecified, unspecified);
     }

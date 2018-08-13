@@ -4,6 +4,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
+#include <net/address_util.h>
 #include <oper/operdb_init.h>
 #include <oper/route_common.h>
 #include <oper/vm.h>
@@ -847,6 +848,100 @@ bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port,
         return true;
     }
     return false;
+}
+
+bool VmInterface::ExcludeFromFatFlow(Address::Family family,
+                                     const IpAddress &sip,
+                                     const IpAddress &dip) const {
+    if (family == Address::INET) {
+        IpAddress gw_ip = GetGatewayIp(primary_ip_addr_);
+        if ((sip == gw_ip) || (dip == gw_ip)) {
+            return true;
+        }
+        IpAddress service_ip = GetServiceIp(primary_ip_addr_);
+        if ((sip == service_ip) || (dip == service_ip)) {
+            return true;
+        }
+        boost::system::error_code ec;
+        Ip4Address ll_subnet = Ip4Address::from_string
+            (agent()->v4_link_local_subnet(), ec);
+        if (IsIp4SubnetMember(sip.to_v4(), ll_subnet,
+                              agent()->v4_link_local_plen())) {
+            return true;
+        }
+        if (IsIp4SubnetMember(dip.to_v4(), ll_subnet,
+                              agent()->v4_link_local_plen())) {
+            return true;
+        }
+    } else if (family == Address::INET6){
+        IpAddress gw_ip = GetGatewayIp(primary_ip6_addr_);
+        if ((sip == gw_ip) || (dip == gw_ip)) {
+            return true;
+        }
+        IpAddress service_ip = GetServiceIp(primary_ip6_addr_);
+        if ((sip == service_ip) || (dip == service_ip)) {
+            return true;
+        }
+        boost::system::error_code ec;
+        Ip6Address ll6_subnet = Ip6Address::from_string
+            (agent()->v6_link_local_subnet(), ec);
+        if (IsIp6SubnetMember(sip.to_v6(), ll6_subnet,
+                              agent()->v6_link_local_plen())) {
+            return true;
+        }
+        if (IsIp6SubnetMember(dip.to_v6(), ll6_subnet,
+                              agent()->v6_link_local_plen())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void VmInterface::FillV4ExcludeIp(uint64_t plen, const Ip4Address &ip,
+                                  VmInterface::FatFlowExcludeList *list) const {
+    uint64_t value = 0;
+    if (!ip.is_unspecified()) {
+        value = plen | htonl(ip.to_ulong());
+        list->fat_flow_v4_exclude_list_.push_back(value);
+    }
+}
+
+void VmInterface::FillV6ExcludeIp(uint16_t plen, const IpAddress &ip,
+                                  VmInterface::FatFlowExcludeList *list) const {
+    if (ip.is_v6() && !ip.is_unspecified()) {
+        uint64_t ip_arr[2];
+        Ip6AddressToU64Array(ip.to_v6(), ip_arr, 2);
+        list->fat_flow_v6_exclude_upper_list_.push_back(ip_arr[0]);
+        list->fat_flow_v6_exclude_lower_list_.push_back(ip_arr[1]);
+        list->fat_flow_v6_exclude_plen_list_.push_back(plen);
+    }
+}
+
+void VmInterface::BuildFatFlowExcludeList
+(VmInterface::FatFlowExcludeList *list) const {
+    /* Build the list afresh each time. So clear the list */
+    list->Clear();
+
+    /* Build IPv4 exclude-list */
+    IpAddress gw_ip = GetGatewayIp(primary_ip_addr_);
+    uint64_t plen = (uint64_t(Address::kMaxV4PrefixLen) << 32);
+    FillV4ExcludeIp(plen, gw_ip.to_v4(), list);
+    IpAddress service_ip = GetServiceIp(primary_ip_addr_);
+    FillV4ExcludeIp(plen, service_ip.to_v4(), list);
+    boost::system::error_code ec;
+    Ip4Address ll_subnet = Ip4Address::from_string
+        (agent()->v4_link_local_subnet(), ec);
+    plen = (uint64_t(agent()->v4_link_local_plen()) << 32);
+    FillV4ExcludeIp(plen, ll_subnet, list);
+
+    /* Build IPv6 exclude-list */
+    IpAddress gw6_ip = GetGatewayIp(primary_ip6_addr_);
+    FillV6ExcludeIp(128, gw6_ip, list);
+    IpAddress service6_ip = GetServiceIp(primary_ip6_addr_);
+    FillV6ExcludeIp(128, service6_ip, list);
+    Ip6Address ll6_subnet = Ip6Address::from_string
+        (agent()->v6_link_local_subnet(), ec);
+    FillV6ExcludeIp(agent()->v6_link_local_plen(), ll6_subnet, list);
 }
 
 const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
