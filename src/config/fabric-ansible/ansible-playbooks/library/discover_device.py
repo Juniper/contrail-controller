@@ -121,11 +121,10 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
                 time_diff = current_time - host_params.get('time')
                 elapsed_time = time_diff.total_seconds()
                 if host_params.get('remaining_retry_duration') <= 0.0:
-                    logger.info(
-                        "Host {} tried for the given retry timeout {}. "
-                        "Discovery FAILED".format(
-                            host_params.get('host'),
-                            deviceinfo.total_retry_timeout))
+                    logger.info("Host {} tried for the given retry timeout {}."
+                                "Discovery FAILED".format(
+                        host_params.get('host'),
+                        deviceinfo.total_retry_timeout))
                     return
                 if elapsed_time < 30:
                     retry_queue.put(host_params)
@@ -194,8 +193,9 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
 def _exit_with_error(module, msg):
     module.results['failed'] = True
     module.results['msg'] = msg
-    module.send_job_object_log(module.results.get('msg'),
-                               JOB_IN_PROGRESS, None)
+    #module.send_job_object_log(module.results.get('msg'),
+    #                           JOB_IN_PROGRESS, None)
+    module.job_log_percentage_to_file(module.results.get('msg'), None)
     module.exit_json(**module.results)
 # end _exit_with_error
 
@@ -225,10 +225,11 @@ def module_process(module):
                                  (subnet, str(ex)))
         module.results['msg'] = "Prefix(es) to be discovered: " + \
             ','.join(module.params['subnets'])
-        module.send_job_object_log(
-            module.results.get('msg'),
-            JOB_IN_PROGRESS,
-            None)
+        #module.send_job_object_log(
+        #    module.results.get('msg'),
+        #    JOB_IN_PROGRESS,
+        #    None)
+        module.job_log_percentage_to_file(module.results.get('msg'), None)
 
     if module.params['hosts']:
         for host in module.params['hosts']:
@@ -245,12 +246,12 @@ def module_process(module):
             all_hosts.append(host.get("ip_addr"))
         module.results['msg'] = "Hosts to be discovered: " + \
             ', '.join(all_hosts)
-        module.send_job_object_log(
-            module.results.get('msg'),
-            JOB_IN_PROGRESS,
-            None)
+        #module.send_job_object_log(
+        #    module.results.get('msg'),
+        #    JOB_IN_PROGRESS,
+        #    None)
+        module.job_log_percentage_to_file(module.results.get('msg'), None)
 
-    deviceinfo.discovery_percentage_write()
 
     if len(all_hosts) == 0:
         _exit_with_error(module, "NO HOSTS to DISCOVER")
@@ -293,13 +294,13 @@ def module_process(module):
             module.exit_json(**module.results)
 
     module.results['device_info'] = DeviceInfo.output
-    module.results['msg'] = "Completed device discovery"
+    module.results['msg'] = "Device discovery complete"
     module.job_ctx['current_task_index'] = 3
-    module.send_job_object_log(
-        module.results.get('msg'),
-        JOB_IN_PROGRESS,
-        None)
-    deviceinfo.discovery_percentage_write()
+    #module.send_job_object_log(
+    #    module.results.get('msg'),
+    #    JOB_IN_PROGRESS,
+    #    None)
+    module.job_log_percentage_to_file(module.results.get('msg'), None)
     module.exit_json(**module.results)
 # end module_process
 

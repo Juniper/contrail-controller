@@ -23,7 +23,7 @@ from job_manager.job_messages import MsgBundle
 
 JOB_PROGRESS = 'JOB_PROGRESS##'
 PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
-
+PROUTER_LOG = 'PROUTER_LOG##'
 
 class JobHandler(object):
 
@@ -178,8 +178,30 @@ class JobHandler(object):
             raise JobException(msg, self._execution_id)
     # end get_playbook_info
 
+    def send_object_logs_and_percentage(self, exec_id):
+        self.current_percentage += float(self._job_progress_data.get(
+            'percentage'))
+        self._job_log_utils.send_job_execution_uve(self._fabric_fq_name,
+                                                   self._job_template.fq_name,
+                                                   exec_id,
+                                                   percentage_completed=
+                                                   self.current_percentage)
+        if self._job_progress_data.get('message'):
+            self._job_log_utils.send_job_log(self._job_template.fq_name,
+                                             exec_id,
+                                             self._fabric_fq_name,
+                                             self._job_progress_data.get(
+                                                 'message'),
+                                             "IN_PROGRESS",
+                                             completion_percent=
+                                             self.current_percentage,
+                                             device_name=self._job_progress_data.get('device_name'),
+                                             details=self._job_progress_data.get('details'))
+    # end send_object_logs_and_percentage
+
     def process_file_and_get_marked_output(self, unique_pb_id,
-                                           exec_id, playbook_process):
+                                           exec_id, playbook_process, 
+                                           pr_uve_name):
         f_read = None
         marked_output = {}
         markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS]
@@ -214,17 +236,49 @@ class JobHandler(object):
                                         marked_jsons =\
                                             self._extract_marked_json(
                                                 marked_output)
-                                        self._job_progress =\
+                                        self._job_progress_data =\
                                             marked_jsons.get(JOB_PROGRESS)
-                                        self.current_percentage += float(
-                                            self._job_progress)
+#                                        self.current_percentage += float(
+#                                            self._job_progress)
+#                                        self._job_log_utils.\
+#                                            send_job_execution_uve(
+#                                                self._fabric_fq_name,
+#                                                self._job_template.fq_name,
+#                                                exec_id,
+#                                                percentage_completed=
+#                                                self.current_percentage)
+                                        self.send_object_logs_and_percentage(
+                                            exec_id)
+                                        if pr_uve_name:
+                                            self._job_log_utils.\
+                                                send_prouter_job_uve(
+                                                    self._job_template.fq_name,
+                                                    pr_uve_name, exec_id,
+                                                    job_status="IN_PROGRESS",
+                                                    percentage_completed=
+                                                    self.current_percentage)
+                                    if marker == PROUTER_LOG:
+                                        marked_jsons =\
+                                            self._extract_marked_json(
+                                                marked_output)
+                                        self._prouter_log_data =\
+                                            marked_jsons.get(PROUTER_LOG)
                                         self._job_log_utils.\
-                                            send_job_execution_uve(
-                                                self._fabric_fq_name,
-                                                self._job_template.fq_name,
-                                                exec_id,
-                                                percentage_completed=
-                                                self.current_percentage)
+                                            send_prouter_object_log(
+                                            self,
+                                            self._prouter_log_data.get(
+                                                'prouter_fqname'),
+                                            exec_id,
+                                            self._prouter_log_data.get(
+                                                'job_input'),
+                                            self._job_template.fq_name,
+                                            self._prouter_log_data.get(
+                                                'onboarding_state'),
+                                            self._prouter_log_data.get.get(
+                                                'os_version'),
+                                            self._prouter_log_data.get(
+                                                'serial_num'))
+
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -255,7 +309,7 @@ class JobHandler(object):
         return marked_output
     # end process_file_and_get_marked_output
 
-    def send_pr_object_log(self, exec_id, start_time, end_time, pb_status):
+    def send_prouter_uve(self, exec_id, start_time, end_time, pb_status):
         status = "SUCCESS"
         elapsed_time = end_time - start_time
 
@@ -300,12 +354,14 @@ class JobHandler(object):
                     pr_fabric_job_template_fq_name,
                     exec_id,
                     prouter_state=onboarding_state,
-                    job_status=status)
+                    job_status=status,
+                    percentage_completed=100)
 
-    # end send_pr_object_log
+    # end send_prouter_uve 
 
     def run_playbook_process(self, playbook_info, percentage_completed):
         playbook_process = None
+        pr_uve_name = None
         self.current_percentage = percentage_completed
         try:
             playbook_exec_path = os.path.dirname(__file__) \
@@ -318,6 +374,15 @@ class JobHandler(object):
                 playbook_info['extra_vars']['playbook_input'][
                     'job_execution_id']
 
+            device_fqname = \
+                playbook_info['extra_vars']['playbook_input'].get(
+                    'device_fqname')
+            if device_fqname:
+                pr_fqname = ':'.join(map(str, device_fqname))
+                job_template_fq_name = ':'.join(map(str, self._job_template.fq_name))
+                pr_uve_name = pr_fqname + ":" + \
+                    self._fabric_fq_name + ":" + job_template_fq_name
+
             pr_object_log_start_time = time.time()
 
             playbook_process = subprocess32.Popen(["python",
@@ -329,7 +394,7 @@ class JobHandler(object):
             # they start running concurrently
             gevent.sleep(0)
             marked_output = self.process_file_and_get_marked_output(
-                unique_pb_id, exec_id, playbook_process
+                unique_pb_id, exec_id, playbook_process, pr_uve_name
             )
 
             marked_jsons = self._extract_marked_json(marked_output)
@@ -337,11 +402,14 @@ class JobHandler(object):
             playbook_process.wait(timeout=self._playbook_timeout)
             pr_object_log_end_time = time.time()
 
-            self.send_pr_object_log(
-                exec_id,
-                pr_object_log_start_time,
-                pr_object_log_end_time,
-                playbook_process.returncode)
+            # create prouter UVE in job_manager only if it is not a multi 
+            # device job template
+            if not self._job_template.get_job_template_multi_device_job():
+                self.send_prouter_uve(
+                    exec_id,
+                    pr_object_log_start_time,
+                    pr_object_log_end_time,
+                    playbook_process.returncode)
 
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:

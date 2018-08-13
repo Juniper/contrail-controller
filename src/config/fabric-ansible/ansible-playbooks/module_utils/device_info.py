@@ -39,12 +39,10 @@ class DeviceInfo(object):
         serial_num = []
         self.per_greenlet_percentage = None
 
-        self.job_ctx['current_task_index'] = 2
-
         try:
-            total_percent = self.job_ctx.get('playbook_job_percentage')
-            if total_percent:
-                total_percent = float(total_percent)
+            #total_percent = self.job_ctx.get('playbook_job_percentage')
+            #if total_percent:
+            #    total_percent = float(total_percent)
 
             # Calculate the total percentage of this entire greenlet based task
             # This will be equal to the percentage alloted to this task in the
@@ -52,19 +50,20 @@ class DeviceInfo(object):
             # if the task weightage array is [10, 85, 5] and total job %
             # is 95. Then the 2nd task's effective total percentage is 85% of
             # 95%
-            total_task_percentage = self.module.calculate_job_percentage(
-                self.job_ctx.get('total_task_count'),
-                task_seq_number=self.job_ctx.get('current_task_index'),
-                total_percent=total_percent,
-                task_weightage_array=self.job_ctx.get(
-                    'task_weightage_array'))[0]
-
+            #total_task_percentage = self.module.calculate_job_percentage(
+            #    self.job_ctx.get('total_task_count'),
+            #    task_seq_number=self.job_ctx.get('current_task_index'),
+            #    total_percent=total_percent,
+            #    task_weightage_array=self.job_ctx.get(
+            #        'task_weightage_array'))[0]
+            
             # Based on the number of greenlets spawned (i.e num of sub tasks)
             # split the total_task_percentage equally amongst the greenlets.
+            total_task_percentage = self.module.calculate_job_percentage()
             self.logger.info("Number of greenlets: {} and total_percent: "
                              "{}".format(concurrent, total_task_percentage))
             self.per_greenlet_percentage = \
-                self.module.calculate_job_percentage(
+                self.module.calculate_per_greenlet_percentage(
                     concurrent, total_percent=total_task_percentage)[0]
             self.logger.info("Per greenlet percent: "
                              "{}".format(self.per_greenlet_percentage))
@@ -112,6 +111,8 @@ class DeviceInfo(object):
 
         else:
             self.credentials = self.module.params['credentials']
+
+        self.job_ctx['current_task_index'] = 2
 
     def ping_sweep(self, host):
         try:
@@ -369,8 +370,13 @@ class DeviceInfo(object):
                 self.logger.info("Device created with uuid- {} : {}".format(
                     oid_mapped.get(
                         'host'), pr_uuid))
-            self.module.send_prouter_object_log(fq_name, "DISCOVERED",
-                                                os_version, serial_num)
+            #self.module.send_prouter_object_log(fq_name, "DISCOVERED",
+            #                                    os_version, serial_num)
+            prouter_log_data = {'prouter_fqname': fq_name,
+                                'onboarding_state': "DISCOVERED",
+                                'os_version': os_version,
+                                'serial_num': serial_num}
+            self.module.prouter_object_log_to_file(prouter_log_data)
         except(RefsExistError, Exception) as ex:
             if isinstance(ex, RefsExistError):
                 return REF_EXISTS_ERROR, None
@@ -378,12 +384,12 @@ class DeviceInfo(object):
                 ex)))
             return False, None
 
-        self.module.send_job_object_log(
-            msg,
-            JOB_IN_PROGRESS,
-            None,
-            job_success_percent=self.per_greenlet_percentage)
-        self.discovery_percentage_write()
+        #self.module.send_job_object_log(
+        #    msg,
+        #    JOB_IN_PROGRESS,
+        #    None,
+        #    job_success_percent=self.per_greenlet_percentage)
+        self.module.job_log_percentage_to_file(msg, self.per_greenlet_percentage)
         return True, pr_uuid
 
     def device_info_processing(self, host, oid_mapped):
@@ -464,36 +470,3 @@ class DeviceInfo(object):
                 temp['device_product'] = oid_mapped.get('product')
                 temp['device_serial_number'] = oid_mapped.get('serial-number')
                 DeviceInfo.output.update({pr_uuid: temp})
-
-    def _write_to_file(self, exec_id, line_in_file):
-
-        write_to_file_log = "\n"
-
-        try:
-            write_to_file_log = "Attempting to create or open file.. \n"
-            with open("/tmp/" + exec_id, "a") as f:
-                write_to_file_log += "Opened file in /tmp ... \n"
-                f.write(line_in_file + '\n')
-                write_to_file_log += "Written line %s to the /tmp/exec-id" \
-                                     " file \n" % line_in_file
-
-            return {
-                'status': 'success',
-                'write_to_file_log': write_to_file_log
-            }
-        except Exception as ex:
-            self._logger.info(write_to_file_log)
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
-            return {
-                'status': 'failure',
-                'error_msg': str(ex),
-                'write_to_file_log': write_to_file_log
-            }
-
-    def discovery_percentage_write(self):
-        if self.module.results.get('percentage_completed'):
-            file_msg = self.job_ctx.get('unique_pb_id') + "JOB_PROGRESS##" + \
-                str(self.module.results.get('percentage_completed')) + \
-                "JOB_PROGRESS##"
-            self._write_to_file(self.job_ctx.get('job_execution_id'), file_msg)

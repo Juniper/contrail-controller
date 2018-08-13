@@ -94,23 +94,26 @@ class JobManager(object):
 
         job_worker_pool = Pool(self.max_job_task)
         job_percent_per_task = \
-            self.job_log_utils.calculate_job_percentage(
+            self.job_utils.calculate_job_percentage(
                 len(self.device_json), buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
-            device_data = self.device_json.get(device_id)
-            device_fqname = ':'.join(
-                map(str, device_data.get('device_fqname')))
-            job_template_fq_name = ':'.join(
-                map(str, self.job_template.fq_name))
-            pr_fabric_job_template_fq_name = device_fqname + ":" + \
-                self.fabric_fq_name + ":" + \
-                job_template_fq_name
-            self.job_log_utils.send_prouter_job_uve(
-                self.job_template.fq_name,
-                pr_fabric_job_template_fq_name,
-                self.job_execution_id,
-                job_status="IN_PROGRESS")
+            # create prouter UVE in job_manager only if it is not a multi
+            # device job template
+            if not self.job_template.get_job_template_multi_device_job():
+                device_data = self.device_json.get(device_id)
+                device_fqname = ':'.join(
+                    map(str, device_data.get('device_fqname')))
+                job_template_fq_name = ':'.join(
+                    map(str, self.job_template.fq_name))
+                pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                    self.fabric_fq_name + ":" + \
+                    job_template_fq_name
+                self.job_log_utils.send_prouter_job_uve(
+                    self.job_template.fq_name,
+                    pr_fabric_job_template_fq_name,
+                    self.job_execution_id,
+                    job_status="IN_PROGRESS")
 
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,
@@ -118,7 +121,7 @@ class JobManager(object):
         job_worker_pool.join()
 
     def handle_single_job(self, job_handler, result_handler):
-        job_percent_per_task = self.job_log_utils.calculate_job_percentage(
+        job_percent_per_task = self.job_utils.calculate_job_percentage(
             1, buffer_task_percent=False, total_percent=self.job_percent)[0]
         job_handler.handle_job(result_handler, job_percent_per_task)
 
@@ -225,13 +228,13 @@ class WFManager(object):
                     # get the job percentage based on weightage of each plabook
                     # when they are chained
                     job_percent = \
-                        self.job_log_utils.calculate_job_percentage(
+                        self.job_utils.calculate_job_percentage(
                             len(playbook_list), buffer_task_percent=True,
                             total_percent=100, task_seq_number=i + 1,
                             task_weightage_array=task_weightage_array)[0]
                 else:
                     job_percent = \
-                        self.job_log_utils.calculate_job_percentage(
+                        self.job_utils.calculate_job_percentage(
                             len(playbook_list), buffer_task_percent=True,
                             total_percent=100)[0]  # using equal weightage
 

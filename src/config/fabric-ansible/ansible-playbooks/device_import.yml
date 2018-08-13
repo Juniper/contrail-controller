@@ -16,17 +16,35 @@
     - set_fact:
         output: "{{output | combine(result_dict)}}"
 
-    - name: update prouter logs with onboarded status
-      prouter_objectlog:
-        prouter_fqname: "{{prouter_fqname}}"
-        onboarding_state: "{{DEVICE_STATE.ONBOARDED}}"
-        job_ctx: "{{job_ctx}}"
-        os_version: "{{os_version}}"
-        serial_num: "{{serial_number}}"
+#    - name: update prouter logs with onboarded status
+#      prouter_objectlog:
+#        prouter_fqname: "{{prouter_fqname}}"
+#        onboarding_state: "{{DEVICE_STATE.ONBOARDED}}"
+#        job_ctx: "{{job_ctx}}"
+#        os_version: "{{os_version}}"
+#        serial_num: "{{serial_number}}"
+    - set_fact:
+        prouter_log_info: "{{ prouter_log_info|default({}) | combine ({ 'prouter_fqname': prouter_fqname, 'onboarding_state': DEVICE_STATE.ONBOARDED, 'os_version': os_version, 'serial_num': serial_number}) }}"
 
-    - name: Update Job log with device import job completed status
-      job_objectlog:
-        job_ctx: "{{ job_ctx }}"
-        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-        message: "Completed device import"
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        prouter_resp: "{{job_ctx | prouter_object_log(prouter_log_info)}}"
+
+#    - name: Update Job log with device import job completed status
+#      job_objectlog:
+#        job_ctx: "{{ job_ctx }}"
+#        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+#        message: "Completed device import"
+#        device_name: "{{prouter_name}}"
+
+    - set_fact:
         device_name: "{{prouter_name}}"
+        message: "Completed device import"
+
+    - set_fact:
+        job_log_info: "{{ job_log_info|default({}) | combine ({
+        'device_name': device_name, 'details': None, 'message': message }) }}"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx | job_log_percentage_completion(job_log_info)}}"

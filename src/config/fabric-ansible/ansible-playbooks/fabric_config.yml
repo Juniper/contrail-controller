@@ -56,11 +56,18 @@
     - set_fact:
         prouter_fqname: ['default-global-system-config', '{{ device_name }}' ]
 
-    - name: PR objectlog update to set onboarding state
-      prouter_objectlog:
-        job_ctx: "{{ job_ctx }}"
-        prouter_fqname: "{{ prouter_fqname }}"
-        onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
+#    - name: PR objectlog update to set onboarding state
+#      prouter_objectlog:
+#        job_ctx: "{{ job_ctx }}"
+#        prouter_fqname: "{{ prouter_fqname }}"
+#        onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
+
+    - set_fact:
+        prouter_log_info: "{{ prouter_log_info|default({}) | combine ({ 'prouter_fqname': prouter_fqname, 'onboarding_state': DEVICE_STATE.UNDERLAY_CONFIGURED }) }}"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        prouter_resp: "{{job_ctx | prouter_object_log(prouter_log_info)}}"
 
     - set_fact:
         output: {

@@ -104,12 +104,20 @@
        Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
 
 
+
+#  prouter_objectlog:
+#    prouter_fqname: "{{pr_fqname}}"
+#    onboarding_state: "{{ DEVICE_STATE.IMAGE_UPGRADED }}"
+#    job_ctx: "{{job_ctx}}"
+#    os_version: "{{device_version}}"
+
 - name: PR objectlog update for OS version
-  prouter_objectlog:
-    prouter_fqname: "{{pr_fqname}}"
-    onboarding_state: "{{ DEVICE_STATE.IMAGE_UPGRADED }}"
-    job_ctx: "{{job_ctx}}"
-    os_version: "{{device_version}}"
+  set_fact:
+    prouter_log_info: "{{ prouter_log_info|default({}) | combine ({ 'prouter_fqname': pr_fqname, 'onboarding_state': DEVICE_STATE.UNDERLAY_CONFIGURED, 'os_version': device_version  }) }}"
+
+- name: insert/update in /tmp/<exec-id> file
+  set_fact:
+    prouter_resp: "{{job_ctx | prouter_object_log(prouter_log_info)}}"
 
 # Initialize job data
 - name: Job logs for version validation status with percentage
