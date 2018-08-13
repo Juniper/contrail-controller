@@ -4814,6 +4814,10 @@ def _check_policy_rules(entries, network_policy_rule=False):
 # end _check_policy_rules
 
 class SecurityGroupServer(Resource, SecurityGroup):
+    get_nested_key_as_list = lambda x, y, z: (x.get(y).get(z)
+                                 if (type(x) is dict and
+                                    x.get(y) and x.get(y).get(z)) else [])
+
     @classmethod
     def _set_configured_security_group_id(cls, obj_dict):
         fq_name_str = ':'.join(obj_dict['fq_name'])
@@ -4893,9 +4897,8 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 return False, result
             proj_dict = result
 
-            rule_count = len(
-                    obj_dict.get('security_group_entries',
-                        {}).get('policy_rule', []))
+            rule_count = len(cls.get_nested_key_as_list(obj_dict,
+                             'security_group_entries', 'policy_rule'))
             ok, result = cls.check_security_group_rule_quota(
                     proj_dict, db_conn, rule_count)
             if not ok:
@@ -4943,12 +4946,10 @@ class SecurityGroupServer(Resource, SecurityGroup):
             if not ok:
                 return False, result
             proj_dict = result
-            new_rule_count = len(
-                    obj_dict.get('security_group_entries',
-                        {}).get('policy_rule', []))
-            existing_rule_count = len(
-                    sg_dict.get('security_group_entries',
-                        {}).get('policy_rule', []))
+            new_rule_count = len(cls.get_nested_key_as_list(obj_dict,
+                                 'security_group_entries', 'policy_rule'))
+            existing_rule_count = len(cls.get_nested_key_as_list(sg_dict,
+                                 'security_group_entries', 'policy_rule'))
             rule_count = (new_rule_count - existing_rule_count)
             ok, result = cls.check_security_group_rule_quota(
                     proj_dict, db_conn, rule_count)
