@@ -19,7 +19,5 @@ def import_plugins():
 def import_ansible_plugins():
     from ansible_conf import AnsibleConf
     from ansible_role_common import AnsibleRoleCommon
-    from leaf_conf import LeafConf
-    from spine_conf import SpineConf
+    from overlay_conf import OverlayConf
 # end import_ansible_plugins
-

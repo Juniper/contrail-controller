@@ -9,12 +9,11 @@ This file contains implementation of abstract config generation for leafs
 from ansible_role_common import AnsibleRoleCommon
 from abstract_device_api.abstract_device_xsd import *
 
-class LeafConf(AnsibleRoleCommon):
-    _roles = ['leaf']
+class OverlayConf(AnsibleRoleCommon):
+    _roles = ['leaf', 'spine']
 
-    def __init__(self, vnc_lib, logger, params={}):
-        self._vnc_lib = vnc_lib
-        super(LeafConf, self).__init__(logger, params)
+    def __init__(self, logger, params={}):
+        super(OverlayConf, self).__init__(logger, params)
     # end __init__
 
     @classmethod
@@ -23,27 +22,16 @@ class LeafConf(AnsibleRoleCommon):
               "roles": cls._roles,
               "class": cls
             }
-        return super(LeafConf, cls).register(qconf)
+        return super(OverlayConf, cls).register(qconf)
     # end register
 
     def build_evpn_config(self):
         return Evpn(encapsulation='vxlan')
     # end build_evpn_config
 
-    def add_dynamic_tunnels(self, tunnel_source_ip,
-                             ip_fabric_nets, bgp_router_ips):
-        # not supported
-        pass
-    # end add_dynamic_tunnels
-
     def is_l3_supported(self, vn):
-        return False
+        return '_lr_internal_vn_' in vn.name
     # end is_l3_supported
-
-    def add_ibgp_export_policy(self, params, bgp_group):
-        # not needed
-        pass
-    # end add_ibgp_export_policy
 
     def push_conf(self, is_delete=False):
         if not self.physical_router:
