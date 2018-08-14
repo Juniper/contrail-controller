@@ -30,12 +30,6 @@ class AnsibleRoleCommon(AnsibleConf):
         super(AnsibleRoleCommon, self).__init__(logger, params)
     # end __init__
 
-    def is_spine(self):
-        if self.physical_router.physical_router_role == 'spine':
-            return True
-        return False
-    # end is_spine
-
     def underlay_config(self, is_delete=False):
         self._logger.info("underlay config start: %s(%s)\n" %
                           (self.physical_router.name,
@@ -58,8 +52,6 @@ class AnsibleRoleCommon(AnsibleConf):
     # end initialize
 
     def attach_irb(self, ri_conf, ri):
-        if not self.is_spine():
-            return
         is_l2 = ri_conf.get("is_l2", False)
         is_l2_l3 = ri_conf.get("is_l2_l3", False)
         vni = ri_conf.get("vni", None)
@@ -111,8 +103,6 @@ class AnsibleRoleCommon(AnsibleConf):
     # lo0 interface in RI for route lookup to happen for Inter VN traffic
     # qfx10k pfe limitation
     def add_bogus_lo0(self, ri, network_id, vn):
-        if not self.is_spine():
-            return
         self.interfaces_config = self.interfaces_config or []
         ifl_num = 1000 + int(network_id)
         lo_intf = PhysicalInterface(name="lo0", interface_type='loopback')
@@ -213,7 +203,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if is_internal_vn or router_external:
             self.add_bogus_lo0(ri, network_id, vn)
 
-        if self.is_spine() and is_l2_l3:
+        if is_l2_l3:
             self.add_irb_config(ri_conf)
             self.attach_irb(ri_conf, ri)
 
@@ -241,15 +231,14 @@ class AnsibleRoleCommon(AnsibleConf):
                     floating_ips=floating_ips))
 
         # add policies for export route targets
-        if self.is_spine():
-            p = PolicyRule(name=DMUtils.make_export_name(ri_name))
-            p.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
-            then = Then()
-            p.add_term(Term(name="t1", then=then))
-            for route_target in export_targets:
-                then.add_community(DMUtils.make_community_name(route_target))
-            then.set_accept_or_reject(True)
-            self.policy_config.add_policy_rule(p)
+        p = PolicyRule(name=DMUtils.make_export_name(ri_name))
+        p.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
+        then = Then()
+        p.add_term(Term(name="t1", then=then))
+        for route_target in export_targets:
+            then.add_community(DMUtils.make_community_name(route_target))
+        then.set_accept_or_reject(True)
+        self.policy_config.add_policy_rule(p)
 
         # add policies for import route targets
         p = PolicyRule(name=DMUtils.make_import_name(ri_name))
@@ -336,28 +325,23 @@ class AnsibleRoleCommon(AnsibleConf):
         if (is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             vlan = None
-            if self.is_spine():
-                if highest_encapsulation_priority == "VXLAN":
-                    self.vlans_config = self.vlans_config or []
-                    vlan = Vlan(name=DMUtils.make_bridge_name(vni),
-                                vxlan_id=vni, vlan_or_bridge_domain=False)
-                    vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
-                    self.vlans_config.append(vlan)
-                    for interface in interfaces:
-                        vlan.add_interfaces(LogicalInterface(name=interface.name))
-                    if is_l2_l3:
-                        # network_id is unique, hence irb
-                        irb_intf = "irb." + str(network_id)
-                        vlan.add_interfaces(LogicalInterface(name=irb_intf))
-                elif highest_encapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
-                    self.evpn = Evpn(encapsulation=highest_encapsulation_priority)
-                    self.evpn.set_comment(
-                        DMUtils.vn_evpn_comment(vn, highest_encapsulation_priority))
-                    for interface in interfaces:
-                        self.evpn.add_interfaces(LogicalInterface(name=interface.name))
-            else:
-                # add vlan config
-                vlan = self.add_vlan_config(ri_name, vni, is_l2_l3, "irb." + str(network_id))
+            if highest_encapsulation_priority == "VXLAN":
+                self.vlans_config = self.vlans_config or []
+                vlan = Vlan(name=DMUtils.make_bridge_name(vni), vxlan_id=vni)
+                vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
+                self.vlans_config.append(vlan)
+                for interface in interfaces:
+                    vlan.add_interfaces(LogicalInterface(name=interface.name))
+                if is_l2_l3:
+                    # network_id is unique, hence irb
+                    irb_intf = "irb." + str(network_id)
+                    vlan.add_interfaces(LogicalInterface(name=irb_intf))
+            elif highest_encapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
+                self.evpn = Evpn(encapsulation=highest_encapsulation_priority)
+                self.evpn.set_comment(
+                    DMUtils.vn_evpn_comment(vn, highest_encapsulation_priority))
+                for interface in interfaces:
+                    self.evpn.add_interfaces(LogicalInterface(name=interface.name))
 
             self.interfaces_config = self.interfaces_config or []
             self.build_l2_evpn_interface_config(self.interfaces_config,
@@ -366,8 +350,9 @@ class AnsibleRoleCommon(AnsibleConf):
         if (not is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             self.evpn = self.build_evpn_config()
-            # add vlans
-            self.add_ri_vlan_config(ri_name, vni)
+            if not is_internal_vn:
+                # add vlans
+                self.add_ri_vlan_config(ri_name, vni)
 
         if (not is_l2 and not is_l2_l3 and gateways):
             self.interfaces_config = self.interfaces_config or []
@@ -448,9 +433,6 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_routing_instance
 
     def attach_acls(self, interface, unit):
-        if self.is_spine():
-            return
-
         pi_list = []
         esi_map = self.get_ae_alloc_esi_map()
         for esi, ae_id in self.physical_router.ae_id_map.items():
@@ -541,8 +523,6 @@ class AnsibleRoleCommon(AnsibleConf):
             # evpn init done
             return
         self.evpn = self.build_evpn_config()
-        if not self.is_spine():
-            self.evpn.set_multicast_mode("ingress-replication")
     # end init_evpn_config
 
     def add_vni_option(self, vni, vrf_target):
@@ -563,9 +543,6 @@ class AnsibleRoleCommon(AnsibleConf):
     # end init_global_switch_opts
 
     def set_global_export_policy(self):
-        if self.is_spine():
-            return
-
         export_policy = DMUtils.get_switch_export_policy_name()
         ps = PolicyStatement(name=export_policy)
         ps.set_comment(DMUtils.switch_export_policy_comment())
@@ -616,7 +593,7 @@ class AnsibleRoleCommon(AnsibleConf):
     def add_vlan_config(self, vrf_name, vni, is_l2_l3=False, irb_intf=None):
         self.vlans_config = self.vlans_config or []
         vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
-        if is_l2_l3 and self.is_spine():
+        if is_l2_l3:
             if not irb_intf:
                 self._logger.error("Missing irb interface config l3 vlan: %s" % vrf_name)
             else:
@@ -652,7 +629,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def build_esi_config(self):
         pr = self.physical_router
-        if not pr or self.is_spine():
+        if not pr:
             return
         self.interfaces_config = self.interfaces_config or []
         for pi_uuid in pr.physical_interfaces:
@@ -898,8 +875,6 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_ether_type_term
 
     def build_firewall_filters(self, sg, acl, is_egress=False):
-        if self.is_spine():
-            return
         if not sg or not acl or not acl.vnc_obj:
             return
         acl = acl.vnc_obj
@@ -942,8 +917,6 @@ class AnsibleRoleCommon(AnsibleConf):
     # end build_firewall_filters
 
     def build_firewall_config(self):
-        if self.is_spine():
-            return
         sg_list = LogicalInterfaceDM.get_sg_list()
         for sg in sg_list or []:
             acls = sg.access_control_lists
@@ -1032,16 +1005,14 @@ class AnsibleRoleCommon(AnsibleConf):
     # end get_configured_filters
 
     def build_ri_config(self):
-        if not self.is_spine():
-            esi_map = self.get_ae_alloc_esi_map()
-            self.physical_router.evaluate_ae_id_map(esi_map)
-            self.build_ae_config(esi_map)
+        esi_map = self.get_ae_alloc_esi_map()
+        self.physical_router.evaluate_ae_id_map(esi_map)
+        self.build_ae_config(esi_map)
+
         vn_dict = self.get_vn_li_map()
-        vn_irb_ip_map = None
-        if self.is_spine():
-            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
-            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
-            vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
+        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
+        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
+        vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
 
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
@@ -1064,22 +1035,22 @@ class AnsibleRoleCommon(AnsibleConf):
                                                    vn_obj.vn_network_id, 'l3')
                     export_set = copy.copy(ri_obj.export_targets)
                     import_set = copy.copy(ri_obj.import_targets)
-                    if self.is_spine():
-                        for ri2_id in ri_obj.routing_instances:
-                            ri2 = RoutingInstanceDM.get(ri2_id)
-                            if ri2 is None:
-                                continue
-                            import_set |= ri2.export_targets
+                    for ri2_id in ri_obj.routing_instances:
+                        ri2 = RoutingInstanceDM.get(ri2_id)
+                        if ri2 is None:
+                            continue
+                        import_set |= ri2.export_targets
 
                     if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3']:
                         irb_ips = None
-                        if vn_obj.get_forwarding_mode() == 'l2_l3' and self.is_spine():
+                        if vn_obj.get_forwarding_mode() == 'l2_l3':
                             irb_ips = vn_irb_ip_map['irb'].get(vn_id, [])
 
                         ri_conf = {'ri_name': vrf_name_l2, 'vn': vn_obj,
                                    'is_l2': True, 'is_l2_l3': (
                                         vn_obj.get_forwarding_mode() == 'l2_l3'),
                                    'import_targets': import_set,
+                                   'export_targets': export_set,
                                    'prefixes': vn_obj.get_prefixes(),
                                    'gateways': irb_ips,
                                    'router_external': vn_obj.router_external,
@@ -1089,8 +1060,6 @@ class AnsibleRoleCommon(AnsibleConf):
                                    'highest_encapsulation_priority':
                                        GlobalVRouterConfigDM.
                                            global_encapsulation_priority}
-                        if self.is_spine():
-                            ri_conf['export_targets'] = export_set
                         self.add_routing_instance(ri_conf)
 
                     if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
@@ -1101,7 +1070,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                  JunosInterface(
                                 'irb.' + str(vn_obj.vn_network_id),
                                 'l3', 0)]
-                        elif self.is_spine():
+                        else:
                             lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
                         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn_obj.name else False
                         ri_conf = {'ri_name': vrf_name_l3, 'vn': vn_obj,

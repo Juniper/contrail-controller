@@ -10,6 +10,7 @@
         vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ feature }}"
         feature_role_dir: "./roles/cfg_{{ feature }}"
         hardware: "{{ device_vendor }}-{{ device_model }}"
+        cfg_group: "__contrail_{{feature}}__"
 
     - name: Handle the null rb_role case
       set_fact:
