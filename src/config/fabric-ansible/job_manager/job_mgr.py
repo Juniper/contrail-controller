@@ -85,8 +85,12 @@ class JobManager(object):
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq, self.prev_pb_output)
 
-        if self.device_json and len(self.device_json) >= 1:
-            self.handle_multi_device_job(job_handler, self.result_handler)
+        if self.device_json is not None:
+            if not self.device_json:
+                msg = MsgBundle.getMessage(MsgBundle.DEVICE_JSON_NOT_FOUND)
+                raise JobException(msg, self.job_execution_id)
+            else:
+                self.handle_multi_device_job(job_handler, self.result_handler)
         else:
             self.handle_single_job(job_handler, self.result_handler)
 

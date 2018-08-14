@@ -293,7 +293,11 @@ def module_process(module):
             module.exit_json(**module.results)
 
     module.results['device_info'] = DeviceInfo.output
-    module.results['msg'] = "Completed device discovery"
+    if not module.results.get('device_info'):
+        module.results['msg'] = "NO HOSTS DISCOVERED"
+    else:
+        module.results['msg'] = "Discovered "+str(len(module.results.get(
+            'device_info')))+" device(s)"
     module.job_ctx['current_task_index'] = 3
     module.send_job_object_log(
         module.results.get('msg'),
