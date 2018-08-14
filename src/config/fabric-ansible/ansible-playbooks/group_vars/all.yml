@@ -89,6 +89,9 @@ supported_roles:
   juniper-qfx5100-24q-2p:
     - CRB-Access@leaf
     - null@spine
+  juniper-qfx5100e-48s-6q:
+    - CRB-Access@leaf
+    - null@spine
   juniper-qfx5110-48s-4c:
     - CRB-Access@leaf
     - null@spine
@@ -134,6 +137,9 @@ supported_roles:
     - DC-Gateway@leaf
     - DC-Gateway@spine
   juniper-mx80:
+    - DC-Gateway@leaf
+    - DC-Gateway@spine
+  juniper-mx240:
     - DC-Gateway@leaf
     - DC-Gateway@spine
 
