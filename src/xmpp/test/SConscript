@@ -5,7 +5,7 @@
 # -*- mode: python; -*-
 
 Import('BuildEnv')
-import sys
+import platform
 env = BuildEnv.Clone()
 env.Append(CPPPATH = [env['TOP']])
 env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
@@ -29,13 +29,13 @@ env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh',
                     'bgp_schema', 'peer_sandesh', 'gendb', 'SimpleAmqpClient',
                     'rabbitmq', 'base', 'boost_regex', 'xmpptest', 'db', 'sandesh'])
 
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     env.Append(LIBS = ['advapi32', 'gdi32', 'user32'])
 else:
     env.Append(LIBS = ['ifmapio', 'ifmap_vnc', 'ifmap_server',
                        'ifmap_common', 'cassandra_cql', 'cassandra'])
 
-if sys.platform not in ['win32', 'darwin']:
+if platform.system() not in ['Windows', 'Darwin']:
     env.Append(LIBS = ['rt'])
 
 xmpp_server_test = env.UnitTest('xmpp_server_test', ['xmpp_server_test.cc'])

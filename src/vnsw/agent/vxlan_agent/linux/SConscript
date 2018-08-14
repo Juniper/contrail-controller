@@ -2,13 +2,9 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import sys
-if sys.platform == 'darwin':
+import platform
+if platform.system() == 'Darwin':
     Return()
-
-import re
-import time
-import subprocess
 
 Import('AgentEnv')
 env = AgentEnv.Clone()

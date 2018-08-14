@@ -3,7 +3,7 @@
 #
 
 Import('BuildEnv')
-import sys
+import platform
 
 env = BuildEnv.Clone()
 
@@ -99,7 +99,7 @@ env.Prepend(LIBS = [
                     'boost_chrono',
                     ])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive',
 			     '-lbgp_test_factory',

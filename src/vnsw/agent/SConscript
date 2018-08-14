@@ -2,11 +2,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import sys
-if sys.platform == 'darwin':
+import platform
+if platform.system() == 'Darwin':
     Return()
 
-import re
 import time
 import subprocess
 
@@ -24,7 +23,7 @@ if GetOption('with_libvirt'):
 # Build CPPPATH
 ##########################################################################
 env.Prepend(CPPPATH = '#/vrouter/include')
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     env.Prepend(CPPPATH = '#/vrouter/windows')
 env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 env.Prepend(CPPPATH = env['TOP'] + '/tools/sandesh/library/common')
@@ -49,11 +48,11 @@ cpppath = [
     'vnsw/agent/nexthop_server',
 ]
 
-if sys.platform.startswith('linux'):
+if platform.system() == 'Linux':
     cpppath.append('vnsw/agent/vrouter/ksync/linux')
-elif sys.platform.startswith('freebsd'):
+elif platform.system() == 'FreeBSD':
     cpppath.append('vnsw/agent/vrouter/ksync/freebsd')
-elif sys.platform.startswith('win'):
+elif platform.system() == 'Windows':
     cpppath.append('vnsw/agent/vrouter/ksync/windows')
 
 env.Prepend(CPPPATH = AddTopDir(cpppath))
@@ -156,7 +155,7 @@ env.Prepend(LIBS = [
     'boost_regex',
 ])
 
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     env.Prepend(LIBS = [
         'gdi32',
         'iphlpapi',
@@ -198,7 +197,7 @@ env.Prepend(LIBS = AGENT_MULTIPATH_LIBS)
 def MakeLinkCmd(list):
     return map(lambda x: '-l' + x, list)
 
-if sys.platform != 'win32':
+if platform.system() != 'Windows':
     env.Prepend(LINKFLAGS = [ '-Wl,--whole-archive', '-rdynamic'] +
                               MakeLinkCmd(AGENT_MULTIPATH_LIBS) +
                             ['-Wl,--no-whole-archive'])
@@ -229,7 +228,7 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'vrutil',
 ])
 
-if sys.platform != 'win32':
+if platform.system() != 'Windows':
     AgentEnv.AppendUnique(CONTRAIL_LIBS = [
         'tcmalloc',
         'isc',
@@ -251,7 +250,7 @@ AgentEnv.AppendUnique(TEST_CMN_LIBPATH = [
     env['TOP'] + '/vnsw/agent/test',
 ])
 
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     AgentEnv['TEST_CMN_CCFLAGS'] = []
 else:
     AgentEnv.AppendUnique(TEST_CMN_CCFLAGS = [
@@ -412,7 +411,7 @@ env.SConscript('contrail/SConscript', exports=['AgentEnv', 'BuildEnv'],
                duplicate=0)
 
 # TODO(md): Currently not supported on FreeBSD
-if not sys.platform.startswith('freebsd'):
+if platform.system() != 'FreeBSD':
     env.SConscript('vxlan_agent/SConscript', exports=['AgentEnv', 'BuildEnv'],
                    duplicate=0)
 

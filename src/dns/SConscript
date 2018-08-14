@@ -4,7 +4,7 @@
 #
 
 Import('BuildEnv')
-import sys
+import platform
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
@@ -29,7 +29,7 @@ env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'config_cl
                   'cpuinfo', 'nodeinfo',
                   'boost_regex', 'boost_program_options','crypto', 'ssl', 'bgp_schema'])
 
-if sys.platform.startswith('win'):
+if platform.system() == 'Windows':
     env.Prepend(LIBS=['advapi32', 'gdi32', 'version'])
 else:
     env.Append(LIBS=['boost_chrono'])
@@ -37,14 +37,14 @@ else:
 env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
 env.Append(LIBS=['sandesh', 'http', 'http_parser', 'boost_filesystem'])
 
-if sys.platform not in ['win32', 'darwin']:
+if platform.system() not in ['Windows', 'Darwin']:
     env.Append(LIBS=['rt'])
 
 libs = MapBuildDir(['base', 'db', 'ifmap', 'io', 'net', 'xml', 'schema', 'xmpp', 'bgp',
                     'dns/bind', 'dns/cfg', 'dns/cmn', 'dns/mgr', 'dns/agent', 'dns/uve'])
 env.Append(LIBPATH=libs)
 
-if sys.platform not in ['win32', 'darwin']:
+if platform.system() not in ['Windows', 'Darwin']:
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
                       '-lbase', '-lifmap_server', '-rdynamic',

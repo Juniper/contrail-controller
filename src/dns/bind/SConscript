@@ -3,11 +3,11 @@
 #Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import sys
+import platform
 Import('DnsEnv')
 env = DnsEnv.Clone()
 
-if sys.platform != 'win32':
+if platform.system() != 'Windows':
     env.AppendUnique(CCFLAGS='-Wno-return-type')
 
 SandeshGenFiles = env.SandeshGenCpp('bind.sandesh')

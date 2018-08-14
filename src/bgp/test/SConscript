@@ -3,8 +3,7 @@
 #
 
 Import('BuildEnv')
-import os
-import sys
+import platform
 
 env = BuildEnv.Clone()
 
@@ -75,7 +74,7 @@ env.Prepend(LIBS = ['control_test',
                     'io', 'crypto', 'ssl', 'base', 'gunit'])
 
 
-if sys.platform == 'darwin':
+if platform.system() == 'Darwin':
     bgp_inet = Dir('../inet').path + '/libbgp_inet.a'
     bgp_ermvpn = Dir('../ermvpn').path + '/libbgp_ermvpn.a'
     bgp_mvpn = Dir('../mvpn').path + '/libbgp_mvpn.a'
@@ -135,7 +134,7 @@ env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_
 env.Append(LIBS = ['xmpp_unicast', 'xmpp_multicast', 'xmpp_mvpn', 'xmpp_enet',
                    'boost_regex', 'boost_program_options', 'boost_chrono'])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])
 
 except_env = env.Clone()

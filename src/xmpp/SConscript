@@ -5,7 +5,7 @@
 # -*- mode: python; -*-
 
 Import('BuildEnv')
-import sys
+import platform
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
@@ -49,7 +49,7 @@ libxmpp = env.Library('xmpp',
 env.Prepend(LIBS=['sandesh', 'http_parser', 'curl', 'http',
                   'io', 'ssl', 'pugixml', 'xml', 'boost_regex'])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])
 
 libs = MapBuildDir(['io'])

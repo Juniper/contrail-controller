@@ -4,8 +4,8 @@
 
 #-*- mode: pythos; -*-
 
-import sys
-if sys.platform == 'darwin':
+import platform
+if platform.system() == 'Darwin':
     Return()
 
 Import('AgentEnv')
@@ -16,11 +16,11 @@ SandeshGenFiles += env.SandeshGenCpp('../../../../vrouter/sandesh/vr.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
-if sys.platform.startswith('linux'):
+if platform.system() == 'Linux':
     except_files = [ 'vnswif_listener_base.cc', 'linux/vnswif_listener.cc' ]
-elif sys.platform.startswith('freebsd'):
+elif platform.system() == 'FreeBSD':
     except_files = [ 'vnswif_listener_base.cc', 'freebsd/vnswif_listener.cc' ]
-elif sys.platform.startswith('win'):
+elif platform.system() == 'Windows':
     except_files = [ 'windows/vnswif_listener.cc' ]
 
 except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
