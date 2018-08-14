@@ -4944,7 +4944,7 @@ class VncApiServer(object):
                 obj_dict['draft_mode_state'] != 'deleted'):
             for backref_field in set(obj_dict.keys()) & backref_fields:
                 backref_type = backref_field[:-10]
-                for backref in obj_dict.get(backref_field, []):
+                for backref in copy.deepcopy(obj_dict.get(backref_field, [])):
                     # if it's a backref to global resource let it
                     if backref['to'][0] in [PolicyManagement().name,
                             POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
