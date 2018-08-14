@@ -52,7 +52,7 @@ class AnsibleBase(object):
 
     # instantiate a plugin dynamically
     @classmethod
-    def plugin(cls, vendor, product, params, vnc_lib, logger):
+    def plugin(cls, vendor, product, params, logger):
         pr = params.get("physical_router")
         if not pr.physical_router_role or not vendor or not product:
             name = str(pr.physical_router_role) + ":"+ str(vendor) + ":" + str(product)
@@ -64,7 +64,7 @@ class AnsibleBase(object):
         if pconf:
             pconf = pconf[0] #for now one only
             inst_cls = pconf.get('class')
-            return inst_cls(vnc_lib, logger, params)
+            return inst_cls(logger, params)
         name = pr.physical_router_role + ":" + vendor + ":" + product
         logger.warning("No ansible plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
         return None
