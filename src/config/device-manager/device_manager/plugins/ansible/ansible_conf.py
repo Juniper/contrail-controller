@@ -6,7 +6,6 @@
 This file contains generic plugin implementation device configuration using ansible
 """
 
-import abc
 import time
 import datetime
 import json
@@ -33,12 +32,6 @@ class AnsibleConf(AnsibleBase):
         super(AnsibleConf, self).__init__(logger)
     # end __init__
 
-    @abc.abstractmethod
-    def underlay_config(self, is_delete=False):
-        # abstract method
-        pass
-    # end underlay_config
-
     def update(self):
         self.update_system_config()
     # end update
@@ -52,14 +45,6 @@ class AnsibleConf(AnsibleBase):
             return True
         return False
     # end retry
-
-    def device_connect(self):
-        pass
-    # end device_connect
-
-    def device_disconnect(self):
-        pass
-    # end device_disconnect
 
     def is_connected(self):
         return True
@@ -247,11 +232,6 @@ class AnsibleConf(AnsibleBase):
                 else PushConfigState.PUSH_STATE_FAILED
         return config_size
     # end device_send
-
-    def add_product_specific_config(self, groups):
-        # override this method to add any product specific configurations
-        pass
-    # end add_product_specific_config
 
     def read_feature_configs(self):
         feature_configs = {}
