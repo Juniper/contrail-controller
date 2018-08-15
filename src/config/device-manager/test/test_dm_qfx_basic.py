@@ -488,7 +488,7 @@ class TestQfxBasicDM(TestCommonDM):
                 ether_type_match = match.get_ethertype()
                 if "ipv6" in ether_type_match.lower():
                     continue
-                filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
+                filter_name = DMUtils.make_sg_filter_name(sg.name, acl.uuid)
                 filter_names.append(filter_name)
         return filter_names
     # end get_firewall_filters
