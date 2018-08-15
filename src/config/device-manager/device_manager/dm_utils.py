@@ -386,13 +386,13 @@ class DMUtils(object):
         return "/* Firewalls Configuration */"
 
     @staticmethod
-    def make_sg_filter_name(sg_name, ether_type_match, rule_uuid):
-        return "sg-filter-" + ether_type_match + "-" + sg_name + "-" + rule_uuid
+    def make_sg_filter_name(sg_name, acl_uuid):
+        return "sg-filter-" + sg_name + "-" + acl_uuid
 
     @staticmethod
-    def sg_firewall_comment(sg_name, ether_type_match, rule_uuid):
-        return "/* Firewall Filter for : Ether Type: " + ether_type_match + \
-                   ", Security Group: " + sg_name + ", Rule UUID: "+ rule_uuid
+    def sg_firewall_comment(sg_name, acl_uuid):
+        return "/* Firewall Filter for : Security Group: " + sg_name + \
+                   ", ACL UUID: "+ acl_uuid
 
     @staticmethod
     def interfaces_comment():
