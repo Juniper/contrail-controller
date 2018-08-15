@@ -437,7 +437,7 @@ class AnsibleRoleCommon(AnsibleConf):
         esi_map = self.get_ae_alloc_esi_map()
         for esi, ae_id in self.physical_router.ae_id_map.items():
             ae_name = "ae" + str(ae_id)
-            if_name, if_unit= interface.name.split('.')
+            if_name, if_unit = interface.name.split('.')
             if ae_name == if_name:
                 pi_list = esi_map.get(esi)
                 if pi_list:
@@ -645,9 +645,9 @@ class AnsibleRoleCommon(AnsibleConf):
         pr = self.physical_router
         if not pr:
             return
-        link_members = []
         self.interfaces_config = self.interfaces_config or []
         for lag_uuid in pr.link_aggregation_groups or []:
+            link_members = []
             lag_obj = LinkAggregationGroupDM.get(lag_uuid)
             if not lag_obj:
                 continue
@@ -875,6 +875,7 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_ether_type_term
 
     def build_firewall_filters(self, sg, acl, is_egress=False):
+        acl_rule_present = False
         if not sg or not acl or not acl.vnc_obj:
             return
         acl = acl.vnc_obj
@@ -892,27 +893,37 @@ class AnsibleRoleCommon(AnsibleConf):
             match = rule.get_match_condition()
             if not match:
                 continue
-            rule_uuid = rule.get_rule_uuid()
-            dst_addr_match = match.get_dst_address()
-            dst_port_match = match.get_dst_port()
-            ether_type_match = match.get_ethertype()
-            protocol_match = match.get_protocol()
-            src_addr_match = match.get_src_address()
-            src_port_match = match.get_src_port()
-            filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
+            acl_rule_present = True
+            break
+
+        if acl_rule_present:
+            filter_name = DMUtils.make_sg_firewall_name(sg.name, acl.uuid)
             f = FirewallFilter(name=filter_name)
-            f.set_comment(DMUtils.sg_firewall_comment(sg.name, ether_type_match, rule_uuid))
+            f.set_comment(DMUtils.make_sg_firewall_comment(sg.name, acl.uuid))
             # allow arp ether type always
             self.add_ether_type_term(f, 'arp')
             # allow dhcp/dns always
             self.add_dns_dhcp_terms(f)
-            default_term = self.add_filter_term(f, "default-term")
-            self.add_addr_term(default_term, dst_addr_match, False)
-            self.add_addr_term(default_term, src_addr_match, True)
-            self.add_port_term(default_term, dst_port_match, False)
-            # source port match is not needed for now (BMS source port)
-            #self.add_port_term(default_term, src_port_match, True)
-            self.add_protocol_term(default_term, protocol_match)
+            for rule in rules:
+                if not self.has_terms(rule):
+                    continue
+                match = rule.get_match_condition()
+                if not match:
+                    continue
+                rule_uuid = rule.get_rule_uuid()
+                dst_addr_match = match.get_dst_address()
+                dst_port_match = match.get_dst_port()
+                ether_type_match = match.get_ethertype()
+                protocol_match = match.get_protocol()
+                src_addr_match = match.get_src_address()
+                src_port_match = match.get_src_port()
+                term = self.add_filter_term(f, rule_uuid)
+                self.add_addr_term(term, dst_addr_match, False)
+                self.add_addr_term(term, src_addr_match, True)
+                self.add_port_term(term, dst_port_match, False)
+                # source port match is not needed for now (BMS source port)
+                #self.add_port_term(term, src_port_match, True)
+                self.add_protocol_term(term, protocol_match)
             self.firewall_config.add_firewall_filters(f)
     # end build_firewall_filters
 
@@ -964,6 +975,7 @@ class AnsibleRoleCommon(AnsibleConf):
               (match.get_protocol() and match.get_protocol() != 'any')
 
     def get_firewall_filters(self, sg, acl, is_egress=False):
+        acl_rule_present = False
         if not sg or not acl or not acl.vnc_obj:
             return []
         acl = acl.vnc_obj
@@ -986,7 +998,11 @@ class AnsibleRoleCommon(AnsibleConf):
                 continue
             if 'ipv6' in ether_type_match.lower():
                 continue
-            filter_name = DMUtils.make_sg_filter_name(sg.name, ether_type_match, rule_uuid)
+            acl_rule_present = True
+            break
+
+        if acl_rule_present:
+            filter_name = DMUtils.make_sg_firewall_name(sg.name, acl.uuid)
             filter_names.append(filter_name)
         return filter_names
     # end get_firewall_filters
