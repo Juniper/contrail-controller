@@ -431,10 +431,12 @@ class Subnet(object):
 
     # free IP unless it is invalid, excluded or already freed
     @classmethod
-    def ip_free_cls(cls, subnet_fq_name, ip_network, exclude_addrs, ip_addr):
-        if ((ip_addr in ip_network) and (ip_addr not in exclude_addrs)):
+    def ip_free_cls(cls, subnet_fq_name, ip_network, exclude_addrs, ip_addr,
+                    alloc_unit=1):
+        ip = IPAddress(ip_addr)
+        if ((ip in ip_network) and (ip not in exclude_addrs)):
             if cls._db_conn:
-                cls._db_conn.subnet_free_req(subnet_fq_name, int(ip_addr))
+                cls._db_conn.subnet_free_req(subnet_fq_name, int(ip)/alloc_unit)
                 return True
 
         return False
@@ -544,21 +546,38 @@ class AddrMgmt(object):
                     try:
                         subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
                         addr_from_start = subnet_obj._addr_from_start
+                        old_dns_addr = str(subnet_obj.dns_server_address)
                         if ('dns_server_address' not in ipam_subnet) or \
-                           (ipam_subnet['dns_server_address'] is None):
+                            (ipam_subnet['dns_server_address'] is None):
                             #we need to make sure subnet_obj has a default dns
                             network = subnet_obj._network
                             if addr_from_start:
-                                subnet_obj.dns_server_address = \
-                                    IPAddress(network.first + 2)
+                                new_dns_addr = str(IPAddress(network.first + 2))
                             else:
-                                subnet_obj.dns_server_address = \
-                                    IPAddress(network.last - 2)
+                                new_dns_addr = str(IPAddress(network.last - 2))
                         else:
-                            if str(subnet_obj.dns_server_address) != \
-                                ipam_subnet['dns_server_address']:
-                                subnet_obj.dns_server_address = \
-                                    IPAddress(ipam_subnet['dns_server_address'])
+                            new_dns_addr = ipam_subnet['dns_server_address']
+                            if old_dns_addr != new_dns_addr:
+                                if subnet_obj.ip_belongs(new_dns_addr):
+                                    read_ip_addr = subnet_obj.is_ip_allocated(
+                                               new_dns_addr)
+                                    if read_ip_addr is not None:
+                                        raise AddrMgmtSubnetInvalid(fq_name_str,
+                                                            subnet_name)
+
+                        # assign new dns_server_address
+                        # reset old dns_server_address and set
+                        # new dns_server_address in bitmap
+                        if old_dns_addr != new_dns_addr:
+                            if subnet_obj.ip_belongs(old_dns_addr):
+                                if IPAddress(old_dns_addr) in subnet_obj._exclude:
+                                    subnet_obj._exclude.remove(IPAddress(old_dns_addr))
+                                subnet_obj.ip_free(old_dns_addr)
+                            if subnet_obj.ip_belongs(new_dns_addr):
+                                subnet_obj._exclude.append(IPAddress(new_dns_addr))
+                                subnet_obj.ip_reserve(new_dns_addr, 'dns_server')
+                            subnet_obj.dns_server_address = IPAddress(new_dns_addr)
+
                     except KeyError:
                         gateway_ip = ipam_subnet.get('default_gateway')
                         service_address = ipam_subnet.get('dns_server_address')
