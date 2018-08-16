@@ -1,5 +1,7 @@
 ---
-# defaults file for device-facts-uve
+# defaults file for device_facts_uve
 results: []
-percent_init_dict: {'current_task_index':1, 'total_task_count':3, 'task_weightage_array':[15, 30, 55] }
-
+commands: []
+provider: {}
+display: xml
+percent_init_dict: {'current_task_index':1, 'total_task_count':4, 'task_weightage_array':[15, 30, 50, 5] }

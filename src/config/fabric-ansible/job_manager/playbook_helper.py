@@ -148,12 +148,13 @@ class PlaybookHelper(object):
                                     loader=loader,
                                     options=options, passwords=None)
             ret_val = pbex.run()
+
+            output = self.get_plugin_output(pbex)
+
             if ret_val != 0:
                 msg = MsgBundle.getMessage(MsgBundle.
                                            PLAYBOOK_RETURN_WITH_ERROR)
                 raise Exception(msg)
-
-            output = self.get_plugin_output(pbex)
 
             if output is None or output.get('status') is None:
                 msg = MsgBundle.getMessage(MsgBundle.
