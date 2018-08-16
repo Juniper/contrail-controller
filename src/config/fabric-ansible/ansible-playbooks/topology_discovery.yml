@@ -1,0 +1,14 @@
+---
+- name: Get the Topology Information from this device
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - import_lldp_info
+
+  tasks:
+
+    - set_fact:
+        output: "{{output }}"
+
