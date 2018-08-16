@@ -309,18 +309,12 @@ class AnsibleConf(AnsibleBase):
         if not self.system_config:
             self.system_config = System()
         self.system_config.set_tunnel_ip(tunnel_source_ip)
-        dynamic_tunnel = DynamicTunnel(
-            name=DMUtils.dynamic_tunnel_name(self.get_asn()),
-            source_address=tunnel_source_ip, gre='')
         if ip_fabric_nets is not None:
             for subnet in ip_fabric_nets.get("subnet", []):
                 dest_net = Subnet(prefix=subnet['ip_prefix'],
                                   prefix_len=subnet['ip_prefix_len'])
                 self.system_config.add_tunnel_destination_networks(dest_net)
 
-        for r_name, bgp_router_ip in bgp_router_ips.items():
-            dest_net = Subnet(prefix=bgp_router_ip, prefix_len=32)
-            self.system_config.add_tunnel_destination_networks(dest_net)
     # end add_dynamic_tunnels
 
     def is_family_configured(self, params, family_name):

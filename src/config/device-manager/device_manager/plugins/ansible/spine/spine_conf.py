@@ -41,7 +41,9 @@ class SpineConf(AnsibleRoleCommon):
 
     def add_dynamic_tunnels(self, tunnel_source_ip,
                              ip_fabric_nets, bgp_router_ips):
-        pass
+        if self.is_spine():
+            super(SpineConf, self).add_dynamic_tunnels(tunnel_source_ip,
+                                         ip_fabric_nets, bgp_router_ips)
     # end add_dynamic_tunnels
 
     def add_ibgp_export_policy(self, params, bgp_group):
