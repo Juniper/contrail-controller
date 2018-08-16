@@ -1,38 +1,89 @@
 ---
-# tasks file for device-facts-uve
+# vendor agnostic tasks file for device_facts_uve
 - set_fact:
     job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
 
-- name: READ JUNOS FACTS
+- name: Encapsulate all the operations in a block rescue for error handling
   block:
-    - juniper_junos_facts:
-        provider:
-          host: "{{junos_host}}"
-          username: "{{junos_username}}"
-          password: "{{junos_password}}"
-          port: 22
-          timeout: "{{JUNOS_FACTS_TIMEOUT|int}}"
-      register: dev_info
-  rescue:
-    - name: Perform the necessary error handling
+    - name: check to see if the ansible file for the vendor and family exists
+      stat:
+        path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      register: p
+
+    - name: Execute commands on device
+      block:
+        - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
+        - name: set the jinja template file path
+          set_fact:
+            jinja_file_path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+      when: p.stat.exists == True
+
+    # this is assuming device family does not matter
+    - name: Execute commands on device from default location
+      block:
+        - include_tasks: "{{prouter_vendor}}.yml"
+        - name: set the jinja template file path
+          set_fact:
+            jinja_file_path: "../templates/{{prouter_vendor}}.j2"
+      when: p.stat.exists == False
+
+    # validate schema including to check if the device_info is set as part of the ansible file
+    - name: Validate Input Schema -- device_info
+      set_fact:
+        schema_validation_resp: "{{'input_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/roles/device_facts_uve/schema/schema.json', device_info, prouter_name)}}"
+
+    - name: Perform the necessary error handling when there is a schema validation error
       include_tasks: error_handler.yml
-      when: "dev_info.failed == true"
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
       vars:
-        op_err_message: "{{dev_info.msg}}"
-        jl_err_message: "Execute 'junos_facts' command on Juniper Device: {{prouter_name}} failed; see result for more details"
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
 
-- set_fact:
-    device_info: "{{dev_info.facts}}"
+    - name: parse device facts info obtained to get facts into appropriate format. Ensure Jinja template does not have any new lines
+      set_fact:
+        device_facts_payload: "{{lookup('template', jinja_file_path)}}"
+      register: parser_output
 
-- set_fact:
-    hardware_model: "{{device_info.model}}"
-    serial_number: "{{device_info.serialnumber}}"
-    os_version: "{{device_info.version}}"
-    hostname: "{{device_info.hostname}}"
+    - name: Perform the necessary error handling when there is a schema validation error
+      include_tasks: error_handler.yml
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+      vars:
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
 
-- name: Update Job log with 'junos_facts' command successs
-  job_objectlog:
-    job_ctx: "{{ job_ctx }}"
-    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-    message: "Imported system info for {{prouter_name}}:\n   Serial number: {{serial_number}}\n   OS version: {{os_version}}\n   Model: {{hardware_model}}\n   Host name: {{hostname}}"
-    device_name: "{{prouter_name}}"
+    # validate schema to check if the device_facts payload is of the correct output schema
+    - name: Validate Output Schema -- device_facts_payload
+      set_fact:
+        schema_validation_resp: "{{'output_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/roles/device_facts_uve/schema/schema.json', device_facts_payload, prouter_name)}}"
+
+    # Instead of calling vnc to create db objects, we set the facts appropriately to be
+    # later written to the prouter log.
+    - set_fact:
+        hardware_model: "{{device_facts_payload.model}}"
+        serial_number: "{{device_facts_payload.serialnumber}}"
+        os_version: "{{device_facts_payload.version}}"
+        hostname: "{{device_facts_payload.hostname}}"
+
+    - name: Update Job log with device_facts successs with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Imported system info for {{prouter_vendor}} device, {{prouter_name}}:\n   Serial number: {{serial_number}}\n   OS version: {{os_version}}\n   Model: {{hardware_model}}\n   Host name: {{hostname}}"
+
+  rescue:
+    - name: Perform the necessary error handling while trying to execute command
+      include_tasks: error_handler.yml
+      when: "'failed' in execute_command_resp and execute_command_resp.failed == true"
+      vars:
+        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp .msg}}"
+
+    - name: Perform the necessary error handling when parsing the device_info
+      include_tasks: error_handler.yml
+      when: "'failed' in parser_output and parser_output.failed == true"
+      vars:
+        op_err_message: "Error while parsing the device facts information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        jl_err_message: "Error while parsing the device facts information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play

@@ -1,0 +1,116 @@
+{%- set cf_interfaces_list = device_info['configured_interfaces_info']['config_parsed']['configuration']['interfaces']['interface'] %}
+{%- set rt_interfaces_list = device_info['runtime_interfaces_info']['parsed_output']['interface-information']['physical-interface'] %}
+{%- if cf_interfaces_list is mapping                                                                                                %}
+{%-     set cf_interfaces_list = [cf_interfaces_list]                                                                               %}
+{%- endif                                                                                                                           %}
+{%- if rt_interfaces_list is mapping                                                                                                %}
+{%-     set rt_interfaces_list = [rt_interfaces_list]                                                                               %}
+{%- endif                                                                                                                           %}
+{%- set rt_phy_interfaces_payloads = []                                                                                             %}
+{%- set rt_log_interfaces_payloads = []                                                                                             %}
+{%- for phy_interface in rt_interfaces_list or []                                                                                   %}
+{%-     if phy_interface.name | regex_search(regex_str|default(".*",true))                                                          %}
+{%-         set phy_interface_payload = {
+                                           "physical_interface_name": phy_interface.name
+                                        }                                                                                           %}
+{%-         set physical_interface_port_id = phy_interface.get('snmp-index')                                                        %}
+{%-         if physical_interface_port_id                                                                                           %}
+{%-             set x=phy_interface_payload.update({"physical_interface_port_id": physical_interface_port_id })                     %}
+{%-         endif                                                                                                                   %}
+{%-         set physical_interface_mac_address = phy_interface.get('current-physical-address')                                      %}
+{%-         if physical_interface_mac_address                                                                                       %}
+{%-             set x=phy_interface_payload.update({"physical_interface_mac_address": physical_interface_mac_address })             %}
+{%-         endif                                                                                                                   %}
+{%-         set y=rt_phy_interfaces_payloads.append(phy_interface_payload)                                                          %}
+{%-         if 'logical-interface' in phy_interface                                                                                 %}
+{%-             if phy_interface['logical-interface'] is mapping                                                                    %}
+{%-                 set log_units = [phy_interface['logical-interface']]                                                            %}
+{%-             else                                                                                                                %}
+{%-                 set log_units = phy_interface['logical-interface']                                                              %}
+{%-             endif                                                                                                               %}
+{%-             for log_unit in log_units                                                                                           %}
+{%-                 set log_interface_payload = {
+                                                  "physical_interface_name": phy_interface.name,
+                                                  "logical_interface_name": log_unit.name
+                                                }                                                                                   %}
+{%-                 set add_fmly = log_unit.get('address-family')                                                                   %}
+{%-                 if add_fmly                                                                                                     %}
+{%-                     set log_type = "l3"                                                                                         %}
+{%-                     if add_fmly is mapping                                                                                      %}
+{%-                         set address_fmly_list = [add_fmly]                                                                      %}
+{%-                     else                                                                                                        %}
+{%-                         set address_fmly_list = add_fmly                                                                        %}
+{%-                     endif                                                                                                       %}
+{%-                     for address_fmly in address_fmly_list                                                                       %}
+{%-                         if address_fmly['address-family-name'] == "eth-switch"                                                  %}
+{%-                             set log_type = "l2"                                                                                 %}
+{%-                         endif                                                                                                   %}
+{%-                     endfor                                                                                                      %}
+{%-                     set x=log_interface_payload.update({"logical_interface_type": log_type})                                    %}
+{%-                 endif                                                                                                           %}
+{%-                 set y=rt_log_interfaces_payloads.append(log_interface_payload)                                                  %}
+{%-             endfor                                                                                                              %}
+{%-         endif                                                                                                                   %}
+{%-     endif                                                                                                                       %}
+{%- endfor                                                                                                                          %}
+{%- set lo0_found = False                                                                                                           %}
+{%- set lo0_ip_add = ''                                                                                                             %}
+{%- set cf_phy_interfaces_payloads = []                                                                                             %}
+{%- set cf_log_interfaces_payloads = []                                                                                             %}
+{%- for phy_interface in cf_interfaces_list                                                                                         %}
+{%-     set regex_matched = phy_interface.name | regex_search(regex_str|default(".*",true))                                         %}
+{%-     set do_not_add_in_payload = False                                                                                           %}
+{%-     if (regex_matched or 'lo0' in phy_interface.name)                                                                           %}
+{%-         if not(regex_matched)                                                                                                   %}
+{%-             set do_not_add_in_payload = True                                                                                    %}
+{%-         else                                                                                                                    %}
+{%-             set phy_interface_payload = {
+                                              "physical_interface_name": phy_interface.name
+                                            }                                                                                       %}
+{%-             set y=cf_phy_interfaces_payloads.append(phy_interface_payload)                                                      %}
+{%-         endif                                                                                                                   %}
+{%-         if 'unit' in phy_interface                                                                                              %}
+{%-             if phy_interface.unit is mapping                                                                                    %}
+{%-                 set log_units = [phy_interface.unit]                                                                            %}
+{%-             else                                                                                                                %}
+{%-                 set log_units = phy_interface.unit                                                                              %}
+{%-             endif                                                                                                               %}
+{%-             for log_unit in log_units                                                                                           %}
+{%-                 set log_interface_payload = {
+                                                  "physical_interface_name": phy_interface.name,
+                                                  "logical_interface_name": log_unit.name
+                                                }                                                                                   %}
+{%-                 if 'family' in log_unit                                                                                         %}
+{%-                     if 'ethernet-switching' in log_unit.family                                                                  %}
+{%-                         set x=log_interface_payload.update({"logical_interface_type": "l2"})                                    %}
+{%-                     else                                                                                                        %}
+{%-                         set x=log_interface_payload.update({"logical_interface_type": "l3"})                                    %}
+{%-                         if 'inet' in log_unit.family and 'address' in log_unit.family.inet and phy_interface.name == 'lo0'      %}
+{%-                             if log_unit.family.inet.address is mapping                                                          %}
+{%-                                 set lo0_add_list = [log_unit.family.inet.address]                                               %}
+{%-                             else                                                                                                %}
+{%-                                 set lo0_add_list = log_unit.family.inet.address                                                 %}
+{%-                             endif                                                                                               %}
+{%-                             for lo0_add in lo0_add_list                                                                         %}
+{%-                                 if lo0_add.name != "127.0.0.1/32" and not lo0_found                                             %}
+{%-                                     set lo0_found = True                                                                        %}
+{%-                                     set lo0_ip_add = lo0_add.name.split('/')[0]                                                 %}
+{%-                                 endif                                                                                           %}
+{%-                             endfor                                                                                              %}
+{%-                         endif                                                                                                   %}
+{%-                     endif                                                                                                       %}
+{%-                 endif                                                                                                           %}
+{%-                 if not do_not_add_in_payload                                                                                    %}
+{%-                     set y=cf_log_interfaces_payloads.append(log_interface_payload)                                              %}
+{%-                 endif                                                                                                           %}
+{%-             endfor                                                                                                              %}
+{%-         endif                                                                                                                   %}
+{%-     endif                                                                                                                       %}
+{%- endfor                                                                                                                          %}
+{%- set phy_interfaces_list = rt_phy_interfaces_payloads|list + cf_phy_interfaces_payloads|list                                     %}
+{%- set log_interfaces_list = rt_log_interfaces_payloads|list + cf_log_interfaces_payloads|list                                     %}
+{
+  "physical_interfaces_list": {{phy_interfaces_list}},
+  "logical_interfaces_list": {{log_interfaces_list}},
+  "dataplane_ip": "{{lo0_ip_add}}"
+}

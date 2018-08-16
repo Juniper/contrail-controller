@@ -1,0 +1,15 @@
+- import_role:
+    name: Juniper.junos
+
+- name: READ JUNOS FACTS
+  juniper_junos_facts:
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: execute_command_resp
+
+- set_fact:
+    device_info: "{{execute_command_resp}}"

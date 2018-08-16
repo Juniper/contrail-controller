@@ -1,5 +1,124 @@
----
-# tasks file for device-import-role
+- name: Update pb_input if interface_filters is not set already
+  set_fact:
+    pb_input: "{{pb_input | combine({'interface_filters': [{'op': 'regex', 'expr': '^xe|^ge|^et|^fxp|^xle|^fc|^fte|^lo0'}] })}}"
+  when: "'interface_filters' not in pb_input"
 
-- name: Get the interfaces information from the device
-  include_tasks: import_interfaces.yml
+- name: Get the pattern object
+  set_fact:
+    pattern_obj: |
+      {%- set regex_list = []                                                           %}
+      {%- for filter in pb_input.get('interface_filters', {})                           %}
+      {%-     if filter.get('op') == "regex"                                            %}
+      {%-         set x=regex_list.append(filter.get('expr', None))                     %}
+      {%-     endif                                                                     %}
+      {%- endfor                                                                        %}
+      {
+       "regex_list": {{regex_list|to_json}}
+      }
+
+- name: get the regex str separated by |
+  set_fact:
+    regex_str: "{{pattern_obj.regex_list|join('|')}}"
+
+
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: check to see if the ansible file for the vendor and family exists
+      stat:
+        path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      register: p
+
+    - name: Execute commands on device
+      block:
+        - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
+        - name: set the jinja template file path
+          set_fact:
+            jinja_file_path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+      when: p.stat.exists == True
+
+    # this is assuming device family does not matter
+    - name: Execute commands on device from default location
+      block:
+        - include_tasks: "{{prouter_vendor}}.yml"
+        - name: set the jinja template file path
+          set_fact:
+            jinja_file_path: "../templates/{{prouter_vendor}}.j2"
+      when: p.stat.exists == False
+
+    # validate schema including to check if the device_info is set as part of the ansible file
+    - name: Validate Input Schema -- device_info
+      set_fact:
+        schema_validation_resp: "{{'input_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/roles/device_import_role/schema/schema.json', device_info, prouter_name)}}"
+
+    - name: Perform the necessary error handling when there is a schema validation error
+      include_tasks: error_handler.yml
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+      vars:
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+
+    - name: parse interfaces info obtained to get appropriate payload format. Ensure Jinja template does not have any new lines
+      set_fact:
+        interfaces_payload: "{{lookup('template', jinja_file_path)}}"
+      register: parser_output
+
+    # validate schema to check if the interfaces payload is of the correct output schema
+    - name: Validate Output Schema -- interfaces_payload
+      set_fact:
+        schema_validation_resp: "{{'output_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/roles/device_import_role/schema/schema.json', interfaces_payload, prouter_name)}}"
+
+    - name: Perform the necessary error handling when there is a schema validation error
+      include_tasks: error_handler.yml
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+      vars:
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+
+    # Call the vnc filter plugin for device import
+    - name: Call the vnc filter plugin for device import
+      set_fact:
+        device_import_result: "{{job_ctx | device_import(prouter_name, interfaces_payload) }}"
+
+    - name: Handle any exception or error cases
+      include_tasks: error_handler.yml
+      when: "'status' in device_import_result and device_import_result.status == 'failure'"
+      vars:
+        op_err_message: "Unable to onboard interfaces due to the following error: {{ device_import_result.error_msg }}"
+        jl_err_message: "Failed to onboard interfaces due to error: {{ device_import_result.error_msg }}. Here is the device_import_log: {{device_import_result.device_import_log}}"
+        jl_details: {
+                      "failed_phy_intfs": "{{device_import_resp.phy_intf_failed_info}}",
+                      "failed_log_intfs": "{{device_import_resp.log_intf_failed_info}}"
+                    }
+
+    - name: Set the device_import response
+      set_fact:
+        device_import_resp: "{{device_import_result.device_import_resp}}"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 2
+        jl_message: "Imported interface(s) from {{prouter_vendor}} device, {{prouter_name}}:\n   - {{device_import_resp.phy_intfs_success_names|length}} physical interfaces\n   - {{device_import_resp.log_intfs_success_names|length}} logical interfaces\n   - loopback ip: {{device_import_resp.dataplane_ip_upd_resp}}{{device_import_resp.dataplane_ip}}"
+        jl_details: {
+                      "imported_phy_intfs": "{{device_import_resp.phy_intfs_success_names}}",
+                      "imported_log_intfs": "{{device_import_resp.log_intfs_success_names}}",
+                      "warning_info": "{{device_import_resp.warning_info}}"
+                    }
+
+  rescue:
+    - name: Perform the necessary error handling while trying to execute command
+      include_tasks: error_handler.yml
+      when: "'failed' in execute_command_resp and execute_command_resp.failed == true"
+      vars:
+        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+
+    - name: Perform the necessary error handling when parsing the device_info
+      include_tasks: error_handler.yml
+      when: "'failed' in parser_output and parser_output.failed == true"
+      vars:
+        op_err_message: "Error while parsing the interfaces information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        jl_err_message: "Error while parsing the interfaces information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play
