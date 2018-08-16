@@ -395,7 +395,8 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
     if (agent_->vcpe_gateway_mode()) {
         uve->set_gateway_mode(vnsVrouterType.VrouterAgentGatewayModeMap.at
                               (VrouterAgentGatewayMode::VCPE));
-    } else if (agent_->server_gateway_mode()) {
+    } else if ((agent_->server_gateway_mode()) ||
+               (agent_->pbb_gateway_mode())) {
         uve->set_gateway_mode(vnsVrouterType.VrouterAgentGatewayModeMap.at
                               (VrouterAgentGatewayMode::SERVER));
     } else {
