@@ -1,9 +1,0 @@
----
-# vars file for device-facts-uve
-
-junos_username: "{{playbook_input.device_username}}"
-junos_host: "{{playbook_input.device_management_ip}}"
-prouter_name: "{{playbook_input.device_fqname[-1]}}"
-junos_password: "{{playbook_input.device_password}}"
-auth_token: "{{playbook_input.auth_token}}"
-prouter_fqname: "{{playbook_input.device_fqname}}"
