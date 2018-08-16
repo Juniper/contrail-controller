@@ -12,3 +12,4 @@ bottle
 stevedore
 timeout-decorator
 docker-py
+inflection>=0.3.1
