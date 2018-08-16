@@ -1,0 +1,23 @@
+# tasks file for juniper's device_import
+
+- name: INCLUDE ANSIBLE TASK - FOR JUNIPER CONFIGURED INTERFACES
+  include_tasks: "./ansible_roles/juniper_junos_config.yml"
+
+- set_fact: 
+    conf_info: "{{device_data}}"
+
+- name: INCLUDE ANSIBLE TASK - FOR JUNIPER RUNTIME INTERFACES
+  include_tasks: "./ansible_roles/juniper_junos_command.yml"
+  vars: 
+    commands: 
+      - show interfaces
+
+- set_fact: 
+    rt_info: "{{device_data}}"
+
+- set_fact:
+    device_info: {
+                   'configured_interfaces_info': "{{conf_info}}",
+                   'runtime_interfaces_info': "{{rt_info}}"
+                 }
+

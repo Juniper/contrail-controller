@@ -1,0 +1,16 @@
+---
+# tasks file for juniper_junos_config
+
+- name: OBTAIN CONFIGURATION FROM A JUNIPER DEVICE
+  juniper_junos_config:
+    provider: "{{provider}}"
+    retrieve: 'committed'
+    filter: 'interfaces'
+    diff: true
+    check: false
+    commit: false
+    config_mode: 'private'
+    format: xml
+    options:
+      inherit: inherit
+  register: device_data
