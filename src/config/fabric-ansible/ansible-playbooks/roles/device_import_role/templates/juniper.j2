@@ -1,0 +1,121 @@
+{%- set cf_interfaces_list = device_info['configured_interfaces_info']['config_parsed']['configuration']['interfaces']['interface'] %}
+{%- set rt_interfaces_list = device_info['runtime_interfaces_info']['parsed_output']['interface-information']['physical-interface'] %}
+{%- if cf_interfaces_list is mapping %}
+{%-      cf_interfaces_list = [cf_interfaces_list] %}
+{%- endif %}
+{%- if rt_interfaces_list is mapping %}
+{%-      rt_interfaces_list = [rt_interfaces_list] %}
+{%- endif %}
+{%- set rt_phy_interfaces_payloads = [] %}
+{%- set rt_log_interfaces_payloads = [] %}
+{%- for phy_interface in rt_interfaces_list or [] %}
+{%-     if phy_interface.name | regex_search(regex_str|default(".*",true))   %}
+{%-         set phy_interface_payload = {}                                        %}
+{%-         set phy_interface_name = phy_interface.name|replace(':', '_')         %}
+{%-         set x=phy_interface_payload.update({"parent_type": "physical-router",
+                                              "fq_name": ["default-global-system-config",
+                                                          "{{prouter_name}}",
+                                                          phy_interface_name
+                                                         ],
+                                              "display_name": phy_interface.name})%}
+{%-         set y=rt_phy_interfaces_payloads.append(phy_interface_payload)           %}
+{%-         if 'logical-interface' in phy_interface                               %}
+{%-             if phy_interface['logical-interface'] is mapping                  %}
+{%-                 set log_units = [phy_interface['logical-interface']]          %}
+{%-             else                                                              %}
+{%-                 set log_units = phy_interface['logical-interface']            %}
+{%-             endif                                                             %}
+{%-             for log_unit in log_units                                         %}
+{%-                 set log_interface_payload = {}                                %}
+{%-                 set x=log_interface_payload.update({"parent_type":"physical-interface",
+                                                      "fq_name": ["default-global-system-config",
+                                                                  "{{prouter_name}}",
+                                                                  phy_interface_name,
+                                                                  log_unit.name|replace(':', '_')
+                                                                 ],
+                                                      "display_name": log_unit.name})%}
+{%-                 if 'address-family' in log_unit                               %}
+{%-                     set x=log_interface_payload.update({"logical_interface_type": "l3"}) %}
+{%-                     if log_unit['address-family'] is mapping                  %}
+{%-                         set address_fmly_list = [log_unit['address-family']]  %}
+{%-                     else                                                      %}
+{%-                         set address_fmly_list = log_unit['address-family']    %}
+{%-                     endif                                                     %}
+{%-                     for address_fmly in address_fmly_list                     %}
+{%-                         if address_fmly['address-family-name'] == 'eth-switch'%}
+{%-                             set x=log_interface_payload.update({"logical_interface_type": "l2"}) %}
+{%-                         endif                                                 %}
+{%-                     endfor                                                    %}
+{%-                 endif                                                         %}
+{%-                 set y=rt_log_interfaces_payloads.append(log_interface_payload)   %}
+{%-             endfor                                                            %}
+{%-         endif                                                                 %}
+{%-     endif                                                                     %}
+{%- endfor                                                                        %}
+{%- set init_dict = {"lo0_ip_add": "", "lo0_found": False}                        %}
+{%- set cf_phy_interfaces_payloads = []                                              %}
+{%- set cf_log_interfaces_payloads = []                                              %}
+{%- for phy_interface in cf_interfaces_list                                           %}
+{%-     set regex_matched = phy_interface.name | regex_search(regex_str|default(".*",true)) %}
+{%-     set do_not_add_in_payload = False                                         %}
+{%-     if (regex_matched or 'lo0' in phy_interface.name)                         %}
+{%-         if 'lo0' in phy_interface.name and not(regex_matched)                 %}
+{%-             set do_not_add_in_payload = True                                  %}
+{%-         endif                                                                 %}
+{%-         set phy_interface_payload = {}                                        %}
+{%-         set phy_interface_name = phy_interface.name|replace(':', '_')         %}
+{%-         set x=phy_interface_payload.update({"parent_type": "physical-router",
+                                              "fq_name": ["default-global-system-config",
+                                                          "{{prouter_name}}",
+                                                          phy_interface_name
+                                                         ],
+                                              "display_name": phy_interface.name})  %}
+{%-         if not do_not_add_in_payload                                          %}
+{%-             set y=cf_phy_interfaces_payloads.append(phy_interface_payload)       %}
+{%-         endif                                                                 %}
+{%-         if 'unit' in phy_interface                                            %}
+{%-             if phy_interface.unit is mapping                                  %}
+{%-                 set log_units = [phy_interface.unit]                          %}
+{%-             else                                                              %}
+{%-                 set log_units = phy_interface.unit                            %}
+{%-             endif                                                             %}
+{%-             for log_unit in log_units                                         %}
+{%-                 set log_interface_payload = {}                                %}
+{%-                 set x=log_interface_payload.update({"parent_type":"physical-interface",
+                                                      "fq_name": ["default-global-system-config",
+                                                                  "{{prouter_name}}",
+                                                                  phy_interface_name,
+                                                                  phy_interface_name+"."+log_unit.name
+                                                                 ],
+                                                      "display_name": phy_interface.name+"."+log_unit.name})%}
+{%-                 if 'family' in log_unit                                       %}
+{%-                     if 'ethernet-switching' in log_unit.family                %}
+{%-                         set x=log_interface_payload.update({"logical_interface_type": "l2"})%}
+{%-                     else                                                      %}
+{%-                         set x=log_interface_payload.update({"logical_interface_type": "l3"})%}
+{%-                         if 'inet' in log_unit.family and 'address' in log_unit.family.inet and phy_interface_name == 'lo0'%}
+{%-                             if log_unit.family.inet.address is mapping        %}
+{%-                                 set lo0_add_list = [log_unit.family.inet.address] %}
+{%-                             else                                              %}
+{%-                                 set lo0_add_list = log_unit.family.inet.address %}
+{%-                             endif                                             %}
+{%-                             for lo0_add in lo0_add_list                       %}
+{%-                                 if lo0_add.name != "127.0.0.1/32" and not init_dict.lo0_found %}
+{%-                                     set x=init_dict.update({"lo0_found": True, "lo0_ip_add": lo0_add.name.split('/')[0]}) %}
+{%-                                 endif                                         %}
+{%-                             endfor                                            %}
+{%-                         endif                                                 %}
+{%-                     endif                                                     %}
+{%-                 endif                                                         %}
+{%-                 if not do_not_add_in_payload                                  %}
+{%-                     set y=cf_log_interfaces_payloads.append(log_interface_payload) %}
+{%-                 endif                                                         %}
+{%-             endfor                                                            %}
+{%-         endif                                                                 %}
+{%-     endif                                                                     %}
+{%- endfor                                                                        %}
+{
+  "physical_interfaces_list": {{rt_phy_interfaces_payloads | to_json}} + {{ cf_phy_interfaces_payloads | to_json}},
+  "logical_interfaces_list": {{rt_log_interfaces_payloads | to_json}} + {{cf_log_interfaces_payloads | to_json}},
+  "dataplane_ip": {{init_dict.lo0_ip_add}}
+}

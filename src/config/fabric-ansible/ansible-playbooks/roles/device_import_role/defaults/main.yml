@@ -1,8 +1,12 @@
 ---
 # defaults file for device-import-role
-configured_phy_interface_names: []
 output: {
               "status": "Success",
               "message": "Device Import for device: {{prouter_name}} successful"
         }
-upd_dataplane_ip_mesg: ""
+execute_command_resp: {}
+device_info: {}
+parser_output: {}
+interfaces_payload: {}
+device_import_result: {}
+schema_validation_resp: {}

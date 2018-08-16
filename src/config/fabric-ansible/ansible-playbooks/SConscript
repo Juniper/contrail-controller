@@ -25,6 +25,7 @@ setup_sources = [
            'schema',
            'filter_plugins',
            'templates',
+           'device_parsers',
           ]
 
 setup_sources_rules = []

@@ -1,0 +1,57 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute "show lldp neighbors" command
+  juniper_junos_command:
+    commands:
+      - "show lldp neighors interface"
+    format: xml
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: execute_command_resp
+
+# rewrite device_info to have neighbor information if found
+# else leave device_info at the previous step
+- name: Execute "show lldp neighbors interface <interface_name>" when there is at least one neighbor
+  block:
+    - set_fact:
+        lldp_neighbor_info: "{{resp['parsed_output']['lldp-neighbors-information']['lldp-neighbor-information']}}"
+
+    - name: set lldp-neighbor-info into list in case of a single neighbor
+      set_fact:
+        lldp_neighbor_info: [ "{{lldp_neighbor_info}}" ]
+      when: lldp_neighbor_info is mapping
+
+    - name: get the local interfaces name
+      set_fact:
+        local_interfaces_port_list: "{{lldp_neighbor_info|json_query('[*].\"lldp-local-port-id\"')}}"
+
+    - name: get the local interfaces name
+      set_fact:
+        local_interfaces_name_list: "{{lldp_neighbor_info|json_query('[*].\"lldp-local-interface\"')}}"
+
+    - set_fact:
+        local_interfaces_list: "{{local_interfaces_port_list + local_interfaces_name_list}}"
+
+    - name: Execute "show lldp neighbors interface <interface-name>" command
+      juniper_junos_command:
+        commands:
+          - "show lldp neighors interface {{item}}"
+        format: xml
+        provider:
+          host: "{{host}}"
+          username: "{{username}}"
+          password: "{{password}}"
+          port: 22
+          timeout: "{{timeout}}"
+      register: execute_command_resp
+      with_items: "{{local_interfaces_list}}"
+
+  when: '"lldp-neighbor-information" in device_info.parsed_output["lldp-neighbors-information"]'
+
+- set_fact:
+    device_info: "{{execute_command_resp}}"
