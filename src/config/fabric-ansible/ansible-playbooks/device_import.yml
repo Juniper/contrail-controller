@@ -5,16 +5,13 @@
   connection: local
 
   roles:
-    - Juniper.junos
-    - device_facts_uve
-    - device_import_role
+    - import_device_facts
+    - import_interfaces_info
 
   tasks:
-    - set_fact:
-        result_dict: {"results": "{{results}}"}
 
     - set_fact:
-        output: "{{output | combine(result_dict)}}"
+        output: "{{output}}"
 
     - name: update prouter logs with onboarded status
       prouter_objectlog:
