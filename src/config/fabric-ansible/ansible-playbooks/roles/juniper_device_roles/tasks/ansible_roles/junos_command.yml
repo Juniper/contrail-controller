@@ -1,0 +1,9 @@
+---
+# tasks file for junos_command
+
+- name: EXECUTE COMMAND(S) ON A JUNIPER DEVICE
+  junos_command:
+    commands: "{{commands}}"
+    display: "{{display}}"
+    provider: "{{provider}}"
+  register: device_data

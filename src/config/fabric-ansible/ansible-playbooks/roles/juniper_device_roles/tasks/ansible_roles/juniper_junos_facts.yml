@@ -1,0 +1,7 @@
+---
+# tasks file for juniper_junos_facts
+
+- name: READ JUNOS FACTS
+  juniper_junos_facts:
+    provider: "{{provider}}"
+  register: device_data

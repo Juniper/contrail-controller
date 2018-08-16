@@ -12,3 +12,4 @@
 
     - set_fact:
         output: "{{output }}"
+
