@@ -1,0 +1,7 @@
+# tasks file for juniper's device facts uve
+
+- name: INCLUDE ANSIBLE TASK - FOR JUNIPER FACTS
+  include_tasks: "./ansible_roles/juniper_junos_facts.yml"
+
+- set_fact:
+    device_info: "{{device_data}}"                                  
