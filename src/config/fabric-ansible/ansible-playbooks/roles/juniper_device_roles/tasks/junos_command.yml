@@ -1,0 +1,29 @@
+---
+# tasks file for junos_command
+
+- name: DETERMINE COMMANDS TO BE EXECUTED BASED ON OPERATION
+  block:
+    - set_fact: 
+        commands:
+          - show configuration interfaces
+          - show interfaces
+      when: operation == "import_interfaces"
+    - set_fact:
+        commands:
+          - show lldp neighbors interface
+      when: operation == "topology_discovery"
+
+- name: EXECUTE COMMAND(S) ON A JUNIPER DEVICE
+  block:
+    - junos_command:
+        commands: "{{commands}}"
+        display: "{{display}}"
+        provider: "{{provider}}"
+      register: device_info
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "device_info.failed == true"
+      vars:
+        op_err_message: "{{device_info.msg}}"
+        jl_err_message: "Error while obtaining interface information from Juniper device: {{device_info.msg}}"
