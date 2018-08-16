@@ -1,0 +1,10 @@
+# tasks file for juniper's topology discovery
+
+- name: INCLUDE ANSIBLE TASK - FOR JUNIPER LLDP NEIGHBORS COMMAND
+  include_tasks: "./ansible_roles/juniper_junos_command.yml"
+  vars:
+    commands: 
+      - show lldp neighbors interface
+
+- set_fact: 
+    device_info: "{{device_data}}"
