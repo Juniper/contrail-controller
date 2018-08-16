@@ -409,7 +409,7 @@ TEST_F(BgpAttrTest, AsPathAdd) {
 
 TEST_F(BgpAttrTest, AsPathAddList) {
     AsPathSpec path;
-    vector<as_t> asn_list = list_of(1000)(2000);
+    vector<as2_t> asn_list = list_of(1000)(2000);
 
     // Add to an empty path.
     AsPathSpec *p2 = path.Add(asn_list);

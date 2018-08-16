@@ -495,9 +495,9 @@ TEST_P(L3VPNPeerTest, AsPathLoop) {
     //       Verify that path is not replicated to VRF table                 //
     //       Verify that path in bgp.l3vpn.0 is marked as infeasible         //
     ///////////////////////////////////////////////////////////////////////////
-    AsPathSpec path_spec;
-    AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
-    path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    AsPath4ByteSpec path_spec;
+    AsPath4ByteSpec::PathSegment *path_seg = new AsPath4ByteSpec::PathSegment;
+    path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
     path_seg->path_segment.push_back(peer_type_ == "EBGP" ? 101 : 100);
     path_spec.path_segments.push_back(path_seg);
     BgpAttrSpec asloop_attrs;

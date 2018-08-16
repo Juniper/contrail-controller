@@ -198,14 +198,14 @@ private:
     friend class RoutingInstanceMgr;
     class DeleteActor;
 
-    void AddMvpnRTargetRoute(as4_t asn);
-    void DeleteMvpnRTargetRoute(as4_t old_asn, Ip4Address old_ip);
+    void AddMvpnRTargetRoute(as_t asn);
+    void DeleteMvpnRTargetRoute(as_t old_asn, Ip4Address old_ip);
 
-    void AddRTargetRoute(as4_t asn, const RouteTarget &rtarget);
-    void DeleteRTargetRoute(as4_t asn, const RouteTarget &rtarget);
-    void InitAllRTargetRoutes(as4_t asn);
-    void FlushAllRTargetRoutes(as4_t asn);
-    void ProcessIdentifierUpdate(as4_t asn);
+    void AddRTargetRoute(as_t asn, const RouteTarget &rtarget);
+    void DeleteRTargetRoute(as_t asn, const RouteTarget &rtarget);
+    void InitAllRTargetRoutes(as_t asn);
+    void FlushAllRTargetRoutes(as_t asn);
+    void ProcessIdentifierUpdate(as_t asn);
 
     void AddRouteTarget(bool import, std::vector<std::string> *change_list,
         RouteTargetList::const_iterator it);

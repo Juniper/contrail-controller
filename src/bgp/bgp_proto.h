@@ -441,10 +441,10 @@ public:
     static const int kMaxMessageSize = 4096;
 
     static BgpMessage *Decode(const uint8_t *data, size_t size,
-                              ParseErrorContext *ec = NULL);
+                              ParseErrorContext *ec = NULL, bool as4 = true);
 
     static int Encode(const BgpMessage *msg, uint8_t *data, size_t size,
-                      EncodeOffsets *offsets = NULL);
+                      EncodeOffsets *offsets = NULL, bool as4 = true);
     static int Encode(const BgpMpNlri *msg, uint8_t *data, size_t size,
                       EncodeOffsets *offsets = NULL);
 };

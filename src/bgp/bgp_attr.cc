@@ -892,6 +892,8 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       originator_id_(rhs.originator_id_),
       source_rd_(rhs.source_rd_), esi_(rhs.esi_), params_(rhs.params_),
       as_path_(rhs.as_path_),
+      aspath_4byte_(rhs.aspath_4byte_),
+      as4_path_(rhs.as4_path_),
       cluster_list_(rhs.cluster_list_),
       community_(rhs.community_),
       ext_community_(rhs.ext_community_),
@@ -915,6 +917,30 @@ void BgpAttr::set_as_path(const AsPathSpec *spec) {
         as_path_ = attr_db_->server()->aspath_db()->Locate(*spec);
     } else {
         as_path_ = NULL;
+    }
+}
+
+void BgpAttr::set_as4_path(As4PathPtr aspath) {
+    as4_path_ = aspath;
+}
+
+void BgpAttr::set_as4_path(const As4PathSpec *spec) {
+    if (spec) {
+        as4_path_ = attr_db_->server()->as4path_db()->Locate(*spec);
+    } else {
+        as4_path_ = NULL;
+    }
+}
+
+void BgpAttr::set_aspath_4byte(AsPath4BytePtr aspath) {
+    aspath_4byte_ = aspath;
+}
+
+void BgpAttr::set_aspath_4byte(const AsPath4ByteSpec *spec) {
+    if (spec) {
+        aspath_4byte_ = attr_db_->server()->aspath_4byte_db()->Locate(*spec);
+    } else {
+        aspath_4byte_ = NULL;
     }
 }
 
@@ -1008,6 +1034,14 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
     }
 }
 
+bool BgpAttr::IsAsPathEmpty() const {
+    if (as_path_ && !as_path_->empty())
+        return false;
+    if (aspath_4byte_ && !aspath_4byte_->empty())
+        return false;
+    return true;
+}
+
 string BgpAttr::OriginToString(BgpAttrOrigin::OriginType origin) {
     switch (origin) {
     case BgpAttrOrigin::IGP:
@@ -1046,7 +1080,11 @@ Address::Family BgpAttr::nexthop_family() const {
 }
 
 as_t BgpAttr::neighbor_as() const {
-    return (as_path_.get() ? as_path_->neighbor_as() : 0);
+    if (as_path_.get())
+        return as_path_->neighbor_as();
+    if (aspath_4byte_.get())
+        return aspath_4byte_->neighbor_as();
+    return 0;
 }
 
 uint32_t BgpAttr::sequence_number() const {
@@ -1142,6 +1180,8 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(olist_.get(), rhs.olist_.get());
     KEY_COMPARE(leaf_olist_.get(), rhs.leaf_olist_.get());
     KEY_COMPARE(as_path_.get(), rhs.as_path_.get());
+    KEY_COMPARE(aspath_4byte_.get(), rhs.aspath_4byte_.get());
+    KEY_COMPARE(as4_path_.get(), rhs.as4_path_.get());
     KEY_COMPARE(cluster_list_.get(), rhs.cluster_list_.get());
     KEY_COMPARE(community_.get(), rhs.community_.get());
     KEY_COMPARE(ext_community_.get(), rhs.ext_community_.get());
@@ -1180,6 +1220,8 @@ std::size_t hash_value(BgpAttr const &attr) {
     }
 
     if (attr.as_path_) boost::hash_combine(hash, *attr.as_path_);
+    if (attr.aspath_4byte_) boost::hash_combine(hash, *attr.aspath_4byte_);
+    if (attr.as4_path_) boost::hash_combine(hash, *attr.as4_path_);
     if (attr.community_) boost::hash_combine(hash, *attr.community_);
     if (attr.ext_community_) boost::hash_combine(hash, *attr.ext_community_);
     if (attr.origin_vn_path_) boost::hash_combine(hash, *attr.origin_vn_path_);

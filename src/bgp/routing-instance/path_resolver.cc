@@ -943,7 +943,8 @@ static ExtCommunityPtr UpdateExtendedCommunity(ExtCommunityDB *extcomm_db,
     ExtCommunity::ExtCommunityValue const *lb = NULL;
     BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &value,
         nh_ext_community->communities()) {
-        if (ExtCommunity::is_security_group(value)) {
+        if (ExtCommunity::is_security_group(value) ||
+                ExtCommunity::is_security_group4(value)) {
             sgid_list.push_back(value);
         } else if (ExtCommunity::is_tunnel_encap(value)) {
             encap_list.push_back(value);

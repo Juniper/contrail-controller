@@ -213,8 +213,9 @@ bool ServiceChain<T>::Match(BgpServer *server, BgpTable *table, BgpRoute *route,
                         server->autonomous_system(), src_vn_index);
                     const OriginVnPath *ovnpath =
                         attr ? attr->origin_vn_path() : NULL;
-                    if (ovnpath &&
-                        ovnpath->Contains(src_origin_vn.GetExtCommunity())) {
+                    if (ovnpath && ovnpath->Contains(
+                                server->autonomous_system(), src_vn_index)) {
+                        //ovnpath->Contains(src_origin_vn.GetExtCommunity())) {
                         deleted = true;
                     }
                 }

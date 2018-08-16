@@ -86,6 +86,7 @@ public:
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
     virtual void UpdateTotalPathCount(int count) const { }
     virtual int GetTotalPathCount() const { return 0; }
+    virtual bool IsAs4Supported() const { return false; }
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }

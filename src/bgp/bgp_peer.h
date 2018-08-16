@@ -309,6 +309,8 @@ public:
         total_path_count_ += count;
     }
     virtual int GetTotalPathCount() const { return total_path_count_; }
+    virtual bool IsAs4Supported() const { return as4_supported_; }
+    virtual void ResetAs4Supported() { as4_supported_ = false; }
     virtual void UpdatePrimaryPathCount(int count,
         Address::Family family) const;
     virtual void ProcessPathTunnelEncapsulation(const BgpPath *path,
@@ -382,6 +384,8 @@ private:
 
     size_t GetBufferCapacity() const;
     bool FlushUpdateUnlocked();
+    static int Encode(const BgpMessage *msg, uint8_t *data, size_t size,
+                      EncodeOffsets *offsets = NULL, bool as4 = false);
     void KeepaliveTimerErrorHandler(std::string error_name,
                                     std::string error_message);
     virtual void StartKeepaliveTimerUnlocked();
@@ -410,6 +414,7 @@ private:
     uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
     uint32_t GetLocalPrefFromMed(uint32_t med) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
+    virtual bool Is4ByteAsSupported();
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
     template <typename TableT, typename PrefixT>
     void ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
@@ -496,6 +501,7 @@ private:
     tbb::atomic<int> membership_req_pending_;
     bool defer_close_;
     bool graceful_close_;
+    bool as4_supported_;
     bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     uint16_t hold_time_;

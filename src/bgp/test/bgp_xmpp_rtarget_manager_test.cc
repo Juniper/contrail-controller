@@ -91,7 +91,7 @@ public:
     }
 
     RouteTargetList *rtarget_list() { return &rtarget_list_; }
-    virtual void RTargetRouteOp(as4_t asn, const RouteTarget &rtarget,
+    virtual void RTargetRouteOp(as_t asn, const RouteTarget &rtarget,
                                 BgpAttrPtr attr, bool add_change,
                                 uint32_t flags) const {
         BgpXmppRTargetManager::RTargetRouteOp(asn, rtarget, attr, add_change,

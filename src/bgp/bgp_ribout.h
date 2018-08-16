@@ -322,6 +322,7 @@ public:
     as_t local_as() const { return policy_.local_as_number; }
     bool as_override() const { return policy_.as_override; }
     bool llgr() const { return policy_.llgr; }
+    bool as4_supported() const { return policy_.as4_supported; }
     const IpAddress &nexthop() const { return policy_.nexthop; }
     bool IsEncodingXmpp() const {
         return (policy_.encoding == RibExportPolicy::XMPP);

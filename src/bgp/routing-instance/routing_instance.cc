@@ -1161,7 +1161,7 @@ void RoutingInstance::FlushRouteAggregationConfig() {
     }
 }
 
-void RoutingInstance::DeleteMvpnRTargetRoute(as4_t asn, Ip4Address old_ip) {
+void RoutingInstance::DeleteMvpnRTargetRoute(as_t asn, Ip4Address old_ip) {
     if (asn == 0)
         return;
     string id_str = "target:" + old_ip.to_string() + ":0";
@@ -1169,7 +1169,7 @@ void RoutingInstance::DeleteMvpnRTargetRoute(as4_t asn, Ip4Address old_ip) {
     DeleteRTargetRoute(asn, rtarget);
 }
 
-void RoutingInstance::AddMvpnRTargetRoute(as4_t asn) {
+void RoutingInstance::AddMvpnRTargetRoute(as_t asn) {
     if (asn == 0)
         return;
     const Ip4Address server_ip(server()->bgp_identifier());
@@ -1482,7 +1482,7 @@ void RoutingInstance::AddRTargetRoute(uint32_t asn,
         route, "Insert Local path with path id " << index_);
 }
 
-void RoutingInstance::DeleteRTargetRoute(as4_t asn,
+void RoutingInstance::DeleteRTargetRoute(as_t asn,
     const RouteTarget &rtarget) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
@@ -1512,7 +1512,7 @@ void RoutingInstance::DeleteRTargetRoute(as4_t asn,
     }
 }
 
-void RoutingInstance::InitAllRTargetRoutes(as4_t asn) {
+void RoutingInstance::InitAllRTargetRoutes(as_t asn) {
     if (is_master_)
         return;
 
@@ -1523,7 +1523,7 @@ void RoutingInstance::InitAllRTargetRoutes(as4_t asn) {
     }
 }
 
-void RoutingInstance::FlushAllRTargetRoutes(as4_t asn) {
+void RoutingInstance::FlushAllRTargetRoutes(as_t asn) {
     if (is_master_)
         return;
 
@@ -1533,7 +1533,7 @@ void RoutingInstance::FlushAllRTargetRoutes(as4_t asn) {
     }
 }
 
-void RoutingInstance::ProcessIdentifierUpdate(as4_t asn) {
+void RoutingInstance::ProcessIdentifierUpdate(as_t asn) {
     FlushAllRTargetRoutes(asn);
     InitAllRTargetRoutes(asn);
     rd_.reset(new RouteDistinguisher(server_->bgp_identifier(), index_));

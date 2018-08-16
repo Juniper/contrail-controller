@@ -19,17 +19,17 @@ Tag::Tag(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
-Tag::Tag(as_t asn, int tag) {
+Tag::Tag(as2_t asn, int tag) {
     data_[0] = BgpExtendedCommunityType::Experimental;
     data_[1] = BgpExtendedCommunityExperimentalSubType::Tag;
     put_value(&data_[2], 2, asn); // ASN
     put_value(&data_[4], 4, tag); // Tag value
 }
 
-as_t Tag::as_number() const {
+as2_t Tag::as_number() const {
     if (data_[0] == BgpExtendedCommunityType::Experimental &&
         data_[1] == BgpExtendedCommunityExperimentalSubType::Tag) {
-        as_t as_number = get_value(data_.data() + 2, 2);
+        as2_t as_number = get_value(data_.data() + 2, 2);
         return as_number;
     }
     return 0;
@@ -49,6 +49,45 @@ bool Tag::IsGlobal() const {
 }
 
 string Tag::ToString() const {
+    char temp[50];
+    snprintf(temp, sizeof(temp), "tag:%u:%u", as_number(), tag());
+    return string(temp);
+}
+
+Tag4ByteAs::Tag4ByteAs(const bytes_type &data) {
+    copy(data.begin(), data.end(), data_.begin());
+}
+
+Tag4ByteAs::Tag4ByteAs(as_t asn, int tag) {
+    data_[0] = BgpExtendedCommunityType::Experimental4ByteAs;
+    data_[1] = BgpExtendedCommunityExperimentalSubType::Tag;
+    put_value(&data_[2], 4, asn); // ASN
+    put_value(&data_[4], 2, tag); // Tag value
+}
+
+as_t Tag4ByteAs::as_number() const {
+    if (data_[0] == BgpExtendedCommunityType::Experimental4ByteAs &&
+        data_[1] == BgpExtendedCommunityExperimentalSubType::Tag) {
+        as_t as_number = get_value(data_.data() + 2, 4);
+        return as_number;
+    }
+    return 0;
+}
+
+int Tag4ByteAs::tag() const {
+    if (data_[0] == BgpExtendedCommunityType::Experimental4ByteAs &&
+        data_[1] == BgpExtendedCommunityExperimentalSubType::Tag) {
+        int value = get_value(&data_[6], 2);
+        return value;
+    }
+    return 0;
+}
+
+bool Tag4ByteAs::IsGlobal() const {
+    return (tag() >= kMinGlobalId);
+}
+
+string Tag4ByteAs::ToString() const {
     char temp[50];
     snprintf(temp, sizeof(temp), "tag:%u:%u", as_number(), tag());
     return string(temp);

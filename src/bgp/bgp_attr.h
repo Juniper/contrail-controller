@@ -140,7 +140,7 @@ struct BgpAttrAggregator : public BgpAttribute {
     }
     explicit BgpAttrAggregator(uint32_t as_num, uint32_t address) :
         BgpAttribute(Aggregator, kFlags), as_num(as_num), address(address) {}
-    as_t as_num;
+    as2_t as_num;
     uint32_t address;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -816,6 +816,10 @@ public:
     void set_params(uint64_t params) { params_ = params; }
     void set_as_path(AsPathPtr aspath);
     void set_as_path(const AsPathSpec *spec);
+    void set_as4_path(As4PathPtr aspath);
+    void set_as4_path(const As4PathSpec *spec);
+    void set_aspath_4byte(AsPath4BytePtr aspath);
+    void set_aspath_4byte(const AsPath4ByteSpec *spec);
     void set_cluster_list(const ClusterListSpec *spec);
     void set_community(CommunityPtr comm);
     void set_community(const CommunitySpec *comm);
@@ -853,10 +857,21 @@ public:
     uint64_t params() const { return params_; }
     const AsPath *as_path() const { return as_path_.get(); }
     int as_path_count() const { return as_path_ ? as_path_->AsCount() : 0; }
+    const AsPath4Byte *aspath_4byte() const { return aspath_4byte_.get(); }
+    int aspath_4byte_count() const {
+        return aspath_4byte_ ? aspath_4byte_->AsCount() : 0;
+    }
     const ClusterList *cluster_list() const { return cluster_list_.get(); }
     size_t cluster_list_length() const {
         return cluster_list_ ? cluster_list_->size() : 0;
     }
+    const As4Path *as4_path() const { return as4_path_.get(); }
+    int as4_path_count() const { return as4_path_ ? as4_path_->AsCount() : 0; }
+     bool IsAsPathEmpty() const;
+    //const Cluster4List *cluster4_list() const { return cluster4_list_.get(); }
+    //size_t cluster4_list_length() const {
+        //return cluster4_list_ ? cluster4_list_->size() : 0;
+    //}
     const Community *community() const { return community_.get(); }
     const ExtCommunity *ext_community() const { return ext_community_.get(); }
     const OriginVnPath *origin_vn_path() const { return origin_vn_path_.get(); }
@@ -900,6 +915,8 @@ private:
     EthernetSegmentId esi_;
     uint64_t params_;
     AsPathPtr as_path_;
+    AsPath4BytePtr aspath_4byte_;
+    As4PathPtr as4_path_;
     ClusterListPtr cluster_list_;
     CommunityPtr community_;
     ExtCommunityPtr ext_community_;

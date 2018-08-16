@@ -96,7 +96,7 @@ uint32_t BgpXmppRTargetManager::GetRTargetRouteFlag(
     return flags;
 }
 
-void BgpXmppRTargetManager::RTargetRouteOp(as4_t asn,
+void BgpXmppRTargetManager::RTargetRouteOp(as_t asn,
                                            const RouteTarget &rtarget,
                                            BgpAttrPtr attr, bool add_change,
                                            uint32_t flags) const {
@@ -120,7 +120,7 @@ void BgpXmppRTargetManager::RTargetRouteOp(as4_t asn,
 
 void BgpXmppRTargetManager::ASNUpdateCallback(as_t old_asn,
                                               as_t old_local_asn) const {
-    if (local_autonomous_system() == old_local_asn)
+    if (local_autonomous_system() == (int)old_local_asn)
         return;
     if (IsSubscriptionEmpty())
         return;

@@ -84,9 +84,9 @@ TEST_F(BgpMsgBuilderTest, Build) {
     BgpAttrAggregator *agg = new BgpAttrAggregator(0xface, 0xcafebabe);
     attr.push_back(agg);
 
-    AsPathSpec *path_spec = new AsPathSpec;
-    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
-    ps->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    AsPath4ByteSpec *path_spec = new AsPath4ByteSpec;
+    AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
+    ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SET;
     ps->path_segment.push_back(20);
     ps->path_segment.push_back(21);
     ps->path_segment.push_back(22);
@@ -125,7 +125,8 @@ TEST_F(BgpMsgBuilderTest, Build) {
     printf("\n");
 
     const BgpProto::Update *result;
-    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, length));
+    result = static_cast<const BgpProto::Update *>(
+                   BgpProto::Decode(data, length));
     ASSERT_TRUE(result != NULL);
     EXPECT_EQ(attr.size(), result->path_attributes.size());
     for (size_t i = 0; i < attr.size()-1; i++) {
@@ -186,7 +187,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
     delete lp;
     delete aa;
     delete agg;
-    delete path_spec;
+    //delete path_spec;
     delete community;
     delete ext_community;
     delete result;

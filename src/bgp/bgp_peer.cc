@@ -236,11 +236,11 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
     if (!family_attributes) {
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(),
-            -1, cluster_id_, local_as_);
+            as4_supported_, -1, cluster_id_, local_as_);
     } else {
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(),
-            family_attributes->gateway_address,
+            as4_supported_, family_attributes->gateway_address,
             -1, cluster_id_, family_attributes->default_tunnel_encap_list,
             local_as_);
     }
@@ -279,7 +279,8 @@ void BgpPeer::SendEndOfRIBActual(Address::Family family) {
     BgpMpNlri *nlri = new BgpMpNlri(BgpAttribute::MPUnreachNlri, afi, safi);
     update.path_attributes.push_back(nlri);
     uint8_t data[256];
-    int msgsize = BgpProto::Encode(&update, data, sizeof(data));
+    int msgsize = BgpProto::Encode(&update, data, sizeof(data), NULL,
+                                   Is4ByteAsSupported());
     assert(msgsize > BgpProto::kMinMessageSize);
     session_->Send(data, msgsize, NULL);
     inc_tx_end_of_rib();
@@ -490,6 +491,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           origin_override_(config->origin_override()),
           defer_close_(false),
           graceful_close_(true),
+          as4_supported_(true),
           vpn_tables_registered_(false),
           hold_time_(config->hold_time()),
           local_as_(config->local_as()),
@@ -1401,6 +1403,11 @@ void BgpPeer::SendOpen(TcpSession *session) {
         opt_param->capabilities.push_back(cap);
     }
 
+    BgpProto::OpenMessage::Capability *cap =
+            new BgpProto::OpenMessage::Capability(
+                BgpProto::OpenMessage::Capability::AS4Support,
+                (const uint8_t *)(&local_as_), 4);
+    opt_param->capabilities.push_back(cap);
     peer_close_->AddGRCapabilities(opt_param);
     peer_close_->AddLLGRCapabilities(opt_param);
 
@@ -1558,6 +1565,14 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
         (*it)->capabilities.clear();
     }
 
+    as4_supported_ = false;
+    vector<BgpProto::OpenMessage::Capability *>::iterator c_it;
+    for (c_it = capabilities_.begin(); c_it < capabilities_.end(); ++c_it) {
+        if ((*c_it)->code == BgpProto::OpenMessage::Capability::AS4Support) {
+            as4_supported_ = true;
+            break;
+        }
+    }
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_peer_id(peer_bgp_id_);
@@ -1638,6 +1653,16 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
     return false;
 }
 
+bool BgpPeer::Is4ByteAsSupported() {
+    return as4_supported_;
+    vector<BgpProto::OpenMessage::Capability *>::iterator it;
+    for (it = capabilities_.begin(); it < capabilities_.end(); ++it) {
+        if ((*it)->code == BgpProto::OpenMessage::Capability::AS4Support)
+            return true;
+    }
+    return false;
+}
+
 template <typename TableT, typename PrefixT>
 void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
     const BgpMpNlri *nlri, BgpAttrPtr attr, uint32_t flags) {
@@ -1688,18 +1713,25 @@ uint32_t BgpPeer::GetPathFlags(Address::Family family,
         flags |= BgpPath::ClusterListLooped;
     }
 
-    if (!attr->as_path())
+    if (!attr->as_path() && !attr->aspath_4byte())
         return flags;
 
     // Check whether neighbor has appended its AS to the AS_PATH.
     if ((PeerType() == BgpProto::EBGP) &&
-        (!attr->as_path()->path().AsLeftMostMatch(peer_as()))) {
+          ((attr->as_path() && !attr->as_path()->path().AsLeftMostMatch(
+          peer_as())) || (attr->aspath_4byte() &&
+          !attr->aspath_4byte()->path().AsLeftMostMatch(peer_as())))) {
         flags |= BgpPath::NoNeighborAs;
     }
 
     // Check for AS_PATH loop.
     uint8_t max_loop_count = family_attributes_list_[family]->loop_count;
-    if (attr->as_path()->path().AsPathLoop(local_as_, max_loop_count)) {
+    if (attr->as_path() &&
+           attr->as_path()->path().AsPathLoop(local_as_, max_loop_count)) {
+        flags |= BgpPath::AsPathLooped;
+    }
+    if (attr->aspath_4byte() &&
+           attr->aspath_4byte()->path().AsPathLoop(local_as_, max_loop_count)) {
         flags |= BgpPath::AsPathLooped;
     }
 
@@ -2105,7 +2137,8 @@ string BgpPeer::BytesToHexString(const u_int8_t *msg, size_t size) {
 bool BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
                          size_t size) {
     ParseErrorContext ec;
-    BgpProto::BgpMessage *minfo = BgpProto::Decode(msg, size, &ec);
+    BgpProto::BgpMessage *minfo = BgpProto::Decode(msg, size, &ec,
+                                                   Is4ByteAsSupported());
 
     if (minfo == NULL) {
         BGP_TRACE_PEER_PACKET(this, msg, size, SandeshLevel::SYS_WARN);

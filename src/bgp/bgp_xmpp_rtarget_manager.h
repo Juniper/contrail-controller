@@ -37,7 +37,7 @@ public:
              const RouteTargetList &targets, uint32_t flags) const;
 
 protected:
-    virtual void RTargetRouteOp(as4_t asn, const RouteTarget &rtarget,
+    virtual void RTargetRouteOp(as_t asn, const RouteTarget &rtarget,
                                 BgpAttrPtr attr, bool add_change,
                                 uint32_t flags = 0) const;
 
