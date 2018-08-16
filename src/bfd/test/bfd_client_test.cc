@@ -166,6 +166,8 @@ TEST_F(ClientTest, BasicSingleHop1) {
 
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
 }
 
 TEST_F(ClientTest, BasicSendTimerTest1) {
@@ -278,6 +280,11 @@ TEST_F(ClientTest, BasicSingleHop2) {
 
     client_.DeleteSession(client_key2);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key2));
+
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
+    client_test_.DeleteSession(client_test_key2);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key2));
 }
 
 // Multiple sessions with same same ifindex connected to different IPs
@@ -436,6 +443,8 @@ TEST_F(ClientTest, BasicMultiHop1) {
 
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
 }
 
 // Multihop sessions with same IPs (but with different vrf index)
@@ -499,9 +508,13 @@ TEST_F(ClientTest, BasicMultipleHop2) {
 
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
 
     client_.DeleteSession(client_key2);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key2));
+    client_test_.DeleteSession(client_test_key2);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key2));
 }
 
 TEST_F(ClientTest, BasicSingleHop_CfgChange_MinRxInterval) {
@@ -578,8 +591,8 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_MinRxInterval) {
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
 
-    client_.DeleteSession(client_test_key);
-    TASK_UTIL_EXPECT_FALSE(Up(client_, client_test_key));
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
 }
 
 TEST_F(ClientTest, BasicSingleHop_CfgChange_DesiredMinTxInterval) {
@@ -654,10 +667,9 @@ TEST_F(ClientTest, BasicSingleHop_CfgChange_DesiredMinTxInterval) {
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
 
-    client_.DeleteSession(client_test_key);
-    TASK_UTIL_EXPECT_FALSE(Up(client_, client_test_key));
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
 }
-
 
 int main(int argc, char **argv) {
     LoggingInit();
