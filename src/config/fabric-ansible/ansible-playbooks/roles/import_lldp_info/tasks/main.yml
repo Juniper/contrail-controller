@@ -1,0 +1,100 @@
+---
+# vendor agnostic tasks file for import_lldp_info
+
+- set_fact:
+    job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
+
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: check to see if the ansible file for the vendor and family exists
+      stat:
+        path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      register: p
+
+    - name: Execute commands on device
+      block:
+        - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
+        - name: set the jinja template file path
+          set_fact:
+            jinja_file_path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+      when: p.stat.exists == True
+
+    # this is assuming device family does not matter
+    - name: Execute commands on device from default location
+      block:
+        - include_tasks: "{{prouter_vendor}}.yml"
+        - name: set the jinja template file path
+          set_fact:
+            jinja_file_path: "../templates/{{prouter_vendor}}.j2"
+      when: p.stat.exists == False
+
+    # validate schema including to check if the device_info is set as part of the ansible file
+    - name: Validate Input Schema -- device_info
+      set_fact:
+        schema_validation_resp: "{{'input_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/schema/import_lldp_info_schema.json', device_info, prouter_name)}}"
+
+    - name: Perform the necessary error handling when there is a schema validation error
+      include_tasks: error_handler.yml
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+      vars:
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+
+    - name: parse lldp info obtained to get remote system information. Ensure Jinja template does not have any new lines
+      set_fact:
+        lldp_neighbors_payload: "{{lookup('template', jinja_file_path)}}"
+      register: parser_output
+
+    # validate schema to check if the lldp_neighbors payload is of the correct output schema
+    - name: Validate Output Schema -- lldp_neighbors_payload
+      set_fact:
+        schema_validation_resp: "{{'output_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/schema/import_lldp_info_schema.json', lldp_neighbors_payload, prouter_name)}}"
+
+    - name: Perform the necessary error handling when there is a schema validation error
+      include_tasks: error_handler.yml
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+      vars:
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+
+    # Call the vnc filter plugin for topology discovery
+    - name: Call the vnc filter plugin for topology discovery
+      set_fact:
+        topology_discovery_result: "{{job_ctx | topology_discovery(prouter_fqname, lldp_neighbors_payload) }}"
+
+    - name: Handle any exception or error cases
+      include_tasks: error_handler.yml
+      when: "'status' in topology_discovery_result and topology_discovery_result.status == 'failure'"
+      vars:
+        op_err_message: "Unable to discover topology due to the following error on {{prouter_vendor}} device, {{prouter_name}}: {{ topology_discovery_result.error_msg }}"
+        jl_err_message: "Failed to discover topology due to error on {{prouter_vendor}} device, {{prouter_name}}: {{ topology_discovery_result.error_msg }}. Here is the topology_discovery_log: {{topology_discovery_result.topology_discovery_log}}"
+
+    - name: Set the topology_discovery response
+      set_fact:
+        topology_discovery_resp: "{{topology_discovery_result.topology_discovery_resp}}"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Created physical interfaces link(s) from {{prouter_vendor}} device, {{prouter_name}}:\n   - {{topology_discovery_resp.lldp_neighbors_success_names|length}}"
+        jl_details: {"discovered_neighbors": "{{topology_discovery_resp.lldp_neighbors_success_names}}",
+                     "skipped_neighbors": "{{topology_discovery_resp.lldp_neighbors_failed_info}}"}
+
+  rescue:
+    - name: Perform the necessary error handling while trying to execute command
+      include_tasks: error_handler.yml
+      when: "'failed' in execute_command_resp and execute_command_resp.failed == true"
+      vars:
+        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+
+    - name: Perform the necessary error handling when parsing the device_info
+      include_tasks: error_handler.yml
+      when: "'failed' in parser_output and parser_output.failed == true"
+      vars:
+        op_err_message: "Error while parsing the neighbor information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        jl_err_message: "Error while parsing the neighbor information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play
