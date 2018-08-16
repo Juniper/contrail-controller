@@ -43,7 +43,7 @@ local_sources = [
     'existing_fabric_onboard.yml',
     'error_handler.yml',
     'discover_role.yml',
-    'topo_discovery.yml',
+    'topology_discovery.yml',
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
