@@ -475,7 +475,7 @@ void Agent::InitDone() {
     // Initiate a monitor which asserts if no task is spawned for a given time.
     if (task_monitor_timeout_msec_) {
         scheduler->EnableMonitor(event_manager(), tbb_keepawake_timeout_,
-                                 task_monitor_timeout_msec_, 100);
+                                 task_monitor_timeout_msec_, 400);
     }
 }
 
