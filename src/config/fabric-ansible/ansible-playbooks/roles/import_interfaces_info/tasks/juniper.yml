@@ -1,0 +1,50 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute commands on a Juniper Device to get configured interfaces
+  juniper_junos_config:
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+    retrieve: 'committed'
+    filter: 'interfaces'
+    diff: true
+    check: false
+    commit: false
+    config_mode: 'private'
+    format: xml
+    options:
+      inherit: inherit
+  register: execute_command_resp
+
+
+- name: Save execute_command_resp as configured interfaces information
+  set_fact:
+    conf_intf_info: "{{execute_command_resp}}"
+
+- name: Execute commands on a Juniper Device to get runtime interfaces
+  juniper_junos_command:
+    commands:
+      - show interfaces
+    display: xml
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: execute_command_resp
+
+
+- name: Save execute_command_resp as runtime interfaces information
+  set_fact:
+    rt_intf_info: "{{execute_command_resp}}"
+
+- set_fact:
+    device_info: {
+                   'configured_interfaces_info': "{{conf_intf_info}}",
+                   'runtime_interfaces_info': "{{rt_intf_info}}"
+                 }
