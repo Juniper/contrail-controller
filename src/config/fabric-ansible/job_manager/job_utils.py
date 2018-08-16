@@ -7,13 +7,14 @@ Contains utility functions used by the job manager
 """
 import random
 from enum import Enum
-import json
 import traceback
 
 from vnc_api.vnc_api import VncApi
+import vnc_api
 
 from job_exception import JobException
 from job_messages import MsgBundle
+from inflection import camelize
 
 
 class JobStatus(Enum):
@@ -42,6 +43,11 @@ class JobVncApi(object):
         else:
             vnc_api = VncApi()
         return vnc_api
+
+    @staticmethod
+    def get_vnc_cls(object_type):
+        cls_name = camelize(object_type)
+        return getattr(vnc_api.gen.resource_client, cls_name, None)
 
 class JobFileWrite(object):
     JOB_PROGRESS = 'JOB_PROGRESS##'
