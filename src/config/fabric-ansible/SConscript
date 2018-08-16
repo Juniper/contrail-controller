@@ -48,6 +48,10 @@ local_sources = [
     'job_manager/job_messages.py',
     'job_manager/fabric_logger.py',
     'job_manager/job_manager_logger.py',
+    'job_manager/device_import_common.py',
+    'job_manager/topology_discovery_common.py',
+    'job_manager/vnc_utils.py',
+    'job_manager/filter_utils.py'
 ]
 
 local_sources_rules = []
