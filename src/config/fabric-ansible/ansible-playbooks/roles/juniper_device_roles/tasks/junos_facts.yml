@@ -1,0 +1,15 @@
+---
+# tasks file for junos_facts
+
+- name: READ JUNOS FACTS
+  block:
+    - juniper_junos_facts:
+        provider: "{{provider}}"
+      register: device_info
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "device_info.failed == true"
+      vars:
+        op_err_message: "{{device_info.msg}}"
+        jl_err_message: "Execute 'juniper_junos_facts' command on Juniper Device failed; see result for more details"

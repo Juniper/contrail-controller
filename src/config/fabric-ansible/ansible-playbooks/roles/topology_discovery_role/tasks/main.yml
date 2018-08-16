@@ -4,115 +4,34 @@
 - set_fact:
     job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
 
-- name: Execute "show lldp neighbors" command
-  block:
-    - juniper_junos_command:
-        commands:
-          - "show lldp neighbors interface"
-        format: xml
-        provider:
-          host: "{{junos_host}}"
-          username: "{{junos_username}}"
-          password: "{{junos_password}}"
-          port: 22
-      register: resp
-  rescue:
-    - name: Perform the necessary error handling
-      include_tasks: error_handler.yml
-      when: resp is defined and resp.failed == true
-      vars:
-        op_err_message: "{{resp.msg}}"
-        jl_err_message: "Failed to execute 'show lldp neighbors' command on Juniper device"
-
-- name: check if resp is defined with neighbor info. If not, end play and stop playbook with status success
-  block:
-    - name: End Task gracefully if no neighbors are found
-      include_tasks: percentage_update.yml
-      vars:
-        current_index: 4
-        jl_message: "Obtained topology information from Juniper device; 0 neighbors found."
-    - set_fact:
-        output: "{{output }}"
-    - meta: end_play
-  when: '"lldp-neighbor-information" not in resp.parsed_output["lldp-neighbors-information"]'
-
-- set_fact:
-    lldp_neighbor_info: "{{resp.parsed_output['lldp-neighbors-information']['lldp-neighbor-information']}}"
+- name: Execute commands on device
+  include_tasks: "../../{{prouter_vendor}}_device_roles/tasks/{{prouter_os}}_command.yml"
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
     current_index: 1
-    jl_message: "Obtained topology information from the Juniper device [#NeighbourDevices: 1]; starting to parse information ..."
-  when: lldp_neighbor_info is mapping
-
-- name: Update job log with percentage
-  include_tasks: percentage_update.yml
-  vars:
-    current_index: 1
-    jl_message: "Obtained topology information from the Juniper device [#NeighbourDevices: {{lldp_neighbor_info|length}}]; starting to parse information ..."
-  when: lldp_neighbor_info is sequence
-
-- debug:
-    msg: "{{lldp_neighbor_info}}"
+    jl_message: "Obtained topology information from the {{prouter_vendor}} device; starting to parse information ..."
 
 - name: parse lldp info obtained to get remote system information
   set_fact:
-    parsed_lldp_neighbors_op: "{{lldp_neighbor_info | parse_neighbor_info(prouter_fqname)}}"
+    topology_discovery_result: "{{job_ctx.get('auth_token') | topology_discovery(prouter_fqname, prouter_vendor, prouter_family, device_info) }}"
 
-- debug:
-    msg: "{{parsed_lldp_neighbors_op}}"
+- name: Handle any exception or error cases
+  include_tasks: error_handler.yml
+  when: topology_discovery_result.status == 'failure'
+  vars:
+    op_err_message: "Unable to discover topology due to the following error: {{ topology_discovery_result.error_msg }}"
+    jl_err_message: "Failed to discover topology due to error. Here is the topology_discovery_log: {{topology_discovery_result.topology_discovery_log}}"
 
-- block:
-    - name: vnc-db-mod bulk query for listing all physical-interfaces for multiple devices
-      vnc_db_mod:
-        job_ctx: "{{job_ctx}}"
-        object_type: "physical_interface"
-        object_op: "bulk_query"
-        object_dict: {"fields": ['physical_interface_port_id']}
-        object_list: "{{parsed_lldp_neighbors_op.remote_neighbors_list}}"
-      register: bulk_query_prouter_resp
-
-    - debug:
-        msg: "{{bulk_query_prouter_resp}}"
-
-    - name: get remote port-id to fq_name map
-      set_fact:
-        port_id_fqname_map: "{{bulk_query_prouter_resp| get_port_id_fqname_map}}"
-
-    - debug:
-        msg: "{{port_id_fqname_map}}"
-
-    - name: get the payload for bulk ref add
-      set_fact:
-        bulk_ref_add_payload: "{{port_id_fqname_map | get_bulk_ref_add_payload(parsed_lldp_neighbors_op.neighbor_map_info_list)}}"
-
-  when: parsed_lldp_neighbors_op.do_more_parsing
-
-- set_fact:
-    bulk_ref_add_payload: "{{parsed_lldp_neighbors_op.neighbor_map_info_list}}"
-  when:  not(parsed_lldp_neighbors_op.do_more_parsing)
-
-- debug:
-    msg: "{{bulk_ref_add_payload}}"
+- name: Set the topology_discovery response
+  set_fact:
+    topology_discovery_resp: "{{topology_discovery_result.topology_discovery_resp}}"
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
     current_index: 2
-    jl_message: "Parsed the topology information. Proceeding to create links [#links: {{bulk_ref_add_payload|length}}] between the physical interfaces"
-
-- name: bulk add references between the objects and update vnc
-  vnc_db_mod:
-    job_ctx: "{{job_ctx}}"
-    object_type: "physical_interface"
-    object_dict: {"ref_type": "physical_interface", "ignore_unknown_id_err": True }
-    object_op: "bulk_ref_update"
-    object_list: "{{bulk_ref_add_payload}}"
-  register: bulk_ref_create_resp
-
-- name: Update job log with percentage
-  include_tasks: percentage_update.yml
-  vars:
-    current_index: 3
-    jl_message: "Created {{bulk_ref_create_resp['refs_upd_resp']|length}} links between the physical interfaces on Juniper device and its neighbors"
+    jl_message: "Created {{topology_discovery_resp.lldp_neighbors_success_names|length}} links between the physical interfaces on {{prouter_vendor}} device and its neighbors"
+    jl_details: {"discovered_neighbors": "{{topology_discovery_resp.lldp_neighbors_success_names}}",
+                 "skipped_neighbors": "{{topology_discovery_resp.lldp_neighbors_failed_names}}"}
