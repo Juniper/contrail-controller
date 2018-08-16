@@ -16,5 +16,5 @@
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
-        current_index: 4
+        current_index: 3
         jl_message: "Completed topology discovery"
