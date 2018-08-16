@@ -215,7 +215,7 @@
             "playbook_info": [
               {
                 "device_family": "",
-                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topo_discovery.yml",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
                 "vendor": "Juniper"
               }
             ]
@@ -266,7 +266,7 @@
                 "job_completion_weightage": 30
               },
               {
-                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topo_discovery.yml",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 20
@@ -388,7 +388,7 @@
                 "job_completion_weightage": 40
               },
               {
-                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topo_discovery.yml",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 20
