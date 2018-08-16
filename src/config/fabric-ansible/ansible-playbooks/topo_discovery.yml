@@ -5,10 +5,10 @@
   connection: local
 
   roles:
-    - Juniper.junos
     - topology_discovery_role
 
   tasks:
 
     - set_fact:
         output: "{{output }}"
+
