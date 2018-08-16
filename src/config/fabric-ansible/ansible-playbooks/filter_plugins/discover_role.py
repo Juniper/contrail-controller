@@ -6,24 +6,10 @@ import argparse
 
 from cfgm_common.exceptions import NoIdError
 from vnc_api.vnc_api import VncApi
-
+from job_manager.filter_utils import FilterLog, _task_log, _task_done,\
+    _task_error_log
 
 class FilterModule(object):
-    @staticmethod
-    def _init_logging():
-        logger = logging.getLogger('RoleDiscoveryFilter')
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(
-            '%(asctime)s %(levelname)-8s %(message)s',
-            datefmt='%Y/%m/%d %H:%M:%S'
-        )
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-        return logger
-    # end _init_logging
 
     @staticmethod
     def _init_vnc_api(job_ctx):
@@ -43,9 +29,6 @@ class FilterModule(object):
             raise ValueError('Invalid job_ctx: missing fabric_fqname')
     # end _validate_job_ctx
 
-    def __init__(self):
-        self._logger = FilterModule._init_logging()
-    # end __init__
 
     def filters(self):
         return {
@@ -55,10 +38,10 @@ class FilterModule(object):
     def discover_role(self, job_ctx, prouter_name, prouter_uuid,
                       prouter_vendor_name, prouter_product_name):
 
-        role_discovery_log = "\n"
         node_profile_refs = 0
 
         try:
+            FilterLog.instance("DiscoverRoleFilter")
             FilterModule._validate_job_ctx(job_ctx)
             fabric_fqname = job_ctx.get('fabric_fqname')
             vnc_lib = FilterModule._init_vnc_api(job_ctx)
@@ -69,92 +52,90 @@ class FilterModule(object):
                            ).lower()]
 
             # read the hardware object with this fq_name
-            role_discovery_log += "Reading the hardware object ...."
+            _task_log("Reading the hardware object")
             try:
                 hw_obj = vnc_lib.hardware_read(fq_name=hw_fq_name)
             except NoIdError as no_id_exc:
-                self._logger.info(role_discovery_log)
-                self._logger.info("\nHardware Object not present in"
-                                  "database: " + str(no_id_exc))
+                _task_log("\nHardware Object not present in "
+                          "database: " + str(no_id_exc))
                 traceback.print_exc(file=sys.stdout)
-                self._logger.info("\nCompleting role discovery for device.. ")
+                _task_log("Completing role discovery for device")
+                _task_done()
                 return {
                     'status': 'success',
                     'fabric_fqname': fabric_fqname,
                     'no_of_np_refs': node_profile_refs,
                     'device_name': prouter_name,
-                    'role_discovery_log': role_discovery_log
+                    'role_discovery_log': FilterLog.instance().dump()
                 }
 
-            role_discovery_log += "done\n"
+            _task_done()
 
             # get all the node-profile back-refs for this hardware object
-            role_discovery_log += "Getting all the node-profile back refs" \
-                                  " for the hardware: %s" % hw_fq_name[-1]
+            _task_log("Getting all the node-profile back refs" \
+                                  " for the hardware: %s" % hw_fq_name[-1])
             np_back_refs = hw_obj.get_node_profile_back_refs() or []
-            role_discovery_log += "done\n"
+            _task_done()
 
             # get the fabric object fq_name to check if the node-profile
             # is in the same fabric
-            role_discovery_log += "Fetching the fabric fq_name ..."
+            _task_log("Fetching the fabric fq_name")
             fab_fq_name = fabric_fqname.split(":")
-            role_discovery_log += "done\n"
+            _task_done()
 
             # read the fabric_object to get a list of node-profiles under
             # this fabric_object
-            role_discovery_log += "Reading the fabric object ..."
+            _task_log("Reading the fabric object")
             fabric_obj = vnc_lib.fabric_read(fq_name=fab_fq_name)
-            role_discovery_log += "done\n"
+            _task_done()
 
             # get the list of node profile_uuids under the given fabric
-            role_discovery_log += "Getting the list of node-profile-uuids" \
-                                  " under this fabric object .... "
+            _task_log("Getting the list of node-profile-uuids" \
+                                  " under this fabric object .... ")
             node_profiles_list = fabric_obj.get_node_profile_refs() or []
             node_profile_obj_uuid_list = self._get_object_uuid_list(
                 node_profiles_list)
-            role_discovery_log += "done\n"
+            _task_done()
 
             # check to see which of the node-profile back refs are in the
             # present fabric. Assumption: at present there is only a single
             # node-profile that can match a hardware under the current
             # given fabric
 
-            role_discovery_log += "Checking to see if any node-profile" \
-                                  " is under given fabric .... \n"
+            _task_log("Checking to see if any node-profile" \
+                                  " is under given fabric .... \n")
             upd_resp, node_profile_refs = self._do_role_discovery(
                 np_back_refs,
                 prouter_name,
                 vnc_lib, prouter_uuid,
                 node_profile_obj_uuid_list)
 
-            role_discovery_log += upd_resp + "\n" + "done\n"
+            _task_log(upd_resp + "\n")
+            _task_done()
 
-            self._logger.info(role_discovery_log)
             return {
                 'status': 'success',
                 'no_of_np_refs': node_profile_refs,
                 'fabric_fqname': fabric_fqname,
                 'device_name': prouter_name,
-                'role_discovery_log': role_discovery_log
+                'role_discovery_log': FilterLog.instance().dump()
             }
         except NoIdError as no_id_exc:
-            self._logger.info(role_discovery_log)
-            self._logger.error("Object not present in database: "
+            _task_error_log("Object not present in database: "
                                + str(no_id_exc))
             traceback.print_exc(file=sys.stdout)
             return {
                 'status': 'failure',
                 'error_msg': str(no_id_exc),
-                'role_discovery_log': role_discovery_log
+                'role_discovery_log': FilterLog.instance().dump()
             }
         except Exception as ex:
-            self._logger.info(role_discovery_log)
-            self._logger.error(str(ex))
+            _task_error_log(str(ex))
             traceback.print_exc(file=sys.stdout)
             return {
                 'status': 'failure',
                 'error_msg': str(ex),
-                'role_discovery_log': role_discovery_log
+                'role_discovery_log': FilterLog.instance().dump()
             }
 
     def _get_object_uuid_list(self, object_list):
@@ -179,8 +160,8 @@ class FilterModule(object):
                                                   "node_profile",
                                                   np_back_ref['uuid'],
                                                   None, 'ADD')
-                self._logger.info(ref_upd_resp)
-                upd_resp += "done\n"
+                _task_log(ref_upd_resp)
+                _task_done()
                 node_profile_refs += 1
                 # break
         return upd_resp, node_profile_refs

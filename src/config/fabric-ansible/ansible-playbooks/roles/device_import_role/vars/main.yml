@@ -1,3 +1,4 @@
 ---
 # vars file for device-import-role
 pb_input: "{{playbook_input.input}}"
+operation: import_interfaces
