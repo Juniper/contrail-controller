@@ -4,27 +4,14 @@
 - set_fact:
     job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
 
-- name: Execute "show lldp neighbors" command
-  block:
-    - juniper_junos_command:
-        commands:
-          - "show lldp neighbors interface"
-        format: xml
-        provider:
-          host: "{{junos_host}}"
-          username: "{{junos_username}}"
-          password: "{{junos_password}}"
-          port: 22
-      register: resp
-  rescue:
-    - name: Perform the necessary error handling
-      include_tasks: error_handler.yml
-      when: resp is defined and resp.failed == true
-      vars:
-        op_err_message: "{{resp.msg}}"
-        jl_err_message: "Failed to execute 'show lldp neighbors' command on Juniper device"
+- name: Execute commands on device
+  include_tasks: "../../{{prouter_vendor}}_device_roles/tasks/{{prouter_os}}_command.yml"
 
-- name: check if resp is defined with neighbor info. If not, end play and stop playbook with status success
+- name: set device info as topology_info
+  set_fact:
+    topology_info: "{{device_info}}"
+
+- name: check if topology info is defined with neighbor info. If not, end play and stop playbook with status success
   block:
     - name: End Task gracefully if no neighbors are found
       include_tasks: percentage_update.yml
@@ -34,10 +21,10 @@
     - set_fact:
         output: "{{output }}"
     - meta: end_play
-  when: '"lldp-neighbor-information" not in resp.parsed_output["lldp-neighbors-information"]'
+  when: '"lldp-neighbor-information" not in topology_info.output[0]["rpc-reply"]["lldp-neighbors-information"]'
 
 - set_fact:
-    lldp_neighbor_info: "{{resp.parsed_output['lldp-neighbors-information']['lldp-neighbor-information']}}"
+    lldp_neighbor_info: "{{topology_info.output[0]['rpc-reply']['lldp-neighbors-information']['lldp-neighbor-information']}}"
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml

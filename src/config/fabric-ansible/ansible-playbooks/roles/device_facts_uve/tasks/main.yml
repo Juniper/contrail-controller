@@ -1,28 +1,13 @@
 ---
-# tasks file for device-facts-uve
+# tasks file for device_facts_uve
 - set_fact:
     job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
 
-- name: READ JUNOS FACTS
-  block:
-    - juniper_junos_facts:
-        provider:
-          host: "{{junos_host}}"
-          username: "{{junos_username}}"
-          password: "{{junos_password}}"
-          port: 22
-          timeout: "{{JUNOS_FACTS_TIMEOUT|int}}"
-      register: dev_info
-  rescue:
-    - name: Perform the necessary error handling
-      include_tasks: error_handler.yml
-      when: "dev_info.failed == true"
-      vars:
-        op_err_message: "{{dev_info.msg}}"
-        jl_err_message: "Execute 'junos_facts' command on Juniper Device: {{prouter_name}} failed; see result for more details"
+- name: Get device facts
+  include_tasks: "../../{{prouter_vendor}}_device_roles/tasks/{{prouter_os}}_facts.yml"
 
-- set_fact:
-    device_info: "{{dev_info.facts}}"
+- set_fact: 
+    device_info: "{{device_info.facts}}"
 
 - set_fact:
     hardware_model: "{{device_info.model}}"
@@ -30,9 +15,9 @@
     os_version: "{{device_info.version}}"
     hostname: "{{device_info.hostname}}"
 
-- name: Update Job log with 'junos_facts' command successs
+- name: Update Job log with device_facts successs
   job_objectlog:
     job_ctx: "{{ job_ctx }}"
     status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
-    message: "Obtained operational state information for Juniper device: [SerialNo: {{serial_number}}, os_version: {{os_version}}, H/W Model: {{hardware_model}}, hostname: {{hostname}}]"
+    message: "Obtained operational state information for {{prouter_vendor}} device: [SerialNo: {{serial_number}}, os_version: {{os_version}}, H/W Model: {{hardware_model}}, hostname: {{hostname}}]"
     device_name: "{{prouter_name}}"

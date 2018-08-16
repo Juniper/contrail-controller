@@ -1,9 +1,15 @@
 ---
-# vars file for device-facts-uve
-
-junos_username: "{{playbook_input.device_username}}"
-junos_host: "{{playbook_input.device_management_ip}}"
+# vars file for device_facts_uve
 prouter_name: "{{playbook_input.device_fqname[-1]}}"
-junos_password: "{{playbook_input.device_password}}"
-auth_token: "{{playbook_input.auth_token}}"
 prouter_fqname: "{{playbook_input.device_fqname}}"
+prouter_vendor: "{{playbook_input.vendor | lower}}"
+
+provider: 
+  username: "{{playbook_input.device_username}}"
+  host: "{{playbook_input.device_management_ip}}"
+  password: "{{playbook_input.device_password}}"
+  timeout: "{{DEVICE_FACTS_TIMEOUT|int}}"
+  port: 22
+
+prouter_os: "{{prouter_vendor_os_map|json_query(prouter_vendor)}}"
+prouter_family: "{{playbook_input.device_family}}"
