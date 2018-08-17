@@ -139,6 +139,7 @@ OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-vroute
 
 OpEnv.Alias("src:nodemgr", sdist_gen)
 OpEnv.Alias("contrail-nodemgr", sdist_gen)
+OpEnv.Alias("nodemgr-full", sdist_gen)
 
 #dummy scons target for nodemgr test
 test_suite = [ ]

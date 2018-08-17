@@ -41,6 +41,7 @@ DatabaseEnv.Default(sdist_gen)
 DatabaseEnv.Alias("database:node_mgr", sdist_gen)
 DatabaseEnv.Alias("src/analytics/database:database", sdist_gen)
 DatabaseEnv.Alias("contrail-database", sdist_gen)
+DatabaseEnv.Alias("nodemgr-full", sdist_gen)
 
 DatabaseEnv['DATABASE_PKG'] = sdist_gen
 
