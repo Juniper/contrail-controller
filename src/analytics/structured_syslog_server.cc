@@ -5,6 +5,7 @@
 #include <utility>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <boost/asio/buffer.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/algorithm/string.hpp>
@@ -350,6 +351,19 @@ StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v) {
     return json_msg;
 }
 
+std::set<string> split(string str, char delimiter) {
+  std::set<string> internal;
+  std::stringstream ss(str); // Turn the string into a stream.
+  std::string token;
+
+  while(getline(ss, token, delimiter)) {
+    internal.insert(token);
+  }
+
+  return internal;
+}
+
+
 void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize_user) {
     SDWANMetricsRecord sdwanmetricrecord;
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
@@ -571,8 +585,9 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
       LOG(DEBUG,"UVE: KPI key :" << kpimetricdiff_key);
       sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
 
-      std::size_t destination_interface_name_found = hubs_interfaces.find(destination_interface_name);
-      if (destination_interface_name_found != std::string::npos){
+      std::set<std::string> hubsInterfaces = split(hubs_interfaces,',');
+      std::set<string>::iterator it = hubsInterfaces.find(destination_interface_name);
+      if (it != hubsInterfaces.end()){
         LOG(DEBUG,"destination_interface_name "<<destination_interface_name <<" found in hubs_interfaces" );
         sdwankpimetricrecord.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff);
       }
