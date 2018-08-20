@@ -22,6 +22,7 @@ if platform.system() == 'Windows':
         'http_parser',
         'winsw',
         'cmocka',
+#        'grpc',
     ]
 else:
     subdirs = [
@@ -36,6 +37,7 @@ else:
         'thrift',
         'openvswitch',
         'ipfix',
+ #       'grpc',
     ]
 
     (distname, version, _) = platform.dist()
