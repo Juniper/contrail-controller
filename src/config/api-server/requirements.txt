@@ -14,4 +14,4 @@ python-keystoneclient
 netifaces
 bottle
 stevedore
-kazoo
+kazoo>=2.3.0
