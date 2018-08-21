@@ -5,8 +5,8 @@
 # -*- mode: python; -*-
 # multicast directory
 
-import sys
-if sys.platform == 'darwin':
+import platform
+if platform.system() == 'Darwin':
     Return()
 
 Import('AgentEnv')

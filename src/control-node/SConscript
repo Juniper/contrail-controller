@@ -4,7 +4,7 @@
 #
 
 Import('BuildEnv')
-import sys
+import platform
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
@@ -117,7 +117,7 @@ env.Prepend(LIBS=['bgp',
                   'boost_filesystem',
                   'crypto', 'ssl'])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])
 
 libs = MapBuildDir(['base',
@@ -167,7 +167,7 @@ lib_nodeinfo = File('../base/libnodeinfo.a')
 lib_base = File('../base/libbase.a')
 lib_extend_community = File('../bgp/extended-community/libextended_community.a')
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
                       '-lbgp_l3vpn', '-lbgp_inet',

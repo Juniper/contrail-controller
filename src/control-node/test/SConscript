@@ -4,7 +4,7 @@
 
 # -*- mode: python; -*-
 Import('BuildEnv')
-import sys
+import platform
 
 env = BuildEnv.Clone()
 env.Prepend(CPPPATH = [env['TOP'],
@@ -45,7 +45,7 @@ env.Prepend(LIBS = [
                     'boost_filesystem', 'boost_program_options', 'boost_chrono'
                     ])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Append(LIBS = ['rt'])
 
 options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',

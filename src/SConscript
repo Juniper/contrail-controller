@@ -5,7 +5,6 @@
 # -*- mode: python; -*-
 # src directory
 
-import sys
 import subprocess
 import platform
 Import('contrail_common_base_doc_files')
@@ -31,7 +30,7 @@ subdirs = [
            'nodemgr',
            ]
  
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     subdirs += ['ksync']
 
 if platform.system() != 'Windows':
@@ -42,7 +41,7 @@ include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#cont
 libpath = ['#/build/lib']
 
 libs = ['boost_system', 'boost_thread', 'log4cplus']
-if sys.platform.startswith('win'):
+if platform.system() == 'Windows':
     libs.append('windowsstubs')
 else:
     libs.append('pthread')
@@ -57,30 +56,28 @@ else:
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
 
-if not sys.platform.startswith('win'):
+if platform.system() != 'Windows':
     common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
 
     if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
                                shell=True).rstrip() == "4.8.5":
         common.Append(CCFLAGS = '-Wno-narrowing -Wno-conversion-null')
 
-if not sys.platform.startswith('darwin'):
-    if platform.system().startswith('Linux'):
-       if not platform.linux_distribution()[0].startswith('XenServer'):
-          common.Append(CCFLAGS = ['-Wno-unused-local-typedefs'])
-if sys.platform.startswith('freebsd'):
+if platform.system() == 'Linux':
+    if not platform.linux_distribution()[0].startswith('XenServer'):
+        common.Append(CCFLAGS = ['-Wno-unused-local-typedefs'])
+elif platform.system() == 'FreeBSD':
     common.Append(CCFLAGS = ['-Wno-unused-local-typedefs'])
 common.Append(CPPPATH = include)
 common.Append(CCFLAGS = [common['CPPDEFPREFIX'] + 'RAPIDJSON_NAMESPACE=contrail_rapidjson'])
 
 BuildEnv = common.Clone()
 
-if sys.platform.startswith('linux'):
+if platform.system() == 'Linux':
     BuildEnv.Append(CCFLAGS = ['-DLINUX'])
-elif sys.platform.startswith('darwin'):
+elif platform.system() == 'Darwin':
     BuildEnv.Append(CCFLAGS = ['-DDARWIN'])
-
-if sys.platform.startswith('freebsd'):
+elif platform.system() == 'FreeBSD':
     BuildEnv.Prepend(LINKFLAGS = ['-lprocstat'])
 
 #

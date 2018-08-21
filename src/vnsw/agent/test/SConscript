@@ -4,8 +4,8 @@
 
 # -*- mode: python; -*-
 
-import sys
-if sys.platform == 'darwin':
+import platform
+if platform.system() == 'Darwin':
     Return()
 
 import re
@@ -31,11 +31,11 @@ env.Append(LIBS = [
         ])
 
 
-if sys.platform.startswith('freebsd'):
+if platform.system() == 'FreeBSD':
     platform_dependent = 'freebsd/test_util_tap.cc'
-elif sys.platform.startswith('linux'):
+elif platform.system() == 'Linux':
     platform_dependent = 'linux/test_util_tap.cc'
-elif sys.platform.startswith('win'):
+elif platform.system() == 'Windows':
     platform_dependent ='windows/test_util_tap.cc'
 
 test_lib_srcs = ['test_agent_init.cc',

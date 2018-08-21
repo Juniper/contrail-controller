@@ -4,7 +4,7 @@
 
 # -*- mode: python; -*-
 
-import sys
+import platform
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
@@ -24,7 +24,7 @@ optional_objs = []
 if GetOption('with_libvirt'):
     optional_objs.append(except_env.Object('libvirt_instance_adapter.cc'))
 
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     os_specific_src = ['windows/interface_params.cc', 'windows/instance_task_stub.cc']
 else:
     os_specific_src = ['nix/interface_params.cc', 'instance_task.cc']

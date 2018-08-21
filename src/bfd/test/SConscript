@@ -6,7 +6,7 @@
 
 Import('BuildEnv')
 import os
-import sys
+import platform
 
 env = BuildEnv.Clone()
 
@@ -24,7 +24,7 @@ env.Prepend(LIBS = ['bfd_udp', 'bfd', 'gunit', 'io', 'sandesh', 'sandeshvns',
                     'crypto', 'http_parser', 'curl', 'pugixml',
                     'boost_program_options', 'boost_thread'])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])
 
 except_env = env.Clone()

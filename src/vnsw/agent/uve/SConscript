@@ -4,7 +4,7 @@
 #
 
 
-import sys
+import platform
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
@@ -113,7 +113,7 @@ libuve = env.Library('uve',
                      'vrouter_uve_entry_base.cc'
                      ])
 
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     libstatsuve_os_dependent_src = ['windows/vm_stat_stub.cc']
 else:
     libstatsuve_os_dependent_src = ['vm_stat.cc', 'vm_stat_kvm.cc', 'vm_stat_docker.cc']
@@ -157,7 +157,7 @@ mockEnv.Prepend(LIBS=[
     'crypto'
     ])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     mockEnv.Append(LIBS = ['rt'])
 
 libpath = MapBuildDir(

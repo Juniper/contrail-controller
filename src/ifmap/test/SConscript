@@ -3,7 +3,7 @@
 #
 # -*- mode: python; -*-
 
-import sys
+import platform
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -29,7 +29,7 @@ env.Prepend(LIBS = ['ifmap_server', 'config_client_mgr', 'ifmapio', 'xmpp',
                     'cassandra', 'gendb', 'ifmapio',
                     'boost_program_options', 'libbgp_schema', 'boost_chrono'])
 
-if sys.platform != 'darwin':
+if platform.system() != 'Darwin':
     env.Append(LIBS = ['rt'])
 
 env.Library('ifmap_test_util',

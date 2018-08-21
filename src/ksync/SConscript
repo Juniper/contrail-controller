@@ -4,13 +4,13 @@
 
 # -*- mode: python; -*-
 
-import sys
+import platform
 
 Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = '#vrouter/include')
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     env.Append(CPPPATH = '#vrouter/windows')
 env.Append(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 env.Append(CPPPATH = env['TOP'] + '/vnsw/agent')
@@ -28,7 +28,7 @@ libksync = env.Library('ksync', SandeshGenSrcs + ['ksync_object.cc'])
 
 # KSync Netlink library
 libksyncnl_src = ['ksync_tx_queue.cc', 'ksync_netlink.cc', 'ksync_sock.cc', 'ksync_sock_user.cc']
-if sys.platform != 'win32':
+if platform.system() != 'Windows':
     libksyncnl_src.append('ksync_sock_tcp.cc')
     libksyncnl_src.append('ksync_sock_uds.cc')
 libksyncnl = env.Library('ksyncnl', libksyncnl_src)

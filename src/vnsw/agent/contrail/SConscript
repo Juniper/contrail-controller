@@ -2,15 +2,12 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import sys
-import re
-import time
-import subprocess
+import platform
 
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-if sys.platform != 'win32':
+if platform.system() != 'Windows':
     env.Append(CCFLAGS = ['-Wno-return-type', '-fexceptions', '-Wno-unused-variable'])
 
 
@@ -89,7 +86,7 @@ build_obj = [env.Object('buildinfo.cc')]
 # Add contrail-vrouter-agent specific libraries
 env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
 
-if sys.platform != 'win32':
+if platform.system() != 'Windows':
     # Whole-arhive flag causes the library to be included in the resulting output
     # even though there may not be any calls requiring its presence. We need this
     # for kstate library so that the HTML file for kstate  is listed in agent
@@ -99,11 +96,11 @@ if sys.platform != 'win32':
 
 #Add -Wno-return-type to ignore errors from thrift generated code in
 #InstanceService.h
-if sys.platform.startswith('freebsd'):
+if platform.system() == 'FreeBSD':
     platform_dependent = 'freebsd/pkt0_interface.cc'
-elif sys.platform.startswith('linux'):
+elif platform.system() == 'Linux':
     platform_dependent = 'linux/pkt0_interface.cc'
-elif sys.platform.startswith('win'):
+elif platform.system() == 'Windows':
     env.Append(LIBS = ['version'])
     platform_dependent = 'windows/pkt0_interface.cc'
 
@@ -119,7 +116,7 @@ contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
 env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
-if sys.platform == 'win32':
+if platform.system() == 'Windows':
     #Use WiX for MSI generation
     agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
     env.Append(WIXCANDLEFLAGS = ['-doptimization=' + env['OPT']])

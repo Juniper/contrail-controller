@@ -3,7 +3,7 @@
 #
 # -*- mode: python; -*-
 
-import sys
+import platform
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
@@ -26,13 +26,12 @@ env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh',
                   'ssl', 'crypto', 'gunit', 'boost_regex', 'boost_filesystem',
                   'cpuinfo', 'pugixml'])
 
-if sys.platform != 'darwin':
-    if sys.platform != 'win32':
+if platform.system() != 'Darwin':
+    if platform.system() == 'Windows':
+        env.Append(LIBS = ['advapi32', 'gdi32', 'user32'])
+    else:
         env.Append(LIBS=['rt'])
     env.Prepend(LIBS=['ksync', 'ksyncnl'])
-
-if sys.platform == 'win32':
-    env.Append(LIBS = ['advapi32', 'gdi32', 'user32'])
 
 libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
                     'base', 'base/test', 'boost_regex', 'route', 'schema',
