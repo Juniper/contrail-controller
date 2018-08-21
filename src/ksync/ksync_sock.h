@@ -538,6 +538,7 @@ class KSyncSockTcpSession : public TcpSession {
 public:
     KSyncSockTcpSession(TcpServer *server, Socket *sock,
                         bool async_ready = false);
+    virtual ~KSyncSockTcpSession();
 protected:
     virtual void OnRead(Buffer buffer);
 private:
