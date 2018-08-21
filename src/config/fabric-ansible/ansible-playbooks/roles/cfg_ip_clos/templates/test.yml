@@ -67,9 +67,7 @@
               "uuid": "8a99b692-9216-4db6-aeb2-a09ae5344845",
               "name": "et-0/0/32.0",
               "unit": 0,
-              "ip_list": [{
-                "address": "30.1.1.2"
-              }]
+              "ip_list": ["30.1.1.2"]
             }],
             "name": "et-0/0/32",
             "uuid": "787af41c-b4fb-41fb-abd5-53553e0f198c"
@@ -80,9 +78,7 @@
               "uuid": "a6db1977-9061-4368-b1a2-f380600d9106",
               "name": "et-0/0/33.0",
               "unit": 0,
-              "ip_list": [{
-                "address": "30.1.1.6"
-              }]
+              "ip_list": ["30.1.1.6"]
             }],
             "name": "et-0/0/33",
             "uuid": "73556900-64cf-4330-8270-93b9facb0514"
@@ -93,17 +89,13 @@
               "uuid": "32c4f38b-ae59-4822-a883-fd5a69f1c465",
               "name": "lo0.0",
               "unit": 0,
-              "ip_list": [{
-                "address": "20.1.1.252"
-              }]
+              "ip_list": ["20.1.1.252"]
             }],
             "name": "lo0",
             "uuid": "e6d5d7a4-5223-4fb7-9a3b-fbbeb2240846"
           }],
           "system": {
-            "loopback_ip_list": [{
-              "address": "20.1.1.252"
-            }],
+            "loopback_ip_list": ["20.1.1.252"],
             "name": "DK588",
             "device_family": "junos-qfx",
             "management_ip": "192.168.10.3",
