@@ -570,8 +570,8 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
       std::string kpimetricdiff_key(routing_instance+"::"+destination_address);
       LOG(DEBUG,"UVE: KPI key :" << kpimetricdiff_key);
       sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
-
-      std::size_t destination_interface_name_found = hubs_interfaces.find(destination_interface_name);
+      std::string searchHubInterface = destination_interface_name + ",";
+      std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
       if (destination_interface_name_found != std::string::npos){
         LOG(DEBUG,"destination_interface_name "<<destination_interface_name <<" found in hubs_interfaces" );
         sdwankpimetricrecord.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff);
