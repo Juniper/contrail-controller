@@ -25,14 +25,6 @@ class OverlayConf(AnsibleRoleCommon):
         return super(OverlayConf, cls).register(qconf)
     # end register
 
-    def build_evpn_config(self):
-        return Evpn(encapsulation='vxlan')
-    # end build_evpn_config
-
-    def is_l3_supported(self, vn):
-        return '_lr_internal_vn_' in vn.name
-    # end is_l3_supported
-
     def push_conf(self, is_delete=False):
         if not self.physical_router:
             return 0

@@ -52,24 +52,15 @@ class AnsibleConf(AnsibleBase):
 
     def initialize(self):
         super(AnsibleConf, self).initialize()
-        self.system_config = None
         self.evpn = None
         self.bgp_configs = None
         self.ri_config = None
-        self.routing_instances = {}
         self.interfaces_config = None
-        self.services_config = None
-        self.policy_config = None
         self.firewall_config = None
         self.inet4_forwarding_filter = None
         self.inet6_forwarding_filter = None
-        self.forwarding_options_config = None
-        self.global_routing_options_config = None
-        self.global_switch_options_config = None
         self.vlans_config = None
-        self.route_targets = set()
         self.bgp_peers = {}
-        self.chassis_config = None
         self.external_peers = {}
         self.timeout = 120
         self.push_config_state = PushConfigState.PUSH_STATE_INIT
@@ -96,12 +87,12 @@ class AnsibleConf(AnsibleBase):
         if self.physical_router.loopback_ip is not None:
             already_added = False
             for loopback_ip in self.system_config.get_loopback_ip_list():
-                if loopback_ip.get_address() == self.physical_router.loopback_ip:
+                if loopback_ip == self.physical_router.loopback_ip:
                     already_added = True
                     break
             if not already_added:
-                self.system_config.add_loopback_ip_list(IpType(
-                    address=self.physical_router.loopback_ip))
+                self.system_config.add_loopback_ip_list(
+                    self.physical_router.loopback_ip)
     # end update_system_config
 
     def fetch_pi_li_iip(self, physical_interfaces):
@@ -144,7 +135,7 @@ class AnsibleConf(AnsibleBase):
                 li = LogicalInterface(uuid=li_obj.uuid, name=li_obj.name,
                                       unit=int(li_obj.name.split('.')[-1]),
                                       comment=DMUtils.ip_clos_comment())
-                li.add_ip_list(IpType(address=iip_obj.instance_ip_address))
+                li.add_ip_list(iip_obj.instance_ip_address)
                 pi.add_logical_interfaces(li)
                 self.interfaces_config.append(pi)
 
@@ -260,7 +251,6 @@ class AnsibleConf(AnsibleBase):
         device.set_routing_instances(self.ri_config)
         device.set_physical_interfaces(self.interfaces_config)
         device.set_vlans(self.vlans_config)
-        device.set_policies(self.policy_config)
         device.set_firewall(self.firewall_config)
         return device
     # end prepare_conf
@@ -318,34 +308,6 @@ class AnsibleConf(AnsibleBase):
             parent.add_families(family)
     # end add_families
 
-    def add_ibgp_export_policy(self, params, bgp_group):
-        if params.get('address_families') is None:
-            return
-        families = params['address_families'].get('family', [])
-        if not families:
-            return
-        if self.policy_config is None:
-            self.policy_config = Policy(
-                comment=DMUtils.policy_options_comment())
-        ps = PolicyRule(name=DMUtils.make_ibgp_export_policy_name())
-        self.policy_config.add_policy_rule(ps)
-        ps.set_comment(DMUtils.ibgp_export_policy_comment())
-        vpn_types = []
-        for family in ['inet-vpn', 'inet6-vpn']:
-            if family in families:
-                vpn_types.append(family)
-        for vpn_type in vpn_types:
-            is_v6 = True if vpn_type == 'inet6-vpn' else False
-            term = Term(name=DMUtils.make_ibgp_export_policy_term_name(is_v6))
-            ps.add_term(term)
-            then = Then()
-            from_ = From()
-            term.set_from(from_)
-            term.set_then(then)
-            from_.set_family(DMUtils.get_inet_family_name(is_v6))
-        bgp_group.set_export_policy(DMUtils.make_ibgp_export_policy_name())
-    # end add_ibgp_export_policy
-
     def add_bgp_auth_config(self, bgp_config, bgp_params):
         if bgp_params.get('auth_data') is None:
             return
@@ -376,7 +338,6 @@ class AnsibleConf(AnsibleBase):
         else:
             bgp.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
             bgp.set_type('internal')
-            self.add_ibgp_export_policy(self.bgp_params, bgp)
         bgp.set_ip_address(self.bgp_params['address'])
         bgp.set_autonomous_system(self.get_asn())
         self.add_families(bgp, self.bgp_params)
