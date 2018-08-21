@@ -44,7 +44,6 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def initialize(self):
         super(AnsibleRoleCommon, self).initialize()
-        self.global_switch_options_config = None
         self.chassis_config = None
         self.vlans_config = None
         self.irb_interfaces = []
@@ -93,9 +92,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 comment=DMUtils.vn_irb_comment(vn, False, is_l2_l3))
             irb_intf.add_logical_interfaces(intf_unit)
             for (irb_ip, gateway) in gateways:
-                ip = IpType(address=irb_ip,
-                            comment=DMUtils.irb_ip_comment(irb_ip))
-                intf_unit.add_ip_list(ip)
+                intf_unit.add_ip_list(irb_ip)
                 if len(gateway) and gateway != '0.0.0.0':
                     intf_unit.set_gateway(gateway)
     # end add_irb_config
@@ -110,7 +107,7 @@ class AnsibleRoleCommon(AnsibleConf):
         intf_unit = LogicalInterface(
             name="lo0." + str(ifl_num), unit=ifl_num,
             comment=DMUtils.l3_bogus_lo_intf_comment(vn))
-        intf_unit.add_ip_list(IpType(address="127.0.0.1"))
+        intf_unit.add_ip_list("127.0.0.1")
         lo_intf.add_logical_interfaces(intf_unit)
         ri.add_loopback_interfaces(LogicalInterface(name="lo0." + str(ifl_num)))
     # end add_bogus_lo0
@@ -160,8 +157,6 @@ class AnsibleRoleCommon(AnsibleConf):
 
         self.routing_instances[ri_name] = ri_conf
         self.ri_config = self.ri_config or []
-        self.policy_config = self.policy_config or\
-                             Policy(comment=DMUtils.policy_options_comment())
         ri = RoutingInstance(name=ri_name)
         if vn:
             is_nat = True if fip_map else False
@@ -230,37 +225,6 @@ class AnsibleRoleCommon(AnsibleConf):
                     public_routing_instance=public_vrf,
                     floating_ips=floating_ips))
 
-        # add policies for export route targets
-        p = PolicyRule(name=DMUtils.make_export_name(ri_name))
-        p.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
-        then = Then()
-        p.add_term(Term(name="t1", then=then))
-        for route_target in export_targets:
-            then.add_community(DMUtils.make_community_name(route_target))
-        then.set_accept_or_reject(True)
-        self.policy_config.add_policy_rule(p)
-
-        # add policies for import route targets
-        p = PolicyRule(name=DMUtils.make_import_name(ri_name))
-        p.set_comment(DMUtils.vn_ps_comment(vn, "Import"))
-
-        # add term switch policy
-        from_ = From()
-        term = Term(name=DMUtils.get_switch_policy_name(), fromxx=from_)
-        p.add_term(term)
-        from_.add_community(DMUtils.get_switch_policy_name())
-        term.set_then(Then(accept_or_reject=True))
-
-        from_ = From()
-        term = Term(name="t1", fromxx=from_)
-        p.add_term(term)
-        for route_target in import_targets:
-            from_.add_community(DMUtils.make_community_name(route_target))
-            if not is_internal_vn:
-                self.add_vni_option(vni or network_id, route_target)
-        term.set_then(Then(accept_or_reject=True))
-        self.policy_config.add_policy_rule(p)
-
         # add firewall config for public VRF
         if router_external and is_l2 is False:
             self.firewall_config = self.firewall_config or Firewall(
@@ -299,7 +263,7 @@ class AnsibleRoleCommon(AnsibleConf):
             term = Term(name=DMUtils.make_vrf_term_name(ri_name))
             from_ = From()
             for fip_user_ip in fip_map.keys():
-                from_.add_source_address(fip_user_ip)
+                from_.add_source_address(self.get_subnet_for_cidr(fip_user_ip))
             term.set_from(from_)
             term.set_then(Then(routing_instance=[ri_name]))
             f.add_terms(term)
@@ -337,7 +301,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     irb_intf = "irb." + str(network_id)
                     vlan.add_interfaces(LogicalInterface(name=irb_intf))
             elif highest_encapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
-                self.evpn = Evpn(encapsulation=highest_encapsulation_priority)
+                self.init_evpn_config(highest_encapsulation_priority)
                 self.evpn.set_comment(
                     DMUtils.vn_evpn_comment(vn, highest_encapsulation_priority))
                 for interface in interfaces:
@@ -349,7 +313,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
         if (not is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
-            self.evpn = self.build_evpn_config()
+            self.init_evpn_config()
             if not is_internal_vn:
                 # add vlans
                 self.add_ri_vlan_config(ri_name, vni)
@@ -370,8 +334,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     lo_ip = ip + '/' + '128'
                 else:
                     lo_ip = ip + '/' + '32'
-                intf_unit.add_ip_list(IpType(
-                    address=lo_ip, comment=DMUtils.lo0_ip_comment(subnet)))
+                intf_unit.add_ip_list(lo_ip)
             ri.add_loopback_interfaces(LogicalInterface(
                 name="lo0." + str(ifl_num),
                 comment=DMUtils.lo0_ri_intf_comment(vn)))
@@ -510,85 +473,15 @@ class AnsibleRoleCommon(AnsibleConf):
                             name=unit_name))
     # end build_l2_evpn_interface_config
 
-    @abc.abstractmethod
-    def build_evpn_config(self):
-        """build evpn config depending on qfx model"""
-    # end build_evpn_config
-
-    def init_evpn_config(self):
+    def init_evpn_config(self, encapsulation='vxlan'):
         if not self.routing_instances:
             # no vn config then no need to configure evpn
             return
         if self.evpn:
             # evpn init done
             return
-        self.evpn = self.build_evpn_config()
+        self.evpn = Evpn(encapsulation=encapsulation)
     # end init_evpn_config
-
-    def add_vni_option(self, vni, vrf_target):
-        if not self.evpn:
-            self.init_evpn_config()
-
-    def init_global_switch_opts(self):
-        if self.global_switch_options_config is None:
-            self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
-        self.global_switch_options_config.set_vtep_source_interface("lo0.0")
-        if not self.routing_instances:
-            # no vn config then no need to configure vrf target
-            return
-        self.global_switch_options_config.add_vrf_target(VniTarget(auto=''))
-        switch_options_community = DMUtils.get_switch_vrf_import(self.get_asn())
-        self.global_switch_options_config.add_vrf_target(VniTarget(community=switch_options_community))
-        self.set_global_export_policy()
-    # end init_global_switch_opts
-
-    def set_global_export_policy(self):
-        export_policy = DMUtils.get_switch_export_policy_name()
-        ps = PolicyStatement(name=export_policy)
-        ps.set_comment(DMUtils.switch_export_policy_comment())
-
-        export_community = DMUtils.get_switch_export_community_name()
-        then = Then()
-        comm = Community(add='', community_name=export_community)
-        then.add_community(comm)
-        ps.add_term(Term(name="t1", then=then))
-
-        if not self.policy_config:
-            self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
-        self.policy_config.add_policy_statement(ps)
-        if not self.global_switch_options_config:
-            self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
-        self.global_switch_options_config.add_vrf_export(export_policy)
-    # end set_global_export_policy
-
-    def add_to_global_switch_opts(self, policy, is_import):
-        if not self.global_switch_options_config:
-            self.init_global_switch_opts()
-        if is_import:
-            self.global_switch_options_config.add_vrf_import(policy)
-        else:
-            self.global_switch_options_config.add_vrf_export(policy)
-    # end add_to_global_switch_opts
-
-    def set_route_targets_config(self):
-        self.policy_config = self.policy_config or\
-                             Policy(comment=DMUtils.policy_options_comment())
-        # add export community
-        export_comm = CommunityType(name=DMUtils.get_switch_export_community_name())
-        for route_target in self.route_targets:
-            comm = CommunityType(name=DMUtils.make_community_name(route_target))
-            comm.add_members(route_target)
-            self.policy_config.add_community(comm)
-            # add route-targets to export community
-            export_comm.add_members(route_target)
-        # if no members, no need to add community
-        if export_comm.get_members():
-            self.policy_config.add_community(export_comm)
-        # add community for switch options
-        comm = CommunityType(name=DMUtils.get_switch_policy_name())
-        comm.add_members(DMUtils.get_switch_vrf_import(self.get_asn()))
-        self.policy_config.add_community(comm)
-    # end set_route_targets_config
 
     def add_vlan_config(self, vrf_name, vni, is_l2_l3=False, irb_intf=None):
         self.vlans_config = self.vlans_config or []
@@ -607,25 +500,6 @@ class AnsibleRoleCommon(AnsibleConf):
         self.vlans_config = self.vlans_config or []
         self.vlans_config.append(Vlan(name=vrf_name[1:], vlan_id=vni, vxlan_id=vni))
     # end add_ri_vlan_config
-
-    # Product Specific configuration, called from parent class
-    def add_product_specific_config(self, groups):
-        groups.set_switch_options(self.global_switch_options_config)
-        if self.vlans_config:
-            groups.set_vlans(self.vlans_config)
-        if self.chassis_config:
-            groups.set_chassis(self.chassis_config)
-    # end add_product_specific_config
-
-    def set_route_distinguisher_config(self):
-        if not self.routing_instances or not self.bgp_params.get('identifier'):
-            # no vn config then no need to configure route distinguisher
-            return
-        if self.global_switch_options_config is None:
-            self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
-        self.global_switch_options_config.set_route_distinguisher(
-                                 RouteDistinguisher(rd_type=self.bgp_params['identifier'] + ":1"))
-    # end set_route_distinguisher_config
 
     def build_esi_config(self):
         pr = self.physical_router
@@ -761,16 +635,6 @@ class AnsibleRoleCommon(AnsibleConf):
         return False
     # end is_l3_supported
 
-    def set_resolve_bgp_route_target_family_config(self):
-        """ configure resolution config in global routing options if needed """
-        if not self.global_routing_options_config:
-            self.global_routing_options_config = RoutingOptions(
-                                       comment=DMUtils.routing_options_comment())
-        resolve = Resolution(rib=RIB(name="bgp.rtarget.0",
-                                       resolution_ribs="inet.0"))
-        self.global_routing_options_config.set_resolution(resolve)
-    # end set_resolve_bgp_route_target_family_config
-
     def set_chassis_config(self):
         device_count =  DMUtils.get_max_ae_device_count()
         aggr_devices = AggregatedDevices(Ethernet(device_count=device_count))
@@ -812,9 +676,11 @@ class AnsibleRoleCommon(AnsibleConf):
         from_ = term.get_from() or From()
         term.set_from(from_)
         if is_src:
-            from_.add_ip_source_address(str(subnet_ip) + "/" + str(subnet_len))
+            from_.add_source_address(Subnet(prefix=subnet_ip,
+                                            prefix_len=subnet_len))
         else:
-            from_.add_ip_destination_address(str(subnet_ip) + "/" + str(subnet_len))
+            from_.add_destination_address(Subnet(prefix=subnet_ip,
+                                                 prefix_len=subnet_len))
     # end add_addr_term
 
     def add_port_term(self, term, port_match, is_src):
@@ -1136,7 +1002,6 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_firewall_config()
         self.build_esi_config()
         self.build_lag_config()
-        self.set_route_targets_config()
     # end set_common_config
 
     @staticmethod

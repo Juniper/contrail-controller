@@ -13,9 +13,9 @@ delete protocols rstp interface {{ifd.name}}
 delete interfaces {{ifd.name}} unit {{ifl.unit}}
 set interfaces {{ifd.name}} unit {{ifl.unit}} family inet
 {%                 if ifl.name == 'lo0.0' %}
-set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0].address}}/32
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0]}}/32
 {%                 else %}
-set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0].address}}/30
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0]}}/30
 {%                 endif %}
 {%             endfor %}
 {%         endif %}
@@ -35,7 +35,7 @@ set groups {{cfg_group}} routing-options forwarding-table export PFE-LB
 set groups {{cfg_group}} routing-options forwarding-table ecmp-fast-reroute
 {%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
 {%     if loopback_ip_list|length > 0 %}
-{%         set loopback_ip = loopback_ip_list[0].get('address') %}
+{%         set loopback_ip = loopback_ip_list[0] %}
 {%         if loopback_ip %}
 set groups {{cfg_group}} routing-options router-id {{loopback_ip}}
 set groups {{cfg_group}} routing-options route-distinguisher-id {{loopback_ip}}
