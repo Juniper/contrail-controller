@@ -11,8 +11,8 @@ set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
 {%                 set unit = li.get('unit') %}
 {%                 set gw = li.get('gateway') %}
 {%                 set family = 'inet' %}
-{%                 for ipad in li.get('ip_list', []) %}
-set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} family {{family}} address {{ipad.get('address')}} virtual-gateway-address {{gw}}
+{%                 for ip_addr in li.get('ip_list', []) %}
+set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} virtual-gateway-address {{gw}}
 {%                 endfor %}
 set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} proxy-macip-advertisement
 {%             endfor %}

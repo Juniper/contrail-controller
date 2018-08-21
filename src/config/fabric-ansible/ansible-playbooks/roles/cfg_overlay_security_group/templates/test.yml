@@ -99,7 +99,7 @@
                                       "accept_or_reject": true
                                   },
                                   "from" : {
-                                      "ip_destination_address" : ["10.3.3.4/24", "10.3.4.5/21"],
+                                      "destination_address" : ["10.3.3.4/24", "10.3.4.5/21"],
                                       "source_ports" : ["81", "82"]
                                   }
                               }
@@ -115,7 +115,7 @@
                                       "accept_or_reject": true
                                   },
                                   "from" : {
-                                      "ip_destination_address" : ["10.3.3.4/24", "10.3.4.5/21"],
+                                      "destination_address" : ["10.3.3.4/24", "10.3.4.5/21"],
                                       "source_ports" : ["81", "82"],
                                       "ip_protocol" : 17
                                   }
@@ -248,11 +248,7 @@
                     "user_name": "root"
                 },
                 "device_family": "junos-qfx",
-                "loopback_ip_list": [
-                    {
-                        "address": "7.7.7.131"
-                    }
-                ],
+                "loopback_ip_list": ["7.7.7.131"],
                 "management_ip": "10.84.159.131",
                 "name": "5b11-qfx7",
                 "product_name": "qfx5100-48s-6q",
