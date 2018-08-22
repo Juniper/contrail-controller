@@ -1,9 +1,3 @@
-delete apply-groups {{cfg_group}}
-delete groups {{cfg_group}}
-
-{% if device_abstract_config is defined and device_abstract_config != None %}
-set groups {{cfg_group}}
-
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
 {%         if phy_int.get('interface_type') != 'irb' %}
 {%             for li in phy_int.get('logical_interfaces', []) %}
@@ -56,6 +50,3 @@ set groups __contrail_{{feature}}__ switch-options vrf-target auto
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
-
-set apply-groups {{cfg_group}}
-{% endif %}

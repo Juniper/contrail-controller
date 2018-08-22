@@ -24,6 +24,7 @@ setup_sources = [
            'roles',
            'schema',
            'filter_plugins',
+           'templates',
           ]
 
 setup_sources_rules = []
