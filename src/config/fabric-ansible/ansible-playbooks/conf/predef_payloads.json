@@ -501,6 +501,20 @@
         },
         {
           "fq_name": [
+            "default-global-system-config", "juniper-qfx5110"
+          ],
+          "name": "juniper-qfx5110",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_physical_roles": {
+            "physical_role": [ "leaf", "spine" ]
+          },
+          "node_profile_routing_bridging_roles": {
+            "rb_role": [ "CRB-Gateway", "CRB-Access", "DC-Gateway" ]
+          }
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "juniper-qfx10k"
           ],
           "name": "juniper-qfx10k",
@@ -549,6 +563,30 @@
         {
           "fq_name": [
             "default-global-system-config", "juniper-qfx5k", "ip_clos"
+          ],
+          "name": "ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-qfx5110", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-qfx5110", "ip_clos"
           ],
           "name": "ip_clos",
           "parent_type": "node-profile",
@@ -628,7 +666,7 @@
     },
     {
       "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5110" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5110-48s-4c" ]
     },
@@ -695,6 +733,18 @@
     {
       "from_type": "role_config",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k", "ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5110", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5110", "ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
