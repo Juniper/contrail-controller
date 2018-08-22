@@ -1,9 +1,3 @@
-{%- set cfg_group = "__contrail_" + feature + "__" %}
-delete apply-groups {{cfg_group}}
-delete groups {{cfg_group}}
-
-{% if device_abstract_config is defined and device_abstract_config != None %}
-set groups {{cfg_group}}
 {%     for bgp in device_abstract_config.get('bgp', []) %}
 {%         if feature in bgp.get('comment') %}
 {%             set contrail_asn_group = '_contrail_asn-'+(bgp.autonomous_system|string) %}
@@ -41,5 +35,3 @@ set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} export _cont
 {%             endif %}
 {%         endif %}
 {%     endfor %}
-set apply-groups {{cfg_group}}
-{% endif %}
