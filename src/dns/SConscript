@@ -51,40 +51,41 @@ if platform.system() not in ['Windows', 'Darwin']:
                       '-lcpuinfo', '-lprocess_info', '-lnodeinfo',
                       '-Wl,--no-whole-archive'])
 
-contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
-env.Alias('contrail-dns', contrail_dns)
-env.Default(contrail_dns)
+if platform.system() != 'Windows':
+    contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
+    env.Alias('contrail-dns', contrail_dns)
+    env.Default(contrail_dns)
 
-# Documentation
-doc_files = []
-doc_files += env['BASE_DOC_FILES']
-doc_files += env['IO_DOC_FILES']
-doc_files += env['DB_DOC_FILES']
-doc_files += env['SANDESH_DOC_FILES']
-doc_files += env['IFMAP_CLIENT_DOC_FILES']
-doc_files += env['XMPP_DOC_FILES']
-doc_files += env.SandeshGenDoc('uve/uve.sandesh')
-doc_files += env.SandeshGenDoc('bind/bind.sandesh')
+    # Documentation
+    doc_files = []
+    doc_files += env['BASE_DOC_FILES']
+    doc_files += env['IO_DOC_FILES']
+    doc_files += env['DB_DOC_FILES']
+    doc_files += env['SANDESH_DOC_FILES']
+    doc_files += env['IFMAP_CLIENT_DOC_FILES']
+    doc_files += env['XMPP_DOC_FILES']
+    doc_files += env.SandeshGenDoc('uve/uve.sandesh')
+    doc_files += env.SandeshGenDoc('bind/bind.sandesh')
 
-# Please update sandesh/common/vns.sandesh on process name change
-env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_dns))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-dns.conf'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] + 
-    '/dns', 'applynamedconfig.py'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] +
-    '/supervisord_control_files/', 'contrail-dns.ini'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] + 
-    '/supervisord_control_files/', 'contrail-named.ini'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
-    '/contrail-dns', 'contrail-dns.initd.supervisord'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
-    '/contrail-named', 'contrail-named.initd.supervisord'))
-env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-    '/contrail-dns.service', 'systemd/contrail-dns.service'))
-env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-    '/contrail-named.service', 'systemd/contrail-named.service'))
-env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
-    '/contrail-dns/', doc_files))
+    # Please update sandesh/common/vns.sandesh on process name change
+    env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_dns))
+    env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-dns.conf'))
+    env.Alias('install', env.Install(env['INSTALL_CONF'] +
+        '/dns', 'applynamedconfig.py'))
+    env.Alias('install', env.Install(env['INSTALL_CONF'] +
+        '/supervisord_control_files/', 'contrail-dns.ini'))
+    env.Alias('install', env.Install(env['INSTALL_CONF'] +
+        '/supervisord_control_files/', 'contrail-named.ini'))
+    env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
+        '/contrail-dns', 'contrail-dns.initd.supervisord'))
+    env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
+        '/contrail-named', 'contrail-named.initd.supervisord'))
+    env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
+        '/contrail-dns.service', 'systemd/contrail-dns.service'))
+    env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
+        '/contrail-named.service', 'systemd/contrail-named.service'))
+    env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
+        '/contrail-dns/', doc_files))
 
 DnsEnv = env.Clone()
 DnsEnv.CppDisableExceptions()
