@@ -10,6 +10,52 @@
         vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ feature }}"
         feature_role_dir: "./roles/cfg_{{ feature }}"
         hardware: "{{ device_vendor }}-{{ device_model }}"
+        cfg_group: "__contrail_{{ feature }}__"
+
+    - name: Check whether Jinja file exists for this vendor/family/feature
+      stat:
+        path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
+      register: p
+
+    - name: Mark if found
+      block:
+        - set_fact:
+            found_template: True
+      when: p.stat.exists
+
+    - name: Calculate feature name specific to the vendor only
+      block:
+        - set_fact:
+            vf_feature: "{{ device_vendor }}_{{ feature }}"
+        - name: Check whether Jinja file exists for this vendor/feature
+          stat:
+            path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
+          register: p1
+        - name: Mark if found
+          block:
+            - set_fact:
+                found_template: True
+          when: p1.stat.exists
+      when: found_template == False
+
+    - set_fact:
+        feature_template: "{{ vf_feature }}.j2"
+
+#    - name: Delete feature config to handle role edit/role delete scenerio
+#      block:
+#        - debug: msg="Generate delete config for '{{ feature }}' for {{ device_vendor }} {{ device_family }} {{ device_name }}" verbosity=1
+#        - template:
+#            src: "{{ vf_feature }}_delete.j2"
+#            dest: "{{ temp_dir }}/{{ vf_feature }}_delete.conf"
+#          register: cmd_res
+#        - name: print command response
+#          debug: var=cmd_res verbosity=1
+#      rescue:
+#        - set_fact:
+#            output: {
+#              "status": "Failure",
+#              "message": "{{cmd_res.msg}}"
+#            }
 
     - name: Handle the null rb_role case
       set_fact:
@@ -46,32 +92,6 @@
             feature_needed: False
       when: feature not in feature_list
 
-    - name: Check whether Jinja file exists for this vendor/family/feature
-      stat:
-        path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
-      register: p
-
-    - name: Mark if found
-      block:
-        - set_fact:
-            found_template: True
-      when: p.stat.exists
-
-    - name: Calculate feature name specific to the vendor only
-      block:
-        - set_fact:
-            vf_feature: "{{ device_vendor }}_{{ feature }}"
-        - name: Check whether Jinja file exists for this vendor/feature
-          stat:
-            path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
-          register: p1
-        - name: Mark if found
-          block:
-            - set_fact:
-                found_template: True
-          when: p1.stat.exists
-      when: found_template == False
-
     - name: Check whether feature is needed
       debug: msg="Feature {{ vf_feature }} not found, skipping..."
       when: found_template == False
@@ -80,8 +100,8 @@
       block:
         - debug: msg="Generate '{{ feature }}' for {{ device_vendor }} {{ device_family }} {{ device_name }}" verbosity=1
         - template:
-            src: "{{ vf_feature }}.j2"
-            dest: "{{ conf_dir }}/build_config/{{ vf_feature }}.conf"
+            src: "feature_config.j2"
+            dest: "{{ temp_dir }}/{{ vf_feature }}.conf"
           register: cmd_res
         - name: print command response
           debug: var=cmd_res verbosity=1
@@ -101,3 +121,6 @@
             device_name: "{{ device_name }}"
         - meta: end_play
       when: feature_needed == True and found_template == True
+
+#    - name: Assembling delete and set configurations and copying to build_config folder
+#      assemble: src={{ temp_dir }} dest={{ conf_dir }}/build_config/{{ vf_feature }}.conf
