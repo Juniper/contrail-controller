@@ -1,9 +1,3 @@
-{%- set cfg_group = "__contrail_" + feature + "__" %}
-delete apply-groups {{cfg_group}}
-delete groups {{cfg_group}}
-
-{% if device_abstract_config is defined and device_abstract_config != None %}
-set groups {{cfg_group}}
 {%     set rib_name = 'bgp.rtarget.0' %}
 {%     set resolution_rib = 'inet.0' %}
 {%     for bgp in device_abstract_config.get('bgp', []) %}
@@ -40,5 +34,3 @@ set groups __contrail_{{feature}}__ protocols bgp group {{bgp_group_name}} neigh
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
-set apply-groups {{cfg_group}}
-{% endif %}
