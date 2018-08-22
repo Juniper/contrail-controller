@@ -95,6 +95,8 @@ supported_roles:
   juniper-qfx5110-48s-4c:
     - CRB-Access@leaf
     - null@spine
+    - CRB-Gateway@spine
+    - DC-Gateway@spine
   juniper-qfx5200-32c-32q:
     - CRB-Access@leaf
     - null@spine
