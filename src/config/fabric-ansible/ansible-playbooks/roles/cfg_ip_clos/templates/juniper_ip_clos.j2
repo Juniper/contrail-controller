@@ -1,6 +1,4 @@
 {%- set cfg_group = "__contrail_" + feature + "__" %}
-delete apply-groups {{cfg_group}}
-delete groups {{cfg_group}}
 
 {% if device_abstract_config is defined and device_abstract_config != None %}
 {%     for ifd in device_abstract_config.get('physical_interfaces', []) %}

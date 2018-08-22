@@ -1,13 +1,6 @@
-{%- set cfg_group = "__contrail_" + feature + "__" %}
-delete apply-groups __contrail__
-delete groups __contrail__
-delete apply-groups {{cfg_group}}
-delete groups {{cfg_group}}
-
 {% if additional_feature_params is defined and additional_feature_params != None %}
 {%-    set feature_params = additional_feature_params.get(feature) %}
 {%     if feature_params != None %}
-set groups {{cfg_group}}
 {%         for community in feature_params.get('snmp', {}).get('communities', []) %}
 set groups {{cfg_group}} snmp community {{community.name}} authorization {{'read-only' if community.readonly else 'read-write'}}
 {%         endfor %}
@@ -16,6 +9,5 @@ set groups {{cfg_group}} snmp community {{community.name}} authorization {{'read
 set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{route.nexthop}}
 {%             endfor %}
 {%         endfor %}
-set apply-groups {{cfg_group}}
 {%     endif %}
 {% endif %}
