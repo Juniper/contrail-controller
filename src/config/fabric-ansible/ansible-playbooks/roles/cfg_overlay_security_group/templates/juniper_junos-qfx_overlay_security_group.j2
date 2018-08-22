@@ -1,9 +1,3 @@
-{%- set cfg_group = "__contrail_" + feature + "__" %}
-delete apply-groups {{cfg_group}}
-delete groups {{cfg_group}}
-
-{% if device_abstract_config is defined and device_abstract_config != None %}
-set groups {{cfg_group}}
 {%     set firewall = device_abstract_config.get('firewall') %}
 {%     if firewall != None %}
 {%         set firewall_filters = firewall.get('firewall_filters', []) %}
@@ -63,5 +57,3 @@ set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family ethern
 {%             endfor %}
 {%         endfor %}
 {%     endfor %}
-set apply-groups {{cfg_group}}
-{% endif %}

@@ -16,6 +16,7 @@
     device_mgmt_ip: "{{ device_info.management_ip }}"
     device_phy_role: "{{ device_info.physical_role }}"
     device_rb_roles: "{{ device_info.routing_bridging_roles if device_info.routing_bridging_roles is defined else [] }}"
+    is_delete: "{{ input.is_delete }}"
     output: {"status":"", "message":"", "results":""}
 
   pre_tasks:

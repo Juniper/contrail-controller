@@ -1,9 +1,3 @@
-delete apply-groups {{cfg_group}}
-delete groups {{cfg_group}}
-
-{% if device_abstract_config is defined and device_abstract_config != None %}
-set groups {{cfg_group}}
-
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         if (ri.get('routing_instance_type') == 'virtual-switch') or (ri.get('virtual_network_is_internal') == true) or ((ri.get('routing_instance_type') == 'vrf') and (ri.get('is_public_network') == true)) %}
 {%             set vrf_import = ri.name+'-import' %}
@@ -48,6 +42,3 @@ set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{vxlan_id}} 
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
-
-set apply-groups {{cfg_group}}
-{% endif %}
