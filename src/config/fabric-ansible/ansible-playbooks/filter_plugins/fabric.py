@@ -1694,24 +1694,27 @@ class FilterModule(object):
         :return: None
         """
         logical_router_obj = None
-        rb_roles = device_roles.get('routing_bridging_roles') or []
-        if 'CRB-Gateway' in rb_roles:
+        try:
+            rb_roles = device_roles.get('routing_bridging_roles') or []
             logical_router_fq_name = _logical_router_fq_name(fabric_name)
             logical_router_name = logical_router_fq_name[-1]
-            try:
-                logical_router_obj = vnc_api.logical_router_read(
-                    fq_name=logical_router_fq_name
-                )
-            except NoIdError:
+            logical_router_obj = vnc_api.logical_router_read(
+                fq_name=logical_router_fq_name
+            )
+            if logical_router_obj and device_obj.get_logical_router_back_refs() and 'CRB-Gateway' not in rb_roles:
+                # delete the logical-router
+                self._delete_logical_router(vnc_api, device_obj, fabric_name)
+                logical_router_obj = None
+        except NoIdError:
+            if 'CRB-Gateway' in rb_roles:
                 logical_router_obj = LogicalRouter(
                     name=logical_router_name,
                     fq_name=logical_router_fq_name,
                     parent_type='project'
                 )
                 vnc_api.logical_router_create(logical_router_obj)
-            # Add reference to physical router
-            logical_router_obj.add_physical_router(device_obj)
-            vnc_api.logical_router_update(logical_router_obj)
+                logical_router_obj.add_physical_router(device_obj)
+                vnc_api.logical_router_update(logical_router_obj)
         return logical_router_obj
     # end _add_logical_router
 
