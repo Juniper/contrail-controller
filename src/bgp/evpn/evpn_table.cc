@@ -32,6 +32,9 @@ size_t EvpnTable::HashFunction(const EvpnPrefix &prefix) {
             return Inet6Table::HashFunction(prefix.inet6_prefix());
         }
     }
+    if (prefix.type() == EvpnPrefix::SelectiveMulticastRoute) {
+        return boost::hash_value(prefix.group().to_v4().to_ulong());
+    }
     return 0;
 }
 
@@ -107,13 +110,15 @@ void EvpnTable::AddRemoveCallback(const DBEntryBase *entry, bool add) const {
 size_t EvpnTable::Hash(const DBRequestKey *key) const {
     const RequestKey *rkey = static_cast<const RequestKey *>(key);
     size_t value = HashFunction(rkey->prefix);
-    return value % DB::PartitionCount();
+    //return value % DB::PartitionCount();
+    return value % kPartitionCount;
 }
 
 size_t EvpnTable::Hash(const DBEntry *entry) const {
     const EvpnRoute *rt_entry = static_cast<const EvpnRoute *>(entry);
     size_t value = HashFunction(rt_entry->GetPrefix());
-    return value % DB::PartitionCount();
+    //return value % DB::PartitionCount();
+    return value % kPartitionCount;
 }
 
 BgpRoute *EvpnTable::TableFind(DBTablePartition *rtp,
@@ -127,6 +132,21 @@ DBTableBase *EvpnTable::CreateTable(DB *db, const string &name) {
     EvpnTable *table = new EvpnTable(db, name);
     table->Init();
     return table;
+}
+
+// Find the route.
+EvpnRoute *EvpnTable::FindRoute(const EvpnPrefix &prefix) {
+    EvpnRoute rt_key(prefix);
+    DBTablePartition *rtp = static_cast<DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    return dynamic_cast<EvpnRoute *>(rtp->Find(&rt_key));
+}
+
+const EvpnRoute *EvpnTable::FindRoute(const EvpnPrefix &prefix) const {
+    EvpnRoute rt_key(prefix);
+    const DBTablePartition *rtp = static_cast<const DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    return dynamic_cast<const EvpnRoute *>(rtp->Find(&rt_key));
 }
 
 BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
@@ -238,11 +258,13 @@ bool EvpnTable::Export(RibOut *ribout, Route *route,
 
     const EvpnPrefix &evpn_prefix = evpn_route->GetPrefix();
     if (evpn_prefix.type() != EvpnPrefix::MacAdvertisementRoute &&
-            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute) {
+            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute && 
+            evpn_prefix.type() != EvpnPrefix::SelectiveMulticastRoute) {
         return false;
     }
 
-    if (!evpn_prefix.mac_addr().IsBroadcast()) {
+    if (!evpn_prefix.mac_addr().IsBroadcast() &&
+            (evpn_prefix.type() != EvpnPrefix::SelectiveMulticastRoute)) {
         UpdateInfo *uinfo = GetUpdateInfo(ribout, evpn_route, peerset);
         if (!uinfo)
             return false;
