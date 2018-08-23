@@ -14,6 +14,8 @@ class EvpnManager;
 
 class EvpnTable : public BgpTable {
 public:
+    static const int kPartitionCount = 1;
+
     struct RequestKey : BgpTable::RequestKey {
         RequestKey(const EvpnPrefix &prefix, const IPeer *ipeer)
             : prefix(prefix), peer(ipeer) {
@@ -35,6 +37,7 @@ public:
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
+    virtual int PartitionCount() const { return kPartitionCount; }
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
                                      BgpRoute *src_rt, const BgpPath *path,
@@ -46,6 +49,8 @@ public:
 
     static size_t HashFunction(const EvpnPrefix &prefix);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    EvpnRoute *FindRoute(const EvpnPrefix &prefix);
+    const EvpnRoute *FindRoute(const EvpnPrefix &prefix) const;
 
     void CreateEvpnManager();
     void DestroyEvpnManager();

@@ -30,6 +30,7 @@ public:
         LlgrStale = 1 << 8,
         ClusterListLooped = 1 << 9,
         AliasedPath = 1 << 10,
+        CheckGlobalErmVpnRoute = 1 << 11,
     };
 
     // Ordered in the ascending order of path preference
@@ -44,7 +45,7 @@ public:
 
     static const uint32_t INFEASIBLE_MASK = (AsPathLooped |
         NoNeighborAs | NoTunnelEncap | OriginatorIdLooped | ResolveNexthop |
-        RoutingPolicyReject | ClusterListLooped);
+        RoutingPolicyReject | ClusterListLooped | CheckGlobalErmVpnRoute);
 
     static std::string PathIdString(uint32_t path_id);
 
@@ -126,6 +127,11 @@ public:
     void ResetLlgrStale() { flags_ &= ~LlgrStale; }
 
     bool NeedsResolution() const { return ((flags_ & ResolveNexthop) != 0); }
+    bool CheckErmVpn() const {
+        return ((flags_ & CheckGlobalErmVpnRoute) != 0);
+    }
+    void ResetCheckErmVpn() { flags_ &= ~CheckGlobalErmVpnRoute; }
+    void SetCheckErmVpn() { flags_ |= CheckGlobalErmVpnRoute; }
 
     virtual std::string ToString() const;
 

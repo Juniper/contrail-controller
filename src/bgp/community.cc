@@ -399,6 +399,17 @@ bool ExtCommunity::ContainsVrfRouteImport(const ExtCommunityValue &val) const {
     return false;
 }
 
+void ExtCommunity::RemoveMFlags() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_multicast_flags(*it)) {
+            it = communities_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 void ExtCommunity::RemoveRTarget() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
@@ -550,7 +561,7 @@ vector<int> ExtCommunity::GetTag4List(as_t asn) const {
                         matching_tag_list.end());
         tag_list.push_back(tag_comm.tag());
     }
-    if ((asn <= 0xffffffff) && tag_list.size() == 0)
+    if ((asn <= 0xffff) && tag_list.size() == 0)
         tag_list = GetTagList(asn);
 
     sort(tag_list.begin(), tag_list.end());
@@ -630,6 +641,20 @@ ExtCommunityPtr ExtCommunityDB::RemoveAndLocate(const ExtCommunity *src,
     }
 
     clone->Remove(list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceMFlagsAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &export_list) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveMFlags();
+    clone->Append(export_list);
     return Locate(clone);
 }
 
