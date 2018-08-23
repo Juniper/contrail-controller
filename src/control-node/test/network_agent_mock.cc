@@ -729,6 +729,8 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     char *saveptr;
     char *tag;
     char *mac;
+    char *source = NULL;
+    char *group = NULL;
     char *address;
     if (strchr(str, '-')) {
         bool has_ip = strchr(str, ',') != NULL;
@@ -743,9 +745,14 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     } else {
         tag = NULL;
         bool has_ip = strchr(str, ',') != NULL;
+        bool type6 = strchr(str, ',') != strrchr(str, ',');
         if (has_ip) {
             mac = strtok_r(str, ",", &saveptr);
-            address = strtok_r(NULL, "", &saveptr);
+            if (type6) {
+                group = strtok_r(NULL, ",", &saveptr);
+                source = strtok_r(NULL, "", &saveptr);
+            } else
+                address = strtok_r(NULL, "", &saveptr);
         } else {
             mac = strtok_r(str, "", &saveptr);
             address = NULL;
@@ -757,6 +764,8 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     rt_entry.entry.nlri.ethernet_tag = tag ? atoi(tag) : 0;
     rt_entry.entry.nlri.mac = std::string(mac) ;
     rt_entry.entry.nlri.address = address ? string(address) : string();
+    rt_entry.entry.nlri.group = group ? string(group) : string();
+    rt_entry.entry.nlri.source = source ? string(source) : string();
 
     if (add) {
         rt_entry.entry.local_preference = attributes.local_pref;

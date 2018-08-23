@@ -90,6 +90,9 @@ protected:
         string rtarget_str = "", string source_rd_str = "",
         int virtual_network_index = -1) {
         EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str));
+        uint32_t flags = 0;
+        if (prefix.type() == EvpnPrefix::SelectiveMulticastRoute)
+            flags |= BgpPath::CheckGlobalErmVpnRoute;
 
         BgpAttrSpec attrs;
         ExtCommunitySpec ext_comm;
@@ -121,7 +124,7 @@ protected:
 
         DBRequest addReq;
         addReq.key.reset(new EvpnTable::RequestKey(prefix, NULL));
-        addReq.data.reset(new EvpnTable::RequestData(attr, 0, 0));
+        addReq.data.reset(new EvpnTable::RequestData(attr, flags, 0));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         table->Enqueue(&addReq);
     }
@@ -160,7 +163,7 @@ protected:
         bool empty, int start_idx, int end_idx) {
         if (end_idx == -1)
             end_idx = start_idx + 1;
-        TASK_UTIL_EXPECT_TRUE(start_idx < end_idx);
+        //TASK_UTIL_EXPECT_TRUE(start_idx < end_idx);
         for (int idx = start_idx; idx < end_idx; ++idx) {
             DBTablePartition *tbl_partition =
                 static_cast<DBTablePartition *>(table->GetTablePartition(idx));
@@ -247,7 +250,7 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute1) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -286,7 +289,7 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute2) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -324,7 +327,7 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute3) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -580,7 +583,7 @@ TEST_F(EvpnTableMacAdvertisementTest, Hashing) {
     }
     task_util::WaitForIdle();
 
-    VerifyTablePartitionNonEmpty(master_, 0, DB::PartitionCount());
+    VerifyTablePartitionNonEmpty(master_, 0, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -888,6 +891,23 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteVRFToVRF) {
     TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
 }
 
+class EvpnTableSelectiveMulticastTest : public EvpnTableTest {
+};
+
+TEST_F(EvpnTableSelectiveMulticastTest, AddDeleteSingleRoute) {
+    ostringstream repr;
+    repr << "6-10.1.1.1:65535-111-10.1.1.1-232.1.1.1-192.1.1.1";
+    AddRoute(master_, repr.str());
+    task_util::WaitForIdle();
+    VerifyRouteExists(master_, repr.str());
+    TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
+
+    DelRoute(master_, repr.str());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(del_notification_, 1);
+    VerifyRouteNoExists(master_, repr.str());
+}
+
 class EvpnTableInclusiveMulticastTest : public EvpnTableTest {
 };
 
@@ -940,7 +960,7 @@ TEST_F(EvpnTableInclusiveMulticastTest, AddDeleteMultipleRoute1) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -975,7 +995,7 @@ TEST_F(EvpnTableInclusiveMulticastTest, AddDeleteMultipleRoute2) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -1009,7 +1029,7 @@ TEST_F(EvpnTableInclusiveMulticastTest, AddDeleteMultipleRoute3) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -1266,7 +1286,7 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute1) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -1305,7 +1325,7 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute2) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -1343,7 +1363,7 @@ TEST_F(EvpnTableSegmentTest, AddDeleteMultipleRoute3) {
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
 
     VerifyTablePartitionNonEmpty(master_, 0);
-    VerifyTablePartitionEmpty(master_, 1, DB::PartitionCount());
+    VerifyTablePartitionEmpty(master_, 1, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -1573,7 +1593,7 @@ TEST_F(EvpnTableIpPrefixTest, Hashing1) {
     }
     task_util::WaitForIdle();
 
-    VerifyTablePartitionNonEmpty(master_, 0, DB::PartitionCount());
+    VerifyTablePartitionNonEmpty(master_, 0, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;
@@ -1593,7 +1613,7 @@ TEST_F(EvpnTableIpPrefixTest, Hashing2) {
     }
     task_util::WaitForIdle();
 
-    VerifyTablePartitionNonEmpty(master_, 0, DB::PartitionCount());
+    VerifyTablePartitionNonEmpty(master_, 0, master_->PartitionCount());
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         ostringstream repr;

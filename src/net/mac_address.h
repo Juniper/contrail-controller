@@ -34,8 +34,9 @@ public:
                         boost::system::error_code *error = NULL);
 
     bool IsBroadcast() const;
+    bool IsMulticast() const;
     bool IsZero() const;
-    int CompareTo(const MacAddress &rhs) const;
+    int CompareTo(const MacAddress &rhs, int len = 0) const;
 
     bool operator==(const MacAddress *rhs) const {
         return CompareTo(*rhs) == 0;
@@ -135,6 +136,10 @@ public:
         addr_ = kBroadcastMac;
     }
 
+    void Multicast() {
+        addr_ = kMulticastMac;
+    }
+
     const uint8_t *GetData() const { return (uint8_t *)&addr_; }
 
     std::string ToString() const;
@@ -143,8 +148,12 @@ public:
 
     static const MacAddress kZeroMac;
     static const MacAddress kBroadcastMac;
+    static const MacAddress kMulticastMac;
     static const MacAddress &BroadcastMac() {
         return kBroadcastMac;
+    }
+    static const MacAddress &MulticastMac() {
+        return kMulticastMac;
     }
     static const MacAddress &ZeroMac() {
         return kZeroMac;
