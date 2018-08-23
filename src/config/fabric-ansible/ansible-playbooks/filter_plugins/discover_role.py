@@ -56,7 +56,7 @@ class FilterModule(object):
                       prouter_vendor_name, prouter_product_name):
 
         role_discovery_log = "\n"
-        node_profile_refs = 0
+        node_profile_refs = []
 
         try:
             FilterModule._validate_job_ctx(job_ctx)
@@ -81,7 +81,7 @@ class FilterModule(object):
                 return {
                     'status': 'success',
                     'fabric_fqname': fabric_fqname,
-                    'no_of_np_refs': node_profile_refs,
+                    'np_refs': node_profile_refs,
                     'device_name': prouter_name,
                     'role_discovery_log': role_discovery_log
                 }
@@ -132,7 +132,7 @@ class FilterModule(object):
             self._logger.info(role_discovery_log)
             return {
                 'status': 'success',
-                'no_of_np_refs': node_profile_refs,
+                'np_refs': node_profile_refs,
                 'fabric_fqname': fabric_fqname,
                 'device_name': prouter_name,
                 'role_discovery_log': role_discovery_log
@@ -168,7 +168,7 @@ class FilterModule(object):
     def _do_role_discovery(self, np_back_refs, prouter_name, vnc_lib,
                            prouter_uuid, node_profile_obj_uuid_list):
         upd_resp = ""
-        node_profile_refs = 0
+        node_profile_refs = []
 
         for np_back_ref in np_back_refs:
             if np_back_ref['uuid'] in node_profile_obj_uuid_list:
@@ -181,7 +181,7 @@ class FilterModule(object):
                                                   None, 'ADD')
                 self._logger.info(ref_upd_resp)
                 upd_resp += "done\n"
-                node_profile_refs += 1
+                node_profile_refs.append(np_back_ref['to'][-1])
                 # break
         return upd_resp, node_profile_refs
 
