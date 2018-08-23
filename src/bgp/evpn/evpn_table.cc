@@ -32,6 +32,9 @@ size_t EvpnTable::HashFunction(const EvpnPrefix &prefix) {
             return Inet6Table::HashFunction(prefix.inet6_prefix());
         }
     }
+    if (prefix.type() == EvpnPrefix::SelectiveMulticastRoute) {
+        return boost::hash_value(prefix.group().to_v4().to_ulong());
+    }
     return 0;
 }
 
@@ -107,13 +110,15 @@ void EvpnTable::AddRemoveCallback(const DBEntryBase *entry, bool add) const {
 size_t EvpnTable::Hash(const DBRequestKey *key) const {
     const RequestKey *rkey = static_cast<const RequestKey *>(key);
     size_t value = HashFunction(rkey->prefix);
-    return value % DB::PartitionCount();
+    //return value % DB::PartitionCount();
+    return value % kPartitionCount;
 }
 
 size_t EvpnTable::Hash(const DBEntry *entry) const {
     const EvpnRoute *rt_entry = static_cast<const EvpnRoute *>(entry);
     size_t value = HashFunction(rt_entry->GetPrefix());
-    return value % DB::PartitionCount();
+    //return value % DB::PartitionCount();
+    return value % kPartitionCount;
 }
 
 BgpRoute *EvpnTable::TableFind(DBTablePartition *rtp,
@@ -158,7 +163,8 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     if (evpn_prefix.type() == EvpnPrefix::SegmentRoute)
         return NULL;
     if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute &&
-        evpn_prefix.mac_addr().IsBroadcast())
+        (evpn_prefix.mac_addr().IsBroadcast() ||
+         evpn_prefix.mac_addr().IsMulticast()))
         return NULL;
 
     BgpAttrDB *attr_db = server->attr_db();
@@ -238,7 +244,8 @@ bool EvpnTable::Export(RibOut *ribout, Route *route,
 
     const EvpnPrefix &evpn_prefix = evpn_route->GetPrefix();
     if (evpn_prefix.type() != EvpnPrefix::MacAdvertisementRoute &&
-            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute) {
+            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute && 
+            evpn_prefix.type() != EvpnPrefix::SelectiveMulticastRoute) {
         return false;
     }
 
