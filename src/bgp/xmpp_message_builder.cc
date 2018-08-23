@@ -329,6 +329,9 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
     item.entry.nlri.mac = evpn_prefix.mac_addr().ToString();
     item.entry.nlri.address = evpn_prefix.ip_address().to_string() + "/" +
         integerToString(evpn_prefix.ip_address_length());
+    item.entry.nlri.source = evpn_prefix.source().to_string();
+    item.entry.nlri.group = evpn_prefix.group().to_string();
+
     item.entry.virtual_network = GetVirtualNetwork(route, roattr);
     item.entry.local_preference = roattr->attr()->local_pref();
     item.entry.med = roattr->attr()->med();

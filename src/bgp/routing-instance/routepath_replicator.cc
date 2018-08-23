@@ -509,6 +509,10 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
         if (rt->BestPath()->PathCompare(*path, true))
             break;
 
+        // Do not replicate if nexthop is not hitched by ermvpn tree.
+        if (path->NeedToCheckErmVpn())
+            break;
+
         const BgpAttr *attr = path->GetAttr();
         const ExtCommunity *ext_community = attr->ext_community();
 

@@ -399,6 +399,17 @@ bool ExtCommunity::ContainsVrfRouteImport(const ExtCommunityValue &val) const {
     return false;
 }
 
+void ExtCommunity::RemoveMFlags() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_multicast_flags(*it)) {
+            it = communities_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 void ExtCommunity::RemoveRTarget() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
@@ -630,6 +641,20 @@ ExtCommunityPtr ExtCommunityDB::RemoveAndLocate(const ExtCommunity *src,
     }
 
     clone->Remove(list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceMFlagsAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &export_list) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveMFlags();
+    clone->Append(export_list);
     return Locate(clone);
 }
 
