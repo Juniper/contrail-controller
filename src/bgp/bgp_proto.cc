@@ -99,7 +99,7 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
                      Ip4Address(identifier).to_string());
         return BgpProto::Notification::BadBgpId;
     }
-    if (as_num != peer->peer_as()) {
+    if (as_num != AS_TRANS  && as_num != peer->peer_as()) {
         BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Bad Peer AS Number: " << as_num);
         return BgpProto::Notification::BadPeerAS;

@@ -868,10 +868,6 @@ public:
     const As4Path *as4_path() const { return as4_path_.get(); }
     int as4_path_count() const { return as4_path_ ? as4_path_->AsCount() : 0; }
      bool IsAsPathEmpty() const;
-    //const Cluster4List *cluster4_list() const { return cluster4_list_.get(); }
-    //size_t cluster4_list_length() const {
-        //return cluster4_list_ ? cluster4_list_->size() : 0;
-    //}
     const Community *community() const { return community_.get(); }
     const ExtCommunity *ext_community() const { return ext_community_.get(); }
     const OriginVnPath *origin_vn_path() const { return origin_vn_path_.get(); }
