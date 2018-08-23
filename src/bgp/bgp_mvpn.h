@@ -324,8 +324,8 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MvpnState);
 };
 
-// This class holds a reference to MvpnState along with associated with route
-// and path pointers. This is stored as DBState inside the table along with the
+// This class holds a reference to MvpnState along with associated route
+// pointer. This is stored as DBState inside the table along with the
 // associated route.
 //
 // Note: Routes are never deleted until the DB state is deleted. MvpnState which

@@ -159,7 +159,8 @@ bool ErmVpnTable::Export(RibOut *ribout, Route *route,
     }
 
     ErmVpnRoute *ermvpn_route = dynamic_cast<ErmVpnRoute *>(route);
-    if (ermvpn_route->GetPrefix().type() != ErmVpnPrefix::NativeRoute)
+    if (ermvpn_route->GetPrefix().type() != ErmVpnPrefix::NativeRoute &&
+            ermvpn_route->GetPrefix().type() != ErmVpnPrefix::GlobalTreeRoute)
         return false;
 
     if (!tree_manager_ || tree_manager_->deleter()->IsDeleted())

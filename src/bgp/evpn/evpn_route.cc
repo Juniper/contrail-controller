@@ -198,6 +198,24 @@ EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
     }
 }
 
+EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
+    const IpAddress &source, const IpAddress &group,
+    const IpAddress &originator)
+    : type_(SelectiveMulticastRoute),
+      rd_(rd),
+      tag_(tag),
+      family_(Address::UNSPEC),
+      source_(source),
+      group_(group),
+      originator_(originator),
+      ip_prefixlen_(0) {
+    if (originator_.is_v4() && !originator_.is_unspecified()) {
+        family_ = Address::INET;
+    } else if (originator_.is_v6() && !originator_.is_unspecified()) {
+        family_ = Address::INET6;
+    }
+}
+
 int EvpnPrefix::FromProtoPrefix(BgpServer *server,
     const BgpProtoPrefix &proto_prefix, const BgpAttr *attr,
     const Address::Family family, EvpnPrefix *prefix, BgpAttrPtr *new_attr,
@@ -538,11 +556,59 @@ int EvpnPrefix::CompareTo(const EvpnPrefix &rhs) const {
         KEY_COMPARE(ip_address_, rhs.ip_address_);
         KEY_COMPARE(ip_prefixlen_, rhs.ip_prefixlen_);
         break;
+    case SelectiveMulticastRoute:
+        KEY_COMPARE(rd_, rhs.rd_);
+        KEY_COMPARE(tag_, rhs.tag_);
+        KEY_COMPARE(source_, rhs.source_);
+        KEY_COMPARE(group_, rhs.group_);
+        KEY_COMPARE(originator_, rhs.originator_);
     default:
         break;
     }
 
     return 0;
+}
+
+bool EvpnPrefix::GetSourceFromString(EvpnPrefix *prefix, const string &str,
+        size_t pos1, size_t *pos2, boost::system::error_code *errorp) {
+    *pos2 = str.find('-', pos1 + 1);
+    if (*pos2 == string::npos) {
+        if (errorp != NULL) {
+            *errorp = make_error_code(boost::system::errc::invalid_argument);
+        }
+        return false;
+    }
+    string temp_str = str.substr(pos1 + 1, *pos2 - pos1 - 1);
+    boost::system::error_code source_err;
+    prefix->source_ = Ip4Address::from_string(temp_str, source_err);
+    if (source_err != 0) {
+        if (errorp != NULL) {
+            *errorp = source_err;
+        }
+        return false;
+    }
+    return true;
+}
+
+bool EvpnPrefix::GetGroupFromString(EvpnPrefix *prefix, const string &str,
+        size_t pos1, size_t *pos2, boost::system::error_code *errorp) {
+    *pos2 = str.find('-', pos1 + 1);
+    if (*pos2 == string::npos) {
+        if (errorp != NULL) {
+            *errorp = make_error_code(boost::system::errc::invalid_argument);
+        }
+        return false;
+    }
+    string temp_str = str.substr(pos1 + 1, *pos2 - pos1 - 1);
+    boost::system::error_code group_err;
+    prefix->group_ = Ip4Address::from_string(temp_str, group_err);
+    if (group_err != 0) {
+        if (errorp != NULL) {
+            *errorp = group_err;
+        }
+        return false;
+    }
+    return true;
 }
 
 EvpnPrefix EvpnPrefix::FromString(const string &str,
@@ -568,7 +634,7 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
     }
 
     if (prefix.type_ < EvpnPrefix::AutoDiscoveryRoute ||
-        prefix.type_ > EvpnPrefix::IpPrefixRoute) {
+        prefix.type_ > EvpnPrefix::SelectiveMulticastRoute) {
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
@@ -796,6 +862,53 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
         return EvpnPrefix::kNullPrefix;
         break;
     }
+
+    case SelectiveMulticastRoute: {
+        // Parse tag.
+        size_t pos3 = str.find('-', pos2 + 1);
+        if (pos3 == string::npos) {
+            if (errorp != NULL) {
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
+            }
+            return EvpnPrefix::kNullPrefix;
+        }
+        string tag_str = str.substr(pos2 + 1, pos3 - pos2 - 1);
+        bool ret = stringToInteger(tag_str, prefix.tag_);
+        if (!ret) {
+            if (errorp != NULL) {
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
+            }
+            return EvpnPrefix::kNullPrefix;
+        }
+
+        // Look for source.
+        size_t pos4;
+        if (!GetSourceFromString(&prefix, str, pos3, &pos4, errorp))
+            return EvpnPrefix::kNullPrefix;
+
+        // Look for group.
+        size_t pos5;
+        if (!GetGroupFromString(&prefix, str, pos4, &pos5, errorp))
+            return EvpnPrefix::kNullPrefix;
+
+        // Parse IP.
+        string ip_str = str.substr(pos5 + 1, string::npos);
+        boost::system::error_code ip_err;
+        prefix.originator_ = IpAddress::from_string(ip_str, ip_err);
+        if (ip_err != 0) {
+            if (errorp != NULL) {
+                *errorp = ip_err;
+            }
+            return EvpnPrefix::kNullPrefix;
+        }
+        prefix.family_ =
+            prefix.originator_.is_v4() ? Address::INET : Address::INET6;
+
+        break;
+    }
+
     }
 
     return prefix;
@@ -829,6 +942,12 @@ string EvpnPrefix::ToString() const {
         } else {
             str += "-" + inet6_prefix().ToString();
         }
+        break;
+    case SelectiveMulticastRoute:
+        str += "-" + integerToString(tag_);
+        str += "-" + source_.to_string();
+        str += "-" + group_.to_string();
+        str += "-" + originator_.to_string();
         break;
     default:
         break;
@@ -958,6 +1077,9 @@ bool EvpnRoute::IsValid() const {
         return false;
     }
     case EvpnPrefix::IpPrefixRoute: {
+        return false;
+    }
+    case EvpnPrefix::SelectiveMulticastRoute: {
         return false;
     }
     default: {

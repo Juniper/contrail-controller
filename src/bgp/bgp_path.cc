@@ -254,6 +254,9 @@ vector<string> BgpPath::GetFlagsStringList() const {
         case AliasedPath:
             flag_names.push_back("AliasedPath");
             break;
+        case CheckGlobalErmVpnRoute:
+            flag_names.push_back("CheckGlobalErmVpnRoute");
+            break;
         }
     }
     return flag_names;

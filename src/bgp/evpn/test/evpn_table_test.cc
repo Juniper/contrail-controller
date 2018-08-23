@@ -90,6 +90,9 @@ protected:
         string rtarget_str = "", string source_rd_str = "",
         int virtual_network_index = -1) {
         EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str));
+        uint32_t flags = 0;
+        if (prefix.type() == EvpnPrefix::SelectiveMulticastRoute)
+            flags |= BgpPath::CheckGlobalErmVpnRoute;
 
         BgpAttrSpec attrs;
         ExtCommunitySpec ext_comm;
@@ -121,7 +124,7 @@ protected:
 
         DBRequest addReq;
         addReq.key.reset(new EvpnTable::RequestKey(prefix, NULL));
-        addReq.data.reset(new EvpnTable::RequestData(attr, 0, 0));
+        addReq.data.reset(new EvpnTable::RequestData(attr, flags, 0));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         table->Enqueue(&addReq);
     }
@@ -886,6 +889,23 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteVRFToVRF) {
     VerifyRouteNoExists(blue_si_, repr1.str());
     VerifyRouteNoExists(blue_si_, repr2.str());
     TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
+}
+
+class EvpnTableSelectiveMulticastTest : public EvpnTableTest {
+};
+
+TEST_F(EvpnTableSelectiveMulticastTest, AddDeleteSingleRoute) {
+    ostringstream repr;
+    repr << "6-10.1.1.1:65535-111-10.1.1.1-232.1.1.1-192.1.1.1";
+    AddRoute(master_, repr.str());
+    task_util::WaitForIdle();
+    VerifyRouteExists(master_, repr.str());
+    TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
+
+    DelRoute(master_, repr.str());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(del_notification_, 1);
+    VerifyRouteNoExists(master_, repr.str());
 }
 
 class EvpnTableInclusiveMulticastTest : public EvpnTableTest {
