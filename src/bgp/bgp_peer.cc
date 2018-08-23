@@ -1354,7 +1354,7 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
 
 void BgpPeer::SendOpen(TcpSession *session) {
     BgpProto::OpenMessage openmsg;
-    openmsg.as_num = local_as_;
+    openmsg.as_num = local_as_ > 0xffff ? AS_TRANS : local_as_;
     openmsg.holdtime = state_machine_->GetConfiguredHoldTime();
     openmsg.identifier = ntohl(local_bgp_id_);
     BgpProto::OpenMessage::OptParam *opt_param =
@@ -1403,10 +1403,11 @@ void BgpPeer::SendOpen(TcpSession *session) {
         opt_param->capabilities.push_back(cap);
     }
 
+    uint32_t asn = ntohl(local_as_);
     BgpProto::OpenMessage::Capability *cap =
             new BgpProto::OpenMessage::Capability(
                 BgpProto::OpenMessage::Capability::AS4Support,
-                (const uint8_t *)(&local_as_), 4);
+                (const uint8_t *)(&asn), 4);
     opt_param->capabilities.push_back(cap);
     peer_close_->AddGRCapabilities(opt_param);
     peer_close_->AddLLGRCapabilities(opt_param);
@@ -1655,12 +1656,6 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
 
 bool BgpPeer::Is4ByteAsSupported() {
     return as4_supported_;
-    vector<BgpProto::OpenMessage::Capability *>::iterator it;
-    for (it = capabilities_.begin(); it < capabilities_.end(); ++it) {
-        if ((*it)->code == BgpProto::OpenMessage::Capability::AS4Support)
-            return true;
-    }
-    return false;
 }
 
 template <typename TableT, typename PrefixT>
