@@ -25,4 +25,6 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 1
-    jl_message: "Discovered {{ role_discovery_result.no_of_np_refs }} node profile references for the device"
+    jl_message: "Assigned {{ role_discovery_result.np_refs | length}} node profile(s) for the device"
+    jl_details: {"assigned_node_profiles": "{{role_discovery_result.np_refs}}" }
+
