@@ -39,6 +39,7 @@ public:
     static const size_t kMinAutoDiscoveryRouteSize;
     static const size_t kMinMacAdvertisementRouteSize;
     static const size_t kMinInclusiveMulticastRouteSize;
+    static const size_t kMinSelectiveMulticastRouteSize;
     static const size_t kMinSegmentRouteSize;
     static const size_t kMinInetPrefixRouteSize;
     static const size_t kMinInet6PrefixRouteSize;
@@ -49,7 +50,8 @@ public:
         MacAdvertisementRoute = 2,
         InclusiveMulticastRoute = 3,
         SegmentRoute = 4,
-        IpPrefixRoute = 5
+        IpPrefixRoute = 5,
+        SelectiveMulticastRoute = 6
     };
 
     EvpnPrefix();
@@ -65,6 +67,9 @@ public:
         const IpAddress &ip_address);
     EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
         const IpAddress &ip_address, uint8_t ip_prefixlen);
+    EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
+        const IpAddress &source, const IpAddress &group,
+        const IpAddress &originator);
 
     void BuildProtoPrefix(BgpProtoPrefix *proto_prefix,
         const BgpAttr *attr, uint32_t label, uint32_t l3_label = 0) const;
@@ -88,6 +93,8 @@ public:
     const MacAddress &mac_addr() const { return mac_addr_; }
     Address::Family family() const { return family_; }
     IpAddress ip_address() const { return ip_address_; }
+    IpAddress group() const { return group_; }
+    IpAddress source() const { return source_; }
     uint8_t ip_address_length() const;
     uint8_t ip_prefix_length() const { return ip_prefixlen_; }
     Ip4Prefix inet_prefix() const {
@@ -106,12 +113,25 @@ private:
     MacAddress mac_addr_;
     Address::Family family_;
     IpAddress ip_address_;
+    IpAddress source_;
+    IpAddress group_;
     uint8_t ip_prefixlen_;
+    uint8_t flags_;
 
     size_t GetIpAddressSize() const;
     void ReadIpAddress(const BgpProtoPrefix &proto_prefix,
         size_t ip_offset, size_t ip_size, size_t ip_psize);
+    void ReadSource(const BgpProtoPrefix &proto_prefix,
+        size_t ip_offset, size_t ip_size, size_t ip_psize);
+    void ReadGroup(const BgpProtoPrefix &proto_prefix,
+        size_t ip_offset, size_t ip_size, size_t ip_psize);
     void WriteIpAddress(BgpProtoPrefix *proto_prefix, size_t ip_offset) const;
+    void WriteSource(BgpProtoPrefix *proto_prefix, size_t ip_offset) const;
+    void WriteGroup(BgpProtoPrefix *proto_prefix, size_t ip_offset) const;
+    static bool GetSourceFromString(EvpnPrefix *prefix, const std::string &str,
+        size_t pos1, size_t *pos2, boost::system::error_code *errorp);
+    static bool GetGroupFromString(EvpnPrefix *prefix, const std::string &str,
+        size_t pos1, size_t *pos2, boost::system::error_code *errorp);
 };
 
 class EvpnRoute : public BgpRoute {

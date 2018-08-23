@@ -266,7 +266,8 @@ void BgpXmppEvpnTest1::AgentRouteAdd(const string &enet_prefix, int count) {
 // Add one type-5 route and verify the next hop and label.
 //
 TEST_F(BgpXmppEvpnTest1, 1AgentRouteAdd) {
-    AgentRouteAdd("aa:00:00:00:00:01,10.1.1.1/32");
+    //AgentRouteAdd("aa:00:00:00:00:01,10.1.1.1,232.1.1.1");
+    AgentRouteAdd("00:00:00:00:00:00,10.1.1.1/32");
 }
 
 //
