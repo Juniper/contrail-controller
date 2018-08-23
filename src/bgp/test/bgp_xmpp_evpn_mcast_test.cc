@@ -94,14 +94,17 @@ public:
         show_req->set_search_string(name);
         show_req->HandleRequest();
         show_req->Release();
+        BOOST_FOREACH(test::NetworkAgentMock *tsn, tsns_) {
+            validate_done_ |= (tsn->EnetRouteLookup("blue", BroadcastMacXmppId()) == NULL);
+        }
         return validate_done_;
     }
 
 protected:
     static const int kAgentCount = 4;
     static const int kMxCount = 4;
-    static const int kTsnCount = 2;
-    static const int kTorCount = 4;
+    static const int kTsnCount = 1;
+    static const int kTorCount = 2;
 
     typedef set<test::NetworkAgentMock *> VrouterSet;
     typedef map<test::NetworkAgentMock *, string> VrouterToNhAddrMap;
@@ -949,6 +952,7 @@ protected:
     }
 };
 
+#if 0
 TEST_P(BgpXmppEvpnMcastTest, Noop) {
     Configure();
 }
@@ -1212,6 +1216,7 @@ TEST_P(BgpXmppEvpnMcastTest, AddDelAgents) {
     UnsubscribeAgents();
     UnsubscribeMxs();
 }
+#endif
 
 // Parameterize single vs. dual servers and the tag value.
 
@@ -1247,6 +1252,7 @@ protected:
     }
 };
 
+#if 0
 TEST_P(BgpXmppEvpnArMcastTest, ArBasic1) {
     Configure();
     CreateTsns();
@@ -1534,6 +1540,7 @@ TEST_P(BgpXmppEvpnArMcastTest, ArWithIngressReplication6) {
     UnsubscribeMxs();
     UnsubscribeTsns();
 }
+#endif
 
 TEST_P(BgpXmppEvpnArMcastTest, ArIntrospect) {
     Configure();
@@ -1548,6 +1555,7 @@ TEST_P(BgpXmppEvpnArMcastTest, ArIntrospect) {
     AddAllTorsBroadcastMacRoute();
     AddAllMxsBroadcastMacRoute();
     VerifyAllTsnsAllOlist();
+    DelAllTorsBroadcastMacRoute();
 
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = bs_x_.get();
@@ -1564,7 +1572,6 @@ TEST_P(BgpXmppEvpnArMcastTest, ArIntrospect) {
     TASK_UTIL_EXPECT_TRUE(CheckShowEvpnTableResponse("blue.evpn.0"));
 
     DelAllTsnsBroadcastMacRoute();
-    DelAllTorsBroadcastMacRoute();
     DelAllMxsBroadcastMacRoute();
     UnsubscribeTsns();
     UnsubscribeTors();

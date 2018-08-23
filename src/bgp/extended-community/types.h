@@ -41,6 +41,7 @@ struct BgpExtendedCommunityEvpnSubType {
         EsImport = 0x02,
         RouterMac = 0x03,
         ETree = 0x05,
+        MulticastFlags = 0x09,
     };
 };
 

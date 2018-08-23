@@ -16,6 +16,7 @@ using namespace std;
 
 const MacAddress MacAddress::kZeroMac;
 const MacAddress MacAddress::kBroadcastMac(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
+const MacAddress MacAddress::kMulticastMac(0x01, 0x00, 0x5E, 0, 0, 0);
 
 MacAddress::MacAddress() {
     addr_ = kZeroMac;
@@ -31,6 +32,10 @@ bool MacAddress::IsZero() const {
 
 bool MacAddress::IsBroadcast() const {
     return CompareTo(BroadcastMac()) == 0;
+}
+
+bool MacAddress::IsMulticast() const {
+    return CompareTo(MulticastMac(), 3) == 0;
 }
 
 MacAddress::MacAddress(unsigned int a, unsigned int b, unsigned int c,
@@ -79,8 +84,10 @@ MacAddress MacAddress::FromString(const std::string &str,
     return MacAddress(a);
 }
 
-int MacAddress::CompareTo(const MacAddress &rhs) const {
-    return memcmp(&addr_, &rhs.addr_, sizeof(addr_));
+int MacAddress::CompareTo(const MacAddress &rhs, int len) const {
+    if (len == 0)
+        return memcmp(&addr_, &rhs.addr_, sizeof(addr_));
+    return memcmp(&addr_, &rhs.addr_, len);
 }
 
 bool MacAddress::ToArray(u_int8_t *p, size_t s) const {
