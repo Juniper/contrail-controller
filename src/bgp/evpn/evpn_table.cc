@@ -129,6 +129,21 @@ DBTableBase *EvpnTable::CreateTable(DB *db, const string &name) {
     return table;
 }
 
+// Find the route.
+EvpnRoute *EvpnTable::FindRoute(const EvpnPrefix &prefix) {
+    EvpnRoute rt_key(prefix);
+    DBTablePartition *rtp = static_cast<DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    return dynamic_cast<EvpnRoute *>(rtp->Find(&rt_key));
+}
+
+const EvpnRoute *EvpnTable::FindRoute(const EvpnPrefix &prefix) const {
+    EvpnRoute rt_key(prefix);
+    const DBTablePartition *rtp = static_cast<const DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    return dynamic_cast<const EvpnRoute *>(rtp->Find(&rt_key));
+}
+
 BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {
@@ -238,11 +253,13 @@ bool EvpnTable::Export(RibOut *ribout, Route *route,
 
     const EvpnPrefix &evpn_prefix = evpn_route->GetPrefix();
     if (evpn_prefix.type() != EvpnPrefix::MacAdvertisementRoute &&
-            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute) {
+            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute && 
+            evpn_prefix.type() != EvpnPrefix::SelectiveMulticastRoute) {
         return false;
     }
 
-    if (!evpn_prefix.mac_addr().IsBroadcast()) {
+    if (!evpn_prefix.mac_addr().IsBroadcast() &&
+            (evpn_prefix.type() != EvpnPrefix::SelectiveMulticastRoute)) {
         UpdateInfo *uinfo = GetUpdateInfo(ribout, evpn_route, peerset);
         if (!uinfo)
             return false;

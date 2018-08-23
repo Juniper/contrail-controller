@@ -623,7 +623,7 @@ TcpSession::Endpoint BgpXmppChannel::endpoint() const {
 
 bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
                                        IpAddress *addrp, bool zero_ok) {
-    if (af != BgpAf::IPv4 && af != BgpAf::IPv6)
+    if (af != BgpAf::IPv4 && af != BgpAf::IPv6 && af != BgpAf::L2Vpn)
         return false;
 
     error_code error;
@@ -1747,7 +1747,28 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         return false;
     }
 
+    bool type6 = false;
     error_code error;
+    IpAddress group= IpAddress::from_string("0.0.0.0", error);
+    if (!item.entry.nlri.group.empty()) {
+        type6 = true;
+        if (!XmppDecodeAddress(item.entry.nlri.af,
+                    item.entry.nlri.group, &group, false)) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+                "Bad group address " << item.entry.nlri.group);
+        }
+        //return false;
+    }
+
+    IpAddress source = IpAddress::from_string("0.0.0.0", error);
+    if (!item.entry.nlri.source.empty() && !XmppDecodeAddress(
+                item.entry.nlri.af, item.entry.nlri.source, &source, true)) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Bad source address " << item.entry.nlri.source);
+        //return false;
+    }
+
+    //error_code error;
     MacAddress mac_addr = MacAddress::FromString(item.entry.nlri.mac, &error);
 
     if (error) {
@@ -1756,7 +1777,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         return false;
     }
 
-    bool type2 = !mac_addr.IsZero();
+    bool type2 = type6 ? false : !mac_addr.IsZero();
     Ip4Prefix inet_prefix;
     Inet6Prefix inet6_prefix;
     IpAddress ip_addr;
@@ -1828,13 +1849,17 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     RouteDistinguisher rd;
     if (mac_addr.IsBroadcast()) {
         rd = RouteDistinguisher(peer_->bgp_identifier(), instance_id);
+    } else if (type6) {
+        rd = RouteDistinguisher(bgp_server_->bgp_identifier(), instance_id);
     } else {
         rd = RouteDistinguisher::kZeroRd;
     }
 
     uint32_t ethernet_tag = item.entry.nlri.ethernet_tag;
-    EvpnPrefix evpn_prefix = type2 ?
-        EvpnPrefix(rd, ethernet_tag, mac_addr, ip_addr) :
+    EvpnPrefix evpn_prefix = type6 ?
+        EvpnPrefix(rd, ethernet_tag, source, group,
+                   Ip4Address(bgp_server_->bgp_identifier())) :
+        type2 ? EvpnPrefix(rd, ethernet_tag, mac_addr, ip_addr) :
         EvpnPrefix(rd, ethernet_tag, ip_addr, prefix_len);
 
     DBRequest req;
@@ -1949,10 +1974,13 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             attrs.push_back(&med);
 
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
-        attrs.push_back(&nexthop);
+        if (type6)
+            flags |= BgpPath::CheckGlobalErmVpnRoute;
+        else {
+            attrs.push_back(&nexthop);
+        }
 
-        uint16_t cluster_seed =
-            bgp_server_->global_config()->rd_cluster_seed();
+        uint16_t cluster_seed = bgp_server_->global_config()->rd_cluster_seed();
         BgpAttrSourceRd source_rd;
         if (cluster_seed) {
             source_rd = BgpAttrSourceRd(RouteDistinguisher(cluster_seed,
@@ -1988,7 +2016,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             attrs.push_back(&ext);
 
         PmsiTunnelSpec pmsi_spec;
-        if (mac_addr.IsBroadcast()) {
+        if (mac_addr.IsBroadcast() || type6) {
             if (!item.entry.replicator_address.empty()) {
                 IpAddress replicator_address;
                 if (!XmppDecodeAddress(BgpAf::IPv4,
@@ -2013,6 +2041,10 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 if (!item.entry.edge_replication_not_supported) {
                     pmsi_spec.tunnel_flags |=
                         PmsiTunnelSpec::EdgeReplicationSupported;
+                } else {
+                    // Only for test to inject remote smet routes
+                    flags &= ~BgpPath::CheckGlobalErmVpnRoute;
+                    attrs.push_back(&nexthop);
                 }
                 pmsi_spec.SetIdentifier(nh_address.to_v4());
             }
