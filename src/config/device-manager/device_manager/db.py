@@ -129,11 +129,9 @@ class PhysicalRouterDM(DBBaseDM):
                 "physical_router": self
             }
         dm_instance = self._manager
-        vnc_lib = dm_instance.get_vnc()
         if not self.ansible_manager:
             self.ansible_manager = AnsibleBase.plugin(self.vendor, self.product,
-                                                      plugin_params, vnc_lib,
-                                                      self._logger)
+                                                      plugin_params, self._logger)
         else:
             if self.ansible_manager.verify_plugin(self.physical_router_role):
                 self.ansible_manager.update()
@@ -142,7 +140,7 @@ class PhysicalRouterDM(DBBaseDM):
                 self.ansible_manager = AnsibleBase.plugin(self.vendor,
                                                           self.product,
                                                           plugin_params,
-                                                          vnc_lib, self._logger)
+                                                          self._logger)
         if PushConfigState.is_push_mode_ansible() and\
                 not self.no_ansible_support_for_role():
             self.config_manager = self.ansible_manager
