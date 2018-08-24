@@ -19,8 +19,8 @@ set groups {{cfg_group}}
 {%                 if term_from == None %}
 {%                     continue %}
 {%                 endif %}
-{%                 set ip_dst_addrs = term_from.get('ip_destination_address', []) %}
-{%                 set ip_src_addrs = term_from.get('ip_source_address', []) %}
+{%                 set dst_addrs = term_from.get('destination_address', []) %}
+{%                 set src_addrs = term_from.get('source_address', []) %}
 {%                 set src_ports = term_from.get('source_ports', []) %}
 {%                 set dst_ports = term_from.get('destination_ports', []) %}
 {%                 set ip_proto = term_from.get('ip_protocol') %}
@@ -36,11 +36,13 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 {%                 for dst_port in dst_ports %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from destination-port {{dst_port}}
 {%                 endfor %}
-{%                 for ip_src_addr in ip_src_addrs %}
-set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-source-address {{ip_src_addr}}
+{%                 for src_addr in src_addrs %}
+{%                     set cidr = src_addr.get('prefix') + '/' + src_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-source-address {{cidr}}
 {%                 endfor %}
-{%                 for ip_dst_addr in ip_dst_addrs %}
-set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-destination-address {{ip_dst_addr}}
+{%                 for dst_addr in dst_addrs %}
+{%                     set cidr = dst_addr.get('prefix') + '/' + dst_addr.get('prefix_len')|string %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-destination-address {{cidr}}
 {%                 endfor %}
 {%                 if ip_proto %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-protocol {{ip_proto}}
