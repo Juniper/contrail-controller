@@ -13,10 +13,9 @@ from cfgm_common import VNID_MIN_ALLOC
 from vnc_api.vnc_api import GlobalSystemConfig
 from vnc_api.vnc_api import RouteTargetList
 from vnc_api.vnc_api import VirtualNetwork
+from vnc_api.vnc_api import VirtualNetworkType
 
 from vnc_cfg_api_server.tests import test_case
-from vnc_cfg_api_server.vnc_addr_mgmt import *
-from vnc_api.vnc_api import *
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +120,8 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
     def test_allocate_vxlan_id(self):
         # enable vxlan routing on project
-        proj = self._vnc_lib.project_read(fq_name=["default-domain", "default-project"])
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", "default-project"])
         proj.set_vxlan_routing(True)
         self._vnc_lib.project_update(proj)
 
@@ -134,14 +134,14 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
         self.api.virtual_network_create(vn_obj)
 
-        #VN created, now read back the VN data to check if vxlan_id is set
+        # VN created, now read back the VN data to check if vxlan_id is set
         vn_obj = self.api.virtual_network_read(id=vn_obj.uuid)
         vn_obj_properties = vn_obj.get_virtual_network_properties()
         if not vn_obj_properties:
             self.fail("VN properties are not set")
         vxlan_id = vn_obj_properties.get_vxlan_network_identifier()
         self.assertEqual(vxlan_id, 6000)
-        self.assertEqual(vn_obj.get_fq_name_str()+"_vxlan",
+        self.assertEqual(vn_obj.get_fq_name_str() + "_vxlan",
                          mock_zk.get_vn_from_id(vxlan_id))
         self.assertGreaterEqual(vxlan_id, VNID_MIN_ALLOC)
 
@@ -150,7 +150,8 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
     def test_cannot_allocate_vxlan_id(self):
         # enable vxlan routing on project
-        proj = self._vnc_lib.project_read(fq_name=["default-domain", "default-project"])
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", "default-project"])
         proj.set_vxlan_routing(True)
         self._vnc_lib.project_update(proj)
 
@@ -164,7 +165,7 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
         self.api.virtual_network_create(vn1_obj)
 
-        #VN created, now read back the VN data to check if vxlan_id is set
+        # VN created, now read back the VN data to check if vxlan_id is set
         vn1_obj = self.api.virtual_network_read(id=vn1_obj.uuid)
         vn1_obj_properties = vn1_obj.get_virtual_network_properties()
         if not vn1_obj_properties:
@@ -172,17 +173,17 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         vxlan_id = vn1_obj_properties.get_vxlan_network_identifier()
         self.assertEqual(vxlan_id, 6001)
 
-        #Verified vxlan_id for VN1, now create VN2 with same vxlan_id
+        # Verified vxlan_id for VN1, now create VN2 with same vxlan_id
         vn2_obj = VirtualNetwork('%s-vn2' % self.id())
         vn2_obj_properties = VirtualNetworkType(forwarding_mode='l3')
         vn2_obj_properties.set_vxlan_network_identifier(6001)
         vn2_obj_properties.set_forwarding_mode('l2_l3')
         vn2_obj.set_virtual_network_properties(vn2_obj_properties)
 
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(BadRequest):
             self.api.virtual_network_create(vn2_obj)
 
-        self.assertEqual(vn1_obj.get_fq_name_str()+"_vxlan",
+        self.assertEqual(vn1_obj.get_fq_name_str() + "_vxlan",
                          mock_zk.get_vn_from_id(vxlan_id))
         self.assertGreaterEqual(vxlan_id, VNID_MIN_ALLOC)
         self.api.virtual_network_delete(id=vn1_obj.uuid)
@@ -190,7 +191,8 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
     def test_deallocate_vxlan_id(self):
         # enable vxlan routing on project
-        proj = self._vnc_lib.project_read(fq_name=["default-domain", "default-project"])
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", "default-project"])
         proj.set_vxlan_routing(True)
         self._vnc_lib.project_update(proj)
 
@@ -203,7 +205,7 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
         self.api.virtual_network_create(vn_obj)
 
-        #VN created, now read back the VN data to check if vxlan_id is set
+        # VN created, now read back the VN data to check if vxlan_id is set
         vn_obj = self.api.virtual_network_read(id=vn_obj.uuid)
         vn_obj_properties = vn_obj.get_virtual_network_properties()
         if not vn_obj_properties:
@@ -212,17 +214,17 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         self.assertEqual(vxlan_id, 6002)
 
         self.api.virtual_network_delete(id=vn_obj.uuid)
-        self.assertNotEqual(vn_obj.get_fq_name_str()+"_vxlan",
-                         mock_zk.get_vn_from_id(vxlan_id))
+        self.assertNotEqual(vn_obj.get_fq_name_str() + "_vxlan",
+                            mock_zk.get_vn_from_id(vxlan_id))
         logger.debug('PASS - test_deallocate_vxlan_id')
 
     def test_update_vxlan_id(self):
         # enable vxlan routing on project
-        proj = self._vnc_lib.project_read(fq_name=["default-domain", "default-project"])
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", "default-project"])
         proj.set_vxlan_routing(True)
         self._vnc_lib.project_update(proj)
 
-        mock_zk = self._api_server._db_conn._zk_db
         vn_obj = VirtualNetwork('%s-vn' % self.id())
 
         vn_obj_properties = VirtualNetworkType(forwarding_mode='l3')
@@ -232,7 +234,7 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
         self.api.virtual_network_create(vn_obj)
 
-        #VN created, now read back the VN data to check if vxlan_id is set
+        # VN created, now read back the VN data to check if vxlan_id is set
         vn_obj_read = self.api.virtual_network_read(id=vn_obj.uuid)
         vn_obj_properties_read = vn_obj_read.get_virtual_network_properties()
         if not vn_obj_properties_read:
@@ -240,7 +242,7 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         vxlan_id = vn_obj_properties_read.get_vxlan_network_identifier()
         self.assertEqual(vxlan_id, 6003)
 
-        #Created VN. Now Update it with a different vxlan_id
+        # Created VN. Now Update it with a different vxlan_id
         vn_obj_properties.set_vxlan_network_identifier(6004)
         vn_obj.set_virtual_network_properties(vn_obj_properties)
         self.api.virtual_network_update(vn_obj)
@@ -257,11 +259,11 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
     def test_cannot_update_vxlan_id(self):
         # enable vxlan routing on project
-        proj = self._vnc_lib.project_read(fq_name=["default-domain", "default-project"])
+        proj = self._vnc_lib.project_read(
+            fq_name=["default-domain", "default-project"])
         proj.set_vxlan_routing(True)
         self._vnc_lib.project_update(proj)
 
-        mock_zk = self._api_server._db_conn._zk_db
         vn1_obj = VirtualNetwork('%s-vn1' % self.id())
 
         vn1_obj_properties = VirtualNetworkType(forwarding_mode='l3')
@@ -271,7 +273,7 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
         self.api.virtual_network_create(vn1_obj)
 
-        #VN created, create second VN with different vxlan_id
+        # VN created, create second VN with different vxlan_id
         vn2_obj = VirtualNetwork('%s-vn2' % self.id())
 
         vn2_obj_properties = VirtualNetworkType(forwarding_mode='l3')
@@ -281,11 +283,11 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
 
         self.api.virtual_network_create(vn2_obj)
 
-        #Created Two VNs. Now Update it second VN with 1st VNs VXLAN_ID
+        # Created Two VNs. Now Update it second VN with 1st VNs VXLAN_ID
         vn2_obj_properties.set_vxlan_network_identifier(6005)
         vn2_obj.set_virtual_network_properties(vn2_obj_properties)
 
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(BadRequest):
             self.api.virtual_network_update(vn2_obj)
 
         vn_obj_read = self.api.virtual_network_read(id=vn2_obj.uuid)

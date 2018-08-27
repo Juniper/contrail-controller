@@ -4886,7 +4886,7 @@ class VncApiServer(object):
                 except NoIdError:
                     # No original version found, new resource created
                     uuid = None
-                self._holding_backrefs(held_refs, scope_type,
+                self._holding_backrefs(updates, held_refs, scope_type,
                                        r_class.object_type, fq_name, draft)
                 # Purge pending resource as we re-use the same UUID
                 self.internal_request_delete(r_class.object_type,
@@ -4965,8 +4965,8 @@ class VncApiServer(object):
                     ep['address_group'] = ':'.join(parent_fq_name + [
                         ag_fq_name.split(':')[-1]])
 
-    def _holding_backrefs(self, held_refs, scope_type, obj_type, fq_name,
-                          obj_dict):
+    def _holding_backrefs(self, updates, held_refs, scope_type, obj_type,
+                          fq_name, obj_dict):
         backref_fields = {'%s_back_refs' % t for t in SECURITY_OBJECT_TYPES}
         if (scope_type == GlobalSystemConfig().object_type and
                 obj_dict['draft_mode_state'] != 'deleted'):
@@ -4984,14 +4984,41 @@ class VncApiServer(object):
                         obj_type,
                         ref_uuid=obj_dict['uuid'],
                     )
-                    held_refs.append(
-                        ((backref_type, backref['uuid'], 'ADD', obj_type),
-                         {
-                             'ref_fq_name': fq_name,
-                             'attr': backref.get('attr')
-                         }
+                    if obj_type == AddressGroup.object_type:
+                        # Is not allowed to directly create Address Group
+                        # reference to a Firewall Rule, use its endpoints
+                        # address-group property
+                        backref_class = self.get_resource_class(backref_type)
+                        ok, result = backref_class.locate(
+                            backref['to'],
+                            backref['uuid'],
+                            create_it=False,
+                            fields=['endpoint_1', 'endpoint_2'])
+                        if not ok:
+                            msg = ("Cannot read Firewall Rule %s (%s)" %
+                                   (backref['to'], backref['uuid']))
+                            raise cfgm_common.exceptions.HttpError(400, msg)
+                        fr = result
+                        for ep_type in ['endpoint_1', 'endpoint_2']:
+                            if (ep_type in fr and
+                                    fr[ep_type].get('address_group', '').split(
+                                        ':') == obj_dict['fq_name']):
+                                ept = FirewallRuleEndpointType(
+                                    address_group=':'.join(fq_name))
+                                updates.append(
+                                    ('update',
+                                     (FirewallRule.resource_type, fr['uuid'],
+                                      {ep_type: vars(ept)})))
+                                break
+                    else:
+                        held_refs.append(
+                            ((backref_type, backref['uuid'], 'ADD', obj_type),
+                            {
+                                'ref_fq_name': fq_name,
+                                'attr': backref.get('attr')
+                            }
+                            )
                         )
-                    )
                     obj_dict[backref_field].remove(backref)
 
     def _security_discard_resources(self, pm):
