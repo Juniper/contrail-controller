@@ -1,8 +1,8 @@
 - set_fact:
     output: {
-       "status": "Failure",
+       "status": "failure",
        "message": "{{op_err_message}}",
-       "results": "{{results}}"
+       "results": "{{ results if results is defined else {} }}"
     }
 
 - name: print output
@@ -17,3 +17,5 @@
     details: "{{ jl_details if jl_details is defined else {} }}"
 
 - meta: end_play
+  when: fail_playbook is undefined
+
