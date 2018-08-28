@@ -3,6 +3,7 @@
 - name: Delete devices in a specific fabric
   hosts: localhost
   connection: local
+  any_errors_fatal: true
   tasks:
 
     - name: Initialize weights
@@ -17,6 +18,7 @@
         - set_fact:
             op_err_message: "Failed to delete fabric due to error: {{ output.error_msg }}. Here is the deletion log: {{ output.deletion_log}}"
             jl_err_message: "Failed to delete fabric due to error: {{ output.error_msg }}"
+            fail_playbook: True
 
         - name: Update job log with percentage
           include_tasks: percentage_update.yml
@@ -29,6 +31,11 @@
 
         - name: handle failure
           include_tasks: error_handler.yml
+
+        - name: Fail the job
+          fail:
+            msg: "Fabric cannot be deleted so not proceeding"
+
       when: output.status == 'failure'
 
     - name: Prepare to delete TFTP and DHCP config
@@ -57,7 +64,7 @@
             jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error. Here is deletion log\n: {{ output.deletion_log }}"
             results:
               fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
-   
+
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
@@ -162,3 +169,4 @@
       vars:
         current_index: 3
         jl_message: "{{output_msg}}"
+
