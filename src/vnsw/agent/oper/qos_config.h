@@ -100,6 +100,8 @@ public:
 
     int MsgLen() { return kDefaultQosMsgSize; }
 
+    boost::uuids::uuid GetQosTableActiveVhostQosConfig(const Agent *agent);
+
 private:
     bool VerifyLinkToGlobalQosConfig(const Agent *agent,
                                      const AgentQosConfigData *data);
@@ -167,6 +169,9 @@ public:
                                const boost::uuids::uuid &u);
     AgentQosConfigData* BuildData(IFMapNode *node);
     void ReleaseIndex(AgentQosConfig *qc);
+
+    void ResyncInterfaceTableQosConfig(const Agent *agent);
+
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
 
@@ -200,17 +205,17 @@ public:
     }
 
     void EraseVhostQosConfig(const boost::uuids::uuid &uuid) {
-        fabric_qos_config_uuids_.erase(uuid);
+        vhost_qos_config_uuids_.erase(uuid);
     }
 
     void InsertVhostQosConfig(const boost::uuids::uuid &uuid) {
-        fabric_qos_config_uuids_.insert(uuid);
+        vhost_qos_config_uuids_.insert(uuid);
     }
 
     const boost::uuids::uuid GetActiveVhostQosConfig() {
         std::set<boost::uuids::uuid>::const_iterator it =
-            fabric_qos_config_uuids_.begin();
-        if (it == fabric_qos_config_uuids_.end()) {
+            vhost_qos_config_uuids_.begin();
+        if (it == vhost_qos_config_uuids_.end()) {
             return boost::uuids::nil_uuid();
         }
         return *it;
