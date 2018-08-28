@@ -36,7 +36,9 @@ set groups __contrail_{{feature}}__ interfaces {{name}} native-vlan-id {{vlan_id
 {%                 for li in phy_intf.get('logical_interfaces', []) %}
 {%                     if li.get('name', '') == int_name %}
 {%                         set vlan_id = li.get('vlan_tag', '') %}
+{%                         if li.get('is_tagged', false) != false %}
 set groups __contrail_{{feature}}__ vlans {{vlan_name}} vlan-id {{vlan_id}}
+{%                         endif %}
 set groups __contrail_{{feature}}__ vlans {{vlan_name}} interface {{int_name}}
 set groups __contrail_{{feature}}__ vlans {{vlan_name}} vxlan vni {{vni}}
 {%                     endif %}
