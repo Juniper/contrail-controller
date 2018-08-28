@@ -30,6 +30,14 @@ class AnsibleRoleCommon(AnsibleConf):
         super(AnsibleRoleCommon, self).__init__(logger, params)
     # end __init__
 
+    def is_gateway(self):
+        if self.physical_router.routing_bridging_roles:
+            gateway_roles = [r for r in self.physical_router.routing_bridging_roles if 'Gateway' in r]
+            if not gateway_roles:
+                return True
+        return False
+    # end is_spine
+
     def underlay_config(self, is_delete=False):
         self._logger.info("underlay config start: %s(%s)\n" %
                           (self.physical_router.name,
@@ -49,6 +57,8 @@ class AnsibleRoleCommon(AnsibleConf):
     # end initialize
 
     def attach_irb(self, ri_conf, ri):
+        if not self.is_gateway():
+            return
         is_l2 = ri_conf.get("is_l2", False)
         is_l2_l3 = ri_conf.get("is_l2_l3", False)
         vni = ri_conf.get("vni", None)
@@ -195,7 +205,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if is_internal_vn or router_external:
             self.add_bogus_lo0(ri, network_id, vn)
 
-        if is_l2_l3:
+        if self.is_gateway() and is_l2_l3:
             self.add_irb_config(ri_conf)
             self.attach_irb(ri_conf, ri)
 
@@ -870,9 +880,11 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_ae_config(esi_map)
 
         vn_dict = self.get_vn_li_map()
-        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
-        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
-        vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
+        vn_irb_ip_map = None
+        if self.is_gateway():
+            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
+            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
+            vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
 
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
@@ -903,7 +915,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
                     if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3']:
                         irb_ips = None
-                        if vn_obj.get_forwarding_mode() == 'l2_l3':
+                        if vn_obj.get_forwarding_mode() == 'l2_l3' and self.is_gateway():
                             irb_ips = vn_irb_ip_map['irb'].get(vn_id, [])
 
                         ri_conf = {'ri_name': vrf_name_l2, 'vn': vn_obj,
@@ -930,7 +942,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                  JunosInterface(
                                 'irb.' + str(vn_obj.vn_network_id),
                                 'l3', 0)]
-                        else:
+                        elif self.is_gateway():
                             lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
                         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn_obj.name else False
                         ri_conf = {'ri_name': vrf_name_l3, 'vn': vn_obj,
