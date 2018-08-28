@@ -6,7 +6,8 @@ class NeutronApiContext(object):
     def __init__(self, request=None, user_token=None):
         self.request = request
         self.user_token = user_token
-        self.request_id = request.json['context'].get('request_id', str(uuid.uuid4()))
+        self.request_id = request.json['context'].get(
+            'request_id', 'req-%s' % str(uuid.uuid4()))
     # end __init__
 # end class NeutronApiContext
 
