@@ -395,6 +395,15 @@ class DMUtils(object):
                    ", Security Group: " + sg_name + ", Rule UUID: "+ rule_uuid
 
     @staticmethod
+    def make_sg_firewall_name(sg_name, acl_uuid):
+        return "sg-filter-" + sg_name + "-" + acl_uuid
+
+    @staticmethod
+    def make_sg_firewall_comment(sg_name, acl_uuid):
+        return "/* Firewall Filter for : Security Group: " + sg_name + \
+                   ", ACL UUID: "+ acl_uuid
+
+    @staticmethod
     def interfaces_comment():
         return "/* Interfaces Configuration */"
 
