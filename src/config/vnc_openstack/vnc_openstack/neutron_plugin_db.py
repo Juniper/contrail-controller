@@ -16,6 +16,7 @@ import netaddr
 from netaddr import IPNetwork, IPSet, IPAddress
 import gevent
 import bottle
+import time
 
 try:
     from neutron_lib import constants
@@ -76,24 +77,26 @@ class LocalVncApi(VncApi):
     @use_context
     def _request(self, op, url, data=None, *args, **kwargs):
         # Override vnc_lib._request so that list requests can reach
-        #   api_server_obj methods directly instead of system call.
+        # api_server_obj methods directly instead of system call.
         # Always pass contextual user_token aka mux connection to api-server
+        orig_user_token = None
         try:
+            started_time = time.time()
+            req = get_context().request
+            req_context = req.json['context']
+            req_id = get_context().request_id
             user_token = get_context().user_token
             if 'X-AUTH-TOKEN' in self._headers:
                 # retain/restore if there was already a token on channel
                 orig_user_token = self._headers['X-AUTH-TOKEN']
-                had_user_token = True
                 self._headers['X-AUTH-TOKEN'] = user_token
-            else:
-                had_user_token = False
 
             url_parts = url.split('/')
             self.api_server_obj.config_log(
-                         "neutron request %s id %s needs %s permission on %s"
-                        %(get_context().request, get_context().request_id,
-                          operations[op], url_parts[1]), level=SandeshLevel.SYS_INFO)
-            if (url_parts[1]+'-'+oper[op]) not in self.api_server_routes:
+                "neutron request %s id %s needs %s permission on %s"
+                % (req, req_id, operations[op], url_parts[1]),
+                level=SandeshLevel.SYS_DEBUG)
+            if (url_parts[1] + '-' + oper[op]) not in self.api_server_routes:
                 return super(LocalVncApi, self)._request(
                     op, url, data, *args, **kwargs)
 
@@ -173,6 +176,21 @@ class LocalVncApi(VncApi):
                         self.deepcopy_ref(ret_item, item_key)
             except KeyError:
                 pass
+
+            elapsed_time = time.time() - started_time
+            trace = self.api_server_obj._generate_rest_api_request_trace()
+            self.api_server_obj._generate_rest_api_response_trace(trace, ret_val)
+            q = url
+            if op == rest.OP_GET and environ.get('QUERY_STRING'):
+                q = '%s?%s' % (q, environ.get('QUERY_STRING'))
+            else:
+                q = '%s %s' % (q, data)
+            self.api_server_obj.config_log(
+                "neutron request [%s %s %s] %s %s %s %s %0.6f" %
+                (req_id, req_context['tenant_id'], req_context['user_id'],
+                 req_context['operation'], req_context['type'], oper[op], q,
+                 elapsed_time), level=SandeshLevel.SYS_INFO)
+
             if op == rest.OP_GET:
                 return ret_val
             else:
@@ -183,7 +201,7 @@ class LocalVncApi(VncApi):
             exc_info.update(msg=str(e))
             bottle.abort(400, json.dumps(exc_info))
         finally:
-            if had_user_token:
+            if orig_user_token:
                 self._headers['X-AUTH-TOKEN'] = orig_user_token
     # end _request
 # end class LocalVncApi
