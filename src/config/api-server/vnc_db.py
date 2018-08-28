@@ -48,11 +48,11 @@ import functools
 
 import sys
 
-@ignore_exceptions
 def get_trace_id():
     try:
-        req_id = gevent.getcurrent().trace_request_id
-    except Exception:
+        req_id = get_request().headers.get(
+            'X-Request-Id', gevent.getcurrent().trace_request_id)
+    except AttributeError:
         req_id = 'req-%s' % str(uuid.uuid4())
         gevent.getcurrent().trace_request_id = req_id
 
