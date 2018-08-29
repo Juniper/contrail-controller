@@ -5,6 +5,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
@@ -63,6 +64,15 @@ env.Alias("control-node:node_mgr", sdist_gen)
 
 libcontrail_control_uve = env.Library('control_node_uve',
                                       ControlNodeSandeshGenSrcs);
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS=[
+                  'etcdql',
+                  'protobuf',
+                  'grpc++',
+                  'grpc', 'z'])
 
 env.Prepend(LIBS=['bgp',
                   'bgp_ifmap_config',
