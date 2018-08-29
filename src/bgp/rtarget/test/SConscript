@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -30,7 +31,20 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/io', env['TOP'] + '/net', env['TOP'] + '/route',
            env['TOP'] + '/schema', env['TOP'] + '/xmpp', env['TOP'] + '/xml'])
 
-env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
+etcd_incl = os.environ.get('ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
+                    'bgp_test_factory',
+                    'control_node', 'dbtest', 'bgp_schema', 'ifmap_vnc',
+                    'task_test', 'ifmap_test_util', 'ifmap_test_util_server',
+                    'ifmapio', 'ifmap_server', 'ifmap_common', 'config_client_mgr',
+                    'pugixml', 'curl', 'crypto', 'ssl', 'sandesh',
+                    'http', 'http_parser', 'db', 'sandeshvns', 'io',
+                    'process_info', 'base', 'gunit', 'etcdql',
+                    'protobuf', 'grpc++', 'grpc', 'z'])
+else:
+    env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'bgp_test_factory',
                     'control_node', 'dbtest', 'bgp_schema', 'ifmap_vnc',
                     'task_test', 'ifmap_test_util', 'ifmap_test_util_server',

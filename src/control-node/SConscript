@@ -5,6 +5,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
@@ -63,8 +64,67 @@ env.Alias("control-node:node_mgr", sdist_gen)
 
 libcontrail_control_uve = env.Library('control_node_uve',
                                       ControlNodeSandeshGenSrcs);
+etcd_incl = os.environ.get('ETCD_INCL');
 
-env.Prepend(LIBS=['bgp',
+if etcd_incl:
+    env.Prepend(LIBS=['bgp',
+                  'bgp_ifmap_config',
+                  'bgp_schema',
+                  'bgp_xmpp',
+                  'extended_community',
+                  'xmpp_unicast',
+                  'xmpp_multicast',
+                  'xmpp_mvpn',
+                  'xmpp_enet',
+                  'control_node',
+                  'control_node_uve',
+                  'peer_sandesh',
+                  'origin_vn',
+                  'routing_instance',
+                  'routing_policy',
+                  'rtarget',
+                  'security_group',
+                  'tunnel_encap',
+                  'ifmap_vnc',
+                  'ifmap_server',
+                  'ifmap_common',
+                  'route',
+                  'net',
+                  'config_client_mgr',
+                  'ifmapio',
+                  'xmpp',
+                  'xml',
+                  'sandeshvns',
+                  'sandesh',
+                  'httpc',
+                  'http',
+                  'http_parser',
+                  'curl',
+                  'db',
+                  'process_info',
+                  'io',
+                  'base',
+                  'cassandra_cql',
+                  'SimpleAmqpClient',
+                  'rabbitmq',
+                  'cassandra',
+                  'gendb',
+                  'cpuinfo',
+                  'process_info',
+                  'nodeinfo',
+                  'pugixml',
+                  'libxml2',
+                  'boost_regex',
+                  'boost_chrono',
+                  'boost_program_options',
+                  'boost_filesystem',
+                  'crypto', 'ssl',
+                  'etcdql',
+                  'protobuf',
+                  'grpc++',
+                  'grpc', 'z'])
+else:
+    env.Prepend(LIBS=['bgp',
                   'bgp_ifmap_config',
                   'bgp_schema',
                   'bgp_xmpp',

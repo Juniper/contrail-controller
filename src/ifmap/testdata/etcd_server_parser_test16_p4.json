@@ -1,0 +1,163 @@
+{
+    "/CREATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": [
+            "gsc",
+            "vr1"
+        ],
+        "type": "virtual_router"
+    },
+    "/UPDATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": [
+            "gsc",
+            "vr1"
+        ],
+        "type": "virtual_router",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 13060168454144086900,
+                "uuid_mslong": 10114780778358916900
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/PAUSED/": {
+    },
+    "/CREATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": [
+            "gsc",
+            "vr1"
+        ],
+        "type": "virtual_router",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 13060168454144086900,
+                "uuid_mslong": 10114780778358916900
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/CREATE/virtual_machine/8c5eeb87-0b08-4725-b53f-0a0368055375": {
+        "fq_name": [
+            "vm1"
+        ],
+        "type": "virtual_machine",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 1306016845414408691,
+                "uuid_mslong": 10114780778358916901
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/PAUSED/": {
+    },
+    "/CREATE/global_system_config/8c5eeb87-0b08-4b0c-b53f-0a036805575c": {
+        "fq_name": [
+            "gsc"
+        ],
+        "type": "global_system_config"
+    },
+    "/UPDATE/global_system_config/8c5eeb87-0b08-4b0c-b53f-0a036805575c": {
+        "fq_name": [
+            "gsc"
+        ],
+        "type": "global_system_config",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 1306016845414408692,
+                "uuid_mslong": 10114780778358916902
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/UPDATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": [
+            "gsc",
+            "vr1"
+        ],
+        "type": "virtual_router",
+        "virtual_machine_refs": [
+            {
+                "attr": null,
+                "uuid": "8c5eeb87-0b08-4725-b53f-0a0368055375"
+            }
+        ],
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 13060168454144086900,
+                "uuid_mslong": 10114780778358916900
+            },
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "global_system_config",
+        "parent_uuid": "8c5eeb87-0b08-4b0c-b53f-0a036805575c"
+    },
+    "/PAUSED/": {
+    },
+    "/UPDATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": [
+            "gsc",
+            "vr1"
+        ],
+        "type": "virtual_router",
+        "virtual_machine_refs": [
+            {
+                "attr": null,
+                "uuid": "8c5eeb87-0b08-4725-b53f-0a0368055375"
+            }
+        ],
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 13060168454144086900,
+                "uuid_mslong": 10114780778358916900
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/DELETE/global_system_config/8c5eeb87-0b08-4b0c-b53f-0a036805575c": {
+        "fq_name": [
+            "gsc"
+        ],
+        "type": "global_system_config",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 1306016845414408692,
+                "uuid_mslong": 10114780778358916902
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/PAUSED/": {
+    }, 
+    "/UPDATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": [
+            "gsc",
+            "vr1"
+        ],
+        "type": "virtual_router",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 13060168454144086900,
+                "uuid_mslong": 10114780778358916900
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/PAUSED/": {
+    }, 
+    "/UPDATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": [
+            "gsc",
+            "vr1"
+        ],
+        "type": "virtual_router"
+    }
+}

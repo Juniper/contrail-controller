@@ -11,6 +11,7 @@ env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
 env.Append(CPPPATH = [env['TOP'] + '/config-client-mgr'])
 env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
 env.Append(CPPPATH = [env['TOP'] + '/database'])
+env.Append(CXXFLAGS = '-Wno-deprecated-declarations -std=c++11')
 env.Prepend(LIBS=['io', 'base', 'cassandra_cql', 'cassandra', 'gendb', 'SimpleAmqpClient', 'config_client_mgr'])
 
 except_env = BuildEnv.Clone()
