@@ -99,6 +99,11 @@ env.Prepend(LIBS = [
                     'cassandra',
                     'gendb',
                     'boost_chrono',
+                    'etcdql',
+                    'protobuf',
+                    'grpc++',
+                    'grpc',
+                    'z'
                     ])
 
 if platform.system() != 'Darwin':

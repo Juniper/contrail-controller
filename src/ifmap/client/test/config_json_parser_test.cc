@@ -962,8 +962,6 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
     ConfigDBUUIDCacheReq *req;
-    vector<string> obj_cache_expected_entries;
-    vector<string> obj_cache_not_expected_entries;
     string next_batch;
 
     ParseEventsJson(
@@ -978,7 +976,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     usleep(500000);
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
-    obj_cache_expected_entries =
+    vector<string> obj_cache_expected_entries =
         list_of("parent:global_system_config:"
                 "8c5eeb87-0b08-4b0c-b53f-0a036805575c")
                ("ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375")
@@ -996,7 +994,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
-    obj_cache_not_expected_entries =
+    vector<string> obj_cache_not_expected_entries =
         list_of("parent:global_system_config:"
                 "8c5eeb87-0b08-4b0c-b53f-0a036805575c");
     Sandesh::set_response_callback(boost::bind(
@@ -1012,11 +1010,11 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
-    obj_cache_not_expected_entries = list_of(
+    vector <string> obj_cache_not_expected_entries_1 = list_of(
         "ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375");
     Sandesh::set_response_callback(boost::bind(
         &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
-        _1, obj_cache_not_expected_entries, next_batch));
+        _1, obj_cache_not_expected_entries_1, next_batch));
     req = new ConfigDBUUIDCacheReq;
     req->set_search_string("8c5eeb87-0b08-4724-b53f-0a0368055374");
     req->HandleRequest();
@@ -1027,11 +1025,11 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
-    obj_cache_not_expected_entries =
+    vector<string> obj_cache_not_expected_entries_2 =
         list_of("prop:id_perms");
     Sandesh::set_response_callback(boost::bind(
         &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
-        _1, obj_cache_not_expected_entries, next_batch));
+        _1, obj_cache_not_expected_entries_2, next_batch));
     req = new ConfigDBUUIDCacheReq;
     req->set_search_string("8c5eeb87-0b08-4724-b53f-0a0368055374");
     req->HandleRequest();
@@ -1041,8 +1039,6 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Field_Deleted) {
 // Verify introspect for Object cache field (propm, propl) deleted from cache
 TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Propm_PropL_Deleted) {
     ConfigDBUUIDCacheReq *req;
-    vector<string> obj_cache_expected_entries;
-    vector<string> obj_cache_not_expected_entries;
     string next_batch;
     IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
     TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
@@ -1061,7 +1057,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Propm_PropL_Deleted) {
     usleep(500000);
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
-    obj_cache_expected_entries =
+    vector<string> obj_cache_expected_entries =
         list_of("propm:virtual_machine_interface_bindings:host_id")(
                 "propm:virtual_machine_interface_bindings:vif_type")(
                 "propl:virtual_machine_interface_fat_flow_protocols:1")(
@@ -1079,7 +1075,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Propm_PropL_Deleted) {
     FeedEventsJson();
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
-    obj_cache_not_expected_entries =
+    vector<string> obj_cache_not_expected_entries =
         list_of("propm:virtual_machine_interface_bindings:vif_type")(
                 "propl:virtual_machine_interface_fat_flow_protocols:2");
     Sandesh::set_response_callback(boost::bind(

@@ -200,6 +200,10 @@ void Options::Initialize(EventManager &evm,
         ("CONFIGDB.rabbitmq_ssl_ca_certs",
              opt::value<string>()->default_value(""),
              "CA Certificate file for SSL RabbitMQ connection")
+
+        ("CONFIGDB.use_etcd",
+             opt::value<bool>()->default_value(false),
+             "Use etcd as the contrail DB client")
         ;
 
     sandesh::options::AddOptions(&config, &sandesh_config_);
@@ -389,5 +393,8 @@ void Options::ParseConfigOptions(const boost::program_options::variables_map
     GetOptValue<string>(var_map,
                      configdb_options_.rabbitmq_ssl_ca_certs,
                      "CONFIGDB.rabbitmq_ssl_ca_certs");
+    GetOptValue<bool>(var_map,
+                     configdb_options_.use_etcd,
+                     "CONFIGDB.use_etcd");
     configdb_chksum_ = GenerateHash(configdb_options_);
 }
