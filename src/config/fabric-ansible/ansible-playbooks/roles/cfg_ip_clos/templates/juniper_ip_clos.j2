@@ -31,8 +31,6 @@ set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loo
 set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback then accept
 set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term default then reject
 
-set groups {{cfg_group}} routing-options forwarding-table export PFE-LB
-set groups {{cfg_group}} routing-options forwarding-table ecmp-fast-reroute
 {%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
 {%     if loopback_ip_list|length > 0 %}
 {%         set loopback_ip = loopback_ip_list[0] %}
