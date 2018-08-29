@@ -5112,6 +5112,16 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
             if 'logical_interface_vlan_tag' in read_result:
                 if int(vlan) != int(read_result.get('logical_interface_vlan_tag')):
                     return (False, (403, "Cannot change Vlan id"))
+            else:
+                obj_dict['display_name'] = read_result.get('display_name')
+                obj_dict['fq_name'] = read_result['fq_name']
+                obj_dict['parent_type'] = read_result['parent_type']
+                ok, result = PhysicalInterfaceServer._check_interface_name(obj_dict,
+                                                                           db_conn,
+                                                                           vlan)
+                if not ok:
+                    return ok, result
+
         ok, result = cls._check_esi(obj_dict, db_conn,
                                     read_result.get('logical_interface_vlan_tag'),
                                     read_result.get('parent_type'),
@@ -5304,6 +5314,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
     @classmethod
     def _check_interface_name(cls, obj_dict, db_conn, vlan_tag):
+
         interface_name = obj_dict['display_name']
         router = obj_dict['fq_name'][:2]
         try:
@@ -5370,8 +5381,9 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
                 # check vlan tags on the same physical interface
                 if 'logical_interface_vlan_tag' in li_object:
                     if vlan_tag == int(li_object['logical_interface_vlan_tag']):
-                        return (False, (403, "Vlan tag already used in " +
-                                   "another interface : " + li_object['uuid']))
+                        return (False, (403, "Vlan tag  " + str(vlan_tag) +
+                                        " already used in another "
+                                        "interface : " + li_object['uuid']))
 
         return True, ""
     # end _check_interface_name
