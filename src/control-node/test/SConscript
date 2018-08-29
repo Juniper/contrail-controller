@@ -5,6 +5,7 @@
 # -*- mode: python; -*-
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 env.Prepend(CPPPATH = [env['TOP'],
@@ -30,7 +31,10 @@ env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/schema')
 
-env.Prepend(LIBS = [
+etcd_incl = os.environ.get('ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = [
                     'config_client_mgr', 'ifmapio', 'bgp_schema', 'ifmap_vnc',
                     'ifmap_server', 'xmpp', 'peer_sandesh',
                     'sandesh', 'http', 'net', 'http_parser', 'httpc',
@@ -42,8 +46,22 @@ env.Prepend(LIBS = [
                     'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
                     'cassandra', 'gendb', 'httpc',
                     'SimpleAmqpClient', 'rabbitmq',
-                    'boost_filesystem', 'boost_program_options', 'boost_chrono'
-                    ])
+                    'boost_filesystem', 'boost_program_options', 'boost_chrono',
+                    'etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
+else:
+    env.Prepend(LIBS = [
+                    'config_client_mgr', 'ifmapio', 'bgp_schema', 'ifmap_vnc',
+                    'ifmap_server', 'xmpp', 'peer_sandesh',
+                    'sandesh', 'http', 'net', 'http_parser', 'httpc',
+                    'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
+                    'ifmap_common', 'bgp_schema', 'ifmap_vnc',
+                    'pugixml', 'xml', 'task_test', 'db', 'curl',
+                    'base', 'gunit', 'crypto', 'ssl', 'boost_regex',
+                    'ifmapio', 'libbgp_schema',
+                    'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
+                    'cassandra', 'gendb', 'httpc',
+                    'SimpleAmqpClient', 'rabbitmq',
+                    'boost_filesystem', 'boost_program_options', 'boost_chrono'])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS = ['rt'])

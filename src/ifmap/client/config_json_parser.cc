@@ -418,7 +418,8 @@ void ConfigClientInfoReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= boost::assign::list_of(s0);
+    ps.stages_= boost::assign::list_of(s0).convert_to_container<
+                              std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -453,6 +454,7 @@ void ConfigClientReinitReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= boost::assign::list_of(s0);
+    ps.stages_= boost::assign::list_of(s0).convert_to_container<
+                              std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
