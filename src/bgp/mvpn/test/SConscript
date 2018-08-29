@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -41,7 +42,10 @@ env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/schema')
 
-env.Prepend(LIBS = [
+etcd_incl = os.environ.get('ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = [
                     'task_test',
                     'bgptest',
                     'bgp',
@@ -98,7 +102,70 @@ env.Prepend(LIBS = [
                     'rabbitmq',
                     'cassandra',
                     'gendb',
+                    'etcdql',
+                    'protobuf',
+                    'grpc++',
+                    'grpc',
+                    'z'
                     ])
+else:
+    env.Prepend(LIBS = [
+                    'task_test',
+                    'bgptest',
+                    'bgp',
+                    'bgp_ifmap_config',
+                    'extended_community',
+                    'peer_sandesh',
+                    'control_node',
+                    'origin_vn',
+                    'routing_instance',
+                    'routing_policy',
+                    'rtarget',
+                    'security_group',
+                    'tunnel_encap',
+                    'ifmap_vnc',
+                    'bgp_schema',
+                    'sandesh',
+                    'http',
+                    'http_parser',
+                    'curl',
+                    'ifmapio',
+                    'ifmap_server',
+                    'config_client_mgr',
+                    'ifmap_common',
+                    'process_info',
+                    'base',
+                    'db',
+                    'gunit',
+                    'io',
+                    'crypto',
+                    'ssl',
+                    'sandeshvns',
+                    'net',
+                    'route',
+                    'xmpp',
+                    'bgp_inet',
+                    'bgp_mvpn',
+                    'bgp_ermvpn',
+                    'bgp_evpn',
+                    'bgp_l3vpn',
+                    'bgp_inet6',
+                    'bgp_inet6vpn',
+                    'bgp_test_factory',
+                    'xmpp_unicast',
+                    'xmpp_multicast',
+                    'xmpp_enet',
+                    'xml',
+                    'pugixml',
+                    'boost_regex',
+                    'io',
+                    'ifmapio',
+                    'cassandra_cql',
+                    'SimpleAmqpClient',
+                    'boost_chrono',
+                    'rabbitmq',
+                    'cassandra',
+                    'gendb'])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])

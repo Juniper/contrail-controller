@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -59,7 +60,25 @@ env.Append(LIBPATH = env['TOP'] + '/ifmap/test')
 env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/control-node/test')
 
-env.Prepend(LIBS = ['control_test',
+etcd_incl = os.environ.get('ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['control_test',
+                    'bgptest',
+                    'bgp',
+                    'bgp_ifmap_config',
+                    'bgp_xmpp',
+                    'control_node', 'dbtest', 'ifmap_vnc', 'bgp_schema', 'task_test',
+                    'ifmap_test_util', 'ifmap_test_util_server',
+                    'ifmap_server', 'ifmap_common',
+                    'ifmapio', 'ifmap_server', 'config_client_mgr', 'curl',
+                    'peer_sandesh', 'sandesh', 'http', 'http_parser',
+                    'xmpp', 'pugixml', 'xml',
+                    'db', 'sandeshvns', 'process_info',
+                    'io', 'crypto', 'ssl', 'base', 'gunit',
+                    'etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
+else:
+    env.Prepend(LIBS = ['control_test',
                     'bgptest',
                     'bgp',
                     'bgp_ifmap_config',
@@ -72,7 +91,6 @@ env.Prepend(LIBS = ['control_test',
                     'xmpp', 'pugixml', 'xml',
                     'db', 'sandeshvns', 'process_info',
                     'io', 'crypto', 'ssl', 'base', 'gunit'])
-
 
 if platform.system() == 'Darwin':
     bgp_inet = Dir('../inet').path + '/libbgp_inet.a'

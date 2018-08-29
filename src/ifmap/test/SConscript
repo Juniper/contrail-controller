@@ -4,6 +4,7 @@
 # -*- mode: python; -*-
 
 import platform
+import os
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -20,7 +21,20 @@ env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/http/client')
 
-env.Prepend(LIBS = ['ifmap_server', 'config_client_mgr', 'ifmapio', 'xmpp',
+etcd_incl = os.environ.get('ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['ifmap_server', 'config_client_mgr', 'ifmapio', 'xmpp',
+                    'peer_sandesh', 'sandesh', 'http', 'http_parser', 'httpc',
+                    'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
+                    'ifmap_common', 'pugixml', 'xml', 'db', 'base', 'gunit',
+                    'crypto', 'ssl', 'boost_regex', 'boost_chrono',
+                    'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
+                    'cassandra', 'gendb', 'ifmapio',
+                    'boost_program_options', 'libbgp_schema', 'boost_chrono',
+                    'etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
+else:
+    env.Prepend(LIBS = ['ifmap_server', 'config_client_mgr', 'ifmapio', 'xmpp',
                     'peer_sandesh', 'sandesh', 'http', 'http_parser', 'httpc',
                     'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
                     'ifmap_common', 'pugixml', 'xml', 'db', 'base', 'gunit',
