@@ -1,0 +1,44 @@
+{
+    "/CREATE/virtual_network/634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+        "fq_name": [
+            "default-domain",
+            "demo",
+            "vn1"
+        ],
+        "type": "virtual_network",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 7154778764020240001,
+                "uuid_mslong": 13082342935312119001
+            }
+        }
+    },
+    "/CREATE/virtual_network/634ae160-d3ef-4e82-b58d-d196211eb4da": {
+        "fq_name": [
+            "default-domain",
+            "demo",
+            "vn2"
+        ],
+        "type": "virtual_network",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 7154778764020240002,
+                "uuid_mslong": 13082342935312119002
+            }
+        }
+    },
+    "/CREATE/virtual_network/634ae160-d3ef-4e83-b58d-d196211eb4db": {
+        "fq_name": [
+            "default-domain",
+            "demo",
+            "vn3"
+        ],
+        "type": "virtual_network",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 7154778764020240003,
+                "uuid_mslong": 13082342935312119003
+            }
+        }
+    }
+}

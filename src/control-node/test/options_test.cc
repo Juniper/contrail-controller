@@ -539,7 +539,7 @@ TEST_F(OptionsTest, DISABLED_UnresolvableHostName) {
 }
 
 TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
-    int argc = 9;
+    int argc = 10;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
@@ -550,6 +550,7 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     char argv_6[] = "--CONFIGDB.config_db_server_list=20.1.1.1:100 20.1.1.2:100";
     char argv_7[] = "--CONFIGDB.config_db_username=dbuser";
     char argv_8[] = "--CONFIGDB.config_db_password=dbpassword";
+    char argv_9[] = "--CONFIGDB.use_etcd=false";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -559,6 +560,7 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     argv[6] = argv_6;
     argv[7] = argv_7;
     argv[8] = argv_8;
+    argv[9] = argv_9;
 
     options_.Parse(evm_, argc, argv);
 
@@ -567,6 +569,7 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_user(), "myuser");
     EXPECT_EQ(options_.rabbitmq_password(), "mynewpassword");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
+    EXPECT_EQ(options_.using_etcd_client(), false);
 
     vector<string> rabbitmq_server_list;
     rabbitmq_server_list.push_back("10.1.1.1:100");
@@ -587,14 +590,15 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
         "rabbitmq_password=test-password\n"
         "rabbitmq_use_ssl=true\n"
         "rabbitmq_server_list=10.1.1.1:100 10.1.1.2:100\n"
-        "config_db_server_list=20.1.1.1:100 20.1.1.2:100\n";
+        "config_db_server_list=20.1.1.1:100 20.1.1.2:100\n"
+        "use_etcd=true\n";
 
     ofstream config_file;
     config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
-    int argc = 7;
+    int argc = 8;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -603,6 +607,7 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
     char argv_4[] = "--CONFIGDB.rabbitmq_use_ssl=false";
     char argv_5[] = "--CONFIGDB.rabbitmq_server_list=30.1.1.1:100 30.1.1.2:100";
     char argv_6[] = "--CONFIGDB.config_db_server_list=40.1.1.1:100 40.1.1.2:100";
+    char argv_7[] = "--CONFIGDB.use_etcd=false";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -610,12 +615,14 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
     argv[4] = argv_4;
     argv[5] = argv_5;
     argv[6] = argv_6;
+    argv[7] = argv_7;
 
     options_.Parse(evm_, argc, argv);
 
     EXPECT_EQ(options_.rabbitmq_user(), "myuser");
     EXPECT_EQ(options_.rabbitmq_password(), "mynewpassword");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
+    EXPECT_EQ(options_.using_etcd_client(), false);
 
     vector<string> rabbitmq_server_list;
     rabbitmq_server_list.push_back("30.1.1.1:100");
