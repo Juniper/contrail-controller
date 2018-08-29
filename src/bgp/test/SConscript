@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -59,6 +60,11 @@ env.Append(LIBPATH = env['TOP'] + '/ifmap/test')
 env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/control-node/test')
 
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
+
 env.Prepend(LIBS = ['control_test',
                     'bgptest',
                     'bgp',
@@ -72,7 +78,6 @@ env.Prepend(LIBS = ['control_test',
                     'xmpp', 'pugixml', 'xml',
                     'db', 'sandeshvns', 'process_info',
                     'io', 'crypto', 'ssl', 'base', 'gunit'])
-
 
 if platform.system() == 'Darwin':
     bgp_inet = Dir('../inet').path + '/libbgp_inet.a'

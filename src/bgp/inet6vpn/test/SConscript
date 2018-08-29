@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -41,6 +42,17 @@ env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/schema')
 env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = [
+                    'etcdql',
+                    'protobuf',
+                    'grpc++',
+                    'grpc',
+                    'z'
+                    ])
 
 env.Prepend(LIBS = [
                     'task_test',
@@ -98,8 +110,7 @@ env.Prepend(LIBS = [
                     'rabbitmq',
                     'cassandra',
                     'gendb',
-                    'boost_chrono',
-                    ])
+                    'boost_chrono'])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])

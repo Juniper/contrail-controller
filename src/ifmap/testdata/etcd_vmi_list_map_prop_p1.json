@@ -1,0 +1,210 @@
+{
+    "/CREATE/domain/1b7a7728-97e5-40f1-8970-10cc7c1ab52e": {
+        "fq_name": [
+            "default-domain"
+        ],
+        "type": "domain",
+        "id_perms": {
+            "permissions": {
+                "owner": "cloud-admin",
+                "owner_access": "7",
+                "group": "cloud-admin-group",
+                "group_access": "7",
+                "other_access": "7"
+            },
+            "uuid": {
+                "uuid_lslong": 1980026002413535473,
+                "uuid_mslong": 9903434051029218606
+            },
+            "enable": "true",
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/CREATE/project/2f560900-2a1a-44c1-b248-6c87201fc8c6": {
+        "fq_name": [
+            "default-domain",
+            "service"
+        ],
+        "type": "project",
+        "id_perms": {
+            "permissions": {
+                "owner": "cloud-admin",
+                "owner_access": "7",
+                "group": "cloud-admin-group",
+                "group_access": "7",
+                "other_access": "7"
+            },
+            "uuid": {
+                "uuid_lslong": 3410923664090744001,
+                "uuid_mslong": 12846637264689678534
+            },
+            "enable": "true",
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "domain",
+        "parent_uuid": "1b7a7728-97e5-40f1-8970-10cc7c1ab52e"
+    },
+    "/CREATE/virtual_machine_interface/c4287577-b6af-4cca-a21d-6470a08af68a": {
+        "fq_name": [
+            "default-domain",
+            "service",
+            "c4287577-b6af-4cca-a21d-6470a08af68a"
+        ],
+        "type": "virtual_machine_interface",
+        "id_perms": {
+            "permissions": {
+                "owner": "cloud-admin",
+                "owner_access": "7",
+                "group": "cloud-admin-group",
+                "group_access": "7",
+                "other_access": "7"
+            },
+            "uuid": {
+                "uuid_lslong": 14134676587528801482,
+                "uuid_mslong": 11681603443361511050
+            },
+            "enable": "true",
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "project",
+        "parent_uuid": "2f560900-2a1a-44c1-b248-6c87201fc8c6",
+        "virtual_machine_interface_bindings": {
+            "host_id": "site.one.com",
+            "vif_type": "vrouter"
+        },
+        "virtual_machine_interface_fat_flow_protocols": [
+            {
+                "port": 443,
+                "protocol": "TCP"
+            },
+            {
+                "port": 80,
+                "protocol": "UDP"
+            }
+        ]
+    },
+    "/PAUSED/": {
+    },
+    "/UPDATE/virtual_machine_interface/c4287577-b6af-4cca-a21d-6470a08af68a": {
+        "fq_name": [
+            "default-domain",
+            "service",
+            "c4287577-b6af-4cca-a21d-6470a08af68a"
+        ],
+        "type": "virtual_machine_interface",
+        "id_perms": {
+            "permissions": {
+                "owner": "cloud-admin",
+                "owner_access": "7",
+                "group": "cloud-admin-group",
+                "group_access": "7",
+                "other_access": "7"
+            },
+            "uuid": {
+                "uuid_lslong": 14134676587528801482,
+                "uuid_mslong": 11681603443361511050
+            },
+            "enable": "true",
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "project",
+        "parent_uuid": "2f560900-2a1a-44c1-b248-6c87201fc8c6",
+        "virtual_machine_interface_bindings": {
+            "host_id": "site.two.com"
+        },
+        "virtual_machine_interface_fat_flow_protocols": [
+            {
+                "port": 543,
+                "protocol": "TCP"
+            }
+        ]
+    },
+    "/PAUSED/": {
+    },
+    "/DELETE/virtual_machine_interface/c4287577-b6af-4cca-a21d-6470a08af68a": {
+        "fq_name": [
+            "default-domain",
+            "service",
+            "c4287577-b6af-4cca-a21d-6470a08af68a"
+        ],
+        "type": "virtual_machine_interface",
+        "id_perms": {
+            "permissions": {
+                "owner": "cloud-admin",
+                "owner_access": "7",
+                "group": "cloud-admin-group",
+                "group_access": "7",
+                "other_access": "7"
+            },
+            "uuid": {
+                "uuid_lslong": 14134676587528801482,
+                "uuid_mslong": 11681603443361511050
+            },
+            "enable": "true",
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "project",
+        "parent_uuid": "2f560900-2a1a-44c1-b248-6c87201fc8c6",
+        "virtual_machine_interface_bindings": {
+            "host_id": "site.two.com"
+        },
+        "virtual_machine_interface_fat_flow_protocols": [
+            {
+                "port": 543,
+                "protocol": "TCP"
+            }
+        ]
+    },
+    "/DELETE/project/2f560900-2a1a-44c1-b248-6c87201fc8c6": {
+        "fq_name": [
+            "default-domain",
+            "service"
+        ],
+        "type": "project",
+        "id_perms": {
+            "permissions": {
+                "owner": "cloud-admin",
+                "owner_access": "7",
+                "group": "cloud-admin-group",
+                "group_access": "7",
+                "other_access": "7"
+            },
+            "uuid": {
+                "uuid_lslong": 3410923664090744001,
+                "uuid_mslong": 12846637264689678534
+            },
+            "enable": "true",
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "domain",
+        "parent_uuid": "1b7a7728-97e5-40f1-8970-10cc7c1ab52e"
+    },
+    "/DELETE/domain/1b7a7728-97e5-40f1-8970-10cc7c1ab52e": {
+        "fq_name": [
+            "default-domain"
+        ],
+        "type": "domain",
+        "id_perms": {
+            "permissions": {
+                "owner": "cloud-admin",
+                "owner_access": "7",
+                "group": "cloud-admin-group",
+                "group_access": "7",
+                "other_access": "7"
+            },
+            "uuid": {
+                "uuid_lslong": 1980026002413535473,
+                "uuid_mslong": 9903434051029218606
+            },
+            "enable": "true",
+            "created": null,
+            "last_modified": null
+        }
+    }
+}
