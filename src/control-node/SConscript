@@ -5,6 +5,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
@@ -116,6 +117,15 @@ env.Prepend(LIBS=['bgp',
                   'boost_program_options',
                   'boost_filesystem',
                   'crypto', 'ssl'])
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS=[
+                  'etcdql',
+                  'protobuf',
+                  'grpc++',
+                  'grpc', 'z'])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])

@@ -4,6 +4,7 @@
 # -*- mode: python; -*-
 
 import platform
+import os
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -28,6 +29,11 @@ env.Prepend(LIBS = ['ifmap_server', 'config_client_mgr', 'ifmapio', 'xmpp',
                     'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
                     'cassandra', 'gendb', 'ifmapio',
                     'boost_program_options', 'libbgp_schema', 'boost_chrono'])
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS = ['rt'])

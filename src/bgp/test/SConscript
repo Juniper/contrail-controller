@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -73,6 +74,10 @@ env.Prepend(LIBS = ['control_test',
                     'db', 'sandeshvns', 'process_info',
                     'io', 'crypto', 'ssl', 'base', 'gunit'])
 
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
 
 if platform.system() == 'Darwin':
     bgp_inet = Dir('../inet').path + '/libbgp_inet.a'

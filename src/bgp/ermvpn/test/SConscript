@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -96,7 +97,18 @@ env.Prepend(LIBS = [
                     'rabbitmq',
                     'cassandra',
                     'gendb',
-                    'boost_chrono',
+                    'boost_chrono'
+                    ])
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = [
+                    'etcdql',
+                    'protobuf',
+                    'grpc++',
+                    'grpc',
+                    'z'
                     ])
 
 if platform.system() != 'Darwin':

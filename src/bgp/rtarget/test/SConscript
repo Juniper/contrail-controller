@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -38,6 +39,11 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'pugixml', 'curl', 'crypto', 'ssl', 'sandesh',
                     'http', 'http_parser', 'db', 'sandeshvns', 'io',
                     'process_info', 'base', 'gunit'])
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['etcdql','protobuf', 'grpc++', 'grpc', 'z'])
 
 env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn', 'bgp_mvpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])
