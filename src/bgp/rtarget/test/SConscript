@@ -4,6 +4,7 @@
 
 Import('BuildEnv')
 import platform
+import os
 
 env = BuildEnv.Clone()
 
@@ -29,6 +30,11 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/ifmap', env['TOP'] + '/ifmap/test',
            env['TOP'] + '/io', env['TOP'] + '/net', env['TOP'] + '/route',
            env['TOP'] + '/schema', env['TOP'] + '/xmpp', env['TOP'] + '/xml'])
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['etcdql','protobuf', 'grpc++', 'grpc', 'z'])
 
 env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'bgp_test_factory',
