@@ -37,7 +37,8 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'ifmapio', 'ifmap_server', 'ifmap_common', 'config_client_mgr',
                     'pugixml', 'curl', 'crypto', 'ssl', 'sandesh',
                     'http', 'http_parser', 'db', 'sandeshvns', 'io',
-                    'process_info', 'base', 'gunit'])
+                    'process_info', 'base', 'gunit', 'etcdql',
+                    'protobuf', 'grpc++', 'grpc', 'z'])
 
 env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn', 'bgp_mvpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])

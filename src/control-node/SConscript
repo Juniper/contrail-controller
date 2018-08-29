@@ -115,7 +115,11 @@ env.Prepend(LIBS=['bgp',
                   'boost_chrono',
                   'boost_program_options',
                   'boost_filesystem',
-                  'crypto', 'ssl'])
+                  'crypto', 'ssl',
+                  'etcdql',
+                  'protobuf',
+                  'grpc++',
+                  'grpc', 'z'])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS=['rt'])

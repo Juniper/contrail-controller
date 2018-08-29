@@ -71,7 +71,8 @@ env.Prepend(LIBS = ['control_test',
                     'peer_sandesh', 'sandesh', 'http', 'http_parser',
                     'xmpp', 'pugixml', 'xml',
                     'db', 'sandeshvns', 'process_info',
-                    'io', 'crypto', 'ssl', 'base', 'gunit'])
+                    'io', 'crypto', 'ssl', 'base', 'gunit',
+                    'etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
 
 
 if platform.system() == 'Darwin':

@@ -27,7 +27,8 @@ env.Prepend(LIBS = ['ifmap_server', 'config_client_mgr', 'ifmapio', 'xmpp',
                     'crypto', 'ssl', 'boost_regex', 'boost_chrono',
                     'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
                     'cassandra', 'gendb', 'ifmapio',
-                    'boost_program_options', 'libbgp_schema', 'boost_chrono'])
+                    'boost_program_options', 'libbgp_schema', 'boost_chrono',
+                    'etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS = ['rt'])

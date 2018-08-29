@@ -9,8 +9,10 @@ env = BuildEnv.Clone()
 
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/database'])
+env.Append(CPPPATH = [env['TOP'] + '/grpc'])
 env.Append(CPPPATH = env['TOP'] + '/ifmap/client/test')
 env.Append(CPPPATH = env['TOP'] + '/config-client-mgr')
+env.Append(CXXFLAGS = '-Wno-deprecated-declarations -std=c++11')
 
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/db')
@@ -36,7 +38,8 @@ env.Prepend(LIBS = [
                     'config_client_mgr','ifmapio', 'libbgp_schema',
                     'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
                     'cassandra', 'gendb', 'httpc',
-                    'SimpleAmqpClient', 'rabbitmq'
+                    'SimpleAmqpClient', 'rabbitmq', 'etcdql',
+                    'protobuf', 'grpc++', 'grpc', 'z'
                    ])
 
 if platform.system() != 'Darwin':
@@ -46,7 +49,12 @@ config_json_parser_test = env.UnitTest('config_json_parser_test',
                                        ['config_json_parser_test.cc'])
 env.Alias('src/ifmap/client:config_json_parser_test', config_json_parser_test)
 
-client_unit_tests = [config_json_parser_test]
+config_etcd_json_parser_test = env.UnitTest('config_etcd_json_parser_test',
+                                             ['config_etcd_json_parser_test.cc'])
+env.Alias('src/ifmap/client:config_etcd_json_parser_test', config_etcd_json_parser_test)
+
+client_unit_tests = [config_json_parser_test,
+                     config_etcd_json_parser_test]
 
 client_test = env.TestSuite('ifmap-test', client_unit_tests)
 

@@ -60,6 +60,9 @@ public:
     bool rabbitmq_ssl_enabled() const {
         return configdb_options_.rabbitmq_use_ssl;
     }
+    bool using_etcd_client() const {
+        return configdb_options_.use_etcd;
+    }
     const ConfigClientOptions &configdb_options() const {
         return configdb_options_;
     }
