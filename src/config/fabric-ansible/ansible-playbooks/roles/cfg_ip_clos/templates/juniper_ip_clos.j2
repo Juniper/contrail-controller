@@ -21,18 +21,6 @@ set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet a
 {%         endif %}
 {%     endfor %}
 
-set groups {{cfg_group}} policy-options policy-statement PFE-LB then load-balance per-packet
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback from interface lo0.0
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback from protocol direct
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback then accept
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term default then reject
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback from protocol bgp
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback from protocol direct
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback then accept
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term default then reject
-
-set groups {{cfg_group}} routing-options forwarding-table export PFE-LB
-set groups {{cfg_group}} routing-options forwarding-table ecmp-fast-reroute
 {%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
 {%     if loopback_ip_list|length > 0 %}
 {%         set loopback_ip = loopback_ip_list[0] %}
@@ -64,6 +52,18 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}} description {{peer.comment}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}} peer-as {{peer.autonomous_system}}
 {%             endfor %}
+set groups {{cfg_group}} policy-options policy-statement PFE-LB then load-balance per-packet
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback from interface lo0.0
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback from protocol direct
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback then accept
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term default then reject
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback from protocol bgp
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback from protocol direct
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback then accept
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term default then reject
+
+set groups {{cfg_group}} routing-options forwarding-table export PFE-LB
+set groups {{cfg_group}} routing-options forwarding-table ecmp-fast-reroute
 {%         endif %}
 {%     endfor %}
 
