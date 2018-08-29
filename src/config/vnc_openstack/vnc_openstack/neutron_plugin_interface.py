@@ -554,6 +554,19 @@ class NeutronPluginInterface(object):
         sgs_info = cfgdb.security_group_list(context, filters)
         return json.dumps(sgs_info)
 
+    def plugin_get_sec_groups_count(self, context, sg):
+        """
+        Security group count request
+        """
+
+        filters = sg['filters']
+
+        cfgdb = self._get_user_cfgdb(context)
+        sgs_count = cfgdb.security_group_count(filters, context)
+        LOG.debug("plugin_get_sec_groups_count(): filters: "
+                  + pformat(filters) + " data: " + str(sgs_count))
+        return {'count': sgs_count}
+
     def plugin_http_post_securitygroup(self):
         """
         Bottle callback for Security Group POST
@@ -570,6 +583,8 @@ class NeutronPluginInterface(object):
             return self.plugin_delete_sec_group(context, sg)
         elif context['operation'] == 'READALL':
             return self.plugin_get_sec_groups(context, sg)
+        elif context['operation'] == 'READCOUNT':
+            return self.plugin_get_sec_groups_count(context, sg)
 
     def plugin_get_sec_group_rule(self, context, sg_rule):
         """
@@ -610,6 +625,19 @@ class NeutronPluginInterface(object):
         cfgdb = self._get_user_cfgdb(context)
         sg_rules_info = cfgdb.security_group_rule_list(context, filters)
         return json.dumps(sg_rules_info)
+
+    def plugin_get_sec_group_rules_count(self, context, sg_rule):
+        """
+        Security group rules count request
+        """
+
+        filters = sg_rule['filters']
+
+        cfgdb = self._get_user_cfgdb(context)
+        sg_rules_count = cfgdb.security_group_rule_count(filters, context)
+        LOG.debug("plugin_get_sec_group_rules_count(): filters: "
+                  + pformat(filters) + " data: " + str(sg_rules_count))
+        return {'count': sg_rules_count}
 
     def plugin_http_post_securitygrouprule(self):
         """
