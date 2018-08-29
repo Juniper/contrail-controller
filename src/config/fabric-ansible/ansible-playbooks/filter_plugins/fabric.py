@@ -1193,9 +1193,6 @@ class FilterModule(object):
         # delete the corresponding bgp-router if exist
         self._delete_bgp_router(vnc_api, device_obj)
 
-        # delete the corresponding logical-router if exist
-        self._delete_logical_router(vnc_api, device_obj, fabric_fq_name[-1])
-
         # Now we can delete the device finally
         _task_log("Deleting deivce %s" % device_obj.display_name)
         vnc_api.physical_router_delete(id=device_obj.uuid)
@@ -1450,8 +1447,6 @@ class FilterModule(object):
                     vnc_api, device_obj
                 )
                 self._add_bgp_router(vnc_api, device_obj)
-                self._add_logical_router(vnc_api, device_obj, device_roles,
-                                         fabric_info.get('fabric_fq_name')[-1])
                 device_roles['device_obj'] = device_obj
 
             # now we are ready to assign the roles to trigger DM to invoke
