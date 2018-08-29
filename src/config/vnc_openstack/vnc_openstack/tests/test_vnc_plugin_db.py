@@ -14,8 +14,8 @@ class MockDbInterface(db.DBInterface):
         pass
 
 class TestDbInterface(unittest.TestCase):
-    _tenant_ids = ['tenant_id_1',
-                  'tenant_id_2']
+    _tenant_ids = ['4da11a09-fd14-45e7-996b-7e1fe1a2fcd5',
+                   'fc5d26b6-5c0a-4fec-ba9b-9dac02b763b4']
 
     def _list_resource(self, resource, ret_count=0):
         def _list_others(parent_id, count):

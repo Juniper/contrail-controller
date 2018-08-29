@@ -3128,8 +3128,8 @@ class DBInterface(object):
             count = lambda pid: method(parent_id=pid,
                                        count=True)[json_resource]['count']
 
-        ret = [count(pid) for pid in project_ids] if project_ids \
-            else [count(None)]
+        ret = [count(str(uuid.UUID(pid))) for pid in project_ids] if \
+            project_ids else [count(None)]
         return sum(ret)
 
     # end _resource_count_optimized
@@ -4557,6 +4557,16 @@ class DBInterface(object):
 
     # security group api handlers
     @wait_for_api_server_connection
+    def security_group_count(self, filters=None, context=None):
+        count = self._resource_count_optimized("security_groups", filters)
+        if count is not None:
+            return count
+
+        sg_info = self.security_group_list(context=context, filters=filters)
+        return len(sg_info)
+    #end security_gruop_count
+
+    @wait_for_api_server_connection
     def security_group_create(self, sg_q):
         sg_obj = self._security_group_neutron_to_vnc(sg_q, CREATE)
 
@@ -4784,6 +4794,14 @@ class DBInterface(object):
 
         return ret_list
     # end security_group_rule_list
+
+    @wait_for_api_server_connection
+    def security_group_rule_count(self, filters=None, context=None):
+        # in contrail, there is no such api that can get sg rule directly,
+        # here we use the way to count sg rule just like how to count subnets.
+        sgr_info = self.security_group_rule_list(context=context, filters=filters)
+        return len(sgr_info)
+    #end security_gruop_rules_count
 
     # route table api handlers
     @wait_for_api_server_connection
