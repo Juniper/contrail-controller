@@ -22,7 +22,7 @@ public:
 
         bool exported_;
         bool ingress_replication_exported_; //Used by multicast
-        bool fabric_multicast_exported_; //Used by multicast
+        bool multicast_exported_; //Used by multicast
         bool force_chg_;
         uint32_t label_;
         std::string vn_;
@@ -71,7 +71,7 @@ private:
     void UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 DBTablePartBase *partition, DBEntryBase *e,
                 Agent::RouteTableType type);
-    void SubscribeFabricMulticast(const Agent *agent,
+    void SubscribeMulticastRouting(const Agent *agent,
                                   AgentXmppChannel *bgp_xmpp_peer,
                                   AgentRoute *route,
                                   RouteExport::State *state);
