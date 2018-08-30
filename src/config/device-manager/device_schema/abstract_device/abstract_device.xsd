@@ -28,7 +28,7 @@
        <xsd:element name="routing-bridging-roles" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="credentials" type="dac:Credentials"/>
        <xsd:element name="loopback-ip-list" type="xsd:string" maxOccurs="unbounded"/>
-       <xsd:element name="highest-encapsulation-priority" type="xsd:string"/>
+       <xsd:element name="encapsulation-priorities" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="tunnel-ip" type="xsd:string"/>
        <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
     </xsd:all>
