@@ -220,11 +220,13 @@ void ControlNodeMock::GetRoutes(string vrf, const XmppStanza::XmppMessage *msg) 
                 add = true;
             }
 
-            RouteEntry *rt = InsertRoute(vrf, item.entry.nlri.address,
+            if (item.entry.next_hops.size()) {
+                RouteEntry *rt = InsertRoute(vrf, item.entry.nlri.address,
                                  item.entry.next_hops.next_hop[0].address,
                                  item.entry.next_hops.next_hop[0].label,
                                  item.entry.virtual_network);
-            SendRoute(vrf, rt, add);
+                SendRoute(vrf, rt, add);
+            }
         }
     }
 }
