@@ -715,7 +715,7 @@ class GlobalVRouterConfigDM(DBBaseDM):
     obj_type = 'global_vrouter_config'
     global_vxlan_id_mode = None
     global_forwarding_mode = None
-    global_encapsulation_priority = None
+    global_encapsulation_priorities = []
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -726,25 +726,23 @@ class GlobalVRouterConfigDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         new_global_vxlan_id_mode = obj.get('vxlan_network_identifier_mode')
-        new_global_encapsulation_priority = None
+        new_global_encapsulation_priorities = []
         encapsulation_priorities = obj.get('encapsulation_priorities')
         if encapsulation_priorities:
             new_global_encapsulation_priorities = encapsulation_priorities.get("encapsulation")
-            if new_global_encapsulation_priorities:
-                new_global_encapsulation_priority = new_global_encapsulation_priorities[0]
         new_global_forwarding_mode = obj.get('forwarding_mode')
         if (GlobalVRouterConfigDM.global_vxlan_id_mode !=
                 new_global_vxlan_id_mode or
             GlobalVRouterConfigDM.global_forwarding_mode !=
                 new_global_forwarding_mode or
-             GlobalVRouterConfigDM.global_encapsulation_priority !=
-                new_global_encapsulation_priority):
+             GlobalVRouterConfigDM.global_encapsulation_priorities !=
+                new_global_encapsulation_priorities):
             GlobalVRouterConfigDM.global_vxlan_id_mode = \
                 new_global_vxlan_id_mode
             GlobalVRouterConfigDM.global_forwarding_mode = \
                 new_global_forwarding_mode
-            GlobalVRouterConfigDM.global_encapsulation_priority = \
-                new_global_encapsulation_priority
+            GlobalVRouterConfigDM.global_encapsulation_priorities = \
+                new_global_encapsulation_priorities
             self.update_physical_routers()
     # end update
 

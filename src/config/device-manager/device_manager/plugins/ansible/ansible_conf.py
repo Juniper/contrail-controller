@@ -75,6 +75,8 @@ class AnsibleConf(AnsibleBase):
         self.system_config.set_product_name(self.physical_router.product)
         self.system_config.set_device_family(self.physical_router.device_family)
         self.system_config.set_management_ip(self.physical_router.management_ip)
+        self.system_config.set_highest_encapsulation_priority(
+            GlobalVRouterConfigDM.global_encapsulation_priority)
         self.system_config.set_physical_role(
             self.physical_router.physical_router_role)
         self.system_config.set_routing_bridging_roles(
