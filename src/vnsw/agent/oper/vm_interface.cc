@@ -295,6 +295,11 @@ bool VmInterface::Resync(const InterfaceTable *table,
     // Apply config based on old and new values
     ApplyConfig(old_ipv4_active, old_l2_active, old_ipv6_active,
                 old_subnet, old_subnet_plen);
+
+    // Also check if QoS config needs to be applied to Vhost 
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    ApplyVhostQosConfig(agent, this);
+
     return ret;
 }
 
@@ -1735,6 +1740,31 @@ bool VmInterface::AliasIpList::UpdateList(const Agent *agent, VmInterface *vmi,
         vmi->UpdateState(&(*prev), l2_op, l3_op);
     }
     return true;
+}
+
+// Vhost QoS config is applied only to the Virtual Interface type "VHOST".
+// Whenever VHOST virtual interface config resync happens, also check 
+// Vhost Qos config applicable for this interface.
+void VmInterface::ApplyVhostQosConfig(const Agent *agent, VmInterface *vmi) {
+    if (vmi->vmi_type() != VmInterface::VHOST) {
+        return;
+    }
+    if (vmi->qos_config_) {
+        return;
+    }
+
+    AgentQosConfigTable *table =
+                static_cast<AgentQosConfigTable *>(agent->qos_config_table());
+    boost::uuids::uuid qos_config_uuid = table->GetActiveVhostQosConfig();
+    if (qos_config_uuid == nil_uuid()) {
+        return;
+    }
+   
+    // active vhost qos config available.
+    AgentQosConfigKey key(qos_config_uuid);
+    AgentQosConfig *qos_config = static_cast<AgentQosConfig *>
+	    (table->FindActiveEntry(&key));
+    vmi->qos_config_ = qos_config;
 }
 
 void VmInterface::CleanupAliasIpList() {
