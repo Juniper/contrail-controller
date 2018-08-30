@@ -1632,7 +1632,7 @@ uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index,
 NextHop *CompositeNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
-    return new CompositeNH(composite_nh_type_, policy_,
+    return new CompositeNH(composite_nh_type_, validate_mcast_src_, policy_,
                            component_nh_key_list_, vrf);
 }
 
@@ -1885,7 +1885,8 @@ bool CompositeNH::NextHopIsLess(const DBEntry &rhs_db) const {
 CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
     ComponentNHKeyList component_nh_key_list;
     component_nh_key_list = component_nh_key_list_;
-    NextHopKey *key = new CompositeNHKey(composite_nh_type_, policy_,
+    NextHopKey *key = new CompositeNHKey(composite_nh_type_,
+                                         validate_mcast_src_, policy_,
                                          component_nh_key_list,
                                          vrf_->GetName());
     return DBEntryBase::KeyPtr(key);
@@ -1998,6 +1999,7 @@ CompositeNH *CompositeNH::ChangeTunnelType(Agent *agent,
     ChangeComponentNHKeyTunnelType(new_component_nh_key_list, type);
     //Create the new nexthop
     CompositeNHKey *comp_nh_key = new CompositeNHKey(composite_nh_type_,
+                                                     validate_mcast_src_,
                                                      policy_,
                                                      new_component_nh_key_list,
                                                      vrf_->GetName());
@@ -2095,7 +2097,7 @@ void CompositeNHKey::CreateTunnelNHReq(Agent *agent) {
 }
 
 CompositeNHKey* CompositeNHKey::Clone() const {
-    return new CompositeNHKey(composite_nh_type_, policy_,
+    return new CompositeNHKey(composite_nh_type_, validate_mcast_src_, policy_,
                               component_nh_key_list_, vrf_key_.name_);
 }
 
