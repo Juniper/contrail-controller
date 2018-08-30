@@ -195,7 +195,7 @@ protected:
         RouteExport::State *route_state = static_cast<RouteExport::State *>
             (bgp_peer_->GetRouteExportState(mc_route->get_table_partition(),
                                             mc_route));
-        EXPECT_TRUE(route_state->fabric_multicast_exported_ == true);
+        EXPECT_TRUE(route_state->multicast_exported_ == true);
         EXPECT_TRUE(route_state->ingress_replication_exported_ == true);
 
         //L2 route present
@@ -311,7 +311,7 @@ protected:
         RouteExport::State *route_state = static_cast<RouteExport::State *>
             (bgp_peer_->GetRouteExportState(mc_route->get_table_partition(),
                                             mc_route));
-        EXPECT_TRUE(route_state->fabric_multicast_exported_ == true);
+        EXPECT_TRUE(route_state->multicast_exported_ == true);
         EXPECT_TRUE(route_state->ingress_replication_exported_ == true);
 
         //L2 route present
@@ -386,7 +386,7 @@ protected:
         RouteExport::State *route_state = static_cast<RouteExport::State *>
             (bgp_peer_->GetRouteExportState(mc_route->get_table_partition(),
                                             mc_route));
-        WAIT_FOR(1000, 1000, (route_state->fabric_multicast_exported_ == true));
+        WAIT_FOR(1000, 1000, (route_state->multicast_exported_ == true));
         WAIT_FOR(1000, 1000, (route_state->ingress_replication_exported_ == false));
 
         //L2 route present

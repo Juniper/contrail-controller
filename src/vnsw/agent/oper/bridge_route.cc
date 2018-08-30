@@ -232,6 +232,46 @@ AgentRouteData *BridgeAgentRouteTable::BuildBgpPeerData(const Peer *peer,
                                nh_req, type, bgp_peer->sequence_number()));
 }
 
+void BridgeAgentRouteTable::AddBridgeRoute(const Peer *peer,
+                                            const string &vrf_name,
+                                            const MacAddress &mac,
+                                            uint32_t ethernet_tag,
+                                            AgentRouteData *data) {
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, ethernet_tag));
+    req.data.reset(data);
+    BridgeTableEnqueue(Agent::GetInstance(), &req);
+}
+
+void BridgeAgentRouteTable::DeleteBridgeRoute(const Peer *peer,
+                                            const string &vrf_name,
+                                            const MacAddress &mac,
+                                            uint32_t ethernet_tag,
+                                            COMPOSITETYPE type) {
+
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, ethernet_tag));
+    DBRequest nh_req;
+
+    //For same BGP peer type comp type helps in identifying if its a delete
+    //for TOR or EVPN path.
+    //Only ethernet tag is required, rest are dummy.
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    if (bgp_peer) {
+        req.data.reset(new MulticastRoute("", 0,
+                                        ethernet_tag, TunnelType::AllType(),
+                                        nh_req, type,
+                                        bgp_peer->sequence_number()));
+    } else {
+        req.data.reset(new MulticastRoute("", 0, ethernet_tag,
+                                        TunnelType::AllType(),
+                                        nh_req, type, 0));
+    }
+
+    BridgeTableEnqueue(Agent::GetInstance(), &req);
+}
+
 void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
                                                     const string &vrf_name,
                                                     uint32_t ethernet_tag,
@@ -286,15 +326,15 @@ const VmInterface *BridgeAgentRouteTable::FindVmFromDhcpBinding
 // BridgeRouteEntry methods
 /////////////////////////////////////////////////////////////////////////////
 const std::string BridgeRouteEntry::GetAddressString() const {
-    //For multicast use the same tree as of 255.255.255.255
-    if (is_multicast()) {
+    //For broadcast, xmpp message is sent with address as 255.255.255.255
+    if (mac_ == MacAddress::BroadcastMac()) {
         return "255.255.255.255";
     }
     return ToString();
 }
 
 const std::string BridgeRouteEntry::GetSourceAddressString() const {
-    if (is_multicast()) {
+    if (mac_ == MacAddress::BroadcastMac()) {
         return "0.0.0.0";
     }
     return (MacAddress::kZeroMac).ToString();
