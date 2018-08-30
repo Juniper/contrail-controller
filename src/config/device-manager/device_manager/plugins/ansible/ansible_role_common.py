@@ -160,8 +160,8 @@ class AnsibleRoleCommon(AnsibleConf):
         fip_map = ri_conf.get("fip_map", None)
         network_id = ri_conf.get("network_id", None)
         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn.name else False
-        highest_encapsulation_priority = \
-            ri_conf.get("highest_encapsulation_priority") or "MPLSoGRE"
+        encapsulation_priorities = \
+           ri_conf.get("encapsulation_priorities") or ["MPLSoGRE"]
 
         self.ri_config = self.ri_config or []
         ri = RoutingInstance(name=ri_name)
@@ -195,9 +195,9 @@ class AnsibleRoleCommon(AnsibleConf):
                         ri.add_static_routes(self.get_route_for_cidr(prefix))
                         ri.add_prefixes(self.get_subnet_for_cidr(prefix))
         else:
-            if highest_encapsulation_priority == "VXLAN":
+            if encapsulation_priorities[0] == "VXLAN":
                 ri.set_routing_instance_type("virtual-switch")
-            elif highest_encapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
+            elif (any(x in encapsulation_priorities for x in ["MPLSoGRE", "MPLSoUDP"])):
                 ri.set_routing_instance_type("evpn")
 
         if is_internal_vn:
@@ -296,21 +296,21 @@ class AnsibleRoleCommon(AnsibleConf):
         if (is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             vlan = None
-            if highest_encapsulation_priority == "VXLAN":
+            if encapsulation_priorities[0] == "VXLAN":
                 self.vlans_config = self.vlans_config or []
                 vlan = Vlan(name=DMUtils.make_bridge_name(vni), vxlan_id=vni)
                 vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
                 self.vlans_config.append(vlan)
                 for interface in interfaces:
-                    vlan.add_interfaces(LogicalInterface(name=interface.name))
+                     vlan.add_interfaces(LogicalInterface(name=interface.name))
                 if is_l2_l3:
                     # network_id is unique, hence irb
                     irb_intf = "irb." + str(network_id)
                     vlan.add_interfaces(LogicalInterface(name=irb_intf))
-            elif highest_encapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
-                self.init_evpn_config(highest_encapsulation_priority)
+            elif (any(x in encapsulation_priorities for x in ["MPLSoGRE", "MPLSoUDP"])):
+                self.init_evpn_config(encapsulation_priorities[1])
                 self.evpn.set_comment(
-                    DMUtils.vn_evpn_comment(vn, highest_encapsulation_priority))
+                      DMUtils.vn_evpn_comment(vn, encapsulation_priorities[1]))
                 for interface in interfaces:
                     self.evpn.add_interfaces(LogicalInterface(name=interface.name))
 
@@ -933,9 +933,9 @@ class AnsibleRoleCommon(AnsibleConf):
                                    'interfaces': interfaces,
                                    'vni': vn_obj.get_vxlan_vni(),
                                    'network_id': vn_obj.vn_network_id,
-                                   'highest_encapsulation_priority':
+                                   'encapsulation_priorities':
                                        GlobalVRouterConfigDM.
-                                           global_encapsulation_priority}
+                                           global_encapsulation_priorities}
                         self.add_routing_instance(ri_conf)
 
                     if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
