@@ -46,6 +46,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     is_bridge_(entry->is_bridge_),
     is_vxlan_routing_(entry->is_vxlan_routing_),
     comp_type_(entry->comp_type_),
+    validate_mcast_src_(entry->validate_mcast_src_),
     tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
@@ -198,6 +199,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         component_nh_list_.clear();
         vrf_id_ = comp_nh->vrf()->vrf_id();
         comp_type_ = comp_nh->composite_nh_type();
+        validate_mcast_src_ = comp_nh->validate_mcast_src();
         ecmp_hash_fieds_ =
             const_cast<CompositeNH *>(comp_nh)->CompEcmpHashFields().HashFieldsToUse();
         component_nh_key_list_ = comp_nh->component_nh_key_list();
@@ -1086,10 +1088,16 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             case Composite::L2COMP: {
                 encoder.set_nhr_family(AF_BRIDGE);
                 flags |= NH_FLAG_MCAST;
+                if (validate_mcast_src_) {
+                    flags |= NH_FLAG_VALIDATE_MCAST_SRC;
+                }
                 break;
             }
             case Composite::L3COMP: {
                 flags |= NH_FLAG_MCAST;
+                if (validate_mcast_src_) {
+                    flags |= NH_FLAG_VALIDATE_MCAST_SRC;
+                }
                 break;
             }
             case Composite::MULTIPROTO: {

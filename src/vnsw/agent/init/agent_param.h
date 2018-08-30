@@ -551,6 +551,9 @@ public:
     bool qos_priority_tagging() const { return qos_priority_tagging_; }
     bool IsConfiguredTsnHostRoute(std::string addr) const;
 
+    bool mvpn_ipv4_enable() const { return mvpn_ipv4_enable_; }
+    void set_mvpn_ipv4_enable(bool val) { mvpn_ipv4_enable_ = val; }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -809,6 +812,7 @@ private:
     uint16_t min_aap_prefix_len_;
     uint16_t vmi_vm_vn_uve_interval_;
     uint16_t fabric_snat_hash_table_size_;
+    bool mvpn_ipv4_enable_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

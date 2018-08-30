@@ -1160,8 +1160,7 @@ bool AgentRoute::ReComputeMulticastPaths(AgentPath *path, bool del) {
 
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(GetMulticastCompType(),
-                                        //Composite::L2COMP,
-                                        false,
+                                        ValidateMcastSrc(), false,
                                         component_nh_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled,
@@ -1173,6 +1172,11 @@ bool AgentRoute::ReComputeMulticastPaths(AgentPath *path, bool del) {
     //transition of getting deleted, skip NH modification.
     if (!nh) {
         return false;
+    }
+
+    if (nh->GetType() == NextHop::COMPOSITE) {
+        CompositeNH *comp_nh = static_cast<CompositeNH *>(nh);
+        comp_nh->set_validate_mcast_src(ValidateMcastSrc());
     }
 
     NextHopKey *key = static_cast<NextHopKey *>(nh_req.key.get());

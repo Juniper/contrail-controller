@@ -322,6 +322,7 @@ protected:
     virtual bool ReComputeMulticastPaths(AgentPath *path, bool del);
     virtual void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
     virtual Composite::Type GetMulticastCompType() { return Composite::L2COMP; }
+    virtual bool ValidateMcastSrc() { return true; }
 
 private:
     friend class AgentRouteTable;

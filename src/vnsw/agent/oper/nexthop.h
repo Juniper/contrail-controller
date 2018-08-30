@@ -1521,6 +1521,16 @@ public:
         NextHopKey(NextHop::COMPOSITE, policy),
         composite_nh_type_(type), component_nh_key_list_(component_nh_key_list),
         vrf_key_(vrf_name){
+
+            validate_mcast_src_ = true;
+    }
+
+    CompositeNHKey(COMPOSITETYPE type, bool validate_mcast_src, bool policy,
+                   const ComponentNHKeyList &component_nh_key_list,
+                   const std::string &vrf_name) :
+        NextHopKey(NextHop::COMPOSITE, policy),
+        composite_nh_type_(type), validate_mcast_src_(validate_mcast_src),
+        component_nh_key_list_(component_nh_key_list), vrf_key_(vrf_name){
     }
 
     virtual CompositeNHKey *Clone() const;
@@ -1546,6 +1556,7 @@ public:
     void CreateTunnelNHReq(Agent *agent);
     void ChangeTunnelType(TunnelType::Type tunnel_type);
     COMPOSITETYPE composite_nh_type() const {return composite_nh_type_;}
+    bool validate_mcast_src() const {return validate_mcast_src_;}
 
     void ReplaceLocalNexthop(const ComponentNHKeyList &new_comp_nh);
 private:
@@ -1556,6 +1567,7 @@ private:
     bool find(ComponentNHKeyPtr nh_key);
 
     COMPOSITETYPE composite_nh_type_;
+    bool validate_mcast_src_;
     ComponentNHKeyList component_nh_key_list_;
     VrfKey vrf_key_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNHKey);
@@ -1592,6 +1604,16 @@ public:
     CompositeNH(COMPOSITETYPE type, bool policy,
         const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
+        component_nh_key_list_(component_nh_key_list), vrf_(vrf, this),
+        pbb_nh_(false) {
+        validate_mcast_src_= true;
+        comp_ecmp_hash_fields_.AllocateEcmpFields();
+    }
+
+    CompositeNH(COMPOSITETYPE type, bool validate_mcast_src, bool policy,
+        const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
+        NextHop(COMPOSITE, policy), composite_nh_type_(type),
+        validate_mcast_src_(validate_mcast_src),
         component_nh_key_list_(component_nh_key_list), vrf_(vrf, this),
         pbb_nh_(false) {
         comp_ecmp_hash_fields_.AllocateEcmpFields();
@@ -1645,6 +1667,14 @@ public:
 
     COMPOSITETYPE composite_nh_type() const {
        return composite_nh_type_;
+    }
+
+    void set_validate_mcast_src(bool validate_mcast_src) {
+       validate_mcast_src_ = validate_mcast_src;
+    }
+
+    bool validate_mcast_src() const {
+       return validate_mcast_src_;
     }
 
     bool GetOldNH(const CompositeNHData *data, ComponentNH &);
@@ -1720,6 +1750,7 @@ private:
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
                                         TunnelType::Type type) const;
     COMPOSITETYPE composite_nh_type_;
+    bool validate_mcast_src_;
     ComponentNHKeyList component_nh_key_list_;
     ComponentNHList component_nh_list_;
     VrfEntryRef vrf_;
