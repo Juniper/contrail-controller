@@ -377,28 +377,32 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             ret = true;
         }
 
+        //  global_qos_config is applicable for vmi of VHOST type.
+        //  Skip checking for qos for vmi of VHOST type, since cfg_qos_table
+        //  is not applicable.
+        if (vmi_type_ != VHOST) {
+            AgentQosConfigTable *qos_table = table->agent()->qos_config_table();
+            AgentQosConfigKey qos_key(data->qos_config_uuid_);
+            const AgentQosConfig *qos_config =  static_cast<AgentQosConfig *>
+                (qos_table->FindActiveEntry(&qos_key));
+            bool is_vn_qos_config = false;
 
-        AgentQosConfigTable *qos_table = table->agent()->qos_config_table();
-        AgentQosConfigKey qos_key(data->qos_config_uuid_);
-        const AgentQosConfig *qos_config =  static_cast<AgentQosConfig *>
-            (qos_table->FindActiveEntry(&qos_key));
-        bool is_vn_qos_config = false;
-
-        if (qos_config == NULL) {
-            if (vn && vn->qos_config()) {
-                qos_config = vn->qos_config();
-                is_vn_qos_config = true;
+            if (qos_config == NULL) {
+                if (vn && vn->qos_config()) {
+                    qos_config = vn->qos_config();
+                    is_vn_qos_config = true;
+                }
             }
-        }
 
-        if (qos_config_ != qos_config) {
-            qos_config_ = qos_config;
-            ret = true;
-        }
+            if (qos_config_ != qos_config) {
+                qos_config_ = qos_config;
+                ret = true;
+            }
 
-        if (is_vn_qos_config != is_vn_qos_config_) {
-            is_vn_qos_config_ = is_vn_qos_config;
-            ret = true;
+            if (is_vn_qos_config != is_vn_qos_config_) {
+                is_vn_qos_config_ = is_vn_qos_config;
+                ret = true;
+            }
         }
     }
 
