@@ -167,6 +167,11 @@ public:
     bool BuildEvpnMulticastMessage(autogen::EnetItemType &item,
                                    std::stringstream &node_id,
                                    AgentRoute *route,
+                                   bool associate,
+                                   bool assisted_replication);
+    bool BuildEvpnMulticastMessage(autogen::EnetItemType &item,
+                                   std::stringstream &node_id,
+                                   AgentRoute *route,
                                    const Ip4Address *nh_ip,
                                    const std::string &vn,
                                    const SecurityGroupList *sg_list,
@@ -177,6 +182,15 @@ public:
                                    bool associate,
                                    const AgentPath *path,
                                    bool assisted_replication);
+    void AddMulticastEvpnRoute(const std::string &vrf_name,
+                                    const IpAddress &source,
+                                    const IpAddress &group,
+                                    autogen::EnetItemType *item);
+#if 0
+    void AddEvpnRoute(const std::string &vrf_name,
+                      const IpAddress &source, const IpAddress &group,
+                      autogen::EnetItemType *item);
+#endif
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
                       const IpAddress &ip, uint32_t plen,
                       autogen::EnetItemType *item);

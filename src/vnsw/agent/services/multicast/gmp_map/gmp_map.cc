@@ -26,6 +26,7 @@ extern "C" {
 #include "gmp_trace.h"
 #include "gmpr_trace.h"
 
+extern void gmp_set_def_igmp_version(uint32_t version);
 extern void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
                         uint32_t qrivl, uint32_t lmqi);
 extern void gmp_set_def_intf_params(mc_af mcast_af);
@@ -49,6 +50,14 @@ static gmpr_client_context igmp_client_context = {
     TRUE,                           // rctx_delta_notifications
     FALSE,                          // rctx_full_notifications
 };
+
+void gmp_set_def_igmp_version(uint32_t version)
+{
+    gmpr_intf_params *params = NULL;
+
+    params = &def_gmpr_intf_params[MCAST_AF_IPV4];
+    params->gmpr_ifparm_version = version;
+}
 
 void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
                         uint32_t qrivl, uint32_t lmqi)

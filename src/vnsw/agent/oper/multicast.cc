@@ -4,6 +4,7 @@
 
 #include <boost/uuid/uuid_io.hpp>
 #include <cmn/agent_cmn.h>
+#include <init/agent_param.h>
 
 #include <base/logging.h>
 #include <oper/operdb_init.h>
@@ -494,12 +495,12 @@ MulticastHandler::CreateMulticastGroupObject(const string &vrf_name,
     MulticastGroupObject *obj =
         new MulticastGroupObject(vrf_name, vn_name, grp_addr, src_addr);
     AddToMulticastObjList(obj);
+    obj->set_vxlan_id(vxlan_id);
 
     boost::system::error_code ec;
     Ip4Address bcast_addr =
                     IpAddress::from_string("255.255.255.255", ec).to_v4();
     if (obj->GetGroupAddress() == bcast_addr) {
-        obj->set_vxlan_id(vxlan_id);
         UpdateReference(obj);
     }
     return obj;
@@ -849,12 +850,15 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
 
     uint8_t intf_flags = InterfaceNHFlags::BRIDGE;
     Composite::Type comp_type = Composite::L2INTERFACE;
+    uint32_t route_tunnel_bmap = TunnelType::AllType();
     boost::system::error_code ec;
     Ip4Address bcast_addr =
                     IpAddress::from_string("255.255.255.255", ec).to_v4();
     if (obj->GetGroupAddress() != bcast_addr) {
         intf_flags = InterfaceNHFlags::INET4 | InterfaceNHFlags::MULTICAST;
         comp_type = Composite::L3INTERFACE;
+        route_tunnel_bmap = agent_->params()->mvpn_ipv4_enable() ?
+                            TunnelType::AllType() : TunnelType::VxlanType();
     }
     component_nh_key_list =
         GetInterfaceComponentNHKeyList(obj, intf_flags);
@@ -865,22 +869,38 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
             obj->GetGroupAddress().to_string(),
             component_nh_key_list.size());
 
-    uint32_t route_tunnel_bmap = TunnelType::AllType();
     AgentRouteData *data =
         BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
-                                                   obj->GetVnName(),
-                                                   MplsTable::kInvalidLabel,
-                                                   obj->vxlan_id(),
-                                                   route_tunnel_bmap,
-                                                   comp_type,
-                                                   component_nh_key_list,
-                                                   obj->pbb_vrf(),
-                                                   obj->learning_enabled());
+                                    obj->GetVnName(), MplsTable::kInvalidLabel,
+                                    obj->vxlan_id(), route_tunnel_bmap,
+                                    comp_type, component_nh_key_list,
+                                    obj->pbb_vrf(),
+                                    obj->learning_enabled());
 
     if (obj->GetGroupAddress() != bcast_addr) {
         Inet4MulticastAgentRouteTable::AddMulticastRoute(peer,
-                                obj->vrf_name(), obj->GetSourceAddress(),
-                                obj->GetGroupAddress(), 0, data);
+                                    obj->vrf_name(), obj->GetSourceAddress(),
+                                    obj->GetGroupAddress(), 0,
+                                    data);
+
+        if (!agent_->params()->mvpn_ipv4_enable()) {
+            intf_flags = InterfaceNHFlags::BRIDGE;
+            comp_type = Composite::L2INTERFACE;
+            component_nh_key_list =
+                GetInterfaceComponentNHKeyList(obj, intf_flags);
+
+            MacAddress mac;
+            GetMulticastMacFromIp(obj->GetGroupAddress(), mac);
+
+            AgentRouteData *bridge_data =
+                BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
+                                    obj->GetVnName(), MplsTable::kInvalidLabel,
+                                    0, route_tunnel_bmap, comp_type,
+                                    component_nh_key_list, obj->pbb_vrf(),
+                                    obj->learning_enabled());
+            BridgeAgentRouteTable::AddBridgeRoute(peer, obj->vrf_name(), mac,
+                                    0, bridge_data);
+        }
     } else {
         //Add Bridge FF:FF:FF:FF:FF:FF, local_vm_peer
         BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
@@ -893,7 +913,8 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
 void MulticastHandler::AddMulticastRoute(MulticastGroupObject *obj,
                                     const Peer *peer,
                                     uint32_t ethernet_tag,
-                                    AgentRouteData *data) {
+                                    AgentRouteData *data,
+                                    AgentRouteData *bridge_data) {
 
     boost::system::error_code ec;
     Ip4Address bcast_addr =
@@ -903,6 +924,14 @@ void MulticastHandler::AddMulticastRoute(MulticastGroupObject *obj,
         Inet4MulticastAgentRouteTable::AddMulticastRoute(peer,
                                     obj->vrf_name(), obj->GetSourceAddress(),
                                     obj->GetGroupAddress(), ethernet_tag, data);
+
+        if (!agent_->params()->mvpn_ipv4_enable()) {
+            MacAddress mac;
+            GetMulticastMacFromIp(obj->GetGroupAddress(), mac);
+
+            BridgeAgentRouteTable::AddBridgeRoute(peer, obj->vrf_name(), mac,
+                                    ethernet_tag, bridge_data);
+        }
     } else {
         BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                     obj->vrf_name(), ethernet_tag, data);
@@ -923,6 +952,20 @@ void MulticastHandler::DeleteMulticastRoute(const Peer *peer,
     if (grp != bcast_addr) {
         Inet4MulticastAgentRouteTable::DeleteMulticastRoute(peer, vrf_name,
                                     src, grp, ethernet_tag, comp_type);
+
+        if (!agent_->params()->mvpn_ipv4_enable()) {
+            MacAddress mac;
+            GetMulticastMacFromIp(grp, mac);
+
+            COMPOSITETYPE l2_comp_type;
+            if (comp_type == Composite::L3FABRIC) {
+                l2_comp_type = Composite::FABRIC;
+            } else {
+                l2_comp_type = Composite::L2INTERFACE;
+            }
+            BridgeAgentRouteTable::DeleteBridgeRoute(peer, vrf_name, mac,
+                                    ethernet_tag, l2_comp_type);
+        }
     } else {
         BridgeAgentRouteTable::DeleteBroadcastReq(peer, vrf_name, ethernet_tag,
                                     comp_type);
@@ -1035,6 +1078,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
         route_tunnel_bmap = TunnelType::VxlanType();
     const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
     AgentRouteData *data = NULL;
+    AgentRouteData *bridge_data = NULL;
     if (bgp_peer) {
         data = BridgeAgentRouteTable::BuildBgpPeerData(peer,
                                                        obj->vrf_name(),
@@ -1046,6 +1090,16 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                        comp_type,
                                                        component_nh_key_list,
                                                        obj->pbb_vrf(), false);
+        bridge_data = BridgeAgentRouteTable::BuildBgpPeerData(peer,
+                                                       obj->vrf_name(),
+                                                       obj->GetVnName(),
+                                                       label,
+                                                       obj->vxlan_id(),
+                                                       ethernet_tag,
+                                                       route_tunnel_bmap,
+                                                       Composite::FABRIC,
+                                                       component_nh_key_list,
+                                                       obj->pbb_vrf(), false);
     } else {
         data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
                                                           obj->GetVnName(),
@@ -1055,8 +1109,16 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                           comp_type,
                                                           component_nh_key_list,
                                                           obj->pbb_vrf(), false);
+        bridge_data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
+                                                          obj->GetVnName(),
+                                                          label,
+                                                          obj->vxlan_id(),
+                                                          route_tunnel_bmap,
+                                                          Composite::FABRIC,
+                                                          component_nh_key_list,
+                                                          obj->pbb_vrf(), false);
     }
-    AddMulticastRoute(obj, peer, ethernet_tag, data);
+    AddMulticastRoute(obj, peer, ethernet_tag, data, bridge_data);
     MCTRACE(LogSG, "rebake subnet peer for subnet", vrf_name,
             obj->GetSourceAddress().to_string(),
             obj->GetGroupAddress().to_string(), comp_type);
@@ -1173,6 +1235,38 @@ void MulticastHandler::ModifyFabricMembers(const Peer *peer,
 
     MCTRACE(LogSG, "Add fabric grp label ", vrf_name, src.to_string(),
                                 grp.to_string(), label);
+}
+
+void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
+                                         const std::string &vrf_name,
+                                         const Ip4Address &grp,
+                                         const Ip4Address &src,
+                                         const TunnelOlist &olist,
+                                         uint32_t ethernet_tag,
+                                         uint64_t peer_identifier) {
+
+    boost::system::error_code ec;
+    MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, src, grp);
+
+    MCTRACE(LogSG, "XMPP call(EVPN) multicast handler ", vrf_name, src.to_string(),
+                                    grp.to_string(), 0);
+
+    bool delete_op = false;
+    if (peer_identifier == ControllerPeerPath::kInvalidPeerIdentifier) {
+        delete_op = true;
+    } else if (obj == NULL) {
+        return;
+    }
+
+    TriggerRemoteRouteChange(obj, peer, vrf_name, src, grp, olist,
+                                    peer_identifier, delete_op,
+                                    Composite::EVPN, MplsTable::kInvalidLabel,
+                                    false, ethernet_tag);
+
+    MCTRACE(LogSG, "Add EVPN TOR Olist ", vrf_name, src.to_string(),
+                                    grp.to_string(), 0);
+
+    return;
 }
 
 /*
@@ -1452,6 +1546,114 @@ void MulticastHandler::DeleteEvpnPath(MulticastGroupObject *obj) {
     }
 }
 
+void MulticastHandler::AddLocalPeerRoute(MulticastGroupObject *sg_object) {
+
+    ComponentNHKeyList component_nh_key_list;
+
+    uint32_t route_tunnel_bmap;
+    route_tunnel_bmap = agent_->params()->mvpn_ipv4_enable() ?
+                            TunnelType::AllType() : TunnelType::VxlanType();
+
+    AgentRouteData *data =
+        BridgeAgentRouteTable::BuildNonBgpPeerData(sg_object->vrf_name(),
+                                    sg_object->GetVnName(), 0,
+                                    sg_object->vxlan_id(),
+                                    route_tunnel_bmap, Composite::L3COMP,
+                                    component_nh_key_list, sg_object->pbb_vrf(),
+                                    sg_object->learning_enabled());
+    Inet4MulticastAgentRouteTable::AddMulticastRoute(agent_->local_peer(),
+                                    sg_object->vrf_name(),
+                                    sg_object->GetSourceAddress(),
+                                    sg_object->GetGroupAddress(),
+                                    sg_object->vxlan_id(), data);
+
+    if (!agent_->params()->mvpn_ipv4_enable()) {
+        MacAddress mac;
+        GetMulticastMacFromIp(sg_object->GetGroupAddress(), mac);
+
+        AgentRouteData *bridge_data =
+            BridgeAgentRouteTable::BuildNonBgpPeerData(sg_object->vrf_name(),
+                                    sg_object->GetVnName(), 0,
+                                    sg_object->vxlan_id(),
+                                    route_tunnel_bmap, Composite::L2COMP,
+                                    component_nh_key_list, sg_object->pbb_vrf(),
+                                    sg_object->learning_enabled());
+        BridgeAgentRouteTable::AddBridgeRoute(agent_->local_peer(),
+                                    sg_object->vrf_name(), mac,
+                                    sg_object->vxlan_id(), bridge_data);
+    }
+
+    return;
+}
+
+void MulticastHandler::DeleteLocalPeerRoute(MulticastGroupObject *sg_object) {
+
+    Inet4MulticastAgentRouteTable::DeleteMulticastRoute(agent_->local_peer(),
+                                    sg_object->vrf_name(),
+                                    sg_object->GetSourceAddress(),
+                                    sg_object->GetGroupAddress(),
+                                    sg_object->vxlan_id(), Composite::L3COMP);
+
+    MacAddress mac;
+    GetMulticastMacFromIp(sg_object->GetGroupAddress(), mac);
+
+    BridgeAgentRouteTable::DeleteBridgeRoute(agent_->local_peer(),
+                                    sg_object->vrf_name(), mac,
+                                    sg_object->vxlan_id(), Composite::L2COMP);
+}
+
+void MulticastHandler::CreateMulticastVrfSourceGroup(
+                                    const std::string &vrf_name,
+                                    const std::string &vn_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr) {
+
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(vrf_name);
+    if (!vrf || vrf->IsDeleted()) return;
+
+    bool created = false;
+    MulticastGroupObject *sg_object = NULL;
+    sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
+    if (sg_object == NULL) {
+        sg_object = CreateMulticastGroupObject(vrf_name, vn_name,
+                                    src_addr, grp_addr, vrf->vxlan_id());
+        AddLocalPeerRoute(sg_object);
+        created = true;
+    }
+
+    if (created) {
+        TriggerLocalRouteChange(sg_object, agent_->local_vm_peer());
+    }
+
+    return;
+}
+
+void MulticastHandler::DeleteMulticastVrfSourceGroup(
+                                    const std::string &vrf_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr) {
+
+    MulticastGroupObject *sg_object = NULL;
+    Composite::Type comp_type = Composite::L3INTERFACE;
+
+    sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
+    if (!sg_object) {
+        return;
+    }
+
+    if (sg_object->GetLocalListSize() != 0) {
+        sg_object->ClearLocalListSize();
+    }
+
+    //Time to delete route(for mcast address) and mpls
+    DeleteMulticastRoute(agent_->local_vm_peer(), vrf_name,
+                                    src_addr, grp_addr, 0, comp_type);
+    DeleteLocalPeerRoute(sg_object);
+    DeleteMulticastObject(sg_object);
+
+    return;
+}
+
 bool MulticastHandler::AddVmInterfaceToVrfSourceGroup(
                                     const std::string &vrf_name,
                                     const std::string &vn_name,
@@ -1459,14 +1661,19 @@ bool MulticastHandler::AddVmInterfaceToVrfSourceGroup(
                                     const Ip4Address &src_addr,
                                     const Ip4Address &grp_addr) {
 
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(vrf_name);
+    if (!vrf || vrf->IsDeleted()) return false;
+
     const uuid intf_uuid = vm_itf->GetUuid();
     MulticastGroupObject *sg_object = NULL;
+
     bool created = false;
 
     sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
     if (sg_object == NULL) {
         sg_object = CreateMulticastGroupObject(vrf_name, vn_name, src_addr,
-                                    grp_addr, 0);
+                                    grp_addr, vrf->vxlan_id());
+        AddLocalPeerRoute(sg_object);
         created = true;
     }
 
@@ -1483,11 +1690,14 @@ bool MulticastHandler::AddVmInterfaceToVrfSourceGroup(
 }
 
 void MulticastHandler::AddVmInterfaceToSourceGroup(
-                                    const std::string &mvpn_vrf_name,
+                                    const std::string &mc_vrf_name,
                                     const std::string &vn_name,
                                     const VmInterface *vm_itf,
                                     const Ip4Address &src_addr,
                                     const Ip4Address &grp_addr) {
+
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(mc_vrf_name);
+    if (!vrf || vrf->IsDeleted()) return;
 
     bool created = false;
     created = AddVmInterfaceToVrfSourceGroup(vm_itf->vrf()->GetName(), vn_name,
@@ -1497,21 +1707,19 @@ void MulticastHandler::AddVmInterfaceToSourceGroup(
 
     MulticastGroupObject *sg_object = NULL;
     sg_object = FindGroupObject(vm_itf->vrf()->GetName(), src_addr, grp_addr);
-
-    if (sg_object && sg_object->mvpn_registered()) {
-        AddVmInterfaceToVrfSourceGroup(mvpn_vrf_name, vn_name, vm_itf, src_addr,
-                                    grp_addr);
-    } else {
-        bool mvpn_created = false;
-        mvpn_sg_object = FindGroupObject(mvpn_vrf_name, src_addr, grp_addr);
-        if (mvpn_sg_object == NULL) {
-            mvpn_sg_object = CreateMulticastGroupObject(mvpn_vrf_name, vn_name,
-                                        src_addr, grp_addr, 0);
-            mvpn_created = true;
-        }
-
-        if (mvpn_created) {
-            TriggerLocalRouteChange(mvpn_sg_object, agent_->local_vm_peer());
+    if (sg_object) {
+        if (sg_object->mvpn_registered()) {
+            AddVmInterfaceToVrfSourceGroup(mc_vrf_name,
+                                    vn_name, vm_itf, src_addr, grp_addr);
+            mvpn_sg_object = FindGroupObject(mc_vrf_name, src_addr, grp_addr);
+        } else {
+            mvpn_sg_object = FindGroupObject(mc_vrf_name, src_addr, grp_addr);
+            if (mvpn_sg_object == NULL) {
+                mvpn_sg_object = CreateMulticastGroupObject(mc_vrf_name,
+                                    vn_name, src_addr, grp_addr, vrf->vxlan_id());
+                AddLocalPeerRoute(sg_object);
+                TriggerLocalRouteChange(mvpn_sg_object, agent_->local_vm_peer());
+            }
         }
     }
     if (created) {
@@ -1548,7 +1756,8 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
             MulticastGroupObject *mvpn_sg_object = NULL;
             mvpn_sg_object = FindGroupObject(agent_->fabric_policy_vrf_name(),
                                     src_addr, grp_addr);
-            mvpn_sg_object->decr_vn_count();
+            if (mvpn_sg_object)
+                mvpn_sg_object->decr_vn_count();
         }
     }
 
@@ -1558,6 +1767,7 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                             sg_object->GetSourceAddress(),
                             sg_object->GetGroupAddress(),
                             0, comp_type);
+        DeleteLocalPeerRoute(sg_object);
         DeleteMulticastObject(sg_object->vrf_name_,
                             sg_object->GetSourceAddress(),
                             sg_object->GetGroupAddress());
@@ -1571,14 +1781,14 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
 }
 
 void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
-                                    const std::string &mvpn_vrf_name,
+                                    const std::string &mc_vrf_name,
                                     const VmInterface *vm_itf,
                                     const Ip4Address &src_addr,
                                     const Ip4Address &grp_addr) {
 
     DeleteVmInterfaceFromVrfSourceGroup(vm_itf->vrf()->GetName(),
                                     vm_itf, src_addr, grp_addr);
-    DeleteVmInterfaceFromVrfSourceGroup(mvpn_vrf_name, vm_itf, src_addr,
+    DeleteVmInterfaceFromVrfSourceGroup(mc_vrf_name, vm_itf, src_addr,
                                     grp_addr);
 }
 
@@ -1615,7 +1825,8 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                         agent_->fabric_policy_vrf_name(),
                                         (*sg_it)->GetSourceAddress(),
                                         (*sg_it)->GetGroupAddress());
-                mvpn_sg_object->decr_vn_count();
+                if (mvpn_sg_object)
+                    mvpn_sg_object->decr_vn_count();
             }
         }
 
@@ -1627,6 +1838,7 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress(),
                             0, comp_type);
+            DeleteLocalPeerRoute((*sg_it));
             DeleteMulticastObject((*sg_it)->vrf_name_,
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress());
@@ -1636,13 +1848,13 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
 }
 
 void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
-                                    const std::string &mvpn_vrf_name,
+                                    const std::string &mc_vrf_name,
                                     const VmInterface *vm_itf,
                                     const Ip4Address &grp_addr) {
 
     DeleteVmInterfaceFromVrfSourceGroup(vm_itf->vrf()->GetName(), vm_itf,
                                     grp_addr);
-    DeleteVmInterfaceFromVrfSourceGroup(mvpn_vrf_name, vm_itf, grp_addr);
+    DeleteVmInterfaceFromVrfSourceGroup(mc_vrf_name, vm_itf, grp_addr);
 }
 
 void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
@@ -1680,7 +1892,8 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                         agent_->fabric_policy_vrf_name(),
                                         (*sg_it)->GetSourceAddress(),
                                         (*sg_it)->GetGroupAddress());
-                mvpn_sg_object->decr_vn_count();
+                if (mvpn_sg_object)
+                    mvpn_sg_object->decr_vn_count();
             }
         }
 
@@ -1692,6 +1905,7 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress(),
                             0, comp_type);
+            DeleteLocalPeerRoute((*sg_it));
             DeleteMulticastObject((*sg_it)->vrf_name_,
                             (*sg_it)->GetSourceAddress(),
                             (*sg_it)->GetGroupAddress());
@@ -1701,12 +1915,37 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
 }
 
 void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
-                                    const std::string &mvpn_vrf_name,
+                                    const std::string &mc_vrf_name,
                                     const std::string &vm_vrf_name,
                                     const VmInterface *vm_itf) {
 
     DeleteVmInterfaceFromVrfSourceGroup(vm_vrf_name, vm_itf);
-    DeleteVmInterfaceFromVrfSourceGroup(mvpn_vrf_name, vm_itf);
+    DeleteVmInterfaceFromVrfSourceGroup(mc_vrf_name, vm_itf);
+}
+
+void MulticastHandler::SetEvpnMulticastSGFlags(
+                                    const std::string &vrf_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr,
+                                    uint32_t flags) {
+
+    MulticastGroupObject *sg_object = NULL;
+    sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
+
+    if (sg_object) sg_object->set_evpn_igmp_flags(flags);
+
+    return;
+}
+
+uint32_t MulticastHandler::GetEvpnMulticastSGFlags(
+                                    const std::string &vrf_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr) {
+
+    MulticastGroupObject *sg_object = NULL;
+    sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
+
+    return (sg_object ? sg_object->evpn_igmp_flags() : 0);
 }
 
 MulticastTEWalker::MulticastTEWalker(const std::string &name, Agent *agent) :
