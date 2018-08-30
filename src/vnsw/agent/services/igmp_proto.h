@@ -55,8 +55,6 @@ struct IgmpItfStats {
 struct IgmpSubnetState {
 public:
     IgmpSubnetState() {
-        gmp_intf_ = NULL;
-        vrf_name_ = "";
     }
     virtual ~IgmpSubnetState() {}
 
@@ -93,8 +91,6 @@ public:
     const IgmpInfo::IgmpItfStats &GetItfStats() const { return stats_; }
     void ClearItfStats() { stats_.Reset(); }
 
-    GmpIntf *gmp_intf_;
-    std::string vrf_name_;
     IgmpInfo::IgmpItfStats stats_;
 };
 
@@ -152,18 +148,16 @@ public:
     const IgmpStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
     GmpProto *GetGmpProto() { return gmp_proto_; }
-    bool SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet);
+    bool SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr, GmpPacket *packet);
     const bool GetItfStats(const VnEntry *vn, IpAddress gateway,
                             IgmpInfo::IgmpItfStats &stats);
     void ClearItfStats(const VnEntry *vn, IpAddress gateway);
     void IncrSendStats(const VmInterface *vm_itf, bool tx_done);
 
     DBTableBase::ListenerId vn_listener_id ();
-    DBTableBase::ListenerId itf_listener_id ();
 
 private:
     void VnNotify(DBTablePartBase *part, DBEntryBase *entry);
-    void ItfNotify(DBTablePartBase *part, DBEntryBase *entry);
     void Inet4McRouteTableNotify(DBTablePartBase *part, DBEntryBase *entry);
 
     void AsyncRead();
@@ -172,12 +166,10 @@ private:
     const std::string task_name_;
     boost::asio::io_service &io_;
 
-    DBTableBase::ListenerId itf_listener_id_;
     DBTableBase::ListenerId vn_listener_id_;
 
     GmpProto *gmp_proto_;
     IgmpStats stats_;
-    int itf_attach_count_;
 
     DISALLOW_COPY_AND_ASSIGN(IgmpProto);
 };

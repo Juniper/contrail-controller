@@ -262,6 +262,29 @@ traceobject sandesh AgentXmppRouteImport {
 }
 
 /**
+ * @description: Trace message for Routing instance for the route, source,
+ * group, next hop information, vxlan id, gateway etc imported from controller
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh AgentXmppSGRouteImport {
+    /** Controllet Peer */
+    1: string peer;
+    /** route imported in vrf */
+    2: string vrf;
+    /** Source IP address imported */
+    3: string source;
+    /** Group IP address imported */
+    4: string group;
+    /** Nexthop for the route imported */
+    5: string nexthop;
+    /** Mpls label */
+    6: u32 label;
+    /** virtual-network name */
+    7: string vn;
+}
+
+/**
  * @description: Trace message for multicast subscription for vrf from agent to controller
  * @type: Trace
  * @severity: DEBUG

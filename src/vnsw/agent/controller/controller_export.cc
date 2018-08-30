@@ -5,6 +5,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
+#include <init/agent_param.h>
 #include <oper/ecmp_load_balance.h>
 #include <oper/route_common.h>
 #include <oper/peer.h>
@@ -21,7 +22,7 @@
 
 RouteExport::State::State() :
     DBState(), exported_(false), ingress_replication_exported_(false),
-    fabric_multicast_exported_(false),
+    multicast_exported_(false),
     force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(), sg_list_(),
     tag_list_(), tunnel_type_(TunnelType::INVALID), path_preference_(),
     destination_(), source_(), ecmp_load_balance_(), isid_(0), tunnel_bmap_(0) {
@@ -307,7 +308,7 @@ bool RouteExport::MulticastRouteCanDissociate(const AgentRoute *route) {
     return can_dissociate;
 }
 
-void RouteExport::SubscribeFabricMulticast(const Agent *agent,
+void RouteExport::SubscribeMulticastRouting(const Agent *agent,
                                            AgentXmppChannel *bgp_xmpp_peer,
                                            AgentRoute *route,
                                            RouteExport::State *state) {
@@ -318,19 +319,19 @@ void RouteExport::SubscribeFabricMulticast(const Agent *agent,
     //first time subscription or force change
     if (!(agent->simulate_evpn_tor()) &&
         (active_path->peer()->GetType() != Peer::OVS_PEER) &&
-        ((state->fabric_multicast_exported_ == false) ||
+        ((state->multicast_exported_ == false) ||
          (state->force_chg_ == true))) {
         //TODO optimize by checking for force_chg? In other cases duplicate
         //request can be filtered.
-        if (state->fabric_multicast_exported_ == true) {
+        if (state->multicast_exported_ == true) {
             //Unsubscribe before re-sending subscription, this makes sure in any
             //corner case control-node does not see this as a duplicate request.
             AgentXmppChannel::ControllerSendMcastRouteDelete(bgp_xmpp_peer,
                                                              route);
-            state->fabric_multicast_exported_ = false;
+            state->multicast_exported_ = false;
         }
         //Sending 255.255.255.255 for fabric tree
-        state->fabric_multicast_exported_ =
+        state->multicast_exported_ =
             AgentXmppChannel::ControllerSendMcastRouteAdd(bgp_xmpp_peer,
                                                           route);
     }
@@ -368,10 +369,10 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
             return;
         }
 
-        if (state->fabric_multicast_exported_ == true) {
+        if (state->multicast_exported_ == true) {
             AgentXmppChannel::ControllerSendMcastRouteDelete(bgp_xmpp_peer,
                                                              route);
-            state->fabric_multicast_exported_ = false;
+            state->multicast_exported_ = false;
         }
 
         if ((state->ingress_replication_exported_ == true)) {
@@ -406,10 +407,31 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         route->SetState(partition->parent(), id_, state);
     }
 
-    if (route->vrf()->ShouldExportRoute()) {
-        SubscribeFabricMulticast(agent, bgp_xmpp_peer, route, state);
+    // Bridge Multicast routes are not sent to control.
+    // Bridge Broadcast route is sent with 255.255.255.255 address to control.
+    // Inet Multicast route can be because of MVPN or EVPN:
+    //  For EVPN: send route updates for ERMVPN and EVPN.
+    //  For MVPN: send route updates for ERMVPN on native VRF
+    //              and MVPN on ip-fabric VRF.
+    BridgeRouteEntry *l2_route = dynamic_cast<BridgeRouteEntry *>(route);
+    if ((route->GetTableType() == Agent::BRIDGE) &&
+        (l2_route->mac() != MacAddress::BroadcastMac())) {
+
+        state->force_chg_ = false;
+        return;
     }
-    if (route->GetTableType() != Agent::INET4_MULTICAST) {
+
+    if (route->vrf()->ShouldExportRoute()) {
+        SubscribeMulticastRouting(agent, bgp_xmpp_peer, route, state);
+    }
+
+    bool ingress_replication = true;
+    if ((route->GetTableType() == Agent::INET4_MULTICAST) &&
+        (agent->params()->mvpn_ipv4_enable())) {
+
+        ingress_replication = false;
+    }
+    if (ingress_replication) {
         SubscribeIngressReplication(agent, bgp_xmpp_peer, route, state);
     }
 
