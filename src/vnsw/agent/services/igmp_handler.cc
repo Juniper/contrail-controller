@@ -117,8 +117,7 @@ bool IgmpHandler::HandleVmIgmpPacket() {
     }
 
     parse_ok = igmp_proto->GetGmpProto()->GmpProcessPkt(
-                        igmp_intf->gmp_intf_,
-                        (void *)pkt_info_->transp.igmp, igmplen,
+                        vm_itf, (void *)pkt_info_->transp.igmp, igmplen,
                         pkt_info_->ip_saddr, pkt_info_->ip_daddr);
     /* Complain if it didn't parse. */
     if (!parse_ok) {
@@ -141,7 +140,7 @@ bool IgmpHandler::CheckPacket() const {
 }
 
 void IgmpHandler::SendPacket(const VmInterface *vm_itf, const VrfEntry *vrf,
-                                    GmpIntf *gmp_intf, GmpPacket *packet) {
+                                    IpAddress gmp_addr, GmpPacket *packet) {
 
     if (pkt_info_->packet_buffer() == NULL) {
         pkt_info_->AllocPacketBuffer(agent(), PktHandler::IGMP, 1024, 0);
@@ -161,7 +160,7 @@ void IgmpHandler::SendPacket(const VmInterface *vm_itf, const VrfEntry *vrf,
 
     uint16_t data_len = packet->pkt_len_;
 
-    in_addr_t src_ip = htonl(gmp_intf->get_ip_address().to_v4().to_ulong());
+    in_addr_t src_ip = htonl(gmp_addr.to_v4().to_ulong());
     in_addr_t dst_ip = htonl(packet->dst_addr_.to_v4().to_ulong());
 
     pkt_info_->ip = (struct ip *)(buf + eth_len);

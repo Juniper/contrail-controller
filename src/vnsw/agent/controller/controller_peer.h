@@ -177,6 +177,10 @@ public:
                                    bool associate,
                                    const AgentPath *path,
                                    bool assisted_replication);
+    void AddMulticastEvpnRoute(const std::string &vrf_name,
+                                    const IpAddress &source,
+                                    const IpAddress &group,
+                                    autogen::EnetItemType *item);
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
                       const IpAddress &ip, uint32_t plen,
                       autogen::EnetItemType *item);
