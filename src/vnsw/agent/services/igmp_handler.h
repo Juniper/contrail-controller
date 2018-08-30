@@ -21,7 +21,7 @@ private:
     bool HandleVmIgmpPacket();
     bool CheckPacket() const;
     void SendPacket(const VmInterface *vm_itf, const VrfEntry *vrf,
-                GmpIntf *gmp_intf, GmpPacket *packet);
+                IpAddress gmp_addr, GmpPacket *packet);
 
     struct igmp *igmp_;
     uint16_t igmp_len_;
