@@ -2,7 +2,23 @@
 {%         if feature in bgp.get('comment') %}
 {%             set contrail_asn_group = '_contrail_asn-'+(bgp.autonomous_system|string) %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} source-address {{bgp.get('ip_address')}}
+{%             set encap_priorities = device_abstract_config.get('system', {}).get('encapsulation_priorities', []) %}
+{%             set mode = [] %}
+{%             for encap_mode in encap_priorities %}
+{%                 if encap_mode != 'VXLAN' %}
+{%                     do mode.append(encap_mode) %}
+{%                     break %}
+{%                 endif %}
+{%             endfor %}
+{%             if mode|length > 0 and mode[0] == 'MPLSoUDP' %}
+set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} udp
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} export mpls_over_udp
+set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then community add encap-udp
+set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then accept
+set groups {{cfg_group}} policy-options community encap-udp members 0x030c:64512:13
+{%             else %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} gre
+{%             endif %}
 {%             for peer in bgp.get('peers', []) %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} neighbor {{peer.get('ip_address')}} peer-as {{peer.get('autonomous_system')}} 
 {%             endfor %}
@@ -12,7 +28,7 @@ set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} 
 {%             endfor %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} type {{bgp.get('type_')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} local-address {{bgp.get('ip_address')}}
-set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} hold-time {{bgp.hold_time}}
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} hold-time {{bgp.get('hold_time')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} multipath
 {%             for family in bgp.get('families', []) %}
 {%                 if family.startswith('inet') %}
