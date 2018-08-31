@@ -89,13 +89,6 @@
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:simpleType name="LogicalRouterGatewayRoles">
-    <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="DC-Gateway"/>
-        <xsd:enumeration value="CRB-Gateway"/>
-    </xsd:restriction>
-</xsd:simpleType>
-
 <xsd:complexType name="RoutingInstance">
     <xsd:all>
        <xsd:element name="name" type="xsd:string"/>
@@ -104,7 +97,6 @@
        <xsd:element name="virtual-network-id" type="xsd:string"/>
        <xsd:element name="virtual-network-mode" type="xsd:string"/>
        <xsd:element name="virtual-network-is-internal" type="xsd:boolean"/>
-       <xsd:element name="gateway-role" type="dac:LogicalRouterGatewayRoles"/>
        <xsd:element name="vxlan-id" type="xsd:integer"/>
        <xsd:element name="routing-instance-type" type="xsd:string"/>
        <xsd:element name="is-public-network" type="xsd:boolean"/>
