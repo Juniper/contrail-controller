@@ -1,6 +1,7 @@
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set name = ri.get('name') %}
 {%         set vxlan_id = ri.get('vxlan_id') %}
+{%         set gateway_role = ri.get('gateway_role', '') %}
 {%         if vxlan_id == 'None' %}
 {%             set vxlan_id = ri.get('virtual_network_id') %}
 {%         endif %}
@@ -31,7 +32,7 @@ set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{irb_n
 {%             endfor %}
 {%             set sys_config = device_abstract_config.get('system', None) %}
 {%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{%             if 'DC-Gateway' in sys_roles %}
+{%             if ('DC-Gateway' in sys_roles) and ('DC-Gateway' in gateway_role) %}
 set groups __contrail_{{feature}}__ routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%                 for subnet in ri.get('prefixes', []) %}
