@@ -61,7 +61,7 @@
         - include_tasks: error_handler.yml
           vars:
             op_err_message: "Error preparing to delete TFTP and DHCP config"
-            jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error. Here is deletion log\n: {{ output.deletion_log }}"
+            jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} when preparing TFTP/DHCP config"
             results:
               fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
 
