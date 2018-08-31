@@ -155,6 +155,7 @@ class AnsibleRoleCommon(AnsibleConf):
         prefixes = ri_conf.get("prefixes", [])
         gateways = ri_conf.get("gateways", [])
         router_external = ri_conf.get("router_external", False)
+        gateway_role = ri_conf.get("gateway_role")
         interfaces = ri_conf.get("interfaces", [])
         vni = ri_conf.get("vni", None)
         fip_map = ri_conf.get("fip_map", None)
@@ -174,6 +175,7 @@ class AnsibleRoleCommon(AnsibleConf):
         ri.set_virtual_network_id(str(network_id))
         ri.set_vxlan_id(str(vni))
         ri.set_virtual_network_is_internal(is_internal_vn)
+        ri.set_gateway_role(gateway_role)
         ri.set_is_public_network(router_external)
         if is_l2_l3:
             ri.set_virtual_network_mode('l2-l3')
@@ -958,6 +960,10 @@ class AnsibleRoleCommon(AnsibleConf):
                                    'network_id': vn_obj.vn_network_id}
                         if is_internal_vn:
                             ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
+                            lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(vrf_name_l3)
+                            lr = LogicalRouterDM.get(lr_uuid)
+                            if lr and lr.logical_router_gateway_role:
+                                ri_conf['gateway_role'] = lr.logical_router_gateway_role
                         self.add_routing_instance(ri_conf)
                     break
 

@@ -1200,6 +1200,7 @@ class LogicalRouterDM(DBBaseDM):
             vn_obj = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
             if vn_obj:
                 self.virtual_network = vn_obj.uuid
+        self.logical_router_gateway_role = obj.get("logical_router_gateway_role")
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.fq_name = obj['fq_name']
