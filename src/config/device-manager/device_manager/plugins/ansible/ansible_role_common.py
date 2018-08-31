@@ -33,7 +33,7 @@ class AnsibleRoleCommon(AnsibleConf):
     def is_gateway(self):
         if self.physical_router.routing_bridging_roles:
             gateway_roles = [r for r in self.physical_router.routing_bridging_roles if 'Gateway' in r]
-            if not gateway_roles:
+            if gateway_roles:
                 return True
         return False
     # end is_spine
