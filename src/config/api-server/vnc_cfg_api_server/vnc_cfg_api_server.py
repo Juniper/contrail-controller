@@ -565,16 +565,7 @@ class VncApiServer(object):
             msg = "Job Input %s " % json.dumps(request_params)
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-            device_list = self.validate_execute_job_input_params(
-                request_params)
-
-            # TODO - pass the job manager config file from api server config
-
-            # read the device object and pass the necessary data to the job
-            if device_list:
-                self.read_device_data(device_list, request_params)
-            else:
-                self.read_fabric_data(request_params)
+            fabric_job_uve_name = ''
 
             # generate the job execution id
             execution_id = uuid.uuid4()
@@ -591,41 +582,55 @@ class VncApiServer(object):
                         }
             request_params['args'] = json.dumps(job_args)
 
-            fabric_job_name = request_params.get('job_template_fq_name')
-            fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
-            fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+            is_delete = request_params.get('input').get('is_delete')
 
-            # create job manager fabric execution status uve
-            if request_params.get('fabric_fq_name') is not "__DEFAULT__":
-                job_execution_data = FabricJobExecution(
-                    name=fabric_job_uve_name,
-                    execution_id=request_params.get('job_execution_id'),
-                    job_start_ts=int(round(time.time() * 1000)),
-                    job_status="STARTING",
-                    percentage_completed=0.0
-                )
+            device_list = self.validate_execute_job_input_params(
+                    request_params)
 
-                job_execution_uve = FabricJobUve(data=job_execution_data,
-                                                 sandesh=self._sandesh)
-                job_execution_uve.send(sandesh=self._sandesh)
+            if is_delete is None or is_delete == False:
+                # TODO - pass the job manager config file from api server config
 
-            if device_list:
-                for device_id in device_list:
-                    device_fqname = request_params.get(
-                        'device_json').get(device_id).get('device_fqname')
-                    device_fqname = ':'.join(map(str, device_fqname))
-                    prouter_uve_name = device_fqname + ":" + \
-                        fabric_job_uve_name
+                # read the device object and pass the necessary data to the job
+                if device_list:
+                    self.read_device_data(device_list, request_params)
+                else:
+                    self.read_fabric_data(request_params)
 
-                    prouter_job_data = PhysicalRouterJobExecution(
-                        name=prouter_uve_name,
+                fabric_job_name = request_params.get('job_template_fq_name')
+                fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
+                fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+
+                # create job manager fabric execution status uve
+                if request_params.get('fabric_fq_name') is not "__DEFAULT__":
+                    job_execution_data = FabricJobExecution(
+                        name=fabric_job_uve_name,
                         execution_id=request_params.get('job_execution_id'),
-                        job_start_ts=int(round(time.time() * 1000))
+                        job_start_ts=int(round(time.time() * 1000)),
+                        job_status="STARTING",
+                        percentage_completed=0.0
                     )
 
-                    prouter_job_uve = PhysicalRouterJobUve(
-                        data=prouter_job_data, sandesh=self._sandesh)
-                    prouter_job_uve.send(sandesh=self._sandesh)
+                    job_execution_uve = FabricJobUve(data=job_execution_data,
+                                                     sandesh=self._sandesh)
+                    job_execution_uve.send(sandesh=self._sandesh)
+
+                if device_list:
+                    for device_id in device_list:
+                        device_fqname = request_params.get(
+                            'device_json').get(device_id).get('device_fqname')
+                        device_fqname = ':'.join(map(str, device_fqname))
+                        prouter_uve_name = device_fqname + ":" + \
+                            fabric_job_uve_name
+
+                        prouter_job_data = PhysicalRouterJobExecution(
+                            name=prouter_uve_name,
+                            execution_id=request_params.get('job_execution_id'),
+                            job_start_ts=int(round(time.time() * 1000))
+                        )
+
+                        prouter_job_uve = PhysicalRouterJobUve(
+                            data=prouter_job_data, sandesh=self._sandesh)
+                        prouter_job_uve.send(sandesh=self._sandesh)
 
             start_time = time.time()
             signal_var = {
