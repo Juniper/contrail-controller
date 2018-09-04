@@ -1,6 +1,7 @@
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
+import os
 import re
 import socket
 import time
@@ -37,12 +38,17 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.3"
+__version__ = "1.4"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.4:
+  - add timestamp into script output headers
+  - remove verbose option and set default logging level to INFO
+  - log output to local file (default: /var/log/contrail/db_manage.log) in
+    addition to stdout
 * 1.3:
   - Fix issue in the VN/subnet/IP address zookeeper lock clean method
     'clean_subnet_addr_alloc' which tried to clean 2 times same stale lock
@@ -284,9 +290,6 @@ def _parse_args(args_str):
         "--execute", help="Apply database modifications",
         action='store_true', default=False)
     parser.add_argument(
-        "--verbose", help="Run in verbose/INFO mode, default False",
-        action='store_true', default=False)
-    parser.add_argument(
         "--debug", help="Run in debug mode, default False",
         action='store_true', default=False)
     parser.add_argument(
@@ -295,6 +298,16 @@ def _parse_args(args_str):
     parser.add_argument(
             "--ifmap-credentials",
             help="<username>:<password> for read-only user")
+
+    if os.path.isdir("/var/log/contrail"):
+        default_log = "/var/log/contrail/db_manage.log"
+    else:
+        import tempfile
+        default_log = '%s/contrail-db-manage.log' % tempfile.gettempdir()
+
+    parser.add_argument(
+        "--log_file", help="Log file to save output, default '%(default)s'",
+        default=default_log)
 
     args_obj, remaining_argv = parser.parse_known_args(args_str.split())
     _args = args_obj
@@ -320,17 +333,16 @@ class DatabaseManager(object):
         self._api_args = api_args
 
         self._logger = utils.ColorLog(logging.getLogger(__name__))
-        log_level = 'ERROR'
-        if self._args.verbose:
-            log_level = 'INFO'
-        if self._args.debug:
-            log_level = 'DEBUG'
+        log_level = 'DEBUG' if self._args.debug else 'INFO'
         self._logger.setLevel(log_level)
-        logformat = logging.Formatter("%(levelname)s: %(message)s")
+        logformat = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
         stdout = logging.StreamHandler(sys.stdout)
-        stdout.setLevel(log_level)
         stdout.setFormatter(logformat)
         self._logger.addHandler(stdout)
+        logfile = logging.handlers.RotatingFileHandler(
+                  self._args.log_file, maxBytes=10000000, backupCount=5)
+        logfile.setFormatter(logformat)
+        self._logger.addHandler(logfile)
         cluster_id = self._api_args.cluster_id
 
         # cassandra connection
