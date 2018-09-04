@@ -60,10 +60,6 @@ unit_names_dict = {
     'contrail-analytics': [
         'contrail-collector',
         'contrail-analytics-api',
-        'contrail-snmp-collector',
-        'contrail-query-engine',
-        'contrail-alarm-gen',
-        'contrail-topology',
         'contrail-analytics-nodemgr'
     ],
     'contrail-config': [
@@ -89,9 +85,6 @@ unit_names_dict = {
         'contrail-vrouter-nodemgr'
     ],
     'contrail-database': [
-        'cassandra',
-        'zookeeper',
-        'kafka',
         'contrail-database-nodemgr'
     ]
 }
@@ -232,6 +225,24 @@ def main(args_str=' '.join(sys.argv[1:])):
     # TODO: restore rule_file logic somehow if needed for microservices
     #rule_file = _args.rules
 
+    alarm_enable = os.getenv('ENABLE_ANALYTICS_ALARM', 'False')
+    qe_enable = os.getenv('ENABLE_ANALYTICS_QUERY_ENGINE', 'False')
+    snmp_enable = os.getenv('ENABLE_ANALYTICS_SNMP', 'False')
+    cassandra_enable = os.getenv('ENABLE_ANALYTICS_DATABASE_CASSANDRA', 'False')
+    kafka_enable = os.getenv('ENABLE_ANALYTICS_DATABASE_KAFKA', 'False')
+
+    if alarm_enable == 'True':
+        unit_names_dict['contrail-analytics'].append('contrail-alarm-gen')
+    if qe_enable == 'True':
+        unit_names_dict['contrail-analytics'].append('contrail-query-engine')
+    if snmp_enable == 'True':
+        unit_names_dict['contrail-analytics'].append('contrail-snmp-collector')
+        unit_names_dict['contrail-analytics'].append('contrail-topology')
+    if kafka_enable == 'True':
+        unit_names_dict['contrail-database'].append('kafka')
+        unit_names_dict['contrail-database'].append('zookeeper')
+    if cassandra_enable == 'True':
+        unit_names_dict['contrail-database'].append('cassandra')
     unit_names = unit_names_dict.get(node_type)
     if node_type == 'contrail-analytics':
         prog = AnalyticsEventManager(_args, unit_names)
