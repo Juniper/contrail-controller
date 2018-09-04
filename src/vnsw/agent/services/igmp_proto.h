@@ -152,6 +152,8 @@ public:
     const IgmpStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
     GmpProto *GetGmpProto() { return gmp_proto_; }
+    bool MulticastPolicyCheck(GmpIntf *gmp_intf, IpAddress source,
+                                    IpAddress group);
     bool SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet);
     const bool GetItfStats(const VnEntry *vn, IpAddress gateway,
                             IgmpInfo::IgmpItfStats &stats);

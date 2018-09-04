@@ -608,4 +608,16 @@ private:
     std::string remote_ip_;
 };
 
+class AgentMulticastPolicySandesh : public AgentSandesh {
+public:
+    AgentMulticastPolicySandesh(const std::string &context,
+                                    const std::string &uuid)
+        : AgentSandesh(context, uuid) {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+};
+
 #endif // vnsw_agent_sandesh_h_
