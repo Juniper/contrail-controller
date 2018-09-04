@@ -1422,8 +1422,6 @@ private:
     void UpdateL2();
     void DeleteL2();
 
-    void ResyncVhostQosConfig(const Agent *agent, VmInterface *vmi);
-
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool force_policy,
                   bool ecmp, bool is_local, bool proxy_arp,

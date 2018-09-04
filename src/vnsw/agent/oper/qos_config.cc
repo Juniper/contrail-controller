@@ -134,32 +134,6 @@ bool AgentQosConfig::VerifyLinkToGlobalQosConfig(const Agent *agent,
     return false;
 }
 
-boost::uuids::uuid
-AgentQosConfig::GetQosTableActiveVhostQosConfig(const Agent *agent) {
-    AgentQosConfigTable *table =
-        static_cast<AgentQosConfigTable *>(agent->qos_config_table());
-
-        return table->GetActiveVhostQosConfig();
-}
-
-void AgentQosConfigTable::ResyncInterfaceTableQosConfig(const Agent *agent) {
-    
-    AgentQosConfigTable *table =
-        static_cast<AgentQosConfigTable *>(agent->qos_config_table());
-
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    VmInterfaceKey *key =
-        new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
-                           agent->vhost_interface_name());
-    key->sub_op_ = AgentKey::RESYNC;
-    boost::uuids::uuid qos_config_uuid = table->GetActiveVhostQosConfig();
-    InterfaceQosConfigData *qos_data =
-        new InterfaceQosConfigData(agent, NULL, qos_config_uuid);
-    req.key.reset(key);
-    req.data.reset(qos_data);
-    agent->interface_table()->Enqueue(&req);
-}
-
 void AgentQosConfig::HandleVhostQosConfig(const Agent *agent,
         const AgentQosConfigData *data, bool deleted) {
     if (deleted == false) {
@@ -177,7 +151,18 @@ void AgentQosConfig::HandleVhostQosConfig(const Agent *agent,
     } else {
         table->InsertVhostQosConfig(uuid());
     }
-    table->ResyncInterfaceTableQosConfig(agent);
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    VmInterfaceKey *key =
+        new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                           agent->vhost_interface_name());
+    key->sub_op_ = AgentKey::RESYNC;
+    boost::uuids::uuid qos_config_uuid = table->GetActiveVhostQosConfig();
+    InterfaceQosConfigData *qos_data =
+        new InterfaceQosConfigData(agent, NULL, qos_config_uuid);
+    req.key.reset(key);
+    req.data.reset(qos_data);
+    agent->interface_table()->Enqueue(&req);
 }
 
 void AgentQosConfig::HandleFabricQosConfig(const Agent *agent,
