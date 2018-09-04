@@ -12,6 +12,7 @@ try:
 except ImportError:
     from schema_transformer import config_db
     from schema_transformer import to_bgp
+from cfgm_common.exceptions import BadRequest
 from vnc_api.vnc_api import (BgpRouterParams, VirtualMachineInterface,
         BgpRouter, LogicalRouter, RouteTargetList, InstanceIp, BgpAsAService,
         NoIdError, SubCluster)
@@ -27,6 +28,18 @@ from cfgm_common import get_lr_internal_vn_name
 class VerifyBgp(VerifyRouteTarget):
     def __init__(self, vnc_lib):
         self._vnc_lib = vnc_lib
+
+    def get_lr_internal_vn(self, lr_fq_name, err_on_fail=True):
+        intvns = []
+        lr = self._vnc_lib.logical_router_read(lr_fq_name)
+        for vn_ref in lr.get_virtual_network_refs() or []:
+            if ('logical_router_virtual_network_type' in vn_ref['attr'].attr_fields and
+                vn_ref['attr'].logical_router_virtual_network_type == 'InternalVirtualNetwork'):
+                intvns.append(vn_ref)
+        if len(intvns) != 1 and err_on_fail:
+            print "Expecting only one internalVN connected to LR"
+            raise Exception("Internal VN attached to LR (%s) == %s" % (lr.uuid, intvns))
+        return intvns
 
     @retries(5)
     def check_no_si_in_lr(self, lr_fq_name):
@@ -276,6 +289,72 @@ class TestBgp(STTestCase, VerifyBgp):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self._vnc_lib.logical_router_delete(id=lr.uuid)
         self.check_lr_is_deleted(uuid=lr.uuid)
+        self.check_rt_is_deleted(name=lr_target)
+
+    # test logical router delete failure reverts
+    # internalVN deletion
+    def test_logical_router_delete(self):
+        # configure vxlan routing
+        proj_obj = self._vnc_lib.project_read(
+                fq_name=['default-domain', 'default-project'])
+        proj_obj.set_vxlan_routing(True)
+        self._vnc_lib.project_update(proj_obj)
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create virtual machine interface
+        vmi_name = self.id() + 'vmi1'
+        vmi = VirtualMachineInterface(vmi_name, parent_type='project',
+                                      fq_name=['default-domain',
+                                      'default-project', vmi_name])
+        vmi.add_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        # create logical router
+        lr_name = self.id() + 'lr1'
+        lr = LogicalRouter(lr_name)
+        rtgt_list = RouteTargetList(route_target=['target:1:1'])
+        lr.set_configured_route_target_list(rtgt_list)
+        lr.add_virtual_machine_interface(vmi)
+        self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr.uuid)
+        lr_target = self.check_lr_target(lr.get_fq_name())
+        intvns = self.get_lr_internal_vn(lr.get_fq_name())
+
+        # Deletion
+        lr.del_virtual_machine_interface(vmi)
+        self._vnc_lib.logical_router_update(lr)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+
+        # internalVN should be restored when LR delete fails
+        try:
+            # override libs
+            org_dbe_delete = self._server_info['api_server']._db_conn.dbe_delete
+            def tmp_dbe_delete(obj_type, id, read_result):
+                if obj_type == 'logical_router':
+                    return False, (400, 'Fake LR delete failure')
+                else:
+                    return org_dbe_delete(obj_type, id, read_result)
+            self._server_info['api_server']._db_conn.dbe_delete = tmp_dbe_delete
+
+            try:
+                self._vnc_lib.logical_router_delete(id=lr.uuid)
+            except BadRequest as err:
+                lr = self._vnc_lib.logical_router_read(id=lr.uuid)
+                self.get_lr_internal_vn(lr.get_fq_name())
+            else:
+                raise Exception('UT: Fake LR delete didnt create BadRequest exception')
+        finally:
+            self._server_info['api_server']._db_conn.dbe_delete = org_dbe_delete
+
+        # internalVN should be removed when LR is deleted successfully
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
+        self.check_lr_is_deleted(uuid=lr.uuid)
+        self.assertRaises(NoIdError, self._vnc_lib.virtual_network_read,
+                          intvns[0]['uuid'])
         self.check_rt_is_deleted(name=lr_target)
 
     def create_bgp_router_sub(self, name, vendor='contrail', asn=None,
