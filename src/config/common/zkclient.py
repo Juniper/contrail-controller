@@ -116,6 +116,7 @@ class IndexAllocator(object):
                 self._set_in_use(new_in_use, idx_int)
 
         self._in_use = new_in_use
+        self._alloc_list = sorted_alloc_list
         # end for idx
 
     def _get_zk_index_from_bit(self, idx, alloc_list=None):
