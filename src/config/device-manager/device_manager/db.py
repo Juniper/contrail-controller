@@ -183,9 +183,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.device_family = obj.get('physical_router_device_family')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.physical_router_role = obj.get('physical_router_role')
-        routing_bridging_roles = obj.get('routing_bridging_roles')
-        if routing_bridging_roles is not None:
-            self.routing_bridging_roles = routing_bridging_roles.get('rb_role')
+        self.routing_bridging_roles = obj.get('routing_bridging_roles')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.physical_router_snmp = obj.get('physical_router_snmp')
         self.physical_router_lldp = obj.get('physical_router_lldp')
