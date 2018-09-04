@@ -1898,7 +1898,7 @@ class FilterModule(object):
 
         rb_roles = device_roles.get('routing_bridging_roles', [])
         device_obj.routing_bridging_roles = RoutingBridgingRolesType(
-            rb_role=rb_roles
+            rb_roles=rb_roles
         )
 
         _task_log('Assign roles to device "%s"' % device_obj.fq_name)
