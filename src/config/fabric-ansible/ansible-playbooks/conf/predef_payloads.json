@@ -492,12 +492,17 @@
           "name": "juniper-qfx5k",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
-          "node_profile_physical_roles": {
-            "physical_role": [ "leaf", "spine" ]
-          },
-          "node_profile_routing_bridging_roles": {
-            "rb_role": [ "CRB-Access" ]
-          }
+          "node_profile_roles":
+          [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["CRB-Access"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
+              }
+          ]
         },
         {
           "fq_name": [
@@ -506,12 +511,17 @@
           "name": "juniper-qfx10k",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
-          "node_profile_physical_roles": {
-              "physical_role": [ "leaf", "spine" ]
-          },
-          "node_profile_routing_bridging_roles": {
-              "rb_role": [ "CRB-Gateway", "CRB-Access", "DC-Gateway" ]
-          }
+          "node_profile_roles":
+          [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
+              }
+          ]
         },
         {
           "fq_name": [
@@ -520,12 +530,17 @@
           "name": "juniper-mx",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
-          "node_profile_physical_roles": {
-              "physical_role": [ "leaf", "spine" ]
-          },
-          "node_profile_routing_bridging_roles": {
-              "rb_role": [ "DC-Gateway" ]
-          }
+          "node_profile_roles":
+          [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["DC-Gateway"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["DC-Gateway"]
+              }
+          ]
         }
       ]
     },
