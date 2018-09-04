@@ -403,7 +403,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          ("virtual-network-bridge-domain")
          ("virtual-network-security-logging-object")
          ("virtual-network-tag")
-         ("virtual-network-provider-network"))
+         ("virtual-network-provider-network")
+         ("virtual-network-multicast-policy"))
         ("floating-ip", list_of("floating-ip-pool-floating-ip")
          ("instance-ip-floating-ip"))
         ("alias-ip", list_of("alias-ip-pool-alias-ip"))
@@ -467,5 +468,6 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                            ("project-logical-router"))
         ("port-tuple", list_of("service-instance-port-tuple")
                               ("port-tuple-interface"))
-        ("policy-management", std::set<std::string>());
+        ("policy-management", std::set<std::string>())
+        ("multicast-policy", list_of("virtual-network-multicast-policy"));
 }
