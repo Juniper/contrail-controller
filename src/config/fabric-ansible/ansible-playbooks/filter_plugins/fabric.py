@@ -40,7 +40,6 @@ from vnc_api.gen.resource_xsd import (
     VirtualNetworkType,
     FabricNetworkTag,
     NamespaceValue,
-    RoutingBridgingRolesType,
     SubnetListType,
     KeyValuePairs,
     KeyValuePair
@@ -1897,9 +1896,7 @@ class FilterModule(object):
             = device_roles.get('physical_role')
 
         rb_roles = device_roles.get('routing_bridging_roles', [])
-        device_obj.routing_bridging_roles = RoutingBridgingRolesType(
-            rb_role=rb_roles
-        )
+        device_obj.routing_bridging_roles = rb_roles
 
         _task_log('Assign roles to device "%s"' % device_obj.fq_name)
         vnc_api.physical_router_update(device_obj)
