@@ -64,6 +64,7 @@
         job_ctx: "{{ job_ctx }}"
         prouter_fqname: "{{ prouter_fqname }}"
         onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
+      when: input.is_delete is undefined or input.is_delete == False
 
     - set_fact:
         output: {
