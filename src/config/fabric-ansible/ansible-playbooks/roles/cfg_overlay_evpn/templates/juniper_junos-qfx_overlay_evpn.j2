@@ -36,6 +36,10 @@ set groups __contrail_{{feature}}__ protocols evpn extended-vni-list all
 set groups __contrail_{{feature}}__ switch-options vtep-source-interface lo0.0
 set groups __contrail_{{feature}}__ switch-options route-distinguisher {{route_distinguisher}}:1
 set groups __contrail_{{feature}}__ switch-options vrf-target target:{{as_number}}:1
+set groups __contrail_{{feature}}__ policy-options community community-esi-in members target:{{as_number}}:1
+set groups __contrail_{{feature}}__ policy-options policy-statement import-evpn term esi-in then from community community-esi-in then accept
+set groups __contrail_{{feature}}__ policy-options policy-statement import-evpn term default then accept
+set groups __contrail_{{feature}}__ switch-options vrf-import import-evpn
 {%                 for ri in device_abstract_config.get('routing_instances', []) %}
 {%                     set name = ri.get('name') %}
 {%                     set vxlan_id = ri.get('vxlan_id') %}
