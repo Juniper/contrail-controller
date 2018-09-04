@@ -284,7 +284,7 @@ bool IgmpProto::SendIgmpPacket(GmpIntf *gmp_intf, GmpPacket *packet) {
             continue;
         }
         const VmInterface *vm_itf = dynamic_cast<const VmInterface *>(itf);
-        if (!vm_itf) {
+        if (!vm_itf || vm_itf->IsDeleted()) {
             continue;
         }
         if (vm_itf->vmi_type() == VmInterface::VHOST) {
