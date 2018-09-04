@@ -171,6 +171,7 @@ public:
                                     IpAddress source, IpAddress group);
     void TriggerEvpnNotification(const VmInterface *vm_intf, bool join,
                                     IpAddress source, IpAddress group);
+    bool MulticastPolicyCheck(GmpIntf *gif, IpAddress source, IpAddress group);
     bool SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
                             IpAddress dest);
     const GmpStats &GetStats() const { return stats_; }

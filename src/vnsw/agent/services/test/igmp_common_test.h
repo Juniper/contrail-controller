@@ -63,6 +63,30 @@ test::ControlNodeMock *cn_bgp_peer[kControlNodes];
 #define MAX_WAIT_COUNT          1000
 #define BUF_SIZE                8192
 
+#define MAX_TESTNAME_LEN            100
+#define MAX_VMS_PER_VN              7
+#define NUM_VNS                     2
+
+struct PortInfo input[MAX_VMS_PER_VN] = {
+    {"vnet1-0", 1, "10.2.1.3", "00:00:10:01:01:03", 1, 1},
+    {"vnet1-1", 2, "10.2.1.4", "00:00:10:01:01:04", 1, 1},
+    {"vnet1-2", 3, "10.2.1.5", "00:00:10:01:01:05", 1, 1},
+    {"vnet1-3", 4, "10.2.1.6", "00:00:10:01:01:06", 1, 1},
+    {"vnet1-4", 5, "10.2.1.7", "00:00:10:01:01:07", 1, 1},
+    {"vnet1-5", 6, "10.2.1.8", "00:00:10:01:01:08", 1, 1},
+    {"vnet1-6", 7, "10.2.1.9", "00:00:10:01:01:09", 1, 1},
+};
+
+struct PortInfo input_2[MAX_VMS_PER_VN] = {
+    {"vnet2-0", 11, "10.2.2.3", "00:00:10:01:02:03", 2, 2},
+    {"vnet2-1", 12, "10.2.2.4", "00:00:10:01:02:04", 2, 2},
+    {"vnet2-2", 13, "10.2.2.5", "00:00:10:01:02:05", 2, 2},
+    {"vnet2-3", 14, "10.2.2.6", "00:00:10:01:02:06", 2, 2},
+    {"vnet2-4", 15, "10.2.2.7", "00:00:10:01:02:07", 2, 2},
+    {"vnet2-5", 16, "10.2.2.8", "00:00:10:01:02:08", 2, 2},
+    {"vnet2-6", 17, "10.2.2.9", "00:00:10:01:02:09", 2, 2},
+};
+
 char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 
@@ -70,14 +94,61 @@ IpamInfo ipam_info[] = {
     {"10.1.1.0", 24, "10.1.1.1", true},
 };
 
-struct PortInfo input[] = {
-    {"vnet1-0", 1, "10.1.1.3", "00:00:10:01:01:03", 1, 1},
-    {"vnet1-1", 2, "10.1.1.4", "00:00:10:01:01:04", 1, 1},
-    {"vnet1-2", 3, "10.1.1.5", "00:00:10:01:01:05", 1, 1},
-    {"vnet1-3", 4, "10.1.1.6", "00:00:10:01:01:06", 1, 1},
-    {"vnet1-4", 5, "10.1.1.7", "00:00:10:01:01:07", 1, 1},
-    {"vnet1-5", 6, "10.1.1.8", "00:00:10:01:01:08", 1, 1},
-    {"vnet1-6", 7, "10.1.1.9", "00:00:10:01:01:09", 1, 1},
+IpamInfo ipam_info_2[] = {
+    {"10.2.2.0", 24, "10.2.2.1", true},
+};
+
+#define MSUBNET_SYSTEMS     "224.0.0.1"
+#define MSUBNET_ROUTERS     "224.0.0.2"
+#define MIGMP_ADDRESS       "224.0.0.22"
+
+#define MGROUP_ADDR_1       "224.1.0.10"
+#define MGROUP_ADDR_2       "224.2.0.10"
+#define MGROUP_ADDR_3       "224.3.0.10"
+
+#define MSOURCE_ADDR_11     "100.1.0.10"
+#define MSOURCE_ADDR_12     "100.1.0.20"
+#define MSOURCE_ADDR_13     "100.1.0.30"
+#define MSOURCE_ADDR_14     "100.1.0.40"
+#define MSOURCE_ADDR_15     "100.1.0.50"
+
+#define MSOURCE_ADDR_21     "100.2.0.10"
+#define MSOURCE_ADDR_22     "100.2.0.20"
+#define MSOURCE_ADDR_23     "100.2.0.30"
+#define MSOURCE_ADDR_24     "100.2.0.40"
+#define MSOURCE_ADDR_25     "100.2.0.50"
+
+#define MSOURCE_ADDR_31     "100.3.0.10"
+#define MSOURCE_ADDR_32     "100.3.0.20"
+#define MSOURCE_ADDR_33     "100.3.0.30"
+#define MSOURCE_ADDR_34     "100.3.0.40"
+#define MSOURCE_ADDR_35     "100.3.0.50"
+
+MulticastPolicy policy[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_1, false},
+    {MSOURCE_ADDR_13, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_14, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_11[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_12[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_2, false},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_2, true},
+};
+
+MulticastPolicy policy_21[] = {
+    {MSOURCE_ADDR_21, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_22, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_22[] = {
+    {MSOURCE_ADDR_21, MGROUP_ADDR_2, false},
+    {MSOURCE_ADDR_22, MGROUP_ADDR_2, true},
 };
 
 char print_buf[1024*3];

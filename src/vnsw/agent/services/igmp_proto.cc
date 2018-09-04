@@ -7,6 +7,7 @@
 #include "oper/vn.h"
 #include "oper/route_common.h"
 #include "oper/multicast.h"
+#include "oper/multicast_policy.h"
 #include "services/igmp_proto.h"
 
 IgmpProto::IgmpProto(Agent *agent, boost::asio::io_service &io) :

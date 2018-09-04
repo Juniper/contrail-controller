@@ -294,6 +294,10 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
         ret = true;
     }
 
+    if (mp_list_ != data->mp_list_) {
+        mp_list_ = data->mp_list_;
+    }
+
     if (cfg_igmp_enable_ != data->cfg_igmp_enable_) {
         cfg_igmp_enable_ = data->cfg_igmp_enable_;
     }
@@ -952,6 +956,8 @@ VnTable::BuildVnIpamData(const std::vector<autogen::IpamSubnetType> &subnets,
 VnData *VnTable::BuildData(IFMapNode *node) {
     using boost::uuids::uuid;
     using boost::uuids::nil_uuid;
+    boost::uuids::uuid mp_uuid = nil_uuid();
+    UuidList mp_list;
 
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
@@ -1079,6 +1085,17 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                     vxlan_routing_vn = true;
                 }
             }
+        }
+
+        if (adj_node->table() ==
+                            agent()->cfg()->cfg_multicast_policy_table()) {
+            MulticastPolicy *mcast_group = static_cast<MulticastPolicy *>
+                            (adj_node->GetObject());
+            assert(mcast_group);
+            autogen::IdPermsType id_perms = mcast_group->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           mp_uuid);
+            mp_list.push_back(mp_uuid);
         }
     }
 
@@ -1271,6 +1288,15 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     std::vector<VnSandeshData> &list =
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);
+    std::vector<MulticastPolicyLink> mp_list;
+    UuidList::const_iterator mpit = mp_list_.begin();
+    while (mpit != mp_list_.end()) {
+        MulticastPolicyLink mp_entry;
+        mp_entry.set_mp_uuid(to_string(*mpit));
+        mp_list.push_back(mp_entry);
+        ++mpit;
+    }
+    data.set_mp_list(mp_list);
     data.set_cfg_igmp_enable(cfg_igmp_enable());
     data.set_max_flows(vn_max_flows());
     return true;

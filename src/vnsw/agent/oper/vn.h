@@ -138,6 +138,7 @@ struct VnData : public AgentOperDBData {
     bool underlay_forwarding_;
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
+    UuidList mp_list_;
     bool cfg_igmp_enable_;
     uint32_t vn_max_flows_;
 };
@@ -221,6 +222,10 @@ public:
         return underlay_forwarding_;
     }
 
+    const UuidList &mp_list() const {
+        return mp_list_;
+    }
+
     bool cfg_igmp_enable() const {
         return cfg_igmp_enable_;
     }
@@ -293,6 +298,7 @@ private:
     bool underlay_forwarding_;
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
+    UuidList mp_list_;
     bool cfg_igmp_enable_;
     uint32_t vn_max_flows_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
