@@ -492,8 +492,8 @@
           "name": "juniper-qfx5k-lean",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
-          "node_profile_roles":
-          [
+          "node_profile_roles": {
+            "role_mappings": [
               {
                 "physical_role": "leaf",
                 "rb_roles": ["CRB-Access"]
@@ -502,7 +502,8 @@
                 "physical_role": "spine",
                 "rb_roles": ["null"]
               }
-          ]
+            ]
+          }
         },
         {
           "fq_name": [
@@ -511,8 +512,8 @@
           "name": "juniper-qfx5k",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
-          "node_profile_roles":
-          [
+          "node_profile_roles": {
+            "role_mappings": [
               {
                 "physical_role": "leaf",
                 "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway"]
@@ -521,7 +522,8 @@
                 "physical_role": "spine",
                 "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
               }
-          ]
+            ]
+          }
         },
         {
           "fq_name": [
@@ -530,8 +532,8 @@
           "name": "juniper-qfx10k",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
-          "node_profile_roles":
-          [
+          "node_profile_roles": {
+            "role_mappings": [
               {
                 "physical_role": "leaf",
                 "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway"]
@@ -540,7 +542,8 @@
                 "physical_role": "spine",
                 "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
               }
-          ]
+            ]
+          }
         },
         {
           "fq_name": [
@@ -549,8 +552,8 @@
           "name": "juniper-mx",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
-          "node_profile_roles":
-          [
+          "node_profile_roles": {
+            "role_mappings": [
               {
                 "physical_role": "leaf",
                 "rb_roles": ["DC-Gateway"]
@@ -559,7 +562,8 @@
                 "physical_role": "spine",
                 "rb_roles": ["DC-Gateway"]
               }
-          ]
+            ]
+          }
         }
       ]
     },
@@ -708,13 +712,13 @@
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-36q" ]
     },
-     {
+    {
       "from_type": "node_profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10016" ]
     },
-     {
+    {
       "from_type": "node_profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
