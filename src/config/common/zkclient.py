@@ -102,6 +102,7 @@ class IndexAllocator(object):
             raise Exception('Indexes allocated cannot be shrunk: %s' %
                             (self._alloc_list))
 
+        self._alloc_list = sorted_alloc_list
         size = self._get_range_size(sorted_alloc_list)
         self._max_alloc = size
 
