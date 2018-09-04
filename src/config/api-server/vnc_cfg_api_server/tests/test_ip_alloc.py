@@ -2582,15 +2582,26 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
 
         new_alloc_pool1 = AllocationPoolType(start='11.1.1.100', end='11.1.1.110')
-        new_alloc_pool2 = AllocationPoolType(start='11.1.1.90', end='11.1.1.104')
-        new_alloc_pool3 = AllocationPoolType(start='11.1.1.80', end='11.1.1.87')
+        new_alloc_pool2 = AllocationPoolType(start='11.1.1.95', end='11.1.1.115')
+        new_alloc_pool3 = AllocationPoolType(start='11.1.1.90', end='11.1.1.104')
         alloc_pool_list.append(new_alloc_pool1)
         ipam_sn_v4.set_allocation_pools(alloc_pool_list)
         vn._pending_field_updates.add('network_ipam_refs')
         self._vnc_lib.virtual_network_update(vn)
         net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
 
+        alloc_pool_list.pop(1)
         alloc_pool_list.append(new_alloc_pool2)
+        ipam_sn_v4.set_allocation_pools(alloc_pool_list)
+        vn._pending_field_updates.add('network_ipam_refs')
+		try:
+            self._vnc_lib.virtual_network_update(vn)
+        except HttpError:
+            logger.debug('Allocation pool delete is not allowed')
+            pass
+
+        net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
+        alloc_pool_list.append(new_alloc_pool3)
         ipam_sn_v4.set_allocation_pools(alloc_pool_list)
         vn._pending_field_updates.add('network_ipam_refs')
         try:
@@ -2599,14 +2610,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             logger.debug('Overlapping alloc-pools in subnet')
             pass
 
-        net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
-        alloc_pool_list.pop(2)
-        alloc_pool_list.pop(1)
-        alloc_pool_list.append(new_alloc_pool3)
-        alloc_pool_list.append(new_alloc_pool1)
-        ipam_sn_v4.set_allocation_pools(alloc_pool_list)
-        vn._pending_field_updates.add('network_ipam_refs')
-        self._vnc_lib.virtual_network_update(vn)
         net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #cleanup
