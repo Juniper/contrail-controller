@@ -594,12 +594,13 @@ class VncApiServer(object):
             fabric_job_name = request_params.get('job_template_fq_name')
             fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
             fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
-
+            execution_id = str(int(round(time.time() * 1000))) + '_' + \
+                           request_params.get('job_execution_id')
             # create job manager fabric execution status uve
             if request_params.get('fabric_fq_name') is not "__DEFAULT__":
                 job_execution_data = FabricJobExecution(
                     name=fabric_job_uve_name,
-                    execution_id=request_params.get('job_execution_id'),
+                    execution_id=execution_id,
                     job_start_ts=int(round(time.time() * 1000)),
                     job_status="STARTING",
                     percentage_completed=0.0
