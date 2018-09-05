@@ -369,6 +369,15 @@ class VncApiServer(object):
                 msg = "Error while reading job_template_fqname: " + str(e)
                 raise cfgm_common.exceptions.HttpError(400, msg)
 
+        (ok, result) = db_conn.dbe_read("job-template", request_params[
+            'job_template_id'], ['job_template_concurrency_level'])
+        if not ok:
+            self.config_object_error(request_params['job_template_id'],
+                                     None, "job-template  ",
+                                     'execute_job', result)
+            raise cfgm_common.exceptions.HttpError(*result)
+        self.job_concurrency = result.get('job_template_concurrency_level')
+
         extra_params = request_params.get('params')
         if extra_params is not None:
             device_list = extra_params.get('device_list')
@@ -542,6 +551,14 @@ class VncApiServer(object):
                             "returned with error %s" % str(process_error),
                             level=SandeshLevel.SYS_ERR)
 
+    def is_existing_job_for_fabric(self, fabric_job_uve_name):
+        existing_job = False
+        for job_info in self._job_mgr_running_instances.values():
+            for fabric_info in job_info.values():
+                if fabric_job_uve_name in fabric_info:
+                    existing_job = True
+                    break
+        return existing_job
 
     def execute_job_http_post(self):
         ''' Payload of execute_job
@@ -605,12 +622,21 @@ class VncApiServer(object):
             fabric_job_name = request_params.get('job_template_fq_name')
             fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
             fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
+            execution_id = str(int(round(time.time() * 1000))) + '_' + \
+                           request_params.get('job_execution_id')
+
+            existing_job = self.is_existing_job_for_fabric(fabric_job_uve_name)
+
+            if self.job_concurrency is "fabric" and existing_job:
+                msg = "Another job for the same fabric is in progress. " \
+                      "Please wait for the job to finish"
+                raise cfgm_common.exceptions.HttpError(412, msg)
 
             # create job manager fabric execution status uve
             if request_params.get('fabric_fq_name') is not "__DEFAULT__":
                 job_execution_data = FabricJobExecution(
                     name=fabric_job_uve_name,
-                    execution_id=request_params.get('job_execution_id'),
+                    execution_id=execution_id,
                     job_start_ts=int(round(time.time() * 1000)),
                     job_status="STARTING",
                     percentage_completed=0.0
