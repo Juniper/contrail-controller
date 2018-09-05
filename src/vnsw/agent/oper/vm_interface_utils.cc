@@ -839,12 +839,23 @@ const Peer *VmInterface::peer() const {
 }
 
 bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port,
-                            VmInterface::FatFlowIgnoreAddressType *ignore_addr)
+                            VmInterface::FatFlowIgnoreAddressType *ignore_addr,
+                            VmInterface::FatFlowPrefixAggregateType *prefix_aggregate,
+                            IpAddress *src_prefix, uint8_t *src_prefix_mask,
+                            uint8_t *src_aggregate_plen, IpAddress *dst_prefix,
+                            uint8_t *dst_prefix_mask, uint8_t *dst_aggregate_plen)
     const {
     FatFlowEntrySet::iterator it = fat_flow_list_.list_.
         find(FatFlowEntry(protocol, port));
     if (it != fat_flow_list_.list_.end()) {
         *ignore_addr = it->ignore_address;
+        *prefix_aggregate = it->prefix_aggregate;
+        *src_prefix = it->src_prefix;
+        *src_prefix_mask = it->src_prefix_mask;
+        *src_aggregate_plen = it->src_aggregate_plen;
+        *dst_prefix = it->dst_prefix;
+        *dst_prefix_mask = it->dst_prefix_mask;
+        *dst_aggregate_plen = it->dst_aggregate_plen;
         return true;
     }
     return false;

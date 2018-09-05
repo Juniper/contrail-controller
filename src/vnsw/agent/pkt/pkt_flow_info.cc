@@ -785,13 +785,18 @@ void PktFlowInfo::ProcessHealthCheckFatFlow(const VmInterface *vmi,
                                              PktControlInfo *in,
                                              PktControlInfo *out) {
     VmInterface::FatFlowIgnoreAddressType ignore_addr;
+    VmInterface::FatFlowPrefixAggregateType prefix_aggregate;
+    IpAddress src_prefix, dst_prefix;
+    uint8_t src_prefix_mask, dst_prefix_mask, src_aggregate_plen, dst_aggregate_plen;
+
     // Health check valid for IPv4 only
     if (pkt->ip_daddr.is_v4() == false || pkt->ip_saddr.is_v4() == false)
         return;
 
     // Ensure fat-flow is configured for the port first
-    if (vmi->IsFatFlow(pkt->ip_proto, pkt->sport, &ignore_addr) ==
-        false)
+    if (vmi->IsFatFlow(pkt->ip_proto, pkt->sport, &ignore_addr, &prefix_aggregate, &src_prefix,
+                       &src_prefix_mask, &src_aggregate_plen, &dst_prefix, &dst_prefix_mask, 
+                       &dst_aggregate_plen) == false)
         return;
 
     // Look for health-check rule
