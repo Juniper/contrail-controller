@@ -119,20 +119,28 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     }
     VmInterface::FatFlowIgnoreAddressType ignore_addr =
         VmInterface::IGNORE_NONE;
+    /* TODO: To actually use the below */
+    VmInterface::FatFlowPrefixAggregateType prefix_aggregate;
+    IpAddress src_prefix, dst_prefix;
+    uint8_t src_prefix_mask, dst_prefix_mask, src_aggregate_plen, dst_aggregate_plen;
+
     if (pkt->sport < pkt->dport) {
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr, &prefix_aggregate, &src_prefix, &src_prefix_mask,
+                            &src_aggregate_plen, &dst_prefix, &dst_prefix_mask, &dst_aggregate_plen)) {
             pkt->dport = 0;
             pkt->ignore_address = ignore_addr;
             return;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr, &prefix_aggregate, &src_prefix, &src_prefix_mask,
+                            &src_aggregate_plen, &dst_prefix, &dst_prefix_mask, &dst_aggregate_plen)) {
             pkt->sport = 0;
             pkt->ignore_address = ignore_addr;
             return;
         }
     } else {
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr, &prefix_aggregate, &src_prefix, &src_prefix_mask,
+                            &src_aggregate_plen, &dst_prefix, &dst_prefix_mask, &dst_aggregate_plen)) {
             if (pkt->dport == pkt->sport) {
                 pkt->same_port_number = true;
             }
@@ -141,7 +149,8 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
             return;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr, &prefix_aggregate, &src_prefix, &src_prefix_mask,
+                            &src_aggregate_plen, &dst_prefix, &dst_prefix_mask, &dst_aggregate_plen)) {
             pkt->dport = 0;
             pkt->ignore_address = ignore_addr;
             return;
@@ -149,7 +158,8 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     }
     /* If Fat-flow port is 0, then both source and destination ports have to
      * be ignored */
-    if (intf->IsFatFlow(pkt->ip_proto, 0, &ignore_addr)) {
+    if (intf->IsFatFlow(pkt->ip_proto, 0, &ignore_addr, &prefix_aggregate, &src_prefix, &src_prefix_mask,
+                            &src_aggregate_plen, &dst_prefix, &dst_prefix_mask, &dst_aggregate_plen)) {
         pkt->sport = 0;
         pkt->dport = 0;
         pkt->ignore_address = ignore_addr;

@@ -541,12 +541,16 @@ static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
                               IFMapNode *node) {
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
                                        (node->GetObject());
+
     for (FatFlowProtocols::const_iterator it = cfg->fat_flow_protocols().begin();
             it != cfg->fat_flow_protocols().end(); it++) {
-        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry entry(protocol, it->port,
-                                        it->ignore_address);
-        data->fat_flow_list_.Insert(&entry);
+        VmInterface::FatFlowEntry e = VmInterface::FatFlowEntry::MakeFatFlowEntry(it->protocol, it->port, 
+                                                  it->ignore_address, it->source_prefix.ip_prefix, 
+                                                  it->source_prefix.ip_prefix_len, 
+                                                  it->source_aggregate_prefix_length, it->destination_prefix.ip_prefix,
+                                                  it->destination_prefix.ip_prefix_len, 
+                                                  it->destination_aggregate_prefix_length);
+        data->fat_flow_list_.Insert(&e);
     }
 }
 
@@ -945,10 +949,12 @@ static void BuildVn(VmInterfaceConfigData *data,
     /* Copy fat-flow configured at VN level */
     for (FatFlowProtocols::const_iterator it = vn->fat_flow_protocols().begin();
             it != vn->fat_flow_protocols().end(); it++) {
-        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry fentry(protocol, it->port,
-                                         it->ignore_address);
-        data->fat_flow_list_.Insert(&fentry);
+        VmInterface::FatFlowEntry e = VmInterface::FatFlowEntry::MakeFatFlowEntry(it->protocol, it->port, it->ignore_address,
+                                                  it->source_prefix.ip_prefix, it->source_prefix.ip_prefix_len, 
+                                                  it->source_aggregate_prefix_length, it->destination_prefix.ip_prefix,
+                                                  it->destination_prefix.ip_prefix_len, 
+                                                  it->destination_aggregate_prefix_length);
+        data->fat_flow_list_.Insert(&e);
     }
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =

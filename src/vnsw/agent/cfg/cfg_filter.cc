@@ -140,6 +140,29 @@ bool CfgFilter::CheckVmInterfaceProperty(DBTable *table,
         return false;
     }
 
+    for (FatFlowProtocols::const_iterator it = vmi->fat_flow_protocols().begin();
+            it != vmi->fat_flow_protocols().end(); it++) {
+         if (it->source_prefix.ip_prefix.length() > 0) {
+             if (it->source_aggregate_prefix_length < it->source_prefix.ip_prefix_len) {
+                 return false;
+             }
+         }
+         if (it->destination_prefix.ip_prefix.length() > 0) {
+             if (it->destination_aggregate_prefix_length < it->destination_prefix.ip_prefix_len) {
+                 return false;
+             }
+         }
+         if ((it->source_prefix.ip_prefix.length() > 0) && 
+             (it->destination_prefix.ip_prefix.length() > 0)) {
+              IpAddress ip_src = IpAddress::from_string(it->source_prefix.ip_prefix);
+              IpAddress ip_dst = IpAddress::from_string(it->destination_prefix.ip_prefix);
+              if ((ip_src.is_v4() && ip_dst.is_v6()) ||
+                  (ip_src.is_v6() && ip_dst.is_v4())) {
+                  return false;
+              }
+         }
+    }
+    
     return true;
 }
 

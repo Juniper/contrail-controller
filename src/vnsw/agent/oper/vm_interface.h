@@ -425,6 +425,16 @@ public:
         IGNORE_DESTINATION
     };
 
+    enum FatFlowPrefixAggregateType {
+        AGGREGATE_NONE = 0,
+        AGGREGATE_SRC_IPV4,
+        AGGREGATE_SRC_IPV6,
+        AGGREGATE_DST_IPV4,
+        AGGREGATE_DST_IPV6,
+        AGGREGATE_SRC_DST_IPV4,
+        AGGREGATE_SRC_DST_IPV6
+    };
+
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
     typedef std::set<HealthCheckInstanceBase *> HealthCheckInstanceSet;
 
@@ -916,19 +926,43 @@ public:
 
     struct FatFlowEntry : ListEntry {
         FatFlowEntry(): protocol(0), port(0),
-        ignore_address(IGNORE_NONE) {}
+            ignore_address(IGNORE_NONE), prefix_aggregate(AGGREGATE_NONE),
+            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0), 
+            dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) {}
+
         FatFlowEntry(const FatFlowEntry &rhs):
             protocol(rhs.protocol), port(rhs.port),
-            ignore_address(rhs.ignore_address) {}
+            ignore_address(rhs.ignore_address), prefix_aggregate(rhs.prefix_aggregate),
+            src_prefix(rhs.src_prefix), src_prefix_mask(rhs.src_prefix_mask), src_aggregate_plen(rhs.src_aggregate_plen),
+            dst_prefix(rhs.dst_prefix), dst_prefix_mask(rhs.dst_prefix_mask), dst_aggregate_plen(rhs.dst_aggregate_plen) {}
+
         FatFlowEntry(const uint8_t proto, const uint16_t p) :
             protocol(proto), port(p),
-            ignore_address(IGNORE_NONE) {}
+            ignore_address(IGNORE_NONE),
+            prefix_aggregate(AGGREGATE_NONE),
+            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0), 
+            dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) { }
+
         FatFlowEntry(const uint8_t proto, const uint16_t p,
-                     std::string ignore_addr);
+            std::string ignore_addr, FatFlowPrefixAggregateType prefix_aggregate,
+            IpAddress src_prefix, uint8_t src_prefix_mask, uint8_t src_aggregate_plen, 
+            IpAddress dst_prefix, uint8_t dst_prefix_mask, uint8_t dst_aggregate_plen);
+
+        static FatFlowEntry MakeFatFlowEntry(const std::string &protocol, const int &port,
+                                             const std::string &ignore_addr_str,
+                                             const std::string &src_prefix_str, const int &src_prefix_mask,
+                                             const int &src_aggregate_plen,
+                                             const std::string &dst_prefix_str, const int &dst_prefix_mask,
+                                             const int &dst_aggregate_plen);
+
         virtual ~FatFlowEntry(){}
         bool operator == (const FatFlowEntry &rhs) const {
             return (rhs.protocol == protocol && rhs.port == port &&
-                    rhs.ignore_address == ignore_address);
+                    rhs.ignore_address == ignore_address && rhs.prefix_aggregate == prefix_aggregate &&
+                    rhs.src_prefix == src_prefix && rhs.src_prefix_mask == src_prefix_mask &&
+                    rhs.src_aggregate_plen == src_aggregate_plen &&
+                    rhs.dst_prefix == dst_prefix && rhs.dst_prefix_mask == dst_prefix_mask &&
+                    rhs.dst_aggregate_plen == dst_aggregate_plen);
         }
 
         bool operator() (const FatFlowEntry  &lhs,
@@ -942,9 +976,18 @@ public:
             }
             return port < rhs->port;
         }
+        void print(void);
+
         uint8_t protocol;
         uint16_t port;
         mutable FatFlowIgnoreAddressType ignore_address;
+        mutable FatFlowPrefixAggregateType prefix_aggregate;
+        mutable IpAddress src_prefix;
+        mutable uint8_t src_prefix_mask;
+        mutable uint8_t src_aggregate_plen;
+        mutable IpAddress dst_prefix;
+        mutable uint8_t dst_prefix_mask;
+        mutable uint8_t dst_aggregate_plen;
     };
     typedef std::set<FatFlowEntry, FatFlowEntry> FatFlowEntrySet;
 
@@ -1245,7 +1288,11 @@ public:
         return fat_flow_list_;
     }
     bool IsFatFlow(uint8_t protocol, uint16_t port,
-                   VmInterface::FatFlowIgnoreAddressType *ignore_addr) const;
+                   VmInterface::FatFlowIgnoreAddressType *ignore_addr, 
+                   VmInterface::FatFlowPrefixAggregateType *prefix_aggregate,
+                   IpAddress *src_prefix, uint8_t *src_prefix_mask,
+                   uint8_t *src_aggregate_plen, IpAddress *dst_prefix,
+                   uint8_t *dst_prefix_mask, uint8_t *dst_aggregate_plen) const;
     bool ExcludeFromFatFlow(Address::Family family, const IpAddress &sip,
                             const IpAddress &dip) const;
 
