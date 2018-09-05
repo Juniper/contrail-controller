@@ -9,6 +9,7 @@ set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
 set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} virtual-gateway-address {{gw}}
 {%                 endfor %}
 set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} proxy-macip-advertisement
+set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} virtual-gateway-accept-data
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
