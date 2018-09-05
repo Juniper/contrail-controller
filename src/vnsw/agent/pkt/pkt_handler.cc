@@ -117,42 +117,43 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     if (pkt->ip_proto == IPPROTO_ICMP || pkt->ip_proto == IPPROTO_IGMP) {
         sport = 0;
     }
-    VmInterface::FatFlowIgnoreAddressType ignore_addr =
-        VmInterface::IGNORE_NONE;
+    VmInterface::FatFlowLkupResult res;
+    /*TODO: Fat flow prefix processing */
+
     if (pkt->sport < pkt->dport) {
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, sport, &res)) {
             pkt->dport = 0;
-            pkt->ignore_address = ignore_addr;
+            pkt->ignore_address = res.ignore_address;
             return;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &res)) {
             pkt->sport = 0;
-            pkt->ignore_address = ignore_addr;
+            pkt->ignore_address = res.ignore_address;
             return;
         }
     } else {
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &res)) {
             if (pkt->dport == pkt->sport) {
                 pkt->same_port_number = true;
             }
             pkt->sport = 0;
-            pkt->ignore_address = ignore_addr;
+            pkt->ignore_address = res.ignore_address;
             return;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &ignore_addr)) {
+        if (intf->IsFatFlow(pkt->ip_proto, sport, &res)) {
             pkt->dport = 0;
-            pkt->ignore_address = ignore_addr;
+            pkt->ignore_address = res.ignore_address;
             return;
         }
     }
     /* If Fat-flow port is 0, then both source and destination ports have to
      * be ignored */
-    if (intf->IsFatFlow(pkt->ip_proto, 0, &ignore_addr)) {
+    if (intf->IsFatFlow(pkt->ip_proto, 0, &res)) {
         pkt->sport = 0;
         pkt->dport = 0;
-        pkt->ignore_address = ignore_addr;
+        pkt->ignore_address = res.ignore_address;
         return;
     }
 }

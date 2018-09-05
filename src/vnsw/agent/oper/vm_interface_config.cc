@@ -537,16 +537,53 @@ static void BuildProxyArpFlags(Agent *agent, VmInterfaceConfigData *data,
     data->proxy_arp_mode_ = VmInterface::PROXY_ARP_UNRESTRICTED;
 }
 
-static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
-                              IFMapNode *node) {
+static bool ValidateFatFlowCfg(const boost::uuids::uuid &u, const ProtocolType *pt)
+{
+    if (pt->source_prefix.ip_prefix.length() > 0) {
+        if (pt->source_aggregate_prefix_length < pt->source_prefix.ip_prefix_len) {
+            LOG(ERROR, "FatFlowCfg validation failed for VMI uuid:" << u << " Protocol:" << pt->protocol
+                        << " Port:" << pt->port << " src aggr plen is less than src mask\n");
+            return false;
+        }
+    }
+    if (pt->destination_prefix.ip_prefix.length() > 0) {
+        if (pt->destination_aggregate_prefix_length < pt->destination_prefix.ip_prefix_len) {
+            LOG(ERROR, "FatFlowCfg validation failed for VMI uuid:" << u << " Protocol:" << pt->protocol
+                        << " Port:" << pt->port << " dst aggr plen is less than dst mask\n");
+            return false;
+        }
+    }
+    if ((pt->source_prefix.ip_prefix.length() > 0) &&
+        (pt->destination_prefix.ip_prefix.length() > 0)) {
+        IpAddress ip_src = IpAddress::from_string(pt->source_prefix.ip_prefix);
+        IpAddress ip_dst = IpAddress::from_string(pt->destination_prefix.ip_prefix);
+        if ((ip_src.is_v4() && ip_dst.is_v6()) ||
+            (ip_src.is_v6() && ip_dst.is_v4())) {
+            LOG(ERROR, "FatFlowCfg validation failed for VMI uuid:" << u << " Protocol:" << pt->protocol
+                        << " Port:" << pt->port << " src and dst addr family mismatch\n");
+            return false;
+        }
+    }
+    return true;
+}
+
+static void BuildFatFlowTable(Agent *agent, const boost::uuids::uuid &u,
+                              VmInterfaceConfigData *data, IFMapNode *node) {
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
                                        (node->GetObject());
+
     for (FatFlowProtocols::const_iterator it = cfg->fat_flow_protocols().begin();
             it != cfg->fat_flow_protocols().end(); it++) {
-        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry entry(protocol, it->port,
-                                        it->ignore_address);
-        data->fat_flow_list_.Insert(&entry);
+        if (!ValidateFatFlowCfg(u, &(*it))) {
+            continue;
+        }
+        VmInterface::FatFlowEntry e = VmInterface::FatFlowEntry::MakeFatFlowEntry(it->protocol, it->port, 
+                                                  it->ignore_address, it->source_prefix.ip_prefix, 
+                                                  it->source_prefix.ip_prefix_len, 
+                                                  it->source_aggregate_prefix_length, it->destination_prefix.ip_prefix,
+                                                  it->destination_prefix.ip_prefix_len, 
+                                                  it->destination_aggregate_prefix_length);
+        data->fat_flow_list_.Insert(&e);
     }
 }
 
@@ -945,10 +982,15 @@ static void BuildVn(VmInterfaceConfigData *data,
     /* Copy fat-flow configured at VN level */
     for (FatFlowProtocols::const_iterator it = vn->fat_flow_protocols().begin();
             it != vn->fat_flow_protocols().end(); it++) {
-        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry fentry(protocol, it->port,
-                                         it->ignore_address);
-        data->fat_flow_list_.Insert(&fentry);
+        if (!ValidateFatFlowCfg(u, &(*it))) {
+             continue;
+        }
+        VmInterface::FatFlowEntry e = VmInterface::FatFlowEntry::MakeFatFlowEntry(it->protocol, it->port, it->ignore_address,
+                                                  it->source_prefix.ip_prefix, it->source_prefix.ip_prefix_len, 
+                                                  it->source_aggregate_prefix_length, it->destination_prefix.ip_prefix,
+                                                  it->destination_prefix.ip_prefix_len, 
+                                                  it->destination_aggregate_prefix_length);
+        data->fat_flow_list_.Insert(&e);
     }
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
@@ -1643,7 +1685,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     agent_->oper_db()->bgp_as_a_service()->ProcessConfig
         (data->vrf_name_, bgp_router_node_list, bgp_as_a_service_node_list, u);
     UpdateAttributes(agent_, data);
-    BuildFatFlowTable(agent_, data, node);
+    BuildFatFlowTable(agent_, u, data, node);
 
     // Get DHCP enable flag from subnet
     if (vn_node && data->addr_.to_ulong()) {

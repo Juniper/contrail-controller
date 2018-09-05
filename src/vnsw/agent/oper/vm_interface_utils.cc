@@ -838,13 +838,19 @@ const Peer *VmInterface::peer() const {
     return peer_.get();
 }
 
-bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port,
-                            VmInterface::FatFlowIgnoreAddressType *ignore_addr)
+bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port, FatFlowLkupResult *res)
     const {
     FatFlowEntrySet::iterator it = fat_flow_list_.list_.
         find(FatFlowEntry(protocol, port));
     if (it != fat_flow_list_.list_.end()) {
-        *ignore_addr = it->ignore_address;
+        res->ignore_address = it->ignore_address;
+        res->prefix_aggregate = it->prefix_aggregate;
+        res->src_prefix = it->src_prefix;
+        res->src_prefix_mask = it->src_prefix_mask;
+        res->src_aggregate_plen = it->src_aggregate_plen;
+        res->dst_prefix = it->dst_prefix;
+        res->dst_prefix_mask = it->dst_prefix_mask;
+        res->dst_aggregate_plen = it->dst_aggregate_plen;
         return true;
     }
     return false;
