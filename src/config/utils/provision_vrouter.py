@@ -70,6 +70,7 @@ class VrouterProvisioner(object):
                                         --api_server_port 8082
                                         --api_server_use_ssl False
                                         --oper <add | del>
+                                        [--ip_fabric_subnet 192.168.10.0/24]
                                         [--dpdk-enabled]
         '''
 
@@ -92,6 +93,7 @@ class VrouterProvisioner(object):
             'disable_vhost_vmi': False,
             'enable_vhost_vmi_policy': False,
             'sub_cluster_name': None,
+            'ip_fabric_subnet': None
         }
         ksopts = {
             'admin_user': 'user1',
@@ -149,6 +151,8 @@ class VrouterProvisioner(object):
             "--enable_vhost_vmi_policy", action="store_true", help="Enable vhost0 vmi policy if flag is set")
         parser.add_argument(
             "--sub_cluster_name", help="Sub cluster this vrouter to be part of")
+        parser.add_argument("--ip_fabric_subnet",
+                            help = "Add the ip_fabric_subnet")
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
             "--api_server_ip", help="IP address of api server",
@@ -164,6 +168,21 @@ class VrouterProvisioner(object):
 
     def add_vrouter(self):
         gsc_obj = self._global_system_config_obj
+
+        if self._args.ip_fabric_subnet:
+            ip_subnet, mask = self._args.ip_fabric_subnet.split('/')
+            so = SubnetType(ip_subnet, int(mask))
+            sl = gsc_obj.get_ip_fabric_subnets()
+            update_required = True
+
+            for item in sl.subnet:
+                if so == item:
+                    update_required = False
+                    break
+            if update_required:
+                sl.subnet.append(so)
+                gsc_obj.set_ip_fabric_subnets(sl)
+                self._vnc_lib.global_system_config_update(gsc_obj)
 
         vrouter_obj = VirtualRouter(
             self._args.host_name, gsc_obj,
