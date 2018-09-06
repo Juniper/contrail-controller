@@ -28,15 +28,13 @@ PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
 class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
-                 params, job_utils, device_json, auth_token, job_log_utils,
-                 sandesh_args, fabric_fq_name, playbook_timeout, playbook_seq,
-                 prev_pb_output):
+                 job_utils, device_json, auth_token, job_log_utils,
+                 sandesh_args, fabric_fq_name, playbook_timeout, playbook_seq):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
         self._execution_id = execution_id
         self._job_input = input
-        self._job_params = params
         self._job_utils = job_utils
         self._device_json = device_json
         self._auth_token = auth_token
@@ -45,7 +43,7 @@ class JobHandler(object):
         self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
         self._playbook_seq = playbook_seq
-        self._playbook_output = prev_pb_output
+        self._playbook_output = None
     # end __init__
 
     def handle_job(self, result_handler, job_percent_per_task, device_id=None):
@@ -58,7 +56,6 @@ class JobHandler(object):
             # get the playbook information from the job template
             playbook_info = self.get_playbook_info(job_percent_per_task,
                                                    device_id)
-
             # run the playbook
             self.run_playbook(
                 playbook_info,
@@ -89,8 +86,6 @@ class JobHandler(object):
             # create the cmd line param for the playbook
             extra_vars = {
                 'input': self._job_input,
-                'prev_pb_output': self._playbook_output,
-                'params': self._job_params,
                 'job_template_id': self._job_template.get_uuid(),
                 'job_template_fqname': self._job_template.fq_name,
                 'fabric_fq_name': self._fabric_fq_name,
@@ -310,7 +305,6 @@ class JobHandler(object):
         try:
             playbook_exec_path = os.path.dirname(__file__) \
                 + "/playbook_helper.py"
-
             unique_pb_id = str(uuid.uuid4())
             playbook_info['extra_vars']['playbook_input']['unique_pb_id']\
                 = unique_pb_id
@@ -331,7 +325,6 @@ class JobHandler(object):
             marked_output = self.process_file_and_get_marked_output(
                 unique_pb_id, exec_id, playbook_process
             )
-
             marked_jsons = self._extract_marked_json(marked_output)
             self._playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
             playbook_process.wait(timeout=self._playbook_timeout)
