@@ -89,7 +89,6 @@ class JobHandler(object):
             # create the cmd line param for the playbook
             extra_vars = {
                 'input': self._job_input,
-                'prev_pb_output': self._playbook_output,
                 'params': self._job_params,
                 'job_template_id': self._job_template.get_uuid(),
                 'job_template_fqname': self._job_template.fq_name,
