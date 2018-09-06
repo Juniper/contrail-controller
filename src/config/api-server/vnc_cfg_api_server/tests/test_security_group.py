@@ -7,7 +7,9 @@ import logging
 from testtools import ExpectedException
 
 from cfgm_common.exceptions import BadRequest
+from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import PermissionDenied
+from cfgm_common import SG_NO_RULE_FQ_NAME
 from cfgm_common import SGID_MIN_ALLOC
 from vnc_api.vnc_api import SecurityGroup
 
@@ -167,3 +169,14 @@ class TestSecurityGroup(test_case.ApiServerTestCase):
         sg_obj.set_configured_security_group_id(-1)
         with ExpectedException(BadRequest):
             self.api.security_group_update(sg_obj)
+
+    def test_singleton_no_rule_sg_for_openstack_created(self):
+        try:
+            no_rule_sg = self.api.security_group_read(SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            self.fail("Cannot read singleton security '%s' for OpenStack" %
+                      ':'.join(SG_NO_RULE_FQ_NAME))
+
+        self.assertIsNotNone(no_rule_sg.security_group_id)
+        self.assertIsInstance(no_rule_sg.security_group_id, int)
+        self.assertGreater(no_rule_sg.security_group_id, 0)
