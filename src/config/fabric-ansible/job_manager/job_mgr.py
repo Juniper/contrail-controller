@@ -35,7 +35,6 @@ class JobManager(object):
         self._vnc_api = vnc_api
         self.job_execution_id = None
         self.job_data = None
-        self.job_params = dict()
         self.device_json = None
         self.auth_token = None
         self.job_log_utils = job_log_utils
@@ -58,10 +57,6 @@ class JobManager(object):
         if self.job_data is None:
             self._logger.debug("Job input data is not provided.")
 
-        self.job_params = job_input_json.get('params')
-        if self.job_params is None:
-            self._logger.debug("Job extra params is not present.")
-
         self.device_json = job_input_json.get('device_json')
         if self.device_json is None:
             self._logger.debug("Device data is not passed from api server.")
@@ -72,18 +67,17 @@ class JobManager(object):
         self.max_job_task = self.job_log_utils.args.max_job_task
 
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
-        self.prev_pb_output = job_input_json.get('prev_pb_output') or {}
 
     def start_job(self):
         # spawn job greenlets
         job_handler = JobHandler(self._logger, self._vnc_api,
                                  self.job_template, self.job_execution_id,
-                                 self.job_data, self.job_params,
+                                 self.job_data,
                                  self.job_utils, self.device_json,
                                  self.auth_token, self.job_log_utils,
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
-                                 self.playbook_seq, self.prev_pb_output)
+                                 self.playbook_seq)
 
         if self.device_json is not None:
             if not self.device_json:
@@ -260,13 +254,9 @@ class WFManager(object):
                 # and update the job input so that it can be used in next
                 # iteration
                 if not self.job_input.get('device_json'):
-                    device_json = pb_output.get('device_json')
+                    device_json = pb_output.pop('device_json', None)
                     self.job_input['device_json'] = device_json
 
-                if not self.job_input.get('prev_pb_output'):
-                    self.job_input['prev_pb_output'] = pb_output
-                else:
-                    self.job_input['prev_pb_output'].update(pb_output)
                 self.job_input.get('input', {}).update(pb_output)
 
             # create job completion log and update job UVE
