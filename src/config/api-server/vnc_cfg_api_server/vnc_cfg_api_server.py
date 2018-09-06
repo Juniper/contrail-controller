@@ -47,7 +47,7 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 from cfgm_common.utils import _DEFAULT_ZK_LOCK_PATH_PREFIX
 from cfgm_common import is_uuid_like
-from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
+from cfgm_common import SG_NO_RULE_FQ_NAME
 
 from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats, VncApiLatencyStatsLog
 logger = logging.getLogger(__name__)
@@ -1772,8 +1772,11 @@ class VncApiServer(object):
         finally:
             set_context(orig_context)
 
-    def alloc_vn_id(self, name):
-        return self._db_conn._zk_db.alloc_vn_id(name)
+    def alloc_vn_id(self, fq_name_str):
+        return self._db_conn._zk_db.alloc_vn_id(fq_name_str)
+
+    def alloc_security_group_id(self, fq_name_str):
+        return self._db_conn._zk_db.alloc_sg_id(fq_name_str)
 
     def alloc_tag_value_id(self, tag_type, name):
         return self._db_conn._zk_db.alloc_tag_value_id(tag_type, name)
@@ -3489,6 +3492,7 @@ class VncApiServer(object):
             self.config_log('error while creating primary routing instance for'
                             'default-virtual-network: ' + str(e),
                             level=SandeshLevel.SYS_NOTICE)
+
         # Create singleton SG __no_rule__ object for openstack
         domain_obj = Domain(SG_NO_RULE_FQ_NAME[0])
         proj_obj = Project(SG_NO_RULE_FQ_NAME[1], domain_obj)
@@ -3498,11 +3502,14 @@ class VncApiServer(object):
                                user_visible=True)
         perms2 = PermType2(owner='cloud-admin')
         perms2.set_global_access(PERMS_RX)
-        sg_obj = SecurityGroup(name=SG_NO_RULE_NAME,
-                               parent_obj=proj_obj,
-                               security_group_entries=sg_rules.exportDict(''),
-                               id_perms=id_perms.exportDict(''),
-                               perms2=perms2.exportDict(''))
+        sg_obj = SecurityGroup(
+            name=SG_NO_RULE_FQ_NAME[-1],
+            parent_obj=proj_obj,
+            security_group_entries=sg_rules.exportDict(''),
+            id_perms=id_perms.exportDict(''),
+            perms2=perms2.exportDict(''),
+            security_group_id=self.alloc_security_group_id(
+                ':'.join(SG_NO_RULE_FQ_NAME)))
         self.create_singleton_entry(sg_obj)
 
         self.create_singleton_entry(DiscoveryServiceAssignment())
