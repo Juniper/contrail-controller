@@ -24,9 +24,7 @@
 #include "resource_manager/qos_index.h"
 #include "resource_manager/bgp_as_service_index.h"
 #include "resource_manager/mirror_index.h"
-#include "resource_manager/nexthop_index.h"
 #include <oper/nexthop.h>
-#include <oper/tunnel_nh.h>
 
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &name,
@@ -623,232 +621,13 @@ void MirrorBackUpResourceTable::RestoreResource() {
     }
 }
 
-//next  backup.
-NextHopBackUpResourceTable::NextHopBackUpResourceTable
-(ResourceBackupManager *manager) :
-    BackUpResourceTable(manager, "NextHopBackUpResourceTable",
-                        "contrail_nexthop_index_resource") {
-}
-
-NextHopBackUpResourceTable::~NextHopBackUpResourceTable() {
-}
-
-bool NextHopBackUpResourceTable::WriteToFile() {
-    NextHopIndexResourceMapSandesh sandesh_data;
-    return WriteMapToFile<NextHopIndexResourceMapSandesh, Map>
-        (&sandesh_data, map_);
-}
-
-void NextHopBackUpResourceTable::ReadFromFile() {
-    NextHopIndexResourceMapSandesh sandesh_data;
-    ReadMapFromFile<NextHopIndexResourceMapSandesh>
-        (&sandesh_data, backup_dir());
-    map_ = sandesh_data.get_index_map();
-}
-
-// Restore the NHResourceKey based the type of the nexthop key.
-void NextHopBackUpResourceTable::RestoreResource() {
-    for (MapIter it = map_.begin(); it != map_.end(); it++) {
-        uint32_t index = it->first;
-        NextHopResource sandesh_key = it->second;
-        ResourceManager::DataPtr data(new IndexResourceData
-                                      (backup_manager()->resource_manager(),
-                                       index));
-        switch (sandesh_key.get_type()) {
-            case NextHop::INTERFACE: {
-                InterfaceNHKey *itf_nh_key = NULL;
-                InterfaceKey *itf_key = NULL;
-                MacAddress mac = MacAddress::FromString(sandesh_key.get_mac());
-                if (sandesh_key.get_intf_type() == Interface::VM_INTERFACE) {
-                    //Vm interface
-                    itf_key = new VmInterfaceKey
-                        (AgentKey::ADD_DEL_CHANGE,
-                        StringToUuid(sandesh_key.get_uuid()),
-                        sandesh_key.get_name());
-                } else {
-                    //Inet interface
-                    itf_key = new InetInterfaceKey(sandesh_key.get_name());
-                }
-                itf_nh_key = new InterfaceNHKey(itf_key,
-                                                sandesh_key.get_policy(),
-                                                sandesh_key.get_flags(), mac);
-                ResourceManager::KeyPtr key (new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::INTERFACE,
-                       itf_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            case NextHop::VLAN: {
-                VlanNHKey *vlan_nh_key = new VlanNHKey
-                    (StringToUuid(sandesh_key.get_uuid()),
-                     sandesh_key.get_tag());
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::VLAN,
-                       vlan_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            case  NextHop::VRF: {
-                VrfNHKey *vrf_nh_key = new VrfNHKey(sandesh_key.get_name(),
-                                                    sandesh_key.get_policy(),
-                                                    sandesh_key.get_vxlan_nh());
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::VRF,
-                       vrf_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            case NextHop::RECEIVE: {
-                InterfaceKey *itf_key = NULL;
-                if (sandesh_key.get_intf_type() == Interface::VM_INTERFACE) {
-                    //Vm interface
-                    itf_key = new VmInterfaceKey
-                        (AgentKey::ADD_DEL_CHANGE,
-                        StringToUuid(sandesh_key.get_uuid()),
-                        sandesh_key.get_name());
-                } else {
-                    //Inet interface
-                    itf_key = new InetInterfaceKey(sandesh_key.get_name());
-                }
-                ReceiveNHKey *receive_nh_key = new ReceiveNHKey
-                    (itf_key, sandesh_key.get_policy());
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::RECEIVE,
-                       receive_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            case NextHop::RESOLVE: {
-                InterfaceKey *itf_key = NULL;
-                if (sandesh_key.get_intf_type() == Interface::VM_INTERFACE) {
-                    //Vm interface
-                    itf_key = new VmInterfaceKey
-                        (AgentKey::ADD_DEL_CHANGE,
-                        StringToUuid(sandesh_key.get_uuid()),
-                        sandesh_key.get_name());
-                } else {
-                    //Inet interface
-                    itf_key = new InetInterfaceKey(sandesh_key.get_name());
-                }
-                ResolveNHKey *resolve_nh_key = new ResolveNHKey
-                    (itf_key, sandesh_key.get_policy());
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::RESOLVE,
-                       resolve_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            case NextHop::ARP: {
-                ArpNHKey *arp_nh_key = new ArpNHKey(sandesh_key.get_vrf_name(),
-                                                    Ip4Address(sandesh_key.get_dip()),
-                                                    sandesh_key.get_policy());
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::ARP,
-                       arp_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            case NextHop::TUNNEL: {
-                TunnelType type ((TunnelType::Type)sandesh_key.get_tunnel_type());
-                TunnelNHKey *tunnel_nh_key =
-                    new TunnelNHKey(sandesh_key.get_vrf_name(),
-                                    Ip4Address(sandesh_key.get_sip()),
-                                    Ip4Address(sandesh_key.get_dip()),
-                                    sandesh_key.get_policy(),
-                                    type);
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::TUNNEL,
-                       tunnel_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            case NextHop::PBB: {
-                MacAddress mac = MacAddress::FromString(sandesh_key.get_mac());
-                PBBNHKey *pbb_nh_key = new PBBNHKey(sandesh_key.get_vrf_name(),
-                                                    mac,
-                                                    sandesh_key.get_isid());
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::PBB,
-                       pbb_nh_key));
-                EnqueueRestore(key, data);
-
-                break;
-            }
-            case NextHop::MIRROR: {
-                MirrorNHKey *mirror_nh_key =
-                    new MirrorNHKey(sandesh_key.get_vrf_name(),
-                                    Ip4Address(sandesh_key.get_sip()),
-                                    sandesh_key.get_sport(),
-                                    Ip4Address(sandesh_key.get_dip()),
-                                    sandesh_key.get_dport());
-                ResourceManager::KeyPtr key(new NHIndexResourceKey
-                     ( backup_manager()->resource_manager(), NextHop::MIRROR,
-                       mirror_nh_key));
-                EnqueueRestore(key, data);
-                break;
-            }
-            default:
-                break;
-        }
-    }
-}
-
-//next  backup.
-ComposteNHBackUpResourceTable::ComposteNHBackUpResourceTable
-(ResourceBackupManager *manager) :
-    BackUpResourceTable(manager, "ComposteNHBackUpResourceTable",
-                        "contrail_composite_index_resource") {
-}
-
-ComposteNHBackUpResourceTable::~ComposteNHBackUpResourceTable() {
-
-}
-
-void ComposteNHBackUpResourceTable::RestoreResource() {
-    for (MapIter it = map_.begin(); it != map_.end(); it++) {
-        uint32_t index = it->first;
-        CompositeNHIndexResource sandesh_key = it->second;
-        ResourceManager::DataPtr data(new IndexResourceData
-                                      (backup_manager()->resource_manager(),
-                                       index));
-        std::vector<cnhid_label_map> nhid_label_map;
-        for (uint32_t i=0; i< sandesh_key.get_nhid_label_map().size(); i++) {
-            cnhid_label_map nhid_lable;
-            nhid_lable.nh_id = sandesh_key.get_nhid_label_map()[i].nh_id;
-            nhid_lable.label = sandesh_key.get_nhid_label_map()[i].label;
-            nhid_label_map.push_back(nhid_lable);
-        }
-        ResourceManager::KeyPtr key(new NHIndexResourceKey
-                                    ( backup_manager()->resource_manager(),
-                                      NextHop::COMPOSITE,
-                                      sandesh_key.get_type(),
-                                      nhid_label_map,
-                                      sandesh_key.get_policy(),
-                                      sandesh_key.get_vrf_name()));
-        EnqueueRestore(key, data);
-    }
-}
-
-bool ComposteNHBackUpResourceTable::WriteToFile() {
-    CompositeNHIndexResourceMapSandesh sandesh_data;
-    return WriteMapToFile<CompositeNHIndexResourceMapSandesh, Map>
-        (&sandesh_data, map_);
-}
-
-void ComposteNHBackUpResourceTable::ReadFromFile() {
-    CompositeNHIndexResourceMapSandesh sandesh_data;
-    ReadMapFromFile<CompositeNHIndexResourceMapSandesh>
-        (&sandesh_data, backup_dir());
-}
-
 ResourceSandeshMaps::ResourceSandeshMaps(ResourceBackupManager *manager) :
     backup_manager_(manager), agent_(manager->agent()),
     interface_mpls_index_table_(manager), vrf_mpls_index_table_(manager),
     vlan_mpls_index_table_(manager), route_mpls_index_table_(manager),
     vm_interface_index_table_(manager), vrf_index_table_ (manager),
     qos_index_table_ (manager), bgp_as_service_index_table_(manager),
-    mirror_index_table_(manager), nexthop_index_table_(manager),
-    compositenh_index_table_(manager) {
+    mirror_index_table_(manager) {
 }
 
 ResourceSandeshMaps::~ResourceSandeshMaps() {
@@ -864,8 +643,6 @@ void ResourceSandeshMaps::ReadFromFile() {
     qos_index_table_.ReadFromFile();
     bgp_as_service_index_table_.ReadFromFile();
     mirror_index_table_.ReadFromFile();
-    nexthop_index_table_.ReadFromFile();
-    compositenh_index_table_.ReadFromFile();
 }
 
 void ResourceSandeshMaps::EndOfBackup() {
@@ -885,8 +662,6 @@ void ResourceSandeshMaps::RestoreResource() {
     qos_index_table_.RestoreResource();
     bgp_as_service_index_table_.RestoreResource();
     mirror_index_table_.RestoreResource();
-    nexthop_index_table_.RestoreResource();
-    compositenh_index_table_.ReadFromFile();
     EndOfBackup();
 }
 
@@ -922,14 +697,6 @@ void BgpAsServiceIndexResourceMapSandesh::Process(SandeshContext*) {
 }
 
 void MirrorIndexResourceMapSandesh::Process(SandeshContext*) {
-
-}
-
-void CompositeNHIndexResourceMapSandesh::Process(SandeshContext*) {
-
-}
-
-void NextHopIndexResourceMapSandesh::Process(SandeshContext*) {
 
 }
 
@@ -1014,21 +781,4 @@ void ResourceSandeshMaps::AddMirrorResourceEntry(uint32_t index,
 
 void ResourceSandeshMaps::DeleteMirrorResourceEntry(uint32_t index) {
     mirror_index_table_.map().erase(index);
-}
-
-void ResourceSandeshMaps::AddNextHopResourceEntry(uint32_t index,
-                                                 NextHopResource data ) {
-    nexthop_index_table_.map().insert(NexthopIndexResourcePair (index, data));
-}
-
-void ResourceSandeshMaps::DeleteNextHopResourceEntry(uint32_t index) {
-    nexthop_index_table_.map().erase(index);
-}
-void ResourceSandeshMaps::AddCompositeNHResourceEntry
-(uint32_t index, CompositeNHIndexResource data) {
-    compositenh_index_table_.map().insert(ComposteNHIndexResourcePair(index,
-                                                                      data));
-}
-void ResourceSandeshMaps::DeleteCompositeNHResourceEntry(uint32_t index) {
-   compositenh_index_table_.map().erase(index);
 }

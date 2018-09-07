@@ -85,48 +85,6 @@ struct  MirrorIndexResource {
 }
 
 /**
- * Backup Next hop Resource interface/vlan/vrf/
- * Receive/Resolve/tunnel/pbb/
-*/
-struct NextHopResource {
-    1: u16 type;
-    2: string uuid;
-    3: string name;
-    4: bool intf_policy;
-    5: u16 flags;
-    6: string mac;
-    7: string vrf_name;
-    8: bool vxlan_nh;
-    9: u16 tag;
-    10: u64 sip;
-    11: u64 dip;
-    12: u32 isid;
-    13: u32 sport;
-    14: u32 dport;
-    15: u16 nexthop_type;
-    16: u16 tunnel_type;
-    17: u16 intf_type;
-    18: bool policy;
-    19: u64 time_stamp;
-}
-/*
- * CompositeNH id to label map
- */
-struct CompositeNHIdToLableMap {
-    u32 nh_id;
-    u32 label;
-}
-/**
- * Backup compositeNH resource
- */
-struct CompositeNHIndexResource {
-    1: string vrf_name;
-    2: bool policy;
-    3: u16 type;
-    4:list<CompositeNHIdToLableMap> nhid_label_map;
-}
-
-/**
  * Map of Interface Mpls Resource data.
 */
 buffer sandesh InterfaceIndexResourceMapSandesh {
@@ -233,15 +191,5 @@ buffer sandesh BgpAsServiceIndexResourceMapSandesh {
 
 buffer sandesh MirrorIndexResourceMapSandesh {
     1: map<u32, MirrorIndexResource> index_map;
-    2: u64 time_stamp;
-}
-
-buffer sandesh NextHopIndexResourceMapSandesh {
-    1: map<u32, NextHopResource> index_map;
-    2: u64 time_stamp;
-}
-
-buffer sandesh CompositeNHIndexResourceMapSandesh {
-    1: map<u32, CompositeNHIndexResource> index_map;
     2: u64 time_stamp;
 }

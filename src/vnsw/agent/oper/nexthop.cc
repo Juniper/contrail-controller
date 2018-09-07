@@ -18,9 +18,6 @@
 #include <oper/vrf.h>
 #include <oper/agent_sandesh.h>
 #include <oper/crypt_tunnel.h>
-#include <resource_manager/resource_manager.h>
-#include <resource_manager/resource_table.h>
-#include <resource_manager/nexthop_index.h>
 
 using namespace std;
 
@@ -92,17 +89,7 @@ void NextHop::SendObjectLog(const NextHopTable *table,
 NextHop::~NextHop() {
     if (id_ != kInvalidIndex) {
         static_cast<NextHopTable *>(get_table())->FreeInterfaceId(id_);
-        id_ = kInvalidIndex;
     }
-}
-
-void NextHopTable::FreeInterfaceId(size_t index) {
-    if (index <= 2) {
-        agent()->resource_manager()->ReleaseIndex(Resource::NEXTHOP_INDEX, index);
-    } else {
-        agent()->resource_manager()->Release(Resource::NEXTHOP_INDEX, index);
-    }
-    index_table_.Remove(index);
 }
 
 void NextHop::SetKey(const DBRequestKey *key) {
@@ -284,23 +271,16 @@ bool NextHop::NexthopToInterfacePolicy() const {
 NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
     // nh-index 0 is reserved by vrouter. So, pre-allocate the first index so
     // that nh added by agent use index 1 and above
-    Agent::GetInstance()->resource_manager()->
-        ReserveIndex(Resource::NEXTHOP_INDEX, 0);
-    Agent::GetInstance()->resource_manager()->
-        ReserveIndex(Resource::NEXTHOP_INDEX, 1);
-    uint32_t id = index_table_.InsertAtIndex(0, NULL);
-    index_table_.InsertAtIndex(1, NULL);
+    int id = index_table_.Insert(NULL);
     assert(id == 0);
 }
 
 NextHopTable::~NextHopTable() {
     FreeInterfaceId(0);
 }
-// Reserve the index for DiscardNHKey
+
 uint32_t NextHopTable::ReserveIndex() {
-    agent()->resource_manager()->ReserveIndex(Resource::NEXTHOP_INDEX, 2);
-    index_table_.InsertAtIndex(NextHopTable::kRpfDiscardIndex, NULL);
-    return NextHopTable::kRpfDiscardIndex;
+    return index_table_.Insert(NULL);
 }
 
 std::auto_ptr<DBEntry> NextHopTable::AllocEntry(const DBRequestKey *k) const {
@@ -319,53 +299,12 @@ std::auto_ptr<DBEntry> NextHopTable::GetEntry(const DBRequestKey *key) const {
 DBEntry *NextHopTable::Add(const DBRequest *req) {
     const NextHopKey *key = static_cast<const NextHopKey *>(req->key.get());
     NextHop *nh = AllocWithKey(key);
-    uint32_t index;
+
     if (nh->CanAdd() == false) {
         delete nh;
         return NULL;
     }
-    //parse the CompositeNHKey and fill the nh_id's & lables
-    if (nh->GetType() == NextHop::COMPOSITE) {
-        CompositeNH *cnh = static_cast<CompositeNH*>(nh);
-        std::vector<cnhid_label_map>nh_ids;
-        ComponentNHKeyList::const_iterator it =
-            cnh->component_nh_key_list().begin();
-        for (;it != cnh->component_nh_key_list().end(); it++) {
-            cnhid_label_map cnh_label = {0};
-            if ((*it) != NULL) {
-                CompositeNHKey *composite_nh_key =
-                    static_cast<CompositeNHKey *>((*it)->nh_key()->Clone());
-                const NextHop *nexthop = static_cast<const NextHop *>
-                    (NextHopTable::GetInstance()->FindActiveEntry(composite_nh_key));
-                if (nexthop) {
-                    cnh_label.nh_id = nexthop->id();
-                    cnh_label.label = (*it)->label();
-                }
-                delete composite_nh_key;
-            }
-            nh_ids.push_back(cnh_label);
-        }
-        ResourceManager::KeyPtr rkey(new NHIndexResourceKey
-                                     (agent()->resource_manager(),
-                                      NextHop::COMPOSITE,
-                                      (cnh)->composite_nh_type(),
-                                      nh_ids, nh->PolicyEnabled(),
-                                      cnh->vrf()->GetName()));
-        index = ((static_cast<IndexResourceData *>
-                  (agent()->resource_manager()->Allocate(rkey).get()))->index());
-    } else if (nh->GetType() != NextHop::DISCARD) {
-        ResourceManager::KeyPtr rkey(new NHIndexResourceKey
-                                     (agent()->resource_manager(),
-                                      nh->GetType(),
-                                      key->Clone()));
-        index = ((static_cast<IndexResourceData *>
-                  (agent()->resource_manager()->Allocate(rkey).get()))->index());
-    } else {
-        // will be a discard index
-        index = NextHopTable::kRpfDiscardIndex;
-    }
-    nh->set_id(index);
-    index_table_.InsertAtIndex(index, nh);
+    nh->set_id(index_table_.Insert(nh));
     nh->Add(agent(), req);
     nh->SendObjectLog(this, AgentLogEvent::ADD);
     return static_cast<DBEntry *>(nh);
@@ -443,7 +382,6 @@ NextHop *ArpNHKey::AllocEntry() const {
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
     return new ArpNH(vrf, dip_);
 }
-
 
 bool ArpNH::CanAdd() const {
     if (vrf_ == NULL) {

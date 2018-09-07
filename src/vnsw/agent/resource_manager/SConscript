@@ -23,7 +23,6 @@ libresource_manager = env.Library('resource_manager',
                                        'qos_index.cc',
                                        'bgp_as_service_index.cc',
                                        'mirror_index.cc',
-                                       'nexthop_index.cc',
                                        'resource_backup.cc',
                                        except_env.Object('sandesh_map.cc'),
                                      ])
