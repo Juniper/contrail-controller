@@ -394,6 +394,7 @@ class VncApiServer(object):
 
     def job_mgr_signal_handler(self, signalnum, frame):
         try:
+            max_retries = 3
             #get the child process id that called the signal handler
             pid = os.waitpid(-1, os.WNOHANG)
             signal_var = self._job_mgr_running_instances.get(str(pid[0]))
@@ -409,46 +410,52 @@ class VncApiServer(object):
             elapsed_time = time.time() - signal_var.get('start_time')
             status = "UNKNOWN"
             if signal_var.get('fabric_name') is not "__DEFAULT__":
-                try:
-                    # read the job object log for a particular job to check if
-                    # it succeeded or not
-                    jobObjLog_payload = {
-                        'start_time': 'now-%ds' % (elapsed_time),
-                        'end_time': 'now',
-                        'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-                        'table': 'ObjectJobExecutionTable',
-                        'where': [
-                            [
-                                {
-                                    'name': 'ObjectId',
-                                    'value': '%s:SUCCESS' % signal_var.get('exec_id'),
-                                    'op': 1
-                                }
+                retry = max_retries
+                while retry:
+                    try:
+                        # read the job object log for a particular job to check if
+                        # it succeeded or not
+                        jobObjLog_payload = {
+                            'start_time': 'now-%ds' % (elapsed_time),
+                            'end_time': 'now',
+                            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+                            'table': 'ObjectJobExecutionTable',
+                            'where': [
+                                [
+                                    {
+                                        'name': 'ObjectId',
+                                        'value': '%s:SUCCESS' % signal_var.get('exec_id'),
+                                        'op': 1
+                                    }
+                                ]
                             ]
-                        ]
-                    }
+                        }
 
-                    url = "http://localhost:8081/analytics/query"
+                        url = "http://localhost:8081/analytics/query"
 
-                    resp = requests.post(url, json=jobObjLog_payload)
-                    if resp.status_code == 200:
-                        JobLog = resp.json().get('value')
-                        if not JobLog:
-                            status = 'FAILURE'
+                        resp = requests.post(url, json=jobObjLog_payload)
+                        if resp.status_code == 200:
+                            JobLog = resp.json().get('value')
+                            if not JobLog:
+                                status = 'FAILURE'
+                            else:
+                                status = 'SUCCESS'
                         else:
-                            status = 'SUCCESS'
-                    else:
-                        self.config_log("POST request to query job object log "
-                                        "failed with error %s" %
-                                        resp.status_code,
-                                        level=SandeshLevel.SYS_ERR)
-
-                except (requests.ConnectionError, requests.ConnectTimeout,
-                        requests.HTTPError, requests.Timeout) as ex:
-                    self.config_log("POST request to query job object log "
-                                    "failed with error %s" % str(ex),
-                                    level=SandeshLevel.SYS_ERR)
-                    pass
+                            self.config_log("POST request to query job object log "
+                                            "failed with error %s" %
+                                            resp.status_code,
+                                            level=SandeshLevel.SYS_ERR)
+                        break
+                    except (requests.ConnectionError, requests.ConnectTimeout,
+                            requests.HTTPError, requests.Timeout) as ex:
+                        if retry > max_retries:
+                            self.config_log("POST request to query job object log "
+                                            "failed after %d retries with error "
+                                            "%s" % (max_retries, str(ex)),
+                                            level=SandeshLevel.SYS_ERR)
+                            break
+                        else:
+                            retry-=1
                 #send uve irrespective of the job log query
                 # success/failure with job status
                 job_execution_data = FabricJobExecution(
@@ -459,72 +466,77 @@ class VncApiServer(object):
                                                  sandesh=self._sandesh)
                 job_execution_uve.send(sandesh=self._sandesh)
 
-            try:
-                # read the last PRouter state for all Prouetrs
-                payload = {
-                    'sort':1,
-                    'start_time': 'now-%ds' % (elapsed_time),
-                    'sort_fields': ['MessageTS'],
-                    'end_time': 'now',
-                    'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-                    'table': 'ObjectJobExecutionTable',
-                    'where': [
-                        [
-                            {
-                                'name': 'Messagetype',
-                                'value': 'PRouterOnboardingLog',
-                                'op': 1
-                            },
-                            {
-                                'name': 'ObjectId',
-                                'value': '%s' % signal_var.get('exec_id'),
-                                'op': 1
-                            }
+            retry = max_retries
+            while retry:
+                try:
+                    # read the last PRouter state for all Prouetrs
+                    payload = {
+                        'sort':1,
+                        'start_time': 'now-%ds' % (elapsed_time),
+                        'sort_fields': ['MessageTS'],
+                        'end_time': 'now',
+                        'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+                        'table': 'ObjectJobExecutionTable',
+                        'where': [
+                            [
+                                {
+                                    'name': 'Messagetype',
+                                    'value': 'PRouterOnboardingLog',
+                                    'op': 1
+                                },
+                                {
+                                    'name': 'ObjectId',
+                                    'value': '%s' % signal_var.get('exec_id'),
+                                    'op': 1
+                                }
+                            ]
                         ]
-                    ]
-                }
-                url = "http://localhost:8081/analytics/query"
+                    }
+                    url = "http://localhost:8081/analytics/query"
 
-                resp = requests.post(url, json=payload)
-                if resp.status_code == 200:
-                    PRouterOnboardingLog = resp.json().get('value')
-                    for PRObjectLog in PRouterOnboardingLog:
-                        resp = PRObjectLog.get('ObjectLog')
-                        xmlresp = etree.fromstring(resp)
-                        for ele in xmlresp.iter():
-                            if ele.tag == 'name':
-                                device_fqname = ele.text
-                            if ele.tag == 'onboarding_state':
-                                onboarding_state = ele.text
+                    resp = requests.post(url, json=payload)
+                    if resp.status_code == 200:
+                        PRouterOnboardingLog = resp.json().get('value')
+                        for PRObjectLog in PRouterOnboardingLog:
+                            resp = PRObjectLog.get('ObjectLog')
+                            xmlresp = etree.fromstring(resp)
+                            for ele in xmlresp.iter():
+                                if ele.tag == 'name':
+                                    device_fqname = ele.text
+                                if ele.tag == 'onboarding_state':
+                                    onboarding_state = ele.text
 
-                        if device_fqname and onboarding_state:
-                            prouter_uve_name = device_fqname + ":" + \
-                                signal_var.get('fabric_name')
+                            if device_fqname and onboarding_state:
+                                prouter_uve_name = device_fqname + ":" + \
+                                    signal_var.get('fabric_name')
 
-                            prouter_job_data = PhysicalRouterJobExecution(
-                                name=prouter_uve_name,
-                                execution_id=signal_var.get('exec_id'),
-                                job_start_ts=int(round(signal_var.get('start_time') * 1000)),
-                                prouter_state=onboarding_state
-                            )
+                                prouter_job_data = PhysicalRouterJobExecution(
+                                    name=prouter_uve_name,
+                                    execution_id=signal_var.get('exec_id'),
+                                    job_start_ts=int(round(signal_var.get('start_time') * 1000)),
+                                    prouter_state=onboarding_state
+                                )
 
-                            prouter_job_uve = PhysicalRouterJobUve(
-                                data=prouter_job_data, sandesh=self._sandesh)
-                            prouter_job_uve.send(sandesh=self._sandesh)
-                else:
-                        self.config_log("POST request to query Prouter job "
-                                        "object log failed with error %s" %
-                                        resp.status_code,
+                                prouter_job_uve = PhysicalRouterJobUve(
+                                    data=prouter_job_data, sandesh=self._sandesh)
+                                prouter_job_uve.send(sandesh=self._sandesh)
+                    else:
+                            self.config_log("POST request to query Prouter job "
+                                            "object log failed with error %s" %
+                                            resp.status_code,
+                                            level=SandeshLevel.SYS_ERR)
+                except (requests.ConnectionError, requests.ConnectTimeout,
+                            requests.HTTPError, requests.Timeout) as ex:
+                    if retry > max_retries:
+                        self.config_log("POST request to query Prouter job object "
+                                        "log failed with error %s" % str(ex),
                                         level=SandeshLevel.SYS_ERR)
-            except (requests.ConnectionError, requests.ConnectTimeout,
-                        requests.HTTPError, requests.Timeout) as ex:
-                    self.config_log("POST request to query Prouter job object "
-                                    "log failed with error %s" % str(ex),
-                                    level=SandeshLevel.SYS_ERR)
-
-            finally:
-                #remove the pid entry of the processed job_mgr process
-                del self._job_mgr_running_instances[str(pid[0])]
+                    else:
+                        retry-=1
+                finally:
+                    #remove the pid entry of the processed job_mgr process
+                    del self._job_mgr_running_instances[str(pid[0])]
+                    break
 
         except OSError as process_error:
             self.config_log("Couldn retrieve the child process id. OS call "
