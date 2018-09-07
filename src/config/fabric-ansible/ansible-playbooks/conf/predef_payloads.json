@@ -330,7 +330,8 @@
           ],
           "name": "label=fabric-management-ip",
           "tag_type_name": "label",
-          "tag_value": "fabric-management-ip"
+          "tag_value": "fabric-management-ip",
+          "tag_delete_flag": false
         },
         {
           "fq_name": [
@@ -338,7 +339,8 @@
           ],
           "name": "label=fabric-loopback-ip",
           "tag_type_name": "label",
-          "tag_value": "fabric-loopback-ip"
+          "tag_value": "fabric-loopback-ip",
+          "tag_delete_flag": false
         },
         {
           "fq_name": [
@@ -346,7 +348,8 @@
           ],
           "name": "label=fabric-peer-ip",
           "tag_type_name": "label",
-          "tag_value": "fabric-peer-ip"
+          "tag_value": "fabric-peer-ip",
+          "tag_delete_flag": false
         },
         {
           "fq_name": [
@@ -354,7 +357,8 @@
           ],
           "name": "label=fabric-as-number",
           "tag_type_name": "label",
-          "tag_value": "fabric-as-number"
+          "tag_value": "fabric-as-number",
+          "tag_delete_flag": false
         },
         {
           "fq_name": [
@@ -362,7 +366,8 @@
           ],
           "name": "label=fabric-ebgp-as-number",
           "tag_type_name": "label",
-          "tag_value": "fabric-ebgp-as-number"
+          "tag_value": "fabric-ebgp-as-number",
+          "tag_delete_flag": false
         }
       ]
     },
