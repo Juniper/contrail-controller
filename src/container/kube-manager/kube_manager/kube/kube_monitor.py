@@ -203,11 +203,12 @@ class KubeMonitor(object):
         json_data = {}
         base_url = self._get_base_url(self.url, beta, api_group, api_version)
 
-        if resource_type == "namespaces":
+        if resource_type in ("namespaces", "customresourcedefinitions"):
             url = "%s/%s" % (base_url, resource_type)
         else:
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               resource_type, resource_name)
+
         try:
             resp = requests.get(url, stream=True,
                                 headers=self.headers, verify=self.verify)
@@ -248,6 +249,37 @@ class KubeMonitor(object):
             self.logger.error("%s - %s" % (self.name, e))
             return
 
+        return resp.iter_lines(chunk_size=10, delimiter='\n')
+
+    def post_resource(
+            self, resource_type, resource_name,
+            body_params, namespace=None, beta=False, sub_resource_name=None,
+            api_group=None, api_version=None):
+        base_url = self._get_base_url(self.url, beta, api_group, api_version)
+
+        if resource_type in ("namespaces", "customresourcedefinitions"):
+            url = "%s/%s" % (base_url, resource_type)
+        else:
+            url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
+                                              resource_type, resource_name)
+            if sub_resource_name:
+                url = "%s/%s" %(url, sub_resource_name)
+
+        headers = {'Accept': 'application/json',
+                   'Content-Type': 'application/json',
+                   'Authorization': "Bearer " + self.token}
+        headers.update(self.headers)
+
+        try:
+            resp = requests.post(url, headers=headers,
+                                data=json.dumps(body_params),
+                                verify=self.verify)
+            if resp.status_code not in [200, 201]:
+                resp.close()
+                return
+        except requests.exceptions.RequestException as e:
+            self.logger.error("%s - %s" % (self.name, e))
+            return
         return resp.iter_lines(chunk_size=10, delimiter='\n')
 
     def process(self):
