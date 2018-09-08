@@ -11,7 +11,7 @@ import json
 from cfgm_common.vnc_db import DBBase
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from ast import literal_eval
-from utils import get_vn_fq_name_from_dict_string
+from utils import (get_vn_fq_name_from_dict_string, get_dict_from_dict_string)
 from utils import get_fip_pool_fq_name_from_dict_string
 
 class KubeDBBase(DBBase):
@@ -60,6 +60,7 @@ class PodKM(KubeDBBase):
         self.labels = {}
         self.annotations = None
         self.pod_vn_fq_name = None
+        self.networks = []
 
         # Spec.
         self.nodename = None
@@ -138,6 +139,18 @@ class PodKM(KubeDBBase):
                 err_msg = "Failed to parse annotation for pod[%s].Error[%s]"%\
                     (self.name, str(e))
                 raise Exception(err_msg)
+
+        # Parse virtual network annotations.
+        if 'k8s.v1.cni.cncf.io/networks' in annotations:
+            self.networks = []
+            networks_string = '{' + \
+                str(annotations['k8s.v1.cni.cncf.io/networks']).split('{',1)[-1]
+            networks_string = networks_string.rsplit('}',1)[0] +'}'
+            networks_string_list = networks_string.replace(' ','').split(',')
+            for network in networks_string_list:
+                nw_dict = get_dict_from_dict_string(network, 'name')
+                if nw_dict:
+                    self.networks.append(nw_dict.get('name'))
 
     def get_vn_fq_name(self):
         """Return virtual-network fq-name annotated on this pod."""
@@ -720,3 +733,63 @@ class IngressKM(KubeDBBase):
 
         # Send the reply out.
         ingress_resp.response(req.context())
+
+class NetworkKM(KubeDBBase):
+    _dict = {}
+    obj_type = 'Network'
+
+    def __init__(self, uuid, obj = None):
+        self.uuid = uuid
+
+        # Metadata.
+        self.name = None
+        self.annotations = None
+        self.annotated_vn_fq_name = None
+
+        # If an object is provided, update self with contents of object.
+        if obj:
+            self.update(obj)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self._update_metadata(obj.get('metadata'))
+
+    def _update_metadata(self, md):
+        if md is None:
+            return
+        self.name = md.get('name')
+        self.namespace = md.get('namespace')
+        self.annotations = md.get('annotations', None)
+        self._parse_annotations(self.annotations)
+
+    def _parse_annotations(self, annotations):
+        self.annotations = None
+        if not annotations:
+            return
+
+        # Parse virtual network from annotations.
+        if 'opencontrail.org/network' in annotations:
+            # CASE 1: Network already exists in Contrail. Parse the Network
+            # FQ name from the annotation and store
+            try:
+                self.annotated_vn_fq_name = self.get_vn_from_annotation(
+                    annotations)
+            except Exception as e:
+                err_msg = "Failed to parse annotations for network [%s]."\
+                " Error[%s]" % (self.name, str(e))
+                raise Exception(err_msg)
+        elif 'opencontrail.org/cidr' in annotations:
+            # CASE 2: Network does not exists in Contrail. The network FQ name
+            # will be generated later when processing the request.
+            self.annotated_vn_fq_name = ""
+
+    def is_contrail_nw(self):
+        return True if self.annotated_vn_fq_name else False
+
+    @classmethod
+    def get_network_fq_name(cls, name, namespace):
+        for key, value in cls._dict.iteritems():
+            if value.name == name and value.namespace == namespace:
+                return value
+        return None
