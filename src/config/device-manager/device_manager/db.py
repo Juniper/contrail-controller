@@ -1248,6 +1248,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.forwarding_mode = None
         self.gateways = None
         self.instance_ip_map = {}
+        self.route_targets = None
         self.update(obj_dict)
     # end __init__
 
@@ -1280,6 +1281,13 @@ class VirtualNetworkDM(DBBaseDM):
             [vmi['uuid'] for vmi in
              obj.get('virtual_machine_interface_back_refs', [])])
         self.gateways = DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
+
+        self.route_targets = None
+        route_target_list = obj.get('route_target_list')
+        if route_target_list:
+            route_targets = route_target_list.get('route_target')
+            if route_targets:
+                self.route_targets = set(route_targets)
     # end update
 
     def get_prefixes(self):

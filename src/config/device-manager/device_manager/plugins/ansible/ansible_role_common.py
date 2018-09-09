@@ -905,8 +905,12 @@ class AnsibleRoleCommon(AnsibleConf):
                                                    vn_obj.vn_network_id, 'l2')
                     vrf_name_l3 = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
                                                    vn_obj.vn_network_id, 'l3')
-                    export_set = copy.copy(ri_obj.export_targets)
-                    import_set = copy.copy(ri_obj.import_targets)
+                    if vn_obj.route_targets:
+                        export_set = vn_obj.route_targets & ri_obj.export_targets
+                        import_set = vn_obj.route_targets & ri_obj.import_targets
+                    else:
+                        export_set = copy.copy(ri_obj.export_targets)
+                        import_set = copy.copy(ri_obj.import_targets)
                     for ri2_id in ri_obj.routing_instances:
                         ri2 = RoutingInstanceDM.get(ri2_id)
                         if ri2 is None:
