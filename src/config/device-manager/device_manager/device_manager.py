@@ -174,7 +174,7 @@ class DeviceManager(object):
         'virtual_network': {
             'self': ['physical_router',
                      'virtual_machine_interface', 'logical_router', 'fabric'],
-            'routing_instance': ['physical_router',
+            'routing_instance': ['physical_router', 'logical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
             'logical_router': ['physical_router'],
@@ -184,6 +184,7 @@ class DeviceManager(object):
             'self': ['physical_router', 'virtual_network'],
             'physical_router': [],
             'virtual_network': ['physical_router'],
+            'routing_instance': ['physical_router'],
             'virtual_machine_interface': ['physical_router']
         },
         'routing_instance': {
