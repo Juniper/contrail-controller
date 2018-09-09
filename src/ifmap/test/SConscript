@@ -4,6 +4,7 @@
 # -*- mode: python; -*-
 
 import platform
+import os
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -19,6 +20,11 @@ env.Append(CPPPATH = env['TOP'] + '/config-client-mgr')
 env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/http/client')
+
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL');
+
+if etcd_incl:
+    env.Prepend(LIBS = ['etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
 
 env.Prepend(LIBS = ['ifmap_server', 'config_client_mgr', 'ifmapio', 'xmpp',
                     'peer_sandesh', 'sandesh', 'http', 'http_parser', 'httpc',

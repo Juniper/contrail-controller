@@ -1,6 +1,7 @@
 # -*- mode: python; -*-
 import platform
 from distutils.version import LooseVersion
+import os
 
 if platform.system() == 'Windows':
     subdirs = [
@@ -22,7 +23,6 @@ if platform.system() == 'Windows':
         'http_parser',
         'winsw',
         'cmocka',
-#        'grpc',
     ]
 else:
     subdirs = [
@@ -37,8 +37,11 @@ else:
         'thrift',
         'openvswitch',
         'ipfix',
- #       'grpc',
     ]
+
+    etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL')
+    if etcd_incl:
+        subdirs += ['grpc',]
 
     (distname, version, _) = platform.dist()
     if distname == 'Ubuntu' and LooseVersion(version) >= LooseVersion('14.04'):
