@@ -443,7 +443,7 @@ class ConfigJsonParserTest : public ::testing::Test {
     bool validate_done_;
 };
 
-typedef std::tr1::tuple<string, bool> TestParamsFilesAndFlag;
+typedef std::tuple<string, bool> TestParamsFilesAndFlag;
 
 class ConfigJsonParserTestWithParams1
     : public ConfigJsonParserTest,
@@ -452,10 +452,10 @@ class ConfigJsonParserTestWithParams1
 // Flag indicates timestamp in testdata
 INSTANTIATE_TEST_CASE_P(
     JsonParser1, ConfigJsonParserTestWithParams1, ::testing::Values(
-        std::tr1::make_tuple(
+        std::make_tuple(
             "controller/src/ifmap/testdata/vmi_map_prop_with_ts.json",
             true),
-        std::tr1::make_tuple(
+        std::make_tuple(
             "controller/src/ifmap/testdata/vmi_map_prop.json",
             false)));
 
@@ -466,10 +466,10 @@ class ConfigJsonParserTestWithParams2
 
 INSTANTIATE_TEST_CASE_P(
     JsonParser2, ConfigJsonParserTestWithParams2, ::testing::Values(
-        std::tr1::make_tuple(
+        std::make_tuple(
             "controller/src/ifmap/testdata/vmi_list_prop_with_ts.json",
             true),
-        std::tr1::make_tuple(
+        std::make_tuple(
             "controller/src/ifmap/testdata/vmi_list_prop.json",
             false)));
 
@@ -479,10 +479,10 @@ class ConfigJsonParserTestWithParams3
 };
 
 INSTANTIATE_TEST_CASE_P(JsonParser3, ConfigJsonParserTestWithParams3,
-        ::testing::Values(std::tr1::make_tuple(
+        ::testing::Values(std::make_tuple(
             "controller/src/ifmap/testdata/vmi_list_map_prop_with_ts.json",
             true),
-            std::tr1::make_tuple(
+            std::make_tuple(
                 "controller/src/ifmap/testdata/vmi_list_map_prop.json",
                 false)));
 
@@ -2432,8 +2432,8 @@ TEST_F(ConfigJsonParserTest, MissingTypeField) {
 }
 
 TEST_P(ConfigJsonParserTestWithParams1, VerifyMapProperties) {
-    string file = std::tr1::get<0>(GetParam());
-    bool is_timestamp_test = std::tr1::get<1>(GetParam());
+    string file = std::get<0>(GetParam());
+    bool is_timestamp_test = std::get<1>(GetParam());
     uint64_t vmitable_step_count = is_timestamp_test ? 1 : 3;
     uint64_t vmitable_count;
     IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
@@ -2518,8 +2518,8 @@ TEST_P(ConfigJsonParserTestWithParams1, VerifyMapProperties) {
 }
 
 TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
-    string file = std::tr1::get<0>(GetParam());
-    bool is_timestamp_test = std::tr1::get<1>(GetParam());
+    string file = std::get<0>(GetParam());
+    bool is_timestamp_test = std::get<1>(GetParam());
     uint64_t vmitable_step_count = is_timestamp_test?1:3;
     uint64_t vmitable_count;
     IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
@@ -2609,8 +2609,8 @@ TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
 }
 
 TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
-    string file = std::tr1::get<0>(GetParam());
-    bool is_timestamp_test = std::tr1::get<1>(GetParam());
+    string file = std::get<0>(GetParam());
+    bool is_timestamp_test = std::get<1>(GetParam());
     uint64_t vmitable_step_count = is_timestamp_test?2:4;
     uint64_t vmitable_count;
     IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
