@@ -548,6 +548,70 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache) {
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 }
 
+// Verify introspect for FQName cache when we get only an UPDATE
+// as the first operation for a UUID without a CREATE.
+TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_UpdateWithoutCreate) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.3.json");
+    FeedEventsJson();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
+
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn1")
+        ("virtual_network:default-domain:demo:vn2")
+        ("virtual_network:default-domain:demo:vn3");
+    ifmap_sandesh_context_->set_page_limit(3);
+    string next_batch;
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
+        _1, fq_name_expected_entries, next_batch));
+    validate_done_ = false;
+    ConfigDBUUIDToFQNameReq *req = new ConfigDBUUIDToFQNameReq;
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+}
+
+// Verify introspect for FQName cache when we get only an UPDATE
+// as the first operation for a UUID followed by a CREATE.
+TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_UpdateBeforeCreate) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.4.json");
+    FeedEventsJson();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
+
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn1")
+        ("virtual_network:default-domain:demo:vn2")
+        ("virtual_network:default-domain:demo:vn3");
+    ifmap_sandesh_context_->set_page_limit(3);
+    string next_batch;
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
+        _1, fq_name_expected_entries, next_batch));
+    validate_done_ = false;
+    ConfigDBUUIDToFQNameReq *req = new ConfigDBUUIDToFQNameReq;
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+}
+
 // Verify introspect for FQName cache - Given valid uuid
 TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_SpecificUUID) {
     ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
