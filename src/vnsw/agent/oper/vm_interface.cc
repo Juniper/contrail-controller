@@ -711,9 +711,115 @@ bool VmInterface::SecurityGroupEntry::DeleteL3(const Agent *agent,
 // any new states
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::FatFlowEntry::FatFlowEntry(const uint8_t proto, const uint16_t p,
-                                        std::string ignore_addr_value) :
+                                        std::string ignore_addr_value, 
+                                        FatFlowPrefixAggregateType in_prefix_aggregate,
+                                        IpAddress in_src_prefix, uint8_t in_src_prefix_mask,
+                                        uint8_t in_src_aggregate_plen, 
+                                        IpAddress in_dst_prefix, uint8_t in_dst_prefix_mask,
+                                        uint8_t in_dst_aggregate_plen) :
     protocol(proto), port(p) {
     ignore_address = fatflow_ignore_addr_map_.find(ignore_addr_value)->second;
+    prefix_aggregate = in_prefix_aggregate;
+    src_prefix = in_src_prefix;
+    src_prefix_mask = in_src_prefix_mask;
+    src_aggregate_plen = in_src_aggregate_plen;
+    dst_prefix = in_dst_prefix;
+    dst_prefix_mask = in_dst_prefix_mask;
+    dst_aggregate_plen = in_dst_aggregate_plen;
+}
+
+
+VmInterface::FatFlowEntry
+VmInterface::FatFlowEntry::MakeFatFlowEntry(const std::string &proto, const int &port,
+                                            const std::string &ignore_addr_str,
+                                            const std::string &in_src_prefix_str, const int &in_src_prefix_mask,
+                                            const int &in_src_aggregate_plen,
+                                            const std::string &in_dst_prefix_str, const int &in_dst_prefix_mask,
+                                            const int &in_dst_aggregate_plen) {
+    uint8_t protocol = (uint8_t) Agent::ProtocolStringToInt(proto);
+    IpAddress src_prefix;
+    uint8_t src_prefix_mask = 0, src_aggregate_plen = 0;
+    IpAddress dst_prefix, empty_prefix;
+    uint8_t dst_prefix_mask = 0, dst_aggregate_plen = 0;
+    FatFlowPrefixAggregateType prefix_aggregate = AGGREGATE_NONE;
+    FatFlowIgnoreAddressType ignore_address =
+                                   fatflow_ignore_addr_map_.find(ignore_addr_str)->second;
+
+    if (in_src_prefix_str.length() > 0) {
+        src_prefix = IpAddress::from_string(in_src_prefix_str);
+        src_prefix_mask = in_src_prefix_mask;
+        src_aggregate_plen = in_src_aggregate_plen;
+        if (src_prefix.is_v4()) {
+            prefix_aggregate = AGGREGATE_SRC_IPV4;
+        } else {
+            prefix_aggregate = AGGREGATE_SRC_IPV6;
+        }
+    }
+    if (in_dst_prefix_str.length() > 0) {
+        dst_prefix = IpAddress::from_string(in_dst_prefix_str);
+        dst_prefix_mask = in_dst_prefix_mask;
+        dst_aggregate_plen = in_dst_aggregate_plen;
+        if (prefix_aggregate == AGGREGATE_NONE) {
+            if (dst_prefix.is_v4()) {
+                prefix_aggregate = AGGREGATE_DST_IPV4;
+            } else {
+                prefix_aggregate = AGGREGATE_DST_IPV6;
+            }
+        } else {
+            if (dst_prefix.is_v4()) {
+                prefix_aggregate = AGGREGATE_SRC_DST_IPV4;
+            } else {
+                prefix_aggregate = AGGREGATE_SRC_DST_IPV6;
+            }
+        }
+    }
+    if (ignore_address == IGNORE_SOURCE) {
+        if ((prefix_aggregate == AGGREGATE_SRC_IPV4) || (prefix_aggregate == AGGREGATE_SRC_IPV6)) {
+             src_prefix = empty_prefix;
+             src_prefix_mask = 0;
+             src_aggregate_plen = 0;
+             prefix_aggregate = AGGREGATE_NONE;
+        } else if (prefix_aggregate == AGGREGATE_SRC_DST_IPV4) {
+             src_prefix = empty_prefix;
+             src_prefix_mask = 0;
+             src_aggregate_plen = 0;
+             prefix_aggregate = AGGREGATE_DST_IPV4;
+        } else if (prefix_aggregate == AGGREGATE_SRC_DST_IPV6) {
+             src_prefix = empty_prefix;
+             src_prefix_mask = 0;
+             src_aggregate_plen = 0;
+             prefix_aggregate = AGGREGATE_DST_IPV6;
+        }
+    } else if (ignore_address == IGNORE_DESTINATION) {
+        if ((prefix_aggregate == AGGREGATE_DST_IPV4) || (prefix_aggregate == AGGREGATE_DST_IPV6)) {
+             dst_prefix = empty_prefix;
+             dst_prefix_mask = 0;
+             dst_aggregate_plen = 0;
+             prefix_aggregate = AGGREGATE_NONE;
+        } else if (prefix_aggregate == AGGREGATE_SRC_DST_IPV4) {
+             dst_prefix = empty_prefix;
+             dst_prefix_mask = 0;
+             dst_aggregate_plen = 0;
+             prefix_aggregate = AGGREGATE_SRC_IPV4;
+        } else if (prefix_aggregate == AGGREGATE_SRC_DST_IPV6) {
+             dst_prefix = empty_prefix;
+             dst_prefix_mask = 0;
+             dst_aggregate_plen = 0;
+             prefix_aggregate = AGGREGATE_SRC_IPV6;
+        }
+    }
+
+    VmInterface::FatFlowEntry entry(protocol, port,
+                                    ignore_addr_str, prefix_aggregate, src_prefix, src_prefix_mask,
+                                    src_aggregate_plen, dst_prefix, dst_prefix_mask, dst_aggregate_plen);
+    return entry;
+}
+
+void VmInterface::FatFlowEntry::print(void) {
+    LOG(ERROR, "Protocol:" << (int) protocol << " Port:" << port << " IgnoreAddr:" << ignore_address
+        << " PrefixAggr:" << prefix_aggregate << " SrcPrefix:" << src_prefix.to_string() << "/" << (int) src_prefix_mask
+        << " SrcAggrPlen:" << (int) src_aggregate_plen << " DstPrefix:" << dst_prefix.to_string() << "/" << (int) dst_prefix_mask
+        << " DstAggrPlen:" << (int) dst_aggregate_plen);
 }
 
 void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
@@ -723,12 +829,26 @@ void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
      */
     if (ret.second == false) {
         ret.first->ignore_address = rhs->ignore_address;
+        ret.first->prefix_aggregate = rhs->prefix_aggregate;
+        ret.first->src_prefix = rhs->src_prefix;
+        ret.first->src_prefix_mask = rhs->src_prefix_mask;
+        ret.first->src_aggregate_plen = rhs->src_aggregate_plen;
+        ret.first->dst_prefix = rhs->dst_prefix;
+        ret.first->dst_prefix_mask = rhs->dst_prefix_mask;
+        ret.first->dst_aggregate_plen = rhs->dst_aggregate_plen;
     }
 }
 
 void VmInterface::FatFlowList::Update(const FatFlowEntry *lhs,
                                       const FatFlowEntry *rhs) {
     lhs->ignore_address = rhs->ignore_address;
+    lhs->prefix_aggregate = rhs->prefix_aggregate;
+    lhs->src_prefix = rhs->src_prefix;
+    lhs->src_prefix_mask = rhs->src_prefix_mask;
+    lhs->src_aggregate_plen = rhs->src_aggregate_plen;
+    lhs->dst_prefix = rhs->dst_prefix;
+    lhs->dst_prefix_mask = rhs->dst_prefix_mask;
+    lhs->dst_aggregate_plen = rhs->dst_aggregate_plen;
 }
 
 void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
