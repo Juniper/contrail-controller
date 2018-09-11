@@ -790,17 +790,17 @@ class VncApiServer(object):
         r_class = self.get_resource_class(resource_type)
         obj_links = r_class.obj_links & set(obj_dict.keys())
         obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
-        obj_dicts = self._db_conn._cassandra_db.object_raw_read(obj_uuids, ["perms2"])
-        uuid_to_perms2 = dict((o['uuid'], o['perms2']) for o in obj_dicts)
+        obj_dicts = self._db_conn._cassandra_db.object_raw_read(obj_uuids, ["id_perms", "perms2"])
+        uuid_to_dict = {obj_dict['uuid']: obj_dict for obj_dict in obj_dicts}
 
         for link_field in obj_links:
             links = obj_dict[link_field]
 
             # build new links in returned dict based on permissions on linked object
             ret_obj_dict[link_field] = [l for l in links
-                if ((l['uuid'] in uuid_to_perms2) and
-                    (self._permissions.check_perms_read( get_request(),
-                      l['uuid'], id_perms=uuid_to_perms2[l['uuid']])[0] == True))]
+                if ((l['uuid'] in uuid_to_dict) and
+                    (self._permissions.check_perms_read(get_request(),
+                    l['uuid'], uuid_to_dict[l['uuid']])[0] == True))]
         return ret_obj_dict
 
     @log_api_stats
@@ -3346,8 +3346,7 @@ class VncApiServer(object):
                     if obj_result['id_perms'].get('user_visible', True):
                         # skip items not authorized
                         (ok, status) = self._permissions.check_perms_read(
-                                get_request(), obj_result['uuid'],
-                                obj_result['id_perms'])
+                            get_request(), obj_result['uuid'], obj_result)
                         if not ok and status[0] == 403:
                             continue
                         obj_dict = {}
@@ -3416,11 +3415,10 @@ class VncApiServer(object):
                     # future, we should clean up such stale objects
                     continue
                 if (obj_dict['id_perms'].get('user_visible', True) or
-                    self.is_admin_request()):
+                        self.is_admin_request()):
                     # skip items not authorized
                     (ok, status) = self._permissions.check_perms_read(
-                            get_request(), obj_result['uuid'],
-                            obj_result['id_perms'])
+                        get_request(), obj_result['uuid'], obj_result)
                     if not ok and status[0] == 403:
                         continue
                     obj_dicts.append({resource_type: obj_dict})

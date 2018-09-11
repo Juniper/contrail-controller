@@ -87,24 +87,13 @@ class VncPermissions(object):
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
-    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None):
-
-        # retrieve object and permissions
-        try:
-            config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
-            perms2 = config.get('prop:perms2')
-            obj_name = config.get("fq_name")
-            obj_type = config.get("type")
-        except NoIdError:
-            return (True, '')
-
+    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R,
+                            perms2=None, obj_owner_for_delete=None):
         user, roles = self.get_user_roles(request)
-        is_admin = has_role(self.cloud_admin_role, roles)
-        if is_admin:
+        if has_role(self.cloud_admin_role, roles):
             return (True, 'RWX')
         if has_role(self.global_read_only_role, roles) and mode == PERMS_R:
             return (True, 'R')
-
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID')
@@ -127,6 +116,13 @@ class VncPermissions(object):
         if domain:
             domain = domain.replace('-','')
 
+        # retrieve object permissions
+        if not perms2:
+            try:
+                perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
+            except NoIdError:
+                return True, ''
+
         owner = perms2['owner'].replace('-','')
         perms = perms2['owner_access'] << 6
         perms |= perms2['global_access']
@@ -136,9 +132,9 @@ class VncPermissions(object):
         if (tenant == owner):
             mask |= 0700
 
-        share = perms2['share']
-        tenants = [item['tenant'] for item in share]
-        for item in share:
+        share_items = perms2['share']
+        shares = [item['tenant'] for item in share_items]
+        for item in share_items:
             # item['tenant'] => [share-type, uuid]
             # allow access if domain or project from token matches configured sharing information
             (share_type, share_uuid) = cfgm_common.utils.shareinfo_from_perms2_tenant(item['tenant'])
@@ -156,19 +152,20 @@ class VncPermissions(object):
 
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
-        msg = 'rbac: %s (%s:%s) %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
-            (usr=%s(%s)/own=%s/sh=%s)' \
-            % ('+++' if ok else '---', self.mode_str[mode], obj_uuid, obj_type, obj_name,
-               'yes' if is_admin else 'no', mode_mask, mask, perms,
-               tenant, tenant_name, owner, tenants)
+        msg = ("rbac: %s (%s:%s) mode=%03o mask=%03o perms=%03o, "
+               "(user=%s(%s)/owner=%s/shares=%s)" %
+               ('+++' if ok else '---', self.mode_str[mode], obj_uuid,
+                mode_mask, mask, perms, tenant, tenant_name, owner,shares))
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         if not ok:
-            msg = "rbac: %s doesn't have %s permission in tenant %s" % (user, self.mode_str2[mode], owner)
+            msg = ("rbac: %s doesn't have %s permission in project '%s'" %
+                   (user, self.mode_str2[mode], owner))
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-        err_msg = (403, 'Permission Denied for %s to %s operation on %s in %s'
-                   %(roles, mode, obj_type, tenant if tenant else domain))
-        return (True, self.mode_str[granted]) if ok else (False, err_msg)
+        err_msg = ("Permission Denied for %s to %s operation in %s" %
+                   (roles, mode, "project '%s'" % tenant if tenant else
+                    "domain '%s'" % domain))
+        return (True, self.mode_str[granted]) if ok else (False, (403, err_msg))
     # end validate_perms
 
     # retreive user/role from incoming request
@@ -207,15 +204,20 @@ class VncPermissions(object):
             return (True, '')
     # end check_perms_write
 
-    def check_perms_read(self, request, id, id_perms=None):
+    def check_perms_read(self, request, id, obj_dict=None):
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
 
+        if obj_dict is None:
+            obj_dict = {}
+
         if self._rbac:
-            return self.validate_perms_rbac(request, id, PERMS_R)
+            return self.validate_perms_rbac(request, id, PERMS_R,
+                                            obj_dict.get('perms2'))
         elif self._auth_needed:
-            return self.validate_perms(request, id, PERMS_R, id_perms)
+            return self.validate_perms(request, id, PERMS_R,
+                                       obj_dict.get('id_perms'))
         else:
             return (True, '')
     # end check_perms_read
@@ -240,11 +242,17 @@ class VncPermissions(object):
 
         if self._rbac:
             # delete only allowed for owner
-            (ok, obj_dict) = self._server_mgr._db_conn.dbe_read(obj_type,
-                             {'uuid':obj_uuid}, obj_fields=['perms2'])
-            obj_owner=obj_dict['perms2']['owner']
-            return self.validate_perms_rbac(request, parent_uuid, PERMS_W,
-                                            obj_owner_for_delete = obj_owner)
+            try:
+                perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
+            except NoIdError:
+                return True, ''
+            return self.validate_perms_rbac(
+                request,
+                parent_uuid,
+                PERMS_W,
+                perms2=perms2,
+                obj_owner_for_delete=perms2['owner'],
+            )
         elif self._auth_needed:
             return self.validate_perms(request, parent_uuid, PERMS_W)
         else:
