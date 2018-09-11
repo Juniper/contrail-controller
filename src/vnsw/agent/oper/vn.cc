@@ -710,12 +710,13 @@ std::string VnEntry::GetProject() const {
 }
 
 int VnEntry::GetVxLanId() const {
-    if ((agent_->vxlan_network_identifier_mode() == Agent::CONFIGURED) ||
-        (vxlan_routing_vn_)) {
+    if (agent_->vxlan_network_identifier_mode() == Agent::CONFIGURED) {
         return vxlan_id_;
-    } else {
-        return vnid_;
     }
+    if (vxlan_routing_vn_ && vxlan_id_) {
+        return vxlan_id_;
+    }
+    return vnid_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
