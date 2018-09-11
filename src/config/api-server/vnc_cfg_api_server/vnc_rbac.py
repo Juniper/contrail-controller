@@ -9,6 +9,7 @@ import re
 import ConfigParser
 from provision_defaults import *
 from cfgm_common.exceptions import *
+from cfgm_common import one_role_matches
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.vnc_api_client_gen import all_resource_types
 
@@ -23,12 +24,12 @@ class VncRbac(object):
     # end __init__
 
     @property
-    def cloud_admin_role(self):
-        return self._server_mgr.cloud_admin_role
+    def cloud_admin_roles(self):
+        return self._server_mgr.cloud_admin_roles
 
     @property
-    def global_read_only_role(self):
-        return self._server_mgr.global_read_only_role
+    def global_read_only_roles(self):
+        return self._server_mgr.global_read_only_roles
 
     def rbac_enabled(self):
         return self._server_mgr.is_rbac_enabled()
@@ -215,11 +216,12 @@ class VncRbac(object):
             err_msg = (401, 'roles empty!!')
             return (False, err_msg)
 
-        is_admin = self.cloud_admin_role in roles
+        is_admin = one_role_matches(self.cloud_admin_roles, roles)
         # other checks redundant if admin
         if is_admin:
             return (True, '')
-        if self.global_read_only_role in roles and (request.method == 'GET' or request.method == 'HEAD'):
+        if (one_role_matches(self.global_read_only_roles, roles) and
+                (request.method == 'GET' or request.method == 'HEAD')):
             return (True, '')
 
         # rule list for project/domain of the request

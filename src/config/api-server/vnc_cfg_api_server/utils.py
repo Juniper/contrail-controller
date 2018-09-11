@@ -77,8 +77,8 @@ def parse_args(args_str):
         'paginate_count': 256,
         'region_name': 'RegionOne',
         'stale_lock_seconds': '5', # lock but no resource past this => stale
-        'cloud_admin_role': cfgm_common.CLOUD_ADMIN_ROLE,
-        'global_read_only_role': cfgm_common.GLOBAL_READ_ONLY_ROLE,
+        'cloud_admin_roles': [cfgm_common.CLOUD_ADMIN_ROLE],
+        'global_read_only_roles': cfgm_common.GLOBAL_READ_ONLY_ROLE,
         'rabbit_use_ssl': False,
         'kombu_ssl_version': '',
         'kombu_ssl_keyfile': '',
@@ -286,9 +286,9 @@ def parse_args(args_str):
             help="Cassandra password")
     parser.add_argument("--stale_lock_seconds",
             help="Time after which lock without resource is stale, default 60")
-    parser.add_argument( "--cloud_admin_role",
+    parser.add_argument( "--cloud_admin_roles", nargs='+',
         help="Role name of cloud administrator")
-    parser.add_argument( "--global_read_only_role",
+    parser.add_argument( "--global_read_only_roles", nargs='+',
         help="Role name of user with Read-Only access to all objects")
     parser.add_argument("--object_cache_entries",
             help="Maximum number of objects cached for read, default 10000")
@@ -319,6 +319,10 @@ def parse_args(args_str):
             args_obj.cassandra_server_list.split()
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
+    if type(args_obj.cloud_admin_roles) is str:
+        args_obj.cloud_admin_roles = args_obj.cloud_admin_roles.split()
+    if type(args_obj.global_read_only_roles) is str:
+        args_obj.global_read_only_roles = args_obj.global_read_only_roles.split()
     args_obj.sandesh_config = SandeshConfig.from_parser_arguments(args_obj)
     args_obj.cassandra_use_ssl = (str(args_obj.cassandra_use_ssl).lower() == 'true')
 

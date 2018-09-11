@@ -42,7 +42,7 @@ import subprocess
 import traceback
 from kazoo.exceptions import LockTimeout
 
-from cfgm_common import has_role
+from cfgm_common import one_role_matches
 from cfgm_common import _obj_serializer_all
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 from cfgm_common.utils import _DEFAULT_ZK_LOCK_PATH_PREFIX
@@ -1667,7 +1667,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
+                 'HTTP_X_ROLE': ','.join(self.cloud_admin_roles)})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -1688,7 +1688,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
+                 'HTTP_X_ROLE': ','.join(self.cloud_admin_roles)})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -1709,7 +1709,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%s/%s' %(resource_type, obj_uuid),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
+                 'HTTP_X_ROLE': ','.join(self.cloud_admin_roles)})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 None, None)
@@ -1739,7 +1739,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/ref-update',
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
+                 'HTTP_X_ROLE': ','.join(self.cloud_admin_roles)})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 req_dict, None)
@@ -1762,7 +1762,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/ref-update',
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
+                 'HTTP_X_ROLE': ','.join(self.cloud_admin_roles)})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 req_dict, None)
@@ -2338,7 +2338,7 @@ class VncApiServer(object):
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
                 roles.extend(env[field].split(','))
-        return has_role(self.cloud_admin_role, roles)
+        return one_role_matches(self.cloud_admin_roles, roles)
 
     def get_auth_headers_from_token(self, request, token):
         if self.is_auth_disabled() or not self.is_auth_needed():
@@ -2436,10 +2436,10 @@ class VncApiServer(object):
         elif 'token' in token_info:
             roles_list = [roles['name'] for roles in
                           token_info['token']['roles']]
-        result['is_cloud_admin_role'] = has_role(self.cloud_admin_role,
-                                                 roles_list)
-        result['is_global_read_only_role'] = has_role(
-            self.global_read_only_role, roles_list)
+        result['is_cloud_admin_role'] = one_role_matches(
+            self.cloud_admin_roles, roles_list)
+        result['is_global_read_only_role'] = one_role_matches(
+            self.global_read_only_roles, roles_list)
         if obj_uuid:
             result['permissions'] = self._permissions.obj_perms(get_request(),
                                                                 obj_uuid)
@@ -4614,12 +4614,12 @@ class VncApiServer(object):
     # end
 
     @property
-    def cloud_admin_role(self):
-        return self._args.cloud_admin_role
+    def cloud_admin_roles(self):
+        return self._args.cloud_admin_roles
 
     @property
-    def global_read_only_role(self):
-        return self._args.global_read_only_role
+    def global_read_only_roles(self):
+        return self._args.global_read_only_roles
 
     def set_tag(self):
         self._post_common(None, {})

@@ -59,8 +59,8 @@ class TestUserVisible(test_case.ApiServerTestCase):
                             test_utils.FakeAuthProtocol)]
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
-            ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
-            ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
+            ('DEFAULTS', 'cloud_admin_roles', 'cloud-admin'),
+            ('DEFAULTS', 'global_read_only_roles', 'read-only-role'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
         super(TestUserVisible, cls).setUpClass(extra_mocks=extra_mocks,

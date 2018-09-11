@@ -271,8 +271,8 @@ class TestPermissions(test_case.ApiServerTestCase):
                             test_utils.FakeAuthProtocol)]
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
-            ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
-            ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
+            ('DEFAULTS', 'cloud_admin_roles', 'cloud-admin'),
+            ('DEFAULTS', 'global_read_only_roles', 'read-only-role1 read-only-role2'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
         super(TestPermissions, cls).setUpClass(extra_mocks=extra_mocks,
@@ -299,9 +299,10 @@ class TestPermissions(test_case.ApiServerTestCase):
         self.admin = User(ip, port, kc, 'admin', 'contrail123', 'cloud-admin', 'admin-%s' % self.id())
         self.admin1 = User(ip, port, kc, 'admin1', 'contrail123', 'admin', 'admin1-%s' % self.id())
         self.admin2 = User(ip, port, kc, 'admin2', 'contrail123', 'admin', 'admin2-%s' % self.id())
-        self.adminr = User(ip, port, kc, 'adminr', 'contrail123', 'read-only-role', 'adminr-%s' % self.id())
+        self.adminr1 = User(ip, port, kc, 'adminr1', 'contrail123', 'read-only-role1', 'adminr1-%s' % self.id())
+        self.adminr2 = User(ip, port, kc, 'adminr2', 'contrail123', 'read-only-role2', 'adminr2-%s' % self.id())
 
-        self.users = [self.alice, self.bob, self.admin, self.admin1, self.admin2, self.adminr]
+        self.users = [self.alice, self.bob, self.admin, self.admin1, self.admin2, self.adminr1, self.adminr2]
 
         """
         1. create project in API server
@@ -966,9 +967,9 @@ class TestPermissions(test_case.ApiServerTestCase):
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
 
-        ExpectedCloudAdminRole = {'alice': False, 'bob': False, 'admin': True, 'adminr': False}
-        ExpectedGlobalReadOnlyRole = {'alice': False, 'bob': False, 'admin': False, 'adminr': True}
-        for user in [self.alice, self.bob, self.admin, self.adminr]:
+        ExpectedCloudAdminRole = {'alice': False, 'bob': False, 'admin': True, 'adminr1': False, 'adminr2': False}
+        ExpectedGlobalReadOnlyRole = {'alice': False, 'bob': False, 'admin': False, 'adminr1': True, 'adminr2': True}
+        for user in [self.alice, self.bob, self.admin, self.adminr1, self.adminr2]:
             self.assertEquals(user.vnc_lib.is_cloud_admin_role(), ExpectedCloudAdminRole[user.name])
             self.assertEquals(user.vnc_lib.is_global_read_only_role(), ExpectedGlobalReadOnlyRole[user.name])
 
@@ -1365,21 +1366,30 @@ class TestPermissions(test_case.ApiServerTestCase):
         vn_fq_name = vn.get_fq_name()
         # read-only role - create VN  ... should fail
         with ExpectedException(PermissionDenied) as e:
-            self.adminr.vnc_lib.virtual_network_create(vn)
+            self.adminr1.vnc_lib.virtual_network_create(vn)
+        with ExpectedException(PermissionDenied) as e:
+            self.adminr2.vnc_lib.virtual_network_create(vn)
 
         # create VN owned by Alice
         self.alice.vnc_lib.virtual_network_create(vn)
 
         # read-only role - delete VN  ... should fail
         with ExpectedException(PermissionDenied) as e:
-            self.adminr.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+            self.adminr1.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+        with ExpectedException(PermissionDenied) as e:
+            self.adminr2.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
 
         # read-only role - read VN  ... should succeed
         try:
-            vn = vnc_read_obj(self.adminr.vnc_lib, 'virtual-network', name = vn_fq_name)
-            self.assertTrue(True, 'Read VN successfully ... test passed')
+            vn = vnc_read_obj(self.adminr1.vnc_lib, 'virtual-network', name = vn_fq_name)
+            self.assertTrue(True, 'Read VN successfully with adminr1 ... test passed')
         except PermissionDenied as e:
-            self.assertTrue(False, 'Read VN failed ... test failed!!!')
+            self.assertTrue(False, 'Read VN failed with adminr1 ... test failed!!!')
+        try:
+            vn = vnc_read_obj(self.adminr2.vnc_lib, 'virtual-network', name = vn_fq_name)
+            self.assertTrue(True, 'Read VN successfully with adminr2 ... test passed')
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Read VN failed with adminr2 ... test failed!!!')
 
         # cloud admin - delete VN  ... should succeed
         try:

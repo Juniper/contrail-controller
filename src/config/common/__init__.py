@@ -122,6 +122,10 @@ def has_role(role, roles):
     return role.lower() in [r.lower() for r in roles]
 
 
+def one_role_matches(user_roles, roles):
+    return any([has_role(role, roles) for role in user_roles or []])
+
+
 def get_lr_internal_vn_name(uuid):
     return '__contrail_lr_internal_vn_' + uuid + '__'
 

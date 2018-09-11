@@ -2677,8 +2677,8 @@ class TestRBACPerms(test_case.NeutronBackendTestCase):
                             FakeAuthProtocol)]
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
-            ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
-            ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
+            ('DEFAULTS', 'cloud_admin_roles', 'cloud-admin'),
+            ('DEFAULTS', 'global_read_only_roles', 'read-only-role'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
         super(TestRBACPerms, cls).setUpClass(extra_mocks=extra_mocks,
@@ -2707,7 +2707,7 @@ class TestRBACPerms(test_case.NeutronBackendTestCase):
         test_pass = False
         val = TestRBACPerms._api_session.post(url, data=body, headers=headers, verify=False)
         self.assertIn('NotAuthorized', val._content)
-# end class TestRBACPerms 
+# end class TestRBACPerms
 
 class TestKeystoneCallCount(test_case.NeutronBackendTestCase):
     test_obj_uuid = None

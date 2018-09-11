@@ -3,7 +3,7 @@
 #
 import sys
 import cfgm_common
-from cfgm_common import has_role
+from cfgm_common import one_role_matches
 from cfgm_common import jsonutils as json
 from context import is_internal_request
 import string
@@ -26,12 +26,12 @@ class VncPermissions(object):
     # end __init__
 
     @property
-    def cloud_admin_role(self):
-        return self._server_mgr.cloud_admin_role
+    def cloud_admin_roles(self):
+        return self._server_mgr.cloud_admin_roles
 
     @property
-    def global_read_only_role(self):
-        return self._server_mgr.global_read_only_role
+    def global_read_only_roles(self):
+        return self._server_mgr.global_read_only_roles
 
     @property
     def _auth_needed(self):
@@ -61,10 +61,11 @@ class VncPermissions(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = has_role(self.cloud_admin_role, roles)
+        is_admin = one_role_matches(self.cloud_admin_roles, roles)
         if is_admin:
             return (True, 'RWX')
-        if has_role(self.global_read_only_role, roles) and mode == PERMS_R:
+        if (one_role_matches(self.global_read_only_roles, roles) and
+                mode == PERMS_R):
             return (True, 'R')
 
         owner = id_perms['permissions']['owner']
@@ -110,10 +111,11 @@ class VncPermissions(object):
                 return (True, '')
 
         user, roles = self.get_user_roles(request)
-        is_admin = has_role(self.cloud_admin_role, roles)
+        is_admin = one_role_matches(self.cloud_admin_roles, roles)
         if is_admin:
             return (True, 'RWX')
-        if has_role(self.global_read_only_role, roles) and mode == PERMS_R:
+        if (one_role_matches(self.global_read_only_roles, roles) and
+                mode == PERMS_R):
             return (True, 'R')
 
         env = request.headers.environ
