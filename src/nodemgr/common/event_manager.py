@@ -315,11 +315,11 @@ class SystemdProcessInfoManager(object):
 def package_installed(pkg):
     (pdist, _, _) = platform.dist()
     if pdist == 'Ubuntu':
-        cmd = "dpkg -l " + pkg
+        cmd = "dpkg -l " + pkg + " | " + 'grep "^ii"'
     else:
         cmd = "rpm -q " + pkg
     with open(os.devnull, "w") as fnull:
-        return (not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull))
+        return (not subprocess.call(cmd, stdout=fnull, stderr=fnull, shell=True))
 # end package_installed
 
 def is_systemd_based():
