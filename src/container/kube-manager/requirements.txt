@@ -1,2 +1,3 @@
 requests
 bitstring
+etcd3==0.8.1
