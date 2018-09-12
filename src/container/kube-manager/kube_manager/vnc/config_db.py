@@ -1929,6 +1929,8 @@ class FirewallPolicyKM(DBBaseKM):
         self.annotations = obj.get('annotations', None)
         if self.annotations:
             for kvp in self.annotations['key_value_pair'] or []:
+                if "value" not in kvp:
+                    continue
                 if kvp['key'] == 'tail':
                     self.tail = kvp['value']
                 if kvp['key'] == 'after_tail':
