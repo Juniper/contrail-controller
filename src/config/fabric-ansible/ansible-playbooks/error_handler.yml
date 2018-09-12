@@ -16,6 +16,9 @@
     device_name: "{{ prouter_name if prouter_name is defined else '' }}"
     details: "{{ jl_details if jl_details is defined else {} }}"
 
+- fail:
+     msg: "Not able to perform the required action, exiting the playbook."
+  when: fail_playbook is defined
+
 - meta: end_play
-  when: fail_playbook is undefined
 
