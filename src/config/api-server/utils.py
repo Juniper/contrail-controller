@@ -59,6 +59,8 @@ def parse_args(args_str):
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'logging_level': 'WARN',
         'logging_conf': '',
+        'logging_format': '[%(asctime)s] %(levelname)s:%(name)s:%(message)s',
+        'logging_datefmt': '%Y-%m-%d %H:%M:%S',
         'logger_class': None,
         'multi_tenancy': None,
         'aaa_mode': None,
