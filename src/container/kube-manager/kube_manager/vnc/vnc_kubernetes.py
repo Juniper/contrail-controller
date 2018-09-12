@@ -74,10 +74,15 @@ class VncKubernetes(VncCommon):
         #       possible value.
         #
         if self.args.nested_mode is '1':
-            for cassandra_server in self.args.cassandra_server_list:
-                cassandra_port = cassandra_server.split(':')[-1]
-                flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
-                    "tcp", cassandra_port, 2147483647)
+            if self.args.db_driver == db.DRIVER_CASS:
+                for cassandra_server in self.args.cassandra_server_list:
+                    cassandra_port = cassandra_server.split(':')[-1]
+                    flow_aging_manager.create_flow_aging_timeout_entry(
+                        self.vnc_lib, "tcp", cassandra_port, 2147483647)
+            elif self.args.db_driver == db.DRIVER_ETCD:
+                etcd_host, etcd_port = self.args.etcd_server.split(':')
+                flow_aging_manager.create_flow_aging_timeout_entry(
+                    self.vnc_lib, "tcp", etcd_port, 2147483647)
 
             if self.args.rabbit_port:
                 flow_aging_manager.create_flow_aging_timeout_entry(

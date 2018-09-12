@@ -279,6 +279,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--http_server_port %s " % (http_server_port)
     args_str = args_str + "--admin_port %s " % (admin_port)
 
+    args_str = args_str + "--db_driver cassandra "
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
@@ -311,6 +312,7 @@ def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port, **ex
     args_str += "--api_server_ip %s " % (api_server_ip)
     args_str += "--api_server_port %s " % (api_server_port)
     args_str += "--http_server_port %s " % (get_free_port(allocated_sockets))
+    args_str += "--db_driver cassandra "
     args_str += "--cassandra_server_list 0.0.0.0:9160 "
     args_str += "--log_local "
     args_str += "--log_file svc_monitor_%s.log " %(test_id)
@@ -357,6 +359,7 @@ def launch_schema_transformer(cluster_id, test_id, api_server_ip,
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--http_server_port %s " % (get_free_port(allocated_sockets))
+    args_str = args_str + "--db_driver cassandra "
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file schema_transformer_%s.log " %(test_id)
@@ -375,6 +378,7 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--http_server_port %s " % (get_free_port(allocated_sockets))
+    args_str = args_str + "--db_driver cassandra "
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file device_manager_%s.log " %(test_id)
