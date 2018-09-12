@@ -47,6 +47,7 @@ def parse_args(args_str):
         'listen_ip_addr': _WEB_HOST,
         'listen_port': _WEB_PORT,
         'admin_port': _ADMIN_PORT,
+        'db_driver': "cassandra",
         'cassandra_server_list': "127.0.0.1:9160",
         'collectors': None,
         'http_server_port': '8084',
@@ -162,6 +163,10 @@ def parse_args(args_str):
     defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
 
+    parser.add_argument(
+        "--db_driver",
+        help="Database driver, default cassandra",
+        default="cassandra")
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
