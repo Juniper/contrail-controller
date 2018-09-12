@@ -1,8 +1,6 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-
-
 import unittest
 
 from mock import patch, Mock
@@ -13,6 +11,7 @@ from kube_manager.tests.vnc.db_mock import DBBaseKM, DBMock
 from kube_manager.tests.vnc.vnc_api_mock import VncApiMock
 from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as \
                                                         vnc_kubernetes_config
+
 
 class VncKubernetesTest(unittest.TestCase):
     def setUp(self):
@@ -39,8 +38,9 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.auth_user = "admin"
         self.args.auth_password = "qwerty"
         self.args.auth_tenant = "default"
+        self.args.db_driver = "cassandra"
         self.args.cassandra_server_list = ()
-        self.args.aps_name="test-aps"
+        self.args.aps_name = "test-aps"
         self.args.rabbit_port = None
         self.args.collectors = ""
 
