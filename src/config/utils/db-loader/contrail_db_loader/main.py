@@ -201,6 +201,9 @@ def main():
                         required=True,
                         help='YAML file describing resources to load',
                         type=argparse.FileType('r'))
+    parser.add_argument('--db-driver',
+                        help="Cassandra user name (default: %(default)s)",
+                        default=None)
     parser.add_argument('--cassandra-servers',
                         help="Cassandra server list' (default: %(default)s)",
                         nargs='+',
