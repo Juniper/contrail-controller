@@ -1501,7 +1501,9 @@ class VncApiServer(object):
 
         # set python logging level from logging_level cmdline arg
         if not self._args.logging_conf:
-            logging.basicConfig(level = getattr(logging, self._args.logging_level))
+            logging.basicConfig(level = getattr(logging, self._args.logging_level),
+                                format = '[%(asctime)s] %(levelname)s:%(name)s:%(message)s',
+                                datefmt = '%Y-%m-%d %H:%M:%S')
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
