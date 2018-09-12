@@ -7,6 +7,7 @@ This file contains implementation of object db
 """
 
 import vnc_cassandra
+import vnc_etcd
 
 class VncObjectDBClient(object):
     def __init__(self, server_list=None, db_prefix=None, rw_keyspaces=None,
@@ -37,6 +38,17 @@ class VncObjectDBClient(object):
                 msg = ("Contrail API server does not support database backend "
                        "'%s'" % db_engine)
                 raise NotImplementedError(msg)
+
+    def __getattr__(self, name):
+        return getattr(self._object_db, name)
+
+
+class VncObjectEtcdClient(object):
+    def __init__(self, server, logger, credential, ssl_enabled, ca_certs):
+        server = server.split(':')
+        self._object_db = vnc_etcd.VncEtcdClient(
+            host=server[0], port=server[1], logger=logger,
+            credential=credential, ssl_enabled=ssl_enabled, ca_certs=ca_certs)
 
     def __getattr__(self, name):
         return getattr(self._object_db, name)
