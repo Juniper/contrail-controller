@@ -17,8 +17,8 @@ from vnc_api.vnc_api import (
     InstanceIp, NetworkIpam, IpamSubnets, IpamSubnetType, VnSubnetsType,
     VirtualRouter)
 from kube_manager.common import args as kube_args
-from kube_manager.vnc import vnc_kubernetes
-from kube_manager.vnc import vnc_kubernetes_config as vnc_kube_config
+from kube_manager.vnc import (vnc_kubernetes, db,
+                              vnc_kubernetes_config as vnc_kube_config)
 from kube_manager.vnc.config_db import (
     VirtualMachineInterfaceKM, InstanceIpKM, VirtualMachineKM, VirtualRouterKM)
 
@@ -72,6 +72,7 @@ class KMTestCase(test_common.TestCase):
             ('DEFAULTS', 'kube_timer_interval', '0'),
             ('VNC', 'vnc_endpoint_ip', cls._api_server_ip),
             ('VNC', 'vnc_endpoint_port', cls._api_server_port),
+            ('VNC', 'db_driver', 'cassandra'),
             ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
             ('VNC', 'cluster_id', cls._cluster_id),
             ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
@@ -146,6 +147,7 @@ class KMTestCase(test_common.TestCase):
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
             ('VNC', 'vnc_endpoint_ip', self._api_server_ip),
             ('VNC', 'vnc_endpoint_port', self._api_server_port),
+            ('VNC', 'db_driver', 'cassandra'),
             ('VNC', 'cassandra_server_list', '10.0.0.0:9160'),
             ('KUBERNETES', 'service_subnets', '10.96.0.0/12'),
             ('KUBERNETES', 'ip_fabric_subnets', "10.64.0.0/12"),
