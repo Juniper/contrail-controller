@@ -63,7 +63,6 @@ class VncKubernetes(VncCommon):
         self.vnc_kube_config = vnc_kube_config(logger=self.logger,
             vnc_lib=self.vnc_lib, args=self.args, queue=self.q, kube=self.kube)
 
-        #
         # In nested mode, kube-manager connects to contrail components running
         # in underlay via global link local services. TCP flows established on
         # link local services will be torn down by vrouter, if there is no
@@ -72,12 +71,17 @@ class VncKubernetes(VncCommon):
         #
         # Note: The way to disable flow timeout is to set timeout to max
         #       possible value.
-        #
         if self.args.nested_mode is '1':
-            for cassandra_server in self.args.cassandra_server_list:
-                cassandra_port = cassandra_server.split(':')[-1]
-                flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
-                    "tcp", cassandra_port, 2147483647)
+            if hasattr(self.args, 'db_driver') \
+               and self.args.db_driver == db.DRIVER_ETCD:
+                etcd_host, etcd_port = self.args.etcd_server.split(':')
+                flow_aging_manager.create_flow_aging_timeout_entry(
+                    self.vnc_lib, "tcp", etcd_port, 2147483647)
+            else:
+                for cassandra_server in self.args.cassandra_server_list:
+                    cassandra_port = cassandra_server.split(':')[-1]
+                    flow_aging_manager.create_flow_aging_timeout_entry(
+                        self.vnc_lib, "tcp", cassandra_port, 2147483647)
 
             if self.args.rabbit_port:
                 flow_aging_manager.create_flow_aging_timeout_entry(
