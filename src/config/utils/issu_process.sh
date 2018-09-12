@@ -46,7 +46,7 @@ function issu_contrail_post_new_control_node {
     if [ $val == 14 ]
     then
             #openstack-config --set /etc/contrail/supervisord_config.conf include files \"/etc/contrail/supervisord_config_files/*.ini\"
-            
+
     issu_contrail_set_supervisord_config_files 'contrail-device-manager' 'true'
     issu_contrail_set_supervisord_config_files 'contrail-svc-monitor' 'true'
     issu_contrail_set_supervisord_config_files 'contrail-schema' 'true'
@@ -135,7 +135,7 @@ function issu_contrail_get_and_set_old_conf {
         val=$($cmd)
         $set_cmd old_rabbit_user "$val"
     fi
-   
+
     cmd="$has_old_cmd rabbit_password"
     val=$($cmd)
     if [ $val == 1 ]
@@ -153,7 +153,7 @@ function issu_contrail_get_and_set_old_conf {
         val=$($cmd)
         $set_cmd old_rabbit_vhost "$val"
     fi
- 
+
     cmd="$has_old_cmd rabbit_ha_mode"
     val=$($cmd)
     if [ $val == 1 ]
@@ -214,7 +214,7 @@ function issu_contrail_get_and_set_new_conf {
         val=$($cmd)
         $set_cmd new_rabbit_user "$val"
     fi
-   
+
     cmd="$has_new_cmd rabbit_password"
     val=$($cmd)
     if [ $val == 1 ]
@@ -232,7 +232,7 @@ function issu_contrail_get_and_set_new_conf {
         val=$($cmd)
         $set_cmd new_rabbit_vhost "$val"
     fi
- 
+
     cmd="$has_new_cmd rabbit_ha_mode"
     val=$($cmd)
     if [ $val == 1 ]
