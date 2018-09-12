@@ -33,6 +33,7 @@ local_sources = [
                   'importutils.py',
                   'analytics_client.py',
                   'vnc_cassandra.py',
+                  'vnc_etcd.py',
                   'vnc_kombu.py',
                   'vnc_db.py',
                   'vnc_object_db.py',
