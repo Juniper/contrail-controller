@@ -33,6 +33,7 @@ local_sources = [
                   'importutils.py',
                   'analytics_client.py',
                   'vnc_cassandra.py',
+                  'vnc_etcd.py',
                   'vnc_kombu.py',
                   'vnc_db.py',
                   'vnc_object_db.py',
@@ -54,7 +55,8 @@ test_sources = [
                 'tests/test_importutils.py',
                 'tests/fake.py',
                 'tests/test_suite.py',
-                'tests/test_cache_container.py'
+                'tests/test_cache_container.py',
+                'tests/test_vnc_etcd.py',
                ]
 test_sources_rules = []
 for file in test_sources:
