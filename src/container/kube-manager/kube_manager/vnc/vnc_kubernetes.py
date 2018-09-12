@@ -73,7 +73,8 @@ class VncKubernetes(VncCommon):
         # Note: The way to disable flow timeout is to set timeout to max
         #       possible value.
         #
-        if self.args.nested_mode is '1':
+        is_cassandra = self.args.db_driver == db.DRIVER_CASS
+        if is_cassandra and self.args.nested_mode is '1':
             for cassandra_server in self.args.cassandra_server_list:
                 cassandra_port = cassandra_server.split(':')[-1]
                 flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
