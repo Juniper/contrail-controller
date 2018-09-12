@@ -20,6 +20,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import *
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
+from cfgm_common import vnc_etcd
 from vnc_api.vnc_api import *
 import kube_manager.common.args as kube_args
 from config_db import *
@@ -64,7 +65,6 @@ class VncKubernetes(VncCommon):
         self.vnc_kube_config = vnc_kube_config(logger=self.logger,
             vnc_lib=self.vnc_lib, args=self.args, queue=self.q, kube=self.kube)
 
-        #
         # In nested mode, kube-manager connects to contrail components running
         # in underlay via global link local services. TCP flows established on
         # link local services will be torn down by vrouter, if there is no
@@ -73,12 +73,17 @@ class VncKubernetes(VncCommon):
         #
         # Note: The way to disable flow timeout is to set timeout to max
         #       possible value.
-        #
         if self.args.nested_mode is '1':
-            for cassandra_server in self.args.cassandra_server_list:
-                cassandra_port = cassandra_server.split(':')[-1]
-                flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
-                    "tcp", cassandra_port, 2147483647)
+            if self.args.db_driver == db.DRIVER_ETCD:
+                etcd_host = self.args.etcd_server
+                etcd_port = self.args.etcd_port
+                flow_aging_manager.create_flow_aging_timeout_entry(
+                    self.vnc_lib, "tcp", etcd_port, 2147483647)
+            else:
+                for cassandra_server in self.args.cassandra_server_list:
+                    cassandra_port = cassandra_server.split(':')[-1]
+                    flow_aging_manager.create_flow_aging_timeout_entry(
+                        self.vnc_lib, "tcp", cassandra_port, 2147483647)
 
             if self.args.rabbit_port:
                 flow_aging_manager.create_flow_aging_timeout_entry(
@@ -104,12 +109,17 @@ class VncKubernetes(VncCommon):
         # sync api server db in local cache
         self._sync_km()
 
-        # init rabbit connection
-        rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
-        self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
-            REACTION_MAP, 'kube_manager', rabbitmq_cfg, self.args.host_ip)
-        self.rabbit.establish()
-        self.rabbit._db_resync_done.set()
+        # init notifier connection
+        if self.args.notification_driver == "etcd":
+            etcd_cfg = vnc_etcd.etcd_args(self.args)
+            self.notifier = vnc_etcd.VncEtcdWatchHandle(self.logger._sandesh, self.logger, DBBaseKM,
+                                          REACTION_MAP, etcd_cfg)
+        else:
+            rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
+            self.notifier = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
+                                          REACTION_MAP, 'kube_manager', rabbitmq_cfg , self.args.host_ip)
+        self.notifier.establish()
+        self.notifier._db_resync_done.set()
 
         # Register label add and delete callbacks with label management entity.
         XLabelCache.register_label_add_callback(VncKubernetes.create_tags)
@@ -571,7 +581,7 @@ class VncKubernetes(VncCommon):
         inst = cls.get_instance()
         if inst is None:
             return
-        inst.rabbit.close()
+        inst.notifier.close()
         for obj_cls in DBBaseKM.get_obj_type_map().values():
             obj_cls.reset()
         DBBase.clear()
