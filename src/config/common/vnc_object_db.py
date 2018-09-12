@@ -7,6 +7,8 @@ This file contains implementation of object db
 """
 
 import vnc_cassandra
+import vnc_etcd
+
 
 class VncObjectDBClient(object):
     def __init__(self, server_list=None, db_prefix=None, rw_keyspaces=None,
@@ -39,4 +41,20 @@ class VncObjectDBClient(object):
                 raise NotImplementedError(msg)
 
     def __getattr__(self, name):
+        return getattr(self._object_db, name)
+
+
+class VncObjectEtcdClient(object):
+    def __init__(self, server, prefix, logger,
+                 credential, ssl_enabled, ca_certs):
+        server = server.split(':')
+        self._object_db = vnc_etcd.VncEtcd(
+            host=server[0], port=server[1], prefix=prefix, logger=logger,
+            obj_cache_exclude_types=[],
+            credential=credential, ssl_enabled=ssl_enabled, ca_certs=ca_certs)
+
+    def __getattr__(self, name):
+        if not hasattr(self._object_db, name):
+            msg = ("VNC ETCD does not implement method '%s'" % name)
+            raise NotImplementedError(msg)
         return getattr(self._object_db, name)

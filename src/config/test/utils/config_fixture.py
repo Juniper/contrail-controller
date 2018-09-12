@@ -47,6 +47,7 @@ class SvcMonitor(object):
                 '--log_level', "SYS_DEBUG",
                 '--zk_server_ip', '127.0.0.1:' +
                 str(self._config_fixture.zoo.port),
+                '--db_driver', 'cassandra',
                 '--cassandra_server_list', '127.0.0.1:' +
                 str(self._config_fixture.cassandra_port))
 
@@ -84,6 +85,7 @@ class Schema(object):
                 '--log_file ' + self._log_file +
                 '--log_level SYS_DEBUG' +
                 '--zk_server_ip 127.0.0.1:' + str(self._config_fixture.zoo.port) +
+                '--db_driver cassandra ' +
                 '--cassandra_server_list 127.0.0.1:' +
                 str(self._config_fixture.cassandra_port))
 
@@ -129,6 +131,7 @@ class ApiServer(object):
                 ' --ifmap_server_port ' + str(self._config_fixture.ifmap.port) +
                 ' --ifmap_server_ip 127.0.0.1' +
                 ' --zk_server_ip 127.0.0.1:' + str(self._config_fixture.zoo.port) +
+                ' --db_driver cassandra' +
                 ' --cassandra_server_list 127.0.0.1:' + str(self._config_fixture.cassandra_port))
         gevent.spawn(vnc_cfg_api_server.main, args)
         self._logger.info('Setting up ApiServer: %s' % args)

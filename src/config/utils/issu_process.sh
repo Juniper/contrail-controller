@@ -46,7 +46,7 @@ function issu_contrail_post_new_control_node {
     if [ $val == 14 ]
     then
             #openstack-config --set /etc/contrail/supervisord_config.conf include files \"/etc/contrail/supervisord_config_files/*.ini\"
-            
+
     issu_contrail_set_supervisord_config_files 'contrail-device-manager' 'true'
     issu_contrail_set_supervisord_config_files 'contrail-svc-monitor' 'true'
     issu_contrail_set_supervisord_config_files 'contrail-schema' 'true'
@@ -119,6 +119,10 @@ function issu_contrail_get_and_set_old_conf {
     local has_old_cmd="openstack-config --has $1 DEFAULTS"
     local set_cmd="openstack-config --set $2 DEFAULTS"
 
+    cmd="$get_old_cmd db_driver"
+    val=$($cmd)
+    $set_cmd old_db_driver "$val"
+
     cmd="$get_old_cmd cassandra_server_list"
     val=$($cmd)
     $set_cmd   old_cassandra_address_list "$val"
@@ -135,7 +139,7 @@ function issu_contrail_get_and_set_old_conf {
         val=$($cmd)
         $set_cmd old_rabbit_user "$val"
     fi
-   
+
     cmd="$has_old_cmd rabbit_password"
     val=$($cmd)
     if [ $val == 1 ]
@@ -153,7 +157,7 @@ function issu_contrail_get_and_set_old_conf {
         val=$($cmd)
         $set_cmd old_rabbit_vhost "$val"
     fi
- 
+
     cmd="$has_old_cmd rabbit_ha_mode"
     val=$($cmd)
     if [ $val == 1 ]
@@ -198,6 +202,10 @@ function issu_contrail_get_and_set_new_conf {
     local set_cmd="openstack-config --set $2 DEFAULTS"
     local has_new_cmd="openstack-config --has $1 DEFAULTS"
 
+    cmd="$get_new_cmd db_driver"
+    val=$($cmd)
+    $set_cmd new_db_driver "$val"
+
     cmd="$get_new_cmd cassandra_server_list"
     val=$($cmd)
     $set_cmd new_cassandra_address_list "$val"
@@ -214,7 +222,7 @@ function issu_contrail_get_and_set_new_conf {
         val=$($cmd)
         $set_cmd new_rabbit_user "$val"
     fi
-   
+
     cmd="$has_new_cmd rabbit_password"
     val=$($cmd)
     if [ $val == 1 ]
@@ -232,7 +240,7 @@ function issu_contrail_get_and_set_new_conf {
         val=$($cmd)
         $set_cmd new_rabbit_vhost "$val"
     fi
- 
+
     cmd="$has_new_cmd rabbit_ha_mode"
     val=$($cmd)
     if [ $val == 1 ]

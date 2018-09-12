@@ -17,8 +17,8 @@ from vnc_api.vnc_api import (
     InstanceIp, NetworkIpam, IpamSubnets, IpamSubnetType, VnSubnetsType,
     VirtualRouter)
 from kube_manager.common import args as kube_args
-from kube_manager.vnc import vnc_kubernetes
-from kube_manager.vnc import vnc_kubernetes_config as vnc_kube_config
+from kube_manager.vnc import (vnc_kubernetes, db,
+                              vnc_kubernetes_config as vnc_kube_config)
 from kube_manager.vnc.config_db import (
     VirtualMachineInterfaceKM, InstanceIpKM, VirtualMachineKM, VirtualRouterKM)
 
@@ -70,6 +70,7 @@ class KMTestCase(test_common.TestCase):
              test_common.ErrorInterceptingLogger.get_qualified_name()),
             ('DEFAULTS', 'nested_mode', '0'),
             ('DEFAULTS', 'kube_timer_interval', '0'),
+            ('VNC', 'db_driver', db.DRIVER_CASS),
             ('VNC', 'vnc_endpoint_ip', cls._api_server_ip),
             ('VNC', 'vnc_endpoint_port', cls._api_server_port),
             ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
@@ -144,6 +145,7 @@ class KMTestCase(test_common.TestCase):
     def generate_kube_args(self):
         kube_config = [
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
+            ('VNC', 'db_driver', db.DRIVER_CASS),
             ('VNC', 'vnc_endpoint_ip', self._api_server_ip),
             ('VNC', 'vnc_endpoint_port', self._api_server_port),
             ('VNC', 'cassandra_server_list', '10.0.0.0:9160'),

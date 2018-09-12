@@ -3149,7 +3149,8 @@ class VncApiServer(object):
     # Private Methods
     def _parse_args(self, args_str):
         '''
-        Eg. python vnc_cfg_api_server.py --cassandra_server_list
+        Eg. python vnc_cfg_api_server.py --db_driver cassandra
+                                         --cassandra_server_list
                                              10.1.2.3:9160 10.1.2.4:9160
                                          --redis_server_ip 127.0.0.1
                                          --redis_server_port 6382

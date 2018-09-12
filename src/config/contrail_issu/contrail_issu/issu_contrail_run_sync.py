@@ -148,6 +148,7 @@ def _issu_rmq_main():
                         format='%(asctime)s %(message)s')
     args, remaining_args = issu_contrail_config.parse_args()
     new_cassandra_info = ICCassandraInfo(
+        args.new_db_driver,
         args.new_cassandra_address_list,
         args.new_cassandra_user,
         args.new_cassandra_password,
@@ -157,6 +158,7 @@ def _issu_rmq_main():
         issu_contrail_config.logger)
 
     old_cassandra_info = ICCassandraInfo(
+        args.old_db_driver,
         args.old_cassandra_address_list,
         args.old_cassandra_user,
         args.old_cassandra_password,

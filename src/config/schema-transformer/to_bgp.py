@@ -455,6 +455,7 @@ def parse_args(args_str):
         'rabbit_password': 'guest',
         'rabbit_vhost': None,
         'rabbit_ha_mode': False,
+        'db_driver': 'cassandra',
         'cassandra_server_list': '127.0.0.1:9160',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
@@ -538,6 +539,10 @@ def parse_args(args_str):
             raise ValueError('Need bool; got %r' % s)
         return {'true': True, 'false': False}[s.lower()]
 
+    parser.add_argument(
+        "--db_driver",
+        help="Database driver, default cassandra",
+        default='cassandra')
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",

@@ -18,6 +18,7 @@ def _issu_cassandra_pre_sync_main():
 
     args, remaining_args = issu_contrail_config.parse_args()
     issu_cass_pre = ICCassandraClient(
+        args.old_db_driver, args.new_db_driver,
         args.old_cassandra_address_list,
         args.new_cassandra_address_list,
         args.old_cassandra_user, args.old_cassandra_password,
