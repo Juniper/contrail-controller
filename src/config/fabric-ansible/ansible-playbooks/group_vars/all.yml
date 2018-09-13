@@ -73,11 +73,45 @@ device_family_info:
       - oid: 1.3.6.1.4.1.2636.1.1.1.2.57
         family: junos
         product: mx80
-    ssh_probe:
-      - command: echo "show system information | display xml" | cli
-        data_format: xml
-      - command: show system information | display xml
-        data_format: xml
+    probe_command:
+      - command: |
+          echo "show system information | display json" | cli
+        data_format: json
+        command_processor: |
+          {% if "junos" in {{probing_result.get(system-information)[0].get(os-name.get(data))}} %}
+          {%     set vendor=True %}
+          {% else %}
+          {%     set vendor=False %}
+          {% endif %}
+      - command: |
+          show system information | display json
+        data_format: json
+    device_info_command:
+      - command: |
+          {% set command = [] %}
+          {% set command[0] = "show system information | display json" %}
+        data_format: json
+        command_processor: |
+          {% set device_info = {} %}
+          {% command_output = command_result.get(system-information)[0] %}
+          {% if {{ command_output.get(hardware-model).get(data) }} %}
+          {%     set device_info[product] = {{ command_output.get(hardware-model).get(data) }} %}
+          {% endif %}
+          {% if {{command_output.get(os-name).get(data)}} %}
+          {%     set device_info[family] = {{command_output.get(os-name).get(data)}} %}
+          {% endif %}
+          {% if {{ command_output.get(os-version).get(data) }} %}
+          {%     set device_info[os-version] = {{ command_output.get(os-version).get(data) }} %}
+          {% endif %}
+          {% if {{ command_output.get(serial-number).get(data) }} %}
+          {%     set device_info[serial-number] = {{ command_output.get(serial-number).get(data) }} %}
+          {% endif %}
+          {% if {{ command_output.get(host-name).get(data) }} %}
+          {%     set device_info[hostname] = {{ command_output.get(host-name).get(data) }} %}
+          {% endif %}
+
+
+
 
 # Supported roles on various vendor hardwares
 supported_roles:
