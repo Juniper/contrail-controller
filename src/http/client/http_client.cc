@@ -61,10 +61,13 @@ void HttpClientSession::RegisterEventCb(SessionEventCb cb) {
     event_cb_ = cb;
 }
 
-HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, SslConfig ssl_cfg, size_t id, 
-                               HttpClient *client) :
-    endpoint_(ep), ssl_config_(ssl_cfg), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
-    session_(NULL), client_(client), state_(STATUS) {
+HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep,
+                               SslConfig ssl_cfg, size_t id, 
+                               HttpClient *client,
+                               const string &ep_name) :
+        endpoint_(ep), endpoint_name_(ep_name), ssl_config_(ssl_cfg), id_(id),
+        cb_(NULL), offset_(0), curl_handle_(NULL), session_(NULL),
+        client_(client), state_(STATUS) {
 }
 
 HttpConnection::~HttpConnection() {
@@ -79,7 +82,8 @@ std::string HttpConnection::make_url(std::string &path) {
     } else {
         ret << "http";
     }
-    ret << "://" << endpoint_.address().to_string();
+    ret << "://" << (endpoint_name_.empty() ? endpoint_.address().to_string() :
+                                              endpoint_name_);
     if (endpoint_.port() != 0) {
         ret << ":" << endpoint_.port();
     }
@@ -424,16 +428,20 @@ TcpSession *HttpClient::CreateSession() {
     return session;
 }
 
-HttpConnection *HttpClient::CreateConnection(boost::asio::ip::tcp::endpoint ep) {
+HttpConnection *HttpClient::CreateConnection(boost::asio::ip::tcp::endpoint ep,
+                                             const string &ep_name) {
     // intialize ssl config with, enabled false
     SslConfig ssl_cfg(false);
-    HttpConnection *conn = new HttpConnection(ep, ssl_cfg, ++id_, this);
+    HttpConnection *conn = new HttpConnection(ep, ssl_cfg, ++id_, this,
+                                              ep_name);
     return conn;
 }
 
 HttpConnection *HttpClient::CreateConnection(boost::asio::ip::tcp::endpoint ep,
-                                             SslConfig ssl_cfg) {
-    HttpConnection *conn = new HttpConnection(ep, ssl_cfg, ++id_, this);
+                                             SslConfig ssl_cfg,
+                                             const string &ep_name) {
+    HttpConnection *conn = new HttpConnection(ep, ssl_cfg, ++id_, this,
+                                              ep_name);
     return conn;
 }
 

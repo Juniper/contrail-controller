@@ -131,8 +131,8 @@ public:
     static const int kHeartBeatInterval = 5;
     static const char *kDefaultClientIpAdress;
 
-    DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
-                           SslConfig ssl_cfg,
+    DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint ep,
+                           const std::string &ep_name, SslConfig ssl_cfg,
                            std::string client_name);
     virtual ~DiscoveryServiceClient();
     
@@ -140,7 +140,8 @@ public:
     void Shutdown();
 
     static bool ParseDiscoveryServerConfig(std::string discovery_server,
-                uint16_t port, boost::asio::ip::tcp::endpoint *);
+                uint16_t port, boost::asio::ip::tcp::endpoint *,
+                std::string *dss_ep_name);
     static void ParseDiscoveryServerSslConfig(
                 std::string discovery_server_cert,
                 std::string discovery_server_key,
@@ -192,6 +193,8 @@ public:
 
     void FillDiscoveryServiceSubscriberStats(
          std::vector<DiscoveryClientSubscriberStats> &ds_stats); 
+    const HttpClient *http_client() const { return http_client_; }
+    const std::string &ds_endpoint_name() const { return ds_endpoint_name_; }
 
     // Map of <ServiceName, PublishResponseHeader> for publish
     typedef std::map<std::string, DSPublishResponse *> PublishResponseMap;
@@ -209,6 +212,7 @@ public:
     ReEvalPublishCbHandlerMap reeval_publish_map_;
 
 private:
+    friend class DiscoveryServiceClientMock;
     friend struct DSSubscribeResponse;
     friend struct DSPublishResponse;
 
@@ -228,6 +232,7 @@ private:
     HttpClient *http_client_;
     EventManager *evm_;
     boost::asio::ip::tcp::endpoint ds_endpoint_;
+    std::string ds_endpoint_name_;
     SslConfig ssl_config_;
 
     void Publish(std::string serviceName);

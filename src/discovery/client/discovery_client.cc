@@ -202,11 +202,13 @@ static void WaitForIdle() {
 
 /******************* DiscoveryServiceClient ************************************/
 DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
-                                               boost::asio::ip::tcp::endpoint ep,
+                                               ip::tcp::endpoint ep,
+                                               const string &ep_name,
                                                SslConfig ssl_cfg,
                                                std::string client_name)
     : http_client_(new HttpClient(evm)),
-      evm_(evm), ds_endpoint_(ep), ssl_config_(ssl_cfg),
+      evm_(evm), ds_endpoint_(ep), ds_endpoint_name_(ep_name),
+      ssl_config_(ssl_cfg),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
                   boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
       reevaluate_publish_cb_queue_(
@@ -257,8 +259,9 @@ void DiscoveryServiceClient::ParseDiscoveryServerSslConfig(
 
 bool DiscoveryServiceClient::ParseDiscoveryServerConfig(
                       std::string discovery_server, uint16_t port,
-                      ip::tcp::endpoint *dss_ep) {
+                      ip::tcp::endpoint *dss_ep, string *dss_ep_name) {
     bool valid = false;
+    *dss_ep_name = "";
     if (!discovery_server.empty()) {
         boost::system::error_code error;
         dss_ep->port(port);
@@ -274,6 +277,7 @@ bool DiscoveryServiceClient::ParseDiscoveryServerConfig(
                 ip::tcp::endpoint ep = *endpoint_iter++;
                 dss_ep->address(ep.address());
                 dss_ep->port(ep.port());
+                *dss_ep_name = discovery_server;
                 valid = true;
             } else {
                 LOG(ERROR, " Invalid Discovery Endpoint:" << discovery_server <<
@@ -1218,7 +1222,8 @@ void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type,
                                                  std::string serviceName,
                                                  std::string msg) {
 
-    HttpConnection *conn = http_client_->CreateConnection(ds_endpoint_, ssl_config_);
+    HttpConnection *conn = http_client_->CreateConnection(
+        ds_endpoint_, ssl_config_, ds_endpoint_name_);
     if (msg_type.compare("subscribe") == 0) {
         conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::SubscribeResponseHandler,
