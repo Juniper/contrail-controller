@@ -83,7 +83,8 @@ class SslConfig {
 
 class HttpConnection {
 public:
-    HttpConnection(boost::asio::ip::tcp::endpoint, SslConfig ssl_cfg, size_t id, HttpClient *);
+    HttpConnection(boost::asio::ip::tcp::endpoint, SslConfig ssl_cfg,
+                   size_t id, HttpClient *, const std::string &name = "");
     ~HttpConnection();
 
     int Initialize();
@@ -115,10 +116,12 @@ public:
     void ClearCallback();
 
     struct _ConnInfo *curl_handle() { return curl_handle_; }
+    const struct _ConnInfo *curl_handle() const { return curl_handle_; }
     HttpClient *client() { return client_; }
     HttpClientSession *session() { return session_; }
     tbb::mutex &mutex() { return mutex_; }
     boost::asio::ip::tcp::endpoint endpoint() { return endpoint_; }
+    const std::string &endpoint_name() const { return endpoint_name_; }
     size_t id() { return id_; }
 
     const std::string &GetData();
@@ -154,6 +157,7 @@ private:
 
     // key = endpoint_ + id_ 
     boost::asio::ip::tcp::endpoint endpoint_;
+    std::string endpoint_name_;
     SslConfig ssl_config_;
     size_t id_; 
     HttpCb cb_;
@@ -191,8 +195,11 @@ public:
     void SessionShutdown(); 
 
     virtual TcpSession *CreateSession();
-    HttpConnection *CreateConnection(boost::asio::ip::tcp::endpoint);
-    HttpConnection *CreateConnection(boost::asio::ip::tcp::endpoint, SslConfig);
+    HttpConnection *CreateConnection(boost::asio::ip::tcp::endpoint ep,
+                                     const std::string &ep_name = "");
+    HttpConnection *CreateConnection(boost::asio::ip::tcp::endpoint ep,
+                                     SslConfig ssl_config,
+                                     const std::string &ep_name = "");
     bool AddConnection(HttpConnection *);
     void RemoveConnection(HttpConnection *);
 
@@ -206,6 +213,11 @@ public:
 
     bool IsErrorHard(const boost::system::error_code &ec);
 
+    typedef boost::asio::ip::tcp::endpoint endpoint;
+    typedef std::pair<endpoint, size_t> Key;
+    typedef boost::ptr_map<Key, HttpConnection> HttpConnectionMap;
+    const HttpConnectionMap &map() const { return map_; }
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
 
@@ -215,9 +227,6 @@ private:
     bool DequeueEvent(EnqueuedCb);
     void ShutdownInternal(); 
 
-    typedef boost::asio::ip::tcp::endpoint endpoint;
-    typedef std::pair<endpoint, size_t> Key;
-    typedef boost::ptr_map<Key, HttpConnection> HttpConnectionMap;
 
     bool TimerCb();
     struct _GlobalInfo *gi_;

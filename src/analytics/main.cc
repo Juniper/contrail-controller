@@ -391,8 +391,10 @@ int main(int argc, char *argv[])
     //Publish services to Discovery Service Servee
     DiscoveryServiceClient *ds_client = NULL;
     tcp::endpoint dss_ep;
+    string dss_ep_name;
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+            options.discovery_server(), options.discovery_port(), &dss_ep,
+            &dss_ep_name)) {
         // Parse discovery server ssl config
         SslConfig ssl_cfg(options.discovery_ssl());
         DiscoveryServiceClient::ParseDiscoveryServerSslConfig(
@@ -402,8 +404,8 @@ int main(int argc, char *argv[])
 
         string client_name =
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, ssl_cfg,
-                                               client_name);
+        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, dss_ep_name,
+                                               ssl_cfg, client_name);
         ds_client->Init();
         analytics.UpdateUdc(&options, ds_client);
     } else {

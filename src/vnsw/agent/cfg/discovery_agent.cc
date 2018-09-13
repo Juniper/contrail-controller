@@ -25,9 +25,10 @@ void DiscoveryAgentClient::Init(AgentParam *param) {
     }
 
     ip::tcp::endpoint dss_ep;
+    string dss_ep_name;
     DiscoveryServiceClient *ds_client = NULL;
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        agent_cfg_->agent()->discovery_server(), port, &dss_ep)) {
+        agent_cfg_->agent()->discovery_server(), port, &dss_ep, &dss_ep_name)) {
         // Parse discovery server ssl config
         SslConfig ssl_cfg(param_->discovery_ssl());
         DiscoveryServiceClient::ParseDiscoveryServerSslConfig(
@@ -39,7 +40,7 @@ void DiscoveryAgentClient::Init(AgentParam *param) {
             agent_cfg_->agent()->discovery_client_name();
         ds_client =
             (new DiscoveryServiceClient(agent_cfg_->agent()->event_manager(), 
-             dss_ep, ssl_cfg, subscriber_name));
+             dss_ep, dss_ep_name, ssl_cfg, subscriber_name));
         ds_client->Init();
     } else {
         LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
