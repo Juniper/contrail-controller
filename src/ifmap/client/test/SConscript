@@ -12,7 +12,7 @@ env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/database'])
 env.Append(CPPPATH = env['TOP'] + '/ifmap/client/test')
 env.Append(CPPPATH = env['TOP'] + '/config-client-mgr')
-env.Append(CXXFLAGS = '-Wno-deprecated-declarations -std=c++11')
+env.Append(CXXFLAGS = '-Wno-deprecated-declarations -DGTEST_USE_OWN_TR1_TUPLE=1 -std=c++11')
 
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/db')
