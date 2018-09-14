@@ -75,12 +75,13 @@ traceobject sandesh ConfigAddVmVnPortEnqueue {
     1: string op;
     2: string vm_uuid;
     3: string vn_uuid;
-    4: string vm_name;
-    5: string vm_id;
-    6: string host_ifname;
-    7: string vm_ifname;
-    8: string vm_namespace;
-    9: i32 version;
+    4: string vmi_uuid
+    5: string vm_name;
+    6: string vm_id;
+    7: string host_ifname;
+    8: string vm_ifname;
+    9: string vm_namespace;
+    10: i32 version;
 }
 
 /**
