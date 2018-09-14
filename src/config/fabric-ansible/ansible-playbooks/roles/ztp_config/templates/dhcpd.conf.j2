@@ -29,8 +29,8 @@ group {
 {%   for subnet in ztp_config.ipam_subnets %}
 {%     set cidr = subnet.subnet.ip_prefix + '/' + subnet.subnet.ip_prefix_len|string %}
   subnet {{ cidr | ipv4('network') }} netmask {{ cidr | ipv4('netmask') }} {
-    default-lease-time 60000;
-    max-lease-time 60000;
+    default-lease-time -1;
+    max-lease-time -1;
 
     option broadcast-address {{ cidr | ipv4('broadcast') }};
 
