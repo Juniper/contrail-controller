@@ -17,6 +17,7 @@
 #include <net/address.h>
 #include <db/db_table.h>
 #include <db/db_entry.h>
+#include <vnc_cfg_types.h>
 
 class InterfaceTable;
 class Agent;
@@ -124,6 +125,8 @@ public:
     VmVnPortSubscribeEntry(PortSubscribeEntry::Type type,
                            const std::string &ifname, uint32_t version,
                            const boost::uuids::uuid &vm_uuid,
+                           const boost::uuids::uuid &vn_uuid,
+                           const boost::uuids::uuid &vmi_uuid,
                            const std::string &vm_name,
                            const std::string &vm_identifier,
                            const std::string &vm_ifname,
@@ -186,19 +189,26 @@ public:
     struct VmVnUuidEntry {
         boost::uuids::uuid vm_uuid_;
         boost::uuids::uuid vn_uuid_;
+        boost::uuids::uuid vmi_uuid_;
 
         VmVnUuidEntry(const boost::uuids::uuid &vm_uuid,
-                      const boost::uuids::uuid &vn_uuid) :
-            vm_uuid_(vm_uuid), vn_uuid_(vn_uuid) {
+                      const boost::uuids::uuid &vn_uuid,
+                      const boost::uuids::uuid &vmi_uuid) :
+            vm_uuid_(vm_uuid), vn_uuid_(vn_uuid), vmi_uuid_(vmi_uuid) {
         }
-        VmVnUuidEntry() : vm_uuid_(nil_uuid()), vn_uuid_(nil_uuid()) { }
+        VmVnUuidEntry() :
+            vm_uuid_(nil_uuid()), vn_uuid_(nil_uuid()), vmi_uuid_(nil_uuid()) {
+        }
         virtual ~VmVnUuidEntry() { }
         bool operator()(const VmVnUuidEntry &lhs,
                         const VmVnUuidEntry &rhs) const {
             if (lhs.vm_uuid_ != rhs.vm_uuid_) {
                 return lhs.vm_uuid_ < rhs.vm_uuid_;
             }
-            return lhs.vn_uuid_ < rhs.vn_uuid_;
+            if (lhs.vn_uuid_ < rhs.vn_uuid_) {
+                return lhs.vn_uuid_ < rhs.vn_uuid_;
+            }
+            return lhs.vmi_uuid_ < rhs.vmi_uuid_;
         }
     };
 
@@ -210,10 +220,12 @@ public:
         uint16_t vlan_tag_;
         std::string mac_;
         uint8_t vhostuser_mode_;
+        autogen::VirtualMachineInterface *vmi_cfg;
 
         VmiEntry() :
             vm_uuid_(), vn_uuid_(), sub_interface_(), parent_vmi_(),
             vlan_tag_(), mac_(), vhostuser_mode_() {
+                vmi_cfg = NULL;
         }
     };
 
@@ -235,20 +247,31 @@ public:
     PortSubscribeEntryPtr GetVmi(const boost::uuids::uuid &u) const;
 
     void AddVmVnPort(const boost::uuids::uuid &vm_uuid,
+                     const boost::uuids::uuid &vn_uuid,
+                     const boost::uuids::uuid &vmi_uuid,
                      PortSubscribeEntryPtr entry);
-    void DeleteVmVnPort(const boost::uuids::uuid &vm_uuid);
-    PortSubscribeEntryPtr GetVmVnPortNoLock(const boost::uuids::uuid &vm_uuid);
-    PortSubscribeEntryPtr GetVmVnPort(const boost::uuids::uuid &vm_uuid);
+    void DeleteVmVnPort(const boost::uuids::uuid &vm_uuid,
+                        const boost::uuids::uuid &vn_uuid,
+                        const boost::uuids::uuid &vmi_uuid);
+    PortSubscribeEntryPtr GetVmVnPortNoLock(const boost::uuids::uuid &vm_uuid,
+                                            const boost::uuids::uuid &vn_uuid,
+                                            const boost::uuids::uuid &vmi_uuid);
+    PortSubscribeEntryPtr GetVmVnPort(const boost::uuids::uuid &vm_uuid,
+                                      const boost::uuids::uuid &vn_uuid,
+                                      const boost::uuids::uuid &vmi_uuid);
 
     void HandleVmiIfnodeAdd(const boost::uuids::uuid &vmi_uuid,
                             const VmInterfaceConfigData *data);
     void HandleVmiIfnodeDelete(const boost::uuids::uuid &vmi_uuid);
 
     PortSubscribeEntryPtr Get(const boost::uuids::uuid &vmi_uuid,
-                              const boost::uuids::uuid &vm_uuid) const;
+                              const boost::uuids::uuid &vm_uuid,
+                              const boost::uuids::uuid &vn_uuid) const;
 
-    boost::uuids::uuid VmVnToVmi(const boost::uuids::uuid &vm_uuid) const;
-    boost::uuids::uuid VmVnToVmiNoLock(const boost::uuids::uuid &vm_uuid) const;
+    bool VmVnToVmiSetNoLock(const boost::uuids::uuid &vm_uuid,
+                             std::set<boost::uuids::uuid> &vmi_uuid_set) const;
+    bool VmVnToVmiSet(const boost::uuids::uuid &vm_uuid,
+                       std::set<boost::uuids::uuid> &vmi_uuid_set) const;
     const VmiEntry *VmiToEntry(const boost::uuids::uuid &vmi_uuid) const;
 
 private:

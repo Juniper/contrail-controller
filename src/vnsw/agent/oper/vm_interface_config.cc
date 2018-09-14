@@ -1703,7 +1703,8 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     PortSubscribeEntryPtr subscribe_entry;
     PortIpcHandler *pih =  agent_->port_ipc_handler();
     if (pih) {
-        subscribe_entry = pih->port_subscribe_table()->Get(u, data->vm_uuid_);
+        subscribe_entry =
+            pih->port_subscribe_table()->Get(u, data->vm_uuid_, data->vn_uuid_);
         CompareVnVm(u, data, subscribe_entry.get());
         pih->port_subscribe_table()->HandleVmiIfnodeAdd(u, data);
     }
