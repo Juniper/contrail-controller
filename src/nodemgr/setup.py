@@ -10,6 +10,8 @@ setup(
     install_requires=['pyyaml'],
     packages=['nodemgr',
               'nodemgr.analytics_nodemgr',
+              'nodemgr.analytics_snmp_nodemgr',
+              'nodemgr.analytics_alarm_nodemgr',
               'nodemgr.control_nodemgr',
               'nodemgr.config_nodemgr',
               'nodemgr.analytics_database_nodemgr',

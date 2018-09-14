@@ -49,6 +49,8 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
 from analytics_nodemgr.event_manager import AnalyticsEventManager
+from analytics_alarm_nodemgr.event_manager import AnalyticsAlarmEventManager
+from analytics_snmp_nodemgr.event_manager import AnalyticsSNMPEventManager
 from config_nodemgr.event_manager import ConfigEventManager
 from control_nodemgr.event_manager import ControlEventManager
 from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
@@ -60,11 +62,17 @@ unit_names_dict = {
     'contrail-analytics': [
         'contrail-collector',
         'contrail-analytics-api',
-        'contrail-snmp-collector',
-        'contrail-query-engine',
-        'contrail-alarm-gen',
-        'contrail-topology',
         'contrail-analytics-nodemgr'
+    ],
+    'contrail-analytics-snmp': [
+        'contrail-snmp-collector',
+        'contrail-topology',
+        'contrail-analytics-snmp-nodemgr',
+    ],
+    'contrail-analytics-alarm': [
+        'contrail-alarm-gen',
+        'kafka',
+        'contrail-analytics-alarm-nodemgr',
     ],
     'contrail-config': [
         'contrail-api',
@@ -89,9 +97,8 @@ unit_names_dict = {
         'contrail-vrouter-nodemgr'
     ],
     'contrail-database': [
+        'contrail-query-engine',
         'cassandra',
-        'zookeeper',
-        'kafka',
         'contrail-database-nodemgr'
     ]
 }
@@ -142,6 +149,10 @@ def main(args_str=' '.join(sys.argv[1:])):
     config_file = path_prefix
     if (node_type == 'contrail-analytics'):
         config_file += '/etc/contrail/contrail-analytics-nodemgr.conf'
+    elif (node_type == 'contrail-analytics-alarm'):
+        config_file += '/etc/contrail/contrail-analytics-alarm-nodemgr.conf'
+    elif (node_type == 'contrail-analytics-snmp'):
+        config_file += '/etc/contrail/contrail-analytics-snmp-nodemgr.conf'
     elif (node_type == 'contrail-config'):
         config_file += '/etc/contrail/contrail-config-nodemgr.conf'
     elif (node_type == 'contrail-config-database'):
@@ -153,7 +164,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     elif (node_type == 'contrail-database'):
         config_file += '/etc/contrail/contrail-database-nodemgr.conf'
     else:
-        sys.stderr.write("Node type" + str(node_type) + " is incorrect\n")
+        sys.stderr.write("Node type " + str(node_type) + " is incorrect\n")
         return
     if (os.path.exists(config_file) == False):
         sys.stderr.write("config file " + config_file + " is not present\n")
@@ -235,6 +246,10 @@ def main(args_str=' '.join(sys.argv[1:])):
     unit_names = unit_names_dict.get(node_type)
     if node_type == 'contrail-analytics':
         prog = AnalyticsEventManager(_args, unit_names)
+    elif node_type == 'contrail-analytics-alarm':
+        prog = AnalyticsAlarmEventManager(_args, unit_names)
+    elif node_type == 'contrail-analytics-snmp':
+        prog = AnalyticsSNMPEventManager(_args, unit_names)
     elif node_type == 'contrail-config':
         prog = ConfigEventManager(_args, unit_names)
     elif node_type == 'contrail-control':
