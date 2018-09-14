@@ -3,7 +3,6 @@
 - name: Delete devices in a specific fabric
   hosts: localhost
   connection: local
-  any_errors_fatal: true
   tasks:
 
     - name: Initialize weights
@@ -31,11 +30,6 @@
 
         - name: handle failure
           include_tasks: error_handler.yml
-
-        - name: Fail the job
-          fail:
-            msg: "Fabric cannot be deleted so not proceeding"
-
       when: output.status == 'failure'
 
     - name: Prepare to delete TFTP and DHCP config
