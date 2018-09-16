@@ -45,6 +45,7 @@ libpath = ['#/build/lib']
 libs = ['boost_system', 'boost_thread', 'log4cplus']
 if platform.system() == 'Windows':
     libs.append('windowsstubs')
+    libs.append('wbemuuid')
 else:
     libs.append('pthread')
 
