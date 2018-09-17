@@ -380,14 +380,20 @@ class UveStreamPart(gevent.Greenlet):
                 part = self._partno
                 pb.subscribe('AGPARTPUB:%s:%d' % (inst, part))
                 self.syncpart(lredis)
-                for message in pb.listen():
+                while True:
+                    message = pb.get_message()
+                    if not message:
+                        gevent.sleep(0.001)
+                        continue
                     if message["type"] != "message":
+                        gevent.sleep(0)
                         continue
                     dataline = message["data"]
                     try:
                         elems = json.loads(dataline)
                     except:
                         self._logger.error("AggUVE Parsing failed: %s" % str(message))
+                        gevent.sleep(0)
                         continue
                     else:
                          self._logger.info("AggUVE loading: %s" % str(elems))
@@ -398,6 +404,7 @@ class UveStreamPart(gevent.Greenlet):
                         table, barekey = elem["key"].split(":",1)
                         if self._tablefilt:
                             if not table in self._tablefilt:
+                                gevent.sleep(0)
                                 continue
                         if self._patterns:
                             kfilter_match = False
@@ -406,9 +413,11 @@ class UveStreamPart(gevent.Greenlet):
                                     kfilter_match = True
                                     break
                             if not kfilter_match:
+                                gevent.sleep(0)
                                 continue
                         if self._cfilter:
                             if elem["type"] not in self._cfilter:
+                                gevent.sleep(0)
                                 continue
                         lelems.append(elem)
                         if self._content:
@@ -443,7 +452,7 @@ class UveStreamPart(gevent.Greenlet):
 
                         self._cb(self._partno, self._pi, key, typ, vdata)
                         idx += 1
-
+                    gevent.sleep(0)
             except gevent.GreenletExit:
                 break
             except redis.exceptions.ConnectionError:
