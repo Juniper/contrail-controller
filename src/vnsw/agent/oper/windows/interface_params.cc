@@ -108,37 +108,43 @@ static boost::optional<std::string> GetInterfaceNameFromLuid(const NET_LUID intf
 }
 
 static boost::optional<MacAddress> GetMacAddressFromLuid(const NET_LUID intf_luid) {
+    const ULONG flags = GAA_FLAG_INCLUDE_PREFIX
+                      | GAA_FLAG_INCLUDE_ALL_INTERFACES
+                      | GAA_FLAG_INCLUDE_ALL_COMPARTMENTS;
+    const ULONG family = AF_UNSPEC;
+    const int MAX_RETRIES = 10;
+    const int TIMEOUT = 100;
+
     DWORD ret;
-
-    ULONG flags = GAA_FLAG_INCLUDE_PREFIX
-                  | GAA_FLAG_INCLUDE_ALL_INTERFACES
-                  | GAA_FLAG_INCLUDE_ALL_COMPARTMENTS;
-    ULONG family = AF_UNSPEC;
     ULONG buffer_size = 0;
+    int retries = 0;
 
-    ret = GetAdaptersAddresses(family, flags, NULL, NULL, &buffer_size);
-    assert(ret == ERROR_BUFFER_OVERFLOW);
+    while (retries < MAX_RETRIES) {
+        ret = GetAdaptersAddresses(family, flags, NULL, NULL, &buffer_size);
+        assert(ret == ERROR_BUFFER_OVERFLOW);
 
-    PIP_ADAPTER_ADDRESSES adapter_addresses = (PIP_ADAPTER_ADDRESSES)malloc(buffer_size);
-    ret = GetAdaptersAddresses(family, flags, NULL, adapter_addresses, &buffer_size);
-    if (ret != ERROR_SUCCESS) {
-        LOG(ERROR, "could not retrieve adapters information");
-        return boost::none;
-    }
-
-    PIP_ADAPTER_ADDRESSES iter = adapter_addresses;
-    while (iter != NULL) {
-        if (iter->Luid.Value == intf_luid.Value) {
-            assert(iter->PhysicalAddressLength == 6);
-            return MacAddress(iter->PhysicalAddress[0],
-                              iter->PhysicalAddress[1],
-                              iter->PhysicalAddress[2],
-                              iter->PhysicalAddress[3],
-                              iter->PhysicalAddress[4],
-                              iter->PhysicalAddress[5]);
+        PIP_ADAPTER_ADDRESSES adapter_addresses = (PIP_ADAPTER_ADDRESSES)malloc(buffer_size);
+        ret = GetAdaptersAddresses(family, flags, NULL, adapter_addresses, &buffer_size);
+        if (ret != ERROR_SUCCESS) {
+            LOG(ERROR, "could not retrieve adapters information");
+            return boost::none;
         }
 
-        iter = iter->Next;
+        PIP_ADAPTER_ADDRESSES iter = adapter_addresses;
+        while (iter != NULL) {
+            if (iter->Luid.Value == intf_luid.Value && iter->PhysicalAddressLength == 6) {
+                return MacAddress(iter->PhysicalAddress[0],
+                                  iter->PhysicalAddress[1],
+                                  iter->PhysicalAddress[2],
+                                  iter->PhysicalAddress[3],
+                                  iter->PhysicalAddress[4],
+                                  iter->PhysicalAddress[5]);
+            }
+            iter = iter->Next;
+        }
+
+        Sleep(TIMEOUT);
+        ++retries;
     }
 
     LOG(ERROR, "mac address not found for LUID " << intf_luid.Value);
