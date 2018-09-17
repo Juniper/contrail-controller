@@ -116,6 +116,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.fabric = None
         self.node_profile = None
         self.nc_handler_gl = None
+        self.ansible_push = False
         self.update(obj_dict)
         if self.config_manager:
             self.set_conf_sent_state(False)
@@ -125,6 +126,7 @@ class PhysicalRouterDM(DBBaseDM):
     # end __init__
 
     def reinit_device_plugin(self):
+        self.ansible_push = False
         plugin_params = {
                 "physical_router": self
             }
@@ -144,6 +146,7 @@ class PhysicalRouterDM(DBBaseDM):
         if PushConfigState.is_push_mode_ansible() and\
                 not self.no_ansible_support_for_role():
             self.config_manager = self.ansible_manager
+            self.ansible_push = True
             return
         if not self.config_manager:
             self.config_manager = DeviceConf.plugin(self.vendor, self.product,
@@ -268,24 +271,46 @@ class PhysicalRouterDM(DBBaseDM):
             % self.uuid)
     # end allocate_asn
 
+    def wait_for_config_push(self, timeout=1):
+        while self.config_manager.push_in_progress():
+            try:
+                self.nc_q.get(True, timeout)
+            except queue.Empty:
+                pass
+    # end wait_for_config_push
+
     def delete_obj(self):
+        if self.ansible_push:
+            self.wait_for_config_push()
         if self.nc_handler_gl:
             gevent.kill(self.nc_handler_gl)
-        if self.is_vnc_managed() and self.is_conf_sent():
-            self.config_manager.push_conf(is_delete=True)
-            self.config_manager.clear()
-        if self.ansible_manager is not None and\
-                self.ansible_manager != self.config_manager:
-            self.ansible_manager.initialize()
-            self.ansible_manager.underlay_config(is_delete=True)
-        self._object_db.delete_pr(self.uuid)
-        self.uve_send(True)
+
         self.update_single_ref('bgp_router', {})
         self.update_multiple_refs('virtual_network', {})
         self.update_multiple_refs('logical_router', {})
         self.update_multiple_refs('service_endpoint', {})
         self.update_multiple_refs('e2_service_provider', {})
         self.update_single_ref('fabric', {})
+
+        if self.ansible_push:
+            self.config_manager.push_conf(is_delete=True)
+            max_retries = 3
+            for i in range(max_retries):
+                if self.config_manager.retry():
+                    self.config_manager.push_conf(is_delete=True)
+                else:
+                    break
+            self.set_conf_sent_state(False)
+        elif self.ansible_manager is not None:
+            self.ansible_manager.initialize()
+            self.ansible_manager.underlay_config(is_delete=True)
+
+        if self.is_vnc_managed() and self.is_conf_sent():
+            self.config_manager.push_conf(is_delete=True)
+            self.config_manager.clear()
+
+        self._object_db.delete_pr(self.uuid)
+        self.uve_send(True)
         self.update_single_ref('node_profile', {})
     # end delete_obj
 
@@ -872,15 +897,12 @@ class PhysicalInterfaceDM(DBBaseDM):
         return self.parent_ae_id
     # end get_parent_ae_id
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.set_parent_ae_id(None)
-        obj.remove_from_parent()
-        del cls._dict[uuid]
-    # end delete
+    def delete_obj(self):
+        self.update_multiple_refs('virtual_machine_interface', {})
+        self.update_multiple_refs('physical_interface', {})
+        self.set_parent_ae_id(None)
+        self.remove_from_parent()
+    # end delete_obj
 # end PhysicalInterfaceDM
 
 
@@ -952,21 +974,17 @@ class LogicalInterfaceDM(DBBaseDM):
         return acl_list
     # end get_attached_acls
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        if obj.physical_interface:
-            parent = PhysicalInterfaceDM.get(obj.physical_interface)
-        elif obj.physical_router:
-            parent = PhysicalInterfaceDM.get(obj.physical_router)
+    def delete_obj(self):
+        if self.physical_interface:
+            parent = PhysicalInterfaceDM.get(self.physical_interface)
+        elif self.physical_router:
+            parent = PhysicalRouterDM.get(self.physical_router)
         if parent:
-            parent.logical_interfaces.discard(obj.uuid)
-        obj.update_single_ref('virtual_machine_interface', {})
-        obj.remove_from_parent()
-        del cls._dict[uuid]
-    # end delete
+            parent.logical_interfaces.discard(self.uuid)
+        self.update_single_ref('virtual_machine_interface', {})
+        self.update_single_ref('instance_ip', {})
+        self.remove_from_parent()
+    # end delete_obj
 # end LogicalInterfaceDM
 
 
@@ -1038,7 +1056,7 @@ class InstanceIpDM(DBBaseDM):
     def delete_obj(self):
         self.update_single_ref('virtual_machine_interface', {})
         self.update_single_ref('logical_interface', {})
-    # end delete
+    # end delete_obj
 
 # end InstanceIpDM
 
