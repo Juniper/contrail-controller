@@ -273,7 +273,15 @@ DBGraph *ConfigListener::graph() {
 void ConfigListener::GetChangeList(ChangeList *change_list) {
     tracker_->PropagateChanges(&change_list_);
     tracker_->Clear();
-    change_list->swap(change_list_);
+    uint32_t yield_number = DnsConfigManager::kConfigItemsToYield;
+    if (change_list_.size() > yield_number) {
+        *change_list = change_list_;
+        for (uint32_t i = 0; i < yield_number; ++i) {
+            change_list_.erase(change_list_.begin());
+        }
+    } else {
+        change_list->swap(change_list_);
+    }
 }
 
 void ConfigListener::ChangeListAdd(ChangeList *change_list,
