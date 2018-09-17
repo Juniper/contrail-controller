@@ -35,7 +35,7 @@ protected:
     void AsyncRead();
     void ReadHandler(const boost::system::error_code &err, std::size_t length);
     void WriteHandler(const boost::system::error_code &error,
-                      std::size_t length, PacketBufferPtr pkt, uint8_t *buff);
+                      std::size_t length, uint8_t *buff);
 
     std::string name_;
     int tap_fd_;
