@@ -103,7 +103,7 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
         alarm_config1_1 = self._get_config_object('alarm',
             {
                 'name': 'alarm1',
-                'uve_keys': ['invalid', 'control-node', 'config-node',
+                'uve_keys': ['unknown-uve-type', 'control-node', 'config-node',
                     'vrouter:host2'],
                 'alarm_severity': AlarmBase.ALARM_CRITICAL,
                 'alarm_rules': {
@@ -128,7 +128,7 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
         alarm_config2 = self._get_config_object('alarm',
             {
                 'name': 'alarm1',
-                'uve_keys': ['virtual-network', 'invalid'],
+                'uve_keys': ['virtual-network', 'UnknownUVEType:k1'],
                 'alarm_severity': AlarmBase.ALARM_MINOR,
                 'alarm_rules': {
                     'or_list': [
@@ -291,6 +291,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                         'ObjectVRouter:host2': {
                             'global-syscfg-default:alarm1':
                                 AlarmBase(config=alarm_config1_1)
+                        },
+                        'unknown-uve-type': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
                         }
                     },
                     alarm_config_change_map={
@@ -307,6 +311,9 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                             'global-syscfg-default:alarm1': 'DELETE'
                         },
                         'ObjectVRouter:host2': {
+                            'global-syscfg-default:alarm1': 'CREATE'
+                        },
+                        'unknown-uve-type': {
                             'global-syscfg-default:alarm1': 'CREATE'
                         }
                     }
@@ -340,17 +347,28 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                             'global-syscfg-default:alarm1':
                                 AlarmBase(config=alarm_config1_1)
                         },
+                        'ObjectVRouter:host2': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
+                        },
+                        'unknown-uve-type': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
+                        },
                         'ObjectVNTable': {
                             'default-domain:admin:alarm1':
                                 AlarmBase(config=alarm_config2)
                         },
-                        'ObjectVRouter:host2': {
-                            'global-syscfg-default:alarm1':
-                                AlarmBase(config=alarm_config1_1)
+                        'UnknownUVEType:k1': {
+                            'default-domain:admin:alarm1':
+                                AlarmBase(config=alarm_config2)
                         }
                     },
                     alarm_config_change_map={
                         'ObjectVNTable': {
+                            'default-domain:admin:alarm1': 'CREATE'
+                        },
+                        'UnknownUVEType:k1': {
                             'default-domain:admin:alarm1': 'CREATE'
                         }
                     }
@@ -394,6 +412,14 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                         'ObjectVRouter:host2': {
                             'global-syscfg-default:alarm1':
                                 AlarmBase(config=alarm_config1_1)
+                        },
+                        'unknown-uve-type': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
+                        },
+                        'UnknownUVEType:k1': {
+                            'default-domain:admin:alarm1':
+                                AlarmBase(config=alarm_config2)
                         }
                     },
                     alarm_config_change_map={
@@ -440,11 +466,18 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                         'ObjectVRouter:host2': {
                             'global-syscfg-default:alarm1':
                                 AlarmBase(config=alarm_config1_1)
+                        },
+                        'unknown-uve-type': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
                         }
                     },
                     alarm_config_change_map={
                         'ObjectVNTable': {
                             'default-domain:admin:alarm1': 'UPDATE'
+                        },
+                        'UnknownUVEType:k1': {
+                            'default-domain:admin:alarm1': 'DELETE'
                         }
                     }
                 )
@@ -483,6 +516,9 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                             'global-syscfg-default:alarm1': 'DELETE'
                         },
                         'ObjectVRouter:host2': {
+                            'global-syscfg-default:alarm1': 'DELETE'
+                        },
+                        'unknown-uve-type': {
                             'global-syscfg-default:alarm1': 'DELETE'
                         }
                     }
