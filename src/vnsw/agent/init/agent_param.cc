@@ -617,6 +617,8 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_endpoints_per_session_msg");
     GetOptValue<uint16_t>(var_map, fabric_snat_hash_table_size_,
                           "FLOWS.fabric_snat_hash_table_size");
+    GetOptValue<bool>(var_map, l2_flow_rpf_non_host_route_nh_enable_,
+                      "FLOWS.l2_flow_rpf_non_host_route_nh_enable");
 }
 
 void AgentParam::ParseDhcpRelayModeArguments
@@ -1384,6 +1386,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         max_sessions_per_aggregate_(Agent::kMaxSessions),
         max_aggregates_per_session_endpoint_(Agent::kMaxSessionAggs),
         max_endpoints_per_session_msg_(Agent::kMaxSessionEndpoints),
+        l2_flow_rpf_non_host_route_nh_enable_(false),
         subnet_hosts_resolvable_(true),
         bgp_as_a_service_port_range_("50000-50512"),
         services_queue_limit_(1024),
@@ -1646,6 +1649,8 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Maximum number of SessionEnpoint entries per SessionEndpointObject")
             ("FLOWS.fabric_snat_hash_table_size", opt::value<uint16_t>()->default_value(default_fabric_snat_table_size),
              "Size of Port NAT hash table")
+            ("FLOWS.l2_flow_rpf_non_host_route_nh_enable",
+             opt::bool_switch(&l2_flow_rpf_non_host_route_nh_enable_)->default_value(false))
             ;
         options_.add(flow);
         config_file_options_.add(flow);

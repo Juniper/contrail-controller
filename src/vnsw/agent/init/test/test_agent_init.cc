@@ -162,10 +162,11 @@ TEST_F(AgentParamTest, Agent_Flows_Option_1) {
     EXPECT_EQ(param.flow_ksync_tokens(), 1000);
     EXPECT_EQ(param.flow_del_tokens(), 1000);
     EXPECT_EQ(param.flow_update_tokens(), 500);
+    EXPECT_FALSE(param.l2_flow_rpf_non_host_route_nh_enable());
 }
 
 TEST_F(AgentParamTest, Agent_Flows_Option_Arguments) {
-    int argc = 19;
+    int argc = 21;
     char *argv[] = {
         (char *) "",
         (char *) "--FLOWS.thread_count",                   (char *)"8",
@@ -177,6 +178,7 @@ TEST_F(AgentParamTest, Agent_Flows_Option_Arguments) {
         (char *) "--FLOWS.ksync_tokens",                   (char *)"2000",
         (char *) "--FLOWS.del_tokens",                     (char *)"2000",
         (char *) "--FLOWS.update_tokens",                  (char *)"1000",
+        (char *) "--FLOWS.l2_flow_rpf_non_host_route_nh_enable", (char *)"true",
     };
 
     AgentParam param;
@@ -192,6 +194,7 @@ TEST_F(AgentParamTest, Agent_Flows_Option_Arguments) {
     EXPECT_EQ(param.flow_ksync_tokens(), 2000);
     EXPECT_EQ(param.flow_del_tokens(), 2000);
     EXPECT_EQ(param.flow_update_tokens(), 1000);
+    EXPECT_TRUE(param.l2_flow_rpf_non_host_route_nh_enable());
 }
 
 TEST_F(AgentParamTest, Agent_Tbb_Option_1) {

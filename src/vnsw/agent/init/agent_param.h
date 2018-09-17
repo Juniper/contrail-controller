@@ -314,9 +314,6 @@ public:
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
     void set_flow_stats_interval(int val) { flow_stats_interval_ = val; }
     void set_vrouter_stats_interval(int val) { vrouter_stats_interval_ = val; }
-    void set_subnet_hosts_resolvable(bool val) {
-        subnet_hosts_resolvable_ = val;
-    }
     VirtualGatewayConfigTable *vgw_config_table() const {
         return vgw_config_table_.get();
     }
@@ -346,6 +343,9 @@ public:
     }
     bool subnet_hosts_resolvable() const {
         return subnet_hosts_resolvable_;
+    }
+    bool l2_flow_rpf_non_host_route_nh_enable() const {
+        return l2_flow_rpf_non_host_route_nh_enable_;
     }
 
     void Init(const std::string &config_file,
@@ -762,6 +762,7 @@ private:
     uint16_t max_sessions_per_aggregate_;
     uint16_t max_aggregates_per_session_endpoint_;
     uint16_t max_endpoints_per_session_msg_;
+    bool l2_flow_rpf_non_host_route_nh_enable_;
     bool subnet_hosts_resolvable_;
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;

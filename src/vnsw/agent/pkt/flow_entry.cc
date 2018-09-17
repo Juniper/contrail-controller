@@ -660,7 +660,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     data_.disable_validation = info->disable_validation;
     if (ctrl->rt_ != NULL) {
-        RpfInit(ctrl->rt_, pkt->ip_saddr);
+        RpfInit(ctrl->rt_, pkt->ip_saddr, agent);
     }
 
     if (info->bgp_router_service_flow) {
@@ -740,7 +740,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     data_.disable_validation = info->disable_validation;
     if (ctrl->rt_ != NULL) {
-        RpfInit(ctrl->rt_, pkt->ip_daddr);
+        RpfInit(ctrl->rt_, pkt->ip_daddr, agent);
     }
 
     if (info->bgp_router_service_flow) {
@@ -1158,7 +1158,8 @@ void FlowEntry::RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh) {
 //
 // In case of layer-3 flow "rt" is inet route for source-ip in source-vrf
 // In case of layer-2 flow "rt" is l2 route for smac in source-vrf
-void FlowEntry::RpfInit(const AgentRoute *rt, const IpAddress &sip) {
+void FlowEntry::RpfInit(const AgentRoute *rt, const IpAddress &sip,
+                        Agent *agent) {
     // Set src_ip_nh based on rt first
     RpfSetSrcIpNhFields(rt, rt->GetActiveNextHop());
 
@@ -1207,8 +1208,10 @@ void FlowEntry::RpfInit(const AgentRoute *rt, const IpAddress &sip) {
         return;
     }
 
-    if (src_ip_rt->IsHostRoute() == false)
-        return;
+    if (agent->params()->l2_flow_rpf_non_host_route_nh_enable() == false) {
+        if (src_ip_rt->IsHostRoute() == false)
+            return;
+    }
 
     const NextHop *src_ip_nh = src_ip_rt->GetActiveNextHop();
     if (src_ip_nh->GetType() == NextHop::COMPOSITE)
