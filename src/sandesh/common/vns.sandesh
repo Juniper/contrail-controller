@@ -710,3 +710,10 @@ const list<string> SECURITY_OBJECT_TYPES = [
     'service_group',
     'address_group',
 ]
+
+// Reserved L2 vlan-ids for QFX devices
+const list<u16> RESERVED_L2_VLAN_TAGS = [
+    1,
+    2,
+    4094,
+]

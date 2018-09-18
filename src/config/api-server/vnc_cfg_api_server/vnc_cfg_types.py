@@ -1164,8 +1164,8 @@ class InstanceIpServer(Resource, InstanceIp):
         obj_dict['subnet_uuid'] = sn_uuid
         if subnet_name:
             ip_prefix = subnet_name.split('/')[0]
-            prefix_len = int(subnet_name.split('/')[1])
-            instance_ip_subnet = {'ip_prefix' : ip_prefix,
+            prefix_len = int(subnet_name.split('/')[1]) 
+            instance_ip_subnet = {'ip_prefix' : ip_prefix, 
                                   'ip_prefix_len' : prefix_len}
             obj_dict['instance_ip_subnet'] = instance_ip_subnet
 
@@ -2181,12 +2181,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         bindings = obj_dict.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
 
-        bare_metal_vlan_id = 0
-        if ('virtual_machine_interface_properties' in obj_dict
-                 and 'sub_interface_vlan_tag' in obj_dict['virtual_machine_interface_properties']):
-            vmi_properties = obj_dict['virtual_machine_interface_properties']
-            bare_metal_vlan_id = vmi_properties['sub_interface_vlan_tag']
-
         # Manage baremetal provisioning here
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
@@ -2197,16 +2191,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 if phy_links and phy_links.get('local_link_information'):
                     links  = phy_links['local_link_information']
                     if len(links) > 1:
-                        cls._manage_lag_interface(obj_dict['uuid'], api_server, db_conn,
-                             links, bare_metal_vlan_id)
+                        cls._manage_lag_interface(obj_dict['uuid'], api_server, db_conn, links)
                     else:
                         cls._create_logical_interface(obj_dict['uuid'], api_server, db_conn,
-                             links[0]['switch_info'], links[0]['port_id'], bare_metal_vlan_id)
+                             links[0]['switch_info'], links[0]['port_id'])
 
         # Create ref to native/vn-default routing instance
         vn_refs = obj_dict.get('virtual_network_refs')
         if not vn_refs:
-           return True, ''
+            return True, ''
 
         vn_fq_name = vn_refs[0].get('to')
         if not vn_fq_name:
@@ -2359,13 +2352,9 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
     @classmethod
     def _create_lag_interface(cls, api_server, db_conn, prouter_name, phy_interfaces):
-        phy_if_fq_name=['default-global-system-config', prouter_name, phy_interfaces[0]]
-        ae_id = cls.vnc_zk_client.alloc_ae_id(':'.join(phy_if_fq_name))
-        def undo_ae_id():
-            cls.vnc_zk_client.free_ae_id(':'.join(phy_if_fq_name))
-            return True, ""
-        get_context().push_undo(undo_ae_id)
-        lag_interface_name = "ae" + str(ae_id)
+        if_num = ''.join([i for i in phy_interfaces[0][2:] if i.isdigit()])
+        if_num = str(int(if_num) % 64)
+        lag_interface_name = "ae" + if_num
 
         # create lag object
         lag_obj = LinkAggregationGroup(parent_type='physical-router',
@@ -2404,7 +2393,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _create_lag_interface
 
     @classmethod
-    def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links, bare_metal_vlan_id):
+    def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links):
         tors = {}
         esi = None
         for link in phy_links:
@@ -2429,11 +2418,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     mac = result['virtual_machine_interface_mac_addresses']['mac_address']
                     esi = "00:00:00:00:" + mac[0]
             cls._create_logical_interface(vmi_id, api_server, db_conn, tor_name,
-                                          vmi_connected_phy_interface, bare_metal_vlan_id, esi=esi)
+                                          vmi_connected_phy_interface, esi=esi)
 
     @classmethod
-    def _create_logical_interface(cls, vim_id, api_server, db_conn, tor, link, bare_metal_vlan_id, esi=None):
-        vlan_tag = bare_metal_vlan_id
+    def _create_logical_interface(cls, vim_id, api_server, db_conn, tor, link, esi=None):
+        vlan_tag = 0
         li_fq_name = ['default-global-system-config', tor, link]
         li_fq_name = li_fq_name + ['%s.%s' %(link, vlan_tag)]
 
@@ -2467,12 +2456,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         bindings = obj_dict.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
 
-        bare_metal_vlan_id = 0
-        if ('virtual_machine_interface_properties' in obj_dict
-                 and 'sub_interface_vlan_tag' in obj_dict['virtual_machine_interface_properties']):
-            vmi_properties = obj_dict['virtual_machine_interface_properties']
-            bare_metal_vlan_id = vmi_properties['sub_interface_vlan_tag']
-
         for oper_param in prop_collection_updates or []:
             if (oper_param['field'] == 'virtual_machine_interface_bindings' and
                     oper_param['operation'] == 'set'):
@@ -2487,10 +2470,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 if phy_links and phy_links.get('local_link_information'):
                     links  = phy_links['local_link_information']
                     if len(links) > 1:
-                        cls._manage_lag_interface(id, api_server, db_conn, links, bare_metal_vlan_id)
+                        cls._manage_lag_interface(id, api_server, db_conn, links)
                     else:
                         cls._create_logical_interface(id, api_server, db_conn,
-                             links[0]['switch_info'], links[0]['port_id'], bare_metal_vlan_id, esi=None)
+                             links[0]['switch_info'], links[0]['port_id'], esi=None)
 
         return True, ''
     # end post_dbe_update
@@ -2513,14 +2496,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             delete_dict = {'virtual_machine_refs' : []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
 
-        return True, ""
-    # end pre_dbe_delete
-
-    @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
-
-        api_server = db_conn.get_api_server()
-
         # For baremetal, delete the logical interface and related objects
         for lri_back_ref in obj_dict.get('logical_interface_back_refs') or []:
             fqname = lri_back_ref['to'][:-1]
@@ -2535,9 +2510,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 api_server.internal_request_delete('logical_interface', lri_back_ref['uuid'])
                 api_server.internal_request_delete('link_aggregation_group', lag_interface_uuid)
                 api_server.internal_request_delete('physical_interface', phy_interface_uuid)
-                id = int(fqname[2][2:])
-                ae_fqname = cls.vnc_zk_client.get_ae_from_id(id)
-                cls.vnc_zk_client.free_ae_id(id, ae_fqname)
             else:
                 # Before deleting the logical interface, check if the parent physical interface
                 # has ESI set. If yes, clear it.
@@ -2552,7 +2524,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
 
         return True, ""
-    # end post_dbe_delete
+    # end pre_dbe_delete
+
 # end class VirtualMachineInterfaceServer
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
@@ -2827,29 +2800,25 @@ class TagServer(Resource, Tag):
 
 
 class FirewallRuleServer(SecurityResourceBase, FirewallRule):
+
     @classmethod
-    def _check_endpoint(cls, obj_dict):
+    def _check_endpoint(cls, ep):
         # TODO(ethuleau): Authorize only one condition per endpoint for the
         #                 moment.
-        for ep_name in ['endpoint_1', 'endpoint_2']:
-            ep = obj_dict.get(ep_name)
-            if ep is None:
-                continue
-
-            filters = [
-                ep.get('tags'),
-                ep.get('address_group'),
-                ep.get('virtual_network'),
-                ep.get('subnet'),
-                ep.get('any'),
-            ]
-            filters = [f for f in filters if f]
-            if len(filters) > 1:
-                msg = "Endpoint is limited to only one endpoint type at a time"
-                return False, (400, msg)
-            # check no ids present
-            # check endpoints exclusivity clause
-            # validate VN name in endpoints
+        filters = [
+            ep.get('tags'),
+            ep.get('address_group'),
+            ep.get('virtual_network'),
+            ep.get('subnet'),
+            ep.get('any'),
+        ]
+        filters = [f for f in filters if f]
+        if len(filters) > 1:
+            msg = "Endpoint is limited to only one endpoint type at a time"
+            return False, (400, msg)
+        # check no ids present
+        # check endpoints exclusivity clause
+        # validate VN name in endpoints
         return True, ''
 
     @classmethod
@@ -2900,70 +2869,39 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         return True, ""
 
     @classmethod
-    def _frs_fix_endpoint_address_group(cls, obj_dict, db_obj_dict=None):
-        ag_refs = []
-        db_ag_refs = []
-        if db_obj_dict:
-            db_ag_refs = db_obj_dict.get('address_group_refs', [])
+    def _frs_fix_endpoint_address_group(cls, obj_dict, ep, ep_name, db_conn):
+        if ep is None or 'address_group' not in ep:
+            return True, ""
 
-        if (not is_internal_request() and 'address_group_refs' in obj_dict and
-                (db_obj_dict or obj_dict['address_group_refs'])):
-            msg = ("Cannot directly define Address Group reference from a "
-                   "Firewall Rule. Use 'address_group' endpoints property in "
-                   "the Firewall Rule")
-            return False, (400, msg)
+        existing_refs = set([ref['uuid'] for ref in obj_dict['address_group_refs']])
 
-        for ep_name in ['endpoint_1', 'endpoint_2']:
-            if (ep_name not in obj_dict and db_obj_dict and
-                    ep_name in db_obj_dict):
-                ep = db_obj_dict.get(ep_name)
-                if ep is None:
-                    continue
-                ag_fq_name_str = ep.get('address_group')
-                if ag_fq_name_str:
-                    ag_fq_name = ag_fq_name_str.split(':')
-                    [ag_refs.append(ref) for ref in db_ag_refs
-                     if ref['to'] == ag_fq_name]
-            else:
-                ep = obj_dict.get(ep_name)
-                if ep is None:
-                    continue
-                ag_fq_name_str = ep.get('address_group')
-                if ag_fq_name_str:
-                    ag_fq_name = ag_fq_name_str.split(':')
-                    try:
-                        ag_uuid = cls.db_conn.fq_name_to_uuid('address_group',
-                                                              ag_fq_name)
-                    except cfgm_common.exceptions.NoIdError:
-                        msg = ('No Address Group object found for %s' %
-                               ref_fq_name)
-                        return False, (404, msg)
-                    ag_refs.append({'to': ag_fq_name, 'uuid': ag_uuid})
+        # create tag references for address group
+        try:
+            ref_fq_name = ep['address_group'].split(":")
+            ref_uuid = db_conn.fq_name_to_uuid('address_group', ref_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            return(False, (404, 'No address group object found for %s' % ref_fq_name))
+        if ref_uuid not in existing_refs:
+            ref = {
+                'to'  : ref_fq_name,
+                'uuid': ref_uuid
+            }
+            obj_dict['address_group_refs'].append(ref)
 
-        if {r['uuid'] for r in ag_refs} != {r['uuid'] for r in db_ag_refs}:
-            obj_dict['address_group_refs'] = ag_refs
-
-        return True, ''
+        return True, ""
 
     @classmethod
-    def _frs_fix_endpoint_tag(cls, obj_dict, db_obj_dict=None):
+    def _frs_fix_endpoint_tag(cls, obj_dict, ep, db_conn):
+        if ep is None or 'tags' not in ep:
+            return True, ''
+
+        ep['tag_ids'] = []
         draft_pm_name = constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
-        obj_parent_type = obj_dict.get('parent_type')
-        obj_fq_name = obj_dict.get('fq_name')
-        tag_refs = []
-        db_tag_refs = []
-        if db_obj_dict:
-            obj_fq_name = db_obj_dict['fq_name']
-            obj_parent_type = db_obj_dict['parent_type']
-            db_tag_refs = db_obj_dict.get('tag_refs', [])
+        obj_parent_type = obj_dict['parent_type']
+        obj_fq_name = obj_dict['fq_name']
+        existing_refs = set([ref['uuid'] for ref in obj_dict['tag_refs']])
 
-        if (not is_internal_request() and 'tag_refs' in obj_dict and
-                (db_obj_dict or obj_dict['tag_refs'])):
-            msg = ("Cannot directly define Tags reference from a Firewall "
-                   "Rule. Use 'tags' endpoints property in the Firewall Rule")
-            return False, (400, msg)
-
-        def _get_tag_fq_name(tag_name):
+        for tag_name in set(ep.get('tags')):
             # unless global, inherit project id from caller
             if "=" not in tag_name:
                 return False, (404, "Invalid tag name '%s'" % tag_name)
@@ -2977,54 +2915,30 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                 # draft scope: [domain:project:draft-pm:sec-res] =>
                 #              [domain:project:tag-res]
                 tag_fq_name = obj_fq_name[:-2] + [tag_name]
-            # Project scoped resource, tag has to be in same scoped
+            # Project scoped resource, tag have to be in same scoped
             elif obj_parent_type == Project.resource_type:
-                # scope: [domain:project:sec-res] =>
-                #        [domain:project:tag-res]
+                # scope: [domain:project:sec-res] => [domain:project:tag-res]
                 tag_fq_name = obj_fq_name[:-1] + [tag_name]
             else:
-                msg = ("Firewall rule %s (%s) parent type '%s' is not "
-                       "supported as security resource scope" %
+                msg = ("Parent type '%s' which own the security resource %s "
+                       "(%s) is not supported as security resource scope" %
                        (obj_parent_type, ':'.join(obj_fq_name),
                         obj_dict['uuid']))
                 return False, (400, msg)
 
-            return True, tag_fq_name
+            ok, result = TagServer.locate(tag_fq_name, create_it=False,
+                                          fields=['tag_id'])
+            if not ok:
+                return False, result
+            tag_dict = result
 
-        for ep_name in ['endpoint_1', 'endpoint_2']:
-            if (ep_name not in obj_dict and db_obj_dict and
-                    ep_name in db_obj_dict):
-                ep = db_obj_dict.get(ep_name)
-                if ep is None:
-                    continue
-                for tag_name in set(ep.get('tags', [])):
-                    ok, result = _get_tag_fq_name(tag_name)
-                    if not ok:
-                        return False, result
-                    tag_fq_name = result
-                    [tag_refs.append(ref) for ref in db_tag_refs
-                     if ref['to'] == tag_fq_name]
-            else:
-                ep = obj_dict.get(ep_name)
-                if ep is None:
-                    continue
-                ep['tag_ids'] = []
-                for tag_name in set(ep.get('tags', [])):
-                    ok, result = _get_tag_fq_name(tag_name)
-                    if not ok:
-                        return False, result
-                    tag_fq_name = result
-                    ok, result = TagServer.locate(
-                        tag_fq_name, create_it=False, fields=['tag_id'])
-                    if not ok:
-                        return False, result
-                    tag_dict = result
-                    ep['tag_ids'].append(int(tag_dict['tag_id'], 0))
-                    tag_refs.append(
-                        {'to': tag_fq_name, 'uuid': tag_dict['uuid']})
-
-        if {r['uuid'] for r in tag_refs} != {r['uuid'] for r in db_tag_refs}:
-            obj_dict['tag_refs'] = tag_refs
+            ep['tag_ids'].append(int(tag_dict['tag_id'], 0))
+            if tag_dict['uuid'] not in existing_refs:
+                ref = {
+                    'to'  : tag_fq_name,
+                    'uuid': tag_dict['uuid'],
+                }
+                obj_dict['tag_refs'].append(ref)
 
         return True, ''
 
@@ -3066,6 +2980,9 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if not ok:
             return False, result
 
+        obj_dict['tag_refs'] = []
+        obj_dict['address_group_refs'] = []
+
         # create default match tag if use doesn't specifiy any explicitly
         if 'match_tags' not in obj_dict:
             obj_dict['match_tag_types'] = {
@@ -3082,17 +2999,20 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if not ok:
             return (ok, msg)
 
-        ok, result = cls._check_endpoint(obj_dict)
-        if not ok:
-            return False, result
-
-        ok, result = cls._frs_fix_endpoint_tag(obj_dict)
-        if not ok:
-            return False, result
-
-        ok, result = cls._frs_fix_endpoint_address_group(obj_dict)
-        if not ok:
-            return False, result
+        for ep_name in ['endpoint_1', 'endpoint_2']:
+            ep = obj_dict.get(ep_name)
+            if ep is None:
+                continue
+            ok, result = cls._check_endpoint(ep)
+            if not ok:
+                return False, result
+            ok = True
+            if 'tags' in ep and len(ep['tags']):
+                ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)
+            elif 'address_group' in ep and ep['address_group']:
+                ok, result = cls._frs_fix_endpoint_address_group(obj_dict, ep, ep_name, db_conn)
+            if not ok:
+                return (False, result)
 
         return True, ""
     # end pre_dbe_create
@@ -3143,17 +3063,29 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if not ok:
             return (ok, msg)
 
-        ok, result = cls._check_endpoint(obj_dict)
-        if not ok:
-            return False, result
+        if obj_dict.get('endpoint_1') or obj_dict.get('endpoint_2'):
+            obj_dict['tag_refs'] = []
+            obj_dict['address_group_refs'] = []
+            obj_dict['fq_name'] = db_obj_dict['fq_name']
+            obj_dict['parent_type'] = db_obj_dict['parent_type']
 
-        ok, result = cls._frs_fix_endpoint_tag(obj_dict, db_obj_dict)
-        if not ok:
-            return False, result
-
-        ok, result = cls._frs_fix_endpoint_address_group(obj_dict, db_obj_dict)
-        if not ok:
-            return False, result
+            for ep_name in ['endpoint_1', 'endpoint_2']:
+                ep = obj_dict.get(ep_name)
+                if ep is None:
+                    ep = db_obj_dict.get(ep_name)
+                    if ep is None:
+                        continue
+                    obj_dict[ep_name] = ep
+                ok, result = cls._check_endpoint(ep)
+                if not ok:
+                    return False, result
+                ok = True
+                if 'tags' in ep and len(ep['tags']):
+                    ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)
+                elif 'address_group' in ep and ep['address_group']:
+                    ok, result = cls._frs_fix_endpoint_address_group(obj_dict, ep, ep_name, db_conn)
+                if not ok:
+                    return (False, result)
 
         return True, ''
 
@@ -5194,6 +5126,9 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
                 obj_dict['display_name'] = read_result.get('display_name')
                 obj_dict['fq_name'] = read_result['fq_name']
                 obj_dict['parent_type'] = read_result['parent_type']
+                if 'logical_interface_type' not in obj_dict:
+                    obj_dict['logical_interface_type'] = read_result.get('logical_interface_type',
+                                                                         'l2')
                 ok, result = PhysicalInterfaceServer._check_interface_name(obj_dict,
                                                                            db_conn,
                                                                            vlan)
@@ -5419,8 +5354,11 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
         # In case of QFX, check that VLANs 1, 2 and 4094 are not used
         product_name = physical_router.get('physical_router_product_name') or ""
         if product_name.lower().startswith("qfx") and vlan_tag != None:
-            if vlan_tag == 1 or vlan_tag == 2 or vlan_tag == 4094:
-                return (False, (403, "Vlan id " + str(vlan_tag) + " is not allowed on QFX"))
+            li_type = obj_dict.get('logical_interface_type', 'l2').lower()
+            if li_type !='l3' and vlan_tag in constants.RESERVED_L2_VLAN_TAGS:
+                return (False, (403, "Vlan ids " + str(constants.RESERVED_L2_VLAN_TAGS) +
+                                " are not allowed on QFX"
+                                " logical interface type: " + li_type))
 
         for physical_interface in physical_router.get('physical_interfaces') or []:
             # Read only the display name of the physical interface
