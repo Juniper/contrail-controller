@@ -5127,6 +5127,9 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
                 obj_dict['display_name'] = read_result.get('display_name')
                 obj_dict['fq_name'] = read_result['fq_name']
                 obj_dict['parent_type'] = read_result['parent_type']
+                if 'logical_interface_type' not in obj_dict:
+                    obj_dict['logical_interface_type'] = read_result.get('logical_interface_type',
+                                                                         'l2')
                 ok, result = PhysicalInterfaceServer._check_interface_name(obj_dict,
                                                                            db_conn,
                                                                            vlan)
@@ -5352,9 +5355,10 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
         # In case of QFX, check that VLANs 1, 2 and 4094 are not used
         product_name = physical_router.get('physical_router_product_name') or ""
         if product_name.lower().startswith("qfx") and vlan_tag != None:
-            if vlan_tag == 1 or vlan_tag == 2 or vlan_tag == 4094:
-                return (False, (403, "Vlan id " + str(vlan_tag) + " is not allowed on QFX"))
-
+            li_type = obj_dict.get('logical_interface_type', 'l2').lower()
+            if li_type !='l3' and (vlan_tag == 1 or vlan_tag == 2 or vlan_tag == 4094):
+                return (False, (403, "Vlan id " + str(vlan_tag) + " is not allowed on QFX"
+                                " logical interface type: " + li_type))
         for physical_interface in physical_router.get('physical_interfaces') or []:
             # Read only the display name of the physical interface
             (ok, interface_object) = cls.dbe_read(db_conn,
