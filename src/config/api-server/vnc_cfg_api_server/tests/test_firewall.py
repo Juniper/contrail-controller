@@ -1749,7 +1749,6 @@ class FirewallDraftModeBase(object):
                     getattr(self.api, '%s_delete' % resource.object_type)(
                         id=resource.uuid)
 
-    # @patch.object(SecurityResourceBase, '_pending_update')
     def test_cannot_start_action_during_sec_res_is_being_created(self):
         self.set_scope_instance()
         pending_update_orig = FirewallPolicyServer._pending_update
@@ -2144,6 +2143,33 @@ class FirewallDraftModeBase(object):
 
         self.api.commit_security(self._scope)
 
+    def test_cannot_create_ref_to_pending_deleted_resource(self):
+        self.set_scope_instance(draft_enable=False)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp)
+
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp.uuid)
+        aps = ApplicationPolicySet('aps-%s' % self.id(),
+                                   parent_obj=self._owner)
+        aps.add_firewall_policy(fp, FirewallSequence(sequence='1.0'))
+        self.assertRaises(BadRequest, self.api.application_policy_set_create,
+                          aps)
+
+    def test_cannot_update_ref_to_pending_deleted_resource(self):
+        self.set_scope_instance(draft_enable=False)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp)
+        aps = ApplicationPolicySet('aps-%s' % self.id(),
+                                   parent_obj=self._owner)
+        self.api.application_policy_set_create(aps)
+
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp.uuid)
+        aps.add_firewall_policy(fp, FirewallSequence(sequence='1.0'))
+        self.assertRaises(BadRequest, self.api.application_policy_set_update,
+                          aps)
+
 
 class TestFirewallDraftModeGlobalScope(TestFirewallBase,
                                        FirewallDraftModeBase):
@@ -2418,3 +2444,42 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertNotEqual(draft_ag.get_fq_name_str(),
                             fr.endpoint_1.address_group)
         self.assertEqual(ag.get_fq_name_str(), fr.endpoint_1.address_group)
+
+    def test_cannot_create_ref_to_pending_deleted_resource(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=global_pm)
+        self.api.firewall_policy_create(global_fp)
+        gsc.enable_security_policy_draft = True
+        self.api.global_system_config_update(gsc)
+        self.api.firewall_policy_delete(id=global_fp.uuid)
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=project)
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+
+        self.assertRaises(BadRequest, self.api.application_policy_set_create,
+                          project_aps)
+
+    def test_cannot_update_ref_to_pending_deleted_resource(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=global_pm)
+        self.api.firewall_policy_create(global_fp)
+        gsc.enable_security_policy_draft = True
+        self.api.global_system_config_update(gsc)
+        self.api.firewall_policy_delete(id=global_fp.uuid)
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=project)
+        self.api.application_policy_set_create(project_aps)
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+
+        self.assertRaises(BadRequest, self.api.application_policy_set_update,
+                          project_aps)
