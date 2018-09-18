@@ -115,10 +115,10 @@ class ResourceDbMixin(object):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        return True, ''
+        return True, '', None
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         return True, ''
 
     @classmethod
@@ -831,6 +831,10 @@ class FloatingIpServer(Resource, FloatingIp):
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
             return (False, (409, 'Ip address already in use'))
         try:
+            ok, result = cls.addr_mgmt.get_ip_free_args(
+                    obj_dict['fq_name'][:-2])
+            if not ok:
+                return ok, result
             #
             # Parse through floating-ip-pool config to see if there are any
             # guidelines laid for allocation of this floating-ip.
@@ -884,7 +888,9 @@ class FloatingIpServer(Resource, FloatingIp):
                         % (fip_addr, vn_fq_name, tenant_name),
                            level=SandeshLevel.SYS_DEBUG)
                 cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name,
-                                          alloc_id=obj_dict['uuid'])
+                                          alloc_id=obj_dict['uuid'],
+                                          vn_dict=result.get('vn_dict'),
+                                          ipam_dicts=result.get('ipam_dicts'))
                 return True, ""
             # end undo
             get_context().push_undo(undo)
@@ -900,7 +906,13 @@ class FloatingIpServer(Resource, FloatingIp):
     # end pre_dbe_create
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(obj_dict['fq_name'][:-2])
+        return ok, '', ip_free_args
+    # end pre_dbe_delete
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         if obj_dict['parent_type'] == 'instance-ip':
             return True, ""
 
@@ -910,7 +922,9 @@ class FloatingIpServer(Resource, FloatingIp):
                            % (fip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name,
-                                  alloc_id=obj_dict['uuid'])
+                                  alloc_id=obj_dict['uuid'],
+                                  vn_dict=kwargs.get('vn_dict'),
+                                  ipam_dicts=kwargs.get('ipam_dicts'))
 
         return True, ""
     # end post_dbe_delete
@@ -945,11 +959,14 @@ class FloatingIpServer(Resource, FloatingIp):
 class AliasIpServer(Resource, AliasIp):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        vn_fq_name = obj_dict['fq_name'][:-2]
+        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         req_ip = obj_dict.get("alias_ip_address")
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
             return (False, (409, 'Ip address already in use'))
         try:
+            ok, result = cls.addr_mgmt.get_ip_free_args(vn_fq_name)
+            if not ok:
+                return ok, result
             (aip_addr, sn_uuid, s_name) = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                               asked_ip_addr=req_ip,
                                               alloc_id=obj_dict['uuid'])
@@ -959,7 +976,9 @@ class AliasIpServer(Resource, AliasIp):
                         % (fip_addr, vn_fq_name, tenant_name),
                            level=SandeshLevel.SYS_DEBUG)
                 cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name,
-                                          alloc_id=obj_dict['uuid'])
+                                          alloc_id=obj_dict['uuid'],
+                                          vn_dict=result.get('vn_dict'),
+                                          ipam_dicts=result.get('ipam_dicts'))
                 return True, ""
             # end undo
             get_context().push_undo(undo)
@@ -974,16 +993,23 @@ class AliasIpServer(Resource, AliasIp):
         return True, ""
     # end pre_dbe_create
 
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(obj_dict['virtual_network_refs'][0]['to'])
+        return ok, '', ip_free_args
+    # end pre_dbe_delete
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         vn_fq_name = obj_dict['fq_name'][:-2]
         aip_addr = obj_dict['alias_ip_address']
         db_conn.config_log('AddrMgmt: free AIP %s for vn=%s'
                            % (aip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name,
-                                  alloc_id=obj_dict['uuid'])
+                                  alloc_id=obj_dict['uuid'],
+                                  vn_dict=kwargs.get('vn_dict'),
+                                  ipam_dicts=kwargs.get('ipam_dicts'))
 
         return True, ""
     # end post_dbe_delete
@@ -1140,6 +1166,9 @@ class InstanceIpServer(Resource, InstanceIp):
 
         subscriber_tag = obj_dict.get('instance_ip_subscriber_tag')
         try:
+            ok, result = cls.addr_mgmt.get_ip_free_args(vn_fq_name, vn_dict)
+            if not ok:
+                return ok, result
             (ip_addr, sn_uuid, subnet_name) = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, vn_dict=vn_dict, sub=subnet_uuid,
                 asked_ip_addr=req_ip,
@@ -1154,7 +1183,8 @@ class InstanceIpServer(Resource, InstanceIp):
                                    % (ip_addr, vn_fq_name, tenant_name),
                                    level=SandeshLevel.SYS_DEBUG)
                 cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name,
-                        alloc_id=obj_dict['uuid'], ipam_refs=ipam_refs)
+                        alloc_id=obj_dict['uuid'], ipam_refs=ipam_refs,
+                        vn_dict=vn_dict, ipam_dicts=result.get('ipam_dicts'))
                 return True, ""
             # end undo
             get_context().push_undo(undo)
@@ -1219,7 +1249,13 @@ class InstanceIpServer(Resource, InstanceIp):
     # end pre_dbe_update
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(obj_dict['virtual_network_refs'][0]['to'])
+        return ok, '', ip_free_args
+    # end pre_dbe_delete
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         def _get_instance_ip(obj_dict):
             ip_addr = obj_dict.get('instance_ip_address')
             if not ip_addr:
@@ -1234,8 +1270,9 @@ class InstanceIpServer(Resource, InstanceIp):
             ok, ip_addr = _get_instance_ip(obj_dict)
             if not ok:
                 return True, ""
-            cls.addr_mgmt.ip_free_req(ip_addr, None,
-                    ipam_refs=ipam_refs)
+            cls.addr_mgmt.ip_free_req(ip_addr, None, ipam_refs=ipam_refs,
+                                      vn_dict=kwargs.get('vn_dict'),
+                                      ipam_dicts=kwargs.get('ipam_dicts'))
             return True, ""
 
         if not obj_dict.get('virtual_network_refs', []):
@@ -1255,7 +1292,9 @@ class InstanceIpServer(Resource, InstanceIp):
                            % (ip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name,
-                                  alloc_id=obj_dict['uuid'])
+                                  alloc_id=obj_dict['uuid'],
+                                  vn_dict=kwargs.get('vn_dict'),
+                                  ipam_dicts=kwargs.get('ipam_dicts'))
 
         return True, ""
     # end post_dbe_delete
@@ -1743,7 +1782,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
                 return cls.create_intvn_and_ref(obj_dict, db_conn)
             get_context().push_undo(undo_int_vn_delete)
 
-        return True,''
+        return True,'', None
     # end pre_dbe_delete
 # end class LogicalRouterServer
 
@@ -2513,11 +2552,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             delete_dict = {'virtual_machine_refs' : []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
 
-        return True, ""
+        return True, "", None
     # end pre_dbe_delete
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
 
         api_server = db_conn.get_api_server()
 
@@ -2660,7 +2699,7 @@ class TagTypeServer(Resource, TagType):
         return True, ""
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         # Deallocate tag-type ID
         cls.vnc_zk_client.free_tag_type_id(int(obj_dict['tag_type_id'], 0),
                                            obj_dict['fq_name'][-1])
@@ -2780,7 +2819,7 @@ class TagServer(Resource, Tag):
         return True, ""
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         # Don't de-allocate ID and remove pre-defined tag types
         if obj_dict['tag_type_name'] in constants.TagTypeNameToId:
             return True, ''
@@ -4119,11 +4158,11 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         def undo():
             cls.addr_mgmt.net_create_req(obj_dict)
         get_context().push_undo(undo)
-        return True, ""
+        return True, "", None
     # end pre_dbe_delete
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         api_server = db_conn.get_api_server()
 
         # Delete native/vn-default routing instance
@@ -4516,7 +4555,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
         def undo():
             cls.addr_mgmt.ipam_create_req(obj_dict)
         get_context().push_undo(undo)
-        return True, ""
+        return True, "", None
     # end pre_dbe_delete
 
     @classmethod
@@ -4652,7 +4691,7 @@ class VirtualDnsServer(Resource, VirtualDns):
                             (403,
                              "Virtual DNS server is referred"
                              " by other virtual DNS servers"))
-        return True, ""
+        return True, "", None
     # end pre_dbe_delete
 
     @classmethod
@@ -5071,11 +5110,11 @@ class SecurityGroupServer(Resource, SecurityGroup):
                         quota_counter[path] += rule_count
                     get_context().push_undo(undo)
 
-        return True, ""
+        return True, "", None
     # end pre_dbe_delete
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         # Deallocate the security group ID
         cls.vnc_zk_client.free_sg_id(
             obj_dict.get('security_group_id'), ':'.join(obj_dict['fq_name']))
@@ -5596,7 +5635,7 @@ class ProjectServer(Resource, Project):
         return True, ''
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         # Delete the zookeeper counter nodes
         path = _DEFAULT_ZK_COUNTER_PATH_PREFIX + id
         if db_conn._zk_db.quota_counter_exists(path):
