@@ -79,6 +79,50 @@ class ResourceDbMixin(object):
         return True, quota_limit, proj_uuid
 
     @classmethod
+    def no_pending_deleted_resource_in_refs(cls, obj_dict):
+        # Check if any reference points to a pending deleted resource
+        if not obj_dict:
+            return True, ''
+
+        refs = [(ref_type, ref.get('to'), ref.get('uuid'))
+                for ref_type in constants.SECURITY_OBJECT_TYPES
+                for ref in obj_dict.get('%s_refs' % ref_type, [])]
+        for ref_type, ref_fq_name, ref_uuid in refs:
+            ref_class = cls.server.get_resource_class(ref_type)
+            ok, result = ref_class.locate(
+                fq_name=ref_fq_name,
+                uuid=ref_uuid,
+                create_it=False,
+                fields=['fq_name', 'parent_type', 'draft_mode_state'],
+            )
+            if not ok:
+                return False, result
+            ref = result
+            if (ref['fq_name'][-2] !=
+                    constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
+                ok, result = ref_class.get_pending_resource(
+                    ref, fields=['draft_mode_state'])
+                if ok and result == '':
+                    # draft mode not enabled
+                    continue
+                elif not ok and isinstance(result, tuple) and result[0] == 404:
+                    # draft mode enabled, but no draft version of the
+                    # referenced resource
+                    continue
+                elif not ok:
+                    return False, result
+                draft_ref = result
+            else:
+                draft_ref = ref
+            if draft_ref.get('draft_mode_state') == 'deleted':
+                msg = ("Referenced %s resource '%s' (%s) is in pending delete "
+                       "state, it cannot be referenced" %
+                       (ref_type.replace('_', ' ').title(),
+                        ':'.join(ref['fq_name']), ref_uuid))
+                return False, (400, msg)
+        return True, ''
+
+    @classmethod
     def pending_dbe_create(cls, obj_dict):
         return True, ''
 
@@ -577,6 +621,7 @@ class SecurityResourceBase(Resource):
                 return False, (400, msg)
             except cfgm_common.exceptions.NoIdError as e:
                 pass
+
         obj_dict['parent_type'] = PolicyManagementServer.resource_type
         obj_dict['parent_uuid'] = draft_pm['uuid']
         obj_dict.pop('fq_name', None)
