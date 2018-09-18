@@ -5200,15 +5200,22 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
             if 'logical_interface_vlan_tag' in read_result:
                 if int(vlan) != int(read_result.get('logical_interface_vlan_tag')):
                     return (False, (403, "Cannot change Vlan id"))
-            else:
-                obj_dict['display_name'] = read_result.get('display_name')
-                obj_dict['fq_name'] = read_result['fq_name']
-                obj_dict['parent_type'] = read_result['parent_type']
-                ok, result = PhysicalInterfaceServer._check_interface_name(obj_dict,
-                                                                           db_conn,
-                                                                           vlan)
-                if not ok:
-                    return ok, result
+
+        if vlan == None:
+            vlan = read_result.get('logical_interface_vlan_tag')
+
+        obj_dict['display_name'] = read_result.get('display_name')
+        obj_dict['fq_name'] = read_result['fq_name']
+        obj_dict['parent_type'] = read_result['parent_type']
+        if 'logical_interface_type' not in obj_dict:
+            existing_li_type = read_result.get('logical_interface_type')
+            if existing_li_type:
+                obj_dict['logical_interface_type'] = existing_li_type
+        ok, result = PhysicalInterfaceServer._check_interface_name(obj_dict,
+                                                                   db_conn,
+                                                                   vlan)
+        if not ok:
+            return ok, result
 
         ok, result = cls._check_esi(obj_dict, db_conn,
                                     read_result.get('logical_interface_vlan_tag'),
@@ -5429,9 +5436,11 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
         # In case of QFX, check that VLANs 1, 2 and 4094 are not used
         product_name = physical_router.get('physical_router_product_name') or ""
         if product_name.lower().startswith("qfx") and vlan_tag != None:
-            if vlan_tag == 1 or vlan_tag == 2 or vlan_tag == 4094:
-                return (False, (403, "Vlan id " + str(vlan_tag) + " is not allowed on QFX"))
-
+            li_type = obj_dict.get('logical_interface_type', '').lower()
+            if li_type =='l2' and vlan_tag in constants.RESERVED_QFX_L2_VLAN_TAGS:
+                return (False, (403, "Vlan ids " + str(constants.RESERVED_QFX_L2_VLAN_TAGS) +
+                                " are not allowed on QFX"
+                                " logical interface type: " + li_type))
         for physical_interface in physical_router.get('physical_interfaces') or []:
             # Read only the display name of the physical interface
             (ok, interface_object) = cls.dbe_read(db_conn,
@@ -5469,9 +5478,10 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
                 # check vlan tags on the same physical interface
                 if 'logical_interface_vlan_tag' in li_object:
                     if vlan_tag == int(li_object['logical_interface_vlan_tag']):
-                        return (False, (403, "Vlan tag  " + str(vlan_tag) +
-                                        " already used in another "
-                                        "interface : " + li_object['uuid']))
+                        if li_object['uuid'] != obj_dict['uuid']:
+                            return (False, (403, "Vlan tag  " + str(vlan_tag) +
+                                            " already used in another "
+                                            "interface : " + li_object['uuid']))
 
         return True, ""
     # end _check_interface_name
@@ -6298,3 +6308,4 @@ class RoutingPolicyServer(Resource, RoutingPolicy):
             return False, (400, msg)
         return True, ""
 # end class RoutingPolicyServer
+
