@@ -62,6 +62,7 @@ class JobManager(object):
             self._logger.debug("Device data is not passed from api server.")
 
         self.auth_token = job_input_json['auth_token']
+        self.api_server_host = job_input_json['api_server_host']
 
         self.sandesh_args = job_input_json['args']
         self.max_job_task = self.job_log_utils.args.max_job_task
@@ -74,7 +75,8 @@ class JobManager(object):
                                  self.job_template, self.job_execution_id,
                                  self.job_data,
                                  self.job_utils, self.device_json,
-                                 self.auth_token, self.job_log_utils,
+                                 self.auth_token, self.api_server_host,
+                                 self.job_log_utils,
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq)
@@ -328,6 +330,7 @@ if __name__ == "__main__":
     vnc_api = None
     try:
         auth_token = job_input_json['auth_token']
+
         vnc_api = VncApi(auth_token=auth_token)
         logger.info("VNC api is initialized using the auth token passed.")
     except Exception as exp:
