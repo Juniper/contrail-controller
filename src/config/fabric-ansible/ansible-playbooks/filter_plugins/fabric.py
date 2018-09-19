@@ -16,6 +16,8 @@ from functools import reduce
 from netaddr import IPNetwork
 import jsonschema
 
+from job_manager.job_utils import JobVncApi
+
 from cfgm_common.exceptions import (
     RefsExistError,
     NoIdError
@@ -226,10 +228,11 @@ class FilterModule(object):
             }
         :return: VncApi
         """
-        return VncApi(
-            auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
-            auth_token=job_ctx.get('auth_token')
-        )
+        # return VncApi(
+        #     auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+        #     auth_token=job_ctx.get('auth_token')
+        # )
+        return JobVncApi.vnc_init(job_ctx)
     # end _init_vnc_api
 
     @staticmethod
