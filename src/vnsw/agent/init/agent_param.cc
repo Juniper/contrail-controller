@@ -543,6 +543,8 @@ void AgentParam::ParseTaskSection() {
                                     "TASK.tbb_keepawake_timeout")) {
         tbb_keepawake_timeout_ = Agent::kDefaultTbbKeepawakeTimeout;
     }
+    GetValueFromTree<uint32_t>(task_monitor_timeout_msec_,
+                               "TASK.task_monitor_timeout");
 }
 
 void AgentParam::ParseMetadataProxy() {
