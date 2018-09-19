@@ -192,6 +192,7 @@ public:
     bool IsDnsHandlerInUse(DnsHandler *handler);
     DnsHandler *GetDnsQueryHandler(uint16_t xid);
     bool BuildDefaultServerList();
+    DefaultServerList BuildDefaultServerListImpl();
     DefaultServerList GetDefaultServerList();
 
     void AddDnsQueryIndex(uint16_t xid, int16_t srv_idx);
