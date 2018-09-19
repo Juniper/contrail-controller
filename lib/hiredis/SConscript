@@ -8,7 +8,7 @@ hiredis_path = '#/third_party/hiredis-0.11.0'
 hiredis_asio_adapter_path = '#/third_party/hiredis-boostasio-adapter'
 
 include = [ third_party_path, hiredis_path, hiredis_path + '/adapters',
-        '#/build/include', '#/third_party/tbb40_20111130oss/include' ]
+        '#/build/include', '#/third_party/tbb-2018_U5/include' ]
 
 env.Append(CPPPATH = include)
 env.Append(CCFLAGS = ['-g'])
