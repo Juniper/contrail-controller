@@ -101,6 +101,8 @@ SHOW_IF_DISABLED = {
                        'contrail-vrouter-dpdk': False
                    }
 
+CONTRAIL_SERVICES_PIDS = { 'contrail-database': '/var/run/cassandra/cassandra.pid' }
+
 (distribution, os_version, os_id) = \
     platform.linux_distribution(full_distribution_name=0)
 distribution = distribution.lower()
@@ -327,15 +329,34 @@ def service_bootstatus(svc, initd_svc):
             return ' (disabled on boot)'
  # end service_bootstatus
 
+def check_process(pid_file):
+    """ Check For the existence of a unix pid. """
+    try:
+        with open(pid_file, 'r') as fpid:
+            pid = fpid.read()
+            os.kill(int(pid), 0)
+    except:
+        return False
+    else:
+        return True
+ # end check_pid
+
+def check_by_pid(svc):
+    res = 'inactive'
+    pid_file = CONTRAIL_SERVICES_PIDS.get(svc, None)
+    if pid_file and check_process(pid_file):
+        res = 'active'
+    return res
+
 def service_status(svc, check_return_code):
     cmd = 'service ' + svc + ' status'
     p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
     cmdout = p.communicate()[0]
     if check_return_code:
-        if p.returncode == 0 or 'Active: active' in cmdout:
+        if p.returncode == 0 or 'Active: active (running)' in cmdout:
             return 'active'
         else:
-            return 'inactive'
+            return check_by_pid(svc)
     if cmdout.find('running') != -1:
         return 'active'
     else:
@@ -774,7 +795,7 @@ def main():
     kubemanager = package_installed('contrail-kube-manager')
 
     # analytics-standalone
-    # check if config, control, webui services are enabled 
+    # check if config, control, webui services are enabled
     config_enabled = service_enabled('config')
     control_enabled = service_enabled('control')
     webui_enabled = service_enabled('webui')
