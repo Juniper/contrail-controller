@@ -2291,6 +2291,36 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error10) {
     }
 }
 
+class EvpnSelectiveMulticastPrefixTest : public EvpnPrefixTest {
+};
+
+TEST_F(EvpnSelectiveMulticastPrefixTest, BuildPrefix1) {
+    boost::system::error_code ec;
+    RouteDistinguisher rd(RouteDistinguisher::FromString("10.1.1.1:65535"));
+    Ip4Address ip4_addr = Ip4Address::from_string("192.1.1.1", ec);
+    string source_string = "-10.1.1.1";
+    Ip4Address source = Ip4Address::from_string("10.1.1.1", ec);
+    string group_string = "-232.1.1.1";
+    Ip4Address group = Ip4Address::from_string("232.1.1.1", ec);
+
+    string temp1("6-10.1.1.1:65535-");
+    string temp2("-192.1.1.1");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        EvpnPrefix prefix(rd, tag, source, group, ip4_addr);
+        string prefix_str = temp1 + integerToString(tag) + source_string +
+                            group_string + temp2;
+        EXPECT_EQ(prefix_str, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::SelectiveMulticastRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET, prefix.family());
+        EXPECT_EQ("192.1.1.1", prefix.ip_address().to_string());
+        EXPECT_EQ("10.1.1.1", prefix.source().to_string());
+        EXPECT_EQ("232.1.1.1", prefix.group().to_string());
+    }
+}
+
 class EvpnInclusiveMulticastPrefixTest : public EvpnPrefixTest {
 };
 

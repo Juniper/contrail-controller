@@ -46,6 +46,8 @@ public:
 
     static size_t HashFunction(const EvpnPrefix &prefix);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    EvpnRoute *FindRoute(const EvpnPrefix &prefix);
+    const EvpnRoute *FindRoute(const EvpnPrefix &prefix) const;
 
     void CreateEvpnManager();
     void DestroyEvpnManager();

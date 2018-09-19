@@ -573,6 +573,150 @@ systemlog sandesh RprUnregTableLog {
 }
 
 /**
+ * @description Evpn route message log
+ * @severity: UT_DEBUG
+ */
+traceobject sandesh RoutingInstanceEvpnRoute {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+    10: "Route";
+    11: string route;
+    12: string Message;
+}
+
+/**
+ * @description Evpn route message trace
+ * @severity: UT_DEBUG
+ */
+systemlog sandesh RoutingInstanceEvpnRouteLog {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+    10: "Route";
+    11: string route;
+    12: string Message;
+}
+
+/**
+ * @description Evpn ErmVpn route message log
+ * @severity: UT_DEBUG
+ */
+traceobject sandesh RoutingInstanceEvpnErmVpnRoute {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+    10: "Route";
+    11: string route;
+    12: string Message;
+}
+
+/**
+ * @description Evpn ErmVpn route message trace
+ * @severity: UT_DEBUG
+ */
+systemlog sandesh RoutingInstanceEvpnErmVpnRouteLog {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+    10: "Route";
+    11: string route;
+    12: string Message;
+}
+
+/**
+ * @description EvpnState creation message trace
+ * @severity: UT_DEBUG
+ */
+traceobject sandesh RoutingInstanceEvpnStateCreate {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+}
+
+/**
+ * @description EvpnState creation message log
+ * @severity: UT_DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
+ */
+systemlog sandesh RoutingInstanceEvpnStateCreateLog {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+}
+
+/**
+ * @description EvpnState deletion message trace
+ * @severity: UT_DEBUG
+ */
+traceobject sandesh RoutingInstanceEvpnStateDelete {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+}
+
+/**
+ * @description EvpnState deletion message log
+ * @severity: UT_DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
+ */
+systemlog sandesh RoutingInstanceEvpnStateDeleteLog {
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "RoutingInstance";
+    4 : string instance_name;
+    5 : ":";
+    6 : "Source";
+    7 : string source;
+    8 : "Group";
+    9 : string group;
+}
+
+/**
  * @description Mvpn route message log
  * @severity: UT_DEBUG
  */

@@ -244,6 +244,14 @@ public:
                (val[1] == BgpExtendedCommunityEvpnSubType::ETree);
     }
 
+    static bool is_multicast_flags(const ExtCommunityValue &val) {
+        //
+        // Multicast Flags extended community
+        //
+        return (val[0] == BgpExtendedCommunityType::Evpn) &&
+               (val[1] == BgpExtendedCommunityEvpnSubType::MulticastFlags);
+    }
+
 
     static bool is_router_mac(const ExtCommunityValue &val) {
         //
@@ -363,6 +371,7 @@ private:
     void Append(const ExtCommunityValue &value);
     void Append(const ExtCommunityList &list);
     void Remove(const ExtCommunityList &list);
+    void RemoveMFlags();
     void RemoveRTarget();
     void RemoveSGID();
     void RemoveTag();
@@ -419,6 +428,8 @@ public:
     ExtCommunityPtr RemoveAndLocate(const ExtCommunity *src,
         const ExtCommunity::ExtCommunityList &list);
 
+    ExtCommunityPtr ReplaceMFlagsAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityList &export_list);
     ExtCommunityPtr ReplaceRTargetAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &export_list);
     ExtCommunityPtr ReplaceSGIDListAndLocate(const ExtCommunity *src,

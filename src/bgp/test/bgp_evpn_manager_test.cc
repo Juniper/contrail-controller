@@ -1573,25 +1573,49 @@ protected:
     size_t GetPartitionLocalSize(uint32_t tag) {
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
-        return partition->local_mcast_node_list_.size();
+        EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
+                      partition->local_mcast_node_list().begin();
+        int count = 0;
+        for (; it != partition->local_mcast_node_list().end(); it++) {
+           count += it->second.size(); 
+        }
+        return count;
     }
 
     size_t GetPartitionRemoteSize(uint32_t tag) {
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
-        return partition->remote_mcast_node_list_.size();
+        EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
+                      partition->remote_mcast_node_list().begin();
+        int count = 0;
+        for (; it != partition->remote_mcast_node_list().end(); it++) {
+           count += it->second.size(); 
+        }
+        return count;
     }
 
     size_t GetPartitionLeafSize(uint32_t tag) {
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
-        return partition->leaf_node_list_.size();
+        EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
+                      partition->leaf_node_list().begin();
+        int count = 0;
+        for (; it != partition->leaf_node_list().end(); it++) {
+           count += it->second.size(); 
+        }
+        return count;
     }
 
     size_t GetPartitionReplicatorSize(uint32_t tag) {
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
-        return partition->replicator_node_list_.size();
+        EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
+                      partition->replicator_node_list_.begin();
+        int count = 0;
+        for (; it != partition->replicator_node_list_.end(); it++) {
+           count += it->second.size(); 
+        }
+        return count;
     }
 
     EventManager evm_;

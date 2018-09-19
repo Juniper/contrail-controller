@@ -218,6 +218,8 @@ vector<string> BgpPath::GetFlagsStringList() const {
         flags.push_back(ClusterListLooped);
     if (flags_ & AliasedPath)
         flags.push_back(AliasedPath);
+    if (flags_ & CheckGlobalErmVpnRoute)
+        flags.push_back(CheckGlobalErmVpnRoute);
 
     BOOST_FOREACH(PathFlag flag, flags) {
         switch (flag) {
@@ -253,6 +255,9 @@ vector<string> BgpPath::GetFlagsStringList() const {
             break;
         case AliasedPath:
             flag_names.push_back("AliasedPath");
+            break;
+        case CheckGlobalErmVpnRoute:
+            flag_names.push_back("CheckGlobalErmVpnRoute");
             break;
         }
     }

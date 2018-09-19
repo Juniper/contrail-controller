@@ -1483,6 +1483,7 @@ TEST_F(BgpRouteTest, PathFlagsStringListAll) {
         ("LlgrStale")
         ("ClusterListLooped")
         ("AliasedPath")
+        ("CheckGlobalErmVpnRoute")
     ;
     EXPECT_EQ(expected, BgpPath(BgpPath::None, NULL, ~0, 0, 0).
                             GetFlagsStringList());

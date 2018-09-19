@@ -24,12 +24,16 @@ class BgpPath;
 class DBTablePartition;
 class DBTablePartBase;
 class EvpnRoute;
+class ErmVpnRoute;
+class EvpnState;
 class EvpnTable;
+class ErmVpnTable;
 class EvpnManagerPartition;
 class EvpnManager;
 class ShowEvpnTable;
 struct UpdateInfo;
 
+typedef boost::intrusive_ptr<EvpnState> EvpnStatePtr;
 //
 // This is the base class for a multicast node in an EVPN instance. The node
 // could either represent a local vRouter that's connected to a control node
@@ -49,11 +53,15 @@ public:
 
     EvpnMcastNode(EvpnManagerPartition *partition, EvpnRoute *route,
         uint8_t type);
+    EvpnMcastNode(EvpnManagerPartition *partition, EvpnRoute *route,
+        uint8_t type, EvpnStatePtr state);
     ~EvpnMcastNode();
 
     bool UpdateAttributes(EvpnRoute *route);
     virtual void TriggerUpdate() = 0;
 
+    EvpnStatePtr state() { return state_; };
+    void set_state(EvpnStatePtr state) { state_ = state; };
     EvpnRoute *route() { return route_; }
     uint8_t type() const { return type_; }
     const BgpAttr *attr() const { return attr_.get(); }
@@ -72,6 +80,7 @@ public:
 
 protected:
     EvpnManagerPartition *partition_;
+    EvpnStatePtr state_;
     EvpnRoute *route_;
     uint8_t type_;
     BgpAttrPtr attr_;
@@ -108,6 +117,8 @@ private:
 class EvpnLocalMcastNode : public EvpnMcastNode {
 public:
     EvpnLocalMcastNode(EvpnManagerPartition *partition, EvpnRoute *route);
+    EvpnLocalMcastNode(EvpnManagerPartition *partition, EvpnRoute *route,
+                       EvpnStatePtr state);
     virtual ~EvpnLocalMcastNode();
 
     virtual void TriggerUpdate();
@@ -135,6 +146,8 @@ private:
 class EvpnRemoteMcastNode : public EvpnMcastNode {
 public:
     EvpnRemoteMcastNode(EvpnManagerPartition *partition, EvpnRoute *route);
+    EvpnRemoteMcastNode(EvpnManagerPartition *partition, EvpnRoute *route,
+                        EvpnStatePtr state);
     virtual ~EvpnRemoteMcastNode();
 
     virtual void TriggerUpdate();
@@ -256,6 +269,100 @@ private:
     DISALLOW_COPY_AND_ASSIGN(EvpnMacState);
 };
 
+// This class holds Evpn state for a particular <S,G> at any given time.
+//
+// In Evpn state machinery, different types of routes are sent and received at
+// different phases of processing. This class holds all relevant information
+// associated with an <S,G>.
+//
+// This is a refcounted class which is referred by DB States of different
+// routes. When the refcount reaches 0, (last referring db state is deleted),
+// this object is deleted from the container map and then destroyed.
+//
+// global_ermvpn_tree_rt_
+//     This is a reference to GlobalErmVpnRoute associated with the ErmVpnTree
+//     used in the data plane for this <S,G>. This route is created/updated
+//     when ErmVpn notifies changes to ermvpn routes.
+//
+// states_
+//     This is the parent map that holds 'this' EvpnState pointer as the value
+//     for the associated SG key. When the refcount reaches zero, it indicates
+//     that there is no reference to this state from of the DB States associated
+//     with any Evpn route. Hence at that time, this state is removed this map
+//     states_ and destroyed. This map actually sits inside the associated
+//     EvpnProjectManagerParitition object.
+class EvpnState {
+public:
+    typedef std::set<EvpnRoute *> RoutesSet;
+    typedef std::map<EvpnRoute *, BgpAttrPtr> RoutesMap;
+
+    // Simple structure to hold <S,G>. Source as "0.0.0.0" can be used to encode
+    // <*,G> as well.
+    struct SG {
+        SG(const Ip4Address &source, const Ip4Address &group);
+        SG(const IpAddress &source, const IpAddress &group);
+        explicit SG(const ErmVpnRoute *route);
+        explicit SG(const EvpnRoute *route);
+        bool operator<(const SG &other) const;
+
+        IpAddress source;
+        IpAddress group;
+    };
+
+    typedef std::map<SG, EvpnState *> StatesMap;
+    EvpnState(const SG &sg, StatesMap *states, EvpnManager* manager);
+
+    virtual ~EvpnState();
+    const SG &sg() const;
+    ErmVpnRoute *global_ermvpn_tree_rt();
+    const ErmVpnRoute *global_ermvpn_tree_rt() const;
+    void set_global_ermvpn_tree_rt(ErmVpnRoute *global_ermvpn_tree_rt);
+    RoutesSet &smet_routes() { return smet_routes_; }
+    const RoutesSet &smet_routes() const { return smet_routes_; }
+    const StatesMap *states() const { return states_; }
+    StatesMap *states() { return states_; }
+    EvpnManager *manager() { return manager_; }
+    const EvpnManager *manager() const { return manager_; }
+    int refcount() const { return refcount_; }
+
+private:
+    friend class EvpnMcastNode;
+    friend class EvpnManagerPartition;
+    friend void intrusive_ptr_add_ref(EvpnState *evpn_state);
+    friend void intrusive_ptr_release(EvpnState *evpn_state);
+
+    const ErmVpnTable *table() const;
+
+    SG sg_;
+    ErmVpnRoute *global_ermvpn_tree_rt_;
+    RoutesSet smet_routes_;
+    StatesMap *states_;
+    EvpnManager *manager_;
+    tbb::atomic<int> refcount_;
+
+    DISALLOW_COPY_AND_ASSIGN(EvpnState);
+};
+
+// This class holds a reference to EvpnState along with associated route
+// pointer. This is stored as DBState inside the table along with the
+// associated route.
+//
+// Note: Routes are never deleted until the DB state is deleted. MvpnState which
+// is refcounted is also deleted only when there is no EvpnDBState that refers
+// to it.
+struct EvpnDBState : public EvpnMcastNode {
+    explicit EvpnDBState(EvpnManagerPartition *partition, EvpnStatePtr state);
+    ~EvpnDBState();
+    EvpnStatePtr state();
+    void set_state(EvpnStatePtr state);
+    virtual void TriggerUpdate();
+
+private:
+    EvpnStatePtr state_;
+
+    DISALLOW_COPY_AND_ASSIGN(EvpnDBState);
+};
+
 //
 // This class represents a partition in the EvpnManager.
 //
@@ -269,7 +376,8 @@ private:
 //
 class EvpnManagerPartition {
 public:
-    typedef std::set<EvpnMcastNode *> EvpnMcastNodeList;
+    typedef EvpnState::SG SG;
+    typedef std::map<SG, std::set<EvpnMcastNode *> > EvpnMcastNodeList;
 
     EvpnManagerPartition(EvpnManager *evpn_manager, size_t part_id);
     ~EvpnManagerPartition();
@@ -278,9 +386,11 @@ public:
     void NotifyNodeRoute(EvpnMcastNode *node);
     void NotifyReplicatorNodeRoutes();
     void NotifyIrClientNodeRoutes(bool exclude_edge_replication_supported);
-    void AddMcastNode(EvpnMcastNode *node);
-    void DeleteMcastNode(EvpnMcastNode *node);
-    void UpdateMcastNode(EvpnMcastNode *node);
+    void AddMcastNode(EvpnMcastNode *node, EvpnRoute *route);
+    void DeleteMcastNode(EvpnMcastNode *node, EvpnRoute *route);
+    void UpdateMcastNode(EvpnMcastNode *node, EvpnRoute *route);
+    bool RemoveMcastNodeFromList(EvpnState::SG &sg, EvpnMcastNode *node,
+                                 EvpnMcastNodeList *list);
     void TriggerMacRouteUpdate(EvpnRoute *route);
 
     bool empty() const;
@@ -307,8 +417,22 @@ private:
     void DisableMacUpdateProcessing();
     void EnableMacUpdateProcessing();
 
+    //EvpnStatePtr GetState(EvpnRoute *route);
+    //EvpnStatePtr GetState(EvpnRoute *route) const;
+    EvpnStatePtr GetState(const SG &sg);
+    EvpnStatePtr GetState(const SG &sg) const;
+    EvpnStatePtr GetState(EvpnRoute *route);
+    EvpnStatePtr LocateState(EvpnRoute *route);
+    EvpnStatePtr LocateState(const SG &sg);
+    EvpnStatePtr CreateState(const SG &sg);
+    const EvpnState::StatesMap &states() const { return states_; }
+    EvpnState::StatesMap &states() { return states_; }
+    //void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
+    bool GetForestNodeAddress(ErmVpnRoute *rt, Ip4Address *address) const;
+
     EvpnManager *evpn_manager_;
     size_t part_id_;
+    EvpnState::StatesMap states_;;
     DBTablePartition *table_partition_;
     EvpnMcastNodeList local_mcast_node_list_;
     EvpnMcastNodeList remote_mcast_node_list_;
@@ -381,7 +505,10 @@ public:
     BgpServer *server();
     EvpnTable *table() { return table_; }
     const EvpnTable *table() const { return table_; }
+    ErmVpnTable *ermvpn_table() { return ermvpn_table_; }
+    const ErmVpnTable *ermvpn_table() const { return ermvpn_table_; }
     int listener_id() const { return listener_id_; }
+    int ermvpn_listener_id() const { return ermvpn_listener_id_; }
 
     EvpnSegment *LocateSegment(const EthernetSegmentId &esi);
     EvpnSegment *FindSegment(const EthernetSegmentId &esi);
@@ -411,9 +538,13 @@ private:
         EvpnRoute *route);
     void InclusiveMulticastRouteListener(EvpnManagerPartition *partition,
         EvpnRoute *route);
+    void SelectiveMulticastRouteListener(EvpnManagerPartition *partition,
+        EvpnRoute *route);
     void RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry);
+    void ErmVpnRouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry);
     bool ProcessSegmentDeleteSet();
     bool ProcessSegmentUpdateSet();
+    bool IsUsableGlobalTreeRootRoute(ErmVpnRoute *ermvpn_route) const;
 
     void DisableSegmentUpdateProcessing();
     void EnableSegmentUpdateProcessing();
@@ -423,7 +554,9 @@ private:
     void EnableMacUpdateProcessing();
 
     EvpnTable *table_;
+    ErmVpnTable *ermvpn_table_;
     int listener_id_;
+    int ermvpn_listener_id_;
     PartitionList partitions_;
     tbb::spin_rw_mutex segment_rw_mutex_;
     SegmentMap segment_map_;
@@ -437,5 +570,54 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(EvpnManager);
 };
+
+// Increment refcont atomically.
+inline void intrusive_ptr_add_ref(EvpnState *evpn_state) {
+    evpn_state->refcount_.fetch_and_increment();
+}
+
+// Decrement refcount of an evpn_state. If the refcount falls to 1, it implies
+// that there is no more reference to this particular state from any other data
+// structure. Hence, it can be deleted from the container map and destroyed as
+// well.
+inline void intrusive_ptr_release(EvpnState *evpn_state) {
+    int prev = evpn_state->refcount_.fetch_and_decrement();
+    if (prev > 1)
+        return;
+    if (evpn_state->states()) {
+        EvpnState::StatesMap::iterator iter =
+            evpn_state->states()->find(evpn_state->sg());
+        if (iter != evpn_state->states()->end()) {
+            assert(iter->second == evpn_state);
+            evpn_state->states()->erase(iter);
+
+            // Attempt project manager deletion as it could be held up due to
+            // this map being non-empty so far..
+            if (evpn_state->manager()->deleter()->IsDeleted())
+                evpn_state->manager()->deleter()->RetryDelete();
+        }
+    }
+    delete evpn_state;
+}
+
+#define EVPN_RT_LOG(rt, ...) \
+    RTINSTANCE_LOG(EvpnRoute, this->table()->routing_instance(), \
+                   SandeshLevel::UT_DEBUG, \
+                   RTINSTANCE_LOG_FLAG_ALL, \
+                   (rt)->GetPrefix().source().to_string(), \
+                   (rt)->GetPrefix().group().to_string(), \
+                   (rt)->ToString(), ##__VA_ARGS__)
+
+#define EVPN_ERMVPN_RT_LOG(rt, ...) \
+    RTINSTANCE_LOG(EvpnErmVpnRoute, this->table()->routing_instance(), \
+                   SandeshLevel::UT_DEBUG, \
+                   RTINSTANCE_LOG_FLAG_ALL, \
+                   (rt)->GetPrefix().source().to_string(), \
+                   (rt)->GetPrefix().group().to_string(), \
+                   (rt)->ToString(), ##__VA_ARGS__)
+
+#define EVPN_TRACE(type, ...) \
+    RTINSTANCE_LOG(type, this->table()->routing_instance(), \
+        SandeshLevel::UT_DEBUG, RTINSTANCE_LOG_FLAG_ALL, ##__VA_ARGS__)
 
 #endif  // SRC_BGP_BGP_EVPN_H_
