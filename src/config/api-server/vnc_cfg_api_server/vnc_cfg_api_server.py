@@ -615,6 +615,18 @@ class VncApiServer(object):
             auth_token = get_request().get_header('X-Auth-Token')
             request_params['auth_token'] = auth_token
 
+            #read api_server_host list
+            config_parser = ConfigParser.ConfigParser()
+            try:
+                config_parser.read("/etc/contrail/vnc_api_lib.ini")
+            except Exception as e:
+                self.config_log("Exception: %s" % str(e),
+                                level=SandeshLevel.SYS_NOTICE)
+
+            list_of_hosts = config_parser.get('global', 'WEB_SERVER')
+            api_server_host = list_of_hosts.split(',')
+            request_params['api_server_host'] = api_server_host
+
             # pass the required config args to job manager
             job_args = {'collectors': self._args.collectors,
                         'fabric_ansible_conf_file':

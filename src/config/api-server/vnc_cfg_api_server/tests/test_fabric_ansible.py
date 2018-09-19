@@ -11,6 +11,7 @@ import subprocess
 from flexmock import flexmock
 import json
 import uuid
+import ConfigParser
 
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_test import *
@@ -40,8 +41,11 @@ class TestExecuteJob(test_case.ApiServerTestCase):
 
     def test_execute_job(self):
         # mock the call to invoke the job manager
+        config_dict = {'global': 'WEB_SERVER'}
         fake_process = flexmock(pid=123)
         flexmock(subprocess).should_receive('Popen').and_return(fake_process)
+        flexmock(ConfigParser).should_receive('ConfigParser').and_return(
+            config_dict)
 
         # create the job_template
         job_template_object = JobTemplate(
