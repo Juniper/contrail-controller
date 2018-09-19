@@ -22,6 +22,11 @@ SandeshGenFiles = env.SandeshGenCpp('services.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
+if platform.system() == 'Windows':
+    platform_dependent = 'windows/default_dns_list_builder.cc'
+else:
+    platform_dependent = 'linux/default_dns_list_builder.cc'
+
 libservices = env.Library('agent_services',
                      sandesh_objs +
                      [
@@ -51,6 +56,7 @@ libservices = env.Library('agent_services',
                       'metadata_proxy.cc',
                       'services_init.cc',
                       'services_sandesh.cc',
+                      platform_dependent,
                       ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
