@@ -21,6 +21,7 @@ job_ctx:
   config_args: "{{ playbook_input.args }}"
   job_input: "{{ playbook_input.input }}"
   auth_token: "{{ playbook_input.auth_token }}"
+  api_server_host: "{{ playbook_input.api_server_host }}"
   playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
   # This is used to demarcate the marked outputs from playbooks to the common
   # file
