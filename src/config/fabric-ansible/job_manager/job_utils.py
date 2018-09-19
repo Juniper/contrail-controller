@@ -5,7 +5,10 @@
 """
 Contains utility functions used by the job manager
 """
+import random
 from enum import Enum
+
+from vnc_api.vnc_api import VncApi
 
 from job_exception import JobException
 from job_messages import MsgBundle
@@ -17,6 +20,15 @@ class JobStatus(Enum):
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
 
+class JobVncApi(object):
+    @staticmethod
+    def vnc_init(job_ctx):
+        host = random.choice(job_ctx.get('api_server_host'))
+        return VncApi(
+            api_server_host=host,
+            auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+            auth_token=job_ctx.get('auth_token')
+        )
 
 class JobUtils(object):
 
