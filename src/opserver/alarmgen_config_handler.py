@@ -69,9 +69,10 @@ class AlarmGenConfigHandler(ConfigHandler):
             try:
                 table = UVE_MAP[uve_type_name[0]]
             except KeyError:
-                self._logger.error('Invalid uve_key "%s" specified in '
-                    'alarm config "%s"' % (key, alarm_fqname))
-            else:
+                # Use the table name in the config, if there is no mapping
+                # in UVE_MAP
+                table = uve_type_name[0]
+            finally:
                 if len(uve_type_name) == 2:
                     uve_key = table+':'+uve_type_name[1]
                 else:
