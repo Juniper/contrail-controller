@@ -49,8 +49,7 @@ else:
     libs.append('pthread')
 
 common = DefaultEnvironment().Clone()
-
-if common['OPT'] == 'production' or common.UseSystemTBB():
+if common['OPT'] == 'production':
     libs.append('tbb')
 else:
     libs.append('tbb_debug')
