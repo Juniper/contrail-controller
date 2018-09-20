@@ -14,7 +14,7 @@
 
     - name: assign roles to the devices
       set_fact:
-        output: "{{ job_ctx | assign_roles(supported_roles) }}"
+        output: "{{ job_ctx | assign_roles }}"
 
     - block:
         - set_fact:
