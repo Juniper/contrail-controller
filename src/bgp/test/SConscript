@@ -424,7 +424,7 @@ for i in range(1, 11):
     gr_test = except_env.UnitTest("graceful_restart_flap_some_test" + str(i),
         ["graceful_restart_flap_some_test" + str(i) + ".cc"])
     env.Alias("src/bgp:graceful_restart_flap_some_test" + str(i), gr_test)
-    if i == 8:
+    if i == 3 || i == 8 || i == 9:
         graceful_restart_flaky_tests.append(gr_test)
     else:
         graceful_restart_tests.append(gr_test)
