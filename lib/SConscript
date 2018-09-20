@@ -36,6 +36,7 @@ else:
         'thrift',
         'openvswitch',
         'ipfix',
+        'tbb',
     ]
 
     (distname, version, _) = platform.dist()
@@ -49,10 +50,6 @@ else:
             'gperftools',
             'log4cplus',
         ]
-    elif distname == 'fedora' and LooseVersion(version) >= LooseVersion('20'):
-        pass
-    elif distname == 'SuSE' and LooseVersion(version) >= LooseVersion('12'):
-        subdirs += ['tbb']
     else:
         subdirs += [
             'boost',
@@ -60,7 +57,6 @@ else:
             'gperftools',
             'libxml2',
             'log4cplus',
-            'tbb',
             'icu',
         ]
 
