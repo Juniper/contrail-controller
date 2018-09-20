@@ -345,6 +345,8 @@ void AgentParam::ParseQueue() {
             }
         }
     }
+    GetValueFromTree<uint32_t>(task_monitor_timeout_msec_,
+                               "TASK.task_monitor_timeout");
 }
 
 void AgentParam::ParseSessionDestinationArguments
