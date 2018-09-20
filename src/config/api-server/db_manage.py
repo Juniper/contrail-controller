@@ -38,12 +38,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.5"
+__version__ = "1.6"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.6:
+  - fix issue in 'clean_subnet_addr_alloc' method with IPv6 subnet
 * 1.5:
   - fix bug to identifying stale route target when it's a RT of a LR with a
     gateway
@@ -2146,8 +2148,7 @@ class DatabaseCleaner(DatabaseManager):
         extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
         for vn in extra_vn:
             for sn_key in zk_all_vns[vn]:
-                path = '%s/%s:%s' % (self.base_subnet_zk_path, vn,
-                                     str(IPNetwork(sn_key).network))
+                path = '%s/%s:%s' % (self.base_subnet_zk_path, vn, sn_key)
                 if not self._args.execute:
                     logger.info("Would delete zk: %s", path)
                 else:
@@ -2354,10 +2355,10 @@ class DatabaseHealer(DatabaseManager):
         fixups = {}
         for uuid, cols in uuid_table.get_range(
                 columns=['type', 'fq_name', 'prop:id_perms']):
-            type = json.loads(cols.get('type', ""))
-            fq_name = json.loads(cols.get('fq_name', ""))
+            type = json.loads(cols.get('type', 'null'))
+            fq_name = json.loads(cols.get('fq_name', 'null'))
             created_at = json.loads(cols['prop:id_perms']).get(
-                'created', 'unknown')
+                'created', '"unknown"')
             if not type:
                 logger.info("Unknown 'type' for object %s", uuid)
                 continue
