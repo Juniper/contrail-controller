@@ -19,8 +19,6 @@ import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
 import functools
-import logging
-import logging.config
 import signal
 import netaddr
 import os
@@ -39,8 +37,6 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import has_role
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
-
-logger = logging.getLogger(__name__)
 
 """
 Following is needed to silence warnings on every request when keystone
@@ -1503,10 +1499,6 @@ class VncApiServer(object):
         else:
             self.aaa_mode = "cloud-admin"
 
-        # set python logging level from logging_level cmdline arg
-        if not self._args.logging_conf:
-            logging.basicConfig(level = getattr(logging, self._args.logging_level))
-
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
 
@@ -2839,7 +2831,6 @@ class VncApiServer(object):
                                          --region_name RegionOne
                                          --log_local
                                          --log_level SYS_DEBUG
-                                         --logging_level DEBUG
                                          --logging_conf <logger-conf-file>
                                          --log_category test
                                          --log_file <stdout>
