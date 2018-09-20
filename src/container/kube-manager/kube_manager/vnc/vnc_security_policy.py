@@ -492,7 +492,8 @@ class VncSecurityPolicy(VncCommon):
 
     @classmethod
     def create_firewall_policy(cls, name, namespace, spec, tag_last=False,
-                               is_global=False, k8s_uuid=None):
+                               tag_after_tail=False, is_global=False,
+                               k8s_uuid=None):
 
         if not cls.cluster_aps_uuid:
             raise Exception("Cluster Application Policy Set not available.")
@@ -525,10 +526,18 @@ class VncSecurityPolicy(VncCommon):
             # If not modifications are found, return the uuid of policy.
             #
             curr_fw_policy = FirewallPolicyKM.locate(fw_policy_uuid)
-            if curr_fw_policy and curr_fw_policy.spec:
-                if curr_fw_policy.spec == json.dumps(spec):
-                    # Input spec is same as existing spec. Nothing to do.
-                    # Just return the uuid.
+            if curr_fw_policy:
+                reconfigure = False
+                if curr_fw_policy.spec and curr_fw_policy.spec != json.dumps(spec):
+                    reconfigure = True
+
+                if tag_last == True and not curr_fw_policy.is_tail():
+                    reconfigure = True
+
+                if tag_after_tail == True and not curr_fw_policy.is_after_tail():
+                    reconfigure = True
+
+                if reconfigure == False:
                     return fw_policy_uuid
 
                 # Get the current firewall rules on this policy.
@@ -546,6 +555,9 @@ class VncSecurityPolicy(VncCommon):
         # If yes, tag accordingly.
         if tag_last:
             custom_ann_kwargs['tail'] = "True"
+
+        if tag_after_tail:
+            custom_ann_kwargs['after_tail'] = "True"
 
         # Parse input spec and construct the list of rules for this FW policy.
         fw_rules = []
@@ -835,7 +847,14 @@ class VncSecurityPolicy(VncCommon):
         return cls.construct_sequence_number(sequence_num)
 
     @classmethod
-    def add_firewall_policy(cls, fw_policy_uuid, append_after_tail=False):
+    def lhs_before_rhs(cls, left, right):
+        if float(left) < float(right):
+            return True
+        return False
+
+    @classmethod
+    def add_firewall_policy(cls, fw_policy_uuid, append_after_tail=False,
+                            tail=False):
         if not cls.cluster_aps_uuid:
             raise Exception("Cluster Application Policy Set not available.")
 
@@ -848,10 +867,13 @@ class VncSecurityPolicy(VncCommon):
         except NoIdError:
             raise
 
-        last_obj = False
+        tail_obj = False
+        post_tail_obj = False
         last_entry_sequence = None
-        last_k8s_obj = None
-        last_k8s_obj_sequence = None
+        tail_k8s_obj = None
+        tail_k8s_obj_sequence = None
+        post_tail_k8s_obj_sequence = None
+        validate_curr_seq_num = None
         fw_policy_refs = aps_obj.get_firewall_policy_refs()
         for fw_policy in fw_policy_refs if fw_policy_refs else []:
             try:
@@ -861,12 +883,19 @@ class VncSecurityPolicy(VncCommon):
                 # TBD Error handling.
                 pass
 
-            # Return if the firewall policy is already found on this APS.
+            # If firewall policy is already found on this APS, validate that it
+            # is in the expected sequence on the APS.
             if new_fw_policy_obj.get_fq_name() == fw_policy_obj.get_fq_name():
-                return
+                if append_after_tail == False and tail == False:
+                    # No special sequencing requested. Nothing more to verify.
+                    return
+                else:
+                    # Special sequencing is being requested. Proceed to validate.
+                    validate_curr_seq_num = fw_policy['attr'].get_sequence()
 
             k8s_obj = False
-            last_obj = False
+            tail_obj = False
+            post_tail_obj = False
 
             annotations = fw_policy_obj.get_annotations()
             if annotations:
@@ -874,20 +903,56 @@ class VncSecurityPolicy(VncCommon):
                     if kvp.key == 'owner' and kvp.value == 'k8s':
                         k8s_obj = True
                     elif kvp.key == 'tail' and kvp.value == 'True':
-                        last_obj = True
+                        tail_obj = True
+                    elif kvp.key == 'after_tail' and kvp.value == 'True':
+                        post_tail_obj = True
 
-            if k8s_obj and last_obj:
-                last_k8s_obj = fw_policy_obj
-                last_k8s_obj_sequence = fw_policy['attr'].get_sequence()
+            # Track the sequence number of "tail" object.
+            if k8s_obj and tail_obj:
+                tail_k8s_obj = fw_policy_obj
+                tail_k8s_obj_sequence = fw_policy['attr'].get_sequence()
 
-            if not last_entry_sequence:
-                last_entry_sequence = fw_policy['attr'].get_sequence()
-            elif float(last_entry_sequence) < float(fw_policy['attr'].get_sequence()):
+            # Track the sequence number of the first K8s object after "tail".
+            if k8s_obj and post_tail_obj:
+                if not post_tail_k8s_obj_sequence or\
+                  cls.lhs_before_rhs(fw_policy['attr'].get_sequence(),
+                                     post_tail_k8s_obj_sequence):
+                    post_tail_k8s_obj_sequence = fw_policy['attr'].get_sequence()
+
+            # Track the sequence number of last FW policy on this APS.
+            if not last_entry_sequence or\
+               cls.lhs_before_rhs(last_entry_sequence,
+                                  fw_policy['attr'].get_sequence()):
                    last_entry_sequence = fw_policy['attr'].get_sequence()
 
+        # Validate that sequence number of FWpolicy being added is as requested.
+        if validate_curr_seq_num:
+            # The object being added is already found on the APS.
+            # Validate that its position in the APS is as requested.
+
+            if append_after_tail == True and tail_k8s_obj_sequence:
+                # If being requested to add after tail, make sure that current
+                # sequence number if after "tail" object.
+                if cls.lhs_before_rhs(tail_k8s_obj_sequence, validate_curr_seq_num):
+                    return
+
+            elif tail == True and post_tail_k8s_obj_sequence:
+                # If being requested to add "tail" object, make sure that current
+                # sequence number if before all post "tail" objects.
+                if cls.lhs_before_rhs(validate_curr_seq_num, post_tail_k8s_obj_sequence):
+                    return
+
+            vnc_kube_config.logger().error(
+                 "%s - Validation of sequence number for existing Firewall Policy failed."
+                 " Policies will rearranged."
+                 " FWPolicy FQName[%s] Curr Seq Num [%s] append_after_tail[%s]"
+                 " tail [%s] Tail Obj Seq Num [%s] Post Tail Obj Seq Num [%s]"
+                     %(cls.name, new_fw_policy_obj.get_fq_name(), validate_curr_seq_num,
+                       str(append_after_tail), str(tail), tail_k8s_obj_sequence,
+                       post_tail_k8s_obj_sequence))
 
         #
-        # Determine the sequence number.
+        # Determine new the sequence number for the policy being added.
         #
 
         # Start with presumption that this is the first.
@@ -896,14 +961,14 @@ class VncSecurityPolicy(VncCommon):
             last_k8s_fw_policy_sequence = \
                 cls.construct_sequence_number(
                     float(last_entry_sequence) + float('1.0'))
-            if last_k8s_obj_sequence:
+            if tail_k8s_obj_sequence:
                 tail_sequence = cls._move_trailing_firewall_policies(aps_obj,
                                     last_k8s_fw_policy_sequence)
                 if append_after_tail:
                     sequence = cls.construct_sequence_number(
                         float(tail_sequence.get_sequence()))
                 else:
-                    sequence = FirewallSequence(sequence=last_k8s_obj_sequence)
+                    sequence = FirewallSequence(sequence=tail_k8s_obj_sequence)
                 # Move the existing last k8s FW policy to the end of the list.
             else:
                 sequence = last_k8s_fw_policy_sequence
@@ -1011,7 +1076,7 @@ class VncSecurityPolicy(VncCommon):
         if not cls.allow_all_fw_policy_uuid:
             allow_all_fw_policy_uuid =\
                 VncSecurityPolicy.create_firewall_policy("allowall",
-                 None, None, is_global=True)
+                    None, None, is_global=True, tag_after_tail=True)
             VncSecurityPolicy.add_firewall_policy(allow_all_fw_policy_uuid,
                                                   append_after_tail=True)
             cls.allow_all_fw_policy_uuid = allow_all_fw_policy_uuid
@@ -1019,10 +1084,12 @@ class VncSecurityPolicy(VncCommon):
     @classmethod
     def create_deny_all_security_policy(cls):
         if not cls.deny_all_fw_policy_uuid:
-            cls.deny_all_fw_policy_uuid =\
+            deny_all_fw_policy_uuid =\
                 VncSecurityPolicy.create_firewall_policy("denyall",
                  None, None, tag_last=True, is_global=True)
-            VncSecurityPolicy.add_firewall_policy(cls.deny_all_fw_policy_uuid)
+            VncSecurityPolicy.add_firewall_policy(deny_all_fw_policy_uuid,
+                                                  tail=True)
+            cls.deny_all_fw_policy_uuid = deny_all_fw_policy_uuid
 
     @classmethod
     def get_firewall_rule_uuid(cls, rule_name):
