@@ -59,7 +59,6 @@ def parse_args(args_str):
         'trace_file': '/var/log/contrail/vnc_openstack.err',
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
-        'logging_level': 'WARN',
         'logging_conf': '',
         'logger_class': None,
         'multi_tenancy': None,
@@ -229,10 +228,6 @@ def parse_args(args_str):
     parser.add_argument(
         "--log_level",
         help="Severity level for local logging of sandesh messages")
-    parser.add_argument(
-        "--logging_level",
-        help=("Log level for python logging: DEBUG, INFO, WARN, ERROR default: %s"
-              % defaults['logging_level']))
     parser.add_argument(
         "--logging_conf",
         help=("Optional logging configuration file, default: None"))
