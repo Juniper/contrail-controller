@@ -962,6 +962,10 @@ class AnsibleRoleCommon(AnsibleConf):
                                    'network_id': vn_obj.vn_network_id}
                         if is_internal_vn:
                             ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
+                            lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(vrf_name_l3)
+                            lr = LogicalRouterDM.get(lr_uuid)
+                            if lr:
+                                ri_conf['router_external'] = lr.logical_router_gateway_external
                         self.add_routing_instance(ri_conf)
                     break
 
