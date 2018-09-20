@@ -1368,7 +1368,7 @@ class FilterModule(object):
     # end delete_fabric
 
     # ***************** assign_roles filter ***********************************
-    def assign_roles(self, job_ctx, supported_roles):
+    def assign_roles(self, job_ctx):
         """
         :param job_ctx: Dictionary
             example:
@@ -1430,13 +1430,22 @@ class FilterModule(object):
                         'physical_router_vendor_name',
                         'physical_router_product_name',
                         'physical_interfaces',
-                        'fabric_refs'
+                        'fabric_refs',
+                        'node_profile_refs'
                     ]
                 )
                 device_roles['device_obj'] = device_obj
+                node_profile_refs = device_obj.get_node_profile_refs()
+                node_profile_fq_name = node_profile_refs[0].get('to')
+                node_profile_roles = vnc_api.node_profile_read(
+                    fq_name=node_profile_fq_name,
+                    fields=['node_profile_roles']
+                )
+                device_roles['supported_roles'] = \
+                    node_profile_roles.get_node_profile_roles().get('role_mappings')
 
             # validate role assignment against device's supported roles
-            self._validate_role_assignment(role_assignments, supported_roles)
+            self._validate_role_assignment(role_assignments)
 
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
@@ -1447,7 +1456,7 @@ class FilterModule(object):
                     vnc_api, device_obj
                 )
                 self._add_bgp_router(vnc_api, device_obj)
-                device_roles['device_obj'] = device_obj
+
 
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
@@ -1470,7 +1479,7 @@ class FilterModule(object):
     # end assign_roles
 
     @staticmethod
-    def _validate_role_assignment(role_assignments, supported_roles):
+    def _validate_role_assignment(role_assignments):
         """
         :param role_assignments: list<Dictionary>
             example:
@@ -1513,26 +1522,36 @@ class FilterModule(object):
 
             rb_roles = device_roles.get('routing_bridging_roles')
             if not rb_roles:
-                assigned_roles.append('null@%s' % phys_role)
-            else:
-                for rb_role in rb_roles:
-                    assigned_roles.append('%s@%s' % (rb_role, phys_role))
+                rb_roles = ['null']
+            # else:
+            #     for rb_role in rb_roles:
+            #         assigned_roles.append('%s@%s' % (rb_role, phys_role))
 
-            vendor_hardware = "%s-%s" % (
-                device_obj.physical_router_vendor_name.lower(),
-                device_obj.physical_router_product_name.lower()
-            )
-            for assigned_role in assigned_roles:
-                allowed_roles = supported_roles.get(vendor_hardware)
-                if assigned_role not in allowed_roles:
-                    raise ValueError(
-                        'role "%s" is not supported. Here are the '
-                        'supported roles on %s: %s' % (
-                            assigned_role,
-                            vendor_hardware,
-                            reduce(lambda x, y: "%s, %s" % (x, y), allowed_roles)
+            # vendor_hardware = "%s-%s" % (
+            #     device_obj.physical_router_vendor_name.lower(),
+            #     device_obj.physical_router_product_name.lower()
+            # )
+            supported_roles = device_obj.get('supported_roles')
+            for role in supported_roles:
+                if role.get('physical_role') == phys_role:
+                    if role.get('rb_roles') not in rb_roles:
+                        raise ValueError(
+                        'role "%s : %s" is not supported. Here are the '
+                        'supported roles : %s' % (phys_role, rb_roles,
+                            supported_roles)
                         )
-                    )
+
+            # for assigned_role in assigned_roles:
+            #     allowed_roles = supported_roles.get(vendor_hardware)
+            #     if assigned_role not in allowed_roles:
+            #         raise ValueError(
+            #             'role "%s" is not supported. Here are the '
+            #             'supported roles on %s: %s' % (
+            #                 assigned_role,
+            #                 vendor_hardware,
+            #                 reduce(lambda x, y: "%s, %s" % (x, y), allowed_roles)
+            #             )
+            #         )
     # end _validate_role_assignments
 
     @staticmethod
