@@ -78,7 +78,7 @@ class JuniperConf(DeviceConf):
     # end are_creds_modified
 
     def device_connect(self):
-        if not self._nc_manager:
+        if not self._nc_manager or not self.is_connected():
             try:
                 self._nc_manager = manager.connect(host=self.management_ip, port=22,
                              username=self.user_creds['username'],
@@ -100,7 +100,7 @@ class JuniperConf(DeviceConf):
                if self._logger:
                    self._logger.error("could not close the netconf session: "
                            " router %s: %s" % (self.management_ip, e.message))
-            self._nc_manager = None
+        self._nc_manager = None
     # end device_disconnect
 
     def is_connected(self):
