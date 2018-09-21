@@ -34,7 +34,7 @@ class JobResultHandler(object):
         self.playbook_output = None  # marked output from the playbook stdout
         self.percentage_completed = 0.0
 
-    def update_job_status(self, status, message=None, device_id=None):
+    def update_job_status(self, status, message=None, device_id=None, device_name=None):
         # update cummulative job status
         if self.job_result_status is None or \
                 self.job_result_status != JobStatus.FAILURE:
@@ -47,7 +47,8 @@ class JobResultHandler(object):
         # collect the result message
         if message is not None:
             if device_id is not None:
-                self.job_result.update({device_id: message})
+                self.job_result.update({device_id: {"message": message,
+                                                    "device_name": device_name}})
             else:
                 self.job_result_message = message
     # end update_job_status
@@ -98,14 +99,16 @@ class JobResultHandler(object):
         elif self.job_result_status == JobStatus.SUCCESS:
             job_summary_message += MsgBundle.getMessage(
                 MsgBundle.JOB_EXECUTION_COMPLETE)
-        # if len(self.job_result) > 0:
-        #     job_summary_message += MsgBundle.getMessage(
-        #         MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
-        # result_summary = ""
-        # for entry in self.job_result:
-        #     result_summary += \
-        #         "%s:%s \n" % (entry, self.job_result[entry])
-        # job_summary_message += result_summary
+        if len(self.job_result) > 0:
+            job_summary_message += MsgBundle.getMessage(
+                MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
+        result_summary = ""
+        for entry in self.job_result:
+            if entry in self.failed_device_jobs:
+                result_summary += \
+                    "%s:%s \n" % (self.job_result[entry]['device_name'],
+                                  self.job_result[entry]['message'])
+        job_summary_message += result_summary
 
         if self.job_result_message is not None:
             job_summary_message += self.job_result_message

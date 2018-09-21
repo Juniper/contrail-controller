@@ -46,7 +46,8 @@ class JobHandler(object):
         self._playbook_output = None
     # end __init__
 
-    def handle_job(self, result_handler, job_percent_per_task, device_id=None):
+    def handle_job(self, result_handler, job_percent_per_task,
+                   device_id=None, device_name=None):
         try:
             msg = "Starting playbook execution for job template %s with " \
                   "execution id %s" % (self._job_template.get_uuid(),
@@ -66,19 +67,20 @@ class JobHandler(object):
                 job_template_name=self._job_template.get_fq_name()[-1],
                 job_execution_id=self._execution_id)
             self._logger.debug(msg)
-            result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
+            result_handler.update_job_status(JobStatus.SUCCESS, msg,
+                                             device_id, device_name)
             self.update_result_handler(result_handler)
 
         except JobException as job_exp:
             self._logger.error("%s" % job_exp.msg)
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, job_exp.msg,
-                                             device_id)
+                                             device_id, device_name)
         except Exception as exp:
             self._logger.error("Error while executing job %s " % repr(exp))
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, exp.message,
-                                             device_id)
+                                             device_id, device_name)
     # end handle_job
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
@@ -356,6 +358,7 @@ class JobHandler(object):
             msg = MsgBundle.getMessage(MsgBundle.
                                        PLAYBOOK_EXIT_WITH_ERROR,
                                        playbook_uri=playbook_info['uri'])
+            msg = msg + "\n Error Message from playbook: %s" % self._playbook_output.get('message', "")
             raise JobException(msg, self._execution_id)
     # end run_playbook_process
 
