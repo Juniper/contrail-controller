@@ -950,11 +950,12 @@ class VncIngress(VncCommon):
         Create a FW policy to house all ingress-to-service rules.
         """
         if not VncSecurityPolicy.ingress_svc_fw_policy_uuid:
+            ingress_svc_fw_policy_uuid =\
+                VncSecurityPolicy.create_firewall_policy(self._k8s_event_type,
+                  None, None, is_global=True)
+            VncSecurityPolicy.add_firewall_policy(ingress_svc_fw_policy_uuid)
             VncSecurityPolicy.ingress_svc_fw_policy_uuid =\
-              VncSecurityPolicy.create_firewall_policy(self._k8s_event_type,
-                None, None, is_global=True)
-            VncSecurityPolicy.add_firewall_policy(
-                VncSecurityPolicy.ingress_svc_fw_policy_uuid)
+                ingress_svc_fw_policy_uuid
 
     @classmethod
     def _get_ingress_firewall_rule_name(cls, ns_name, ingress_name, svc_name):

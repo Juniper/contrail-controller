@@ -61,6 +61,7 @@ class VncKubernetesTest(unittest.TestCase):
         api.virtual_network_create(net)
 
     def tearDown(self):
+        vnc_kubernetes.VncKubernetes.reset()
         pass
 
     def verify_if_created(self, res_type, name, parent_fq_name):
