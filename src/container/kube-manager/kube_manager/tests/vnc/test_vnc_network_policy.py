@@ -861,3 +861,58 @@ class VncNetworkPolicyTest(KMTestCase):
             self._validate_network_policy_resources(np_name, np_uuid_dict[i],
                 np_spec, validate_delete=True)
 
+    def test_network_policy_ordering_resolve_during_modify(self):
+
+        # Check if we have a valid config to start with.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+
+        # Get deny-all object handle.
+        self.assertIsNotNone(VncSecurityPolicy.deny_all_fw_policy_uuid)
+        fw_policy_obj = self._vnc_lib.firewall_policy_read(
+            id=VncSecurityPolicy.deny_all_fw_policy_uuid)
+        aps_obj = self._get_default_application_policy_set()
+        self.assertIsNotNone(fw_policy_obj)
+        self.assertIsNotNone(aps_obj)
+
+        # Detach deny-all policy from APS to introduce error.
+        aps_obj.del_firewall_policy(fw_policy_obj)
+        self._vnc_lib.application_policy_set_update(aps_obj)
+
+        # Verify that validation of APS will fail.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertFalse(valid)
+
+        # Add deny-all policy to TAIL.
+        # This is essentially an error condition where there is already
+        # post-tail objects in the APS, but the deny-all gets added after
+        # post-tail objects.
+        VncSecurityPolicy.add_firewall_policy(
+            VncSecurityPolicy.deny_all_fw_policy_uuid,
+            tail=True)
+
+        # Verify that validation of APS will fail.
+        # Validation will fail because "tail" object is found after objects
+        # that are marked as post-tail.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertFalse(valid)
+
+        # Get allow-all object handle.
+        self.assertIsNotNone(VncSecurityPolicy.allow_all_fw_policy_uuid)
+        fw_policy_obj = self._vnc_lib.firewall_policy_read(
+            id=VncSecurityPolicy.allow_all_fw_policy_uuid)
+        aps_obj = self._get_default_application_policy_set()
+        self.assertIsNotNone(fw_policy_obj)
+        self.assertIsNotNone(aps_obj)
+
+        # Re-add attempt of object marked post-tail should cause the post-tail
+        # object to be re-arranged after tail, even though the object is already
+        # present on the APS.
+        VncSecurityPolicy.add_firewall_policy(
+            VncSecurityPolicy.allow_all_fw_policy_uuid,
+            append_after_tail=True)
+
+        # Validation of APS should now succeed.
+        valid = VncSecurityPolicy.validate_cluster_security_policy()
+        self.assertTrue(valid)
+

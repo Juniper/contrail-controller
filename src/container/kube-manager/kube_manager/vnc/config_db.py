@@ -1909,7 +1909,8 @@ class FirewallPolicyKM(DBBaseKM):
         # collection of end/tail policys in an application set. The tail
         # section of an APS contains policy's that are meant to enforce
         # deafult behavior in the APS.
-        self.tail = False
+        self.tail = 'False'
+        self.after_tail = 'False'
         self.spec = None
         self.cluster_name = None
         self.owner = None
@@ -1930,6 +1931,8 @@ class FirewallPolicyKM(DBBaseKM):
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'tail':
                     self.tail = kvp['value']
+                if kvp['key'] == 'after_tail':
+                    self.after_tail = kvp['value']
                 elif kvp['key'] == 'deny_all_rule_uuid':
                     self.deny_all_rule_uuid = kvp['value']
                 elif kvp['key'] == 'egress_deny_all_rule_uuid':
@@ -1962,6 +1965,13 @@ class FirewallPolicyKM(DBBaseKM):
 
     def get_fq_name(self):
         return self.fq_name
+
+    def is_tail(self):
+        return True if self.tail == 'True' else False
+
+    def is_after_tail(self):
+        return True if self.after_tail == 'True' else False
+
 # end class FirewallPolicyKM
 
 class AddressGroupKM(DBBaseKM):
