@@ -11,6 +11,7 @@
           "name": "image_upgrade_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -31,6 +32,7 @@
           "name": "discover_device_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -51,6 +53,7 @@
           "name": "generate_underlay_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -71,6 +74,7 @@
           "name": "discover_role_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -91,6 +95,7 @@
           "name": "device_import_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -111,6 +116,7 @@
           "name": "fabric_config_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -131,6 +137,7 @@
           "name": "ztp_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -151,6 +158,7 @@
           "name": "fabric_deletion_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -171,6 +179,7 @@
           "name": "device_deletion_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -191,6 +200,7 @@
           "name": "role_assignment_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -211,6 +221,7 @@
           "name": "topology_discovery_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -231,6 +242,7 @@
           "name": "fabric_onboard_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -282,6 +294,7 @@
           "name": "existing_fabric_onboard_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
