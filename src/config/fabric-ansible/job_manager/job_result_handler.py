@@ -34,7 +34,7 @@ class JobResultHandler(object):
         self.playbook_output = None  # marked output from the playbook stdout
         self.percentage_completed = 0.0
 
-    def update_job_status(self, status, message=None, device_id=None):
+    def update_job_status(self, status, message=None, device_id=None, device_name=None):
         # update cummulative job status
         if self.job_result_status is None or \
                 self.job_result_status != JobStatus.FAILURE:
@@ -47,7 +47,8 @@ class JobResultHandler(object):
         # collect the result message
         if message is not None:
             if device_id is not None:
-                self.job_result.update({device_id: message})
+                self.job_result.update({device_id: {"message": message,
+                                                    "device_name": device_name}})
             else:
                 self.job_result_message = message
     # end update_job_status
@@ -81,11 +82,13 @@ class JobResultHandler(object):
         job_summary_message = MsgBundle.getMessage(
             MsgBundle.JOB_SUMMARY_MESSAGE_HDR)
 
+        failed_device_jobs_len = len(self.failed_device_jobs)
+
         if self.job_result_status is None:
             job_summary_message += MsgBundle.getMessage(
                 MsgBundle.JOB_RESULT_STATUS_NONE)
         elif self.job_result_status == JobStatus.FAILURE:
-            if len(self.failed_device_jobs) > 0:
+            if failed_device_jobs_len > 0:
                 job_summary_message += MsgBundle.getMessage(
                     MsgBundle.
                     JOB_MULTI_DEVICE_FAILED_MESSAGE_HDR)
@@ -98,14 +101,26 @@ class JobResultHandler(object):
         elif self.job_result_status == JobStatus.SUCCESS:
             job_summary_message += MsgBundle.getMessage(
                 MsgBundle.JOB_EXECUTION_COMPLETE)
-        # if len(self.job_result) > 0:
-        #     job_summary_message += MsgBundle.getMessage(
-        #         MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
-        # result_summary = ""
-        # for entry in self.job_result:
-        #     result_summary += \
-        #         "%s:%s \n" % (entry, self.job_result[entry])
-        # job_summary_message += result_summary
+        device_job_result_len = len(self.job_result)
+        if device_job_result_len > 0:
+            job_summary_message += MsgBundle.getMessage(
+                MsgBundle.PLAYBOOK_RESULTS_MESSAGE)
+            job_summary_message += "Successfully completed "\
+                                   "job for %s devices.\n"\
+                                   % (device_job_result_len - failed_device_jobs_len)
+        # result_summary would infact be the failed_devices
+        # result summary
+        result_summary = ""
+        for entry in self.job_result:
+            if entry in self.failed_device_jobs:
+                result_summary += \
+                    "%s:%s \n" % (self.job_result[entry]['device_name'],
+                                  self.job_result[entry]['message'])
+        if result_summary != "":
+            failed_device_msg = "Job execution failed for %s devices.\n"\
+                                % len(self.failed_device_jobs)
+            result_summary = failed_device_msg + result_summary
+        job_summary_message += result_summary
 
         if self.job_result_message is not None:
             job_summary_message += self.job_result_message

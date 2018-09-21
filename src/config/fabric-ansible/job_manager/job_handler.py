@@ -43,10 +43,11 @@ class JobHandler(object):
         self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
         self._playbook_seq = playbook_seq
-        self._playbook_output = None
     # end __init__
 
-    def handle_job(self, result_handler, job_percent_per_task, device_id=None):
+    def handle_job(self, result_handler, job_percent_per_task,
+                   device_id=None, device_name=None):
+        playbook_output = None
         try:
             msg = "Starting playbook execution for job template %s with " \
                   "execution id %s" % (self._job_template.get_uuid(),
@@ -56,8 +57,8 @@ class JobHandler(object):
             # get the playbook information from the job template
             playbook_info = self.get_playbook_info(job_percent_per_task,
                                                    device_id)
-            # run the playbook
-            self.run_playbook(
+            # run the playbook and retrieve the playbook output if any
+            playbook_output = self.run_playbook(
                 playbook_info,
                 result_handler.percentage_completed)
 
@@ -66,19 +67,24 @@ class JobHandler(object):
                 job_template_name=self._job_template.get_fq_name()[-1],
                 job_execution_id=self._execution_id)
             self._logger.debug(msg)
-            result_handler.update_job_status(JobStatus.SUCCESS, msg, device_id)
-            self.update_result_handler(result_handler)
+            result_handler.update_job_status(JobStatus.SUCCESS, msg,
+                                             device_id, device_name)
+            if playbook_output:
+                result_handler.update_playbook_output(playbook_output)
+
+            if self.current_percentage:
+                result_handler.percentage_completed = self.current_percentage
 
         except JobException as job_exp:
             self._logger.error("%s" % job_exp.msg)
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, job_exp.msg,
-                                             device_id)
+                                             device_id, device_name)
         except Exception as exp:
             self._logger.error("Error while executing job %s " % repr(exp))
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, exp.message,
-                                             device_id)
+                                             device_id, device_name)
     # end handle_job
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
@@ -301,6 +307,7 @@ class JobHandler(object):
 
     def run_playbook_process(self, playbook_info, percentage_completed):
         playbook_process = None
+        playbook_output = None
         self.current_percentage = percentage_completed
         try:
             playbook_exec_path = os.path.dirname(__file__) \
@@ -326,7 +333,7 @@ class JobHandler(object):
                 unique_pb_id, exec_id, playbook_process
             )
             marked_jsons = self._extract_marked_json(marked_output)
-            self._playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
+            playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
             playbook_process.wait(timeout=self._playbook_timeout)
             pr_object_log_end_time = time.time()
 
@@ -356,10 +363,17 @@ class JobHandler(object):
             msg = MsgBundle.getMessage(MsgBundle.
                                        PLAYBOOK_EXIT_WITH_ERROR,
                                        playbook_uri=playbook_info['uri'])
+
+            if playbook_output:
+                msg = msg + "\n Error Message from playbook: %s" % playbook_output.get('message', "")
             raise JobException(msg, self._execution_id)
+
+        return playbook_output
+
     # end run_playbook_process
 
     def run_playbook(self, playbook_info, percentage_completed):
+        playbook_output = None
         try:
             # create job log to capture the start of the playbook
             device_name = \
@@ -386,7 +400,7 @@ class JobHandler(object):
 
             # Run playbook in a separate process. This is needed since
             # ansible cannot be used in a greenlet based patched environment
-            self.run_playbook_process(playbook_info, percentage_completed)
+            playbook_output = self.run_playbook_process(playbook_info, percentage_completed)
 
             # create job log to capture completion of the playbook execution
             msg = MsgBundle.getMessage(MsgBundle.STOP_EXE_PB_MSG,
@@ -397,6 +411,7 @@ class JobHandler(object):
                                              self._fabric_fq_name,
                                              msg, JobStatus.IN_PROGRESS.value,
                                              device_name=device_name)
+            return playbook_output
         except JobException:
             raise
         except Exception as exp:
@@ -405,14 +420,6 @@ class JobHandler(object):
                                        exc_msg=repr(exp))
             raise JobException(msg, self._execution_id)
     # end run_playbook
-
-    def update_result_handler(self, result_handler):
-        if self._playbook_output:
-            result_handler.update_playbook_output(self._playbook_output)
-
-        if self.current_percentage:
-            result_handler.percentage_completed = self.current_percentage
-    # end update_result_handler
 
     def _extract_marked_json(self, marked_output):
         retval = {}
