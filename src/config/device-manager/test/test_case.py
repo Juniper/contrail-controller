@@ -12,6 +12,7 @@ from random import randint
 from ncclient import manager
 from flexmock import flexmock
 from test_dm_utils import FakeDeviceConnect
+from test_dm_utils import FakeJobHandler
 from test_dm_utils import FakeNetconfManager
 from test_dm_utils import fake_netconf_connect
 from test_dm_utils import fake_send_netconf
@@ -58,6 +59,7 @@ class DMTestCase(test_common.TestCase):
 
     def tearDown(self):
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         super(DMTestCase, self).tearDown()
 
     def _get_ip_fabric_ri_obj(self):
