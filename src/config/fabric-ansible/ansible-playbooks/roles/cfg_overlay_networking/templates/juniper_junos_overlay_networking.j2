@@ -1,12 +1,12 @@
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
 {%         if phy_int.get('interface_type') == 'irb' %}
-set groups __contrail_{{feature}}__ interfaces irb gratuitous-arp-reply
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%             for li in phy_int.get('logical_interfaces', []) %}
 {%                 set unit = li.get('unit') %}
 {%                 set gw = li.get('gateway') %}
 {%                 set family = 'inet' %}
 {%                 for ip_addr in li.get('ip_list', []) %}
-set groups __contrail_{{feature}}__ interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} virtual-gateway-address {{gw}}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} virtual-gateway-address {{gw}}
 {%                 endfor %}
 {%             endfor %}
 {%         endif %}
