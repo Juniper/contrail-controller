@@ -84,7 +84,7 @@ device_family_info:
 role_to_feature_mapping:
   CRB-Access@leaf:
     - basic
-    - ip_clos
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -93,7 +93,7 @@ role_to_feature_mapping:
     - overlay_multi_homing
   CRB-Gateway@leaf:
     - basic
-    - ip_clos
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_gateway
@@ -104,12 +104,12 @@ role_to_feature_mapping:
     - overlay_evpn_type5
   null@spine:
     - basic
-    - ip_clos
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_networking
   CRB-Gateway@spine:
     - basic
-    - ip_clos
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_gateway
@@ -120,7 +120,7 @@ role_to_feature_mapping:
     - overlay_evpn_type5
   DC-Gateway@leaf:
     - basic
-    - ip_clos
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -129,7 +129,7 @@ role_to_feature_mapping:
     - overlay_evpn_type5
   DC-Gateway@spine:
     - basic
-    - ip_clos
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
