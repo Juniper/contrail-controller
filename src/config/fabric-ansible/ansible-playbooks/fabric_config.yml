@@ -17,6 +17,7 @@
     device_phy_role: "{{ device_info.physical_role }}"
     device_rb_roles: "{{ device_info.routing_bridging_roles if device_info.routing_bridging_roles is defined else [] }}"
     is_delete: "{{ input.is_delete }}"
+    is_ztp: "{{ input.is_ztp }}"
     output: {"status":"", "message":"", "results":""}
 
   pre_tasks:
@@ -42,7 +43,7 @@
 
   roles:
     - cfg_basic
-    - cfg_ip_clos
+    - cfg_underlay_ip_clos
     - cfg_overlay_bgp
     - cfg_overlay_evpn
     - cfg_overlay_evpn_access

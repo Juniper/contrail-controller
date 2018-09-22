@@ -18,10 +18,10 @@ class AnsibleRoleCommon(AnsibleConf):
 
     @classmethod
     def is_role_supported(cls, role):
-        if role and role.lower().startswith('e2-'):
+        if not role or not cls._roles:
             return False
-        for _role in cls._roles or []:
-            if role.lower().startswith(_role.lower()):
+        for _role in cls._roles:
+            if role.lower() == _role.lower():
                 return True
         return False
     # end is_role_supported
@@ -39,6 +39,8 @@ class AnsibleRoleCommon(AnsibleConf):
     # end is_spine
 
     def underlay_config(self, is_delete=False):
+        if not self.physical_router.is_ztp():
+            return
         self._logger.info("underlay config start: %s(%s)\n" %
                           (self.physical_router.name,
                            self.physical_router.uuid))
@@ -1006,7 +1008,8 @@ class AnsibleRoleCommon(AnsibleConf):
     # end build_ri_config
 
     def set_common_config(self):
-        self.build_underlay_bgp()
+        if self.physical_router.is_ztp():
+            self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return
         self.build_bgp_config()

@@ -6,15 +6,15 @@
   gather_facts: no
 
   vars:
-    feature: ip_clos
+    feature: underlay_ip_clos
   tasks:
     - set_fact:
         device_abstract_config: {
           "comment": "/* Contrail Generated Group Config */",
           "bgp": [{
-            "comment": "ip_clos",
+            "comment": "underlay_ip_clos",
             "peers": [{
-              "comment": "ip_clos",
+              "comment": "underlay_ip_clos",
               "ip_address": "20.1.1.251",
               "autonomous_system": 64000
             }],
@@ -61,9 +61,9 @@
             "type_": "internal"
           }],
           "physical_interfaces": [{
-            "comment": "ip_clos",
+            "comment": "underlay_ip_clos",
             "logical_interfaces": [{
-              "comment": "ip_clos",
+              "comment": "underlay_ip_clos",
               "uuid": "8a99b692-9216-4db6-aeb2-a09ae5344845",
               "name": "et-0/0/32.0",
               "unit": 0,
@@ -72,9 +72,9 @@
             "name": "et-0/0/32",
             "uuid": "787af41c-b4fb-41fb-abd5-53553e0f198c"
           }, {
-            "comment": "ip_clos",
+            "comment": "underlay_ip_clos",
             "logical_interfaces": [{
-              "comment": "ip_clos",
+              "comment": "underlay_ip_clos",
               "uuid": "a6db1977-9061-4368-b1a2-f380600d9106",
               "name": "et-0/0/33.0",
               "unit": 0,
@@ -83,9 +83,9 @@
             "name": "et-0/0/33",
             "uuid": "73556900-64cf-4330-8270-93b9facb0514"
           }, {
-            "comment": "ip_clos",
+            "comment": "underlay_ip_clos",
             "logical_interfaces": [{
-              "comment": "ip_clos",
+              "comment": "underlay_ip_clos",
               "uuid": "32c4f38b-ae59-4822-a883-fd5a69f1c465",
               "name": "lo0.0",
               "unit": 0,
@@ -111,7 +111,7 @@
         }
 
     - template:
-        src: juniper_ip_clos.j2
+        src: juniper_underlay_ip_clos.j2
         dest: /tmp/output.json
 
     - command: cat /tmp/output.json
