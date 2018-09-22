@@ -70,7 +70,7 @@
               }
             }
           },
-          "ip_clos": {
+          "underlay_ip_clos": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
@@ -85,6 +85,11 @@
       "is_delete": {
         "type": "boolean",
         "description": "Set to true for config delete operation",
+        "default": false
+      },
+      "is_ztp": {
+        "type": "boolean",
+        "description": "Set to true for greenfield fabric",
         "default": false
       }
     }
