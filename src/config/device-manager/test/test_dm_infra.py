@@ -19,6 +19,7 @@ from test_common import *
 from test_dm_common import *
 from test_case import DMTestCase
 from test_dm_utils import FakeDeviceConnect
+from test_dm_utils import FakeJobHandler
 from test_dm_utils import FakeNetconfManager
 
 #
@@ -159,6 +160,7 @@ class TestInfraDM(TestCommonDM):
     # test dm instance
     def test_dm_instance(self):
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         kill_device_manager(TestInfraDM._dm_greenlet)
         self.check_dm_instance()
         TestInfraDM._dm_greenlet = gevent.spawn(launch_device_manager,
@@ -197,6 +199,7 @@ class TestInfraDM(TestCommonDM):
 
         # update valid another vendor, product; another plugin should be found
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('qfx5110')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "qfx5110"
@@ -204,6 +207,7 @@ class TestInfraDM(TestCommonDM):
         self.check_dm_plugin()
 
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('qfx5100')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "qfx5100"
@@ -211,6 +215,7 @@ class TestInfraDM(TestCommonDM):
         self.check_dm_plugin()
 
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('qfx5200')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "qfx5200"
@@ -218,6 +223,7 @@ class TestInfraDM(TestCommonDM):
         self.check_dm_plugin()
 
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('qfx5300')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "qfx5300"
@@ -225,6 +231,7 @@ class TestInfraDM(TestCommonDM):
         self.check_dm_plugin(is_valid=False)
 
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('qfx10000')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "qfx10000"
@@ -233,6 +240,7 @@ class TestInfraDM(TestCommonDM):
 
         # check invalid vendor, product; no plugin
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('cix')
         pr.physical_router_vendor_name = "cix"
         pr.physical_router_product_name = "cix100"
@@ -241,6 +249,7 @@ class TestInfraDM(TestCommonDM):
 
         # update valid vendor, product; plugin should be found, config should be pushed
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('mx80')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "mx"
@@ -248,6 +257,7 @@ class TestInfraDM(TestCommonDM):
         self.check_dm_plugin()
 
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('mx480')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "mx480"
@@ -256,6 +266,7 @@ class TestInfraDM(TestCommonDM):
 
         # product/vendor names can be case in-sensitive
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         FakeNetconfManager.set_model('MX480')
         pr.physical_router_vendor_name = "JunIper"
         pr.physical_router_product_name = "mX480"
@@ -267,6 +278,7 @@ class TestInfraDM(TestCommonDM):
         pr_config._nc_manager.connected = False
         self.assertFalse(pr_config.is_connected())
         FakeDeviceConnect.reset()
+        FakeJobHandler.reset()
         self.set_hold_time(bgp_router, 100)
         self._vnc_lib.bgp_router_update(bgp_router)
         self.check_dm_plugin(False)
