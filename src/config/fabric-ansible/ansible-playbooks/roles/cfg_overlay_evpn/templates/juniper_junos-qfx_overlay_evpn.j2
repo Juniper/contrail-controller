@@ -4,18 +4,18 @@
 {%             set vrf_export = ri.name+'-export' %}
 {%             for import_target in ri.get('import_targets', []) %}
 {%                 set community_target = import_target.replace(':', '_') %}
-set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}
-set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{import_target}}
+set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target}}
 {%             endfor %}
-set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_import}} term t1 then accept
-set groups __contrail_{{feature}}__ switch-options vrf-import {{vrf_import}}
+set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 then accept
+set groups {{cfg_group}} switch-options vrf-import {{vrf_import}}
 {%             for export_target in ri.get('export_targets', []) %}
 {%                 set community_target = export_target.replace(':', '_') %}
-set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_export}} term t1 then community add {{community_target}}
-set groups __contrail_{{feature}}__ policy-options community {{community_target}} members {{export_target}}
+set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then community add {{community_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target}}
 {%             endfor %}
-set groups __contrail_{{feature}}__ policy-options policy-statement {{vrf_export}} term t1 then accept
-set groups __contrail_{{feature}}__ switch-options vrf-export {{vrf_export}}
+set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then accept
+set groups {{cfg_group}} switch-options vrf-export {{vrf_export}}
 {%         endif %}
 {%     endfor %}
 
@@ -25,21 +25,22 @@ set groups __contrail_{{feature}}__ switch-options vrf-export {{vrf_export}}
 {%             if fam == 'evpn' %}
 {%                 set route_distinguisher = bgp_elem.get('ip_address') %}
 {%                 set as_number = bgp_elem.get('autonomous_system') %}
-set groups __contrail_{{feature}}__ protocols evpn encapsulation vxlan
-set groups __contrail_{{feature}}__ protocols evpn extended-vni-list all
-set groups __contrail_{{feature}}__ switch-options vtep-source-interface lo0.0
-set groups __contrail_{{feature}}__ switch-options route-distinguisher {{route_distinguisher}}:1
-set groups __contrail_{{feature}}__ switch-options vrf-target target:{{as_number}}:1
-set groups __contrail_{{feature}}__ policy-options community community-esi-in members target:{{as_number}}:1
-set groups __contrail_{{feature}}__ policy-options policy-statement import-evpn term esi-in from community community-esi-in
-set groups __contrail_{{feature}}__ policy-options policy-statement import-evpn term esi-in then accept
-set groups __contrail_{{feature}}__ switch-options vrf-import import-evpn
+set groups {{cfg_group}} protocols evpn encapsulation vxlan
+set groups {{cfg_group}} protocols evpn extended-vni-list all
+set groups {{cfg_group}} switch-options vtep-source-interface lo0.0
+set groups {{cfg_group}} switch-options route-distinguisher {{route_distinguisher}}:1
+set groups {{cfg_group}} switch-options vrf-target target:{{as_number}}:1
+set groups {{cfg_group}} policy-options community community-esi-in members target:{{as_number}}:1
+set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in from community community-esi-in
+set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
+set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
+set groups {{cfg_group}} switch-options vrf-import import-evpn
 {%                 for ri in device_abstract_config.get('routing_instances', []) %}
 {%                     set name = ri.get('name') %}
 {%                     set vxlan_id = ri.get('vxlan_id') %}
 {%                     if ri.get('routing_instance_type', '') == 'virtual-switch' %}
 {%                         for export_target in ri.get('export_targets', []) %}
-set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target}}
+set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target}}
 {%                         endfor %}
 {%                     endif %}
 {%                 endfor %}

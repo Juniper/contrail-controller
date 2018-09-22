@@ -71,10 +71,8 @@ class AnsibleBase(object):
     # end plugin
 
     # validate plugin name
-    def verify_plugin(self, role):
-        if not role or not self.is_role_supported(role):
-            return False
-        return True
+    def verify_plugin(self, vendor, product, role):
+        return self.is_role_supported(role)
     # end verify_plugin
 
     # register all plugins with device manager
@@ -110,8 +108,7 @@ class AnsibleBase(object):
     def register(cls, plugin_info):
         if not plugin_info or not plugin_info.get("roles"):
             raise AnsibleBase.PluginError(plugin_info)
-        roles = plugin_info['roles']
-        for role in roles or []:
+        for role in plugin_info.get("roles"):
              AnsibleBase._plugins.setdefault(role.lower(), []).append(plugin_info)
     # end register
 

@@ -1,4 +1,4 @@
 ---
 # vars input file
 feature: basic
-
+add_ztp_suffix: true
