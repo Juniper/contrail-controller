@@ -116,7 +116,6 @@ class PhysicalRouterDM(DBBaseDM):
         self.fabric = None
         self.node_profile = None
         self.nc_handler_gl = None
-        self.ansible_push = False
         self.update(obj_dict)
         if self.config_manager:
             self.set_conf_sent_state(False)
@@ -126,49 +125,37 @@ class PhysicalRouterDM(DBBaseDM):
     # end __init__
 
     def reinit_device_plugin(self):
-        self.ansible_push = False
         plugin_params = {
-                "physical_router": self
-            }
-        dm_instance = self._manager
-        if not self.ansible_manager:
-            self.ansible_manager = AnsibleBase.plugin(self.vendor, self.product,
-                                                      plugin_params, self._logger)
-        else:
-            if self.ansible_manager.verify_plugin(self.physical_router_role):
-                self.ansible_manager.update()
-            else:
-                self.ansible_manager.clear()
-                self.ansible_manager = AnsibleBase.plugin(self.vendor,
-                                                          self.product,
-                                                          plugin_params,
-                                                          self._logger)
-        if PushConfigState.is_push_mode_ansible() and\
-                not self.no_ansible_support_for_role():
-            self.config_manager = self.ansible_manager
-            self.ansible_push = True
-            return
-        if not self.config_manager:
-            self.config_manager = DeviceConf.plugin(self.vendor, self.product,
-                                                 plugin_params, self._logger)
-        else:
-            if self.config_manager.verify_plugin(self.vendor, self.product,
-                                                 self.physical_router_role):
-                self.config_manager.update()
-            else:
-                self.config_manager.clear()
-                self.config_manager = DeviceConf.plugin(self.vendor,
-                                                        self.product,
-                                                        plugin_params,
-                                                        self._logger)
-    # end reinit_device_plugin
+            "physical_router": self
+        }
 
-    def no_ansible_support_for_role(self):
-        if not self.physical_router_role:
-            return True
-        if self.physical_router_role.lower() not in ["leaf", "spine"]:
-            return True
-        return False
+        if not self.ansible_manager:
+            self.ansible_manager = AnsibleBase.plugin(self.vendor,
+                self.product, plugin_params, self._logger)
+        elif self.ansible_manager.verify_plugin(self.vendor,
+                self.product, self.physical_router_role):
+            self.ansible_manager.update()
+        else:
+            self.ansible_manager.clear()
+            self.ansible_manager = AnsibleBase.plugin(self.vendor,
+                self.product, plugin_params, self._logger)
+
+        if PushConfigState.is_push_mode_ansible():
+            self.config_manager = self.ansible_manager
+            if self.ansible_manager is not None:
+                return
+
+        if not self.config_manager:
+            self.config_manager = DeviceConf.plugin(self.vendor,
+                self.product, plugin_params, self._logger)
+        elif self.config_manager.verify_plugin(self.vendor,
+                self.product, self.physical_router_role):
+            self.config_manager.update()
+        else:
+            self.config_manager.clear()
+            self.config_manager = DeviceConf.plugin(self.vendor,
+                self.product, plugin_params, self._logger)
+    # end reinit_device_plugin
 
     def update(self, obj=None):
         if obj is None:
@@ -209,6 +196,13 @@ class PhysicalRouterDM(DBBaseDM):
         self.reinit_device_plugin()
     # end update
 
+    def is_ztp(self):
+        if self.fabric:
+            fabric = FabricDM.get(self.fabric)
+            return fabric is not None and fabric.ztp
+        return False
+    # end is_ztp
+
     def verify_allocated_asn(self, fabric):
         self._logger.debug("physical router: verify allocated asn for %s" %
                            self.uuid)
@@ -219,14 +213,14 @@ class PhysicalRouterDM(DBBaseDM):
                     continue
                 if namespace.as_numbers is not None:
                     if self.allocated_asn in namespace.as_numbers:
-                        self._logger.debug("physical router: allocated asn %d"
+                        self._logger.debug("physical router: asn %d is allocated"
                                            % self.allocated_asn)
                         return True
                 if namespace.asn_ranges is not None:
                     for asn_range in namespace.asn_ranges:
                         if asn_range[0] <= self.allocated_asn <= asn_range[1]:
                             self._logger.debug(
-                                "physical router: allocated asn %d" %
+                                "physical router: asn %d is allocated" %
                                 self.allocated_asn)
                             return True
         self._logger.debug("physical router: asn not allocated")
@@ -234,11 +228,9 @@ class PhysicalRouterDM(DBBaseDM):
     # end verify_allocated_asn
 
     def allocate_asn(self):
-        if self.fabric is None:
+        if not self.is_ztp():
             return
         fabric = FabricDM.get(self.fabric)
-        if fabric is None:
-            return
         if self.verify_allocated_asn(fabric):
             return
 
@@ -272,7 +264,9 @@ class PhysicalRouterDM(DBBaseDM):
     # end allocate_asn
 
     def wait_for_config_push(self, timeout=1):
-        while self.config_manager.push_in_progress():
+        if not self.ansible_manager:
+            return
+        while self.ansible_manager.push_in_progress():
             try:
                 self.nc_q.get(True, timeout)
             except queue.Empty:
@@ -280,8 +274,7 @@ class PhysicalRouterDM(DBBaseDM):
     # end wait_for_config_push
 
     def delete_obj(self):
-        if self.ansible_push:
-            self.wait_for_config_push()
+        self.wait_for_config_push()
         if self.nc_handler_gl:
             gevent.kill(self.nc_handler_gl)
 
@@ -292,16 +285,16 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('e2_service_provider', {})
         self.update_single_ref('fabric', {})
 
-        if self.ansible_push:
+        if PushConfigState.is_push_mode_ansible() and self.config_manager:
             self.config_manager.push_conf(is_delete=True)
             max_retries = 3
-            for i in range(max_retries):
+            for _ in range(max_retries):
                 if self.config_manager.retry():
                     self.config_manager.push_conf(is_delete=True)
                 else:
                     break
             self.set_conf_sent_state(False)
-        elif self.ansible_manager is not None:
+        elif self.ansible_manager:
             self.ansible_manager.initialize()
             self.ansible_manager.underlay_config(is_delete=True)
 
@@ -347,8 +340,8 @@ class PhysicalRouterDM(DBBaseDM):
     def nc_handler(self):
         while self.nc_q.get() is not None:
             try:
-                if self.ansible_manager is not None and\
-                        self.ansible_manager != self.config_manager:
+                if not PushConfigState.is_push_mode_ansible() and\
+                        self.ansible_manager is not None:
                     self.ansible_manager.initialize()
                     self.ansible_manager.underlay_config()
                 self.push_config()
@@ -1731,6 +1724,7 @@ class FabricDM(DBBaseDM):
         self.fabric_namespaces = set()
         self.lo0_ipam_subnet = None
         self.ip_fabric_ipam_subnet = None
+        self.ztp = False
         self.update(obj_dict)
     # end __init__
 
@@ -1767,6 +1761,8 @@ class FabricDM(DBBaseDM):
         # Get the 'ip_fabric' type virtual network
         self.ip_fabric_ipam_subnet = \
             self._get_ipam_subnets_for_virtual_network(obj, 'ip_fabric')
+
+        self.ztp = obj.get('fabric_ztp') == True
     # end update
 # end class FabricDM
 
