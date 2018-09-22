@@ -9,31 +9,31 @@
 {%             for lo_int in ri.get('loopback_interfaces', []) %}
 {%                 set int_name = lo_int.get('name', '') %}
 {%                 set unit_num = int_name.split('.')[-1] %}
-set groups __contrail_{{feature}}__ interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
-set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{int_name}}
+set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
+set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
 {%             endfor %}
-set groups __contrail_{{feature}}__ protocols evpn default-gateway no-gateway-community
-set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
-set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
-set groups __contrail_{{feature}}__ routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
-set groups __contrail_{{feature}}__ routing-instances {{name}} instance-type vrf
+set groups {{cfg_group}} protocols evpn default-gateway no-gateway-community
+set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
+set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
+set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
+set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
 {%             set vrf_import = name+'-import' %}
 {%             set vrf_export = name+'-export' %}
 {%             for import_target in ri.get('import_targets', []) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-import {{vrf_import}}
+set groups {{cfg_group}} routing-instances {{name}} vrf-import {{vrf_import}}
 {%             endfor %}
 {%             for exp_target in ri.get('export_targets', []) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} vrf-export {{vrf_export}}
+set groups {{cfg_group}} routing-instances {{name}} vrf-export {{vrf_export}}
 {%             endfor %}
 
 {%             for irb_int in ri.get('routing_interfaces', []) %}
 {%                 set irb_name = irb_int.get('name') %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} interface {{irb_name}}
+set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
 {%             endfor %}
 {%             set sys_config = device_abstract_config.get('system', None) %}
 {%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%             if (router_external == true and 'DC-Gateway' in sys_roles) %}
-set groups __contrail_{{feature}}__ routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%                 for subnet in ri.get('prefixes', []) %}
 {%                     set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
