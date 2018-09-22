@@ -47,7 +47,7 @@ class AnsibleConf(AnsibleBase):
     # end retry
 
     def push_in_progress(self):
-        return self.push_config_state == PushConfigState.PUSH_STATE_INIT
+        return self.push_config_state == PushConfigState.PUSH_STATE_IN_PROGRESS
     # end push_in_progress
 
     def is_connected(self):
@@ -181,7 +181,7 @@ class AnsibleConf(AnsibleBase):
 
     def device_send(self, job_template, job_input, is_delete, retry):
         config_str = json.dumps(job_input, sort_keys=True)
-        self.push_config_state = PushConfigState.PUSH_STATE_INIT
+        self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
         start_time = None
         config_size = 0
         try:
@@ -189,6 +189,9 @@ class AnsibleConf(AnsibleBase):
             current_config_hash = md5(config_str).hexdigest()
             if self.last_config_hash is None or\
                     current_config_hash != self.last_config_hash:
+                self._logger.info("config push for %s(%s) using job template %s" %
+                          (self.physical_router.name, self.physical_router.uuid,
+                           str(job_template)))
                 self._logger.debug("playbook send message: %s" %
                                    json.dumps(job_input, indent=4,
                                               sort_keys=True))
@@ -230,8 +233,8 @@ class AnsibleConf(AnsibleBase):
         return config_size
     # end device_send
 
-    def read_feature_configs(self):
-        feature_configs = {}
+    def read_node_profile_info(self):
+        feature_configs = None
         job_template = None
         if self.physical_router.node_profile is not None:
             node_profile = NodeProfileDM.get(self.physical_router.node_profile)
@@ -269,11 +272,12 @@ class AnsibleConf(AnsibleBase):
         if not self.has_conf() and not is_delete:
             return 0
         config = self.prepare_conf(is_delete=is_delete)
-        feature_params, job_template = self.read_feature_configs()
+        feature_configs, job_template = self.read_node_profile_info()
         job_input = {
+            'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),
-            'additional_feature_params': feature_params,
-            'is_delete': is_delete
+            'is_delete': is_delete,
+            'is_ztp': self.physical_router.is_ztp()
         }
         return self.device_send(job_template, job_input, is_delete, retry)
     # end send_conf
