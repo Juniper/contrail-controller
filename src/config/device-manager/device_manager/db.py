@@ -266,7 +266,7 @@ class PhysicalRouterDM(DBBaseDM):
                         "physical router: allocated asn %d for %s" %
                         (self.allocated_asn, self.uuid))
                     return
-        self._logger.error(
+        self._logger.debug(
             "physical router: could not find an unused asn to allocate for %s"
             % self.uuid)
     # end allocate_asn

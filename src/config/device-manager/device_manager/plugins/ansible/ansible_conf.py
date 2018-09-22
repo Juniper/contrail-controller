@@ -127,7 +127,7 @@ class AnsibleConf(AnsibleBase):
         self.interfaces_config = self.interfaces_config or []
 
         if self.physical_router.allocated_asn is None:
-            self._logger.error("physical router %s(%s) does not have asn"
+            self._logger.debug("physical router %s(%s) does not have asn"
                                " allocated" % (self.physical_router.name,
                                                self.physical_router.uuid))
             return
@@ -189,6 +189,9 @@ class AnsibleConf(AnsibleBase):
             current_config_hash = md5(config_str).hexdigest()
             if self.last_config_hash is None or\
                     current_config_hash != self.last_config_hash:
+                self._logger.info("config push for %s(%s) using job template %s" %
+                          (self.physical_router.name, self.physical_router.uuid,
+                           str(job_template)))
                 self._logger.debug("playbook send message: %s" %
                                    json.dumps(job_input, indent=4,
                                               sort_keys=True))
@@ -230,8 +233,9 @@ class AnsibleConf(AnsibleBase):
         return config_size
     # end device_send
 
-    def read_feature_configs(self):
-        feature_configs = {}
+    def read_node_profile_info(self):
+        role_mappings = None
+        feature_configs = None
         job_template = None
         if self.physical_router.node_profile is not None:
             node_profile = NodeProfileDM.get(self.physical_router.node_profile)
@@ -243,7 +247,7 @@ class AnsibleConf(AnsibleBase):
                     if job_template is None:
                         job_template = role_config.job_template_fq_name
                     feature_configs[role_config.name] = role_config.config
-        return feature_configs, job_template
+        return role_mappings, feature_configs, job_template
     # end read_feature_configs
 
     def prepare_conf(self, is_delete=False):
@@ -269,10 +273,11 @@ class AnsibleConf(AnsibleBase):
         if not self.has_conf() and not is_delete:
             return 0
         config = self.prepare_conf(is_delete=is_delete)
-        feature_params, job_template = self.read_feature_configs()
+        role_mappings, feature_configs, job_template = self.read_node_profile_info()
         job_input = {
+            'role_mappings': role_mappings,
+            'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),
-            'additional_feature_params': feature_params,
             'is_delete': is_delete
         }
         return self.device_send(job_template, job_input, is_delete, retry)
