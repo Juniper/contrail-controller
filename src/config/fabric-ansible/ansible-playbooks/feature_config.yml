@@ -12,6 +12,11 @@
         hardware: "{{ device_vendor }}-{{ device_model }}"
         cfg_group: "__contrail_{{ feature }}__"
 
+    - name: Check whether ztp suffix needs to be added to config group name
+      set_fact:
+        cfg_group: "__contrail_{{ feature }}_ztp__"
+      when: add_ztp_suffix is defined and add_ztp_suffix == True and is_ztp
+
     - name: Check whether Jinja file exists for this vendor/family/feature
       stat:
         path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
@@ -75,6 +80,13 @@
         - set_fact:
             feature_needed: False
       when: feature not in feature_list
+
+    - name: Skip underlay feature if fabric is not ztp'ed
+      block:
+        - debug: msg="Fabric is not ztp'ed, so skipping feature {{ feature }}..."
+        - set_fact:
+            feature_needed: False
+      when: "'underlay' in {{ feature }} and not {{ is_ztp }}"
 
     - name: Check whether feature is needed
       debug: msg="Feature {{ vf_feature }} not found, skipping..."
