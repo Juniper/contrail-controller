@@ -599,9 +599,9 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx5k-lean", "ip_clos"
+            "default-global-system-config", "juniper-qfx5k-lean", "underlay_ip_clos"
           ],
-          "name": "ip_clos",
+          "name": "underlay_ip_clos",
           "parent_type": "node-profile",
           "role_config_config": {
             "bgp_hold_time": 90
@@ -623,9 +623,9 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx5k", "ip_clos"
+            "default-global-system-config", "juniper-qfx5k", "underlay_ip_clos"
           ],
-          "name": "ip_clos",
+          "name": "underlay_ip_clos",
           "parent_type": "node-profile",
           "role_config_config": {
             "bgp_hold_time": 90
@@ -647,9 +647,9 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx10k", "ip_clos"
+            "default-global-system-config", "juniper-qfx10k", "underlay_ip_clos"
           ],
-          "name": "ip_clos",
+          "name": "underlay_ip_clos",
           "parent_type": "node-profile",
           "role_config_config": {
             "bgp_hold_time": 90
@@ -671,9 +671,9 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-mx", "ip_clos"
+            "default-global-system-config", "juniper-mx", "underlay_ip_clos"
           ],
-          "name": "ip_clos",
+          "name": "underlay_ip_clos",
           "parent_type": "node-profile",
           "role_config_config": {
             "bgp_hold_time": 90
@@ -769,7 +769,7 @@
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean", "ip_clos" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean", "underlay_ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
@@ -781,7 +781,7 @@
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k", "ip_clos" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k", "underlay_ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
@@ -793,7 +793,7 @@
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k", "ip_clos" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k", "underlay_ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
@@ -805,7 +805,7 @@
     },
     {
       "from_type": "role_config",
-      "from_fq_name": [ "default-global-system-config", "juniper-mx", "ip_clos" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-mx", "underlay_ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     }
