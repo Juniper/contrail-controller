@@ -517,7 +517,7 @@ class DMUtils(object):
 
     @staticmethod
     def ip_clos_comment():
-        return "ip_clos"
+        return "underlay_ip_clos"
 
     @classmethod
     def get_lr_internal_vn_prefix(cls):
