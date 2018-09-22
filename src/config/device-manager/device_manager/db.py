@@ -266,7 +266,7 @@ class PhysicalRouterDM(DBBaseDM):
                         "physical router: allocated asn %d for %s" %
                         (self.allocated_asn, self.uuid))
                     return
-        self._logger.error(
+        self._logger.debug(
             "physical router: could not find an unused asn to allocate for %s"
             % self.uuid)
     # end allocate_asn
@@ -1841,6 +1841,7 @@ class NodeProfileDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.name = None
+        self.role_mappings = None
         self.role_configs = set()
         self.update(obj_dict)
     # end __init__
@@ -1849,6 +1850,12 @@ class NodeProfileDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+
+        node_profile_roles = obj.get('node_profile_roles')
+        if node_profile_roles is not None:
+            self.role_mappings = node_profile_roles.get('role_mappings')
+        else:
+            self.role_mappings = None
     # end update
 # end class NodeProfileDM
 
