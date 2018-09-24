@@ -321,6 +321,252 @@ class TestFirewall(TestFirewallBase):
         with ExpectedException(BadRequest):
             self.api.firewall_rule_create(fr)
 
+    def test_cannot_create_firewall_rule_with_address_group_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        ag = AddressGroup(
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+            parent_obj=project,
+        )
+        self.api.address_group_create(ag)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            service=FirewallServiceType(),
+        )
+        fr.add_address_group(ag)
+        with ExpectedException(BadRequest):
+            self.api.firewall_rule_create(fr)
+
+    def test_cannot_update_firewall_rule_with_address_group_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        ag = AddressGroup(
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+            parent_obj=project,
+        )
+        self.api.address_group_create(ag)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+
+        fr.add_address_group(ag)
+        with ExpectedException(BadRequest):
+            self.api.firewall_rule_update(fr)
+
+    def test_update_address_group_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        ag1 = AddressGroup(
+            parent_obj=project,
+            name='ag1-%s' % self.id(),
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+        )
+        self.api.address_group_create(ag1)
+        ag2 = AddressGroup(
+            parent_obj=project,
+            name='ag2-%s' % self.id(),
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+        )
+        self.api.address_group_create(ag2)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            endpoint_1=FirewallRuleEndpointType(
+                address_group=ag1.get_fq_name_str()),
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.address_group, ag1.get_fq_name_str())
+        self.assertEqual({r['uuid'] for r in fr.get_address_group_refs()},
+                         set([ag1.uuid]))
+
+        fr.set_endpoint_1(
+            FirewallRuleEndpointType(address_group=ag2.get_fq_name_str()))
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.address_group, ag2.get_fq_name_str())
+        self.assertEqual({r['uuid'] for r in fr.get_address_group_refs()},
+                         set([ag2.uuid]))
+
+        fr.set_endpoint_2(
+            FirewallRuleEndpointType(address_group=ag1.get_fq_name_str()))
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.address_group, ag2.get_fq_name_str())
+        self.assertEqual(fr.endpoint_2.address_group, ag1.get_fq_name_str())
+        self.assertEqual({r['uuid'] for r in fr.get_address_group_refs()},
+                         set([ag1.uuid, ag2.uuid]))
+
+    def test_remove_address_group_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        ag = AddressGroup(
+            parent_obj=project,
+            name='ag-%s' % self.id(),
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+        )
+        self.api.address_group_create(ag)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            endpoint_1=FirewallRuleEndpointType(
+                address_group=ag.get_fq_name_str()),
+            endpoint_2=FirewallRuleEndpointType(
+                address_group=ag.get_fq_name_str()),
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.address_group, ag.get_fq_name_str())
+        self.assertEqual(fr.endpoint_2.address_group, ag.get_fq_name_str())
+        self.assertEqual({r['uuid'] for r in fr.get_address_group_refs()},
+                         set([ag.uuid]))
+
+        fr.set_endpoint_2(None)
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.address_group, ag.get_fq_name_str())
+        self.assertIsNone(fr.endpoint_2)
+        self.assertEqual({r['uuid'] for r in fr.get_address_group_refs()},
+                         set([ag.uuid]))
+
+        fr.set_endpoint_1(None)
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertIsNone(fr.endpoint_1)
+        self.assertIsNone(fr.endpoint_2)
+        self.assertIsNone(fr.get_address_group_refs())
+
+    def test_cannot_create_firewall_rule_with_tag_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        type = 'type-%s' % self.id()
+        value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        self.api.tag_create(tag)
+        tag = self.api.tag_read(id=tag.uuid)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            service=FirewallServiceType(),
+        )
+        fr.add_tag(tag)
+        with ExpectedException(BadRequest):
+            self.api.firewall_rule_create(fr)
+
+    def test_cannot_update_firewall_rule_with_tag_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        type = 'type-%s' % self.id()
+        value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        self.api.tag_create(tag)
+        tag = self.api.tag_read(id=tag.uuid)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+
+        fr.add_tag(tag)
+        with ExpectedException(BadRequest):
+            self.api.firewall_rule_update(fr)
+
+    def test_update_tag_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        type1 = 'type1-%s' % self.id()
+        value1 = 'value1-%s' % self.id()
+        tag1 = Tag(tag_type_name=type1, tag_value=value1, parent_obj=project)
+        self.api.tag_create(tag1)
+        tag1 = self.api.tag_read(id=tag1.uuid)
+        type2 = 'type2-%s' % self.id()
+        value2 = 'value2-%s' % self.id()
+        tag2 = Tag(tag_type_name=type2, tag_value=value2, parent_obj=project)
+        self.api.tag_create(tag2)
+        tag2 = self.api.tag_read(id=tag2.uuid)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            endpoint_1=FirewallRuleEndpointType(tags=[tag1.name]),
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.tags, [tag1.name])
+        self.assertEqual({r['uuid'] for r in fr.get_tag_refs()},
+                         set([tag1.uuid]))
+
+        fr.set_endpoint_1(FirewallRuleEndpointType(tags=[tag2.name]))
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.tags, [tag2.name])
+        self.assertEqual({r['uuid'] for r in fr.get_tag_refs()},
+                         set([tag2.uuid]))
+
+        fr.set_endpoint_2(FirewallRuleEndpointType(tags=[tag2.name]))
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.tags, [tag2.name])
+        self.assertEqual(fr.endpoint_2.tags, [tag2.name])
+        self.assertEqual({r['uuid'] for r in fr.get_tag_refs()},
+                         set([tag2.uuid]))
+
+        fr.set_endpoint_1(FirewallRuleEndpointType(
+            tags=[tag1.name, tag2.name]))
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(set(fr.endpoint_1.tags), set([tag1.name, tag2.name]))
+        self.assertEqual(fr.endpoint_2.tags, [tag2.name])
+        self.assertEqual({r['uuid'] for r in fr.get_tag_refs()},
+                         set([tag1.uuid, tag2.uuid]))
+
+        fr.set_endpoint_1(FirewallRuleEndpointType(tags=[tag1.name]))
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.tags, [tag1.name])
+        self.assertEqual(fr.endpoint_2.tags, [tag2.name])
+        self.assertEqual({r['uuid'] for r in fr.get_tag_refs()},
+                         set([tag1.uuid, tag2.uuid]))
+
+    def test_remove_tag_ref(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        type = 'type-%s' % self.id()
+        value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        self.api.tag_create(tag)
+        tag = self.api.tag_read(id=tag.uuid)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            endpoint_1=FirewallRuleEndpointType(tags=[tag.name]),
+            # endpoint_2=FirewallRuleEndpointType(tags=[tag.name]),
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.tags, [tag.name])
+        self.assertEqual({r['uuid'] for r in fr.get_tag_refs()},
+                         set([tag.uuid]))
+
+        fr.set_endpoint_1(None)
+        self.api.firewall_rule_update(fr)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertIsNone(fr.endpoint_1)
+        self.assertIsNone(fr.get_tag_refs())
+
     def test_firewall_service(self):
         pobj = Project('%s-project' % self.id())
         self.api.project_create(pobj)
@@ -803,17 +1049,22 @@ class TestFirewall(TestFirewallBase):
     def test_create_firewall_rule_with_ref_without_uuid(self):
         pm = PolicyManagement('pm-%s' % self.id())
         self.api.policy_management_create(pm)
-        ag = AddressGroup('ag-%s' % self.id(), parent_obj=pm)
-        self.api.address_group_create(ag)
+        sg = ServiceGroup(
+            name='fr-%s' % self.id(),
+            parent_obj=pm,
+            service_group_firewall_service_list=FirewallServiceGroupType(
+                firewall_service=[FirewallServiceType()]),
+        )
+        self.api.service_group_create(sg)
         fr = FirewallRule(
             'fr-%s' % self.id(),
             parent_obj=pm,
-            service=FirewallServiceType(),
         )
+
         # Re-create Address Group VNC API object without the UUID for the ref
-        fr.add_address_group(
-            AddressGroup(
-                fq_name=ag.fq_name,
+        fr.add_service_group(
+            ServiceGroup(
+                fq_name=sg.fq_name,
                 parent_type=PolicyManagement.object_type,
             ),
         )
@@ -2122,3 +2373,48 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(project_aps.get_firewall_policy_refs()[0]['to'],
                          global_fp.fq_name)
         self.assertEqual(global_fp.display_name, new_name)
+
+    def test_service_group_fq_name_update_in_firewall_rule_endpoints(self):
+        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=global_pm)
+        self.api.firewall_policy_create(global_fp)
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.enable_security_policy_draft = True
+        self.api.global_system_config_update(gsc)
+
+        ag = AddressGroup(
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+            parent_obj=global_pm,
+        )
+        self.api.address_group_create(ag)
+
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self.api.virtual_network_create(vn)
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=FirewallRuleEndpointType(
+                address_group=ag.get_fq_name_str()),
+            endpoint_2=FirewallRuleEndpointType(any=True),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+
+        draft_ag = self.api.address_group_read(id=ag.uuid)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(draft_ag.get_fq_name_str(),
+                         fr.endpoint_1.address_group)
+
+        self.api.commit_security(gsc)
+        ag = self.api.address_group_read(id=ag.uuid)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertNotEqual(draft_ag.get_fq_name_str(),
+                            fr.endpoint_1.address_group)
+        self.assertEqual(ag.get_fq_name_str(), fr.endpoint_1.address_group)
