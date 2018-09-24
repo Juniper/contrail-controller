@@ -5,6 +5,7 @@ import sys
 import cfgm_common
 from cfgm_common import has_role
 from cfgm_common import jsonutils as json
+from cfgm_common.utils import shareinfo_from_perms2_tenant
 import string
 import uuid
 from provision_defaults import *
@@ -95,28 +96,22 @@ class VncPermissions(object):
         if has_role(self.global_read_only_role, roles) and mode == PERMS_R:
             return (True, 'R')
 
+        # Get request scope
         env = request.headers.environ
-        tenant = env.get('HTTP_X_PROJECT_ID')
-        tenant_name = env.get('HTTP_X_PROJECT_NAME', '*')
-        if tenant is None:
-            msg = "rbac: Unable to find tenant id in headers"
-            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            tenant = ''
-        tenant = tenant.replace('-','')
+        domain_id = env.get('HTTP_X_DOMAIN_ID').replace('-','')
+        domain_name = env.get('HTTP_X_DOMAIN_NAME')
+        project_id = env.get('HTTP_X_PROJECT_ID').replace('-','')
+        project_name = env.get('HTTP_X_PROJECT_NAME')
+        if not domain_id:
+            msg = "RBAC permission mechanism fails to obtain request domain ID"
+            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_WARN)
+            return False, (403, msg)
+        if not project_id:
+            msg = "RBAC permission mechanism fails to obtain project ID"
+            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_WARN)
+            return False, (403, msg)
 
-        # grant access if shared with domain
-        domain = env.get('HTTP_X_DOMAIN_ID') or env.get('HTTP_X_DOMAIN_NAME') or \
-            env.get('HTTP_X_USER_DOMAIN_ID') or 'default-domain'
-        try:
-            domain = str(uuid.UUID(domain))
-        except ValueError, TypeError:
-            if domain == 'default':
-                domain = 'default-domain'
-            domain = self._server_mgr._db_conn.fq_name_to_uuid('domain', [domain])
-        if domain:
-            domain = domain.replace('-','')
-
-        # retrieve object permissions
+        # retrieve object permissions if missing
         if not perms2:
             try:
                 perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
@@ -129,17 +124,19 @@ class VncPermissions(object):
 
         # build perms
         mask = 07
-        if (tenant == owner):
+        if project_id == owner:
             mask |= 0700
 
         share_items = perms2['share']
         shares = [item['tenant'] for item in share_items]
         for item in share_items:
             # item['tenant'] => [share-type, uuid]
-            # allow access if domain or project from token matches configured sharing information
-            (share_type, share_uuid) = cfgm_common.utils.shareinfo_from_perms2_tenant(item['tenant'])
+            # allow access if domain or project from token matches configured
+            # sharing information
+            share_type, share_uuid = shareinfo_from_perms2_tenant(item['tenant'])
             share_uuid = share_uuid.replace('-','')
-            if ((share_type == 'tenant' and tenant == share_uuid) or (share_type == 'domain' and domain == share_uuid)):
+            if ((share_type == 'tenant' and project_id == share_uuid) or
+                    (share_type == 'domain' and domain_id == share_uuid)):
                 perms = perms | item['tenant_access'] << 3
                 mask |= 0070
                 break
@@ -148,24 +145,28 @@ class VncPermissions(object):
         ok = (mask & perms & mode_mask)
         if (ok and obj_owner_for_delete):
             obj_owner_for_delete = obj_owner_for_delete.replace('-','')
-            ok = (tenant == obj_owner_for_delete)
+            ok = (project_id == obj_owner_for_delete)
 
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
-        msg = ("rbac: %s (%s:%s) mode=%03o mask=%03o perms=%03o, "
+        msg = ("RBAC: %s (%s:%s) mode=%03o mask=%03o perms=%03o, "
                "(user=%s(%s)/owner=%s/shares=%s)" %
                ('+++' if ok else '---', self.mode_str[mode], obj_uuid,
-                mode_mask, mask, perms, tenant, tenant_name, owner,shares))
+                mode_mask, mask, perms, project_id, project_name, owner,
+                shares))
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         if not ok:
-            msg = ("rbac: %s doesn't have %s permission in project '%s'" %
+            msg = ("RBAC: %s doesn't have %s permission in project '%s'" %
                    (user, self.mode_str2[mode], owner))
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-        err_msg = ("Permission Denied for %s to %s operation in %s" %
-                   (roles, mode, "project '%s'" % tenant if tenant else
-                    "domain '%s'" % domain))
-        return (True, self.mode_str[granted]) if ok else (False, (403, err_msg))
+        err_msg = ("Permission Denied for %s to %s operation in domain '%s' "
+                   "and project '%s'" %
+                   (roles, mode, domain_name, project_name))
+        if ok:
+            return True, self.mode_str[granted]
+        else:
+            return False, (403, err_msg)
     # end validate_perms
 
     # retreive user/role from incoming request

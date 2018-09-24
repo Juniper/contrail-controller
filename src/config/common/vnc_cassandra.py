@@ -1653,8 +1653,8 @@ class ObjectCacheManager(object):
                 return self.obj_dict
 
             # TODO filter with field_names
-            return {k:self.obj_dict[k]
-                for k in set(self.obj_dict.keys()) & set(field_names)}
+            return {k: copy.deepcopy(self.obj_dict[k])
+                    for k in set(self.obj_dict.keys()) & set(field_names)}
         # end get_filtered_copy
 
     # end class CachedObject
