@@ -1292,27 +1292,34 @@ class VncApiServer(object):
     # end http_resource_read
 
     # filter object references based on permissions
-    def obj_view(self, resource_type, obj_dict):
-        ret_obj_dict = {}
-        ret_obj_dict.update(obj_dict)
+    def obj_view(self, resource_type, obj_dict, ref_perms=None):
         r_class = self.get_resource_class(resource_type)
         obj_links = r_class.obj_links & set(obj_dict.keys())
-        obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
-        obj_dicts = self._db_conn._object_db.object_raw_read(
-            r_class.object_type, obj_uuids, ["id_perms",  "perms2"])
-        uuid_to_dict = {obj_dict['uuid']: obj_dict for obj_dict in obj_dicts}
+        ret_obj_dict = {}
+        ret_obj_dict.update(obj_dict)
+
+        if not ref_perms:
+            if self.is_rbac_enabled():
+                fields = ['perms2']
+            else:
+                fields = ['id_perms']
+            ref_uuids = {ref['uuid'] for link in obj_links
+                         for ref in obj_dict[link]}
+            ref_perms = {obj_dict['uuid']: obj_dict for obj_dict in
+                         self._db_conn._object_db.object_raw_read(
+                             resource_type, ref_uuids,fields)}
 
         for link_field in obj_links:
             links = obj_dict[link_field]
 
-            # build new links in returned dict based on permissions on linked object
+            # build new links in returned dict based on permissions on linked
+            # object
             ret_obj_dict[link_field] = [l for l in links
-                if ((l['uuid'] in uuid_to_dict) and
+                if ((l['uuid'] in ref_perms) and
                     (self._permissions.check_perms_read(get_request(),
-                    l['uuid'], uuid_to_dict[l['uuid']])[0] == True))]
+                    l['uuid'], ref_perms[l['uuid']])[0] == True))]
         return ret_obj_dict
     # end obj_view
-
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
@@ -3939,6 +3946,20 @@ class VncApiServer(object):
                     else:
                         obj_dicts.append(obj_result)
             else:
+                # fetch all perms of child/ref/back_ref of listed resources in
+                # one DB call for performance reason
+                if not self.is_admin_request() and is_detail:
+                    ref_uuids = {ref['uuid'] for link in r_class.obj_links
+                                 for o in result for ref in o.get(link, [])}
+                    if self.is_rbac_enabled():
+                        fields = ['perms2']
+                    else:
+                        fields = ['id_perms']
+                    ref_dicts = self._db_conn._object_db.object_raw_read(
+                        resource_type, list(ref_uuids), fields)
+                    ref_perms = {obj_dict['uuid']: obj_dict
+                                for obj_dict in ref_dicts}
+
                 for obj_result in result:
                     id_perms = obj_result.get('id_perms')
 
@@ -3959,7 +3980,8 @@ class VncApiServer(object):
                     obj_dict = {}
 
                     if is_detail:
-                        obj_result = self.obj_view(resource_type, obj_result)
+                        obj_result = self.obj_view(resource_type, obj_result,
+                                                   ref_perms)
                         obj_result['name'] = obj_result['fq_name'][-1]
                         obj_dict.update(obj_result)
                         obj_dicts.append({resource_type: obj_dict})
