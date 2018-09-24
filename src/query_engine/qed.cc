@@ -136,10 +136,12 @@ main(int argc, char *argv[]) {
     error_code error;
     DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
+    string dss_ep_name;
     Sandesh::CollectorSubFn csf = 0;
 
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+            options.discovery_server(), options.discovery_port(), &dss_ep,
+            &dss_ep_name)) {
         // Parse discovery server ssl config
         SslConfig ssl_cfg(options.discovery_ssl());
         DiscoveryServiceClient::ParseDiscoveryServerSslConfig(
@@ -149,8 +151,8 @@ main(int argc, char *argv[]) {
 
             string subscriber_name =
                 g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
-            ds_client = new DiscoveryServiceClient(&evm, dss_ep, ssl_cfg,
-                                                   subscriber_name);
+            ds_client = new DiscoveryServiceClient(&evm, dss_ep, dss_ep_name,
+                                                   ssl_cfg, subscriber_name);
             ds_client->Init();
             csf = boost::bind(&DiscoveryServiceClient::Subscribe, 
                               ds_client, _1, _2, _3);

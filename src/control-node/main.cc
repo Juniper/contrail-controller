@@ -460,8 +460,10 @@ int main(int argc, char *argv[]) {
     // Parse discovery server configuration.
     DiscoveryServiceClient *ds_client = NULL;
     tcp::endpoint dss_ep;
+    string dss_ep_name;
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+            options.discovery_server(), options.discovery_port(), &dss_ep,
+            &dss_ep_name)) {
         // Parse discovery server ssl config
         SslConfig ssl_cfg(options.discovery_ssl());
         DiscoveryServiceClient::ParseDiscoveryServerSslConfig(
@@ -472,7 +474,8 @@ int main(int argc, char *argv[]) {
         // Create and initialize discovery client.
         string subscriber_name =
             g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep, ssl_cfg, subscriber_name);
+        ds_client = new DiscoveryServiceClient(&evm, dss_ep, dss_ep_name,
+                                               ssl_cfg, subscriber_name);
         ds_client->Init();
 
         // Publish xmpp-server service.
