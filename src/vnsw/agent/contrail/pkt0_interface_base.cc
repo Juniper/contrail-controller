@@ -54,7 +54,7 @@ void Pkt0Interface::ShutdownControlInterface() {
 }
 
 void Pkt0Interface::WriteHandler(const boost::system::error_code &error,
-                                 std::size_t length, PacketBufferPtr pkt,
+                                 std::size_t length,
                                  uint8_t *buff) {
     if (error)
         TAP_TRACE(Err,

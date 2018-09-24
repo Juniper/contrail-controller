@@ -149,7 +149,7 @@ void Pkt0Interface::SendImpl(uint8_t *buff, uint16_t buff_len, const PacketBuffe
     input_.async_write_some(buff_list,
                             boost::bind(&Pkt0Interface::WriteHandler, this,
                                         boost::asio::placeholders::error,
-                                        boost::asio::placeholders::bytes_transferred, pkt, buff));
+                                        boost::asio::placeholders::bytes_transferred, buff));
 }
 
 void Pkt0RawInterface::InitControlInterface() {
