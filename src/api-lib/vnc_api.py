@@ -444,9 +444,16 @@ class VncApi(object):
         id = result
         uri = obj_cls.resource_uri_base[res_type] + '/' + id
 
+        fields = set(fields or [])
         if fields:
-            comma_sep_fields = ','.join(f for f in fields)
-            query_params = {'fields': comma_sep_fields}
+            # filter fields with only known attributes
+            fields = (fields & (
+                obj_cls.prop_fields |
+                obj_cls.children_fields |
+                obj_cls.ref_fields |
+                obj_cls.backref_fields)
+            )
+            query_params = {'fields': ','.join(f for f in fields)}
         else:
             query_params = {'exclude_back_refs':True,
                             'exclude_children':True,}
@@ -457,6 +464,12 @@ class VncApi(object):
         response = self._request_server(rest.OP_GET, uri, query_params)
 
         obj_dict = response[res_type]
+        # if requested child/backref fields are not in the result, that means
+        # resource does not have child/backref of that type. Set it to None to
+        # prevent VNC client lib to call again VNC API when user uses the get
+        # child/backref method on that type in the 'resource_client' file
+        [obj_dict.setdefault(field, None) for field
+         in fields & (obj_cls.backref_fields | obj_cls.children_fields)]
         obj = obj_cls.from_dict(**obj_dict)
         obj.clear_pending_updates()
         obj.set_server_conn(self)
@@ -1176,9 +1189,24 @@ class VncApi(object):
             if len(obj_uuids) > self.POST_FOR_LIST_THRESHOLD:
                 do_post_for_list = True
 
+        fields = set(fields or [])
         if fields:
-            comma_sep_fields = ','.join(f for f in fields)
-            query_params['fields'] = comma_sep_fields
+            # filter fields with only known attributes
+            if detail:
+                # when details is true, VNC API returns at least all properties
+                # and refs fields, don't need to specify them
+                fields = (
+                    fields & (obj_class.backref_fields | obj_class.children_fields)
+                )
+            else:
+                fields = (fields & (
+                    obj_class.prop_fields |
+                    obj_class.children_fields |
+                    obj_class.ref_fields |
+                    obj_class.backref_fields)
+                )
+
+            query_params['fields'] = ','.join(f for f in fields)
 
         query_params['detail'] = detail
 
@@ -1219,7 +1247,13 @@ class VncApi(object):
         resource_dicts = response['%ss' %(obj_type)]
         resource_objs = []
         for resource_dict in resource_dicts:
-            obj_dict = resource_dict['%s' %(obj_type)]
+            obj_dict = resource_dict['%s' % (obj_type)]
+            # if requested child/backref fields are not in the result, that
+            # means resource does not have child/backref of that type. Set it
+            # to None to prevent VNC client lib to call again VNC API when user
+            # uses the get child/backref method on that type in the
+            # 'resource_client' file
+            [obj_dict.setdefault(field, None) for field in fields]
             resource_obj = obj_class.from_dict(**obj_dict)
             resource_obj.clear_pending_updates()
             resource_obj.set_server_conn(self)
