@@ -7,6 +7,7 @@ This file contains job manager api which involves playbook interactions
 """
 
 import os
+import random
 import uuid
 import json
 import subprocess32
@@ -257,45 +258,54 @@ class JobHandler(object):
         if pb_status != 0:
             status = "FAILURE"
 
-        payload = {
-            'start_time': 'now-%ds' % (elapsed_time),
-            'end_time': 'now',
-            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-            'table': 'ObjectJobExecutionTable',
-            'where': [
-                [
-                    {
-                        'name': 'ObjectId',
-                        'value': '%s' % exec_id,
-                        'op': 1
-                    }
-                ]
-            ]
-        }
-        url = "http://localhost:8081/analytics/query"
+        analytics_node_ips = os.getenv("ANALYTICS_NODES")
+        if analytics_node_ips is None:
+            analytics_node_ips = os.getenv("CONTROLLER_NODES")
+            if analytics_node_ips is None:
+                self._logger.error("Analytics Node information not "
+                                "available")
+            else:
+                analytics_ip_list = analytics_node_ips.split(',')
+                analytics_node_ip = random.choice(analytics_ip_list)
+                payload = {
+                    'start_time': 'now-%ds' % (elapsed_time),
+                    'end_time': 'now',
+                    'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+                    'table': 'ObjectJobExecutionTable',
+                    'where': [
+                        [
+                            {
+                                'name': 'ObjectId',
+                                'value': '%s' % exec_id,
+                                'op': 1
+                            }
+                        ]
+                    ]
+                }
+                url = "http://" + analytics_node_ip + ":8081/analytics/query"
 
-        resp = requests.post(url, json=payload)
-        if resp.status_code == 200:
-            PRouterOnboardingLog = resp.json().get('value')
-            for PRObjectLog in PRouterOnboardingLog:
-                resp = PRObjectLog.get('ObjectLog')
-                xmlresp = etree.fromstring(resp)
-                for ele in xmlresp.iter():
-                    if ele.tag == 'name':
-                        device_fqname = ele.text
-                    if ele.tag == 'onboarding_state':
-                        onboarding_state = ele.text
-                job_template_fq_name = ':'.join(
-                    map(str, self._job_template.fq_name))
-                pr_fabric_job_template_fq_name = device_fqname + ":" + \
-                    self._fabric_fq_name + ":" + \
-                    job_template_fq_name
-                self._job_log_utils.send_prouter_job_uve(
-                    self._job_template.fq_name,
-                    pr_fabric_job_template_fq_name,
-                    exec_id,
-                    prouter_state=onboarding_state,
-                    job_status=status)
+                resp = requests.post(url, json=payload)
+                if resp.status_code == 200:
+                    PRouterOnboardingLog = resp.json().get('value')
+                    for PRObjectLog in PRouterOnboardingLog:
+                        resp = PRObjectLog.get('ObjectLog')
+                        xmlresp = etree.fromstring(resp)
+                        for ele in xmlresp.iter():
+                            if ele.tag == 'name':
+                                device_fqname = ele.text
+                            if ele.tag == 'onboarding_state':
+                                onboarding_state = ele.text
+                        job_template_fq_name = ':'.join(
+                            map(str, self._job_template.fq_name))
+                        pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                            self._fabric_fq_name + ":" + \
+                            job_template_fq_name
+                        self._job_log_utils.send_prouter_job_uve(
+                            self._job_template.fq_name,
+                            pr_fabric_job_template_fq_name,
+                            exec_id,
+                            prouter_state=onboarding_state,
+                            job_status=status)
 
     # end send_pr_object_log
 
