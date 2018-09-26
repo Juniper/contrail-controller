@@ -8,18 +8,20 @@
 package contrailCni
 
 import (
-	log "../logging"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
+
+	log "../logging"
+	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 )
 
 // Default VRouter values
@@ -41,6 +43,7 @@ type VRouter struct {
 	containerId   string
 	containerUuid string
 	containerVn   string
+	VmiUuid       string
 	httpClient    *http.Client
 }
 
@@ -49,10 +52,10 @@ type vrouterJson struct {
 }
 
 // Make filename to store config
-func (vrouter *VRouter) makeFileName() string {
+func (vrouter *VRouter) makeFileName(VmiUUID string) string {
 	fname := vrouter.Dir + "/" + vrouter.containerUuid
-	if vrouter.containerVn != "" {
-		fname = fname + "/" + vrouter.containerVn
+	if VmiUUID != "" {
+		fname = fname + "/" + VmiUUID
 	}
 
 	return fname
@@ -65,9 +68,7 @@ func (vrouter *VRouter) makeUrl(containerUuid, containerVn,
 	if len(containerUuid) > 0 {
 		url = url + "/" + vrouter.containerUuid
 	}
-	if len(containerVn) > 0 {
-		url = url + "/" + vrouter.containerVn
-	}
+
 	return url
 }
 
@@ -97,15 +98,33 @@ func (vrouter *VRouter) doOp(op, containerUuid, containerVn, page string,
 /****************************************************************************
  * GET /vm response from VRouter
  ****************************************************************************/
+
+// Annotations are used to pass information from kube-manager to Plugin
+type Annotations struct {
+	Cluster   string `json:"cluster"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Network   string `json:"network"`
+	Owner     string `json:"owner"`
+	Project   string `json:"project"`
+	Index     string `json:"index"`
+}
+
 type Result struct {
-	VmUuid string `json:"vm-uuid"`
-	Nw     string `json:"network-label"`
-	Ip     string `json:"ip-address"`
-	Plen   int    `json:"plen"`
-	Gw     string `json:"gateway"`
-	Dns    string `json:"dns-server"`
-	Mac    string `json:"mac-address"`
-	VlanId int    `json:"vlan-id"`
+	VmUuid      string   `json:"vm-uuid"`
+	Nw          string   `json:"network-label"`
+	Ip          string   `json:"ip-address"`
+	Plen        int      `json:"plen"`
+	Gw          string   `json:"gateway"`
+	Dns         string   `json:"dns-server"`
+	Mac         string   `json:"mac-address"`
+	VlanId      int      `json:"vlan-id"`
+	VnId        string   `json:"vn-id"`
+	VnName      string   `json:"vn-name"`
+	VmiUuid     string   `json:"id"`
+	Args        []string `json:"annotations"`
+	Annotations Annotations
 }
 
 // Convert result from VRouter format to CNI format
@@ -122,16 +141,21 @@ func MakeCniResult(ifname string, vrouterResult *Result) *current.Result {
 		Gateway: net.ParseIP(vrouterResult.Gw)}
 	result.IPs = append(result.IPs, ip)
 
-	_, defaultNet, _ := net.ParseCIDR("0.0.0.0/0")
-	rt := &types.Route{Dst: *defaultNet, GW: net.ParseIP(vrouterResult.Gw)}
-	result.Routes = append(result.Routes, rt)
+	// Set default route only for the primary interface in case of multiple
+	// interfaces per pod. Currently using eth0 by default
+	// TODO: Allow user to select primary interface
+	if ifname == "eth0" {
+		_, defaultNet, _ := net.ParseCIDR("0.0.0.0/0")
+		rt := &types.Route{Dst: *defaultNet, GW: net.ParseIP(vrouterResult.Gw)}
+		result.Routes = append(result.Routes, rt)
+	}
 
 	result.DNS.Nameservers = append(result.DNS.Nameservers, vrouterResult.Dns)
 	return result
 }
 
 // Get operation from VRouter
-func (vrouter *VRouter) Get(url string) (*Result, error) {
+func (vrouter *VRouter) Get(url string) (*[]Result, error) {
 	var req []byte
 	resp, err := vrouter.doOp("GET", vrouter.containerUuid,
 		vrouter.containerVn, url, req)
@@ -148,7 +172,7 @@ func (vrouter *VRouter) Get(url string) (*Result, error) {
 		return nil, fmt.Errorf(msg)
 	}
 
-	var result Result
+	results := make([]Result, 0)
 	var body []byte
 
 	body, err = ioutil.ReadAll(resp.Body)
@@ -158,23 +182,45 @@ func (vrouter *VRouter) Get(url string) (*Result, error) {
 	}
 
 	log.Infof("VRouter response %s", string(body))
-	err = json.Unmarshal(body, &result)
+	err = json.Unmarshal(body, &results)
 	if err != nil {
 		log.Errorf("Error decoding HTTP Get response. Error : %+v", err)
 		return nil, err
 	}
 
-	return &result, nil
+	// Parse args from each result and update the
+	// Annotations member in the Result Object
+	for idx, result := range results {
+		str := "{"
+		for id, annotation := range result.Args {
+			annotation = strings.TrimRight(annotation, "}")
+			annotation = strings.TrimLeft(annotation, "{")
+			annSplit := strings.Split(annotation, ":")
+			str = str + "\"" + annSplit[0] + "\":\"" + annSplit[1] + "\""
+			if id != len(result.Args)-1 {
+				str = str + ","
+			}
+		}
+		str = str + "}"
+
+		err = json.Unmarshal([]byte(str), &results[idx].Annotations)
+		if err != nil {
+			log.Errorf("Error decoding Annotations. Error : %+v", err)
+			return nil, err
+		}
+	}
+
+	return &results, nil
 }
 
 // Poll response from VRouter
-func (vrouter *VRouter) PollUrl(url string) (*Result, error) {
+func (vrouter *VRouter) PollUrl(url string) (*[]Result, error) {
 	var msg string
 	for i := 0; i < vrouter.PollRetries; i++ {
-		result, err := vrouter.Get(url)
+		results, err := vrouter.Get(url)
 		if err == nil {
-			log.Infof("Get from vrouter passed. Result %+v", result)
-			return result, nil
+			log.Infof("Get from vrouter passed. Result %+v", results)
+			return results, nil
 		}
 
 		msg = err.Error()
@@ -197,15 +243,18 @@ type contrailAddMsg struct {
 	HostIfName      string `json:"host-ifname"`
 	ContainerIfName string `json:"vm-ifname"`
 	Namespace       string `json:"vm-namespace"`
+	VnId            string `json:"vn-uuid"`
+	VmiUuid         string `json:"vmi-uuid"`
 }
 
 // Make JSON for Add Message
 func makeMsg(containerName, containerUuid, containerId, containerNamespace,
-	containerIfName, hostIfName string) []byte {
+	containerIfName, hostIfName, vmiUuid, vnId string) []byte {
 	t := time.Now()
 	addMsg := contrailAddMsg{Time: t.String(), Vm: containerId,
 		VmUuid: containerUuid, VmName: containerName, HostIfName: hostIfName,
-		ContainerIfName: containerIfName, Namespace: containerNamespace}
+		ContainerIfName: containerIfName, Namespace: containerNamespace,
+		VmiUuid: vmiUuid, VnId: vnId}
 
 	msg, err := json.MarshalIndent(addMsg, "", "\t")
 	if err != nil {
@@ -215,18 +264,24 @@ func makeMsg(containerName, containerUuid, containerId, containerNamespace,
 	return msg
 }
 
-// Store the config to file for persistency
-func (vrouter *VRouter) addVmFile(addMsg []byte) error {
-	_, err := os.Stat(vrouter.Dir)
-	if err != nil {
-		log.Errorf("Error accessing VM config directory %s. Error : %s",
-			vrouter.Dir, err)
-		return err
+/* addVmFile: Store the config to file for persistency
+ * For each pod we create a separate directory with name as containerUUID.
+ * and for each interface a separate config file is created with name as
+ * VMI UUID.
+ */
+func (vrouter *VRouter) addVmFile(addMsg []byte, vmiUuid string) error {
+	// Check if path to directory exists exists, else create directory
+	path := vrouter.Dir + "/" + vrouter.containerUuid
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.Mkdir(path, 0644); err != nil {
+			log.Errorf("Error creating VM directory %s. Error : %s", path, err)
+			return err
+		}
 	}
 
-	// Write file based on VM name
-	fname := vrouter.makeFileName()
-	err = ioutil.WriteFile(fname, addMsg, 0644)
+	// Write file with VMI UUID as the file name
+	fname := vrouter.makeFileName(vmiUuid)
+	err := ioutil.WriteFile(fname, addMsg, 0644)
 	if err != nil {
 		log.Errorf("Error writing VM config file %s. Error : %s", fname, err)
 		return err
@@ -257,20 +312,22 @@ func (vrouter *VRouter) addVmToAgent(addMsg []byte) error {
 /* Process add of a VM. Writes config file and send message to agent */
 func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
 	containerId, containerNamespace, containerIfName,
-	hostIfName string, updateAgent bool) (*Result, error) {
+	hostIfName, vmiUuid string, updateAgent bool) error {
 	vrouter.containerUuid = containerUuid
 	vrouter.containerId = containerId
 	vrouter.containerVn = containerVn
+	vrouter.VmiUuid = vmiUuid
+
 	// Make Add Message structure
 	addMsg := makeMsg(containerName, containerUuid, containerId,
-		containerNamespace, containerIfName, hostIfName)
+		containerNamespace, containerIfName, hostIfName, vmiUuid, containerVn)
 	log.Infof("VRouter add message is %s", addMsg)
 
 	// Store config to file for persistency
-	if err := vrouter.addVmFile(addMsg); err != nil {
+	if err := vrouter.addVmFile(addMsg, vmiUuid); err != nil {
 		// Fail adding VM if directory not present
 		log.Errorf("Error storing config file")
-		return nil, err
+		return err
 	}
 
 	// Make the agent call for non-nested mode
@@ -278,27 +335,21 @@ func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
 		err := vrouter.addVmToAgent(addMsg)
 		if err != nil {
 			log.Errorf("Error in Add to VRouter")
-			return nil, err
+			return err
 		}
 	}
 
-	result, poll_err := vrouter.PollUrl("/vm")
-	if poll_err != nil {
-		log.Errorf("Error in polling VRouter")
-		return nil, poll_err
-	}
-
-	return result, nil
+	return nil
 }
 
 /****************************************************************************
  * DEL message handling
  ****************************************************************************/
 // Del VM config file
-func (vrouter *VRouter) delVmFile() (error, error) {
-	fname := vrouter.makeFileName()
+func (vrouter *VRouter) delVmFile(containerIfName string) (error, error) {
+	fname := vrouter.makeFileName(containerIfName)
 	_, err := os.Stat(fname)
-	// File not present... noting to do
+	// File not present... nothing to do
 	if err != nil {
 		log.Infof("File %s not found. Error : %s", fname, err)
 		return nil, nil
@@ -316,7 +367,7 @@ func (vrouter *VRouter) delVmFile() (error, error) {
 
 func (vrouter *VRouter) delVmToAgent() error {
 	delMsg := makeMsg("", vrouter.containerUuid, vrouter.containerId,
-		"", "", "")
+		"", "", "", "", "")
 	resp, err := vrouter.doOp("DELETE", vrouter.containerUuid,
 		vrouter.containerVn, "/vm", delMsg)
 	if err != nil {
@@ -340,25 +391,20 @@ func (vrouter *VRouter) delVmToAgent() error {
  * effort cleanup
  */
 func (vrouter *VRouter) Del(containerId, containerUuid,
-	containerVn string, updateAgent bool) error {
+	containerVn string, updateAgent bool, vmiUuids []string) error {
 	log.Infof("Deleting container with id : %s uuid : %s Vn : %s",
 		containerId, containerUuid, containerVn)
 	vrouter.containerUuid = containerUuid
 	vrouter.containerId = containerId
 	vrouter.containerVn = containerVn
 	var ret error
-	// Remove the configuraion file stored for persistency
-	err, id_match_err := vrouter.delVmFile()
-	if err != nil {
-		log.Infof("Error in deleting config file")
-		ret = err
+	for _, vmiUuid := range vmiUuids {
+		// Remove the configuraion file stored for persistency
+		_, _ = vrouter.delVmFile(vmiUuid)
 	}
 
-	if id_match_err != nil {
-		log.Infof("Error in deleting config file")
-		ret = err
-		return ret
-	}
+	// Delete the directory for container
+	_, _ = vrouter.delVmFile("")
 
 	// Make the del message call to agent for non-nested mode
 	if updateAgent == true {
@@ -386,53 +432,86 @@ func (vrouter *VRouter) Del(containerId, containerUuid,
  * they do not match
  */
 func (vrouter *VRouter) CanDelete(containerId, containerUuid,
-	containerVn string) error {
+	containerVn string) ([]string, []string, error) {
 	vrouter.containerUuid = containerUuid
 	vrouter.containerId = containerId
 	vrouter.containerVn = containerVn
 
-	fname := vrouter.makeFileName()
-	_, err := os.Stat(fname)
-	// File not present... noting to do
+	var containerIntfNames []string
+	var vmiUuids []string
+	dirPath := vrouter.makeFileName("")
+	files, err := getFilesinDir(dirPath)
 	if err != nil {
-		log.Infof("File %s not found. Error : %s", fname, err)
-		return fmt.Errorf("File %s not found. Error : %s", fname, err)
+		if err.Error() == FileNotExist {
+			// Nothing to do
+			return containerIntfNames, vmiUuids, nil
+		}
 	}
 
-	// Check if the container-id in the file matches
-	file, err := ioutil.ReadFile(fname)
-	if err != nil {
-		log.Infof("Error reading file %s. Error : %s", fname, err)
-		return fmt.Errorf("Error reading file %s. Error : %s", fname, err)
+	for _, f := range files {
+		fname := vrouter.makeFileName(f.Name())
+		obj, err := readContrailAddMsg(fname)
+		if err != nil {
+			if err.Error() == FileNotExist {
+				// Nothing to do
+				continue
+			}
+			return containerIntfNames, vmiUuids, err
+		}
+
+		if obj.Vm != vrouter.containerId {
+			log.Infof("Mismatch in container-id between request and config file."+
+				"Expected %s got %s", vrouter.containerId, obj.Vm)
+			err := fmt.Errorf("Mismatch in container-id between request and "+
+				" config file. Expected %s got %s", vrouter.containerId, obj.Vm)
+			return containerIntfNames, vmiUuids, err
+		}
+
+		containerIntfNames = append(containerIntfNames, obj.ContainerIfName)
+		vmiUuids = append(vmiUuids, f.Name())
 	}
 
-	var obj contrailAddMsg
-	json.Unmarshal(file, &obj)
-	if obj.Vm != vrouter.containerId {
-		log.Infof("Mismatch in container-id between request and config file."+
-			"Expected %s got %s", vrouter.containerId, obj.Vm)
-		return fmt.Errorf("Mismatch in container-id between request and "+
-			" config file. Expected %s got %s", vrouter.containerId, obj.Vm)
-	}
-
-	return nil
+	log.Infof("Can delete the following interfaces - %s", containerIntfNames)
+	return containerIntfNames, vmiUuids, nil
 }
 
 /****************************************************************************
  * POLL handling
  ****************************************************************************/
-func (vrouter *VRouter) Poll(containerUuid, containerVn string) (*Result,
+func (vrouter *VRouter) Poll(containerUuid, containerVn string) (*[]Result,
 	error) {
 	vrouter.containerUuid = containerUuid
 	vrouter.containerVn = containerVn
+	var msg string
 
-	result, poll_err := vrouter.PollUrl("/vm-cfg")
-	if poll_err != nil {
-		log.Errorf("Error in poll-url for config")
-		return nil, poll_err
+	// Loop till we receive all the interfaces attached to the pod
+	// in the Vrouter Response.
+	for i := 0; i < vrouter.PollRetries; i++ {
+		results, poll_err := vrouter.PollUrl("/vm-cfg")
+		if poll_err != nil {
+			msg = poll_err.Error()
+			break
+		}
+
+		result := (*results)[0]
+		indices := strings.Split(result.Annotations.Index, "/")
+		total_interfaces, err := strconv.Atoi(indices[1])
+		if err != nil {
+			msg = err.Error()
+			break
+		}
+
+		if total_interfaces == len(*results) {
+			return results, nil
+		}
+
+		msg = fmt.Sprintf("Iteration %d : Get VRouter Incomplete - "+
+			"Interfaces Expected: %d, Actual: %d", i, total_interfaces, len(*results))
+		log.Infof(msg)
+		time.Sleep(time.Duration(vrouter.PollTimeout) * time.Second)
 	}
 
-	return result, nil
+	return nil, fmt.Errorf("Failed in Poll VM-CFG. Error : %s", msg)
 }
 
 /****************************************************************************
@@ -451,7 +530,7 @@ func VRouterInit(stdinData []byte) (*VRouter, error) {
 	vrouter := VRouter{Server: VROUTER_AGENT_IP, Port: VROUTER_AGENT_PORT,
 		Dir: VROUTER_CONFIG_DIR, PollTimeout: VROUTER_POLL_TIMEOUT,
 		PollRetries: VROUTER_POLL_RETRIES, containerId: "", containerUuid: "",
-		containerVn: "", httpClient: httpClient}
+		containerVn: "", VmiUuid: "", httpClient: httpClient}
 	args := vrouterJson{VRouter: vrouter}
 
 	if err := json.Unmarshal(stdinData, &args); err != nil {

@@ -320,8 +320,10 @@ func InitMacVlan(parentIfName, containerIfName, containerId, containerUuid,
 		vlanId:             vlanId,
 		containerTmpIfName: "",
 	}
-	intf.vlanIfName = buildVlanIfName(intf.containerUuid, intf.vlanId)
-	intf.containerTmpIfName = buildContainerTmpIfName(intf.containerUuid)
+
+	nameStr := intf.containerIfName + "-" + intf.containerUuid
+	intf.vlanIfName = buildVlanIfName(nameStr, intf.vlanId)
+	intf.containerTmpIfName = buildContainerTmpIfName(nameStr)
 
 	log.Infof("Initialized MacVlan interface %+v\n", intf)
 	return intf
