@@ -188,6 +188,10 @@ class VncKubernetesConfig(object):
         return vn_fq_name
 
     @classmethod
+    def get_pod_network_name(cls, vn_name):
+        return cls.cluster_name() + "-" + vn_name + "-pod-network"
+
+    @classmethod
     def get_configured_pod_network_name(cls):
         args = cls.args()
         if args.cluster_pod_network:
