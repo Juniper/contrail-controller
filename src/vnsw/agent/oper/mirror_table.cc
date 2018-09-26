@@ -65,7 +65,7 @@ DBEntry *MirrorTable::Add(const DBRequest *req) {
 
 bool MirrorTable::OnChange(MirrorEntry *mirror_entry) {
     bool ret = false;
-    NextHop *nh;
+    NextHop *nh = NULL;
     bool valid_nh = false;
     if (mirror_entry->mirror_flags_ ==
         MirrorEntryData::DynamicNH_Without_JuniperHdr) {
