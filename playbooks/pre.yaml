@@ -1,0 +1,9 @@
+- host: all
+  roles:
+    - role: add-insecure-registry
+      new_registry: "{{ contrail_docker_registry }}"
+    - role: add-registry-mirrors
+      nexus:
+        fqdn: ci-nexus.englab.juniper.net
+        registry:
+          proxy_port: 5005
