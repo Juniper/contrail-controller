@@ -1,0 +1,7 @@
+- hosts: all
+  roles:
+    - role: add-registry-proxy
+      nexus:
+        fqdn: ci-nexus.englab.juniper.net
+        registry:
+          proxy_port: 5005
