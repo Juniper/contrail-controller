@@ -1,0 +1,20 @@
+- project: 
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - contrail-vnc-build-containers-centos7-ocata-test:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+    experimental:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-vnc-build-containers-centos7-ocata-test:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+
+- job: contrail-vnc-build-containers-centos7-ocata-test
+  parent: contrail-vnc-build-containers-centos7-ocata
+  pre-run: playbooks/test/pre
+  roles:
+    - zuul: Juniper/contrail-zuul-jobs
+
