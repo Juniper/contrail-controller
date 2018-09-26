@@ -391,8 +391,11 @@ static bool ConfigClientInfoHandleRequest(const Sandesh *sr,
     ConfigClientManager *config_mgr =
         sctx->ifmap_server()->get_config_manager();
 
-    ConfigAmqpConnInfo amqp_conn_info;
-    config_mgr->config_amqp_client()->GetConnectionInfo(amqp_conn_info);
+    if (config_mgr->config_amqp_client()) {
+        ConfigAmqpConnInfo amqp_conn_info;
+        config_mgr->config_amqp_client()->GetConnectionInfo(amqp_conn_info);
+        response->set_amqp_conn_info(amqp_conn_info);
+    }
 
     ConfigDBConnInfo db_conn_info;
     config_mgr->config_db_client()->GetConnectionInfo(db_conn_info);
@@ -402,7 +405,6 @@ static bool ConfigClientInfoHandleRequest(const Sandesh *sr,
 
     response->set_client_manager_info(client_mgr_info);
     response->set_db_conn_info(db_conn_info);
-    response->set_amqp_conn_info(amqp_conn_info);
     response->set_context(request->context());
     response->set_more(false);
     response->Response();
