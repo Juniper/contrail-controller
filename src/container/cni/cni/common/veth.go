@@ -191,7 +191,10 @@ func InitVEth(containerIfName, containerId, containerUuid,
 		HostIfName: "",
 	}
 
-	intf.HostIfName = buildHostIfName(intf.containerUuid)
-	intf.TmpHostIfName = buildTmpHostIfName(intf.containerUuid)
+	nameStr := intf.containerIfName + "-" + intf.containerUuid
+	intf.HostIfName = buildHostIfName(nameStr)
+	intf.TmpHostIfName = buildTmpHostIfName(nameStr)
+
+	log.Infof("Initialized VEth interface %+v\n", intf)
 	return intf
 }

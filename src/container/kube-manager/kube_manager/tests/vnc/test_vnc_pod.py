@@ -8,6 +8,7 @@ import ipaddress
 import unittest
 
 from cfgm_common.exceptions import NoIdError
+import mock
 
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.common.kube_config_db import (NamespaceKM, PodKM)
@@ -17,6 +18,7 @@ from kube_manager.vnc import vnc_kubernetes_config as kube_config
 from kube_manager.vnc.config_db import TagKM
 from kube_manager.vnc.label_cache import XLabelCache
 from kube_manager.tests.vnc.db_mock import DBBaseKM
+from kube_manager.vnc.vnc_kubernetes import VncKubernetes
 
 TestPod = namedtuple('TestPod', ['uuid', 'meta', 'spec'])
 
@@ -95,7 +97,7 @@ class VncPodTest(KMTestCase):
         if labels:
             meta['labels'] = labels
         return meta
-    
+
     def _create_namespace(self, ns_name, ns_eval_vn_dict, is_isolated=False, labels={}):
         ns_uuid = str(uuid.uuid4())
         ns_add_event = self.create_add_namespace_event(ns_name, ns_uuid)
@@ -143,6 +145,7 @@ class VncPodTest(KMTestCase):
         if eval_vn_dict:
             pod_meta['annotations'] = {
                 'opencontrail.org/network': eval_vn_dict}
+        self.set_mock_for_kube()
         pod_add_event = self.create_event('Pod', pod_spec, pod_meta, action)
         pod_add_event['object']['status'] = pod_status
         pod = PodKM.locate(pod_uuid, pod_add_event['object'])
@@ -150,6 +153,10 @@ class VncPodTest(KMTestCase):
         if wait:
             self.wait_for_all_tasks_done()
         return TestPod(pod.uuid, pod_meta, pod_spec)
+
+    def set_mock_for_kube(self):
+        if VncKubernetes._vnc_kubernetes is not None:
+            VncKubernetes._vnc_kubernetes.pod_mgr._kube = mock.MagicMock()
 
     def _delete_pod(self, testpod, uuid=None, spec=None, meta=None, wait=True):
         pod_del_event = self.create_event('Pod',
@@ -275,7 +282,6 @@ class VncPodTestClusterProjectDefined(VncPodTest):
 
         self.kill_kube_manager()
 
-
         self._delete_pod(testpod, wait=False)
         testpod = self._create_update_pod(self.pod_name,
                                           self.ns_name,
@@ -284,6 +290,7 @@ class VncPodTestClusterProjectDefined(VncPodTest):
                                           wait=False)
 
         self.spawn_kube_manager()
+        self.set_mock_for_kube()
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)

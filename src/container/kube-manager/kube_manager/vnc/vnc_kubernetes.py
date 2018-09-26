@@ -150,6 +150,8 @@ class VncKubernetes(VncCommon):
             self.network_policy_mgr)
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints')
+        self.network_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_network.VncNetwork')
 
         # Create system default security policies.
         VncSecurityPolicy.create_deny_all_security_policy()
@@ -544,6 +546,8 @@ class VncKubernetes(VncCommon):
                     self.endpoints_mgr.process(event)
                 elif kind == 'Ingress':
                     self.ingress_mgr.process(event)
+                elif kind == 'NetworkAttachmentDefinition':
+                    self.network_mgr.process(event)
                 else:
                     print("%s - Event %s %s %s:%s:%s not handled"
                         %(self._name, event_type, kind, namespace, name, uid))
