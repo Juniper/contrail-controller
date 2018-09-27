@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 import json
-import mock
 import unittest
+import mock
 
 import etcd3
+from etcd3.exceptions import ConnectionFailedError
 
-from cfgm_common.exceptions import NoIdError
-from vnc_etcd import EtcdCache, VncEtcd
+from cfgm_common.exceptions import DatabaseUnavailableError, NoIdError
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from vnc_etcd import EtcdCache, VncEtcd, _handle_conn_error
 
 
 def _vnc_etcd_factory(host='etcd-host-01', port='2379', prefix='/contrail',
                       logger=None, obj_cache_exclude_types=None,
                       log_response_time=None, credential=None,
                       ssl_enabled=False, ca_certs=None):
+    """VncEtcd factory function for testing only."""
     return VncEtcd(host=host, port=port, prefix=prefix, logger=logger,
                    obj_cache_exclude_types=obj_cache_exclude_types,
                    log_response_time=log_response_time, credential=credential,
@@ -460,3 +463,48 @@ class EtcdCacheTest(unittest.TestCase):
 
         cache.revoke_ttl('/test/key')
         self.assertIn('/test/key', cache)
+
+
+class EtcdConnErrorHandlerTest(unittest.TestCase):
+    class VncEtcdMock(object):
+        def __init__(self):
+            self._logger = mock.MagicMock()
+            self.log_response_time = mock.MagicMock()
+
+        @_handle_conn_error
+        def simulate_error(self, *args, **kwargs):
+            raise ConnectionFailedError
+
+        @_handle_conn_error
+        def simulate_success(self, *args, **kwargs):
+            return args, kwargs
+
+    def test_on_connection_fail_raise_DatabaseUnavailableError(self):
+        etcd = self.VncEtcdMock()
+        self.assertRaises(DatabaseUnavailableError, etcd.simulate_error)
+
+    def test_on_connection_fail_log_message(self):
+        etcd = self.VncEtcdMock()
+        try:
+            etcd.simulate_error()
+        except DatabaseUnavailableError:
+            pass
+
+        log_msg = 'etcd connection down. Exception in {}'.format(
+            str(etcd.simulate_error))
+        etcd._logger.assert_called_once_with(log_msg,
+                                             level=SandeshLevel.SYS_ERR)
+
+    def test_on_connection_fail_log_response_time(self):
+        etcd = self.VncEtcdMock()
+        try:
+            etcd.simulate_error()
+        except DatabaseUnavailableError:
+            pass
+        etcd.log_response_time.assert_called_once()
+
+    def test_if_no_connection_error_return_result(self):
+        etcd = self.VncEtcdMock()
+        args, kwargs = etcd.simulate_success(1, 2, foo='bar')
+        self.assertEqual(args, (1, 2))
+        self.assertDictEqual(kwargs, {'foo': 'bar'})
