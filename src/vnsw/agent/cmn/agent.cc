@@ -133,7 +133,11 @@ void Agent::SetAgentTaskPolicy() {
     }
     initialized = true;
 
+    // TODO Need to check why kTaskFlowMgmt is not in this list to prevent
+    // concurrency issues for BGP as a service BFD sessions. Adding it for now
+    // to be on the safe side.
     const char *db_exclude_list[] = {
+        kTaskFlowMgmt,
         kTaskFlowEvent,
         kTaskFlowKSync,
         kTaskFlowUpdate,
