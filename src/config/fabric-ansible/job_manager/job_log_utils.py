@@ -35,7 +35,7 @@ from job_manager.job_messages import MsgBundle
 class JobLogUtils(object):
 
     # max parallel tasks that can be executed within one job
-    TASK_POOL_SIZE = 20
+    TASK_POOL_SIZE = 250
 
     # PLAYBOOK TIMEOUT
     PLAYBOOK_TIMEOUT_VALUE = 3600
