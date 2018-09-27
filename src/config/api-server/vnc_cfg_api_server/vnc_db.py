@@ -413,6 +413,10 @@ class VncZkClient(object):
     _VN_ID_ALLOC_PATH = "/id/virtual-networks/"
     _VN_MAX_ID = 1 << 24
 
+    _AE_ID_ALLOC_PATH = "/id/aggregated-ethernet/"
+    _AE_MIN_ID = 0
+    _AE_MAX_ID = 64
+
     _SG_ID_ALLOC_PATH = "/id/security-groups/id/"
     _SG_MAX_ID = 1 << 32
 
@@ -437,6 +441,7 @@ class VncZkClient(object):
         self._subnet_path = zk_path_pfx + self._SUBNET_PATH
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
         _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
+        _ae_id_alloc_path = zk_path_pfx + self._AE_ID_ALLOC_PATH
         _sg_id_alloc_path = zk_path_pfx + self._SG_ID_ALLOC_PATH
         _tag_type_id_alloc_path = zk_path_pfx + self._TAG_TYPE_ID_ALLOC_PATH
         self._tag_value_id_alloc_path = zk_path_pfx + self._TAG_VALUE_ID_ALLOC_PATH
@@ -459,11 +464,17 @@ class VncZkClient(object):
             self._zk_client.delete_node(self._subnet_path, True)
             self._zk_client.delete_node(self._fq_name_to_uuid_path, True)
             self._zk_client.delete_node(_vn_id_alloc_path, True)
+            self._zk_client.delete_node(_ae_id_alloc_path, True)
             self._zk_client.delete_node(_sg_id_alloc_path, True)
             self._zk_client.delete_node(
                 zk_path_pfx + self._TAG_ID_ALLOC_ROOT_PATH, True)
 
         self._subnet_allocators = {}
+
+        # Initialize the Aggregated Ethernet allocator
+        self._ae_id_allocator = IndexAllocator(self._zk_client,
+                                               _ae_id_alloc_path,
+                                               self._AE_MAX_ID)
 
         # Initialize the virtual network ID allocator
         self._vn_id_allocator = IndexAllocator(self._zk_client,
@@ -696,6 +707,35 @@ class VncZkClient(object):
     def get_vn_from_id(self, id):
         if id is not None and id - VNID_MIN_ALLOC < self._VN_MAX_ID:
             return self._vn_id_allocator.read(id - VNID_MIN_ALLOC)
+
+    def alloc_ae_id(self, fq_name_str, id=None):
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None:
+            if self.get_ae_from_id(id) is not None:
+                self._ae_id_allocator.set_in_use(id - self._AE_MIN_ID)
+                return id
+        elif fq_name_str is not None:
+            return self._ae_id_allocator.alloc(fq_name_str) + self._AE_MIN_ID
+
+    def free_ae_id(self, id, fq_name_str, notify=False):
+        if id is not None and id - self._AE_MIN_ID < self._AE_MAX_ID:
+            # If fq_name associated to the allocated ID does not correpond to
+            # freed resource fq_name, keep zookeeper lock
+            allocated_fq_name_str = self.get_ae_from_id(id)
+            if (allocated_fq_name_str is not None and
+                    allocated_fq_name_str != fq_name_str):
+                return
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                self._ae_id_allocator.reset_in_use(id - self._AE_MIN_ID)
+            else:
+                self._ae_id_allocator.delete(id - self._AE_MIN_ID)
+
+    def get_ae_from_id(self, id):
+        if id is not None and id - self._AE_MIN_ID < self._AE_MAX_ID:
+            return self._ae_id_allocator.read(id - self._AE_MIN_ID)
 
     def alloc_sg_id(self, fq_name_str, id=None):
         # If ID provided, it's a notify allocation, just lock allocated ID in
