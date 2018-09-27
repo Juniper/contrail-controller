@@ -505,19 +505,22 @@ bool IFMapServer::CollectStats(BgpRouterState *state, bool first) const {
     CHECK_CONCURRENCY("bgp::ShowCommand");
 
     ConfigDBConnInfo db_conn_info;
+    const ConfigClientManager *ccmgr = get_config_manager();
     bool change = false;
 
-    get_config_manager()->config_db_client()->GetConnectionInfo(db_conn_info);
+    ccmgr->config_db_client()->GetConnectionInfo(db_conn_info);
     if (first || db_conn_info != state->get_db_conn_info())  {
         state->set_db_conn_info(db_conn_info);
         change = true;
     }
 
+    if (ccmgr->config_amqp_client()) {
     ConfigAmqpConnInfo amqp_conn_info;
-    get_config_manager()->config_amqp_client()->GetConnectionInfo(amqp_conn_info);
-    if (first || amqp_conn_info != state->get_amqp_conn_info())  {
-        state->set_amqp_conn_info(amqp_conn_info);
-        change = true;
+        ccmgr->config_amqp_client()->GetConnectionInfo(amqp_conn_info);
+        if (first || amqp_conn_info != state->get_amqp_conn_info())  {
+            state->set_amqp_conn_info(amqp_conn_info);
+            change = true;
+        }
     }
 
     IFMapServerInfoUI server_info;
