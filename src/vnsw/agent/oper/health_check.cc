@@ -71,10 +71,19 @@ void HealthCheckInstanceBase::ResyncInterface(const HealthCheckService *service)
 }
 
 void HealthCheckInstanceBase::set_service(HealthCheckService *service) {
+    // It is possible that the instance is queued for deletion at this point
+    // since this can be called in the Agent::heathCheck Task, don't need to
+    // set the service in this case because it is not needed.
+    if (deleted_)
+        return;
     if (service_ == service) {
         UpdateInstanceTask();
         return;
     }
+    // The instance is not expected to be associated with  different instance
+    // during its lifetime. Adding a check to make sure that service is null
+    // in this case.
+    assert(service_ == NULL);
     service_ = service;
     CreateInstanceTask();
 }
@@ -156,11 +165,11 @@ HealthCheckInstanceTask::~HealthCheckInstanceTask() {
 }
 
 bool HealthCheckInstanceTask::CreateInstanceTask() {
-    if (!deleted_ && task_.get() != NULL) {
+    if (task_.get() != NULL) {
         return false;
     }
 
-    deleted_ = false;
+    assert(deleted_ == false);
 
     HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
 
@@ -253,7 +262,7 @@ HealthCheckInstanceService::~HealthCheckInstanceService() {
 }
 
 bool HealthCheckInstanceService::CreateInstanceTask() {
-    deleted_ = false;
+    assert(deleted_ == false);
     HealthCheckService::HealthCheckType type = service_->health_check_type();
     HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
     assert(type == HealthCheckService::SEGMENT ||
@@ -350,12 +359,13 @@ HealthCheckService::HealthCheckService(const HealthCheckTable *table,
 }
 
 HealthCheckService::~HealthCheckService() {
-    InstanceList::iterator it = intf_list_.begin();
-    while (it != intf_list_.end()) {
-        delete it->second;
-        intf_list_.erase(it);
-        it = intf_list_.begin();
-    }
+    // Call DeleteInstances() so that the instances can be gracefully removed
+    // after all events queued are flushed.
+    // TODO pdsouza: This code doesn't seem to be required since the instances
+    // should already have been deleted via the same call on processing DB entry
+    // delete on the Health Check Table ( i.e., the list should be empty so it
+    // is benign.
+    DeleteInstances();
 }
 
 bool HealthCheckService::IsLess(const DBEntry &rhs) const {
@@ -460,7 +470,12 @@ HealthCheckService::StartHealthCheckService(VmInterface *intrface,
 void
 HealthCheckService::StopHealthCheckService(HealthCheckInstanceBase *instance) {
     if (!instance->DestroyInstanceTask()) {
-        delete instance;
+        // Delete instance in Agent::HealthCheck task bacause there may be
+        // events queued for this instance that need to be processed without
+        //  crashing while trying to access the instance.
+        // Note that db::DBTable Task and Agent::HealthCheck task are mutually
+        // exclusive, so there are no concurrency issues to be addressed.
+        instance->StopTask(instance->service());
     }
 }
 
@@ -625,6 +640,10 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                     if (health_check_type_ == HealthCheckService::BFD)
                         source_ip = intf->GetGatewayIp(intf->primary_ip_addr());
                     HealthCheckInstanceBase *inst =
+                        // Note that a new instance is alway used when starting
+                        // hence the same instance will not be re-used for a
+                        // different service. From this we can be sure that once
+                        // an instance is deleted it will not be re-used.
                         StartHealthCheckService(intf, paired_vmi, source_ip,
                                                 destination_ip, false, false);
                     intf_list_.insert(std::pair<boost::uuids::uuid,
@@ -863,6 +882,13 @@ bool HealthCheckTable::InstanceEventProcess(HealthCheckInstanceEvent *event) {
     switch (event->type_) {
     case HealthCheckInstanceEvent::MESSAGE_READ:
         {
+            // We dont want to process status messages as the instance delete
+            // has ben queued.
+            if (inst->deleted_) {
+                HEALTH_CHECK_TRACE(Trace,
+                  "Read Event while deleted! " + inst->to_string());
+                break;
+            }
             if (inst->IsStatusEventIgnored())
                 break;
             inst->last_update_time_ = UTCUsecToString(UTCTimestampUsec());
@@ -902,9 +928,12 @@ bool HealthCheckTable::InstanceEventProcess(HealthCheckInstanceEvent *event) {
         break;
 
     case HealthCheckInstanceEvent::STOP_TASK:
-        if (!inst->DestroyInstanceTask()) {
-            delete inst;
-        }
+        inst->DestroyInstanceTask();
+        // Freeing instance is handled here and not in any other task context.
+        // Unconditionally delete here since DestroyInstanceTask() may have
+        // alrady been called in the db::DBTable task context before queueing
+        // this event.
+        delete inst;
         break;
 
     default:
