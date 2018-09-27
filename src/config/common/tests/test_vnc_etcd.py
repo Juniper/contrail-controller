@@ -5,7 +5,7 @@ import unittest
 
 import etcd3
 
-from cfgm_common.exceptions import NoIdError
+from cfgm_common.exceptions import NoIdError, VncError
 from vnc_etcd import EtcdCache, VncEtcd
 
 
@@ -397,6 +397,91 @@ class VncEtcdTest(unittest.TestCase):
         expected = [{'uuid': 'aaa', 'foo': {'bar': 'baz'}},
                     {'uuid': 'ccc', 'foo': 'aaa'}]
         self.assertListEqual(list(result), expected)
+
+    @mock.patch('etcd3.client')
+    def test_fq_name_to_uuid_single_match(self, etcd_client):
+        example_resource = [
+            '{"uuid":"aaa", "fq_name":["domain","project","ip-fabric"]}',
+            '{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+        ]
+        etcd_client.get_prefix.return_value = (example_resource, None)
+        vnc_etcd = _vnc_etcd_factory()
+        result = vnc_etcd.fq_name_to_uuid('network',
+                                          ["domain", "project", "ip-fabric"])
+        self.assertEqual(result, 'aaa')
+
+    @mock.patch('etcd3.client')
+    def test_fq_name_to_uuid_multi_match(self, etcd_client):
+        example_resource = [
+            '{"uuid":"aaa", "fq_name":["domain","project","network"]}',
+            '{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+        ]
+        etcd_client.get_prefix.return_value = (example_resource, None)
+        vnc_etcd = _vnc_etcd_factory()
+
+        self.assertRaises(VncError, vnc_etcd.fq_name_to_uuid,
+                          'network', ["domain", "project", "network"])
+
+    @mock.patch('etcd3.client')
+    def test_fq_name_to_uuid_no_match(self, etcd_client):
+        example_resource = [
+            '{"uuid":"aaa", "fq_name":["domain","project","ip-fabric"]}',
+            '{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+        ]
+        etcd_client.get_prefix.return_value = (example_resource, None)
+        vnc_etcd = _vnc_etcd_factory()
+
+        self.assertRaises(NoIdError, vnc_etcd.fq_name_to_uuid,
+                          'network', ["domain", "project", "router"])
+
+    @mock.patch('etcd3.client')
+    def test_fq_name_to_uuid_single_match_from_cache(self, etcd_client):
+        example_resource = [
+            '{"uuid":"aaa", "fq_name":["domain","project","ip-fabric"]}',
+            '{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+        ]
+        etcd_client.get_prefix.return_value = (example_resource, None)
+        vnc_etcd = _vnc_etcd_factory()
+
+        vnc_etcd.fq_name_to_uuid('network', ["domain", "project", "network"])
+        vnc_etcd.fq_name_to_uuid('network', ["domain", "project", "network"])
+        etcd_client.get_prefix.assert_called_once()
+
+    @mock.patch('etcd3.client')
+    def test_uuid_to_fq_name_should_return_fq_name_array(self, etcd_client):
+        example_resource = [
+            '{"uuid":"aaa", "fq_name":["domain","project","ip-fabric"]}',
+            '{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+        ]
+        etcd_client.get_prefix.return_value = (example_resource, None)
+        vnc_etcd = _vnc_etcd_factory()
+
+        result = vnc_etcd.uuid_to_fq_name('bbb')
+        self.assertListEqual(result, ["domain", "project", "network"])
+
+    @mock.patch('etcd3.client')
+    def test_uuid_to_fq_name_no_match_should_raise_error(self, etcd_client):
+        example_resource = [
+            '{"uuid":"aaa", "fq_name":["domain","project","ip-fabric"]}',
+            '{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+        ]
+        etcd_client.get_prefix.return_value = (example_resource, None)
+        vnc_etcd = _vnc_etcd_factory()
+
+        self.assertRaises(NoIdError, vnc_etcd.uuid_to_fq_name, 'ccc')
+
+    @mock.patch('etcd3.client')
+    def test_uuid_to_fq_name_should_return_from_cache(self, etcd_client):
+        example_resource = [
+            '{"uuid":"aaa", "fq_name":["domain","project","ip-fabric"]}',
+            '{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+        ]
+        etcd_client.get_prefix.return_value = (example_resource, None)
+        vnc_etcd = _vnc_etcd_factory()
+
+        vnc_etcd.uuid_to_fq_name('bbb')
+        vnc_etcd.uuid_to_fq_name('bbb')
+        etcd_client.get_prefix.assert_called_once()
 
 
 class EtcdCacheTest(unittest.TestCase):
