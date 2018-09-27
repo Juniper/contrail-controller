@@ -6,7 +6,7 @@ import json
 
 import etcd3
 import utils
-from cfgm_common.exceptions import NoIdError
+from cfgm_common.exceptions import NoIdError, VncError
 
 from vnc_api import vnc_api
 from pysandesh.connection_info import ConnectionState
@@ -53,10 +53,12 @@ class VncEtcd(VncEtcdClient):
                                       ssl_enabled, ca_certs)
         self._prefix = prefix
         self._logger = logger
-
-        self._obj_cache = EtcdCache(skip_keys=obj_cache_exclude_types)
-        self._cache = EtcdCache(ttl=3600)  # 1 hour TTL
         self.log_response_time = log_response_time
+
+        # cache for object_read, object_list and object_all
+        self._obj_cache = EtcdCache(skip_keys=obj_cache_exclude_types)
+        # general purposes cache
+        self._cache = EtcdCache(ttl=3600)  # 1 hour TTL
 
     def __getattr__(self, name):
         return getattr(self._client, name)
@@ -203,12 +205,51 @@ class VncEtcd(VncEtcdClient):
         return True, [(True, r['uuid']) for r in results], ret_marker
 
     def fq_name_to_uuid(self, obj_type, fq_name):
-        # TODO: implement IMPORTANT (needs cache)
-        raise NotImplementedError("vnc_etcd method not implemented")
+        fq_name_str = utils.encode_string(':'.join(fq_name))
+        prefix = self._key_prefix(obj_type)
+
+        key = "{}/{}".format(prefix, fq_name_str)
+        if key in self._cache:
+            record = self._cache[key]
+        else:
+            response, _ = self._client.get_prefix(prefix)
+            record = None
+            for data, kv_meta in response:
+                obj = json.loads(data)
+                obj_fq_name = utils.encode_string(':'.join(obj['fq_name']))
+                if obj_fq_name == fq_name_str:
+                    if record is not None:
+                        raise VncError(
+                            'Multi match {} for {}'.format(fq_name_str,
+                                                           obj_type))
+                    record = EtcdCache.Record(resource=obj, kv_meta=kv_meta)
+            if record is None:
+                raise NoIdError('{} {}'.format(obj_type, fq_name_str))
+            self._cache[key] = record
+
+        return record.resource['uuid']
 
     def uuid_to_fq_name(self, uuid):
-        # TODO: implement IMPORTANT (needs cache)
-        raise NotImplementedError("vnc_etcd method not implemented")
+        if uuid in self._cache:
+            record = self._cache[uuid]
+        else:
+            response = self._client.get_prefix(self._prefix)
+            for data, kv_meta in response:
+                obj = json.loads(data)
+                if obj['uuid'] == uuid:
+                    record = EtcdCache.Record(resource=obj, kv_meta=kv_meta)
+                    break
+            else:
+                raise NoIdError(uuid)
+            self._cache[uuid] = record
+
+        return record.resource['fq_name']
+
+    def cache_uuid_to_fq_name_add(self, id, fq_name, obj_type):
+        """vnc_etcd handle Cache in different way than vnc_cassandra.
+        This method is just for compatibility.
+        """
+        pass
 
     def _get_backrefs(self, parents, obj_type, field):
         """Fetch all backrefs from given field.
