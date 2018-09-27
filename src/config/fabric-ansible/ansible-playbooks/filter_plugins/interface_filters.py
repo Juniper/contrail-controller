@@ -254,7 +254,7 @@ class FilterModule(object):
             regex_matched = re.search(regex_str, phy_interface['name'])
             do_not_add_in_payload = False
 
-            if (regex_matched or 'lo0' in phy_interface['name']):
+            if regex_matched or 'lo0' in phy_interface['name']:
                 if not regex_matched:
                     # lo0 interface, but not in user's regex input
                     do_not_add_in_payload = True
@@ -314,10 +314,14 @@ class FilterModule(object):
                                 = log_type
 
                         vlan_id = log_unit.get('vlan-id')
+                        phy_intf_native_vlan_id = phy_interface.get('native-vlan-id')
                         if vlan_id:
-                            log_interface_payload[
-                                'logical_interface_vlan_tag']\
-                                = vlan_id
+                            add_vlan_to_payload = self.chk_vlan_id(
+                                vlan_id, phy_intf_native_vlan_id)
+                            if add_vlan_to_payload:
+                                log_interface_payload[
+                                    'logical_interface_vlan_tag']\
+                                    = vlan_id
                         if not do_not_add_in_payload:
                             log_interfaces_payloads.append(
                                 log_interface_payload)
@@ -325,3 +329,17 @@ class FilterModule(object):
         return {"phy_interfaces_payload": phy_interfaces_payloads,
                 "log_interfaces_payload": log_interfaces_payloads,
                 "lo_interface_ip": lo0_ip_add}
+
+    def chk_vlan_id(self, vlan_id, phy_intf_native_vlan_id):
+        try:
+            if int(vlan_id) < 1 or int(vlan_id) > 4094:
+                return False
+
+            if vlan_id == phy_intf_native_vlan_id:
+                return False
+
+        except ValueError:
+            return False
+
+        return True
+
