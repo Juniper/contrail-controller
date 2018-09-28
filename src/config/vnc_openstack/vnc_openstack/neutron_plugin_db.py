@@ -3328,7 +3328,7 @@ class DBInterface(object):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
         if not subnet_key:
             self._raise_contrail_exception('SubnetNotFound',
-                                           subnet_id)
+                                           subnet_id=subnet_id)
         net_id = subnet_key.split()[0]
 
         net_obj = self._network_read(net_id)
