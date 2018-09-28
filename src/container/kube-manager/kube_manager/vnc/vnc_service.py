@@ -18,6 +18,7 @@ from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 from kube_manager.vnc.label_cache import XLabelCache
+from netaddr import IPNetwork, IPAddress
 
 class VncService(VncCommon):
 
@@ -323,10 +324,33 @@ class VncService(VncCommon):
             self.logger.warning("public_fip_pool doesn't exists")
             return None
 
+        def _check_ip_with_fip_pool(external_ip, fip_pool_obj):
+            try:
+                vn_obj = self._vnc_lib.virtual_network_read(id=fip_pool_obj.parent_uuid)
+            except NoIdError:
+                return True
+            ipam_refs = vn_obj.__dict__.get('network_ipam_refs', [])
+            for ipam_ref in ipam_refs:
+                vnsn_data = ipam_ref['attr'].__dict__
+                ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                for ipam_subnet in ipam_subnets:
+                    subnet_dict = ipam_subnet.__dict__.get('subnet', {})
+                    if 'ip_prefix' in subnet_dict.__dict__:
+                       ip_subnet_str = subnet_dict.__dict__.get('ip_prefix','')+'/' \
+                                       +str(subnet_dict.__dict__.get('ip_prefix_len'))
+                       if IPAddress(external_ip) in IPNetwork(ip_subnet_str):
+                           return True
+            self.logger.error("external_ip not in fip_pool subnet")
+            return False
+
         def _allocate_floating_ip(lb, vmi, fip_pool, external_ip=None):
             fip_obj = FloatingIp(lb.name + str(external_ip) + "-externalIP", fip_pool)
             fip_obj.set_virtual_machine_interface(vmi_obj)
             if external_ip:
+                if not(_check_ip_with_fip_pool(external_ip, fip_pool)):
+                    err_str = "external_ip" +  external_ip + " not in fip_pool subnet"
+                    self.logger.error(err_str)
+                    return None
                 fip_obj.set_floating_ip_address(external_ip)
             project = self._vnc_lib.project_read(id=lb.parent_uuid)
             fip_obj.set_project(project)
