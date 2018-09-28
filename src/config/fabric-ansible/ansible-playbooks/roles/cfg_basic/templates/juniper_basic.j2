@@ -3,6 +3,24 @@ delete groups __contrail__
 
 {%    set feature_params = additional_feature_params.get(feature) %}
 {%     if feature_params != None %}
+{%         if feature_params.ntp is defined and feature_params.ntp.time_zone is defined %}
+set groups {{cfg_group}} time-zone {{ feature_params.ntp.time_zone }}
+{%         endif %}
+{%         for server in feature_params.get('ntp', {}).get('ntp_servers', []) %}
+set groups {{cfg_group}} ntp server {{ server }}
+{%         endfor %}
+{%         for boot_server in feature_params.get('ntp', {}).get('ntp_boot_servers', []) %}
+set groups {{cfg_group}} ntp boot-server {{ boot_server }}
+{%         endfor %}
+{%         for name_server in feature_params.get('name_servers', []) %}
+set groups {{cfg_group}} name-server {{name_server}}
+{%         endfor %}
+{%         if feature_params.domain_name is defined %}
+set groups {{cfg_group}} domain-name {{feature_params.domain_name}}
+{%         endif %}
+{%         if feature_params.host_name is defined %}
+set groups {{cfg_group}} host-name {{feature_params.host_name}}
+{%         endif %}
 {%         for community in feature_params.get('snmp', {}).get('communities', []) %}
 set groups {{cfg_group}} snmp community {{community.name}} authorization {{'read-only' if community.readonly else 'read-write'}}
 {%         endfor %}
