@@ -1,2 +1,3 @@
 requests
 bitstring
+netaddr>=0.7.5
