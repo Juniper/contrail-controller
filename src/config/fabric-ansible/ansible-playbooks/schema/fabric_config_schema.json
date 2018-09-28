@@ -17,6 +17,58 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
+              "ntp": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "ntp_boot_servers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "title":"NTP Boot server",
+                      "examples":[
+                         "6.6.6.6"
+                      ]
+                    }
+                  },
+                  "ntp_servers":{
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "title":"NTP server",
+                      "examples":[
+                         "8.8.8.8"
+                      ]
+                    }
+                  },
+                  "time_zone":{
+                    "type":"string",
+                    "title":"Time Zone",
+                    "examples":[
+                       "America/Los_Angeles"
+                    ]
+                  }
+                }
+              },
+              "name_servers": {
+                "type": "array",
+                "additionalProperties": false,
+                "items": {
+                  "type": "string",
+                  "Title":"Domain Name Server",
+                  "examples": [
+                    "10.1.1.2",
+                    "11.1.1.2"
+                  ]
+                }
+              },
+              "domain_name": {
+                "type": "string",
+                "title": "Domain Name",
+                "examples": [
+                  "company.net"
+                 ]
+              },
               "snmp": {
                 "type": "object",
                 "additionalProperties": false,
