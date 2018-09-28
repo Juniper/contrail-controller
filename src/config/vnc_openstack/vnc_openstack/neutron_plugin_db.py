@@ -1905,7 +1905,7 @@ class DBInterface(object):
                 self._raise_contrail_exception('BadRequest',
                                                resource="floatingip", msg=msg)
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fq_name)
-            fip_name = str(uuid.uuid4())
+            fip_name = str(fip_q.get('id', uuid.uuid4()))
             fip_obj = FloatingIp(fip_name, fip_pool_obj,
                                  floating_ip_address = floating_ip_addr)
             fip_obj.uuid = fip_name
