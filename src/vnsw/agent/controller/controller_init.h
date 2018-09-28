@@ -28,6 +28,24 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ControllerWorkQueueData);
 };
 
+class ControllerConnectRetryData : public ControllerWorkQueueData {
+public:
+    ControllerConnectRetryData(
+        bool retry_xmpp_server, bool retry_dns_xmpp_server) :
+        ControllerWorkQueueData(),
+        retry_xmpp_server_(retry_xmpp_server),
+        retry_dns_xmpp_server_(retry_dns_xmpp_server) {}
+    virtual ~ControllerConnectRetryData() {}
+
+    bool connect_xmpp_server() const {return retry_xmpp_server_;}
+    bool connect_dns_xmpp_server() const {return retry_dns_xmpp_server_;}
+
+private:
+    bool retry_xmpp_server_;
+    bool retry_dns_xmpp_server_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerConnectRetryData);
+};
+
 class ControllerDeletePeerData : public ControllerWorkQueueData {
 public:
     ControllerDeletePeerData(BgpPeer *bgp_peer) :
@@ -81,6 +99,7 @@ class VNController {
 public:
     typedef boost::function<void(uint8_t)> XmppChannelDownCb;
     typedef boost::shared_ptr<ControllerXmppData> ControllerXmppDataType;
+    typedef boost::shared_ptr<ControllerConnectRetryData> ControllerConnectRetryDataType;
     typedef boost::shared_ptr<ControllerDeletePeerData> ControllerDeletePeerDataType;
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
     typedef boost::shared_ptr<ControllerDiscoveryData> ControllerDiscoveryDataType;
