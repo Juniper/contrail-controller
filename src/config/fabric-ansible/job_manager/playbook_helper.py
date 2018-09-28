@@ -116,6 +116,7 @@ class PlaybookHelper(object):
         return output_json
 
     def execute_playbook(self, playbook_info):
+        output = None
         try:
             loader = DataLoader()
             inventory = InventoryManager(loader=loader, sources=['localhost'])
@@ -182,9 +183,13 @@ class PlaybookHelper(object):
                 'playbook_input']['unique_pb_id']
             exec_id = playbook_info['extra_vars']['playbook_input'][
                 'job_execution_id']
+            line_in_file = ""
+            if output != None:
+                line_in_file = unique_pb_id + 'PLAYBOOK_OUTPUT##'\
+                    + json.dumps(output) + 'PLAYBOOK_OUTPUT##'\
+                    + '\n'
             with open("/tmp/"+exec_id, "a") as f:
-                f.write(unique_pb_id + 'END' + '\n')
-
+                f.write(line_in_file + unique_pb_id + 'END' + '\n')
             sys.exit(msg)
 
 

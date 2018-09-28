@@ -96,9 +96,14 @@ class JobManager(object):
                 len(self.device_json), buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
+            if device_id in result_handler.failed_device_jobs:
+                self._logger.debug("Not executing the next operation"
+                                   "in the workflow for device: %s" % device_id)
+                continue
             device_data = self.device_json.get(device_id)
             device_fqname = ':'.join(
                 map(str, device_data.get('device_fqname')))
+            device_name = device_data.get('device_fqname', [""])[-1]
             job_template_fq_name = ':'.join(
                 map(str, self.job_template.fq_name))
             pr_fabric_job_template_fq_name = device_fqname + ":" + \
@@ -112,7 +117,8 @@ class JobManager(object):
 
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,
-                                           job_percent_per_task, device_id))
+                                           job_percent_per_task, device_id,
+                                           device_name))
         job_worker_pool.join()
 
     def handle_single_job(self, job_handler, result_handler):
@@ -243,9 +249,26 @@ class WFManager(object):
 
                 # stop the workflow if playbook failed
                 if self.result_handler.job_result_status == JobStatus.FAILURE:
-                    self._logger.error(
-                        "Stop the workflow on the failed Playbook.")
-                    break
+
+                    # stop workflow only if its a single device job or
+                    # it is a multi device playbook
+                    # and all the devices have failed some job execution
+                    # declare it as failure and the stop the workflow
+
+                    if self.job_input.get('device_json') is None or\
+                        len(self.result_handler.failed_device_jobs)\
+                            == len(self.job_input['device_json']):
+                        self._logger.error(
+                            "Stop the workflow on the failed Playbook.")
+                        break
+
+                    else:
+                        # it is a multi device playbook but one of the device jobs
+                        # have failed. This means we should still declare
+                        # the operation as success. We declare workflow as
+                        # success even if one of the devices has succeeded the job
+
+                        self.result_handler.job_result_status = JobStatus.SUCCESS
 
                 # update the job input with marked playbook output json
                 pb_output = self.result_handler.playbook_output or {}
