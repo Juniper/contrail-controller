@@ -62,8 +62,6 @@ const MacAddress Agent::left_si_mac_(0x02, 0x00, 0x00, 0x00, 0x00, 0x01);
 const MacAddress Agent::right_si_mac_(0x02, 0x00, 0x00, 0x00, 0x00, 0x02);
 const MacAddress Agent::pkt_interface_mac_(0x00, 0x00, 0x00, 0x00, 0x00, 0x01);
 const std::string Agent::bcast_mac_ = "FF:FF:FF:FF:FF:FF";
-const std::string Agent::config_file_ = "/etc/contrail/contrail-vrouter-agent.conf";
-const std::string Agent::log_file_ = "/var/log/contrail/vrouter.log";
 const std::string Agent::xmpp_dns_server_connection_name_prefix_ = "dns-server:";
 const std::string Agent::xmpp_control_node_connection_name_prefix_ = "control-node:";
 const uint16_t Agent::kDefaultVmiVmVnUveInterval = 30; //in seconds
