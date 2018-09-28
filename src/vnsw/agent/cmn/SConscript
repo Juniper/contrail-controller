@@ -4,7 +4,8 @@
 
 # -*- mode: python; -*-
 
-import sys
+import platform
+
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
@@ -12,8 +13,13 @@ SandeshGenFiles = env.SandeshGenCpp('stats.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
+if platform.system() == 'Windows':
+    os_dependent_sources = ['windows/agent_paths.cc']
+else:
+    os_dependent_sources = ['nix/agent_paths.cc']
+
 vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_factory.cc', 'xmpp_server_address_parser.cc',
-                   'agent_signal.cc', 'agent_stats.cc', 'event_notifier.cc']
+                   'agent_signal.cc', 'agent_stats.cc', 'event_notifier.cc'] + os_dependent_sources
 
 vnswcmn = env.Library('vnswcmn', sandesh_objs + vnswcmn_sources)
 
