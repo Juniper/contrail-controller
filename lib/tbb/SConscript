@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 
-vpath = '#/third_party/tbb40_20111130oss'
+vpath = '#/third_party/tbb-2018_U5'
 
 env = DefaultEnvironment()
 
