@@ -6,6 +6,7 @@ import re
 import socket
 import time
 import inspect
+import itertools
 from functools import wraps
 import logging
 from cfgm_common import jsonutils as json
@@ -38,12 +39,16 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.6"
+__version__ = "1.7"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.7
+  - Add support to detect and clean malformed route targets
+  - Add support to detect and clean stale route targets listed in virtual
+    network or logical router
 * 1.6:
   - fix issue in 'clean_subnet_addr_alloc' method with IPv6 subnet
 * 1.5:
@@ -138,6 +143,7 @@ exceptions = [
     'ZkVNIdMissingError',
     'VNDuplicateIdError',
     'RTDuplicateIdError',
+    'RTMalformedError',
     'CassRTRangeError',
     'ZkRTRangeError',
     'ZkIpMissingError',
@@ -470,6 +476,8 @@ class DatabaseManager(object):
         zk_set = set()
         schema_set = set()
         config_set = set()
+        malformed_set = set()
+        stale_list = {}
 
         # read in route-target ids from zookeeper
         base_path = self.base_rtgt_id_zk_path
@@ -511,7 +519,10 @@ class DatabaseManager(object):
         no_assoc_msg = "No Routing Instance or Logical Router associated"
         for fq_name_uuid_str, _ in fq_name_table.xget('route_target'):
             fq_name_str, _, uuid = fq_name_uuid_str.rpartition(':')
-            asn, id = _parse_rt(fq_name_str)
+            try:
+                asn, id = _parse_rt(fq_name_str)
+            except ValueError:
+                malformed_set.add((fq_name_str, uuid))
             if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
                 user_rts += 1
                 continue  # Ignore user defined RT
@@ -540,7 +551,53 @@ class DatabaseManager(object):
         logger.debug("Got %d system defined Route Targets in cassandra and "
                      "%d defined by users", len(config_set), user_rts)
 
-        return zk_set, schema_set, config_set, ret_errors
+        # Check in VN and LR if user allocated RT are valid and not in the
+        # system range
+        num_user_rts = 0
+        num_bad_rts = 0
+        list_names = [
+            'prop:route_target_list',
+            'prop:import_route_target_list',
+            'prop:export_route_target_list',
+            'prop:configured_route_target_list',
+        ]
+        for fq_name_str_uuid, _ in itertools.chain(
+                fq_name_table.xget('virtual_network'),
+                fq_name_table.xget('logical_router')):
+            fq_name_str, _, uuid = fq_name_str_uuid.rpartition(':')
+            for list_name in list_names:
+                try:
+                    cols = uuid_table.get(uuid, columns=[list_name])
+                except pycassa.NotFoundException:
+                    continue
+                for rt in json.loads(cols[list_name]).get('route_target', []):
+                    try:
+                        asn, id = _parse_rt(rt)
+                    except ValueError:
+                        msg = ("Virtual Network or Logical Router %s(%s) %s "
+                               "contains a malformed Route Target '%s'" %
+                               (fq_name_str, uuid,
+                                list_name[5:].replace('_', ' '), rt))
+                        ret_errors.append(RTMalformedError(msg))
+                        stale_list.setdefault(
+                            (fq_name_str, uuid, list_name), set()).add(rt)
+
+                    if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
+                        num_user_rts += 1
+                        continue  # all good
+                    num_bad_rts += 1
+                    msg = ("Virtual Network or Logical Router %s(%s) %s "
+                           "contains a Route Target in a wrong range '%s'" %
+                           (fq_name_str, uuid, list_name[5:].replace('_', ' '),
+                            rt))
+                    ret_errors.append(CassRTRangeError(msg))
+                    stale_list.setdefault(
+                        (fq_name_str, uuid, list_name), set()).add(rt)
+        logger.debug("Got %d user configured route-targets, %d in bad range",
+                     num_user_rts, num_bad_rts)
+
+        return (zk_set, schema_set, config_set, malformed_set, stale_list,
+                ret_errors)
 
     def get_stale_zk_rt(self, zk_set, schema_set, config_set):
         fq_name_table = self._cf_dict['obj_fq_name_table']
@@ -1432,8 +1489,14 @@ class DatabaseChecker(DatabaseManager):
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
 
-        zk_set, schema_set, config_set, errors = self.audit_route_targets_id()
+        zk_set, schema_set, config_set, malformed_set, _, errors =\
+            self.audit_route_targets_id()
         ret_errors.extend(errors)
+
+        for fq_name_str, uuid in malformed_set:
+            msg = ("The Route Target '%s' (%s) is malformed" %
+                   (fq_name_str, uuid))
+            ret_errors.append(RTMalformedError(msg))
 
         extra = dict()
         [extra.setdefault(id, set()).add(fq) for id, fq in schema_set - zk_set]
@@ -1450,42 +1513,11 @@ class DatabaseChecker(DatabaseManager):
             ret_errors.append(ConfigRTgtIdExtraError(msg))
 
         for id, res_fq_name_str in self.get_stale_zk_rt(
-                zk_set, schema_set,config_set):
+                zk_set, schema_set, config_set):
             msg = ("Extra route target ID in zookeeper for ID %s, used by: %s"
                    % (id, res_fq_name_str))
             ret_errors.append(ZkRTgtIdExtraError(msg))
 
-        # read in virtual-networks from cassandra to find user allocated rtgts
-        # and ensure they are not from auto-allocated range
-        num_user_rtgts = 0
-        num_bad_rtgts = 0
-        logger.debug("Reading virtual-network objects from cassandra")
-        vn_row = fq_name_table.xget('virtual_network')
-        vn_uuids = [x.split(':')[-1] for x, _ in vn_row]
-        for vn_id in vn_uuids:
-            try:
-                rtgt_list_json = obj_uuid_table.get(
-                    vn_id,
-                    columns=['prop:route_target_list'])[
-                            'prop:route_target_list']
-                rtgt_list = json.loads(rtgt_list_json).get('route_target', [])
-            except pycassa.NotFoundException:
-                continue
-
-            for rtgt in rtgt_list:
-                rtgt_asn, rtgt_id = _parse_rt(rtgt)
-                if rtgt_asn != self.global_asn or rtgt_id < RT_ID_MIN_ALLOC:
-                    num_user_rtgts += 1
-                    continue  # all good
-
-                num_bad_rtgts += 1
-                errmsg = 'Wrong route-target range in cassandra %d' % rtgt_id
-                ret_errors.append(CassRTRangeError(errmsg))
-            # end for all rtgt
-        # end for all vns
-
-        logger.debug("Got %d user configured route-targets, %d in bad range",
-                     num_user_rtgts, num_bad_rtgts)
         return ret_errors
     # end check_route_targets_id
 
@@ -1889,11 +1921,56 @@ class DatabaseCleaner(DatabaseManager):
         logger = self._logger
         ret_errors = []
         fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
         rt_table = self._cf_dict['route_target_table']
 
-        zk_set, schema_set, config_set, errors = self.audit_route_targets_id()
+        zk_set, schema_set, config_set, malformed_set, stale_list, errors =\
+            self.audit_route_targets_id()
         ret_errors.extend(errors)
 
+        # Remove malformed RT from config and schema keyspaces
+        for fq_name_str, uuid in malformed_set:
+            fq_name_uuid_str = '%s:%s' % (fq_name_str, uuid)
+            if not self._args.execute:
+                logger.info("Would removed stale route target %s (%s) in API "
+                            "server and schema cassandra keyspaces",
+                            fq_name_str, uuid)
+            else:
+                logger.info("Removing stale route target %s (%s) in API "
+                            "server and schema cassandra keyspaces",
+                            fq_name_str, uuid)
+                self._remove_config_object('route_target', [uuid])
+                rt_table.remove(fq_name_str)
+                fq_name_table.remove('route_target',
+                                     columns=[fq_name_uuid_str])
+
+        for (fq_name_str, uuid, list_name), stale_rts in stale_list.items():
+            try:
+                cols = uuid_table.get(uuid, columns=[list_name])
+            except pycassa.NotFoundException:
+                continue
+            rts = set(json.loads(cols[list_name]).get('route_target', []))
+            if not rts & stale_rts:
+                continue
+            if not self._args.execute:
+                logger.info("Would removed stale route target(s) '%s' in the "
+                            "%s of the Virtual Network or Logical Router "
+                            "%s(%s)", ','.join(stale_rts),
+                            list_name[5:].replace('_', ' '), fq_name_str, uuid)
+            else:
+                logger.info("Removing stale route target(s) '%s' in the %s of "
+                            "the Virtual Network or Logical Router %s(%s)",
+                            ','.join(stale_rts),
+                            list_name[5:].replace('_', ' '), fq_name_str, uuid)
+                if not rts - stale_rts:
+                    uuid_table.remove(uuid, columns=[list_name])
+                else:
+                    cols = {
+                        list_name: json.dumps({
+                            'route_target': list(rts - stale_rts),
+                        }),
+                    }
+                    uuid_table.insert(uuid, cols)
         # Remove extra RT in Schema DB
         for id, res_fq_name_str in schema_set - zk_set:
             if not self._args.execute:
