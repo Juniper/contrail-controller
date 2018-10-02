@@ -11,6 +11,13 @@
     - set_fact:
         additional_feature_params: {
           "basic": {
+            "ntp": {
+              "time_zone": "Los Angeles",
+              "ntp_servers": ["2.2.2.2", "3.3.3.3"],
+              "ntp_boot_servers": ["2.2.2.2", "4.3.3.3"]
+            },
+            "name_servers": ["10.1.1.2", "11.1.1.2"],
+            "domain_name": "company.net",
             "snmp": {
               "communities": [
                 { "name": "public", "readonly": true }
