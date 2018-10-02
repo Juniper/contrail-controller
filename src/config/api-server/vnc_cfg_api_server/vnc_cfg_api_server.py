@@ -1507,10 +1507,13 @@ class VncApiServer(object):
 
             proj_id = r_class.get_project_id_for_resource(read_result, obj_type,
                                                           db_conn)
-            (ok, del_result) = r_class.pre_dbe_delete(
-                    id, read_result, db_conn)
+            (ok, del_result, zk_del_kwargs) = r_class.pre_dbe_delete(id, read_result, db_conn)
             if not ok:
-                return (ok, del_result)
+                if del_result:
+                    return (ok, del_result)
+                else:
+                    return (ok, zk_del_kwargs)
+            zk_del_kwargs = zk_del_kwargs or {}
 
             # Delete default children first
             for child_field in r_class.children_fields:
@@ -1557,7 +1560,8 @@ class VncApiServer(object):
             # type-specific hook
             get_context().set_state('POST_DBE_DELETE')
             try:
-                ok, result = r_class.post_dbe_delete(id, read_result, db_conn)
+                ok, result = r_class.post_dbe_delete(
+                        id, read_result, db_conn, **zk_del_kwargs)
             except Exception as e:
                 ok = False
                 msg = ("%s:%s post_dbe_delete had an exception: %s\n%s" %
