@@ -254,7 +254,7 @@ class FilterModule(object):
             regex_matched = re.search(regex_str, phy_interface['name'])
             do_not_add_in_payload = False
 
-            if (regex_matched or 'lo0' in phy_interface['name']):
+            if regex_matched or 'lo0' in phy_interface['name']:
                 if not regex_matched:
                     # lo0 interface, but not in user's regex input
                     do_not_add_in_payload = True
@@ -313,11 +313,6 @@ class FilterModule(object):
                             log_interface_payload['logical_interface_type']\
                                 = log_type
 
-                        vlan_id = log_unit.get('vlan-id')
-                        if vlan_id:
-                            log_interface_payload[
-                                'logical_interface_vlan_tag']\
-                                = vlan_id
                         if not do_not_add_in_payload:
                             log_interfaces_payloads.append(
                                 log_interface_payload)
