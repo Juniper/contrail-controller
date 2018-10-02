@@ -2144,6 +2144,16 @@ class FirewallDraftModeBase(object):
 
         self.api.commit_security(self._scope)
 
+    def test_cannot_use_enforced_fq_name(self):
+        self.set_scope_instance(draft_enable=False)
+        name = 'fp-%s' % self.id()
+        fp1 = FirewallPolicy(name, parent_obj=self._owner)
+        self.api.firewall_policy_create(fp1)
+
+        self.draft_mode = True
+        fp2 = FirewallPolicy(name, parent_obj=self._owner)
+        self.assertRaises(RefsExistError, self.api.firewall_policy_create, fp2)
+
 
 class TestFirewallDraftModeGlobalScope(TestFirewallBase,
                                        FirewallDraftModeBase):

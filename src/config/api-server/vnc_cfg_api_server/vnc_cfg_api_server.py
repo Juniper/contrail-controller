@@ -979,6 +979,26 @@ class VncApiServer(object):
             result = 'Bad reference in create: ' + result
             raise cfgm_common.exceptions.HttpError(400, result)
 
+        get_context().set_state('PRE_DBE_ALLOC')
+        # type-specific hook
+        ok, result = r_class.pre_dbe_alloc(obj_dict)
+        if not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
+        name = obj_dict['fq_name'][-1]
+        fq_name = obj_dict['fq_name']
+
+        # common handling for all resource create
+        (ok, result) = self._post_common(obj_type, obj_dict)
+        if not ok:
+            (code, msg) = result
+            fq_name_str = ':'.join(obj_dict.get('fq_name', []))
+            self.config_object_error(None, fq_name_str, obj_type, 'http_post',
+                                     msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
+        uuid_in_req = result
+
         # Can abort resource creation and retrun 202 status code
         get_context().set_state('PENDING_DBE_CREATE')
         ok, result = r_class.pending_dbe_create(obj_dict)
@@ -1001,25 +1021,6 @@ class VncApiServer(object):
             rsp_body['parent_href'] = self.generate_url(
                 pending_obj_dict['parent_type'],pending_obj_dict['parent_uuid'])
             return {resource_type: rsp_body}
-
-        get_context().set_state('PRE_DBE_ALLOC')
-        # type-specific hook
-        ok, result = r_class.pre_dbe_alloc(obj_dict)
-        if not ok:
-            code, msg = result
-            raise cfgm_common.exceptions.HttpError(code, msg)
-
-        # common handling for all resource create
-        (ok, result) = self._post_common(obj_type, obj_dict)
-        if not ok:
-            (code, msg) = result
-            fq_name_str = ':'.join(obj_dict.get('fq_name', []))
-            self.config_object_error(None, fq_name_str, obj_type, 'http_post', msg)
-            raise cfgm_common.exceptions.HttpError(code, msg)
-
-        uuid_in_req = result
-        name = obj_dict['fq_name'][-1]
-        fq_name = obj_dict['fq_name']
 
         db_conn = self._db_conn
 
@@ -4930,7 +4931,7 @@ class VncApiServer(object):
                                        r_class.object_type, fq_name, draft)
                 # Purge pending resource as we re-use the same UUID
                 self.internal_request_delete(r_class.object_type,
-                                            child['uuid'])
+                                             child['uuid'])
                 if uuid and draft['draft_mode_state'] == 'deleted':
                     # The resource is removed, we can purge original resource
                     deletes.append((r_class.object_type, uuid))
