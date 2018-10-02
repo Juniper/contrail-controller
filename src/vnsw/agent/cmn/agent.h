@@ -749,6 +749,7 @@ public:
     void set_vhost_interface_name(const std::string &name) {
         vhost_interface_name_ = name;
     }
+    bool is_vhost_interface_up() const;
 
     const std::string &pkt_interface_name() const {
         return pkt_interface_name_; 

@@ -127,6 +127,17 @@ void VNController::XmppServerConnect() {
 
     uint8_t count = 0;
 
+    if (agent_->is_vhost_interface_up() == false) {
+        // Sleep 100 msec to avoid cpu hogging.
+        usleep(100000);
+        ControllerConnectRetryDataType data(
+            new ControllerConnectRetryData(true, false));
+        ControllerWorkQueueDataType base_data =
+            boost::static_pointer_cast<ControllerWorkQueueData>(data);
+        work_queue_.Enqueue(base_data);
+        return;
+    }
+
     while (count < MAX_XMPP_SERVERS) {
         SetAgentMcastLabelRange(count);
         if (!agent_->controller_ifmap_xmpp_server(count).empty()) {
@@ -146,6 +157,13 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             xmpp_cfg->FromAddr = agent_->agent_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS;
+            // Since TcpServer asserts in bind failure, dont need to assert in failure
+            Ip4Address local_endpoint = agent_->compute_node_ip();
+            if (agent_->test_mode()) {
+                local_endpoint = Ip4Address::from_string("127.0.0.1", ec);
+            }
+            xmpp_cfg->local_endpoint.address(
+                ip::address::from_string(local_endpoint.to_string(), ec));
             xmpp_cfg->endpoint.address(
                 ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
             assert(ec.value() == 0);
@@ -211,6 +229,17 @@ void VNController::DnsXmppServerConnect() {
         return;
     }
 
+    if (agent_->is_vhost_interface_up() == false) {
+        // Sleep 100 msec to avoid cpu hogging.
+        usleep(100000);
+        ControllerConnectRetryDataType data(
+            new ControllerConnectRetryData(false, true));
+        ControllerWorkQueueDataType base_data =
+            boost::static_pointer_cast<ControllerWorkQueueData>(data);
+        work_queue_.Enqueue(base_data);
+        return;
+    }
+
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
         if (!agent_->dns_server(count).empty()) {
@@ -231,6 +260,13 @@ void VNController::DnsXmppServerConnect() {
             xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
             xmpp_cfg_dns->FromAddr = agent_->agent_name() + "/dns";
             xmpp_cfg_dns->NodeAddr = "";
+            // Since TcpServer asserts in bind failure, dont need to assert in failure
+            Ip4Address local_endpoint = agent_->compute_node_ip();
+            if (agent_->test_mode()) {
+                local_endpoint = Ip4Address::from_string("127.0.0.1", ec);
+            }
+            xmpp_cfg_dns->local_endpoint.address(
+                ip::address::from_string(local_endpoint.to_string(), ec));
             xmpp_cfg_dns->endpoint.address(
                      ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
@@ -824,8 +860,23 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
                                                          discovery_response_);
         } else {
             LOG(ERROR, "Unknown Peer Id processing Discovery Response");
+            return true;
         }
     }
+    //Connection retry for servers
+    ControllerConnectRetryDataType connect_retry_data =
+        boost::dynamic_pointer_cast<ControllerConnectRetryData>(data);
+    if (connect_retry_data) {
+        if (connect_retry_data->connect_xmpp_server()) {
+            XmppServerConnect();
+            return true;
+        }
+        if (connect_retry_data->connect_dns_xmpp_server()) {
+            DnsXmppServerConnect();
+            return true;
+        }
+    }
+
     return true;
 }
 
