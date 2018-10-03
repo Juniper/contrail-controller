@@ -3061,6 +3061,7 @@ class TagTypeServer(Resource, TagType):
                                 fields=['tag_type_id'])
         if not ok:
             return False, result
+        tag_type = result
 
         return True, int(tag_type['tag_type_id'], 0)
 
@@ -3379,7 +3380,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                 if ep is None:
                     continue
                 ep['tag_ids'] = []
-                for tag_name in set(ep.get('tags', [])):
+                for tag_name in set(ep.get('tags', []) or []):
                     ok, result = _get_tag_fq_name(tag_name)
                     if not ok:
                         return False, result
@@ -3562,12 +3563,47 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
         return True, ""
 
     @classmethod
+    def check_openstack_firewall_group_quota(cls, obj_dict):
+        obj_type = 'firewall_group'
+        if obj_dict.get('parent_type') != ProjectServer.object_type:
+            return True, ''
+
+        project = QuotaHelper.get_project_dict_for_quota(
+            obj_dict['parent_uuid'])
+        quota_limit = QuotaHelper.get_quota_limit(project, obj_type)
+
+        if quota_limit < 0:
+            return True, ''
+        path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + project['uuid']
+        path = path_prefix + "/" + obj_type
+        if not cls.server.quota_counter.get(path):
+            QuotaHelper._zk_quota_counter_init(
+                path_prefix,
+                {obj_type: quota_limit},
+                project['uuid'],
+                cls.db_conn,
+                cls.server.quota_counter)
+        return QuotaHelper.verify_quota(
+            obj_type, quota_limit, cls.server.quota_counter[path])
+
+        def undo():
+            # revert back counter in case of any failure during creation
+            cls.server.quota_counter[path] -= 1
+        get_context().push_undo(undo)
+
+        return True, ''
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls.check_draft_mode_state(obj_dict)
         if not ok:
             return False, result
 
         ok, result = cls._check_all_applications_flag(obj_dict)
+        if not ok:
+            return False, result
+
+        ok, result = cls.check_openstack_firewall_group_quota(obj_dict)
         if not ok:
             return False, result
 
