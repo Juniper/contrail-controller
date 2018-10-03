@@ -1757,7 +1757,6 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Bad group address " << item.entry.nlri.group);
         }
-        //return false;
     }
 
     IpAddress source = IpAddress::from_string("0.0.0.0", error);
@@ -1765,7 +1764,6 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 item.entry.nlri.af, item.entry.nlri.source, &source, true)) {
         BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Bad source address " << item.entry.nlri.source);
-        //return false;
     }
 
     //error_code error;
@@ -1850,7 +1848,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     if (mac_addr.IsBroadcast()) {
         rd = RouteDistinguisher(peer_->bgp_identifier(), instance_id);
     } else if (type6) {
-        rd = RouteDistinguisher(bgp_server_->bgp_identifier(), instance_id);
+        rd = RouteDistinguisher(bgp_server_->bgp_identifier(),
+                                table->routing_instance()->index());
     } else {
         rd = RouteDistinguisher::kZeroRd;
     }

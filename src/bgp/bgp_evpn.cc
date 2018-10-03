@@ -1432,10 +1432,6 @@ void EvpnManager::SelectiveMulticastRouteListener(
         if (!dbstate)
             return;
 
-        BgpPath *path = route->FindPath(BgpPath::Local, 0);
-        if (path)
-            route->DeletePath(path);
-
         EvpnStatePtr evpn_state = partition->GetState(route);
         if (evpn_state)
             evpn_state->smet_routes().erase(route);
