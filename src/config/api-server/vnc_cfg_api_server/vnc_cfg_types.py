@@ -3061,6 +3061,7 @@ class TagTypeServer(Resource, TagType):
                                 fields=['tag_type_id'])
         if not ok:
             return False, result
+        tag_type = result
 
         return True, int(tag_type['tag_type_id'], 0)
 
@@ -3379,7 +3380,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                 if ep is None:
                     continue
                 ep['tag_ids'] = []
-                for tag_name in set(ep.get('tags', [])):
+                for tag_name in set(ep.get('tags', []) or []):
                     ok, result = _get_tag_fq_name(tag_name)
                     if not ok:
                         return False, result
