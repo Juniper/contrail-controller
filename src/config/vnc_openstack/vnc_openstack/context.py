@@ -4,11 +4,24 @@ import uuid
 
 class NeutronApiContext(object):
     def __init__(self, request=None, user_token=None):
+        self.undo_callables_with_args = []
         self.request = request
         self.user_token = user_token
-        self.request_id = request.json['context'].get(
-            'request_id', 'req-%s' % str(uuid.uuid4()))
+        if request.json and 'context' in request.json:
+            self.request_id = request.json['context'].get(
+                'request_id', 'req-%s' % str(uuid.uuid4()))
+        else:
+            self.request_id = 'req-%s' % str(uuid.uuid4())
     # end __init__
+
+    def push_undo(self, undo_callable, *args, **kwargs):
+        self.undo_callables_with_args.append(
+            (undo_callable, (args, kwargs)))
+    # end push_undo
+
+    def invoke_undo(self):
+        for undo_callable, (args, kwargs) in self.undo_callables_with_args:
+            undo_callable(*args, **kwargs)
 # end class NeutronApiContext
 
 def get_context():
@@ -38,6 +51,9 @@ def use_context(fn):
 
         try:
             return fn(*args, **kwargs)
+        except Exception:
+            get_context().invoke_undo()
+            raise
         finally:
             if context_created:
                 clear_context()
