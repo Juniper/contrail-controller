@@ -28,91 +28,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 ('DEFAULTS', 'apply_subnet_host_routes', True)
             ])
 
-    def read_resource(self, url_pfx, id):
-        context = {'operation': 'READ',
-                   'user_id': '',
-                   'roles': '',
-                   'is_admin': True}
-        data = {'fields': None,
-                'id': id}
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/%s' % url_pfx, body)
-        return json.loads(resp.text)
-    # end read_resource
-
-    def list_resource(self, url_pfx, proj_uuid=None, req_fields=None,
-                      req_filters=None, is_admin=False):
-        if proj_uuid is None:
-            proj_uuid = self._vnc_lib.fq_name_to_id(
-                'project', fq_name=['default-domain', 'default-project'])
-
-        context = {'operation': 'READALL',
-                   'user_id': '',
-                   'tenant_id': proj_uuid,
-                   'roles': '',
-                   'is_admin': is_admin}
-        data = {'fields': req_fields, 'filters': req_filters or {}}
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json(
-            '/neutron/%s' % url_pfx, body)
-        return json.loads(resp.text)
-    # end list_resource
-
-    def create_resource(self, res_type, proj_id, name=None,
-                        extra_res_fields=None, is_admin=False):
-        context = {'operation': 'CREATE',
-                   'user_id': '',
-                   'is_admin': is_admin,
-                   'roles': '',
-                   'tenant_id': proj_id}
-        if name:
-            res_name = name
-        else:
-            res_name = '%s-%s' % (res_type, self.id())
-        data = {'resource': {'name': res_name,
-                             'tenant_id': proj_id}}
-        if extra_res_fields:
-            data['resource'].update(extra_res_fields)
-
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/%s' % res_type, body)
-        return json.loads(resp.text)
-
-    def delete_resource(self, res_type, proj_id, id, is_admin=False):
-        context = {'operation': 'DELETE',
-                   'user_id': '',
-                   'is_admin': is_admin,
-                   'roles': '',
-                   'tenant_id': proj_id}
-
-        data = {'id': id}
-
-        body = {'context': context, 'data': data}
-        self._api_svr_app.post_json('/neutron/%s' % res_type, body)
-
-    def update_resource(self, res_type, res_id, proj_id, name=None, extra_res_fields=None,
-                        is_admin=False, operation=None):
-        context = {'operation': operation or 'UPDATE',
-                   'user_id': '',
-                   'is_admin': is_admin,
-                   'roles': '',
-                   'tenant_id': proj_id}
-        if name:
-            res_name = name
-        else:
-            res_name = '%s-%s' %(res_type, str(uuid.uuid4()))
-
-        data = {'resource': {'name': res_name,
-                             'tenant_id': proj_id},
-                'id': res_id}
-        if extra_res_fields:
-            data['resource'].update(extra_res_fields)
-
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
-        return json.loads(resp.text)
-    # end _update_resource
-
     def test_list_with_inconsistent_members(self):
         # 1. create collection
         # 2. list, verify full collection
@@ -194,28 +109,12 @@ class TestBasic(test_case.NeutronBackendTestCase):
              '_svc_instance_vnc_to_neutron'),
         ]
 
-        def list_resource(url_pfx):
-            context = {'operation': 'READALL',
-                       'user_id': '',
-                       'tenant_id': proj_obj.uuid,
-                       'roles': '',
-                       'is_admin': 'False'}
-            data = {'fields': None, 'filters': {}}
-            body = {'context': context, 'data': data}
-            resp = self._api_svr_app.post_json(
-                '/neutron/%s' %(url_pfx), body)
-            return json.loads(resp.text)
-
         # for collections that are objects in contrail model
         for (objs, res_url_pfx, res_xlate_name) in collection_types:
-            res_dicts = list_resource(res_url_pfx)
+            res_dicts = self.list_resource(res_url_pfx)
             present_ids = [r['id'] for r in res_dicts]
             for obj in objs:
                 self.assertIn(obj.uuid, present_ids)
-
-            neutron_api_obj = FakeExtensionManager.get_extension_objects(
-                'vnc_cfg_api.neutronApi')[0]
-            neutron_db_obj = neutron_api_obj._npi._cfgdb
 
             @neutron_plugin_db.catch_convert_exception
             def err_on_object_2(orig_method, res_obj, *args, **kwargs):
@@ -224,19 +123,19 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 return orig_method(res_obj, *args, **kwargs)
 
             with test_common.patch(
-                neutron_db_obj, res_xlate_name, err_on_object_2):
-                res_dicts = list_resource(res_url_pfx)
+                self.neutron_db_obj, res_xlate_name, err_on_object_2):
+                res_dicts = self.list_resource(res_url_pfx)
                 present_ids = [r['id'] for r in res_dicts]
                 self.assertNotIn(objs[2].uuid, present_ids)
 
-            res_dicts = list_resource(res_url_pfx)
+            res_dicts = self.list_resource(res_url_pfx)
             present_ids = [r['id'] for r in res_dicts]
             for obj in objs:
                 self.assertIn(obj.uuid, present_ids)
         # end for collections that are objects in contrail model
 
         # subnets, sg-rules etc.
-        res_dicts = list_resource('subnet')
+        res_dicts = self.list_resource('subnet')
         present_ids = [r['id'] for r in res_dicts]
         for sn_id in [sn0_id, sn1_id, sn2_id]:
             self.assertIn(sn_id, present_ids)
@@ -248,8 +147,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
             return orig_method(subnet_vnc, *args, **kwargs)
 
         with test_common.patch(
-            neutron_db_obj, '_subnet_vnc_to_neutron', err_on_sn2):
-            res_dicts = list_resource('subnet')
+            self.neutron_db_obj, '_subnet_vnc_to_neutron', err_on_sn2):
+            res_dicts = self.list_resource('subnet')
             present_ids = [r['id'] for r in res_dicts]
             self.assertNotIn(sn2_id, present_ids)
         for obj_type, obj_list in objects.items():
@@ -645,7 +544,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 pi_fq_name.append(pi_obj.get_fq_name())
                 profile = {'port_id': pi_fq_name[i][2], 'switch_id': pi_fq_name[i][2],
                  'switch_info': pr_name}
-                 #'switch_info': pi_fq_name[i][1]}
+                #'switch_info': pi_fq_name[i][1]}
                 binding_profile['local_link_information'].append(profile)
 
         proj_uuid = self._vnc_lib.fq_name_to_id('project',
@@ -671,7 +570,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         for t in range(number_of_tors):
             if num_phy_interfaces_per_tor > 1:
                 # Make sure LAG is created
-	        lag_found = False
+                lag_found = False
                 lag_dict = self._vnc_lib.link_aggregation_groups_list()
                 lags = lag_dict['link-aggregation-groups']
                 for l in lags:
@@ -754,7 +653,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         if len(lis) > 0:
             self.assertFalse(True)
 
-       # Verify that the ESI is cleared from the physical interfaces
+        # Verify that the ESI is cleared from the physical interfaces
         esi = []
         for i in range(len(pi_uuid)):
             pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid[i])
@@ -863,7 +762,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                     switch_interfaces = bond_info['tors'][t]['interfaces']
                     if len(switch_interfaces) > 1:
                         # Make sure LAG is created
-	                lag_found = False
+                        lag_found = False
                         lag_dict = self._vnc_lib.link_aggregation_groups_list()
                         lags = lag_dict['link-aggregation-groups']
                         for l in lags:
@@ -968,7 +867,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             for tor_name, tor_info in tors.iteritems():
                 interfaces = tor_info['pi_uuid']
                 for i in interfaces.values():
-                   self._vnc_lib.physical_interface_delete(id=i)
+                    self._vnc_lib.physical_interface_delete(id=i)
             self._vnc_lib.security_group_delete(id=sg_obj.uuid)
             self._vnc_lib.virtual_router_delete(id=vr_obj)
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
@@ -1112,14 +1011,18 @@ class TestBasic(test_case.NeutronBackendTestCase):
             fq_name=['default-domain', 'default-project'])
         sg1_dict = self.create_resource('security_group',
                                        proj_obj.uuid,
-                                       'sg1-%s' % self.id())
+                                       extra_res_fields={
+                                           'name': 'sg1-%s' % self.id(),
+                                       })
         sg2_dict = self.create_resource('security_group',
                                        proj_obj.uuid,
-                                       'sg2-%s' % self.id())
+                                       extra_res_fields={
+                                           'name': 'sg2-%s' % self.id(),
+                                       })
         sgr1_dict = self.create_resource('security_group_rule',
                                        proj_obj.uuid,
-                                       'sgr1-%s' % self.id(),
                                        extra_res_fields={
+                                           'name': 'sgr1-%s' % self.id(),
                                            'security_group_id': sg1_dict['id'],
                                            'remote_ip_prefix': None,
                                            'remote_group_id': sg2_dict['id'],
@@ -1132,8 +1035,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
                                        )
         sgr2_dict = self.create_resource('security_group_rule',
                                        proj_obj.uuid,
-                                       'sgr2-%s' % self.id(),
                                        extra_res_fields={
+                                           'name': 'sgr2-%s' % self.id(),
                                            'security_group_id': sg2_dict['id'],
                                            'remote_ip_prefix': None,
                                            'remote_group_id': sg1_dict['id'],
@@ -1187,8 +1090,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.security_group_create(sg_obj)
         port_dict = self.create_resource('port',
                                          proj_obj.uuid,
-                                         'vmi-%s' % self.id(),
                                          extra_res_fields={
+                                             'name': 'vmi-%s' % self.id(),
                                              'network_id': vn_obj.uuid,
                                              'fixed_ips': [{
                                                  'ip_address': '1.1.1.3'
@@ -1372,22 +1275,32 @@ class TestBasic(test_case.NeutronBackendTestCase):
                      for i in range(3)]
 
         # public network on last project
-        pub_net1_q = self.create_resource('network', proj_objs[-1].uuid,
-            name='public-network-%s-1' %(self.id()),
-            extra_res_fields={'router:external': True})
-        self.create_resource('subnet', proj_objs[-1].uuid,
-            name='public-subnet-%s-1' %(self.id()),
+        pub_net1_q = self.create_resource(
+            'network',
+            proj_objs[-1].uuid,
             extra_res_fields={
+                'name': 'public-network-%s-1' % self.id(),
+                'router:external': True,
+            },
+        )
+        self.create_resource('subnet', proj_objs[-1].uuid,
+            extra_res_fields={
+                'name': 'public-subnet-%s-1' % self.id(),
                 'network_id': pub_net1_q['id'],
                 'cidr': '10.1.1.0/24',
                 'ip_version': 4,
             })
-        pub_net2_q = self.create_resource('network', proj_objs[-1].uuid,
-            name='public-network-%s-2' %(self.id()),
-            extra_res_fields={'router:external': True})
-        self.create_resource('subnet', proj_objs[-1].uuid,
-            name='public-subnet-%s-2' %(self.id()),
+        pub_net2_q = self.create_resource(
+            'network',
+            proj_objs[-1].uuid,
             extra_res_fields={
+                'name': 'public-network-%s-2' % self.id(),
+                'router:external': True,
+            },
+        )
+        self.create_resource('subnet', proj_objs[-1].uuid,
+            extra_res_fields={
+                'name': 'public-subnet-%s-2' % self.id(),
                 'network_id': pub_net2_q['id'],
                 'cidr': '20.1.1.0/24',
                 'ip_version': 4,
@@ -1395,44 +1308,66 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         def create_net_subnet_port_assoc_fip(i, pub_net_q_list,
                                              has_routers=True):
-            net_q_list = [self.create_resource('network', proj_objs[i].uuid,
-                name='network-%s-%s-%s' %(self.id(), i, j),
-                extra_res_fields={'port_security_enabled': True}) for j in range(2)]
-            subnet_q_list = [self.create_resource('subnet', proj_objs[i].uuid,
-                name='subnet-%s-%s-%s' %(self.id(), i, j),
-                extra_res_fields={
-                    'network_id': net_q_list[j]['id'],
-                    'cidr': '1.%s.%s.0/24' %(i, j),
-                    'ip_version': 4,
-                }) for j in range(2)]
+            net_q_list = [
+                self.create_resource(
+                    'network',
+                    proj_objs[i].uuid,
+                    extra_res_fields={
+                        'name': 'network-%s-%s-%s' % (self.id(), i, j),
+                        'port_security_enabled': True,
+                    },
+                ) for j in range(2)]
+            subnet_q_list = [
+                self.create_resource(
+                    'subnet',
+                    proj_objs[i].uuid,
+                    extra_res_fields={
+                        'name': 'subnet-%s-%s-%s' % (self.id(), i, j),
+                        'network_id': net_q_list[j]['id'],
+                        'cidr': '1.%s.%s.0/24' %(i, j),
+                        'ip_version': 4,
+                    },
+                ) for j in range(2)]
 
             if has_routers:
-                router_q_list = [self.create_resource('router', proj_objs[i].uuid,
-                    name='router-%s-%s-%s' %(self.id(), i, j),
+                router_q_list = [self.create_resource(
+                    'router',
+                    proj_objs[i].uuid,
                     extra_res_fields={
+                        'name': 'router-%s-%s-%s' % (self.id(), i, j),
                         'external_gateway_info': {
                             'network_id': pub_net_q_list[j]['id'],
                         }
                     }) for j in range(2)]
-                [self.update_resource('router', router_q_list[j]['id'],
-                    proj_objs[i].uuid, is_admin=True, operation='ADDINTERFACE',
-                    extra_res_fields={'subnet_id': subnet_q_list[j]['id']})
-                        for j in range(2)]
+                [self.add_router_interface(
+                     router_q_list[j]['id'],
+                     proj_objs[i].uuid,
+                     is_admin=True,
+                     extra_res_fields={'subnet_id': subnet_q_list[j]['id']},
+                 ) for j in range(2)]
             else:
                 router_q_list = None
 
-            port_q_list = [self.create_resource('port', proj_objs[i].uuid,
-                name='port-%s-%s-%s' %(self.id(), i, j),
+            port_q_list = [self.create_resource(
+                'port',
+                proj_objs[i].uuid,
                 extra_res_fields={
+                    'name': 'port-%s-%s-%s' % (self.id(), i, j),
                     'network_id': net_q_list[j]['id'],
                     'security_groups': [sg_q_list[i]['id']],
-                }) for j in range(2)]
+                },
+            ) for j in range(2)]
 
-            fip_q_list = [self.create_resource('floatingip', proj_objs[i].uuid,
-                name='fip-%s-%s-%s' %(self.id(), i, j),
+            fip_q_list = [self.create_resource(
+                'floatingip',
+                proj_objs[i].uuid,
                 is_admin=True,
-                extra_res_fields={'floating_network_id': pub_net_q_list[j]['id'],
-                                  'port_id': port_q_list[j]['id']}) for j in range(2)]
+                extra_res_fields={
+                    'name': 'fip-%s-%s-%s' %(self.id(), i, j),
+                    'floating_network_id': pub_net_q_list[j]['id'],
+                    'port_id': port_q_list[j]['id'],
+                },
+            ) for j in range(2)]
 
             return {'network': net_q_list, 'subnet': subnet_q_list,
                     'ports': port_q_list, 'fips': fip_q_list,
@@ -1688,12 +1623,17 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         # public network/subnet on an admin project
         public_net = self.create_resource(
-            'network', admin_proj_obj.uuid, 'public-%s' % self.id(),
-            extra_res_fields={'router:external': True},
+            'network',
+            admin_proj_obj.uuid,
+            extra_res_fields={
+                'name': 'public-%s' % self.id(),
+                'router:external': True,
+            },
         )
         self.create_resource(
-            'subnet', admin_proj_obj.uuid, 'public-%s' % self.id(),
+            'subnet', admin_proj_obj.uuid,
             extra_res_fields={
+                'name': 'public-%s' % self.id(),
                 'network_id': public_net['id'],
                 'cidr': '80.0.0.0/24',
                 'ip_version': 4,
@@ -1703,11 +1643,14 @@ class TestBasic(test_case.NeutronBackendTestCase):
             id=public_net['id'])
 
         # private network/subnet on classic project
-        privat_net = self.create_resource('network', proj_obj.uuid,
-                                          name='private-%s' % self.id())
+        privat_net = self.create_resource(
+            'network',
+            proj_obj.uuid,
+            extra_res_fields={'name': 'private-%s' % self.id()})
         private_subnet = self.create_resource(
-            'subnet', proj_obj.uuid, 'private-%s' % self.id(),
+            'subnet', proj_obj.uuid,
             extra_res_fields={
+                'name': 'private-%s' % self.id(),
                 'network_id': privat_net['id'],
                 'cidr': '10.0.0.0/24',
                 'ip_version': 4,
@@ -1717,8 +1660,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         # Router on classic project with a gateway on the public network
         # (owned by the admin project)
         router = self.create_resource(
-            'router', proj_obj.uuid, name='router-%s' % self.id(),
+            'router',
+            proj_obj.uuid,
             extra_res_fields={
+                'name': 'router-%s' % self.id(),
                 'external_gateway_info': {
                     'network_id': public_net['id'],
                 }
@@ -1726,11 +1671,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         )
 
         # Add router interface on the private network/subnet
-        self.update_resource(
-            'router', router['id'], proj_obj.uuid, is_admin=True,
-            operation='ADDINTERFACE',
-            extra_res_fields={'subnet_id': private_subnet['id']},
-        )
+        self.add_router_interface(
+            router['id'],
+            proj_obj.uuid,
+            is_admin=True,
+            extra_res_fields={'subnet_id': private_subnet['id']})
         router_obj = self._vnc_lib.logical_router_read(id=router['id'])
 
         # Create fake gw VMI
@@ -1768,14 +1713,12 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 return [fake_gw]
             return orig_method(*args, **kwargs)
 
-        neutron_api_obj = FakeExtensionManager.get_extension_objects(
-            'vnc_cfg_api.neutronApi')[0]
-        neutron_db_obj = neutron_api_obj._npi._cfgdb
-        with test_common.patch(neutron_db_obj._vnc_lib, 'logical_routers_list',
-                               router_with_fake_si_ref), \
-                test_common.patch(neutron_db_obj._vnc_lib,
+        with test_common.patch(self.neutron_db_obj._vnc_lib,
+                                'logical_routers_list',
+                                router_with_fake_si_ref), \
+                test_common.patch(self.neutron_db_obj._vnc_lib,
                                   'service_instance_read', fake_si_obj), \
-                test_common.patch(neutron_db_obj._vnc_lib,
+                test_common.patch(self.neutron_db_obj._vnc_lib,
                                   'virtual_machine_interfaces_list',
                                   return_router_gw_interface):
                 # list with a user that not own the router gw port's network
@@ -1804,12 +1747,17 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         # public network/subnet
         public_net = self.create_resource(
-            'network', admin_proj_obj.uuid, 'public-%s' % self.id(),
-            extra_res_fields={'router:external': True},
+            'network',
+            admin_proj_obj.uuid,
+            extra_res_fields={
+                'name': 'public-%s' % self.id(),
+                'router:external': True},
         )
         self.create_resource(
-            'subnet', admin_proj_obj.uuid, 'public-%s' % self.id(),
+            'subnet',
+            admin_proj_obj.uuid,
             extra_res_fields={
+                'name': 'public-%s' % self.id(),
                 'network_id': public_net['id'],
                 'cidr': '80.0.0.0/24',
                 'ip_version': 4,
@@ -1819,11 +1767,15 @@ class TestBasic(test_case.NeutronBackendTestCase):
             id=public_net['id'])
 
         # private network/subnet
-        privat_net = self.create_resource('network', admin_proj_obj.uuid,
-                                          name='private-%s' % self.id())
+        privat_net = self.create_resource(
+            'network',
+            admin_proj_obj.uuid,
+            extra_res_fields={'name': 'private-%s' % self.id()})
         private_subnet = self.create_resource(
-            'subnet', admin_proj_obj.uuid, 'private-%s' % self.id(),
+            'subnet',
+            admin_proj_obj.uuid,
             extra_res_fields={
+                'name': 'private-%s' % self.id(),
                 'network_id': privat_net['id'],
                 'cidr': '10.0.0.0/24',
                 'ip_version': 4,
@@ -1833,8 +1785,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         # Router on admin project with a gateway on the public network
         # (owned by the admin project)
         router = self.create_resource(
-            'router', admin_proj_obj.uuid, name='router-%s' % self.id(),
+            'router',
+            admin_proj_obj.uuid,
             extra_res_fields={
+                'name': 'router-%s' % self.id(),
                 'external_gateway_info': {
                     'network_id': public_net['id'],
                 }
@@ -1842,11 +1796,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         )
 
         # Add router interface on the private network/subnet
-        self.update_resource(
-            'router', router['id'], admin_proj_obj.uuid, is_admin=True,
-            operation='ADDINTERFACE',
-            extra_res_fields={'subnet_id': private_subnet['id']},
-        )
+        self.add_router_interface(
+            router['id'],
+            admin_proj_obj.uuid,
+            is_admin=True,
+            extra_res_fields={'subnet_id': private_subnet['id']})
         router_obj = self._vnc_lib.logical_router_read(id=router['id'])
 
         # Create fake gw VMI
@@ -1884,14 +1838,12 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 return [fake_gw]
             return orig_method(*args, **kwargs)
 
-        neutron_api_obj = FakeExtensionManager.get_extension_objects(
-            'vnc_cfg_api.neutronApi')[0]
-        neutron_db_obj = neutron_api_obj._npi._cfgdb
-        with test_common.patch(neutron_db_obj._vnc_lib, 'logical_routers_list',
+        with test_common.patch(self.neutron_db_obj._vnc_lib,
+                               'logical_routers_list',
                                router_with_fake_si_ref), \
-                test_common.patch(neutron_db_obj._vnc_lib,
+                test_common.patch(self.neutron_db_obj._vnc_lib,
                                   'service_instance_read', fake_si_obj), \
-                test_common.patch(neutron_db_obj._vnc_lib,
+                test_common.patch(self.neutron_db_obj._vnc_lib,
                                   'virtual_machine_interfaces_list',
                                   return_router_gw_interface):
                 # list as admin, project does not matter
@@ -2260,64 +2212,7 @@ class TestExtraFieldsAbsenceByKnob(test_case.NeutronBackendTestCase):
 
 
 class TestListWithFilters(test_case.NeutronBackendTestCase):
-
-    def create_resource(self, res_type, proj_id, name=None,
-                        extra_res_fields=None, is_admin=False):
-        context = {'operation': 'CREATE',
-                   'user_id': '',
-                   'is_admin': is_admin,
-                   'roles': '',
-                   'tenant_id': proj_id}
-        if name:
-            res_name = name
-        else:
-            res_name = '%s-%s' % (res_type, self.id())
-        data = {'resource': {'name': res_name,
-                             'tenant_id': proj_id}}
-        if extra_res_fields:
-            data['resource'].update(extra_res_fields)
-
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
-        return json.loads(resp.text)
-
-    def list_resource(self, url_pfx,
-        proj_uuid=None, req_fields=None, req_filters=None,
-        is_admin=False):
-        if proj_uuid == None:
-            proj_uuid = self._vnc_lib.fq_name_to_id('project',
-            fq_name=['default-domain', 'default-project'])
-
-        context = {'operation': 'READALL',
-                   'user_id': '',
-                   'tenant_id': proj_uuid,
-                   'roles': '',
-                   'is_admin': is_admin}
-        data = {'fields': req_fields, 'filters': req_filters or {}}
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json(
-            '/neutron/%s' %(url_pfx), body)
-        return json.loads(resp.text)
-    # end list_resource
-
-    def delete_resource(self, res_type, proj_id, id, is_admin=False):
-        context = {'operation': 'DELETE',
-                   'user_id': '',
-                   'is_admin': is_admin,
-                   'roles': '',
-                   'tenant_id': proj_id}
-
-        data = {'id': id}
-
-        body = {'context': context, 'data': data}
-        self._api_svr_app.post_json('/neutron/%s' % res_type, body)
-
     def test_filters_with_id(self):
-        neutron_api_obj = FakeExtensionManager.get_extension_objects(
-            'vnc_cfg_api.neutronApi')[0]
-        neutron_api_obj._npi._connect_to_db()
-        neutron_db_obj = neutron_api_obj._npi._cfgdb
-
         # sg setup
         proj_obj = self._vnc_lib.project_read(
             fq_name=['default-domain', 'default-project'])
@@ -2356,7 +2251,7 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
             self.assertIn(sg_obj.uuid, kwargs['obj_uuids'])
             return orig_method(*args, **kwargs)
         with test_common.patch(
-            neutron_db_obj._vnc_lib, 'security_groups_list', spy_list):
+            self.neutron_db_obj._vnc_lib, 'security_groups_list', spy_list):
             context = {'operation': 'READALL',
                        'user_id': '',
                        'tenant_id': proj_obj.uuid,
@@ -2375,7 +2270,7 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
             self.assertIn(fip1_obj.uuid, kwargs['obj_uuids'])
             return orig_method(*args, **kwargs)
         with test_common.patch(
-            neutron_db_obj._vnc_lib, 'floating_ips_list', spy_list):
+            self.neutron_db_obj._vnc_lib, 'floating_ips_list', spy_list):
             context = {'operation': 'READALL',
                        'user_id': '',
                        'tenant_id': '',
@@ -2521,8 +2416,8 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         # port_create will do port_list with filter on mac address
         try:
             port_dict = self.create_resource('port', proj_obj.uuid,
-                                             'vmi3-%s' % self.id(),
                                              extra_res_fields={
+                                                 'name':'vmi3-%s' % self.id(),
                                                  'network_id': vn_obj.uuid,
                                                  'mac_address':
                                                      '00:01:00:00:0f:3c'
@@ -2609,7 +2504,7 @@ class TestAuthenticatedAccess(test_case.NeutronBackendTestCase):
     # end test_post_neutron_checks_auth_token
 # end class TestAuthenticatedAccess
 
-class TestRBACPerms(test_case.NeutronBackendTestCase):
+class TestRBACPerms(test_case.VncOpenstackTestCase):
     domain_name = 'default-domain'
     fqdn = [domain_name]
     _api_session = requests.Session()
@@ -2643,6 +2538,7 @@ class TestRBACPerms(test_case.NeutronBackendTestCase):
             ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
+        cls.setup_flexmock()
         super(TestRBACPerms, cls).setUpClass(extra_mocks=extra_mocks,
             extra_config_knobs=extra_config_knobs)
 
@@ -2669,7 +2565,7 @@ class TestRBACPerms(test_case.NeutronBackendTestCase):
         test_pass = False
         val = TestRBACPerms._api_session.post(url, data=body, headers=headers, verify=False)
         self.assertIn('NotAuthorized', val._content)
-# end class TestRBACPerms 
+# end class TestRBACPerms
 
 class TestKeystoneCallCount(test_case.NeutronBackendTestCase):
     test_obj_uuid = None

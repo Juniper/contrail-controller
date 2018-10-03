@@ -1172,6 +1172,16 @@ class VncCassandraClient(object):
                     child_uuid = col_name.split(':')[2]
                     if obj_uuids and child_uuid not in obj_uuids:
                         continue
+                    if back_ref_uuids:
+                        child_cols = self.get(
+                            self._OBJ_UUID_CF_NAME,
+                            child_uuid,
+                            start='ref:',
+                            finish='ref;')
+                        child_ref_ids = {col.split(':')[2]
+                                         for col in child_cols or []}
+                        if not set(back_ref_uuids) & child_ref_ids:
+                            continue
                     all_child_infos[child_uuid] = {'uuid': child_uuid,
                                                    'tstamp': col_val_ts[1]}
 
@@ -1188,7 +1198,7 @@ class VncCassandraClient(object):
 
             children_fq_names_uuids.extend(filter_rows_parent_anchor(sort=True))
 
-        if back_ref_uuids:
+        elif back_ref_uuids:
             # go from anchor to backrefs
             if paginate_start and paginate_start != '0':
                 # get next lexical value of marker
@@ -1227,7 +1237,7 @@ class VncCassandraClient(object):
 
             children_fq_names_uuids.extend(filter_rows_backref_anchor())
 
-        if not parent_uuids and not back_ref_uuids:
+        else:
             anchored_op = False
             if obj_uuids:
                 # exact objects specified
