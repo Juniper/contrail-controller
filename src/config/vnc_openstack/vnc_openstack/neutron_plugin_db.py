@@ -6,6 +6,7 @@
 """
 import sys
 import copy
+from collections import namedtuple
 import requests
 import re
 import uuid
@@ -25,6 +26,7 @@ except ImportError:
 
 from cfgm_common import exceptions as vnc_exc
 from cfgm_common.utils import cgitb_hook
+from cfgm_common import is_uuid_like
 from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, UUID_PATTERN
 import vnc_openstack
@@ -33,6 +35,9 @@ from context import get_context, use_context
 import datetime
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import StringIO
+
+from vnc_openstack.utils import filter_fields
+from vnc_openstack.utils import resource_is_in_use
 
 operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
 oper = ['NOOP', 'POST', 'GET', 'PUT', 'DELETE']
@@ -50,6 +55,16 @@ DELETE = 5
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
 _IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX = re.compile(
     '%s_%s_%s' % (_IFACE_ROUTE_TABLE_NAME_PREFIX, UUID_PATTERN, UUID_PATTERN))
+# FWaaS defines
+_NEUTRON_FIREWALL_APP_TAG_PREFIX = 'openstack_neutron_fwaasv2_tag_'
+_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME = 'default'
+_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME = 'default ipv4'
+_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME = 'default ipv6'
+
+
+class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
+    def get_uuid(self):
+        return self.uuid
 
 class LocalVncApi(VncApi):
     def __init__(self, api_server_obj, *args, **kwargs):
@@ -82,7 +97,7 @@ class LocalVncApi(VncApi):
         orig_user_token = None
         started_time = time.time()
         req = get_context().request
-        req_context = req.json['context']
+        req_context = req.json.get('context', {}) if req.json else {}
         req_id = get_context().request_id
         user_token = get_context().user_token
         if 'X-AUTH-TOKEN' in self._headers:
@@ -430,8 +445,8 @@ class DBInterface(object):
     # Encode and send an exception information to neutron. exc must be a
     # valid exception class name in neutron, kwargs must contain all
     # necessary arguments to create that exception
-    @classmethod
-    def _raise_contrail_exception(cls, exc, **kwargs):
+    @staticmethod
+    def _raise_contrail_exception(exc, **kwargs):
         exc_info = {'exception': exc}
         exc_info.update(kwargs)
         bottle.abort(400, json.dumps(exc_info))
@@ -1496,6 +1511,14 @@ class DBInterface(object):
                     return True
         return False
     #end _shared_with_tenant
+
+    def _is_shared(self, resource):
+        perms2 = resource.get_perms2()
+        if perms2:
+            if (perms2.get_global_access() == PERMS_RWX or
+                    len(perms2.get_share())):
+                return True
+        return False
 
     @catch_convert_exception
     def _network_vnc_to_neutron(self, net_obj, oper=READ, context=None):
@@ -4961,4 +4984,1022 @@ class DBInterface(object):
         return self._virtual_router_to_neutron(vrouter_obj)
     #end virtual_router_read
 
-#end class DBInterface
+    """Firewall as a Service v2 Contrail mapping
+
+        Neutron FWaaS project: https://github.com/openstack/neutron-fwaas
+        Contrail mapping spec: https://github.com/Juniper/contrail-specs/blob/master/neutron_FWaaSv2.md
+    """
+
+    def _compute_firewall_group_status(self, firewall_group):
+        """Compute a status of specified Firewall Group
+
+        Validates 'ACTIVE', 'DOWN', 'INACTIVE', 'ERROR' and None as follows:
+            - "ACTIVE"   : admin_state_up is True and exists ports and policies
+            - "INACTIVE" : admin_state_up is True and with no ports or no
+                           policy
+            - "DOWN"     : admin_state_up is False
+
+        :params firewall_group: Firewall Group dictionary from the status is
+            computed
+        :returns: Neutron status
+        """
+        if not firewall_group['admin_state_up']:
+            return constants.DOWN
+
+        if (firewall_group['ports'] and (
+                firewall_group.get('ingress_firewall_policy_id') or
+                firewall_group.get('egress_firewall_policy_id'))):
+            return constants.ACTIVE
+
+        return constants.INACTIVE
+
+    def _firewall_group_neutron_to_vnc(self, context, firewall_group, id=None):
+        """Neutron Firewall Group resource to Contrail Application Policy Set
+
+        Convert Neutron Firewall Group resource to Contrail Application Policy
+        Set.
+
+        ==========================  ===============================
+        Neutron Firewall Group      Contrail Application Policy Set
+        ==========================  ===============================
+        id                          `uuid`
+        tenant_id                   `project` parent reference
+        name                        `display_name`
+        description                 `id_perms.description`
+        admin_state_up              `id_perms.enable`
+        status                      see _compute_firewall_group_status method
+        share                       `perms2`
+        ports                       `virtual-machine-interface` references
+        ingress_firewall_policy_id  `firewall-policy` reference
+        egress_firewall_policy_id   equals to `ingress_firewall_policy_id`,
+                                    Contrail does not distinguish ingress or
+                                    egress flow for network policy and firewall
+                                    policy (only for security group)
+        ==========================  ===============================
+
+        :param context: Neutron api request context
+        :param firewall_group: Firewall Group dictionary to convert
+        :param id: permits to read APS if method called during an update
+            request. If `None`, instantiate new APS
+        :returns: vnc_api.gen.resource_client.ApplicationPolicySet
+        """
+        # cannot use default name
+        if (firewall_group.get('name') ==
+                _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME):
+            vnc_openstack.ensure_default_firewall_group(
+                self._vnc_lib, firewall_group['tenant_id'])
+            if not id:  # creation
+                self._raise_contrail_exception(
+                    "FirewallDefaultParameterExists",
+                    resource_type='Firewall Group',
+                    name=_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME)
+            else:  # update
+                self._raise_contrail_exception(
+                    "FirewallDefaultObjectUpdateRestricted",
+                    resource_type='Firewall Group',
+                    resource_id=id)
+
+        if not id:  # creation
+            project = self._get_project_obj(firewall_group)
+            project_uuid = project.uuid
+            aps = ApplicationPolicySet(
+                name=firewall_group.get('name') or str(uuid.uuid4()),
+                parent_obj=project,
+                perms2=PermType2(owner=project.uuid),
+            )
+        else:  # update
+            try:
+                aps = self._vnc_lib.application_policy_set_read(id=id)
+            except NoIdError:
+                self._raise_contrail_exception('FirewallGroupNotFound',
+                                               firewall_id=id)
+            project_uuid = aps.parent_uuid
+            # limit default firewall group update
+            if aps.name == _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME:
+                if context['is_admin']:
+                    attrs = set(['name'])
+                else:
+                    attrs = set(['name', 'description', 'admin_state_up',
+                                'ingress_firewall_policy_id',
+                                'egress_firewall_policy_id'])
+                if set(firewall_group.keys()) & attrs:
+                    self._raise_contrail_exception(
+                        "FirewallDefaultObjectUpdateRestricted",
+                        resource_type='Firewall Group',
+                        resource_id=id)
+
+        if 'name' in firewall_group:
+            aps.set_display_name(firewall_group['name'])
+
+        if set(['admin_state_up', 'description']) & set(firewall_group.keys()):
+            id_perms = aps.get_id_perms() or IdPermsType()
+            if 'admin_state_up' in firewall_group:
+                id_perms.set_enable(firewall_group['admin_state_up'])
+            if 'description' in firewall_group:
+                id_perms.set_description(firewall_group['description'])
+            aps.set_id_perms(id_perms)
+
+        if firewall_group.get('shared'):
+            perms2 = aps.get_perms2() or PermType2(owner=project_uuid)
+            perms2.set_global_access(PERMS_RWX)
+            aps.set_perms2(perms2)
+
+        # Add refs to the Firewall Policy
+        # if one of the policy ref (ingress or egress) is set, use it, if both
+        # set, raise a Not impmented error which explain Contrail firewall
+        # limitation
+        attr_not_specified = object()
+        ingress = firewall_group.get(
+            'ingress_firewall_policy_id', attr_not_specified)
+        egress = firewall_group.get(
+            'egress_firewall_policy_id', attr_not_specified)
+        if ingress != attr_not_specified or egress != attr_not_specified:
+            if (ingress not in [None, attr_not_specified] and
+                    egress not in [None, attr_not_specified] and
+                    ingress != egress):
+                msg =("Contrail firewall policies does not distinguish "
+                      "ingress and egress flow. Please specify same policy in "
+                      "ingress or egress attributes (if only one is set, the "
+                      "opposite will be automatically set with the same "
+                      "value)")
+                self._raise_contrail_exception(
+                    'BadRequest', resource='firewall_group', msg=msg)
+            fp_id = ingress
+            if ingress in [None, attr_not_specified]:
+                fp_id = egress
+            if is_uuid_like(fp_id):
+                fp_fq_name = self._vnc_lib.id_to_fq_name(fp_id)
+                aps.set_firewall_policy_list(
+                    [fp_fq_name], [FirewallSequence(sequence='0.0')])
+            else:
+                aps.set_firewall_policy_list([], [])
+
+        return aps
+
+    def _application_policy_set_vnc_to_neutron(self, aps, fields=None):
+        """Convert Contrail Application Policy Set to Neutron Firewall Group
+
+        :param aps: vnc_api.gen.resource_client.ApplicationPolicySet instance
+            to convert
+        :param fields: a list of strings that are valid keys in a Firewall
+            Group dictionary. Only these fields will be returned.
+        :retruns: Firewall Group dictionary
+        """
+        fwg = {
+            'id': aps.uuid,
+            'name': aps.display_name,
+            'display_name': aps.display_name,
+            'description': aps.get_id_perms().get_description(),
+            'admin_state_up': aps.get_id_perms().get_enable(),
+            'project_id': aps.get_perms2().get_owner().replace('-', ''),
+            'tenant_id': aps.get_perms2().get_owner().replace('-', ''),
+            'shared': self._is_shared(aps),
+        }
+
+        # retrieve associated VMI from the dedicated tag
+        tag_fq_name = aps.get_fq_name()[:-1] + [
+            'application=%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, aps.uuid)]
+        for tag_ref in aps.get_tag_refs() or []:
+            if tag_ref['to'] == tag_fq_name:
+                aps_tag = self._vnc_lib.tag_read(
+                    id=tag_ref['uuid'],
+                    fields=['virtual_machine_interface_back_refs'])
+                fwg['ports'] = [
+                    vmi['uuid'] for vmi in
+                    aps_tag.get_virtual_machine_interface_back_refs() or []]
+                break
+        else:
+            # if APS does not have ref to an application tag with value equals
+            # to _NEUTRON_FIREWALL_APP_TAG_PREFIX<aps UUID>, that means that
+            # APS does not correspond to a Neutron firwall group, ignore it
+            return
+
+        # locate firewall policy (only one) and set it as ingress and egress
+        # policy
+        sorted_fp_refs =fp_refs = aps.get_firewall_policy_refs() or []
+        if len(fp_refs) > 1:
+            msg = ("Application Policy Set %s(%s) corresponding to a Neutron "
+                   "Firewall Group have more that on Firewall Policy "
+                   "reference, keep only one with lowest sequence number" %
+                   (aps.get_fq_name_str(), aps.uuid))
+            self.logger.warning(msg)
+            sorted_fp_refs = sorted(
+                fp_refs, key=lambda ref: float(ref['attr'].sequence))
+            for fp_ref in sorted_fp_refs[1:]:
+                self._vnc_lib.ref_update(
+                    'application_policy_set',
+                    aps.uuid,
+                    'firewall_policy',
+                    fp_ref['uuid'],
+                    fp_ref['to'],
+                    'DELETE')
+        if sorted_fp_refs:
+            fwg['ingress_firewall_policy_id'] = sorted_fp_refs[0]['uuid']
+            fwg['egress_firewall_policy_id'] = sorted_fp_refs[0]['uuid']
+
+        fwg['status'] = self._compute_firewall_group_status(fwg)
+
+        return filter_fields(fwg, fields)
+
+    def _apply_firewall_group_to_associated_port(self, aps, firewall_group):
+        """Add or remove reference(s) from VMI to dedicated application Tag
+
+        :param aps: vnc_api.gen.resource_client.ApplicationPolicySet instance
+        :param firewall_group: Firewall Group dictionary
+        """
+        if 'ports' not in firewall_group:
+            return
+        new_ports = set(firewall_group['ports'])
+
+        tag = self._vnc_lib.tag_read(
+            aps.get_tag_refs()[0]['to'],
+            fields=['virtual_machine_interface_back_refs'])
+        old_ports = {
+            ref['uuid']
+            for ref in tag.get_virtual_machine_interface_back_refs() or []}
+
+        for port_id in old_ports - new_ports:
+            self._vnc_lib.unset_tag(
+                FakeVncLibResource('virtual_machine_interface', port_id),
+                'application')
+
+        for port_id in new_ports - old_ports:
+            self._vnc_lib.set_tag(
+                FakeVncLibResource('virtual_machine_interface', port_id),
+                'application',
+                '%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, aps.uuid))
+
+    def firewall_group_create(self, context, firewall_group):
+        """Create Firewall Group
+
+        Maps a Neutron Firewall Group resource to a Contrail Application
+        Policy. The APS is a child of the project and it is owned by that
+        project. For each Neutron Firewall Group a Contrail application Tag is
+        dedicated (with value `_NEUTRON_FIREWALL_APP_TAG_PREFIX_<APS UUID>`)
+        which is used to apply policies on the port.
+
+        Contrail does not distinguish ingress or egress flow for network policy
+        and firewall policy (it does only for security group) so the FWaaS
+        implementation is limited and does not allow to distinguish ingress or
+        egress policies. Ingress and egress policies of a Firewall Group is
+        always the same if one set.
+
+        :param context: Neutron api request context
+        :param firewall_group: dictionary describing the Firewall Group
+        :returns: Firewall Group dictionary populated
+        """
+        project = self._get_project_obj(firewall_group)
+        aps = self._firewall_group_neutron_to_vnc(context, firewall_group)
+
+        # Create Application Policy Set
+        try:
+            id = self._resource_create('application_policy_set', aps)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='firewall_group', msg=str(e))
+        get_context().push_undo(
+            lambda: self._vnc_lib.application_policy_set_delete(id=id))
+
+        # Create dedicated Tag and references it from the APS
+        tag = Tag(
+            tag_type_name='application',
+            tag_value='%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, id),
+            parent_obj=project)
+        try:
+            self._vnc_lib.tag_create(tag)
+        except RefsExistError:
+            pass
+        get_context().push_undo(lambda: self._vnc_lib.tag_delete(id=tag.uuid))
+
+        self._vnc_lib.set_tag(aps, tag.tag_type_name, tag.tag_value)
+
+        aps = self._vnc_lib.application_policy_set_read(id=id)
+
+        # Add ref to all ports associated with the firewall group
+        self._apply_firewall_group_to_associated_port(aps, firewall_group)
+        self._resource_update('application_policy_set', aps)
+        aps = self._vnc_lib.application_policy_set_read(id=id)
+
+        return self._application_policy_set_vnc_to_neutron(aps)
+
+    def firewall_group_read(self, context, id, fields=None):
+        """Retrieve Firewall Group
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Group to fetch
+        :param fields: a list of strings that are valid keys in a Firewall
+            Group dictionary. Only these fields will be returned.
+        :returns: Firewall Group dictionary
+        """
+        try:
+            aps = self._vnc_lib.application_policy_set_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallGroupNotFound',
+                                           firewall_id=id)
+
+        firewall_group = self._application_policy_set_vnc_to_neutron(
+            aps, fields)
+        if not firewall_group:
+            self._raise_contrail_exception('FirewallGroupNotFound',
+                                           firewall_id=id)
+
+        return firewall_group
+
+    def firewall_group_list(self, context, filters=None, fields=None):
+        """Retrieve a list of Firewall Group
+
+        :param context: Neutron api request context
+        :param filters: a dictionary with keys that are valid keys for a
+            Firewall Group
+        :param fields: a list of strings that are valid keys in a Firewall
+            Group dictionary. Only these fields will be returned.
+        :returns: Firewall Group dictionary
+        """
+        for project_id in self._validate_project_ids(context, filters):
+            vnc_openstack.ensure_default_firewall_group(self._vnc_lib,
+                                                        project_id)
+
+        results = []
+        if 'name' in filters:
+            filters['display_name'] = filters.pop('name')
+        apss = self._vnc_lib.application_policy_sets_list(
+            detail=True,
+            shared=True,
+            parent_id=self._validate_project_ids(context, filters),
+            obj_uuids=filters.get('id'),
+            back_ref_id=(
+                filters.get('ingress_firewall_policy_id', []) +
+                filters.get('egress_firewall_policy_id', [])) or None,
+            filters=filters)
+        for aps in apss:
+            firewall_group = self._application_policy_set_vnc_to_neutron(
+                aps, fields)
+            if not firewall_group:
+                continue
+            if ('ports' in filters and
+                    not set(filters['ports']) &
+                    set(firewall_group.get('ports', []))):
+                continue
+            results.append(firewall_group)
+
+        return results
+
+    def firewall_group_update(self, context, id, firewall_group):
+        """Update value of Firewall Group
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Group to update
+        :param firewall_group: dictionary with keys indicating fields to
+            update
+        :returns: Firewall Group dictionary updated
+        """
+        aps = self._firewall_group_neutron_to_vnc(context, firewall_group, id)
+        # Update ref to all ports associated with the firewall group
+        self._apply_firewall_group_to_associated_port(aps, firewall_group)
+
+        self._resource_update('application_policy_set', aps)
+
+        return self._application_policy_set_vnc_to_neutron(
+            self._vnc_lib.application_policy_set_read(id=id))
+
+    def firewall_group_delete(self, context, id):
+        """Delete Firewall Group
+
+        Delete corresponding Contrail APS and dedicated application Tag.
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Group to delete
+        """
+        firewall_group = self.firewall_group_read(
+            context, id, fields=['ports'])
+
+        for port_id in firewall_group['ports']:
+            self._vnc_lib.unset_tag(
+                FakeVncLibResource('virtual_machine_interface', port_id),
+                'application')
+        self._vnc_lib.unset_tag(
+            FakeVncLibResource('application_policy_set', id),
+            'application')
+        tag_fq_name = self._vnc_lib.id_to_fq_name(id)[:-1] + [
+            'application=%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, id)]
+        self._vnc_lib.tag_delete(fq_name=tag_fq_name)
+
+        self._vnc_lib.application_policy_set_delete(id=id)
+
+    def _firewall_policy_neutron_to_vnc(self, firewall_policy, id=None):
+        """Neutron Firewall Policy resource to Contrail Firewall Policy
+
+        =======================  ========================
+        Neutron Firewall Policy  Contrail Firewall Policy
+        =======================  ========================
+        id                       `uuid`
+        tenant_id                `project` parent reference and owner
+        name                     `display_name`
+        description              `id_perms.description`
+        share                    `perms2`
+        firewall_rules           `firewall-rule` references with a sequence
+                                   number for ordering
+        audited                  `audited` (Not yet implemented, for the moment
+                                 it is mapped to `id_perms.enable`)
+        =======================  ========================
+
+        :param firewall_policy: Firewall Policy dictionary to convert
+        :param id: permits to read FP if method called during an update
+            request. If `None`, instantiate new FP
+        :returns: vnc_api.gen.resource_client.FirewallPolicy,
+        """
+        if not id:  # creation
+            project = self._get_project_obj(firewall_policy)
+            project_uuid = project.uuid
+            fp = FirewallPolicy(
+                name=firewall_policy.get('name') or str(uuid.uuid4()),
+                parent_obj=project,
+                id_perms=IdPermsType(enable=False),
+                perms2=PermType2(owner=project.uuid),
+            )
+        else:  # update
+            try:
+                fp = self._vnc_lib.firewall_policy_read(id=id)
+            except NoIdError:
+                self._raise_contrail_exception('FirewallPolicyNotFound',
+                                               firewall_policy_id=id)
+            project_uuid = fp.parent_uuid
+
+        if 'name' in firewall_policy:
+            fp.set_display_name(firewall_policy['name'])
+
+        if set(['audited', 'description']) & set(firewall_policy.keys()):
+            id_perms = fp.get_id_perms() or IdPermsType()
+            if 'audited' in firewall_policy:
+                id_perms.set_enable(firewall_policy['audited'])
+            if 'description' in firewall_policy:
+                id_perms.set_description(firewall_policy['description'])
+            fp.set_id_perms(id_perms)
+
+        if firewall_policy.get('shared'):
+            perms2 = fp.get_perms2() or PermType2(owner=project_uuid)
+            perms2.set_global_access(PERMS_RWX)
+            fp.set_perms2(perms2)
+
+        if 'firewall_rules' in firewall_policy:
+            fr_fq_names = []
+            fr_attrs = []
+            for idx, fr_id in enumerate(firewall_policy['firewall_rules']):
+                fr_fq_names.append(self._vnc_lib.id_to_fq_name(fr_id))
+                fr_attrs.append(FirewallSequence(sequence='%0.1f' % idx))
+            fp.set_firewall_rule_list(fr_fq_names, fr_attrs)
+
+        return fp
+
+    def _firewall_policy_vnc_to_neutron(self, fp, fields=None):
+        """Convert Contrail Firewall Policy to Neutron Firewall Policy
+
+        :param fp: vnc_api.gen.resource_client.FirewallPolicy instance to
+            convert
+        :param fields: a list of strings that are valid keys in a Firewall
+            Policy dictionary. Only these fields will be returned.
+        :retruns: Firewall Policy dictionary
+        """
+        firewall_policy = {
+            'id': fp.uuid,
+            'name': fp.display_name,
+            'description': fp.get_id_perms().get_description(),
+            'project_id': fp.get_perms2().get_owner().replace('-', ''),
+            'tenant_id': fp.get_perms2().get_owner().replace('-', ''),
+            'shared': self._is_shared(fp),
+            'audited': fp.get_id_perms().get_enable(),
+        }
+
+        sorted_fr_refs = sorted(fp.get_firewall_rule_refs() or [],
+                                key=lambda ref: float(ref['attr'].sequence))
+        firewall_policy['firewall_rules'] = [
+            ref['uuid'] for ref in sorted_fr_refs]
+
+        return filter_fields(firewall_policy, fields)
+
+    def firewall_policy_create(self, context, firewall_policy):
+        """Create Firewall Policy
+
+        Maps a Neutron Firewall Policy resource to a Contrail Firewall Policy.
+        The FPs are a child of the project and are owned by that project.
+
+        :param context: Neutron api request context
+        :param firewall_policy: dictionary describing the Firewall Policy
+        :returns: Firewall Policy dictionary populated
+        """
+        fp = self._firewall_policy_neutron_to_vnc(firewall_policy)
+
+        try:
+            id = self._resource_create('firewall_policy', fp)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='firewall_policy', msg=str(e))
+
+        return self._firewall_policy_vnc_to_neutron(
+            self._vnc_lib.firewall_policy_read(id=id))
+
+    def firewall_policy_read(self, context, id, fields=None):
+        """Retrieve Firewall Policy
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Policy to fetch
+        :param fields: a list of strings that are valid keys in a Firewall
+            Policy dictionary. Only these fields will be returned.
+        :returns: Firewall Policy dictionary
+        """
+        try:
+            fp = self._vnc_lib.firewall_policy_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallPolicyNotFound',
+                                           firewall_policy_id=id)
+
+        return self._firewall_policy_vnc_to_neutron(fp, fields)
+
+    def firewall_policy_list(self, context, filters=None, fields=None):
+        """Retrieve a list of Firewall Policy
+
+        :param context: Neutron api request context
+        :param filters: a dictionary with keys that are valid keys for a
+            Firewall Policy
+        :param fields: a list of strings that are valid keys in a Firewall
+            Policy dictionary. Only these fields will be returned.
+        :returns: Firewall Policy dictionary
+        """
+        results = []
+        if 'name' in filters:
+            filters['display_name'] = filters.pop('name')
+        fps = self._vnc_lib.firewall_policys_list(
+            detail=True,
+            shared=True,
+            parent_id=self._validate_project_ids(context, filters),
+            obj_uuids=filters.get('id'),
+            back_ref_id=filters.get('firewall_rules'),
+            filters=filters)
+        for fp in fps:
+            results.append(self._firewall_policy_vnc_to_neutron(fp, fields))
+
+        return results
+
+    def firewall_policy_update(self, context, id, firewall_policy):
+        """Update value of Firewall Policy
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Policy to update
+        :param firewall_policy: dictionary with keys indicating fields to
+            update
+        :returns: Firewall Policy dictionary updated
+        """
+        # if the update request does not set the audited flag, update it to
+        # False to warm a new policy audit is needed
+        firewall_policy.setdefault('audited', False)
+
+        fp = self._firewall_policy_neutron_to_vnc(firewall_policy, id)
+
+        self._resource_update('firewall_policy', fp)
+
+        return self._firewall_policy_vnc_to_neutron(
+            self._vnc_lib.firewall_policy_read(id=id))
+
+    def firewall_policy_delete(self, context, id):
+        """Delete Firewall Policy
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Policy to delete
+        """
+        try:
+            self._vnc_lib.firewall_policy_delete(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallPolicyNotFound',
+                                           firewall_rule_id=id)
+        except RefsExistError:
+            self._raise_contrail_exception('FirewallPolicyInUse',
+                                           firewall_policy_id=id)
+
+    def firewall_policy_insert_rule(self, context, id, rule_info):
+        """Insert firewall rule into a policy
+
+        A `firewall_rule_id` is inserted relative to the position of the
+        `firewall_rule_id` set in `insert_before` or `insert_after`. If
+        `insert_before` is set, `insert_after` is ignored. If both
+        `insert_before` and `insert_after` are not set, the new
+        `firewall_rule_id` is inserted as the first rule of the policy.
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Policy to update
+        :param rule_info: dictionary with keys indicating how to insert
+            Firewall Rule. Valid dictionay keys are `firewall_rule_id`,
+            `insert_before` and `insert_after`
+        :returns: Firewall Policy dictionary updated
+        """
+        firewall_rule_id = rule_info['firewall_rule_id']
+        insert_before = True
+        ref_firewall_rule_id = None
+        if 'insert_before' in rule_info:
+            ref_firewall_rule_id = rule_info['insert_before']
+        if not ref_firewall_rule_id and 'insert_after' in rule_info:
+            # If insert_before is set, we will ignore insert_after.
+            ref_firewall_rule_id = rule_info['insert_after']
+            insert_before = False
+
+        firewall_rule_list = self.firewall_policy_read(
+            context, id, ['firewall_rules'])['firewall_rules']
+        if ref_firewall_rule_id:
+            if ref_firewall_rule_id not in firewall_rule_list:
+                self._raise_contrail_exception(
+                    'FirewallRuleNotFound',
+                    firewall_rule_id=ref_firewall_rule_id)
+            position = firewall_rule_list.index(ref_firewall_rule_id)
+            if not insert_before:
+                position += 1
+        else:
+            position = 0
+        new_firewall_rule_list = copy.copy(firewall_rule_list)
+        try:
+            new_firewall_rule_list.remove(firewall_rule_id)
+        except ValueError:
+            pass
+        new_firewall_rule_list.insert(position, firewall_rule_id)
+
+        if new_firewall_rule_list != firewall_rule_list:
+            return self.firewall_policy_update(
+                context, id, {'firewall_rules': new_firewall_rule_list})
+
+    def firewall_policy_remove_rule(self, context, id, rule_info):
+        """Remove firewall rule from a policy
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Policy to update
+        :param rule_info: dictionary with key `firewall_rule_id` indicating
+            Firewall Rule to remove
+        :returns: Firewall Policy dictionary updated
+        """
+        firewall_rule_id = rule_info['firewall_rule_id']
+        firewall_rule_list = self.firewall_policy_read(
+            context, id, ['firewall_rules'])['firewall_rules']
+        try:
+            firewall_rule_list.remove(firewall_rule_id)
+        except ValueError:
+            self._raise_contrail_exception(
+                'FirewallRuleNotAssociatedWithPolicy',
+                firewall_rule_id=firewall_rule_id,
+                firewall_policy_id=id)
+        return self.firewall_policy_update(
+            context, id, {'firewall_rules': firewall_rule_list})
+
+    def _get_port_type(self, port_range_str):
+        """Convert port range string to vnc_api.gen.resource_xsd.PortType"""
+        if port_range_str:
+            try:
+                port_min, _, port_max = port_range_str.partition(':')
+                if not port_max:
+                    port_max = port_min
+                return PortType(int(port_min), int(port_max))
+            except ValueError:
+                self._raise_contrail_exception('FirewallRuleInvalidPortValue',
+                                               port=port_range_str)
+
+    def _get_subnet_type(self, subnet_str):
+        """Convert subnet string to vnc_api.gen.resource_xsd.SubnetType"""
+        if subnet_str:
+            try:
+                ip_network = netaddr.IPNetwork(subnet_str)
+            except netaddr.core.AddrFormatError:
+                msg = ("'%s' is neither a valid IP address, nor is it a valid "
+                       "IP subnet" % subnet_str)
+                self._raise_contrail_exception(
+                    'BadRequest', resource='firewall_rule', msg=msg)
+            return SubnetType(str(ip_network.network), ip_network.prefixlen)
+
+    @staticmethod
+    def _get_tag_list(firewall_group_id):
+        """Returns application Tag name dedicated to a Firewall Group"""
+        if firewall_group_id:
+            return ['application=%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX,
+                                          firewall_group_id)]
+
+    def _get_action(self, action):
+        """Convert action string to vnc_api.gen.resource_xsd.ActionListType"""
+        if action:
+            if action == 'allow':
+                action = 'pass'
+            available_actions = ActionListType.\
+                attr_field_type_vals['simple_action']['restrictions']
+            if action not in available_actions:
+                self._raise_contrail_exception(
+                    'FirewallRuleInvalidAction',
+                    action=action,
+                    values=', '.join(available_actions))
+            return ActionListType(simple_action=action)
+
+    def _firewall_rule_neutron_to_vnc(self, firewall_rule, id=None):
+        """Neutron Firewall Rule resource to Contrail Firewall Rule
+
+        =============================  ======================
+        Neutron Firewall Rule          Contrail Firewall Rule
+        =============================  ======================
+        id                             `uuid`
+        tenant_id                      `project` parent reference and owner
+        name                           `display_name`
+        enabled                        `id_perms.enable`
+        description                    `id_perms.description`
+        share                          `perms2`
+        firewall_policy_id             `firewall_policy` back-reference
+        ip_version                     IP version determined by
+                                       `source_ip_address` and
+                                       `destination_ip_address`
+        source_ip_address              `endpoint_1.subnet`
+        source_firewall_group_id       `endpoint_1.tags`
+        destination_ip_address         `endpoint_2.subnet`
+        destination_firewall_group_id  `endpoint_2.tags`
+        protocol                       `service.protocol`
+        source_port                    `service.src_ports`
+        destination_port               `service.dst_ports`
+        position                       Not Implemented as rule can be
+                                       referenced by multiple policies
+        action                         `action_list.simple_action`
+        =============================  ======================
+
+        :param firewall_rule: Firewall Rule dictionary to convert
+        :param id: permits to read FR if method called during an update
+            request. If `None`, instantiate new FR
+        :returns: vnc_api.gen.resource_client.FirewallRule
+        """
+        if not id:  # creation
+            project = self._get_project_obj(firewall_rule)
+            project_uuid = project.uuid
+            fr = FirewallRule(
+                name=firewall_rule.get('name') or str(uuid.uuid4()),
+                parent_obj=project,
+                perms2=PermType2(owner=project.uuid),
+                service=FirewallServiceType(),
+                direction='>',
+            )
+        else:  # update
+            try:
+                fr = self._vnc_lib.firewall_rule_read(id=id)
+            except NoIdError:
+                self._raise_contrail_exception('FirewallRuleNotFound',
+                                               firewall_rule_id=id)
+            project_uuid = fr.parent_uuid
+
+        if 'name' in firewall_rule:
+            fr.set_display_name(firewall_rule['name'])
+
+        if set(['enabled', 'description']) & set(firewall_rule.keys()):
+            id_perms = fr.get_id_perms() or IdPermsType()
+            if 'enabled' in firewall_rule:
+                id_perms.set_enable(firewall_rule['enabled'])
+            if 'description' in firewall_rule:
+                id_perms.set_description(firewall_rule['description'])
+            fr.set_id_perms(id_perms)
+
+        if firewall_rule.get('shared'):
+            perms2 = fr.get_perms2() or PermType2(owner=project_uuid)
+            perms2.set_global_access(PERMS_RWX)
+            fr.set_perms2(perms2)
+
+        if (set(['protocol', 'source_port', 'destination_port']) &
+                set(firewall_rule.keys())):
+            service = fr.get_service() or FirewallServiceType()
+            if 'protocol' in firewall_rule:
+                service.set_protocol(firewall_rule['protocol'])
+            if 'source_port' in firewall_rule:
+                service.set_src_ports(
+                    self._get_port_type(firewall_rule['source_port']))
+            if 'destination_port' in firewall_rule:
+                service.set_dst_ports(
+                    self._get_port_type(firewall_rule['destination_port']))
+            fr.set_service(service)
+
+        if (set(['source_ip_address', 'source_firewall_group_id']) &
+                set(firewall_rule.keys())):
+            ep1 = fr.get_endpoint_1() or FirewallRuleEndpointType()
+            ip_prefix = firewall_rule.get('source_ip_address')
+            if ip_prefix:
+                subnet_type = self._get_subnet_type(ip_prefix)
+                if subnet_type == SubnetType('0.0.0.0', 0):
+                    ep1.set_any(True)
+                else:
+                    ep1.set_subnet(self._get_subnet_type(ip_prefix))
+            if 'source_firewall_group_id' in firewall_rule:
+                ep1.set_tags(self._get_tag_list(
+                    firewall_rule['source_firewall_group_id']))
+            fr.set_endpoint_1(ep1)
+
+        if (set(['destination_ip_address', 'destination_firewall_group_id']) &
+                set(firewall_rule.keys())):
+            ep2 = fr.get_endpoint_2() or FirewallRuleEndpointType()
+            ip_prefix = firewall_rule.get('destination_ip_address')
+            if ip_prefix:
+                subnet_type = self._get_subnet_type(ip_prefix)
+                if subnet_type == SubnetType('0.0.0.0', 0):
+                    ep2.set_any(True)
+                else:
+                    ep2.set_subnet(self._get_subnet_type(ip_prefix))
+            if 'destination_firewall_group_id' in firewall_rule:
+                ep2.set_tags(self._get_tag_list(
+                    firewall_rule['destination_firewall_group_id']))
+            fr.set_endpoint_2(ep2)
+
+        if 'action' in firewall_rule:
+            fr.set_action_list(self._get_action(firewall_rule['action']))
+
+        return fr
+
+    @staticmethod
+    def _get_port_range_str(port_type):
+        """Convert vnc_api.gen.resource_xsd.PortType to port string"""
+        if port_type:
+            port_min = port_type.get_start_port()
+            port_max = port_type.get_end_port()
+            if port_min == port_max:
+                return str(port_min)
+            return '%d:%d' % (port_min, port_max)
+
+    @staticmethod
+    def _get_ip_prefix_str(endpoint_type):
+        """Convert vnc_api.gen.resource_xsd.FirewallRuleEndpointType to subnet
+        string
+        """
+        if endpoint_type.get_any():
+            return '0.0.0.0/0'
+        subnet_type = endpoint_type.get_subnet()
+        if subnet_type:
+            return '%s/%d' % (subnet_type.get_ip_prefix(),
+                              subnet_type.get_ip_prefix_len())
+
+    @staticmethod
+    def _get_firewall_group_id(tags):
+        """Returns first found Firewall Group ID from Tag list"""
+        for tag in tags or []:
+            tag_type, _, tag_value = tag.partition('=')
+            if tag_type != 'application':
+                continue
+            if (not tag_value.startswith(_NEUTRON_FIREWALL_APP_TAG_PREFIX) or
+                    not is_uuid_like(tag_value[
+                        len(_NEUTRON_FIREWALL_APP_TAG_PREFIX):])):
+                continue
+            return tag_value[len(_NEUTRON_FIREWALL_APP_TAG_PREFIX):]
+
+    @staticmethod
+    def _get_action_str(action):
+        """Convert vnc_api.gen.resource_xsd.ActionListType to action string"""
+        if action:
+            action_str = action.get_simple_action()
+            if action_str == 'pass':
+                return 'allow'
+            return action_str
+
+    def _firewall_rule_vnc_to_neutron(self, fr, fields=None):
+        """Convert Contrail Firewall Rule to Neutron Firewall Rule
+
+        :param fr: vnc_api.gen.resource_client.FirewallRule instance to
+            convert
+        :param fields: a list of strings that are valid keys in a Firewall Rule
+            dictionary. Only these fields will be returned.
+        :retruns: Firewall Rule dictionary
+        """
+        firewall_rule = {
+            'id': fr.uuid,
+            'name': fr.display_name,
+            'description': fr.get_id_perms().get_description(),
+            'enabled': fr.get_id_perms().get_enable(),
+            'project_id': fr.get_perms2().get_owner().replace('-', ''),
+            'tenant_id': fr.get_perms2().get_owner().replace('-', ''),
+            'shared': self._is_shared(fr),
+            'firewall_policy_id': [fp_ref['uuid'] for fp_ref in
+                                   fr.get_firewall_policy_back_refs() or []],
+        }
+
+        service = fr.get_service()
+        if service:
+            firewall_rule.update({
+                'protocol': service.get_protocol(),
+                'source_port':
+                    self._get_port_range_str(service.get_src_ports()),
+                'destination_port':
+                    self._get_port_range_str(service.get_dst_ports()),
+            })
+
+        for target, ep_name in [('source', 'endpoint_1'),
+                                ('destination', 'endpoint_2')]:
+            ep = getattr(fr, 'get_%s' % ep_name)()
+            if not ep:
+                continue
+            firewall_rule.update({
+                '%s_ip_address' % target:
+                    self._get_ip_prefix_str(ep),
+                '%s_firewall_group_id' % target:
+                    self._get_firewall_group_id(ep.get_tags()),
+            })
+            if ('ip_version' not in firewall_rule and
+                    firewall_rule.get('%s_ip_address' % target)):
+                firewall_rule['ip_version'] = netaddr.IPNetwork(
+                    firewall_rule['%s_ip_address' % target]).version
+
+        action = fr.get_action_list()
+        if action:
+            firewall_rule['action'] = self._get_action_str(action)
+
+        return filter_fields(firewall_rule, fields)
+
+    def firewall_rule_create(self, context, firewall_rule):
+        """Create Firewall Rule
+
+        Maps a Neutron Firewall Rule resource to a Contrail Firewall Rule. The
+        FRs are a child of the project and are owned by that project.
+
+        :param context: Neutron api request context
+        :param firewall_rule: dictionary describing the Firewall Rule
+        :returns: Firewall Rule dictionary populated
+        """
+        fr = self._firewall_rule_neutron_to_vnc(firewall_rule)
+
+        try:
+            id = self._resource_create('firewall_rule', fr)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='firewall_rule', msg=str(e))
+
+        return self._firewall_rule_vnc_to_neutron(
+            self._vnc_lib.firewall_rule_read(id=id))
+
+    def firewall_rule_read(self, context, id, fields):
+        """Retrieve Firewall Rule
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Rule to fetch
+        :param fields: a list of strings that are valid keys in a Firewall Rule
+            dictionary. Only these fields will be returned.
+        :returns: Firewall Rule dictionary
+        """
+        try:
+            fr = self._vnc_lib.firewall_rule_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallRuleNotFound',
+                                           firewall_rule_id=id)
+
+        return self._firewall_rule_vnc_to_neutron(fr, fields)
+
+    def firewall_rule_list(self, context, filters, fields):
+        """Retrieve a list of Firewall Rule
+
+        :param context: Neutron api request context
+        :param filters: a dictionary with keys that are valid keys for a
+            Firewall Rule
+        :param fields: a list of strings that are valid keys in a Firewall Rule
+            dictionary. Only these fields will be returned.
+        :returns: Firewall Rule dictionary
+        """
+        results = []
+        if 'name' in filters:
+            filters['display_name'] = filters.pop('name')
+        frs = self._vnc_lib.firewall_rules_list(
+            detail=True,
+            shared=True,
+            parent_id=self._validate_project_ids(context, filters),
+            obj_uuids=filters.get('id'),
+            filters=filters)
+        for fr in frs:
+            firewall_rule = self._firewall_rule_vnc_to_neutron(fr, fields)
+            if ('firewall_policy_id' in filters and
+                    not set(firewall_rule['firewall_policy_id']) &
+                    set(filters['firewall_policy_id'])):
+                continue
+            results.append(firewall_rule)
+
+        return results
+
+    def firewall_rule_update(self, context, id, firewall_rule):
+        """Update value of Firewall Rule
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Rule to update
+        :param firewall_rule: dictionary with keys indicating fields to update
+        :returns: Firewall Rule dictionary updated
+        """
+        fr = self._firewall_rule_neutron_to_vnc(firewall_rule, id)
+
+        self._resource_update('firewall_rule', fr)
+        firewall_rule = self._firewall_rule_vnc_to_neutron(
+            self._vnc_lib.firewall_rule_read(id=id))
+
+        for firewall_policy_id in firewall_rule.get('firewall_policy_id', []):
+            self.firewall_policy_update(
+                context, firewall_policy_id, {'audited': False})
+        return firewall_rule
+
+    def firewall_rule_delete(self, context, id):
+        """Delete Firewall Rule
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Firewall Rule to delete
+        """
+        try:
+            self._vnc_lib.firewall_rule_delete(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallRuleNotFound',
+                                           firewall_rule_id=id)
+        except RefsExistError:
+            self._raise_contrail_exception(
+                'FirewallRuleInUse', firewall_rule_id=id)
