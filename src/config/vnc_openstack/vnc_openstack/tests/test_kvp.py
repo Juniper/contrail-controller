@@ -183,20 +183,16 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
                         return orig_vnc_api(*args, **kwargs)
                 vnc_api.VncApi = BoundedErrorVncApi
 
-                resource_driver = FakeExtensionManager.get_extension_objects(
-                    'vnc_cfg_api.resourceApi')[0]
                 return orig_get_api_connection(
-                    resource_driver, *args, **kwargs)
+                    self.resource_driver, *args, **kwargs)
             finally:
                 setattr(vnc_openstack, 'RETRIES_BEFORE_LOG', orig_retries_before_log)
                 vnc_api.VncApi = orig_vnc_api
 
         def delayed_post_project_create(*args, **kwargs):
             self.post_project_create_entered.set()
-            resource_driver = FakeExtensionManager.get_extension_objects(
-                'vnc_cfg_api.resourceApi')[0]
             return orig_post_project_create(
-                resource_driver, *args, **kwargs)
+                self.resource_driver, *args, **kwargs)
 
         def stub(*args, **kwargs): pass
         test_common.setup_extra_flexmock([
