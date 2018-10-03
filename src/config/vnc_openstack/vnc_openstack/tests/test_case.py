@@ -16,6 +16,7 @@ from test_common import TestCase, setup_extra_flexmock
 import fake_neutron
 import vnc_openstack
 
+
 @bottle.hook('after_request')
 def after_request():
     bottle.response.headers['Content-Type'] = 'application/json; charset="UTF-8"'
@@ -66,26 +67,150 @@ class VncOpenstackTestCase(TestCase):
         super(VncOpenstackTestCase, cls).tearDownClass()
 # end class VncOpenstackTestCase
 
+
 class NeutronBackendTestCase(VncOpenstackTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.setup_flexmock()
         super(NeutronBackendTestCase, cls).setUpClass(*args, **kwargs)
+        cls.neutron_api_obj = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.neutronApi')[0]
+        cls.neutron_api_obj._npi._connect_to_db()
+        cls.neutron_db_obj = cls.neutron_api_obj._npi._cfgdb
     # end setUpClass
+
+    def read_resource(self, url_pfx, id, fields=None):
+        body = {
+            'context': {
+                'operation': 'READ',
+                'user_id': '',
+                'roles': '',
+                'is_admin': True,
+            },
+            'data': {
+                'fields': fields,
+                'id': id,
+            },
+        }
+        resp = self._api_svr_app.post_json('/neutron/%s' % url_pfx, body)
+        return json.loads(resp.text)
+
+    def list_resource(self, url_pfx, proj_uuid=None, req_fields=None,
+                      req_filters=None, is_admin=False):
+        if proj_uuid is None:
+            proj_uuid = self._vnc_lib.fq_name_to_id(
+                'project', fq_name=['default-domain', 'default-project'])
+
+        body = {
+            'context': {
+                'operation': 'READALL',
+                'user_id': '',
+                'tenant_id': proj_uuid,
+                'roles': '',
+                'is_admin': is_admin,
+            },
+            'data': {
+                'fields': req_fields,
+                'filters': req_filters or {},
+            },
+
+        }
+        resp = self._api_svr_app.post_json('/neutron/%s' % url_pfx, body)
+        return json.loads(resp.text)
+
+    def create_resource(self, res_type, proj_id, extra_res_fields=None,
+                        is_admin=False, **kwargs):
+        if not extra_res_fields:
+            extra_res_fields = {'name': '%s-%s' % (res_type, self.id())}
+        elif not 'name' in extra_res_fields:
+            extra_res_fields['name'] = '%s-%s' % (res_type, self.id())
+        extra_res_fields['tenant_id'] = proj_id
+
+        body = {
+            'context': {
+                'operation': 'CREATE',
+                'user_id': '',
+                'is_admin': is_admin,
+                'roles': '',
+                'tenant_id': proj_id,
+            },
+            'data': {
+                'resource': extra_res_fields,
+            },
+        }
+        resp = self._api_svr_app.post_json('/neutron/%s' % res_type, body, **kwargs)
+        return json.loads(resp.text)
+
+    def delete_resource(self, res_type, proj_id, id, is_admin=False):
+        body = {
+            'context': {
+                'operation': 'DELETE',
+                'user_id': '',
+                'is_admin': is_admin,
+                'roles': '',
+                'tenant_id': proj_id,
+            },
+            'data': {
+                'id': id,
+            },
+        }
+        self._api_svr_app.post_json('/neutron/%s' % res_type, body)
+
+    def update_resource(self, res_type, res_id, proj_id, extra_res_fields=None,
+                        is_admin=False, operation=None):
+        body = {
+            'context': {
+                'operation': operation or 'UPDATE',
+                'user_id': '',
+                'is_admin': is_admin,
+                'roles': '',
+                'tenant_id': proj_id,
+            },
+            'data': {
+                'resource': extra_res_fields or {},
+                'id': res_id,
+            },
+        }
+        resp = self._api_svr_app.post_json('/neutron/%s' % res_type, body)
+        return json.loads(resp.text)
+
+    def add_router_interface(self, router_id, proj_id, is_admin=False,
+                             extra_res_fields=None):
+        return self.update_resource(
+            'router',
+            router_id,
+            proj_id,
+            is_admin=is_admin,
+            extra_res_fields=extra_res_fields,
+            operation='ADDINTERFACE')
+
+    def del_router_interface(self, router_id, proj_id, is_admin=False):
+        return self.update_resource(
+            'router',
+            router_id,
+            proj_id,
+            is_admin=is_admin,
+            operation='DELINTERFACE')
 # end class NeutronBackendTestCase
+
 
 class KeystoneSyncTestCase(VncOpenstackTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.setup_flexmock()
         super(KeystoneSyncTestCase, cls).setUpClass(*args, **kwargs)
+        cls.openstack_driver = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.resync')[0]
     # end setUpClass
 # end class KeystoneSyncTestCase
+
 
 class ResourceDriverTestCase(VncOpenstackTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.setup_flexmock()
         super(ResourceDriverTestCase, cls).setUpClass(*args, **kwargs)
+        cls.resource_driver = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.resourceApi')[0]
     # end setUpClass
 # end class ResourceDriverTestCase
