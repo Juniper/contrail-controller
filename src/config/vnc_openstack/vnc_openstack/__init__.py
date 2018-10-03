@@ -1062,6 +1062,7 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
     def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh, **kwargs):
         self._logger = sandesh.logger()
         self.api_server_obj = kwargs.get('api_server_obj')
+
         self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
             conf_sections, sandesh, api_server_obj=self.api_server_obj)
 
@@ -1112,6 +1113,18 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         # Bottle callbacks for virtual-router operations
         self.route('/neutron/virtual_router',
                      'POST', self._npi.plugin_http_post_virtual_router)
+
+        # Bottle callbacks for firewall_group operations
+        self.route('/neutron/firewall_group',
+                   'POST', self._npi.plugin_http_post_firewall_group)
+
+        # Bottle callbacks for firewall_policy operations
+        self.route('/neutron/firewall_policy',
+                   'POST', self._npi.plugin_http_post_firewall_policy)
+
+        # Bottle callbacks for firewall_rule operations
+        self.route('/neutron/firewall_rule',
+                   'POST', self._npi.plugin_http_post_firewall_rule)
 
     def route(self, uri, method, handler):
         @use_context

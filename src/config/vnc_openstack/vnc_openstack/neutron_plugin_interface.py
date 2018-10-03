@@ -1055,3 +1055,84 @@ class NeutronPluginInterface(object):
 
         if context['operation'] == 'READ':
             return self.plugin_get_virtual_router(context, virtual_router)
+
+    def plugin_http_post_firewall_group(self):
+        """
+        Bottle callback for firewall_group POST
+        """
+        context, firewall_group = self._get_requests_data()
+        cfgdb = self._get_user_cfgdb(context)
+
+        if context['operation'] == 'CREATE':
+            return cfgdb.firewall_group_create(context,
+                                               firewall_group['resource'])
+        elif context['operation'] == 'READ':
+            fields = firewall_group['fields']
+            return cfgdb.firewall_group_read(context, firewall_group['id'],
+                                             fields)
+        elif context['operation'] == 'READALL':
+            filters = firewall_group['filters']
+            fields = firewall_group['fields']
+            return json.dumps(
+                cfgdb.firewall_group_list(context, filters, fields))
+        elif context['operation'] == 'UPDATE':
+            return cfgdb.firewall_group_update(context, firewall_group['id'],
+                                               firewall_group['resource'])
+        elif context['operation'] == 'DELETE':
+            return cfgdb.firewall_group_delete(context, firewall_group['id'])
+
+    def plugin_http_post_firewall_policy(self):
+        """
+        Bottle callback for firewall_policy POST
+        """
+        context, firewall_policy = self._get_requests_data()
+        cfgdb = self._get_user_cfgdb(context)
+
+        if context['operation'] == 'CREATE':
+            return cfgdb.firewall_policy_create(context,
+                                                firewall_policy['resource'])
+        elif context['operation'] == 'READ':
+            fields = firewall_policy['fields']
+            return cfgdb.firewall_policy_read(context, firewall_policy['id'],
+                                              fields)
+        elif context['operation'] == 'READALL':
+            filters = firewall_policy['filters']
+            fields = firewall_policy['fields']
+            return json.dumps(
+                cfgdb.firewall_policy_list(context, filters, fields))
+        elif context['operation'] == 'UPDATE':
+            return cfgdb.firewall_policy_update(context, firewall_policy['id'],
+                                               firewall_policy['resource'])
+        elif context['operation'] == 'DELETE':
+            return cfgdb.firewall_policy_delete(context, firewall_policy['id'])
+        elif context['operation'] == 'INSERT_RULE':
+            return cfgdb.firewall_policy_insert_rule(
+                context, firewall_policy['resource'])
+        elif context['operation'] == 'REMOVE_RULE':
+            return cfgdb.firewall_policy_remove_rule(
+                context, firewall_policy['resource'])
+
+    def plugin_http_post_firewall_rule(self):
+        """
+        Bottle callback for firewall_rule POST
+        """
+        context, firewall_rule = self._get_requests_data()
+        cfgdb = self._get_user_cfgdb(context)
+
+        if context['operation'] == 'CREATE':
+            return cfgdb.firewall_rule_create(context,
+                                              firewall_rule['resource'])
+        elif context['operation'] == 'READ':
+            fields = firewall_rule['fields']
+            return cfgdb.firewall_rule_read(context, firewall_rule['id'],
+                                             fields)
+        elif context['operation'] == 'READALL':
+            filters = firewall_rule['filters']
+            fields = firewall_rule['fields']
+            return json.dumps(
+                cfgdb.firewall_rule_list(context, filters, fields))
+        elif context['operation'] == 'UPDATE':
+            return cfgdb.firewall_rule_update(context, firewall_rule['id'],
+                                              firewall_rule['resource'])
+        elif context['operation'] == 'DELETE':
+            return cfgdb.firewall_rule_delete(context, firewall_rule['id'])

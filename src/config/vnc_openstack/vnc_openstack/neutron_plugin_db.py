@@ -6,6 +6,7 @@
 """
 import sys
 import copy
+from collections import namedtuple
 import requests
 import re
 import uuid
@@ -34,6 +35,8 @@ import datetime
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import StringIO
 
+from vnc_openstack.utils import filter_fields
+
 operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
 oper = ['NOOP', 'POST', 'GET', 'PUT', 'DELETE']
 
@@ -50,6 +53,13 @@ DELETE = 5
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
 _IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX = re.compile(
     '%s_%s_%s' % (_IFACE_ROUTE_TABLE_NAME_PREFIX, UUID_PATTERN, UUID_PATTERN))
+# FWaaS defines
+_NEUTRON_FIREWALL_APP_TAG_PREFIX = 'openstack_neutron_fwaasv2_tag_'
+
+
+class FakeVncLibResource(namedtuple('FakeVncLibResource', 'object_type uuid')):
+    def get_uuid(self):
+        return self.uuid
 
 class LocalVncApi(VncApi):
     def __init__(self, api_server_obj, *args, **kwargs):
@@ -430,8 +440,8 @@ class DBInterface(object):
     # Encode and send an exception information to neutron. exc must be a
     # valid exception class name in neutron, kwargs must contain all
     # necessary arguments to create that exception
-    @classmethod
-    def _raise_contrail_exception(cls, exc, **kwargs):
+    @staticmethod
+    def _raise_contrail_exception(exc, **kwargs):
         exc_info = {'exception': exc}
         exc_info.update(kwargs)
         bottle.abort(400, json.dumps(exc_info))
@@ -1496,6 +1506,14 @@ class DBInterface(object):
                     return True
         return False
     #end _shared_with_tenant
+
+    def _is_shared(self, resource):
+        perms2 = resource.get_perms2()
+        if perms2:
+            if (perms2.get_global_access() == PERMS_RWX or
+                    len(perms2.get_share())):
+                return True
+        return False
 
     @catch_convert_exception
     def _network_vnc_to_neutron(self, net_obj, oper=READ, context=None):
@@ -4961,4 +4979,691 @@ class DBInterface(object):
         return self._virtual_router_to_neutron(vrouter_obj)
     #end virtual_router_read
 
-#end class DBInterface
+    def _compute_firewall_group_status(self, fwg):
+        """Compute a status of specified firewall group for update
+
+        Validates 'ACTIVE', 'DOWN', 'INACTIVE', 'ERROR' and None as follows:
+            - "ACTIVE"   : admin_state_up is True and exists ports and policies
+            - "INACTIVE" : admin_state_up is True and with no ports or no
+                           policy
+            - "DOWN"     : admin_state_up is False
+        """
+        if fwg['admin_state_up']:
+            return constants.DOWN
+
+        if (fwg['ports'] and (fwg.get('ingress_firewall_policy_id') or
+                              fwg.get('egress_firewall_policy_id'))):
+            return constants.ACTIVE
+
+        return constants.INACTIVE
+
+    def _firewall_group_neutron_to_vnc(self, firewall_group, id=None):
+        if not id:  # creation
+            project = self._get_project_obj(firewall_group)
+            project_uuid = project.uuid
+            aps = ApplicationPolicySet(
+                name=firewall_group.get('name') or str(uuid.uuid4()),
+                parent_obj=project,
+                perms2=PermType2(owner=project.uuid),
+            )
+        else:  # update
+            aps = self._vnc_lib.application_policy_set_read(id=id)
+            project_uuid = aps.parent_uuid
+
+        if 'name' in firewall_group:
+            aps.set_display_name(firewall_group['name'])
+
+        if set(['admin_state_up', 'description']) & set(firewall_group.keys()):
+            id_perms = aps.get_id_perms() or IdPermsType()
+            if 'admin_state_up' in firewall_group:
+                id_perms.set_enable(firewall_group['admin_state_up'])
+            if 'description' in firewall_group:
+                id_perms.set_description(firewall_group['description'])
+            aps.set_id_perms(id_perms)
+
+        if firewall_group.get('shared'):
+            perms2 = aps.get_perms2() or PermType2(owner=project_uuid)
+            perms2.set_global_access(PERMS_RWX)
+            aps.set_perms2(perms2)
+
+        # Add refs to Firewall Policy
+        attr_not_specified = object()
+        policy_type_map = {
+            'ingress_firewall_policy_id': (
+                FirewallSequence(sequence='1.0'), None),
+            'egress_firewall_policy_id': (
+                FirewallSequence(sequence='2.0'), None),
+        }
+        for fp_ref in aps.get_firewall_policy_refs() or []:
+            if float(fp_ref['attr'].sequence) == 1:
+                policy_type_map['ingress_firewall_policy_id'] = (
+                    FirewallSequence(sequence='1.0'), fp_ref)
+            elif float(fp_ref['attr'].sequence) == 2:
+                policy_type_map['egress_firewall_policy_id'] = (
+                    FirewallSequence(sequence='2.0'), fp_ref)
+        policy_fq_names = []
+        policy_attrs = []
+        for policy_type, (sequence, old_fp_ref) in policy_type_map.items():
+            new_fp_uuid = firewall_group.get(policy_type, attr_not_specified)
+            if new_fp_uuid not in [attr_not_specified, None]:
+                fq_name = self._vnc_lib.id_to_fq_name(new_fp_uuid)
+                if policy_type == 'egress_firewall_policy_id':
+                    fq_name = fq_name[:-1] + ['%s_egress' % new_fp_uuid]
+                policy_fq_names.append(fq_name)
+                policy_attrs.append(sequence)
+            elif old_fp_ref and new_fp_uuid == attr_not_specified:
+                policy_fq_names.append(old_fp_ref['to'])
+                policy_attrs.append(sequence)
+        aps.set_firewall_policy_list(policy_fq_names, policy_attrs)
+
+        return aps
+
+    def _application_policy_set_vnc_to_neutron(self, aps, fields=None):
+        fwg = {
+            'id': aps.uuid,
+            'name': aps.display_name,
+            'display_name': aps.display_name,
+            'description': aps.get_id_perms().get_description(),
+            'admin_state_up': aps.get_id_perms().get_enable(),
+            'project_id': aps.get_perms2().get_owner(),
+            'tenant_id': aps.get_perms2().get_owner(),
+            'shared': self._is_shared(aps),
+        }
+
+        # retrieve associated VMI from the dedicated tag
+        tag_fq_name = aps.get_fq_name()[:-1] + [
+            'application=%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, aps.uuid)]
+        for tag_ref in aps.get_tag_refs() or []:
+            if tag_ref['to'] == tag_fq_name:
+                aps_tag = self._vnc_lib.tag_read(
+                    id=tag_ref['uuid'],
+                    fields=['virtual_machine_interface_back_refs'])
+                fwg['ports'] = [
+                    vmi['uuid'] for vmi in
+                    aps_tag.get_virtual_machine_interface_back_refs() or []]
+                break
+        else:
+            # if APS does not have ref to an application tag with value equals
+            # to _NEUTRON_FIREWALL_APP_TAG_PREFIX<aps UUID>, that means that
+            # APS does not correspond to a Neutron firwall group, ignore it
+            return
+
+        # locate firewall ingress and egress policies
+        # ingress FP ref allways have sequence number #1
+        # egress FP ref allways have sequence number #2
+        for fp_ref in aps.get_firewall_policy_refs() or []:
+            if float(fp_ref['attr'].sequence) == 1:
+                fwg['ingress_firewall_policy_id'] = fp_ref['uuid']
+            elif float(fp_ref['attr'].sequence) == 2:
+                fwg['egress_firewall_policy_id'] = \
+                    fp_ref['to'][-1][:-len('_egress')]
+
+        fwg['status'] = self._compute_firewall_group_status(fwg)
+
+        return filter_fields(fwg, fields)
+
+    def _apply_firewall_group_to_associated_port(self, aps, firewall_group):
+        new_ports = set(firewall_group.get('ports', []))
+        if not new_ports:
+            return
+
+        tag = self._vnc_lib.tag_read(
+            aps.get_tag_refs()[0]['fq_name'],
+            fields=['virtual_machine_interface_back_refs('])
+        old_ports = {ref['uuid']
+                     for ref in tag.get_virtual_machine_interface_back_refs()}
+
+        for port_id in old_ports - new_ports:
+            self._vnc_lib.unset_tag(
+                FakeVncLibResource('virtual_machine_inteface', port_id),
+                'application')
+
+        for port_id in new_ports - old_ports:
+            self._vnc_lib.set_tag(
+                FakeVncLibResource('virtual_machine_inteface', port_id),
+                'application',
+                '%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, aps.uuid))
+
+    def firewall_group_create(self, context, firewall_group):
+        project = self._get_project_obj(firewall_group)
+        aps = self._firewall_group_neutron_to_vnc(firewall_group)
+
+        # Create Application Policy Set
+        try:
+            id = self._resource_create('application_policy_set', aps)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='firewall_group', msg=str(e))
+
+        # Create dedicated Tag and references it from the APS
+        tag = Tag(
+            tag_type_name='application',
+            tag_value='%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, id),
+            parent_obj=project)
+        try:
+            self._vnc_lib.tag_create(tag)
+        except RefsExistError:
+            pass
+        self._vnc_lib.set_tag(aps, tag.tag_type_name, tag.tag_value)
+
+        aps = self._vnc_lib.application_policy_set_read(id=id)
+
+        # Add ref to all ports associated with the firewall group
+        self._apply_firewall_group_to_associated_port(aps, firewall_group)
+        self._resource_update('application_policy_set', aps)
+        aps = self._vnc_lib.application_policy_set_read(id=id)
+
+        return self._application_policy_set_vnc_to_neutron(aps)
+
+    def firewall_group_read(self, context, id, fields=None):
+        try:
+            aps = self._vnc_lib.application_policy_set_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallGroupNotFound',
+                                           firewall_id=id)
+
+        firewall_group = self._application_policy_set_vnc_to_neutron(
+            aps, fields)
+        if not firewall_group:
+            self._raise_contrail_exception('FirewallGroupNotFound',
+                                           firewall_id=id)
+
+        return firewall_group
+
+    def firewall_group_list(self, context, filters=None, fields=None):
+        results = []
+        if 'name' in filters:
+            filters['display_name'] = filters.pop('name')
+        apss = self._vnc_lib.application_policy_sets_list(
+            detail=True,
+            shared=True,
+            parent_id=self._validate_project_ids(context, filters),
+            obj_uuids=filters.get('id'),
+            back_ref_id=(
+                filters.get('ports', []) +
+                filters.get('ingress_firewall_policy_id', []) +
+                filters.get('egress_firewall_policy_id', [])) or None,
+            filters=filters)
+        for aps in apss:
+            firewall_group = self._application_policy_set_vnc_to_neutron(
+                aps, fields)
+            if not firewall_group:
+                continue
+            # if (firewall_group['ingress_firewall_policy_id'] in back_ref_ids and
+            if (firewall_group.get('ingress_firewall_policy_id') not in
+                        filters.get('ingress_firewall_policy_id', []) and
+                    firewall_group.get('ingress_firewall_policy_id') in
+                        filters.get('egress_firewall_policy_id', [])):
+                    continue
+            elif (firewall_group.get('egress_firewall_policy_id') not in
+                        filters.get('egress_firewall_policy_id', []) and
+                    firewall_group.get('egress_firewall_policy_id') in
+                        filters.get('ingress_firewall_policy_id', [])):
+                    continue
+            results.append(firewall_group)
+
+        return results
+
+    def firewall_group_update(self, context, id, firewall_group):
+        aps = self._firewall_group_neutron_to_vnc(firewall_group, id)
+        # Update ref to all ports associated with the firewall group
+        self._apply_firewall_group_to_associated_port(aps, firewall_group)
+
+        self._resource_update('application_policy_set', aps)
+        aps = self._vnc_lib.application_policy_set_read(id=id)
+
+        return self._application_policy_set_vnc_to_neutron(aps)
+
+    def firewall_group_delete(self, context, id):
+        firewall_group = self.firewall_group_read(
+            context, id, fields=['ports'])
+
+        for port_id in firewall_group['ports']:
+            self._vnc_lib.unset_tag(
+                FakeVncLibResource('virtual_machine_inteface', port_id),
+                'application')
+        self._vnc_lib.unset_tag(
+            FakeVncLibResource('application_policy_set', id),
+            'application')
+        tag_fq_name = self._vnc_lib.id_to_fq_name(id)[:-1] + [
+            'application=%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, id)]
+        self._vnc_lib.tag_delete(fq_name=tag_fq_name)
+
+        self._vnc_lib.application_policy_set_delete(id=id)
+
+    def _firewall_policy_neutron_to_vnc(self, firewall_policy, id=None):
+        if not id:  # creation
+            project = self._get_project_obj(firewall_policy)
+            project_uuid = project.uuid
+            id = str(uuid.uuid4())
+            fpi = FirewallPolicy(
+                name='%s_ingress' % id,
+                display_name=firewall_policy.get('name'),
+                parent_obj=project,
+                perms2=PermType2(owner=project.uuid),
+            )
+            fpi.uuid = id
+            fpe = FirewallPolicy(
+                name='%s_egress' % id,
+                display_name=firewall_policy.get('name'),
+                parent_obj=project,
+                perms2=PermType2(owner=project.uuid),
+            )
+        else:  # update
+            fpi = self._vnc_lib.firewall_policy_read(id=id)
+            project_uuid = fpi.parent_uuid
+            # read corresponding egress FP, if does not exists re-create it
+            fpe_fq_name = fpi.fq_name[:-1] + ['%s_egress' % id]
+            try:
+                fpe = self._vnc_lib.firewall_policy_read(fq_name=fpe_fq_name)
+            except NoIdError:
+                fpe = FirewallPolicy(
+                    fq_name=fpe_fq_name,
+                    name=fpe_fq_name[-1],
+                    display_name=firewall_policy.get('name'),
+                    parent_type='project',
+                    perms2=PermType2(owner=project_uuid),
+                )
+                fpe_id = self._resource_create('firewall_policy', fpe)
+                fpe = self._vnc_lib.firewall_policy_read(id=fpe_id)
+
+        if set(['audited', 'description']) & set(firewall_policy.keys()):
+            id_perms = fpi.get_id_perms() or IdPermsType()
+            if 'audited' in firewall_policy:
+                id_perms.set_enable(firewall_policy['audited'])
+            if 'description' in firewall_policy:
+                id_perms.set_description(firewall_policy['description'])
+            fpi.set_id_perms(id_perms)
+            fpe.set_id_perms(id_perms)
+
+        if firewall_policy.get('shared'):
+            perms2 = fpi.get_perms2() or PermType2(owner=project_uuid)
+            perms2.set_global_access(PERMS_RWX)
+            fpi.set_perms2(perms2)
+            fpe.set_perms2(perms2)
+
+        for idx, fr_id in enumerate(firewall_policy.get('firewall_rules', [])):
+            fri, fre = self._firewall_rule_neutron_to_vnc({}, fr_id)
+            seq = FirewallSequence(sequence='%0.1f' % idx)
+            fpi.add_firewall_rule(fri, seq)
+            fpe.add_firewall_rule(fre, seq)
+
+        return fpi, fpe
+
+    def _firewall_policy_vnc_to_neutron(self, fp, fields=None):
+        firewall_policy = {
+            'id': fp.uuid,
+            'name': fp.display_name,
+            'description': fp.get_id_perms().get_description(),
+            'project_id': fp.get_perms2().get_owner(),
+            'tenant_id': fp.get_perms2().get_owner(),
+            'shared': self._is_shared(fp),
+            'audited': fp.get_id_perms().get_enable(),
+        }
+
+        sorted_fr_refs = sorted(fp.get_firewall_rule_refs() or [],
+                                key=lambda ref: float(ref['attr'].sequence))
+        firewall_policy['firewall_rules'] = [
+            ref['uuid'] for ref in sorted_fr_refs]
+
+        return filter_fields(firewall_policy, fields)
+
+    def firewall_policy_create(self, context, firewall_policy):
+        fpi, fpe = self._firewall_policy_neutron_to_vnc(firewall_policy)
+
+        try:
+            id = self._resource_create('firewall_policy', fpi)
+            self._resource_create('firewall_policy', fpe)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='firewall_policy', msg=str(e))
+
+        return self._firewall_policy_vnc_to_neutron(
+            self._vnc_lib.firewall_policy_read(id=id))
+
+    def firewall_policy_read(self, context, id, fields=None):
+        try:
+            fp = self._vnc_lib.firewall_policy_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallPolicyNotFound',
+                                           firewall_policy_id=id)
+
+        return self._firewall_policy_vnc_to_neutron(fp, fields)
+
+    def firewall_policy_list(self, context, filters=None, fields=None):
+        results = []
+        if 'name' in filters:
+            filters['display_name'] = filters.pop('name')
+        fps = self._vnc_lib.firewall_policys_list(
+            detail=True,
+            shared=True,
+            parent_id=self._validate_project_ids(context, filters),
+            obj_uuids=filters.get('id'),
+            filters=filters)
+        for fp in fps:
+            if fp.name.endswith('_egress'):
+                continue
+            results.append(self._firewall_policy_vnc_to_neutron(fp, fields))
+
+        return results
+
+    def firewall_policy_update(self, context, id, firewall_policy):
+        fpi, fpe = self._firewall_policy_neutron_to_vnc(firewall_policy, id)
+
+        self._resource_update('firewall_policy', fpi)
+        self._resource_update('firewall_policy', fpe)
+
+        return self._firewall_policy_vnc_to_neutron(fpi)
+
+    @staticmethod
+    def _resource_is_in_use(resource):
+        backref_map = resource.backref_field_types
+        for backref_field, (_, _, is_derived) in backref_map.items():
+            if is_derived:
+                continue
+            if getattr(resource, 'get_%s' % backref_field)():
+                return True
+        return False
+
+    def firewall_policy_delete(self, context, id):
+        fpi, fpe = self._firewall_policy_neutron_to_vnc({}, id)
+        if self._resource_is_in_use(fpi) or self._resource_is_in_use(fpe):
+            self._raise_contrail_exception('FirewallPolicyInUse',
+                                           firewall_policy_id=id)
+        try:
+            self._vnc_lib.firewall_policy_delete(id=id)
+            self._vnc_lib.firewall_policy_delete(id=fpe.uuid)
+        except RefsExistError:
+            self._raise_contrail_exception('FirewallPolicyInUse',
+                                           firewall_policy_id=id)
+
+    def firewall_policy_insert_rule(self, context, rule_info):
+        pass
+
+    def firewall_policy_remove_rule(self, context, rule_info):
+        pass
+
+    def _get_port_type(self, port_range_str):
+        if port_range_str:
+            try:
+                port_min, _, port_max = port_range_str.partition(':')
+                if not port_max:
+                    port_max = port_min
+                return PortType(int(port_min), int(port_max))
+            except ValueError:
+                self._raise_contrail_exception('FirewallRuleInvalidPortValue',
+                                               port=port_range_str)
+
+    def _get_subnet_type(self, subnet_str):
+        if subnet_str:
+            try:
+                ip_network = netaddr.IPNetwork(subnet_str)
+            except netaddr.core.AddrFormatError:
+                msg = ("'%s' is neither a valid IP address, nor is it a valid "
+                       "IP subnet" % subnet_str)
+                self._raise_contrail_exception(
+                    'BadRequest', resource='firewall_rule', msg=msg)
+            return SubnetType(str(ip_network.network), ip_network.prefixlen)
+
+    @staticmethod
+    def _get_tag_list(firewall_group_id):
+        if firewall_group_id:
+            return ['application=%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX,
+                                          firewall_group_id)]
+
+    def _get_action(self, action):
+        if action:
+            if action == 'allow':
+                action = 'pass'
+            available_actions = ActionListType.\
+                attr_field_type_vals['simple_action']['restrictions']
+            if action not in available_actions:
+                self._raise_contrail_exception(
+                    'FirewallRuleInvalidAction',
+                    action=action,
+                    values=available_actions)
+            return ActionListType(simple_action=action)
+
+    def _firewall_rule_neutron_to_vnc(self, firewall_rule, id=None):
+        if not id:  # creation
+            project = self._get_project_obj(firewall_rule)
+            project_uuid = project.uuid
+            id = str(uuid.uuid4())
+            fri = FirewallRule(
+                name='%s_ingress' % id,
+                display_name=firewall_rule.get('name'),
+                parent_obj=project,
+                perms2=PermType2(owner=project.uuid),
+            )
+            fri.uuid = id
+            fre = FirewallRule(
+                name='%s_egress' % id,
+                display_name=firewall_rule.get('name'),
+                parent_obj=project,
+                perms2=PermType2(owner=project.uuid),
+            )
+        else:  # update
+            fri = self._vnc_lib.firewall_rule_read(id=id)
+            project_uuid = fri.parent_uuid
+            # read corresponding egress FR, if does not exists re-create it
+            fre_fq_name = fri.fq_name[:-1] + ['%s_egress' % id]
+            try:
+                fre = self._vnc_lib.firewall_rule_read(fq_name=fre_fq_name)
+            except NoIdError:
+                fre = FirewallRule(
+                    fq_name=fre_fq_name,
+                    name=fre_fq_name[-1],
+                    display_name=firewall_rule.get('name'),
+                    parent_type='project',
+                    perms2=PermType2(owner=project_uuid),
+                    service=FirewallServiceType(),
+                    direction='>',
+                )
+                fre_id = self._resource_create('firewall_rule', fre)
+                fre = self._vnc_lib.firewall_rule_read(id=fre_id)
+
+        if set(['enabled', 'description']) & set(firewall_rule.keys()):
+            id_perms = fri.get_id_perms() or IdPermsType()
+            if 'enabled' in firewall_rule:
+                id_perms.set_enable(firewall_rule['enabled'])
+            if 'description' in firewall_rule:
+                id_perms.set_description(firewall_rule['description'])
+            fri.set_id_perms(id_perms)
+            fre.set_id_perms(id_perms)
+
+        if firewall_rule.get('shared'):
+            perms2 = fri.get_perms2() or PermType2(owner=project_uuid)
+            perms2.set_global_access(PERMS_RWX)
+            fri.set_perms2(perms2)
+            fre.set_perms2(perms2)
+
+        if (set(['protocol', 'source_port', 'destination_port']) &
+                set(firewall_rule.keys())):
+            service = fri.get_service() or FirewallServiceType()
+            if 'protocol' in firewall_rule:
+                service.set_protocol(firewall_rule['protocol'])
+            if 'source_port' in firewall_rule:
+                service.set_src_ports(
+                    self._get_port_type(firewall_rule['source_port']))
+            if 'destination_port' in firewall_rule:
+                service.set_dst_ports(
+                    self._get_port_type(firewall_rule['destination_port']))
+            fri.set_service(service)
+            fre.set_service(service)
+
+        if (set(['source_ip_address', 'source_firewall_group_id']) &
+                set(firewall_rule.keys())):
+            ep1 = fri.get_endpoint_1() or FirewallRuleEndpointType()
+            ip_prefix = firewall_rule.get('source_ip_address')
+            if ip_prefix:
+                if netaddr.IPNetwork(ip_prefix) == netaddr.IPNetwork('0/0'):
+                    ep1.set_any(True)
+                else:
+                    ep1.set_subnet(self._get_subnet_type(ip_prefix))
+            if 'source_firewall_group_id' in firewall_rule:
+                ep1.set_tags(self._get_tag_list(
+                    firewall_rule['source_firewall_group_id']))
+            fri.set_endpoint_1(ep1)
+            fre.set_endpoint_1(ep1)
+
+        if (set(['destination_ip_address', 'destination_firewall_group_id']) &
+                set(firewall_rule.keys())):
+            ep2 = fri.get_endpoint_2() or FirewallRuleEndpointType()
+            ip_prefix = firewall_rule.get('destination_ip_address')
+            if ip_prefix:
+                if netaddr.IPNetwork(ip_prefix) == netaddr.IPNetwork('0/0'):
+                    ep2.set_any(True)
+                else:
+                    ep2.set_subnet(self._get_subnet_type(ip_prefix))
+            if 'destination_firewall_group_id' in firewall_rule:
+                ep2.set_tags(self._get_tag_list(
+                    firewall_rule['destination_firewall_group_id']))
+            fri.set_endpoint_2(ep2)
+            fre.set_endpoint_2(ep2)
+
+        if 'action' in firewall_rule:
+            fri.set_action_list(self._get_action(firewall_rule['action']))
+            fre.set_action_list(self._get_action(firewall_rule['action']))
+
+        fri.set_direction('<')
+        fre.set_direction('>')
+        return fri, fre
+
+    @staticmethod
+    def _get_port_range_str(port_type):
+        if port_type:
+            port_min = port_type.get_start_port()
+            port_max = port_type.get_end_port()
+            if port_min == port_max:
+                return str(port_min)
+            return '%d:%d' % (port_min, port_max)
+
+    @staticmethod
+    def _get_ip_prefix_str(endpoint_type):
+        if endpoint_type.get_any():
+            return '0.0.0.0/0'
+        subnet_type = endpoint_type.get_subnet()
+        if subnet_type:
+            return '%s/%d' % (subnet_type.get_ip_prefix(),
+                              subnet_type.get_ip_prefix_len())
+
+    @staticmethod
+    def _get_firewall_group_id(tags):
+        for tag in tags or []:
+            tag_type, _, tag_value = tag[0].partition('=')
+            if tag_type != 'application':
+                continue
+            return tag_value
+
+    @staticmethod
+    def _get_action_str(action):
+        if action:
+            action_str = action.get_simple_action()
+            if action_str == 'pass':
+                return 'allow'
+            return action_str
+
+    def _firewall_rule_vnc_to_neutron(self, fr, fields=None):
+        firewall_rule = {
+            'id': fr.uuid,
+            'name': fr.display_name,
+            'description': fr.get_id_perms().get_description(),
+            'enabled': fr.get_id_perms().get_enable(),
+            'project_id': fr.get_perms2().get_owner(),
+            'tenant_id': fr.get_perms2().get_owner(),
+            'shared': self._is_shared(fr),
+            'firewall_policy_id': [fp_ref['uuid'] for fp_ref in
+                                   fr.get_firewall_policy_back_refs() or []],
+        }
+
+        service = fr.get_service()
+        if service:
+            firewall_rule.update({
+                'protocol': service.get_protocol(),
+                'source_port':
+                    self._get_port_range_str(service.get_src_ports()),
+                'destination_port':
+                    self._get_port_range_str(service.get_dst_ports()),
+            })
+
+        for target, ep_name in [('source', 'endpoint_1'),
+                                ('destination', 'endpoint_2')]:
+            ep = getattr(fr, 'get_%s' % ep_name)()
+            if not ep:
+                continue
+            firewall_rule.update({
+                '%s_ip_address' % target:
+                    self._get_ip_prefix_str(ep),
+                '%s_firewall_group_id' % target:
+                    self._get_firewall_group_id(ep.get_tags()),
+            })
+            if ('ip_version' not in firewall_rule and
+                    '%s_ip_address' % target in firewall_rule):
+                firewall_rule['ip_version'] = netaddr.IPNetwork(
+                    firewall_rule['%s_ip_address' % target]).version
+
+        action = fr.get_action_list()
+        if action:
+            firewall_rule['action'] = self._get_action_str(action)
+
+        return filter_fields(firewall_rule, fields)
+
+    def firewall_rule_create(self, context, firewall_rule):
+        fri, fre = self._firewall_rule_neutron_to_vnc(firewall_rule)
+
+        try:
+            id = self._resource_create('firewall_rule', fri)
+            self._resource_create('firewall_rule', fre)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='firewall_rule', msg=str(e))
+
+        return self._firewall_rule_vnc_to_neutron(
+            self._vnc_lib.firewall_rule_read(id=id))
+
+    def firewall_rule_read(self, context, id, fields):
+        try:
+            fr = self._vnc_lib.firewall_rule_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('FirewallRuleNotFound',
+                                           firewall_rule_id=id)
+
+        return self._firewall_rule_vnc_to_neutron(fr, fields)
+
+    def firewall_rule_list(self, context, filters, fields):
+        results = []
+        if 'name' in filters:
+            filters['display_name'] = filters.pop('name')
+        frs = self._vnc_lib.firewall_rules_list(
+            detail=True,
+            shared=True,
+            parent_id=self._validate_project_ids(context, filters),
+            obj_uuids=filters.get('id'),
+            filters=filters)
+        for fr in frs:
+            if fr.name.endswith('_egress'):
+                continue
+            results.append(self._firewall_rule_vnc_to_neutron(fr, fields))
+
+        return results
+
+    def firewall_rule_update(self, context, id, firewall_rule):
+        fri, fre = self._firewall_rule_neutron_to_vnc(firewall_rule, id)
+
+        self._resource_update('firewall_rule', fri)
+        self._resource_update('firewall_rule', fre)
+
+        return self._firewall_rule_vnc_to_neutron(fri)
+
+    def firewall_rule_delete(self, context, id):
+        fri, fre = self._firewall_rule_neutron_to_vnc({}, id)
+        if self._resource_is_in_use(fri) or self._resource_is_in_use(fre):
+            self._raise_contrail_exception('FirewallRuleInUse',
+                                           firewall_rule_id=id)
+
+        try:
+            self._vnc_lib.firewall_rule_delete(id=id)
+            self._vnc_lib.firewall_rule_delete(id=fre.uuid)
+        except RefsExistError:
+            self._raise_contrail_exception('FirewallRuleInUse',
+                                           firewall_rule_id=id)
