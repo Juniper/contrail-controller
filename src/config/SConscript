@@ -41,7 +41,7 @@ subdirs=[
     'uve',
     'vnc_openstack',
     'contrail_issu',
-    'fabric-ansible',
+########    'fabric-ansible',
 ]
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
