@@ -37,6 +37,10 @@ from vnc_api.gen.resource_common import *
 import neutron_plugin_interface as npi
 from context import use_context
 from neutron_plugin_db import DBInterface as npd
+from neutron_plugin_db import _NEUTRON_FIREWALL_APP_TAG_PREFIX
+from neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME
+from neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME
+from neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME
 
 Q_CREATE = 'create'
 Q_DELETE = 'delete'
@@ -215,6 +219,115 @@ def ensure_default_security_group(vnc_lib, proj_obj):
         # Created by different worker/node
         # so we can ignore the RefsExistError exception
         pass
+
+
+def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
+    # default Firewall Group
+    # create it first to avoid default FG create recursion when creating
+    # default FP and FGs
+    aps = vnc_api.ApplicationPolicySet(
+        parent_type='project',
+        name=_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME,
+        fq_name=project_fq_name + [
+            _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME],
+        display_name=_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME,
+        id_perms=IdPermsType(description="Default firewall group"),
+        perms2=PermType2(owner=project_id),
+    )
+    try:
+        vnc_lib.application_policy_set_create(aps)
+    except vnc_api.RefsExistError:
+        vnc_lib.application_policy_set_update(aps)
+    tag_value = '%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX, aps.uuid)
+    # create dedicated Tag and references it from the APS
+    tag = vnc_api.Tag(
+        parent_type='project',
+        fq_name=project_fq_name + ['application=%s' % tag_value],
+        tag_type_name='application',
+        tag_value=tag_value,
+        perms2=PermType2(owner=project_id),
+    )
+    try:
+        vnc_lib.tag_create(tag)
+    except vnc_api.RefsExistError:
+        pass
+    vnc_lib.set_tag(aps, tag.tag_type_name, tag.tag_value)
+
+    # default Firewall Rules (IPv4 and IPv6)
+    fr_v4 = vnc_api.FirewallRule(
+        parent_type='project',
+        name=_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME,
+        fq_name=project_fq_name + [_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME],
+        display_name=_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME,
+        id_perms=IdPermsType(description="Default firewall rule for IPv4"),
+        perms2=PermType2(owner=project_id),
+        service=FirewallServiceType(),
+        direction='>',
+        endpoint_1=FirewallRuleEndpointType(
+            tags=['application=%s' % tag_value]),
+        endpoint_2=FirewallRuleEndpointType(subnet=SubnetType('0.0.0.0', 0)),
+    )
+    try:
+        vnc_lib.firewall_rule_create(fr_v4)
+    except vnc_api.RefsExistError:
+        vnc_lib.firewall_rule_update(fr_v4)
+    fr_v6 = vnc_api.FirewallRule(
+        parent_type='project',
+        name=_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME,
+        fq_name=project_fq_name + [_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME],
+        display_name=_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME,
+        id_perms=IdPermsType(description="Default firewall rule for IPv4"),
+        perms2=PermType2(owner=project_id),
+        service=FirewallServiceType(),
+        direction='>',
+        endpoint_1=FirewallRuleEndpointType(
+            tags=['application=%s' % tag_value]),
+        endpoint_2=FirewallRuleEndpointType(subnet=SubnetType('::', 0)),
+    )
+    try:
+        vnc_lib.firewall_rule_create(fr_v6)
+    except vnc_api.RefsExistError:
+        vnc_lib.firewall_rule_update(fr_v6)
+
+    # default Firewall Policy
+    fp = vnc_api.FirewallPolicy(
+        parent_type='project',
+        name=_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME,
+        fq_name=project_fq_name + [
+            _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME],
+        display_name=_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME,
+        id_perms=IdPermsType(description="Default firewall policy"),
+        perms2=PermType2(owner=project_id),
+    )
+    fp.add_firewall_rule(fr_v4, FirewallSequence(sequence='0.0'))
+    fp.add_firewall_rule(fr_v6, FirewallSequence(sequence='1.0'))
+    try:
+        vnc_lib.firewall_policy_create(fp)
+    except vnc_api.RefsExistError:
+        vnc_lib.firewall_policy_update(fp)
+    # add default Firewall Policy to default Firewall Group
+    aps.add_firewall_policy(fp, FirewallSequence(sequence='0.0'))
+    vnc_lib.application_policy_set_update(aps)
+
+
+def ensure_default_firewall_group(vnc_lib, project_id):
+    try:
+        project_fq_name = vnc_lib.id_to_fq_name(project_id)
+    except vnc_api.NoIdError:
+        return
+
+    try:
+        vnc_lib.fq_name_to_id(
+            'application_policy_set',
+            project_fq_name + [_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME])
+    except vnc_api.NoIdError:
+        try:
+            _create_default_firewall_group(
+                vnc_lib, project_fq_name, project_id)
+        except vnc_api.RefsExistError:
+            # Created by different worker/node
+            # so we can ignore the RefsExistError exception
+            pass
 
 
 openstack_driver = None
@@ -900,6 +1013,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     def _create_default_security_group(self, proj_dict):
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
         ensure_default_security_group(self._vnc_lib, proj_obj)
+
+    def _create_default_firewall_group(self, proj_dict):
+        proj_obj = vnc_api.Project.from_dict(**proj_dict)
+        ensure_default_firewall_group(self._vnc_lib, proj_obj.uuid)
     # end _create_default_security_group
 
     def wait_for_api_server_connection(func):
@@ -974,6 +1091,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     @wait_for_api_server_connection
     def post_project_create(self, proj_dict):
         self._create_default_security_group(proj_dict)
+        self._create_default_firewall_group(proj_dict)
     # end post_create_project
 
     @wait_for_api_server_connection
@@ -992,7 +1110,40 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                     self._vnc_lib.security_group_delete(id=group['uuid'])
                 except vnc_exc.NoIdError:
                     pass
-                return
+                break
+
+        for aps in proj_obj.get_application_policy_sets() or []:
+            if aps['to'][-1] == _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME:
+                fp_fq_name = aps['to'][:-1] +\
+                    [_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME]
+                fr4_fq_name = aps['to'][:-1] +\
+                    [_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME]
+                fr6_fq_name = aps['to'][:-1] +\
+                    [_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME]
+                tag_fq_name = aps['to'][:-1] +\
+                    ['application=%s%s' % (_NEUTRON_FIREWALL_APP_TAG_PREFIX,
+                                           aps['uuid'])]
+                try:
+                    self._vnc_lib.application_policy_set_delete(id=aps['uuid'])
+                except vnc_exc.NoIdError:
+                    pass
+                try:
+                    self._vnc_lib.firewall_policy_delete(fp_fq_name)
+                except vnc_exc.NoIdError:
+                    pass
+                try:
+                    self._vnc_lib.firewall_rule_delete(fr4_fq_name)
+                except vnc_exc.NoIdError:
+                    pass
+                try:
+                    self._vnc_lib.firewall_rule_delete(fr6_fq_name)
+                except vnc_exc.NoIdError:
+                    pass
+                try:
+                    self._vnc_lib.tag_delete(tag_fq_name)
+                except vnc_exc.NoIdError:
+                    pass
+                break
     # end pre_project_delete
 
     @wait_for_api_server_connection
@@ -1062,6 +1213,7 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
     def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh, **kwargs):
         self._logger = sandesh.logger()
         self.api_server_obj = kwargs.get('api_server_obj')
+
         self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
             conf_sections, sandesh, api_server_obj=self.api_server_obj)
 
@@ -1112,6 +1264,18 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         # Bottle callbacks for virtual-router operations
         self.route('/neutron/virtual_router',
                      'POST', self._npi.plugin_http_post_virtual_router)
+
+        # Bottle callbacks for firewall_group operations
+        self.route('/neutron/firewall_group',
+                   'POST', self._npi.plugin_http_post_firewall_group)
+
+        # Bottle callbacks for firewall_policy operations
+        self.route('/neutron/firewall_policy',
+                   'POST', self._npi.plugin_http_post_firewall_policy)
+
+        # Bottle callbacks for firewall_rule operations
+        self.route('/neutron/firewall_rule',
+                   'POST', self._npi.plugin_http_post_firewall_rule)
 
     def route(self, uri, method, handler):
         @use_context
