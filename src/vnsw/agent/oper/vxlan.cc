@@ -67,7 +67,7 @@ void VxLanTable::VmInterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     ComponentNHKeyPtr nh_key(new ComponentNHKey(vm_itf->label(),vm_itf->GetUuid(),
                                                 InterfaceNHFlags::BRIDGE,
-                                                vm_itf->mac()));
+                                                vm_itf->vm_mac()));
     // if the interface deleted remove the entry from map
     // else add it to composite NH list
     if (intf->IsDeleted() || ((vm_itf->l2_active() == false) &&
