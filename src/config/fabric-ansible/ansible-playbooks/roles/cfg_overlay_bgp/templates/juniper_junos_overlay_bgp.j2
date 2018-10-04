@@ -1,5 +1,6 @@
 {%     for bgp in device_abstract_config.get('bgp', []) %}
 {%         if feature in bgp.get('comment') %}
+set groups {{cfg_group}} routing-options resolution rib bgp.rtarget.0 resolution-ribs inet.0
 {%             set contrail_asn_group = '_contrail_asn-'+(bgp.autonomous_system|string) %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} source-address {{bgp.get('ip_address')}}
 {%             set encap_priorities = device_abstract_config.get('system', {}).get('encapsulation_priorities', []) %}
