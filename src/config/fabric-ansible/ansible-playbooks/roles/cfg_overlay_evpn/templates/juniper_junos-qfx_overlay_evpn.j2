@@ -38,8 +38,8 @@ set groups __contrail_{{feature}}__ switch-options vrf-import import-evpn
 {%                     set name = ri.get('name') %}
 {%                     set vxlan_id = ri.get('vxlan_id') %}
 {%                     if ri.get('routing_instance_type', '') == 'virtual-switch' %}
-{%                         for import_target in ri.get('import_targets', []) %}
-set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{vxlan_id}} vrf-target {{import_target}}
+{%                         for export_target in ri.get('export_targets', []) %}
+set groups __contrail_{{feature}}__ protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target}}
 {%                         endfor %}
 {%                     endif %}
 {%                 endfor %}
