@@ -708,7 +708,7 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
         TASK_UTIL_EXPECT_EQ(i*groups_count_, master_->Size());
 
         for (size_t j = 1; j <= groups_count_; j++) {
-            // Lookup the actual leaf-ad route and verify its attributes.
+            // Lookup the actual smet route and verify its attributes.
             EvpnRoute *smet_rt = VerifySmetRoute(red_[i-1], prefix6(i, j),
                                                      pmsi_params[sg(i, j)]);
             const BgpPath *red_path = smet_rt->BestPath();
@@ -717,7 +717,7 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
             // Notify ermvpn route without any change.
             ermvpn_rt[(i-1)*groups_count_+(j-1)]->Notify();
 
-            // Verify that leafad path or its attributes did not change.
+            // Verify that smet path or its attributes did not change.
             std::map<SG, const PMSIParams>::iterator iter =
                 pmsi_params.find(sg(i, j));
             assert(iter != pmsi_params.end());
@@ -730,16 +730,20 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
 
     for (size_t i = 1; i <= instances_set_count_; i++) {
         for (size_t j = 1; j <= groups_count_; j++) {
-            // Setup ermvpn route before type 3 spmsi route is added.
-            DeleteEvpnRoute(red_[i-1], prefix6(i, j));
-            DeleteEvpnRoute(green_[i-1], prefix6(i, j));
             {
                 tbb::mutex::scoped_lock lock(pmsi_params_mutex);
                 pmsi_params.erase(sg(i, j));
             }
             DeleteErmVpnRoute(red_ermvpn_[i-1], ermvpn_prefix(i, j));
+            task_util::WaitForIdle();
+            DeleteEvpnRoute(red_[i-1], prefix6(i, j));
+            task_util::WaitForIdle();
         }
     }
 
-    TASK_UTIL_EXPECT_EQ(0, master_->Size()); // 3 local
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    for (size_t i = 1; i <= instances_set_count_; i++) {
+        TASK_UTIL_EXPECT_EQ(0, red_[i-1]->Size());
+        TASK_UTIL_EXPECT_EQ(0, red_ermvpn_[i-1]->Size());
+    }
 }

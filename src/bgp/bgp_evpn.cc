@@ -55,6 +55,7 @@ public:
     }
 
     virtual bool MayDelete() const {
+        CHECK_CONCURRENCY("bgp::Config");
         return evpn_manager_->MayDelete();
     }
 
@@ -1070,9 +1071,10 @@ void EvpnManager::Initialize() {
 // and unregister from the EvpnTable.
 //
 void EvpnManager::Terminate() {
+    CHECK_CONCURRENCY("bgp::Config");
     table_->Unregister(listener_id_);
     listener_id_ = DBTable::kInvalidId;
-    if (ermvpn_table_) {
+    if (ermvpn_listener_id_ != DBTable::kInvalidId) {
         ermvpn_table_->Unregister(ermvpn_listener_id_);
         ermvpn_listener_id_ = DBTable::kInvalidId;
     }
@@ -1418,17 +1420,17 @@ void EvpnManager::InclusiveMulticastRouteListener(
 //
 void EvpnManager::SelectiveMulticastRouteListener(
     EvpnManagerPartition *partition, EvpnRoute *route) {
-    CHECK_CONCURRENCY("db::DBTable");
 
     EvpnMcastNode *dbstate = dynamic_cast<EvpnMcastNode *>(
             route->GetState(table_, listener_id_));
     bool is_usable = route->IsUsable();
+    bool is_deleted = route->IsDeleted();
     bool checkErmvpnRoute = false;
     if (route->BestPath()) {
         checkErmvpnRoute = route->BestPath()->GetFlags() &
             BgpPath::CheckGlobalErmVpnRoute;
     }
-    if (!is_usable && !checkErmvpnRoute) {
+    if ((!is_usable && !checkErmvpnRoute) || is_deleted) {
         if (!dbstate)
             return;
 
@@ -1518,6 +1520,7 @@ void EvpnManager::ErmVpnRouteListener(DBTablePartBase *tpart,
             return;
         EvpnStatePtr evpn_state = dbstate->state();
         evpn_state->set_global_ermvpn_tree_rt(NULL);
+        ermvpn_route->ClearState(ermvpn_table(), ermvpn_listener_id());
 
         // Notify all received smet routes for PMSI re-computation.
         // Since usable global ermvpn is no longer available, any advertised
@@ -1529,7 +1532,6 @@ void EvpnManager::ErmVpnRouteListener(DBTablePartBase *tpart,
                 route->Notify();
             }
         }
-        ermvpn_route->ClearState(ermvpn_table(), ermvpn_listener_id());
         EVPN_ERMVPN_RT_LOG(ermvpn_route,
                            "Processed MVPN GlobalErmVpnRoute deletion");
         delete dbstate;
