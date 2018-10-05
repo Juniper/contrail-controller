@@ -556,13 +556,10 @@ class VncApiServer(object):
                             level=SandeshLevel.SYS_ERR)
 
     def is_existing_job_for_fabric(self, fabric_job_uve_name):
-        existing_job = False
         for job_info in self._job_mgr_running_instances.values():
-            for fabric_info in job_info.values():
-                if fabric_job_uve_name in fabric_info:
-                    existing_job = True
-                    break
-        return existing_job
+            if fabric_job_uve_name == job_info.get('fabric_name'):
+                return True
+        return False
 
     def execute_job_http_post(self):
         ''' Payload of execute_job
@@ -697,9 +694,6 @@ class VncApiServer(object):
                     'job_manager_process_id': str(job_process.pid)}
         except cfgm_common.exceptions.HttpError as e:
             raise
-        except Exception as e:
-            err_msg = "Error while executing job request: %s" % repr(e)
-            raise cfgm_common.exceptions.HttpError(500, err_msg)
 
     def read_fabric_data(self, request_params):
         if request_params.get('input') is None:
