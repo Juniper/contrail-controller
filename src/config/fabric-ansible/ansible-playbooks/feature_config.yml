@@ -46,27 +46,27 @@
         device_rb_roles: ['null']
       when: device_rb_roles == []
 
-    - name: Get supported role list
-      set_fact:
-        supported_role_list: "{{ item.value }}"
-      when: item.key == hardware
-      with_dict: "{{ supported_roles }}"
+#    - name: Get supported role list
+#      set_fact:
+#        supported_role_list: "{{ item.value }}"
+#      when: item.key == hardware
+#      with_dict: "{{ supported_roles }}"
 
     - name: Calculate configured device role list
       set_fact:
         configured_roles: "{{ configured_roles }} + ['{{ item }}@{{ device_phy_role }}']"
       with_items: "{{ device_rb_roles }}"
 
-    - name: Cross-check configured list with supported list
-      set_fact:
-        role_list: "{{ role_list }} + [ '{{ item }}' ]"
-      when: item in supported_role_list
-      with_items: "{{ configured_roles }}"
+#    - name: Cross-check configured list with supported list
+#      set_fact:
+#        role_list: "{{ role_list }} + [ '{{ item }}' ]"
+#      when: item in supported_role_list
+#      with_items: "{{ configured_roles }}"
 
     - name: Get the union of all features for all configured/supported roles
       set_fact:
         feature_list: "{{ feature_list }} + {{ item.value }}"
-      when: item.key is in role_list
+      when: item.key is in configured_roles
       with_dict: "{{ role_to_feature_mapping }}"
 
     - name: Skip if feature not needed for this role
