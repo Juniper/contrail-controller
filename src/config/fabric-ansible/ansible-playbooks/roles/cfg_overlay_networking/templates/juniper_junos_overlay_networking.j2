@@ -99,21 +99,6 @@ set groups {{cfg_group}} policy-options community {{community_target}} members {
 {%             endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_export}} term t1 then accept
 {%         endif %}
-{%         if ('l3' in ri_vn_mode) and ('l3' in ri.name) and (ri.get('is_public_network') == true)  %}
-{%             set contrail_l3_ri = ri.name %}
-set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
-{%             for subnet in ri.get('prefixes', []) %}
-{%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
-{%                 if (':' in cidr) %}
-set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term term-{{contrail_l3_ri}} from destination-address {{cidr}}
-{%                 else %}
-set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{contrail_l3_ri}} from destination-address {{cidr}}
-{%                 endif %}
-{%             endfor %}
-set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{contrail_l3_ri}} then routing-instance {{contrail_l3_ri}}
-set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
-set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route 0.0.0.0/0 next-table inet.0
-{%         endif %}
 {%     endfor %}
 set apply-groups {{cfg_group}}
 {% endif %}
