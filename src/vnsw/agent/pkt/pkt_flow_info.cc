@@ -1682,14 +1682,14 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (!disable_validation) {
-        if (in->rt_ == NULL) {
+        if (in->rt_ == NULL || in->rt_->IsDeleted()) {
             LogError(pkt, this, "Flow : No route for Src-IP");
             short_flow = true;
             short_flow_reason = FlowEntry::SHORT_NO_SRC_ROUTE;
             return false;
         }
 
-        if (out->rt_ == NULL) {
+        if (out->rt_ == NULL || out->rt_->IsDeleted()) {
             LogError(pkt, this, "Flow : No route for Dst-IP");
             short_flow = true;
             short_flow_reason = FlowEntry::SHORT_NO_DST_ROUTE;
