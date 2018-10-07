@@ -96,6 +96,7 @@ def parse_args(args_str):
             ['/etc/contrail/contrail-keystone-auth.conf',
              '/etc/contrail/contrail-fabric-ansible.conf'],
         'enable_fabric_ansible': True,
+        'max_job_mgr_processes': 100,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -328,6 +329,9 @@ def parse_args(args_str):
     parser.add_argument("--enable_fabric_ansible",
                         help="Enables/disables execute-job api and the initial"
                              "data loading for the job manager.")
+    parser.add_argument("--max_job_mgr_processes", type=int,
+        help="Maximum number of concurrent job_mgr processes that can run "
+             "based on the system configuration")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
