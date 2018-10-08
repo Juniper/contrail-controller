@@ -87,6 +87,16 @@ bool ParseStructuredPart(SyslogParser::syslog_m_t *v, const std::string &structu
   return true;
 }
 
+bool filter_msg(SyslogParser::syslog_m_t &v) {
+  std::string tag  = SyslogParser::GetMapVals(v, "tag", "UNKNOWN");
+  std::string reason = SyslogParser::GetMapVals(v, "reason", "UNKNOWN");
+  if (tag == "APPQOE_BEST_PATH_SELECTED" && 
+    ((reason == "session close") || reason == "app detected")) {
+    return false;
+  }
+  return true;
+}
+
 bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
                                   StatWalker::StatTableInsertFn stat_db_callback, const uint8_t *message,
                                   int message_len, boost::shared_ptr<StructuredSyslogForwarder> forwarder){
@@ -196,14 +206,14 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
         StructuredSyslogUVESummarize(v, syslog_summarize_user);
       }
       if (forwarder != NULL && mc->forward() == true &&
-          mc->process_before_forward() == true) {
+          mc->process_before_forward() == true && filter_msg (v)) {
         std::stringstream msglength;
         msglength << msg->length();
         msg->insert(0, msglength.str() + " ");
         LOG(DEBUG, "forwarding after decoration - " << *msg);
         boost::shared_ptr<std::string> json_msg;
         if (forwarder->kafkaForwarder()) {
-            json_msg = StructuredSyslogJsonMessage(v);
+          json_msg = StructuredSyslogJsonMessage(v);
         }
         boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(),
                                                                                           json_msg, hostname));
@@ -213,7 +223,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
         StructuredSyslogPush(v, stat_db_callback, mc->tags());
       }
   }
-  if (forwarder != NULL && mc->forward() == true &&
+  if (forwarder != NULL && mc->forward() == true && filter_msg(v) &&
       mc->process_before_forward() == false) {
     msg.reset(new std::string (message, message + message_len));
     hostname.reset(new std::string (SyslogParser::GetMapVals(v, "hostname", "")));
@@ -223,6 +233,8 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
     LOG(DEBUG, "forwarding without decoration - " << *msg);
     boost::shared_ptr<std::string> json_msg;
     if (forwarder->kafkaForwarder()) {
+        LOG(DEBUG, "kafka filter ******************* "<< SyslogParser::GetMapVals(v, "tag", "UNKNOWN"));
+        LOG(DEBUG, "kafka filter ******************* "<< SyslogParser::GetMapVals(v, "reason", "UNKNOWN"));
         json_msg = StructuredSyslogJsonMessage(v);
     }
     boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(),
@@ -563,21 +575,26 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff;
     if (is_close) {
       const std::string routing_instance (SyslogParser::GetMapVals(v, "routing-instance", "UNKNOWN"));
+      const std::string routing_instance_default = "DEFAULT";
       const std::string destination_address (SyslogParser::GetMapVals(v, "destination-address", "UNKNOWN"));
       const std::string destination_interface_name (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
       sdwankpimetricdiff.set_session_close_count(1);
       sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
-      std::string kpimetricdiff_key(routing_instance+"::"+destination_address);
-      LOG(DEBUG,"UVE: KPI key :" << kpimetricdiff_key);
-      sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
+
       std::string searchHubInterface = destination_interface_name + ",";
       std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
       if (destination_interface_name_found != std::string::npos){
-        LOG(DEBUG,"destination_interface_name "<<destination_interface_name <<" found in hubs_interfaces" );
+        LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" found in hubs_interfaces" );
+        std::string kpimetricdiff_key(routing_instance+"::"+destination_address);
+        LOG(DEBUG,"UVE: KPI key : " << kpimetricdiff_key);
+        sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
         sdwankpimetricrecord.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff);
       }
       else {
-        LOG(DEBUG,"destination_interface_name "<<destination_interface_name <<" NOT found in hubs_interfaces" );
+        LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
+        std::string kpimetricdiff_key(routing_instance+"::"+destination_address);
+        LOG(DEBUG,"UVE: KPI key : " << kpimetricdiff_key);
+        sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
         sdwankpimetricrecord.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff);
       }
     }
