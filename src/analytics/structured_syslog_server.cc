@@ -233,8 +233,6 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
     LOG(DEBUG, "forwarding without decoration - " << *msg);
     boost::shared_ptr<std::string> json_msg;
     if (forwarder->kafkaForwarder()) {
-        LOG(DEBUG, "kafka filter ******************* "<< SyslogParser::GetMapVals(v, "tag", "UNKNOWN"));
-        LOG(DEBUG, "kafka filter ******************* "<< SyslogParser::GetMapVals(v, "reason", "UNKNOWN"));
         json_msg = StructuredSyslogJsonMessage(v);
     }
     boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(),
