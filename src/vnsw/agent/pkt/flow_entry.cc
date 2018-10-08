@@ -1898,14 +1898,14 @@ bool FlowEntry::DoPolicy() {
         //     and data_.match_p.m_out_sg_acl_l will be populated. Pick the
         //     UUID specified by sg_acl_info for flow's SG rule UUID
         // For TCP-ACK flows
-        //     ALLOW if either ((sg_action && sg_out_action) ||
+        //     ALLOW if either ((sg_action && sg_out_action) &&
         //                      (reverse_sg_action & reverse_out_sg_action))
         //                      ALLOW
         //     For flow's SG rule UUID use the following rules
         //     --If both sg_acl_info and rev_sg_acl_info has drop set, pick the
         //       UUID from sg_acl_info.
-        //     --If either of sg_acl_info or rev_sg_acl_info does not have drop
-        //       set, pick the UUID from the one which does not have drop set.
+        //     --If either of sg_acl_info or rev_sg_acl_info have drop
+        //       set, pick the UUID from the one which has drop set.
         //     --If both of them does not have drop set, pick it up from
         //       sg_acl_info
         //
@@ -1920,20 +1920,20 @@ bool FlowEntry::DoPolicy() {
         } else {
             if (ShouldDrop(data_.match_p.sg_action |
                            data_.match_p.out_sg_action)
-                &&
+                ||
                 ShouldDrop(data_.match_p.reverse_sg_action |
                            data_.match_p.reverse_out_sg_action)) {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::DENY);
-                SetSgAclInfo(sg_acl_info, out_sg_acl_info, false);
-            } else {
-                data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
-                if (!ShouldDrop(data_.match_p.sg_action |
+                if (ShouldDrop(data_.match_p.sg_action |
                                 data_.match_p.out_sg_action)) {
                     SetSgAclInfo(sg_acl_info, out_sg_acl_info, false);
-                } else if (!ShouldDrop(data_.match_p.reverse_sg_action |
+                } else if (ShouldDrop(data_.match_p.reverse_sg_action |
                                        data_.match_p.reverse_out_sg_action)) {
                     SetSgAclInfo(rev_out_sg_acl_info, rev_sg_acl_info, true);
                 }
+            } else {
+                data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
+                SetSgAclInfo(sg_acl_info, out_sg_acl_info, false);
             }
         }
     } else {
