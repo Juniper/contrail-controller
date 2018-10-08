@@ -90,7 +90,8 @@ bool ParseStructuredPart(SyslogParser::syslog_m_t *v, const std::string &structu
 bool filter_msg(SyslogParser::syslog_m_t &v) {
   std::string tag  = SyslogParser::GetMapVals(v, "tag", "UNKNOWN");
   std::string reason = SyslogParser::GetMapVals(v, "reason", "UNKNOWN");
-  if (tag == "APPQOE_BEST_PATH_SELECTED" && ((reason == "session close") || reason == "app detected")) {
+  if (tag == "APPQOE_BEST_PATH_SELECTED" && 
+    ((reason == "session close") || reason == "app detected")) {
     return false;
   }
   return true;
