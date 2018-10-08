@@ -841,9 +841,9 @@ TEST_F(FlowTest, FlowPolicyUuid_14) {
     const FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::IMPLICIT_ALLOW),
                  fe->nw_ace_uuid().c_str());
-    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
                  fe->sg_rule_uuid().c_str());
-    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d3",
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
                  rfe->sg_rule_uuid().c_str());
 
     //cleanup
@@ -1141,9 +1141,9 @@ TEST_F(FlowTest, FlowPolicyUuid_19) {
     const FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::IMPLICIT_ALLOW),
                  fe->nw_ace_uuid().c_str());
-    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e3",
                  fe->sg_rule_uuid().c_str());
-    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d3",
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e3",
                  rfe->sg_rule_uuid().c_str());
 
     //cleanup
@@ -1222,9 +1222,9 @@ TEST_F(FlowTest, FlowPolicyUuid_20) {
     const FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::IMPLICIT_ALLOW),
                  fe->nw_ace_uuid().c_str());
-    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e3",
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
                  fe->sg_rule_uuid().c_str());
-    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e3",
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
                  rfe->sg_rule_uuid().c_str());
 
     //cleanup
