@@ -28,6 +28,7 @@ using std::pair;
 using std::sort;
 using std::string;
 using std::vector;
+using std::set;
 
 // A global MVPN state for a given <S.G> within a EvpnProjectManager.
 EvpnState::EvpnState(const SG &sg, StatesMap *states, EvpnManager *manager) :
@@ -298,7 +299,7 @@ void EvpnLocalMcastNode::TriggerUpdate() {
 // The main functionality here is to build a per-IPeer BgpOList from the list
 // of EvpnRemoteMcastNodes.
 //
-UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
+UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo(EvpnRoute *route) {
     CHECK_CONCURRENCY("db::DBTable");
 
     // Nothing to send for a leaf as it already knows the replicator-address.
@@ -309,14 +310,13 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
     bool pbb_evpn_enable = rti->virtual_network_pbb_evpn_enable();
     uint32_t local_ethernet_tag = route_->GetPrefix().tag();
 
+    EvpnState::SG sg = EvpnState::SG(route->GetPrefix().source(),
+                                     route->GetPrefix().group());
     // Go through list of EvpnRemoteMcastNodes and build the BgpOList.
     BgpOListSpec olist_spec(BgpAttribute::OList);
-    EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
-                      partition_->remote_mcast_node_list().begin();
-    for (; it != partition_->remote_mcast_node_list().end(); it++) {
-        BOOST_FOREACH(EvpnMcastNode *node, it->second) {
-            uint32_t remote_ethernet_tag = node->route()->GetPrefix().tag();
-
+    if (partition_->remote_mcast_node_list().count(sg)) {
+        set<EvpnMcastNode*> nodes = partition_->remote_mcast_node_list()[sg];
+        BOOST_FOREACH(EvpnMcastNode *node, nodes) {
             if (node->address() == address_)
                 continue;
             if (node->assisted_replication_leaf())
@@ -324,13 +324,15 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
             if (!edge_replication_not_supported_ &&
                 !node->edge_replication_not_supported())
                 continue;
+            uint32_t remote_ethernet_tag = node->route()->GetPrefix().tag();
+
             if (pbb_evpn_enable && remote_ethernet_tag &&
                 (local_ethernet_tag != remote_ethernet_tag))
                 continue;
 
             const ExtCommunity *extcomm = node->attr()->ext_community();
             BgpOListElem elem(node->address(), node->label(),
-                extcomm ? extcomm->GetTunnelEncap() : vector<string>());
+                    extcomm ? extcomm->GetTunnelEncap() : vector<string>());
             olist_spec.elements.push_back(elem);
         }
     }
@@ -338,16 +340,15 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
     // Go through list of leaf EvpnMcastNodes and build the leaf BgpOList.
     BgpOListSpec leaf_olist_spec(BgpAttribute::LeafOList);
     if (assisted_replication_supported_) {
-        EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
-                      partition_->leaf_node_list().begin();
-        for (; it != partition_->leaf_node_list().end(); it++) {
-            BOOST_FOREACH(EvpnMcastNode *node, it->second) {
+        if (partition_->leaf_node_list().count(sg)) {
+            set<EvpnMcastNode*> nodes = partition_->leaf_node_list()[sg];
+            BOOST_FOREACH(EvpnMcastNode *node, nodes) {
                 if (node->replicator_address() != address_)
                     continue;
 
                 const ExtCommunity *extcomm = node->attr()->ext_community();
                 BgpOListElem elem(node->address(), node->label(),
-                    extcomm ? extcomm->GetTunnelEncap() : vector<string>());
+                        extcomm ? extcomm->GetTunnelEncap() : vector<string>());
                 leaf_olist_spec.elements.push_back(elem);
             }
         }
@@ -1145,7 +1146,7 @@ UpdateInfo *EvpnManager::GetUpdateInfo(EvpnRoute *route) {
     if (!local_node)
         return NULL;
 
-    return local_node->GetUpdateInfo();
+    return local_node->GetUpdateInfo(route);
 }
 
 BgpServer *EvpnManager::server() {
