@@ -7,6 +7,7 @@
 
   vars:
     feature: underlay_ip_clos
+    cfg_group: __contrail_ip_clos__
   tasks:
     - set_fact:
         device_abstract_config: {

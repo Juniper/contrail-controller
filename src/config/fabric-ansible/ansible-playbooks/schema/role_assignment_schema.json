@@ -14,7 +14,7 @@
       },
       "role_assignments": { 
         "type": "array",
-        "minItems": 1,
+        "minItems": 0,
         "description": "Fabric device role assignments",
         "items": {
           "type": "object",
