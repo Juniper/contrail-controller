@@ -673,6 +673,42 @@ void HealthCheckService::UpdateInstanceServiceReference() {
     }
 }
 
+void HealthCheckInstanceBase::EnqueueHealthCheckResync(
+                                         const HealthCheckService *service,
+                                         const VmInterface *itf) const {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new HealthCheckServiceKey(service->uuid(), AgentKey::RESYNC));
+    req.data.reset(new HealthCheckResyncInterfaceData(NULL, NULL, itf));
+    service->table()->agent()->health_check_table()->Enqueue(&req);
+}
+
+void HealthCheckService::ResyncHealthCheckInterface(
+                                            const HealthCheckService *service,
+                                            const VmInterface *intf) {
+    InstanceList::iterator it;
+
+    it = intf_list_.find(intf->vmi_cfg_uuid());
+    if (it != intf_list_.end()) {
+        HEALTH_CHECK_TRACE(Trace, "Enqueue instance " + intf->name());
+        it->second->EnqueueHealthCheckResync(service, intf);
+    } else {
+        HEALTH_CHECK_TRACE(Trace, "Enqueue instance not found " + intf->name());
+    }
+}
+
+void HealthCheckService::UpdateInterfaceInstanceServiceReference(
+                                                const VmInterface *intf) {
+    InstanceList::iterator it;
+
+    it = intf_list_.find(intf->vmi_cfg_uuid());
+    if (it != intf_list_.end()) {
+        it->second->set_service(this);
+    } else {
+        HEALTH_CHECK_TRACE(Trace, "Service not found :" + intf->name());
+    }
+}
+
 void HealthCheckService::DeleteInstances() {
     InstanceList::iterator it = intf_list_.begin();
     while (it != intf_list_.end()) {
@@ -736,6 +772,17 @@ bool HealthCheckTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 }
 
 bool HealthCheckTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
+    HealthCheckResyncInterfaceData *resync_data =
+          dynamic_cast<HealthCheckResyncInterfaceData *>(req->data.get());
+    if (resync_data) {
+        // resync triggered from Vmi for which there is no source ip specified
+        // in the interface health check service instance.
+        HEALTH_CHECK_TRACE(Trace, "Resync interface " + resync_data->intf_->name());
+        HealthCheckService *service = static_cast<HealthCheckService *>(entry);
+        service->UpdateInterfaceInstanceServiceReference(resync_data->intf_);
+        return false;
+    }
+
     return OperDBOnChange(entry, req);
 }
 
