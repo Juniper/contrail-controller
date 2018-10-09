@@ -38,9 +38,12 @@ class ServiceLbManager(VncCommon):
         self._delete_virtual_interface(vmi_ids)
 
     def _create_virtual_interface(self, proj_obj, vn_obj, service_ns,
-            service_name, vip_address=None, subnet_uuid=None, tags=None):
+                service_name, service_id, k8s_event_type, vip_address=None,
+                subnet_uuid=None, tags=None):
         vmi_uuid = str(uuid.uuid4())
-        vmi_name = VncCommon.make_name(service_name, vmi_uuid)
+        cluster_name = vnc_kube_config.cluster_name()
+        vmi_name = VncCommon.make_name(cluster_name, k8s_event_type,
+                                    service_name, service_id)
         vmi_display_name = VncCommon.make_display_name(service_ns, service_name)
         #Check if VMI exists, if yes, delete it.
         vmi_obj = VirtualMachineInterface(name=vmi_name, parent_obj=proj_obj,
@@ -188,8 +191,8 @@ class ServiceLbManager(VncCommon):
             lb_obj.set_service_appliance_set(sas_obj)
 
         vmi_obj, vip_address = self._create_virtual_interface(proj_obj,
-            vn_obj, service_ns, service_name, vip_address, subnet_uuid,
-            tags=tags)
+            vn_obj, service_ns, service_name, service_id, k8s_event_type,
+            vip_address, subnet_uuid, tags=tags)
         if vmi_obj is None:
             return None
         lb_obj.set_virtual_machine_interface(vmi_obj)
