@@ -988,6 +988,12 @@ class VncApiServer(object):
             result = 'Bad reference in create: ' + result
             raise cfgm_common.exceptions.HttpError(400, result)
 
+        # no ref to a pending deleted resource
+        ok, result = r_class.no_pending_deleted_resource_in_refs(obj_dict)
+        if not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
         # Can abort resource creation and retrun 202 status code
         get_context().set_state('PENDING_DBE_CREATE')
         ok, result = r_class.pending_dbe_create(obj_dict)
@@ -4261,6 +4267,12 @@ class VncApiServer(object):
                 self.config_object_error(
                     obj_uuid, fq_name_str, obj_type, api_name, msg)
                 raise cfgm_common.exceptions.HttpError(code, msg)
+
+        # no ref to a pending deleted resource
+        ok, result = r_class.no_pending_deleted_resource_in_refs(req_obj_dict)
+        if not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         # Validate perms on references
         if req_obj_dict is not None:
