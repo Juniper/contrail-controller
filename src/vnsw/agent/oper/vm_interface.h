@@ -1278,6 +1278,7 @@ public:
     const HealthCheckInstanceBase *GetHealthCheckFromVmiFlow(
                                    const IpAddress &sip, const IpAddress &dip,
                                    uint8_t proto, uint16_t sport) const;
+    void UpdateInterfaceHealthCheckService();
 
     const ServiceVlanList &service_vlan_list() const {
         return service_vlan_list_;
