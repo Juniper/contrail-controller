@@ -1040,6 +1040,10 @@ string EvpnPrefix::ToXmppIdString() const {
     str += mac_addr_.ToString();
     str += "," + ip_address_.to_string() + "/" +
         integerToString(ip_address_length());
+    if (!group_.is_unspecified()) {
+        str += "," + group_.to_string() + "," +
+            source_.to_string();
+    }
     return str;
 }
 

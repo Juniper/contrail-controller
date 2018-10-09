@@ -815,10 +815,11 @@ TEST_P(BgpEvpnTwoControllerTest, RemoteReceiver) {
         agent_yb_->AddEnetRoute(red.str(), MulticastMac(i, instance_count_),
                                 nexthop_red, &mx_params);
         task_util::WaitForIdle();
-        char sg_mac[34];
-        sprintf(sg_mac, "%02x:%02x:%02x:%02x:%02x:%02x,%s",
+        char sg_mac[55];
+        sprintf(sg_mac, "%02x:%02x:%02x:%02x:%02x:%02x,%s,%s",
                 1, 0, 0x5e, (unsigned int)i,
-                (unsigned int)instance_count_, 3, "192.168.0.101/32");
+                (unsigned int)instance_count_, 3,
+                "192.168.0.101/32", sg.str().c_str());
         VerifyOList(agent_xa_, red.str(), sg_mac, 1, nh.str());
         TASK_UTIL_EXPECT_EQ(2, red_[i-1]->Size());
         TASK_UTIL_EXPECT_EQ(2, red_y_[i-1]->Size());
