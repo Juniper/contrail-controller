@@ -13,6 +13,7 @@ import time
 import ast
 from inflection import camelize
 from cfgm_common.exceptions import RefsExistError
+from job_manager.job_utils import JobVncApi
 from vnc_api.vnc_api import VncApi
 import vnc_api
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
@@ -216,10 +217,7 @@ class VncMod(object):
         errmsg = None
         for i in range(0, 10):
             try:
-                self.vnc_lib = VncApi(
-                    auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
-                    auth_token=self.job_ctx.get('auth_token')
-                )
+                self.vnc_lib = JobVncApi.vnc_init(self.job_ctx)
                 break
             except Exception as ex:
                 time.sleep(10)

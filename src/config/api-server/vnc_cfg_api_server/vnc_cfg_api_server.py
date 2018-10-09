@@ -612,6 +612,7 @@ class VncApiServer(object):
             # get the auth token
             auth_token = get_request().get_header('X-Auth-Token')
             request_params['auth_token'] = auth_token
+            request_params['api_server_host'] = self._config_node_list
             request_params['analytics_server_list'] = self._analytics_node_list
 
             # generate the job execution id
@@ -2137,6 +2138,16 @@ class VncApiServer(object):
                               "Internal error : Failed to read resource count"
                     self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
+        self._config_node_list = []
+        (ok, cfg_node_list, _) = self._db_conn.dbe_list('config_node',
+                                                    field_names=[
+                                                        'config_node_ip_address'])
+        if not ok:
+            (code, err_msg) = cfg_node_list
+            raise cfgm_common.exceptions.HttpError(code, err_msg)
+        for node in cfg_node_list or []:
+            self._config_node_list.append(node.get('config_node_ip_address'))
+
         self._analytics_node_list = []
         (ok, alytics_node_list, _) = self._db_conn.dbe_list('analytics_node',
                                                     field_names=[
@@ -2146,6 +2157,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(code, err_msg)
         for node in alytics_node_list or []:
             self._analytics_node_list.append(node.get('analytics_node_ip_address'))
+
 
         # API/Permissions check
         # after db init (uses db_conn)
