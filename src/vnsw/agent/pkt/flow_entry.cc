@@ -2251,7 +2251,7 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
     //     and sp->m_out_acl_l will be populated. Pick the
     //     UUID specified by acl_info for flow's SG rule UUID
     // For TCP-ACK flows
-    //     ALLOW if either ((policy.action && out_action) ||
+    //     ALLOW if both ((policy.action && out_action) && 
     //                      (policy.reverse_action & policy.reverse_out_action))
     //                      ALLOW
     //     For flow's SG rule UUID use the following rules
@@ -2266,19 +2266,19 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
         sp->action_summary =
             sp->action | sp->out_action | sp->reverse_action | sp->reverse_out_action;
         SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
-    } else if (ShouldDrop(sp->action | sp->out_action) &&
+    } else if (ShouldDrop(sp->action | sp->out_action) ||
                ShouldDrop(sp->reverse_action | sp->reverse_out_action)) {
             //If both ingress ACL and egress ACL of VMI denies the
             //packet, then pick ingress ACE uuid to send to UVE
             sp->action_summary = (1 << TrafficAction::DENY);
+        if (ShouldDrop(sp->action | sp->out_action)) {
             SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
-    } else {
-        sp->action_summary = (1 << TrafficAction::PASS);
-        if (!ShouldDrop(sp->action | sp->out_action)) {
-            SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
-        } else if (!ShouldDrop(sp->reverse_action | sp->reverse_out_action)) {
+        } else if (ShouldDrop(sp->reverse_action | sp->reverse_out_action)) {
             SetAclInfo(sp, rsp, rev_out_acl_info, rev_acl_info, true, is_sg);
         }
+    } else {
+        sp->action_summary = (1 << TrafficAction::PASS);
+        SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
     }
 }
 
