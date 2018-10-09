@@ -186,7 +186,8 @@ class JobHandler(object):
     # end get_playbook_info
 
     def process_file_and_get_marked_output(self, unique_pb_id,
-                                           exec_id, playbook_process):
+                                           exec_id, playbook_process, 
+                                           pr_uve_name):
         f_read = None
         marked_output = {}
         markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS]
@@ -232,6 +233,14 @@ class JobHandler(object):
                                                 exec_id,
                                                 percentage_completed=
                                                 self.current_percentage)
+                                        if pr_uve_name:
+                                            self._job_log_utils.\
+                                                send_prouter_job_uve(
+                                                    self._job_template.fq_name,
+                                                    pr_uve_name, exec_id,
+                                                    job_status="IN_PROGRESS",
+                                                    percentage_completed=
+                                                    self.current_percentage)
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -262,7 +271,7 @@ class JobHandler(object):
         return marked_output
     # end process_file_and_get_marked_output
 
-    def send_pr_object_log(self, exec_id, start_time, end_time, pb_status):
+    def send_prouter_uve(self, exec_id, start_time, end_time, pb_status):
         status = "SUCCESS"
         elapsed_time = end_time - start_time
 
@@ -308,13 +317,16 @@ class JobHandler(object):
                     pr_fabric_job_template_fq_name,
                     exec_id,
                     prouter_state=onboarding_state,
-                    job_status=status)
+                    job_status=status,
+                    percentage_completed=100)
+    # end send_prouter_uve 
 
-    # end send_pr_object_log
 
     def run_playbook_process(self, playbook_info, percentage_completed):
         playbook_process = None
         playbook_output = None
+        pr_uve_name = None
+
         self.current_percentage = percentage_completed
         try:
             playbook_exec_path = os.path.dirname(__file__) \
@@ -325,6 +337,15 @@ class JobHandler(object):
             exec_id =\
                 playbook_info['extra_vars']['playbook_input'][
                     'job_execution_id']
+
+            device_fqname = \
+                playbook_info['extra_vars']['playbook_input'].get(
+                    'device_fqname')
+            if device_fqname:
+                pr_fqname = ':'.join(map(str, device_fqname))
+                job_template_fq_name = ':'.join(map(str, self._job_template.fq_name))
+                pr_uve_name = pr_fqname + ":" + \
+                    self._fabric_fq_name + ":" + job_template_fq_name
 
             pr_object_log_start_time = time.time()
 
@@ -337,18 +358,21 @@ class JobHandler(object):
             # they start running concurrently
             gevent.sleep(0)
             marked_output = self.process_file_and_get_marked_output(
-                unique_pb_id, exec_id, playbook_process
-            )
+                unique_pb_id, exec_id, playbook_process, pr_uve_name)
+
             marked_jsons = self._extract_marked_json(marked_output)
             playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
             playbook_process.wait(timeout=self._playbook_timeout)
             pr_object_log_end_time = time.time()
 
-            self.send_pr_object_log(
-                exec_id,
-                pr_object_log_start_time,
-                pr_object_log_end_time,
-                playbook_process.returncode)
+            # create prouter UVE in job_manager only if it is not a multi 
+            # device job template
+            if not self._job_template.get_job_template_multi_device_job():
+                self.send_prouter_uve(
+                    exec_id,
+                    pr_object_log_start_time,
+                    pr_object_log_end_time,
+                    playbook_process.returncode)
 
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:
