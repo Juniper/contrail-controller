@@ -826,6 +826,39 @@ const HealthCheckInstanceBase *VmInterface::GetHealthCheckFromVmiFlow
 
     return NULL;
 }
+
+// Check if the interface requires to resync the health check service instance 
+// Resync will be applied for healthcheck types BFD or Segment.
+void VmInterface::UpdateInterfaceHealthCheckService()
+{
+    if (!IsHealthCheckEnabled() || !is_hc_active()) {
+        return;
+    }
+
+    HealthCheckInstanceSet::const_iterator it = hc_instance_set_.begin();
+    while (it != hc_instance_set_.end()) {
+        const HealthCheckInstanceBase *hc_instance = *it;
+        it++;
+        HealthCheckService *hc_service = hc_instance->service();
+        if (hc_service == NULL) 
+            continue;
+
+        // resync will be applied healthcheck type is either BFD or Segment.
+        HealthCheckService::HealthCheckType type = hc_service->health_check_type();
+        if (type != HealthCheckService::BFD && type != HealthCheckService::SEGMENT) {
+            continue;
+        }
+
+        // if either source_ip or destination_ip unspecified,
+        // resync the healtcheckservice
+        if ((hc_instance->destination_ip().is_unspecified() == false) &&
+                (hc_instance->get_source_ip().is_unspecified() == false)) {
+            continue;
+        }
+        hc_service->ResyncHealthCheckInterface(hc_service, this);
+    }
+}
+
 const string VmInterface::GetAnalyzer() const {
     if (mirror_entry()) {
         return mirror_entry()->GetAnalyzerName();

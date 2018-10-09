@@ -307,8 +307,12 @@ bool VmInterface::Resync(const InterfaceTable *table,
     // Apply config based on old and new values
     ApplyConfig(old_ipv4_active, old_l2_active, old_ipv6_active,
                 old_subnet, old_subnet_plen);
+
+    // Check if Healthcheck service resync is required 
+    UpdateInterfaceHealthCheckService();
     return ret;
 }
+
 
 // Apply the latest configuration
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,

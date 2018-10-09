@@ -141,10 +141,13 @@ public:
     const std::string &last_update_time() const { return last_update_time_; }
     bool IsStatusEventIgnored() const { return ignore_status_event_; }
     void set_source_ip(const IpAddress &ip) { source_ip_ = ip; }
+    IpAddress get_source_ip() const { return source_ip_; };
     IpAddress source_ip() const;
     IpAddress update_source_ip();
     void set_destination_ip(const IpAddress &ip);
     IpAddress destination_ip() const;
+    void EnqueueHealthCheckResync(const HealthCheckService *service,
+                                  const VmInterface *itf) const;
 
 protected:
     void EnqueueResync(const HealthCheckService *service, Interface *itf) const;
@@ -273,6 +276,9 @@ public:
     void StopHealthCheckService(HealthCheckInstanceBase *instance);
 
     void UpdateInstanceServiceReference();
+    void ResyncHealthCheckInterface(const HealthCheckService *service,
+                                    const VmInterface *intf);
+    void UpdateInterfaceInstanceServiceReference(const VmInterface *intf);
     void DeleteInstances();
 
     const boost::uuids::uuid &uuid() const { return uuid_; }
@@ -387,6 +393,13 @@ private:
     HealthCheckServiceCallback health_check_service_cb_[HealthCheckService::MAX_HEALTH_CHECK_SERVICES];
 
     DISALLOW_COPY_AND_ASSIGN(HealthCheckTable);
+};
+
+struct HealthCheckResyncInterfaceData : public AgentOperDBData {
+       HealthCheckResyncInterfaceData(const Agent *agent, IFMapNode *node,
+                                      const VmInterface *intf):
+        AgentOperDBData(agent, node), intf_(intf) {}           
+    const VmInterface *intf_;
 };
 
 #endif  // SRC_VNSW_AGENT_SERVICES_HEALTH_CHECK_H_
