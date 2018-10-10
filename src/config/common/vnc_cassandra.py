@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
+import copy
 
 import pycassa
 from pycassa import ColumnFamily
@@ -1653,7 +1654,7 @@ class ObjectCacheManager(object):
                 return self.obj_dict
 
             # TODO filter with field_names
-            return {k:self.obj_dict[k]
+            return {k: copy.deepcopy(self.obj_dict[k])
                 for k in set(self.obj_dict.keys()) & set(field_names)}
         # end get_filtered_copy
 
