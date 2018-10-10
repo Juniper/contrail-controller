@@ -1,0 +1,156 @@
+{
+    "/CREATE/policy_management/f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": [
+            "draft-policy-management"
+        ],
+        "type": "policy_management",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 17399868099456158274,
+                "uuid_mslong": 9333599219905481905
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/CREATE/policy_management/634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+        "fq_name": [
+            "normal-policy-management"
+        ],
+        "type": "policy_management",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 7154778764020240001,
+                "uuid_mslong": 13082342935312119001
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/CREATE/firewall_rule/40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": [
+            "draft-policy-management",
+            "3438e2fa-bfcd-4745-bd58-52713ae27ac4"
+        ],
+        "type": "firewall_rule",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 4683011200224676616,
+                "uuid_mslong": 10591289800942672284
+            },
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "policy_management",
+        "parent_uuid": "f178bfd9-16bc-4a42-8187-9b09fa544cb1",
+        "draft_mode_state": "created"
+    },
+    "/PAUSED/": {
+    },
+    "/UPDATE/firewall_rule/40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": [
+            "draft-policy-management",
+            "3438e2fa-bfcd-4745-bd58-52713ae27ac4"
+        ],
+        "type": "firewall_rule",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 4683011200224676616,
+                "uuid_mslong": 10591289800942672284
+            },
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "policy_management",
+        "parent_uuid": "f178bfd9-16bc-4a42-8187-9b09fa544cb1",
+        "draft_mode_state": "updated"
+    },
+    "/PAUSED/": {
+    },
+    "/DELETE/firewall_rule/40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": [
+            "draft-policy-management",
+            "3438e2fa-bfcd-4745-bd58-52713ae27ac4"
+        ],
+        "type": "firewall_rule",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 4683011200224676616,
+                "uuid_mslong": 10591289800942672284
+            },
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "policy_management",
+        "parent_uuid": "f178bfd9-16bc-4a42-8187-9b09fa544cb1",
+        "draft_mode_state": "updated"
+    },
+    "/PAUSED/": {
+    },
+    "/CREATE/firewall_rule/40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": [
+            "normal-policy-management",
+            "3438e2fa-bfcd-4745-bd58-52713ae27ac4"
+        ],
+        "type": "firewall_rule",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 4683011200224676616,
+                "uuid_mslong": 10591289800942672284
+            },
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "policy_management",
+        "parent_uuid": "f178bfd9-16bc-4a42-8187-9b09fa544cb1",
+        "draft_mode_state": ""
+    },
+    "/PAUSED/": {
+    },
+    "/DELETE/policy_management/f178bfd9-16bc-4a42-8187-9b09fa544cb1": {
+        "fq_name": [
+            "draft-policy-management"
+        ],
+        "type": "policy_management",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 17399868099456158274,
+                "uuid_mslong": 9333599219905481905
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/DELETE/policy_management/634ae160-d3ef-4e81-b58d-d196211eb4d9": {
+        "fq_name": [
+            "normal-policy-management"
+        ],
+        "type": "policy_management",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 7154778764020240001,
+                "uuid_mslong": 13082342935312119001
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/DELETE/firewall_rule/40fd65df-fc91-4b08-92fb-d1f57a67d99c": {
+        "fq_name": [
+            "normal-policy-management",
+            "3438e2fa-bfcd-4745-bd58-52713ae27ac4"
+        ],
+        "type": "firewall_rule",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 4683011200224676616,
+                "uuid_mslong": 10591289800942672284
+            },
+            "created": null,
+            "last_modified": null
+        },
+        "parent_type": "policy_management",
+        "parent_uuid": "f178bfd9-16bc-4a42-8187-9b09fa544cb1",
+        "draft_mode_state": ""
+    }
+}

@@ -35,6 +35,58 @@ using namespace std;
 using namespace autogen;
 using boost::assign::list_of;
 
+class ConfigEtcdPartitionTest : public ConfigEtcdPartition {
+public:
+    static const int kUUIDReadRetryTimeInMsec = 300000;
+    ConfigEtcdPartitionTest(ConfigEtcdClient *client, size_t idx)
+        : ConfigEtcdPartition(client, idx),
+        retry_time_ms_(kUUIDReadRetryTimeInMsec) {
+    }
+
+    virtual int UUIDRetryTimeInMSec(const UUIDCacheEntry *obj) const {
+        return retry_time_ms_;
+    }
+
+    void SetRetryTimeInMSec(int time) {
+        retry_time_ms_ = time;
+    }
+
+    uint32_t GetUUIDReadRetryCount(string &uuid) {
+        string uuid_key = uuid.substr(uuid.rfind('/') + 1);
+        const UUIDCacheEntry *obj = GetUUIDCacheEntry(uuid_key);
+        if (obj)
+            return (obj->GetRetryCount());
+        return 0;
+    }
+
+    void RestartTimer(UUIDCacheEntry *obj, string &uuid, 
+                      string &value) {
+        obj->GetRetryTimer()->Cancel();
+        obj->GetRetryTimer()->Start(10,
+                boost::bind(
+                        &ConfigEtcdPartition::UUIDCacheEntry::
+                        EtcdReadRetryTimerExpired,
+                        obj, uuid, value),
+                boost::bind(
+                        &ConfigEtcdPartition::UUIDCacheEntry::
+                        EtcdReadRetryTimerErrorHandler,
+                        obj));
+    }
+
+    void FireUUIDReadRetryTimer(string &uuid, string &value) {
+        string uuid_key = uuid.substr(uuid.rfind('/') + 1);
+        UUIDCacheEntry *obj = GetUUIDCacheEntry(uuid_key);
+        if (obj) {
+            if (obj->IsRetryTimerCreated()) {
+                RestartTimer(obj, uuid, value);
+            }
+        }
+    }
+
+private:
+    int retry_time_ms_;
+};
+
 class ConfigEtcdJsonParserTest : public ::testing::Test {
 public:
     void ValidateObjCacheResponse(Sandesh *sandesh,
@@ -268,6 +320,47 @@ protected:
 
     void FeedEventsJson() {
         config_etcd_client_->FeedEventsJson();
+    }
+
+    string GetJsonValue(const string &uuid) {
+        string val = config_etcd_client_->GetJsonValue(uuid);
+        return val;
+    }
+
+    ConfigEtcdPartitionTest *GetConfigEtcdPartition(
+            string &uuid) {
+        ConfigEtcdClientTest *config_etcd_client =
+            dynamic_cast<ConfigEtcdClientTest *>(
+                    config_client_manager_.get()->config_db_client());
+        return(dynamic_cast<ConfigEtcdPartitionTest *>
+                (config_etcd_client->GetPartition(uuid)));
+    }
+
+    int GetConfigEtcdPartitionInstanceId(string &uuid) {
+        ConfigEtcdClientTest *config_etcd_client =
+            dynamic_cast<ConfigEtcdClientTest *>(
+                    config_client_manager_.get()->config_db_client());
+        return(config_etcd_client->GetPartition(uuid)->GetInstanceId());
+    }
+
+    uint32_t GetConfigEtcdPartitionUUIDReadRetryCount(string uuid) {
+        ConfigEtcdClientTest *config_etcd_client =
+            dynamic_cast<ConfigEtcdClientTest *>(
+                    config_client_manager_.get()->config_db_client());
+        ConfigEtcdPartitionTest *config_etcd_partition =
+            dynamic_cast<ConfigEtcdPartitionTest *>(
+                    config_etcd_client->GetPartition(uuid));
+        return(config_etcd_partition->GetUUIDReadRetryCount(uuid));
+    }
+
+    void SetUUIDRetryTimeInMSec(string uuid, int time) {
+        ConfigEtcdClientTest *config_etcd_client =
+            dynamic_cast<ConfigEtcdClientTest *>(
+                    config_client_manager_.get()->config_db_client());
+        ConfigEtcdPartitionTest *config_etcd_partition =
+            dynamic_cast<ConfigEtcdPartitionTest *>(
+                    config_etcd_client->GetPartition(uuid));
+        config_etcd_partition->SetRetryTimeInMSec(time);
     }
 
     EventManager evm_;
@@ -983,12 +1076,903 @@ TEST_F(ConfigEtcdJsonParserTest, ServerParser4InParts) {
                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
 }
 
+// In a single message:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties
+// 2) delete vr, then link(vr,vm)
+// The vr should disappear and vm should continue to live
+TEST_F(ConfigEtcdJsonParserTest, ServerParser6) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test6.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In 2 separate messages:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties
+// 2) delete vr, then link(vr,vm)
+// The vr should disappear and vm should continue to live
+// Same as ServerParser6 except that the various operations are happening in
+// separate messages.
+TEST_F(ConfigEtcdJsonParserTest, ServerParser6InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test6_p1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(NodeLookup("virtual-router", "vr1"),
+                NodeLookup("virtual-machine", "vm1"),
+                "virtual-router-virtual-machine") != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In a single message:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties
+// 2) delete vr, then link(vr,vm)
+// 3) add vr-with-properties
+// Both vr and vm nodes should continue to live
+TEST_F(ConfigEtcdJsonParserTest, ServerParser7) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test7.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(NodeLookup("virtual-router", "vr1"),
+                NodeLookup("virtual-machine", "vm1"),
+                "virtual-router-virtual-machine") == NULL);
+}
+
+// In 3 separate messages:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties
+// 2) delete vr and link(vr,vm)
+// 3) add vr-with-properties
+// Both vr and vm nodes should continue to live
+// Same as ServerParser7 except that the various operations are happening in
+// separate messages.
+TEST_F(ConfigEtcdJsonParserTest, ServerParser7InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test7_p1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") == NULL);
+}
+
+// In a single message:
+// 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
+// 2) delete link(vr,vm)
+// 3) add link(vr,vm)
+// Both vr and vm nodes should continue to live
+TEST_F(ConfigEtcdJsonParserTest, ServerParser9) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test9.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+}
+
+// In 3 separate messages:
+// 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
+// 2) delete link(vr,vm)
+// 3) add link(vr,vm)
+// Both vr and vm nodes should continue to live
+// Same as ServerParser9 except that the various operations are happening in
+// separate messages.
+TEST_F(ConfigEtcdJsonParserTest, ServerParser9InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test9_p1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") == NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In a single message:
+// 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
+// 2) delete link(vr,vm), then delete vr
+// The vr should disappear and vm should continue to live
+// Similar to ServerParser6, except that in step2, we delete link and then vr
+TEST_F(ConfigEtcdJsonParserTest, ServerParser10) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test10.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In 2 separate messages:
+// 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
+// 2) delete link(vr,vm), then delete vr
+// The vr should disappear and vm should continue to live
+// Similar to ServerParser6, except that in step2, we delete link and then vr
+// Same as ServerParser10 except that the various operations are happening in
+// separate messages.
+TEST_F(ConfigEtcdJsonParserTest, ServerParser10InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test10_p1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In a single message:
+// 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
+// 2) delete link(vr,vm), then delete vr
+// 3) add link(vr,vm)
+// vm nodes should continue to live but not vr
+TEST_F(ConfigEtcdJsonParserTest, ServerParser11) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test11.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In 3 separate messages:
+// 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
+// 2) delete link(vr,vm), then delete vr
+// 3) add link(vr,vm)
+// vm nodes should continue to live but not vr
+TEST_F(ConfigEtcdJsonParserTest, ServerParser11InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test11_p1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    // vr1 should not have any object
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In a single message:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete link(vr,vm), then link(vr,gsc)
+TEST_F(ConfigEtcdJsonParserTest, DISABLED_ServerParser13) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test13.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("global-system-config", "gsc"),
+        "global-system-config-virtual-router") == NULL);
+}
+
+// In a single message:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete gsc, then link(vr,gsc)
+TEST_F(ConfigEtcdJsonParserTest, DISABLED_ServerParser14) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test14.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+}
+
+// In 3 separate messages:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete gsc, then link(vr,gsc)
+TEST_F(ConfigEtcdJsonParserTest, DISABLED_ServerParser14InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    // Using datafile from test13_p1
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test14_p1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+
+    // Using datafile from test13_p2
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("global-system-config", "gsc"),
+        "global-system-config-virtual-router") != NULL);
+
+    // Need new datafile for step 3
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+}
+
+// In a single message:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete vr
+TEST_F(ConfigEtcdJsonParserTest, ServerParser15) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test15.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    // Object should not exist
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+}
+
+// In a single message:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete link(vr,gsc), then delete gsc, then delete vr
+TEST_F(ConfigEtcdJsonParserTest, ServerParser16) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test16.json");
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    // Object should not exist
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
+// In 3 separate messages:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete link(vr,gsc), then delete gsc, then delete vr
+TEST_F(ConfigEtcdJsonParserTest, ServerParser16InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    // Using datafile from test13_p1
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test16_p1.json");
+    FeedEventsJson();
+    FeedEventsJson();
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "gsc:vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+
+    // Using datafile from test13_p2
+    FeedEventsJson();
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "gsc:vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("global-system-config", "gsc"),
+        NodeLookup("virtual-router", "gsc:vr1"),
+                   "global-system-config-virtual-router") != NULL);
+
+    // Need new datafile for step 3
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
+// Verify out of order add sequence for ref and parent
+// In 3 separate messages:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete link(vr,gsc), then delete gsc, then delete vr
+TEST_F(ConfigEtcdJsonParserTest, ServerParser17InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test16_p2.json");
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    string uuid = "/UPDATE/virtual_router/8c5eeb87-0b08-4724-b53f-0a0368055374";
+    string value = GetJsonValue(uuid);
+    SetUUIDRetryTimeInMSec(uuid, 100);
+    task_util::TaskFire(boost::bind(
+                &ConfigEtcdPartitionTest::FireUUIDReadRetryTimer,
+                GetConfigEtcdPartition(uuid), uuid, value),
+                "etcd::Reader",
+                GetConfigEtcdPartitionInstanceId(uuid));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, GetConfigEtcdPartitionUUIDReadRetryCount(uuid));
+    FeedEventsJson();
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetConfigEtcdPartitionUUIDReadRetryCount(uuid));
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "gsc:vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("global-system-config", "gsc"),
+        NodeLookup("virtual-router", "gsc:vr1"),
+                   "global-system-config-virtual-router") != NULL);
+
+    FeedEventsJson();
+    FeedEventsJson();
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
+// Verify out of order delete sequence for ref and parent
+TEST_F(ConfigEtcdJsonParserTest, ServerParser18InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test18.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "gsc:vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("global-system-config", "gsc"),
+        NodeLookup("virtual-router", "gsc:vr1"),
+                   "global-system-config-virtual-router") != NULL);
+
+    FeedEventsJson();
+    FeedEventsJson();
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
+// Verify that Draft objects are ignored
+TEST_F(ConfigEtcdJsonParserTest, ServerParserDraftObject) {
+    IFMapTable *pmtable = IFMapTable::FindTable(&db_, "policy-management");
+    TASK_UTIL_EXPECT_EQ(0, pmtable->Size());
+    IFMapTable *frtable = IFMapTable::FindTable(&db_, "firewall-rule");
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test19.json");
+    // Create the firewall-rule draft object with draft-mode-state 'created',
+    //  draft-policy-management and normal-policy-management objects.
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "draft-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4") ==
+        NULL);
+    TASK_UTIL_EXPECT_EQ(2, pmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "draft-policy-management") != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "draft-policy-management")->Find(
+        IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "normal-policy-management") != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "normal-policy-management")->Find(
+        IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Update the firewall-rule draft object with draft-mode-state "updated".
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "draft-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4") ==
+        NULL);
+
+    // Delete the firewall-rule draft object and re-add as normal object with
+    // a new parent, giving it a new FQName.
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("firewall-rule",
+        "normal-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4")
+        != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "normal-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4")->Find(
+        IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Delete the policy management objects and firewall-rule object.
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, pmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "draft-policy-management") == NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("policy-management", "normal-policy-management") == NULL);
+    TASK_UTIL_EXPECT_EQ(0, frtable->Size());
+    TASK_UTIL_EXPECT_TRUE(
+        NodeLookup("firewall-rule",
+        "normal-policy-management:3438e2fa-bfcd-4745-bd58-52713ae27ac4") ==
+        NULL);
+}
+
+// Validate the handling of object without type field
+// Steps:
+// 1. Add the VM object
+// 2. Delete the VM object
+// 3. Update the VM object without type field
+//
+TEST_F(ConfigEtcdJsonParserTest, MissingTypeField) {
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/etcd_server_parser_test17.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Delete the VM entry and send VM entry update with missing type field
+    FeedEventsJson();
+
+    // Verify that VM object is gone
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+}
+
+// Validate the handling of object without fq-name field
+// Steps:
+// 1. Add the VM object
+// 2. Update the VM object without fq-name field
+// 3. Delete the VM object
+//
+TEST_F(ConfigEtcdJsonParserTest, MissingFQNameField) {
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/etcd_server_parser_test17_1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Update the VM entry with missing fq-name field
+    FeedEventsJson();
+
+    // Verify that VM object is gone
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+
+    // Delete the VM entry
+    FeedEventsJson();
+
+    // Verify that delete of VM object which was assumed to be deleted is
+    // handled well!!
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigFactory::Register<ConfigEtcdClient>(
         boost::factory<ConfigEtcdClientTest *>());
+    ConfigFactory::Register<ConfigEtcdPartition>(
+        boost::factory<ConfigEtcdPartitionTest *>());
     ConfigFactory::Register<etcd::etcdql::EtcdIf>(
         boost::factory<EqlIfTest *>());
     ConfigFactory::Register<ConfigJsonParserBase>(
