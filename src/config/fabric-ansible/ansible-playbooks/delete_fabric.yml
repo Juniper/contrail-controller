@@ -46,11 +46,11 @@
 
         - name: Set DHCP connection to local if DHCP server is on localhost
           set_fact:
-            dhcp_connection: "{{ 'local' if DHCP_SERVER == 'localhost' else 'ssh' }}"
+            dhcp_connection: "{{ 'local' if (DHCP_SERVER == 'localhost' or DHCP_SERVER == \"\") else 'ssh' }}"
 
         - name: Set TFTP connection to local if TFTP server is on localhost
           set_fact:
-            tftp_connection: "{{ 'local' if TFTP_SERVER == 'localhost' else 'ssh' }}"
+            tftp_connection: "{{ 'local' if (TFTP_SERVER == 'localhost' or TFTP_SERVER == \"\") else 'ssh' }}"
       rescue:
         - include_tasks: error_handler.yml
           vars:
