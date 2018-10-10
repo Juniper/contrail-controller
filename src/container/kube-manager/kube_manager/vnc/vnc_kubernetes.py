@@ -92,6 +92,12 @@ class VncKubernetes(VncCommon):
                 flow_aging_manager.create_flow_aging_timeout_entry(
                     self.vnc_lib, "tcp", self.args.rabbit_port, 2147483647)
 
+            if self.args.notification_driver == "etcd":
+                for server in self.args.etcd_server_list:
+                    etcd_port = server.split(':')[-1]
+                    flow_aging_manager.create_flow_aging_timeout_entry(
+                        self.vnc_lib, "tcp", etcd_port, 2147483647)
+
             if self.args.vnc_endpoint_port:
                 flow_aging_manager.create_flow_aging_timeout_entry(
                     self.vnc_lib, "tcp", self.args.vnc_endpoint_port, 2147483647)
@@ -112,12 +118,18 @@ class VncKubernetes(VncCommon):
         # sync api server db in local cache
         self._sync_km()
 
-        # init rabbit connection
-        rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
-        self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
-            REACTION_MAP, 'kube_manager', rabbitmq_cfg)
-        self.rabbit.establish()
-        self.rabbit._db_resync_done.set()
+        # init notifier connection
+        if self.args.notification_driver == "etcd":
+            etcd_cfg = kube_args.etcd_args(self.args)
+            self.notifier = VncEtcdWatchHandle(self.logger._sandesh, self.logger, DBBaseKM,
+                                          REACTION_MAP, 'kube_manager', etcd_cfg)
+        else:
+            rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
+            self.notifier = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
+                                          REACTION_MAP, 'kube_manager', rabbitmq_cfg)
+        self.notifier.establish()
+        self.notifier._db_resync_done.set()
+
 
         # Register label add and delete callbacks with label management entity.
         XLabelCache.register_label_add_callback(VncKubernetes.create_tags)

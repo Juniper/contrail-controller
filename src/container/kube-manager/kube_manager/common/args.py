@@ -110,6 +110,7 @@ def parse_args(args_str=None):
         'cassandra_user': None,
         'cassandra_password': None,
         'cassandra_server_list': '',
+        'notification_driver': 'rabbit',
         'etcd_user': None,
         'etcd_password': None,
         'etcd_server': '127.0.0.1',
@@ -215,6 +216,20 @@ def rabbitmq_args(args):
         'ssl_keyfile': args.kombu_ssl_keyfile,
         'ssl_certfile': args.kombu_ssl_certfile,
         'ssl_ca_certs': args.kombu_ssl_ca_certs
+    }
+
+def etcd_args(args):
+    return {
+        'servers': [server.split(":")[0] for server in args.etcd_server_list],
+        'port': args.etcd_server_list[0].split(":")[-1],
+        'user': args.etcd_user, 'password': args.etcd_password,
+        'etcd_prefix': args.etcd_prefix
+        # 'vhost': args.etcd_vhost, 'ha_mode': args.etcd_ha_mode,
+        # 'use_ssl': args.etcd_use_ssl,
+        # 'ssl_version': args.kombu_ssl_version,
+        # 'ssl_keyfile': args.kombu_ssl_keyfile,
+        # 'ssl_certfile': args.kombu_ssl_certfile,
+        # 'ssl_ca_certs': args.kombu_ssl_ca_certs
     }
 
 def validate_mandatory_args(args):

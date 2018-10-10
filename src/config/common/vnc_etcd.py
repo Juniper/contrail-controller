@@ -1,17 +1,31 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+import gevent
+gevent.monkey.patch_all()
+
 import datetime
 import json
+import uuid
+import signal
+
+import utils
+
+from vnc_amqp import VncAmqpHandle
 
 import etcd3
-import utils
-from cfgm_common.exceptions import NoIdError
-
+from etcd3.client import KVMetadata
 from vnc_api import vnc_api
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from cfgm_common import vnc_greenlets
+try:
+    from gevent.lock import Semaphore
+except ImportError:
+    # older versions of gevent
+    from gevent.coros import Semaphore
 
 
 class VncEtcdClient(object):
@@ -44,6 +58,219 @@ class VncEtcdClient(object):
         self._conn_state = ConnectionStatus.UP
         return client
 
+
+def gen_request_id():
+    return "req-%s" % uuid.uuid4()
+
+
+class VncEtcdWatchHandle(VncAmqpHandle):
+    def __init__(self, sandesh, logger, db_cls, reaction_map, q_name_prefix,
+                 notifier_cfg, trace_file=None, timer_obj=None):
+        self._etcd_cfg = notifier_cfg
+        super(VncEtcdWatchHandle, self).__init__(sandesh, logger, db_cls, reaction_map, q_name_prefix, rabbitmq_cfg=None, trace_file=trace_file, timer_obj=timer_obj)
+
+    def establish(self):
+        self._vnc_etcd_watcher = VncEtcdWatchClient(
+                self._etcd_cfg['servers'], self._etcd_cfg['port'],
+                self._etcd_cfg['user'], self._etcd_cfg['password'],
+                self._etcd_cfg['vhost'], self._etcd_cfg['ha_mode'],
+                self.etcd_path_prefix, self._etcd_callback_wrapper,
+                self.logger.log)
+
+    def _etcd_callback_wrapper(self, event):
+        common_msg = self._parse_event(event)
+        self._vnc_subscribe_callback(common_msg)
+
+    def _parse_event(self, event):
+        obj_dict = json.loads(event.value)
+        msg = {k:obj_dict[k] for k in ("type", "uuid", "fq_name")}
+        oper = self._get_oper(event)
+        if oper == "CREATE":
+            msg["obj_dict"] = obj_dict
+        msg["oper"] = oper
+        msg["request_id"] = gen_request_id()
+
+        return msg
+
+    @staticmethod
+    def _get_oper(event):
+        e = event._event
+        oper_name = e.EventType.DESCRIPTOR.values_by_number[e.type].name
+        if oper_name == "PUT":
+            if KVMetadata(e.kv, None).version == 1:
+                return "CREATE"
+            return "UPDATE"
+        return "DELETE"
+
+    def close(self):
+        self._vnc_etcd_watcher.shutdown()
+
+
+class VncEtcdWatchClient(VncEtcdClient):
+    def __init__(self, host, port, credential, ssl_enabled, ca_certs, prefix, subscribe_cb, logger, heartbeat_seconds=0):
+        self.key_prefix = prefix
+        self.subscribe_cb = subscribe_cb
+        self._logger = logger
+
+        self._conn_lock = Semaphore()
+        self._heartbeat_seconds = heartbeat_seconds
+        self._cancel = None
+
+        super(VncEtcdWatchClient, self).__init__(host, port, credential, ssl_enabled, ca_certs)
+
+        gevent.signal(signal.SIGTERM, self.sigterm_handler)
+        self._start(self.key_prefix)
+
+    def _update_sandesh_status(self, status, msg=''):
+        ConnectionState.update(conn_type=ConnType.DATABASE,
+                               name='etcd', status=status, message=msg,
+                               server_addrs=["{}:{}".format(self.host, self._port)])
+
+    def publish(self, message):
+        raise NotImplementedError
+
+    def sigterm_handler(self):
+        self.shutdown()
+        exit()
+
+    def num_pending_messages(self):
+        raise NotImplementedError
+        # return self._publish_queue.qsize()
+
+    # def prepare_to_consume(self):
+    #     # override this method
+    #     return
+
+    def _reconnect(self):
+        if self._conn_lock.locked():
+            # either connection-monitor or publisher should have taken
+            # the lock. The one who acquired the lock would re-establish
+            # the connection and releases the lock, so the other one can
+            # just wait on the lock, till it gets released
+            self._conn_lock.wait()
+            if self._conn_state == ConnectionStatus.UP:
+                return
+
+        with self._conn_lock:
+            msg = "etcd connection DOWN"
+            self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+            self._update_sandesh_status(ConnectionStatus.DOWN)
+            self._conn_state = ConnectionStatus.DOWN
+
+            self._client.close()
+            if self._cancel is not None:
+                self._cancel()
+                self._cancel = None
+                self._consumer = None
+
+            self._client = self._new_client()
+
+            self._update_sandesh_status(ConnectionStatus.UP)
+            self._conn_state = ConnectionStatus.UP
+            msg = 'etcd connection ESTABLISHED %s' % repr(self._client)
+            self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+
+            self._consumer, self._cancel = self._client.watch_prefix(self.key_prefix)
+
+
+    def _connection_watch(self, connected):
+        if not connected:
+            self._reconnect()
+
+        while True:
+            try:
+                self.subscribe_cb(self._consumer.next())
+                # self._conn.drain_events()
+            except: # self._conn.connection_errors + self._conn.channel_errors as e:
+                self._reconnect()
+
+    def _connection_watch_forever(self):
+        connected = True
+        while True:
+            try:
+                self._connection_watch(connected)
+            except Exception as e:
+                msg = 'Error in etcd drainer greenlet: %s' % (str(e))
+                self._logger(msg, level=SandeshLevel.SYS_ERR)
+                # avoid 'reconnect()' here as that itself might cause exception
+                connected = False
+
+    # end _connection_watch_forever
+
+    def _connection_heartbeat(self):
+        while True:
+            try:
+                if self._conn.connected:
+                    self._conn.heartbeat_check()
+            except Exception as e:
+                msg = 'Error in etcd heartbeat greenlet: %s' % (str(e))
+                self._logger(msg, level=SandeshLevel.SYS_ERR)
+            finally:
+                gevent.sleep(float(self._heartbeat_seconds / 2))
+
+    def _start(self, client_name):
+        self._reconnect()
+
+        self._connection_monitor_greenlet = vnc_greenlets.VncGreenlet(
+            'etcd_ ' + client_name + '_ConnMon',
+            self._connection_watch_forever)
+        if self._heartbeat_seconds:
+            self._connection_heartbeat_greenlet = vnc_greenlets.VncGreenlet(
+                'etcd_ ' + client_name + '_ConnHeartBeat',
+                self._connection_heartbeat)
+        else:
+            self._connection_heartbeat_greenlet = None
+
+    def greenlets(self):
+        ret = [self._connection_monitor_greenlet]
+        if self._connection_heartbeat_greenlet:
+            ret.append(self._connection_heartbeat_greenlet)
+        return ret
+
+    def shutdown(self):
+        self._connection_monitor_greenlet.kill()
+        if self._connection_heartbeat_greenlet:
+            self._connection_heartbeat_greenlet.kill()
+        if self._consumer:
+            self._cancel()
+        self._client.close()
+
+    def reset(self):
+        # self._publish_queue = Queue()
+        raise NotImplementedError
+
+    # _SSL_PROTOCOLS = {
+    #     "tlsv1": ssl.PROTOCOL_TLSv1,
+    #     "sslv23": ssl.PROTOCOL_SSLv23
+    # }
+    #
+    # @classmethod
+    # def validate_ssl_version(cls, version):
+    #     version = version.lower()
+    #     try:
+    #         return cls._SSL_PROTOCOLS[version]
+    #     except KeyError:
+    #         raise RuntimeError('Invalid SSL version: {}'.format(version))
+    #
+    # def _fetch_ssl_params(self, **kwargs):
+    #     if strtobool(str(kwargs.get('rabbit_use_ssl', False))):
+    #         ssl_params = dict()
+    #         ssl_version = kwargs.get('kombu_ssl_version', '')
+    #         keyfile = kwargs.get('kombu_ssl_keyfile', '')
+    #         certfile = kwargs.get('kombu_ssl_certfile', '')
+    #         ca_certs = kwargs.get('kombu_ssl_ca_certs', '')
+    #         if ssl_version:
+    #             ssl_params.update({'ssl_version':
+    #                                    self.validate_ssl_version(ssl_version)})
+    #         if keyfile:
+    #             ssl_params.update({'keyfile': keyfile})
+    #         if certfile:
+    #             ssl_params.update({'certfile': certfile})
+    #         if ca_certs:
+    #             ssl_params.update({'ca_certs': ca_certs})
+    #             ssl_params.update({'cert_reqs': ssl.CERT_REQUIRED})
+    #         return ssl_params or True
+    #     return False
 
 class VncEtcd(VncEtcdClient):
     def __init__(self, host, port, prefix, logger=None,
