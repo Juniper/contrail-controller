@@ -50,9 +50,7 @@ class JobHandler(object):
         super(JobHandler, self).__init__()
     # end __init__
 
-    def push(self, timeout=15, max_retries=20):
-        self._logger.info("job handler: push for (%s, %s): " %
-                          (self._device_list, str(self._job_type)))
+    def push(self, timeout=10, max_retries=30):
         self._job_status = JobStatus.IN_PROGRESS
         try:
             self._logger.debug("job handler: executing job for (%s, %s): " %
