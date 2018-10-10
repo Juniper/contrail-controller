@@ -93,7 +93,7 @@ class TestJobHandler(unittest.TestCase):
         self.post_mock.side_effect = side_effect
 
         self.assertEqual(self.job_handler.get_job_status(), JobStatus.INIT)
-        self.job_handler.push()
+        self.job_handler.push(timeout=self.TIMEOUT)
 
         self.vnc_api.execute_job.assert_called_with(
             job_template_fq_name=self.job_type,
@@ -189,5 +189,5 @@ class TestJobHandler(unittest.TestCase):
         self.assertEqual(self.sleep_mock.call_args_list,
                          [mock.call(self.TIMEOUT),
                           mock.call(self.TIMEOUT)])
-    # end test_job_stays_in_progress_then_completes
+    # end test_max_retries_done
 # end class TestJobHandler
