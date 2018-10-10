@@ -21,6 +21,7 @@ sys.setdefaultencoding('UTF8')
 import functools
 import logging
 import logging.config
+import itertools
 import signal
 import netaddr
 import os
@@ -758,7 +759,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(404, result)
 
         if not self.is_admin_request():
-            result = self.obj_view(resource_type, result)
+            self.obj_view(resource_type, result)
 
         (ok, err_msg) = r_class.post_dbe_read(result, db_conn)
         if not ok:
@@ -769,7 +770,7 @@ class VncApiServer(object):
         rsp_body['uuid'] = id
         rsp_body['name'] = result['fq_name'][-1]
         if 'exclude_hrefs' not in get_request().query:
-            result = self.generate_hrefs(resource_type, result)
+            self.generate_hrefs(resource_type, result)
         rsp_body.update(result)
         id_perms = result['id_perms']
         bottle.response.set_header('ETag', '"' + id_perms['last_modified'] + '"')
@@ -783,25 +784,33 @@ class VncApiServer(object):
     # end http_resource_read
 
     # filter object references based on permissions
-    def obj_view(self, resource_type, obj_dict):
-        ret_obj_dict = {}
-        ret_obj_dict.update(obj_dict)
-
+    def obj_view(self, resource_type, obj_dict, ref_perms=None):
         r_class = self.get_resource_class(resource_type)
         obj_links = r_class.obj_links & set(obj_dict.keys())
-        obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
-        obj_dicts = self._db_conn._cassandra_db.object_raw_read(obj_uuids, ["id_perms", "perms2"])
-        uuid_to_dict = {obj_dict['uuid']: obj_dict for obj_dict in obj_dicts}
+
+        if not ref_perms:
+            if self.is_rbac_enabled():
+                fields = ['perms2']
+            else:
+                fields = ['id_perms']
+            ref_uuids = {ref['uuid'] for link in obj_links
+                         for ref in obj_dict[link]}
+            ref_perms = {obj_dict['uuid']: obj_dict for obj_dict in
+                         self._db_conn._object_db.object_raw_read(
+                             resource_type, ref_uuids,fields)}
 
         for link_field in obj_links:
             links = obj_dict[link_field]
-
-            # build new links in returned dict based on permissions on linked object
-            ret_obj_dict[link_field] = [l for l in links
-                if ((l['uuid'] in uuid_to_dict) and
-                    (self._permissions.check_perms_read(get_request(),
-                    l['uuid'], uuid_to_dict[l['uuid']])[0] == True))]
-        return ret_obj_dict
+            # build new links in returned dict based on permissions on linked
+            # object
+            for link in obj_dict[link_field]:
+                if (link['uuid'] not in ref_perms or
+                        not self._permissions.check_perms_read(
+                            get_request(),
+                            link['uuid'],
+                            ref_perms[link['uuid']])[0]):
+                    obj_dict[link_field].remove(link)
+    # end obj_view
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
@@ -3365,7 +3374,7 @@ class VncApiServer(object):
                             except KeyError:
                                 pass
 
-                        obj_dict = self.obj_view(resource_type, obj_dict)
+                        self.obj_view(resource_type, obj_dict)
                         obj_dicts.append(obj_dict)
             else: # admin
                 obj_results = {}
@@ -3411,7 +3420,18 @@ class VncApiServer(object):
                 if not exclude_hrefs:
                     obj_result = self.generate_hrefs(resource_type, obj_result)
                 if not self.is_admin_request():
-                    obj_result = self.obj_view(resource_type, obj_result)
+                    ref_uuids = {ref['uuid'] for link in r_class.obj_links
+                                 for o in result for ref in o.get(link, [])}
+                    if self.is_rbac_enabled():
+                        fields = ['perms2']
+                    else:
+                        fields = ['id_perms']
+                    ref_dicts = self._db_conn._object_db.object_raw_read(
+                        resource_type, list(ref_uuids), fields)
+                    ref_perms = {obj_dict['uuid']: obj_dict
+                                for obj_dict in ref_dicts}
+                    self.obj_view(resource_type, obj_result, ref_perms)
+
                 obj_dict.update(obj_result)
                 if 'id_perms' not in obj_dict:
                     # It is possible that the object was deleted, but received
@@ -3451,60 +3471,28 @@ class VncApiServer(object):
     def generate_hrefs(self, resource_type, obj_dict):
         # return a copy of obj_dict with href keys for:
         # self, parent, children, refs, backrefs
-        # don't update obj_dict as it may be cached object
         r_class = self.get_resource_class(resource_type)
 
-        ret_obj_dict = obj_dict.copy()
-        ret_obj_dict['href'] = self.generate_url(
-            resource_type, obj_dict['uuid'])
+        obj_dict['href'] = self.generate_url(resource_type, obj_dict['uuid'])
 
         try:
-            ret_obj_dict['parent_href'] = self.generate_url(
+            obj_dict['parent_href'] = self.generate_url(
                 obj_dict['parent_type'], obj_dict['parent_uuid'])
         except KeyError:
             # No parent
             pass
 
-        for child_field, child_field_info in \
-                r_class.children_field_types.items():
+        for field, field_info in itertools.chain(
+                    r_class.children_field_types.items(),
+                    r_class.ref_field_types.items(),
+                    r_class.backref_field_types.items(),
+                ):
             try:
-                children = obj_dict[child_field]
-                child_type = child_field_info[0]
-                ret_obj_dict[child_field] = [
-                    dict(c, href=self.generate_url(child_type, c['uuid']))
-                    for c in children]
+                type = field_info[0]
+                for link in obj_dict[field]:
+                    link['href'] = self.generate_url(type, link['uuid'])
             except KeyError:
-                # child_field doesn't exist in original
                 pass
-        # end for all child fields
-
-        for ref_field, ref_field_info in r_class.ref_field_types.items():
-            try:
-                refs = obj_dict[ref_field]
-                ref_type = ref_field_info[0]
-                ret_obj_dict[ref_field] = [
-                    dict(r, href=self.generate_url(ref_type, r['uuid']))
-                    for r in refs]
-            except KeyError:
-                # ref_field doesn't exist in original
-                pass
-        # end for all ref fields
-
-        for backref_field, backref_field_info in \
-                r_class.backref_field_types.items():
-            try:
-                backrefs = obj_dict[backref_field]
-                backref_type = backref_field_info[0]
-                ret_obj_dict[backref_field] = [
-                    dict(b, href=self.generate_url(backref_type, b['uuid']))
-                    for b in backrefs]
-            except KeyError:
-                # backref_field doesn't exist in original
-                pass
-        # end for all backref fields
-
-        return ret_obj_dict
-    # end generate_hrefs
 
     def config_object_error(self, id, fq_name_str, obj_type,
                             operation, err_str):
