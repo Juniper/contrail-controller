@@ -274,6 +274,7 @@ class VncPod(VncCommon):
         display_name = VncCommon.make_display_name(pod_namespace, pod_name)
         vm_obj = VirtualMachine(name=vm_name, display_name=display_name)
         vm_obj.uuid = pod_id
+        vm_obj.set_server_type("container")
 
         VirtualMachineKM.add_annotations(self, vm_obj, pod_namespace, pod_name,
                                          k8s_uuid=str(pod_id),
