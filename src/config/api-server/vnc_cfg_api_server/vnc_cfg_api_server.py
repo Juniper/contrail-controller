@@ -616,6 +616,33 @@ class VncApiServer(object):
             if self._job_mgr_statitics.get('number_processess_running') < \
                     self._job_mgr_statitics.get('max_number_processes'):
 
+                if not self._config_node_list:
+                    (ok, cfg_node_list, _) = self._db_conn.dbe_list(
+                        'config_node', field_names=['config_node_ip_address'])
+                    if not ok:
+                        (code, err_msg) = cfg_node_list
+                        raise cfgm_common.exceptions.HttpError(code, err_msg)
+                    if not cfg_node_list:
+                        err_msg = "Config-Node list empty"
+                        raise cfgm_common.exceptions.HttpError(404, err_msg)
+                    for node in cfg_node_list:
+                        self._config_node_list.append(node.get(
+                            'config_node_ip_address'))
+
+                if not self._analytics_node_list:
+                    (ok, alytics_node_list, _) = self._db_conn.dbe_list(
+                        'analytics_node', field_names=[
+                            'analytics_node_ip_address'])
+                    if not ok:
+                        (code, err_msg) = alytics_node_list
+                        raise cfgm_common.exceptions.HttpError(code, err_msg)
+                    if not alytics_node_list:
+                        err_msg = "Analytic-Node list empty"
+                        raise cfgm_common.exceptions.HttpError(404, err_msg)
+                    for node in alytics_node_list:
+                        self._analytics_node_list.append(node.get(
+                            'analytics_node_ip_address'))
+
                 request_params = get_request().json
                 msg = "Job Input %s " % json.dumps(request_params)
                 self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
@@ -2252,6 +2279,8 @@ class VncApiServer(object):
         # map of running job instances. Key is the pid and value is job
         # instance info
         self._job_mgr_running_instances = {}
+        self._config_node_list = []
+        self._analytics_node_list = []
         #number of processes spawned at any time
         self._job_mgr_statitics = {'max_number_processes': self._args.max_job_mgr_processes,
                                    'number_processess_running': 0}
