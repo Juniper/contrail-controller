@@ -122,7 +122,7 @@ public:
     virtual ~EvpnLocalMcastNode();
 
     virtual void TriggerUpdate();
-    UpdateInfo *GetUpdateInfo();
+    UpdateInfo *GetUpdateInfo(EvpnRoute *route);
     EvpnRoute *inclusive_mcast_route() { return inclusive_mcast_route_; }
 
 private:
@@ -403,6 +403,15 @@ public:
     const EvpnMcastNodeList &leaf_node_list() const {
         return leaf_node_list_;
     }
+    EvpnMcastNodeList &remote_mcast_node_list() {
+        return remote_mcast_node_list_;
+    }
+    EvpnMcastNodeList &local_mcast_node_list() {
+        return local_mcast_node_list_;
+    }
+    EvpnMcastNodeList &leaf_node_list() {
+        return leaf_node_list_;
+    }
     BgpServer *server();
     const EvpnTable *table() const;
     size_t part_id() const { return part_id_; }
@@ -417,8 +426,6 @@ private:
     void DisableMacUpdateProcessing();
     void EnableMacUpdateProcessing();
 
-    //EvpnStatePtr GetState(EvpnRoute *route);
-    //EvpnStatePtr GetState(EvpnRoute *route) const;
     EvpnStatePtr GetState(const SG &sg);
     EvpnStatePtr GetState(const SG &sg) const;
     EvpnStatePtr GetState(EvpnRoute *route);
