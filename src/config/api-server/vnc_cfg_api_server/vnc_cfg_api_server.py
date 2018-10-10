@@ -438,7 +438,8 @@ class VncApiServer(object):
                         ]
                     }
 
-                    url = "http://" + analytics_node_ip + "/analytics/query"
+                    url = "http://" + analytics_node_ip + \
+                          ":8081/analytics/query"
 
                     resp = requests.post(url, json=jobObjLog_payload)
                     if resp.status_code == 200:
@@ -513,7 +514,8 @@ class VncApiServer(object):
                         ]
                     }
 
-                    url = "http://" + analytics_node_ip + "/analytics/query"
+                    url = "http://" + analytics_node_ip + \
+                          ":8081/analytics/query"
 
                     resp = requests.post(url, json=payload)
                     if resp.status_code == 200:
