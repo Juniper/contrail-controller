@@ -294,7 +294,7 @@ class JobHandler(object):
                 ]
             ]
         }
-        url = "http://" + analytics_node_ip + "/analytics/query"
+        url = "http://" + analytics_node_ip + ":8081/analytics/query"
 
         resp = requests.post(url, json=payload)
         if resp.status_code == 200:
