@@ -3,9 +3,11 @@
 #
 import datetime
 import json
+import uuid
 from functools import wraps
 
 import etcd3
+from etcd3.client import KVMetadata
 import time
 import utils
 from cfgm_common.exceptions import DatabaseUnavailableError, NoIdError, VncError
@@ -15,8 +17,30 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
+from cfgm_common import vnc_greenlets
+from cfgm_common.vnc_amqp import VncAmqpHandle
+
 from vnc_api import vnc_api
 
+def etcd_args(args):
+    host, port = args.etcd_server.split(":")
+    vnc_db = {
+        'host': host,
+        'port': port,
+        'prefix': args.etcd_prefix,
+    }
+    if args.etcd_user and args.etcd_password:
+        credentials = {'user': args.etcd_user,
+                       'password': args.etcd_password}
+
+        if args.ssl_enabled:
+            credentials['ca_cert'] = args.etcd_ssl_ca_cert
+            credentials['cert_key'] = args.etcd_ssl_keyfile
+            credentials['cert_cert'] = args.etcd_ssl_certfile
+
+        vnc_db['credentials'] = credentials
+
+    return vnc_db
 
 def _handle_conn_error(func):
     @wraps(func)
@@ -38,12 +62,10 @@ def _handle_conn_error(func):
 
 
 class VncEtcdClient(object):
-    def __init__(self, host, port, credential, ssl_enabled, ca_certs):
+    def __init__(self, host, port, credentials):
         self._host = host
         self._port = port
-        self._credential = credential
-        self._ssl_enabled = ssl_enabled
-        self._ca_certs = ca_certs
+        self._credentials = credentials
         self._conn_state = ConnectionStatus.INIT
 
         self._client = self._new_client()
@@ -51,29 +73,147 @@ class VncEtcdClient(object):
     def _new_client(self):
         kwargs = {'host': self._host, 'port': self._port}
 
-        if self._credential:
-            kwargs['user'] = self._credential['username']
-            kwargs['password'] = self._credential['password']
-
-        if self._ssl_enabled:
-            kwargs['ca_cert'] = self._credential['ca_cert']
-            kwargs['cert_key'] = self._credential['ca_key']
+        if self._credentials:
+            kwargs.update(self._credentials)
 
         client = etcd3.client(timeout=5, **kwargs)
-        ConnectionState.update(conn_type=ConnType.DATABASE, name='etcd',
-                               status=ConnectionStatus.UP, message='',
-                               server_addrs='{}:{}'.format(self._host,
-                                                           self._port))
-        self._conn_state = ConnectionStatus.UP
+        self._update_sandesh_status(ConnectionStatus.UP)
+
         return client
 
+    def _update_sandesh_status(self, status, msg=''):
+        self._conn_state = status
+        ConnectionState.update(conn_type=ConnType.DATABASE,
+                               name='etcd', status=status, message=msg,
+                               server_addrs=["{}:{}".format(self._host, self._port)])
+
+
+def gen_request_id():
+    return "req-%s" % uuid.uuid4()
+
+
+class VncEtcdWatchHandle(VncAmqpHandle):
+    def __init__(self, sandesh, logger, db_cls, reaction_map,
+                 notifier_cfg, trace_file=None, timer_obj=None):
+        self._etcd_cfg = notifier_cfg
+        super(VncEtcdWatchHandle, self).__init__(
+            sandesh, logger, db_cls, reaction_map, q_name_prefix=None,
+            rabbitmq_cfg=None, trace_file=trace_file, timer_obj=timer_obj)
+
+    def establish(self):
+        self._vnc_etcd_watcher = VncEtcdWatchClient(
+                self._etcd_cfg['host'], self._etcd_cfg['port'],
+                self._etcd_cfg.get('credentials'), self._etcd_cfg['prefix'],
+                self._etcd_callback_wrapper, self.logger.log)
+
+    def _etcd_callback_wrapper(self, event):
+        self.logger.debug("Got etcd event: {}".format(event))
+        common_msg = self._parse_event(event)
+        self.logger.debug("Got etcd msg: {}".format(common_msg))
+        self._vnc_subscribe_callback(common_msg)
+
+    def _parse_event(self, event):
+        obj_type, uuid = event.key.split("/")[-2:]
+        obj_dict = json.loads(event.value)
+        oper = self._get_oper(event)
+        msg = {"type": obj_type, "uuid": uuid, "oper": oper}
+        if oper == "CREATE":
+            msg["obj_dict"] = obj_dict
+        msg["request_id"] = gen_request_id()
+        msg["fq_name"] = obj_dict["fq_name"]
+
+        return msg
+
+    @staticmethod
+    def _get_oper(event):
+        e = event._event
+        # oper_name = e.EventType.DESCRIPTOR.values_by_number[e.type].name
+        if isinstance(event, etcd3.events.PutEvent):
+            if KVMetadata(e.kv, None).version == 1:
+                return "CREATE"
+            return "UPDATE"
+        return "DELETE"
+
+    def close(self):
+        self._vnc_etcd_watcher.shutdown()
+
+
+class VncEtcdWatchClient(VncEtcdClient):
+    def __init__(self, host, port, credentials, prefix, subscribe_cb, logger):
+        self._prefix = prefix
+        self.subscribe_cb = subscribe_cb
+        self._logger = logger
+
+        self._cancel = None
+
+        super(VncEtcdWatchClient, self).__init__(host, port, credentials)
+
+        self._start(self._prefix)
+
+    def _reconnect(self):
+        msg = "etcd connection DOWN"
+        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+        self._update_sandesh_status(ConnectionStatus.DOWN)
+
+        if self._cancel is not None:
+            self._cancel()
+            self._cancel = None
+            self._consumer = None
+
+        self._client = self._new_client()
+
+        #self._update_sandesh_status(ConnectionStatus.UP)
+        msg = 'etcd connection ESTABLISHED %s' % repr(self._client)
+        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+
+        self._consumer, self._cancel = self._client.watch_prefix(self._prefix)
+
+
+    def _connection_watch(self, connected):
+        if not connected:
+            self._reconnect()
+
+        while True:
+            try:
+                self.subscribe_cb(next(self._consumer))
+                # self._conn.drain_events()
+            except Exception as e:  # self._conn.connection_errors + self._conn.channel_errors as e:
+                msg = "Error in etcd watch greenlet: {}".format(e)
+                self._logger(msg, level=SandeshLevel.SYS_ERR)
+                self._reconnect()
+
+    def _connection_watch_forever(self):
+        connected = True
+        while True:
+            try:
+                self._connection_watch(connected)
+            except Exception as e:
+                msg = 'Error in etcd drainer greenlet: %s' % (str(e))
+                self._logger(msg, level=SandeshLevel.SYS_ERR)
+                # avoid 'reconnect()' here as that itself might cause exception
+                connected = False
+
+    def _start(self, client_name):
+        self._reconnect()
+
+        self._connection_monitor_greenlet = vnc_greenlets.VncGreenlet(
+            'etcd_ ' + client_name + '_ConnMon',
+            self._connection_watch_forever)
+
+    def greenlets(self):
+        ret = [self._connection_monitor_greenlet]
+        return ret
+
+    def shutdown(self):
+        self._connection_monitor_greenlet.kill()
+        if self._consumer:
+            self._cancel()
 
 class VncEtcd(VncEtcdClient):
     def __init__(self, host, port, prefix, logger=None,
                  obj_cache_exclude_types=None, log_response_time=None,
-                 credential=None, ssl_enabled=False, ca_certs=None):
-        super(VncEtcd, self).__init__(host, port, credential,
-                                      ssl_enabled, ca_certs)
+                 credentials=None):
+        super(VncEtcd, self).__init__(host, port, credentials)
         self._prefix = prefix
         self._logger = logger
         self.log_response_time = log_response_time
