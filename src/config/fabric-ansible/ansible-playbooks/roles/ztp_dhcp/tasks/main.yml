@@ -16,7 +16,7 @@
 
 - name: If DHCP directory does not exist, just bail
   block:
-    - debug: msg="dhcpd directory does not exist, skipping..."
+    - debug: msg="dhcpd directory does not exist, skipping..." verbosity=1
     - set_fact: 
         dhcp_output: {
           "status": "{{ 'Failure' if ztp_create else 'Success' }}",
