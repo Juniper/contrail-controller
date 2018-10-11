@@ -13,7 +13,7 @@ import vnc_etcd
 class VncObjectDBClient(object):
     def __init__(self, server_list=None, db_prefix=None, rw_keyspaces=None,
                  ro_keyspaces=None, logger=None, generate_url=None,
-                 reset_config=False, credential=None, walk=True,
+                 reset_config=False, credentials=None, walk=True,
                  obj_cache_entries=0, obj_cache_exclude_types=None,
                  debug_obj_cache_types=None, connection=None,
                  db_engine='cassandra', ssl_enabled=False, ca_certs=None):
@@ -26,7 +26,7 @@ class VncObjectDBClient(object):
                     logger,
                     generate_url,
                     reset_config,
-                    credential,
+                    credentials,
                     walk,
                     obj_cache_entries,
                     obj_cache_exclude_types,
@@ -45,13 +45,10 @@ class VncObjectDBClient(object):
 
 
 class VncObjectEtcdClient(object):
-    def __init__(self, server, prefix, logger,
-                 credential=None, ssl_enabled=None, ca_certs=None):
-        host, port = server.split(':')
+    def __init__(self, host, port, prefix, logger, credentials=None):
         self._object_db = vnc_etcd.VncEtcd(
             host=host, port=port, prefix=prefix, logger=logger,
-            obj_cache_exclude_types=[],
-            credential=credential, ssl_enabled=ssl_enabled, ca_certs=ca_certs)
+            obj_cache_exclude_types=[], credentials=credentials)
 
     def __getattr__(self, name):
         if not hasattr(self._object_db, name):
