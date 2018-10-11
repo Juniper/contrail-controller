@@ -140,7 +140,7 @@
                 }
             ]
     }
-    - debug: var=device_abstract_config
+    - debug: var=device_abstract_config verbosity=1
 
     - template:
         src: juniper_junos-qfx_multi_homing.j2
@@ -149,5 +149,5 @@
     - command: cat /tmp/output2.json
       register: output
 
-    - debug: var=output.stdout_lines
+    - debug: var=output.stdout_lines verbosity=1
 
