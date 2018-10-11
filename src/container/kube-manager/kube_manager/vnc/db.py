@@ -8,6 +8,7 @@ Kube network manager DB
 """
 
 from cfgm_common.vnc_object_db import VncObjectDBClient, VncObjectEtcdClient
+from cfgm_common.vnc_etcd import etcd_args
 
 DRIVER_CASS = 'cassandra'
 DRIVER_ETCD = 'etcd'
@@ -37,22 +38,15 @@ class KubeNetworkManagerDB(object):
             'db_prefix': args.cluster_id,
             'logger': self._db_logger.log,
             'reset_config': False,
-            'credential': None,
+            'credentials': None,
         }
         if args.cassandra_user and args.cassandra_password:
-            vnc_db['credential'] = {'username': args.cassandra_user,
-                                    'password': args.cassandra_password}
+            vnc_db['credentials'] = {'username': args.cassandra_user,
+                                     'password': args.cassandra_password}
         self._db_logger.log("VncObjectDBClient arguments: {}".format(vnc_db))
         return VncObjectDBClient(**vnc_db)
 
     def _etcd_driver(self, args):
-        vnc_db = {
-            'server': args.etcd_server,
-            'prefix': args.etcd_prefix,
-            'logger': self._db_logger.log,
-        }
-        if args.etcd_user and args.etcd_password:
-            vnc_db['credential'] = {'user': args.etcd_user,
-                                    'password': args.etcd_password}
+        vnc_db = etcd_args(args)
         self._db_logger.log("VncObjectEtcdClient arguments: {}".format(vnc_db))
-        return VncObjectEtcdClient(**vnc_db)
+        return VncObjectEtcdClient(logger=self._db_logger.log, **vnc_db)
