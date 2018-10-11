@@ -45,13 +45,12 @@ class VncObjectDBClient(object):
 
 
 class VncObjectEtcdClient(object):
-    def __init__(self, server, prefix, logger,
-                 credential=None, ssl_enabled=None, ca_certs=None):
-        host, port = server.split(':')
+    def __init__(self, host, port, prefix, logger,
+                 credential=None):
         self._object_db = vnc_etcd.VncEtcd(
             host=host, port=port, prefix=prefix, logger=logger,
             obj_cache_exclude_types=[],
-            credential=credential, ssl_enabled=ssl_enabled, ca_certs=ca_certs)
+            credential=credential)
 
     def __getattr__(self, name):
         if not hasattr(self._object_db, name):
