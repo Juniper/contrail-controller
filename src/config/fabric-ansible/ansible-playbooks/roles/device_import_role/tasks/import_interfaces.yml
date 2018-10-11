@@ -2,12 +2,38 @@
   set_fact:
     pb_input: "{{pb_input | combine({'interface_filters': [{'op': 'regex', 'expr': '^xe|^ge|^et|^fxp|^xle|^fc|^fte|^lo0'}] })}}"
 
+- name: Execute commands on a Juniper Device to get configured interfaces
+  block:
+    - juniper_junos_config:
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+        retrieve: 'committed'
+        filter: 'interfaces'
+        diff: true
+        check: false
+        commit: false
+        config_mode: 'private'
+        format: xml
+        options:
+          inherit: inherit
+      register: cfg_interface_info
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "cfg_interface_info.failed == true"
+      vars:
+        op_err_message: "{{cfg_interface_info.msg}}"
+        jl_err_message: "Error while obtaining configured interface information from Juniper device: {{cfg_interface_info.msg}}"
+
 - name: Execute commands on a Juniper Device
   block:
-    - junos_command:
+    - juniper_junos_command:
         commands:
-          - show configuration interfaces
-          - show interfaces 
+          - show interfaces
         display: xml
         provider:
           host: "{{junos_host}}"
@@ -26,8 +52,8 @@
 
 - name: settings facts
   set_fact:
-    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"')}}"
-    interface_list_new: "{{interface_info|json_query('output[1].\"rpc-reply\".\"interface-information\".\"physical-interface\"')}}"
+    interface_list: "{{cfg_interface_info|json_query('config_parsed.configuration.interfaces.interface')}}"
+    interface_list_new: "{{interface_info|json_query('parsed_output.\"interface-information\".\"physical-interface\"')}}"
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
@@ -109,3 +135,4 @@
   vars:
     current_index: 3
     jl_message: "Imported {{bulk_create_phy_int_resp_set|length}} physical interfaces and {{bulk_create_log_int_resp_set|length}} logical interfaces{{upd_dataplane_ip_mesg}}"
+
