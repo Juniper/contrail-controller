@@ -43,6 +43,20 @@ class TestExecuteJob(test_case.ApiServerTestCase):
         fake_process = flexmock(pid=123)
         flexmock(subprocess).should_receive('Popen').and_return(fake_process)
 
+        #populate config node info
+        config_node_obj = ConfigNode(
+            parent_type='global-system-config',
+            fq_name=["default-global-system-config", "test-host-1"],
+            config_node_ip_address="3.3.3.3")
+        self._vnc_lib.config_node_create(config_node_obj)
+
+        #populate analytics node info
+        analytics_node_obj = AnalyticsNode(
+            parent_type='global-system-config',
+            fq_name=["default-global-system-config", "test-host-2"],
+            analytics_node_ip_address="4.4.4.4")
+        self._vnc_lib.analytics_node_create(analytics_node_obj)
+
         # create the job_template
         job_template_object = JobTemplate(
                                   job_template_type='device',
