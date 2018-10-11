@@ -12,6 +12,7 @@ import logging
 from ansible import constants as CONST
 
 DEFAULT_ANSIBLE_LOG_PATH = '/var/log/contrail/contrail-fabric-ansible-playbooks.log'
+DEFAULT_VERBOSITY = 0
 LOGGING_FORMAT = '%(asctime)s.%(msecs)03d %(name)s [%(levelname)s]:  %(message)s'
 DATE_FORMAT = "%m/%d/%Y %H:%M:%S"
 
@@ -28,14 +29,14 @@ def fabric_ansible_logger(name, ctx=None):
     name = name
     ctx = ctx
     debug = CONST.DEFAULT_DEBUG
-    verbosity = CONST.DEFAULT_VERBOSITY
+    verbosity = CONST.DEFAULT_VERBOSITY or DEFAULT_VERBOSITY
     logfile = CONST.DEFAULT_LOG_PATH or DEFAULT_ANSIBLE_LOG_PATH
     # Log more if ANSIBLE_DEBUG or -v[v] is set.
     if debug is True:
         level = logging.DEBUG
-    elif verbosity == 1:
+    elif verbosity == 0:
         level = logging.INFO
-    elif verbosity > 1:
+    elif verbosity > 0:
         level = logging.DEBUG
     else:
         level = logging.WARNING
