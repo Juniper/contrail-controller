@@ -39,4 +39,4 @@
     - command: cat /tmp/output.json
       register: output
 
-    - debug: var=output.stdout_lines
+    - debug: var=output.stdout_lines verbosity=1
