@@ -229,22 +229,23 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
     if args.nested_mode == '0':
         # Initialize AMQP handler then close it to be sure remain queue of a
         # precedent run is cleaned
-        rabbitmq_cfg = kube_args.rabbitmq_args(args)
-        try:
-            vnc_amqp = VncAmqpHandle(
-                km_logger._sandesh,
-                km_logger,
-                DBBaseKM,
-                REACTION_MAP,
-                'kube_manager',
-                rabbitmq_cfg
-            )
-            vnc_amqp.establish()
-            vnc_amqp.close()
-        except Exception:  # FIXME: Except clause is too broad
-            pass
-        finally:
-            km_logger.debug("Removed remained AMQP queue")
+        if args.notification_driver == "rabbit":
+            rabbitmq_cfg = kube_args.rabbitmq_args(args)
+            try:
+                vnc_amqp = VncAmqpHandle(
+                    km_logger._sandesh,
+                    km_logger,
+                    DBBaseKM,
+                    REACTION_MAP,
+                    'kube_manager',
+                    rabbitmq_cfg
+                )
+                vnc_amqp.establish()
+                vnc_amqp.close()
+            except Exception:  # FIXME: Except clause is too broad
+                pass
+            finally:
+                km_logger.debug("Removed remained AMQP queue")
 
         # Ensure zookeeper is up and running before starting kube-manager
         _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
