@@ -8,7 +8,7 @@ results from the job executions
 """
 import time
 
-from job_manager.job_utils import JobStatus
+from job_manager.job_utils import JobStatus, JobFileWrite
 from job_manager.job_messages import MsgBundle
 
 
@@ -33,6 +33,7 @@ class JobResultHandler(object):
         # device_management_ip, device_username, etc
         self.playbook_output = None  # marked output from the playbook stdout
         self.percentage_completed = 0.0
+        self.job_file_write = JobFileWrite(self._logger)
 
     def update_job_status(self, status, message=None, device_id=None, device_name=None):
         # update cummulative job status
@@ -70,6 +71,12 @@ class JobResultHandler(object):
         job_status = None
         if self.job_result_status:
             job_status = self.job_result_status.value
+        #write to the file as well
+        file_write_data = {
+            "job_status": job_status
+            }
+        self.job_file_write.write_to_file(self._execution_id,
+                                          file_write_data)
         self.job_log_utils.send_job_log(job_template_fqname,
                                         self._execution_id,
                                         self._fabric_fq_name,
