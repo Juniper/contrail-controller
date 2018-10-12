@@ -25,10 +25,10 @@
 #include "bgp/routing-instance/routing_instance_log.h"
 
 using std::pair;
+using std::set;
 using std::sort;
 using std::string;
 using std::vector;
-using std::set;
 
 // A global MVPN state for a given <S.G> within a EvpnProjectManager.
 EvpnState::EvpnState(const SG &sg, StatesMap *states, EvpnManager *manager) :
@@ -314,8 +314,8 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo(EvpnRoute *route) {
                                      route->GetPrefix().group());
     // Go through list of EvpnRemoteMcastNodes and build the BgpOList.
     BgpOListSpec olist_spec(BgpAttribute::OList);
-    if (partition_->remote_mcast_node_list().count(sg)) {
-        set<EvpnMcastNode*> nodes = partition_->remote_mcast_node_list()[sg];
+    if (partition_->remote_mcast_node_list()->count(sg)) {
+        set<EvpnMcastNode*> nodes = (*partition_->remote_mcast_node_list())[sg];
         BOOST_FOREACH(EvpnMcastNode *node, nodes) {
             if (node->address() == address_)
                 continue;
@@ -340,8 +340,8 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo(EvpnRoute *route) {
     // Go through list of leaf EvpnMcastNodes and build the leaf BgpOList.
     BgpOListSpec leaf_olist_spec(BgpAttribute::LeafOList);
     if (assisted_replication_supported_) {
-        if (partition_->leaf_node_list().count(sg)) {
-            set<EvpnMcastNode*> nodes = partition_->leaf_node_list()[sg];
+        if (partition_->leaf_node_list()->count(sg)) {
+            set<EvpnMcastNode*> nodes = (*partition_->leaf_node_list())[sg];
             BOOST_FOREACH(EvpnMcastNode *node, nodes) {
                 if (node->replicator_address() != address_)
                     continue;
@@ -1604,8 +1604,8 @@ void EvpnManager::FillShowInfo(ShowEvpnTable *sevt) const {
     vector<string> ar_replicators;
     vector<ShowEvpnMcastLeaf> ar_leafs;
     EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
-                      partitions_[0]->remote_mcast_node_list().begin();
-    for (; it != partitions_[0]->remote_mcast_node_list().end(); it++) {
+                      partitions_[0]->remote_mcast_node_list()->begin();
+    for (; it != partitions_[0]->remote_mcast_node_list()->end(); it++) {
         BOOST_FOREACH(const EvpnMcastNode *node, it->second) {
             if (node->assisted_replication_leaf()) {
                 ShowEvpnMcastLeaf leaf;

@@ -122,9 +122,9 @@ private:
     void ReadIpAddress(const BgpProtoPrefix &proto_prefix,
         size_t ip_offset, size_t ip_size, size_t ip_psize);
     void ReadSource(const BgpProtoPrefix &proto_prefix,
-        size_t ip_offset, size_t ip_size, size_t ip_psize);
+                    size_t ip_offset, size_t ip_size);
     void ReadGroup(const BgpProtoPrefix &proto_prefix,
-        size_t ip_offset, size_t ip_size, size_t ip_psize);
+                   size_t ip_offset, size_t ip_size);
     void WriteIpAddress(BgpProtoPrefix *proto_prefix, size_t ip_offset) const;
     void WriteSource(BgpProtoPrefix *proto_prefix, size_t ip_offset) const;
     void WriteGroup(BgpProtoPrefix *proto_prefix, size_t ip_offset) const;
