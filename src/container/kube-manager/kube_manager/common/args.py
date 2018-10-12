@@ -90,7 +90,7 @@ def parse_args(args_str=None):
         'global_tags': '1',
         'aps_name': '',
         'kube_timer_interval': '60',
-        'secure_project': 'True'
+        'secure_project': 'False'
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
