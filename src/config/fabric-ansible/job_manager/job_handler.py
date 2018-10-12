@@ -24,6 +24,7 @@ from job_manager.job_messages import MsgBundle
 
 JOB_PROGRESS = 'JOB_PROGRESS##'
 PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
+JOB_MANAGER = 'JOB_MANAGER'
 
 
 class JobHandler(object):
@@ -190,7 +191,8 @@ class JobHandler(object):
                                            pr_uve_name):
         f_read = None
         marked_output = {}
-        markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS]
+        self.prouter_info = {}
+        markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS, JOB_MANAGER]
         # read file as long as it is not a time out
         # Adding a residue timeout of 5 mins in case
         # the playbook dumps all the output towards the
@@ -241,6 +243,18 @@ class JobHandler(object):
                                                     job_status="IN_PROGRESS",
                                                     percentage_completed=
                                                     self.current_percentage)
+                                    if marker == JOB_MANAGER:
+                                        marked_jsons =\
+                                            self._extract_marked_json(
+                                                marked_output)
+                                        output =\
+                                            marked_jsons.get(JOB_MANAGER)
+                                        if output.has_key('prouter_info'):
+                                            self.prouter_info.update(
+                                                output.get(
+                                                'prouter_info'))
+
+
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -271,53 +285,54 @@ class JobHandler(object):
         return marked_output
     # end process_file_and_get_marked_output
 
-    def send_prouter_uve(self, exec_id, start_time, end_time, pb_status):
+    def send_prouter_uve(self, exec_id, pb_status):
         status = "SUCCESS"
-        elapsed_time = end_time - start_time
 
         if pb_status != 0:
             status = "FAILURE"
+        #
+        # analytics_node_ip = random.choice(self._analytics_server_list)
+        # payload = {
+        #     'start_time': 'now-%ds' % (elapsed_time),
+        #     'end_time': 'now',
+        #     'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
+        #     'table': 'ObjectJobExecutionTable',
+        #     'where': [
+        #         [
+        #             {
+        #                 'name': 'ObjectId',
+        #                 'value': '%s' % exec_id,
+        #                 'op': 1
+        #             }
+        #         ]
+        #     ]
+        # }
+        # url = "http://" + analytics_node_ip + ":8081/analytics/query"
+        #
+        # resp = requests.post(url, json=payload)
+        # if resp.status_code == 200:
+        #     PRouterOnboardingLog = resp.json().get('value')
+        #     for PRObjectLog in PRouterOnboardingLog:
+        #         resp = PRObjectLog.get('ObjectLog')
+        #         xmlresp = etree.fromstring(resp)
+        #         for ele in xmlresp.iter():
+        #             if ele.tag == 'name':
+        #                 device_fqname = ele.text
+        #             if ele.tag == 'onboarding_state':
+        #                 onboarding_state = ele.text
 
-        analytics_node_ip = random.choice(self._analytics_server_list)
-        payload = {
-            'start_time': 'now-%ds' % (elapsed_time),
-            'end_time': 'now',
-            'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-            'table': 'ObjectJobExecutionTable',
-            'where': [
-                [
-                    {
-                        'name': 'ObjectId',
-                        'value': '%s' % exec_id,
-                        'op': 1
-                    }
-                ]
-            ]
-        }
-        url = "http://" + analytics_node_ip + ":8081/analytics/query"
-
-        resp = requests.post(url, json=payload)
-        if resp.status_code == 200:
-            PRouterOnboardingLog = resp.json().get('value')
-            for PRObjectLog in PRouterOnboardingLog:
-                resp = PRObjectLog.get('ObjectLog')
-                xmlresp = etree.fromstring(resp)
-                for ele in xmlresp.iter():
-                    if ele.tag == 'name':
-                        device_fqname = ele.text
-                    if ele.tag == 'onboarding_state':
-                        onboarding_state = ele.text
-                job_template_fq_name = ':'.join(
-                    map(str, self._job_template.fq_name))
-                pr_fabric_job_template_fq_name = device_fqname + ":" + \
-                    self._fabric_fq_name + ":" + \
-                    job_template_fq_name
-                self._job_log_utils.send_prouter_job_uve(
-                    self._job_template.fq_name,
-                    pr_fabric_job_template_fq_name,
-                    exec_id,
-                    prouter_state=onboarding_state,
-                    job_status=status)
+        job_template_fq_name = ':'.join(
+            map(str, self._job_template.fq_name))
+        for each_prouter in self.prouter_info:
+            pr_fabric_job_template_fq_name = each_prouter.get('prouter_name') + \
+                                             ":" + self._fabric_fq_name + ":" + \
+                                             job_template_fq_name
+            self._job_log_utils.send_prouter_job_uve(
+                self._job_template.fq_name,
+                pr_fabric_job_template_fq_name,
+                exec_id,
+                prouter_state=each_prouter.get('prouter_state'),
+                job_status=status)
 
     # end send_pr_object_log
 
@@ -367,11 +382,12 @@ class JobHandler(object):
             # create prouter UVE in job_manager only if it is not a multi 
             # device job template
             if not self._job_template.get_job_template_multi_device_job():
-                self.send_prouter_uve(
-                    exec_id,
-                    pr_object_log_start_time,
-                    pr_object_log_end_time,
-                    playbook_process.returncode)
+                # self.send_prouter_uve(
+                #     exec_id,
+                #     pr_object_log_start_time,
+                #     pr_object_log_end_time,
+                #     playbook_process.returncode)
+                self.send_prouter_uve(exec_id, playbook_process.returncode)
 
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:
