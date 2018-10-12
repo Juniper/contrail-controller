@@ -40,7 +40,7 @@ class TestJobHandler(unittest.TestCase):
         self.job_type = ['test-job']
         self.job_input = {'key1': 'value1', 'key2': 'value2'}
         self.device_list = ['device1']
-        self.analytic_config = {'ip': '1.2.3.4', 'port': '8082'}
+        self.analytic_config = {'ips': ['1.2.3.4'], 'port': '8082'}
 
         self.job_handler = JobHandler(self.job_type, self.job_input,
                                       self.device_list, self.analytic_config,

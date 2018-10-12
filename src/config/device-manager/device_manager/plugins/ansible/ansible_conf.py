@@ -234,7 +234,7 @@ class AnsibleConf(AnsibleBase):
     # end device_send
 
     def read_node_profile_info(self):
-        feature_configs = None
+        feature_configs = {}
         job_template = None
         if self.physical_router.node_profile is not None:
             node_profile = NodeProfileDM.get(self.physical_router.node_profile)
