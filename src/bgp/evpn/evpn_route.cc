@@ -399,13 +399,15 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
         prefix->tag_ = get_value(&proto_prefix.prefix[tag_offset], kTagSize);
         size_t src_len_offset = tag_offset + kTagSize;
         size_t src_len = proto_prefix.prefix[src_len_offset];
-        if (src_len != 32 && src_len != 128)
+        if (src_len != 32 && src_len != 128 && src_len != 0)
             return -1;
         size_t src_size = src_len / 8;
         size_t src_offset = src_len_offset + 1;
-        if (nlri_size < src_offset + src_size)
-            return -1;
-        prefix->ReadSource(proto_prefix, src_offset, src_size, src_size);
+        if (src_size > 0) {
+            if (nlri_size < src_offset + src_size)
+                return -1;
+            prefix->ReadSource(proto_prefix, src_offset, src_size);
+        }
         size_t grp_len_offset = src_offset + src_size;
         size_t grp_len = proto_prefix.prefix[grp_len_offset];
         if (grp_len != 32 && grp_len != 128)
@@ -414,7 +416,7 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
         size_t grp_offset = grp_len_offset + 1;
         if (nlri_size < grp_offset + grp_size)
             return -1;
-        prefix->ReadGroup(proto_prefix, grp_offset, grp_size, grp_size);
+        prefix->ReadGroup(proto_prefix, grp_offset, grp_size);
         size_t ip_len_offset = grp_offset + grp_size;
         size_t ip_len = proto_prefix.prefix[ip_len_offset];
         if (ip_len != 32 && ip_len != 128)
@@ -570,7 +572,9 @@ void EvpnPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix,
     }
     case SelectiveMulticastRoute: {
         size_t ip_size = GetIpAddressSize();
-        size_t nlri_size = kMinSelectiveMulticastRouteSize + 3 * ip_size + 1;
+        size_t nlri_size = kMinSelectiveMulticastRouteSize + 2 * ip_size + 1;
+        if (!source_.is_unspecified())
+            nlri_size += ip_size;
         proto_prefix->prefixlen = nlri_size * 8;
         proto_prefix->prefix.resize(nlri_size, 0);
 
@@ -580,10 +584,15 @@ void EvpnPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix,
         size_t tag_offset = rd_offset + kRdSize;
         put_value(&proto_prefix->prefix[tag_offset], kTagSize, tag_);
         size_t src_len_offset = tag_offset + kTagSize;
-        proto_prefix->prefix[src_len_offset] = ip_size * 8;
-        size_t src_offset = src_len_offset + 1;
-        WriteSource(proto_prefix, src_offset);
-        size_t grp_len_offset = src_offset + ip_size;
+        size_t grp_len_offset = src_len_offset + 1;
+        if (source_.is_unspecified()) {
+            proto_prefix->prefix[src_len_offset] = 0;
+        } else {
+            proto_prefix->prefix[src_len_offset] = ip_size * 8;
+            size_t src_offset = src_len_offset + 1;
+            WriteSource(proto_prefix, src_offset);
+            grp_len_offset += ip_size;
+        }
         proto_prefix->prefix[grp_len_offset] = ip_size * 8;
         size_t grp_offset = grp_len_offset + 1;
         WriteGroup(proto_prefix, grp_offset);
@@ -1022,7 +1031,8 @@ string EvpnPrefix::ToString() const {
         break;
     case SelectiveMulticastRoute:
         str += "-" + integerToString(tag_);
-        str += "-" + source_.to_string();
+        if (!source_.is_unspecified())
+            str += "-" + source_.to_string();
         str += "-" + group_.to_string();
         str += "-" + ip_address_.to_string();
         break;
@@ -1066,41 +1076,39 @@ size_t EvpnPrefix::GetIpAddressSize() const {
 }
 
 void EvpnPrefix::ReadSource(const BgpProtoPrefix &proto_prefix,
-    size_t ip_offset, size_t ip_size, size_t ip_psize) {
-    assert(ip_psize <= ip_size);
+    size_t ip_offset, size_t ip_size) {
     if (ip_size == 0) {
         family_ = Address::UNSPEC;
     } else if (ip_size == kIp4AddrSize) {
         family_ = Address::INET;
         Ip4Address::bytes_type bytes = { { 0 } };
         copy(proto_prefix.prefix.begin() + ip_offset,
-            proto_prefix.prefix.begin() + ip_offset + ip_psize, bytes.begin());
+            proto_prefix.prefix.begin() + ip_offset + ip_size, bytes.begin());
         source_ = Ip4Address(bytes);
     } else if (ip_size == kIp6AddrSize) {
         family_ = Address::INET6;
         Ip6Address::bytes_type bytes = { { 0 } };
         copy(proto_prefix.prefix.begin() + ip_offset,
-            proto_prefix.prefix.begin() + ip_offset + ip_psize, bytes.begin());
+            proto_prefix.prefix.begin() + ip_offset + ip_size, bytes.begin());
         source_ = Ip6Address(bytes);
     }
 }
 
 void EvpnPrefix::ReadGroup(const BgpProtoPrefix &proto_prefix,
-    size_t ip_offset, size_t ip_size, size_t ip_psize) {
-    assert(ip_psize <= ip_size);
+    size_t ip_offset, size_t ip_size) {
     if (ip_size == 0) {
         family_ = Address::UNSPEC;
     } else if (ip_size == kIp4AddrSize) {
         family_ = Address::INET;
         Ip4Address::bytes_type bytes = { { 0 } };
         copy(proto_prefix.prefix.begin() + ip_offset,
-            proto_prefix.prefix.begin() + ip_offset + ip_psize, bytes.begin());
+            proto_prefix.prefix.begin() + ip_offset + ip_size, bytes.begin());
         group_ = Ip4Address(bytes);
     } else if (ip_size == kIp6AddrSize) {
         family_ = Address::INET6;
         Ip6Address::bytes_type bytes = { { 0 } };
         copy(proto_prefix.prefix.begin() + ip_offset,
-            proto_prefix.prefix.begin() + ip_offset + ip_psize, bytes.begin());
+            proto_prefix.prefix.begin() + ip_offset + ip_size, bytes.begin());
         group_ = Ip6Address(bytes);
     }
 }
