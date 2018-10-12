@@ -394,23 +394,14 @@ public:
     void TriggerMacRouteUpdate(EvpnRoute *route);
 
     bool empty() const;
-    const EvpnMcastNodeList &remote_mcast_node_list() const {
-        return remote_mcast_node_list_;
+    EvpnMcastNodeList *remote_mcast_node_list() {
+        return &remote_mcast_node_list_;
     }
-    const EvpnMcastNodeList &local_mcast_node_list() const {
-        return local_mcast_node_list_;
+    EvpnMcastNodeList *local_mcast_node_list() {
+        return &local_mcast_node_list_;
     }
-    const EvpnMcastNodeList &leaf_node_list() const {
-        return leaf_node_list_;
-    }
-    EvpnMcastNodeList &remote_mcast_node_list() {
-        return remote_mcast_node_list_;
-    }
-    EvpnMcastNodeList &local_mcast_node_list() {
-        return local_mcast_node_list_;
-    }
-    EvpnMcastNodeList &leaf_node_list() {
-        return leaf_node_list_;
+    EvpnMcastNodeList *leaf_node_list() {
+        return &leaf_node_list_;
     }
     BgpServer *server();
     const EvpnTable *table() const;
