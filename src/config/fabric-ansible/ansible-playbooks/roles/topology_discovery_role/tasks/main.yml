@@ -55,6 +55,7 @@
 
 - debug:
     msg: "{{lldp_neighbor_info}}"
+    verbosity: 1
 
 - name: parse lldp info obtained to get remote system information
   set_fact:
@@ -62,6 +63,7 @@
 
 - debug:
     msg: "{{parsed_lldp_neighbors_op}}"
+    verbosity: 1
 
 - block:
     - name: vnc-db-mod bulk query for listing all physical-interfaces for multiple devices
@@ -75,6 +77,7 @@
 
     - debug:
         msg: "{{bulk_query_prouter_resp}}"
+        verbosity: 1
 
     - name: get remote port-id to fq_name map
       set_fact:
@@ -82,6 +85,7 @@
 
     - debug:
         msg: "{{port_id_fqname_map}}"
+        verbosity: 1
 
     - name: get the payload for bulk ref add
       set_fact:
@@ -95,6 +99,7 @@
 
 - debug:
     msg: "{{bulk_ref_add_payload}}"
+    verbosity: 1
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
