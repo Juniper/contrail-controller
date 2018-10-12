@@ -8,6 +8,7 @@
 # Utility functions for Operational State Server for VNC
 #
 
+import random
 import requests
 import json
 from requests.auth import HTTPBasicAuth
@@ -42,17 +43,18 @@ class OpServerUtils(object):
             return response.text
         else:
             logger.error("HTTP error code: %d" % response.status_code)
+            logger.debug("HTTP error msg: %s" % response.text)
         return None
     # end post_url_http
 
     @staticmethod
-    def opserver_url(ip, port):
-        return "http://" + ip + ":" + port
+    def opserver_url(ips, port):
+        return "http://" + random.choice(ips) + ":" + port
     # end opserver_url
 
     @staticmethod
-    def opserver_query_url(opserver_ip, opserver_port):
-        return "http://" + opserver_ip + ":" + opserver_port + \
+    def opserver_query_url(opserver_ips, opserver_port):
+        return "http://" + random.choice(opserver_ips) + ":" + opserver_port + \
                "/analytics/query"
     # end opserver_query_url
 

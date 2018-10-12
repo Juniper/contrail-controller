@@ -203,8 +203,8 @@ class JobHandler(object):
         while True:
             try:
                 f_read = open("/tmp/"+exec_id, "r")
-                self._logger.info("File got created .. "
-                                  "proceeding to read contents..")
+                self._logger.info("File got created for exec_id %s.. "
+                                  "proceeding to read contents.." % exec_id)
                 current_time = time.time()
                 while current_time - last_read_time < file_read_timeout:
                     line_read = f_read.readline()
@@ -250,7 +250,7 @@ class JobHandler(object):
                     current_time = time.time()
                 break
             except IOError as file_not_found_err:
-                self._logger.info("File not yet created !!")
+                self._logger.debug("File not yet created for exec_id %s !!" % exec_id)
                 # check if the sub-process died but file is not created
                 # if yes, it is old-usecase or there were no markers
                 if playbook_process.poll() is not None:
