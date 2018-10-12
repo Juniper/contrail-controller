@@ -64,7 +64,6 @@ class JobManager(object):
         self.auth_token = job_input_json['auth_token']
         self.api_server_host = job_input_json['api_server_host']
 
-        self.analytics_server_list = job_input_json['analytics_server_list']
         self.sandesh_args = job_input_json['args']
         self.max_job_task = self.job_log_utils.args.max_job_task
 
@@ -77,7 +76,6 @@ class JobManager(object):
                                  self.job_data,
                                  self.job_utils, self.device_json,
                                  self.auth_token, self.api_server_host,
-                                 self.analytics_server_list,
                                  self.job_log_utils,
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
