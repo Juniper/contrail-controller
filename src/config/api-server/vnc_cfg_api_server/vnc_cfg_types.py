@@ -2986,7 +2986,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                                                               ag_fq_name)
                     except cfgm_common.exceptions.NoIdError:
                         msg = ('No Address Group object found for %s' %
-                               ref_fq_name)
+                               ag_fq_name_str)
                         return False, (404, msg)
                     ag_refs.append({'to': ag_fq_name, 'uuid': ag_uuid})
 

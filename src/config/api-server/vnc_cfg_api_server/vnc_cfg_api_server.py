@@ -5129,15 +5129,14 @@ class VncApiServer(object):
                         fr = result
                         for ep_type in ['endpoint_1', 'endpoint_2']:
                             if (ep_type in fr and
-                                    fr[ep_type].get('address_group', '').split(
-                                        ':') == obj_dict['fq_name']):
+                                    fr[ep_type].get('address_group', '') ==\
+                                    ':'.join(obj_dict['fq_name'])):
                                 ept = FirewallRuleEndpointType(
                                     address_group=':'.join(fq_name))
                                 updates.append(
                                     ('update',
                                      (FirewallRule.resource_type, fr['uuid'],
                                       {ep_type: vars(ept)})))
-                                break
                     else:
                         held_refs.append(
                             ((backref_type, backref['uuid'], 'ADD', obj_type),
