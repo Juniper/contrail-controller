@@ -7,6 +7,7 @@ Contains utility functions used by the job manager
 """
 import random
 from enum import Enum
+import json
 
 from vnc_api.vnc_api import VncApi
 
@@ -29,6 +30,19 @@ class JobVncApi(object):
             auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
             auth_token=job_ctx.get('auth_token')
         )
+
+class JobFileWrite(object):
+    def __init__(self, logger, ):
+        self._logger = logger
+
+    def write_to_file(self, execution_id, file_data=None):
+        with open("/tmp/"+execution_id, "a") as f:
+            file_content = "JOB_MANAGER" + json.dumps(file_data) + \
+                           "JOB_MANAGER"
+            f.write(file_content + '\n')
+            self._logger.info("Content written from job_manager for exec_id "
+                              "%s : %s " % (execution_id, file_content))
+
 
 class JobUtils(object):
 
