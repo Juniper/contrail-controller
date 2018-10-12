@@ -398,9 +398,28 @@ class VncApiServer(object):
 
         return device_list
 
+    def _extracted_file_output(self, execution_id):
+        prouter_info = []
+        status = "UNKNOWN"
+        with open("/tmp/"+execution_id, "r") as f_read:
+            for each_line in f_read:
+                if "JOB_MANAGER" in each_line:
+                    each_line = each_line.strip('\n')
+                    start = each_line.index("JOB_MANAGER") + len("JOB_MANAGER")
+                    end = each_line.rindex("JOB_MANAGER")
+                    json_str = each_line[start:end]
+                    import ast
+                    extracted_string = ast.literal_eval(json_str)
+                    if extracted_string.has_key('job_status'):
+                        status = extracted_string.get('job_status')
+                    if extracted_string.has_key('prouter_info'):
+                        prouter_info.append(extracted_string.get(
+                            'prouter_info'))
+        return status, prouter_info
+
+
     def job_mgr_signal_handler(self, signalnum, frame):
         try:
-            max_retries = 3
             #get the child process id that called the signal handler
             pid = os.waitpid(-1, os.WNOHANG)
             signal_var = self._job_mgr_running_instances.get(str(pid[0]))
@@ -412,61 +431,11 @@ class VncApiServer(object):
             msg = "Entered job_mgr_signal_handler for: %s" % signal_var
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-            # update job manager execution status uve
-            elapsed_time = time.time() - signal_var.get('start_time')
-            status = "UNKNOWN"
+            status,prouter_info = self._extracted_file_output(signal_var.get(
+                'exec_id'))
 
-            retry = max_retries
-            while retry:
-                try:
-                    analytics_node_ip = random.choice(self._analytics_node_list)
-                    # read the job object log for a particular job to check if
-                    # it succeeded or not
-                    jobObjLog_payload = {
-                        'start_time': 'now-%ds' % (elapsed_time),
-                        'end_time': 'now',
-                        'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-                        'table': 'ObjectJobExecutionTable',
-                        'where': [
-                            [
-                                {
-                                    'name': 'ObjectId',
-                                    'value': '%s:SUCCESS' % signal_var.get('exec_id'),
-                                    'op': 1
-                                }
-                            ]
-                        ]
-                    }
-
-                    url = "http://" + analytics_node_ip + \
-                          ":8081/analytics/query"
-
-                    resp = requests.post(url, json=jobObjLog_payload)
-                    if resp.status_code == 200:
-                        JobLog = resp.json().get('value')
-                        if not JobLog:
-                            status = 'FAILURE'
-                        else:
-                            status = 'SUCCESS'
-                    else:
-                        self.config_log("POST request to query job object log "
-                                        "failed with error %s" %
-                                        resp.status_code,
-                                        level=SandeshLevel.SYS_ERR)
-                    break
-                except (requests.ConnectionError, requests.ConnectTimeout,
-                        requests.HTTPError, requests.Timeout) as ex:
-                    retry-=1
-                    if retry == 0:
-                        self.config_log("POST request to query job object log "
-                                        "failed after %d retries with error "
-                                        "%s" % (max_retries, str(ex)),
-                                        level=SandeshLevel.SYS_ERR)
-
-            if signal_var.get('fabric_name') is not "__DEFAULT__" and not \
-                    signal_var.get('device_fqnames'):
-                #send uve irrespective of the job log query
-                # success/failure with job status
+            if signal_var.get('fabric_name') is not \
+                    "__DEFAULT__" and not signal_var.get('device_fqnames'):
                 job_execution_data = FabricJobExecution(
                     name=signal_var.get('fabric_name'),
                     job_status=status,
@@ -481,82 +450,24 @@ class VncApiServer(object):
                         job_status=status,
                         percentage_completed=100
                     )
-
                     prouter_job_uve = PhysicalRouterJobUve(
                         data=prouter_job_data, sandesh=self._sandesh)
                     prouter_job_uve.send(sandesh=self._sandesh)
 
-            retry = max_retries
-            while retry:
-                try:
-                    analytics_node_ip = random.choice(self._analytics_node_list)
-                    # read the last PRouter state for all Prouetrs
-                    payload = {
-                        'sort':1,
-                        'start_time': 'now-%ds' % (elapsed_time),
-                        'sort_fields': ['MessageTS'],
-                        'end_time': 'now',
-                        'select_fields': ['MessageTS', 'Messagetype', 'ObjectLog'],
-                        'table': 'ObjectJobExecutionTable',
-                        'where': [
-                            [
-                                {
-                                    'name': 'Messagetype',
-                                    'value': 'PRouterOnboardingLog',
-                                    'op': 1
-                                },
-                                {
-                                    'name': 'ObjectId',
-                                    'value': '%s' % signal_var.get('exec_id'),
-                                    'op': 1
-                                }
-                            ]
-                        ]
-                    }
+            for each_prouter in prouter_info:
+                prouter_uve_name = each_prouter.get('prouter_name') + ":" + \
+                    signal_var.get('fabric_name')
 
-                    url = "http://" + analytics_node_ip + \
-                          ":8081/analytics/query"
+                prouter_job_data = PhysicalRouterJobExecution(
+                    name=prouter_uve_name,
+                    execution_id=signal_var.get('exec_id'),
+                    job_start_ts=int(round(signal_var.get('start_time') * 1000)),
+                    prouter_state=each_prouter.get('prouter_state')
+                )
 
-                    resp = requests.post(url, json=payload)
-                    if resp.status_code == 200:
-                        PRouterOnboardingLog = resp.json().get('value')
-                        for PRObjectLog in PRouterOnboardingLog:
-                            resp = PRObjectLog.get('ObjectLog')
-                            xmlresp = etree.fromstring(resp)
-                            for ele in xmlresp.iter():
-                                if ele.tag == 'name':
-                                    device_fqname = ele.text
-                                if ele.tag == 'onboarding_state':
-                                    onboarding_state = ele.text
-
-                            if device_fqname and onboarding_state:
-                                prouter_uve_name = device_fqname + ":" + \
-                                    signal_var.get('fabric_name')
-
-                                prouter_job_data = PhysicalRouterJobExecution(
-                                    name=prouter_uve_name,
-                                    execution_id=signal_var.get('exec_id'),
-                                    job_start_ts=int(round(signal_var.get('start_time') * 1000)),
-                                    prouter_state=onboarding_state
-                                )
-
-                                prouter_job_uve = PhysicalRouterJobUve(
-                                    data=prouter_job_data, sandesh=self._sandesh)
-                                prouter_job_uve.send(sandesh=self._sandesh)
-                    else:
-                        self.config_log("POST request to query Prouter job "
-                                        "object log failed after %d "
-                                        "retries with error %s" %
-                                        (max_retries, resp.status_code),
-                                        level=SandeshLevel.SYS_ERR)
-                    break
-                except (requests.ConnectionError, requests.ConnectTimeout,
-                            requests.HTTPError, requests.Timeout) as ex:
-                    retry-=1
-                    if retry == 0:
-                        self.config_log("POST request to query Prouter job object "
-                                        "log failed with error %s" % str(ex),
-                                        level=SandeshLevel.SYS_ERR)
+                prouter_job_uve = PhysicalRouterJobUve(
+                    data=prouter_job_data, sandesh=self._sandesh)
+                prouter_job_uve.send(sandesh=self._sandesh)
 
             #remove the pid entry of the processed job_mgr process
             del self._job_mgr_running_instances[str(pid[0])]
@@ -625,20 +536,6 @@ class VncApiServer(object):
                     for node in cfg_node_list:
                         self._config_node_list.append(node.get(
                             'config_node_ip_address'))
-
-                if not self._analytics_node_list:
-                    (ok, alytics_node_list, _) = self._db_conn.dbe_list(
-                        'analytics_node', field_names=[
-                            'analytics_node_ip_address'])
-                    if not ok:
-                        (code, err_msg) = alytics_node_list
-                        raise cfgm_common.exceptions.HttpError(code, err_msg)
-                    if not alytics_node_list:
-                        err_msg = "Analytic-Node list empty"
-                        raise cfgm_common.exceptions.HttpError(404, err_msg)
-                    for node in alytics_node_list:
-                        self._analytics_node_list.append(node.get(
-                            'analytics_node_ip_address'))
 
                 request_params = get_request().json
                 msg = "Job Input %s " % json.dumps(request_params)
