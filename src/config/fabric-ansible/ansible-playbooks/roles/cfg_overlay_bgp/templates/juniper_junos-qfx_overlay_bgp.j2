@@ -1,3 +1,12 @@
+{%     set loopback_ip_list = device_abstract_config.get('system', {}).get('loopback_ip_list', []) %}
+{%     if loopback_ip_list|length > 0 %}
+{%         set loopback_ip = loopback_ip_list[0] %}
+{%         if loopback_ip %}
+set groups {{cfg_group}} routing-options router-id {{loopback_ip}}
+set groups {{cfg_group}} routing-options route-distinguisher-id {{loopback_ip}}
+{%         endif %}
+{%     endif %}
+
 {%     set rib_name = 'bgp.rtarget.0' %}
 {%     set resolution_rib = 'inet.0' %}
 {%     for bgp in device_abstract_config.get('bgp', []) %}
