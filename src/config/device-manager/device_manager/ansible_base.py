@@ -54,19 +54,15 @@ class AnsibleBase(object):
     @classmethod
     def plugin(cls, vendor, product, params, logger):
         pr = params.get("physical_router")
-        if not pr.physical_router_role or not vendor or not product:
-            name = str(pr.physical_router_role) + ":"+ str(vendor) + ":" + str(product)
-            logger.warning("No ansible plugin pr=%s, role/vendor/product=%s"%(pr.uuid, name))
-            return None
-        vendor = vendor.lower()
-        product = product.lower()
-        pconf = AnsibleBase._plugins.get(pr.physical_router_role)
-        if pconf:
-            pconf = pconf[0] #for now one only
-            inst_cls = pconf.get('class')
-            return inst_cls(logger, params)
-        name = pr.physical_router_role + ":" + vendor + ":" + product
-        logger.warning("No ansible plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
+        name = str(pr.physical_router_role) + ":"+ str(vendor) + ":" + str(product)
+        if pr.physical_router_role and vendor and product:
+            pconf = AnsibleBase._plugins.get(pr.physical_router_role)
+            if pconf:
+                logger.info("Found ansible plugin pr=%s, role/vendor/product=%s"%(pr.uuid, name))
+                pconf = pconf[0] #for now one only
+                inst_cls = pconf.get('class')
+                return inst_cls(logger, params)
+        logger.warning("No ansible plugin pr=%s, role/vendor/product=%s"%(pr.uuid, name))
         return None
     # end plugin
 
