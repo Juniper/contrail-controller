@@ -1561,7 +1561,11 @@ void InetUnicastAgentRouteTable::DeleteEvpnRoute(const AgentRoute *rt) {
         static_cast<const EvpnRouteEntry *>(rt);
     const IpAddress &ip_addr = evpn_route->ip_addr();
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new InetUnicastRouteKey(agent()->inet_evpn_peer(),
+    const Peer *peer = agent()->inet_evpn_peer();
+    if (evpn_route->IsType5()) {
+        peer = agent()->evpn_routing_peer();
+    }
+    req.key.reset(new InetUnicastRouteKey(peer,
                                           evpn_route->vrf()->GetName(),
                                           ip_addr,
                                           GetHostPlen(ip_addr)));
