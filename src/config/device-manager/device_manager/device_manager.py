@@ -236,15 +236,6 @@ class DeviceManager(object):
 
     _device_manager = None
 
-    def get_analytics_config(self):
-        return {
-            'ip': self._args.analytics_server_ip,
-            'port': self._args.analytics_server_port,
-            'username': self._args.analytics_username,
-            'password': self._args.analytics_password
-        }
-    # end get_analytics_config
-
     def __init__(self, dm_logger=None, args=None):
         DeviceManager._device_manager = self
         self._args = args
@@ -447,7 +438,7 @@ class DeviceManager(object):
 
     def get_analytics_config(self):
         return {
-            'ip': self._args.analytics_server_ip.split(',')[0],
+            'ips': self._args.analytics_server_ip.split(','),
             'port': self._args.analytics_server_port,
             'username': self._args.analytics_username,
             'password': self._args.analytics_password

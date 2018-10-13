@@ -111,17 +111,16 @@ class PhysicalRouterDM(DBBaseDM):
         self.ae_index_allocator = DMIndexer(
             DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
         self.init_cs_state()
-        self.config_manager = None
         self.ansible_manager = None
         self.fabric = None
         self.node_profile = None
         self.nc_handler_gl = None
         self.update(obj_dict)
-        if self.config_manager:
-            self.set_conf_sent_state(False)
-            self.config_repush_interval = PushConfigState.get_repush_interval()
-            self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",
-                                                           self.nc_handler)
+
+        self.set_conf_sent_state(False)
+        self.config_repush_interval = PushConfigState.get_repush_interval()
+        self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",
+                                                       self.nc_handler)
     # end __init__
 
     def reinit_device_plugin(self):
@@ -385,7 +384,6 @@ class PhysicalRouterDM(DBBaseDM):
         asn = self._object_db.get_asn_for_pr(self.uuid)
         if asn:
             self.allocated_asn = asn
-
     # end init_cs_state
 
     def reserve_ip(self, vn_uuid, subnet_uuid):
@@ -650,8 +648,8 @@ class PhysicalRouterDM(DBBaseDM):
 
     def push_config(self):
         if not self.config_manager:
-            self._logger.info("plugin not found for vendor family(%s:%s), \
-                  ip: %s, not pushing netconf message" % (str(self.vendor),
+            self._logger.info("Plugin not found for vendor family(%s:%s), "
+                  "ip: %s, not pushing config" % (str(self.vendor),
                                      str(self.product), self.management_ip))
             return
         if self.delete_config() or not self.is_vnc_managed():

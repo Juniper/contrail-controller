@@ -86,7 +86,7 @@
         - debug: msg="Fabric is not ztp'ed, so skipping feature {{ feature }}..." verbosity=1
         - set_fact:
             feature_needed: False
-      when: "'underlay' in {{ feature }} and not {{ is_ztp }}"
+      when: "'underlay' in '{{ feature }}' and not {{ is_ztp }}"
 
     - name: Check whether feature is needed
       debug: msg="Feature {{ vf_feature }} not found, skipping..." verbosity=1

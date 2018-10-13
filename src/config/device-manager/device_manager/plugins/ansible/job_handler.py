@@ -117,7 +117,7 @@ class JobHandler(object):
     # end _get_job_status
 
     def _wait(self, job_execution_id, timeout, max_retries):
-        url = OpServerUtils.opserver_query_url(self._analytics_config['ip'],
+        url = OpServerUtils.opserver_query_url(self._analytics_config['ips'],
                                                self._analytics_config['port'])
 
         retry_count = 1
