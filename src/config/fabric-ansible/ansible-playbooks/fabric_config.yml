@@ -5,17 +5,8 @@
   connection: local
   vars:
     input: "{{ playbook_input.input }}"
+    device_mgmt_ip: "{{ playbook_input.device_management_ip }}"
     additional_feature_params: "{{ input.additional_feature_params }}"
-    device_info: "{{ input.device_abstract_config.system }}"
-    device_name: "{{ device_info.name }}"
-    device_vendor: "{{ device_info.vendor_name|lower }}"
-    device_family: "{{ device_info.device_family|lower }}"
-    device_model: "{{ device_info.product_name }}"
-    device_username: "{{ device_info.credentials.user_name }}"
-    device_password: "{{ device_info.credentials.password }}"
-    device_mgmt_ip: "{{ device_info.management_ip }}"
-    device_phy_role: "{{ device_info.physical_role }}"
-    device_rb_roles: "{{ device_info.routing_bridging_roles if device_info.routing_bridging_roles is defined else [] }}"
     is_delete: "{{ input.is_delete }}"
     is_ztp: "{{ input.is_ztp }}"
     output: {"status":"", "message":"", "results":""}
@@ -24,28 +15,51 @@
     - set_fact:
         job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[20, 80] })}}"
 
-    - name: Update job log with percentage
-      include_tasks: percentage_update.yml
-      vars:
-        current_index: 1
-        jl_message: "Config push for device {{ device_mgmt_ip }} started"
-
-    - set_fact:
-        device_abstract_config: "{{input.device_abstract_config}}"
-      when: input.is_delete is undefined or input.is_delete == False
-
     - set_fact:
         conf_dir: "./config/{{ device_mgmt_ip }}"
 
-    - name: Remove build folder if it already exists
+    - name: "load abstract config from {{conf_dir}}"
+      include_vars:
+        file: "{{conf_dir}}/abstract_cfg.json"
+        name: abstract_cfg
+
+    - set_fact:
+        device_info: "{{ abstract_cfg.system }}"
+
+    - set_fact:
+        device_name: "{{ device_info.name }}"
+        device_vendor: "{{ device_info.vendor_name|lower }}"
+        device_family: "{{ device_info.device_family|lower }}"
+        device_model: "{{ device_info.product_name }}"
+        device_username: "{{ device_info.credentials.user_name }}"
+        device_password: "{{ device_info.credentials.password }}"
+        device_phy_role: "{{ device_info.physical_role }}"
+        device_rb_roles: "{{ device_info.routing_bridging_roles if device_info.routing_bridging_roles is defined else [] }}"
+
+    - set_fact:
+        device_abstract_config: "{{abstract_cfg}}"
+      when: input.is_delete is undefined or input.is_delete == False
+
+    - name: Remove build_config folder if it already exists
       file:
-        path: "{{ conf_dir }}"
+        path: "{{ conf_dir }}/build_config"
+        state: absent
+
+    - name: Remove final_config folder if it already exists
+      file:
+        path: "{{ conf_dir }}/final_config"
         state: absent
 
     - name: Create build folder
       file:
         path: "{{ conf_dir }}/build_config"
         state: directory
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Config push for device {{ device_mgmt_ip }} started"
 
   roles:
     - cfg_basic
