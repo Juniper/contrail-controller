@@ -274,6 +274,7 @@ class AnsibleConf(AnsibleBase):
         config = self.prepare_conf(is_delete=is_delete)
         feature_configs, job_template = self.read_node_profile_info()
         job_input = {
+            'device_management_ip': self.physical_router.management_ip,
             'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),
             'is_delete': is_delete,
