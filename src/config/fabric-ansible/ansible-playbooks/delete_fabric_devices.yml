@@ -1,5 +1,5 @@
 ---
-- name: Delete fabric and all the devices in the fabric
+- name: Delete all the devices in the fabric
   hosts: localhost
   connection: local
   tasks:
@@ -10,9 +10,9 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 1
-        jl_message: "Deleting fabric and all the devices in the fabric"
+        jl_message: "Deleting all the devices in the fabric"
 
-    - name: delete fabric and devices in it
+    - name: Delete devices in the fabric
       set_fact:
         output: "{{ job_ctx | delete_devices }}"
 

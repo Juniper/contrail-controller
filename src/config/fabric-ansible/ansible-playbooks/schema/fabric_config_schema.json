@@ -4,6 +4,10 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+      "device_management_ip": {
+        "type": "string",
+        "description": "Management IP of the Device"
+      },
       "device_abstract_config": {
         "type": "object",
         "description": "JSON string of the device abstract config derived from VNC data model"
