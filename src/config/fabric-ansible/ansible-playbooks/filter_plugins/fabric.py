@@ -49,17 +49,6 @@ from vnc_api.gen.resource_xsd import (
 )
 
 
-def dump(vnc_api, res_type, fq_name):
-    obj = vnc_api._object_read(res_type=res_type, fq_name=fq_name)
-    dumpobj(vnc_api, obj)
-# end dump
-
-
-def dumpobj(vnc_api, obj):
-    print json.dumps(vnc_api.obj_to_dict(obj), indent=4)
-# end dumpobj
-
-
 def _compare_fq_names(this_fq_name, that_fq_name):
     """
     :param this_fq_name: list<string>
