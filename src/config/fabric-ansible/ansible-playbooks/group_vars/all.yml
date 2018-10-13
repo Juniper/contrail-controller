@@ -1,6 +1,6 @@
 # Timeout settings for Ansible junos modules
 JUNOS_COMMIT_TIMEOUT: 600
-JUNOS_FACTS_TIMEOUT: 120
+JUNOS_FACTS_TIMEOUT: 10
 JUNOS_COMMAND_TIMEOUT: 120
 
 # Device states for prouter object log
