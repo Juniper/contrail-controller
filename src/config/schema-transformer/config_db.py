@@ -3364,11 +3364,12 @@ class BgpRouterST(DBBaseST):
         if update:
             self.obj.set_bgp_router_parameters(params)
         router_refs = self.obj.get_bgp_router_refs()
-        peering_attribs = router_refs[0]['attr']
-        if peering_attribs != bgpaas.peering_attribs:
-            self.obj.set_bgp_router_list([router_refs[0]['to']],
-                                         [bgpaas.peering_attribs])
-            update = True
+        if router_refs:
+            peering_attribs = router_refs[0]['attr']
+            if peering_attribs != bgpaas.peering_attribs:
+                self.obj.set_bgp_router_list([router_refs[0]['to']],
+                                             [bgpaas.peering_attribs])
+                update = True
 
         old_refs = self.obj.get_virtual_machine_interface_back_refs() or []
         old_uuids = set([ref['uuid'] for ref in old_refs])
