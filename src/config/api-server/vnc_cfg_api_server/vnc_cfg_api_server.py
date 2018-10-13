@@ -736,6 +736,9 @@ class VncApiServer(object):
                 # handle process exit signal
                 signal.signal(signal.SIGCHLD,  self.job_mgr_signal_handler)
 
+                # write the abstract config to file if needed
+                self.save_abstract_config(request_params)
+
                 # create job manager subprocess
                 job_mgr_path = os.path.dirname(__file__) + "/../job_manager/job_mgr.py"
                 job_process = subprocess.Popen(["python", job_mgr_path, "-i",
@@ -763,6 +766,24 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(503, err_msg)
         except cfgm_common.exceptions.HttpError as e:
             raise
+
+    def save_abstract_config(self, job_params):
+        import pdb; pdb.set_trace()
+        dev_abs_cfg = job_params.get('input', {}).get('device_abstract_config')
+        if dev_abs_cfg:
+            dev_mgt_ip = dev_abs_cfg.get('system', {}).get('management_ip')
+            if not dev_mgt_ip:
+                raise ValueError('Missing management IP in abstract config')
+
+            dev_cfg_dir = '/opt/contrail/fabric_ansible_playbooks/config/' + dev_mgt_ip
+            if not os.path.exists(dev_cfg_dir):
+                os.makedirs(dev_cfg_dir)
+            if dev_cfg_dir:
+                with open(dev_cfg_dir + '/abstract_cfg.json', 'w') as f:
+                    f.write(json.dumps(dev_abs_cfg, indent=4))
+                job_params.get('input').pop('device_abstract_config')
+
+    def create_device_cfg_dir(self, dev_mgt_ip):
 
     def read_fabric_data(self, request_params):
         if request_params.get('input') is None:
