@@ -274,6 +274,10 @@ void ConfigListener::GetChangeList(ChangeList *change_list) {
     tracker_->PropagateChanges(&change_list_);
     tracker_->Clear();
     change_list->swap(change_list_);
+    uint32_t yield_number = DnsConfigManager::kConfigItemsToYield;
+    if (change_list_.size() > yield_number) {
+            change_list_.erase(change_list_.begin(), (change_list_.begin() + yield_number));
+    }
 }
 
 void ConfigListener::ChangeListAdd(ChangeList *change_list,
