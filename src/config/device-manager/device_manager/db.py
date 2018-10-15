@@ -992,6 +992,7 @@ class FloatingIpDM(DBBaseDM):
         self.uuid = uuid
         self.virtual_machine_interface = None
         self.floating_ip_address = None
+        self.floating_ip_pool = None
         self.update(obj_dict)
     # end __init__
 
@@ -1001,16 +1002,15 @@ class FloatingIpDM(DBBaseDM):
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
         self.floating_ip_address = obj.get("floating_ip_address")
-        self.public_network = self.get_pool_public_network(
-            self.get_parent_uuid(obj))
         self.update_single_ref('virtual_machine_interface', obj)
+        self.update_single_ref('floating_ip_pool', obj)
     # end update
 
-    def get_pool_public_network(self, pool_uuid):
-        pool_obj = self.read_obj(pool_uuid, "floating_ip_pool")
-        if pool_obj is None:
-            return None
-        return self.get_parent_uuid(pool_obj)
+    def get_public_network(self):
+        if self.floating_ip_pool:
+            pool_obj = FloatingIpPoolDM.get(self.floating_ip_pool)
+            return pool_obj.virtual_network if pool_obj else None
+        return None
     # end get_pool_public_network
 
     @classmethod
@@ -1019,10 +1019,42 @@ class FloatingIpDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.update_single_ref('virtual_machine_interface', {})
+        obj.update_single_ref('floating_ip_pool', {})
         del cls._dict[uuid]
     # end delete
 
 # end FloatingIpDM
+
+class FloatingIpPoolDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'floating_ip_pool'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_network = None
+        self.floating_ips = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.update_single_ref('virtual_network', obj)
+        self.update_multiple_refs('floating_ip', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('virtual_network', {})
+        obj.update_multiple_refs('floating_ip', {})
+        del cls._dict[uuid]
+    # end delete
+# end FloatingIpPoolDM
 
 
 class InstanceIpDM(DBBaseDM):
@@ -1268,6 +1300,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.router_external = False
         self.forwarding_mode = None
         self.gateways = None
+        self.floating_ip_pools = set()
         self.instance_ip_map = {}
         self.route_targets = None
         self.update(obj_dict)
@@ -1287,6 +1320,7 @@ class VirtualNetworkDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
             self.set_logical_router(obj.get("fq_name")[-1])
         self.update_multiple_refs('physical_router', obj)
+        self.update_multiple_refs('floating_ip_pool', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
         try:
@@ -1345,26 +1379,34 @@ class VirtualNetworkDM(DBBaseDM):
 
     def update_instance_ip_map(self):
         self.instance_ip_map = {}
-        for vmi_uuid in self.virtual_machine_interfaces:
-            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
-            if vmi is None or vmi.is_device_owner_bms() == False:
+        for pool_uuid in self.floating_ip_pools:
+            pool = FloatingIpPoolDM.get(pool_uuid)
+            if not pool or not pool.floating_ips:
                 continue
-            if vmi.floating_ip is not None and vmi.instance_ip is not None:
-                fip = FloatingIpDM.get(vmi.floating_ip)
-                inst_ip = InstanceIpDM.get(vmi.instance_ip)
-                if fip is None or inst_ip is None:
+            floating_ips = pool.floating_ips
+            for fip in floating_ips:
+                fip_obj = FloatingIpDM.get(fip)
+                if not fip_obj or not fip_obj.virtual_machine_interface:
                     continue
-                instance_ip = inst_ip.instance_ip_address
-                floating_ip = fip.floating_ip_address
-                public_vn = VirtualNetworkDM.get(fip.public_network)
-                if public_vn is None or public_vn.vn_network_id is None:
+                vmi = VirtualMachineInterfaceDM.get(fip_obj.virtual_machine_interface)
+                if vmi is None or vmi.is_device_owner_bms() == False:
                     continue
-                public_vrf_name = DMUtils.make_vrf_name(public_vn.fq_name[-1],
+                if vmi.floating_ip is not None and vmi.instance_ip is not None:
+                    fip = FloatingIpDM.get(vmi.floating_ip)
+                    inst_ip = InstanceIpDM.get(vmi.instance_ip)
+                    if fip is None or inst_ip is None:
+                        continue
+                    instance_ip = inst_ip.instance_ip_address
+                    floating_ip = fip.floating_ip_address
+                    public_vn = VirtualNetworkDM.get(fip.get_public_network())
+                    if public_vn is None or public_vn.vn_network_id is None:
+                        continue
+                    public_vrf_name = DMUtils.make_vrf_name(public_vn.fq_name[-1],
                                                    public_vn.vn_network_id, 'l3')
-                self.instance_ip_map[instance_ip] = {
-                    'floating_ip': floating_ip,
-                    'vrf_name': public_vrf_name
-                }
+                    self.instance_ip_map[instance_ip] = {
+                        'floating_ip': floating_ip,
+                        'vrf_name': public_vrf_name
+                    }
     # end update_instance_ip_map
 
     @classmethod
@@ -1373,6 +1415,7 @@ class VirtualNetworkDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('physical_router', {})
+        obj.update_multiple_refs('floating_ip_pool', {})
         del cls._dict[uuid]
     # end delete
 # end VirtualNetworkDM
