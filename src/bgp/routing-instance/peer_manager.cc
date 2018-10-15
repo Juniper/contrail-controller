@@ -5,6 +5,7 @@
 #include "bgp/routing-instance/peer_manager.h"
 
 #include "base/task_annotations.h"
+#include "base/address_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
@@ -171,6 +172,11 @@ BgpPeer *PeerManager::PeerFind(string ip_address) const {
     boost::system::error_code ec;
     boost::asio::ip::tcp::endpoint endpoint;
     endpoint.address(boost::asio::ip::address::from_string(ip_address, ec));
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string address_string = GetHostIp(&io_service, ip_address);
+      endpoint.address(boost::asio::ip::address::from_string(address_string, ec));
+    }
     if (ec)
         return NULL;
 

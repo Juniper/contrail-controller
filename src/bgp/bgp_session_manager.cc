@@ -6,6 +6,7 @@
 
 #include "base/bgp_as_service_utils.h"
 #include "base/task_annotations.h"
+#include "base/address_util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_server.h"
@@ -29,6 +30,11 @@ BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
 
       boost::system::error_code ec;
       session_ip_ = address::from_string(kDefaultBgpSessionIp, ec);
+      if(ec.value() != 0){
+        boost::asio::io_service io_service;
+        std::string address_string = GetHostIp(&io_service, kDefaultBgpSessionIp);
+        session_ip_ = boost::asio::ip::address::from_string(address_string, ec);
+      }
 }
 
 BgpSessionManager::~BgpSessionManager() {

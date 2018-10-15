@@ -31,7 +31,7 @@ class MesosManagerLogger(object):
         self.module["name"] = ModuleNames[self.module["id"]]
         self.module["node_type"] = Module2NodeType[self.module["id"]]
         self.module["node_type_name"] = NodeTypeNames[self.module["node_type"]]
-        self.module["hostname"] = socket.gethostname()
+        self.module["hostname"] = socket.getfqdn()
         self.module["table"] = "ObjectConfigNode"
         if self._args.worker_id:
             self.module["instance_id"] = self._args.worker_id

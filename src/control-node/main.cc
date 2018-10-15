@@ -16,6 +16,7 @@
 #include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/misc_utils.h"
+#include "base/address_util.h"
 #include "io/process_signal.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -104,6 +105,11 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     xmpp_server = new XmppServer(evm, options->hostname(), xmpp_cfg);
     boost::system::error_code ec;
     IpAddress xmpp_ip_address = address::from_string(options->host_ip(), ec);
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string xmpp_ip_address_string = GetHostIp(&io_service, options->host_ip());
+      xmpp_ip_address = boost::asio::ip::address::from_string(xmpp_ip_address_string, ec);
+    }
     if (ec) {
         LOG(ERROR, "Xmpp IP Address:" <<  options->host_ip() <<
                    " conversion error:" << ec.message());
@@ -301,6 +307,11 @@ int main(int argc, char *argv[]) {
 
     boost::system::error_code ec;
     IpAddress bgp_ip_address = address::from_string(options.host_ip(), ec);
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string bgp_ip_address_string = GetHostIp(&io_service, options.host_ip());
+      bgp_ip_address = boost::asio::ip::address::from_string(bgp_ip_address_string, ec);
+    }
     if (ec) {
         LOG(ERROR, "Bgp IP Address:" <<  options.host_ip() <<
                    " conversion error:" << ec.message());

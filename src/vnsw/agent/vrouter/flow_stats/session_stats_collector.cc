@@ -1629,6 +1629,12 @@ void SessionStatsCollector::FillSessionInfoUnlocked
             }
             session_info->set_other_vrouter_ip(
                 boost::asio::ip::address::from_string(info.other_vrouter, ec));
+            if(ec.value() != 0){
+              boost::asio::io_service io_service;
+              std::string address_string = GetHostIp(&io_service, info.other_vrouter);
+              session_info->set_other_vrouter_ip(
+                  boost::asio::ip::address::from_string(address_string, ec));
+            }
             session_info->set_underlay_proto(info.underlay_proto);
         }
     } else {
@@ -1636,6 +1642,12 @@ void SessionStatsCollector::FillSessionInfoUnlocked
         if (fe->is_flags_set(FlowEntry::LocalFlow)) {
             session_info->set_other_vrouter_ip(
                     boost::asio::ip::address::from_string(rid, ec));
+            if(ec.value() != 0){
+              boost::asio::io_service io_service;
+              std::string address_string = GetHostIp(&io_service, rid);
+              session_info->set_other_vrouter_ip(
+                  boost::asio::ip::address::from_string(address_string, ec));
+            }
         } else {
             /* For Egress flows, pick VM name from reverse flow */
             if (!fe->IsIngressFlow() && rfe) {
@@ -1643,6 +1655,12 @@ void SessionStatsCollector::FillSessionInfoUnlocked
             }
             session_info->set_other_vrouter_ip(
                 boost::asio::ip::address::from_string(fe->peer_vrouter(), ec));
+            if(ec.value() != 0){
+              boost::asio::io_service io_service;
+              std::string address_string = GetHostIp(&io_service, fe->peer_vrouter());
+              session_info->set_other_vrouter_ip(
+                  boost::asio::ip::address::from_string(address_string, ec));
+            }
         }
         session_info->set_underlay_proto(fe->tunnel_type().GetType());
     }
@@ -1756,6 +1774,12 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
     }
     session_ep->set_vrouter_ip(
                     boost::asio::ip::address::from_string(rid, ec));
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string address_string = GetHostIp(&io_service, rid);
+      session_ep->set_vrouter_ip(
+          boost::asio::ip::address::from_string(address_string, ec));
+    }
 }
 
 bool SessionStatsCollector::ProcessSessionEndpoint

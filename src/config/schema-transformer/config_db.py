@@ -60,7 +60,7 @@ RULE_IMPLICIT_DENY_UUID = common.RULE_IMPLICIT_DENY_UUID
 def _raise_and_send_uve_to_sandesh(obj_type, err_info, sandesh):
     config_req_err = SystemConfigReq(obj_type=obj_type,
                                   err_info=err_info)
-    config_req_err.name = socket.gethostname()
+    config_req_err.name = socket.getfqdn()
     config_req_trace = SystemConfigReqTrace(data=config_req_err,
                                          sandesh=sandesh)
     config_req_trace.send(sandesh=sandesh)

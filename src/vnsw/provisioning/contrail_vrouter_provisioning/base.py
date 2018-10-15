@@ -25,7 +25,7 @@ log = logging.getLogger('contrail_vrouter_provisioning.base')
 class ContrailSetup(object):
     def __init__(self):
         (self.pdist, self.pdistversion, self.pdistrelease) = platform.dist()
-        self.hostname = socket.gethostname()
+        self.hostname = socket.getfqdn()
         self.running_in_container = False
         if os.path.exists('/.dockerenv'):
             self.running_in_container = True

@@ -6,6 +6,7 @@
 #include <base/util.h>
 #include <base/logging.h>
 #include <base/connection_info.h>
+#include "base/address_util.h"
 #include <net/bgp_af.h>
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
@@ -2817,6 +2818,12 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
     string last_state_name;
     ep.address(boost::asio::ip::address::from_string(agent_->
                 controller_ifmap_xmpp_server(xs_idx_), ec));
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string address_string = GetHostIp(&io_service,
+          agent_->controller_ifmap_xmpp_server(xs_idx_));
+      ep.address(boost::asio::ip::address::from_string(address_string, ec));
+    }
     uint16_t port = agent_->controller_ifmap_xmpp_port(xs_idx_);
     ep.port(port);
     const string name = agent_->xmpp_control_node_prefix() +

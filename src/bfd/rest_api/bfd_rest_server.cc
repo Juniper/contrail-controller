@@ -18,6 +18,7 @@
 
 #include "base/logging.h"
 #include "base/regex.h"
+#include "base/address_util.h"
 #include "bfd/bfd_common.h"
 #include "bfd/bfd_session.h"
 #include "bfd/rest_api/bfd_json_config.h"
@@ -47,15 +48,27 @@ void RESTServer::ClientIPConnectionHandler(const struct RESTData& data) {
 
 void RESTServer::ClientIPAddressHandlerGet(const struct RESTData& data) {
     const std::string& client_id = (*data.match)[1];
+    boost::system::error_code ec;
     boost::asio::ip::address ip =
-        boost::asio::ip::address::from_string((*data.match)[2]);
+        boost::asio::ip::address::from_string((*data.match)[2], ec);
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string address_string = GetHostIp(&io_service, (*data.match)[2]);
+      ip = boost::asio::ip::address::from_string(address_string, ec);
+    }
     GetBFDConnection(atoi(client_id.c_str()), ip, data.session, data.request);
 }
 
 void RESTServer::ClientIPAddressHandlerDelete(const struct RESTData& data) {
     const std::string& client_id = (*data.match)[1];
+    boost::system::error_code ec;
     boost::asio::ip::address ip =
         boost::asio::ip::address::from_string((*data.match)[2]);
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string address_string = GetHostIp(&io_service, (*data.match)[2]);
+      ip = boost::asio::ip::address::from_string(address_string, ec);
+    }
     DeleteBFDConnection(atoi(client_id.c_str()), ip,
                         data.session, data.request);
 }

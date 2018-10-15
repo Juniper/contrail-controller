@@ -35,7 +35,7 @@ def daemon_stop():
                               project=arguments.project,
                               api_server=arguments.api_server,
                               api_port=arguments.api_port)
-    vrouter_name = socket.gethostname()
+    vrouter_name = socket.getfqdn()
     instance_name = '%s-%s' % (vrouter_name, arguments.daemon)
     vm = provisioner.virtual_machine_lookup(instance_name)
 

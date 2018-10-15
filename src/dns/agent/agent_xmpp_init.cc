@@ -4,6 +4,7 @@
 
 #include "base/logging.h"
 #include "base/contrail_ports.h"
+#include "base/address_util.h"
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
 #include "cmn/dns.h"
@@ -36,6 +37,11 @@ bool DnsAgentXmppManager::Init(bool xmpp_auth_enabled,
 
     error_code ec;
     IpAddress xmpp_ip_address = address::from_string(Dns::GetSelfIp(), ec);
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string xmpp_ip_address_string = GetHostIp(&io_service, Dns::GetSelfIp());
+      xmpp_ip_address = boost::asio::ip::address::from_string(xmpp_ip_address_string, ec);
+    }
     if (ec) {
         LOG(ERROR, "Xmpp IP Address:" << Dns::GetSelfIp() <<
                    " conversion error:" << ec.message());

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "base/os.h"
 #include "vr_defs.h"
+#include "base/address_util.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
 #include "services/dhcp_proto.h"
@@ -74,6 +75,11 @@ void DnsHandler::BuildDnsResolvers() {
         boost::system::error_code ec;
         resolver->ep_.address(boost::asio::ip::address::from_string(
                               dns_servers[0], ec));
+        if(ec.value() != 0){
+          boost::asio::io_service io_service;
+          std::string address_string = GetHostIp(&io_service, dns_servers[0]);
+          resolver->ep_.address(boost::asio::ip::address::from_string(address_string, ec));
+        }
         assert(ec.value() == 0);
         uint16_t dns_port = DNS_SERVER_PORT;
         if (dns_servers.size() > 1)

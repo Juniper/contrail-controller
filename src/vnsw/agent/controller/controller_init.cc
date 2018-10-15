@@ -8,6 +8,7 @@
 #include <base/timer.h>
 #include <base/contrail_ports.h>
 #include <base/connection_info.h>
+#include <base/address_util.h>
 #include <net/tunnel_encap_type.h>
 #include <sandesh/sandesh_trace.h>
 #include <cmn/agent_cmn.h>
@@ -171,6 +172,13 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS;
             xmpp_cfg->endpoint.address(
                 ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
+            if(ec.value() != 0){
+              boost::asio::io_service io_service;
+              std::string address_string =
+                  GetHostIp(&io_service, agent_->controller_ifmap_xmpp_server(count));
+              xmpp_cfg->endpoint.address(
+                  ip::address::from_string(address_string, ec));
+            } 
             assert(ec.value() == 0);
             xmpp_cfg->auth_enabled = agent_->xmpp_auth_enabled();
             if (xmpp_cfg->auth_enabled) {
@@ -255,6 +263,13 @@ void VNController::DnsXmppServerConnect() {
             xmpp_cfg_dns->NodeAddr = "";
             xmpp_cfg_dns->endpoint.address(
                      ip::address::from_string(agent_->dns_server(count), ec));
+            if(ec.value() != 0){
+              boost::asio::io_service io_service;
+              std::string address_string =
+                  GetHostIp(&io_service, agent_->dns_server(count));
+              xmpp_cfg_dns->endpoint.address(
+                  ip::address::from_string(address_string, ec));
+            }
             assert(ec.value() == 0);
             if (agent_->xmpp_dns_test_mode()) {
                 xmpp_cfg_dns->endpoint.port(agent_->dns_server_port(count));

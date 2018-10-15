@@ -40,7 +40,7 @@ def main():
 
     manager = LxcManager()
     provisioner = Provisioner(api_server=args.api_server, api_port=args.api_port)
-    instance_name = '%s-%s' % (socket.gethostname(), args.container_id)
+    instance_name = '%s-%s' % (socket.getfqdn(), args.container_id)
     pid_str = subprocess.check_output(
         'docker inspect -f \'{{.State.Pid}}\' %s' % args.container_id, shell=True)
     pid = int(pid_str)

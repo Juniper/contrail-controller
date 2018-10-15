@@ -5,6 +5,7 @@
 #include <vector>
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
+#include "base/address_util.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -18,6 +19,11 @@ namespace REST {
 static bool IsIPAddressValid(const char* addr) {
     boost::system::error_code ec;
     boost::asio::ip::address::from_string(addr, ec);
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      std::string address_string = GetHostIp(&io_service, addr);
+      boost::asio::ip::address::from_string(address_string, ec);
+    }
     return !ec;
 }
 
@@ -76,9 +82,16 @@ bool JsonConfig::ParseFromJsonDocument(const contrail_rapidjson::Value& document
     if (ValidateJsonDocument(document)) {
         using boost::posix_time::microseconds;
 
+        boost::system::error_code ec;
         address =
             boost::asio::ip::
-                address::from_string(document["Address"].GetString());
+                address::from_string(document["Address"].GetString(), ec);
+        if(ec.value() != 0){
+          boost::asio::io_service io_service;
+          std::string address_string =
+                 GetHostIp(&io_service, document["Address"].GetString());
+          address = boost::asio::ip::address::from_string(address_string, ec);
+        }
         desired_min_tx_interval =
             microseconds(document["DesiredMinTxInterval"].GetInt());
         required_min_rx_interval =
@@ -181,9 +194,16 @@ bool JsonStateNotification::ParseFromJsonDocument(const contrail_rapidjson::Valu
                                                         &document) {
     if (ValidateJsonDocument(document)) {
 
+        boost::system::error_code ec;
         address =
             boost::asio::ip::
-                address::from_string(document["Address"].GetString());
+                address::from_string(document["Address"].GetString(), ec);
+        if(ec.value() != 0){
+          boost::asio::io_service io_service;
+          std::string address_string =
+                 GetHostIp(&io_service, document["Address"].GetString());
+          address = boost::asio::ip::address::from_string(address_string, ec);
+        }
         state =
             *BFDStateFromString(document["SessionState"].GetString());
         return true;
@@ -270,8 +290,15 @@ bool JsonStateMap::ParseFromJsonDocument(
 
     for (contrail_rapidjson::Value::ConstMemberIterator
             it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
+        boost::system::error_code ec;
         boost::asio::ip::address address =
-            boost::asio::ip::address::from_string(it->name.GetString());
+            boost::asio::ip::address::from_string(it->name.GetString(), ec);
+        if(ec.value() != 0){
+          boost::asio::io_service io_service;
+          std::string address_string =
+                 GetHostIp(&io_service, it->name.GetString());
+          address = boost::asio::ip::address::from_string(address_string, ec);
+        }
         BFDState state = *BFDStateFromString(it->value.GetString());
         states[address] = state;
     }

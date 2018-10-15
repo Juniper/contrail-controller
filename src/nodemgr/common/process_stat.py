@@ -18,7 +18,7 @@ class ProcessStat(object):
         self.deleted = False
         self.process_state = 'PROCESS_STATE_STOPPED'
         self.group = 'default'
-        self.name = socket.gethostname()
+        self.name = socket.getfqdn()
         self.pname = pname
         self.pid = 0
         self.last_cpu = last_cpu

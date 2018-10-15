@@ -346,7 +346,7 @@ class MockGeneratorTest(object):
         moduleid = ModuleNames[module]
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
-        hostname = socket.gethostname() + '-' + str(pid)
+        hostname = socket.getfqdn() + '-' + str(pid)
         hostnames = [hostname + '-' + str(x) for x in range(ngens)]
         gen_factor = num_networks / num_networks_per_gen
         if gen_factor == 0:

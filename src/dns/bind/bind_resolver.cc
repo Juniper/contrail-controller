@@ -4,6 +4,7 @@
 
 #include <boost/bind.hpp>
 #include <bind/bind_util.h>
+#include <base/address_util.h>
 #include <bind/bind_resolver.h>
 
 BindResolver *BindResolver::resolver_;
@@ -33,10 +34,15 @@ BindResolver::BindResolver(boost::asio::io_service &io,
                     dns_servers.size() : max_dns_servers;
     dns_ep_.resize(size);
     for (unsigned int i = 0; i < dns_servers.size(); ++i) {
+        boost::asio::ip::address dns_address(
+                      boost::asio::ip::address::from_string(dns_servers[i].ip_,ec)); 
+        if(ec.value() != 0){
+          boost::asio::io_service io_service;
+          std::string dns_address_string = GetHostIp(&io_service, dns_servers[i].ip_);
+          dns_address = boost::asio::ip::address::from_string(dns_address_string, ec);
+        }
         boost::asio::ip::udp::endpoint *ep =
-            new boost::asio::ip::udp::endpoint(
-                     boost::asio::ip::address::from_string(
-                     dns_servers[i].ip_, ec), dns_servers[i].port_);
+            new boost::asio::ip::udp::endpoint(dns_address, dns_servers[i].port_);
         assert (ec.value() == 0);
         dns_ep_[i] = ep;
     }
@@ -116,8 +122,16 @@ void BindResolver::SetupResolver(const DnsServer &server, uint8_t idx) {
     }
 
     boost::system::error_code ec;
+    boost::asio::ip::address server_address;
+    std::string server_address_string = server.ip_;
+    server_address = boost::asio::ip::address::from_string(server_address_string, ec);
+    if(ec.value() != 0){
+      boost::asio::io_service io_service;
+      server_address_string = GetHostIp(&io_service, server_address_string);
+      boost::asio::ip::address::from_string(server_address_string, ec);
+    }
     boost::asio::ip::udp::endpoint *ep = new boost::asio::ip::udp::endpoint(
-        boost::asio::ip::address::from_string(server.ip_, ec), server.port_);
+        boost::asio::ip::address::from_string(server_address_string, ec), server.port_);
     assert (ec.value() == 0);
     dns_ep_[idx] = ep;
 }
