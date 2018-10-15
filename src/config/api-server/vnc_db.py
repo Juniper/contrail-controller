@@ -17,6 +17,7 @@ from pprint import pformat
 
 import socket
 from netaddr import IPNetwork, IPAddress
+from context import get_request
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
@@ -49,11 +50,11 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
 
-@ignore_exceptions
 def get_trace_id():
     try:
-        req_id = gevent.getcurrent().trace_request_id
-    except Exception:
+        req_id = get_request().headers.get(
+            'X-Request-Id', gevent.getcurrent().trace_request_id)
+    except AttributeError:
         req_id = 'req-%s' %(str(uuid.uuid4()))
         gevent.getcurrent().trace_request_id = req_id
 
