@@ -19,6 +19,7 @@ from dm_utils import PushConfigState
 from db import PhysicalInterfaceDM
 from db import LogicalInterfaceDM
 from db import BgpRouterDM
+from db import VirtualNetworkDM
 from db import GlobalSystemConfigDM
 from db import VirtualMachineInterfaceDM
 from device_api.juniper_common_xsd import *
@@ -242,7 +243,11 @@ class JuniperConf(DeviceConf):
         vn_dict = {}
         for vn_id in pr.virtual_networks:
             vn_dict[vn_id] = []
-
+            vn = VirtualNetworkDM.get(vn_id)
+            if vn and vn.router_external:
+                vn_list = vn.get_connected_private_networks()
+                for pvn in vn_list or []:
+                    vn_dict[pvn] = []
         li_set = pr.logical_interfaces
         for pi_uuid in pr.physical_interfaces:
             pi = PhysicalInterfaceDM.get(pi_uuid)
