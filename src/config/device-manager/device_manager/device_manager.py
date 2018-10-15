@@ -46,7 +46,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
-    RoleConfigDM, FabricDM, LinkAggregationGroupDM
+    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -179,6 +179,7 @@ class DeviceManager(object):
             'physical_router': [],
             'logical_router': ['physical_router'],
             'virtual_machine_interface': ['physical_router'],
+            'floating_ip_pool': ['physical_router'],
         },
         'logical_router': {
             'self': ['physical_router', 'virtual_network'],
@@ -195,8 +196,13 @@ class DeviceManager(object):
             'virtual_network': []
         },
         'floating_ip': {
-            'self': ['virtual_machine_interface'],
-            'virtual_machine_interface': [],
+            'self': ['virtual_machine_interface', 'floating_ip_pool'],
+            'virtual_machine_interface': ['floating_ip_pool']
+        },
+        'floating_ip_pool': {
+            'self': ['virtual_network'],
+            'virtual_network': [],
+            'floating_ip': ['virtual_network']
         },
         'instance_ip': {
             'self': ['virtual_machine_interface', 'logical_interface'],
@@ -338,6 +344,9 @@ class DeviceManager(object):
 
         for obj in RoutingInstanceDM.list_obj():
             RoutingInstanceDM.locate(obj['uuid'], obj)
+
+        for obj in FloatingIpPoolDM.list_obj():
+            FloatingIpPoolDM.locate(obj['uuid'], obj)
 
         for obj in BgpRouterDM.list_obj():
             BgpRouterDM.locate(obj['uuid'], obj)
