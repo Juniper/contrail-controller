@@ -72,6 +72,7 @@ struct DnsConfigData {
 
 class DnsConfigManager {
 public:
+    static const int kConfigItemsToYield = 8;
     static const int kConfigTaskInstanceId = 0;
     enum EventType {
         CFG_NONE,
@@ -115,7 +116,7 @@ private:
         boost::function<void(const ConfigDelta &)> >IdentifierMap;
 
     void IdentifierMapInit();
-    void ProcessChanges(const ChangeList &change_list);
+    bool ProcessChanges(const ChangeList &change_list);
     void ProcessNetworkIpam(const ConfigDelta &delta);
     void ProcessVNNI(const ConfigDelta &delta);
     void ProcessVirtualDNS(const ConfigDelta &delta);

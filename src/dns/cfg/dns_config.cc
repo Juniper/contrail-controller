@@ -190,21 +190,24 @@ IFMapNode *DnsConfigManager::FindTarget(IFMapNode *node,
     return NULL;
 }
 
-void DnsConfigManager::ProcessChanges(const ChangeList &change_list) {
+bool DnsConfigManager::ProcessChanges(const ChangeList &change_list) {
+    int i=0;
     for (ChangeList::const_iterator iter = change_list.begin();
          iter != change_list.end(); ++iter) {
         IdentifierMap::iterator loc = id_map_.find(iter->id_type);
         if (loc != id_map_.end()) {
             (loc->second)(*iter);
         }
+        if (++i >= kConfigItemsToYield && (iter + 1 != change_list.end()))
+            return false;
     }
+    return true;
 }
 
 bool DnsConfigManager::ConfigHandler() {
     ConfigListener::ChangeList change_list;
     listener_->GetChangeList(&change_list);
-    ProcessChanges(change_list);
-    return true;
+    return ProcessChanges(change_list);
 }
 
 void DnsConfigManager::Terminate() {
