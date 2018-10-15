@@ -3,6 +3,7 @@
  */
 
 #include "base/util.h"
+#include "base/address_util.h"
 #include "xmpp/xmpp_config.h"
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
@@ -82,7 +83,7 @@ XmppChannelConfig *XmppInit::AllocChannelConfig(
     const string &node, bool isClient) {
     boost::system::error_code ec;
     boost::asio::ip::address peer_addr =
-            boost::asio::ip::address::from_string(peer_ip, ec);
+        AddressFromString(peer_ip, &ec);
     if (ec) {
         return NULL;
     }

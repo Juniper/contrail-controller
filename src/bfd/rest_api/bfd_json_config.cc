@@ -5,6 +5,7 @@
 #include <vector>
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
+#include "base/address_util.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -17,7 +18,7 @@ namespace REST {
 
 static bool IsIPAddressValid(const char* addr) {
     boost::system::error_code ec;
-    boost::asio::ip::address::from_string(addr, ec);
+    AddressFromString(addr, &ec);
     return !ec;
 }
 
@@ -76,9 +77,8 @@ bool JsonConfig::ParseFromJsonDocument(const contrail_rapidjson::Value& document
     if (ValidateJsonDocument(document)) {
         using boost::posix_time::microseconds;
 
-        address =
-            boost::asio::ip::
-                address::from_string(document["Address"].GetString());
+        boost::system::error_code ec;
+        address = AddressFromString(document["Address"].GetString(), &ec);
         desired_min_tx_interval =
             microseconds(document["DesiredMinTxInterval"].GetInt());
         required_min_rx_interval =
@@ -181,9 +181,8 @@ bool JsonStateNotification::ParseFromJsonDocument(const contrail_rapidjson::Valu
                                                         &document) {
     if (ValidateJsonDocument(document)) {
 
-        address =
-            boost::asio::ip::
-                address::from_string(document["Address"].GetString());
+        boost::system::error_code ec;
+        address = AddressFromString(document["Address"].GetString(), &ec);
         state =
             *BFDStateFromString(document["SessionState"].GetString());
         return true;
@@ -270,8 +269,9 @@ bool JsonStateMap::ParseFromJsonDocument(
 
     for (contrail_rapidjson::Value::ConstMemberIterator
             it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
+        boost::system::error_code ec;
         boost::asio::ip::address address =
-            boost::asio::ip::address::from_string(it->name.GetString());
+            AddressFromString(it->name.GetString(), &ec);
         BFDState state = *BFDStateFromString(it->value.GetString());
         states[address] = state;
     }

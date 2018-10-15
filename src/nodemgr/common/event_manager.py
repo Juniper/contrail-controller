@@ -94,7 +94,7 @@ class EventManager(object):
         self.last_cpu = None
         self.last_time = 0
         self.own_version = None
-        self.hostname = socket.gethostname()
+        self.hostname = socket.getfqdn()
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
         event_handlers['PROCESS_COMMUNICATION'] = self.event_process_communication

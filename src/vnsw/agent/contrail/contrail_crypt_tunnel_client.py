@@ -33,7 +33,7 @@ class ContrailCryptTunnelClient(object):
 
     @classmethod
     def getAuthStr(cls):
-        password=_PASSWD+socket.gethostname()
+        password=_PASSWD+socket.getfqdn()
         passwd=sha256_crypt.encrypt(password)
         return passwd
 

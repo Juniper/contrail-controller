@@ -67,7 +67,7 @@ class HaproxyStats(object):
         stats = dict((k, row.get(v, ''))
                      for k, v in STATS_MAP.items())
         stats['name'] = name
-        stats['vrouter'] = socket.gethostname()
+        stats['vrouter'] = socket.getfqdn()
         if stats['status'] in ['no check', 'UP', 'OPEN']:
             stats['status'] = 'ACTIVE'
         else:

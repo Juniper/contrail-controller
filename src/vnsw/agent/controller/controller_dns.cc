@@ -5,6 +5,7 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/connection_info.h"
+#include "base/address_util.h"
 #include "cmn/agent_cmn.h"
 #include "controller/controller_dns.h"
 #include "controller/controller_init.h"
@@ -157,8 +158,7 @@ void AgentDnsXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
     boost::asio::ip::tcp::endpoint ep;
     boost::system::error_code ec;
     std::string last_state_name;
-    ep.address(boost::asio::ip::address::from_string(agent_->dns_server
-                                                             (xs_idx_), ec));
+    ep.address(AddressFromString(agent_->dns_server(xs_idx_), &ec));
     ep.port(agent_->dns_server_port(xs_idx_));
     const std::string name = agent_->xmpp_dns_server_prefix() +
                              ep.address().to_string();
