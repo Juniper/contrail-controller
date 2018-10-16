@@ -433,9 +433,6 @@ class DeviceManager(object):
             raise
     # end __init__
 
-    def get_vnc(self):
-        return self._vnc_lib
-
     def get_analytics_config(self):
         return {
             'ips': self._args.analytics_server_ip.split(','),
@@ -444,6 +441,17 @@ class DeviceManager(object):
             'password': self._args.analytics_password
         }
     # end get_analytics_config
+
+    def get_api_server_config(self):
+        return {
+            'ips': self._args.api_server_ip.split(','),
+            'port': self._args.api_server_port,
+            'username': self._args.admin_user,
+            'password': self._args.admin_password,
+            'tenant': self._args.admin_tenant_name,
+            'use_ssl': self._args.api_server_use_ssl
+        }
+    # end get_api_server_config
 
     def get_job_status_config(self):
         return {
