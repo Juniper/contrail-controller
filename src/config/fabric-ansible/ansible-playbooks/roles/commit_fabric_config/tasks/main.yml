@@ -8,11 +8,12 @@
       assemble: src={{ conf_dir }}/build_config dest={{ conf_dir }}/final_config/combined_config.conf
 
     # Append a job log to record the config to be deployed
-    - name: Config to be deployed to device
+    - name: Load final config be deployed to device
       set_fact:
         final_cfg: "{{ item }}"
       with_file:
         - "{{ conf_dir }}/final_config/combined_config.conf"
+      no_log: True
 
     - name: print final config
       debug: var=final_cfg verbosity=1
