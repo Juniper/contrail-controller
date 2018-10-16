@@ -7,14 +7,9 @@ This file contains implementation of job api handler code
 """
 import gevent
 import json
-from opserver_util import OpServerUtils
+import random
 from enum import Enum
-
-
-class JobType(Enum):
-    UNDERLAY = 1
-    OVERLAY = 2
-# end class JobType
+from vnc_api.vnc_api import VncApi
 
 
 class JobStatus(Enum):
@@ -37,25 +32,25 @@ class JobHandler(object):
         JobStatus.FAILED.value: "FAILURE"
     }
 
-    def __init__(self, job_type, job_input, device_list, analytics_config,
-                 vnc_api, logger):
+    def __init__(self, job_type, job_input, device_list, api_server_config,
+                 logger):
         self._job_type = job_type
         self._job_input = job_input
         self._device_list = device_list
-        self._analytics_config = analytics_config
-        self._vnc_api = vnc_api
+        self._api_server_config = api_server_config
         self._logger = logger
         self._job_id = None
         self._job_status = JobStatus.INIT
         super(JobHandler, self).__init__()
     # end __init__
 
-    def push(self, timeout=10, max_retries=30):
+    def push(self, timeout, max_retries):
+        vnc_api = self.get_vnc_api(**self._api_server_config)
         self._job_status = JobStatus.IN_PROGRESS
         try:
-            self._logger.debug("job handler: executing job for (%s, %s): " %
+            self._logger.debug("job handler: executing job for (%s, %s)" %
                                (self._device_list, str(self._job_type)))
-            job_execution_info = self._vnc_api.execute_job(
+            job_execution_info = vnc_api.execute_job(
                 job_template_fq_name=self._job_type,
                 job_input=self._job_input,
                 device_list=self._device_list
@@ -64,7 +59,9 @@ class JobHandler(object):
             job_execution_id = job_execution_info.get('job_execution_id')
             self._logger.debug("job started with execution id: %s" %
                                job_execution_id)
-            self._wait(job_execution_id, timeout, max_retries)
+            self._wait(vnc_api, job_execution_id, timeout, max_retries)
+            self._logger.debug("job handler: push succeeded for (%s, %s)" %
+                               (self._device_list, str(self._job_type)))
         except Exception as e:
             self._logger.error("job handler: push failed for (%s, %s): %s" %
                                (self._device_list, str(self._job_type), str(e)))
@@ -75,54 +72,34 @@ class JobHandler(object):
                             (self._device_list, str(self._job_type)))
     # end push
 
-    @classmethod
-    def _get_opserver_query(cls, job_execution_id, status):
-        value = "%s:%s" % (job_execution_id, cls.JOB_STATUS.get(status.value))
-        match = OpServerUtils.Match(name=cls.OBJECT_ID,
-                                    value=value, op=OpServerUtils.MatchOp.EQUAL)
-        return OpServerUtils.Query(cls.TABLE,
-                                   start_time=cls.START_TIME,
-                                   end_time=cls.END_TIME,
-                                   select_fields=cls.FIELDS,
-                                   where=[[match.__dict__]])
-    # end _get_opserver_query
-
-    def _check_job_status(self, url, job_execution_id, status):
-        query = self._get_opserver_query(job_execution_id, status)
-        username = self._analytics_config.get('username', None)
-        password = self._analytics_config.get('password', None)
-        resp = OpServerUtils.post_url_http(self._logger, url,
-                                           query.__dict__,
-                                           username, password)
-        if resp is not None:
-            resp = json.loads(resp)
-            if resp and resp['value'] and len(resp['value']) > 0:
-                return True
-        else:
-            self._logger.debug("job handler: invalid response for (%s, %s):" %
-                               (self._device_list, str(self._job_type)))
-
+    def _check_job_status(self, vnc_api, job_execution_id, status):
+        try:
+            job_status = vnc_api.job_status(job_execution_id)
+            if job_status and job_status.get('job_status'):
+                return job_status.get('job_status') == \
+                    self.JOB_STATUS.get(status.value)
+        except Exception as e:
+            self._logger.error("job handler: error while querying "
+                "job status for execution_id %s: %s" %
+                (job_execution_id, str(e)))
         return False
     # end _check_job_status
 
-    def _get_job_status(self, url, job_execution_id):
-        if self._check_job_status(url, job_execution_id,
+    def _get_job_status(self, vnc_api, job_execution_id):
+        if self._check_job_status(vnc_api, job_execution_id,
                                   JobStatus.COMPLETE):
             return JobStatus.COMPLETE
-        if self._check_job_status(url, job_execution_id,
+        if self._check_job_status(vnc_api, job_execution_id,
                                   JobStatus.FAILED):
             return JobStatus.FAILED
 
         return JobStatus.IN_PROGRESS
     # end _get_job_status
 
-    def _wait(self, job_execution_id, timeout, max_retries):
-        url = OpServerUtils.opserver_query_url(self._analytics_config['ips'],
-                                               self._analytics_config['port'])
-
+    def _wait(self, vnc_api, job_execution_id, timeout, max_retries):
         retry_count = 1
         while not self.is_job_done():
-            self._job_status = self._get_job_status(url, job_execution_id)
+            self._job_status = self._get_job_status(vnc_api, job_execution_id)
             if not self.is_job_done():
                 if retry_count >= max_retries:
                     self._logger.error(
@@ -146,4 +123,12 @@ class JobHandler(object):
             return True
         return False
     # end is_job_done
+
+    @staticmethod
+    def get_vnc_api(ips, port, username, password, tenant, use_ssl):
+        return VncApi(api_server_host=random.choice(ips),
+            api_server_port=port, username=username,
+            password=password, tenant_name=tenant,
+            api_server_use_ssl=use_ssl)
+    # end get_vnc_api
 # end class JobHandler
