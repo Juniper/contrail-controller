@@ -44,7 +44,6 @@ class TestJobManagerUtils(object):
                           "fabric_fq_name": "Global-system-config:fabric-1",
                           "auth_token": "6e7d7f87faa54fac96a2a28ec752336a",
                           "api_server_host": ['1.1.1.1'],
-                          "analytics_server_list": ['2.2.2.2'],
                           "args": TestJobManagerUtils.args
                          }
         log_utils = JobLogUtils(
