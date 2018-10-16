@@ -140,8 +140,8 @@ test = env.Command('test.log', test_sources,  cd_cmd + 'python setup.py test')
 if 'BUILD_ONLY' in env['ENV']:
     test = env.Command('build_only.log', test_sources,  'touch build_only.log')
 
-#env.Alias('test', test)
-#env.Alias('controller/src/config/common:test', test)
+env.Alias('test', test)
+env.Alias('controller/src/config/common:test', test)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
