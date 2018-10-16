@@ -199,11 +199,11 @@ class AnsibleConf(AnsibleBase):
                 job_handler = JobHandler(job_template, job_input,
                                          None if is_delete else
                                          [self.physical_router.uuid],
-                                         device_manager.get_analytics_config(),
-                                         device_manager.get_vnc(), self._logger)
+                                         device_manager.get_api_server_config(),
+                                         self._logger)
                 self.commit_stats['total_commits_sent_since_up'] += 1
                 start_time = time.time()
-                job_handler.push()
+                job_handler.push(**device_manager.get_job_status_config())
                 end_time = time.time()
                 self.commit_stats['commit_status_message'] = 'success'
                 self.commit_stats['last_commit_time'] = \
