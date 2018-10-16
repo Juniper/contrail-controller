@@ -9,7 +9,7 @@ import mock
 from cfgm_common.exceptions import DatabaseUnavailableError, NoIdError, VncError
 from etcd3.exceptions import ConnectionFailedError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from vnc_etcd import EtcdCache, VncEtcd, _handle_conn_error
+from cfgm_common.vnc_etcd import EtcdCache, VncEtcd, _handle_conn_error
 
 
 def _vnc_etcd_factory(host='etcd-host-01', port='2379', prefix='/contrail',
