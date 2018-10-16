@@ -56,7 +56,6 @@ test_sources = [
                 'tests/fake.py',
                 'tests/test_suite.py',
                 'tests/test_cache_container.py',
-                'tests/test_vnc_etcd.py',
                ]
 test_sources_rules = []
 for file in test_sources:
