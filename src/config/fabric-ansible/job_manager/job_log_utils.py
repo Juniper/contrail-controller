@@ -30,6 +30,7 @@ from job_manager.logger import JobLogger
 from job_manager.job_exception import JobException
 from job_manager.sandesh_utils import SandeshUtils
 from job_manager.job_messages import MsgBundle
+from job_manager.job_utils import JobFileWrite
 
 
 class JobLogUtils(object):
@@ -44,6 +45,7 @@ class JobLogUtils(object):
         self.sandesh_instance_id = sandesh_instance_id
         self.args = None
         self.config_logger = self.initialize_sandesh_logger(config_args)
+        self.job_file_write = JobFileWrite(self.config_logger)
 
     def get_config_logger(self):
         return self.config_logger
@@ -273,6 +275,16 @@ class JobLogUtils(object):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             prouter_fqname = self.get_fq_name_log_str(prouter_fqname)
+
+            #write to the file as well
+            file_write_data = {
+                "prouter_info": {
+                    "prouter_name": prouter_fqname,
+                    "prouter_state":onboarding_state}
+                }
+            self.job_file_write.write_to_file(job_execution_id,
+                                              file_write_data)
+
             if timestamp is None:
                 timestamp = int(round(time.time() * 1000))
             # create the prouter object log
