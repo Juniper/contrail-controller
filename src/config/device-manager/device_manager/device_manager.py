@@ -433,9 +433,6 @@ class DeviceManager(object):
             raise
     # end __init__
 
-    def get_vnc(self):
-        return self._vnc_lib
-
     def get_analytics_config(self):
         return {
             'ips': self._args.analytics_server_ip.split(','),
@@ -444,6 +441,24 @@ class DeviceManager(object):
             'password': self._args.analytics_password
         }
     # end get_analytics_config
+
+    def get_api_server_config(self):
+        return {
+            'ips': self._args.api_server_ip.split(','),
+            'port': self._args.api_server_port,
+            'username': self._args.admin_user,
+            'password': self._args.admin_password,
+            'tenant': self._args.admin_tenant_name,
+            'use_ssl': self._args.api_server_use_ssl
+        }
+    # end get_api_server_config
+
+    def get_job_status_config(self):
+        return {
+            'timeout': self._args.job_status_retry_timeout,
+            'max_retries': self._args.job_status_max_retries
+        }
+    # end get_job_status_config
 
     @classmethod
     def get_instance(cls):
@@ -521,6 +536,8 @@ def parse_args(args_str):
                          --push_delay_max 100
                          --push_delay_enable True
                          --push_mode 0
+                         --job_status_retry_timeout 10
+                         --job_status_max_retries 60
                          [--reset_config]
     '''
 
@@ -571,6 +588,8 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'job_status_retry_timeout': 10,
+        'job_status_max_retries': 60,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     secopts = {
@@ -697,6 +716,10 @@ def parse_args(args_str):
                         help="Cassandra user name")
     parser.add_argument("--cassandra_password",
                         help="Cassandra password")
+    parser.add_argument("--job_status_retry_timeout",
+                        help="Timeout between job status check retries")
+    parser.add_argument("--job_status_max_retries",
+                        help="Max number of job status retries")
     SandeshConfig.add_parser_arguments(parser)
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
