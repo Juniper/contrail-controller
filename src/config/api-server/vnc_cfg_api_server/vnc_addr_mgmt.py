@@ -601,18 +601,10 @@ class AddrMgmt(object):
 
     def _get_ipam_subnet_objs_from_ipam_uuid(self, ipam_fq_name,
                                              ipam_uuid,
-                                             should_persist=False,
-                                             ipam_dict=None):
+                                             should_persist=False):
         ipam_fq_name_str = ':'.join(ipam_fq_name)
         subnet_objs = self._subnet_objs.get(ipam_uuid)
         if subnet_objs is None:
-            if not ipam_dict:
-                #read ipam to get ipam_subnets and generate subnet_objs
-                (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
-                                                         ipam_uuid)
-                if not ok:
-                    raise cfgm_common.exceptions.VncError(ipam_dict)
-
             self._subnet_objs[ipam_uuid] = OrderedDict()
             #read ipam to get ipam_subnets and generate subnet_objs
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
@@ -1999,19 +1991,16 @@ class AddrMgmt(object):
             self._net_ip_alloc_notify(ip_addr, vn_uuid, vn_fq_name)
     # end ip_alloc_notify
 
-    def _ipam_ip_free_req(self, ip_addr, vn_uuid, sub=None, ipam_refs=None,
-            vn_dict=None, ipam_dicts=None):
-        ipam_dicts = ipam_dicts or {}
+    def _ipam_ip_free_req(self, ip_addr, vn_uuid, sub=None, ipam_refs=None):
         db_conn = self._get_db_conn()
 
         if not ipam_refs:
             # Read in the VN
-            if not vn_dict:
-                obj_fields=['network_ipam_refs']
-                (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
+            obj_fields=['network_ipam_refs']
+            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                vn_uuid, obj_fields)
-                if not ok:
-                    raise cfgm_common.exceptions.VncError(vn_dict)
+            if not ok:
+                raise cfgm_common.exceptions.VncError(vn_dict)
 
             ipam_refs = vn_dict['network_ipam_refs']
 
@@ -2019,8 +2008,7 @@ class AddrMgmt(object):
             ipam_fq_name = ipam_ref['to']
             ipam_uuid = ipam_ref['uuid']
             subnet_objs = self._get_ipam_subnet_objs_from_ipam_uuid(
-                                ipam_fq_name, ipam_uuid, False,
-                                ipam_dicts.get(ipam_uuid))
+                                ipam_fq_name, ipam_uuid, False)
             if subnet_objs is None:
                 continue
 
@@ -2035,10 +2023,9 @@ class AddrMgmt(object):
         return False
     # end _ipam_ip_free_req
 
-    def _net_ip_free_req(self, ip_addr, vn_uuid, vn_fq_name, sub=None,
-            vn_dict=None):
+    def _net_ip_free_req(self, ip_addr, vn_uuid, vn_fq_name, sub=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        subnet_dicts = self._get_net_subnet_dicts(vn_uuid, vn_dict)
+        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
         for subnet_name in subnet_dicts:
             if sub and sub != subnet_name:
                 continue
@@ -2051,65 +2038,16 @@ class AddrMgmt(object):
         return False
     # end _net_ip_free_req
 
-    def get_ip_free_args(self, vn_fq_name, vn_dict=None):
-        """ Returns the vn dict and ipam dicts of a VN
-        which will be used by the ip free req to free
-        ip from the zookeeper.
-
-        This method should be called before deleting
-        IP from the cassandra, to make sure we have all
-        necessary data to delete IP from zookeeper even
-        if the api to cassandra connection is down/flapping.
-        LP# 1749294
-        """
-        db_conn = self._get_db_conn()
-        kwargs = {}
-        if not vn_dict:
-            obj_type = 'virtual_network'
-            req_fields = ['network_ipam_refs']
-            try:
-               vn_uuid = db_conn.fq_name_to_uuid(obj_type, vn_fq_name)
-            except cfgm_common.exceptions.NoIdError:
-               return (False,
-                       (500, 'Virtual Network(%s) not found' % vn_fq_name))
-            (ok, vn_dict) = self._uuid_to_obj_dict(
-                    obj_type, vn_uuid, req_fields)
-            if not ok:
-                return (False,
-                        (500, 'Could not fetch virtual network to free allocated IP : ' +
-                            pformat(vn_dict)))
-        kwargs.update({'vn_dict': vn_dict})
-
-        ipam_dicts = {}
-        for ipam_ref in vn_dict.get('network_ipam_refs', []):
-            (ok, ipam_dict) = self._uuid_to_obj_dict(
-                    'network_ipam', ipam_ref['uuid'])
-            if not ok:
-                return (False,
-                        (500, 'Could not fetch IPAM to free allocated IP : ' +
-                            pformat(ipam_dict)))
-            ipam_dicts.update({ipam_ref['uuid'] : ipam_dict})
-
-        kwargs.update({'ipam_dicts': ipam_dicts})
-        return (True, kwargs)
-
-    def ip_free_req(self, ip_addr, vn_fq_name, alloc_id=None,
-            sub=None, ipam_refs=None, vn_dict=None, ipam_dicts=None):
+    def ip_free_req(self, ip_addr, vn_fq_name, alloc_id=None, sub=None, ipam_refs=None):
         db_conn = self._get_db_conn()
         if ipam_refs:
-            self._ipam_ip_free_req(ip_addr, None, sub, ipam_refs,
-                                   vn_dict, ipam_dicts)
-            return
-        if not vn_dict:
-            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-        else:
-            vn_uuid = vn_dict.get('uuid')
+            self._ipam_ip_free_req(ip_addr, None, sub, ipam_refs)
+            return;
+        vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
 
         if (alloc_id and
                 alloc_id != self.is_ip_allocated(ip_addr, vn_fq_name,
-                                                 vn_uuid=vn_uuid, sub=sub,
-                                                 vn_dict=vn_dict,
-                                                 ipam_dicts=ipam_dicts)):
+                                                 vn_uuid=vn_uuid, sub=sub)):
             # In case of inconsistency in the zk db, we should read and check
             # the allocated IP belongs to the interface we are freing. If not
             # continuing to delete the interface and keeping the zk IP lock.
@@ -2117,29 +2055,24 @@ class AddrMgmt(object):
             # https://bugs.launchpad.net/juniperopenstack/+bug/1702596
             return
 
-        if not (self._net_ip_free_req(
-            ip_addr, vn_uuid, vn_fq_name, sub, vn_dict)):
-            self._ipam_ip_free_req(ip_addr, vn_uuid, sub,
-                                   vn_dict=vn_dict, ipam_dicts=ipam_dicts)
+        if not (self._net_ip_free_req(ip_addr, vn_uuid, vn_fq_name, sub)):
+            self._ipam_ip_free_req(ip_addr, vn_uuid, sub)
     # end ip_free_req
 
-    def _ipam_is_ip_allocated(self, ip_addr, vn_uuid, sub=None,
-            vn_dict=None, ipam_dicts=None):
-        ipam_dicts = ipam_dicts or {}
+    def _ipam_is_ip_allocated(self, ip_addr, vn_uuid, sub=None):
         # Read in the VN
         obj_fields=['network_ipam_refs']
-        if not vn_dict:
-            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
+        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                vn_uuid, obj_fields)
-            if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
+        if not ok:
+            raise cfgm_common.exceptions.VncError(vn_dict)
+
         ipam_refs = vn_dict['network_ipam_refs']
         for ipam_ref in ipam_refs:
             ipam_fq_name = ipam_ref['to']
             ipam_uuid = ipam_ref['uuid']
             subnet_objs = self._get_ipam_subnet_objs_from_ipam_uuid(
-                                ipam_fq_name, ipam_uuid, False,
-                                ipam_dicts.get(ipam_uuid))
+                                ipam_fq_name, ipam_uuid, False)
             if subnet_objs is None:
                 continue
             for subnet_name in subnet_objs:
@@ -2151,11 +2084,10 @@ class AddrMgmt(object):
         raise cfgm_common.exceptions.VncError("")
     #end _ipam_is_ip_allocated
 
-    def _net_is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid, sub=None,
-            vn_dict=None):
+    def _net_is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid, sub=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
 
-        subnet_dicts = self._get_net_subnet_dicts(vn_uuid, vn_dict)
+        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
         for subnet_name in subnet_dicts:
             if sub and sub != subnet_name:
                 continue
@@ -2167,19 +2099,16 @@ class AddrMgmt(object):
         raise cfgm_common.exceptions.VncError("")
     # end _net_is_ip_allocated
 
-    def is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid=None, sub=None,
-            vn_dict=None, ipam_dicts=None):
+    def is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid=None, sub=None):
         db_conn = self._get_db_conn()
         if vn_uuid is None:
             vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
 
         try:
-            return self._ipam_is_ip_allocated(ip_addr, vn_uuid, sub, vn_dict,
-                    ipam_dicts)
+            return self._ipam_is_ip_allocated(ip_addr, vn_uuid, sub)
         except cfgm_common.exceptions.VncError:
             try:
-                return self._net_is_ip_allocated(ip_addr, vn_fq_name, vn_uuid,
-                        sub, vn_dict)
+                return self._net_is_ip_allocated(ip_addr, vn_fq_name, vn_uuid, sub)
             except cfgm_common.exceptions.VncError:
                 return False
     # end is_ip_allocated
