@@ -203,7 +203,7 @@ class AnsibleConf(AnsibleBase):
                                          device_manager.get_vnc(), self._logger)
                 self.commit_stats['total_commits_sent_since_up'] += 1
                 start_time = time.time()
-                job_handler.push()
+                job_handler.push(**device_manager.get_job_status_config())
                 end_time = time.time()
                 self.commit_stats['commit_status_message'] = 'success'
                 self.commit_stats['last_commit_time'] = \
