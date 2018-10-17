@@ -32,12 +32,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.7"
+__version__ = "1.8"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.8
+  - Return error if a IIP/FIP/AIP have a stale VN referenced
 * 1.7
   - Add support to detect and clean malformed route targets
   - Add support to detect and clean stale route targets listed in virtual
@@ -836,6 +838,7 @@ class DatabaseManager(object):
             except pycassa.NotFoundException:
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
+                continue
             fq_name_str = ':'.join(json.loads(col['fq_name']))
             if fq_name_str not in cassandra_all_vns:
                 msg = ("Found IP %s %s on VN %s (%s) thats not in FQ NAME "
