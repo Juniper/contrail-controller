@@ -577,10 +577,12 @@ class VncApiServer(object):
                             "returned with error %s" % str(process_error),
                             level=SandeshLevel.SYS_ERR)
 
-    def is_existing_job_for_fabric(self, fabric_job_uve_name):
+    def is_existing_job_for_fabric(self, fabric_name, job_template_name):
         for job_info in self._job_mgr_running_instances.values():
-            if fabric_job_uve_name == job_info.get('fabric_name'):
-                return True
+            if fabric_name in job_info.get('fabric_name'):
+                if "fabric_deletion_template" in job_template_name or \
+                        job_template_name in job_info.get('fabric_name'):
+                    return True
         return False
 
     def execute_job_http_post(self):
@@ -686,9 +688,11 @@ class VncApiServer(object):
                     fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
                     fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
 
-                    existing_job = self.is_existing_job_for_fabric(fabric_job_uve_name)
+                    existing_job = self.is_existing_job_for_fabric(
+                        request_params.get('fabric_fq_name'),
+                        request_params.get('job_template_fq_name')[-1])
 
-                    if self.job_concurrency is "fabric" and existing_job:
+                    if self.job_concurrency == "fabric" and existing_job:
                         msg = "Another job for the same fabric is in progress. " \
                               "Please wait for the job to finish"
                         raise cfgm_common.exceptions.HttpError(412, msg)
