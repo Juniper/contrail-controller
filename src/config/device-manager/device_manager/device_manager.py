@@ -445,6 +445,13 @@ class DeviceManager(object):
         }
     # end get_analytics_config
 
+    def get_job_status_config(self):
+        return {
+            'timeout': int(self._args.job_status_retry_timeout),
+            'max_retries': int(self._args.job_status_max_retries)
+        }
+    # end get_job_status_config
+
     @classmethod
     def get_instance(cls):
         return cls._device_manager
@@ -521,6 +528,8 @@ def parse_args(args_str):
                          --push_delay_max 100
                          --push_delay_enable True
                          --push_mode 0
+                         --job_status_retry_timeout 10
+                         --job_status_max_retries 60
                          [--reset_config]
     '''
 
@@ -571,6 +580,8 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'job_status_retry_timeout': '10',
+        'job_status_max_retries': '60',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     secopts = {
@@ -697,6 +708,10 @@ def parse_args(args_str):
                         help="Cassandra user name")
     parser.add_argument("--cassandra_password",
                         help="Cassandra password")
+    parser.add_argument("--job_status_retry_timeout",
+                        help="Timeout between job status check retries")
+    parser.add_argument("--job_status_max_retries",
+                        help="Max number of job status retries")
     SandeshConfig.add_parser_arguments(parser)
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
