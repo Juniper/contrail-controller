@@ -131,6 +131,18 @@ public:
 
     Document *ev_load() { return &evDoc_; }
 
+    string GetJsonValue(const string &uuid) {
+        if (!evDoc_.HasMember(uuid.c_str())) {
+            return string();
+        }
+        Value &val = evDoc_[uuid.c_str()];
+        StringBuffer sb;
+        Writer<StringBuffer> writer(sb);
+        val.Accept(writer);
+        string value_str = sb.GetString();
+        return (value_str);
+    }
+
     void ParseEventsJson(string events_file) {
         string json_events = FileRead(events_file);
         assert(json_events.size() != 0);

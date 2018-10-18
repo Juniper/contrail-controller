@@ -1,0 +1,44 @@
+{
+    "/CREATE/virtual_machine/8c5eeb87-0b08-4725-b53f-0a0368055375": {
+        "fq_name": [
+            "vm1"
+        ],
+        "type": "virtual_machine",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 10114780778358916901,
+                "uuid_mslong": 13060168454144086901
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/PAUSED/": {
+    },
+    "/UPDATE/virtual_machine/8c5eeb87-0b08-4725-b53f-0a0368055375": {
+        "type": "virtual_machine",
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 10114780778358916901,
+                "uuid_mslong": 13060168454144086901
+            },
+            "created": null,
+            "last_modified": null
+        }
+    },
+    "/PAUSED/": {
+    },
+    "/DELETE/virtual_machine/8c5eeb87-0b08-4725-b53f-0a0368055375": {
+        "fq_name": [
+            "vm1"
+        ],
+        "id_perms": {
+            "uuid": {
+                "uuid_lslong": 10114780778358916901,
+                "uuid_mslong": 13060168454144086901
+            },
+            "created": null,
+            "last_modified": null
+        }
+    }
+}

@@ -1,12 +1,6 @@
 {
     "/contrail/bgp_as_a_service/0bf411b8-09fe-4d29-876a-3a6c69277264": {
         "autonomous_system": 65001,
-        "bgp_router_refs": [
-            {
-                "attr": null,
-                "uuid": "6042644f-a1fe-45d7-be2f-067fc2f3a9de"
-            }
-        ],
         "bgpaas_ip_address": "107.239.88.80",
         "bgpaas_session_attributes": {
             "address_families": {
@@ -48,8 +42,6 @@
                 "uuid_mslong": 861332910873922800
             }
         },
-        "parent_type": "project",
-        "parent_uuid": "11f7da36-10d9-438d-8c14-bc4431d1cffb",
         "perms2": {
             "global_access": 0,
             "owner": "4e8f30a2ca694d319b8076dfbc1d914b",
@@ -91,35 +83,12 @@
                 "uuid_mslong": 928565463107690
             }
         },
-        "parent_type": "project",
-        "parent_uuid": "dfdf3b4e-0b52-4e6f-b288-eb6a7c1c9fa2",
         "perms2": {
             "global_access": 0,
             "owner": "cloud-admin",
             "owner_access": 7,
             "share": []
         },
-        "routing_instance_refs": [
-            {
-                "attr": {
-                    "direction": "both",
-                    "dst_mac": null,
-                    "ipv6_service_chain_address": null,
-                    "mpls_label": null,
-                    "protocol": null,
-                    "service_chain_address": null,
-                    "src_mac": null,
-                    "vlan_tag": null
-                },
-                "uuid": "8791f4d9-de5e-4d83-95c6-884dcec74174"
-            }
-        ],
-        "security_group_refs": [
-            {
-                "attr": null,
-                "uuid": "c568efb5-a4d7-4cd0-ad81-7edc4d9e8233"
-            }
-        ],
         "type": "virtual_machine_interface",
         "uuid": "00034c86-7e94-486a-8deb-ad2e698ebf60",
         "virtual_machine_interface_bindings": {
@@ -133,13 +102,7 @@
             "mac_address": [
                 "02:00:03:4c:86:7e"
             ]
-        },
-        "virtual_network_refs": [
-            {
-                "attr": null,
-                "uuid": "1cd0dd40-d84a-4a36-a56d-85c50b419f68"
-            }
-        ]
+        }
     },
     "/contrail/virtual_network/00175ed1-fd8c-4e53-8c70-73e6f7a5e798": {
         "display_name": "svc-vn-left",
@@ -168,50 +131,6 @@
                 "uuid_mslong": 6578180459351635
             }
         },
-        "network_ipam_refs": [
-            {
-                "attr": {
-                    "host_routes": null,
-                    "ipam_subnets": [
-                        {
-                            "addr_from_start": null,
-                            "allocation_pools": [],
-                            "default_gateway": "10.250.2.254",
-                            "dhcp_option_list": null,
-                            "dns_nameservers": [],
-                            "dns_server_address": "10.250.2.253",
-                            "enable_dhcp": true,
-                            "host_routes": null,
-                            "subnet": {
-                                "ip_prefix": "10.250.2.0",
-                                "ip_prefix_len": 24
-                            },
-                            "subnet_name": null,
-                            "subnet_uuid": "70df72d6-3dd9-49fc-a5de-566de1ff499d"
-                        },
-                        {
-                            "addr_from_start": null,
-                            "allocation_pools": [],
-                            "default_gateway": "fd12:3456:789a:2:ffff:ffff:ffff:fffe",
-                            "dhcp_option_list": null,
-                            "dns_nameservers": [],
-                            "dns_server_address": "fd12:3456:789a:2:ffff:ffff:ffff:fffd",
-                            "enable_dhcp": true,
-                            "host_routes": null,
-                            "subnet": {
-                                "ip_prefix": "fd12:3456:789a:2::",
-                                "ip_prefix_len": 64
-                            },
-                            "subnet_name": null,
-                            "subnet_uuid": "e1c57b0b-f320-4c5a-bc89-ac733043ddb9"
-                        }
-                    ]
-                },
-                "uuid": "c6891913-976f-419c-90c9-94ce9c8c0a3b"
-            }
-        ],
-        "parent_type": "project",
-        "parent_uuid": "c0006145-ae72-49c3-8cee-c5393f40555c",
         "perms2": {
             "global_access": 0,
             "owner": "cloud-admin",
@@ -249,50 +168,6 @@
                 "uuid_mslong": 9479719175736576
             }
         },
-        "network_ipam_refs": [
-            {
-                "attr": {
-                    "host_routes": null,
-                    "ipam_subnets": [
-                        {
-                            "addr_from_start": null,
-                            "allocation_pools": [],
-                            "default_gateway": "10.250.2.254",
-                            "dhcp_option_list": null,
-                            "dns_nameservers": [],
-                            "dns_server_address": "10.250.2.253",
-                            "enable_dhcp": true,
-                            "host_routes": null,
-                            "subnet": {
-                                "ip_prefix": "10.250.2.0",
-                                "ip_prefix_len": 24
-                            },
-                            "subnet_name": null,
-                            "subnet_uuid": "9966f5d1-fb62-478e-b175-761daa7c8035"
-                        },
-                        {
-                            "addr_from_start": null,
-                            "allocation_pools": [],
-                            "default_gateway": "fd12:3456:789a:2:ffff:ffff:ffff:fffe",
-                            "dhcp_option_list": null,
-                            "dns_nameservers": [],
-                            "dns_server_address": "fd12:3456:789a:2:ffff:ffff:ffff:fffd",
-                            "enable_dhcp": true,
-                            "host_routes": null,
-                            "subnet": {
-                                "ip_prefix": "fd12:3456:789a:2::",
-                                "ip_prefix_len": 64
-                            },
-                            "subnet_name": null,
-                            "subnet_uuid": "05b4f77f-6162-4267-87ea-f81b33a7f5aa"
-                        }
-                    ]
-                },
-                "uuid": "c6891913-976f-419c-90c9-94ce9c8c0a3b"
-            }
-        ],
-        "parent_type": "project",
-        "parent_uuid": "9909401b-7762-40e1-ab82-7e429af355a9",
         "perms2": {
             "global_access": 0,
             "owner": "4e8f30a2ca694d319b8076dfbc1d914b",
@@ -301,5 +176,52 @@
         },
         "type": "virtual_network",
         "uuid": "0021adc1-1e0a-4d00-8e29-f4061061ce9c"
+    },
+    "/contrail/virtual_machine_interface/ef36eac3-c5ba-4947-993a-6bc2c6b3d326": {
+        "display_name": "ZRDM3SEGW02_module-0-fw_oam_oam_direct_2_port-dyzi37rbfzeo",
+        "fq_name": [
+            "default-domain",
+            "NGSG-23414-T-01",
+            "ZRDM3SEGW02_module-0-fw_oam_oam_direct_2_port-dyzi37rbfzeo"
+        ],
+        "id_perms": {
+            "created": "2016-10-03T22:13:00.950997",
+            "creator": null,
+            "description": null,
+            "enable": true,
+            "last_modified": "2016-10-03T22:13:39.528487",
+            "permissions": {
+                "group": "admin",
+                "group_access": 7,
+                "other_access": 7,
+                "owner": "m01678",
+                "owner_access": 7
+            },
+            "user_visible": true,
+            "uuid": {
+                "uuid_lslong": 11041255920753693000,
+                "uuid_mslong": 17237222750363994000
+            }
+        },
+        "perms2": {
+            "global_access": 0,
+            "owner": "4e8f30a2ca694d319b8076dfbc1d914b",
+            "owner_access": 7,
+            "share": []
+        },
+        "type": "virtual_machine_interface",
+        "uuid": "ef36eac3-c5ba-4947-993a-6bc2c6b3d326",
+        "virtual_machine_interface_bindings": {
+            "host_id": "rdm3r23c012.rdm3.cci.att.com",
+            "vif_type": "vrouter",
+            "vnic_type": "normal"
+        },
+        "virtual_machine_interface_device_owner": "compute:rdm3-kvm-az01",
+        "virtual_machine_interface_disable_policy": false,
+        "virtual_machine_interface_mac_addresses": {
+            "mac_address": [
+                "02:ef:36:ea:c3:c5"
+            ]
+        }
     }
 }
