@@ -12,7 +12,6 @@ fqname_to_id, id_to_fqname
 import time
 import ast
 from inflection import camelize
-from cfgm_common.exceptions import RefsExistError
 from job_manager.job_utils import JobVncApi
 from vnc_api.vnc_api import VncApi
 import vnc_api
@@ -302,27 +301,50 @@ class VncMod(object):
     # end _obtain_vnc_method
 
     def _create_single(self, obj_dict):
+        self.object_dict = obj_dict
         method = self._obtain_vnc_method('_create')
         results = dict()
         try:
             if obj_dict.get('uuid') is None:
                 obj_dict['uuid'] = None
-            instance_obj = self.cls.from_dict(**obj_dict)
-            obj_uuid = method(instance_obj)
-            results['uuid'] = obj_uuid
-        except RefsExistError as ex:
-            if self.update_obj:
-                # Try to update the object, if already exist and
-                # 'update_obj_if_present' flag is present
-                results = self._update_single(obj_dict)
+
+            # try to read the object, if not present already, then create
+            # read is less expensive than trying to create
+
+            read_obj = self._read_oper()
+
+            if read_obj.get('failed') == True:
+                # object is not already created; create now
+                instance_obj = self.cls.from_dict(**obj_dict)
+                obj_uuid = method(instance_obj)
+                results['uuid'] = obj_uuid
             else:
-                # This is the case where caller does not want to update the
-                # object. Set failed to True to let caller decide
-                results['failed'] = True
-                results['msg'] = \
-                    "Failed to create object in database as object exists "\
-                    "with same uuid '%s' or fqname '%s'" % \
-                    (obj_dict.get('uuid'), obj_dict.get('fq_name'))
+                # This step implies object already present
+                if self.update_obj:
+                    # Try to update the object, if it already exists and
+                    # 'update_obj_if_present' flag is present and if there are
+                    # some changes in the object properties
+                    results = read_obj.get('obj')
+
+                    # Now compare for every property in object dict,
+                    # if the property already exists and the value is the same
+
+                    for key in obj_dict:
+                        if key != 'uuid':
+                            to_be_upd_value = obj_dict[key]
+                            existing_value = results.get(key)
+                            if to_be_upd_value != existing_value:
+                                results = self._update_single(obj_dict)
+                                break
+                else:
+                    # This is the case where caller does not want to update the
+                    # object. Set failed to True to let caller decide
+                    results['failed'] = True
+                    results['msg'] = \
+                        "Failed to create object in database as object exists "\
+                        "with same uuid '%s' or fqname '%s'" % \
+                        (obj_dict.get('uuid'), obj_dict.get('fq_name'))
+
         except Exception as ex:
             results['failed'] = True
             results['msg'] = \

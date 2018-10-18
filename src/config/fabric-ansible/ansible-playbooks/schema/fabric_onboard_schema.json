@@ -99,6 +99,26 @@
           "required": [ "node_profile_name" ]
         }
       },
+      "interface_filters":{
+        "type":"array",
+        "items":{
+          "type":"object",
+          "maxProperties":2,
+          "additionalProperties":false,
+          "properties": {
+            "op": {
+                    "enum": ["regex", "startwith"]},
+                    "expr": { "type": "string" }
+            },
+            "title":"filter object",
+            "description":"filter object having op and expr fields",
+            "default":{},
+            "examples":[
+                       {"op":"regex", "expr": "^ge-"},
+                       {"op":"regex", "expr": "^xe"}
+            ]
+        }
+      },
       "device_count": {
         "title": "Number of fabric devices",
         "type": "integer",
