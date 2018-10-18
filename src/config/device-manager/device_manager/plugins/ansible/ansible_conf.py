@@ -59,7 +59,9 @@ class AnsibleConf(AnsibleBase):
         self.evpn = None
         self.bgp_configs = None
         self.ri_config = None
-        self.interfaces_config = None
+        self.pi_map = {}
+        self.li_map = {}
+        self.interfaces_config = []
         self.firewall_config = None
         self.inet4_forwarding_filter = None
         self.inet6_forwarding_filter = None
@@ -101,6 +103,26 @@ class AnsibleConf(AnsibleBase):
                     self.physical_router.loopback_ip)
     # end update_system_config
 
+    def set_default_pi(self, name, interface_type='regular'):
+        if name in self.pi_map:
+            pi = self.pi_map[name]
+        else:
+            pi = PhysicalInterface(name=name, interface_type=interface_type)
+            self.pi_map[name] = pi
+            self.interfaces_config.append(pi)
+        return pi
+    # end set_default_pi
+
+    def set_default_li(self, pi, name, unit):
+        if name in self.li_map:
+            li = self.li_map[name]
+        else:
+            li = LogicalInterface(name=name, unit=unit)
+            self.li_map[name] = li
+            pi.add_logical_interfaces(li)
+        return li
+    # end set_default_pi
+
     def fetch_pi_li_iip(self, physical_interfaces):
         for pi_uuid in physical_interfaces:
             pi_obj = PhysicalInterfaceDM.get(pi_uuid)
@@ -124,7 +146,6 @@ class AnsibleConf(AnsibleBase):
 
     def build_underlay_bgp(self):
         self.bgp_configs = self.bgp_configs or []
-        self.interfaces_config = self.interfaces_config or []
 
         if self.physical_router.allocated_asn is None:
             self._logger.error("physical router %s(%s) does not have asn"
@@ -135,15 +156,14 @@ class AnsibleConf(AnsibleBase):
         for pi_obj, li_obj, iip_obj in self.\
                 fetch_pi_li_iip(self.physical_router.physical_interfaces):
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
-                pi = PhysicalInterface(uuid=pi_obj.uuid, name=pi_obj.name,
-                                       interface_type='regular',
-                                       comment=DMUtils.ip_clos_comment())
-                li = LogicalInterface(uuid=li_obj.uuid, name=li_obj.name,
-                                      unit=int(li_obj.name.split('.')[-1]),
-                                      comment=DMUtils.ip_clos_comment())
+                pi = self.set_default_pi(pi_obj.name, 'regular')
+                pi.set_comment(DMUtils.ip_clos_comment())
+
+                li = self.set_default_li(pi, li_obj.name,
+                                         int(li_obj.name.split('.')[-1]))
+                li.set_comment(DMUtils.ip_clos_comment())
+
                 li.add_ip_list(iip_obj.instance_ip_address)
-                pi.add_logical_interfaces(li)
-                self.interfaces_config.append(pi)
 
                 self._logger.debug("looking for peers for physical"
                                    " interface %s(%s)" % (pi_obj.name,
@@ -179,7 +199,18 @@ class AnsibleConf(AnsibleBase):
                             bgp.add_peers(peer)
     # end build_bgp_config
 
+    @staticmethod
+    def config_sort(config):
+        for k,v in config.iteritems():
+            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict)\
+                    and v[0].get('name'):
+                v.sort(key=lambda i: i.get('name'))
+                [AnsibleConf.config_sort(i) for i in v]
+            elif isinstance(v, dict):
+                AnsibleConf.config_sort(v)
+
     def device_send(self, job_template, job_input, is_delete, retry):
+        self.config_sort(job_input)
         config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
         start_time = None
@@ -199,8 +230,8 @@ class AnsibleConf(AnsibleBase):
                 job_handler = JobHandler(job_template, job_input,
                                          None if is_delete else
                                          [self.physical_router.uuid],
-                                         device_manager.get_api_server_config(),
-                                         self._logger)
+                                         device_manager.get_analytics_config(),
+                                         device_manager.get_vnc(), self._logger)
                 self.commit_stats['total_commits_sent_since_up'] += 1
                 start_time = time.time()
                 job_handler.push(**device_manager.get_job_status_config())
