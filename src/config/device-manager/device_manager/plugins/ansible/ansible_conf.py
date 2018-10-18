@@ -9,6 +9,7 @@ This file contains generic plugin implementation device configuration using ansi
 import time
 import datetime
 import json
+import jmespath
 from hashlib import md5
 from dm_utils import DMUtils
 from ansible_base import AnsibleBase
@@ -179,7 +180,18 @@ class AnsibleConf(AnsibleBase):
                             bgp.add_peers(peer)
     # end build_bgp_config
 
+    @staticmethod
+    def config_sort(config):
+        for k,v in config.iteritems():
+            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict)\
+                    and v[0].get('name'):
+                v.sort(key=lambda i: i.get('name'))
+                [AnsibleConf.config_sort(i) for i in v]
+            elif isinstance(v, dict):
+                AnsibleConf.config_sort(v)
+
     def device_send(self, job_template, job_input, is_delete, retry):
+        self.config_sort(job_input)
         config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
         start_time = None
