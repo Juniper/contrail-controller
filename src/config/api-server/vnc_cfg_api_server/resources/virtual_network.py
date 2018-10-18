@@ -515,11 +515,23 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         # neutron <-> vnc sharing
         global_access = obj_dict.get('perms2', {}).get('global_access')
         is_shared = obj_dict.get('is_shared')
-        if global_access is not None or is_shared is not None:
+        router_external = obj_dict.get('router_external')
+        if global_access is not None or is_shared is not None or \
+           router_external is not None:
             if global_access is not None and is_shared is not None:
-                if is_shared != (global_access != 0):
+                # NOTE(gzimin): Check router_external parameter too.
+                if is_shared != (global_access != 0) and \
+                   (router_external is None or not router_external):
                     msg = ("Inconsistent is_shared (%s) and global_access (%s)"
                            % (is_shared, global_access))
+                    return False, (400, msg)
+            if global_access is not None and router_external is not None:
+                # NOTE(gzimin): Check is_shared parameter too.
+                if router_external != (global_access != 0) and \
+                   (is_shared is None or not is_shared):
+                    msg = ("Inconsistent router_external (%s) and "
+                           "global_access (%s)"
+                           % (router_external, global_access))
                     return False, (400, msg)
             elif global_access is not None:
                 obj_dict['is_shared'] = (global_access != 0)
