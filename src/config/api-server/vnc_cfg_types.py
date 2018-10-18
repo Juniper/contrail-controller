@@ -1274,7 +1274,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         return cls.vhostuser_sockets_dir + 'uvh_vif_' + name
 
     @classmethod
-    def _is_dpdk_enabled(cls, obj_dict, db_conn, host_id=None):
+    def _get_virtual_router(cls, obj_dict, db_conn, host_id=None):
         if host_id is None:
             if obj_dict.get('virtual_machine_interface_bindings'):
                 bindings = obj_dict['virtual_machine_interface_bindings']
@@ -1304,13 +1304,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 return (True, False)
 
         (ok, result) = cls.dbe_read(db_conn, 'virtual_router', vrouter_id)
-        if not ok:
-            return ok, result
-        if result.get('virtual_router_dpdk_enabled'):
-            return True, True
-        else:
-            return True, False
-    # end of _is_dpdk_enabled
+        return ok, result
+    #end of _get_virtual_router
 
     @classmethod
     def _kvps_update(cls, kvps, kvp):
@@ -1480,14 +1475,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
             kvp_dict = cls._kvp_to_dict(kvps)
             if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL']:
-                (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn)
+                (ok, result) = cls._get_virtual_router(obj_dict, db_conn)
                 if not ok:
                     return ok, result
-                elif result:
+                elif result and result.get('virtual_router_dpdk_enabled'):
+                    vhost_user_mode = result.get('virtual_router_vhost_user_mode')
                     vif_type = {'key': 'vif_type',
                                 'value': cls.portbindings['VIF_TYPE_VHOST_USER']}
                     vif_params = {cls.portbindings['VHOST_USER_MODE']:
-                                  cls.portbindings['VHOST_USER_MODE_CLIENT'],
+                                  vhost_user_mode or cls.portbindings['VHOST_USER_MODE_CLIENT'],
                                   cls.portbindings['VHOST_USER_SOCKET']:
                                   cls._get_port_vhostuser_socket_name(obj_dict['uuid']),
                                   cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
@@ -1630,14 +1626,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             elif ((kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] or
                     kvp_dict_port.get('vnic_type')  is None) and
                     kvp_dict.get('host_id') != 'null'):
-                (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn, kvp_dict.get('host_id'))
+                (ok, result) = cls._get_virtual_router(obj_dict, db_conn, kvp_dict.get('host_id'))
                 if not ok:
                     return ok, result
-                elif result:
+                elif result and result.get('virtual_router_dpdk_enabled'):
+                    vhost_user_mode = result.get('virtual_router_vhost_user_mode')
                     vif_type = {'key': 'vif_type',
                                 'value': cls.portbindings['VIF_TYPE_VHOST_USER']}
                     vif_params = {cls.portbindings['VHOST_USER_MODE']: \
-                                  cls.portbindings['VHOST_USER_MODE_CLIENT'],
+                                  vhost_user_mode or cls.portbindings['VHOST_USER_MODE_CLIENT'],
                                   cls.portbindings['VHOST_USER_SOCKET']: \
                                   cls._get_port_vhostuser_socket_name(id),
                                   cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
