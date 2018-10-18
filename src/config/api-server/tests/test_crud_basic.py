@@ -940,17 +940,6 @@ class TestCrud(test_case.ApiServerTestCase):
             self._vnc_lib.global_system_config_update(gsc)
     # end test_bgpaas_ports_shrunk
 
-    def test_invalid_parent_type(self):
-        vn = VirtualNetwork(self.id())
-        vn.fq_name = [vn.name]
-        with ExpectedException(BadRequest):
-            self._vnc_lib.virtual_network_create(vn)
-        vn = VirtualNetwork(self.id())
-        vn.parent_type='network_policy'
-        with ExpectedException(BadRequest):
-            self._vnc_lib.virtual_network_create(vn)
-    # end test_invalid_parent_type
-
 # end class TestCrud
 
 
