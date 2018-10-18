@@ -89,6 +89,7 @@ class VrouterProvisioner(object):
             'control_names': [],
             'router_type': None,
             'dpdk_enabled': False,
+            'virtual_router_vhost_user_mode': 'client',
             'disable_vhost_vmi': False,
         }
         ksopts = {
@@ -142,6 +143,8 @@ class VrouterProvisioner(object):
         parser.add_argument(
             "--dpdk_enabled", action="store_true", help="Whether forwarding mode on vrouter is DPDK based")
         parser.add_argument(
+            "--virtual_router_vhost_user_mode", help="vhost user mode of a DPDK based vrouter")
+        parser.add_argument(
             "--disable_vhost_vmi", action="store_true", help="Do not create vhost0 vmi if flag is set")
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
@@ -177,6 +180,10 @@ class VrouterProvisioner(object):
             vrouter_obj.set_virtual_router_dpdk_enabled(True)
         else:
             vrouter_obj.set_virtual_router_dpdk_enabled(False)
+
+        #set virtual router's vhost user mode
+        vrouter_obj.set_virtual_router_vhost_user_mode(self._args.virtual_router_vhost_user_mode)
+
         if vrouter_exists:
             self.vrouter_fq_name = vrouter_obj.get_fq_name()
             self._vnc_lib.virtual_router_update(vrouter_obj)
