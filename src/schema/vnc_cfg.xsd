@@ -2076,6 +2076,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-router-type', 'virtual-router', 'optional', 'CRD', 
               'Different types of the vrouters in the system.') -->
 
+<xsd:element name="virtual-router-vhost-user-mode" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-router-vhost-user-mode', 'virtual-router', 'optional', 'CRUD',
+              'vhost user mode configured for this DPDK based vrouter\'s. Options - client, server ') -->
+
 <xsd:element name="virtual-router-dpdk-enabled" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-router-dpdk-enabled', 'virtual-router', 'optional', 'CRUD',
