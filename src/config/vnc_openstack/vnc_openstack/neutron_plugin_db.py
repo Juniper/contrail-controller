@@ -1522,7 +1522,12 @@ class DBInterface(object):
                 if external_attr is not attr_not_specified:
                     net_obj.router_external = external_attr
                     perms2 = net_obj.perms2
-                    perms2.global_access = PERMS_RX if external_attr else PERMS_NONE
+                    if net_obj.is_shared:
+                        perms2.global_access = PERMS_RWX
+                    elif net_obj.router_external:
+                        perms2.global_access = PERMS_RX
+                    else:
+                        perms2.global_access = PERMS_NONE
                     net_obj.perms2 = perms2
 
         if 'name' in network_q and network_q['name']:
