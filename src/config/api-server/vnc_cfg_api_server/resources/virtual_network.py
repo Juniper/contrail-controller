@@ -7,7 +7,7 @@ import uuid
 from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import LINK_LOCAL_VN_FQ_NAME
-from cfgm_common import PERMS_RWX
+from cfgm_common import PERMS_RWX, PERMS_NONE
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
@@ -515,12 +515,21 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         # neutron <-> vnc sharing
         global_access = obj_dict.get('perms2', {}).get('global_access')
         is_shared = obj_dict.get('is_shared')
+        router_external = obj_dict.get('router_external')
         if global_access is not None or is_shared is not None:
             if global_access is not None and is_shared is not None:
-                if is_shared != (global_access != 0):
-                    msg = ("Inconsistent is_shared (%s) and global_access (%s)"
-                           % (is_shared, global_access))
-                    return False, (400, msg)
+
+                # NOTE(gzimin): In case if we want to make network
+                # not shared and external at the same time we need to
+                # check not only shared and global access parameters
+                # but external parameter too.
+                if (is_shared and global_access == PERMS_NONE) or \
+                   (not is_shared and global_access == PERMS_NONE and \
+                   router_external is not None and router_external):
+                    error = "Inconsistent is_shared (%s), global_access (%s)" \
+                            " and router_external (%s)" \
+                            % (is_shared, global_access, router_external)
+                    return False, (400, error)
             elif global_access is not None:
                 obj_dict['is_shared'] = (global_access != 0)
             else:
