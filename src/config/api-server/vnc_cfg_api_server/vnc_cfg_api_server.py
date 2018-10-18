@@ -570,7 +570,7 @@ class VncApiServer(object):
 
                 request_params = get_request().json
                 msg = "Job Input %s " % json.dumps(request_params)
-                self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+                self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
                 fabric_job_uve_name = ''
                 device_fqnames = []
