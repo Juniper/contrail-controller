@@ -1127,7 +1127,7 @@ class TestFirewall(TestFirewallBase):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class FirewallDraftModeBase(object):
+class TestFirewallDraftModeBase(TestFirewallBase):
     SECURITY_RESOURCES = [
         ApplicationPolicySet,
         FirewallPolicy,
@@ -1136,6 +1136,12 @@ class FirewallDraftModeBase(object):
         AddressGroup,
     ]
     ACTIONS = set(['commit', 'discard'])
+
+    def setUp(self):
+        super(TestFirewallDraftModeBase, self).setUp()
+        self._scope = None
+        self._owner = None
+        self._draft_pm_fq_name = None
 
     @abc.abstractmethod
     def set_scope_instance(self, draft_enable=True):
@@ -1168,6 +1174,8 @@ class FirewallDraftModeBase(object):
             self._scope.get_fq_name_str(),
         )
 
+
+class FirewallDraftModeCommonTestSuite(object):
     def test_update_scope_with_security_policy_draft_enabled(self):
         self.set_scope_instance(draft_enable=False)
 
@@ -1749,7 +1757,6 @@ class FirewallDraftModeBase(object):
                     getattr(self.api, '%s_delete' % resource.object_type)(
                         id=resource.uuid)
 
-    # @patch.object(SecurityResourceBase, '_pending_update')
     def test_cannot_start_action_during_sec_res_is_being_created(self):
         self.set_scope_instance()
         pending_update_orig = FirewallPolicyServer._pending_update
@@ -2144,17 +2151,37 @@ class FirewallDraftModeBase(object):
 
         self.api.commit_security(self._scope)
 
+    def test_cannot_create_ref_to_pending_deleted_resource(self):
+        self.set_scope_instance(draft_enable=False)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp)
 
-class TestFirewallDraftModeGlobalScope(TestFirewallBase,
-                                       FirewallDraftModeBase):
-    def setUp(self):
-        super(TestFirewallDraftModeGlobalScope, self).setUp()
-        self._scope = None
-        self._owner = None
-        self._draft_pm_fq_name = None
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp.uuid)
+        aps = ApplicationPolicySet('aps-%s' % self.id(),
+                                   parent_obj=self._owner)
+        aps.add_firewall_policy(fp, FirewallSequence(sequence='1.0'))
+        self.assertRaises(BadRequest, self.api.application_policy_set_create,
+                          aps)
 
+    def test_cannot_update_ref_to_pending_deleted_resource(self):
+        self.set_scope_instance(draft_enable=False)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp)
+        aps = ApplicationPolicySet('aps-%s' % self.id(),
+                                   parent_obj=self._owner)
+        self.api.application_policy_set_create(aps)
+
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp.uuid)
+        aps.add_firewall_policy(fp, FirewallSequence(sequence='1.0'))
+        self.assertRaises(BadRequest, self.api.application_policy_set_update,
+                          aps)
+
+
+class FirewallDraftModeGlobalScopeBase(TestFirewallDraftModeBase):
     def tearDown(self):
-        super(TestFirewallDraftModeGlobalScope, self).tearDown()
+        super(FirewallDraftModeGlobalScopeBase, self).tearDown()
         # clean resources for the global scope case to prevent side effect
         # between tests
         if not self._scope:
@@ -2163,6 +2190,13 @@ class TestFirewallDraftModeGlobalScope(TestFirewallBase,
             self.lock_path)
         scope_lock.destroy()
         try:
+            self.api.discard_security(self._project)
+        except BadRequest:
+            # Draft mode not enabled
+            pass
+        self._project.enable_security_policy_draft = False
+        self.api.project_update(self._project)
+        try:
             self.api.discard_security(self._scope)
         except BadRequest:
             # Draft mode not enabled
@@ -2170,6 +2204,13 @@ class TestFirewallDraftModeGlobalScope(TestFirewallBase,
         self.draft_mode = False
         self._scope = self.api.global_system_config_read(id=self._scope.uuid)
         self._owner = self.api.policy_management_read(id=self._owner.uuid)
+        for r_class in self.SECURITY_RESOURCES:
+            for ref in getattr(self._project,
+                               'get_%ss' % r_class.object_type)() or []:
+                if ref['to'][-1] == "default-%s" % r_class.resource_type:
+                    continue
+                getattr(self.api, '%s_delete' % r_class.object_type)(
+                    id=ref['uuid'])
         for r_class in self.SECURITY_RESOURCES:
             for ref in getattr(self._owner,
                                'get_%ss' % r_class.object_type)() or []:
@@ -2191,14 +2232,7 @@ class TestFirewallDraftModeGlobalScope(TestFirewallBase,
         self.api.project_create(self._project)
 
 
-class TestFirewallDraftModeProjectScope(TestFirewallBase,
-                                        FirewallDraftModeBase):
-    def setUp(self):
-        super(TestFirewallDraftModeProjectScope, self).setUp()
-        self._scope = None
-        self._owner = None
-        self._draft_pm_fq_name = None
-
+class FirewallDraftModeProjectScopeBase(TestFirewallDraftModeBase):
     def set_scope_instance(self, draft_enable=True):
         draft_pm_name = constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
         project = Project('project-%s' % self.id())
@@ -2209,6 +2243,14 @@ class TestFirewallDraftModeProjectScope(TestFirewallBase,
         self._owner = project
         self._project = project
 
+
+class TestFirewallDraftModeGlobalScope(FirewallDraftModeGlobalScopeBase,
+                                       FirewallDraftModeCommonTestSuite):
+    pass
+
+
+class TestFirewallDraftModeProjectScope(FirewallDraftModeProjectScopeBase,
+                                        FirewallDraftModeCommonTestSuite):
     def test_create_project_with_security_policy_draft_enabled(self):
         self.set_scope_instance()
         project = self._scope
@@ -2243,26 +2285,22 @@ class TestFirewallDraftModeProjectScope(TestFirewallBase,
                       "reference: %s" % (project.get_fq_name_str(), str(e)))
 
 
-class TestFirewallDraftModeMixedScopes(TestFirewallBase):
+class TestFirewallDraftModeMixedScopes(FirewallDraftModeGlobalScopeBase):
     def test_commit_created_global_and_project_resource_with_ref(self):
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_security_policy_draft = True
-        self.api.global_system_config_update(gsc)
-        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        self.set_scope_instance()
         global_fp = FirewallPolicy('global-fp-%s' % self.id(),
-                                   parent_obj=global_pm)
+                                   parent_obj=self._owner)
         self.api.firewall_policy_create(global_fp)
-        project = Project('project-%s' % self.id())
-        project.enable_security_policy_draft = True
-        self.api.project_create(project)
+        self._project.enable_security_policy_draft = True
+        self.api.project_update(self._project)
         project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
-                                           parent_obj=project)
+                                           parent_obj=self._project)
         project_aps.add_firewall_policy(global_fp,
                                         FirewallSequence(sequence='1.0'))
         self.api.application_policy_set_create(project_aps)
 
-        self.api.commit_security(project)
-        self.api.commit_security(gsc)
+        self.api.commit_security(self._project)
+        self.api.commit_security(self._scope)
 
         project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
         global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
@@ -2276,24 +2314,20 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         # same as test_commit_created_global_and_project_resource_with_ref but
         # first commit pending security resources on global scope and then on
         # project
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_security_policy_draft = True
-        self.api.global_system_config_update(gsc)
-        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        self.set_scope_instance()
         global_fp = FirewallPolicy('global-fp-%s' % self.id(),
-                                   parent_obj=global_pm)
+                                   parent_obj=self._owner)
         self.api.firewall_policy_create(global_fp)
-        project = Project('project-%s' % self.id())
-        project.enable_security_policy_draft = True
-        self.api.project_create(project)
+        self._project.enable_security_policy_draft = True
+        self.api.project_update(self._project)
         project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
-                                           parent_obj=project)
+                                           parent_obj=self._project)
         project_aps.add_firewall_policy(global_fp,
                                         FirewallSequence(sequence='1.0'))
         self.api.application_policy_set_create(project_aps)
 
-        self.api.commit_security(gsc)
-        self.api.commit_security(project)
+        self.api.commit_security(self._scope)
+        self.api.commit_security(self._project)
 
         project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
         global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
@@ -2304,20 +2338,16 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
                          global_fp.fq_name)
 
     def test_commit_updated_global_and_project_resource_with_ref(self):
-        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        self.set_scope_instance(False)
         global_fp = FirewallPolicy('global-fp-%s' % self.id(),
-                                   parent_obj=global_pm)
+                                   parent_obj=self._owner)
         self.api.firewall_policy_create(global_fp)
-        project = Project('project-%s' % self.id())
-        self.api.project_create(project)
         project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
-                                           parent_obj=project)
+                                           parent_obj=self._project)
         self.api.application_policy_set_create(project_aps)
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_security_policy_draft = True
-        self.api.global_system_config_update(gsc)
-        project.enable_security_policy_draft = True
-        self.api.project_update(project)
+        self.draft_mode = True
+        self._project.enable_security_policy_draft = True
+        self.api.project_update(self._project)
         new_name = 'new_name_%s' % global_fp.display_name
         global_fp.display_name = new_name
         self.api.firewall_policy_update(global_fp)
@@ -2325,8 +2355,8 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
                                         FirewallSequence(sequence='1.0'))
         self.api.application_policy_set_update(project_aps)
 
-        self.api.commit_security(project)
-        self.api.commit_security(gsc)
+        self.api.commit_security(self._project)
+        self.api.commit_security(self._scope)
 
         project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
         global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
@@ -2340,21 +2370,16 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
     def test_commit_updated_global_and_project_resource_with_ref2(self):
         # Same as test_commit_updated_global_and_project_resource_with_ref2 but
         # update project APS ref to global FP before updating global FP
-
-        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
+        self.set_scope_instance(False)
         global_fp = FirewallPolicy('global-fp-%s' % self.id(),
-                                   parent_obj=global_pm)
+                                   parent_obj=self._owner)
         self.api.firewall_policy_create(global_fp)
-        project = Project('project-%s' % self.id())
-        self.api.project_create(project)
         project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
-                                           parent_obj=project)
+                                           parent_obj=self._project)
         self.api.application_policy_set_create(project_aps)
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_security_policy_draft = True
-        self.api.global_system_config_update(gsc)
-        project.enable_security_policy_draft = True
-        self.api.project_update(project)
+        self.draft_mode = True
+        self._project.enable_security_policy_draft = True
+        self.api.project_update(self._project)
         project_aps.add_firewall_policy(global_fp,
                                         FirewallSequence(sequence='1.0'))
         self.api.application_policy_set_update(project_aps)
@@ -2362,8 +2387,8 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         global_fp.display_name = new_name
         self.api.firewall_policy_update(global_fp)
 
-        self.api.commit_security(project)
-        self.api.commit_security(gsc)
+        self.api.commit_security(self._project)
+        self.api.commit_security(self._scope)
 
         project_aps = self.api.application_policy_set_read(id=project_aps.uuid)
         global_fp = self.api.firewall_policy_read(id=global_fp.uuid)
@@ -2375,24 +2400,17 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(global_fp.display_name, new_name)
 
     def test_address_group_fq_name_updated_in_firewall_rule_endpoints(self):
-        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
-        project = Project('project-%s' % self.id())
-        self.api.project_create(project)
-
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_security_policy_draft = True
-        self.api.global_system_config_update(gsc)
-
+        self.set_scope_instance()
         ag = AddressGroup(
             name='ag-%s' % self.id(),
             address_group_prefix=SubnetListType(
                 subnet=[SubnetType('1.1.1.0', 24)]),
-            parent_obj=global_pm,
+            parent_obj=self._owner,
         )
         self.api.address_group_create(ag)
 
         fr = FirewallRule(
-            parent_obj=project,
+            parent_obj=self._project,
             name='rule-%s' % self.id(),
             action_list=ActionListType(simple_action='pass'),
             endpoint_1=FirewallRuleEndpointType(any=True),
@@ -2408,7 +2426,7 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(draft_ag.get_fq_name_str(),
                          fr.endpoint_2.address_group)
 
-        self.api.commit_security(gsc)
+        self.api.commit_security(self._scope)
         ag = self.api.address_group_read(id=ag.uuid)
         fr = self.api.firewall_rule_read(id=fr.uuid)
         self.assertNotEqual(draft_ag.get_fq_name_str(),
@@ -2416,31 +2434,25 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(ag.get_fq_name_str(), fr.endpoint_2.address_group)
 
     def test_address_groups_fq_name_updated_in_both_fr_endpoints(self):
-        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
-        project = Project('project-%s' % self.id())
-        self.api.project_create(project)
-
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_security_policy_draft = True
-        self.api.global_system_config_update(gsc)
+        self.set_scope_instance()
 
         ag1 = AddressGroup(
             name='ag1-%s' % self.id(),
             address_group_prefix=SubnetListType(
                 subnet=[SubnetType('1.1.1.0', 24)]),
-            parent_obj=global_pm,
+            parent_obj=self._owner,
         )
         self.api.address_group_create(ag1)
         ag2 = AddressGroup(
             name='ag2-%s' % self.id(),
             address_group_prefix=SubnetListType(
                 subnet=[SubnetType('2.2.2.0', 24)]),
-            parent_obj=global_pm,
+            parent_obj=self._owner,
         )
         self.api.address_group_create(ag2)
 
         fr = FirewallRule(
-            parent_obj=project,
+            parent_obj=self._project,
             name='rule-%s' % self.id(),
             action_list=ActionListType(simple_action='pass'),
             endpoint_1=FirewallRuleEndpointType(
@@ -2460,7 +2472,7 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(draft_ag2.get_fq_name_str(),
                          fr.endpoint_2.address_group)
 
-        self.api.commit_security(gsc)
+        self.api.commit_security(self._scope)
         ag1 = self.api.address_group_read(id=ag1.uuid)
         ag2 = self.api.address_group_read(id=ag2.uuid)
         fr = self.api.firewall_rule_read(id=fr.uuid)
@@ -2472,24 +2484,16 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(ag2.get_fq_name_str(), fr.endpoint_2.address_group)
 
     def test_same_address_group_fq_name_updated_in_both_fr_endpoints(self):
-        global_pm = self.api.policy_management_read(PolicyManagement().fq_name)
-        project = Project('project-%s' % self.id())
-        self.api.project_create(project)
-
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.enable_security_policy_draft = True
-        self.api.global_system_config_update(gsc)
-
+        self.set_scope_instance()
         ag = AddressGroup(
             name='ag-%s' % self.id(),
             address_group_prefix=SubnetListType(
                 subnet=[SubnetType('1.1.1.0', 24)]),
-            parent_obj=global_pm,
+            parent_obj=self._owner,
         )
         self.api.address_group_create(ag)
-
         fr = FirewallRule(
-            parent_obj=project,
+            parent_obj=self._project,
             name='rule-%s' % self.id(),
             action_list=ActionListType(simple_action='pass'),
             endpoint_1=FirewallRuleEndpointType(
@@ -2508,7 +2512,7 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(draft_ag.get_fq_name_str(),
                          fr.endpoint_2.address_group)
 
-        self.api.commit_security(gsc)
+        self.api.commit_security(self._scope)
         ag = self.api.address_group_read(id=ag.uuid)
         fr = self.api.firewall_rule_read(id=fr.uuid)
         self.assertNotEqual(draft_ag.get_fq_name_str(),
@@ -2517,3 +2521,34 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
                             fr.endpoint_2.address_group)
         self.assertEqual(ag.get_fq_name_str(), fr.endpoint_1.address_group)
         self.assertEqual(ag.get_fq_name_str(), fr.endpoint_2.address_group)
+
+    def test_cannot_create_ref_to_pending_deleted_resource(self):
+        self.set_scope_instance(False)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=self._owner)
+        self.api.firewall_policy_create(global_fp)
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=global_fp.uuid)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=self._project)
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+
+        self.assertRaises(BadRequest, self.api.application_policy_set_create,
+                          project_aps)
+
+    def test_cannot_update_ref_to_pending_deleted_resource(self):
+        self.set_scope_instance(False)
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=self._owner)
+        self.api.firewall_policy_create(global_fp)
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=global_fp.uuid)
+        project_aps = ApplicationPolicySet('project-aps-%s' % self.id(),
+                                           parent_obj=self._project)
+        self.api.application_policy_set_create(project_aps)
+
+        project_aps.add_firewall_policy(global_fp,
+                                        FirewallSequence(sequence='1.0'))
+        self.assertRaises(BadRequest, self.api.application_policy_set_update,
+                          project_aps)
