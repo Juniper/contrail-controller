@@ -1259,6 +1259,7 @@ class LogicalRouterDM(DBBaseDM):
             vn_obj = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
             if vn_obj:
                 self.virtual_network = vn_obj.uuid
+                vn_obj.logical_router = self.uuid
         self.logical_router_gateway_external = obj.get("logical_router_gateway_external")
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
@@ -1353,6 +1354,21 @@ class VirtualNetworkDM(DBBaseDM):
     # end update
 
     def get_prefixes(self):
+        if self.logical_router:
+            lr = LogicalRouterDM.get(self.logical_router)
+            if not lr or not lr.logical_router_gateway_external:
+                return set(self.gateways.keys())
+            vn_list = lr.get_connected_networks(include_internal=False)
+            prefix_set = set()
+            if self.gateways and self.gateways.keys():
+                prefix_set = set(self.gateways.keys())
+            for vn in vn_list:
+                vn_obj = VirtualNetworkDM.get(vn)
+                if vn_obj:
+                    prefixes = vn_obj.get_prefixes()
+                    if prefixes:
+                        prefix_set = prefix_set.union(prefixes)
+            return prefix_set
         return set(self.gateways.keys())
     # end get_prefixes
 
