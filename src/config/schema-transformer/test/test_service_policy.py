@@ -1786,6 +1786,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_network_policy(np)
     #end test_misc
 
+    '''
     def test_vrf_assign_rules(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -1854,6 +1855,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_vn(fq_name=vn1_obj.get_fq_name())
         self.delete_vn(fq_name=vn2_obj.get_fq_name())
     # end test_vrf_assign_rules
+    '''
 
     def test_service_policy_vmi_with_multi_port_tuples(self):
 
