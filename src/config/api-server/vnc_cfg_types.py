@@ -5,6 +5,8 @@
 # This file contains code/hooks at different point during processing a request,
 # specific to type of resource. For eg. allocation of mac/ip-addr for a port
 # during its creation.
+#
+
 import copy
 from cfgm_common import jsonutils as json
 from cfgm_common import get_lr_internal_vn_name
