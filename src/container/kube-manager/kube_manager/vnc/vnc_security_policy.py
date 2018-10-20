@@ -129,47 +129,83 @@ class FWRule(object):
         return labels
 
     @classmethod
+    def _get_tags(cls, nps_selector, namespace = None):
+        tags = []
+        selector_labels_dict =\
+                    dict(nps_selector.get('matchLabels', {}))
+        if selector_labels_dict:
+           if namespace:
+               selector_labels_dict.update(
+                        XLabelCache.get_namespace_label(namespace))
+           tags = VncSecurityPolicy.get_tags_fn(
+                               selector_labels_dict, True)
+        return tags
+
+    @classmethod
+    def _create_rule_name(cls, rule_name_prefix,
+                          name, from_rule_index):
+        rule_name = '-'.join([rule_name_prefix,
+                              name,
+                              str(from_rule_index)])
+        return rule_name
+
+    @classmethod
     def spec_parser(cls, from_rule, from_rule_index,
                     rule_name_prefix, namespace = None):
         ep_list = []
         name = None
         tags = []
+        tagsns = []
+        tagsps = []
 
-        if 'namespaceSelector' in from_rule:
-            name = 'namespaceSelector'
+        if all (k in from_rule for k in('namespaceSelector', \
+                                        'podSelector')):
+            name = 'pod&namespaceSelector'
             ns_selector = from_rule.get('namespaceSelector')
             if ns_selector:
-                ns_selector_labels_dict =\
-                    dict(ns_selector.get('matchLabels', {}))
-                if ns_selector_labels_dict:
-                    tags = VncSecurityPolicy.get_tags_fn(
-                               ns_selector_labels_dict, True)
+                tagsns = cls._get_tags(ns_selector)
 
-                    rule_name = '-'.join([rule_name_prefix,
-                                          name,
-                                          str(from_rule_index)])
-
-                    ep_list.append([rule_name,
-                                    FWRuleEndpoint.get(tags),
-                                    FWSimpleAction.PASS.value])
-
-        if 'podSelector' in from_rule:
-            name = 'podSelector'
             pod_selector = from_rule.get('podSelector')
-            pod_selector_labels_dict =\
-                dict(pod_selector.get('matchLabels', {}))
-            if pod_selector_labels_dict:
-                if namespace:
-                    pod_selector_labels_dict.update(
-                        XLabelCache.get_namespace_label(namespace))
-                tags = VncSecurityPolicy.get_tags_fn(pod_selector_labels_dict,
-                                                     True)
-                rule_name = '-'.join([rule_name_prefix,
+            if pod_selector:
+                tagsps = cls._get_tags(pod_selector, namespace)
+
+            if tagsns and tagsps:
+                tags = tagsns + tagsps
+                rule_name = cls._create_rule_name(
+                                      rule_name_prefix,
                                       name,
-                                      str(from_rule_index)])
+                                      from_rule_index)
                 ep_list.append([rule_name,
                                 FWRuleEndpoint.get(tags),
                                 FWSimpleAction.PASS.value])
+        else:
+            if 'namespaceSelector' in from_rule:
+                name = 'namespaceSelector'
+                ns_selector = from_rule.get('namespaceSelector')
+                if ns_selector:
+                    tags = cls._get_tags(ns_selector)
+                    if tags:
+                        rule_name = cls._create_rule_name(
+                                      rule_name_prefix,
+                                      name,
+                                      from_rule_index)
+                        ep_list.append([rule_name,
+                                        FWRuleEndpoint.get(tags),
+                                        FWSimpleAction.PASS.value])
+
+            if 'podSelector' in from_rule:
+                name = 'podSelector'
+                pod_selector = from_rule.get('podSelector')
+                if pod_selector:
+                    tags = cls._get_tags(pod_selector, namespace)
+                    if tags:
+                        rule_name = cls._create_rule_name(
+                                      rule_name_prefix,
+                                      name,
+                                      from_rule_index)
+                        ep_list.append([rule_name,
+                                        FWRuleEndpoint.get(tags),
+                                        FWSimpleAction.PASS.value])
 
         if 'ipBlock' in from_rule:
 
