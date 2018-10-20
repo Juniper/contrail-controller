@@ -1,6 +1,7 @@
-- name: Update pb_input
+- name: Update pb_input if interface_filters is not set already
   set_fact:
     pb_input: "{{pb_input | combine({'interface_filters': [{'op': 'regex', 'expr': '^xe|^ge|^et|^fxp|^xle|^fc|^fte|^lo0'}] })}}"
+  when: "'interface_filters' not in pb_input"
 
 - name: Execute commands on a Juniper Device to get configured interfaces
   block:
