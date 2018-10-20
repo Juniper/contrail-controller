@@ -1448,7 +1448,7 @@ class VirtualNetworkDM(DBBaseDM):
                     private_vn = VirtualNetworkDM.get(fip.get_private_network())
                     if private_vn is None or private_vn.vn_network_id is None:
                         continue
-                    vn_list.add(private_vn)
+                    vn_list.add(private_vn.uuid)
         return list(vn_list)
     # end get_connected_private_networks:w
 
