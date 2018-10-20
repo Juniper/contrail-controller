@@ -139,6 +139,14 @@ class VncNetworkPolicyTest(KMTestCase):
             to_rules = egress_spec.get('to', [])
             if to_rules:
                 for to_rule in to_rules:
+                    if all(k in to_rule for k in ('namespaceSelector', \
+                                                    'podSelector')):
+                        num_to_rules += 1
+                    else:
+                        if 'podSelector' in to_rule:
+                            num_to_rules += 1
+                        if 'namespaceSelector' in to_rule:
+                            num_to_rules += 1
                     if 'ipBlock' in to_rule:
                         if 'except' in to_rule['ipBlock']:
                             num_to_rules += len(from_rule['ipBlock']['except'])
@@ -915,4 +923,64 @@ class VncNetworkPolicyTest(KMTestCase):
         # Validation of APS should now succeed.
         valid = VncSecurityPolicy.validate_cluster_security_policy()
         self.assertTrue(valid)
+
+    def test_add_np_allow_app_to_web_with_egress_podnsselector(self):
+        # Create namespace.
+        self._create_namespace(self.ns_name, None, True)
+
+        np_name = unittest.TestCase.id(self)
+        np_spec = {
+            'ingress': [
+                {'from': [
+                    {'ipBlock': {'cidr': '172.17.0.0/16',
+                                       'except': ['172.17.1.0/24']}},
+                    {'namespaceSelector': {
+                        'matchLabels': {
+                             'deployment': 'HR',
+                             'site': 'SVL'
+                            }
+                        }
+                    },
+                    {'podSelector': {'matchLabels': {'tier': 'app'}}}
+                  ],
+                  'ports': [
+                      {
+                          'port': 5978,
+                          'protocol': 'TCP'
+                      }
+                  ]
+                }
+            ],
+            'egress': [
+                {
+                    'ports': [
+                        {
+                            'port': 5978,
+                            'protocol': 'TCP'
+                        }
+                    ],
+                    'to': [
+                        {'namespaceSelector': {
+                            'matchLabels': {
+                                'deployment': 'HR',
+                                'site': 'SVL'
+                            }
+                        },
+                        'podSelector': {'matchLabels': {'tier': 'app'}}
+                        }
+                    ]
+                }
+            ],
+            'podSelector': {'matchLabels': {'tier': 'web'}},
+            'policyTypes': ['Ingress', 'Egress']
+        }
+
+        np_uuid = self._add_update_network_policy(np_name, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                namespace=self.ns_name)
+
+        self._delete_network_policy(np_name, np_uuid, np_spec)
+        self._validate_network_policy_resources(np_name, np_uuid, np_spec,
+                                                validate_delete=True,
+                                                namespace=self.ns_name)
 
