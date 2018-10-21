@@ -230,8 +230,8 @@ class AnsibleConf(AnsibleBase):
                 job_handler = JobHandler(job_template, job_input,
                                          None if is_delete else
                                          [self.physical_router.uuid],
-                                         device_manager.get_analytics_config(),
-                                         device_manager.get_vnc(), self._logger)
+                                         device_manager.get_api_server_config(),
+                                         self._logger)
                 self.commit_stats['total_commits_sent_since_up'] += 1
                 start_time = time.time()
                 job_handler.push(**device_manager.get_job_status_config())
@@ -249,7 +249,7 @@ class AnsibleConf(AnsibleBase):
             self.push_config_state = PushConfigState.PUSH_STATE_SUCCESS
         except Exception as e:
             self._logger.error("Router %s: %s" %
-                               (self.physical_router.management_ip, e.message))
+                               (self.physical_router.management_ip, repr(e)))
             self.commit_stats[
                     'commit_status_message'] = 'failed to apply config,\
                                                 router response: ' + e.message
