@@ -24,18 +24,6 @@
                         <Component Id="AgentMainExe" Guid="0AA4E35B-89F0-4E60-8D1C-F79BFBE49F78" Win64="yes">
                             <File Id="AgentMainExe" Source="build/$(var.optimization)/vnsw/agent/contrail/contrail-vrouter-agent.exe"/>
                         </Component>
-                        <Component Id="AgentServiceWrapperExe" Guid="8A6640CF-5EA0-4F16-A006-0991147E0D9E" Win64="yes">
-                            <File Id="AgentServiceWrapperExe" Name="contrail-vrouter-agent-sw.exe" Source="build/bin/winsw.exe"/>
-                            <ServiceInstall Id="CreateService" Name="ContrailAgent" DisplayName="ContrailAgent" Type="ownProcess" Start="demand" ErrorControl="normal">
-                                <util:ServiceConfig
-                                    FirstFailureActionType="restart"
-                                    SecondFailureActionType="restart"
-                                    ThirdFailureActionType="restart"
-                                    ResetPeriodInDays="1"
-                                    RestartServiceDelayInSeconds="0"/>
-                            </ServiceInstall>
-                            <ServiceControl Id="DeleteService" Name="ContrailAgent" Remove="both" Stop="both" Wait="yes"/>
-                        </Component>
                         <Component Id="VRouterHypervScript" Guid="2E5ED884-4461-4852-B841-CF6FE4E1E6B7" Win64="yes">
                             <File Id="VRouterHypervScript" Source="controller/src/vnsw/opencontrail-vrouter-netns/opencontrail_vrouter_netns/vrouter_hyperv.py" />
                         </Component>
@@ -57,9 +45,6 @@
                         <Component Id="SampleConfig" Guid="5E840E9E-96D6-41F4-A384-1500A089CAEB" Win64="yes">
                             <File Id="SampleConfig" Name="contrail-vrouter-agent.conf.sample" Source="controller/src/vnsw/agent/contrail-vrouter-agent.conf"/>
                         </Component>
-                        <Component Id="AgentServiceWrapperConfig" Guid="3DE6D859-E950-40EE-9A36-0A894AFF1FCD" Win64="yes">
-                            <File Id="AgentServiceWrapperConfig" Name="contrail-vrouter-agent-sw.xml" Source="controller/src/vnsw/agent/contrail/windows/service_config/service-wrapper.xml"/>
-                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -67,8 +52,6 @@
 
         <Feature Id="DefaultFeature" Level="1">
             <ComponentRef Id="AgentMainExe"/>
-            <ComponentRef Id="AgentServiceWrapperExe"/>
-            <ComponentRef Id="AgentServiceWrapperConfig"/>
             <ComponentRef Id="VRouterHypervScript"/>
             <ComponentRef Id="VRouterCommonScript"/>
             <ComponentRef Id="VRouterHypervInjectIPScript"/>
