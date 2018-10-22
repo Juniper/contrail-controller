@@ -85,7 +85,9 @@ VNController::~VNController() {
 void VNController::FillMcastLabelRange(uint32_t *start_idx,
                                        uint32_t *end_idx,
                                        uint8_t idx) const {
+    // Multicast labels required by both control nodes
     uint32_t max_mc_labels = 2 * (agent_->vrouter_max_vrfs());
+    // Multicast label count per control node
     uint32_t mc_label_count = 0;
     uint32_t vrouter_max_labels = agent_->vrouter_max_labels();
 
@@ -95,8 +97,8 @@ void VNController::FillMcastLabelRange(uint32_t *start_idx,
         mc_label_count = (vrouter_max_labels - MIN_UNICAST_LABEL_RANGE)/2;
     }
 
-    *start_idx = vrouter_max_labels - ((idx + 1) * mc_label_count);
-    *end_idx = (vrouter_max_labels - ((idx) * mc_label_count) - 1);
+    *start_idx = vrouter_max_labels - ((idx + 1) * mc_label_count) + 1;
+    *end_idx = (vrouter_max_labels - ((idx) * mc_label_count));
 }
 
 void VNController::SetAgentMcastLabelRange(uint8_t idx) {
@@ -125,9 +127,9 @@ void VNController::SetAgentMcastLabelRange(uint8_t idx) {
     FillMcastLabelRange(&start, &end, idx);
     str << start << "-" << end;
 
-    agent_->mpls_table()->ReserveMulticastLabel(start, end + 1, idx);
+    agent_->mpls_table()->ReserveMulticastLabel(start, end, idx);
     fabric_multicast_label_range_[idx].start = start;
-    fabric_multicast_label_range_[idx].end = (end + 1);
+    fabric_multicast_label_range_[idx].end = end;
     fabric_multicast_label_range_[idx].fabric_multicast_label_range_str =
         str.str();
 }
