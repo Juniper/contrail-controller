@@ -21,7 +21,6 @@ if platform.system() == 'Windows':
         'SimpleAmqpClient',
         'gunit',
         'http_parser',
-        'winsw',
         'cmocka',
     ]
 else:
