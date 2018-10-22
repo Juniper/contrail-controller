@@ -1,0 +1,76 @@
+/**
+ * Structure definition for holding Interface object details as per Multicloud
+ */
+struct UveInterfaceMulticloud {
+    1: string           name;
+    2: i64              bytes_tx;
+    3: i64              bytes_rx;
+    4: i64              packets_tx;
+    5: i64              packets_rx;
+}
+
+/**
+ * Structure definition for holding Tunnel object details as per Multicloud
+ */
+struct UveTunnelMulticloud {
+    1: string           peer;
+    2: bool             is_up;
+    3: optional string  since;
+}
+
+/**
+ * Structure definition for holding HA Status as per Multicloud
+ */
+struct UveHAMulticloud {
+    1: string           network;
+    2: bool             is_master;
+}
+
+/**
+ * Structure definition for holding BGP peering details as per Multicloud
+ */
+struct UveBirdMulticloud {
+    1: string           peer;
+    2: bool             is_up;
+}
+
+/**
+ * Structure definition for delivering route updates that happened since last log as per Multicloud
+ */
+struct UveRouteUpdate {
+    1: i64              timestamp;
+    2: string           op;
+    3: string           target;
+    4: string           iface
+    5: optional string  via;
+}
+
+/**
+ * Structure definition for holding Multicloud object details
+ */
+struct UveMulticloud {
+    /** Configured Name of virtual-machine */
+    1: string                name (key="ObjectMCTable")
+    /** Value 'true' indicates entry is removed. Holds value of 'false' otherwise*/
+    2: optional bool         deleted
+    /** List of Interface entries */
+    3: optional list<UveInterfaceMulticloud> interface_list; 
+    /** List of Tunnel entries */
+    4: optional list<UveTunnelMulticloud> tunnel_list;
+    /** List of HA networks managed by the gateway */
+    5: optional list<UveHAMulticloud> ha_list;
+    /** List of Bird peering status of the gateway */
+    6: optional list<UveBirdMulticloud> bird_list;
+    /** List of route updates on the gateway */
+    7: optional list<UveRouteUpdate> route_updates_list;
+}
+
+/**
+ * @description: Uve for multicloud object
+ * @type: uve
+ * @object: multicloud
+ */
+uve sandesh UveMulticloudTrace {
+    /** virtual-machine information */
+    1: UveMulticloud data;
+}

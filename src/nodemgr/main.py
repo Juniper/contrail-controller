@@ -54,6 +54,8 @@ from control_nodemgr.event_manager import ControlEventManager
 from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
 from config_database_nodemgr.event_manager import ConfigDatabaseEventManager
 from vrouter_nodemgr.event_manager import VrouterEventManager
+from multicloud_nodemgr.event_manager import MulticloudEventManager
+
 
 
 unit_names_dict = {
@@ -93,6 +95,13 @@ unit_names_dict = {
         'zookeeper',
         'kafka',
         'contrail-database-nodemgr'
+    ],
+    'contrail-multicloud': [
+        'contrail-multicloud-bird',
+        'contrail-multicloud-nodemgr',
+        'contrail-multicloud-openvpn',
+        'contrail-multicloud-strongswan',
+        'contrail-multicloud-vrrp',
     ]
 }
 
@@ -152,6 +161,8 @@ def main(args_str=' '.join(sys.argv[1:])):
         config_file += '/etc/contrail/contrail-vrouter-nodemgr.conf'
     elif (node_type == 'contrail-database'):
         config_file += '/etc/contrail/contrail-database-nodemgr.conf'
+    elif (node_type == 'contrail-multicloud'):
+        config_file += '/etc/multicloud/contrail-multicloud-nodemgr.conf'
     else:
         sys.stderr.write("Node type" + str(node_type) + " is incorrect\n")
         return
@@ -245,6 +256,8 @@ def main(args_str=' '.join(sys.argv[1:])):
         prog = AnalyticsDatabaseEventManager(_args, unit_names)
     elif node_type == 'contrail-config-database':
         prog = ConfigDatabaseEventManager(_args, unit_names)
+    elif node_type == 'contrail-multicloud':
+        prog = MulticloudEventManager(_args, unit_names)
     else:
         sys.stderr.write("Node type " + str(node_type) + " is incorrect\n")
         return

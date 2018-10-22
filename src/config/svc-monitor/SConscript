@@ -71,6 +71,8 @@ sources += env.SandeshGenPy('svc_mon_introspect.sandesh',
                             'svc_monitor/sandesh/', False)
 sources += env.SandeshGenPy('#controller/src/vnsw/agent/uve/loadbalancer.sandesh',
                             'svc_monitor/sandesh/', False)
+sources += env.SandeshGenPy('#controller/src/vnsw/agent/uve/multicloud.sandesh',
+                            'svc_monitor/sandesh/', False)
 sources += env.SandeshGenPy('port_tuple.sandesh',
                             'svc_monitor/sandesh/', False)
 sources += env.SandeshGenPy('snat_agent.sandesh',
