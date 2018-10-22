@@ -282,9 +282,12 @@ bool MplsTable::OnChange(DBEntry *entry, const DBRequest *req) {
 }
 
 bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
-    MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
     MplsLabel *mpls = static_cast<MplsLabel *>(entry);
     if (IsFabricMulticastLabel(mpls->label())) {
+        MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
+        // For multicast labels we do not expect to be here
+        // via MplsTable::OnZeroRefcount where data is not set.
+        assert(data);
         mpls->fmg_nh_list().erase(data->vrf_name());
         if (mpls->fmg_nh_list().empty() == false) {
             if (mpls->ChangeNH(mpls->fmg_nh_list().begin()->second)) {
@@ -347,7 +350,7 @@ bool MplsTable::IsFabricMulticastLabel(uint32_t label) const {
 void MplsTable::ReserveLabel(uint32_t start, uint32_t end) {
     // We want to allocate labels from an offset
     // Pre-allocate entries
-    for (uint32_t i = start; i < end;  i++) {
+    for (uint32_t i = start; i <= end;  i++) {
         agent()->resource_manager()->ReserveIndex(Resource::MPLS_INDEX, i);
     }
 }
@@ -355,7 +358,7 @@ void MplsTable::ReserveLabel(uint32_t start, uint32_t end) {
 void MplsTable::FreeReserveLabel(uint32_t start, uint32_t end) {
     // We want to allocate labels from an offset
     // Pre-allocate entries
-    for (uint32_t i = start; i < end;  i++) {
+    for (uint32_t i = start; i <= end;  i++) {
         agent()->resource_manager()->ReleaseIndex(Resource::MPLS_INDEX, i);
     }
 }
