@@ -324,6 +324,8 @@ class FloatingIpServer(Resource, FloatingIp):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        if obj_dict['parent_type'] == 'instance-ip':
+            return True, "", None
         ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(
                 obj_dict['fq_name'][:-2])
         return ok, '', ip_free_args
