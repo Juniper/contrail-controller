@@ -185,7 +185,7 @@ void OperDB::CreateDBTables(DB *db) {
     assert(mpls_table);
     agent_->set_mpls_table(mpls_table);
     mpls_table->set_agent(agent_);
-    mpls_table->ReserveLabel(0, MplsTable::kStartLabel);
+    mpls_table->ReserveLabel(0, MplsTable::kStartLabel - 1);
 
     AclTable *acl_table;
     acl_table = static_cast<AclTable *>(db->CreateTable("db.acl.0"));
@@ -356,7 +356,7 @@ OperDB::~OperDB() {
 }
 
 void OperDB::Shutdown() {
-    agent_->mpls_table()->FreeReserveLabel(0, MplsTable::kStartLabel);
+    agent_->mpls_table()->FreeReserveLabel(0, MplsTable::kStartLabel - 1);
     instance_manager_->Terminate();
     if (nexthop_manager_.get()) {
         nexthop_manager_->Terminate();
