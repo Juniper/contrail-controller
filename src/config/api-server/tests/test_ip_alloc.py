@@ -2686,7 +2686,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         assert not mock_ip_free_req.called, msg
 
     def verfiy_ip_delete_when_cassandra_down(
-            self, res_type, res_del_method, res_uuid, ipam):
+            self, res_type, res_del_method, res_uuid, ipam_sn_v4):
         api_server = self._server_info['api_server']
         r_class = api_server.get_resource_class(res_type)
         orig_post_dbe_delete = r_class.post_dbe_delete
@@ -2702,7 +2702,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             mock_zk = api_server._db_conn._zk_db
             subnet_zk = None
             for subnet_zk in mock_zk._subnet_allocators.keys():
-                if ipam.get_fq_name_str() in subnet_zk:
+                if ipam_sn_v4.subnet.ip_prefix in subnet_zk:
                     break
             self.assertIsNotNone(subnet_zk)
             self.assertEqual(mock_zk.subnet_alloc_count(subnet_zk), 4)
@@ -2745,7 +2745,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 "instance_ip",
                 self._vnc_lib.instance_ip_delete,
                 ip_id,
-                ipam)
+                ipam_sn_v4)
 
         # Create Floating IP Pool Object
         fip_pool_obj = FloatingIpPool(
@@ -2761,7 +2761,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 "floating_ip",
                 self._vnc_lib.floating_ip_delete,
                 fip_id,
-                ipam)
+                ipam_sn_v4)
 
         # Create Alias IP Pool Object
         aip_pool_obj = AliasIpPool(
@@ -2777,7 +2777,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 "alias_ip",
                 self._vnc_lib.alias_ip_delete,
                 aip_id,
-                ipam)
+                ipam_sn_v4)
 
 #end class TestIpAlloc
 
