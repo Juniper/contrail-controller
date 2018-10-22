@@ -129,7 +129,7 @@ if platform.system() == 'Windows':
 
     env.Append(WIXCANDLEFLAGS = ['-ext', 'WixUtilExtension.dll'])
     env.Append(WIXLIGHTFLAGS = ['-ext', 'WixUtilExtension.dll'])
-    env.Depends(agent_msi, [contrail_vrouter_agent, 'winsw'])
+    env.Depends(agent_msi, [contrail_vrouter_agent])
 
     env.Alias('contrail-vrouter-agent.msi', agent_msi)
     env.Default(agent_msi)
@@ -155,7 +155,7 @@ for utils in utils_scripts:
 env.Alias('install', env.Install(env['INSTALL_CONF'],
           '../contrail-vrouter-agent.conf'))
 env.Alias('install',
-        env.InstallAs(env['INSTALL_CONF'] + 
+        env.InstallAs(env['INSTALL_CONF'] +
         '/supervisord_vrouter_files/' + 'contrail-vrouter-agent.ini',
         '../contrail-vrouter-agent.ini'))
 env.Alias('install',
@@ -164,7 +164,7 @@ env.Alias('install',
 env.Alias('install',
         env.InstallAs(env['INSTALL_SYSTEMD'] + '/contrail-vrouter-agent.service',
         '../systemd/contrail-vrouter-agent.service'))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 
+env.Alias('install', env.Install(env['INSTALL_CONF'],
     '../supervisord_vrouter.conf'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-vrouter-agent/',
