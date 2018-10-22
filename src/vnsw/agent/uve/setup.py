@@ -13,6 +13,7 @@ setup(
               'vrouter.vrouter.process_info',
               'vrouter.vrouter.derived_stats_results',
               'vrouter.loadbalancer',
+              'vrouter.multicloud',
               'vrouter.sandesh',
               'vrouter.sandesh.virtual_machine',
               'vrouter.sandesh.virtual_machine.port_bmap',

@@ -10,6 +10,7 @@ setup(
     install_requires=[
         'pyyaml',
         'psutil>=0.6.0,!=5.5.0',
+        'pyroute2',
     ],
     packages=['nodemgr',
               'nodemgr.analytics_nodemgr',
@@ -20,6 +21,7 @@ setup(
               'nodemgr.analytics_database_nodemgr',
               'nodemgr.config_database_nodemgr',
               'nodemgr.vrouter_nodemgr',
+              'nodemgr.multicloud_nodemgr',
               'nodemgr.common',
               'nodemgr.common.sandesh',
               'nodemgr.common.sandesh.nodeinfo',

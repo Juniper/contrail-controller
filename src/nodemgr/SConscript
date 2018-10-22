@@ -95,6 +95,21 @@ config_database_sources_rules = []
 for file in config_database_sources:
     config_database_sources_rules.append(OpEnv.Install(Dir("nodemgr/config_database_nodemgr"), file))
 
+multicloud_sources = [
+           '__init__.py',
+           'multicloud_nodemgr/vrrp.py',
+           'multicloud_nodemgr/openvpn.py',
+           'multicloud_nodemgr/multicloud.py',
+           'multicloud_nodemgr/tunnel.py',
+           'multicloud_nodemgr/bird.py',
+           'multicloud_nodemgr/event_manager.py',
+           'multicloud_nodemgr/ipsec.py',
+           'multicloud_nodemgr/route_update.py'
+          ]
+multicloud_sources_rules = []
+for file in multicloud_sources:
+    multicloud_sources_rules.append(OpEnv.Install(Dir("nodemgr/multicloud_nodemgr"), file))
+
 common_sources = [
            '__init__.py',
            'common/cassandra_manager.py',
@@ -130,7 +145,7 @@ sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rul
                  analytics_alarm_sources_rules, analytics_snmp_sources_rules,
                  control_sources_rules, config_sources_rules, common_sources_rules,
                  vrouter_sources_rules, database_sources_rules,
-                 config_database_sources_rules, build_info_rules,
+                 config_database_sources_rules, build_info_rules, multicloud_sources_rules,
                  cpuinfo_pkg, process_info_pkg, nodeinfo_pkg, supervisor_events_pkg
                 ]
 
@@ -154,6 +169,8 @@ OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-contro
             'control_nodemgr/contrail-control-nodemgr.conf'))
 OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-vrouter-nodemgr.conf',
             'vrouter_nodemgr/contrail-vrouter-nodemgr.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-multicloud-nodemgr.conf',
+            'multicloud_nodemgr/contrail-multicloud-nodemgr.conf'))
 
 OpEnv.Alias("src:nodemgr", sdist_gen)
 OpEnv.Alias("contrail-nodemgr", sdist_gen)

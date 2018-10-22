@@ -56,6 +56,13 @@ _docker_label_to_unit_name = {
         'database-cassandra': 'cassandra',
         'database-nodemgr': 'contrail-database-nodemgr'
     },
+    Module.MULTICLOUD_NODE_MGR: {
+        'multicloud-bird': 'contrail-multicloud-bird',
+        'multicloud-openvpn': 'contrail-multicloud-openvpn',
+        'multicloud-nodemgr': 'contrail-multicloud-nodemgr',
+        'multicloud-strongswan': 'contrail-multicloud-strongswan',
+        'multicloud-vrrp': 'contrail-multicloud-vrrp'
+    }
 }
 
 
