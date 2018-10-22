@@ -18,6 +18,7 @@ kombu
 cfgm_common
 contrail-api-client
 contrail-api-server
+urllib3
 bitstring
 sandesh
 sandesh_common
