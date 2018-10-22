@@ -52,6 +52,9 @@ from control_nodemgr.event_manager import ControlEventManager
 from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
 from config_database_nodemgr.event_manager import ConfigDatabaseEventManager
 from vrouter_nodemgr.event_manager import VrouterEventManager
+if sys.platform.startswith('linux'):
+    # Multicloud gateway is only currently supported on Linux systems
+    from multicloud_nodemgr.event_manager import MulticloudEventManager
 
 
 node_properties = {
@@ -116,6 +119,17 @@ node_properties = {
             'contrail-database-nodemgr'
         ],
     },
+    'contrail-multicloud': {
+        'config_file': '/etc/multicloud/contrail-multicloud-nodemgr.conf',
+        'event_manager': MulticloudEventManager,
+        'unit_names': [
+            'contrail-multicloud-bird',
+            'contrail-multicloud-nodemgr',
+            'contrail-multicloud-openvpn',
+            'contrail-multicloud-strongswan',
+            'contrail-multicloud-vrrp'
+        ]
+    }
 }
 
 
