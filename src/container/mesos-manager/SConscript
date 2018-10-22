@@ -9,14 +9,7 @@ Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 setup_sources = [
-    'setup.py',
     'requirements.txt',
-    'run_tests.sh',
-    'test-requirements.txt',
-    '.testr.conf',
-    '.coveragerc',
-    'MANIFEST.in',
-    'README.txt',
 ]
 
 setup_sources_rules = []
@@ -26,64 +19,15 @@ for file in setup_sources:
 
 local_sources = [
     'mesos_manager/__init__.py',
-    'mesos_manager/mesos_cni.py',
-    'mesos_manager/mesos_consts.py',
-    'mesos_manager/mesos_manager.py',
-    'mesos_manager/mesos_server.py',
-    'mesos_manager/common/__init__.py',
-    'mesos_manager/common/logger.py',
-    'mesos_manager/common/args.py',
-    'mesos_manager/vnc/__init__.py',
-    'mesos_manager/vnc/vnc_mesos.py',
-    'mesos_manager/vnc/vnc_services.py',
-    'mesos_manager/vnc/db.py',
-    'mesos_manager/vnc/config_db.py',
-    'mesos_manager/vnc/reaction_map.py',
-    'mesos_manager/tests/__init__.py',
-    'mesos_manager/tests/vnc/__init__.py',
-    'mesos_manager/tests/vnc/test_case.py'
+    'mesos_manager/mesos_manager.py'
 ]
 
-# Sandesh source files.
-sandesh_sources = []
-sandesh_sources += env.SandeshGenPy('mesos_manager.sandesh',
-                                    'mesos_manager/sandesh/', False)
 
 local_sources_rules = []
 for file in local_sources:
     target = "/".join(file.split('/')[:-1])
     local_sources_rules.append(
         env.Install(target, "#controller/src/container/mesos-manager/" + file))
-
-# Documentation
-doc_files = []
-doc_files += env.SandeshGenDoc('mesos_manager.sandesh')
-doc_files += env['CFGM_DOC_FILES']
-
-cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_depends = []
-sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(sandesh_sources)
-sdist_gen = env.Command('dist/mesos_manager-0.1dev.tar.gz', 'setup.py',
-                        cd_cmd + 'python setup.py sdist')
-
-env.Depends(sdist_gen, sdist_depends)
-env.Default(sdist_gen)
-
-if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
-                              cd_cmd + 'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
-    env.Alias('install', install_cmd)
-
-env.SetupPyTestSuite(sdist_gen,
-                     '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',
-                     '/../noarch/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz')
-
-env.Alias('install',
-          env.Install(env['INSTALL_MESSAGE_DOC'] + '/contrail-mesos-manager/', doc_files))
 
 # Local Variables:
 # mode: python
