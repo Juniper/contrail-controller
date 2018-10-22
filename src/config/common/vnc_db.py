@@ -369,9 +369,12 @@ class DBBase(object):
         if not ok:
             return []
         uuids = [uuid for _, uuid in result]
-        ok, objs = cls._object_db.object_read(obj_type, uuids,
-                                              field_names=fields)
-        if not ok:
+        try:
+            ok, objs = cls._object_db.object_read(obj_type, uuids,
+                                                field_names=fields)
+            if not ok:
+                return []
+        except NoIdError:
             return []
         return objs
 
