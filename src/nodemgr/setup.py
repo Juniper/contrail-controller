@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 setup(
     name='nodemgr',
     version='0.1dev',
-    install_requires=['pyyaml'],
+    install_requires=['pyyaml', 'pyroute2'],
     packages=['nodemgr',
               'nodemgr.analytics_nodemgr',
               'nodemgr.control_nodemgr',
@@ -15,6 +15,7 @@ setup(
               'nodemgr.analytics_database_nodemgr',
               'nodemgr.config_database_nodemgr',
               'nodemgr.vrouter_nodemgr',
+              'nodemgr.multicloud_nodemgr',
               'nodemgr.common',
               'nodemgr.common.sandesh',
               'nodemgr.common.sandesh.nodeinfo',

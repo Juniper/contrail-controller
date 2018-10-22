@@ -361,6 +361,7 @@ AgentUveDocFiles = []
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/vrouter.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/prouter.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/loadbalancer.sandesh')
+AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/multicloud.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/virtual_machine.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/virtual_network.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/port_bmap.sandesh')
