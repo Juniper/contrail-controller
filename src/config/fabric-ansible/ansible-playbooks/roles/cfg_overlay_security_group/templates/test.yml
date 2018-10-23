@@ -40,9 +40,6 @@
                 }
             ],
             "comment": "/* Contrail Generated Group Config */",
-            "firewall": {
-                "comment": "/* Firewalls Configuration */"
-            },
             "physical_interfaces": [
                 {
                     "ethernet_segment_identifier": "00:00:00:00:52:54:de:bd:be:b2",
@@ -147,9 +144,7 @@
                         "target:64512:8000003"
                     ],
                     "interfaces": [
-                        {
-                            "name": "irb.5"
-                        }
+                        "irb.5"
                     ],
                     "is_public_network": false,
                     "name": "_contrail_tenant-l3-5",
@@ -189,9 +184,7 @@
             "vlans": [
                 {
                   "interfaces": [
-                        {
-                            "name": "ae127.9"
-                        }
+                        "ae127.9"
                     ],
                     "name": "contrail_tenant-l2-5",
                     "vxlan_id": 5

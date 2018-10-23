@@ -106,10 +106,11 @@
        <xsd:element name="static-routes" type="dac:Route" maxOccurs="unbounded"/>
        <xsd:element name="prefixes" type="dac:Subnet" maxOccurs="unbounded"/>
        <xsd:element name="gateways" type="dac:GatewayRoute" maxOccurs="unbounded"/>
-       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
-       <xsd:element name="routing-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
-       <xsd:element name="loopback-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
-       <xsd:element name="service-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="interfaces" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="routing-interfaces" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="loopback-interfaces" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="ingress-interfaces" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="egress-interfaces" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="nat-rules" type="dac:NatRules"/>
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
     </xsd:all>
@@ -136,7 +137,7 @@
        <xsd:element name="vlan-id" type="xsd:integer"/>
        <xsd:element name="vxlan-id" type="xsd:integer"/>
        <xsd:element name="l3-interface" type="xsd:string"/>
-       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="interfaces" type="xsd:string" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -190,7 +191,7 @@
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="encapsulation" type="xsd:string"/>
-       <xsd:element name="interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="interfaces" type="xsd:string" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
