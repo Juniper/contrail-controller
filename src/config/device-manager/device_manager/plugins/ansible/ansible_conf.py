@@ -57,15 +57,13 @@ class AnsibleConf(AnsibleBase):
     def initialize(self):
         super(AnsibleConf, self).initialize()
         self.evpn = None
-        self.bgp_configs = None
-        self.ri_config = None
+        self.bgp_map = {}
+        self.ri_map = {}
         self.pi_map = {}
-        self.li_map = {}
-        self.interfaces_config = []
         self.firewall_config = None
         self.inet4_forwarding_filter = None
         self.inet6_forwarding_filter = None
-        self.vlans_config = None
+        self.vlan_map = {}
         self.bgp_peers = {}
         self.external_peers = {}
         self.timeout = 120
@@ -105,25 +103,24 @@ class AnsibleConf(AnsibleBase):
 
     def set_default_pi(self, name, interface_type=None):
         if name in self.pi_map:
-            pi = self.pi_map[name]
+            pi, li_map = self.pi_map[name]
             if interface_type:
                 pi.set_interface_type(interface_type)
         else:
             pi = PhysicalInterface(name=name, interface_type=interface_type)
-            self.pi_map[name] = pi
-            self.interfaces_config.append(pi)
-        return pi
+            li_map = {}
+            self.pi_map[name] = (pi, li_map)
+        return pi, li_map
     # end set_default_pi
 
-    def set_default_li(self, pi, name, unit):
-        if name in self.li_map:
-            li = self.li_map[name]
+    def set_default_li(self, li_map, name, unit):
+        if name in li_map:
+            li = li_map[name]
         else:
             li = LogicalInterface(name=name, unit=unit)
-            self.li_map[name] = li
-            pi.add_logical_interfaces(li)
+            li_map[name] = li
         return li
-    # end set_default_pi
+    # end set_default_li
 
     def fetch_pi_li_iip(self, physical_interfaces):
         for pi_uuid in physical_interfaces:
@@ -147,8 +144,6 @@ class AnsibleConf(AnsibleBase):
     # end fetch_pi_li_iip
 
     def build_underlay_bgp(self):
-        self.bgp_configs = self.bgp_configs or []
-
         if self.physical_router.allocated_asn is None:
             self._logger.error("physical router %s(%s) does not have asn"
                                " allocated" % (self.physical_router.name,
@@ -158,10 +153,10 @@ class AnsibleConf(AnsibleBase):
         for pi_obj, li_obj, iip_obj in self.\
                 fetch_pi_li_iip(self.physical_router.physical_interfaces):
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
-                pi = self.set_default_pi(pi_obj.name, 'regular')
+                pi, li_map = self.set_default_pi(pi_obj.name, 'regular')
                 pi.set_comment(DMUtils.ip_clos_comment())
 
-                li = self.set_default_li(pi, li_obj.name,
+                li = self.set_default_li(li_map, li_obj.name,
                                          int(li_obj.name.split('.')[-1]))
                 li.set_comment(DMUtils.ip_clos_comment())
 
@@ -171,9 +166,15 @@ class AnsibleConf(AnsibleBase):
                                    " interface %s(%s)" % (pi_obj.name,
                                                           pi_obj.uuid))
                 # Add this bgp object only if it has a peer
-                bgp = Bgp(ip_address=iip_obj.instance_ip_address,
-                          autonomous_system=self.physical_router.allocated_asn,
+                underlay_asn = self.physical_router.allocated_asn
+                bgp_name = DMUtils.make_underlay_bgp_group_name(underlay_asn,
+                    li_obj.name, is_external=True)
+                bgp = Bgp(name=bgp_name,
+                          ip_address=iip_obj.instance_ip_address,
+                          autonomous_system=underlay_asn,
+                          type_='external',
                           comment=DMUtils.ip_clos_comment())
+                peers = {}
                 # Assumption: PIs are connected for IP-CLOS peering only
                 for peer_pi_obj, peer_li_obj, peer_iip_obj in\
                         self.fetch_pi_li_iip(pi_obj.physical_interfaces):
@@ -191,28 +192,18 @@ class AnsibleConf(AnsibleBase):
                                 "peer physical router %s does not have"
                                 " asn allocated" % peer_pi_obj.physical_router)
                         elif peer_pr != self.physical_router:
-                            if bgp not in self.bgp_configs:
-                                self.bgp_configs.append(bgp)
+                            peer = Bgp(name=peer_pr.name,
+                                       ip_address=peer_iip_obj.instance_ip_address,
+                                       autonomous_system=peer_pr.allocated_asn,
+                                       comment=peer_pr.name)
+                            peers[peer_pr.name] = peer
 
-                            peer = Bgp(
-                                ip_address=peer_iip_obj.instance_ip_address,
-                                autonomous_system=peer_pr.allocated_asn,
-                                comment=peer_pr.name)
-                            bgp.add_peers(peer)
-    # end build_bgp_config
-
-    @staticmethod
-    def config_sort(config):
-        for k,v in config.iteritems():
-            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict)\
-                    and v[0].get('name'):
-                v.sort(key=lambda i: i.get('name'))
-                [AnsibleConf.config_sort(i) for i in v]
-            elif isinstance(v, dict):
-                AnsibleConf.config_sort(v)
+                if peers:
+                    bgp.set_peers(self.get_values_sorted_by_key(peers))
+                    self.bgp_map[bgp_name] = bgp
+    # end build_underlay_bgp
 
     def device_send(self, job_template, job_input, is_delete, retry):
-        self.config_sort(job_input)
         config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
         start_time = None
@@ -282,23 +273,45 @@ class AnsibleConf(AnsibleBase):
         return feature_configs, job_template
     # end read_feature_configs
 
+    @staticmethod
+    def add_to_list(lst, value):
+        if value not in lst: lst.append(value)
+    # end add_to_list
+
+    @staticmethod
+    def get_values_sorted_by_key(dict_obj):
+        return [dict_obj[key] for key in sorted(dict_obj.keys())]
+    # end get_values_sorted_by_key
+
+    @staticmethod
+    def get_sorted_key_value_pairs(dict_obj):
+        return [(key, dict_obj[key]) for key in sorted(dict_obj.keys())]
+    # end get_values_sorted_by_key
+
     def prepare_conf(self, is_delete=False):
         device = Device()
         device.set_comment(DMUtils.groups_comment())
         device.set_system(self.system_config)
         if is_delete:
             return device
+
         device.set_evpn(self.evpn)
-        device.set_bgp(self.bgp_configs)
-        device.set_routing_instances(self.ri_config)
-        device.set_physical_interfaces(self.interfaces_config)
-        device.set_vlans(self.vlans_config)
+        device.set_bgp(self.get_values_sorted_by_key(self.bgp_map))
+
+        pis = []
+        for pi, li_map in self.get_values_sorted_by_key(self.pi_map):
+            pi.set_logical_interfaces(self.get_values_sorted_by_key(li_map))
+            pis.append(pi)
+
+        device.set_physical_interfaces(pis)
+        device.set_routing_instances(self.get_values_sorted_by_key(self.ri_map))
+        device.set_vlans(self.get_values_sorted_by_key(self.vlan_map))
         device.set_firewall(self.firewall_config)
         return device
     # end prepare_conf
 
     def has_conf(self):
-        return self.system_config or self.bgp_configs or self.interfaces_config
+        return self.system_config or self.bgp_map or self.pi_map
     # end has_conf
 
     def send_conf(self, is_delete=False, retry=True):
@@ -316,8 +329,7 @@ class AnsibleConf(AnsibleBase):
         return self.device_send(job_template, job_input, is_delete, retry)
     # end send_conf
 
-    def add_dynamic_tunnels(self, tunnel_source_ip,
-                            ip_fabric_nets, bgp_router_ips):
+    def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets):
         if not self.system_config:
             self.system_config = System()
         self.system_config.set_tunnel_ip(tunnel_source_ip)
@@ -369,7 +381,7 @@ class AnsibleConf(AnsibleBase):
         self.bgp_obj = bgp_obj
     # end set_bgp_config
 
-    def _get_bgp_config_xml(self, external=False):
+    def get_bgp_config(self, external=False):
         if self.bgp_params is None or not self.bgp_params.get('address'):
             return None
         bgp = Bgp()
@@ -386,7 +398,7 @@ class AnsibleConf(AnsibleBase):
         self.add_bgp_auth_config(bgp, self.bgp_params)
         self.add_bgp_hold_time_config(bgp, self.bgp_params)
         return bgp
-    # end _get_bgp_config_xml
+    # end get_bgp_config
 
     def add_bgp_peer(self, router, params, attr, external, peer):
         peer_data = {}
@@ -399,14 +411,15 @@ class AnsibleConf(AnsibleBase):
             self.bgp_peers[router] = peer_data
     # end add_peer
 
-    def _get_neighbor_config_xml(self, bgp_config, peers):
-        for peer, peer_data in peers.items():
+    def add_peer_bgp_config(self, bgp_config, peers):
+        peer_map = {}
+        for peer, peer_data in self.get_sorted_key_value_pairs(peers):
             obj = peer_data.get('obj')
             params = peer_data.get('params', {})
             attr = peer_data.get('attr', {})
             nbr = Bgp(name=peer, ip_address=peer)
             nbr.set_comment(DMUtils.bgp_group_comment(obj))
-            bgp_config.add_peers(nbr)
+            peer_map[peer] = nbr
             bgp_sessions = attr.get('session')
             if bgp_sessions:
                 # for now assume only one session
@@ -420,23 +433,24 @@ class AnsibleConf(AnsibleBase):
                         break
             peer_as = params.get('local_autonomous_system') or params.get('autonomous_system')
             nbr.set_autonomous_system(peer_as)
-    # end _get_neighbor_config_xml
+        if peer_map:
+            bgp_config.set_peers(self.get_values_sorted_by_key(peer_map))
+    # end get_peer_bgp_config
 
     def get_asn(self):
         return self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
     # end get_asn
 
     def set_bgp_group_config(self):
-        bgp_config = self._get_bgp_config_xml()
+        bgp_config = self.get_bgp_config()
         if not bgp_config:
             return
-        self.bgp_configs = self.bgp_configs or []
-        self.bgp_configs.append(bgp_config)
-        self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
+        self.bgp_map[bgp_config.get_name()] = bgp_config
+        self.add_peer_bgp_config(bgp_config, self.bgp_peers)
         if self.external_peers:
-            ext_grp_config = self._get_bgp_config_xml(True)
-            self.bgp_configs.append(ext_grp_config)
-            self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
+            ext_grp_config = self.get_bgp_config(True)
+            self.bgp_map[ext_grp_config.get_name()] = ext_grp_config
+            self.add_peer_bgp_config(ext_grp_config, self.external_peers)
         return
     # end set_bgp_group_config
 
@@ -458,14 +472,12 @@ class AnsibleConf(AnsibleBase):
                 self.add_bgp_peer(peer.params['address'],
                                   peer.params, attr, external, peer)
             self.set_bgp_config(bgp_router.params, bgp_router)
-            bgp_router_ips = bgp_router.get_all_bgp_router_ips()
             tunnel_ip = self.physical_router.dataplane_ip
             if not tunnel_ip and bgp_router.params:
                 tunnel_ip = bgp_router.params.get('address')
             if tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip):
                 self.add_dynamic_tunnels(tunnel_ip,
-                                         GlobalSystemConfigDM.ip_fabric_subnets,
-                                         bgp_router_ips)
+                                         GlobalSystemConfigDM.ip_fabric_subnets)
 
         self.set_bgp_group_config()
     # end build_bgp_config
