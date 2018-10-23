@@ -18,8 +18,7 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-dat
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set vlan_id = vni %}
-{%         for irb_int in vlan.get('interfaces', []) %}
-{%             set int_name = irb_int.get('name') %}
+{%         for int_name in vlan.get('interfaces', []) %}
 {%             if 'irb' not in int_name %}
 {%                 continue %}
 {%             endif %}
