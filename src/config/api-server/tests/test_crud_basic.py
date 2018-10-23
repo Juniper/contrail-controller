@@ -4576,6 +4576,56 @@ class TestRefValidation(test_case.ApiServerTestCase):
     #end test_refs_validation_with_expected_success
 #end class TestRefValidation
 
+class TestVncVrouter(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestVncVrouter, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestVncVrouter, cls).tearDownClass(*args, **kwargs)
+
+    def test_virtual_router_vhost_user_mode(self):
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        gsc = self._vnc_lib.global_system_config_read(
+                                      fq_name=['default-global-system-config'])
+        #create vrouter object with DPDK enabled
+        vr_obj = VirtualRouter('vrouter0', gsc)
+        vr_obj.set_virtual_router_dpdk_enabled(True)
+        self._vnc_lib.virtual_router_create(vr_obj)
+        vr_obj = self._vnc_lib.virtual_router_read(vr_obj.get_fq_name())
+
+        # validate vhost_user_mode
+        for user_mode in ['server', 'client']:
+            vr_obj.set_virtual_router_vhost_user_mode(user_mode)
+            self._vnc_lib.virtual_router_update(vr_obj)
+            vr_obj = self._vnc_lib.virtual_router_read(vr_obj.get_fq_name())
+            mode = vr_obj.get_virtual_router_vhost_user_mode()
+            self.assertEqual(mode, user_mode)
+
+            # configure vmi and check the vhost user mode
+            vmi_fq_name = vr_obj.get_fq_name()
+            vmi_obj =  VirtualMachineInterface(name="vhost0-%s" % user_mode,
+                                               parent_obj=vr_obj)
+            ip_fab_vn = self._vnc_lib.virtual_network_read(
+                fq_name=[u'default-domain', u'default-project', u'ip-fabric'])
+            vmi_obj.set_virtual_network(ip_fab_vn)
+            vmi_obj.set_virtual_machine_interface_disable_policy(True)
+            vmi_obj.set_virtual_machine_interface_bindings(
+                KeyValuePairs([KeyValuePair(key='host_id', value='vrouter0')]))
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                    fq_name=vmi_obj.get_fq_name())
+            for kp in vmi_obj._virtual_machine_interface_bindings.key_value_pair:
+                if kp.key == 'vif_details':
+                    self.assertEqual(json.loads(kp.value)['vhostuser_mode'],
+                                     user_mode)
+
 class TestVncApiStats(test_case.ApiServerTestCase):
     from cfgm_common.vnc_api_stats import log_api_stats
     _sandesh = None
