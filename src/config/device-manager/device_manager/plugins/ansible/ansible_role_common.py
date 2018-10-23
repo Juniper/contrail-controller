@@ -504,7 +504,7 @@ class AnsibleRoleCommon(AnsibleConf):
             if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
                 continue
             intf = self.set_default_pi(pi.name)
-            pi.set_ethernet_segment_identifier(pi.esi)
+            intf.set_ethernet_segment_identifier(pi.esi)
     # end build_esi_config
 
     def build_lag_config(self):

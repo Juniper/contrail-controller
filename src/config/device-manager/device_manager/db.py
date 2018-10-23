@@ -28,6 +28,7 @@ from time import gmtime, strftime
 from cfgm_common.uve.physical_router_config.ttypes import *
 from cfgm_common.uve.service_status.ttypes import *
 import re
+import json
 
 
 class DBBaseDM(DBBase):
@@ -1984,6 +1985,8 @@ class RoleConfigDM(DBBaseDM):
         self.node_profile = self.get_parent_uuid(obj)
         self.add_to_parent(obj)
         self.config = obj.get('role_config_config')
+        if self.config and isinstance(self.config, basestring):
+            self.config = json.loads(self.config)
         self.update_single_ref('job_template', obj)
         if self.job_template is not None:
             self.job_template_fq_name =\
