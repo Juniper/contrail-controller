@@ -519,7 +519,6 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(404, err_msg)
 
 
-
     def execute_job_http_post(self):
         ''' Payload of execute_job
             job_template_id (Mandatory if no job_template_fq_name): <uuid> of
@@ -3673,11 +3672,11 @@ class VncApiServer(object):
                     instance_obj = cls_ob(**obj)
                     self.create_singleton_entry(instance_obj)
 
-                    # update default-global-system-config for supported_device_families
-                    if object_type =='global-system-config':
-                        fq_name = instance_obj.get_fq_name()
-                        uuid = self._db_conn.fq_name_to_uuid('global_system_config', fq_name)
-                        self._db_conn.dbe_update(object_type, uuid, obj)
+                    # update the objects if it already exists
+                    fq_name = instance_obj.get_fq_name()
+                    uuid = self._db_conn.fq_name_to_uuid(
+                        object_type.replace('-', '_'), fq_name)
+                    self._db_conn.dbe_update(object_type, uuid, obj)
 
             for item in json_data.get("refs"):
                 from_type = item.get("from_type")
@@ -3702,8 +3701,9 @@ class VncApiServer(object):
                     None,
                 )
         except Exception as e:
-            self.config_log('error while loading init data: ' + str(e),
-                            level=SandeshLevel.SYS_NOTICE)
+            err_msg = 'error while loading init data: %s\n' % str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
     # end Load init data
 
     # Load json data from fabric_ansible_playbooks/conf directory
