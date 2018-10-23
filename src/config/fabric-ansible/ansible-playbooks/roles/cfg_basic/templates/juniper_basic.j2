@@ -27,3 +27,27 @@ set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{route.
 {%             endfor %}
 {%         endfor %}
 {%     endif %}
+
+set policy-options community COM-MAINTENANCE members 9999:9999
+set policy-options policy-statement MAINTENANCE-MODE term term1 from family evpn
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 2
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 1
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 3
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 4
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 5
+set policy-options policy-statement MAINTENANCE-MODE term term1 then community add COM-MAINTENANCE
+set policy-options policy-statement MAINTENANCE-MODE term term1 then accept
+set policy-options policy-statement MAINTENANCE-MODE term term100 then accept
+
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from family evpn
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 2
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 1
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 3
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 4
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 5
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 then community add COM-MAINTENANCE
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 then reject
+set switch-options vrf-import REJECT-MAINTENANCE-MODE
+
+set policy-options policy-statement MAINTENANCE-MODE-underlay then as-path-prepend "9999 9999 9999"
+set policy-options policy-statement MAINTENANCE-MODE-underlay then accept
