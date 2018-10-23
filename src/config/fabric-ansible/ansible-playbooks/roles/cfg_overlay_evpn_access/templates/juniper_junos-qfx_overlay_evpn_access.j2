@@ -21,8 +21,7 @@ set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set intfs = vlan.get('interfaces',[]) %}
-{%         for each in intfs %}
-{%             set int_name = each.get('name', '') %}
+{%         for int_name in intfs %}
 {%             if 'irb' in int_name %}
 {%                 continue %}
 {%             endif %}

@@ -215,6 +215,14 @@ class DMUtils(object):
     # end make_vrf_term_name
 
     @staticmethod
+    def make_underlay_bgp_group_name(asn, intf_name, is_external=False):
+        name = "underlay_asn_%s_%s" % (intf_name, str(asn))
+        if is_external:
+            name = name + "_external"
+        return DMUtils.contrail_prefix(name)
+    # end make_bgp_group_name
+
+    @staticmethod
     def make_bgp_group_name(asn, is_external=False):
         name = DMUtils.contrail_prefix() + "asn-" + str(asn)
         if is_external:
