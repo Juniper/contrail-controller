@@ -41,7 +41,7 @@ void StructuredSyslogDecorate(SyslogParser::syslog_m_t &v, StructuredSyslogConfi
                               boost::shared_ptr<std::string> msg, std::vector<std::string> int_fields);
 void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInsertFn stat_db_callback,
     std::vector<std::string> tagged_fields);
-void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user);
+void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user, StructuredSyslogConfig *config_obj);
 boost::shared_ptr<std::string> StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v);
 
 size_t DecorateMsg(boost::shared_ptr<std::string> msg, const std::string &key, const std::string &val, size_t prev_pos) {
@@ -203,7 +203,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
       StructuredSyslogDecorate(v, config_obj, msg, mc->ints());
       if (mc->process_and_summarize() == true) {
         bool syslog_summarize_user = mc->process_and_summarize_user();
-        StructuredSyslogUVESummarize(v, syslog_summarize_user);
+        StructuredSyslogUVESummarize(v, syslog_summarize_user, config_obj);
       }
       if (forwarder != NULL && mc->forward() == true &&
           mc->process_before_forward() == true && filter_msg (v)) {
@@ -360,10 +360,44 @@ StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v) {
     return json_msg;
 }
 
-void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize_user) {
+
+const std::string get_VPNName(const std::string &routing_instance){
+  std::size_t found;
+
+  found = routing_instance.find_last_of("-");
+  if (found!=std::string::npos){
+    return routing_instance.substr(found+1);
+  }
+
+  // found = routing_instance.find("Default-reverse-");
+  // if (found!=std::string::npos){
+  //   return routing_instance.substr(16,(routing_instance.size()-16));
+  //   //return vpn_name;
+  // }
+  // found = routing_instance.find("Default-");
+  // if (found!=std::string::npos){
+  //   return routing_instance.substr(8,(routing_instance.size()-8));
+  //   //return vpn_name;
+  // }
+  // found = routing_instance.find("mpls-");
+  // if (found!=std::string::npos){
+  //   return routing_instance.substr(5,(routing_instance.size()-5));
+  //   //return vpn_name;
+  // }
+  // found = routing_instance.find("internet-");
+  // if (found!=std::string::npos){
+  //   return routing_instance.substr(9,(routing_instance.size()-9));
+  //   //return vpn_name;
+  // }
+  return routing_instance;
+}
+
+
+void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize_user, StructuredSyslogConfig *config_obj) {
     SDWANMetricsRecord sdwanmetricrecord;
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
-    SDWANKPIMetricsRecord sdwankpimetricrecord;
+    SDWANKPIMetricsRecord sdwankpimetricrecord_source;
+    SDWANKPIMetricsRecord sdwankpimetricrecord_destination;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
@@ -375,6 +409,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     const std::string hubs_interfaces(SyslogParser::GetMapVals(v, "HUBS", "UNKNOWN"));
     const std::string uvename = tenant + "::" + location + "::" + device_id;
     const std::string tenantuvename = region + "::" + opco + "::" + tenant;
+    const std::string kpi_uvename_source = location;
     const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
     const std::string nested_appname(SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN"));
     const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
@@ -389,7 +424,8 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     bool is_close = boost::equals(tag, "APPTRACK_SESSION_CLOSE");
     sdwanmetricrecord.set_name(uvename);
     sdwantenantmetricrecord.set_name(tenantuvename);
-    sdwankpimetricrecord.set_name(uvename);
+    sdwankpimetricrecord_source.set_name(uvename);
+    sdwankpimetricrecord_source.set_name(kpi_uvename_source);
 
     std::string link1, link2, underlay_link1, underlay_link2;
     int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
@@ -568,36 +604,54 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         }
     }
 
-    //Update maps for SDWANKPI metrics record
+//Update maps for SDWANKPI metrics record
     SDWANKPIMetrics_diff sdwankpimetricdiff;
-    std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff;
+    std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_source;
+    std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_destination;
     if (is_close) {
       const std::string routing_instance (SyslogParser::GetMapVals(v, "routing-instance", "UNKNOWN"));
+      const std::string vpn_name = get_VPNName(routing_instance);
       const std::string routing_instance_default = "DEFAULT";
       const std::string destination_address (SyslogParser::GetMapVals(v, "destination-address", "UNKNOWN"));
       const std::string destination_interface_name (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
       sdwankpimetricdiff.set_session_close_count(1);
       sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
+      IPNetwork found_lan = config_obj->FindNetwork(destination_address, vpn_name);
+      LOG(DEBUG,"destination address : "<< destination_address  <<" in VPN : " << vpn_name <<
+       " belongs to site : " << found_lan.id);
+      std::string destination_site = found_lan.id;
+
+      const std::string kpi_uvename_destination = destination_site;
+      sdwankpimetricrecord_destination.set_name(kpi_uvename_destination);
 
       std::string searchHubInterface = destination_interface_name + ",";
       std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
       if (destination_interface_name_found != std::string::npos){
         LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" found in hubs_interfaces" );
-        std::string kpimetricdiff_key(routing_instance+"::"+destination_address);
-        LOG(DEBUG,"UVE: KPI key : " << kpimetricdiff_key);
-        sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
-        sdwankpimetricrecord.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff);
+        std::string kpimetricdiff_key_source(destination_site);
+        std::string kpimetricdiff_key_destination(location);
+        LOG(DEBUG,"UVE: KPI key source : " << kpimetricdiff_key_source);
+        LOG(DEBUG,"UVE: KPI key destination : " << kpimetricdiff_key_destination);
+        sdwan_kpi_metrics_diff_source.insert(std::make_pair(kpimetricdiff_key_source, sdwankpimetricdiff));
+        sdwan_kpi_metrics_diff_destination.insert(std::make_pair(kpimetricdiff_key_destination, sdwankpimetricdiff));
+        sdwankpimetricrecord_source.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_source);
+        sdwankpimetricrecord_destination.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_destination);
       }
       else {
         LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
-        std::string kpimetricdiff_key(routing_instance_default+"::"+destination_address);
-        LOG(DEBUG,"UVE: KPI key : " << kpimetricdiff_key);
-        sdwan_kpi_metrics_diff.insert(std::make_pair(kpimetricdiff_key, sdwankpimetricdiff));
-        sdwankpimetricrecord.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff);
+        std::string kpimetricdiff_key_source(destination_site);
+        std::string kpimetricdiff_key_destination(location);
+        LOG(DEBUG,"UVE: KPI key source: " << kpimetricdiff_key_source);
+        LOG(DEBUG,"UVE: KPI key destination: " << kpimetricdiff_key_destination);
+        sdwan_kpi_metrics_diff_source.insert(std::make_pair(kpimetricdiff_key_source, sdwankpimetricdiff));
+        sdwan_kpi_metrics_diff_destination.insert(std::make_pair(kpimetricdiff_key_destination, sdwankpimetricdiff));
+        sdwankpimetricrecord_source.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_source);
+        sdwankpimetricrecord_destination.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_destination);
       }
     }
     SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
-    SDWANKPIMetrics::Send(sdwankpimetricrecord,"ObjectCPETable");
+    SDWANKPIMetrics::Send(sdwankpimetricrecord_source,"ObjectCPETable");
+    SDWANKPIMetrics::Send(sdwankpimetricrecord_destination,"ObjectCPETable");
 
     return;
 }
@@ -977,14 +1031,14 @@ void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool sum
     return;
 }
 
-void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user) {
+void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user, StructuredSyslogConfig *config_obj) {
     const std::string tag(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"));
     LOG(DEBUG,"UVE: Summarizing " << tag << " as UVE with flag summarize_user:" << summarize_user);
     if (boost::equals(tag, "APPTRACK_SESSION_CLOSE")) {
-        StructuredSyslogUVESummarizeData(v, summarize_user);
+        StructuredSyslogUVESummarizeData(v, summarize_user, config_obj);
     }
     else if (boost::equals(tag, "RT_FLOW_NEXTHOP_CHANGE")) {
-        StructuredSyslogUVESummarizeData(v, summarize_user);
+        StructuredSyslogUVESummarizeData(v, summarize_user, config_obj);
     }
     else if (boost::equals(tag, "APPQOE_BEST_PATH_SELECTED")) {
         StructuredSyslogUVESummarizeAppQoeBPS(v, summarize_user);

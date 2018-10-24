@@ -6,6 +6,12 @@
 
 
 #include <map>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <stdint.h>
+#include <cstdio>
 #include <tbb/atomic.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
@@ -14,6 +20,26 @@
 #include "parser_util.h"
 
 class Options;
+
+
+
+struct IPNetwork
+{
+  IPNetwork(uint32_t lower, uint32_t upper, std::string& net_name) {
+    address_begin = lower;
+    address_end   = upper;
+    id            = net_name;
+  }
+
+  bool operator < (const IPNetwork& other) const{
+    return address_begin < other.address_begin;
+  }
+
+  uint32_t address_begin;
+  uint32_t address_end;
+  std::string id;
+
+};
 
 class HostnameRecord {
     public:
@@ -280,11 +306,18 @@ typedef std::map<std::string, boost::shared_ptr<ApplicationRecord> > Car_t;
 typedef std::map<std::string, boost::shared_ptr<TenantApplicationRecord> > Ctar_t;
 typedef std::map<std::string, boost::shared_ptr<MessageConfig> > Cmc_t;
 typedef std::map<std::string, boost::shared_ptr<SlaProfileRecord> > Csr_t;
+typedef std::vector<IPNetwork> IPNetworks;
+typedef std::map<std::string, IPNetworks> IPNetworks_map;
 
 class StructuredSyslogConfig {
     public:
         StructuredSyslogConfig(ConfigClientCollector *config_client);
         ~StructuredSyslogConfig();
+        uint32_t IPToUInt(std::string ip);
+        std::vector<std::string> split_into_vector(std::string  str, char delimiter) ;
+        bool AddNetwork(const std::string& key, const std::string& network, const std::string& mask, const std::string& net_name);
+        bool RefreshNetworksMap(const std::string location);
+        IPNetwork FindNetwork(std::string ip, std::string key);
         void AddHostnameRecord(const std::string &name, const std::string &hostaddr,
                                   const std::string &tenant, const std::string &location,
                                   const std::string &device, const std::string &tags,
@@ -319,6 +352,8 @@ class StructuredSyslogConfig {
         Ctar_t tenant_application_records_;
         Cmc_t message_configs_;
         Csr_t sla_profile_records_;
+        //IPNetworks networks_;
+        IPNetworks_map networks_map_;
 };
 
 

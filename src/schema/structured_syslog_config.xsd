@@ -1,4 +1,4 @@
-<!--
+  <!--
  Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -61,6 +61,19 @@
 <xsd:complexType name="StructuredSyslogLinkmap">
     <xsd:all>
         <xsd:element name="links" type="StructuredSyslogLinkType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="StructuredSyslogLANSegmentType">
+    <xsd:all>
+        <xsd:element name="vpn" type="xsd:string"/>
+        <xsd:element name="network-ranges" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="StructuredSyslogLANSegmentList">
+    <xsd:all>
+        <xsd:element name="LANSegmentList" type="StructuredSyslogLANSegmentType" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -145,6 +158,11 @@
                                   'structured-syslog-hostname-record',
                                   'optional', 'CRUD', 'overlay to
                                    underlay mapping') -->
+<xsd:element name="structured-syslog-lan-segment-list" type="StructuredSyslogLANSegmentList" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-lan-segment-list',
+                                  'structured-syslog-hostname-record',
+                                  'optional', 'CRUD', 'vpn to
+                                   network-ranges mapping') -->
 
 <xsd:element name="structured-syslog-application-record"
                     type="ifmap:IdentityType"
