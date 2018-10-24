@@ -8,6 +8,7 @@ that are to be captured from playbook_helper.py sub-process
 """
 
 import logging
+from logging.handlers import RotatingFileHandler
 
 DEFAULT_JOB_MGR_LOG_PATH = '/var/log/contrail/contrail-fabric-ansible.log'
 DATE_FORMAT = "%m/%d/%Y %I:%M:%S %p"
@@ -19,7 +20,8 @@ def job_mgr_logger(name, ctx=None):
     ctx = ctx
 
     logger = logging.getLogger(name)
-    handler = logging.FileHandler(DEFAULT_JOB_MGR_LOG_PATH)
+    handler = RotatingFileHandler(DEFAULT_JOB_MGR_LOG_PATH,
+                                          maxBytes=6291454)
     formatter = logging.Formatter(fmt=LOGGING_FORMAT, datefmt=DATE_FORMAT)
     handler.setFormatter(formatter)
     logger.addHandler(handler)

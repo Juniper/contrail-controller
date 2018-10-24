@@ -9,6 +9,7 @@ as well as ansible modules
 
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 from ansible import constants as CONST
 
 DEFAULT_ANSIBLE_LOG_PATH = '/var/log/contrail/contrail-fabric-ansible-playbooks.log'
@@ -56,7 +57,9 @@ def fabric_ansible_logger(name, ctx=None):
                 if k in ctx:
                     name_hdr += " {}={}".format(v, ctx[k])
         logger = logging.getLogger(name_hdr)
+        handler = RotatingFileHandler(logfile, maxBytes=6291454)
         logger.setLevel(level)
+        logger.addHandler(handler)
     else:
         raise Exception("Cannot write to log file at {}".format(logfile))
 
