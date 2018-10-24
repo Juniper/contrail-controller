@@ -129,6 +129,8 @@ class LoadbalancerAgent(Agent):
             if HealthMonitorSM.get(hm_id):
                 continue
             hm = config_data
+            if not hasattr(hm, 'provider'):
+                continue
             driver = self._get_driver_for_provider(hm['provider'])
             pools = set()
             for i in hm['pools'] or []:
@@ -393,13 +395,14 @@ class LoadbalancerAgent(Agent):
                 driver.update_health_monitor(old_hm, hm, pool)
         except Exception:
             pass
-        self._object_db.health_monitor_config_insert(hm['id'], hm)
+        if hm['provider'] == 'native':
+            self._object_db.health_monitor_config_insert(hm['id'], hm)
         return hm
     # end loadbalancer_health_monitor_add
 
     def suspend_loadbalancer_health_monitor(self, obj):
         hm = self._object_db.health_monitor_config_get(obj.uuid)
-        if hm is None or hm['provider'] != 'native':
+        if not hasattr(hm, 'provider') or hm['provider'] != 'native':
             return
         pools = set()
         for i in hm['pools'] or []:
@@ -410,7 +413,8 @@ class LoadbalancerAgent(Agent):
                 driver.delete_health_monitor(hm, pool)
         except Exception:
             pass
-        self._object_db.healthmonitor_remove(hm['id'])
+        if hm['provider'] == 'native':
+            self._object_db.healthmonitor_remove(hm['id'])
     # end suspend_loadbalancer_health_monitor
 
     def delete_loadbalancer_health_monitor(self, obj):
@@ -426,7 +430,8 @@ class LoadbalancerAgent(Agent):
                 driver.delete_health_monitor(hm, pool)
         except Exception:
             pass
-        self._object_db.healthmonitor_remove(hm['id'])
+        if hm['provider'] == 'native':
+            self._object_db.healthmonitor_remove(hm['id'])
     # end delete_loadbalancer_health_monitor
 
     def _get_vip_pool_id(self, vip):
