@@ -53,6 +53,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (example_resource, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         ok, results = vnc_etcd.object_read('virtual_network', ['ba3442c8a3ec'])
@@ -71,6 +73,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (example_resource, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         ok, results = vnc_etcd.object_read('virtual_network', ['ba3442c8a3ec'],
@@ -80,20 +84,39 @@ class VncEtcdTest(unittest.TestCase):
                                           'parent_type': 'project'})
 
     @mock.patch('etcd3.client')
-    def test_object_read_raise_no_id_error(self, etcd_client):
+    @mock.patch('six.moves.queue.Queue.get')
+    def test_object_read_raise_no_id_error(self, queue_get, etcd_client):
+        class Event(object):
+            pass
+        ev = Event()
+        ev.value = None
+
         vnc_etcd = _vnc_etcd_factory()
+        queue_get.return_value = ev
+
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (None, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         self.assertRaises(NoIdError, vnc_etcd.object_read,
                           'virtual_network', ['ba3442c8a3ec'])
 
     @mock.patch('etcd3.client')
-    def test_object_read_return_empty_result(self, etcd_client):
+    @mock.patch('six.moves.queue.Queue.get')
+    def test_object_read_return_empty_result(self, queue_get, etcd_client):
+        class Event(object):
+            pass
+        ev = Event()
+        ev.value = None
+
         vnc_etcd = _vnc_etcd_factory()
+        queue_get.return_value = ev
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (None, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         ok, results = vnc_etcd.object_read('virtual_network', obj_uuids=[])
@@ -109,6 +132,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (example_resource, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         # first read should be from etcd_client.get and store to cache
