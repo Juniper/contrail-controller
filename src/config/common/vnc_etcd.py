@@ -12,6 +12,7 @@ import time
 import utils
 from cfgm_common.exceptions import DatabaseUnavailableError, NoIdError, VncError
 from etcd3.exceptions import ConnectionFailedError
+from six.moves import queue
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -219,11 +220,12 @@ class VncEtcd(VncEtcdClient):
     """Database interface for etcd client."""
     def __init__(self, host, port, prefix, logger=None,
                  obj_cache_exclude_types=None, log_response_time=None,
-                 credentials=None):
+                 timeout=5, credentials=None):
         super(VncEtcd, self).__init__(host, port, credentials)
         self._prefix = prefix
         self._logger = logger
         self.log_response_time = log_response_time
+        self.timeout = timeout
 
         # cache for object_read, object_list and object_all
         self._obj_cache = EtcdCache(skip_keys=obj_cache_exclude_types)
@@ -273,28 +275,13 @@ class VncEtcd(VncEtcdClient):
                 record = self._obj_cache[key]
                 resource = record.resource
             else:
-                resource, kv_meta = None, None
-                retries = 0
-                while resource is None:
-                    #############################################
-                    # HACK ALERT                                #
-                    # Due to deadlock in _client.watch_once     #
-                    # we need to use naive retry based on sleep #
-                    # It's sad, but it's true                   #
-                    #############################################
-                    if retries > 10:
-                        break
-                    resource, kv_meta = self._client.get(key)
-                    time.sleep(0.1)
-                    retries += 1
-
+                resource = self._read_object_or_watch_once(key)
                 if resource is None:
                     # There is no data in etcd, go to next uuid
                     continue
 
                 resource = self._patch_refs_to(json.loads(resource))
-                record = EtcdCache.Record(resource=resource,
-                                          kv_meta=kv_meta)
+                record = EtcdCache.Record(resource=resource)
                 self._obj_cache[key] = record
 
             if field_names is None:
@@ -405,14 +392,14 @@ class VncEtcd(VncEtcdClient):
         else:
             response = self._client.get_prefix(prefix)
             record = None
-            for data, kv_meta in response:
+            for data, _ in response:
                 obj = json.loads(data)
                 obj_fq_name = utils.encode_string(':'.join(obj['fq_name']))
                 if obj_fq_name == fq_name_str:
                     if record is not None:
                         msg = 'Multi match {} for {}'
                         raise VncError(msg.format(fq_name_str, obj_type))
-                    record = EtcdCache.Record(resource=obj, kv_meta=kv_meta)
+                    record = EtcdCache.Record(resource=obj)
             if record is None:
                 raise NoIdError('{} {}'.format(obj_type, fq_name_str))
             self._cache[key] = record
@@ -429,10 +416,10 @@ class VncEtcd(VncEtcdClient):
             record = self._cache[uuid]
         else:
             response = self._client.get_prefix(self._prefix)
-            for data, kv_meta in response:
+            for data, _ in response:
                 obj = json.loads(data)
                 if obj['uuid'] == uuid:
-                    record = EtcdCache.Record(resource=obj, kv_meta=kv_meta)
+                    record = EtcdCache.Record(resource=obj)
                     break
             else:
                 raise NoIdError(uuid)
@@ -445,6 +432,25 @@ class VncEtcd(VncEtcdClient):
         This method is just for compatibility.
         """
         pass
+
+    def _read_object_or_watch_once(self, key):
+        """Try to read object from etcd.
+        If it is not present there, wait for it for some time.
+        """
+        event_queue = queue.Queue()
+        def callback(event):
+            event_queue.put(event)
+        watch_id = self._client.add_watch_callback(key, callback, None)
+        resource, _ = self._client.get(key)
+        if resource is None:
+            try:
+                ev = event_queue.get(self.timeout)
+                resource = ev.value
+            except queue.Empty:
+                pass
+        self._client.cancel_watch(watch_id)
+
+        return resource
 
     def _patch_refs_to(self, obj):
         """Add missing key "to" for every ref in object.
