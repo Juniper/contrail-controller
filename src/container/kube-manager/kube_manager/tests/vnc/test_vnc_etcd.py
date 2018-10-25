@@ -53,6 +53,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (example_resource, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         ok, results = vnc_etcd.object_read('virtual_network', ['ba3442c8a3ec'])
@@ -71,6 +73,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (example_resource, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         ok, results = vnc_etcd.object_read('virtual_network', ['ba3442c8a3ec'],
@@ -84,6 +88,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (None, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         self.assertRaises(NoIdError, vnc_etcd.object_read,
@@ -94,6 +100,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (None, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         ok, results = vnc_etcd.object_read('virtual_network', obj_uuids=[])
@@ -109,6 +117,8 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory()
         etcd_client.get = mock.MagicMock()
         etcd_client.get.return_value = (example_resource, None)
+        etcd_client.add_watch_callback = mock.MagicMock()
+        etcd_client.cancel_watch = mock.MagicMock()
         vnc_etcd._client = etcd_client
 
         # first read should be from etcd_client.get and store to cache
