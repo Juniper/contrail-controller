@@ -3,8 +3,7 @@ import logging
 import argparse
 import traceback
 import sys
-import json
-
+from job_manager.job_utils import JobFileWrite
 
 class FilterModule(object):
     @staticmethod
@@ -25,6 +24,7 @@ class FilterModule(object):
 
     def __init__(self):
         self._logger = FilterModule._init_logging()
+        self._job_file_write = JobFileWrite(self._logger)
     # end __init__
 
     def filters(self):
@@ -37,30 +37,13 @@ class FilterModule(object):
 
     def report_percentage_completion(self, job_ctx, percentage):
         exec_id, unique_pb_id = self.get_job_ctx_details(job_ctx)
-        write_to_file_log = "\n"
-        try:
-            write_to_file_log = "Attempting to create or open file.. \n"
-            with open("/tmp/"+exec_id, "a") as f:
-                write_to_file_log += "Opened file in /tmp ... \n"
-                line_in_file = unique_pb_id + 'JOB_PROGRESS##' +\
-                    str(percentage) + 'JOB_PROGRESS##'
-                f.write(line_in_file + '\n')
-                write_to_file_log += "Written line %s to the /tmp/exec-id" \
-                                     " file \n" % line_in_file
-                return {
-                    'status': 'success',
-                    'write_to_file_log': write_to_file_log
-            }
-        except Exception as ex:
-            self._logger.info(write_to_file_log)
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
-            return {
-                'status': 'failure',
-                'error_msg': str(ex),
-                'write_to_file_log': write_to_file_log
-            }
-
+        self._job_file_write.write_to_file(
+            exec_id, unique_pb_id, JobFileWrite.JOB_PROGRESS, str(percentage)
+        )
+        return {
+            'status': 'success',
+            'write_to_file_log': 'Successfully wrote progress to streaming file'
+        }
 
 def _parse_args():
     parser = argparse.ArgumentParser(description='fabric filters tests')
