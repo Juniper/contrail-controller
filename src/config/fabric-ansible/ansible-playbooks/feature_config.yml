@@ -3,6 +3,7 @@
     - name: Initialize variables
       set_fact:
         found_template: False
+        feature_empty: False
         feature_needed: True
         configured_roles: []
         role_list: []
@@ -78,7 +79,7 @@
       block:
         - debug: msg="Feature {{ feature }} not found in role, so skipping..." verbosity=1
         - set_fact:
-            feature_needed: False
+            feature_empty: True
       when: feature not in feature_list
 
     - name: Skip underlay feature if fabric is not ztp'ed
@@ -96,7 +97,7 @@
       block:
         - debug: msg="Generate '{{ feature }}' for {{ device_vendor }} {{ device_family }} {{ device_name }}" verbosity=1
         - template:
-            src: "feature_config.j2"
+            src: "{{ device_vendor }}_feature_config.j2"
             dest: "{{ conf_dir }}/build_config/{{ vf_feature }}.conf"
           register: cmd_res
         - name: print command response
