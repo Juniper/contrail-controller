@@ -17,12 +17,17 @@ class SandeshUtils(object):
     def __init__(self, logger):
         self._logger = logger
 
-    @timeout_decorator.timeout(15, timeout_exception=JobException)
+#    @timeout_decorator.timeout(15, timeout_exception=JobException)
     def wait_for_connection_establish(self):
+        total_wait = 0
         state = self._logger._sandesh._client._connection.\
             statemachine().state()
         while state is None or state != "Established":
             time.sleep(0.2)
+            total_wait += 0.2
+            if total_wait > 30:
+                self._logger.error("Giving up on opening sandesh connection: %s" % state)
+                break
             state = self._logger._sandesh._client._connection.\
                 statemachine().state()
 
@@ -30,10 +35,17 @@ class SandeshUtils(object):
         self._logger._sandesh._client._connection.set_admin_state(down=True)
         self._logger._sandesh.uninit()
 
-    @timeout_decorator.timeout(15, timeout_exception=JobException)
+#    @timeout_decorator.timeout(15, timeout_exception=JobException)
     def wait_for_msg_send(self):
+        total_wait = 0
         while not self._logger._sandesh.is_send_queue_empty():
             time.sleep(0.2)
+            total_wait += 0.2
+            if total_wait > 30:
+                state = self._logger._sandesh._client._connection.\
+                    statemachine().state()
+                self._logger.error("Giving up on empty sandesh send queue: %s" % state)
+                break
 
     # checks and waits for the sandesh client message queue to be empty and
     # then closes the sandesh connection
@@ -47,4 +59,3 @@ class SandeshUtils(object):
             raise job_exp
         finally:
             self.uninit_sandesh()
-
