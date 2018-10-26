@@ -24,6 +24,8 @@ verbosity = CONST.DEFAULT_VERBOSITY or 0
 # Also note that CONST is from ansible.cfg
 #
 from job_manager.fabric_logger import fabric_ansible_logger
+from job_manager.job_utils import JobFileWrite
+
 logger = fabric_ansible_logger("ansible")
 
 # Overrides the default display processing from ansible/utils/display.py
@@ -110,6 +112,9 @@ JM_LOGGER = job_mgr_logger("FabricAnsible")
 
 class PlaybookHelper(object):
 
+    def __init__(self):
+        self._job_file_write = JobFileWrite(logger)
+
     def get_plugin_output(self, pbex):
         output_json = pbex._tqm._variable_manager._nonpersistent_fact_cache[
             'localhost'].get('output')
@@ -184,13 +189,14 @@ class PlaybookHelper(object):
                 'playbook_input']['unique_pb_id']
             exec_id = playbook_info['extra_vars']['playbook_input'][
                 'job_execution_id']
-            line_in_file = ""
-            if output != None:
-                line_in_file = unique_pb_id + 'PLAYBOOK_OUTPUT##'\
-                    + json.dumps(output) + 'PLAYBOOK_OUTPUT##'\
-                    + '\n'
+            self._job_file_write.write_to_file(
+                exec_id,
+                unique_pb_id,
+                JobFileWrite.PLAYBOOK_OUTPUT,
+                json.dumps(output)
+            )
             with open("/tmp/"+exec_id, "a") as f:
-                f.write(line_in_file + unique_pb_id + 'END' + '\n')
+                f.write(unique_pb_id + 'END' + '\n')
             sys.exit(msg)
 
 
@@ -223,27 +229,21 @@ if __name__ == "__main__":
     # format and is present with status Sucess. So derive the
     # playbook output to be written to file and finally write END to the file
 
+    unique_pb_id = playbook_input_json['extra_vars'][
+        'playbook_input']['unique_pb_id']
+    exec_id = playbook_input_json['extra_vars']['playbook_input'][
+        'job_execution_id']
     try:
-        unique_pb_id = playbook_input_json['extra_vars'][
-            'playbook_input']['unique_pb_id']
-        exec_id = playbook_input_json['extra_vars']['playbook_input'][
-            'job_execution_id']
-
-        # messages to be given to next playbooks(s)
-
-        JM_LOGGER.info("Printing pb output results from pb_helper.py -->>>")
-        JM_LOGGER.info(pb_output)
-        line_in_file = unique_pb_id + 'PLAYBOOK_OUTPUT##'\
-            + json.dumps(pb_output) + 'PLAYBOOK_OUTPUT##'\
-            + '\n'
-        with open("/tmp/"+exec_id, "a") as f:
-            f.write(line_in_file + unique_pb_id + 'END' + '\n')
+        playbook_helper._job_file_write.write_to_file(
+            exec_id, unique_pb_id, JobFileWrite.PLAYBOOK_OUTPUT, json.dumps(pb_output)
+        )
     except Exception, exc:
         ERR_MSG = "Error while trying to parse output"\
                   " from playbook due to exception: %s"\
                   % str(exc)
-        with open("/tmp/"+exec_id, "a") as f:
-            f.write(unique_pb_id + 'END' + '\n')
         JM_LOGGER.error(ERR_MSG)
         # not stopping execution just because of  parsing error
         # no sys.exit therefore
+    finally:
+        with open("/tmp/"+exec_id, "a") as f:
+            f.write(unique_pb_id + 'END' + '\n')

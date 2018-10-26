@@ -56,12 +56,6 @@
     interface_list: "{{cfg_interface_info|json_query('config_parsed.configuration.interfaces.interface')}}"
     interface_list_new: "{{interface_info|json_query('parsed_output.\"interface-information\".\"physical-interface\"')}}"
 
-- name: Update job log with percentage
-  include_tasks: percentage_update.yml
-  vars:
-    current_index: 2
-    jl_message: "Obtained interface information from the Juniper device; starting import ..."
-
 - name: Get the pattern object
   set_fact:
     pattern_obj: |
@@ -127,13 +121,11 @@
             "physical_router_loopback_ip": "{{dataplane_ip}}"
           }
       register: upd_resp_lo0
-    - set_fact:
-        upd_dataplane_ip_mesg: "; Updated device with dataplane ip [{{dataplane_ip}}]"
   when: dataplane_ip != ''
 
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
     current_index: 3
-    jl_message: "Imported {{bulk_create_phy_int_resp_set|length}} physical interfaces and {{bulk_create_log_int_resp_set|length}} logical interfaces{{upd_dataplane_ip_mesg}}"
+    jl_message: "Imported interface(s) from {{prouter_name}}:\n   - {{bulk_create_phy_int_resp_set|length}} physical interfaces\n   - {{bulk_create_log_int_resp_set|length}} logical interfaces\n   - loopback ip: {{dataplane_ip}}"
 
