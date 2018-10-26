@@ -12,9 +12,3 @@
 
     - set_fact:
         output: "{{output }}"
-
-    - name: Update job log with percentage
-      include_tasks: percentage_update.yml
-      vars:
-        current_index: 2
-        jl_message: "Completed role discovery"
