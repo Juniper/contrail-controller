@@ -1,7 +1,7 @@
 delete apply-groups {{cfg_group}}
 delete groups {{cfg_group}}
 
-{% if device_abstract_config is defined and device_abstract_config != None  and is_delete == False %}
+{% if device_abstract_config is defined and device_abstract_config != None and is_delete == False and feature_empty == False %}
 {% include './templates/' + feature_template %}
 
 set groups {{cfg_group}}
