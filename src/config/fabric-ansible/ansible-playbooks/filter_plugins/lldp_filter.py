@@ -111,57 +111,33 @@ class FilterModule(object):
         neighbor_map_info_list = []
         err_msg_list = []
 
-        if isinstance(lldp_neighbor_info, dict):
-            lldp_neighbor_info = [lldp_neighbor_info]
-
-        needs_parsing = True
-        # pilot sequence to determine what the structure of
-        # each lldp_neighbor_info is like
-        if 'lldp-remote-port-description' in lldp_neighbor_info[0]:
-            needs_parsing = False
-
-        for lldp_neighbor in lldp_neighbor_info:
+        for lldp_neighbor in lldp_neighbor_info.get('results') or []:
             try:
-                if lldp_neighbor.get('lldp-remote-system-name') is None:
+                lldp_neighbor_information = lldp_neighbor['parsed_output']\
+                                                ['lldp-neighbors-information']\
+                                                ['lldp-neighbor-information']
+                if lldp_neighbor_information.get('lldp-remote-system-name') is None:
                     continue
                 remote_prouter_fqname = ["default-global-system-config",
-                                         lldp_neighbor.get(
+                                         lldp_neighbor_information.get(
                                              'lldp-remote-system-name')]
                 phy_int_fqname = []
                 phy_int_fqname.extend(prouter_fqname)
-                local_phy_int = lldp_neighbor.get('lldp-local-port-id') \
-                    or lldp_neighbor.get('lldp-local-interface')
+                local_phy_int = lldp_neighbor.get('item')
                 phy_int_fqname.append(local_phy_int.replace(":", "_"))
 
-                if needs_parsing:
-                    # ensure local interface is not a logical interface,
-                    # remote interface need not be checked as port no
-                    # won't be imported
-                    if '.' not in phy_int_fqname[-1]:
-                        neighbor_map_info_list.append({
-                                                "local_phy_int_fqname":
-                                                phy_int_fqname,
-                                                "remote_phy_int_port_id":
-                                                lldp_neighbor.get(
-                                                    'lldp-remote-system-name') +
-                                                ":" + lldp_neighbor.get(
-                                                    'lldp-remote-port-id')
-                                              })
-                else:
-                    lldp_remote_neighbor_port_desc = lldp_neighbor.get(
-                        'lldp-remote-port-description').split(
-                        "interface")[-1].strip()
-                    lldp_neighbor_fqname = []
-                    lldp_neighbor_fqname.extend(remote_prouter_fqname)
-                    lldp_neighbor_fqname.append(
-                        lldp_remote_neighbor_port_desc.replace(":", "_"))
-                    # ensure local interface and remote interfaces are
-                    # not logical interfaces
-                    if '.' not in phy_int_fqname[-1]\
-                            and '.' not in lldp_neighbor_fqname[-1]:
-                        neighbor_pair = (phy_int_fqname, lldp_neighbor_fqname)
-                        neighbor_map_info_list.append(neighbor_pair)
-
+                # ensure local interface is not a logical interface,
+                # remote interface need not be checked as port no
+                # won't be imported
+                if '.' not in phy_int_fqname[-1]:
+                    neighbor_map_info_list.append({
+                                            "local_phy_int_fqname":
+                                            phy_int_fqname,
+                                            "remote_phy_int_port_id":
+                                            remote_prouter_fqname[-1] +
+                                            ":" + lldp_neighbor_information.get(
+                                                'lldp-remote-port-id')
+                                          })
                 remote_neighbors_list.append(remote_prouter_fqname)
             except Exception as ex:
                 err_msg_list.append(str(ex))
@@ -169,7 +145,6 @@ class FilterModule(object):
         remote_neighbors_set = set(map(tuple, remote_neighbors_list))
         return {"remote_neighbors_list": list(remote_neighbors_set),
                 "neighbor_map_info_list": neighbor_map_info_list,
-                "do_more_parsing": needs_parsing,
                 "err_msg_list": err_msg_list}
 
     def get_port_id_fqname_mapping(self, bulk_query_prouter_resp):
