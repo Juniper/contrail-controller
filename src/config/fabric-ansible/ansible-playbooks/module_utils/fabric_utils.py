@@ -10,12 +10,15 @@ This file contains general utility functions for fabric ansible modules
 
 import uuid
 import json
+import traceback
 from functools import wraps
 from ansible.module_utils.basic import AnsibleModule
 from job_manager.fabric_logger import fabric_ansible_logger
 from job_manager.job_log_utils import JobLogUtils
 from job_manager.sandesh_utils import SandeshUtils
 
+MARKER_JOB_LOG = "JOB_LOG##"
+MARKER_PROUTER_LOG = "PROUTER_LOG##"
 
 def handle_sandesh(function):
     @wraps(function)
@@ -82,29 +85,16 @@ class FabricAnsibleModule(AnsibleModule):
 
     def send_prouter_object_log(self, prouter_fqname, onboarding_state,
                                 os_version, serial_num):
-        try:
-            if self.job_log_util:
-                self.job_log_util.send_prouter_object_log(
-                    prouter_fqname,
-                    self.job_ctx['job_execution_id'],
-                    json.dumps(self.job_ctx['job_input']),
-                    self.job_ctx['job_template_fqname'],
-                    onboarding_state,
-                    os_version,
-                    serial_num)
-            else:
-                raise Exception("physical router log not initialized")
-        except Exception as ex:
-            msg = "Failed to create following physical router object " \
-                  "log due to error: %s\n\t \
-                   job name: %s\n\t \
-                   job execution id: %s\n\t \
-                   device name: %s\n\t \
-                   onboarding_state: %s\n" \
-                  % (str(ex), self.job_ctx['job_template_fqname'],
-                     self.job_ctx['job_execution_id'], str(prouter_fqname),
-                     onboarding_state)
-            self.logger.error(msg)
+        prouter_log = {
+            'prouter_fqname': prouter_fqname,
+            'job_execution_id': self.job_ctx.get('job_execution_id'),
+            'job_input': json.dumps(self.job_ctx['job_input']),
+            'job_template_fqname': self.job_ctx['job_template_fqname'],
+            'onboarding_state': onboarding_state,
+            'os_version': os_version,
+            'serial_num': serial_num
+        }
+        self._write_to_file(self.job_ctx, MARKER_PROUTER_LOG, prouter_log)
 
     def send_job_object_log(self, message, status, job_result,
                             log_error_percent=False, job_success_percent=None,
@@ -144,33 +134,35 @@ class FabricAnsibleModule(AnsibleModule):
         self.results['percentage_completed'] = job_percentage
         self.logger.debug("Job complete percentage is %s" % job_percentage)
 
+        job_log = {
+            'job_template_fqname': self.job_ctx.get('job_template_fqname'),
+            'job_execution_id': self.job_ctx.get('job_execution_id'),
+            'fabric_fq_name': self.job_ctx.get('fabric_fqname'),
+            'message': message,
+            'status': status,
+            'completion_percent': job_percentage,
+            'result': job_result,
+            'device_name': device_name,
+            'details': details
+        }
+        self._write_to_file(self.job_ctx, MARKER_JOB_LOG, job_log)
+
+    def _write_to_file(self, job_ctx, marker, obj_log):
+        exec_id = str(job_ctx.get('job_execution_id'))
         try:
-            if self.job_log_util:
-                self.job_log_util.send_job_log(
-                    self.job_ctx['job_template_fqname'],
-                    self.job_ctx['job_execution_id'],
-                    self.job_ctx['fabric_fqname'],
-                    message,
-                    status,
-                    job_percentage,
-                    job_result,
-                    device_name=device_name,
-                    details=details)
-            else:
-                raise Exception("job log not initialized")
+            fname = '/tmp/%s' % exec_id
+            with open(fname, "a") as f:
+                line_in_file = "%s%s%s\n" % (
+                    marker, json.dumps(obj_log), marker
+                )
+                f.write(line_in_file)
         except Exception as ex:
-            msg = "Failed to create following job log due to error: %s\n\t \
-                   job name: %s\n\t \
-                   job execution id: %s\n\t \
-                   fabric uuid: %s\n\t \
-                   job percentage: %s\n\t  \
-                   job status: %s\n\t, \
-                   log message: %s\n" \
-                  % (str(ex), self.job_ctx['job_template_fqname'],
-                     self.job_ctx['job_execution_id'],
-                     self.job_ctx['fabric_fqname'], job_percentage,
-                     status, message)
-            self.logger.error(msg)
+            self._logger.error(
+                "Failed to write job log due to error: %s\njob log: %s\n%s" % (
+                    str(ex), json.dumps(obj_log, indent=4),
+                    traceback.format_exc()
+                )
+            )
 
     def calculate_job_percentage(self, num_tasks, buffer_task_percent=False,
                                  task_seq_number=None, total_percent=100,
