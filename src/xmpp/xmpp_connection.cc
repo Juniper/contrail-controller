@@ -33,6 +33,10 @@ using boost::system::error_code;
 const char *XmppConnection::kAuthTypeNil = "NIL";
 const char *XmppConnection::kAuthTypeTls = "TLS";
 
+// Maximum XMPP control message size. Typically this is less then 256 bytes. But
+// in scenarios where host names are quite long, we need a larger buffer size.
+#define XMPP_CONTROL_MESSAGE_MAX_SIZE 1024
+
 XmppConnection::XmppConnection(TcpServer *server,
                                const XmppChannelConfig *config)
     : server_(server),
@@ -258,7 +262,7 @@ bool XmppConnection::SendOpen(XmppSession *session) {
     if (!session) return false;
     XmppProto::XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
-    uint8_t data[256];
+    uint8_t data[XMPP_CONTROL_MESSAGE_MAX_SIZE];
     int len = XmppProto::EncodeStream(openstream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
@@ -278,7 +282,7 @@ bool XmppConnection::SendOpenConfirm(XmppSession *session) {
     if (!session_) return false;
     XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP;
-    uint8_t data[256];
+    uint8_t data[XMPP_CONTROL_MESSAGE_MAX_SIZE];
     int len = XmppProto::EncodeStream(openstream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
@@ -299,7 +303,7 @@ bool XmppConnection::SendStreamFeatureRequest(XmppSession *session) {
     XmppStanza::XmppStreamMessage featurestream;
     featurestream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
     featurestream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_FEATURE_REQUEST;
-    uint8_t data[256];
+    uint8_t data[XMPP_CONTROL_MESSAGE_MAX_SIZE];
     int len = XmppProto::EncodeStream(featurestream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
@@ -320,7 +324,7 @@ bool XmppConnection::SendStartTls(XmppSession *session) {
     XmppStanza::XmppStreamMessage stream;
     stream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
     stream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_START;
-    uint8_t data[256];
+    uint8_t data[XMPP_CONTROL_MESSAGE_MAX_SIZE];
     int len = XmppProto::EncodeStream(stream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
@@ -341,7 +345,7 @@ bool XmppConnection::SendProceedTls(XmppSession *session) {
     XmppStanza::XmppStreamMessage stream;
     stream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
     stream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_PROCEED;
-    uint8_t data[256];
+    uint8_t data[XMPP_CONTROL_MESSAGE_MAX_SIZE];
     int len = XmppProto::EncodeStream(stream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
@@ -422,7 +426,7 @@ void XmppConnection::SendKeepAlive() {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     if (!session_) return;
     XmppStanza::XmppMessage msg(XmppStanza::WHITESPACE_MESSAGE_STANZA);
-    uint8_t data[256];
+    uint8_t data[XMPP_CONTROL_MESSAGE_MAX_SIZE];
     int len = XmppProto::EncodeStream(msg, data, sizeof(data));
     assert(len > 0);
     session_->Send(data, len, NULL);
