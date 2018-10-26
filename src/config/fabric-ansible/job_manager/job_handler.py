@@ -19,12 +19,10 @@ import requests
 import xml.etree.ElementTree as etree
 
 from job_manager.job_exception import JobException
-from job_manager.job_utils import JobStatus
+from job_manager.job_utils import (
+    JobStatus, JobFileWrite
+)
 from job_manager.job_messages import MsgBundle
-
-JOB_PROGRESS = 'JOB_PROGRESS##'
-PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
-JOB_MANAGER = 'JOB_MANAGER'
 
 
 class JobHandler(object):
@@ -192,7 +190,13 @@ class JobHandler(object):
         marked_output = {}
         self.prouter_info = []
         total_output = ''
-        markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS, JOB_MANAGER]
+        markers = [
+            JobFileWrite.PLAYBOOK_OUTPUT,
+            JobFileWrite.JOB_PROGRESS,
+            JobFileWrite.JOB_MANAGER,
+            JobFileWrite.JOB_LOG,
+            JobFileWrite.PROUTER_LOG
+        ]
         # read file as long as it is not a time out
         # Adding a residue timeout of 5 mins in case
         # the playbook dumps all the output towards the
@@ -217,19 +221,20 @@ class JobHandler(object):
                                 line_read.split(unique_pb_id)[-1].strip()
                             if total_output == 'END':
                                 break
-                        if JOB_MANAGER in line_read:
-                            total_output = line_read.strip()
+                            if JobFileWrite.JOB_MANAGER in line_read or JobFileWrite.JOB_LOG in line_read \
+                                    or JobFileWrite.PROUTER_LOG in line_read:
+                                total_output = line_read.strip()
 
                         if total_output is not None:
                             for marker in markers:
                                 if marker in total_output:
                                     marked_output[marker] = total_output
-                                    if marker == JOB_PROGRESS:
-                                        marked_jsons =\
-                                            self._extract_marked_json(
-                                                marked_output)
+                                    marked_jsons = self._extract_marked_json(
+                                        marked_output
+                                    )
+                                    if marker == JobFileWrite.JOB_PROGRESS:
                                         self._job_progress =\
-                                            marked_jsons.get(JOB_PROGRESS)
+                                            marked_jsons.get(JobFileWrite.JOB_PROGRESS)
                                         self.current_percentage += float(
                                             self._job_progress)
                                         self._job_log_utils.\
@@ -240,23 +245,26 @@ class JobHandler(object):
                                                 percentage_completed=
                                                 self.current_percentage)
                                         if pr_uve_name:
-                                            self._job_log_utils.\
-                                                send_prouter_job_uve(
-                                                    self._job_template.fq_name,
-                                                    pr_uve_name, exec_id,
-                                                    job_status="IN_PROGRESS",
-                                                    percentage_completed=
-                                                    self.current_percentage)
-                                    if marker == JOB_MANAGER:
-                                        marked_jsons =\
-                                            self._extract_marked_json(
-                                                marked_output)
-                                        output =\
-                                            marked_jsons.get(JOB_MANAGER)
+                                            self.send_prouter_job_uve(
+                                                self._job_template.fq_name,
+                                                pr_uve_name,
+                                                exec_id,
+                                                "IN_PROGRESS",
+                                                self.current_percentage
+                                            )
+                                    elif marker == JobFileWrite.JOB_MANAGER:
+                                        output = marked_jsons.get(JobFileWrite.JOB_MANAGER)
                                         if output.has_key('prouter_info'):
                                             self.prouter_info.append(
                                                 output.get('prouter_info'))
-
+                                    elif marker == JobFileWrite.JOB_LOG:
+                                        self.send_job_log(
+                                            **marked_jsons.get(marker)
+                                        )
+                                    elif marker == JobFileWrite.PROUTER_LOG:
+                                        self.send_prouter_log(
+                                            **marked_jsons.get(marker)
+                                        )
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -287,6 +295,45 @@ class JobHandler(object):
         return marked_output
     # end process_file_and_get_marked_output
 
+    def send_prouter_job_uve(self, job_template_fqname, pr_uve_name, exec_id,
+                         job_status, percentage_completed):
+        try:
+            self._logger.info("Calling send_prouter_job_uve(%s, %s, %s, %s, %s)" % (
+                job_template_fqname,
+                pr_uve_name,
+                str(exec_id),
+                job_status,
+                percentage_completed
+            ))
+
+            self._job_log_utils.send_prouter_job_uve(
+                job_template_fqname,
+                pr_uve_name,
+                exec_id,
+                job_status,
+                percentage_completed
+            )
+            self._logger.info("DONE")
+
+        except JobException as ex:
+            self._logger.error("Failed to send prouter uve: %s" % str(ex))
+
+    def send_job_log(self, **job_log):
+        try:
+            self._logger.info("Send_job_log(%s)" % json.dumps(job_log))
+            self._job_log_utils.send_job_log(**job_log)
+            self._logger.info("DONE")
+        except JobException as ex:
+            self._logger.error("Failed to send job log: %s" % str(ex))
+
+    def send_prouter_log(self, **prouter_log):
+        try:
+            self._logger.info("Send_prouter_log(%s)" % json.dumps(prouter_log))
+            self._job_log_utils.send_prouter_object_log(**prouter_log)
+            self._logger.info("DONE")
+        except JobException as ex:
+            self._logger.error("Failed to send prouter log: %s" % str(ex))
+
     def send_prouter_uve(self, exec_id, pb_status):
         status = "SUCCESS"
 
@@ -299,12 +346,16 @@ class JobHandler(object):
             pr_fabric_job_template_fq_name = each_prouter.get('prouter_name') + \
                                              ":" + self._fabric_fq_name + ":" + \
                                              job_template_fq_name
-            self._job_log_utils.send_prouter_job_uve(
-                self._job_template.fq_name,
-                pr_fabric_job_template_fq_name,
-                exec_id,
-                prouter_state=each_prouter.get('prouter_state'),
-                job_status=status)
+            try:
+                self._job_log_utils.send_prouter_job_uve(
+                    self._job_template.fq_name,
+                    pr_fabric_job_template_fq_name,
+                    exec_id,
+                    prouter_state=each_prouter.get('prouter_state'),
+                    job_status=status
+                )
+            except JobException as ex:
+                self._logger.error("Failed to send prouter log: %s" % str(ex))
 
     # end send_pr_object_log
 
@@ -347,7 +398,7 @@ class JobHandler(object):
                 unique_pb_id, exec_id, playbook_process, pr_uve_name)
 
             marked_jsons = self._extract_marked_json(marked_output)
-            playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
+            playbook_output = marked_jsons.get(JobFileWrite.PLAYBOOK_OUTPUT)
             playbook_process.wait(timeout=self._playbook_timeout)
             pr_object_log_end_time = time.time()
 
@@ -445,7 +496,7 @@ class JobHandler(object):
             json_str = output[start:end]
             self._logger.info("Extracted marked output: %s" % json_str)
             try:
-                if marker == JOB_MANAGER:
+                if marker == JobFileWrite.JOB_MANAGER:
                     retval[marker] = ast.literal_eval(json_str)
                 else:
                     retval[marker] = json.loads(json_str)

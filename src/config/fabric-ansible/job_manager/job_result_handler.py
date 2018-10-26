@@ -33,7 +33,7 @@ class JobResultHandler(object):
         # device_management_ip, device_username, etc
         self.playbook_output = None  # marked output from the playbook stdout
         self.percentage_completed = 0.0
-        self.job_file_write = JobFileWrite(self._logger)
+        self._job_file_write = JobFileWrite(self._logger)
 
     def update_job_status(self, status, message=None, device_id=None, device_name=None):
         # update cummulative job status
@@ -74,15 +74,20 @@ class JobResultHandler(object):
         #write to the file as well
         file_write_data = {
             "job_status": job_status
-            }
-        self.job_file_write.write_to_file(self._execution_id,
-                                          file_write_data)
-        self.job_log_utils.send_job_log(job_template_fqname,
-                                        self._execution_id,
-                                        self._fabric_fq_name,
-                                        self.job_summary_message,
-                                        job_status, 100,
-                                        timestamp=timestamp)
+        }
+        self._job_file_write.write_to_file(
+            self._execution_id,
+            "job_summary",
+            JobFileWrite.JOB_MANAGER,
+            file_write_data)
+
+        self.job_log_utils.send_job_log(
+            job_template_fqname,
+            self._execution_id,
+            self._fabric_fq_name,
+            self.job_summary_message,
+            job_status, 100,
+            timestamp=timestamp)
     # end create_job_summary_log
 
     def create_job_summary_message(self):

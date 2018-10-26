@@ -403,15 +403,16 @@ class VncApiServer(object):
         return device_list
 
     def _extracted_file_output(self, execution_id):
-        status = "UNKNOWN"
+        status = "FAILURE"
+        marker = "JOB_MANAGER##"
         prouter_info = []
         try:
             with open("/tmp/"+execution_id, "r") as f_read:
                 for each_line in f_read:
-                    if "JOB_MANAGER" in each_line:
+                    if marker in each_line:
                         each_line = each_line.strip('\n')
-                        start = each_line.index("JOB_MANAGER") + len("JOB_MANAGER")
-                        end = each_line.rindex("JOB_MANAGER")
+                        start = each_line.index(marker) + len(marker)
+                        end = each_line.rindex(marker)
                         json_str = each_line[start:end]
                         extracted_string = ast.literal_eval(json_str)
                         if extracted_string.has_key('job_status'):

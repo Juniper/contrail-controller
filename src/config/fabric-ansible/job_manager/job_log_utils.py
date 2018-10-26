@@ -41,16 +41,16 @@ class JobLogUtils(object):
     # PLAYBOOK TIMEOUT
     PLAYBOOK_TIMEOUT_VALUE = 3600
 
-    def __init__(self, sandesh_instance_id=None, config_args=None):
+    def __init__(self, sandesh_instance_id=None, config_args=None, sandesh=True):
         self.sandesh_instance_id = sandesh_instance_id
         self.args = None
-        self.config_logger = self.initialize_sandesh_logger(config_args)
-        self.job_file_write = JobFileWrite(self.config_logger)
+        self.config_logger = self.initialize_sandesh_logger(config_args, sandesh)
+        self._job_file_write = JobFileWrite(self.config_logger)
 
     def get_config_logger(self):
         return self.config_logger
 
-    def initialize_sandesh_logger(self, config_args):
+    def initialize_sandesh_logger(self, config_args, sandesh=True):
         # parse the logger args
         args = self.parse_logger_args(config_args)
         args.random_collectors = args.collectors
@@ -61,14 +61,16 @@ class JobLogUtils(object):
         # initialize logger
         logger = JobLogger(args=args,
                            sandesh_instance_id=self.sandesh_instance_id)
-        try:
-            sandesh_util = SandeshUtils(logger)
-            sandesh_util.wait_for_connection_establish()
-        except JobException:
-            msg = MsgBundle.getMessage(
-                MsgBundle.SANDESH_INITIALIZATION_TIMEOUT_ERROR)
-            raise JobException(msg)
-        logger.info("Sandesh is initialized. Config logger instance created.")
+        if sandesh:
+            try:
+                sandesh_util = SandeshUtils(logger)
+                sandesh_util.wait_for_connection_establish()
+            except JobException:
+                msg = MsgBundle.getMessage(
+                    MsgBundle.SANDESH_INITIALIZATION_TIMEOUT_ERROR)
+                raise JobException(msg)
+            logger.info("Sandesh is initialized. Config logger instance created.")
+
         return logger
 
     def parse_logger_args(self, config_args):
@@ -282,8 +284,11 @@ class JobLogUtils(object):
                     "prouter_name": prouter_fqname,
                     "prouter_state":onboarding_state}
                 }
-            self.job_file_write.write_to_file(job_execution_id,
-                                              file_write_data)
+            self._job_file_write.write_to_file(
+                job_execution_id,
+                'prouter_log',
+                JobFileWrite.JOB_MANAGER,
+                file_write_data)
 
             if timestamp is None:
                 timestamp = int(round(time.time() * 1000))

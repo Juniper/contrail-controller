@@ -11,13 +11,13 @@ import subprocess
 import paramiko
 import xml.etree.ElementTree as etree
 import ast
-import time
-from datetime import datetime
+import json
 from cfgm_common.exceptions import (
     RefsExistError
 )
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import PhysicalRouter
+from job_manager.job_utils import JobFileWrite
 
 REF_EXISTS_ERROR = 3
 JOB_IN_PROGRESS = "JOB_IN_PROGRESS"
@@ -32,6 +32,7 @@ class DeviceInfo(object):
         self.job_ctx = module.job_ctx
         self.fabric_uuid = module.params['fabric_uuid']
         self.total_retry_timeout = float(module.params['total_retry_timeout'])
+        self._job_file_write = JobFileWrite(self.logger)
 
     def initial_processing(self, concurrent):
         self.serial_num_flag = False
@@ -465,35 +466,11 @@ class DeviceInfo(object):
                 temp['device_serial_number'] = oid_mapped.get('serial-number')
                 DeviceInfo.output.update({pr_uuid: temp})
 
-    def _write_to_file(self, exec_id, line_in_file):
-
-        write_to_file_log = "\n"
-
-        try:
-            write_to_file_log = "Attempting to create or open file.. \n"
-            with open("/tmp/" + exec_id, "a") as f:
-                write_to_file_log += "Opened file in /tmp ... \n"
-                f.write(line_in_file + '\n')
-                write_to_file_log += "Written line %s to the /tmp/exec-id" \
-                                     " file \n" % line_in_file
-
-            return {
-                'status': 'success',
-                'write_to_file_log': write_to_file_log
-            }
-        except Exception as ex:
-            self._logger.info(write_to_file_log)
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
-            return {
-                'status': 'failure',
-                'error_msg': str(ex),
-                'write_to_file_log': write_to_file_log
-            }
-
     def discovery_percentage_write(self):
         if self.module.results.get('percentage_completed'):
-            file_msg = self.job_ctx.get('unique_pb_id') + "JOB_PROGRESS##" + \
-                str(self.module.results.get('percentage_completed')) + \
-                "JOB_PROGRESS##"
-            self._write_to_file(self.job_ctx.get('job_execution_id'), file_msg)
+            exec_id = self.job_ctx.get('job_execution_id')
+            pb_id = self.job_ctx.get('unique_pb_id')
+            self._job_file_write.write_to_file(
+                exec_id, pb_id, JobFileWrite.JOB_PROGRESS,
+                str(self.module.results.get('percentage_completed'))
+            )
