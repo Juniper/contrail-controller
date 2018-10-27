@@ -209,6 +209,8 @@ void Session::SendPacket(const ControlPacket *packet) {
            "Unable to encode packet: pktSize " << pktSize
            << ", session: " << toString());
         stats_.tx_error_count++;
+        const uint8_t *p = boost::asio::buffer_cast<const uint8_t *>(buffer);
+        delete[] p;
     } else {
         communicator_->SendPacket(local_endpoint_, remote_endpoint_,
                                   key_.index, buffer, pktSize);
