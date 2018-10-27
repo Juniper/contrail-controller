@@ -110,4 +110,6 @@ void BfdHandler::SendPacket(
     Send(interface_id, vm_interface->vrf_id(),
          AgentHdr::TX_SWITCH, PktHandler::BFD);
     pkt_info_->reset_packet_buffer();
+    const uint8_t *p = boost::asio::buffer_cast<const uint8_t *>(packet);
+    delete[] p;
 }
