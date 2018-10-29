@@ -62,7 +62,13 @@ public:
         // currently disabled due to some issue with MPLS
         // label allocation
         // index should not be already in use
-        // assert(bitmap_[index] == 1);
+        //
+        // Update: Re-enabling assert as is it may be hiding
+        // memory corruption problems or other issues.
+        // When called in the case of MPLS labels, it is
+        // only to reserve the multicast label block for ERMVPN
+        // and the reserved labels 0 through 15.
+        assert(bitmap_[index] == 1);
 
         bitmap_.set(index, 0);
         entries_[index] = entry;
