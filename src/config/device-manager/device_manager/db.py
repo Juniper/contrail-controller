@@ -345,10 +345,7 @@ class PhysicalRouterDM(DBBaseDM):
     def nc_handler(self):
         while self.nc_q.get() is not None:
             try:
-                if not PushConfigState.is_push_mode_ansible() and\
-                        self.ansible_manager is not None:
-                    self.ansible_manager.initialize()
-                    self.ansible_manager.underlay_config()
+                self.push_underlay_config()
                 self.push_config()
             except Exception as e:
                 tb = traceback.format_exc()
@@ -539,13 +536,11 @@ class PhysicalRouterDM(DBBaseDM):
     # end evaluate_vn_irb_ip_map
 
     def is_vnc_managed(self):
-
         if not self.vnc_managed:
             self._logger.info("vnc managed property must be set for a physical router to get auto "
-                "configured, ip: %s, not pushing netconf message" % (self.management_ip))
+                "configured, ip: %s, not pushing config" % (self.management_ip))
             return False
         return True
-
     # end is_vnc_managed
 
     def set_conf_sent_state(self, state):
@@ -584,6 +579,7 @@ class PhysicalRouterDM(DBBaseDM):
         else:
             return ('_contrail-' + si_obj.name + '-' + interface_type
                     + '-sc-entry-point')
+    # end get_pnf_vrf_name
 
     def allocate_pnf_resources(self, vmi):
         resources = self._object_db.get_pnf_resources(
@@ -598,7 +594,7 @@ class PhysicalRouterDM(DBBaseDM):
             "ip_address": ip,
             "vlan_id": resources['vlan_id'],
             "unit_id": resources['unit_id']}
-    # end
+    # end allocate_pnf_resources
 
     def compute_pnf_static_route(self, ri_obj, pnf_dict):
         """
@@ -645,7 +641,18 @@ class PhysicalRouterDM(DBBaseDM):
                         srs.append(static_entry)
 
         return static_routes
-    # end
+    # end compute_pnf_static_route
+
+    def push_underlay_config(self):
+        if PushConfigState.is_push_mode_ansible():
+            return
+        if self.ansible_manager is None:
+            return
+        if not self.is_vnc_managed():
+            return
+        self.ansible_manager.initialize()
+        self.ansible_manager.underlay_config()
+    # end push_underlay_config
 
     def push_config(self):
         if not self.config_manager:
