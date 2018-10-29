@@ -1435,7 +1435,7 @@ class FilterModule(object):
                 self._add_logical_interfaces_for_fabric_links(
                     vnc_api, device_obj
                 )
-                self._add_bgp_router(vnc_api, device_obj)
+                self._add_bgp_router(vnc_api, device_roles)
 
 
             # now we are ready to assign the roles to trigger DM to invoke
@@ -1591,15 +1591,24 @@ class FilterModule(object):
             = iip_obj.get_instance_ip_address()
     # end _add_loopback_interface
 
-    def _add_bgp_router(self, vnc_api, device_obj):
+    def _add_bgp_router(self, vnc_api, device_roles):
         """
         Add corresponding bgp-router object for this device. This bgp-router is
         used to model the overlay iBGP mesh
         :param vnc_api: <vnc_api.VncApi>
-        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :param device_roles: Dictionary
+            example:
+            {
+                'device_obj': <vnc_api.gen.resource_client.PhysicalRouter>
+                'device_fq_name': ['default-global-system-config', 'qfx-10'],
+                'physical_role": 'leaf',
+                'routing_bridging_roles": ['CRB-Gateway', 'Route-Reflector']
+            }
         :return: None
         """
         bgp_router_obj = None
+        device_obj = device_roles.get('device_obj')
+        rb_roles = device_roles.get('routing_bridging_roles', [])
         if device_obj.physical_router_loopback_ip:
             bgp_router_fq_name = _bgp_router_fq_name(device_obj.name)
             bgp_router_name = bgp_router_fq_name[-1]
@@ -1629,7 +1638,9 @@ class FilterModule(object):
                         "autonomous_system": self._get_ibgp_asn(
                             vnc_api, fabric_name
                         ),
-                        "hold_time": 90
+                        "hold_time": 90,
+                        "cluster_id":
+                            100 if 'Route-Reflector' in rb_roles else None
                     }
                 )
                 vnc_api.bgp_router_create(bgp_router_obj)
