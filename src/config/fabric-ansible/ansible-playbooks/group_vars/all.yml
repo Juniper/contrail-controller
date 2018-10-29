@@ -136,6 +136,10 @@ role_to_feature_mapping:
     - overlay_evpn
     - overlay_evpn_gateway
     - overlay_evpn_type5
+  Route-Reflector@spine:
+    - basic
+    - underlay_ip_clos
+    - overlay_bgp
 
 # Paths for DHCP and TFTP config files
 DHCPD_CONFIG_DIR: "{{ lookup('env', 'DHCP_CONFIG_DIR') }}"
