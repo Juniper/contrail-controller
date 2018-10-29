@@ -376,6 +376,9 @@ class AnsibleConf(AnsibleBase):
         if self.bgp_params is None or not self.bgp_params.get('address'):
             return None
         bgp = Bgp()
+        cluster_id = self.bgp_params.get('cluster_id')
+        if cluster_id:
+            bgp.set_cluster_id(cluster_id)
         bgp.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
         if external:
             bgp.set_name(DMUtils.make_bgp_group_name(self.get_asn(), True))
