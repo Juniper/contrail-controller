@@ -65,6 +65,7 @@
        <xsd:element name="uuid" type="xsd:string"/>
        <xsd:element name="type" type="xsd:string"/>
        <xsd:element name="autonomous-system" type="xsd:integer"/>
+       <xsd:element name="cluster-id" type="xsd:integer"/>
        <xsd:element name="ip-address" type="xsd:string"/>
        <xsd:element name="hold-time" type="xsd:integer"/>
        <xsd:element name="authentication-key" type="xsd:string"/>
