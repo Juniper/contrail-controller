@@ -38,6 +38,10 @@ set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} neighbor {{p
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} destination-networks {{net.get('prefix')}}/{{net.get('prefix_len')}}
 {%             endfor %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} type {{bgp.get('type_')}}
+{%             set cluster_id = bgp.get('cluster_id') %}
+{%             if cluster_id != None %}
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} cluster {{cluster_id}}
+{%             endif %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} local-address {{bgp.get('ip_address')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} hold-time {{bgp.get('hold_time')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} multipath

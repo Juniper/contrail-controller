@@ -19,6 +19,10 @@ set groups {{cfg_group}} routing-options resolution rib {{rib_name}} resolution-
 {%             set hold_time = bgp.get('hold_time') %}
 {%             set families = bgp.get('families', []) %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
+{%             set cluster_id = bgp.get('cluster_id') %}
+{%             if cluster_id != None %}
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} cluster {{cluster_id}}
+{%             endif %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multipath
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-address {{route_distinguisher}}
