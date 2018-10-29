@@ -217,16 +217,18 @@ class AnsibleRoleCommon(AnsibleConf):
                 public_vrf_ips[pip["vrf_name"]].add(pip["floating_ip"])
 
             for public_vrf, fips in public_vrf_ips.items():
-                ri.add_interfaces(LogicalInterface(name=interfaces[1].name))
+                ri_public = RoutingInstance(name=public_vrf)
+                self.ri_config.append(ri_public)
+                ri_public.add_interfaces(LogicalInterface(name=interfaces[1].name))
                 floating_ips = []
                 for fip in fips:
-                    ri.add_static_routes(
+                    ri_public.add_static_routes(
                         Route(prefix=fip,
                               prefix_len=32,
                               next_hop=interfaces[1].name,
                               comment=DMUtils.fip_egress_comment()))
                     floating_ips.append(FloatingIpMap(floating_ip=fip + "/32"))
-                ri.add_floating_ip_list(FloatingIpList(
+                ri_public.add_floating_ip_list(FloatingIpList(
                     public_routing_instance=public_vrf,
                     floating_ips=floating_ips))
 

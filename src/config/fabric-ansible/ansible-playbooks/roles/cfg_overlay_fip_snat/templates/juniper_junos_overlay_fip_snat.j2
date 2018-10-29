@@ -4,6 +4,13 @@
 {%             continue %}
 {%         endif %}
 {%         set contrail_l3_ri = ri.get('name') %}
+
+{%         set intfs = ri.get('interfaces', []) %}
+{%         for intf in intfs %}
+{%             set name = intf.get('name') %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{name}}
+{%         endfor %}
+
 {%         set service_interfaces = ri.get('service_interfaces') %}
 {%         if service_interfaces != None %}
 {%             set ri_type = ri.get('routing_instance_type') %}
@@ -16,7 +23,6 @@ set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} family inet
 {%                     set nat_ingress_import = contrail_l3_ri + '-import' %}
 {%                     set nat_ingress_export = contrail_l3_ri + '-export' %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type {{ri_type}}
-set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{intf_name}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{nat_ingress_import}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{nat_ingress_export}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
@@ -33,7 +39,6 @@ set groups {{cfg_group}} policy-options policy-statement {{nat_ingress_export}} 
 set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} service-domain inside
 {%                 endif %}
 {%                 if 'Egress' in intf.get('comment', '') %}
-set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{intf_name}}
 {%                     for route in ri.get('static_routes', []) %}
 {%                         set cidr = route.get('prefix') + '/' + route.get('prefix_len')|string %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} next-hop {{intf_name}}
@@ -126,15 +131,19 @@ set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term 
 set groups {{cfg_group}} firewall family {{family}} filter {{filter_name}} term default-term then accept
 {%         endfor %}
 {%     endif %}
-{%     set intfs = device_abstract_config.get('physical-interfaces', []) %}
+{%     set intfs = device_abstract_config.get('physical_interfaces', []) %}
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%     for intf in intfs %}
 {%         set intf_type = intf.get('interface_type') %}
 {%         if intf_type == 'irb' %} 
-{%             set irb_intf = intf.get('logical_interfaces')[0] %}
-{%             set irb_unit = irb_intf.get('unit') %}
-{%             set irb_family = irb_intf.get('family') %}
-{%             set irb_family = irb_intf.get('family') %}
-set group {{cfg_group}} interfaces irb gratuitous-arp-reply
-set group {{cfg_group}} interfaces irb unit {{irb_unit}} family {{irb_family}} filter input {{irb_filter}}
+{%             set li_intfs = intf.get('logical_interfaces', []) %}
+{%             for irb_intf in li_intfs %}
+{%                  set irb_unit = irb_intf.get('unit') %}
+{%                  set irb_family = irb_intf.get('family') %}
+{%                  set firewall_filters = irb_intf.get('firewall_filters', []) %}
+{%                  for irb_filter in firewall_filters %}
+set groups {{cfg_group}} interfaces irb unit {{irb_unit}} family {{irb_family}} filter input {{irb_filter}}
+{%                  endfor %}
+{%             endfor %}
 {%         endif %}
 {%     endfor %}
