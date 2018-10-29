@@ -672,7 +672,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null"]
+                "rb_roles": ["null", "Route-Reflector"]
               }
             ]
           }
@@ -692,7 +692,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector"]
               }
             ]
           }
@@ -712,7 +712,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector"]
               }
             ]
           }

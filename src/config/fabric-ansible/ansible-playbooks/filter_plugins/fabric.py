@@ -13,7 +13,6 @@ import argparse
 import json
 import uuid
 import time
-from functools import reduce
 from netaddr import IPNetwork
 import jsonschema
 
@@ -1416,8 +1415,8 @@ class FilterModule(object):
                 device_roles['device_obj'] = device_obj
                 device2roles_mappings[device_obj] = device_roles
 
-            # disable device push
-            self._enable_device_push(
+            # disable ibgp auto mesh to avoid O(n2) issue in schema transformer
+            self._enable_ibgp_auto_mesh(
                 vnc_api, device2roles_mappings.keys(), False
             )
 
@@ -1452,7 +1451,7 @@ class FilterModule(object):
                 self._add_logical_interfaces_for_fabric_links(
                     vnc_api, device_obj
                 )
-                self._add_bgp_router(vnc_api, device_obj)
+                self._add_bgp_router(vnc_api, device_roles)
 
 
             # now we are ready to assign the roles to trigger DM to invoke
@@ -1461,10 +1460,8 @@ class FilterModule(object):
             for device_roles in role_assignments:
                 self._assign_device_roles(vnc_api, device_roles)
 
-            # sleep 10 seconds for schema transformer and DM to process the
-            # newly added bgp router before enabling device push
-            time.sleep(10)
-            self._enable_device_push(
+            # enable ibgp auto mesh now
+            self._enable_ibgp_auto_mesh(
                 vnc_api, device2roles_mappings.keys(), True
             )
 
@@ -1484,16 +1481,17 @@ class FilterModule(object):
             }
     # end assign_roles
 
-    def _enable_device_push(self, vnc_api, device_objs, enable):
+    def _enable_ibgp_auto_mesh(self, vnc_api, device_objs, enable):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: List<vnc_api.gen.resource_client.PhysicalRouter>
         :param enable: set to True to enable
         """
-        for device_obj in device_objs:
-            device_obj.set_physical_router_vnc_managed(enable)
-            vnc_api.physical_router_update(device_obj)
-    # end _enable_device_push
+        gsc_obj = vnc_api.global_system_config_read(
+                fq_name=['default-global-system-config'])
+        gsc_obj.set_ibgp_auto_mesh(enable)
+        vnc_api.global_system_config_update(gsc_obj)
+    # end _enable_ibgp_auto_mesh
 
     @staticmethod
     def _validate_role_assignment(role_assignments):
@@ -1513,8 +1511,6 @@ class FilterModule(object):
         """
         for device_roles in role_assignments:
             device_obj = device_roles.get('device_obj')
-
-            assigned_roles = []
             phys_role = device_roles.get('physical_role')
             if not phys_role:
                 raise ValueError(
@@ -1628,15 +1624,24 @@ class FilterModule(object):
             = iip_obj.get_instance_ip_address()
     # end _add_loopback_interface
 
-    def _add_bgp_router(self, vnc_api, device_obj):
+    def _add_bgp_router(self, vnc_api, device_roles):
         """
         Add corresponding bgp-router object for this device. This bgp-router is
         used to model the overlay iBGP mesh
         :param vnc_api: <vnc_api.VncApi>
-        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :param device_roles: Dictionary
+            example:
+            {
+                'device_obj': <vnc_api.gen.resource_client.PhysicalRouter>
+                'device_fq_name': ['default-global-system-config', 'qfx-10'],
+                'physical_role": 'leaf',
+                'routing_bridging_roles": ['CRB-Gateway', 'Route-Reflector']
+            }
         :return: None
         """
         bgp_router_obj = None
+        device_obj = device_roles.get('device_obj')
+        rb_roles = device_roles.get('routing_bridging_roles', [])
         if device_obj.physical_router_loopback_ip:
             bgp_router_fq_name = _bgp_router_fq_name(device_obj.name)
             bgp_router_name = bgp_router_fq_name[-1]
@@ -1644,6 +1649,12 @@ class FilterModule(object):
                 bgp_router_obj = vnc_api.bgp_router_read(
                     fq_name=bgp_router_fq_name
                 )
+                params = bgp_router_obj.get_bgp_router_parameters()
+                if params:
+                    cluster_id = 100 if 'Route-Reflector' in rb_roles else None
+                    params.set_cluster_id(cluster_id)
+                    bgp_router_obj.set_bgp_router_parameters(params)
+                    vnc_api.bgp_router_update(bgp_router_obj)
             except NoIdError:
                 fabric_name = FilterModule._get_fabric_name(device_obj)
                 bgp_router_obj = BgpRouter(
@@ -1666,7 +1677,9 @@ class FilterModule(object):
                         "autonomous_system": self._get_ibgp_asn(
                             vnc_api, fabric_name
                         ),
-                        "hold_time": 90
+                        "hold_time": 90,
+                        "cluster_id":
+                            100 if 'Route-Reflector' in rb_roles else None
                     }
                 )
                 vnc_api.bgp_router_create(bgp_router_obj)
