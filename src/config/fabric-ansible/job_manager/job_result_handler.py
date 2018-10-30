@@ -7,6 +7,7 @@ This file contains the job manager results handler that collects and processes
 results from the job executions
 """
 import time
+import json
 
 from job_manager.job_utils import JobStatus, JobFileWrite
 from job_manager.job_messages import MsgBundle
@@ -35,7 +36,7 @@ class JobResultHandler(object):
         self.percentage_completed = 0.0
         self._job_file_write = JobFileWrite(self._logger)
 
-    def update_job_status(self, status, message=None, device_id=None, device_name=None):
+    def update_job_status(self, status, message=None, device_id=None, device_name=None, pb_results=None):
         # update cummulative job status
         if self.job_result_status is None or \
                 self.job_result_status != JobStatus.FAILURE:
@@ -49,7 +50,9 @@ class JobResultHandler(object):
         if message is not None:
             if device_id is not None:
                 self.job_result.update({device_id: {"message": message,
-                                                    "device_name": device_name}})
+                                                    "device_name": device_name,
+                                                    "device_op_result": pb_results
+                                                    }})
             else:
                 self.job_result_message = message
     # end update_job_status
@@ -63,7 +66,11 @@ class JobResultHandler(object):
 
     def create_job_summary_log(self, job_template_fqname):
         # generate job result summary
-        self.job_summary_message = self.create_job_summary_message()
+        self.job_summary_message, device_op_results = \
+            self.create_job_summary_message()
+
+        result = {"gen_dev_job_op": json.dumps(device_op_results)} \
+            if device_op_results else None
 
         timestamp = int(round(time.time() * 1000))
         # create the job log
@@ -87,6 +94,7 @@ class JobResultHandler(object):
             self._fabric_fq_name,
             self.job_summary_message,
             job_status, 100,
+            result=result,
             timestamp=timestamp)
     # end create_job_summary_log
 
@@ -123,11 +131,17 @@ class JobResultHandler(object):
         # result_summary would infact be the failed_devices
         # result summary
         result_summary = ""
+        device_op_results = []
+
         for entry in self.job_result:
             if entry in self.failed_device_jobs:
                 result_summary += \
                     "%s:%s \n" % (self.job_result[entry]['device_name'],
                                   self.job_result[entry]['message'])
+            elif self.job_result[entry]['device_op_result']:
+                # could be other device jobs such as device import, topology
+                device_op_results.append(
+                    self.job_result[entry]['device_op_result'])
         if result_summary != "":
             failed_device_msg = "Job execution failed for %s devices.\n"\
                                 % len(self.failed_device_jobs)
@@ -137,5 +151,5 @@ class JobResultHandler(object):
         if self.job_result_message is not None:
             job_summary_message += self.job_result_message
 
-        return job_summary_message
+        return job_summary_message, device_op_results
     # end create_job_summary_message
