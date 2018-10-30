@@ -196,7 +196,9 @@ struct PhysicalRouterJobExecution {
     4: i64                              job_start_ts;
     5: string                           prouter_state;
     6: double                           percentage_completed;
+    /* status that tracks the job_status specific to the particular prouter, e.g In a multi device execution, the overall job might have succeeded, but one or more prouters may have failed.*/
     7: string                           job_status;
+    8: string                           device_op_results;
     // Add additional items here as needed
 }
 
