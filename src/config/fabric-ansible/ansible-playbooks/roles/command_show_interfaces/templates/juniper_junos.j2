@@ -1,0 +1,14 @@
+{%- set interface_stats_list = []                           %}
+{%- for physical_interface in command_resp                  %}
+{%-     set interface_stat = {}                             %}
+{%-     set x = interface_stat.update({
+                    "name":physical_interface.name,
+                    "op_status":physical_interface.get('oper-status', ""),
+                    "admin_status": physical_interface.get('admin-status', ""),
+                    "input_rate": physical_interface.get('traffic-statistics', {}).get('input-bps', ""),
+                    "output_rate": physical_interface.get('traffic-statistics', {}).get('output-bps', "")
+                                       })                   %}
+{%-     set y = interface_stats_list.append(interface_stat) %}
+{%- endfor                                                  %}
+
+{"interface_stats": {{interface_stats_list | to_json}} }
