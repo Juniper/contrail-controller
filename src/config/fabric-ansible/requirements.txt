@@ -12,7 +12,7 @@ netaddr>=0.7.5
 kombu
 bottle
 stevedore
-ansible
+ansible==2.4.3
 timeout-decorator
 subprocess32
 jsonschema
