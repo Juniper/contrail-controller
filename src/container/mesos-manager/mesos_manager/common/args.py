@@ -7,7 +7,7 @@ import ConfigParser
 import sys
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import (HttpPortMesosManager,\
+from sandesh_common.vns.constants import (HttpPortMesosManager,ApiServerPort,\
                                           DiscoveryServerPort)
 from enum import Enum
 
@@ -81,9 +81,6 @@ def parse_args(args_str=None):
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
     vnc_opts = {
-        'admin_user': 'admin',
-        'admin_password': 'admin',
-        'admin_tenant': 'admin',
         'rabbit_server': 'localhost',
         'rabbit_port': '5672',
         'rabbit_user': 'guest',
@@ -97,7 +94,15 @@ def parse_args(args_str=None):
         'kombu_ssl_ca_certs': '',
         'cassandra_user': None,
         'cassandra_password': None,
+        'cassandra_server_list': '',
         'cluster_id': '',
+        'vnc_endpoint_ip': '[127.0.0.1]',
+        'vnc_endpoint_port': ApiServerPort,
+        'admin_user' : '',
+        'admin_password' : '',
+        'admin_tenant' : '',
+        'public_fip_pool': '{}',
+        'zk_server_ip': '127.0.0.1:2181',
     }
 
     sandesh_opts = SandeshConfig.get_default_options()
@@ -113,6 +118,13 @@ def parse_args(args_str=None):
         'ip_fabric_snat': False,
     }
 
+    auth_opts = {
+        'auth_token_url': None,
+        'auth_user': 'admin',
+        'auth_password': 'admin',
+        'auth_tenant': 'admin',
+    }
+
     config = ConfigParser.SafeConfigParser()
     if args.config_file:
         config.read(args.config_file)
@@ -121,6 +133,8 @@ def parse_args(args_str=None):
         if 'MESOS' in config.sections():
             mesos_opts.update(dict(config.items("MESOS")))
         SandeshConfig.update_options(sandesh_opts, config)
+        if 'AUTH' in config.sections():
+            auth_opts.update(dict(config.items("AUTH")))
         if 'DEFAULTS' in config.sections():
             defaults.update(dict(config.items("DEFAULTS")))
 
@@ -132,6 +146,7 @@ def parse_args(args_str=None):
     defaults.update(vnc_opts)
     defaults.update(mesos_opts)
     defaults.update(sandesh_opts)
+    defaults.update(auth_opts)
     parser.set_defaults(**defaults)
     args = parser.parse_args(args_str)
 
@@ -152,10 +167,10 @@ def parse_args(args_str=None):
         else:
             args.ip_fabric_snat = False
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
-    
+
     # Validate input argumnents.
     validate_mandatory_args(args)
-    
+
     return args
 
 
