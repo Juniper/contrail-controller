@@ -1,0 +1,136 @@
+{
+   "input_schema":{
+       "$schema":"http://json-schema.org/draft-06/schema#",
+       "additionalProperties":false,
+       "properties":{
+           "interface_type":{
+               "$id":"/properties/interface_type",
+               "type":"string",
+               "default": "physical",
+               "enum": ["physical", "logical"]
+           },
+           "interface_filters":{
+               "$id":"/properties/interface_filters",
+               "type":"array",
+               "items":{
+                   "$id":"/properties/interface_filters/items",
+                   "type":"object",
+                   "maxProperties":2,
+                   "additionalProperties":false,
+                   "properties": {
+                       "op": { "enum": ["regex", "startwith"]},
+                       "expr": { "type": "string" }
+                   },
+                   "title":"filter object",
+                   "description":"filter object having op and expr fields",
+                   "default":{},
+                   "examples":[
+                       {"op":"regex", "expr": "^ge-"},
+                       {"op":"regex", "expr": "^xe"}
+                   ]
+               }
+           }
+       }
+
+   },
+   "input_ui_schema":{
+       "interface_type": {
+           "ui:help": "Select one type at a time"
+       },
+       "interface_filters": {
+           "op": {
+              "ui:placeholder": "regex"
+           },
+           "expr": {
+               "ui:placeholder": "^ge-|^xe"
+           },
+           "ui:help": "filter using regex"
+       }
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Show interfaces command Job Output",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "array",
+          "description": "Array of JSON objects holding the job specific output details in case of success",
+          "items": {
+            "type": "object",
+            "properties": {
+              "device_name": {
+                "type": "string",
+                "title": "DeviceName",
+                "description": "name of the device for which results are displayed"
+              },
+              "command_output": {
+                "type": "object",
+                "title": "Each playbook 'output' variable's results format for this command",
+                "description": "results of the command executed on the device",
+                "properties": {
+                  "interface_stats": {
+                    "type": "object",
+                    "title": "interfaces statistics",
+                    "description": "interfaces statistics to be displayed on UI per device",
+                    "properties": {
+                      "parent_name": {
+                        "type": "string",
+                        "title": "Switch/PhysicalInterface",
+                        "description": "name of the parent of the interface"
+                      },
+                      "name": {
+                        "type": "string",
+                        "title": "Interface",
+                        "description": "name of the interface"
+                      },
+                      "description": {
+                        "type": "string",
+                        "title": "Description",
+                        "description": "description of the interface if set"
+                      },
+                      "op_status": {
+                        "type": "string",
+                        "title": "Operational Status",
+                        "description": "operational status of the interface"
+                      },
+                      "admin_status": {
+                        "type": "string",
+                        "title": "Admin Status",
+                        "description": "admin status of the interface"
+                      },
+                      "address_family": {
+                        "type": "string",
+                        "title": "Address Family",
+                        "description": "Address family if present"
+                      },
+                      "input_rate": {
+                        "type": "string",
+                        "title": "InputRate (bps)",
+                        "description": "input packets rate in bits per second if present"
+                      },
+                      "output_rate": {
+                        "type": "string",
+                        "title": "OutputRate (bps)",
+                        "description": "output packets rate in bits per second if present"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+       }
+    },
+    "required": [ "status" ]
+   }
+}
+
