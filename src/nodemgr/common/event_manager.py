@@ -94,7 +94,7 @@ class EventManager(object):
         self.last_cpu = None
         self.last_time = 0
         self.own_version = None
-        self.hostname = socket.gethostname()
+        self.hostname = socket.getfqdn()
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
         event_handlers['PROCESS_COMMUNICATION'] = self.event_process_communication
@@ -223,11 +223,25 @@ class EventManager(object):
 
     def check_ntp_status(self):
         if platform.system() != 'Windows':
+            drift = False
             ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
             proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE,
                          close_fds=True)
             (_, _) = proc.communicate()
-            if proc.returncode != 0:
+            if proc.returncode != 0 and 'CONFIG_NODES' in os.environ:
+                config_nodes=os.environ['CONFIG_NODES'].split(",")
+                clockdiff_drift = False
+                for config_node in config_nodes:
+                    process = Popen(['/usr/sbin/clockdiff', '-o', config_node],
+                                    stdout=PIPE, stderr=PIPE,close_fds=True)
+                    stdout, stderr = process.communicate()
+                    if process.returncode == 0:
+                        drift_time = stdout.split(" ")
+                        if not int(drift_time[1]) in range(-10,10):
+                            drift = True
+                    else:
+                        drift = True
+            if proc.returncode != 0 and drift:
                 self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
             else:
                 self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
@@ -269,11 +283,14 @@ class EventManager(object):
         (core_pattern, _) = Popen(
                 cat_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
-        if core_pattern is not None and not core_pattern.startswith('|'):
+        if core_pattern is not None and not core_pattern.startswith('|') \
+            and core_pattern != ".":
             dirname_cmd = "dirname " + core_pattern
-            (self.core_file_path, _) = Popen(
+            (core_file_path, _) = Popen(
                 dirname_cmd.split(),
                 stdout=PIPE, close_fds=True).communicate()
+            if core_file_path.rstrip() != ".":
+                self.core_file_path = core_file_path
         return self.core_file_path.rstrip()
 
     def get_corefiles(self):
