@@ -1,0 +1,52 @@
+{
+   "input_schema":{
+       "$schema":"http://json-schema.org/draft-06/schema#",
+       "maxProperties":1,
+       "additionalProperties":false,
+       "properties":{
+           "fib_options":{
+               "$id":"/properties/fib_options",
+               "type":"string",
+               "enum": ["mac-table", "ip-prefix-database"]
+           }
+       }
+
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Generic Job Output",
+      "type":"object",
+      "properties":{
+         "status":{
+            "type":"string",
+            "enum":[
+               "Success",
+               "Failure",
+               "Timeout"
+            ],
+            "description":"Result status of the job"
+         },
+         "message":{
+            "type":"string",
+            "description":"Should capture a summarized error message in case of Failures."
+         },
+         "results":{
+            "type":"object",
+            "description":"JSON object holding the job specific output details",
+            "properties":{
+              "prefix":{
+                 "type":"string",
+                 "description":"CIDR of evpn prefixes"
+              },
+              "route_status":{
+                  "type":"string",
+                  "description":"status of the evpn route - typically Created"
+              }
+            }
+         }
+      },
+      "required":[
+         "status"
+      ]
+   }
+}
