@@ -46,9 +46,45 @@ class JobHandler(object):
         self._prouter_info = {}
     # end __init__
 
+
+    def get_pr_uve_name_from_device_name(self, playbook_info):
+        pr_uve_name = None
+        device_fqname = \
+            playbook_info['extra_vars']['playbook_input'].get(
+                'device_fqname')
+        if device_fqname:
+            pr_fqname = ':'.join(map(str, device_fqname))
+            job_template_fq_name = ':'.join(map(str, self._job_template.fq_name))
+            pr_uve_name = pr_fqname + ":" + \
+                          self._fabric_fq_name + ":" +\
+                          job_template_fq_name
+        return pr_uve_name
+
+
+    def check_and_send_prouter_job_uve_for_multidevice(self,
+        playbook_info,
+        job_status,
+        playbook_output_results=None):
+        # For multi device job templates, we need to send the prouter job
+        # uves as soon as they are complete in order to prevent them
+        # from waiting until the job completes.
+        if self._job_template.get_job_template_multi_device_job():
+
+            pr_uve_name = self.get_pr_uve_name_from_device_name(
+                playbook_info)
+            self.send_prouter_job_uve(
+                self._job_template.fq_name,
+                pr_uve_name,
+                self._execution_id,
+                job_status=job_status,
+                percentage_completed=100,
+                device_op_results=playbook_output_results
+            )
+
     def handle_job(self, result_handler, job_percent_per_task,
                    device_id=None, device_name=None):
         playbook_output = None
+        playbook_info = None
         try:
             msg = "Starting playbook execution for job template %s with " \
                   "execution id %s" % (self._job_template.get_uuid(),
@@ -63,15 +99,26 @@ class JobHandler(object):
                 playbook_info,
                 result_handler.percentage_completed)
 
+            # retrieve the device_op_results in case it was set for
+            # generic device operations.
+            playbook_output_results = None
+            if playbook_output != None:
+                playbook_output_results = playbook_output.get('results')
+
             msg = MsgBundle.getMessage(
                 MsgBundle.PLAYBOOK_EXECUTION_COMPLETE,
                 job_template_name=self._job_template.get_fq_name()[-1],
                 job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg,
-                                             device_id, device_name)
+                                             device_id, device_name,
+                                             pb_results=playbook_output_results)
             if playbook_output:
                 result_handler.update_playbook_output(playbook_output)
+
+            self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
+                                                                JobStatus.SUCCESS.value,
+                                                                playbook_output_results)
 
             if self.current_percentage:
                 result_handler.percentage_completed = self.current_percentage
@@ -81,11 +128,18 @@ class JobHandler(object):
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, job_exp.msg,
                                              device_id, device_name)
+            if playbook_info:
+                self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
+                                                                JobStatus.FAILURE.value)
+
         except Exception as exp:
             self._logger.error("Error while executing job %s " % repr(exp))
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, exp.message,
                                              device_id, device_name)
+            if playbook_info:
+                self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
+                                                                JobStatus.FAILURE.value)
     # end handle_job
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
@@ -287,21 +341,26 @@ class JobHandler(object):
     # end process_file_and_get_marked_output
 
     def send_prouter_job_uve(self, job_template_fqname, pr_uve_name, exec_id,
-                         job_status, percentage_completed):
+                         job_status, percentage_completed, device_op_results=None):
         try:
-            self._logger.info("Calling send_prouter_job_uve(%s, %s, %s, %s, %s)" % (
+            self._logger.info(
+                "Calling send_prouter_job_uve(%s, %s, %s, %s, %s, %s)" % (
                 job_template_fqname,
                 pr_uve_name,
                 str(exec_id),
                 job_status,
-                percentage_completed
+                percentage_completed,
+                json.dumps(
+                    device_op_results) if device_op_results else "{}"
             ))
             self._job_log_utils.send_prouter_job_uve(
                 job_template_fqname,
                 pr_uve_name,
                 exec_id,
-                job_status,
-                percentage_completed
+                job_status=job_status,
+                percentage_completed=percentage_completed,
+                device_op_results=json.dumps(
+                    device_op_results)if device_op_results else "{}"
             )
             self._logger.info("DONE")
 
@@ -354,7 +413,6 @@ class JobHandler(object):
 
     def run_playbook_process(self, playbook_info, percentage_completed):
         playbook_process = None
-        pr_uve_name = None
 
         self.current_percentage = percentage_completed
         try:
@@ -366,15 +424,7 @@ class JobHandler(object):
             exec_id =\
                 playbook_info['extra_vars']['playbook_input'][
                     'job_execution_id']
-
-            device_fqname = \
-                playbook_info['extra_vars']['playbook_input'].get(
-                    'device_fqname')
-            if device_fqname:
-                pr_fqname = ':'.join(map(str, device_fqname))
-                job_template_fq_name = ':'.join(map(str, self._job_template.fq_name))
-                pr_uve_name = pr_fqname + ":" + \
-                    self._fabric_fq_name + ":" + job_template_fq_name
+            pr_uve_name = self.get_pr_uve_name_from_device_name(playbook_info)
 
             playbook_process = subprocess32.Popen(["python",
                                                    playbook_exec_path,
@@ -478,3 +528,4 @@ class JobHandler(object):
 
         return retval
     # end _extract_marked_json
+
