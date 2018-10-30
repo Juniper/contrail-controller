@@ -1714,6 +1714,10 @@ class FilterModule(object):
         bgp_router_obj = None
         device_obj = device_roles.get('device_obj')
         rb_roles = device_roles.get('routing_bridging_roles', [])
+        phys_role = device_obj.get_physical_router_role()
+        if phys_role == 'pnf':
+            self._logger.debug("BGP router not needed for PNF device")
+            return
         if device_obj.physical_router_loopback_ip:
             bgp_router_fq_name = _bgp_router_fq_name(device_obj.name)
             bgp_router_name = bgp_router_fq_name[-1]
