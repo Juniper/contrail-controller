@@ -76,6 +76,7 @@ local_sources = [
     'device_manager/plugins/ansible/ansible_role_common.py',
     'device_manager/plugins/ansible/job_handler.py',
     'device_manager/plugins/ansible/overlay/overlay_conf.py',
+    'device_manager/plugins/ansible/pnf/pnf_conf.py',
     'device_manager/plugins/juniper/juniper_conf.py',
     'device_manager/plugins/juniper/mx/mx_conf.py',
     'device_manager/plugins/juniper/mx-e2/e2_conf.py',
