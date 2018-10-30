@@ -1,0 +1,104 @@
+{
+   "input_schema":{
+       "$schema":"http://json-schema.org/draft-06/schema#",
+       "additionalProperties":false,
+       "properties":{
+           "interface_type":{
+               "$id":"/properties/interface_type",
+               "type":"string",
+               "default": "physical",
+               "enum": ["physical", "logical"]
+           },
+           "interface_filters":{
+               "$id":"/properties/interface_filters",
+               "type":"array",
+               "items":{
+                   "$id":"/properties/interface_filters/items",
+                   "type":"object",
+                   "maxProperties":2,
+                   "additionalProperties":false,
+                   "properties": {
+                       "op": { "enum": ["regex", "startwith"]},
+                       "expr": { "type": "string" }
+                   },
+                   "title":"filter object",
+                   "description":"filter object having op and expr fields",
+                   "default":{},
+                   "examples":[
+                       {"op":"regex", "expr": "^ge-"},
+                       {"op":"regex", "expr": "^xe"}
+                   ]
+               }
+           }
+       }
+
+   },
+   "input_ui_schema":{
+       "interface_type": {
+           "ui:help": "Select one type at a time"
+       },
+       "interface_filters": {
+           "op": {
+              "ui:placeholder": "regex"
+           },
+           "expr": {
+               "ui:placeholder": "^ge-|^xe"
+           },
+           "ui:help": "filter using regex"
+       }
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Show interfaces command Job Output",
+      "type":"array",
+      "items":{
+        "type": "object",
+        "properties": {
+            "parent_name": {
+                "type": "string",
+                "title": "Switch/PhysicalInterface",
+                "description": "name of the parent of the interface"
+            },
+            "name": {
+                "type": "string",
+                "title": "Interface",
+                "description": "name of the interface"
+            },
+            "description": {
+                "type": "string",
+                "title": "Description",
+                "description": "description of the interface if set"
+            },
+            "op_status": {
+                "type": "string",
+                "title": "Operational Status",
+                "description": "operational status of the interface"
+            },
+            "admin_status": {
+                "type": "string",
+                "title": "Admin Status",
+                "description": "admin status of the interface"
+            },
+            "address_family": {
+                "type": "string",
+                "title": "Address Family",
+                "description": "Address family if present"
+            },
+            "input_rate": {
+                "type": "string",
+                "title": "InputRate (bps)",
+                "description": "input packets rate in bits per second if present"
+            },
+            "output_rate": {
+                "type": "string",
+                "title": "OutputRate (bps)",
+                "description": "output packets rate in bits per second if present"
+            }
+        },
+        "required":[
+           "name"
+        ]
+      }
+   }
+}
+

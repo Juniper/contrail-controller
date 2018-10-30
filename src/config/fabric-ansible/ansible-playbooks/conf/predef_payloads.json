@@ -12,6 +12,7 @@
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
           "job_template_concurrency_level": "device",
+          "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -33,6 +34,7 @@
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
           "job_template_concurrency_level": "fabric",
+          "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -53,6 +55,7 @@
           "name": "generate_underlay_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
@@ -75,6 +78,7 @@
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
           "job_template_concurrency_level": "fabric",
+          "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -95,6 +99,7 @@
           "name": "device_import_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -116,6 +121,7 @@
           "name": "fabric_config_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "config",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
@@ -137,6 +143,7 @@
           "name": "ztp_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -158,6 +165,7 @@
           "name": "fabric_deletion_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -179,6 +187,7 @@
           "name": "device_deletion_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -200,6 +209,7 @@
           "name": "role_assignment_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "config",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -221,6 +231,7 @@
           "name": "topology_discovery_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -242,6 +253,7 @@
           "name": "fabric_onboard_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -289,11 +301,60 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "show_interfaces_template"
+          ],
+          "name": "show_interfaces_template",
+          "description": "This command is used to get a list of physical or logical interfaces from a device and interfaces' operational state information.",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_type": "device_operation",
+          "job_template_concurrency_level": "device",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/execute_command_on_device.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "job_template_input_ui_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "show_fib_template"
+          ],
+          "name": "show_fib_template",
+          "description": "This command is used to get a list of evpn fibs."
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_type": "device_operation",
+          "job_template_concurrency_level": "device",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/execute_command_on_device.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "job_template_input_ui_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "existing_fabric_onboard_template"
           ],
           "name": "existing_fabric_onboard_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
