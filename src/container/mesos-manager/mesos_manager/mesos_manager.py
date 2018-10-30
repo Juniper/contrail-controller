@@ -35,18 +35,18 @@ class MesosNetworkManager(object):
         self.cni_server = cni_server.MesosCniServer(args=self.args,
                                            logger=self.logger,
                                            queue=self.queue)
+        self.vnc = vnc_mesos.VncMesos(self.args, self.logger, self.queue)
     # end __init__
 
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
+	self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
         self.greenlets.append(gevent.spawn(self.cni_server.start_server))
-        #TODO: Add VNC server listener
         gevent.joinall(self.greenlets)
     # end start_tasks
 
     def run_mesos_manager(self):
         self.logger.info("Starting mesos manager.")
-        self.vnc = vnc_mesos.VncMesos(self.args, self.logger, self.queue)
 
 
 # end class MesosNetworkManager
