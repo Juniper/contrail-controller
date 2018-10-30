@@ -64,6 +64,7 @@ class AnsibleConf(AnsibleBase):
         self.inet4_forwarding_filter = None
         self.inet6_forwarding_filter = None
         self.vlan_map = {}
+        self.sc_zone_map = {}
         self.bgp_peers = {}
         self.external_peers = {}
         self.timeout = 120
@@ -363,6 +364,7 @@ class AnsibleConf(AnsibleBase):
         device.set_routing_instances(self.get_values_sorted_by_key(self.ri_map))
         device.set_vlans(self.get_values_sorted_by_key(self.vlan_map))
         device.set_firewall(self.firewall_config)
+        device.set_security_zones(self.get_values_sorted_by_key(self.sc_zone_map))
         return device
     # end prepare_conf
 
