@@ -176,6 +176,7 @@ struct FabricJobExecution {
     /* Percentage completion for this job execution */
     5: double                           percentage_completed;
     6: string                           job_status;
+    7: string                           device_op_results;
     // Add additional items here as needed
 }
 

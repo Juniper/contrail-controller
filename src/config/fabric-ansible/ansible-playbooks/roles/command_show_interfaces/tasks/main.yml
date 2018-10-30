@@ -1,0 +1,45 @@
+---
+
+
+- name: check to see if the ansible file for the vendor and family exists
+  stat:
+    path: "{{device_vendor}}/{{device_family}}.yml"
+  register: p
+
+- name: check if the yml file exists, if not use the generic-family_vendor file and record the resp in command_resp
+  include_tasks: "{{device_vendor}}_{{device_family}}.yml"
+  when: p.stat.exists
+
+# this is assuming device family is of the form: vendor_os-device_family. Ex: junos-qfx
+- name: Execute commands on device from default location
+  block:
+    - set_fact:
+        device_family_mod: "{{ device_family.split('-')[0] | lower }}"
+    - include_tasks: "{{device_vendor}}/{{device_family_mod}}.yml"
+  when: p.stat.exists == False
+
+- name: parse the command_resp into the output schema format (mentioned under command_output)
+  template:
+    src: "{{device_vendor}}_{{device_family}}.j2"
+    dest: "{{ command_dir }}/{{device_management_ip}}.json"
+    register: command_output
+  vars:
+    command_resp: "{{command_resp}}"
+
+- name: Mocking the command_output at present just for POC
+  set_fact:
+    command_output: {
+      "interface_stats": [
+        {
+          "interface_name": "xe-0/0/0",
+          "rate": 50
+        },
+        {
+          "interface_name": "ge-0/0/1",
+          "rate": 150
+        }
+        ]
+    }
+
+- name: print command response
+  debug: var=command_output verbosity=1
