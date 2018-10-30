@@ -412,6 +412,7 @@ class VncApiServer(object):
     def _extracted_file_output(self, execution_id):
         status = "FAILURE"
         prouter_info = {}
+        device_op_results = {}
         try:
             with open("/tmp/"+execution_id, "r") as f_read:
                 for line in f_read:
@@ -422,13 +423,18 @@ class VncApiServer(object):
                     if line.startswith('job_summary'):
                         job_log = self._load_job_log('JOB_LOG##', line)
                         status = job_log.get('job_status')
+                    if 'GENERIC_DEVICE##' in line:
+                        job_log = self._load_job_log(
+                            'GENERIC_DEVICE##', line)
+                        device_name = job_log.get('device_name')
+                        device_op_results[device_name] = job_log.get('command_output')
         except Exception as e:
             msg = "File corresponding to execution id %s not found: %s\n%s" % (
                 execution_id, str(e), cfgm_common.utils.detailed_traceback()
             )
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
 
-        return status, prouter_info
+        return status, prouter_info, device_op_results
 
 
     def job_mgr_signal_handler(self, signalnum, frame):
@@ -445,7 +451,8 @@ class VncApiServer(object):
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
             exec_id = signal_var.get('exec_id')
 
-            status, prouter_info = self._extracted_file_output(exec_id)
+            status, prouter_info, device_op_results = \
+                self._extracted_file_output(exec_id)
             self.job_status[exec_id] = status
 
             if signal_var.get('fabric_name') is not \
@@ -462,7 +469,10 @@ class VncApiServer(object):
                     prouter_job_data = PhysicalRouterJobExecution(
                         name=prouter_uve_name,
                         job_status=status,
-                        percentage_completed=100
+                        percentage_completed=100,
+                        device_op_results=json.dumps(
+                            device_op_results.get(prouter_uve_name.split(
+                                ":")[1], {}))
                     )
                     prouter_job_uve = PhysicalRouterJobUve(
                         data=prouter_job_data, sandesh=self._sandesh)
@@ -3730,6 +3740,8 @@ class VncApiServer(object):
                             "input_schema")
                         object["job_template_output_schema"] = schema_json.get(
                             "output_schema")
+                        object["job_template_input_ui_schema"] = schema_json.get(
+                            "input_ui_schema")
 
         return input_json
     # end load json data

@@ -197,6 +197,7 @@ struct PhysicalRouterJobExecution {
     5: string                           prouter_state;
     6: double                           percentage_completed;
     7: string                           job_status;
+    8: string                           device_op_results;
     // Add additional items here as needed
 }
 
