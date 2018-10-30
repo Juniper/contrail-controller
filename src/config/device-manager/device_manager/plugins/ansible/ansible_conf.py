@@ -222,10 +222,10 @@ class AnsibleConf(AnsibleBase):
             current_config_hash = md5(config_str).hexdigest()
             if self.last_config_hash is None or\
                     current_config_hash != self.last_config_hash:
-                self._logger.info("config push for %s(%s) using job template %s" %
+                self._logger.info("Config push for %s(%s) using job template %s" %
                           (self.physical_router.name, self.physical_router.uuid,
                            str(job_template)))
-                self._logger.debug("playbook send message: %s" %
+                self._logger.debug("Abstract config: %s" %
                                    json.dumps(job_input, indent=4,
                                               sort_keys=True))
                 device_manager = DeviceManager.get_instance()
@@ -252,6 +252,9 @@ class AnsibleConf(AnsibleBase):
         except Exception as e:
             self._logger.error("Router %s: %s" %
                                (self.physical_router.management_ip, repr(e)))
+            self._logger.error("Abstract config: %s" %
+                               json.dumps(job_input, indent=4,
+                                          sort_keys=True))
             self.commit_stats[
                     'commit_status_message'] = 'failed to apply config,\
                                                 router response: ' + e.message
