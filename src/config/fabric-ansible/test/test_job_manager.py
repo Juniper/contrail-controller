@@ -52,7 +52,7 @@ class TestJobManager(test_case.JobTestCase):
                                      vendor='Juniper',
                                      device_family='MX')
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
-        job_template = JobTemplate(
+        job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=False,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template')
@@ -84,7 +84,7 @@ class TestJobManager(test_case.JobTestCase):
             device_family='QFX')
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info,
                                                              play_info1])
-        job_template = JobTemplate(
+        job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=False,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template1')
@@ -114,7 +114,7 @@ class TestJobManager(test_case.JobTestCase):
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info, play_info1])
-        job_template = JobTemplate(
+        job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multidevice')
@@ -144,7 +144,7 @@ class TestJobManager(test_case.JobTestCase):
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_qfx, play_info_mx])
-        job_template = JobTemplate(
+        job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multidevfamilies')
@@ -182,7 +182,7 @@ class TestJobManager(test_case.JobTestCase):
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_qfx, play_info_mx, play_info_2])
-        job_template = JobTemplate(
+        job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multi_devfamilies')
@@ -220,7 +220,7 @@ class TestJobManager(test_case.JobTestCase):
             playbook_info=[play_info_arista_df,
                            play_info_juniper_qfx,
                            play_info_juniper_mx])
-        job_template = JobTemplate(
+        job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multivendors')
@@ -251,7 +251,7 @@ class TestJobManager(test_case.JobTestCase):
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_juniper_qfx,
                            play_info_vendor_agnostic])
-        job_template = JobTemplate(
+        job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_no_vendor')
