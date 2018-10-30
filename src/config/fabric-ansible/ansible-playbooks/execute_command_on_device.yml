@@ -1,0 +1,101 @@
+---
+- name: Generic Device Operations entry point
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+
+  vars:
+    input: "{{ playbook_input.input }}"
+    device_op: "{{ playbook_input.job_template_fqname[-1].split('_template')[0] }}"
+    device_family: "{{ playbook_input.device_family }}"
+    device_vendor: "{{ playbook_input.vendor | lower }}"
+    device_management_ip: "{{playbook_input.device_management_ip}}"
+    device_username: "{{playbook_input.device_username}}"
+    device_password: "{{playbook_input.device_password}}"
+    device_name: "{{playbook_input.device_fqname[-1]}}"
+    results: {}
+    command_resp: {}
+    command_output: {}
+    command_dir: "generic_device_operations/{{device_op}}"
+
+  pre_tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[20, 80] })}}"
+
+    - name: create folder for json results
+      file:
+        path: "{{ command_dir }}"
+        state: directory
+
+  tasks:
+    - name: call the appropriate command role
+      block:
+        - name: check to see if the ansible file for the vendor and family exists
+          stat:
+            path: "roles/command_{{device_op}}/tasks/{{device_vendor}}_{{device_family}}.yml"
+          register: p
+
+        - name: set device_family_mod to actual vendor-family location
+          set_fact:
+            device_family_mod: "{{device_family}}"
+          when: p.stat.exists
+
+        # this is assuming device family is of the form: vendor_os-device_family. Ex: junos-qfx
+        - name: set device_family_mod to default location
+          set_fact:
+            device_family_mod: "{{ device_family.split('-')[0] | lower }}"
+          when: p.stat.exists == False
+
+        - name: Execute commands on device using the family_vendor file and record the resp in command_resp
+          include_tasks: "roles/command_{{device_op}}/tasks/{{device_vendor}}_{{device_family_mod}}.yml"
+
+        - name: parse the command_resp into the output schema format (mentioned under command_output)
+          template:
+            src: "roles/command_{{device_op}}/templates/{{device_vendor}}_{{device_family_mod}}.j2"
+            dest: "{{ command_dir }}/{{device_management_ip}}.json"
+          vars:
+            input_params: "{{input}}"
+            command_resp: "{{command_resp}}"
+
+        - name:
+          include_vars:
+            file: "{{ command_dir }}/{{device_management_ip}}.json"
+            name: command_output
+      rescue:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          when: "'failed' in command_resp and command_resp.failed == true"
+          vars:
+            op_err_message: "Error while trying to execute command: {{command_resp.msg}}"
+            jl_err_message: "Error while trying to execute command: {{command_resp.msg}}"
+
+    - name: print command response
+      debug: var=command_output verbosity=1
+
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Generic Device Operation for device: {{device_name}} successful"
+            }
+
+    - set_fact:
+        results: "{{results|combine({
+          'device_name': device_name,
+          'command_output': command_output
+        })}}"
+
+    - name: insert/update in /tmp/<exec-id> file
+      set_fact:
+        write_resp: "{{job_ctx | report_playbook_results(results)}}"
+
+
+    - name: Update Job log with generic device job completed status
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+        message: "Completed generic device operation for {{device_name}}"
+        device_name: "{{device_name}}"
+
