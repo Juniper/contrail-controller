@@ -30,6 +30,7 @@ class FilterModule(object):
     def filters(self):
         return {
             'report_percentage_completion': self.report_percentage_completion,
+            'report_playbook_results': self.report_playbook_results,
         }
 
     def get_job_ctx_details(self, job_ctx):
@@ -43,6 +44,16 @@ class FilterModule(object):
         return {
             'status': 'success',
             'write_to_file_log': 'Successfully wrote progress to streaming file'
+        }
+
+    def report_playbook_results(self, job_ctx, pb_results):
+        exec_id, unique_pb_id = self.get_job_ctx_details(job_ctx)
+        self._job_file_write.write_to_file(
+            exec_id, unique_pb_id, JobFileWrite.GEN_DEV_OP_RES, str(pb_results)
+        )
+        return {
+            'status': 'success',
+            'write_to_file_log': 'Successfully wrote command results to streaming file'
         }
 
 def _parse_args():
