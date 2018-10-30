@@ -51,6 +51,8 @@ local_sources = [
     'feature_config.yml',
     'role_assignment.yml',
     'percentage_update.yml',
+    'show_interfaces.yml',
+    'show_fib.yml',
 ]
 
 local_sources_rules = []
