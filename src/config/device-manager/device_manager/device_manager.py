@@ -46,7 +46,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
-    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM
+    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
+    ServiceApplianceDM, ServiceApplianceSetDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -400,6 +401,12 @@ class DeviceManager(object):
         si_obj_list = ServiceInstanceDM.list_obj()
         si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
         self._object_db.handle_pnf_resource_deletes(si_uuid_set)
+
+        for obj in ServiceApplianceSetDM.list_obj():
+            ServiceApplianceSetDM.locate(obj['uuid'], obj)
+
+        for obj in ServiceApplianceDM.list_obj():
+            ServiceApplianceDM.locate(obj['uuid'], obj)
 
         for obj in si_obj_list:
             ServiceInstanceDM.locate(obj['uuid'], obj)

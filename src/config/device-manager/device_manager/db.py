@@ -1531,6 +1531,81 @@ class RoutingInstanceDM(DBBaseDM):
     # end delete
 # end RoutingInstanceDM
 
+class ServiceApplianceDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_appliance'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliance_set = None
+        self.physical_interfaces = {}
+        self.kvpairs = []
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        kvpairs = obj.get('service_appliance_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.service_appliance_set = self.get_parent_uuid(obj)
+        self.physical_interfaces = {}
+        ref_objs = obj.get("physical_interface_refs",[])
+        for ref in ref_objs:
+            self.physical_interfaces[ref[
+                    'attr'].get('interface_type')] = ref['uuid']
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        del cls._dict[uuid]
+    # end delete
+# end ServiceApplianceDM
+
+
+class ServiceApplianceSetDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_appliance_set'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliances = set()
+        self.service_template = None
+        self.kvpairs = []
+        self.ha_mode = "standalone"
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref("service_template", obj)
+        kvpairs = obj.get('service_appliance_set_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.service_appliances = set(
+            [sa['uuid'] for sa in obj.get('service_appliances', [])])
+        if 'service_appliance_ha_mode' in obj:
+            self.ha_mode = obj['service_appliance_ha_mode']
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref("service_template",{})
+        del cls._dict[uuid]
+    # end delete
+# end ServiceApplianceSetDM
 
 class ServiceInstanceDM(DBBaseDM):
     _dict = {}
