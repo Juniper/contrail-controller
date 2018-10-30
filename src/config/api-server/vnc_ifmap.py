@@ -310,15 +310,15 @@ class VncIfmapServer(Bottle):
                 if link_info.get('other') is None:
                     property_items += metadata[10:-11]
                 else:
-                    meta_name = link_key.split()[0]
-                    other_name = link_key.split()[1]
+                    meta_name, _, other_name = link_key.partition(' ')
                     rev_link_key = '%s %s' % (meta_name, id_name)
                     if other_name in cls._graph:
                         cls._graph[other_name]['links'].pop(rev_link_key, None)
                     items += "<resultItem>%s%s%s</resultItem>" %\
                              (id_str, link_info['other'], link_info['meta'])
                     # delete ident if no links left
-                    if not cls._graph[other_name]['links']:
+                    if (other_name in cls._graph and
+                            not cls._graph[other_name].get('links')):
                         del cls._graph[other_name]
             if property_items:
                 items += ('<resultItem>%s<metadata>%s</metadata></resultItem>'
