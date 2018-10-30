@@ -47,7 +47,9 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
+    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM, \
     DataCenterInterconnectDM
+
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -87,6 +89,8 @@ class DeviceManager(object):
             'fabric': [],
             'fabric_namespace': [],
             'link_aggregation_group': [],
+            'service_instance': [],
+            'service_appliance': [],
         },
         'global_system_config': {
             'self': ['physical_router', 'data_center_interconnect'],
@@ -129,6 +133,8 @@ class DeviceManager(object):
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_router'],
             'physical_interface': ['physical_router'],
+            'service_appliance': ['physical_router'],
+            'port_tuple': ['physical_router', 'physical_interface'],
             'virtual_machine_interface': ['physical_interface'],
         },
         'logical_interface': {
@@ -141,6 +147,9 @@ class DeviceManager(object):
                                           'physical_interface'],
             'physical_router': ['virtual_machine_interface'],
             'instance_ip': ['physical_interface'],
+        },
+        'service_appliance': {
+            'self': ['physical_interface'],
         },
         'virtual_machine_interface': {
             'self': ['logical_interface',
@@ -174,7 +183,8 @@ class DeviceManager(object):
             'port_tuple': [],
         },
         'port_tuple': {
-            'self': ['virtual_machine_interface', 'service_instance'],
+            'self': ['virtual_machine_interface', 'service_instance', 'physical_interface'],
+            'logical_router': ['physical_interface'],
             'service_instance': ['virtual_machine_interface'],
             'virtual_machine_interface': ['service_instance']
         },
@@ -190,7 +200,8 @@ class DeviceManager(object):
             'floating_ip_pool': ['physical_router'],
         },
         'logical_router': {
-            'self': ['physical_router', 'virtual_network'],
+            'self': ['physical_router', 'virtual_network', 'port_tuple'],
+            'port_tuple': ['physical_router'],
             'physical_router': [],
             'data_center_interconnect': ['physical_router'],
             'virtual_network': ['physical_router'],
@@ -416,6 +427,15 @@ class DeviceManager(object):
         si_obj_list = ServiceInstanceDM.list_obj()
         si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
         self._object_db.handle_pnf_resource_deletes(si_uuid_set)
+
+        for obj in ServiceApplianceSetDM.list_obj():
+            ServiceApplianceSetDM.locate(obj['uuid'], obj)
+
+        for obj in ServiceApplianceDM.list_obj():
+            ServiceApplianceDM.locate(obj['uuid'], obj)
+
+        for obj in ServiceTemplateDM.list_obj():
+            ServiceTemplateDM.locate(obj['uuid'], obj)
 
         for obj in si_obj_list:
             ServiceInstanceDM.locate(obj['uuid'], obj)

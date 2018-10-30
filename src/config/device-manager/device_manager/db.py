@@ -1000,6 +1000,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.physical_router = None
+        self.port_tuples = set()
         self.logical_interfaces = set()
         self.virtual_machine_interfaces = set()
         self.physical_interfaces = set()
@@ -1025,6 +1026,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.interface_type = obj.get('physical_interface_type')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
+        self.update_multiple_refs('port_tuple', obj)
         return obj
     # end update
 
@@ -1057,6 +1059,7 @@ class PhysicalInterfaceDM(DBBaseDM):
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('physical_interface', {})
+        self.update_multiple_refs('port_tuple', {})
         self.set_parent_ae_id(None)
         self.remove_from_parent()
     # end delete_obj
@@ -1410,6 +1413,7 @@ class LogicalRouterDM(DBBaseDM):
         self.virtual_machine_interfaces = set()
         # internal virtual-network
         self.virtual_network = None
+        self.port_tuples = set()
         self.update(obj_dict)
     # end __init__
 
@@ -1426,6 +1430,7 @@ class LogicalRouterDM(DBBaseDM):
         self.update_multiple_refs('physical_router', obj)
         self.update_single_ref('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('port_tuple', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
     # end update
@@ -1452,6 +1457,7 @@ class LogicalRouterDM(DBBaseDM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('physical_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('port_tuple', {})
         obj.update_single_ref('virtual_network', None)
         obj.update_single_ref('data_center_interconnect', None)
         del cls._dict[uuid]
@@ -1718,6 +1724,113 @@ class RoutingInstanceDM(DBBaseDM):
     # end delete
 # end RoutingInstanceDM
 
+class ServiceTemplateDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_template'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_instances = set()
+        self.virtualization_type = 'physical-device'
+        self.service_appliance_set = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.params = obj.get('service_template_properties')
+        if self.params:
+            self.virtualization_type = self.params.get(
+                'service_virtualization_type') or 'physical-device'
+        self.update_multiple_refs('service_instance', obj)
+        self.update_single_ref('service_appliance_set', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('service_instance', {})
+        obj.update_single_ref('service_appliance_set', {})
+        del cls._dict[uuid]
+    # end delete
+
+# end class ServiceTemplateDM
+
+class ServiceApplianceDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_appliance'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliance_set = None
+        self.physical_interfaces = {}
+        self.kvpairs = []
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        kvpairs = obj.get('service_appliance_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.service_appliance_set = self.get_parent_uuid(obj)
+        self.update_multiple_refs_with_attr('physical_interface', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs_with_attr('physical_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end ServiceApplianceDM
+
+class ServiceApplianceSetDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_appliance_set'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliances = set()
+        self.service_template = None
+        self.kvpairs = []
+        self.ha_mode = "active-active"
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref("service_template", obj)
+        kvpairs = obj.get('service_appliance_set_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.service_appliances = set(
+            [sa['uuid'] for sa in obj.get('service_appliances', [])])
+        self.ha_mode = obj.get('service_appliance_ha_mode')
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref("service_template",{})
+        del cls._dict[uuid]
+    # end delete
+# end ServiceApplianceSetDM
 
 class ServiceInstanceDM(DBBaseDM):
     _dict = {}
@@ -1727,8 +1840,14 @@ class ServiceInstanceDM(DBBaseDM):
         self.uuid = uuid
         self.fq_name = None
         self.name = None
+        self.params = None
+        self.service_template = None
+        self.bindings = None
+        self.kvps = None
         self.port_tuples = set()
-        self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
+        self.set_children('port_tuple', obj_dict)
+        self.add_to_parent(obj_dict)
     # end
 
     def update(self, obj=None):
@@ -1736,15 +1855,22 @@ class ServiceInstanceDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = "-".join(self.fq_name)
+        self.params = obj.get('service_instance_properties', None)
+        self.bindings = obj.get('service_instance_bindings', None)
+        if self.bindings:
+            self.kvps = self.bindings.get('key_value_pair', None)
+        self.update_single_ref('service_template', obj)
+        self.bgp_enabled = obj.get('service_instance_bgp_enabled')
     # end
 
     @classmethod
     def delete(cls, uuid):
         obj = cls._dict[uuid]
+        obj.update_single_ref('service_template', {})
+        obj.remove_from_parent()
         obj._object_db.delete_pnf_resources(uuid)
         del cls._dict[uuid]
     # end
-
 
 class PortTupleDM(DBBaseDM):
     _dict = {}
@@ -1753,6 +1879,8 @@ class PortTupleDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
+        self.logical_routers = set()
+        self.physical_interfaces = set()
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1764,6 +1892,8 @@ class PortTupleDM(DBBaseDM):
         self.name = self.fq_name[-1]
         self.parent_uuid = self.get_parent_uuid(obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('logical_router', obj)
+        self.update_multiple_refs('physical_interface', obj)
         for vmi in self.virtual_machine_interfaces:
             vmi_obj = VirtualMachineInterfaceDM.get(vmi)
             if vmi_obj and not vmi_obj.service_instance:
@@ -1777,6 +1907,8 @@ class PortTupleDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('logical_router', {})
+        obj.update_multiple_refs('physical_interface', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
