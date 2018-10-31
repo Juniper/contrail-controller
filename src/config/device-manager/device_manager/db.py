@@ -364,6 +364,9 @@ class PhysicalRouterDM(DBBaseDM):
     # end
 
     def init_cs_state(self):
+        asn = self._object_db.get_asn_for_pr(self.uuid)
+        if asn:
+            self.allocated_asn = asn
         vn_subnet_set = self._object_db.get_pr_vn_set(self.uuid)
         for vn_subnet in vn_subnet_set:
             subnet = vn_subnet[0]
@@ -379,12 +382,6 @@ class PhysicalRouterDM(DBBaseDM):
             if ae_id:
                 self.ae_id_map[esi] = ae_id
                 self.ae_index_allocator.reserve_index(ae_id)
-        pr_asn_map = self._object_db.get_pr_asn_map(self.uuid)
-        if not pr_asn_map:
-            return
-        asn = self._object_db.get_asn_for_pr(self.uuid)
-        if asn:
-            self.allocated_asn = asn
     # end init_cs_state
 
     def reserve_ip(self, vn_uuid, subnet_uuid):
