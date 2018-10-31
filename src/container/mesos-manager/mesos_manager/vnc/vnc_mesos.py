@@ -85,6 +85,62 @@ class VncMesos(object):
                 fq_name=proj_fq_name)
         return proj_obj
 
+    def _attach_policy(self, vn_obj, *policies):
+        for policy in policies or []:
+            vn_obj.add_network_policy(policy,
+                VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
+        self.vnc_lib.virtual_network_update(vn_obj)
+        for policy in policies or []:
+            self.vnc_lib.ref_relax_for_delete(vn_obj.uuid, policy.uuid)
+
+    def _create_policy_entry(self, src_vn_obj, dst_vn_obj, src_np_obj=None):
+        if src_vn_obj:
+            src_addresses = [
+                AddressType(virtual_network = src_vn_obj.get_fq_name_str())
+            ]
+        else:
+            src_addresses = [
+                AddressType(network_policy = src_np_obj.get_fq_name_str())
+            ]
+        return PolicyRuleType(
+                direction = '<>',
+                action_list = ActionListType(simple_action='pass'),
+                protocol = 'any',
+                src_addresses = src_addresses,
+                src_ports = [PortType(-1, -1)],
+                dst_addresses = [
+                    AddressType(virtual_network = dst_vn_obj.get_fq_name_str())
+                ],
+                dst_ports = [PortType(-1, -1)])
+
+    def _create_np_vn_policy(self, policy_name, proj_obj, dst_vn_obj):
+        policy_exists = False
+        policy = NetworkPolicy(name=policy_name, parent_obj=proj_obj)
+        try:
+            policy_obj = self.vnc_lib.network_policy_read(
+                fq_name=policy.get_fq_name())
+            policy_exists = True
+        except NoIdError:
+            # policy does not exist. Create one.
+            policy_obj = policy
+        network_policy_entries = PolicyEntriesType()
+        policy_entry = self._create_policy_entry(None, dst_vn_obj, policy)
+        network_policy_entries.add_policy_rule(policy_entry)
+        policy_obj.set_network_policy_entries(network_policy_entries)
+        if policy_exists:
+            self.vnc_lib.network_policy_update(policy)
+        else:
+            self.vnc_lib.network_policy_create(policy)
+        return policy_obj
+
+    def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj, pod_task_vn_obj):
+        policy_name = vnc_mesos_config.cluster_name() + \
+            '-default-ip-fabric-np'
+        ip_fabric_policy = \
+            self._create_np_vn_policy(policy_name, proj_obj, ip_fabric_vn_obj)
+        self._attach_policy(ip_fabric_vn_obj, ip_fabric_policy)
+        self._attach_policy(pod_task_vn_obj, ip_fabric_policy)
+
     def _create_network(self, vn_name, vn_type, proj_obj,
             ipam_obj, ipam_update, provider=None):
         # Check if the VN already exists.
@@ -239,10 +295,13 @@ class VncMesos(object):
                 'pod-task-network', proj_obj,
                 ip_fabric_ipam_obj, ip_fabric_ipam_update, ip_fabric_vn_obj)
         else:
-            cluster_pod_vn_obj = self._create_network(
+            cluster_pod_task_vn_obj = self._create_network(
                 vnc_mesos_config.cluster_default_pod_task_network_name(),
                 'pod-task-network', proj_obj,
                 pod_task_ipam_obj, pod_task_ipam_update, ip_fabric_vn_obj)
+
+        self._create_attach_policy(proj_obj, ip_fabric_vn_obj,
+            cluster_pod_task_vn_obj)
 
     def process_q_event(self, event):
         """Process ADD/DEL event"""
