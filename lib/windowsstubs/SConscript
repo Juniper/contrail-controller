@@ -8,7 +8,7 @@ env.Append(CPPPATH = '#build/include')
 env.VariantDir('#/' + Dir('.').path + '/src', vpath, duplicate=0)
 buildpath = Dir('.').abspath + '/src'
 
-files = Glob(buildpath + '/misc/*.cc') + [
+files = [
     buildpath + '/isc/hmacsha.cc',
     buildpath + '/sys/eventfd.cc',
     buildpath + '/sys/ioctl.cc',
