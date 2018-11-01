@@ -111,4 +111,3 @@ class VncMesosConfig(object):
         if vn_name:
             return vn_name
         return cls.cluster_name() + '-default-pod-task-network'
-
