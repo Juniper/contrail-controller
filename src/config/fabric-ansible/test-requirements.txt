@@ -13,6 +13,5 @@ contrail-api-client
 contrail-api-server
 junitxml
 pyOpenSSL
-ansible
 timeout-decorator
 subprocess32
