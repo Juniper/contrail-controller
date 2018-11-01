@@ -614,7 +614,7 @@ TEST_F(BgpProtoTest, L3VPNUpdate) {
     }
 }
 
-TEST_F(BgpProtoTest, 32PlusExtCommunities) {
+TEST_F(BgpProtoTest, 100PlusExtCommunities) {
     BgpProto::Update update;
     BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::IPv4, BgpAf::Vpn);
     uint8_t data[BgpProto::kMaxMessageSize];
@@ -628,7 +628,7 @@ TEST_F(BgpProtoTest, 32PlusExtCommunities) {
         }
     }
     ASSERT_TRUE(ext_community != NULL);
-    for (uint i = 0; i < 32; ++i) {
+    for (uint i = 0; i < 100; ++i) {
         uint64_t value = 0x0002fc00007a1200ULL;
         ext_community->communities.push_back(value + i);
     }
