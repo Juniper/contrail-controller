@@ -12,6 +12,7 @@ import traceback
 import argparse
 import json
 import uuid
+import time
 from functools import reduce
 from netaddr import IPNetwork
 import jsonschema
@@ -448,11 +449,13 @@ class FilterModule(object):
 
             }
         except Exception as ex:
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
             return {
                 'status': 'failure',
-                'error_msg': str(ex),
+                'error_msg': errmsg,
                 'onboard_log': FilterLog.instance().dump()
             }
     # end onboard_fabric
@@ -513,11 +516,13 @@ class FilterModule(object):
 
             }
         except Exception as ex:
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
             return {
                 'status': 'failure',
-                'error_msg': str(ex),
+                'error_msg': errmsg,
                 'onboard_log': FilterLog.instance().dump()
             }
     # end onboard_existing_fabric
@@ -1346,11 +1351,13 @@ class FilterModule(object):
                 'deletion_log': FilterLog.instance().dump()
             }
         except Exception as ex:
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
             return {
                 'status': 'failure',
-                'error_msg': str(ex),
+                'error_msg': errmsg,
                 'deletion_log': FilterLog.instance().dump()
             }
     # end delete_fabric
@@ -1394,7 +1401,7 @@ class FilterModule(object):
             fabric_info = job_ctx.get('job_input')
             role_assignments = fabric_info.get('role_assignments', [])
 
-            # load device objects into each device's role assignment data
+            device2roles_mappings = {}
             for device_roles in role_assignments:
                 device_obj = vnc_api.physical_router_read(
                     fq_name=device_roles.get('device_fq_name'),
@@ -1407,13 +1414,23 @@ class FilterModule(object):
                     ]
                 )
                 device_roles['device_obj'] = device_obj
+                device2roles_mappings[device_obj] = device_roles
+
+            # disable device push
+            self._enable_device_push(
+                vnc_api, device2roles_mappings.keys(), False
+            )
+
+            # load supported roles from node profile assigned to the device
+            for device_obj, device_roles in device2roles_mappings.iteritems():
                 node_profile_refs = device_obj.get_node_profile_refs()
                 if not node_profile_refs:
                     self._logger.info(
                         "Capable role info not populated in physical router "
                         "(no node_profiles attached, cannot assign role for "
                         "device : %s" % device_obj.get(
-                        'physical_router_management_ip'))
+                            'physical_router_management_ip'
+                        ))
                 else:
                     node_profile_fq_name = node_profile_refs[0].get('to')
                     node_profile_obj = vnc_api.node_profile_read(
@@ -1444,19 +1461,39 @@ class FilterModule(object):
             for device_roles in role_assignments:
                 self._assign_device_roles(vnc_api, device_roles)
 
+            # sleep 10 seconds for schema transformer and DM to process the
+            # newly added bgp router before enabling device push
+            time.sleep(10)
+            self._enable_device_push(
+                vnc_api, device2roles_mappings.keys(), True
+            )
+
             return {
                 'status': 'success',
                 'assignment_log': FilterLog.instance().dump()
             }
         except Exception as ex:
-            self._logger.error(str(ex))
-            traceback.print_exc(file=sys.stdout)
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
             return {
                 'status': 'failure',
-                'error_msg': str(ex),
+                'error_msg': errmsg,
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
+
+    def _enable_device_push(self, vnc_api, device_objs, enable):
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_obj: List<vnc_api.gen.resource_client.PhysicalRouter>
+        :param enable: set to True to enable
+        """
+        for device_obj in device_objs:
+            device_obj.set_physical_router_vnc_managed(enable)
+            vnc_api.physical_router_update(device_obj)
+    # end _enable_device_push
 
     @staticmethod
     def _validate_role_assignment(role_assignments):
@@ -1704,7 +1741,6 @@ class FilterModule(object):
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
         """
-
         # get fabric object that this device belongs to
         fabric_network_obj = self._get_device_network(
             vnc_api, device_obj, NetworkType.FABRIC_NETWORK
