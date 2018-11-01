@@ -45,8 +45,8 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.ip_address}} peer-as {{peer.autonomous_system}}
 {%             endfor %}
 set groups {{cfg_group}} policy-options policy-statement PFE-LB then load-balance per-packet
-set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback from interface lo0.0
 set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback from protocol direct
+set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback from protocol bgp
 set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term loopback then accept
 set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_EXP term default then reject
 set groups {{cfg_group}} policy-options policy-statement IPCLOS_BGP_IMP term loopback from protocol bgp
