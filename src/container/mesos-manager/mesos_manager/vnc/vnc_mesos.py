@@ -16,6 +16,8 @@ from cfgm_common.exceptions import *
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
+from config_db import *
+import db
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -42,9 +44,26 @@ class VncMesos(object):
         self.vnc_mesos_config = vnc_mesos_config(logger=self.logger,
             vnc_lib=self.vnc_lib, args=self.args, queue=self.queue)
 
+        # init access to db
+        self._db = db.MesosNetworkManagerDB(self.args, self.logger)
+        DBBaseMM.init(self, self.logger, self._db)
+
+        # sync api server db in local cache
+        self._sync_mm()
+
         # provision cluster
         self._provision_cluster()
         VncMesos._vnc_mesos = self
+
+    def _sync_mm(self):
+        for cls in DBBaseMM.get_obj_type_map().values():
+            for obj in cls.list_obj():
+                cls.locate(obj['uuid'], obj)
+
+    @staticmethod
+    def reset():
+        for cls in DBBaseMM.get_obj_type_map().values():
+            cls.reset()
 
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
@@ -83,6 +102,7 @@ class VncMesos(object):
         except RefsExistError:
             proj_obj = self.vnc_lib.project_read(
                 fq_name=proj_fq_name)
+        ProjectMM.locate(proj_obj.uuid)
         return proj_obj
 
     def _attach_policy(self, vn_obj, *policies):
@@ -190,7 +210,7 @@ class VncMesos(object):
 
         vn_obj = self.vnc_lib.virtual_network_read(
             fq_name=vn_obj.get_fq_name())
-
+        VirtualNetworkMM.locate(vn_obj.uuid)
         return vn_obj
 
     def _create_ipam(self, ipam_name, subnets, proj_obj,
@@ -222,6 +242,7 @@ class VncMesos(object):
                 self.vnc_lib.network_ipam_update(ipam_obj)
                 ipam_update = True
 
+        NetworkIpamMM.locate(ipam_uuid)
         return ipam_update, ipam_obj, ipam_subnets
 
     def _is_ipam_exists(self, vn_obj, ipam_fq_name, subnet=None):
