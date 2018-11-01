@@ -56,9 +56,6 @@ class JobHandler(object):
             self._logger.debug("job started with execution id %s" %
                                job_execution_id)
             self._wait(vnc_api, job_execution_id, timeout, max_retries)
-            self._logger.debug("job handler: push succeeded for (%s, %s)"
-                               " execution id %s" % (self._device_list,
-                               str(self._job_type), job_execution_id))
         except Exception as e:
             self._logger.error("job handler: push failed for (%s, %s)"
                                " execution id %s: %s" % (self._device_list,
@@ -67,6 +64,9 @@ class JobHandler(object):
 
         if self._job_status == JobStatus.FAILED:
             raise Exception("job handler: push failed for (%s, %s)"
+                            " execution id %s" % (self._device_list,
+                            str(self._job_type), job_execution_id))
+        self._logger.debug("job handler: push succeeded for (%s, %s)"
                             " execution id %s" % (self._device_list,
                             str(self._job_type), job_execution_id))
     # end push
