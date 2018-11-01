@@ -278,17 +278,10 @@ class PhysicalRouterDM(DBBaseDM):
                 pass
     # end wait_for_config_push
 
-    def delete_obj(self):
+    def delete_handler(self):
         self.wait_for_config_push()
         if self.nc_handler_gl:
             gevent.kill(self.nc_handler_gl)
-
-        self.update_single_ref('bgp_router', {})
-        self.update_multiple_refs('virtual_network', {})
-        self.update_multiple_refs('logical_router', {})
-        self.update_multiple_refs('service_endpoint', {})
-        self.update_multiple_refs('e2_service_provider', {})
-        self.update_single_ref('fabric', {})
 
         if PushConfigState.is_push_mode_ansible() and self.config_manager:
             self.config_manager.push_conf(is_delete=True)
@@ -307,9 +300,20 @@ class PhysicalRouterDM(DBBaseDM):
             self.config_manager.push_conf(is_delete=True)
             self.config_manager.clear()
 
-        self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
         self.update_single_ref('node_profile', {})
+    # end delete_handler
+
+    def delete_obj(self):
+        self.update_single_ref('bgp_router', {})
+        self.update_multiple_refs('virtual_network', {})
+        self.update_multiple_refs('logical_router', {})
+        self.update_multiple_refs('service_endpoint', {})
+        self.update_multiple_refs('e2_service_provider', {})
+        self.update_single_ref('fabric', {})
+
+        self._object_db.delete_pr(self.uuid)
+        vnc_greenlets.VncGreenlet("VNC Device Manager", self.delete_handler)
     # end delete_obj
 
     @classmethod
