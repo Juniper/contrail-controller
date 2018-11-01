@@ -403,14 +403,14 @@ public:
     const EvpnMcastNodeList &leaf_node_list() const {
         return leaf_node_list_;
     }
-    EvpnMcastNodeList &remote_mcast_node_list() {
-        return remote_mcast_node_list_;
+    EvpnMcastNodeList *remote_mcast_node_list() {
+        return &remote_mcast_node_list_;
     }
-    EvpnMcastNodeList &local_mcast_node_list() {
-        return local_mcast_node_list_;
+    EvpnMcastNodeList *local_mcast_node_list() {
+        return &local_mcast_node_list_;
     }
-    EvpnMcastNodeList &leaf_node_list() {
-        return leaf_node_list_;
+    EvpnMcastNodeList *leaf_node_list() {
+        return &leaf_node_list_;
     }
     BgpServer *server();
     const EvpnTable *table() const;
@@ -434,7 +434,6 @@ private:
     EvpnStatePtr CreateState(const SG &sg);
     const EvpnState::StatesMap &states() const { return states_; }
     EvpnState::StatesMap &states() { return states_; }
-    //void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
     bool GetForestNodeAddress(ErmVpnRoute *rt, Ip4Address *address) const;
 
     EvpnManager *evpn_manager_;
