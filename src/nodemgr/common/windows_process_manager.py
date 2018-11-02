@@ -40,8 +40,9 @@ class WindowsProcessInfoManager(object):
         return WindowsProcessMemCpuUsageData(pid, last_cpu, last_time)
 
     def _poll_processes(self):
-        agent_service = _get_service_by_name('ContrailAgent')
-        info = cpm.dummy_process_info('contrail-vrouter-agent')
+        agent_name = 'contrail-vrouter-agent'
+        agent_service = _get_service_by_name(agent_name)
+        info = cpm.dummy_process_info(agent_name)
         if agent_service != None:
             info['statename'] = _service_status_to_state(agent_service.status())
             if info['statename'] == 'PROCESS_STATE_RUNNING':
