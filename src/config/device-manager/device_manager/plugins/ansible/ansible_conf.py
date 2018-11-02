@@ -106,6 +106,8 @@ class AnsibleConf(AnsibleBase):
     def set_default_pi(self, name, interface_type=None):
         if name in self.pi_map:
             pi = self.pi_map[name]
+            if interface_type:
+                pi.set_interface_type(interface_type)
         else:
             pi = PhysicalInterface(name=name, interface_type=interface_type)
             self.pi_map[name] = pi
