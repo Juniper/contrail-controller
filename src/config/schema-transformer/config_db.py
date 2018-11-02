@@ -3208,6 +3208,7 @@ class BgpRouterST(DBBaseST):
         self.router_type = None
         self.source_port = None
         self.sub_cluster = None
+        self.cluster_id = 0
         self.update(obj)
         self.update_single_ref('bgp_as_a_service', self.obj)
     # end __init__
@@ -3230,33 +3231,46 @@ class BgpRouterST(DBBaseST):
         self.identifier = params.identifier
         self.router_type = params.router_type
         self.source_port = params.source_port
+        update_peering = self.update_cluster_id(params.cluster_id)
         if self.router_type not in ('bgpaas-client', 'bgpaas-server'):
             if self.vendor == 'contrail':
-                self.update_global_asn(
-                    GlobalSystemConfigST.get_autonomous_system())
+                if self.update_global_asn(
+                        GlobalSystemConfigST.get_autonomous_system()):
+                    update_peering = True
             else:
-                self.update_autonomous_system(params.autonomous_system)
+                if self.update_autonomous_system(params.autonomous_system):
+                    update_peering = True
+        if update_peering:
+            self.update_peering()
     # end set_params
+
+    def update_cluster_id(self, cluster_id):
+        if cluster_id == None:
+            cluster_id = 0
+        if self.cluster_id == int(cluster_id):
+            return False
+        self.cluster_id = int(cluster_id)
+        return True
+    # end update_cluster_id
 
     def update_global_asn(self, asn):
         if self.vendor != 'contrail' or self.asn == int(asn):
-            return
+            return False
         if self.router_type in ('bgpaas-client', 'bgpaas-server'):
-            return
+            return False
         router_obj = self.read_vnc_obj(fq_name=self.name)
         params = router_obj.get_bgp_router_parameters()
         if params.autonomous_system != int(asn):
             params.autonomous_system = int(asn)
             router_obj.set_bgp_router_parameters(params)
             self._vnc_lib.bgp_router_update(router_obj)
-        self.update_autonomous_system(asn)
+        return self.update_autonomous_system(asn)
     # end update_global_asn
 
     def update_autonomous_system(self, asn):
         if self.asn == int(asn):
             return False
         self.asn = int(asn)
-        self.update_peering()
         return True
     # end update_autonomous_system
 
@@ -3398,6 +3412,37 @@ class BgpRouterST(DBBaseST):
         return update
     # end update_bgpaas_client
 
+    def _is_route_reflector_supported(self):
+        if self.cluster_id > 0:
+            return True
+        for router in self._dict.values():
+            if router.cluster_id > 0:
+                return True
+        return False
+    # end _is_route_reflector_supported
+
+    def skip_bgp_router_peering_add(self, router, is_rr_supported):
+        # If there is no RR, always add peering in order to create full mesh.
+        if not is_rr_supported:
+            return False
+
+        # Always create peering between control-nodes until control-node can
+        # be a route-reflector server (or bgp-router can support ermvpn afi)
+        if self.router_type == 'control-node' and \
+                router.router_type == 'control-node':
+            return False
+
+        # No need to create peeering between RRs in the same cluster.
+        if self.cluster_id and router.cluster_id:
+            return self.cluster_id == router.cluster_id
+
+        # Always create peering from/to route-reflector (server).
+        if self.cluster_id or router.cluster_id:
+            return False
+
+        # Only in this case can we opt to skip adding bgp-peering.
+        return True
+
     def update_peering(self):
         if not GlobalSystemConfigST.get_ibgp_auto_mesh():
             return
@@ -3413,7 +3458,9 @@ class BgpRouterST(DBBaseST):
                                    "%s: %s"%(self.name, str(e)))
             return
 
+        is_rr_supported = self._is_route_reflector_supported()
         peerings = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
+        peer_routers = []
         for router in self._dict.values():
             if router.name == self.name:
                 continue
@@ -3424,6 +3471,9 @@ class BgpRouterST(DBBaseST):
             router_fq_name = router.name.split(':')
             if router_fq_name in peerings:
                 continue
+            if self.skip_bgp_router_peering_add(router, is_rr_supported):
+                continue
+
             router_obj = BgpRouter()
             router_obj.fq_name = router_fq_name
             af = AddressFamilies(family=[])
@@ -3431,6 +3481,7 @@ class BgpRouterST(DBBaseST):
             session = BgpSession(attributes=[bsa])
             attr = BgpPeeringAttributes(session=[session])
             obj.add_bgp_router(router_obj, attr)
+            peer_routers.append(router_fq_name)
 
         new_peerings = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
         if new_peerings != peerings:
@@ -3439,7 +3490,30 @@ class BgpRouterST(DBBaseST):
             except NoIdError as e:
                 self._logger.error("NoIdError while updating bgp router "
                                    "%s: %s"%(self.name, str(e)))
+
+            # Generate change notification on peer bgp-router to inform device
+            # manager that we need push new config to this peer device. This
+            # workaround is needed as VNC db does not generate notification
+            # when adding peer refs to this bgp router.
+            if is_rr_supported:
+                self._generate_change_notification(peer_routers)
     # end update_peering
+
+    def _generate_change_notification(self, peer_routers):
+        for fq_name in peer_routers:
+            try:
+                # Updating the VNC object with same value triggers VNC DB
+                # notification in the current vnc lib. This method won't work
+                # if this behavior changes in vnc lib.
+                peer_router_obj = self._vnc_lib.bgp_router_read(fq_name=fq_name)
+                peer_router_obj.set_bgp_router_parameters(
+                    peer_router_obj.get_bgp_router_parameters()
+                )
+                self._vnc_lib.bgp_router_update(peer_router_obj)
+            except NoIdError as e:
+                self._logger.error("NoIdError while reading bgp router "
+                                   "%s: %s"%(self.name, str(e)))
+    # end _generate_change_notification
 
     def handle_st_object_req(self):
         resp = super(BgpRouterST, self).handle_st_object_req()
