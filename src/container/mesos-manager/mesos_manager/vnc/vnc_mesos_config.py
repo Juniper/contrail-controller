@@ -61,6 +61,18 @@ class VncMesosConfig(object):
         return cls.vnc_mesos_config.get("args", None)
 
     @classmethod
+    def vnc_lib(cls):
+        return cls.vnc_mesos_config.get("vnc_lib", None)
+
+    @classmethod
+    def queue(cls):
+        return cls.vnc_mesos_config.get("queue", None)
+
+    @classmethod
+    def logger(cls):
+        return cls.vnc_mesos_config.get("logger", None)
+
+    @classmethod
     def is_cluster_network_configured(cls):
         args = cls.args()
         if args.cluster_network and args.cluster_network != '{}':
