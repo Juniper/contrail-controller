@@ -416,7 +416,8 @@ class TestBgp(STTestCase, VerifyBgp):
 
         # create route reflector
         r3_name = self.id() + 'router3'
-        router3 = self.create_bgp_router(r3_name, 'contrail', None, cluster_id=1000)
+        router3 = self.create_bgp_router(r3_name, 'contrail', None,
+                                         cluster_id=1000)
 
         # create router1
         r1_name = self.id() + 'router1'
@@ -430,6 +431,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # connected to router3
         self.check_bgp_peering(router1, router3, 1)
         self.check_bgp_peering(router2, router3, 1)
+        self.check_bgp_peering(router3, router1, 2)
         self.check_bgp_peering(router3, router2, 2)
 
         self._vnc_lib.bgp_router_delete(id=router1.uuid)
