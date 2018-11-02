@@ -615,7 +615,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
       sdwankpimetricdiff.set_session_close_count(1);
       sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
       IPNetwork found_lan = config_obj->FindNetwork(destination_address, vpn_name);
-      LOG(DEBUG,"destination address : "<< destination_address  <<" in VPN : " << vpn_name <<
+      LOG(DEBUG,"destination address "<< destination_address  <<" in VPN " << vpn_name <<
        " belongs to site : " << found_lan.id);
       std::string destination_site = found_lan.id;
 
