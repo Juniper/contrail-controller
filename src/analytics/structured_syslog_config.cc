@@ -79,9 +79,8 @@ StructuredSyslogConfig::AddNetwork(const std::string& key, const std::string& ne
     IPNetworks  found_network;
     if (it  != networks_map_.end()) {
         LOG(DEBUG, "VPN name found in Networks MAP !");
-        found_network = it->second;
         //sorted insertion into vector
-        found_network.insert(std::upper_bound(found_network.begin(), found_network.end(), net), net);
+        it->second.insert(std::upper_bound(it->second.begin(), it->second.end(), net), net);
         LOG(DEBUG, "IPNetwork with destination address " << network_addr << " added in networks_map with VPN key " << key);
     } else {
         LOG(DEBUG, "VPN name NOT found in Networks MAP ! ");
@@ -124,12 +123,11 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
 
     IPNetworks_map::iterator it = networks_map_.find(key);
     if (it  != networks_map_.end()) {
-        IPNetworks  found_network = it->second;
-        IPNetworks::iterator upper = std::upper_bound(found_network.begin(), found_network.end(), ip_network);
+        IPNetworks::iterator upper = std::upper_bound(it->second.begin(), it->second.end(), ip_network);
 
-        uint32_t idx = upper - found_network.begin();
-        if (idx <= found_network.size() && idx != 0){
-            IPNetwork found_network_obj = found_network[idx - 1];
+        uint32_t idx = upper - it->second.begin();
+        if (idx <= it->second.size() && idx != 0){
+            IPNetwork found_network_obj = it->second[idx - 1];
             if ((network_addr >= found_network_obj.address_begin)
                 && (network_addr <= found_network_obj.address_end)){
 
