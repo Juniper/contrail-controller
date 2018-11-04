@@ -18,17 +18,9 @@
 
     - block:
         - set_fact:
-            op_err_message: "Failed to assign roles due to error: {{ output.error_msg }}. Here is the assignment log: {{ output.assignment_log }}"
-            jl_err_message: "Failed to assign roles due to error: {{ output.error_msg }}"
+            op_err_message: "{{ output.error_msg }}. Here is the assignment log: {{ output.assignment_log }}"
+            jl_err_message: "\nFailed to assign roles: {{ output.error_msg }}"
             results: {}
-
-        - name: Update job log with percentage
-          include_tasks: percentage_update.yml
-          vars:
-            current_index: 1
-            jl_message: "{{ jl_err_message }}"
-
-        - pause: seconds=5
 
         - name: handle failure
           include_tasks: error_handler.yml

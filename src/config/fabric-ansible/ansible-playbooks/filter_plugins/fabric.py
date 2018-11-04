@@ -12,7 +12,6 @@ import traceback
 import argparse
 import json
 import uuid
-import time
 from netaddr import IPNetwork
 import jsonschema
 
@@ -47,6 +46,8 @@ from vnc_api.gen.resource_xsd import (
     KeyValuePairs,
     KeyValuePair
 )
+
+GSC = 'default-global-system-config'
 
 
 def _compare_fq_names(this_fq_name, that_fq_name):
@@ -96,6 +97,7 @@ def _bgp_router_fq_name(device_name):
         device_name + '-bgp'
     ]
 # end _bgp_router_fq_name
+
 
 def _logical_router_fq_name(fabric_name):
     return [
@@ -837,7 +839,7 @@ class FilterModule(object):
         for node_profile in node_profiles:
             name = str(node_profile.get('node_profile_name'))
             node_profile_names.append(name)
-            np_fq_name = ['default-global-system-config', name]
+            np_fq_name = [GSC, name]
             node_profile_obj = vnc_api.node_profile_read(fq_name=np_fq_name)
             node_profile_objs.append(node_profile_obj)
 
@@ -1003,12 +1005,7 @@ class FilterModule(object):
             fabric_info = job_ctx.get('job_input')
             fabric_fq_name = fabric_info.get('fabric_fq_name')
             fabric_name = fabric_fq_name[-1]
-            try:
-                fabric_obj = vnc_api.fabric_read(
-                    fq_name=fabric_fq_name, fields=['fabric_namespaces']
-                )
-            except NoIdError:
-                fabric_obj = None
+            fabric_obj = self._read_fabric_obj(vnc_api, fabric_fq_name)
 
             # validate fabric deletion
             self._validate_fabric_deletion(vnc_api, fabric_obj)
@@ -1040,6 +1037,18 @@ class FilterModule(object):
                 'deletion_log': FilterLog.instance().dump()
             }
     # end delete_fabric
+
+    @staticmethod
+    def _read_fabric_obj(vnc_api, fq_name, fields=None):
+        try:
+            fabric_obj = vnc_api.fabric_read(
+                fq_name=fq_name,
+                fields=fields if fields else ['fabric_namespaces']
+            )
+        except NoIdError:
+            fabric_obj = None
+        return fabric_obj
+    # end _get_fabric
 
     @staticmethod
     def _validate_fabric_deletion(vnc_api, fabric_obj):
@@ -1079,8 +1088,7 @@ class FilterModule(object):
             # delete all fabric devices
             for device_ref in fabric_obj.get_physical_router_back_refs() or []:
                 device_uuid = str(device_ref.get('uuid'))
-                self._delete_fabric_device(vnc_api, device_uuid,
-                                           fabric_fq_name=fabric_obj.fq_name)
+                self._delete_fabric_device(vnc_api, device_uuid)
 
             # delete all fabric namespaces
             for ns_ref in list(fabric_obj.get_fabric_namespaces() or []):
@@ -1108,13 +1116,11 @@ class FilterModule(object):
     # end _delete_fabric
 
     def _delete_fabric_device(
-            self, vnc_api, device_uuid=None, device_fq_name=None,
-            fabric_fq_name=None):
+            self, vnc_api, device_uuid=None, device_fq_name=None):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param device_uuid: string
         :param device_fq_name: list<string>: optional if missing device_uuid
-        :param fabric_fq_name: list<string>
         """
         device_obj = None
         try:
@@ -1329,37 +1335,40 @@ class FilterModule(object):
             vnc_api = FilterModule._init_vnc_api(job_ctx)
 
             fabric_info = job_ctx.get('job_input')
-            fabric_fq_name = fabric_info.get('fabric_fq_name')
-            fabric_obj = None
-            if fabric_fq_name:
-                try:
-                    fabric_obj = vnc_api.fabric_read(fq_name=fabric_fq_name)
-                except NoIdError:
-                    self._logger.debug(
-                        'Fabric does not exist: %s', fabric_fq_name
-                    )
-
+            self._validate_fabric_device_deletion(vnc_api, fabric_info)
             for device_name in job_ctx.get('job_input', {}).get('devices') or[]:
-                device_fq_name = ['default-global-system-config', device_name]
+                device_fq_name = [GSC, device_name]
                 self._delete_fabric_device(
-                    vnc_api, device_fq_name=device_fq_name,
-                    fabric_fq_name=fabric_fq_name)
+                    vnc_api, device_fq_name=device_fq_name
+                )
 
             return {
                 'status': 'success',
                 'deletion_log': FilterLog.instance().dump()
             }
         except Exception as ex:
-            errmsg = "Unexpected error: %s\n%s" % (
-                str(ex), traceback.format_exc()
-            )
-            self._logger.error(errmsg)
+            errmsg = str(ex)
+            self._logger.error('%s\n%s' % (errmsg, traceback.format_exc()))
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
                 'deletion_log': FilterLog.instance().dump()
             }
     # end delete_fabric
+
+    def _validate_fabric_device_deletion(self, vnc_api, fabric_info):
+        devices_to_delete = [[GSC, name] for name in fabric_info.get('devices')]
+        try:
+            self._validate_fabric_rr_role_assigned(
+                vnc_api, fabric_info.get('fabric_fq_name'), devices_to_delete, True
+            )
+        except ValueError as ex:
+            raise ValueError(
+                '%s You are deleting the last spine device with '
+                '"Route-Reflector" role before deleting other devices with '
+                'routing-bridging role assigned.' % str(ex)
+            )
+    # end _validate_fabric_deletion
 
     # ***************** assign_roles filter ***********************************
     def assign_roles(self, job_ctx):
@@ -1394,10 +1403,13 @@ class FilterModule(object):
                     'log': <string: role assignment log>
                 }
         """
+        vnc_api = None
+        errmsg = None
         try:
             vnc_api = FilterModule._init_vnc_api(job_ctx)
 
             fabric_info = job_ctx.get('job_input')
+            fabric_fq_name = fabric_info.get('fabric_fq_name')
             role_assignments = fabric_info.get('role_assignments', [])
 
             device2roles_mappings = {}
@@ -1416,9 +1428,7 @@ class FilterModule(object):
                 device2roles_mappings[device_obj] = device_roles
 
             # disable ibgp auto mesh to avoid O(n2) issue in schema transformer
-            self._enable_ibgp_auto_mesh(
-                vnc_api, device2roles_mappings.keys(), False
-            )
+            self._enable_ibgp_auto_mesh(vnc_api, False)
 
             # load supported roles from node profile assigned to the device
             for device_obj, device_roles in device2roles_mappings.iteritems():
@@ -1438,10 +1448,12 @@ class FilterModule(object):
                     )
                     device_roles['supported_roles'] = \
                         node_profile_obj.get_node_profile_roles().\
-                            get_role_mappings()
+                        get_role_mappings()
 
             # validate role assignment against device's supported roles
-            self._validate_role_assignment(role_assignments)
+            self._validate_role_assignments(
+                vnc_api, fabric_fq_name, role_assignments
+            )
 
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
@@ -1453,49 +1465,43 @@ class FilterModule(object):
                 )
                 self._add_bgp_router(vnc_api, device_roles)
 
-
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
             # the devices
             for device_roles in role_assignments:
                 self._assign_device_roles(vnc_api, device_roles)
-
-            # enable ibgp auto mesh now
-            self._enable_ibgp_auto_mesh(
-                vnc_api, device2roles_mappings.keys(), True
-            )
-
-            return {
-                'status': 'success',
-                'assignment_log': FilterLog.instance().dump()
-            }
         except Exception as ex:
-            errmsg = "Unexpected error: %s\n%s" % (
-                str(ex), traceback.format_exc()
-            )
-            self._logger.error(errmsg)
+            errmsg = str(ex)
+            self._logger.error('%s\n%s' % (errmsg, traceback.format_exc()))
+        finally:
+            # make sure ibgp auto mesh is enabled for all cases
+            self._enable_ibgp_auto_mesh(vnc_api, True)
+
             return {
-                'status': 'failure',
+                'status': 'failure' if errmsg else 'success',
                 'error_msg': errmsg,
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
 
-    def _enable_ibgp_auto_mesh(self, vnc_api, device_objs, enable):
+    @staticmethod
+    def _enable_ibgp_auto_mesh(vnc_api, enable):
         """
         :param vnc_api: <vnc_api.VncApi>
-        :param device_obj: List<vnc_api.gen.resource_client.PhysicalRouter>
         :param enable: set to True to enable
         """
-        gsc_obj = vnc_api.global_system_config_read(
-                fq_name=['default-global-system-config'])
-        gsc_obj.set_ibgp_auto_mesh(enable)
-        vnc_api.global_system_config_update(gsc_obj)
+        if vnc_api:
+            gsc_obj = vnc_api.global_system_config_read(
+                fq_name=[GSC])
+            gsc_obj.set_ibgp_auto_mesh(enable)
+            vnc_api.global_system_config_update(gsc_obj)
     # end _enable_ibgp_auto_mesh
 
-    @staticmethod
-    def _validate_role_assignment(role_assignments):
+    def _validate_role_assignments(
+            self, vnc_api, fabric_fq_name, role_assignments):
         """
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_fq_name: list<string>
         :param role_assignments: list<Dictionary>
             example:
             [
@@ -1504,6 +1510,33 @@ class FilterModule(object):
                         "default-global-system-config",
                         "qfx-10"
                     ],
+                    "device_obj": <vnc_api.vnc_api.gen.PhysicalRouter>
+                    "physical_role": "leaf",
+                    "routing_bridging_roles": [ "CRB-Access" ]
+                }
+            ]
+        """
+        self._validate_against_supported_roles(role_assignments)
+
+        self._validate_rr_role_assigned(
+            vnc_api, fabric_fq_name, role_assignments
+        )
+    # end _validate_role_assignments
+
+    @staticmethod
+    def _validate_against_supported_roles(role_assignments):
+        """
+        This method validates the assigned device roles are supported
+        roles on the device according node profile
+        :param role_assignments:
+            example:
+            [
+                {
+                    "device_fq_name": [
+                        "default-global-system-config",
+                        "qfx-10"
+                    ],
+                    "device_obj": <vnc_api.vnc_api.gen.PhysicalRouter>
                     "physical_role": "leaf",
                     "routing_bridging_roles": [ "CRB-Access" ]
                 }
@@ -1530,13 +1563,111 @@ class FilterModule(object):
                     else:
                         raise ValueError(
                             'role "%s : %s" is not supported. Here are the '
-                            'supported roles : %s' % (phys_role, rb_roles,
-                            supported_roles)
+                            'supported roles : %s' % (
+                                phys_role, rb_roles, supported_roles
+                            )
                         )
-    # end _validate_role_assignments
+    # end _validate_against_supported_roles
+
+    def _validate_rr_role_assigned(
+            self, vnc_api, fabric_fq_name, role_assignments):
+        """
+        This method validates at least one device in the fabric is assigned with
+        'Route-Reflector' role
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_fq_name: list<string>
+        :param role_assignments:
+            example:
+            [
+                {
+                    "device_fq_name": [
+                        "default-global-system-config",
+                        "qfx-10"
+                    ],
+                    "device_obj": <vnc_api.vnc_api.gen.PhysicalRouter>
+                    "physical_role": "leaf",
+                    "routing_bridging_roles": [ "CRB-Access" ]
+                }
+            ]
+        """
+        # check if any RR role exists in the role assignments
+        role_assignment_devices = []
+        fabric_name = fabric_fq_name[-1]
+        for device_roles in role_assignments:
+            device_obj = device_roles.get('device_obj')
+            role_assignment_devices.append(device_obj.get_fq_name())
+
+            # validate devices are in the specified fabric
+            assigned_fabric = self._get_assigned_fabric(device_obj)
+            if assigned_fabric != fabric_name:
+                raise ValueError(
+                    '%s is not in the specific fabric: %s' % (
+                        device_obj.get_name(), fabric_name
+                    )
+                )
+
+            # validate the RR roles is assigned
+            phys_role = device_roles.get('physical_role')
+            rb_roles = device_roles.get('routing_bridging_roles') or []
+            if phys_role == 'spine' and 'Route-Reflector' in rb_roles:
+                return
+
+        # check if RR role is assigned to other devices that are not in the
+        # current role_assignments
+        try:
+            self._validate_fabric_rr_role_assigned(
+                vnc_api, fabric_fq_name, role_assignment_devices, False
+            )
+        except ValueError as ex:
+            raise ValueError(
+                '%s Please assign "Route-Reflector" role to at lease one '
+                'device and retry the role assignment' % str(ex)
+            )
+    # end _validate_rr_role_assigned
+
+    def _validate_fabric_rr_role_assigned(
+            self, vnc_api, fabric_fq_name,
+            devices_to_exclude, ok_with_no_role_assigned):
+        """
+        This method validates that there exists at least one device assigned
+        with Route-Reflector role in the fabric (excluding those devices
+        specified in devices_to_exclude)
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_fq_name: fabric FQ name
+        :param devices_to_exclude:
+            list of fq names for the devices to exclude from the check
+        :param ok_with_no_role_assigned:
+            set to True if no role assigned to any device
+        :return:
+        """
+        fabric_obj = self._read_fabric_obj(vnc_api, fabric_fq_name)
+        fabric_devices = fabric_obj.get_physical_router_back_refs()
+        no_role_assigned = True
+        for dev in fabric_devices:
+            if dev.get('to') in devices_to_exclude:
+                continue
+
+            device_obj = vnc_api.physical_router_read(id=dev.get('uuid'))
+            phys_role = device_obj.get_physical_router_role()
+            rb_roles = device_obj.get_routing_bridging_roles()
+            if phys_role or (rb_roles and rb_roles.get_rb_roles()):
+                no_role_assigned = False
+            if phys_role == 'spine'\
+                    and 'Route-Reflector' in (rb_roles.get_rb_roles() or []):
+                return
+
+        if ok_with_no_role_assigned and no_role_assigned:
+            return
+
+        # no RR role found in any devices in the fabric
+        raise ValueError(
+            'Need at least one device in fabric "%s" assigned with '
+            '"Route-Reflector" role! ' % fabric_fq_name[-1]
+        )
+    # end _validate_fabric_rr_role_assigned
 
     @staticmethod
-    def _get_fabric_name(device_obj):
+    def _get_assigned_fabric(device_obj):
         # get fabric object that this device belongs to
         fabric_refs = device_obj.get_fabric_refs() or []
         if len(fabric_refs) != 1:
@@ -1545,7 +1676,7 @@ class FilterModule(object):
                 "any fabric" % str(device_obj.fq_name)
             )
         return str(fabric_refs[0].get('to')[-1])
-    # end _get_fabric_name
+    # end _get_assigned_fabric
 
     @staticmethod
     def _get_device_network(vnc_api, device_obj, network_type):
@@ -1555,7 +1686,7 @@ class FilterModule(object):
         :param network_type: string (One of constants defined in NetworkType)
         :return: <vnc_api.gen.resource_client.VirtualNetwork>
         """
-        fabric_name = FilterModule._get_fabric_name(device_obj)
+        fabric_name = FilterModule._get_assigned_fabric(device_obj)
 
         # get network-ipam object for the fabric network
         try:
@@ -1656,7 +1787,7 @@ class FilterModule(object):
                     bgp_router_obj.set_bgp_router_parameters(params)
                     vnc_api.bgp_router_update(bgp_router_obj)
             except NoIdError:
-                fabric_name = FilterModule._get_fabric_name(device_obj)
+                fabric_name = FilterModule._get_assigned_fabric(device_obj)
                 bgp_router_obj = BgpRouter(
                     name=bgp_router_name,
                     fq_name=bgp_router_fq_name,
@@ -1701,14 +1832,14 @@ class FilterModule(object):
                 'physical_role": 'leaf',
                 'routing_bridging_roles": ['CRB-Gateway']
             }
-        :param fabric_info: Fabric information containing fabric name
+        :param fabric_name: fabric name
         :return: None
         """
         logical_router_obj = None
+        rb_roles = device_roles.get('routing_bridging_roles') or []
+        logical_router_fq_name = _logical_router_fq_name(fabric_name)
+        logical_router_name = logical_router_fq_name[-1]
         try:
-            rb_roles = device_roles.get('routing_bridging_roles') or []
-            logical_router_fq_name = _logical_router_fq_name(fabric_name)
-            logical_router_name = logical_router_fq_name[-1]
             logical_router_obj = vnc_api.logical_router_read(
                 fq_name=logical_router_fq_name
             )
@@ -1719,7 +1850,9 @@ class FilterModule(object):
                 else:
                     if device_obj.get_logical_router_back_refs():
                         # delete the logical-router
-                        self._delete_logical_router(vnc_api, device_obj, fabric_name)
+                        self._delete_logical_router(
+                            vnc_api, device_obj, fabric_name
+                        )
                         logical_router_obj = None
         except NoIdError:
             if 'CRB-Gateway' in rb_roles:
@@ -1743,7 +1876,7 @@ class FilterModule(object):
             return ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
         except NoIdError:
             gsc_obj = vnc_api.global_system_config_read(
-                fq_name=['default-global-system-config']
+                fq_name=[GSC]
             )
             return gsc_obj.autonomous_system
     # end _get_ibgp_asn
@@ -2156,9 +2289,8 @@ def __main__():
             _mock_job_ctx_delete_devices()
         )
     elif parser.assign_roles:
-        results = fabric_filter.assign_roles(
-            _mock_job_ctx_assign_roles(), _mock_supported_roles()
-        )
+        results = fabric_filter.assign_roles(_mock_job_ctx_assign_roles())
+
     print results
 # end __main__
 
