@@ -353,7 +353,7 @@ protected:
     void AddOrDeleteXmppRoutes(bool add, int nroutes = -1,
                                int down_agents = -1);
     void AddOrDeleteBgpRoutes(bool add, int nroutes = -1, int down_agents = -1);
-    void VerifyReceivedXmppRoutes(int routes);
+    void VerifyReceivedXmppRoutes(int routes, int master_ri_routes = 0);
     void DeleteRoutingInstances(int count,
             vector<test::NetworkAgentMock *> &dont_unsubscribe);
     void DeleteRoutingInstances(vector<int> instances,
@@ -448,7 +448,8 @@ protected:
         TcpSession::Event skip_tcp_event;
         bool send_eor;
     };
-    void ProcessFlippingAgents(int &total_routes, int remaining_instances,
+    void ProcessFlippingAgents(int *total_routes, int *total_master_ri_routes,
+                               int remaining_instances,
                                std::vector<GRTestParams> &n_flipping_agents);
     void ProcessVpnRoute(BgpPeerTest *peer, int instance,
                          int n_routes, bool add);
@@ -850,8 +851,9 @@ ExtCommunitySpec *GracefulRestartTest::CreateRouteTargets() {
 }
 
 void GracefulRestartTest::AddRoutes() {
-    GR_TEST_LOG("Adding Routes for " <<  integerToString(n_agents_) << " agents " <<
-                " and " << integerToString(n_peers_) << " peers: BEGIN");
+    GR_TEST_LOG("Adding Routes for " <<  integerToString(n_agents_) <<
+                " agents " << " and " << integerToString(n_peers_) <<
+                " peers: BEGIN");
 
     if (!n_agents_ && !n_peers_)
         return;
@@ -881,8 +883,9 @@ void GracefulRestartTest::AddRoutes() {
     WaitForIdle();
 
     GR_TEST_LOG("Verify if received Xmpp route count is " <<
-                integerToString(n_instances_ * (n_agents_ + n_peers_) * n_routes_));
-    VerifyReceivedXmppRoutes(n_instances_ * (n_agents_ + n_peers_) * n_routes_);
+        integerToString(n_instances_ * (n_agents_ + n_peers_) * n_routes_));
+    VerifyReceivedXmppRoutes(n_instances_ * (n_agents_ + n_peers_) * n_routes_,
+                             n_agents_ * n_routes_);
 }
 
 void GracefulRestartTest::CreateAgents() {
@@ -924,6 +927,10 @@ void GracefulRestartTest::CreateAgents() {
                 xmpp_server_agents_[xmpp_servers_[j]]) {
             WaitForAgentToBeEstablished(agent);
             for (int k = 1; k <= n_instances_; k++) {
+                if (k == 1) {
+                    agent->SubscribeAll(BgpConfigManager::kMasterInstance,
+                                        99999);
+                }
                 string instance_name =
                     "instance" + boost::lexical_cast<string>(k);
                 agent->SubscribeAll(instance_name, k);
@@ -935,8 +942,9 @@ void GracefulRestartTest::CreateAgents() {
 void GracefulRestartTest::Subscribe() {
 
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        agent->SubscribeAll(BgpConfigManager::kMasterInstance, -1);
         for (int i = 1; i <= n_instances_; i++) {
+            if (i == 1)
+                agent->SubscribeAll(BgpConfigManager::kMasterInstance, 99999);
             string instance_name = "instance" + boost::lexical_cast<string>(i);
             agent->SubscribeAll(instance_name, i);
         }
@@ -947,8 +955,9 @@ void GracefulRestartTest::Subscribe() {
 void GracefulRestartTest::Unsubscribe() {
 
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        agent->UnsubscribeAll(BgpConfigManager::kMasterInstance);
         for (int i = 1; i <= n_instances_; i++) {
+            if (i == 1)
+                agent->UnsubscribeAll(BgpConfigManager::kMasterInstance);
             string instance_name = "instance" + boost::lexical_cast<string>(i);
             agent->UnsubscribeAll(instance_name);
         }
@@ -959,9 +968,14 @@ void GracefulRestartTest::Unsubscribe() {
 
 test::NextHop GracefulRestartTest::GetNextHop(test::NetworkAgentMock *agent,
                                                int instance_id) {
-    return test::NextHop(
+    test::NextHop nh = test::NextHop(
         "100.100.100." + boost::lexical_cast<string>(agent->id()),
         10000 + instance_id, "gre");
+    if (instance_id == -1) {
+        nh.label_ = 0;
+        nh.no_label_ = true;
+    }
+    return nh;
 }
 
 void GracefulRestartTest::ProcessVpnRoute(BgpPeerTest *peer, int instance,
@@ -1123,14 +1137,22 @@ void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
             string instance_name = "instance" + boost::lexical_cast<string>(i);
 
             Ip4Prefix prefix(Ip4Prefix::FromString(
-                "10." + boost::lexical_cast<string>(i) + "." +
-                boost::lexical_cast<string>(agent->id()) + ".1/32"));
+                boost::lexical_cast<string>(i) + "." +
+                boost::lexical_cast<string>(agent->id()) + ".10.1/32"));
 
             for (int rt = 0; rt < n_routes; rt++,
                 prefix = task_util::Ip4PrefixIncrement(prefix)) {
                 Inet6Prefix inet6_prefix = GetIPv6Prefix(agent->id(), i,
                                                          rt + 1);
                 if (add) {
+                    if (i == 1) {
+                        agent->AddRoute(BgpConfigManager::kMasterInstance,
+                                        prefix.ToString(),
+                                        GetNextHop(agent, -1));
+                        agent->AddInet6Route(BgpConfigManager::kMasterInstance,
+                                             inet6_prefix.ToString(),
+                                             GetNextHop(agent, -1));
+                    }
                     agent->AddRoute(instance_name, prefix.ToString(),
                                     GetNextHop(agent, i));
                     agent->AddEnetRoute(instance_name,
@@ -1139,6 +1161,13 @@ void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
                     agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
                                          GetNextHop(agent, i));
                 } else {
+                    if (i == 1) {
+                        agent->DeleteRoute(BgpConfigManager::kMasterInstance,
+                                           prefix.ToString());
+                        agent->DeleteInet6Route(
+                            BgpConfigManager::kMasterInstance,
+                            inet6_prefix.ToString());
+                    }
                     agent->DeleteRoute(instance_name, prefix.ToString());
                     agent->DeleteEnetRoute(instance_name,
                                            GetEnetPrefix(prefix.ToString()));
@@ -1151,16 +1180,33 @@ void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
     WaitForIdle();
 }
 
-void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes) {
+void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes,
+                                                   int master_ri_routes) {
     if (!n_agents_) return;
 
     int agent_id = 0;
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
         agent_id++;
-        if (routes > 0 && !agent->IsEstablished())
-            continue;
         for (int i = 1; i <= n_instances_; i++) {
             string instance_name = "instance" + boost::lexical_cast<string>(i);
+            if (i == 1) {
+                if (master_ri_routes > 0 && !agent->IsEstablished())
+                    continue;
+                if (!agent->HasSubscribed(BgpConfigManager::kMasterInstance))
+                    continue;
+                TASK_UTIL_EXPECT_EQ_MSG(master_ri_routes,
+                    agent->RouteCount(BgpConfigManager::kMasterInstance),
+                        "Agent " + agent->ToString() +
+                        ": Wait for ipv4 routes in " +
+                        BgpConfigManager::kMasterInstance);
+                TASK_UTIL_EXPECT_EQ_MSG(master_ri_routes,
+                    agent->Inet6RouteCount(BgpConfigManager::kMasterInstance),
+                        "Agent " + agent->ToString() +
+                        ": Wait for ipv6 routes in " +
+                        BgpConfigManager::kMasterInstance);
+            }
+            if (routes > 0 && !agent->IsEstablished())
+                continue;
             if (!agent->HasSubscribed(instance_name))
                 continue;
             TASK_UTIL_EXPECT_EQ_MSG(routes, agent->RouteCount(instance_name),
@@ -1211,6 +1257,8 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
                 continue;
             if (std::find(dont_unsubscribe.begin(), dont_unsubscribe.end(),
                           agent) == dont_unsubscribe.end())
+                if (i == 1)
+                    agent->UnsubscribeAll(BgpConfigManager::kMasterInstance);
                 agent->UnsubscribeAll(instance_name);
         }
 
@@ -1239,12 +1287,13 @@ void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
                             server->routing_instance_mgr()->\
                                 GetRoutingInstance(instance_name));
+        if (i == 1) {
+            // Verify 'default' master routing-instance
+            TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+                server->routing_instance_mgr()->GetRoutingInstance(
+                BgpConfigManager::kMasterInstance));
+        }
     }
-
-    // Verify 'default' master routing-instance
-    TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
-                        server->routing_instance_mgr()->GetRoutingInstance(
-                               BgpConfigManager::kMasterInstance));
 }
 
 // Invoke stale timer callbacks directly to speed up.
@@ -1349,7 +1398,8 @@ void GracefulRestartTest::GracefulRestartTestStart () {
     //  Bring up n_agents_ in n_instances_ and advertise n_routes_ per session
     AddRoutes();
 
-    GR_TEST_LOG("Verifying if Bgp INET_VPN route count per AFI is " << integerToString(n_routes_));
+    GR_TEST_LOG("Verifying if Bgp INET_VPN route count per AFI is "
+                << integerToString(n_routes_));
     VerifyRoutes(n_routes_);
 
     GR_TEST_LOG("GracefulRestartTestStart: END");
@@ -1361,7 +1411,8 @@ void GracefulRestartTest::BgpPeerUp(BgpPeerTest *peer) {
     TASK_UTIL_EXPECT_TRUE(peer->IsReady());
 }
 
-void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
+void GracefulRestartTest::ProcessFlippingAgents(int *total_routes,
+        int *total_master_ri_routes,
         int remaining_instances,
         vector<GRTestParams> &n_flipping_agents) {
     int flipping_count = 3;
@@ -1379,8 +1430,6 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
             WaitForAgentToBeEstablished(agent);
 
             // Subset of subscriptions after restart
-            agent->SubscribeAll(BgpConfigManager::kMasterInstance, -1);
-
             for (size_t i = 0; i < gr_test_param.instance_ids.size(); i++) {
                 int instance_id = gr_test_param.instance_ids[i];
                 if (std::find(instances_to_delete_before_gr_.begin(),
@@ -1395,16 +1444,28 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
                 string instance_name = "instance" +
                     boost::lexical_cast<string>(instance_id);
                 agent->SubscribeAll(instance_name, instance_id);
+                if (instance_id == 1) {
+                    agent->SubscribeAll(BgpConfigManager::kMasterInstance,
+                                        99999);
+                }
 
                 // Subset of routes are [re]advertised after restart
                 Ip4Prefix prefix(Ip4Prefix::FromString(
-                    "10." + boost::lexical_cast<string>(instance_id) + "." +
-                    boost::lexical_cast<string>(agent->id()) + ".1/32"));
+                    boost::lexical_cast<string>(instance_id) + "." +
+                    boost::lexical_cast<string>(agent->id()) + ".10.1/32"));
                 int nroutes = gr_test_param.nroutes[i];
                 for (int rt = 0; rt < nroutes; rt++,
                     prefix = task_util::Ip4PrefixIncrement(prefix)) {
                     Inet6Prefix inet6_prefix =
                         GetIPv6Prefix(agent->id(), instance_id, rt + 1);
+                    if (instance_id == 1) {
+                        agent->AddRoute(BgpConfigManager::kMasterInstance,
+                            prefix.ToString(), GetNextHop(agent, -1));
+                        agent->AddInet6Route(BgpConfigManager::kMasterInstance,
+                            inet6_prefix.ToString(),
+                            GetNextHop(agent, -1));
+                        ++*total_master_ri_routes;
+                    }
                     agent->AddRoute(instance_name, prefix.ToString(),
                                         GetNextHop(agent, instance_id));
                     agent->AddEnetRoute(instance_name,
@@ -1413,7 +1474,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
                     agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
                                          GetNextHop(agent, instance_id));
                 }
-                total_routes += nroutes;
+                *total_routes += nroutes;
             }
         }
 
@@ -1452,7 +1513,9 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
                         instances_to_delete_during_gr_.end())
                     continue;
                 int nroutes = gr_test_param.nroutes[i];
-                total_routes -= nroutes;
+                if (instance_id == 1)
+                    *total_master_ri_routes -= nroutes;
+                *total_routes -= nroutes;
             }
         }
     }
@@ -1624,6 +1687,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
 
     int total_xmpp_routes = n_instances_ * n_agents_ * n_routes_;
     int total_bgp_routes = n_instances_ * n_peers_ * n_routes_;
+    int total_xmpp_master_ri_routes = n_agents_ * n_routes_;
 
     GR_TEST_LOG("1. Num instances: " << integerToString(n_instances_));
     GR_TEST_LOG("1. Total XMPP routes: " << integerToString(total_xmpp_routes));
@@ -1631,14 +1695,17 @@ void GracefulRestartTest::GracefulRestartTestRun () {
 
     //  Verify that n_agents_ * n_instances_ * n_routes_ routes are received in
     //  agent in each instance
-    GR_TEST_LOG("1. Verify that " << integerToString(total_xmpp_routes + total_bgp_routes)
+    GR_TEST_LOG("1. Verify that "
+                << integerToString(total_xmpp_routes + total_bgp_routes)
                 << "  Xmpp routes are received in agent in each instance");
-    VerifyReceivedXmppRoutes(total_xmpp_routes + total_bgp_routes);
+    VerifyReceivedXmppRoutes(total_xmpp_routes + total_bgp_routes,
+                             total_xmpp_master_ri_routes);
 
     vector<test::NetworkAgentMock *> dont_unsubscribe =
         vector<test::NetworkAgentMock *>();
 
-    GR_TEST_LOG("2. Deleting " << integerToString(instances_to_delete_before_gr_.size())
+    GR_TEST_LOG("2. Deleting "
+                << integerToString(instances_to_delete_before_gr_.size())
                 << " RIs before GR");
     DeleteRoutingInstances(instances_to_delete_before_gr_, dont_unsubscribe);
     int remaining_instances = n_instances_;
@@ -1647,7 +1714,8 @@ void GracefulRestartTest::GracefulRestartTestRun () {
                     instances_to_delete_before_gr_.size();
     total_bgp_routes -= n_routes_ * n_peers_ *
                     instances_to_delete_before_gr_.size();
-    GR_TEST_LOG("2. Remaining instances: " << integerToString(remaining_instances));
+    GR_TEST_LOG("2. Remaining instances: "
+                << integerToString(remaining_instances));
     GR_TEST_LOG("2. Total XMPP routes: " << integerToString(total_xmpp_routes));
     GR_TEST_LOG("2. Total BGP routes: " << integerToString(total_bgp_routes));
 
@@ -1660,6 +1728,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
         dont_unsubscribe.push_back(agent);
         TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
         total_xmpp_routes -= remaining_instances * n_routes_;
+        total_xmpp_master_ri_routes -= n_routes_;
     }
 
     // Subset of peers go down permanently (Triggered from peers)
@@ -1709,7 +1778,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
         TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
                             XmppStateMachineTest::get_skip_tcp_event());
         total_xmpp_routes -= remaining_instances * n_routes_;
-
+        total_xmpp_master_ri_routes -= n_routes_;
     }
 
     // Subset of peers flip (Triggered from peers)
@@ -1735,6 +1804,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
         dont_unsubscribe.push_back(agent);
         TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
         total_xmpp_routes -= remaining_instances * n_routes_;
+        total_xmpp_master_ri_routes -= n_routes_;
     }
 
     // Subset of peers flip (Triggered from peers)
@@ -1752,7 +1822,8 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     // Delete some of the routing-instances when the agent is still down.
     // It is expected that agents upon restart only subscribe to those that
     // were not deleted.
-    GR_TEST_LOG("6. Deleting " << integerToString(instances_to_delete_during_gr_.size())
+    GR_TEST_LOG("6. Deleting "
+                << integerToString(instances_to_delete_during_gr_.size())
                 << " RIs while agents are still down");
     DeleteRoutingInstances(instances_to_delete_during_gr_, dont_unsubscribe);
 
@@ -1793,8 +1864,34 @@ void GracefulRestartTest::GracefulRestartTestRun () {
         test::NetworkAgentMock *agent = gr_test_param.agent;
         WaitForAgentToBeEstablished(agent);
 
+        // Do a duplicate subscription and ensure that even in GR state,
+        // duplicate subscription is detected and session is closed.
+        if (gr_test_param.skip_tcp_event == TcpSession::EVENT_NONE) {
+            for (size_t i = 0; i < gr_test_param.instance_ids.size(); i++) {
+                int instance_id = gr_test_param.instance_ids[i];
+                if (std::find(instances_to_delete_before_gr_.begin(),
+                        instances_to_delete_before_gr_.end(), instance_id) !=
+                        instances_to_delete_before_gr_.end())
+                    continue;
+                if (std::find(instances_to_delete_during_gr_.begin(),
+                        instances_to_delete_during_gr_.end(), instance_id) !=
+                        instances_to_delete_during_gr_.end())
+                    continue;
+                if (instance_id != 1)
+                    continue;
+                agent->SubscribeAll(BgpConfigManager::kMasterInstance, 99999);
+
+                // Duplicate subscribe to master routing instance.
+                size_t flaps = agent->flap_count();
+                agent->SubscribeAll(BgpConfigManager::kMasterInstance, 99999);
+                agent->SessionUp();
+                WaitForAgentToBeEstablished(agent);
+                TASK_UTIL_EXPECT_GT(agent->flap_count(), flaps);
+                break;
+            }
+        }
+
         // Subset of subscriptions after restart
-        agent->SubscribeAll(BgpConfigManager::kMasterInstance, -1);
         for (size_t i = 0; i < gr_test_param.instance_ids.size(); i++) {
             int instance_id = gr_test_param.instance_ids[i];
             if (std::find(instances_to_delete_before_gr_.begin(),
@@ -1808,16 +1905,26 @@ void GracefulRestartTest::GracefulRestartTestRun () {
             string instance_name = "instance" +
                 boost::lexical_cast<string>(instance_id);
             agent->SubscribeAll(instance_name, instance_id);
+            if (instance_id == 1)
+                agent->SubscribeAll(BgpConfigManager::kMasterInstance, 99999);
 
             // Subset of routes are [re]advertised after restart
             Ip4Prefix prefix(Ip4Prefix::FromString(
-                "10." + boost::lexical_cast<string>(instance_id) + "." +
-                boost::lexical_cast<string>(agent->id()) + ".1/32"));
+                boost::lexical_cast<string>(instance_id) + "." +
+                boost::lexical_cast<string>(agent->id()) + ".10.1/32"));
             int nroutes = gr_test_param.nroutes[i];
             for (int rt = 0; rt < nroutes; rt++,
                 prefix = task_util::Ip4PrefixIncrement(prefix)) {
                 Inet6Prefix inet6_prefix =
                     GetIPv6Prefix(agent->id(), instance_id, rt + 1);
+                if (instance_id == 1) {
+                    agent->AddRoute(BgpConfigManager::kMasterInstance,
+                                    prefix.ToString(), GetNextHop(agent, -1));
+                    agent->AddInet6Route(BgpConfigManager::kMasterInstance,
+                                         inet6_prefix.ToString(),
+                                         GetNextHop(agent, -1));
+                    total_xmpp_master_ri_routes++;
+                }
                 agent->AddRoute(instance_name, prefix.ToString(),
                                 GetNextHop(agent, instance_id));
                 agent->AddEnetRoute(instance_name,
@@ -1858,8 +1965,9 @@ void GracefulRestartTest::GracefulRestartTestRun () {
 
     // Send EoR marker or trigger GR timer for agents which came back up and
     // sent desired routes.
-    GR_TEST_LOG("8. Send EOR marker or trigger GR timer for " <<
-                integerToString(n_flipped_agents.size()) << " restarted agents");
+    GR_TEST_LOG("8. Send EOR marker or trigger GR timer for "
+                << integerToString(n_flipped_agents.size())
+                << " restarted agents");
     BOOST_FOREACH(GRTestParams gr_test_param, n_flipped_agents) {
         test::NetworkAgentMock *agent = gr_test_param.agent;
         if (gr_test_param.should_send_eor())
@@ -1881,13 +1989,15 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     }
 
     // Process agents which keep flipping and trigger LLGR..
-    GR_TEST_LOG("8. Bring up half of " << integerToString(n_flipping_agents.size()) <<
+    GR_TEST_LOG("8. Bring up half of "
+                << integerToString(n_flipping_agents.size()) <<
                 " flipping agents and trigger LLGR");
-    ProcessFlippingAgents(total_xmpp_routes, remaining_instances,
-                          n_flipping_agents);
+    ProcessFlippingAgents(&total_xmpp_routes, &total_xmpp_master_ri_routes,
+                          remaining_instances, n_flipping_agents);
 
     // Process peers which keep flipping and trigger LLGR..
-    GR_TEST_LOG("8. Bring up half of " << integerToString(n_flipping_peers.size()) <<
+    GR_TEST_LOG("8. Bring up half of "
+                << integerToString(n_flipping_peers.size()) <<
                 " flipping peers and trigger LLGR");
     ProcessFlippingPeers(total_bgp_routes, remaining_instances,
                          n_flipping_peers);
@@ -1896,31 +2006,38 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     if (disable_gr_config_in_between_) {
         SetGRHelperMode("false");
         total_xmpp_routes = 0;
+        total_xmpp_master_ri_routes = 0;
     }
 
     // Trigger GR timer for agents which went down permanently.
-    GR_TEST_LOG("8. Trigger GR timer for " << integerToString(n_down_from_agents_.size())
+    GR_TEST_LOG("8. Trigger GR timer for "
+                << integerToString(n_down_from_agents_.size())
                 << " agents that went down permanently");
     BOOST_FOREACH(test::NetworkAgentMock *agent, n_down_from_agents_) {
         FireGRTimer(bgp_xmpp_channels_[agent->id()]);
     }
 
     // Trigger GR timer for peers which went down permanently.
-    GR_TEST_LOG("8. Trigger GR timer for " << integerToString(n_down_from_peers_.size())
+    GR_TEST_LOG("8. Trigger GR timer for "
+                << integerToString(n_down_from_peers_.size())
                 << " peers that went down permanently");
     BOOST_FOREACH(BgpPeerTest *peer, n_down_from_peers_) {
         FireGRTimer(bgp_server_peers_[peer->id()]);
     }
 
-    GR_TEST_LOG("8. Verify that " << integerToString(total_xmpp_routes + total_bgp_routes) <<
+    GR_TEST_LOG("8. Verify that "
+                << integerToString(total_xmpp_routes + total_bgp_routes) <<
                 "  Xmpp routes are received in agent in each instance");
-    VerifyReceivedXmppRoutes(total_xmpp_routes + total_bgp_routes);
+    VerifyReceivedXmppRoutes(total_xmpp_routes + total_bgp_routes,
+                             total_xmpp_master_ri_routes);
 
-    GR_TEST_LOG("8. Verify that " << integerToString(instances_to_delete_before_gr_.size())
+    GR_TEST_LOG("8. Verify that "
+                << integerToString(instances_to_delete_before_gr_.size())
                 << " RIs were deleted before GR");
     VerifyDeletedRoutingInstnaces(instances_to_delete_before_gr_);
 
-    GR_TEST_LOG("8. Verify that " << integerToString(instances_to_delete_during_gr_.size())
+    GR_TEST_LOG("8. Verify that "
+                << integerToString(instances_to_delete_during_gr_.size())
                 << " RIs were deleted during GR");
     VerifyDeletedRoutingInstnaces(instances_to_delete_during_gr_);
 
