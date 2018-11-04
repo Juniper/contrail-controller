@@ -2544,12 +2544,22 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         }
     } else {
         if (add_change) {
-            if (GetSubscriptionState(rt_instance)) {
+            const SubscriptionState *sub_state =
+                GetSubscriptionState(rt_instance);
+            if (sub_state) {
                 if (!close_manager_->IsCloseInProgress()) {
                     BGP_LOG_PEER_WARNING(Membership, Peer(),
                                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                                  "Duplicate subscribe for routing instance " <<
                                  vrf_name << ", triggering close");
+                    channel_->Close();
+                    return;
+                }
+                if (!sub_state->IsGrStale()) {
+                    BGP_LOG_PEER_WARNING(Membership, Peer(),
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                                 "Duplicate subscribe for routing instance " <<
+                                 vrf_name << " under GR, triggering close");
                     channel_->Close();
                     return;
                 }
