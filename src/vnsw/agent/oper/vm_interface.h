@@ -1750,6 +1750,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
                           VmInterface *entry) const;
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
                           bool *force_update) const;
+    autogen::VirtualMachineInterface *GetVmiCfg() const;
     void CopyVhostData(const Agent *agent);
 
     Ip4Address addr_;
