@@ -36,7 +36,7 @@ class HAProxyTest(unittest.TestCase):
         def store_si_create(obj):
             config_db.ServiceInstanceSM._object_db.object_read = \
                 mock.Mock(side_effect=read_si)
-            obj.uuid = 'pool-si'
+            obj.uuid = 'pool-s'
             self._store_si[obj.uuid] = obj
 
         def update_si_side_effect(obj):

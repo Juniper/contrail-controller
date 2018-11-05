@@ -131,6 +131,7 @@ class ContrailCni():
         if contrail_json is None:
             return
 
+
         if contrail_json.get('log-file') is not None:
             self.log_file = contrail_json['log-file']
         if contrail_json.get('log-level') is not None:
