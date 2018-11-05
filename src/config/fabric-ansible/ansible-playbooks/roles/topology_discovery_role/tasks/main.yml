@@ -80,7 +80,8 @@
   include_tasks: percentage_update.yml
   vars:
     current_index: 1
-    jl_message: "Discovered topology info for {{prouter_name}} [#NeighbourDevices: {{local_interfaces_list|length}}]"
+    jl_message: "Discoverd topology info:\n  {{prouter_name}} / {{lldp_neighbor_info['lldp-local-port-id']}} --> {{lldp_neighbor_info['lldp-remote-system-name']}}"
+  when: lldp_neighbor_info is mapping
 
 - debug:
     msg: "{{local_interfaces_list}}"
@@ -131,4 +132,3 @@
     object_op: "bulk_ref_update"
     object_list: "{{bulk_ref_add_payload}}"
   register: bulk_ref_create_resp
-
