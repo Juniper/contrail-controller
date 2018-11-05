@@ -46,7 +46,7 @@ class K8SParamsTest(unittest.TestCase):
         p = kube_params.K8SParams(mock_cni)
         self.assertEquals("id123", p.pod_uuid)
         self.assertEquals("hello-world-1-81nl8", p.pod_name)
-        mock_cni.update.assert_called_once_with("id123", "hello-world-1-81nl8")
+        mock_cni.update.assert_called_once_with("id123", "hello-world-1-81nl")
 
         docker.client.APIClient = Mock(return_value=None)
         with self.assertRaises(kube_params.Error) as err:
