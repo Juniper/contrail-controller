@@ -1,6 +1,6 @@
 {%     for ifd in device_abstract_config.get('physical_interfaces', []) %}
 {%         if ifd.get('ethernet_segment_identifier') != None %}
-{%-            set sys_id = ifd.ethernet_segment_identifier[-17:] %}
+{%-            set sys_id = ifd.ethernet_segment_identifier[-17:] | reverse %}
 set groups {{cfg_group}} interfaces {{ifd.name}} esi {{ifd.ethernet_segment_identifier}}
 set groups {{cfg_group}} interfaces {{ifd.name}} esi all-active
 {%             if ifd.get('link_aggregation_group')!= None %}
