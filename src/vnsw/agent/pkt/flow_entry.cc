@@ -659,6 +659,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         reset_flags(FlowEntry::IngressDir);
     }
     data_.disable_validation = info->disable_validation;
+
     if (ctrl->rt_ != NULL) {
         RpfInit(ctrl->rt_, pkt->ip_saddr);
     }

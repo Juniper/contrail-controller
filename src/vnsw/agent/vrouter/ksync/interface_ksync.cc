@@ -762,14 +762,71 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         // If fat-flow is disabled, the reverse packet hits flow created (1)
         // and succeeds
         if (hc_active_ && fat_flow_list_.list_.size() != 0) {
-            std::vector<int32_t> fat_flow_list;
+            std::vector<int32_t> fat_flow_protocol_port_list;
+            std::vector<uint64_t> fat_flow_src_prefix_h_list;
+            std::vector<uint64_t> fat_flow_src_prefix_l_list;
+            std::vector<int8_t> fat_flow_src_prefix_mask_list;
+            std::vector<int8_t> fat_flow_src_aggregate_plen_list;
+            std::vector<uint64_t> fat_flow_dst_prefix_h_list;
+            std::vector<uint64_t> fat_flow_dst_prefix_l_list;
+            std::vector<int8_t> fat_flow_dst_prefix_mask_list;
+            std::vector<int8_t> fat_flow_dst_aggregate_plen_list;
+            uint64_t tmp_ip6[2];
+
             for (VmInterface::FatFlowEntrySet::const_iterator it =
-                 fat_flow_list_.list_.begin(); it != fat_flow_list_.list_.end();
-                 it++) {
-                fat_flow_list.push_back(it->ignore_address << 24 |
-                                        it->protocol << 16 | it->port);
+                 fat_flow_list_.list_.begin(); it != fat_flow_list_.list_.end(); it++) {
+                if (it->prefix_aggregate == VmInterface::AGGREGATE_NONE) {
+                    fat_flow_protocol_port_list.push_back(it->prefix_aggregate << 28 |
+                                                          it->ignore_address << 24 |
+                                                          it->protocol << 16 | it->port);
+                    fat_flow_src_prefix_l_list.push_back(0);
+                    fat_flow_src_prefix_h_list.push_back(0);
+                    fat_flow_src_prefix_mask_list.push_back(0);
+                    fat_flow_src_aggregate_plen_list.push_back(0);
+                    fat_flow_dst_prefix_l_list.push_back(0);
+                    fat_flow_dst_prefix_h_list.push_back(0);
+                    fat_flow_dst_prefix_mask_list.push_back(0);
+                    fat_flow_dst_aggregate_plen_list.push_back(0);
+                } else if ((it->prefix_aggregate == VmInterface::AGGREGATE_SRC_IPV4) ||
+                           (it->prefix_aggregate == VmInterface::AGGREGATE_DST_IPV4) ||
+                           (it->prefix_aggregate == VmInterface::AGGREGATE_SRC_DST_IPV4)) {
+                    fat_flow_protocol_port_list.push_back(it->prefix_aggregate << 28 |
+                                                          it->ignore_address << 24 |
+                                                          it->protocol << 16 | it->port);
+                    fat_flow_src_prefix_l_list.push_back((uint64_t) htonl(it->src_prefix.to_v4().to_ulong()));
+                    fat_flow_src_prefix_h_list.push_back(0);
+                    fat_flow_src_prefix_mask_list.push_back(it->src_prefix_mask);
+                    fat_flow_src_aggregate_plen_list.push_back(it->src_aggregate_plen);
+                    fat_flow_dst_prefix_l_list.push_back((uint64_t) htonl(it->dst_prefix.to_v4().to_ulong()));
+                    fat_flow_dst_prefix_h_list.push_back(0);
+                    fat_flow_dst_prefix_mask_list.push_back(it->dst_prefix_mask);
+                    fat_flow_dst_aggregate_plen_list.push_back(it->dst_aggregate_plen);
+                } else {
+                    fat_flow_protocol_port_list.push_back(it->prefix_aggregate << 28 |
+                                                          it->ignore_address << 24 |
+                                                          it->protocol << 16 | it->port);
+                    Ip6AddressToU64Array(it->src_prefix.to_v6(), tmp_ip6, 2);
+                    fat_flow_src_prefix_h_list.push_back(tmp_ip6[0]);
+                    fat_flow_src_prefix_l_list.push_back(tmp_ip6[1]);
+                    fat_flow_src_prefix_mask_list.push_back(it->src_prefix_mask);
+                    fat_flow_src_aggregate_plen_list.push_back(it->src_aggregate_plen);
+                    Ip6AddressToU64Array(it->dst_prefix.to_v6(), tmp_ip6, 2);
+                    fat_flow_dst_prefix_h_list.push_back(tmp_ip6[0]);
+                    fat_flow_dst_prefix_l_list.push_back(tmp_ip6[1]);
+                    fat_flow_dst_prefix_mask_list.push_back(it->dst_prefix_mask);
+                    fat_flow_dst_aggregate_plen_list.push_back(it->dst_aggregate_plen);
+                }
             }
-            encoder.set_vifr_fat_flow_protocol_port(fat_flow_list);
+            encoder.set_vifr_fat_flow_protocol_port(fat_flow_protocol_port_list);
+            encoder.set_vifr_fat_flow_src_prefix_h(fat_flow_src_prefix_h_list);
+            encoder.set_vifr_fat_flow_src_prefix_l(fat_flow_src_prefix_l_list);
+            encoder.set_vifr_fat_flow_src_prefix_mask(fat_flow_src_prefix_mask_list);
+            encoder.set_vifr_fat_flow_src_aggregate_plen(fat_flow_src_aggregate_plen_list);
+            encoder.set_vifr_fat_flow_dst_prefix_h(fat_flow_dst_prefix_h_list);
+            encoder.set_vifr_fat_flow_dst_prefix_l(fat_flow_dst_prefix_l_list);
+            encoder.set_vifr_fat_flow_dst_prefix_mask(fat_flow_dst_prefix_mask_list);
+            encoder.set_vifr_fat_flow_dst_aggregate_plen(fat_flow_dst_aggregate_plen_list);
+
             encoder.set_vifr_fat_flow_exclude_ip_list
                 (fat_flow_exclude_list_.fat_flow_v4_exclude_list_);
             encoder.set_vifr_fat_flow_exclude_ip6_u_list

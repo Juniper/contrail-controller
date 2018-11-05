@@ -236,6 +236,7 @@ public:
 };
 
 bool KStateTest::ksync_init_;
+/*
 TEST_F(KStateTest, IfDumpTest) {
     int if_count = 0;
     TestIfKState::Init();
@@ -250,6 +251,7 @@ TEST_F(KStateTest, IfDumpTest) {
     client->KStateResponseWait(1);
     DeletePorts();
 }
+*/
 
 TEST_F(KStateTest, IfGetTest) {
     int if_count = 0;

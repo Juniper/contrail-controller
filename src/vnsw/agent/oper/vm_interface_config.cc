@@ -540,6 +540,11 @@ static void BuildProxyArpFlags(Agent *agent, VmInterfaceConfigData *data,
 static bool ValidateFatFlowCfg(const boost::uuids::uuid &u, const ProtocolType *pt)
 {
     if (pt->source_prefix.ip_prefix.length() > 0) {
+        if (pt->source_prefix.ip_prefix_len < 8) {
+            LOG(ERROR, "FatFlowCfg validation failed for VMI uuid:" << u << " Protocol:" << pt->protocol
+                        << " Port:" << pt->port << " src mask cannot be < 8\n");
+            return false;
+        }
         if (pt->source_aggregate_prefix_length < pt->source_prefix.ip_prefix_len) {
             LOG(ERROR, "FatFlowCfg validation failed for VMI uuid:" << u << " Protocol:" << pt->protocol
                         << " Port:" << pt->port << " src aggr plen is less than src mask\n");
@@ -547,6 +552,11 @@ static bool ValidateFatFlowCfg(const boost::uuids::uuid &u, const ProtocolType *
         }
     }
     if (pt->destination_prefix.ip_prefix.length() > 0) {
+        if (pt->destination_prefix.ip_prefix_len < 8) {
+            LOG(ERROR, "FatFlowCfg validation failed for VMI uuid:" << u << " Protocol:" << pt->protocol
+                        << " Port:" << pt->port << " dst mask cannot be < 8\n");
+            return false;
+        }
         if (pt->destination_aggregate_prefix_length < pt->destination_prefix.ip_prefix_len) {
             LOG(ERROR, "FatFlowCfg validation failed for VMI uuid:" << u << " Protocol:" << pt->protocol
                         << " Port:" << pt->port << " dst aggr plen is less than dst mask\n");
@@ -577,12 +587,16 @@ static void BuildFatFlowTable(Agent *agent, const boost::uuids::uuid &u,
         if (!ValidateFatFlowCfg(u, &(*it))) {
             continue;
         }
+
         VmInterface::FatFlowEntry e = VmInterface::FatFlowEntry::MakeFatFlowEntry(it->protocol, it->port, 
-                                                  it->ignore_address, it->source_prefix.ip_prefix, 
+                                                  it->ignore_address, 
+                                                  it->source_prefix.ip_prefix, 
                                                   it->source_prefix.ip_prefix_len, 
-                                                  it->source_aggregate_prefix_length, it->destination_prefix.ip_prefix,
+                                                  it->source_aggregate_prefix_length,
+                                                  it->destination_prefix.ip_prefix,
                                                   it->destination_prefix.ip_prefix_len, 
                                                   it->destination_aggregate_prefix_length);
+        e.print();
         data->fat_flow_list_.Insert(&e);
     }
 }
@@ -985,11 +999,14 @@ static void BuildVn(VmInterfaceConfigData *data,
         if (!ValidateFatFlowCfg(u, &(*it))) {
              continue;
         }
+
         VmInterface::FatFlowEntry e = VmInterface::FatFlowEntry::MakeFatFlowEntry(it->protocol, it->port, it->ignore_address,
                                                   it->source_prefix.ip_prefix, it->source_prefix.ip_prefix_len, 
-                                                  it->source_aggregate_prefix_length, it->destination_prefix.ip_prefix,
+                                                  it->source_aggregate_prefix_length, 
+                                                  it->destination_prefix.ip_prefix,
                                                   it->destination_prefix.ip_prefix_len, 
                                                   it->destination_aggregate_prefix_length);
+        e.print();
         data->fat_flow_list_.Insert(&e);
     }
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());

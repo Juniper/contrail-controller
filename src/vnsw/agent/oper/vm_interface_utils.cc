@@ -873,23 +873,419 @@ const Peer *VmInterface::peer() const {
     return peer_.get();
 }
 
-bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port, FatFlowLkupResult *res)
-    const {
-    FatFlowEntrySet::iterator it = fat_flow_list_.list_.
-        find(FatFlowEntry(protocol, port));
-    if (it != fat_flow_list_.list_.end()) {
-        res->ignore_address = it->ignore_address;
-        res->prefix_aggregate = it->prefix_aggregate;
-        res->src_prefix = it->src_prefix;
-        res->src_prefix_mask = it->src_prefix_mask;
-        res->src_aggregate_plen = it->src_aggregate_plen;
-        res->dst_prefix = it->dst_prefix;
-        res->dst_prefix_mask = it->dst_prefix_mask;
-        res->dst_aggregate_plen = it->dst_aggregate_plen;
+bool VmInterface::IsFatFlowPortBased(uint8_t protocol, uint16_t port, 
+                                     FatFlowIgnoreAddressType *ignore_addr) const {
+    fat_flow_list_.DumpList();
+
+    FatFlowEntrySet::iterator start = fat_flow_list_.list_.lower_bound(
+                                         FatFlowEntry(protocol, port, IGNORE_ADDRESS_MIN_VAL, 
+                                             AGGREGATE_PREFIX_MIN_VAL));
+    FatFlowEntrySet::iterator end = fat_flow_list_.list_.upper_bound(
+                                         FatFlowEntry(protocol, port, IGNORE_ADDRESS_MAX_VAL, 
+                                             AGGREGATE_PREFIX_MIN_VAL));
+    if (start != fat_flow_list_.list_.end()) {
+        while (start != end) {
+            if ((start->protocol == protocol) && (start->port == port) &&
+                (start->prefix_aggregate == AGGREGATE_NONE)) {
+                *ignore_addr = start->ignore_address;
+                return true;
+            }
+            start++;
+        }
+    }
+    return false;
+}
+
+bool VmInterface::MatchSrcPrefixPort(uint8_t protocol, uint16_t port, IpAddress *src_ip,
+                                     FatFlowIgnoreAddressType *ignore_addr) const
+{
+    FatFlowPrefixAggregateType prefix_type, max_prefix_type;
+    Ip4Address Ipv4_subnet, Ipv4_ret_subnet;
+    Ip6Address Ipv6_subnet, Ipv6_ret_subnet;
+    uint8_t max_mask, max_plen;
+    const FatFlowEntry *match_ffe = NULL;
+
+    *ignore_addr = VmInterface::IGNORE_NONE;
+
+    if (src_ip->is_v4()) {
+        prefix_type = AGGREGATE_SRC_IPV4;
+        // set max_prefixtype to src_dst_ipv4 so that we can do LPM on src prefix
+        max_prefix_type = AGGREGATE_SRC_DST_IPV4;
+        Ipv4_subnet = Address::GetIp4SubnetAddress(src_ip->to_v4(), 8);
+        max_mask = 32;
+        max_plen = 32;
+    } else {
+        prefix_type = AGGREGATE_SRC_IPV6;
+        max_prefix_type = AGGREGATE_SRC_DST_IPV6;
+        Ipv6_subnet = Address::GetIp6SubnetAddress(src_ip->to_v6(), 8);
+        max_mask = 128;
+        max_plen = 128;
+    }
+
+    const FatFlowEntry lbffe = FatFlowEntry(protocol, port, "destination", prefix_type, 
+                                           (src_ip->is_v4()? IpAddress(Ipv4_subnet): 
+                                                             IpAddress(Ipv6_subnet)), 8, 8, 
+                                          (src_ip->is_v4()? IpAddress::from_string("0.0.0.0"):
+                                          IpAddress::from_string("0::0")), 0, 0);
+
+    FatFlowEntrySet::iterator start = fat_flow_list_.list_.lower_bound(lbffe);
+
+    const FatFlowEntry ubffe = FatFlowEntry(protocol, port, "none", max_prefix_type,
+                                           *src_ip, max_mask, max_plen, 
+                                           (src_ip->is_v4()? IpAddress::from_string("255.255.255.255") :
+                                              IpAddress::from_string(
+                                                     "FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF")), 
+                                           max_mask, max_plen);
+
+    FatFlowEntrySet::iterator end = fat_flow_list_.list_.upper_bound(ubffe);
+
+    if ((start != fat_flow_list_.list_.end()) && 
+        (start->protocol == protocol) && (start->port == port)) {
+        while (start != end) {
+            if (src_ip->is_v4() &&
+                IsIp4SubnetMember(src_ip->to_v4(), start->src_prefix.to_v4(), 
+                                  start->src_prefix_mask) &&
+                (start->protocol == protocol) && (start->port == port)) {
+                if ((!match_ffe) || (start->src_prefix_mask > match_ffe->src_prefix_mask)) {
+                    match_ffe = &(*start);
+                }
+            } else if (src_ip->is_v6() &&
+                       IsIp6SubnetMember(src_ip->to_v6(), start->src_prefix.to_v6(),
+                                         start->src_prefix_mask) &&
+                       (start->protocol == protocol) && (start->port == port)) {
+                if ((!match_ffe) || (start->src_prefix_mask > match_ffe->src_prefix_mask)) {
+                    match_ffe = &(*start);
+                }
+            }
+            start++;
+        }
+    }
+    if (match_ffe && (match_ffe->prefix_aggregate == prefix_type)) {
+        if (src_ip->is_v4()) {
+            Ipv4_ret_subnet = Address::GetIp4SubnetAddress(src_ip->to_v4(), match_ffe->src_aggregate_plen);
+            *src_ip = IpAddress(Ipv4_ret_subnet);
+            *ignore_addr = match_ffe->ignore_address;
+        } else {
+            Ipv6_ret_subnet = Address::GetIp6SubnetAddress(src_ip->to_v6(), match_ffe->src_aggregate_plen);
+            *src_ip = IpAddress(Ipv6_ret_subnet);
+            *ignore_addr = match_ffe->ignore_address;
+        }
         return true;
     }
     return false;
 }
+
+bool VmInterface::MatchSrcPrefixRule(uint8_t protocol, uint16_t *sport,
+                                     uint16_t *dport, bool *same_port_num,
+                                     IpAddress *SrcIP, 
+                                     FatFlowIgnoreAddressType *ignore_addr) const
+{
+    if ((*sport) < (*dport)) {
+        if (MatchSrcPrefixPort(protocol, *sport, SrcIP, ignore_addr)) {
+            *dport = 0;
+            return true;
+        }
+        if (MatchSrcPrefixPort(protocol, *dport, SrcIP, ignore_addr)) {
+            *sport = 0;
+            return true;
+        }
+    } else {
+        if (MatchSrcPrefixPort(protocol, *dport, SrcIP, ignore_addr)) {
+            if ((*sport) == (*dport)) {
+                *same_port_num = true;
+            }
+            *sport = 0;
+            return true;
+        }
+        if (MatchSrcPrefixPort(protocol, *sport, SrcIP, ignore_addr)) {
+            *dport = 0;
+            return true;
+        }
+    }
+    if (MatchSrcPrefixPort(protocol, 0, SrcIP, ignore_addr)) {
+        *sport = *dport = 0;
+        return true;
+    }
+    return false;     
+}
+
+bool VmInterface::MatchDstPrefixPort(uint8_t protocol, uint16_t port, 
+                                     IpAddress *dst_ip, FatFlowIgnoreAddressType *ignore_addr) const
+{
+    FatFlowPrefixAggregateType prefix_type;
+    Ip4Address Ipv4_subnet, Ipv4_ret_subnet;
+    Ip6Address Ipv6_subnet, Ipv6_ret_subnet;
+    uint8_t max_mask, max_plen;
+    const FatFlowEntry *match_ffe = NULL;
+
+    *ignore_addr = VmInterface::IGNORE_NONE;
+
+    if (dst_ip->is_v4()) {
+        prefix_type = AGGREGATE_DST_IPV4;
+        Ipv4_subnet = Address::GetIp4SubnetAddress(dst_ip->to_v4(), 8);
+        max_mask = 32;
+        max_plen = 32;
+    } else {
+        prefix_type = AGGREGATE_DST_IPV6;
+        Ipv6_subnet = Address::GetIp6SubnetAddress(dst_ip->to_v6(), 8);
+        max_mask = 128;
+        max_plen = 128;
+    }
+
+    const FatFlowEntry lbffe = FatFlowEntry(protocol, port, "source", prefix_type, 
+                                        (dst_ip->is_v4()? IpAddress::from_string("0.0.0.0"):
+                                         IpAddress::from_string("0::0")), 0, 0, 
+                                        (dst_ip->is_v4()? IpAddress(Ipv4_subnet): IpAddress(Ipv6_subnet)), 
+                                        8, 8);
+
+    FatFlowEntrySet::iterator start = fat_flow_list_.list_.lower_bound(lbffe);
+
+    const FatFlowEntry ubffe = FatFlowEntry(protocol, port, "none", prefix_type,
+                                        (dst_ip->is_v4()? IpAddress::from_string("0.0.0.0") :
+                                         IpAddress::from_string("0::0")), 0, 0, 
+                                        *dst_ip, max_mask, max_plen);
+
+    FatFlowEntrySet::iterator end = fat_flow_list_.list_.upper_bound(ubffe);
+
+    if ((start != fat_flow_list_.list_.end()) && 
+        (start->protocol == protocol) && (start->port == port)) {
+        while (start != end) {
+            if (dst_ip->is_v4() &&
+                IsIp4SubnetMember(dst_ip->to_v4(), start->dst_prefix.to_v4(), 
+                                  start->dst_prefix_mask) &&
+                (start->protocol == protocol) && (start->port == port)) {
+                if ((!match_ffe) || (start->dst_prefix_mask > match_ffe->dst_prefix_mask)) {
+                    match_ffe = &(*start);
+                }
+            } else if (dst_ip->is_v6() &&
+                       IsIp6SubnetMember(dst_ip->to_v6(), start->dst_prefix.to_v6(),
+                                         start->dst_prefix_mask) &&
+                       (start->protocol == protocol) && (start->port == port)) {
+                if ((!match_ffe) || (start->dst_prefix_mask > match_ffe->dst_prefix_mask)) {
+                    match_ffe = &(*start);
+                }
+            }
+            start++;
+        }
+    }
+    if (match_ffe && (match_ffe->prefix_aggregate == prefix_type)) {
+        if (dst_ip->is_v4()) {
+            Ipv4_ret_subnet = Address::GetIp4SubnetAddress(dst_ip->to_v4(), match_ffe->dst_aggregate_plen);
+            *dst_ip = IpAddress(Ipv4_ret_subnet);
+            *ignore_addr = match_ffe->ignore_address;
+        } else {
+            Ipv6_ret_subnet = Address::GetIp6SubnetAddress(dst_ip->to_v6(), match_ffe->dst_aggregate_plen);
+            *dst_ip = IpAddress(Ipv6_ret_subnet);
+            *ignore_addr = match_ffe->ignore_address;
+        }
+        return true;
+    }
+    return false;
+}
+
+
+bool VmInterface::MatchDstPrefixRule(uint8_t protocol, uint16_t *sport,
+                                     uint16_t *dport, bool *same_port_num,
+                                     IpAddress *DstIP, 
+                                     FatFlowIgnoreAddressType *ignore_addr) const
+{
+    if ((*sport) < (*dport)) {
+        if (MatchDstPrefixPort(protocol, *sport, DstIP, ignore_addr)) {
+            *dport = 0;
+            return true;
+        }
+        if (MatchDstPrefixPort(protocol, *dport, DstIP, ignore_addr)) {
+            *sport = 0;
+            return true;
+        }
+    } else {
+        if (MatchDstPrefixPort(protocol, *dport, DstIP, ignore_addr)) {
+            if ((*sport) == (*dport)) {
+                *same_port_num = true;
+            }
+            *sport = 0;
+            return true;
+        }
+        if (MatchDstPrefixPort(protocol, *sport, DstIP, ignore_addr)) {
+            *dport = 0;
+            return true;
+        }
+    }
+    if (MatchDstPrefixPort(protocol, 0, DstIP, ignore_addr)) {
+        *sport = *dport = 0;
+        return true;
+    }
+    return false;
+}
+
+
+bool VmInterface::MatchSrcDstPrefixPort(uint8_t protocol, uint16_t port, IpAddress *src_ip,
+                                        IpAddress *dst_ip) const
+{
+    FatFlowPrefixAggregateType prefix_type;
+    Ip4Address Ipv4_src_subnet, Ipv4_src_ret_subnet;
+    Ip4Address Ipv4_dst_subnet, Ipv4_dst_ret_subnet;
+    Ip6Address Ipv6_src_subnet, Ipv6_src_ret_subnet;
+    Ip6Address Ipv6_dst_subnet, Ipv6_dst_ret_subnet;
+    uint8_t max_mask, max_plen;
+    const FatFlowEntry *match_ffe = NULL;
+
+    if (src_ip->is_v4()) {
+        prefix_type = AGGREGATE_SRC_DST_IPV4;
+        Ipv4_src_subnet = Address::GetIp4SubnetAddress(src_ip->to_v4(), 8);
+        Ipv4_dst_subnet = Address::GetIp4SubnetAddress(dst_ip->to_v4(), 8);
+        max_mask = 32;
+        max_plen = 32;
+    } else {
+        prefix_type = AGGREGATE_SRC_DST_IPV6;
+        Ipv6_src_subnet = Address::GetIp6SubnetAddress(src_ip->to_v6(), 8);
+        Ipv6_dst_subnet = Address::GetIp6SubnetAddress(dst_ip->to_v6(), 8);
+        max_mask = 128;
+        max_plen = 128;
+    }
+
+    const FatFlowEntry lbffe = FatFlowEntry(protocol, port, "none", prefix_type, 
+                               (src_ip->is_v4()? IpAddress(Ipv4_src_subnet): IpAddress(Ipv6_src_subnet)), 
+                               8, 8,
+                               (dst_ip->is_v4()? IpAddress(Ipv4_dst_subnet): IpAddress(Ipv6_dst_subnet)), 
+                               8, 8);
+
+    FatFlowEntrySet::iterator start = fat_flow_list_.list_.lower_bound(lbffe);
+
+    const FatFlowEntry ubffe = FatFlowEntry(protocol, port, "none", prefix_type,
+                               *src_ip, max_mask, max_plen,
+                               *dst_ip, max_mask, max_plen);
+
+    FatFlowEntrySet::iterator end = fat_flow_list_.list_.upper_bound(ubffe);
+
+    if ((start != fat_flow_list_.list_.end()) && 
+        (start->protocol == protocol) && (start->port == port)) {
+        while (start != end) {
+            if (src_ip->is_v4() &&
+                IsIp4SubnetMember(src_ip->to_v4(), start->src_prefix.to_v4(), 
+                                  start->src_prefix_mask) &&
+                IsIp4SubnetMember(dst_ip->to_v4(), start->dst_prefix.to_v4(), 
+                                  start->dst_prefix_mask) &&
+                (start->protocol == protocol) && (start->port == port)) {
+                match_ffe = &(*start);
+            } else if (src_ip->is_v6() &&
+                       IsIp6SubnetMember(src_ip->to_v6(), start->src_prefix.to_v6(),
+                                         start->src_prefix_mask) &&
+                       IsIp6SubnetMember(dst_ip->to_v6(), start->dst_prefix.to_v6(),
+                                         start->dst_prefix_mask) &&
+                       (start->protocol == protocol) && (start->port == port)) {
+                match_ffe = &(*start);
+            }
+            start++;
+        }
+    }
+    if (match_ffe && (match_ffe->prefix_aggregate == prefix_type)) {
+        if (src_ip->is_v4()) {
+            Ipv4_src_ret_subnet = Address::GetIp4SubnetAddress(src_ip->to_v4(), match_ffe->src_aggregate_plen);
+            Ipv4_dst_ret_subnet = Address::GetIp4SubnetAddress(dst_ip->to_v4(), match_ffe->dst_aggregate_plen);
+            *src_ip = IpAddress(Ipv4_src_ret_subnet);
+            *dst_ip = IpAddress(Ipv4_dst_ret_subnet);
+        } else {
+            Ipv6_src_ret_subnet = Address::GetIp6SubnetAddress(src_ip->to_v6(), match_ffe->src_aggregate_plen);
+            Ipv6_dst_ret_subnet = Address::GetIp6SubnetAddress(dst_ip->to_v6(), match_ffe->dst_aggregate_plen);
+            *src_ip = IpAddress(Ipv6_src_ret_subnet);
+            *dst_ip = IpAddress(Ipv6_dst_ret_subnet);
+        }
+        return true;
+    }
+    return false;
+}
+
+
+bool VmInterface::MatchSrcDstPrefixRule(uint8_t protocol, uint16_t *sport,
+                                        uint16_t *dport, bool *same_port_num,
+                                        IpAddress *SrcIP, IpAddress *DstIP) const
+{
+    if ((*sport) < (*dport)) {
+        if (MatchSrcDstPrefixPort(protocol, *sport, SrcIP, DstIP)) {
+            *dport = 0;
+            return true;
+        }
+        if (MatchSrcDstPrefixPort(protocol, *dport, SrcIP, DstIP)) {
+            *sport = 0;
+            return true;
+        }
+    } else {
+        if (MatchSrcDstPrefixPort(protocol, *dport, SrcIP, DstIP)) {
+            if ((*sport) == (*dport)) {
+                *same_port_num = true;
+            }
+            *sport = 0;
+            return true;
+        }
+        if (MatchSrcDstPrefixPort(protocol, *sport, SrcIP, DstIP)) {
+            *dport = 0;
+            return true;
+        }
+    }
+    if (MatchSrcDstPrefixPort(protocol, 0, SrcIP, DstIP)) {
+        *sport = *dport = 0;
+        return true;
+    }
+    return false;     
+}
+
+
+bool VmInterface::IsFatFlowPrefixAggregation(bool ingress, uint8_t protocol, uint16_t *sport,
+                                             uint16_t *dport, bool *same_port_num,
+                                             IpAddress *SrcIP, IpAddress *DstIP,
+                                             bool *is_fat_flow_src_prefix, 
+                                             bool *is_fat_flow_dst_prefix,
+                                             FatFlowIgnoreAddressType *ignore_addr) const
+{
+    uint16_t *src_port = (ingress? sport: dport), 
+             *dst_port = (ingress? dport: sport);
+    IpAddress *src_ip = (ingress? SrcIP: DstIP),
+              *dst_ip = (ingress? DstIP: SrcIP);
+    bool *is_src_prefix = (ingress? is_fat_flow_src_prefix : is_fat_flow_dst_prefix);
+    bool *is_dst_prefix = (ingress? is_fat_flow_dst_prefix : is_fat_flow_src_prefix);
+    bool ret;
+    FatFlowIgnoreAddressType ign_addr;
+ 
+    fat_flow_list_.DumpList();
+
+    *is_src_prefix = false;
+    *is_dst_prefix = false;
+    
+    /* Match Src prefix rule first */
+    if (MatchSrcPrefixRule(protocol, src_port, dst_port, same_port_num, src_ip, &ign_addr)) {
+        *is_src_prefix = true;
+        if (ign_addr != VmInterface::IGNORE_NONE) {
+            if (ingress) {
+                *ignore_addr = VmInterface::IGNORE_DESTINATION;
+            } else {
+                *ignore_addr = VmInterface::IGNORE_SOURCE;
+            }
+        }
+        return true;
+    }
+    /* Match Dst prefix rule */
+    if (MatchDstPrefixRule(protocol, src_port, dst_port, same_port_num, dst_ip, &ign_addr)) {
+        *is_dst_prefix = true;
+        if (ign_addr != VmInterface::IGNORE_NONE) {
+            if (ingress) {
+                *ignore_addr = VmInterface::IGNORE_SOURCE;
+            } else {
+                *ignore_addr = VmInterface::IGNORE_DESTINATION;
+            }
+        }
+        return true;
+    }
+    /* Match Src+Dst prefix rule */
+    ret = MatchSrcDstPrefixRule(protocol, src_port, dst_port, same_port_num, 
+                                src_ip, dst_ip);
+    if (ret) {
+        *is_src_prefix = true;
+        *is_dst_prefix = true;
+    }
+    return ret;
+}
+
 
 bool VmInterface::ExcludeFromFatFlow(Address::Family family,
                                      const IpAddress &sip,

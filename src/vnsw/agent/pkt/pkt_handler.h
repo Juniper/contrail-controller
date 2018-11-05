@@ -302,7 +302,7 @@ public:
     PktModule *pkt_module() const { return pkt_module_; }
     void Enqueue(PktModuleName module, boost::shared_ptr<PktInfo> pkt_info);
     bool IsFlowPacket(PktInfo *pkt_info);
-    void CalculatePort(PktInfo *pkt_info);
+    void CalculatePortIP(PktInfo *pkt_info);
     const PktHandlerQueue *work_queue() const { return &work_queue_; }
 
     bool IsBFDHealthCheckPacket(const PktInfo *pkt_info,
@@ -387,6 +387,10 @@ struct PktInfo {
     bool                is_segment_hc_pkt;
     VmInterface::FatFlowIgnoreAddressType ignore_address; //fat-flow config
     bool                same_port_number;
+    bool                is_fat_flow_src_prefix; // indicates fat flow with src prefix
+    IpAddress           ip_ff_src_prefix; // fat flow src prefix
+    bool                is_fat_flow_dst_prefix; // indicates fat flow with dst prefix
+    IpAddress           ip_ff_dst_prefix; // fat flow dst prefix
 
     // Pointer to different headers in user packet
     struct ether_header *eth;
