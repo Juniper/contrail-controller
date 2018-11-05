@@ -21,7 +21,6 @@ utils_scripts = [
   'provision_control.py',
   'provision_static_route.py',
   'service-template.py',
-  'contrail-version-deb',
   'demo_cmds.sh',
   'provision_encap.py',
   'provision_vgw_interface.py',
