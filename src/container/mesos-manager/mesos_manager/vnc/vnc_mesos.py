@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
 """
@@ -36,6 +36,8 @@ class VncMesos(object):
         self.args = args
         self.logger = logger
         self.queue = queue
+        self._cluster_pod_task_ipam_fq_name = None
+        self._cluster_ip_fabric_ipam_fq_name = None
 
         """Initialize vnc connection"""
         self.vnc_lib = self._vnc_connect()
@@ -53,6 +55,9 @@ class VncMesos(object):
 
         # provision cluster
         self._provision_cluster()
+        self.vnc_mesos_config.update(
+         cluster_pod_task_ipam_fq_name=self._get_cluster_pod_task_ipam_fq_name(),
+         cluster_ip_fabric_ipam_fq_name=self._get_cluster_ip_fabric_ipam_fq_name())
         self.pod_task_mgr = importutils.import_object(
             'mesos_manager.vnc.vnc_pod_task.VncPodTask')
         VncMesos._vnc_mesos = self
@@ -285,6 +290,12 @@ class VncMesos(object):
             self.vnc_lib.global_vrouter_config_update(global_vrouter_obj)
         except NoIdError:
             pass
+
+    def _get_cluster_pod_task_ipam_fq_name(self):
+        return self._cluster_pod_task_ipam_fq_name
+
+    def _get_cluster_ip_fabric_ipam_fq_name(self):
+        return self._cluster_ip_fabric_ipam_fq_name
 
     def _provision_cluster(self):
         ''' Pre creating default project before namespace add event.'''
