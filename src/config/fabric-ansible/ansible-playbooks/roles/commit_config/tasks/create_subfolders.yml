@@ -1,7 +1,0 @@
-  - name: create config folder
-    file:
-      path: "{{ conf_dir }}/final_config"
-      state: directory
-
-  - name: Assembling configurations and copying to conf/
-    assemble: src={{ conf_dir }}/build_config dest={{ conf_dir }}/final_config/combined_config.conf

@@ -17,11 +17,17 @@ _docker_label_to_unit_name = {
     Module.ANALYTICS_NODE_MGR: {
         'analytics-collector': 'contrail-collector',
         'analytics-api': 'contrail-analytics-api',
-        'analytics-snmp-collector': 'contrail-snmp-collector',
-        'analytics-query-engine': 'contrail-query-engine',
-        'analytics-alarm-gen': 'contrail-alarm-gen',
-        'analytics-topology': 'contrail-topology',
         'analytics-nodemgr': 'contrail-analytics-nodemgr'
+    },
+    Module.ANALYTICS_ALARM_NODE_MGR: {
+        'analytics-alarm-alarm-gen': 'contrail-alarm-gen',
+        'analytics-alarm-kafka': 'kafka',
+        'analytics-alarm-nodemgr': 'contrail-analytics-alarm-nodemgr'
+    },
+    Module.ANALYTICS_SNMP_NODE_MGR: {
+        'analytics-snmp-snmp-collector': 'contrail-snmp-collector',
+        'analytics-snmp-topology': 'contrail-topology',
+        'analytics-snmp-nodemgr': 'contrail-analytics-snmp-nodemgr'
     },
     Module.CONFIG_NODE_MGR: {
         'config-api': 'contrail-api',
@@ -46,9 +52,8 @@ _docker_label_to_unit_name = {
         'vrouter-nodemgr': 'contrail-vrouter-nodemgr'
     },
     Module.DATABASE_NODE_MGR: {
+        'database-query-engine': 'contrail-query-engine',
         'database-cassandra': 'cassandra',
-        'database-zookeeper': 'zookeeper',
-        'database-kafka': 'kafka',
         'database-nodemgr': 'contrail-database-nodemgr'
     },
 }
@@ -73,6 +78,8 @@ class DockerProcessInfoManager(object):
         self._update_process_list = update_process_list
         self._process_info_cache = cpm.ProcessInfoCache()
         self._client = docker.from_env()
+        if hasattr(self._client, 'api'):
+            self._client = self._client.api
 
     def _get_full_info(self, cid):
         try:

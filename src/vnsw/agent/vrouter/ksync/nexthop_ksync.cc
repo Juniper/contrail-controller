@@ -46,6 +46,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     is_bridge_(entry->is_bridge_),
     is_vxlan_routing_(entry->is_vxlan_routing_),
     comp_type_(entry->comp_type_),
+    validate_mcast_src_(entry->validate_mcast_src_),
     tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
@@ -57,7 +58,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     need_pbb_tunnel_(entry->need_pbb_tunnel_), etree_leaf_(entry->etree_leaf_),
     layer2_control_word_(entry->layer2_control_word_),
     crypt_(entry->crypt_), crypt_path_available_(entry->crypt_path_available_),
-    crypt_interface_(entry->crypt_interface_) {
+    crypt_interface_(entry->crypt_interface_),
+    transport_tunnel_type_(entry->transport_tunnel_type_) {
     }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -129,6 +131,13 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
             crypt_interface_ = crypt_interface_object->GetReference(&if_ksync);
         }
         rewrite_dmac_ = tunnel->rewrite_dmac();
+        if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+            const LabelledTunnelNH *labelled_tunnel =
+                    static_cast<const LabelledTunnelNH *>(nh);
+            label_ = labelled_tunnel->GetTransportLabel();
+            transport_tunnel_type_ =
+                    labelled_tunnel->GetTransportTunnelType();
+        }
         break;
     }
 
@@ -198,6 +207,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         component_nh_list_.clear();
         vrf_id_ = comp_nh->vrf()->vrf_id();
         comp_type_ = comp_nh->composite_nh_type();
+        validate_mcast_src_ = comp_nh->validate_mcast_src();
         ecmp_hash_fieds_ =
             const_cast<CompositeNH *>(comp_nh)->CompEcmpHashFields().HashFieldsToUse();
         component_nh_key_list_ = comp_nh->component_nh_key_list();
@@ -323,8 +333,12 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         if (rewrite_dmac_ != entry.rewrite_dmac_) {
             return rewrite_dmac_ < entry.rewrite_dmac_;
         }
-
-        return tunnel_type_.IsLess(entry.tunnel_type_);
+        if (tunnel_type_.Compare(entry.tunnel_type_) == false) {
+            return tunnel_type_.IsLess(entry.tunnel_type_);
+        }
+        if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+            return label_ < entry.label_;
+        }
     }
 
     if (type_ == NextHop::MIRROR) {
@@ -653,6 +667,20 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
                 ret = true;
             }
         }
+        if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+            const LabelledTunnelNH *labelled_tunnel =
+                    static_cast<const LabelledTunnelNH *>(nh);
+            if (label_ != labelled_tunnel->GetTransportLabel()) {
+                label_ = labelled_tunnel->GetTransportLabel();
+                ret = true;
+            }
+            if (transport_tunnel_type_ !=
+                    labelled_tunnel->GetTransportTunnelType()) {
+                transport_tunnel_type_ =
+                    labelled_tunnel->GetTransportTunnelType();
+                ret = true;
+            }
+        }
 
         if (dmac != dmac_) {
             dmac_ = dmac;
@@ -933,6 +961,15 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 encoder.set_nhr_encap_family(ETHERTYPE_ARP);
                 encoder.set_nhr_tun_sip(0);
                 encoder.set_nhr_tun_dip(0);
+            } else if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+                flags |= NH_FLAG_TUNNEL_MPLS_O_MPLS;
+                if (transport_tunnel_type_ == TunnelType::MPLS_UDP) {
+                    flags |= NH_FLAG_TUNNEL_UDP_MPLS;
+                } else {
+                    flags |= NH_FLAG_TUNNEL_GRE;
+                }
+
+                encoder.set_nhr_transport_label(label_);
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }
@@ -1086,10 +1123,16 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             case Composite::L2COMP: {
                 encoder.set_nhr_family(AF_BRIDGE);
                 flags |= NH_FLAG_MCAST;
+                if (validate_mcast_src_) {
+                    flags |= NH_FLAG_VALIDATE_MCAST_SRC;
+                }
                 break;
             }
             case Composite::L3COMP: {
                 flags |= NH_FLAG_MCAST;
+                if (validate_mcast_src_) {
+                    flags |= NH_FLAG_VALIDATE_MCAST_SRC;
+                }
                 break;
             }
             case Composite::MULTIPROTO: {
@@ -1099,6 +1142,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             case Composite::ECMP:
             case Composite::LOCAL_ECMP: {
                 flags |= NH_FLAG_COMPOSITE_ECMP;
+                break;
+            }
+            case Composite::LU_ECMP: {
+                flags |= NH_FLAG_COMPOSITE_ECMP;
+                flags |= NH_FLAG_COMPOSITE_LU_ECMP;
                 break;
             }
             case Composite::INVALID: {

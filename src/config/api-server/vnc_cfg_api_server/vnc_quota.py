@@ -2,7 +2,9 @@ from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 from pprint import pformat
 import cfgm_common.exceptions
+from sandesh_common.vns.constants import TagTypeIdToName
 
+_NEUTRON_FWAAS_TAG_TYPE = TagTypeIdToName[5]
 QUOTA_OVER_ERROR_CODE = 412
 NON_OBJECT_TYPES = ['security_group_rule']
 
@@ -122,6 +124,24 @@ class QuotaHelper(object):
 
         return quota_count
 
+    @staticmethod
+    def get_firewall_group_count(db_conn, proj_uuid):
+        ok, result, _ = db_conn.dbe_list(
+            'application_policy_set', parent_uuids=[proj_uuid], is_detail=True)
+        if not ok:
+            raise cfgm_common.exceptions.NoIdError
+
+        quota_count = 0
+        for aps in result:
+            if not aps['id_perms'].get('user_visible', True):
+                continue
+            tag_fq_name = aps['fq_name'][:-1] + [
+                '%s=%s' % (_NEUTRON_FWAAS_TAG_TYPE, aps['uuid'])]
+            if tag_fq_name in [r['to'] for r in aps['tag_refs']]:
+                quota_count += 1
+
+        return quota_count
+
     @classmethod
     def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
 
@@ -141,6 +161,8 @@ class QuotaHelper(object):
         elif obj_type == 'loadbalancer_member':
             quota_count = cls.get_loadbalancer_member_count(
                                   db_conn, proj_uuid)
+        elif obj_type == 'firewall_group':
+            quota_count = cls.get_firewall_group_count(db_conn, proj_uuid)
         else:
             (ok, res_list, _) = db_conn.dbe_list(obj_type,
                                               back_ref_uuids=[proj_uuid])

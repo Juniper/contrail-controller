@@ -29,13 +29,13 @@ test_intf_policy = AgentEnv.MakeTestCmd(env, 'test_intf_policy',
                                         oper_test_suite)
 test_find_scale = AgentEnv.MakeTestCmd(env, 'test_find_scale', oper_test_suite)
 test_logical_intf = AgentEnv.MakeTestCmd(env, 'test_logical_intf', oper_test_suite)
-test_vrf_assign = AgentEnv.MakeTestCmd(env, 'test_vrf_assign', oper_flaky_test_suite)
-test_linklocal = AgentEnv.MakeTestCmd(env, 'test_linklocal', oper_flaky_test_suite)
+test_vrf_assign = AgentEnv.MakeTestCmd(env, 'test_vrf_assign', oper_test_suite)
+test_linklocal = AgentEnv.MakeTestCmd(env, 'test_linklocal', oper_test_suite)
 test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
                                            oper_test_suite)
 test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
-                                             oper_flaky_test_suite)
-test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_flaky_test_suite)
+                                             oper_test_suite)
+test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_test_suite)
 test_aap6 = AgentEnv.MakeTestCmd(env, 'test_aap6', oper_test_suite)
 test_ipv6 = AgentEnv.MakeTestCmd(env, 'test_ipv6', oper_test_suite)
 test_forwarding_class = AgentEnv.MakeTestCmd(env, 'test_forwarding_class', oper_test_suite)
@@ -56,7 +56,7 @@ test_bridge_domain_mg = AgentEnv.MakeTestCmd(env, 'test_bridge_domain_mg',
 test_control_word = AgentEnv.MakeTestCmd(env, 'test_control_word',
                                          oper_test_suite)
 test_instance_task = AgentEnv.MakeTestCmd(env, 'test_instance_task', oper_test_suite)
-test_fabric_vmi = AgentEnv.MakeTestCmd(env, 'test_fabric_vmi', oper_flaky_test_suite)
+test_fabric_vmi = AgentEnv.MakeTestCmd(env, 'test_fabric_vmi', oper_test_suite)
 test_tsn_elector = AgentEnv.MakeTestCmd(env, 'test_tsn_elector', oper_test_suite)
 
 env.Alias('agent:test_ipv6', test_ipv6)

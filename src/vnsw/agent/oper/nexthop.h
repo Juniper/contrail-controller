@@ -241,7 +241,8 @@ public:
         MPLS_GRE,
         MPLS_UDP,
         VXLAN,
-        NATIVE
+        NATIVE,
+        MPLS_OVER_MPLS
     };
     // Bitmap of supported tunnel types
     typedef uint32_t TypeBmap;
@@ -266,6 +267,8 @@ public:
            return "VXLAN";
        case NATIVE:
            return "Native";
+       case MPLS_OVER_MPLS:
+           return "MPLSoMPLS";
        default:
            break;
        }
@@ -290,6 +293,10 @@ public:
             tunnel_type << "Underlay";
         }
 
+        if (type & (1 << MPLS_OVER_MPLS)) {
+            tunnel_type << "MPLSoMPLS";
+        }
+
         return tunnel_type.str();
     }
 
@@ -303,6 +310,7 @@ public:
     static TypeBmap DefaultTypeBmap() {return (1 << DefaultType());}
     static TypeBmap VxlanType() {return (1 << VXLAN);};
     static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
+    static TypeBmap MplsoMplsType() {return (1 << MPLS_OVER_MPLS);};
     static TypeBmap GetTunnelBmap(TunnelType::Type type) {
         if (type == MPLS_GRE || type == MPLS_UDP)
             return TunnelType::MplsType();
@@ -315,6 +323,7 @@ public:
     static TypeBmap GREType() {return (1 << MPLS_GRE);}
     static TypeBmap UDPType() {return (1 << MPLS_UDP);}
     static TypeBmap NativeType() {return (1 << NATIVE);}
+    static TypeBmap MPLSType() {return (1 << MPLS_OVER_MPLS);}
     static bool EncapPrioritySync(const std::vector<std::string> &cfg_list);
     static void DeletePriorityList();
 
@@ -888,13 +897,14 @@ public:
     const Ip4Address dip() const {
         return dip_;
     }
-private:
+protected:
     friend class TunnelNH;
     VrfKey vrf_key_;
     Ip4Address sip_;
     Ip4Address dip_;
     TunnelType tunnel_type_;
     MacAddress rewrite_dmac_;
+private:
     DISALLOW_COPY_AND_ASSIGN(TunnelNHKey);
 };
 
@@ -905,6 +915,63 @@ public:
 private:
     friend class TunnelNH;
     DISALLOW_COPY_AND_ASSIGN(TunnelNHData);
+};
+
+/////////////////////////////////////////////////////////////////////////////
+// Labelled Tunnel NH definition
+/////////////////////////////////////////////////////////////////////////////
+class LabelledTunnelNHKey : public TunnelNHKey {
+public:
+    LabelledTunnelNHKey(const string &vrf_name,
+                const Ip4Address &sip,
+                const Ip4Address &dip,
+                bool policy,
+                TunnelType type,
+                const MacAddress &rewrite_dmac = MacAddress(),
+                uint32_t label = 3) :
+        TunnelNHKey(vrf_name, sip, dip, policy, type, rewrite_dmac),
+        transport_mpls_label_(label) {
+    };
+    virtual ~LabelledTunnelNHKey() { };
+
+    virtual NextHop *AllocEntry() const;
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        const LabelledTunnelNHKey &key = static_cast<const LabelledTunnelNHKey &>(rhs);
+            if (vrf_key_.IsEqual(key.vrf_key_) == false) {
+                return vrf_key_.IsLess(key.vrf_key_);
+            }
+
+            if (sip_ != key.sip_) {
+                return sip_ < key.sip_;
+            }
+
+            if (dip_ != key.dip_) {
+                return dip_ < key.dip_;
+            }
+
+            if (rewrite_dmac_ != key.rewrite_dmac_) {
+                return rewrite_dmac_ < key.rewrite_dmac_;
+            }
+            return (transport_mpls_label_ < key.transport_mpls_label_);
+    }
+    virtual NextHopKey *Clone() const {
+        return new LabelledTunnelNHKey(vrf_key_.name_, sip_, dip_,
+                               NextHopKey::GetPolicy(), tunnel_type_,
+                               rewrite_dmac_, transport_mpls_label_);
+    }
+private:
+    uint32_t transport_mpls_label_;
+    friend class LabelledTunnelNH;
+    DISALLOW_COPY_AND_ASSIGN(LabelledTunnelNHKey);
+};
+
+class LabelledTunnelNHData : public TunnelNHData {
+public:
+    LabelledTunnelNHData() : TunnelNHData() {};
+    virtual ~LabelledTunnelNHData() { };
+private:
+    friend class LabelledTunnelNH;
+    DISALLOW_COPY_AND_ASSIGN(LabelledTunnelNHData);
 };
 
 class PBBNHKey : public NextHopKey {
@@ -1424,7 +1491,8 @@ struct Composite {
         L3INTERFACE,
         LOCAL_ECMP,
         EVPN,
-        TOR
+        TOR,
+        LU_ECMP // label unicast ecmp
     };
 };
 //TODO remove defines
@@ -1520,6 +1588,16 @@ public:
         NextHopKey(NextHop::COMPOSITE, policy),
         composite_nh_type_(type), component_nh_key_list_(component_nh_key_list),
         vrf_key_(vrf_name){
+
+            validate_mcast_src_ = true;
+    }
+
+    CompositeNHKey(COMPOSITETYPE type, bool validate_mcast_src, bool policy,
+                   const ComponentNHKeyList &component_nh_key_list,
+                   const std::string &vrf_name) :
+        NextHopKey(NextHop::COMPOSITE, policy),
+        composite_nh_type_(type), validate_mcast_src_(validate_mcast_src),
+        component_nh_key_list_(component_nh_key_list), vrf_key_(vrf_name){
     }
 
     virtual CompositeNHKey *Clone() const;
@@ -1545,6 +1623,7 @@ public:
     void CreateTunnelNHReq(Agent *agent);
     void ChangeTunnelType(TunnelType::Type tunnel_type);
     COMPOSITETYPE composite_nh_type() const {return composite_nh_type_;}
+    bool validate_mcast_src() const {return validate_mcast_src_;}
 
     void ReplaceLocalNexthop(const ComponentNHKeyList &new_comp_nh);
 private:
@@ -1555,6 +1634,7 @@ private:
     bool find(ComponentNHKeyPtr nh_key);
 
     COMPOSITETYPE composite_nh_type_;
+    bool validate_mcast_src_;
     ComponentNHKeyList component_nh_key_list_;
     VrfKey vrf_key_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNHKey);
@@ -1591,6 +1671,16 @@ public:
     CompositeNH(COMPOSITETYPE type, bool policy,
         const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
+        component_nh_key_list_(component_nh_key_list), vrf_(vrf, this),
+        pbb_nh_(false) {
+        validate_mcast_src_= true;
+        comp_ecmp_hash_fields_.AllocateEcmpFields();
+    }
+
+    CompositeNH(COMPOSITETYPE type, bool validate_mcast_src, bool policy,
+        const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
+        NextHop(COMPOSITE, policy), composite_nh_type_(type),
+        validate_mcast_src_(validate_mcast_src),
         component_nh_key_list_(component_nh_key_list), vrf_(vrf, this),
         pbb_nh_(false) {
         comp_ecmp_hash_fields_.AllocateEcmpFields();
@@ -1644,6 +1734,14 @@ public:
 
     COMPOSITETYPE composite_nh_type() const {
        return composite_nh_type_;
+    }
+
+    void set_validate_mcast_src(bool validate_mcast_src) {
+       validate_mcast_src_ = validate_mcast_src;
+    }
+
+    bool validate_mcast_src() const {
+       return validate_mcast_src_;
     }
 
     bool GetOldNH(const CompositeNHData *data, ComponentNH &);
@@ -1714,11 +1812,17 @@ public:
    bool layer2_control_word() const {
        return layer2_control_word_;
    }
+
+   const Interface *GetFirstLocalEcmpMemberInterface() const;
+
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
                                         TunnelType::Type type) const;
     COMPOSITETYPE composite_nh_type_;
+    // For relaxing source check in vrouter for mcast data packets
+    // in R5.1 where support is for source outside contrail for <*,G>.
+    bool validate_mcast_src_;
     ComponentNHKeyList component_nh_key_list_;
     ComponentNHList component_nh_list_;
     VrfEntryRef vrf_;

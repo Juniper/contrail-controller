@@ -1,9 +1,11 @@
 python-subunit
 testrepository
 flexmock
+mock
 coverage
 pyaml
 python-keystoneclient
+python-novaclient
 webtest
 ncclient
 cfgm_common

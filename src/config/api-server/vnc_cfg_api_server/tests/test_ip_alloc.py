@@ -1,18 +1,15 @@
 #
 # Copyright (c) 2013,2014 Juniper Networks, Inc. All rights reserved.
 #
-import gevent
-import gevent.monkey
-gevent.monkey.patch_all()
 import os
 import sys
 import socket
 import errno
 import uuid
 import logging
-import coverage
-import ipaddress
 import mock
+from netaddr import IPAddress
+from netaddr import IPNetwork
 
 import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains
@@ -23,7 +20,6 @@ import json
 import copy
 import inspect
 import pycassa
-import kombu
 import requests
 import bottle
 
@@ -280,7 +276,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #try adding overlap subnets in ipam2, it should fail
         ipam2.set_ipam_subnets(IpamSubnets([ipam2_v4, ipam2_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Overlapping addresses: \[IPNetwork\(\'12.1.2.0/23\'\), IPNetwork\(\'12.1.3.248/28\'\)\]') as e:
+                               'Overlapping addresses: \[IPNetwork\(\'12.1.2.0/23\'\), IPNetwork\(\'12.1.3.240/28\'\)\]') as e:
             self._vnc_lib.network_ipam_update(ipam2)
         ipam2 = self._vnc_lib.network_ipam_read(id=ipam2_uuid)
 
@@ -294,7 +290,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('vn0', project)
         vn.add_network_ipam(ipam0, VnSubnetsType([ipam0_v4, ipam0_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Overlapping addresses: \[IPNetwork\(\'10.1.2.0/23\'\), IPNetwork\(\'10.1.3.248/28\'\)\]') as e:
+                               'Overlapping addresses: \[IPNetwork\(\'10.1.2.0/23\'\), IPNetwork\(\'10.1.3.240/28\'\)\]') as e:
             self._vnc_lib.virtual_network_create(vn)
 
         #create vn with ipam0 with non-overlapping subnets on vn->ipam link
@@ -306,7 +302,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #update network should fail
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam1_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.248/28\'\)\]') as e:
+                               'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.240/28\'\)\]') as e:
             self._vnc_lib.virtual_network_update(vn)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
@@ -1000,7 +996,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj2.set_virtual_network(net_obj)
         logger.debug('Created Instance IPv4 object 2 %s', ipv4_obj2.uuid)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
 
         #now ask for unused ip and allcoation should go through
@@ -1137,7 +1133,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #try allocating specific ip, which has been assigned already
         ipv4_obj5.set_instance_ip_address('12.1.1.4')
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         # change the allocation_mode to flat-perferred and then
@@ -1284,7 +1280,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #try allocating specific ip, which has been assigned already
         ipv4_obj5.set_instance_ip_address('14.1.1.8')
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         # change the allocation_mode to flat-perferred and then
@@ -1399,7 +1395,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj2.set_virtual_network(net_obj)
         ipv4_obj2.set_instance_ip_address('13.1.1.8')
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
 
         #change allocation-mode to flat-subnet-preferred and ask ip addr
@@ -1436,7 +1432,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj4.set_virtual_network(net_obj)
         ipv4_obj4.set_instance_ip_address('11.1.1.8')
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             ipv4_id4 = self._vnc_lib.instance_ip_create(ipv4_obj4)
 
         #change allocation-mode to user-defined-subnet-preferred and ask ip addr
@@ -2072,7 +2068,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         # create the virtual routers
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'only flat-subnet ipam can be attached to vrouter') as e:
+            'Only flat-subnet ipam can be attached to vrouter') as e:
             self._vnc_lib.virtual_router_create(vr0)
 
         vr0.del_network_ipam(ipam0)
@@ -2164,9 +2160,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                                          ip_prefix_len=24))
         vr_ipam_type = VirtualRouterNetworkIpamType(vr_pool_list, vr_subnet_list)
         vr0.add_network_ipam(ipam0, vr_ipam_type)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'vrouter subnet prefix is invalid') as e:
-            self._vnc_lib.virtual_router_create(vr0)
+        self.assertRaisesRegex(cfgm_common.exceptions.BadRequest,
+                               r".*Subnet type 'haha/24' is invalid",
+                               self._vnc_lib.virtual_router_create,
+                               vr0)
         vr0.del_network_ipam(ipam0)
 
         vr_subnet_list = []
@@ -3192,13 +3189,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                               instance_ip_address=iip_obj.instance_ip_address)
         iip2_obj.add_virtual_network(vn_obj)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
 
         # allocate instance-ip clashing with existing floating-ip
         iip2_obj.set_instance_ip_address(fip_obj.floating_ip_address)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
 
         # allocate floating-ip clashing with existing floating-ip
@@ -3206,7 +3203,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                               floating_ip_address=fip_obj.floating_ip_address)
         fip2_obj.add_project(proj_obj)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip clashing with existing alias-ip
@@ -3214,37 +3211,37 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                            alias_ip_address=aip_obj.alias_ip_address)
         aip2_obj.add_project(proj_obj)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip clashing with existing instance-ip
         fip2_obj.set_floating_ip_address(iip_obj.instance_ip_address)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip clashing with existing instance-ip
         aip2_obj.set_alias_ip_address(iip_obj.instance_ip_address)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate alias-ip clashing with existing floating-ip
         aip2_obj.set_alias_ip_address(fip_obj.floating_ip_address)
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip with gateway ip and verify failure
         fip2_obj.set_floating_ip_address('11.1.1.254')
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip with gateway ip and verify failure
         aip2_obj.set_alias_ip_address('11.1.1.254')
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
-                               'Ip address already in use') as e:
+                               'IP address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate 2 instance-ip with gateway ip - should work
@@ -3489,8 +3486,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.floating_ip_create(fip_obj)
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
         fip_addr = fip_obj.get_floating_ip_address()
-        if ipaddress.ip_address(fip_addr) not in \
-            ipaddress.ip_network(u'10.1.1.0/24'):
+        if IPAddress(fip_addr) not in IPNetwork(u'10.1.1.0/24'):
             raise Exception("Floating-ip not allocated from requested subnet")
 
         # Create a Floating-ip-pool that points to the flat subnet id.
@@ -3507,8 +3503,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.floating_ip_create(fip_obj)
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
         fip_addr = fip_obj.get_floating_ip_address()
-        if ipaddress.ip_address(fip_addr) not in \
-            ipaddress.ip_network(u'11.1.1.0/24'):
+        if IPAddress(fip_addr) not in IPNetwork(u'11.1.1.0/24'):
             raise Exception("Floating-ip not allocated from requested subnet")
 
     # end test_floating_ip_alloc

@@ -1,0 +1,120 @@
+{% if valid_groups_cfg is defined and valid_groups_cfg != None %}
+{%     for group_item in valid_groups_cfg %}
+{%         set cfg_group = group_item.name %}
+{%         set bgp_group = group_item.protocols.bgp.group %}
+{%         if bgp_group is mapping %}
+{%             set bgp_group = [bgp_group] %}
+{%         endif %}
+{%         for bgp_item in bgp_group %}
+{%             set bgp_group_name = bgp_item.name %}
+{%             set bgp_export_policy = bgp_item.export %}
+{%             if bgp_export_policy is string %}
+{%                 set bgp_export_policy = [bgp_export_policy] %}
+{%             endif %}
+{%             if bgp_item.type == "internal" %}
+{%                 if device_maintenance_mode == "activate" %}
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
+{%                     for export_item in bgp_export_policy %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{export_item}}
+{%                     endfor %}
+{%                 else %}
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
+{%                 endif %}
+{%             else %}
+{%                 if device_maintenance_mode == "activate" %}
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
+{%                     for export_item in bpp_export_policy %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{export_item}}
+{%                     endfor %}
+{%                 else %}
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
+{%                 endif %}
+{%             endif %}
+{%         endfor %}
+{%     endfor %}
+{% endif %}
+
+
+{% if bgp_group_info.protocols is defined and bgp_group_info.protocols != None %}
+{%     if bgp_group_info.protocols.bgp is defined %}
+{%         set bgp_group = bgp_group_info.protocols.bgp.group %}
+{%         if bgp_group is mapping %}
+{%             set bgp_group = [bgp_group] %}
+{%         endif %}
+{%         for item in bgp_group %}
+{%             set bgp_group_name = item.name %}
+{%             set bgp_export_policy = item.export %}
+{%             if bgp_export_policy is string %}
+{%                 set bgp_export_policy = [item.export] %}
+{%             endif %}
+{%             if item.type == "internal" %}
+{%                 if device_maintenance_mode == "activate" %}
+delete protocols bgp group {{bgp_group_name}} export
+set protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
+{%                     for export_item in bgp_export_policy %}
+set protocols bgp group {{bgp_group_name}} export {{export_item}}
+{%                     endfor %}
+{%                 else %}
+delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
+{%                 endif %}
+{%             else %}
+{%                 if device_maintenance_mode == "activate" %}
+delete protocols bgp group {{bgp_group_name}} export
+set protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
+{%                     for export_item in bgp_export_policy %}
+set protocols bgp group {{bgp_group_name}} export {{export_item}}
+{%                     endfor %}
+{%                 else %}
+delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
+{%                 endif %}
+{%             endif %}
+{%         endfor %}
+{%     endif %}
+{% endif %}
+
+{% macro lag_configurations(interface_list, interface_group_name=None) %}
+{%     for item in interface_list %}
+{%         if item.get('aggregated-ether-options') is defined and item.get('aggregated-ether-options') != None %}
+{%             set aggregated_group = item.get('aggregated-ether-options') %}
+{%             set admin_key = aggregated_group.get('lacp').get('admin-key') | int %}
+{%             set lag_interface_name = item.get('name') %}
+{%             if device_maintenance_mode == "activate" %}
+{%                 set new_admin_key = admin_key + 1 %}
+{%                 if interface_group_name != None %}
+set groups {{interface_group_name}} interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+{%                 else %}
+set interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+{%                 endif %}
+{%             else %}
+{%                 set new_admin_key = admin_key - 1 %}
+{%                 if interface_group_name != None %}
+set groups {{interface_group_name}} interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+{%                 else %}
+set interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+{%                 endif %}
+{%             endif %}
+{%         endif %}
+{%     endfor %}
+{% endmacro %}
+
+{% if physical_role == "leaf" %}
+{%     if interface_groups_info is defined and interface_groups_info != None %}
+{%         for group in interface_groups_info %}
+{%             set interface_group_name = group.name %}
+{%             set interface_group = group.interfaces.interface %}
+{%             if interface_group is mapping %}
+{%                 set interface_group = [interface_group] %}
+{%             endif %}
+{{ lag_configurations(interface_group, interface_group_name) }}
+{%         endfor %}
+{%     endif %}
+{%     if interface_results_json is defined and interface_results_json != None %}
+{%         set interface_results = interface_results_json.interfaces.interface %}
+{%         if interface_results is mapping %}
+{%             set interface_results = [interface_results] %}
+{%         endif %}
+{{ lag_configurations(interface_results) }}
+{%     endif %}
+{% endif %}

@@ -45,6 +45,9 @@ public:
     std::string config_db_password() const {
         return configdb_options_.config_db_password;
     }
+    bool config_db_use_ssl() const {
+        return configdb_options_.config_db_use_ssl;
+    }
     std::vector<std::string> config_db_server_list() const {
         return configdb_options_.config_db_server_list;
     }

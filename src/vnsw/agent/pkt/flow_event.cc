@@ -11,7 +11,6 @@
 #include <vrouter/ksync/ksync_flow_index_manager.h>
 #include "vrouter/flow_stats/flow_stats_collector.h"
 #include "flow_proto.h"
-#include "flow_mgmt_dbclient.h"
 #include "flow_mgmt.h"
 #include "flow_event.h"
 

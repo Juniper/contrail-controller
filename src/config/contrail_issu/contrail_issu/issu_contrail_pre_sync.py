@@ -22,6 +22,8 @@ def _issu_cassandra_pre_sync_main():
         args.new_cassandra_address_list,
         args.old_cassandra_user, args.old_cassandra_password,
         args.new_cassandra_user, args.new_cassandra_password,
+        args.old_cassandra_use_ssl, args.old_cassandra_ca_certs,
+        args.new_cassandra_use_ssl, args.new_cassandra_ca_certs,
         args.odb_prefix, args.ndb_prefix,
         issu_contrail_config.issu_info_pre, issu_contrail_config.logger)
     issu_cass_pre.issu_merge_copy(

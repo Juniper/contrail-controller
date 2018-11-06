@@ -1,0 +1,47 @@
+- name:  Get system info
+  block:
+    - juniper_junos_rpc:
+        host="{{pr_host}}"
+        user="{{pr_user}}"
+        passwd="{{pr_password}}"
+        port=22
+        rpc=get-system-information
+        timeout="{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: sys_info
+  rescue:
+      - include_tasks: error_handler.yml
+        vars:
+          op_err_message: "Unable to check version on the device. {{sys_info.msg}}"
+          results: |
+            {
+              "prouter_uuid": "{{prouter_uuid}}",
+              "image_uuid": "{{image_uuid}}",
+              "msg": "Unable to check version on the device. Version validation task failed with an exception"
+            }
+          jl_err_message: "Upgrade device {{pr_fqname}}, Image name {{filename}}. Unable to check version on the device. {{sys_info.msg}}"
+
+- name: Print sys info
+  debug: var=sys_info verbosity=1
+
+- set_fact:
+    device_version: "{{sys_info.parsed_output['system-information']['os-version']}}"
+
+- name: Print device OS version
+  debug: var=device_version verbosity=1
+
+# check if image os version is same as device os version
+- name: Validate version in device to see if it does not matches image version
+  include_tasks: error_handler.yml
+  when: "image_info.device_image_os_version != device_version"
+  vars:
+    op_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+    results: |
+      {
+        "prouter_uuid": "{{pr_uuid}}",
+        "image_uuid": "{{image_uuid}}",
+        "msg": "Device version validation task failed"
+      }
+    jl_err_message: >
+      "Device version validation task failed.
+       Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+

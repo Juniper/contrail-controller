@@ -18,7 +18,7 @@ extern SandeshTraceBufferPtr MulticastTraceBuf;
 #define MCTRACE(obj, ...)                                                        \
 do {                                                                             \
     Multicast##obj::TraceMsg(MulticastTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);                                                                 \
+} while (false)
 
 #define IS_BCAST_MCAST(grp)    ((grp.to_ulong() == 0xFFFFFFFF) || \
                                ((grp.to_ulong() & 0xF0000000) == 0xE0000000))
@@ -78,7 +78,7 @@ public:
         dependent_mg_(this, NULL) , pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
         pbb_etree_enabled_(false), bridge_domain_(NULL),
-        mvpn_registered_(false), vn_count_(0) {
+        mvpn_registered_(false), vn_count_(0), evpn_igmp_flags_(0) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
@@ -93,7 +93,7 @@ public:
         pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
         pbb_etree_enabled_(false), bridge_domain_(NULL),
-        mvpn_registered_(false), vn_count_(0) {
+        mvpn_registered_(false), vn_count_(0), evpn_igmp_flags_(0) {
         local_olist_.clear();
     };
     virtual ~MulticastGroupObject() { };
@@ -122,6 +122,7 @@ public:
     }
 
     uint32_t GetLocalListSize() { return local_olist_.size(); };
+    void ClearLocalListSize() { local_olist_.clear(); };
 
     //Labels for server + server list + ingress source label
     void FlushAllPeerInfo(const Agent *agent,
@@ -244,6 +245,14 @@ public:
         return vn_count_;
     }
 
+    uint32_t evpn_igmp_flags() const {
+        return evpn_igmp_flags_;
+    }
+
+    void set_evpn_igmp_flags(uint32_t evpn_igmp_flags) {
+        evpn_igmp_flags_ = evpn_igmp_flags;
+    }
+
     MulticastGroupObject* GetDependentMG(uint32_t isid);
 private:
     friend class MulticastHandler;
@@ -272,6 +281,7 @@ private:
     BridgeDomainConstRef bridge_domain_;
     bool mvpn_registered_;
     uint32_t vn_count_;
+    uint32_t evpn_igmp_flags_;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
 };
 
@@ -317,6 +327,13 @@ public:
                              const Ip4Address &source,
                              uint32_t source_label,
                              const TunnelOlist &olist,
+                             uint64_t peer_identifier = 0);
+    void ModifyEvpnMembers(const Peer *peer,
+                             const std::string &vrf_name,
+                             const Ip4Address &grp,
+                             const Ip4Address &src,
+                             const TunnelOlist &olist,
+                             uint32_t ethernet_tag,
                              uint64_t peer_identifier = 0);
     /* Called as a result of XMPP message received with OLIST of
      * evpn endpoints with mpls or vxlan encap
@@ -388,7 +405,8 @@ public:
                                                       uint8_t flags);
     void AddMulticastRoute(MulticastGroupObject *obj, const Peer *peer,
                                     uint32_t ethernet_tag,
-                                    AgentRouteData *data);
+                                    AgentRouteData *data,
+                                    AgentRouteData *bridge_data);
     void DeleteMulticastRoute(const Peer *peer,
                                     const string &vrf_name,
                                     const Ip4Address &src_addr,
@@ -413,6 +431,30 @@ public:
         return physical_devices_;
     }
 
+    void AddLocalPeerRoute(MulticastGroupObject *sg_object);
+    void DeleteLocalPeerRoute(MulticastGroupObject *sg_object);
+    void CreateMulticastVrfSourceGroup(const std::string &vrf_name,
+                                    const std::string &vn_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    void DeleteMulticastVrfSourceGroup(const std::string &vrf_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    bool AddVmInterfaceToVrfSourceGroup(const std::string &vrf_name,
+                                    const std::string &vn_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
+                                    const VmInterface *vm_itf,
+                                    const Ip4Address &grp_addr);
+    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
+                                    const VmInterface *vm_itf);
+
     void AddVmInterfaceToSourceGroup(const std::string &mvpn_vrf_name,
                                     const std::string &vn_name,
                                     const VmInterface *vm_itf,
@@ -428,7 +470,27 @@ public:
     void DeleteVmInterfaceFromSourceGroup(const std::string &mvpn_vrf_name,
                                     const std::string &vm_vrf_name,
                                     const VmInterface *vm_itf);
+
+    void SetEvpnMulticastSGFlags(const std::string &vrf_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr,
+                                    uint32_t flags);
+    uint32_t GetEvpnMulticastSGFlags(const std::string &vrf_name,
+                                    const Ip4Address &src_addr,
+                                    const Ip4Address &grp_addr);
+
     bool FilterVmi(const VmInterface *vmi);
+
+    static void GetMulticastMacFromIp(const Ip4Address &ip, MacAddress &mac) {
+        const Ip4Address::bytes_type &bytes_v4 = ip.to_bytes();
+        MacAddress mac_address((unsigned int)0x01,
+                            (unsigned int)0x00,
+                            (unsigned int)0x5E,
+                            (unsigned int)(bytes_v4.at(1)&0x7F),
+                            (unsigned int)bytes_v4.at(2),
+                            (unsigned int)bytes_v4.at(3));
+        mac = mac_address;
+    }
 
 private:
     //operations on list of all objectas per group/source/vrf
@@ -522,21 +584,6 @@ private:
         return this->vm_to_mcobj_list_[uuid];
     };
 
-    bool AddVmInterfaceToVrfSourceGroup(const std::string &vrf_name,
-                                    const std::string &vn_name,
-                                    const VmInterface *vm_itf,
-                                    const Ip4Address &src_addr,
-                                    const Ip4Address &grp_addr);
-    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
-                                    const VmInterface *vm_itf,
-                                    const Ip4Address &src_addr,
-                                    const Ip4Address &grp_addr);
-    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
-                                    const VmInterface *vm_itf,
-                                    const Ip4Address &grp_addr);
-    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
-                                    const VmInterface *vm_itf);
-
     MulticastDBState*
     CreateBridgeDomainMG(DBTablePartBase *p, BridgeDomainEntry *bd);
     void ResyncDependentVrf(MulticastGroupObject *obj);
@@ -549,7 +596,7 @@ private:
     std::map<boost::uuids::uuid, string> vn_vrf_mapping_;
     //VM uuid <-> VN uuid
     //List of all multicast objects(VRF/G/S)
-    std::set<MulticastGroupObject *> multicast_obj_list_;
+    MulticastGroupObjectList multicast_obj_list_;
     //Reference mapping of VM to participating multicast object list
     VmMulticastGroupObjectList vm_to_mcobj_list_;
 

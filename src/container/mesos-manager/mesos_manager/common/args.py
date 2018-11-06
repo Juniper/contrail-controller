@@ -77,6 +77,7 @@ def parse_args(args_str=None):
         'disc_server_ip': 'localhost',
         'disc_server_port': DiscoveryServerPort,
         'log_level': SandeshLevel.SYS_DEBUG,
+        'log_file': '/var/log/contrail/contrail-mesos-manager.log',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
@@ -95,6 +96,8 @@ def parse_args(args_str=None):
         'cassandra_user': None,
         'cassandra_password': None,
         'cassandra_server_list': '',
+        'cassandra_use_ssl': False,
+        'cassandra_ca_certs': None,
         'cluster_id': '',
         'vnc_endpoint_ip': '[127.0.0.1]',
         'vnc_endpoint_port': ApiServerPort,
@@ -122,6 +125,8 @@ def parse_args(args_str=None):
         'cluster_pod_task_network' : None,
         'ip_fabric_forwarding': False,
         'ip_fabric_snat': False,
+        'mesos_agent_retry_sync_hold_time': 2,
+        'mesos_agent_retry_sync_count': 6,
     }
 
     auth_opts = {
@@ -158,6 +163,8 @@ def parse_args(args_str=None):
 
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
+    if type(args.cassandra_use_ssl) is str:
+        args.cassandra_use_ssl = args.cassandra_use_ssl.lower() == 'true'
     if type(args.pod_task_subnets) is str:
         args.pod_task_subnets = args.pod_task_subnets.split()
     if type(args.ip_fabric_subnets) is str:

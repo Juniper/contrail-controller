@@ -473,6 +473,7 @@ bool RoutingInstanceMgr::DeleteVirtualNetworkMapping(
     }
 
     // Send delete uve.
+    instance_info.set_name(virtual_network);
     RoutingInstanceStats::Send(instance_info);
 
     return mapping_deleted;
@@ -1194,13 +1195,24 @@ void RoutingInstance::ProcessConfig() {
 
     vector<string> import_rt, export_rt;
     BOOST_FOREACH(string irt, config_->import_list()) {
-        import_.insert(RouteTarget::FromString(irt));
-        import_rt.push_back(irt);
+        error_code error;
+        RouteTarget rt = RouteTarget::FromString(irt, &error);
+        if (!error) {
+            import_.insert(rt);
+            import_rt.push_back(irt);
+        }
     }
     BOOST_FOREACH(string ert, config_->export_list()) {
-        export_.insert(RouteTarget::FromString(ert));
-        export_rt.push_back(ert);
+        error_code error;
+        RouteTarget rt = RouteTarget::FromString(ert, &error);
+        if (!error) {
+            export_.insert(rt);
+            export_rt.push_back(ert);
+        }
     }
+    RTINSTANCE_LOG(Update, this,
+                SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL,
+                import_rt, export_rt, this->virtual_network_index());
 
     if (import_rt.size())
         info.set_add_import_rt(import_rt);
@@ -1314,7 +1326,10 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
     RouteTargetList future_import;
     vector<string> add_import_rt, remove_import_rt;
     BOOST_FOREACH(const string &rtarget_str, cfg->import_list()) {
-        future_import.insert(RouteTarget::FromString(rtarget_str));
+        error_code error;
+        RouteTarget rt = RouteTarget::FromString(rtarget_str, &error);
+        if (!error)
+            future_import.insert(rt);
     }
     set_synchronize(&import_, &future_import,
         boost::bind(&RoutingInstance::AddRouteTarget, this, true,
@@ -1325,7 +1340,10 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
     RouteTargetList future_export;
     vector<string> add_export_rt, remove_export_rt;
     BOOST_FOREACH(const string &rtarget_str, cfg->export_list()) {
-        future_export.insert(RouteTarget::FromString(rtarget_str));
+        error_code error;
+        RouteTarget rt = RouteTarget::FromString(rtarget_str, &error);
+        if (!error)
+            future_export.insert(rt);
     }
     set_synchronize(&export_, &future_export,
         boost::bind(&RoutingInstance::AddRouteTarget, this, false,

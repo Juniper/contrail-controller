@@ -533,6 +533,20 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     VerifyInetTable(blue_, "192.168.21.0/24", true);
     ClearCounters();
 
+    scheduler->Stop();
+    BGP_DEBUG_UT("Update the import of orange with Invalid Rtarget");
+    TASK_UTIL_EXPECT_EQ(1, orange->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1, orange->GetExportList().size());
+    BgpTestUtil::UpdateBgpInstanceConfig(orange_cfg_.get(),
+            "target:80000:80000", "target:80000:80000");
+    server_.routing_instance_mgr()->UpdateRoutingInstance(
+        orange, orange_cfg_.get());
+    ClearCounters();
+    scheduler->Start();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, orange->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(0, orange->GetExportList().size());
+
     TASK_UTIL_EXPECT_EQ(0, vpn_->Size());
     TASK_UTIL_EXPECT_EQ(0, green_->Size());
     TASK_UTIL_EXPECT_EQ(0, orange_->Size());

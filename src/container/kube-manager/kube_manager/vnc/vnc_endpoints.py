@@ -143,6 +143,18 @@ class VncEndpoints(VncCommon):
                 if not vmi:
                     continue
 
+                # Add VMI only if it matches the default address for endpoint,
+                # ignore other interfaces for pod
+                ip_found = False
+                for iip_uuid in vmi.instance_ips:
+                    iip = InstanceIpKM.get(iip_uuid)
+                    if iip and iip.address == address:
+                        ip_found = True
+                        break
+
+                if ip_found == False:
+                    continue
+
                 for member_id in pool.members:
                     member = LoadbalancerMemberKM.get(member_id)
                     if member and member.vmi == vmi_id:

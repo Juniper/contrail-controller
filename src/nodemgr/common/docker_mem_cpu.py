@@ -13,15 +13,20 @@ class DockerMemCpuUsageData(object):
         self.last_cpu = last_cpu
         self.last_time = last_time
         self.client = docker.from_env()
+        if hasattr(self.client, 'api'):
+            self.client = self.client.api
         self._id = hex(_id)[2:-1].zfill(64)
 
     def _get_container_stats(self):
         return self.client.stats(self._id, decode=True, stream=False)
 
     def _get_process_cpu_share(self, current_cpu):
+        # sometimes docker returns empty arrays 
+        if "cpu_usage" not in current_cpu or "percpu_usage" not in current_cpu["cpu_usage"]:
+            return 0
+
         last_cpu = self.last_cpu
         last_time = self.last_time
-
         current_time = os.times()[4]
         cpu_count = len(current_cpu["cpu_usage"]["percpu_usage"])
 
@@ -44,8 +49,8 @@ class DockerMemCpuUsageData(object):
             usr_percent = 100 * usr_time / interval_time
             cpu_share = round((sys_percent + usr_percent) / cpu_count, 2)
             return cpu_share
-        else:
-            return 0
+
+        return 0
 
     def get_process_mem_cpu_info(self):
         stats = self._get_container_stats()
@@ -53,6 +58,6 @@ class DockerMemCpuUsageData(object):
         mem_stats = stats['memory_stats']
         process_mem_cpu = ProcessCpuInfo()
         process_mem_cpu.cpu_share = self._get_process_cpu_share(cpu_stats)
-        process_mem_cpu.mem_virt = mem_stats['usage'] / 1024
-        process_mem_cpu.mem_res = mem_stats['stats']['rss'] / 1024
+        process_mem_cpu.mem_virt = mem_stats.get('usage', 0) / 1024
+        process_mem_cpu.mem_res = mem_stats.get('stats', dict()).get('rss', 0) / 1024
         return process_mem_cpu

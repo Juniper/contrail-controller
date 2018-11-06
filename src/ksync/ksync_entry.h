@@ -18,14 +18,14 @@ do {\
     if (LoggingDisabled()) break;\
     obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
               SandeshLevel::SYS_DEBUG, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);\
+} while (false)
 
 extern SandeshTraceBufferPtr KSyncErrorTraceBuf;
 #define KSYNC_ERROR_TRACE(obj, ...)                                           \
 do {                                                                          \
     KSyncError##obj::TraceMsg(KSyncErrorTraceBuf,                             \
                               __FILE__, __LINE__, __VA_ARGS__);               \
-} while (false);
+} while (false)
 
 class KSyncObject;
 class KSyncDBObject;

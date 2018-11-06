@@ -180,6 +180,11 @@ BgpPath *BgpRoute::FindPath(const IPeer *peer, bool include_secondary) {
     return NULL;
 }
 
+const BgpPath *BgpRoute::FindPath(const IPeer *peer,
+                                  bool include_secondary) const {
+    return const_cast<BgpRoute *>(this)->FindPath(peer, include_secondary);
+}
+
 //
 // Find path with given nexthop address.
 // Skips non BGP_XMPP, aliased and resolved paths.

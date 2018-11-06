@@ -21,7 +21,7 @@ sys.path.append('../common/tests')
 import test_case
 from job_manager.job_mgr import WFManager
 from job_manager.job_utils import JobStatus
-
+from test_utils import FakeKazooClient
 from test_job_manager_utils import TestJobManagerUtils
 
 logger = logging.getLogger(__name__)
@@ -29,13 +29,13 @@ logger.setLevel(logging.DEBUG)
 
 
 class TestJobManager(test_case.JobTestCase):
+    fake_zk_client = FakeKazooClient()
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
         super(TestJobManager, cls).setUpClass(*args, **kwargs)
-
     # end setUpClass
 
     @classmethod
@@ -67,7 +67,7 @@ class TestJobManager(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
-                       job_input_json, log_utils)
+                       job_input_json, log_utils, self.fake_zk_client)
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
@@ -99,7 +99,7 @@ class TestJobManager(test_case.JobTestCase):
             job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
-                       job_input_json, log_utils)
+                       job_input_json, log_utils, self.fake_zk_client)
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
                          JobStatus.SUCCESS)
@@ -126,7 +126,7 @@ class TestJobManager(test_case.JobTestCase):
 
         job_input_json, log_utils = self.get_details(job_template_uuid)
         wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
-                       job_input_json, log_utils)
+                       job_input_json, log_utils, self.fake_zk_client)
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
@@ -158,7 +158,7 @@ class TestJobManager(test_case.JobTestCase):
         job_input_json, log_utils = self.get_details(job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
-                       job_input_json, log_utils)
+                       job_input_json, log_utils, self.fake_zk_client)
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
@@ -196,7 +196,7 @@ class TestJobManager(test_case.JobTestCase):
         job_input_json, log_utils = self.get_details(job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
-                       job_input_json, log_utils)
+                       job_input_json, log_utils, self.fake_zk_client)
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
@@ -233,7 +233,7 @@ class TestJobManager(test_case.JobTestCase):
         job_input_json, log_utils = self.get_details(job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
-                       job_input_json, log_utils)
+                       job_input_json, log_utils, self.fake_zk_client)
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
@@ -267,7 +267,7 @@ class TestJobManager(test_case.JobTestCase):
         job_input_json, log_utils = self.get_details(job_template_uuid)
 
         wm = WFManager(log_utils.get_config_logger(), self._vnc_lib,
-                       job_input_json, log_utils)
+                       job_input_json, log_utils, self.fake_zk_client)
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,

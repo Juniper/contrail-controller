@@ -96,9 +96,11 @@ public:
     void AddNetworkIpamNode(IFMapNode *node);
     void AddVirtualDnsNode(IFMapNode *node);
     void AddGlobalVrouterNode(IFMapNode *node);
+    void AddBgpRouterConfigNode(IFMapNode *node);
     void AddVirtualRouterNode(IFMapNode *node);
     uint32_t LogicalInterfaceNodeCount() const;
     void AddSecurityLoggingObjectNode(IFMapNode *node);
+    void AddMulticastPolicyNode(IFMapNode *node);
 
     void AddPhysicalDeviceNode(IFMapNode *node);
     void AddPhysicalDeviceVn(const boost::uuids::uuid &dev,
@@ -144,9 +146,11 @@ private:
     std::auto_ptr<ConfigManagerNodeList> bridge_domain_list_;
     std::auto_ptr<ConfigManagerNodeList> slo_list_;
     std::auto_ptr<ConfigManagerNodeList> policy_set_list_;
+    std::auto_ptr<ConfigManagerNodeList> mp_list_;
 
     // Lists of IFMapNodes without corresponding oper db-tables
     std::auto_ptr<ConfigManagerNodeList> global_vrouter_list_;
+    std::auto_ptr<ConfigManagerNodeList> bgp_router_config_list_;
     std::auto_ptr<ConfigManagerNodeList> virtual_router_list_;
     std::auto_ptr<ConfigManagerNodeList> global_qos_config_list_;
     std::auto_ptr<ConfigManagerNodeList> network_ipam_list_;

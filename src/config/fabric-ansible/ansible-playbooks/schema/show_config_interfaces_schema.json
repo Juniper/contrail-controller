@@ -55,14 +55,37 @@
            "ui:help": "filter using regex"
        }
    },
+   "output_ui_schema": {
+     "results":
+     {
+       "items":
+       {
+         "command_output":
+         {
+           "interface_stats": {
+             "items": {
+               "ui:order": [
+                 "name",
+                 "op_status",
+                 "admin_status",
+                 "input_rate",
+                 "output_rate",
+                 "*"
+               ]
+             }
+           }
+         }
+       }
+     }
+   },
    "output_schema":{
       "$schema":"http://json-schema.org/draft-06/schema#",
-      "title":"Show interfaces command Job Output",
+      "title":"Show config interfaces command Playbook Output",
       "type": "object",
       "properties": {
        "results": {
           "type": "array",
-          "description": "Array holding the job specific output details in case of success. Each object would be the command_output and device name pair.",
+          "description": "Array holding the specific output details in case of success. Each object of the array would be command_output and device name pair.",
           "items": {
             "type": "object",
             "properties": {
@@ -74,7 +97,7 @@
               "command_output": {
                 "type": "object",
                 "title": "Each playbook's command_output for this specific command.",
-                "description": "Results of the show interfaces command executed on the device. The jinja template matching this command, vendor and family would give output of the below format. This command_output translates to device_op_results in the PR uve",
+                "description": "Results of the show config interfaces command executed on the device. The jinja template matching this command, vendor and family would give output of the below format. This command_output translates to device_op_results in the PR uve",
                 "properties": {
                   "interface_stats": {
                     "type": "array",
@@ -122,8 +145,7 @@
             }
           }
        }
-      },
-    "required": [ "status" ]
+      }
    }
 }
 

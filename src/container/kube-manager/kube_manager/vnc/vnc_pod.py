@@ -397,7 +397,8 @@ class VncPod(VncCommon):
 
         patch = {'metadata': {'annotations': {\
             'k8s.v1.cni.cncf.io/network-status':\
-                    json.dumps(net_status_dict_list)}}}
+                    json.dumps(net_status_dict_list, sort_keys=True,
+                                indent=4, separators=(',', ': '))}}}
         if self._kube is not None:
             self._kube.patch_resource("pods", pod_name, patch, \
                         pod_namespace, beta=False)
@@ -446,6 +447,18 @@ class VncPod(VncCommon):
                         if vr.name == host_id_prefix:
                             vr_uuid = vr.uuid
                             break
+
+                if not vr_uuid:
+                    # Host name on vrouter is a FQNAME. Ignore domain name.
+                    # This can happen, as post R5.1, vrouter is using FQNAME and
+                    # VM object created by Openstack could contain non-FQ name.
+                    for vr in VirtualRouterKM.values():
+                        if '.' in  vr.name:
+                            host_id_prefix = vr.name.split('.')[0]
+                            if vm_vmi.host_id == host_id_prefix:
+                                vr_uuid = vr.uuid
+                                break
+
 
             if not vr_uuid:
                 self._logger.error("No virtual-router object found for host: "

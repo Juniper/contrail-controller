@@ -2,15 +2,12 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
-import gevent.monkey
-gevent.monkey.patch_all()
 import os
 import sys
 import socket
 import errno
 import uuid
 import logging
-import coverage
 import random
 import netaddr
 import mock
@@ -28,7 +25,6 @@ import copy
 from lxml import etree
 import inspect
 import pycassa
-import kombu
 import requests
 import bottle
 import stevedore
@@ -51,7 +47,7 @@ sys.path.append('../common/tests')
 from test_utils import *
 import test_common
 import test_case
-from vnc_cfg_api_server.vnc_cfg_types import GlobalSystemConfigServer
+from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -1005,11 +1001,11 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                         return msg
                     consume_captured[0] = True
                     consume_test_payload[0] = payload
-                    rabbit_consumer.queues.put(payload, None)
+                    rabbit_consumer.queue.put(payload, None)
                     raise exc_obj
                 return msg
 
-            with test_common.patch(rabbit_consumer.queues,
+            with test_common.patch(rabbit_consumer.queue,
                 'get', err_on_consume):
                 # create the object to insert 'get' handler,
                 # update oper will test the error handling
@@ -1047,7 +1043,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 consume_captured[0] = True
                 consume_test_payload[0] = payload
                 rabbit_consumer = self._api_server._db_conn._msgbus._consumer
-                rabbit_consumer.queues.put(payload, None)
+                rabbit_consumer.queue.put(payload, None)
                 raise exc_obj
             return msg
 
@@ -1070,7 +1066,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
         rabbit_consumer = self._api_server._db_conn._msgbus._consumer
         rabbit_conn = self._api_server._db_conn._msgbus._conn
-        with test_common.patch(rabbit_consumer.queues,
+        with test_common.patch(rabbit_consumer.queue,
                                'get', err_on_consume):
             with test_common.patch(rabbit_conn,
                                'connect', block_on_connect):
@@ -1523,6 +1519,101 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             filters={'is_shared':False})
         self.assertThat(len(read_vn_objs), Equals(0))
     # end test_list_lib_api
+
+    def test_list_with_id_parent_id_backref_id_and_filters(self):
+        # Create 2 projects, one with 4 policies (3 with same name) other one
+        # with one. One rule in first project but used by all policies in both
+        # projects
+        # ===========================|===========================
+        #              P1            |             P2
+        # ===========================|===========================
+        #    FP1   FP2   FP3   FP4   |    FP1
+        #             \     \   \    |   /
+        #              \     \   \   |  /
+        #               \_____\__ FR_|_/
+        # FP1, FP2 and FP3 in P1 have the same diplay name
+
+        p1 = Project('%s-p1' % self.id())
+        self._vnc_lib.project_create(p1)
+        p2 = Project('%s-p2' % self.id())
+        self._vnc_lib.project_create(p2)
+
+        p1_fr = FirewallRule(
+            '%s-fr' % self.id(),
+            parent_obj=p1,
+            service=FirewallServiceType(),
+        )
+        self._vnc_lib.firewall_rule_create(p1_fr)
+
+        p1_fp1_fp2_name = '%s-p1-fp1-fp2' % self.id()
+        p1_fp1 = FirewallPolicy(
+            '%s-p1-fp1' % self.id(),
+            parent_obj=p1,
+            display_name=p1_fp1_fp2_name)
+        p1_fp2 = FirewallPolicy(
+            '%s-p1-fp2' % self.id(),
+            parent_obj=p1,
+            display_name=p1_fp1_fp2_name)
+        p1_fp2.add_firewall_rule(p1_fr)
+        p1_fp3 = FirewallPolicy(
+            '%s-p1-fp3' % self.id(),
+            parent_obj=p1,
+            display_name=p1_fp1_fp2_name)
+        p1_fp3.add_firewall_rule(p1_fr)
+        p1_fp4 = FirewallPolicy('%s-p1-fp4' % self.id(), parent_obj=p1)
+        p1_fp4.add_firewall_rule(p1_fr)
+        p2_fp1 = FirewallPolicy('%s-p2-fp1' % self.id(), parent_obj=p2)
+        p2_fp1.add_firewall_rule(p1_fr)
+        for fp in [p1_fp1, p1_fp2, p1_fp3, p1_fp4, p2_fp1]:
+            self._vnc_lib.firewall_policy_create(fp)
+
+        # list P1 and P2 policies
+        list_result = self._vnc_lib.firewall_policys_list(
+            parent_id=[p1.uuid, p2.uuid]
+        )['firewall-policys']
+        self.assertEquals(len(list_result), 5)
+        self.assertEquals({r['uuid'] for r in list_result},
+                          set([p1_fp1.uuid, p1_fp2.uuid, p1_fp3.uuid,
+                               p1_fp4.uuid, p2_fp1.uuid]))
+
+        # list P1 policies
+        list_result = self._vnc_lib.firewall_policys_list(
+            parent_id=p1.uuid,
+        )['firewall-policys']
+        self.assertEquals(len(list_result), 4)
+        self.assertEquals({r['uuid'] for r in list_result},
+                          set([p1_fp1.uuid, p1_fp2.uuid, p1_fp3.uuid,
+                               p1_fp4.uuid]))
+
+        # list P1 policies with a ref to FR
+        list_result = self._vnc_lib.firewall_policys_list(
+            parent_id=p1.uuid,
+            back_ref_id=p1_fr.uuid,
+        )['firewall-policys']
+        self.assertEquals(len(list_result), 3)
+        self.assertEquals({r['uuid'] for r in list_result},
+                          set([p1_fp2.uuid, p1_fp3.uuid, p1_fp4.uuid]))
+
+        # list P1 policies whit name 'p1_fp1_fp2_name' and with a ref to FR
+        list_result = self._vnc_lib.firewall_policys_list(
+            parent_id=p1.uuid,
+            back_ref_id=p1_fr.uuid,
+            filters={'display_name': p1_fp1_fp2_name},
+        )['firewall-policys']
+        self.assertEquals(len(list_result), 2)
+        self.assertEquals({r['uuid'] for r in list_result},
+                          set([p1_fp2.uuid, p1_fp3.uuid]))
+
+        # list P1 policies whit name 'p1_fp1_fp2_name', with a ref to FR and
+        # with UUID equals to FP1 UUID
+        list_result = self._vnc_lib.firewall_policys_list(
+            obj_uuids=[p1_fp2.uuid],
+            parent_id=p1.uuid,
+            back_ref_id=p1_fr.uuid,
+            filters={'display_name': p1_fp1_fp2_name},
+        )['firewall-policys']
+        self.assertEquals(len(list_result), 1)
+        self.assertEquals(list_result[0]['uuid'], p1_fp2.uuid)
 
     def test_list_for_coverage(self):
         name = '%s-vn1' %(self.id())

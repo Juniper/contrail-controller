@@ -402,19 +402,6 @@ void VxlanRoutingManager::BridgeVnNotify(const VnEntry *vn,
 
     if (it != vrf_mapper_.vn_lr_set_.end()) {
         routing_info_it = vrf_mapper_.lr_vrf_info_map_.find(it->second);
-    } else {
-        if (!update) {
-            // Every time a VN is withdrawn from vn_lr_set_, it should have
-            // resulted in removal from bridge vn list of lr_vrf_map.
-            // Hence if VN is not existent in vn_lr_set then same should not be
-            // seen in bridge vn list of lr_vrf_map.
-            VxlanRoutingVrfMapper::LrVrfInfoMapIter routing_info_it_2 =
-                vrf_mapper_.lr_vrf_info_map_.find(vn_state->logical_router_uuid_);
-            if (routing_info_it_2 != vrf_mapper_.lr_vrf_info_map_.end()) {
-                assert(routing_info_it_2->second.bridge_vn_list_.find(vn) ==
-                       routing_info_it->second.bridge_vn_list_.end());
-            }
-        }
     }
 
     //Handles deletion case

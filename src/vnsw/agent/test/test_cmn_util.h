@@ -12,9 +12,9 @@ using namespace std;
 #define NH_PER_VM 5
 
 #define EXPECT_TRUE_RET(a) \
-    do { EXPECT_TRUE((a)); if ((a) == false) ret = false; } while(0);
+    do { EXPECT_TRUE((a)); if ((a) == false) ret = false; } while (false)
 #define EXPECT_FALSE_RET(a) \
-    do { EXPECT_FALSE((a)); if ((a) == true) ret = false; }  while(0);
+    do { EXPECT_FALSE((a)); if ((a) == true) ret = false; }  while (false)
 
 class VmiSubscribeEntry;
 static const int kProjectUuid = 101;
@@ -224,6 +224,8 @@ void DeleteRoute(const char *vrf, const char *ip, uint8_t plen,
 void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
+bool RouteFindMpls(const string &vrf_name, const Ip4Address &addr, int plen);
+bool RouteFindMpls(const string &vrf_name, const string &addr, int plen);
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac);
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
                  const IpAddress &ip);
@@ -236,6 +238,7 @@ bool MCRouteFind(const string &vrf_name, const string &saddr,
                  const string &daddr);
 bool MCRouteFind(const string &vrf_name, const string &addr);
 InetUnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+InetUnicastRouteEntry *RouteGetMpls(const string &vrf_name, const Ip4Address &addr, int plen);
 InetUnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const Peer *peer, const string &vrf_name, const Ip4Address &grp_addr, const Ip4Address &src_addr);
@@ -295,6 +298,19 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                          const TagList &tag,
                          const PathPreference &path_preference);
 bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
+                         uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const TagList &tag,
+                         const PathPreference &path_preference);
+bool Inet4MplsRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                         const Ip4Address &vm_addr,
+                         uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const TagList &tag,
+                         const PathPreference &path_preference);
+bool Inet4MplsRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
@@ -365,6 +381,9 @@ void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
 void AddEncryptRemoteTunnelConfig(const EncryptTunnelEndpoint *endpoints, int count,
                                 std::string encrypt_mode);
+void AddMulticastPolicy(const char *name, uint32_t id, MulticastPolicy *msg,
+                                int msg_size);
+void DelMulticastPolicy(const char *name);
 void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
 void DelLinkLocalConfig();
 void DeleteGlobalVrouterConfig();
@@ -667,15 +686,33 @@ void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void AddStaticPreference(std::string intf_name, int intf_id, uint32_t value);
 bool VnMatch(VnListType &vn_list, std::string &vn);
-void SendBgpServiceConfig(const std::string &ip,
+void AddControlNodeZone(const std::string &name, int id);
+void DeleteControlNodeZone(const std::string &name);
+std::string GetBgpRouterXml(const std::string &ip,
+                            uint32_t &source_port,
+                            uint32_t &dest_port,
+                            const std::string &bgp_router_type);
+std::string AddBgpRouterConfig(const std::string &ip,
+                        uint32_t source_port,
+                        uint32_t dest_port,
+                        uint32_t id,
+                        const std::string &vrf_name,
+                        const std::string &bgp_router_type);
+void DeleteBgpRouterConfig(const std::string &ip,
+                           uint32_t source_port,
+                           const std::string &vrf_name);
+std::string AddBgpServiceConfig(const std::string &ip,
+                                uint32_t source_port,
+                                uint32_t dest_port,
+                                uint32_t id,
+                                const std::string &vmi_name,
+                                const std::string &vrf_name,
+                                const std::string &bgp_router_type,
+                                bool is_shared);
+void DeleteBgpServiceConfig(const std::string &ip,
                           uint32_t source_port,
-                          uint32_t dest_port,
-                          uint32_t id,
                           const std::string &vmi_name,
-                          const std::string &vrf_name,
-                          const std::string &bgp_router_type,
-                          bool deleted,
-                          bool is_shared);
+                          const std::string &vrf_name);
 void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,

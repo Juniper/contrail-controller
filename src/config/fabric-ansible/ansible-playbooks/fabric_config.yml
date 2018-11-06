@@ -82,6 +82,8 @@
     - cfg_overlay_security_group
     - cfg_overlay_multi_homing
     - cfg_overlay_lag
+    - cfg_overlay_pim
+    - cfg_overlay_service_chain
     - commit_fabric_config
 
   tasks:

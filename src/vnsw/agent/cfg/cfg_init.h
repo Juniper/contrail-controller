@@ -11,7 +11,6 @@
 
 class CfgFilter;
 class CfgListener;
-class InterfaceCfgClient;
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
 
@@ -156,14 +155,16 @@ public:
         return cfg_port_tuple_table_;
     }
 
+    IFMapAgentTable *cfg_multicast_policy_table() const {
+        return cfg_multicast_policy_table_;
+    }
+
     Agent *agent() const { return agent_; }
     CfgFilter *cfg_filter() const { return cfg_filter_.get(); }
     IFMapAgentParser *cfg_parser() const { return cfg_parser_.get(); }
     DBGraph *cfg_graph() const { return cfg_graph_.get(); }
     MirrorCfgTable *cfg_mirror_table() const { return cfg_mirror_table_.get(); }
-    InterfaceCfgClient *cfg_interface_client() const {
-        return cfg_interface_client_.get();
-    }
+
     IntfMirrorCfgTable *cfg_intf_mirror_table() const {
         return cfg_intf_mirror_table_.get();
     }
@@ -180,7 +181,6 @@ private:
     std::auto_ptr<CfgFilter> cfg_filter_;
     std::auto_ptr<IFMapAgentParser> cfg_parser_;
     std::auto_ptr<DBGraph> cfg_graph_;
-    std::auto_ptr<InterfaceCfgClient> cfg_interface_client_;
     std::auto_ptr<MirrorCfgTable> cfg_mirror_table_;
     std::auto_ptr<IntfMirrorCfgTable> cfg_intf_mirror_table_;
 
@@ -228,6 +228,7 @@ private:
     IFMapAgentTable *cfg_project_table_;
     IFMapAgentTable *cfg_slo_table_;
     IFMapAgentTable *cfg_port_tuple_table_;
+    IFMapAgentTable *cfg_multicast_policy_table_;
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };
 
@@ -235,6 +236,6 @@ extern SandeshTraceBufferPtr CfgTraceBuf;
 #define CONFIG_TRACE(obj, ...) \
 do {\
     Config##obj::TraceMsg(CfgTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while(0);\
+} while (false)
 
 #endif // vnsw_agent_init_cfg_hpp

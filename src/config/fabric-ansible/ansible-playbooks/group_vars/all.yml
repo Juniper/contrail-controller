@@ -8,7 +8,16 @@ DEVICE_STATE:
   DISCOVERED: "DISCOVERED"
   ONBOARDED: "ONBOARDED"
   UNDERLAY_CONFIGURED: "UNDERLAY_CONFIGURED"
+  REBOOTING: "REBOOTING"
   IMAGE_UPGRADED: "IMAGE_UPGRADED"
+  VALIDATING: "VALIDATING"
+  HEALTH_CHECK_FAILED: "HEALTH_CHECK_FAILED"
+  ACTIVATING_MAINTENANCE_MODE: "ACTIVATING_MAINTENANCE_MODE"
+  DEACTIVATING_MAINTENANCE_MODE: "DEACTIVATING_MAINTENANCE_MODE"
+  MAINTENANCE_MODE_ACTIVATED: "MAINTENANCE_MODE_ACTIVATED"
+  MAINTENANCE_MODE_DEACTIVATED: "MAINTENANCE_MODE_DEACTIVATED"
+  HITLESS_IMAGE_UPGRADE_SUCCESSFUL: "HITLESS_IMAGE_UPGRADE_SUCCESSFUL"
+  HITLESS_IMAGE_UPGRADE_FAILED: "HITLESS_IMAGE_UPGRADE_FAILED"
 
 JOBLOG_STATUS:
   IN_PROGRESS: "IN_PROGRESS"
@@ -23,6 +32,7 @@ job_ctx:
   auth_token: "{{ playbook_input.auth_token }}"
   api_server_host: "{{ playbook_input.api_server_host }}"
   playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
+  vnc_api_init_params: "{{ playbook_input.vnc_api_init_params }}"
   # This is used to demarcate the marked outputs from playbooks to the common
   # file
   unique_pb_id: "{{ playbook_input.unique_pb_id }}"
@@ -184,11 +194,41 @@ role_to_feature_mapping:
     - basic
     - underlay_ip_clos
     - overlay_bgp
+  CRB-MCAST-Gateway@leaf:
+    - basic
+    - underlay_ip_clos
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
+    - overlay_networking
+  PNF-Servicechain@leaf:
+    - overlay_service_chain
+    - overlay_pim
+  PNF-Servicechain@spine:
+    - overlay_pim
+    - overlay_service_chain
+  PNF-Servicechain@pnf:
+    - overlay_pim
+    - overlay_service_chain
 
-# Paths for DHCP and TFTP config files
-DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
-TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"
+DEVICE_FACTS_TIMEOUT: 120
+DEVICE_COMMAND_TIMEOUT: 120
 
-# DHCP and TFTP servers
-DHCP_SERVER: "localhost"
-TFTP_SERVER: "localhost"
+# Server Discovery test variables
+ipmi_subnets:
+  - 2.2.2.2
+  - 3.3.3.3
+  - 4.4.4.4
+
+ipmi_credentials:
+  - ADMIN:ADMIN
+  - admin:admin
+  - admin:password
+
+ipmi_port_ranges:
+  - port_range_start: 623
+    port_range_end: 623

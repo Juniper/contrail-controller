@@ -40,7 +40,7 @@ private:
 };
 
 XmppClient::XmppClient(EventManager *evm)
-    : XmppConnectionManager(evm, ssl::context::tlsv1_client, false, false),
+    : XmppConnectionManager(evm, ssl::context::sslv23_client, false, false),
       config_mgr_(new XmppConfigManager),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
@@ -51,7 +51,7 @@ XmppClient::XmppClient(EventManager *evm)
 
 XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
     : XmppConnectionManager(
-          evm, ssl::context::tlsv1_client, config->auth_enabled, true),
+          evm, ssl::context::sslv23_client, config->auth_enabled, true),
       config_mgr_(new XmppConfigManager),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
@@ -67,7 +67,7 @@ XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
 
         //set mode
         ctx->set_options(ssl::context::default_workarounds |
-                         ssl::context::no_sslv3 | ssl::context::no_sslv2, ec);
+                         ssl::context::no_sslv3 | ssl::context::no_sslv2 | ssl::context::no_tlsv1, ec);
         if (ec.value() != 0) {
             LOG(ERROR, "Error : " << ec.message() << ", setting ssl options");
             exit(EINVAL);

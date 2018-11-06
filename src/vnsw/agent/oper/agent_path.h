@@ -178,6 +178,42 @@ struct PathPreferenceData : public AgentRouteData {
     PathPreference path_preference_;
 };
 
+class AgentPathEcmpComponent {
+public:
+    AgentPathEcmpComponent(IpAddress addr, uint32_t label, AgentRoute *rt);
+    virtual ~AgentPathEcmpComponent() { }
+    bool Unresolved() {return unresolved;}
+
+    bool operator == (const AgentPathEcmpComponent &rhs) const {
+        if (addr_ == rhs.addr_ && label_ == rhs.label_) {
+            return true;
+        }
+
+        return false;
+    }
+    IpAddress GetGwIpAddr() { return addr_;}
+    void UpdateDependentRoute(AgentRoute *rt) {
+        if (rt) {
+            dependent_rt_.reset(rt);
+        } else {
+            dependent_rt_.clear();
+        }
+    }
+
+    void SetUnresolved(bool flag) {
+        unresolved = flag;
+    }
+
+private:
+    IpAddress addr_;
+    uint32_t label_;
+    DependencyRef<AgentRoute, AgentRoute> dependent_rt_;
+    bool unresolved;
+    DISALLOW_COPY_AND_ASSIGN(AgentPathEcmpComponent);
+};
+
+typedef boost::shared_ptr<AgentPathEcmpComponent> AgentPathEcmpComponentPtr;
+typedef std::vector<AgentPathEcmpComponentPtr> AgentPathEcmpComponentPtrList;
 // A common class for all different type of paths
 class AgentPath : public Path {
 public:
@@ -268,6 +304,7 @@ public:
     uint32_t GetTunnelBmap() const;
     bool UpdateNHPolicy(Agent *agent);
     bool UpdateTunnelType(Agent *agent, const AgentRoute *sync_route);
+    bool ResolveGwNextHops(Agent *agent, const AgentRoute *sync_route);
     bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route);
     virtual std::string ToString() const { return "AgentPath"; }
     void SetSandeshData(PathSandeshData &data) const;
@@ -371,6 +408,14 @@ public:
     void ResetEcmpHashFields();
     void CopyLocalPath(CompositeNHKey *composite_nh_key,
                        const AgentPath *local_path);
+    AgentRoute *GetParentRoute() {return parent_rt_;}
+    void ResetEcmpMemberList(AgentPathEcmpComponentPtrList list) {
+        ecmp_member_list_ = list;
+    }
+    AgentRouteTable *GetDependentTable() const {return dependent_table_;}
+    void SetDependentTable(AgentRouteTable *table) {
+        dependent_table_ = table;
+    }
 
 private:
     PeerConstPtr peer_;
@@ -459,6 +504,9 @@ private:
     //Valid for routes exported in ip-fabric:__default__ VRF
     //Indicates the VRF from which routes was originated
     uint32_t  native_vrf_id_;
+    AgentRoute *parent_rt_;
+    AgentPathEcmpComponentPtrList ecmp_member_list_;
+    AgentRouteTable *dependent_table_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -1108,4 +1156,5 @@ private:
     uint32_t l3_vrf_vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRoutingPath);
 };
+
 #endif // vnsw_agent_path_hpp

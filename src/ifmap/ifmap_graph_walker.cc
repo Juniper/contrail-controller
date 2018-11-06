@@ -350,9 +350,16 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          list_of("virtual-machine-service-instance")
                 ("virtual-machine-interface-virtual-machine")
                 ("virtual-machine-tag"))
+        ("control-node-zone", std::set<std::string>())
         ("bgp-router",
          list_of("instance-bgp-router")
-                ("physical-router-bgp-router"))
+                ("physical-router-bgp-router")
+                ("bgp-router-control-node-zone"))
+        ("bgp-as-a-service",
+         list_of("bgpaas-bgp-router")
+                ("bgpaas-health-check")
+                ("bgpaas-control-node-zone"))
+        ("bgpaas-control-node-zone", list_of("bgpaas-control-node-zone"))
         ("global-system-config",
          list_of("global-system-config-global-vrouter-config")
                 ("global-system-config-global-qos-config")
@@ -403,7 +410,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          ("virtual-network-bridge-domain")
          ("virtual-network-security-logging-object")
          ("virtual-network-tag")
-         ("virtual-network-provider-network"))
+         ("virtual-network-provider-network")
+         ("virtual-network-multicast-policy"))
         ("floating-ip", list_of("floating-ip-pool-floating-ip")
          ("instance-ip-floating-ip"))
         ("alias-ip", list_of("alias-ip-pool-alias-ip"))
@@ -420,7 +428,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                                   ("logical-router-interface"))
         ("virtual-network-network-ipam", list_of("virtual-network-network-ipam"))
         ("access-control-list", std::set<std::string>())
-        ("routing-instance", std::set<std::string>())
+        ("routing-instance", list_of("instance-bgp-router"))
         ("namespace", std::set<std::string>())
         ("virtual-DNS", list_of("virtual-DNS-virtual-DNS-record"))
         ("network-ipam", list_of("network-ipam-virtual-DNS"))
@@ -428,8 +436,6 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("interface-route-table", std::set<std::string>())
         ("subnet", std::set<std::string>())
         ("service-health-check", std::set<std::string>())
-        ("bgp-as-a-service", list_of("bgpaas-bgp-router")
-                                    ("bgpaas-health-check"))
         ("qos-config", std::set<std::string>())
         ("qos-queue", std::set<std::string>())
         ("forwarding-class", list_of("forwarding-class-qos-queue"))
@@ -467,5 +473,6 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                            ("project-logical-router"))
         ("port-tuple", list_of("service-instance-port-tuple")
                               ("port-tuple-interface"))
-        ("policy-management", std::set<std::string>());
+        ("policy-management", std::set<std::string>())
+        ("multicast-policy", list_of("virtual-network-multicast-policy"));
 }

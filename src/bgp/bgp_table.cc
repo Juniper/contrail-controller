@@ -25,9 +25,7 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
 
-using std::map;
 using std::make_pair;
-using std::ostringstream;
 using std::string;
 
 class BgpTable::DeleteActor : public LifetimeActor {
@@ -140,9 +138,8 @@ void BgpTable::PrependLocalAs(const RibOut *ribout, BgpAttr *clone,
             CreateAsPath4Byte(clone, local_as);
     } else {
        if (peer && peer->IsAs4Supported())
-           CreateAsPath2Byte(clone, local_as);
-       else
-           PrependAsToAsPath2Byte(clone, local_as);
+           CreateAsPath2Byte(clone);
+       PrependAsToAsPath2Byte(clone, local_as);
     }
 }
 
@@ -241,11 +238,7 @@ void BgpTable::ProcessAsOverride(const RibOut *ribout, BgpAttr *attr) const {
                                                   ribout->peer_as(), as_trans);
                 attr->set_as_path(as_path_ptr);
                 delete as_path_ptr;
-                const As4Path *as4 = attr->as4_path();
-                if (as4)
-                     PrependAsToAs4Path(attr, NULL, NULL, local_as, true);
-                else
-                     PrependAsToAs4Path(attr, NULL, NULL, local_as);
+                PrependAsToAs4Path(attr, local_as);
             } else {
                 AsPathSpec *as_path_ptr = as_path.Replace(
                                                   ribout->peer_as(), local_as);
@@ -348,12 +341,11 @@ void BgpTable::PrependAsToAsPath2Byte(BgpAttr *attr, as2_t asn) const {
 
 void BgpTable::PrependAsToAsPath2Byte(BgpAttr *clone, as_t asn) const {
     if (asn <= AsPathSpec::kMaxPrivateAs) {
-        PrependAsToAsPath2Byte(clone, (as2_t)asn);
-        return;
+        return PrependAsToAsPath2Byte(clone, (as2_t)asn);
     }
     as2_t as_trans = AS_TRANS;
     PrependAsToAsPath2Byte(clone, as_trans);
-    PrependAsToAs4Path(clone, NULL, NULL, asn);
+    PrependAsToAs4Path(clone, asn);
 }
 
 void BgpTable::PrependAsToAsPath4Byte(BgpAttr *clone, as_t asn) const {
@@ -370,33 +362,24 @@ void BgpTable::PrependAsToAsPath4Byte(BgpAttr *clone, as_t asn) const {
     }
 }
 
-void BgpTable::PrependAsToAs4Path(BgpAttr* attr,
-                                  As4PathSpec::PathSegment *as4ps,
-                                  As4PathSpec *as4_path,
-                                  as_t local_as,
-                                  bool update) const {
-    if (!update && !as4ps) {
-        as4ps = new As4PathSpec::PathSegment;
-        as4ps->path_segment_type = As4PathSpec::PathSegment::AS_SEQUENCE;
+void BgpTable::PrependAsToAs4Path(BgpAttr* attr, as_t asn) const {
+
+    if (attr->as4_path()) {
+        const As4PathSpec &as4_path = attr->as4_path()->path();
+        As4PathSpec *as4_path_ptr = as4_path.Add(asn);
+        attr->set_as4_path(as4_path_ptr);
+        delete as4_path_ptr;
+    } else {
+        As4PathSpec as_path;
+        As4PathSpec *as_path_ptr = as_path.Add(asn);
+        attr->set_as4_path(as_path_ptr);
+        delete as_path_ptr;
     }
-    if (!update && !as4_path) {
-        as4_path = new As4PathSpec;
-        as4_path->path_segments.push_back(as4ps);
-    }
-    if (update) {
-        if (attr->as4_path())
-            as4_path = const_cast<As4PathSpec *>(&attr->as4_path()->path());
-    }
-    as4_path = as4_path->Add(local_as);
-    attr->set_as4_path(as4_path);
-    delete as4_path;
 }
 
 // Create as_path (and as4_path) from as_path4byte
-void BgpTable::CreateAsPath2Byte(BgpAttr *attr, as_t local_as) const {
-    AsPathSpec *new_as_path = new AsPathSpec;
-    As4PathSpec *new_as4_path = NULL;
-    As4PathSpec::PathSegment *new_as4ps = NULL;
+void BgpTable::CreateAsPath2Byte(BgpAttr *attr) const {
+    boost::scoped_ptr<AsPathSpec> new_as_path(new AsPathSpec);
     if (attr->aspath_4byte()) {
         const AsPath4ByteSpec &as_path4 = attr->aspath_4byte()->path();
         for (size_t i = 0; i < as_path4.path_segments.size(); i++) {
@@ -408,26 +391,15 @@ void BgpTable::CreateAsPath2Byte(BgpAttr *attr, as_t local_as) const {
                 if (as4 > AsPathSpec::kMaxPrivateAs) {
                     as2_t as_trans = AS_TRANS;
                     ps->path_segment.push_back(as_trans);
-                    PrependAsToAs4Path(attr, new_as4ps, new_as4_path, as4);
+                    PrependAsToAs4Path(attr, as4);
                 } else {
                     ps->path_segment.push_back((as2_t)as4);
                 }
             }
             new_as_path->path_segments.push_back(ps);
-            if (new_as4ps) {
-                new_as4_path = new As4PathSpec;
-                new_as4_path->path_segments.push_back(new_as4ps);
-            }
         }
     }
-    if (local_as <= AsPathSpec::kMaxPrivateAs) {
-        AsPathSpec *as_path_ptr;
-        as_path_ptr  = new_as_path->Add(local_as);
-        attr->set_as_path(as_path_ptr);
-        delete as_path_ptr;
-    } else {
-        PrependAsToAs4Path(attr, new_as4ps, new_as4_path, local_as);
-    }
+    attr->set_as_path(new_as_path.get());
     attr->set_aspath_4byte(NULL);
 }
 
@@ -586,9 +558,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             // then generate a Nil AsPath i.e. one with 0 length. No need
             // to modify the AsPath if it already exists since this is an
             // iBGP RibOut.
-            if (clone->aspath_4byte() == NULL) {
+            if (ribout->as4_supported() && !clone->aspath_4byte()) {
                 AsPath4ByteSpec as_path;
                 clone->set_aspath_4byte(&as_path);
+            }
+            if (!ribout->as4_supported() && !clone->as_path()) {
+                AsPathSpec as_path;
+                clone->set_as_path(&as_path);
             }
         } else if (ribout->peer_type() == BgpProto::EBGP) {
             // Don't advertise routes from non-master instances if there's

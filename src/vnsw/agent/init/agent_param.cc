@@ -548,6 +548,8 @@ void AgentParam::ParseDefaultSectionArguments
                          "DEFAULT.min_aap_prefix_len");
     GetOptValue<uint16_t>(var_map, vmi_vm_vn_uve_interval_,
                           "DEFAULT.vmi_vm_vn_uve_interval");
+    GetOptValue<bool>(var_map, mvpn_ipv4_enable_,
+                          "DEFAULT.mvpn_ipv4_enable");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1414,7 +1416,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens),
         min_aap_prefix_len_(Agent::kMinAapPrefixLen),
         vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval),
-        fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize) {
+        fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize),
+        mvpn_ipv4_enable_(false) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -1549,6 +1552,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Nexthop Server Endpoint")
         ("NEXTHOP-SERVER.add_pid", opt::bool_switch(&nexthop_server_add_pid_),
          "Enable Nh Sever Pid")
+        ("DEFAULT.mvpn_ipv4_enable", opt::bool_switch(&mvpn_ipv4_enable_),
+          "Enable MVPN IPv4 in Agent")
         ;
     options_.add(generic).add(config);
     config_file_options_.add(config);
@@ -1621,7 +1626,7 @@ AgentParam::AgentParam(bool enable_flow_options,
             ("FLOWS.thread_count", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowThreadCount),
              "Number of threads for flow setup")
             ("FLOWS.max_vm_flows", opt::value<float>()->default_value(100),
-             "Maximum flows allowed per VM - given as \% (in integer) of ")
+             "Maximum flows allowed per VM - given as % (in integer) of ")
             ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>()->default_value(Agent::kDefaultMaxLinkLocalOpenFds),
              "Maximum number of link-local flows allowed across all VMs")
             ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>()->default_value(Agent::kDefaultMaxLinkLocalOpenFds),

@@ -98,6 +98,7 @@ bool AgentRouteTable::PathSelection(const Path &path1, const Path &path2) {
 
 const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
     static const string uc_suffix(".uc.route.0");
+    static const string mpls_suffix(".uc.route.3");
     static const string mc_suffix(".mc.route.0");
     static const string evpn_suffix(".evpn.route.0");
     static const string l2_suffix(".l2.route.0");
@@ -106,6 +107,8 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
     switch (type) {
     case Agent::INET4_UNICAST:
         return uc_suffix;
+    case Agent::INET4_MPLS:
+        return mpls_suffix;
     case Agent::INET4_MULTICAST:
         return mc_suffix;
     case Agent::EVPN:
@@ -269,9 +272,10 @@ void AgentRouteTable::AddChangeInput(DBTablePartition *part, VrfEntry *vrf,
     }
 
     // If this route has a unresolved path, insert to unresolved list
-    if (rt && rt->HasUnresolvedPath() == true)
-        AddUnresolvedRoute(rt);
-
+    // this is a hack , TODO: fix unresolved route handling correctly
+    if (rt && rt->HasUnresolvedPath() == true) {
+        rt->AddUnresolvedRouteToTable(this);
+    }
     // Route changed, trigger change on dependent routes
     if (notify) {
         bool active_path_changed = (path == rt->GetActivePath());
@@ -279,12 +283,12 @@ void AgentRouteTable::AddChangeInput(DBTablePartition *part, VrfEntry *vrf,
         if (prev_front) {
             rt->Sort(&AgentRouteTable::PathSelection, prev_front);
         }
-        part->Notify(rt);
-        rt->UpdateDependantRoutes();
-        rt->ResyncTunnelNextHop();
         if (rt->GetActiveNextHop() != nh) {
             active_path_changed = true;
         }
+        part->Notify(rt);
+        rt->UpdateDependantRoutes();
+        rt->ResyncTunnelNextHop();
 
         // Since newly added path became active path, send path with
         // path_changed flag as true. Path can be NULL for resync requests
@@ -322,6 +326,27 @@ AgentRoute *AgentRouteTable::LocateRoute(DBTablePartition *part,
     OPER_TRACE_ROUTE_ENTRY(Route, this, rt_info);
     return rt;
 }
+
+void AgentRoute::AddUnresolvedRouteToTable(AgentRouteTable *table) {
+
+    if (dependent_route_table_ == NULL) {
+        const AgentPath *path = GetActivePath();
+        if (path->GetDependentTable()) {
+            dependent_route_table_ = path->GetDependentTable();
+        } else {
+            dependent_route_table_ = table;
+        }
+    }
+    dependent_route_table_->AddUnresolvedRoute(this);
+}
+void AgentRoute::RemoveUnresolvedRouteFromTable(AgentRouteTable *table) {
+    if (dependent_route_table_) {
+        dependent_route_table_->RemoveUnresolvedRoute(this);
+    } else {
+        table->RemoveUnresolvedRoute(this);
+    }
+}
+
 
 // Re-evaluate all unresolved NH. Flush and enqueue RESYNC for all NH in the
 // unresolved NH tree
@@ -635,7 +660,8 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
         FillTrace(rt_info_del, AgentRoute::DEL, NULL);
         OPER_TRACE_ROUTE_ENTRY(Route, table, rt_info_del);
         DeleteDerivedRoutes(table);
-        table->RemoveUnresolvedRoute(this);
+        table->RemoveUnresolvedRoute(this); // TODO: remove this call and make changes in gw route
+        RemoveUnresolvedRouteFromTable(table);
         UpdateDependantRoutes();
         ResyncTunnelNextHop();
         table->ProcessDelete(this);
@@ -1161,8 +1187,7 @@ bool AgentRoute::ReComputeMulticastPaths(AgentPath *path, bool del) {
 
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(GetMulticastCompType(),
-                                        //Composite::L2COMP,
-                                        false,
+                                        ValidateMcastSrc(), false,
                                         component_nh_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled,
@@ -1174,6 +1199,11 @@ bool AgentRoute::ReComputeMulticastPaths(AgentPath *path, bool del) {
     //transition of getting deleted, skip NH modification.
     if (!nh) {
         return false;
+    }
+
+    if (nh->GetType() == NextHop::COMPOSITE) {
+        CompositeNH *comp_nh = static_cast<CompositeNH *>(nh);
+        comp_nh->set_validate_mcast_src(ValidateMcastSrc());
     }
 
     NextHopKey *key = static_cast<NextHopKey *>(nh_req.key.get());

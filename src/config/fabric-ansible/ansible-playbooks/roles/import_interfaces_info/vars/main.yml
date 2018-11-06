@@ -1,0 +1,4 @@
+---
+# vars file for import_interfaces_info
+pb_input: "{{playbook_input.input}}"
+timeout: "{{DEVICE_COMMAND_TIMEOUT | int}}"

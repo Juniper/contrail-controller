@@ -1,0 +1,228 @@
+{
+  "input_schema": {
+    "title": "Image upgrade strategy input",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "fabric_uuid": {
+        "type": "string",
+        "description": "Fabric UUID"
+      },
+      "upgrade_mode": {
+        "enum": ["test_run", "dry_run", "upgrade"],
+        "description": "Mode in which to run workflow"
+      },
+      "device_list": {
+        "type": "array",
+        "description": "List of device UUIDs to be upgraded",
+        "items": {
+          "title": "device uuid",
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "image_devices": {
+        "type": "array",
+        "items": {
+          "title": "Image Devices",
+          "type": "object",
+          "description": "List of images and corresponding devices to upgrade",
+          "additionalProperties": false,
+          "properties": {
+            "image_uuid": {
+              "type": "string"
+            },
+            "device_list": {
+              "type": "array",
+              "description": "List of device UUIDs to be upgraded with this image",
+              "items": {
+                "title": "device uuid",
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          "required": [ "image_uuid", "device_list" ]
+        }
+      },
+      "advanced_parameters": {
+        "title": "Advanced parameters",
+        "description": "Optional parameters used to override defaults",
+        "type": "object",
+        "additionalProperties": false,
+        "default": {},
+        "properties": {
+          "bulk_device_upgrade_count": {
+            "type": "integer",
+            "description": "Maximum number of devices to upgrade simultaneously",
+            "default": 4
+          },
+          "health_check_abort": {
+            "type": "boolean",
+            "description": "Enable/disable abort upon health check failures",
+            "default": true
+          },
+          "Juniper": {
+            "type": "object",
+            "additionalProperties": false,
+            "default": {},
+            "properties": {
+              "bgp": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "bgp_flap_count": {
+                    "type": "integer",
+                    "description": "Number of flaps allowed for BGP neighbors",
+                    "default": 4
+                  },
+                  "bgp_flap_count_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable bgp_flap_count check",
+                    "default": true
+                  },
+                  "bgp_down_peer_count": {
+                    "type": "integer",
+                    "description": "Number of down peers allowed",
+                    "default": 0
+                  },
+                  "bgp_down_peer_count_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable bgp_down_peer_count check",
+                    "default": true
+                  },
+                  "bgp_peer_state_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable bgp peer state check",
+                    "default": true
+                  }
+                }
+              },
+              "alarm": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "system_alarm_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable system alarm check",
+                    "default": true
+                  },
+                  "chassis_alarm_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable chassis alarm check",
+                    "default": true
+                  }
+                }
+              },
+              "interface": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "interface_error_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable interface error check",
+                    "default": true
+                  },
+                  "interface_drop_count_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable interface drop check",
+                    "default": true
+                  },
+                  "interface_carrier_transition_count_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable interface carrier transition check",
+                    "default": true
+                  }
+                }
+              },
+              "routing_engine": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "routing_engine_cpu_idle": {
+                    "type": "integer",
+                    "description": "Routing engine CPU idle time",
+                    "default": 60
+                  },
+                  "routing_engine_cpu_idle_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable routing engine CLU idle time check",
+                    "default": true
+                  }
+                }
+              },
+              "fpc": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "fpc_cpu_5min_avg": {
+                    "type": "integer",
+                    "description": "FPC CPU 5 minute average utilization",
+                    "default": 50
+                  },
+                  "fpc_cpu_5min_avg_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable FPC CPU 5 minute average utilizationcheck",
+                    "default": true
+                  },
+                  "fpc_memory_heap_util": {
+                    "type": "integer",
+                    "description": "FPC memory heap utilization",
+                    "default": 45
+                  },
+                  "fpc_memory_heap_util_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable FPC memory heap utilization check",
+                    "default": true
+                  }
+                }
+              },
+              "active_route_count_check": {
+                "type": "boolean",
+                "description": "Enable/disable active route count check",
+                "default": true
+              },
+              "l2_total_mac_count_check": {
+                "type": "boolean",
+                "description": "Enable/disable l2 total mac count check",
+                "default": true
+              },
+              "storm_control_flag_check": {
+                "type": "boolean",
+                "description": "Enable/disable storm control flag check",
+                "default": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+       "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "object",
+          "description": "JSON object holding the job specific output details"
+       }
+    },
+    "required": [ "status" ]
+  }
+}

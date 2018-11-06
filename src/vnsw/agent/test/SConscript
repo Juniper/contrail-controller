@@ -76,6 +76,9 @@ test_dpdk_mpls = AgentEnv.MakeTestCmd(env, 'test_dpdk_mpls', agent_suite)
 test_bgp_service_configuration = AgentEnv.MakeTestCmd(env,
                                                       'test_bgp_service_configuration',
                                                       agent_suite)
+test_bgp_router_config = AgentEnv.MakeTestCmd(env,
+                                              'test_bgp_router_config',
+                                              agent_suite)
 test_agent_db_entry = AgentEnv.MakeTestCmd(env, 'test_agent_db_entry',
                                            agent_suite)
 test_llgr = AgentEnv.MakeTestCmd(env, 'test_llgr', agent_suite)
@@ -102,7 +105,7 @@ test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', flaky_agent_suite)
 test_dummy = AgentEnv.MakeTestCmd(env, 'test_dummy', flaky_agent_suite)
 test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', flaky_agent_suite)
 test_service_chain_cfg = AgentEnv.MakeTestCmd(env, 'test_service_chain_cfg',
-                                              flaky_agent_suite)
+                                              agent_suite)
 test_route_mock = AgentEnv.MakeTestCmd(env, 'test_route_mock',
                                        flaky_agent_suite)
 test_scale_walk = AgentEnv.MakeTestCmd(env, 'test_scale_walk',

@@ -93,7 +93,6 @@ bool DiagProto::SegmentHealthCheckProcess(
 void DiagProto::IncrementDiagStats(uint32_t itf_id, DiagStatsType type) {
     tbb::mutex::scoped_lock lock(stats_mutex_);
     DiagStats new_entry;
-    DiagStatsMap::iterator it = stats_.find(itf_id);
     std::pair<DiagStatsMap::iterator, bool> ret = stats_.insert(DiagStatsPair
                                                                 (itf_id,
                                                                  new_entry));

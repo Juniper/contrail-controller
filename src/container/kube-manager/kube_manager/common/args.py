@@ -113,6 +113,8 @@ def parse_args(args_str=None):
         'cassandra_user': None,
         'cassandra_password': None,
         'cassandra_server_list': '',
+        'cassandra_use_ssl': False,
+        'cassandra_ca_certs': None,
         'etcd_user': None,
         'etcd_password': None,
         'etcd_server': '127.0.0.1',
@@ -189,6 +191,8 @@ def parse_args(args_str=None):
 
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
+    if type(args.cassandra_use_ssl) is str:
+        args.cassandra_use_ssl = args.cassandra_use_ssl.lower() == 'true'
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
     if type(args.pod_subnets) is str:

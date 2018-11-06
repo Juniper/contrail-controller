@@ -160,6 +160,13 @@ struct IpamInfo {
     char gw[128];
     bool dhcp_enable;
     int alloc_unit;
+    char dns[128];
+};
+
+struct MulticastPolicy {
+    char src[128];
+    char grp[128];
+    bool action;
 };
 
 struct TestIp4Prefix {

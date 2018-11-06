@@ -304,6 +304,6 @@ private:
 #define KSYNC_TRACE(obj, parent, ...)\
 do {\
    KSync##obj::TraceMsg(parent->GetKSyncTraceBuf(), __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);\
+} while (false)
 
 #endif // ctrlplane_ksync_object_h

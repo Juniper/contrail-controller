@@ -36,7 +36,12 @@ class JobResultHandler(object):
         self.percentage_completed = 0.0
         self._job_file_write = JobFileWrite(self._logger)
 
-    def update_job_status(self, status, message=None, device_id=None, device_name=None, pb_results=None):
+    def get_retry_devices(self):
+        return (self.playbook_output or {}).get('retry_devices')
+
+    def update_job_status(
+            self, status, message=None, device_id=None,
+            device_name=None, pb_results=None):
         # update cummulative job status
         if self.job_result_status is None or \
                 self.job_result_status != JobStatus.FAILURE:

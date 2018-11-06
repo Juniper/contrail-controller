@@ -120,12 +120,11 @@ public:
     static bool PathSelection(const Path &path1, const Path &path2);
     bool IsAsPathLoop(const RibOut *ribout, const BgpAttr *attr) const;
     void CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const;
-    void CreateAsPath2Byte(BgpAttr *attr, as_t local_as) const;
+    void CreateAsPath2Byte(BgpAttr *attr) const;
     void PrependAsToAsPath4Byte(BgpAttr *attr, as_t asn) const;
     void PrependAsToAsPath2Byte(BgpAttr *attr, as_t asn) const;
     void PrependAsToAsPath2Byte(BgpAttr *attr, as2_t asn) const;
-    void PrependAsToAs4Path(BgpAttr* attr, As4PathSpec::PathSegment *as4ps,
-            As4PathSpec *as4_path, as_t asn, bool update = false) const;
+    void PrependAsToAs4Path(BgpAttr* attr, as_t asn) const;
     UpdateInfo *GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                               const RibPeerSet &peerset);
     void ProcessDefaultTunnelEncapsulation(const RibOut *ribout,

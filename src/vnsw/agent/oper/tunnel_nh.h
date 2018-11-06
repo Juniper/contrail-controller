@@ -22,6 +22,9 @@ public:
             " rewrite mac " + rewrite_dmac_.ToString();
     }
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
+    virtual bool TunnelNextHopIsLess(const DBEntry &rhs) const {
+        return false;
+    }
     virtual void SetKey(const DBRequestKey *key);
     virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req);
@@ -53,7 +56,7 @@ public:
         return false;
     }
     virtual bool NeedMplsLabel() { return false; }
-private:
+protected:
     VrfEntryRef vrf_;
     Ip4Address sip_;
     Ip4Address dip_;
@@ -65,9 +68,44 @@ private:
     bool crypt_tunnel_available_;
     InterfaceConstRef crypt_interface_;
     MacAddress rewrite_dmac_;
+private:
     DISALLOW_COPY_AND_ASSIGN(TunnelNH);
 };
 
+class LabelledTunnelNH : public TunnelNH {
+public:
+    LabelledTunnelNH(VrfEntry *vrf, const Ip4Address &sip,
+            const Ip4Address &dip, bool policy, TunnelType type,
+            const MacAddress &rewrite_dmac, uint32_t label);
+    virtual ~LabelledTunnelNH();
+
+    virtual std::string ToString() const {
+        return "Tunnel to " + GetDip()->to_string() +
+            " rewrite mac " + rewrite_dmac().ToString();
+    }
+    virtual bool TunnelNextHopIsLess(const DBEntry &rhs) const;
+    virtual bool ChangeEntry(const DBRequest *req);
+    virtual KeyPtr GetDBRequestKey() const;
+    uint32_t const GetTransportLabel() const { return transport_mpls_label_;};
+
+    virtual void SendObjectLog(const NextHopTable *table,
+                             AgentLogEvent::type event) const;
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
+
+    virtual bool NeedMplsLabel() { return false; }
+    TunnelType::Type const GetTransportTunnelType() const  {
+                return transport_tunnel_type_;}
+    void SetTransportTunnelType() {
+        transport_tunnel_type_ = TunnelType::ComputeType(
+                            TunnelType::MplsType());
+    }
+private:
+    uint32_t transport_mpls_label_;
+    TunnelType::Type transport_tunnel_type_;
+    DISALLOW_COPY_AND_ASSIGN(LabelledTunnelNH);
+};
 /////////////////////////////////////////////////////////////////////////////
 // Mirror NH definition
 /////////////////////////////////////////////////////////////////////////////

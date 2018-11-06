@@ -52,6 +52,7 @@ public:
     IPeerClose::Families *families() { return &families_; }
 
     bool IsCloseInProgress() const { return state_ != NONE; }
+    bool IsInDeleteState() const { return state_ == DELETE; }
     bool IsInGRTimerWaitState() const {
         return state_ == GR_TIMER || state_ == LLGR_TIMER;
     }

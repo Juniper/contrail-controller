@@ -23,12 +23,12 @@ extern SandeshTraceBufferPtr OvsdbPktTraceBuf;
 #define OVSDB_TRACE(obj, ...)\
 do {\
     Ovsdb##obj::TraceMsg(OvsdbTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(false);
+} while (false)
 
 #define OVSDB_PKT_TRACE(obj, ...)\
 do {\
     Ovsdb##obj::TraceMsg(OvsdbPktTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(false);
+} while (false)
 
 class OvsPeer;
 class OvsPeerManager;
@@ -240,4 +240,3 @@ private:
 };  // namespace OVSDB
 
 #endif  // SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_IDL_H_
-
