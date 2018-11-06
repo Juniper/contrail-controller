@@ -1,4 +1,5 @@
 ---
 # vars input file
 feature: underlay_ip_clos
+add_ztp_suffix: false
 

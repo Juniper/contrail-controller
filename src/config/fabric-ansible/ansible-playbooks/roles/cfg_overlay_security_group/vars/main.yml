@@ -1,3 +1,4 @@
 ---
 # vars input file
 feature: overlay_security_group
+add_ztp_suffix: false
