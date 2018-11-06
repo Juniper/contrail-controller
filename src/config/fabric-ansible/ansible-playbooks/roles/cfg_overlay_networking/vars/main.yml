@@ -1,4 +1,5 @@
 ---
 # vars input file
 feature: overlay_networking
+add_ztp_suffix: false
 
