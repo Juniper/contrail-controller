@@ -113,8 +113,9 @@ class PhysicalRouterDM(DBBaseDM):
         self.ae_index_allocator = DMIndexer(
             DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
         self.init_cs_state()
-        self.ansible_manager = None
         self.fabric = None
+        self.virtual_port_groups = []
+        self.port_tuples = []
         self.node_profile = None
         self.nc_handler_gl = None
         self.update(obj_dict)
@@ -125,36 +126,29 @@ class PhysicalRouterDM(DBBaseDM):
                                                        self.nc_handler)
     # end __init__
 
+    def use_ansible_plugin(self):
+        return PushConfigState.is_push_mode_ansible() and not self.is_ec2_role()
+    # end use_ansible_plugin
+
     def reinit_device_plugin(self):
         plugin_params = {
             "physical_router": self
         }
 
-        if not self.ansible_manager:
-            self.ansible_manager = AnsibleBase.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
-        elif self.ansible_manager.verify_plugin(self.vendor,
-                self.product, self.physical_router_role):
-            self.ansible_manager.update()
+        if self.use_ansible_plugin():
+            plugin_base = AnsibleBase
         else:
-            self.ansible_manager.clear()
-            self.ansible_manager = AnsibleBase.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
-
-        if PushConfigState.is_push_mode_ansible():
-            self.config_manager = self.ansible_manager
-            if not self.is_ec2_role():
-                return
+            plugin_base = DeviceConf
 
         if not self.config_manager:
-            self.config_manager = DeviceConf.plugin(self.vendor,
+            self.config_manager = plugin_base.plugin(self.vendor,
                 self.product, plugin_params, self._logger)
         elif self.config_manager.verify_plugin(self.vendor,
                 self.product, self.physical_router_role):
             self.config_manager.update()
         else:
             self.config_manager.clear()
-            self.config_manager = DeviceConf.plugin(self.vendor,
+            self.config_manager = plugin_base.plugin(self.vendor,
                 self.product, plugin_params, self._logger)
     # end reinit_device_plugin
 
@@ -168,6 +162,14 @@ class PhysicalRouterDM(DBBaseDM):
             return True
         return False
     # end has_rb_role
+
+    def is_erb_gateway(self):
+        if self.routing_bridging_roles:
+            gateway_roles = [r for r in self.routing_bridging_roles if 'ERB' in r and 'Gateway' in r]
+            if gateway_roles:
+                return True
+        return False
+    # end is_erb_gateway
 
     def update(self, obj=None):
         if obj is None:
@@ -198,8 +200,6 @@ class PhysicalRouterDM(DBBaseDM):
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
-        self.link_aggregation_groups = set([lag['uuid'] for lag in
-                                           obj.get('link_aggregation_groups', [])])
         self.update_single_ref('fabric', obj)
         self.update_multiple_refs('service_endpoint', obj)
         self.update_multiple_refs('e2_service_provider', obj)
@@ -207,6 +207,18 @@ class PhysicalRouterDM(DBBaseDM):
         self.allocate_asn()
         self.reinit_device_plugin()
     # end update
+
+    def set_associated_lags(self, lag_uuid):
+        self.virtual_port_groups.append(lag_uuid)
+
+    def remove_associated_lags(self, lag_uuid):
+        self.virtual_port_groups.remove(lag_uuid)
+
+    def set_associated_port_tuples(self, pt_uuid):
+        self.port_tuples.append(pt_uuid)
+
+    def remove_associated_port_tuples(self, pt_uuid):
+        self.port_tuples.remove(pt_uuid)
 
     def is_ztp(self):
         if self.fabric:
@@ -331,13 +343,12 @@ class PhysicalRouterDM(DBBaseDM):
     # end allocate_asn
 
     def wait_for_config_push(self, timeout=1):
-        if not self.ansible_manager:
-            return
-        while self.ansible_manager.push_in_progress():
-            try:
-                self.nc_q.get(True, timeout)
-            except queue.Empty:
-                pass
+        if self.use_ansible_plugin() and self.config_manager:
+            while self.config_manager.push_in_progress():
+                try:
+                    self.nc_q.get(True, timeout)
+                except queue.Empty:
+                    pass
     # end wait_for_config_push
 
     def delete_handler(self):
@@ -352,22 +363,19 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('e2_service_provider', {})
         self.update_single_ref('fabric', {})
 
-        if PushConfigState.is_push_mode_ansible() and self.config_manager:
-            self.config_manager.push_conf(is_delete=True)
-            max_retries = 3
-            for _ in range(max_retries):
-                if self.config_manager.retry():
-                    self.config_manager.push_conf(is_delete=True)
-                else:
-                    break
-            self.set_conf_sent_state(False)
-        elif self.ansible_manager:
-            self.ansible_manager.initialize()
-            self.ansible_manager.underlay_config(is_delete=True)
-
-        if self.is_vnc_managed() and self.is_conf_sent():
-            self.config_manager.push_conf(is_delete=True)
-            self.config_manager.clear()
+        if self.config_manager:
+            if self.use_ansible_plugin():
+                self.config_manager.push_conf(is_delete=True)
+                max_retries = 3
+                for _ in range(max_retries):
+                    if self.config_manager.retry():
+                        self.config_manager.push_conf(is_delete=True)
+                    else:
+                        break
+                self.set_conf_sent_state(False)
+            elif self.is_vnc_managed():
+                self.config_manager.push_conf(is_delete=True)
+                self.config_manager.clear()
 
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
@@ -411,7 +419,6 @@ class PhysicalRouterDM(DBBaseDM):
     def nc_handler(self):
         while self.nc_q.get() is not None:
             try:
-                self.push_underlay_config()
                 self.push_config()
             except Exception as e:
                 tb = traceback.format_exc()
@@ -443,15 +450,6 @@ class PhysicalRouterDM(DBBaseDM):
             ip = self._object_db.get_dci_ip(self.uuid + ':' + dci_key)
             if ip:
                 self.dci_ip_map[dci_key] = ip
-
-        ae_id_map = self._object_db.get_pr_ae_id_map(self.uuid)
-        if not ae_id_map:
-            return
-        for esi, ae_id in ae_id_map.items():
-            ae_id = self._object_db.get_ae_id(self.uuid + ':' + esi)
-            if ae_id:
-                self.ae_id_map[esi] = ae_id
-                self.ae_index_allocator.reserve_index(ae_id)
     # end init_cs_state
 
     def reserve_ip(self, vn_uuid, subnet_uuid):
@@ -495,44 +493,6 @@ class PhysicalRouterDM(DBBaseDM):
         return ips
     # end get_vn_irb_ip_map
 
-    def evaluate_ae_id_map(self, esi_map):
-        # esi_map contains aggr list of latest esis need to be programmed
-        # self.ae_id_map contains current status of allocated esis/aes
-        esis = set(esi_map.keys())
-        old_set = set(self.ae_id_map.keys())
-        delete_set = old_set.difference(esis)
-        create_set = esis.difference(old_set)
-
-        for esi in delete_set:
-            # get index allocated, make it available and remove entry from db,
-            # finally remove from in-memory
-            index = self.ae_id_map[esi]
-            self.ae_index_allocator.free_index(index)
-            self._object_db.delete_ae_id(self.uuid, esi)
-            pi_set = PhysicalInterfaceDM.get_esi_interfaces(esi)
-            pi_list = list(pi_set) if pi_set else []
-            # set_parent_id modifies pi_set, hence copied to new list
-            for pi_uuid in pi_list:
-                pi = PhysicalInterfaceDM.get(pi_uuid)
-                pi.set_parent_ae_id(None)
-            del self.ae_id_map[esi]
-
-        for esi in create_set:
-            # get next av index, assign it to esi and persist in db,
-            # finally assign to esi in in-memory ds
-            index = self.ae_index_allocator.find_next_available_index()
-            if index == -1:
-                self._logger.error("Can't allocate(exhausted) index for pr/esi:" \
-                                             " (%s, %s)"%(self.uuid, esi))
-                continue
-            self._object_db.add_ae_id(self.uuid, esi, index)
-            self.ae_index_allocator.reserve_index(index)
-            self.ae_id_map[esi] = index
-            pi_list = esi_map.get(esi)
-            for pi in pi_list:
-                pi.set_parent_ae_id(index)
-    # end evaluate_ae_id_map
-
     def get_dci_lo_ip(self, dci_uuid):
         if not self.dci_ip_map:
             return None
@@ -549,12 +509,11 @@ class PhysicalRouterDM(DBBaseDM):
         vn_uuid = DataCenterInterconnectDM.dci_network.uuid
         new_dci_ip_set = set()
         for dci_info in self.get_lr_dci_map():
-            from_lr = dci_info.get("from")
             dci_uuid = dci_info.get("dci")
             dci = DataCenterInterconnectDM.get(dci_uuid)
             if not dci:
                 continue
-            key = from_lr + ":" + dci_uuid
+            key = self.uuid + ":" + dci_uuid
             new_dci_ip_set.add(key)
         old_set = set(self.dci_ip_map.keys())
         delete_set = old_set.difference(new_dci_ip_set)
@@ -563,17 +522,14 @@ class PhysicalRouterDM(DBBaseDM):
             ret = self.free_ip(vn_uuid, self.dci_ip_map[dci_id])
             if ret == False:
                 self._logger.error("Unable to free ip for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
 
-            ret = self._object_db.delete_dci_ip(
-                       self.uuid + ':' + dci_id)
+            ret = self._object_db.delete_dci_ip(dci_id)
             if ret == False:
                 self._logger.error("Unable to free ip from db for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 continue
 
             self._object_db.delete_from_pr_dci_map(self.uuid, dci_id)
@@ -589,28 +545,26 @@ class PhysicalRouterDM(DBBaseDM):
             ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 continue
-            ret = self._object_db.add_dci_ip(self.uuid + ':' + dci_id,
+            ret = self._object_db.add_dci_ip(dci_id,
                                          ip_addr)
             if ret == False:
                 self._logger.error("Unable to store ip for dci/pr "
-                                   "(%s/%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 if self.free_ip(vn_uuid, ip_addr) == False:
                     self._logger.error("Unable to free ip for dci/pr "
-                                       "(%s/%s)" % (
-                        dci_id,
-                        self.uuid))
+                                       "(%s)" % (
+                        dci_id))
                 continue
             self._object_db.add_to_pr_dci_map(self.uuid, dci_id)
             self.dci_ip_map[dci_id] = ip_addr
     # end evaluate_dci_ip_map
 
     def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
+        is_erb = self.is_erb_gateway()
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
@@ -629,13 +583,14 @@ class PhysicalRouterDM(DBBaseDM):
         create_set = new_vn_ip_set.difference(old_set)
         for vn_subnet in delete_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
-            ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
-            if ret == False:
-                self._logger.error("Unable to free ip for vn/subnet/pr "
-                                   "(%s/%s/%s)" % (
-                    vn_uuid,
-                    subnet_prefix,
-                    self.uuid))
+            if not is_erb:
+                ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
+                if ret == False:
+                    self._logger.error("Unable to free ip for vn/subnet/pr "
+                                    "(%s/%s/%s)" % (
+                        vn_uuid,
+                        subnet_prefix,
+                        self.uuid))
 
             ret = self._object_db.delete_ip(
                        self.uuid + ':' + vn_uuid + ':' + subnet_prefix, ip_used_for)
@@ -655,7 +610,10 @@ class PhysicalRouterDM(DBBaseDM):
             vn = VirtualNetworkDM.get(vn_uuid)
             subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
-            ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
+            if is_erb:
+                ip_addr = vn.gateways[subnet_prefix].get('default_gateway')
+            else:
+                ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for vn/subnet/pr "
                                    "(%s/%s/%s)" % (
@@ -699,7 +657,7 @@ class PhysicalRouterDM(DBBaseDM):
     # end is_conf_sent
 
     def delete_config(self):
-        if self.is_conf_sent() and (not self.is_vnc_managed() or not self.bgp_router):
+        if self.is_conf_sent() and (not self.is_vnc_managed() or (not self.bgp_router and self.physical_router_role != 'pnf')):
             if not self.config_manager:
                 self.uve_send()
                 return False
@@ -789,17 +747,6 @@ class PhysicalRouterDM(DBBaseDM):
 
         return static_routes
     # end compute_pnf_static_route
-
-    def push_underlay_config(self):
-        if PushConfigState.is_push_mode_ansible():
-            return
-        if self.ansible_manager is None:
-            return
-        if not self.is_vnc_managed():
-            return
-        self.ansible_manager.initialize()
-        self.ansible_manager.underlay_config()
-    # end push_underlay_config
 
     def push_config(self):
         if not self.config_manager:
@@ -1006,7 +953,6 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.mtu = 0
         self.esi = None
         self.interface_type = None
-        self.parent_ae_id = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1014,6 +960,7 @@ class PhysicalInterfaceDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
         self.physical_router = self.get_parent_uuid(obj)
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
@@ -1028,36 +975,12 @@ class PhysicalInterfaceDM(DBBaseDM):
         return obj
     # end update
 
-    @classmethod
-    def get_esi_interfaces(cls, esi):
-        return cls._esi_map.get(esi)
-
-    def set_parent_ae_id(self, ae_id):
-        self.parent_ae_id = ae_id
-        if ae_id:
-            if not self.esi:
-                self._logger.error("Invalid pi state, trying to set ae for non "
-                              "esi interface (%s:%s)" % (self.uuid, self.name))
-                return
-            PhysicalInterfaceDM._esi_map.setdefault(self.esi, set()).add(self.uuid)
-        else:
-            if not self.esi:
-                return
-            pi_set = PhysicalInterfaceDM._esi_map.get(self.esi)
-            if pi_set:
-                pi_set.discard(self.uuid)
-                if not pi_set:
-                    del PhysicalInterfaceDM._esi_map[self.esi]
-    # end set_parent_ae_id
-
-    def get_parent_ae_id(self):
-        return self.parent_ae_id
-    # end get_parent_ae_id
+    def get_pr_uuid(self):
+        return self.physical_router
 
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('physical_interface', {})
-        self.set_parent_ae_id(None)
         self.remove_from_parent()
     # end delete_obj
 # end PhysicalInterfaceDM
@@ -1080,6 +1003,7 @@ class LogicalInterfaceDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
         if obj['parent_type'] == 'physical-router':
             self.physical_router = self.get_parent_uuid(obj)
             self.physical_interface = None
@@ -1332,6 +1256,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.instance_ip = None
         self.logical_interfaces = set()
         self.physical_interface = None
+        self.vlan_tag = None
         self.service_interface_type = None
         self.port_tuple = None
         self.routing_instances = set()
@@ -1346,10 +1271,13 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
+
         if obj.get('virtual_machine_interface_properties', None):
             self.params = obj['virtual_machine_interface_properties']
+            self.vlan_tag = self.params.get('sub_interface_vlan_tag', None)
             self.service_interface_type = self.params.get(
                 'service_interface_type', None)
+
         self.bindings = obj.get('virtual_machine_interface_bindings') or {}
         self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
         self.update_multiple_refs('logical_interface', obj)
@@ -1410,6 +1338,7 @@ class LogicalRouterDM(DBBaseDM):
         self.virtual_machine_interfaces = set()
         # internal virtual-network
         self.virtual_network = None
+        self.port_tuples = set()
         self.update(obj_dict)
     # end __init__
 
@@ -1426,6 +1355,7 @@ class LogicalRouterDM(DBBaseDM):
         self.update_multiple_refs('physical_router', obj)
         self.update_single_ref('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('port_tuple', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
     # end update
@@ -1452,6 +1382,7 @@ class LogicalRouterDM(DBBaseDM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('physical_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('port_tuple', {})
         obj.update_single_ref('virtual_network', None)
         obj.update_single_ref('data_center_interconnect', None)
         del cls._dict[uuid]
@@ -1718,6 +1649,106 @@ class RoutingInstanceDM(DBBaseDM):
     # end delete
 # end RoutingInstanceDM
 
+class ServiceTemplateDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_template'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_instances = set()
+        self.service_appliance_set = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.port_tuple_order = []
+        self.params = obj.get('service_template_properties')
+        if self.params:
+            self.virtualization_type = self.params.get(
+                                            'service_virtualization_type')
+            intf_type = self.params.get('interface_type')
+            if intf_type is not None:
+                for svc_intf_type in intf_type:
+                     if svc_intf_type.get('service_interface_type'):
+                         self.port_tuple_order.append(svc_intf_type.get('service_interface_type'))
+        self.update_multiple_refs('service_instance', obj)
+        self.update_single_ref('service_appliance_set', obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_multiple_refs('service_instance', {})
+        self.update_single_ref('service_appliance_set', {})
+    # end delete_obj
+
+# end class ServiceTemplateDM
+
+class ServiceApplianceDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_appliance'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliance_set = None
+        self.physical_interfaces = {}
+        self.kvpairs = []
+        obj = self.update(obj_dict)
+        self.add_to_parent(obj)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        kvpairs = obj.get('service_appliance_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.service_appliance_set = self.get_parent_uuid(obj)
+        self.update_multiple_refs_with_attr('physical_interface', obj)
+        return obj
+    # end update
+
+    def delete_obj(self):
+        self.update_multiple_refs_with_attr('physical_interface', {})
+        self.remove_from_parent()
+    # end delete_obj
+# end ServiceApplianceDM
+
+class ServiceApplianceSetDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_appliance_set'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliances = set()
+        self.service_template = None
+        self.kvpairs = []
+        self.ha_mode = "active-active"
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref("service_template", obj)
+        kvpairs = obj.get('service_appliance_set_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.service_appliances = set(
+            [sa['uuid'] for sa in obj.get('service_appliances', [])])
+        self.ha_mode = obj.get('service_appliance_ha_mode')
+    # end update
+
+    def delete_obj(self):
+        self.update_single_ref("service_template",{})
+    # end delete_obj
+# end ServiceApplianceSetDM
 
 class ServiceInstanceDM(DBBaseDM):
     _dict = {}
@@ -1727,6 +1758,8 @@ class ServiceInstanceDM(DBBaseDM):
         self.uuid = uuid
         self.fq_name = None
         self.name = None
+        self.params = None
+        self.service_template = None
         self.port_tuples = set()
         self.update(obj_dict)
     # end
@@ -1735,16 +1768,32 @@ class ServiceInstanceDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
-        self.name = "-".join(self.fq_name)
+        self.name = obj['fq_name'][-1]
+        self.params = obj.get('service_instance_properties', None)
+        bindings = obj.get('service_instance_bindings', None)
+        annotations = obj.get('annotations')
+        if annotations:
+            kvps = annotations.get('key_value_pair') or []
+            kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+            self.left_svc_asns = kvp_dict.get('left-svc-asns').split(',') or []
+            self.right_svc_asns = kvp_dict.get('right-svc-asns').split(',') or []
+            self.left_svc_vlan = kvp_dict.get('left-svc-vlan') or None
+            self.right_svc_vlan = kvp_dict.get('right-svc-vlan') or None
+        if bindings:
+            kvps = bindings.get('key_value_pair') or []
+            kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+            self.left_svc_unit = kvp_dict.get('left-svc-unit') or None
+            self.right_svc_unit = kvp_dict.get('right-svc-unit') or None
+        self.port_tuples = set(
+            [pt['uuid'] for pt in obj.get('port_tuples', [])])
+        self.update_single_ref('service_template', obj)
+        self.bgp_enabled = obj.get('service_instance_bgp_enabled')
     # end
 
-    @classmethod
-    def delete(cls, uuid):
-        obj = cls._dict[uuid]
-        obj._object_db.delete_pnf_resources(uuid)
-        del cls._dict[uuid]
+    def delete_obj(self):
+        self.update_single_ref('service_template', {})
+        self._object_db.delete_pnf_resources(uuid)
     # end
-
 
 class PortTupleDM(DBBaseDM):
     _dict = {}
@@ -1753,6 +1802,8 @@ class PortTupleDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
+        self.logical_routers = set()
+        self.virtual_networks = set()
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1762,8 +1813,11 @@ class PortTupleDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
-        self.parent_uuid = self.get_parent_uuid(obj)
+        self.svc_instance = self.get_parent_uuid(obj)
+        self.build_pt_pr_map()
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('logical_router', obj)
+        self.update_multiple_refs('virtual_network', obj)
         for vmi in self.virtual_machine_interfaces:
             vmi_obj = VirtualMachineInterfaceDM.get(vmi)
             if vmi_obj and not vmi_obj.service_instance:
@@ -1771,15 +1825,55 @@ class PortTupleDM(DBBaseDM):
         return obj
     # end update
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs('virtual_machine_interface', {})
-        obj.remove_from_parent()
-        del cls._dict[uuid]
-    # end delete
+    def get_sa_obj(self):
+        svc_appliance_obj = None
+        si_obj = ServiceInstanceDM.get(self.svc_instance)
+        if si_obj is not None:
+            if si_obj.service_template is not None:
+                svc_tmpl_obj = ServiceTemplateDM.get(si_obj.service_template)
+                if svc_tmpl_obj.service_appliance_set is not None:
+                    svc_appliance_set_obj = ServiceApplianceSetDM.get(svc_tmpl_obj.service_appliance_set)
+                    for sa in svc_appliance_set_obj.service_appliances or []:
+                        svc_appliance_obj =  ServiceApplianceDM.get(sa)
+
+        return svc_appliance_obj
+
+    def build_pt_pr_map(self):
+        sa_obj = self.get_sa_obj()
+        if sa_obj is not None:
+            for pi in sa_obj.physical_interfaces or {}:
+                 pi_obj = PhysicalInterfaceDM.get(pi)
+                 pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
+                 if self.uuid not in pr_obj.port_tuples:
+                     pr_obj.set_associated_port_tuples(self.uuid)
+
+                 for pi_ref in pi_obj.physical_interfaces or []:
+                      pi_ref_obj = PhysicalInterfaceDM.get(pi_ref)
+                      pr_ref_obj = PhysicalRouterDM.get(pi_ref_obj.get_pr_uuid())
+                      if self.uuid not in pr_ref_obj.port_tuples:
+                          pr_ref_obj.set_associated_port_tuples(self.uuid)
+    # end build_pr_pt_map
+
+    def delete_obj(self):
+        sa_obj = self.get_sa_obj()
+        if sa_obj is not None:
+            for pi in sa_obj.physical_interfaces or {}:
+                 pi_obj = PhysicalInterfaceDM.get(pi)
+                 pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
+                 if self.uuid in pr_obj.port_tuples:
+                     pr_obj.remove_associated_port_tuples(self.uuid)
+
+                 for pi_ref in pi_obj.physical_interfaces or []:
+                      pi_ref_obj = PhysicalInterfaceDM.get(pi_ref)
+                      pr_ref_obj = PhysicalRouterDM.get(pi_ref_obj.get_pr_uuid())
+                      if self.uuid in pr_ref_obj.port_tuples:
+                          pr_ref_obj.remove_associated_port_tuples(self.uuid)
+
+        self.update_multiple_refs('virtual_machine_interface', {})
+        self.update_multiple_refs('logical_router', {})
+        self.update_multiple_refs('virtual_network', {})
+        self.remove_from_parent()
+    # end delete_obj
 # end PortTupleDM
 
 
@@ -2270,6 +2364,7 @@ class NodeProfileDM(DBBaseDM):
     # end update
 # end class NodeProfileDM
 
+
 class LinkAggregationGroupDM(DBBaseDM):
     _dict = {}
     obj_type = 'link_aggregation_group'
@@ -2295,6 +2390,73 @@ class LinkAggregationGroupDM(DBBaseDM):
         self.update_multiple_refs('physical_interface', {})
     # end delete_obj
 # end class LinkAggregationGroupDM
+
+
+class VirtualPortGroupDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'virtual_port_group'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.physical_interfaces = set()
+        self.virtual_machine_interfaces = set()
+        self.ae_id = None
+        self.esi = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.add_to_parent(obj)
+        self.lacp_enabled = obj.get('virtual_port_group_lacp_enabled')
+
+        self.annotations = obj.get('annotations')
+        kvps = self.annotations.get('key_value_pair') or []
+        kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+        self.ae_id = kvp_dict.get('ae_if_name') or None
+        self.esi = kvp_dict.get('esi') or 0
+
+        self.update_multiple_refs('physical_interface', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.build_lag_pr_map()
+
+    # end update
+    def build_lag_pr_map(self):
+        for pi in self.physical_interfaces or []:
+            pi_obj = PhysicalInterfaceDM.get(pi)
+            pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
+            if self.uuid not in pr_obj.virtual_port_groups:
+                pr_obj.set_associated_lags(self.uuid)
+
+    def get_attached_sgs(self, vlan_tag):
+        sg_list = []
+        for vmi_uuid in self.virtual_machine_interfaces:
+            vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if not vmi_obj:
+                return sg_list
+            if vmi_obj.vlan_tag == int(vlan_tag):
+                for sg in vmi_obj.security_groups or []:
+                    sg = SecurityGroupDM.get(sg)
+                    if sg and sg not in sg_list:
+                        sg_list.append(sg)
+        return sg_list
+    # end get_attached_sgs
+
+    def delete_obj(self):
+        for pi in self.physical_interfaces or []:
+            pi_obj = PhysicalInterfaceDM.get(pi)
+            pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
+            if self.uuid in pr_obj.virtual_port_groups:
+                pr_obj.remove_associated_lags(self.uuid)
+
+        self.update_multiple_refs('physical_interface', {})
+        self.update_multiple_refs('virtual_machine_interface', {})
+        self.remove_from_parent()
+    # end delete_obj
+# end class VirtualPortGroupDM
 
 class RoleConfigDM(DBBaseDM):
     _dict = {}
@@ -2394,7 +2556,6 @@ class PeeringPolicyDM(DBBaseDM):
 class DMCassandraDB(VncObjectDBClient):
     _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
-    _PR_AE_ID_CF = 'dm_pr_ae_id_table'
     _PR_ASN_CF = 'dm_pr_asn_table'
     _DCI_ASN_CF = 'dm_dci_asn_table'
     _PR_DCI_IP_CF = 'dm_pr_dci_ip_table'
@@ -2415,9 +2576,9 @@ class DMCassandraDB(VncObjectDBClient):
     dm_object_db_instance = None
 
     @classmethod
-    def get_instance(cls, manager=None, zkclient=None):
+    def get_instance(cls, zkclient=None, args=None, logger=None):
         if cls.dm_object_db_instance is None:
-            cls.dm_object_db_instance = DMCassandraDB(manager, zkclient)
+            cls.dm_object_db_instance = DMCassandraDB(zkclient, args, logger)
         return cls.dm_object_db_instance
     # end
 
@@ -2426,14 +2587,12 @@ class DMCassandraDB(VncObjectDBClient):
         cls.dm_object_db_instance = None
     # end
 
-    def __init__(self, manager, zkclient):
+    def __init__(self, zkclient, args, logger):
         self._zkclient = zkclient
-        self._manager = manager
-        self._args = manager._args
+        self._args = args
 
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
-                             self._PR_AE_ID_CF: {},
                              self._PR_ASN_CF: {},
                              self._DCI_ASN_CF: {},
                              self._PR_DCI_IP_CF: {},
@@ -2448,20 +2607,18 @@ class DMCassandraDB(VncObjectDBClient):
 
         super(DMCassandraDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
-            manager.logger.log, credential=cred,
+            logger.log, credential=cred,
             ssl_enabled=self._args.cassandra_use_ssl,
             ca_certs=self._args.cassandra_ca_certs)
 
         self.pr_vn_ip_map = {}
         self.pr_dci_ip_map = {}
-        self.pr_ae_id_map = {}
         self.pr_asn_map = {}
         self.asn_pr_map = {}
         self.dci_asn_map = {}
         self.asn_dci_map = {}
         self.init_pr_map()
         self.init_pr_dci_map()
-        self.init_pr_ae_map()
         self.init_pr_asn_map()
         self.init_dci_asn_map()
 
@@ -2597,20 +2754,6 @@ class DMCassandraDB(VncObjectDBClient):
             self.add_to_pr_dci_map(pr_uuid, dci_key)
     # end
 
-    def init_pr_ae_map(self):
-        cf = self.get_cf(self._PR_AE_ID_CF)
-        pr_entries = dict(cf.get_range(column_count=1000000))
-        for key in pr_entries.keys():
-            key_data = key.split(':', 1)
-            (pr_uuid, esi) = (key_data[0], key_data[1])
-            ae_index = pr_entries[key] or {}
-            ae_id = ae_index.get("index")
-            if ae_id:
-                if pr_uuid not in self.pr_ae_id_map:
-                    self.pr_ae_id_map[pr_uuid] = {}
-                self.pr_ae_id_map[pr_uuid][esi] = ae_id
-    # end
-
     def init_pr_asn_map(self):
         cf = self.get_cf(self._PR_ASN_CF)
         pr_entries = dict(cf.get_range())
@@ -2642,10 +2785,6 @@ class DMCassandraDB(VncObjectDBClient):
                       DMUtils.get_ip_cs_column_name(ip_used_for))
     # end
 
-    def get_ae_id(self, key):
-        return self.get_one_col(self._PR_AE_ID_CF, key, "index")
-    # end
-
     def get_asn_for_pr(self, pr_uuid):
         return self.pr_asn_map.get(pr_uuid)
     # end get_asn_for_pr
@@ -2674,16 +2813,6 @@ class DMCassandraDB(VncObjectDBClient):
         self.add(self._PR_DCI_IP_CF, key, {"ip": ip})
     # end
 
-    def add_ae_id(self, pr_uuid, esi, ae_id):
-        key = pr_uuid + ':' + esi
-        self.add(self._PR_AE_ID_CF, key, {"index": ae_id})
-        if pr_uuid in self.pr_ae_id_map:
-            self.pr_ae_id_map[pr_uuid][esi] = ae_id
-        else:
-            self.pr_ae_id_map[pr_uuid] = {}
-            self.pr_ae_id_map[pr_uuid][esi] = ae_id
-    # end
-
     def add_asn(self, pr_uuid, asn):
         self.add(self._PR_ASN_CF, pr_uuid, {'asn': asn})
         self.pr_asn_map[pr_uuid] = asn
@@ -2702,12 +2831,6 @@ class DMCassandraDB(VncObjectDBClient):
 
     def delete_dci_ip(self, key):
         self.delete(self._PR_DCI_IP_CF, key)
-    # end
-
-    def delete_ae_id(self, pr_uuid, esi):
-        key = pr_uuid + ':' + esi
-        self.delete(self._PR_AE_ID_CF, key)
-        del self.pr_ae_id_map[pr_uuid][esi]
     # end
 
     def add_to_pr_map(self, pr_uuid, vn_subnet, ip_used_for):
@@ -2736,8 +2859,8 @@ class DMCassandraDB(VncObjectDBClient):
     def delete_from_pr_dci_map(self, pr_uuid, dci_key):
         if pr_uuid in self.pr_dci_ip_map:
             self.pr_dci_ip_map[pr_uuid].remove((dci_key))
-            if not self.pr_dci_ip_map[pr_key]:
-                del self.pr_dci_ip_map[pr_key]
+            if not self.pr_dci_ip_map[pr_uuid]:
+                del self.pr_dci_ip_map[pr_uuid]
     # end
 
     def delete_pr(self, pr_uuid):
@@ -2750,12 +2873,6 @@ class DMCassandraDB(VncObjectDBClient):
             if ret == False:
                 self._logger.error("Unable to free ip from db for vn/pr/subnet/ip_used_for "
                                    "(%s/%s/%s)" % (pr_uuid, vn_subnet, ip_used_for))
-        esi_map = self.pr_ae_id_map.get(pr_uuid, {})
-        for esi, ae_id in esi_map.values():
-            ret = self.delete(self._PR_AE_ID_CF, pr_uuid + ':' + esi)
-            if ret == False:
-                self._logger.error("Unable to free ae id from db for pr/esi"
-                                   "(%s/%s)" % (pr_uuid, esi))
         asn = self.pr_asn_map.pop(pr_uuid, None)
         if asn is not None:
             self.asn_pr_map.pop(asn, None)
@@ -2795,10 +2912,6 @@ class DMCassandraDB(VncObjectDBClient):
 
     def get_pr_dci_set(self, pr_uuid):
         return self.pr_dci_ip_map.get(pr_uuid, set())
-    # end
-
-    def get_pr_ae_id_map(self, pr_uuid):
-        return self.pr_ae_id_map.get(pr_uuid, {})
     # end
 
     @classmethod

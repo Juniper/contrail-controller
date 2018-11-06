@@ -22,6 +22,7 @@
 #include "oper/qos_config.h"
 #include "oper/config_manager.h"
 #include "oper/vrouter.h"
+#include "oper/bgp_router.h"
 #include "oper/global_qos_config.h"
 #include "oper/global_system_config.h"
 #include "oper/global_vrouter.h"
@@ -29,6 +30,7 @@
 #include "filter/policy_set.h"
 #include "cfg/cfg_init.h"
 #include "oper/security_logging_object.h"
+#include "oper/multicast_policy.h"
 #include "oper/project_config.h"
 
 #include <boost/assign/list_of.hpp>
@@ -91,7 +93,9 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "application-policy-set",
         "application-policy-set-firewall-policy",
         "bgp-as-a-service",
+        "bgpaas-control-node-zone",
         "bgp-router",
+        "control-node-zone",
         "firewall-policy",
         "firewall-rule",
         "floating-ip",
@@ -131,7 +135,8 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "bridge-domain",
         "virtual-machine-interface-bridge-domain",
         "firewall-policy-firewall-rule",
-        "port-tuple"
+        "port-tuple",
+        "multicast-policy"
     };
 
     // Link table
@@ -197,6 +202,11 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     ReactionMap react_ipam = map_list_of<string, PropagateList>
             ("virtual-network-network-ipam", list_of("nil"));
     policy->insert(make_pair("network-ipam", react_ipam));
+
+    ReactionMap react_bgpaas = map_list_of<string, PropagateList>
+            ("bgpaas-control-node-zone",
+            list_of("bgpaas-virtual-machine-interface"));
+    policy->insert(make_pair("bgp-as-a-service", react_bgpaas));
 
     InitializeDependencyRules(agent);
 }
@@ -598,11 +608,15 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     RegisterConfigHandler(this, "access-control-list",
                           agent ? agent->acl_table() : NULL);
 
+    RegisterConfigHandler(this, "multicast-policy",
+                          agent ? agent->mp_table() : NULL);
+
     ////////////////////////////////////////////////////////////////////////
     // VN <----> RI
     //    <----> ACL
     //    <----> VN-IPAM <----> IPAM
     //    <----> SecurityLoggingObject
+    //    <----> Multicast Policy
     ////////////////////////////////////////////////////////////////////////
     AddDependencyPath("virtual-network",
                       MakePath("virtual-network-routing-instance",
@@ -626,6 +640,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "logical-router-virtual-network", true,
                                "logical-router-virtual-network",
                                "logical-router", true));
+    AddDependencyPath("virtual-network",
+                      MakePath("virtual-network-multicast-policy",
+                               "multicast-policy", true));
     RegisterConfigHandler(this, "virtual-network",
                           agent ? agent->vn_table() : NULL);
 
@@ -973,7 +990,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                           agent->oper_db()->virtual_dns());
     RegisterConfigHandler(this, "global-vrouter-config",
                           agent->oper_db()->global_vrouter());
-     AddDependencyPath("bridge-domain",
+    RegisterConfigHandler(this, "bgp-router",
+                          agent->oper_db()->bgp_router_config());
+    AddDependencyPath("bridge-domain",
                       MakePath("virtual-network-bridge-domain",
                                "virtual-network", true,
                                "virtual-network-routing-instance",

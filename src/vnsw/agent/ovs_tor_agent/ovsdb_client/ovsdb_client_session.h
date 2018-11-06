@@ -79,7 +79,7 @@ private:
 #define OVSDB_SM_TRACE(obj, ...)\
 do {\
     Ovsdb##obj::TraceMsg(OvsdbSMTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(false);
+} while (false)
 
 #define OVSDB_SESSION_TRACE(obj, session, ...)\
 do {\
@@ -87,7 +87,6 @@ do {\
                          "Session " + session->remote_ip().to_string() +\
                          ":" + integerToString(session->remote_port()) +\
                          " - " + __VA_ARGS__);\
-} while(false);
+} while (false)
 
 #endif  // SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_SESSION_H_
-

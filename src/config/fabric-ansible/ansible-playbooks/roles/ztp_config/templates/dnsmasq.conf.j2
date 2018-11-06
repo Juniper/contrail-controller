@@ -1,0 +1,43 @@
+dhcp-vendorclass=set:jn,Juniper
+{% if ztp_config.ipam_subnets is defined %}
+{%   for subnet in ztp_config.ipam_subnets %}
+{%     set cidr = subnet.subnet.ip_prefix + '/' + subnet.subnet.ip_prefix_len|string %}
+{%     set netmask = cidr | ipv4('netmask') %}
+{%     set broadcast = cidr | ipv4('broadcast') %}
+{%     set alloc_list = [] %}
+{%     set x = alloc_list.append((cidr | ipsubnet(31,0) | ipv4('address')) | ipaddr('int')) %}
+{%     set y = alloc_list.append((cidr | ipsubnet(31,-1) | ipv4('address')) | ipaddr('int') +1) %}
+{%     set z = alloc_list.append((subnet.default_gateway | ipv4('address')) | ipaddr('int')) %}
+{%     set alloc_list = alloc_list | sort %}
+{%     set length = alloc_list | length %}
+{%     for idx in range(length-1) %}
+{%       if alloc_list[idx+1] != alloc_list[idx]+1 %}
+{%         set first_ip = (alloc_list[idx]+1) | ipaddr %}
+{%         set last_ip = (alloc_list[idx+1]-1) | ipaddr %}
+dhcp-range={{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
+{%       endif %}
+{%     endfor %}
+{%     if subnet.default_gateway is defined %}
+dhcp-option=option:router,{{ subnet.default_gateway }}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% if ztp_config.network_ipam_mgmt is defined %}
+{%   if ztp_config.network_ipam_mgmt.dhcp_option_list is defined %}
+{%     if ztp_config.network_ipam_mgmt.dhcp_option_list.dhcp_option is defined %}
+{%       for option in ztp_config.network_ipam_mgmt.dhcp_option_list.dhcp_option %}
+dhcp-option={{ option.dhcp_option_name }},{{ option.dhcp_option_value }}
+{%       endfor %}
+{%     endif %}
+{%   endif %}
+{%   if ztp_config.network_ipam_mgmt.ipam_dns_server is defined %}
+{%     if ztp_config.network_ipam_mgmt.ipam_dns_server.tenant_dns_server_address is defined %}
+{%       set servers = ztp_config.network_ipam_mgmt.ipam_dns_server.tenant_dns_server_address.ip_address %}
+dhcp-option=option:dns-server,{{ servers | join(',') }}
+{%     endif %}
+{%   endif %}
+{% endif %}
+dhcp-option=66,<host_ip>
+dhcp-option=150,<host_ip>
+dhcp-option=tag:jn,encap:43,1,"{{ fabric_name }}_juniper.sh"
+dhcp-option=tag:jn,encap:43,3,"tftp"

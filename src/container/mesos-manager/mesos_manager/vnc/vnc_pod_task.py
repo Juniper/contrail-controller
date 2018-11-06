@@ -108,8 +108,9 @@ class VncPodTask(VncCommon):
         VirtualMachineInterfaceMM.locate(vmi_uuid)
         return vmi_uuid
 
-    def _create_vm(self, pod_task_id):
-        pod_task_name = PodTaskMonitor.get_task_pod_name_from_cid(pod_task_id)
+    def _create_vm(self, pod_task_id, node_ip):
+        pod_task_name = PodTaskMonitor.get_task_pod_name_from_cid(pod_task_id,
+                                                                  node_ip)
         if pod_task_name is None:
             vm_obj = VirtualMachine(name=pod_task_id)
         else:
@@ -177,7 +178,7 @@ class VncPodTask(VncCommon):
         if not vn_obj:
             return
 
-        vm_obj = self._create_vm(obj_labels.pod_task_uuid)
+        vm_obj = self._create_vm(obj_labels.pod_task_uuid, node_ip)
         vmi_uuid = self._create_vmi(obj_labels.pod_task_uuid, vm_obj, vn_obj)
         vmi = VirtualMachineInterfaceMM.get(vmi_uuid)
 

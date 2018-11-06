@@ -138,9 +138,8 @@ class SchemaTransformer(object):
             'virtual_machine_interface': ['bgp_router']
         },
         'bgp_router': {
-            'self': ['bgp_router'],
+            'self': [],
             'bgp_as_a_service': [],
-            'bgp_router': []
         },
         'global_system_config': {
             'self': [],
@@ -197,6 +196,7 @@ class SchemaTransformer(object):
             self.reinit()
             self._vnc_amqp._db_resync_done.set()
         except Exception as e:
+            self._vnc_amqp._db_resync_done.set()
             # If any of the above tasks like CassandraDB read fails, cleanup
             # the RMQ constructs created earlier and then give up.
             SchemaTransformer.destroy_instance()

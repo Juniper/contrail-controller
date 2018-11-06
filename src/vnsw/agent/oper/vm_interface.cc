@@ -745,11 +745,21 @@ VmInterface::FatFlowEntry::MakeFatFlowEntry(const std::string &proto, const int 
     uint8_t protocol = (uint8_t) Agent::ProtocolStringToInt(proto);
     IpAddress src_prefix;
     uint8_t src_prefix_mask = 0, src_aggregate_plen = 0;
-    IpAddress dst_prefix, empty_prefix;
+    IpAddress dst_prefix, empty_prefix, empty_prefix_v6 = IpAddress::from_string("0::0");
     uint8_t dst_prefix_mask = 0, dst_aggregate_plen = 0;
     FatFlowPrefixAggregateType prefix_aggregate = AGGREGATE_NONE;
     FatFlowIgnoreAddressType ignore_address =
                                    fatflow_ignore_addr_map_.find(ignore_addr_str)->second;
+    int port_num = port;
+
+    /*
+     * Protocol is taken as 1 for both IPv4 & IPv6 and Port no should be 0 for ICMP/ICMPv6,
+     * override if we get something else from config
+     */
+    if ((protocol == IPPROTO_ICMP) || (protocol == IPPROTO_ICMPV6)) {
+        protocol = IPPROTO_ICMP;
+        port_num = 0;
+    }
 
     if (in_src_prefix_str.length() > 0) {
 
@@ -805,7 +815,7 @@ VmInterface::FatFlowEntry::MakeFatFlowEntry(const std::string &proto, const int 
              src_aggregate_plen = 0;
              prefix_aggregate = AGGREGATE_DST_IPV4;
         } else if (prefix_aggregate == AGGREGATE_SRC_DST_IPV6) {
-             src_prefix = empty_prefix;
+             src_prefix = empty_prefix_v6;
              src_prefix_mask = 0;
              src_aggregate_plen = 0;
              prefix_aggregate = AGGREGATE_DST_IPV6;
@@ -822,14 +832,21 @@ VmInterface::FatFlowEntry::MakeFatFlowEntry(const std::string &proto, const int 
              dst_aggregate_plen = 0;
              prefix_aggregate = AGGREGATE_SRC_IPV4;
         } else if (prefix_aggregate == AGGREGATE_SRC_DST_IPV6) {
-             dst_prefix = empty_prefix;
+             dst_prefix = empty_prefix_v6;
              dst_prefix_mask = 0;
              dst_aggregate_plen = 0;
              prefix_aggregate = AGGREGATE_SRC_IPV6;
         }
     }
 
-    VmInterface::FatFlowEntry entry(protocol, port,
+    if ((in_src_prefix_str.length() == 0) && (prefix_aggregate == AGGREGATE_DST_IPV6)) {
+         src_prefix = empty_prefix_v6;
+    }
+    if ((in_dst_prefix_str.length() == 0) && (prefix_aggregate == AGGREGATE_SRC_IPV6)) {
+         dst_prefix = empty_prefix_v6;
+    }
+
+    VmInterface::FatFlowEntry entry(protocol, port_num,
                                     ignore_addr_str, prefix_aggregate, src_prefix, src_prefix_mask,
                                     src_aggregate_plen, dst_prefix, dst_prefix_mask, dst_aggregate_plen);
     return entry;
@@ -2223,12 +2240,19 @@ bool VmInterface::AllowedAddressPairList::UpdateList
     AllowedAddressPairSet::iterator it = list_.begin();
     while (it != list_.end()) {
         AllowedAddressPairSet::iterator prev = it++;
+        if (!prev->del_pending_)
+            continue;
         VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
         VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
         vmi->UpdateState(&(*prev), l2_op, l3_op);
-        if (prev->del_pending_) {
-            list_.erase(prev);
-        }
+        list_.erase(prev);
+    }
+    it = list_.begin();
+    while (it != list_.end()) {
+        AllowedAddressPairSet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
     }
     return true;
 }
@@ -3017,7 +3041,9 @@ bool VmInterface::VmiReceiveRoute::DeleteL2(const Agent *agent,
 //1> global-application-policy set.
 //2> application-policy-set attached via application tag
 bool VmInterface::UpdatePolicySet(const Agent *agent) {
+    bool ret = false;
     FirewallPolicyList new_firewall_policy_list;
+    FirewallPolicyList new_fwaas_firewall_policy_list;
 
     PolicySet *gps = agent->policy_set_table()->global_policy_set();
     if (gps) {
@@ -3036,17 +3062,25 @@ bool VmInterface::UpdatePolicySet(const Agent *agent) {
             FirewallPolicyList &tag_fp_list = ps_it->get()->fw_policy_list();
             FirewallPolicyList::iterator fw_policy_it = tag_fp_list.begin();
             for (; fw_policy_it != tag_fp_list.end(); fw_policy_it++) {
-                new_firewall_policy_list.push_back(*fw_policy_it);
+	        if (it->tag_->IsNeutronFwaasTag())
+                    new_fwaas_firewall_policy_list.push_back(*fw_policy_it);
+                else
+                    new_firewall_policy_list.push_back(*fw_policy_it);
             }
         }
     }
 
     if (fw_policy_list_ != new_firewall_policy_list) {
         fw_policy_list_ = new_firewall_policy_list;
-        return true;
+        ret = true;
     }
 
-    return false;
+    if (fwaas_fw_policy_list_ != new_fwaas_firewall_policy_list) {
+        fwaas_fw_policy_list_ = new_fwaas_firewall_policy_list;
+        ret = true;
+    }
+
+    return ret;
 }
 
 void VmInterface::CopyTagIdList(TagList *tag_id_list) const {

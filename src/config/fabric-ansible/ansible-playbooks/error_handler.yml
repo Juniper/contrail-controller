@@ -16,6 +16,10 @@
     device_name: "{{ prouter_name if prouter_name is defined else '' }}"
     details: "{{ jl_details if jl_details is defined else {} }}"
 
+- name: Process additional error handler, if present
+  include_tasks: "{{additional_error_handler}}"
+  when: additional_error_handler is defined
+
 - fail:
      msg: "Not able to perform the required action, exiting the playbook."
   when: fail_playbook is defined

@@ -104,6 +104,7 @@ private:
     bool is_bridge_;
     bool is_vxlan_routing_;
     COMPOSITETYPE comp_type_;
+    bool validate_mcast_src_;
     TunnelType tunnel_type_;
     uint8_t prefix_len_;
     uint32_t nh_id_;
@@ -121,6 +122,7 @@ private:
     bool crypt_;
     bool crypt_path_available_;
     KSyncEntryPtr crypt_interface_;
+    TunnelType::Type transport_tunnel_type_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 

@@ -1,0 +1,104 @@
+version:
+  - command: show system configuration database usage
+  - ignore-null: True
+  - item:
+      xpath: '/database-usage'
+      tests:
+        - is-gt: maximum-size, 0
+          err: "Test Failed!!"
+          info: "Test succeeded!!"
+{% if advanced_parameters.Juniper.bgp.bgp_peer_state_check == True or advanced_parameters.Juniper.bgp.bgp_flap_count_check == True %}
+bgp_neighbor:
+  - command: show bgp neighbor
+  - ignore-null: True
+  - iterate:
+      xpath: '//bgp-peer'
+      id: './peer-address'
+      tests:
+{% if advanced_parameters.Juniper.bgp.bgp_peer_state_check == True %}
+          # Check if peers are in the established state
+        - is-equal: peer-state, Established
+          err: "Test Failed!! peer {% raw %}<{{post['peer-address']}}>{% endraw %} state is not Established, it is {% raw %}<{{post['peer-state']}}>{% endraw %}"
+          info: "Test succeeded!! peer {% raw %}<{{post['peer-address']}}>{% endraw %} state is {% raw %}<{{post['peer-state']}}>{% endraw %}"
+{% endif %}
+{% if advanced_parameters.Juniper.bgp.bgp_flap_count_check == True %}
+        - in-range: flap-count, 0,{{advanced_parameters.Juniper.bgp.bgp_flap_count}}
+          err: "Test Failed!! flap-count of {% raw %}<{{post['flap-count']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.bgp.bgp_flap_count}}"
+          info: "Test succeeded!! flap-count is equal to {% raw %}<{{post['flap-count']}}>{% endraw %}"
+{% endif %}
+{% endif %}
+{% if advanced_parameters.Juniper.bgp.bgp_down_peer_count_check == True %}
+bgp_summary:
+  - command: show bgp summary
+  - item:
+      xpath: '/bgp-information'
+      tests:
+{% if advanced_parameters.Juniper.bgp.bgp_down_peer_count_check == True %}
+        - in-range: down-peer-count, 0,{{advanced_parameters.Juniper.bgp.bgp_down_peer_count}}
+          err: "Test Failed!! down-peer-count of {% raw %}<{{post['down-peer-count']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.bgp.bgp_down_peer_count}}."
+          info: "Test succeeded!! down-peer-count is equal to {% raw %}<{{post['down-peer-count']}}>{% endraw %}"
+{% endif %}
+{% endif %}
+{% if advanced_parameters.Juniper.alarm.system_alarm_check == True %}
+system_alarm:
+  - command: show system alarm
+  - item:
+      xpath: '/alarm-information/alarm-summary'
+      tests:
+        - exists: no-active-alarms
+          err: "Test Failed!!"
+          info: "Test succeeded!!"
+{% endif %}
+{% if advanced_parameters.Juniper.alarm.chassis_alarm_check == True %}
+chassis_alarm:
+  - command: show chassis alarm
+  - item:
+      xpath: '/alarm-information/alarm-summary'
+      tests:
+        - exists: no-active-alarms
+          err: "Test Failed!!"
+          info: "Test succeeded!!"
+{% endif %}
+{% if advanced_parameters.Juniper.routing_engine.routing_engine_cpu_idle_check == True %}
+routing_engine:
+  - command: show chassis routing-engine
+  - item:
+      xpath: '/route-engine-information/route-engine'
+      tests:
+        - in-range: cpu-idle, {{advanced_parameters.Juniper.routing_engine.routing_engine_cpu_idle}},99
+          err: "Test Failed!! cpu-idle of {% raw %}<{{post['cpu-idle']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.routing_engine.routing_engine_cpu_idle}}."
+          info: "Test succeeded!! cpu-idle is equal to {% raw %}<{{post['cpu-idle']}}>{% endraw %}"
+{% endif %}
+{% if advanced_parameters.Juniper.fpc.fpc_cpu_5min_avg_check == True or advanced_parameters.Juniper.fpc.fpc_memory_heap_util_check == True %}
+fpc:
+  - command: show chassis fpc
+{% if advanced_parameters.Juniper.fpc.fpc_cpu_5min_avg_check == True %}
+  - item:
+      xpath: '//fpc'
+      id: './slot'
+      tests:
+        - in-range: cpu-5min-avg, 0,{{advanced_parameters.Juniper.fpc.fpc_cpu_5min_avg}}
+          err: "Test Failed!! cpu-5min-avg of {% raw %}<{{post['cpu-5min-avg']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.fpc.fpc_cpu_5min_avg}}."
+          info: "Test succeeded!! cpu-5min-avg is equal to {% raw %}<{{post['cpu-5min-avg']}}>{% endraw %}"
+{% endif %}
+{% if advanced_parameters.Juniper.fpc.fpc_memory_heap_util_check == True %}
+  - item:
+      xpath: '//fpc'
+      id: './slot'
+      tests:
+        - in-range: memory-heap-utilization, 0,{{advanced_parameters.Juniper.fpc.fpc_memory_heap_util}}
+          err: "Test Failed!! memory-heap-utilization of {% raw %}<{{post['memory-heap-utilization']}}>{% endraw %} is greater than {{advanced_parameters.Juniper.fpc.fpc_memory_heap_util}}."
+          info: "Test succeeded!! memory-heap-utilization is equal to {% raw %}<{{post['memory-heap-utilization']}}>{% endraw %}"
+{% endif %}
+{% endif %}
+{% if advanced_parameters.Juniper.storm_control_flag_check == True %}
+#ethernet_switching_interface:
+#  - command: show ethernet-switching interface
+#  - iterate:
+#      xpath: '//l2ng-l2ald-iff-interface-entry'
+#      id: './l2iff-interface-name'
+#      tests:
+#        - exists: l2iff-interface-flags
+#          err: "Test Failed!! l2iff-interface-flags of {% raw %}<{{post['cl2iff-interface-flags']}}>{% endraw %} is present"
+#          info: "Test succeeded!! l2iff-interface-flags is equal to {% raw %}<{{post['l2iff-interface-flags']}}>{% endraw %}"
+{% endif %}

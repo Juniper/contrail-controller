@@ -41,8 +41,8 @@ class PodTaskMonitor(object):
         return data
 
     @staticmethod
-    def api_req_raw(method, path, auth=None, body=None, **kwargs):
-        path_str = 'http://127.0.0.1:5051'
+    def api_req_raw(method, ip_addr, port, path, auth=None, body=None, **kwargs):
+        path_str = 'http://%s:%s' % (ip_addr, port)
         payload = { 'type': 'GET_CONTAINERS' }
         for path_elem in path:
             path_str = path_str + "/" + path_elem
@@ -73,13 +73,14 @@ class PodTaskMonitor(object):
         return response
 
     @staticmethod
-    def get_task():
-        data = PodTaskMonitor.api_req_raw('POST', ['api', 'v1']).json()
+    def get_task(node_ip):
+        data = PodTaskMonitor.api_req_raw('POST', node_ip, '5051',
+                                          ['api', 'v1']).json()
         return PodTaskMonitor.cleanup_json(data)
 
     @staticmethod
-    def get_task_pod_name_from_cid(cid):
-        result = PodTaskMonitor.get_task()
+    def get_task_pod_name_from_cid(cid, node_ip):
+        result = PodTaskMonitor.get_task(node_ip)
         for container_info in result['get_containers']['containers']:
             if container_info['container_id']['value'] == cid:
                 return container_info['executor_id']['value']
@@ -87,11 +88,12 @@ class PodTaskMonitor(object):
 
     def process_event(self, event):
         event_type = event['event_type']
+        node_ip = event['labels']['node-ip']
         found = True;
-        while found:
-            #Fix me: Get this as parameter
-            time.sleep(2)
-            result = PodTaskMonitor.get_task()
+        interval = vnc_mesos_config.get_mesos_agent_retry_sync_count()
+        while (interval > 0) and found:
+            time.sleep(vnc_mesos_config.get_mesos_agent_retry_sync_hold_time())
+            result = PodTaskMonitor.get_task(node_ip)
             for container_info in result['get_containers']['containers']:
                 if container_info['container_id']['value'] == event_type.encode('utf-8'):
                     task_name = container_info['executor_id']['value']
@@ -105,6 +107,7 @@ class PodTaskMonitor(object):
                     VirtualMachineMM.locate(vm_uuid)
                     if vm_obj:
                         found = False
+            interval -= 1
 
     def sync_process(self):
         """Process event from the work queue"""

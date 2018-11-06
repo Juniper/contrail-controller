@@ -458,6 +458,8 @@ void PathPreferenceSM::EnqueuePathChange() {
         table = agent_->fabric_evpn_table();
     } else if (rt_->GetTableType() == Agent::INET4_UNICAST) {
         table = agent_->fabric_inet4_unicast_table();
+    } else if (rt_->GetTableType() == Agent::INET4_MPLS) {
+        table = agent_->fabric_inet4_mpls_table();
     } else if (rt_->GetTableType() == Agent::INET6_UNICAST) {
         table = agent_->fabric_inet4_unicast_table();
     }
@@ -685,6 +687,8 @@ PathPreferenceState::GetRouteListenerId(const VrfEntry* vrf,
         rt_id = vrf_state->evpn_rt_id_;
     } else if (table_type == Agent::INET4_UNICAST) {
         rt_id = vrf_state->uc_rt_id_;
+    } else if (table_type == Agent::INET4_MPLS) {
+        rt_id = vrf_state->mpls_rt_id_;
     } else if (table_type == Agent::INET6_UNICAST) {
         rt_id = vrf_state->uc6_rt_id_;
     } else {
@@ -1145,10 +1149,15 @@ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
        new PathPreferenceRouteListener(agent_,
                                        vrf->GetInet6UnicastRouteTable());
    uc6_rt_listener->Init();
+   PathPreferenceRouteListener *mpls_rt_listener =
+       new PathPreferenceRouteListener(agent_,
+                                       vrf->GetInet4MplsUnicastRouteTable());
+   mpls_rt_listener->Init();
 
    vrf_state = new PathPreferenceVrfState(uc_rt_listener->id(),
                                           evpn_rt_listener->id(),
-                                          uc6_rt_listener->id());
+                                          uc6_rt_listener->id(),
+                                          mpls_rt_listener->id());
 
    e->SetState(partition->parent(), vrf_id_, vrf_state);
    return;

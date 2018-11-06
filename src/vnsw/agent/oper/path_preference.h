@@ -182,11 +182,14 @@ private:
 struct PathPreferenceVrfState: public DBState {
     PathPreferenceVrfState(DBTableBase::ListenerId uc_rt_id,
                            DBTableBase::ListenerId evpn_rt_id,
-                           DBTableBase::ListenerId uc6_rt_id):
-        uc_rt_id_(uc_rt_id), evpn_rt_id_(evpn_rt_id), uc6_rt_id_(uc6_rt_id) {}
+                           DBTableBase::ListenerId uc6_rt_id,
+                           DBTableBase::ListenerId mpls_rt_id):
+        uc_rt_id_(uc_rt_id), evpn_rt_id_(evpn_rt_id),
+        uc6_rt_id_(uc6_rt_id),mpls_rt_id_(mpls_rt_id) {}
     DBTableBase::ListenerId uc_rt_id_;
     DBTableBase::ListenerId evpn_rt_id_;
     DBTableBase::ListenerId uc6_rt_id_;
+    DBTableBase::ListenerId mpls_rt_id_;
 };
 
 struct PathPreferenceRouteListener : public DBState {

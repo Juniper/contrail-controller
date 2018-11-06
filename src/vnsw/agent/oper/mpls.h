@@ -102,6 +102,7 @@ public:
     static const uint32_t kInvalidExportLabel = 0;
     static const uint32_t kStartLabel = 16;
     static const uint32_t kDpdkShiftBits = 4;
+    static const uint32_t kImplicitNullLabel = 3;
 
     MplsTable(DB *db, const std::string &name);
     virtual ~MplsTable();

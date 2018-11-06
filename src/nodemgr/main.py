@@ -38,11 +38,8 @@ monkey.patch_all()
 import argparse
 import ConfigParser
 import gevent
-import hashlib
-import random
 import os
 import platform
-import signal
 import socket
 import sys
 
@@ -50,6 +47,8 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
 from analytics_nodemgr.event_manager import AnalyticsEventManager
+from analytics_alarm_nodemgr.event_manager import AnalyticsAlarmEventManager
+from analytics_snmp_nodemgr.event_manager import AnalyticsSNMPEventManager
 from config_nodemgr.event_manager import ConfigEventManager
 from control_nodemgr.event_manager import ControlEventManager
 from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
@@ -57,48 +56,85 @@ from config_database_nodemgr.event_manager import ConfigDatabaseEventManager
 from vrouter_nodemgr.event_manager import VrouterEventManager
 
 
-unit_names_dict = {
-    'contrail-analytics': [
-        'contrail-collector',
-        'contrail-analytics-api',
-        'contrail-snmp-collector',
-        'contrail-query-engine',
-        'contrail-alarm-gen',
-        'contrail-topology',
-        'contrail-analytics-nodemgr'
-    ],
-    'contrail-config': [
-        'contrail-api',
-        'contrail-schema',
-        'contrail-svc-monitor',
-        'contrail-device-manager',
-        'contrail-config-nodemgr'
-    ],
-    'contrail-config-database': [
-        'cassandra',
-        'zookeeper',
-        'contrail-config-database-nodemgr'
-    ],
-    'contrail-control': [
-        'contrail-control',
-        'contrail-dns',
-        'contrail-named',
-        'contrail-control-nodemgr'
-    ],
-    'contrail-vrouter': [
-        'contrail-vrouter-agent',
-        'contrail-vrouter-nodemgr'
-    ],
-    'contrail-database': [
-        'cassandra',
-        'zookeeper',
-        'kafka',
-        'contrail-database-nodemgr'
-    ]
+node_properties = {
+    'contrail-analytics': {
+        'config_file': '/etc/contrail/contrail-analytics-nodemgr.conf',
+        'event_manager': AnalyticsEventManager,
+        'unit_names': [
+            'contrail-collector',
+            'contrail-analytics-api',
+            'contrail-analytics-nodemgr'
+        ],
+    },
+    'contrail-analytics-snmp': {
+        'config_file': '/etc/contrail/contrail-analytics-snmp-nodemgr.conf',
+        'event_manager': AnalyticsSNMPEventManager,
+        'unit_names': [
+            'contrail-snmp-collector',
+            'contrail-topology',
+            'contrail-analytics-snmp-nodemgr',
+        ],
+    },
+    'contrail-analytics-alarm': {
+        'config_file': '/etc/contrail/contrail-analytics-alarm-nodemgr.conf',
+        'event_manager': AnalyticsAlarmEventManager,
+        'unit_names': [
+            'contrail-alarm-gen',
+            'kafka',
+            'contrail-analytics-alarm-nodemgr',
+        ],
+    },
+    'contrail-config': {
+        'config_file': '/etc/contrail/contrail-config-nodemgr.conf',
+        'event_manager': ConfigEventManager,
+        'unit_names': [
+            'contrail-api',
+            'contrail-schema',
+            'contrail-svc-monitor',
+            'contrail-device-manager',
+            'contrail-config-nodemgr'
+        ],
+    },
+    'contrail-config-database': {
+        'config_file': '/etc/contrail/contrail-config-database-nodemgr.conf',
+        'event_manager': ConfigDatabaseEventManager,
+        'unit_names': [
+            'cassandra',
+            'zookeeper',
+            'contrail-config-database-nodemgr'
+        ],
+    },
+    'contrail-control': {
+        'config_file': '/etc/contrail/contrail-control-nodemgr.conf',
+        'event_manager': ControlEventManager,
+        'unit_names': [
+            'contrail-control',
+            'contrail-dns',
+            'contrail-named',
+            'contrail-control-nodemgr'
+        ],
+    },
+    'contrail-vrouter': {
+        'config_file': '/etc/contrail/contrail-vrouter-nodemgr.conf',
+        'event_manager': VrouterEventManager,
+        'unit_names': [
+            'contrail-vrouter-agent',
+            'contrail-vrouter-nodemgr'
+        ],
+    },
+    'contrail-database': {
+        'config_file': '/etc/contrail/contrail-database-nodemgr.conf',
+        'event_manager': AnalyticsDatabaseEventManager,
+        'unit_names': [
+            'cassandra',
+            'contrail-query-engine',
+            'contrail-database-nodemgr'
+        ],
+    },
 }
 
 
-def usage():
+def print_usage_and_exit():
     print doc
     sys.exit(255)
 
@@ -112,7 +148,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     try:
         args, remaining_argv = node_parser.parse_known_args(args_str.split())
     except:
-        usage()
+        print_usage_and_exit()
     default = {'rules': '',
                'collectors': [],
                'hostip': socket.gethostbyname(socket.getfqdn()),
@@ -120,6 +156,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'db_jmx_port': '7199',
                'db_user': None,
                'db_password': None,
+               'db_use_ssl': False,
                'minimum_diskgb': 256,
                'corefile_path': '/var/crashes',
                'cassandra_repair_interval': 24,
@@ -135,32 +172,19 @@ def main(args_str=' '.join(sys.argv[1:])):
     sandesh_opts = SandeshConfig.get_default_options()
     node_type = args.nodetype
 
-    if platform.system() == 'Windows':
-        path_prefix = os.environ['ProgramData'] + '/Contrail'
-    else:
-        path_prefix = ""
+    if node_type not in node_properties:
+        sys.stderr.write("Node type '" + str(node_type) + "' is incorrect\n")
+        sys.exit(1)
 
-    config_file = path_prefix
-    if (node_type == 'contrail-analytics'):
-        config_file += '/etc/contrail/contrail-analytics-nodemgr.conf'
-    elif (node_type == 'contrail-config'):
-        config_file += '/etc/contrail/contrail-config-nodemgr.conf'
-    elif (node_type == 'contrail-config-database'):
-        config_file += '/etc/contrail/contrail-config-database-nodemgr.conf'
-    elif (node_type == 'contrail-control'):
-        config_file += '/etc/contrail/contrail-control-nodemgr.conf'
-    elif (node_type == 'contrail-vrouter'):
-        config_file += '/etc/contrail/contrail-vrouter-nodemgr.conf'
-    elif (node_type == 'contrail-database'):
-        config_file += '/etc/contrail/contrail-database-nodemgr.conf'
-    else:
-        sys.stderr.write("Node type" + str(node_type) + " is incorrect\n")
-        return
-    if (os.path.exists(config_file) == False):
-        sys.stderr.write("config file " + config_file + " is not present\n")
-        return
+    config_file_path = ""
+    if platform.system() == 'Windows':
+        config_file_path = os.environ['ProgramData'] + '/Contrail'
+    config_file_path += node_properties[node_type]['config_file']
+    if (os.path.exists(config_file_path) == False):
+        sys.stderr.write("config file '" + config_file_path + "' is not present\n")
+        sys.exit(1)
     config = ConfigParser.SafeConfigParser()
-    config.read([config_file])
+    config.read([config_file_path])
     if 'DEFAULTS' in config.sections():
         default.update(dict(config.items('DEFAULTS')))
     if 'COLLECTOR' in config.sections():
@@ -211,6 +235,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                             help="Cassandra DB cql username")
         parser.add_argument("--db_password",
                             help="Cassandra DB cql password")
+        parser.add_argument("--db_use_ssl",
+                            help="Cassandra DB behind SSL or not")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")
@@ -219,51 +245,25 @@ def main(args_str=' '.join(sys.argv[1:])):
     try:
         _args = parser.parse_args(remaining_argv)
     except:
-        usage()
+        print_usage_and_exit()
 
-    # randomize collector list
-    _args.chksum = ""
-    if _args.collectors:
-        _args.chksum = hashlib.md5("".join(_args.collectors)).hexdigest()
-        _args.random_collectors = random.sample(_args.collectors,
-                                                len(_args.collectors))
-        _args.collectors = _args.random_collectors
+    _args.config_file_path = config_file_path
+    _args.db_use_ssl = (str(_args.db_use_ssl).lower() == 'true')
     # done parsing arguments
 
     # TODO: restore rule_file logic somehow if needed for microservices
     #rule_file = _args.rules
 
-    unit_names = unit_names_dict.get(node_type)
-    if node_type == 'contrail-analytics':
-        prog = AnalyticsEventManager(_args, unit_names)
-    elif node_type == 'contrail-config':
-        prog = ConfigEventManager(_args, unit_names)
-    elif node_type == 'contrail-control':
-        prog = ControlEventManager(_args, unit_names)
-    elif node_type == 'contrail-vrouter':
-        prog = VrouterEventManager(_args, unit_names)
-    elif node_type == 'contrail-database':
-        prog = AnalyticsDatabaseEventManager(_args, unit_names)
-    elif node_type == 'contrail-config-database':
-        prog = ConfigDatabaseEventManager(_args, unit_names)
-    else:
-        sys.stderr.write("Node type " + str(node_type) + " is incorrect\n")
-        return
+    unit_names = node_properties[node_type]['unit_names']
+    event_manager = node_properties[node_type]['event_manager'](_args, unit_names)
+    event_manager.send_init_data()
 
-    prog.send_nodemgr_process_status()
-    prog.send_process_state_db(prog.group_names)
-    prog.config_file = config_file
-    prog.collector_chksum = _args.chksum
-    prog.random_collectors = _args.random_collectors
-
-    if platform.system() != 'Windows':
-        """ @sighup
-        Reconfig of collector list
-        """
-        gevent.signal(signal.SIGHUP, prog.nodemgr_sighup_handler)
-
-    gevent.joinall([gevent.spawn(prog.runforever),
-        gevent.spawn(prog.run_periodically(prog.do_periodic_events, 60))])
+    gevent.joinall([
+        gevent.spawn(event_manager.runforever),
+        gevent.spawn(
+            event_manager.run_periodically(
+                event_manager.do_periodic_events, 60))
+    ])
 
 
 if __name__ == '__main__':

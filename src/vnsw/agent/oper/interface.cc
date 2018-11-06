@@ -1245,6 +1245,13 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_policy_set_acl_list(policy_set_acl_list);
 
+        std::vector<std::string> policy_set_fwaas_list;
+        fw_it = vintf->fwaas_fw_policy_list().begin();
+        for(; fw_it != vintf->fwaas_fw_policy_list().end(); fw_it++) {
+            policy_set_fwaas_list.push_back(UuidToString(fw_it->get()->GetUuid()));
+        }
+        data.set_policy_set_fwaas_list(policy_set_fwaas_list);
+
         std::vector<SecurityLoggingObjectLink> slo_list;
         UuidList::const_iterator sit = vintf->slo_list().begin();
         while (sit != vintf->slo_list().end()) {

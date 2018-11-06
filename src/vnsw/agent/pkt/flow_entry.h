@@ -263,6 +263,7 @@ struct MatchPolicy {
 
     SessionPolicy sg_policy;
     SessionPolicy aps_policy;
+    SessionPolicy fwaas_policy;
 
     MatchAclParamsList m_mirror_acl_l;
     uint32_t mirror_action;
@@ -492,6 +493,10 @@ class FlowEntry {
         DROP_OUT_FIREWALL_POLICY,
         DROP_REVERSE_FIREWALL_POLICY,
         DROP_REVERSE_OUT_FIREWALL_POLICY,
+        DROP_FWAAS_POLICY,
+        DROP_FWAAS_OUT_POLICY,
+        DROP_FWAAS_REVERSE_POLICY,
+        DROP_FWAAS_REVERSE_OUT_POLICY,
     };
 
     enum FlowPolicyState {
@@ -734,9 +739,7 @@ class FlowEntry {
     }
 
     FlowEntryInfo *flow_mgmt_info() const { return flow_mgmt_info_.get(); }
-    void set_flow_mgmt_info(FlowEntryInfo *info) {
-        flow_mgmt_info_.reset(info);
-    }
+    void set_flow_mgmt_info(FlowEntryInfo *info);
     void FillUveFwStatsInfo(FlowUveFwPolicyInfo *info, bool added) const;
     void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
     bool IsClientFlow();

@@ -1603,8 +1603,15 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
          iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        /* SkipNode() will be true, if node is registed with dependency_manager.
+         * Eventhough bgp-router is registered with dependency_manager,
+         * bgp_routers associated to a vmi is passed to bgp-as-a-sercice
+         * process_config() for validation. */
         if (agent_->config_manager()->SkipNode(adj_node)) {
-            continue;
+            if (strcmp(adj_node->table()->Typename(),
+                        BGP_ROUTER_CONFIG_NAME) != 0) {
+                continue;
+            }
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_sg_table()) {

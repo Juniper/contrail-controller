@@ -106,6 +106,12 @@ typedef boost::intrusive_ptr<VxLanId> VxLanIdRef;
 void intrusive_ptr_release(const VxLanId* p);
 void intrusive_ptr_add_ref(const VxLanId* p);
 
+class MulticastPolicyEntry;
+typedef boost::intrusive_ptr<MulticastPolicyEntry> MulticastPolicyEntryRef;
+typedef boost::intrusive_ptr<const MulticastPolicyEntry> MulticastPolicyEntryConstRef;
+void intrusive_ptr_release(const MulticastPolicyEntry* p);
+void intrusive_ptr_add_ref(const MulticastPolicyEntry* p);
+
 class InetUnicastRouteEntry;
 class Inet4MulticastRouteEntry;
 class EvpnRouteEntry;
@@ -197,6 +203,12 @@ typedef std::vector<int> TagList;
 typedef std::vector<boost::uuids::uuid> UuidList;
 typedef std::vector<std::string> CommunityList;
 
+class MulticastPolicyEntry;
+typedef boost::intrusive_ptr<MulticastPolicyEntry> MulticastPolicyEntryRef;
+typedef boost::intrusive_ptr<const MulticastPolicyEntry> MulticastPolicyEntryConstRef;
+void intrusive_ptr_release(const MulticastPolicyEntry* p);
+void intrusive_ptr_add_ref(const MulticastPolicyEntry* p);
+
 typedef std::set<std::string> VnListType;
 
 class AgentDBTable;
@@ -231,6 +243,7 @@ class QosQueueTable;
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
 class BridgeDomainTable;
+class MulticastPolicyTable;
 
 class XmppInit;
 class AgentXmppChannel;
@@ -395,6 +408,7 @@ public:
         EVPN,
         BRIDGE,
         INET6_UNICAST,
+        INET4_MPLS,
         ROUTE_TABLE_MAX
     };
     static const uint8_t ROUTE_TABLE_START = (Agent::INVALID + 1);
@@ -561,6 +575,17 @@ public:
         uc_rt_table_ = (InetUnicastAgentRouteTable *)table;
     }
 
+    InetUnicastAgentRouteTable *fabric_inet4_mpls_table() const {
+        return mpls_rt_table_;
+    }
+    void set_fabric_inet4_mpls_table(InetUnicastAgentRouteTable *
+                                                 table) {
+        mpls_rt_table_ = table;
+    }
+    void set_fabric_inet4_mpls_table(RouteTable * table) {
+        mpls_rt_table_ = (InetUnicastAgentRouteTable *)table;
+    }
+
     Inet4MulticastAgentRouteTable *fabric_inet4_multicast_table() const {
         return mc_rt_table_;
     }
@@ -601,6 +626,11 @@ public:
     }
     void set_physical_device_vn_table(PhysicalDeviceVnTable *table) {
          physical_device_vn_table_ = table;
+    }
+
+    MulticastPolicyTable *mp_table() const {return mp_table_;}
+    void set_mp_table(MulticastPolicyTable *table) {
+        mp_table_ = table;
     }
 
     // VHOST related
@@ -1262,7 +1292,7 @@ public:
     void SetMeasureQueueDelay(bool val);
     bool MeasureQueueDelay();
     void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
-                   const char *description, uint32_t delay);
+                   const char *description, uint64_t delay);
 
     static uint16_t ProtocolStringToInt(const std::string &str);
     VrouterObjectLimits GetVrouterObjectLimits();
@@ -1284,6 +1314,11 @@ public:
         return fabric_vn_uuid_;
     }
     uint8_t GetInterfaceTransport() const;
+    void set_inet_labeled_flag(bool flag) {
+        inet_labeled_enabled_ = flag;
+    }
+    bool get_inet_labeled_flag() {
+        return inet_labeled_enabled_;}
 private:
 
     uint32_t GenerateHash(std::vector<std::string> &);
@@ -1342,6 +1377,7 @@ private:
     std::auto_ptr<MetaDataIpAllocator> metadata_ip_allocator_;
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
+    InetUnicastAgentRouteTable *mpls_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;
     EvpnAgentRouteTable *evpn_rt_table_;
     BridgeAgentRouteTable *l2_rt_table_;
@@ -1365,6 +1401,7 @@ private:
     PolicySetTable *policy_set_table_;
     CryptTunnelTable *crypt_tunnel_table_;
     std::auto_ptr<ConfigManager> config_manager_;
+    MulticastPolicyTable *mp_table_;
 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;
@@ -1461,6 +1498,7 @@ private:
     bool server_gateway_mode_;
     bool vcpe_gateway_mode_;
     bool pbb_gateway_mode_;
+    bool inet_labeled_enabled_;
 
     // Flow information
     uint32_t flow_table_size_;

@@ -31,6 +31,8 @@ public:
     void DeletePath(BgpPath *path);
 
     const BgpPath *FindPath(BgpPath::PathSource src) const;
+    const BgpPath *FindPath(const IPeer *peer,
+                            bool include_secondary = false) const;
     BgpPath *FindPath(const IPeer *peer, bool include_secondary = false);
     BgpPath *FindPath(const IpAddress &nexthop);
     BgpPath *FindPath(BgpPath::PathSource src, const IPeer *peer,

@@ -90,9 +90,7 @@ static string AddSgIdAclXmlString(const char *node_name, const char *name, int i
     "                        </dst-port>\n"
     "                    </match-condition>\n"
     "                    <action-list>\n"
-    "                        <simple-action>\n"
-    "                            %s\n"
-    "                        </simple-action>\n"
+    "                        <simple-action>%s</simple-action>\n"
     "                    </action-list>\n"
     "                </acl-rule>\n"
     "           </access-control-list-entries>\n"
@@ -216,6 +214,8 @@ void Shutdown() {
     EXPECT_FALSE(VmPortFind(tcp_ack_ports, 0));
     EXPECT_FALSE(VmPortFind(tcp_ack_ports, 1));
     EXPECT_FALSE(VmPortFind(tcp_ack_ports_1, 0));
+    DeleteBgpPeer(bgp_peer_);
+    client->WaitForIdle();
 }
 
 bool ValidateAction(uint32_t vrfid, const char *sip, const char *dip, int proto,

@@ -11,7 +11,7 @@
 #include <vrouter/ksync/ksync_flow_index_manager.h>
 #include "vrouter/flow_stats/flow_stats_collector.h"
 #include "flow_proto.h"
-#include "flow_mgmt_dbclient.h"
+#include "flow_mgmt/flow_mgmt_dbclient.h"
 #include "flow_mgmt.h"
 #include "flow_event.h"
 #include <strings.h>
@@ -419,7 +419,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         FlowEntry *flow = req->flow();
         // process event only for forward flow with same gen_id
         // it may happen that after enqueued for recompute,
-        // flow become reverse flow when the following sequence of 
+        // flow become reverse flow when the following sequence of
         // events occur.
         // 1. route is changed , flow is enqueued for recompute
         // 2. flow get evicted in vrouter
@@ -429,7 +429,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         //   added check to process events only if gen id matches,
         //   otherwise ignore it. added assertion not to process reverseflow
         //   at this stage as we only enqueue forward flows.
-        
+
         if ((flow->flow_handle() == req->flow_handle()) &&
                                 (flow->gen_id() == req->gen_id())) {
             assert(flow->is_flags_set(FlowEntry::ReverseFlow) == false);

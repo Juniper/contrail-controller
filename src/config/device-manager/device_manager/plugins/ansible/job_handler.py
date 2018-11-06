@@ -6,133 +6,195 @@
 This file contains implementation of job api handler code
 """
 import gevent
-import json
-import random
+import uuid
+import time
+
+from attrdict import AttrDict
 from enum import Enum
-from vnc_api.vnc_api import VncApi
 
 
 class JobStatus(Enum):
-    INIT = 0
-    IN_PROGRESS = 1
-    COMPLETE = 2
-    FAILED = 3
+    STARTING = "STARTING"
+    IN_PROGRESS = "IN_PROGRESS"
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+
+    @staticmethod
+    def from_str(status):
+        if status == JobStatus.STARTING.value:
+            return JobStatus.STARTING
+        elif status == JobStatus.IN_PROGRESS.value:
+            return JobStatus.IN_PROGRESS
+        elif status == JobStatus.SUCCESS.value:
+            return JobStatus.SUCCESS
+        elif status == JobStatus.FAILURE.value:
+            return JobStatus.FAILURE
+        else:
+            raise NotImplementedError
 # end class JobStatus
 
 
 class JobHandler(object):
-    JOB_STATUS_MAPPING = {
-        'SUCCESS': JobStatus.COMPLETE,
-        'FAILURE': JobStatus.FAILED,
-        'UNKNOWN': JobStatus.FAILED
-    }
 
-    def __init__(self, job_type, job_input, device_list, api_server_config,
-                 logger):
-        self._job_type = job_type
+    JOB_REQUEST_EXCHANGE = "job_request_exchange"
+    JOB_REQUEST_ROUTING_KEY = "job.request"
+    JOB_STATUS_CONSUMER = "job_status_consumer."
+    JOB_STATUS_EXCHANGE = "job_status_exchange"
+    JOB_STATUS_ROUTING_KEY = "job.status."
+
+    def __init__(self, job_template_name, job_input, device_list,
+                 api_server_config, logger, amqp_client, args):
+        self._job_template_name = job_template_name
         self._job_input = job_input
         self._device_list = device_list
         self._api_server_config = api_server_config
         self._logger = logger
         self._job_id = None
-        self._job_status = JobStatus.INIT
+        self._job_status = None
+        self._amqp_client = amqp_client
+        self._args = args
         super(JobHandler, self).__init__()
     # end __init__
 
     def push(self, timeout, max_retries):
-        vnc_api = self._get_vnc_api(**self._api_server_config)
-        self._job_status = JobStatus.IN_PROGRESS
-        job_execution_id = None
         try:
-            self._logger.debug("job handler: executing job for (%s, %s)" %
-                               (self._device_list, str(self._job_type)))
-            job_execution_info = vnc_api.execute_job(
-                job_template_fq_name=self._job_type,
-                job_input=self._job_input,
-                device_list=self._device_list
-            )
+            self._job_status = JobStatus.STARTING
+            # generate the job uuid
+            job_execution_id = str(int(round(time.time() * 1000))) + '_' + str(
+                uuid.uuid4())
 
-            job_execution_id = job_execution_info.get('job_execution_id')
-            self._logger.debug("job started with execution id %s" %
-                               job_execution_id)
-            self._wait(vnc_api, job_execution_id, timeout, max_retries)
+            self._logger.debug("job handler: Starting job for (%s, %s, %s)" %
+                               (self._device_list,
+                                str(self._job_template_name),
+                                str(job_execution_id)))
+
+            # build the job input json
+            job_payload = self._generate_job_request_payload(job_execution_id)
+
+            # create a RabbitMQ listener to listen to the job status update
+            self._start_job_status_listener(job_execution_id)
+
+            # publish message to RabbitMQ to execute job
+            self._publish_job_request(job_payload)
+
+            self._logger.debug(
+                "job handler: Published job request "
+                "(%s, %s, %s)" % (self._device_list, str(
+                    self._job_template_name), str(job_execution_id)))
+
+            # wait for the job status update
+            self._wait(job_execution_id, timeout, max_retries)
+
+            # remove RabbitMQ listener
+            self._stop_job_status_listener(job_execution_id)
+
         except Exception as e:
-            self._logger.error("job handler: push failed for (%s, %s)"
-                               " execution id %s: %s" % (self._device_list,
-                               str(self._job_type), job_execution_id, repr(e)))
-            self._job_status = JobStatus.FAILED
+            self._logger.error(
+                "job handler: push failed for (%s, %s)"
+                " execution id %s: %s" % (
+                    self._device_list, str(self._job_template_name),
+                    job_execution_id, repr(e)))
+            self._job_status = JobStatus.FAILURE
 
-        if self._job_status == JobStatus.FAILED:
+        if self._job_status == JobStatus.FAILURE:
             raise Exception("job handler: push failed for (%s, %s)"
                             " execution id %s" % (self._device_list,
-                            str(self._job_type), job_execution_id))
+                                                  str(self._job_template_name),
+                                                  job_execution_id))
+
         self._logger.debug("job handler: push succeeded for (%s, %s)"
-                            " execution id %s" % (self._device_list,
-                            str(self._job_type), job_execution_id))
-    # end push
+                           " execution id %s" % (self._device_list,
+                                                 str(self._job_template_name),
+                                                 job_execution_id))
 
-    def _check_job_status(self, vnc_api, job_execution_id, status):
+    def _start_job_status_listener(self, job_execution_id):
+        # TODO - Restarting the worker might not scale and have issue
+        # in parallel use amongst the greenlets
+        self._amqp_client.add_consumer(
+            self.JOB_STATUS_CONSUMER + job_execution_id,
+            self.JOB_STATUS_EXCHANGE,
+            routing_key=self.JOB_STATUS_ROUTING_KEY + job_execution_id,
+            callback=self._handle_job_status_change_notification,
+            auto_delete=True)
+
+    def _stop_job_status_listener(self, job_execution_id):
+        self._amqp_client.remove_consumer(
+            self.JOB_STATUS_CONSUMER + job_execution_id)
+
+    def _publish_job_request(self, job_payload):
         try:
-            job_status = vnc_api.job_status(job_execution_id)
-            return self._verify_job_status(job_status, status)
+            self._amqp_client.publish(
+                job_payload, self.JOB_REQUEST_EXCHANGE,
+                routing_key=self.JOB_REQUEST_ROUTING_KEY,
+                serializer='json', retry=True,
+                retry_policy={'max_retries': 12,
+                              'interval_start': 2,
+                              'interval_step': 5,
+                              'interval_max': 15})
         except Exception as e:
-            self._logger.error("job handler: error while querying "
-                "job status for execution_id %s: %s" %
-                (job_execution_id, repr(e)))
-        return False
-    # end _check_job_status
+            msg = "Failed to send job request via RabbitMQ %s " % repr(e)
+            self._logger.error(msg)
+            raise
 
-    def _get_job_status(self, vnc_api, job_execution_id):
-        if self._check_job_status(vnc_api, job_execution_id,
-                                  JobStatus.COMPLETE):
-            return JobStatus.COMPLETE
-        if self._check_job_status(vnc_api, job_execution_id,
-                                  JobStatus.FAILED):
-            return JobStatus.FAILED
+    def _generate_job_request_payload(self, job_execution_id):
+        job_input_json = {
+            "job_execution_id": job_execution_id,
+            "input": self._job_input,
+            "job_template_fq_name": self._job_template_name,
+            "api_server_host": self._args.api_server_ip.split(','),
+            "params": {
+                "device_list": self._device_list
+            },
+            "vnc_api_init_params": {
+                "admin_user": self._args.admin_user,
+                "admin_password": self._args.admin_password,
+                "admin_tenant_name":
+                    self._args.admin_tenant_name,
+                "api_server_port": self._args.api_server_port,
+                "api_server_use_ssl":
+                    self._args.api_server_use_ssl
+            },
+            "cluster_id": self._args.cluster_id
+        }
+        return job_input_json
 
-        return JobStatus.IN_PROGRESS
-    # end _get_job_status
+    # listens to the job notifications and updates the in memory job status
+    def _handle_job_status_change_notification(self, body, message):
+        try:
+            message.ack()
+            payload = AttrDict(body)
+            self._job_status = JobStatus.from_str(payload.job_status)
+        except Exception as e:
+            msg = "Exception while handling the job status update " \
+                  "notification %s " % repr(e)
+            self._logger.error(msg)
+            raise
+        pass
 
-    def _wait(self, vnc_api, job_execution_id, timeout, max_retries):
-        retry_count = 1
-        while not self.is_job_done():
-            self._job_status = self._get_job_status(vnc_api, job_execution_id)
-            if not self.is_job_done():
-                if retry_count >= max_retries:
-                    self._logger.error(
-                        "job handler: timed out waiting for job %s for device"
-                        " %s and job_type %s:" %
-                        (job_execution_id, self._device_list,
-                         str(self._job_type)))
-                    self._job_status = JobStatus.FAILED
-                else:
-                    retry_count += 1
-                    gevent.sleep(timeout)
+    def _wait(self, job_execution_id, timeout, max_retries):
+        retry_count = 0
+        while not self._is_job_done():
+            if retry_count >= max_retries:
+                self._logger.error(
+                    "job handler: timed out waiting for job %s for device"
+                    " %s and job_type %s:" %
+                    (job_execution_id, self._device_list,
+                     str(self._job_template_name)))
+                self._job_status = JobStatus.FAILURE
+            else:
+                retry_count += 1
+                gevent.sleep(timeout)
     # end _wait
 
     def get_job_status(self):
         return self._job_status
     # end get_job_status
 
-    def is_job_done(self):
-        if self._job_status == JobStatus.COMPLETE or \
-                self._job_status == JobStatus.FAILED:
+    def _is_job_done(self):
+        if self._job_status == JobStatus.SUCCESS or \
+                self._job_status == JobStatus.FAILURE:
             return True
         return False
-    # end is_job_done
+    # end _is_job_done
 
-    @staticmethod
-    def _get_vnc_api(ips, port, username, password, tenant, use_ssl):
-        return VncApi(api_server_host=random.choice(ips),
-            api_server_port=port, username=username,
-            password=password, tenant_name=tenant,
-            api_server_use_ssl=use_ssl)
-    # end _get_vnc_api
-
-    @classmethod
-    def _verify_job_status(cls, job_status, status):
-        return job_status and \
-            cls.JOB_STATUS_MAPPING.get(job_status.get('job_status')) == \
-                status
-    # end _verify_job_status
 # end class JobHandler

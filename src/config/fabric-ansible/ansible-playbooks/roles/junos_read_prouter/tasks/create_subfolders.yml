@@ -1,7 +1,0 @@
-  - set_fact:
-      conf_dir: ./config/{{ junos_host }}
-
-  - name: create build folder
-    file:
-      path: "{{ conf_dir }}/build_config"
-      state: directory

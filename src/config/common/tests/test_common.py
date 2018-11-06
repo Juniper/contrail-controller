@@ -7,8 +7,8 @@ gevent.monkey.patch_all()
 
 import logging
 import tempfile
+import mock
 from pprint import pformat
-import coverage
 import fixtures
 import testtools
 from testtools import content
@@ -66,7 +66,10 @@ except ImportError:
 
 try:
     import device_manager
-    if not hasattr(device_manager, 'main'):
+    if hasattr(device_manager, 'DeviceManager'):
+        import dm_server
+    else:
+        from device_manager import dm_server
         from device_manager import device_manager
 except ImportError:
     device_manager = 'device_manager could not be imported'
@@ -273,6 +276,12 @@ def destroy_api_server_instance_issu(server_info):
 
 def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
+    kombu_mock = mock.Mock()
+    kombu_patch = mock.patch(
+        'vnc_cfg_api_server.vnc_cfg_api_server.KombuAmqpClient')
+    kombu_init_mock = kombu_patch.start()
+    kombu_init_mock.side_effect = kombu_mock
+
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
@@ -333,7 +342,7 @@ def kill_schema_transformer(glet):
 
 def kill_device_manager(glet):
     glet.kill()
-    device_manager.DeviceManager.destroy_instance()
+    dm_server.sigterm_handler()
 
 def kill_kube_manager(glet):
     glet.kill()
@@ -368,6 +377,13 @@ def launch_schema_transformer(cluster_id, test_id, api_server_ip,
 
 def launch_device_manager(test_id, api_server_ip, api_server_port,
                           conf_sections=None):
+
+    kombu_mock = mock.Mock()
+    kombu_patch = mock.patch(
+        'device_manager.dm_server.KombuAmqpClient')
+    kombu_init_mock = kombu_patch.start()
+    kombu_init_mock.side_effect = kombu_mock
+
     wait_for_device_manager_down()
     allocated_sockets = []
     args_str = ""
@@ -385,9 +401,9 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
             cfg_parser.write(conf)
             conf.flush()
             args_str = args_str + "--conf_file %s " % conf.name
-            device_manager.main(args_str)
+            dm_server.main(args_str)
     else:
-        device_manager.main(args_str)
+        dm_server.main(args_str)
 
 # end launch_device_manager
 
@@ -708,10 +724,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def setUpClass(cls, extra_mocks=None, extra_config_knobs=None,
                    db='cassandra'):
         super(TestCase, cls).setUpClass()
-        global cov_handle
-        if not cov_handle:
-            cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
-        #cov_handle.start()
 
         cfgm_common.zkclient.LOG_DIR = './'
         gevent.pywsgi.WSGIServer.handler_class = FakeWSGIHandler
@@ -793,11 +805,17 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                         create_right_port=True, **kwargs):
         sa_set = None
         if kwargs.get('service_virtualization_type') == 'physical-device':
-            pr = PhysicalRouter(si_name)
+            pr = PhysicalRouter(si_name, physical_router_role='pnf')
             self._vnc_lib.physical_router_create(pr)
             sa_set = ServiceApplianceSet('sa_set-'+si_name)
             self._vnc_lib.service_appliance_set_create(sa_set)
             sa = ServiceAppliance('sa-'+si_name, parent_obj=sa_set)
+            left_value = "default-global-system-config:5c3-qfx5:et-0/0/50"
+            right_value = "default-global-system-config:5c3-qfx5:et-0/0/51"
+            sa.set_service_appliance_properties(KeyValuePairs([KeyValuePair(key='left-attachment-point',
+                                                               value= left_value),
+                                                               KeyValuePair(key='right-attachment-point',
+                                                               value= right_value)]))
             for if_type, _ in vn_list:
                attr = ServiceApplianceInterfaceType(interface_type=if_type)
                pi = PhysicalInterface('pi-'+si_name+if_type, parent_obj=pr)
@@ -830,6 +848,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                                            scale_out=scale_out)
         service_instance = ServiceInstance(
             name=si_name, service_instance_properties=si_props)
+        service_instance.set_annotations(KeyValuePairs([KeyValuePair(key='left-svc-vlan', value="100"),
+                                                        KeyValuePair(key='right-svc-vlan', value="101"),
+                                                        KeyValuePair(key='left-svc-asns', value="20,21"),
+                                                        KeyValuePair(key='right-svc-asns', value="20,22")]))
         service_instance.add_service_template(service_template)
         self._vnc_lib.service_instance_create(service_instance)
 

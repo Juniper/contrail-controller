@@ -64,6 +64,8 @@ class AnsibleConf(AnsibleBase):
         self.inet4_forwarding_filter = None
         self.inet6_forwarding_filter = None
         self.vlan_map = {}
+        self.sc_zone_map = {}
+        self.sc_policy_map = {}
         self.bgp_peers = {}
         self.external_peers = {}
         self.timeout = 120
@@ -160,7 +162,7 @@ class AnsibleConf(AnsibleBase):
                                          int(li_obj.name.split('.')[-1]))
                 li.set_comment(DMUtils.ip_clos_comment())
 
-                li.add_ip_list(iip_obj.instance_ip_address)
+                self.add_ip_address(li, iip_obj.instance_ip_address)
 
                 self._logger.debug("looking for peers for physical"
                                    " interface %s(%s)" % (pi_obj.name,
@@ -271,7 +273,9 @@ class AnsibleConf(AnsibleBase):
                                          None if is_delete else
                                          [self.physical_router.uuid],
                                          device_manager.get_api_server_config(),
-                                         self._logger)
+                                         self._logger,
+                                         device_manager._amqp_client,
+                                         device_manager._args)
                 self.commit_stats['total_commits_sent_since_up'] += 1
                 start_time = time.time()
                 job_handler.push(**device_manager.get_job_status_config())
@@ -334,6 +338,17 @@ class AnsibleConf(AnsibleBase):
             lst.append(Reference(name=value))
     # end add_ref_to_list
 
+    @classmethod
+    def add_ip_address(cls, unit, address, gateway=None):
+        cls.add_to_list(unit.get_ip_list(), address)
+        if ':' in address:
+            family = 'inet6'
+        else:
+            family = 'inet'
+        ip_address = IpAddress(address=address, family=family, gateway=gateway)
+        cls.add_to_list(unit.get_ip_addresses(), ip_address)
+    # end add_ref_to_list
+
     @staticmethod
     def get_values_sorted_by_key(dict_obj):
         return [dict_obj[key] for key in sorted(dict_obj.keys())]
@@ -363,6 +378,8 @@ class AnsibleConf(AnsibleBase):
         device.set_routing_instances(self.get_values_sorted_by_key(self.ri_map))
         device.set_vlans(self.get_values_sorted_by_key(self.vlan_map))
         device.set_firewall(self.firewall_config)
+        device.set_security_zones(self.get_values_sorted_by_key(self.sc_zone_map))
+        device.set_security_policies(self.get_values_sorted_by_key(self.sc_policy_map))
         return device
     # end prepare_conf
 
@@ -376,6 +393,7 @@ class AnsibleConf(AnsibleBase):
         config = self.prepare_conf(is_delete=is_delete)
         feature_configs, job_template = self.read_node_profile_info()
         job_input = {
+            'fabric_uuid': self.physical_router.fabric,
             'device_management_ip': self.physical_router.management_ip,
             'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),

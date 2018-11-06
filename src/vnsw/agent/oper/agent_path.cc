@@ -60,7 +60,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
     peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false),
-    inactive_(false), copy_local_path_(false) {
+    inactive_(false), copy_local_path_(false), parent_rt_(rt), dependent_table_(NULL) {
 }
 
 AgentPath::~AgentPath() {
@@ -221,7 +221,12 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
 bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     //Return if there is no change in tunnel type for non Composite NH.
     //For composite NH component needs to be traversed.
-    if ((tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) &&
+    // if tunnel type is MPLS over MPLS, transport tunnel
+    // type might be changed ( mpls over gre or mpls over udp)
+    // so check nh transport tunnel type and trigger update if there
+    // is any change
+    if ((tunnel_type_ != TunnelType::MPLS_OVER_MPLS) &&
+            (tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) &&
         (nh_.get() && nh_.get()->GetType() != NextHop::COMPOSITE)) {
         return false;
     }
@@ -231,21 +236,51 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
         vxlan_id_ == VxLanTable::kInvalidvxlan_id) {
         tunnel_type_ = TunnelType::ComputeType(TunnelType::MplsType());
     }
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    const TunnelNH *tunnel_nh = static_cast<const TunnelNH*>(nh_.get());
     if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
-        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        const TunnelNH *tunnel_nh = static_cast<const TunnelNH*>(nh_.get());
-        TunnelNHKey *tnh_key =
-            new TunnelNHKey(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
-                            tunnel_dest_, false, tunnel_type_);
-        nh_req.key.reset(tnh_key);
-        nh_req.data.reset(new TunnelNHData());
-        agent->nexthop_table()->Process(nh_req);
+        if (tunnel_nh->GetTunnelType().GetType() == TunnelType::MPLS_OVER_MPLS) {
+            const LabelledTunnelNH *label_tunnel_nh =
+                    static_cast<const LabelledTunnelNH*>(nh_.get());
+            // check if transport tunnel type is changed
+            if (label_tunnel_nh->GetTransportTunnelType() ==
+                    TunnelType::ComputeType(TunnelType::MplsType())) {
+                return false;
+            }
+            LabelledTunnelNHKey *tnh_key =
+                new LabelledTunnelNHKey(agent->fabric_vrf_name(),
+                        *(label_tunnel_nh->GetSip()),
+                        *(label_tunnel_nh->GetDip()),
+                        false, tunnel_type_,
+                        label_tunnel_nh->rewrite_dmac(),
+                        label_tunnel_nh->GetTransportLabel());
+            nh_req.key.reset(tnh_key);
+            nh_req.data.reset(new TunnelNHData());
+            agent->nexthop_table()->Process(nh_req);
 
-        TunnelNHKey nh_key(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
-                           tunnel_dest_, false, tunnel_type_);
-        NextHop *nh = static_cast<NextHop *>
-            (agent->nexthop_table()->FindActiveEntry(&nh_key));
-        ChangeNH(agent, nh);
+            LabelledTunnelNHKey nh_key(agent->fabric_vrf_name(),
+                        *(label_tunnel_nh->GetSip()),
+                        tunnel_dest_, false, tunnel_type_,
+                        label_tunnel_nh->rewrite_dmac(),
+                        label_tunnel_nh->GetTransportLabel());
+            NextHop *nh = static_cast<NextHop *>
+                (agent->nexthop_table()->FindActiveEntry(&nh_key));
+            ChangeNH(agent, nh);
+        } else {
+
+            TunnelNHKey *tnh_key =
+                new TunnelNHKey(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
+                                tunnel_dest_, false, tunnel_type_);
+            nh_req.key.reset(tnh_key);
+            nh_req.data.reset(new TunnelNHData());
+            agent->nexthop_table()->Process(nh_req);
+
+            TunnelNHKey nh_key(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
+                            tunnel_dest_, false, tunnel_type_);
+            NextHop *nh = static_cast<NextHop *>
+                (agent->nexthop_table()->FindActiveEntry(&nh_key));
+            ChangeNH(agent, nh);
+        }
     }
 
     if (nh_.get() && nh_->GetType() == NextHop::COMPOSITE) {
@@ -254,6 +289,45 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     return true;
 }
 
+bool AgentPath::ResolveGwNextHops(Agent *agent, const AgentRoute *sync_route) {
+
+    if (tunnel_type_ != TunnelType::MPLS_OVER_MPLS) {
+        return false;
+    }
+    NextHop *nh = NULL;
+    //if ecmp member list size is one them it is non ecmp route sync
+    if (ecmp_member_list_.size() == 1) {
+        AgentPathEcmpComponentPtr member = ecmp_member_list_[0];
+        InetUnicastAgentRouteTable *table = NULL;
+        table = static_cast<InetUnicastAgentRouteTable *>
+            (agent->fabric_inet4_mpls_table());
+        assert(table != NULL);
+        InetUnicastRouteEntry *uc_rt = table->FindRoute(member->GetGwIpAddr());
+        if (uc_rt == NULL || uc_rt->plen() == 0) {
+            set_unresolved(true);
+            member->UpdateDependentRoute(NULL);
+            member->SetUnresolved(true);
+        } else {
+            set_unresolved(false);
+            table->RemoveUnresolvedRoute(GetParentRoute());
+            DBEntryBase::KeyPtr key =
+                uc_rt->GetActiveNextHop()->GetDBRequestKey();
+            const NextHopKey *nh_key =
+                static_cast<const NextHopKey*>(key.get());
+            nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                FindActiveEntry(nh_key));
+            assert(nh !=NULL);
+            //Reset to new gateway route, no nexthop for indirect route
+            member->UpdateDependentRoute(uc_rt);
+            member->SetUnresolved(false);
+            set_nexthop(NULL);
+        }
+        if (nh != NULL) {
+            ChangeNH(agent, nh);
+        }
+    }
+    return true;
+}
 bool AgentPath::Sync(AgentRoute *sync_route) {
     bool ret = false;
     bool unresolved = false;
@@ -266,7 +340,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     if (UpdateNHPolicy(agent)) {
         ret = true;
     }
-
+    if (ResolveGwNextHops(agent, sync_route)) {
+        return true;
+    }
     //Handle tunnel type change
     if (UpdateTunnelType(agent, sync_route)) {
         ret = true;
@@ -299,7 +375,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
 
     InetUnicastAgentRouteTable *table = NULL;
     InetUnicastRouteEntry *rt = NULL;
-    table = sync_route->vrf()->GetInetUnicastRouteTable(gw_ip_);
+    //table = sync_route->vrf()->GetInetUnicastRouteTable(gw_ip_);
+    //table = sync_route->vrf->GetRouteTable(sync_route->GetTableType());
+    table = (InetUnicastAgentRouteTable *)(sync_route->get_table());
 
     rt = table ? table->FindRoute(gw_ip_) : NULL;
     if (rt == sync_route) {
@@ -1907,3 +1985,7 @@ bool EvpnRoutingData::UpdateRoute(AgentRoute *rt) {
     }
     return uc_rt->UpdateRouteFlags(false, false, true);
 }
+AgentPathEcmpComponent::AgentPathEcmpComponent(IpAddress addr, uint32_t label,
+                            AgentRoute *rt):
+           addr_(addr), label_(label), dependent_rt_(rt) {}
+

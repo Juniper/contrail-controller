@@ -40,7 +40,7 @@ setup(
     entry_points = {
          # Please update sandesh/common/vns.sandesh on process name change
          'console_scripts' : [
-             'contrail-device-manager = device_manager.device_manager:server_main',
+             'contrail-device-manager = device_manager.dm_server:server_main',
          ],
     },
     cmdclass={

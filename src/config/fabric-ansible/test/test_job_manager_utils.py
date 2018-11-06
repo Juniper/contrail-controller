@@ -14,7 +14,7 @@ class TestJobManagerUtils(object):
                                  vendor='Juniper')
     playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
     execution_id = "6d69febf-82da-4998-8ba9-dbff8f6e7a5b"
-    args = {"collectors": ['127.0.0.1:8086']}
+    args = {"collectors": ['127.0.0.1:8086'], "host_ip": '127.0.0.1'}
     fake_schema = {
                    "$schema": "http://json-schema.org/draft-04/schema#",
                    "title": "InventoryItem",

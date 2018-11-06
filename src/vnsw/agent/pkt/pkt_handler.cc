@@ -86,6 +86,7 @@ void PktHandler::CalculatePortIP(PktInfo *pkt) {
     const Interface *pkt_in_intf = NULL;
     bool ingress= false;
     VmInterface::FatFlowIgnoreAddressType ignore_addr;
+    uint8_t protocol;
 
     const NextHop *nh =
         agent()->nexthop_table()->FindNextHop(pkt->agent_hdr.nh);
@@ -99,6 +100,12 @@ void PktHandler::CalculatePortIP(PktInfo *pkt) {
     } else if (nh->GetType() == NextHop::VLAN) {
         const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
         in = vlan_nh->GetInterface();
+    } else if (nh->GetType() == NextHop::COMPOSITE) {
+        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+
+        if (comp_nh->composite_nh_type() == Composite::LOCAL_ECMP) {
+            in = comp_nh->GetFirstLocalEcmpMemberInterface();
+        }
     }
 
     if (in) {
@@ -121,23 +128,32 @@ void PktHandler::CalculatePortIP(PktInfo *pkt) {
         sport = 0;
     }
 
+    protocol = pkt->ip_proto;
+    /*
+     * For ICMPv6 change the protocol to ICMP as the same value is used when it is
+     * stored in the fat flow rule
+     */
+    if (pkt->ip_proto == IPPROTO_ICMPV6) {
+        protocol = IPPROTO_ICMP;
+    }
+
     pkt->is_fat_flow_src_prefix = false;
     pkt->is_fat_flow_dst_prefix = false;
 
     if (pkt->sport < pkt->dport) {
-        if (intf->IsFatFlowPortBased(pkt->ip_proto, sport, &ignore_addr)) {
+        if (intf->IsFatFlowPortBased(protocol, sport, &ignore_addr)) {
             pkt->dport = 0;
             pkt->ignore_address = ignore_addr;
             return;
         }
 
-        if (intf->IsFatFlowPortBased(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+        if (intf->IsFatFlowPortBased(protocol, pkt->dport, &ignore_addr)) {
             pkt->sport = 0;
             pkt->ignore_address = ignore_addr;
             return;
         }
     } else {
-        if (intf->IsFatFlowPortBased(pkt->ip_proto, pkt->dport, &ignore_addr)) {
+        if (intf->IsFatFlowPortBased(protocol, pkt->dport, &ignore_addr)) {
             if (pkt->dport == pkt->sport) {
                 pkt->same_port_number = true;
             }
@@ -146,7 +162,7 @@ void PktHandler::CalculatePortIP(PktInfo *pkt) {
             return;
         }
 
-        if (intf->IsFatFlowPortBased(pkt->ip_proto, sport, &ignore_addr)) {
+        if (intf->IsFatFlowPortBased(protocol, sport, &ignore_addr)) {
             pkt->dport = 0;
             pkt->ignore_address = ignore_addr;
             return;
@@ -154,7 +170,7 @@ void PktHandler::CalculatePortIP(PktInfo *pkt) {
     }
     /* If Fat-flow port is 0, then both source and destination ports have to
      * be ignored */
-    if (intf->IsFatFlowPortBased(pkt->ip_proto, 0, &ignore_addr)) {
+    if (intf->IsFatFlowPortBased(protocol, 0, &ignore_addr)) {
         pkt->sport = 0;
         pkt->dport = 0;
         pkt->ignore_address = ignore_addr;
@@ -168,7 +184,7 @@ void PktHandler::CalculatePortIP(PktInfo *pkt) {
     // set the src and dst prefix to src & dst ip to begin with
     pkt->ip_ff_src_prefix = pkt->ip_saddr;
     pkt->ip_ff_dst_prefix = pkt->ip_daddr;
-    intf->IsFatFlowPrefixAggregation(ingress, pkt->ip_proto,
+    intf->IsFatFlowPrefixAggregation(ingress, protocol,
                                      (uint16_t *)&pkt->sport,
                                      (uint16_t *) &pkt->dport,
                                      &pkt->same_port_number,
@@ -655,16 +671,30 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
     // - There is single label
     uint32_t mpls_host = ntohl(hdr->hdr);
     pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
+    uint32_t ret = sizeof(MplsHdr);
 
     if ((mpls_host & 0x100) == 0) {
-        pkt_info->tunnel.label = MplsTable::kInvalidLabel;
-        PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");
-        return -1;
+        // interpret outer label 0xffffff as no label
+        if (((mpls_host & 0xFFFFF000) >> 12) != 
+                MplsTable::kInvalidLabel) {
+            pkt_info->tunnel.label = MplsTable::kInvalidLabel;
+            PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");
+            return -1;
+        }
+        hdr = (MplsHdr *) (pkt + 4);
+        mpls_host = ntohl(hdr->hdr);
+        pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
+        if ((mpls_host & 0x100) == 0) {
+            pkt_info->tunnel.label = MplsTable::kInvalidLabel;
+            PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");
+            return  -1;
+        }
+        ret  += sizeof(MplsHdr);
+
     }
 
     uint32_t label = pkt_info->tunnel.label;
     MplsLabelKey mpls_key(label);
-    uint32_t ret = sizeof(MplsHdr);
 
     const MplsLabel *mpls = static_cast<const MplsLabel *>(
             agent_->mpls_table()->FindActiveEntry(&mpls_key));

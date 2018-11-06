@@ -85,14 +85,13 @@ extern bool GetBuildInfo(std::string &build_info_str);
 #define OPER_IFMAP_TRACE(obj, ...)\
 do {\
    Oper##obj::TraceMsg(OperConfigTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);\
+} while (false)
 
 #define IFMAP_ERROR(obj, ...)\
 do {\
     if (LoggingDisabled()) break;\
     obj::Send(g_vns_constants.CategoryNames.find(Category::IFMAP_AGENT)->second,\
               SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);\
+} while (false)
 
 #endif // vnsw_agent_cmn_hpp
-

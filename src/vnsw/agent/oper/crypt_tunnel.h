@@ -15,7 +15,7 @@ extern SandeshTraceBufferPtr CryptTunnelTraceBuf;
 do {\
     CryptTunnelTask##obj::TraceMsg(CryptTunnelTraceBuf, __FILE__, __LINE__,\
                                    __VA_ARGS__);                        \
-} while(false);
+} while (false)
 
 class Interface;
 class CryptTunnelTable;

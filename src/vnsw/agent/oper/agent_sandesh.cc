@@ -32,6 +32,7 @@
 #include <filter/acl.h>
 #include <filter/policy_set.h>
 #include <oper/crypt_tunnel.h>
+#include <oper/multicast_policy.h>
 
 /////////////////////////////////////////////////////////////////////////////
 // Utility routines
@@ -418,6 +419,22 @@ void AgentInet4UcRtSandesh::Alloc() {
 }
 
 bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(entry);
+    if (dump_table_) {
+        return rt->DBEntrySandesh(resp_, stale_);
+    }
+    return rt->DBEntrySandesh(resp_, addr_, plen_, stale_);
+}
+
+DBTable *AgentInet4MplsUcRtSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(vrf_->GetInet4MplsUnicastRouteTable());
+}
+
+void AgentInet4MplsUcRtSandesh::Alloc() {
+    resp_ = new Inet4MplsUcRouteResp();
+}
+
+bool AgentInet4MplsUcRtSandesh::UpdateResp(DBEntryBase *entry) {
     InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(entry);
     if (dump_table_) {
         return rt->DBEntrySandesh(resp_, stale_);
@@ -1388,3 +1405,17 @@ bool AgentCryptTunnelSandesh::Filter(const DBEntryBase *entry) {
         return false;
     return true;
 }
+
+DBTable *AgentMulticastPolicySandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->mp_table());
+}
+
+void AgentMulticastPolicySandesh::Alloc() {
+    resp_ = new MulticastPolicyResp();
+}
+
+bool AgentMulticastPolicySandesh::UpdateResp(DBEntryBase *entry) {
+    MulticastPolicyEntry *ent = static_cast<MulticastPolicyEntry *>(entry);
+    return ent->DBEntrySandesh(resp_, name_);
+}
+

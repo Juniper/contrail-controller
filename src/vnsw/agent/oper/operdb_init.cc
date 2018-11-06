@@ -27,6 +27,7 @@
 #include <oper/mirror_table.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
+#include <oper/multicast_policy.h>
 #include <oper/multicast.h>
 #include <oper/global_vrouter.h>
 #include <oper/path_preference.h>
@@ -45,6 +46,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/vrouter.h>
 #include <oper/bgp_as_service.h>
+#include <oper/bgp_router.h>
 #include <oper/agent_route_walker.h>
 #include <nexthop_server/nexthop_manager.h>
 #include <oper/forwarding_class.h>
@@ -81,6 +83,8 @@ void OperDB::CreateDBTables(DB *db) {
                         boost::bind(&CryptTunnelTable::CreateTable,
                                     agent_, _1, _2));
     DB::RegisterFactory("uc.route.0",
+                        &InetUnicastAgentRouteTable::CreateTable);
+    DB::RegisterFactory("uc.route.3",
                         &InetUnicastAgentRouteTable::CreateTable);
     DB::RegisterFactory("mc.route.0",
                         &Inet4MulticastAgentRouteTable::CreateTable);
@@ -121,6 +125,8 @@ void OperDB::CreateDBTables(DB *db) {
                         boost::bind(&SecurityLoggingObjectTable::CreateTable,
                         agent_, _1, _2));
     DB::RegisterFactory("db.policy_set.0", &PolicySetTable::CreateTable);
+    DB::RegisterFactory("db.multicast_policy.0",
+                        &MulticastPolicyTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -248,6 +254,13 @@ void OperDB::CreateDBTables(DB *db) {
     assert(bd_table);
     agent_->set_bridge_domain_table(bd_table);
 
+    MulticastPolicyTable *mp_table;
+    mp_table = static_cast<MulticastPolicyTable *>(
+                                db->CreateTable("db.multicast_policy.0"));
+    assert(mp_table);
+    agent_->set_mp_table(mp_table);
+    mp_table->set_agent(agent_);
+
     acl_table->ListenerInit();
 
     route_walk_manager_ =
@@ -275,7 +288,10 @@ void OperDB::CreateDBTables(DB *db) {
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
     profile_.reset(new AgentProfile(agent_, true));
+
     bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
+    bgp_router_config_ =
+        std::auto_ptr<BgpRouterConfig> (new BgpRouterConfig(agent_));
 
     vrouter_ = std::auto_ptr<VRouter> (new VRouter(agent_));
     global_qos_config_ =
@@ -364,6 +380,8 @@ void OperDB::Shutdown() {
     dependency_manager_->Terminate();
     global_vrouter_.reset();
 
+    bgp_router_config_.reset();
+
     global_qos_config_.reset();
     global_system_config_.reset();
 
@@ -390,6 +408,7 @@ void OperDB::Shutdown() {
     agent_->vrf_assign_table()->Clear();
     agent_->vxlan_table()->Clear();
     agent_->service_instance_table()->Clear();
+    agent_->mp_table()->Clear();
 #endif
 
     route_preference_module_->Shutdown();

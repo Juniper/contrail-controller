@@ -165,6 +165,10 @@ struct SecurityLoggingObjectLink {
     1: string slo_uuid (link="SLOListReq");
 }
 
+struct MulticastPolicyLink {
+    1: string mp_uuid (link="MulticastPolicyReq");
+}
+
 struct VmiTagData {
     1: string name;
     2: i32 id;
@@ -322,6 +326,7 @@ struct ItfSandeshData {
    66: bool igmp_enabled;
    /** Max number of flows on vmi **/
    67: i32 max_flows;
+   68: list<string> policy_set_fwaas_list;
 }
 
 /**
@@ -412,6 +417,8 @@ struct VnSandeshData {
     21: bool cfg_igmp_enable;
     /** Max number of flows on each vmi in vn **/
     22: i32 max_flows;
+    /** List of multicast-policy(s) associated with virtual network */
+    23: list<MulticastPolicyLink> mp_list;
 }
 
 /**
@@ -806,14 +813,16 @@ struct VrfSandeshData {
    10: i32 evpnindex  (link="EvpnRouteReq");
    /** Vrf index set for bridge table */
    11: i32 brindex  (link="BridgeRouteReq");
+   /** Vrf index set for inet4 mpls table */
+   12: i32 mplsindex  (link="Inet4MplsUcRouteReq");
    /** Route distinguisher associated with vrf */
-   12: string RD;
+   13: string RD;
    /** MAC aging timeout */
-   13: i32 mac_aging_time;
+   14: i32 mac_aging_time;
    /** Layer 2 control word */
-   14: bool layer2_control_word;
+   15: bool layer2_control_word;
    /** Forwarding VRF */
-   15: string forwarding_vrf;
+   16: string forwarding_vrf;
 }
 
 /**
@@ -1027,6 +1036,28 @@ response sandesh Inet4UcRouteResp {
     1: list<RouteUcSandeshData> route_list;
 }
 
+/**
+ * @description: Request message for Inet4 Mpls Unicast routes from oper db
+ * @cli_name: read oper route inet4 list
+ */
+request sandesh Inet4MplsUcRouteReq {
+    /** Vrf index associated with unicast route entries */
+    1: i32 vrf_index = 0;
+    /** Source Ip address of unicast route */
+    2: string src_ip;
+    /** Ip prefix length of unicast route */
+    3: u16 prefix_len;
+    /** Boolean value which indicates to display stale unicast routes */
+    4: bool stale = 0;
+}
+
+/**
+ * Response message for Inet4 Mpls Unicast routes
+ */
+response sandesh Inet4MplsUcRouteResp {
+    /** List of unicast route information */
+    1: list<RouteUcSandeshData> route_list;
+}
 /**
  * @description: Request message for Inet6 Unicast routes from oper db
  * @cli_name: read oper route inet6 list
@@ -2327,6 +2358,8 @@ struct NextHopObjectLogInfo {
     21: optional string crypt_interface;
     /** Rewrite dmac for inner payload */
     22: string rewrite_dmac;
+    /** transport mpls label */
+    23: optional i32 transport_mpls_label;
 }
 
 /**
@@ -2939,6 +2972,16 @@ response sandesh HealthCheckSandeshResp {
 }
 
 /**
+ * @description: Trace message for bgp service
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh BgpAsAServiceTrace {
+    /** Message for bgp service object */
+    1: string message;
+}
+
+/**
  * Structure definition for bgp as a service
  */
 struct BgpAsAServiceSandeshList {
@@ -2960,6 +3003,14 @@ struct BgpAsAServiceSandeshList {
    8: u64 health_check_timeout_usecs;
    /** Max retries configured in health check */
    9: u32 health_check_retries;
+   /** Primary control-node-zone for bgp as a service **/
+   10: string primary_control_node_zone (link="ControlNodeZoneSandeshReq");
+   /** Secondary control-node-zone for bgp as a service **/
+   11: string secondary_control_node_zone (link="ControlNodeZoneSandeshReq");
+   /** Primary bgp peer for bgp as a service **/
+   12: string primary_bgp_peer (link="BgpRouterSandeshReq")
+   /** Secondary bgp peer for bgp as a service **/
+   13: string secondary_bgp_peer (link="BgpRouterSandeshReq");
 }
 
 /**
@@ -2980,13 +3031,59 @@ response sandesh BgpAsAServiceSandeshResp {
 }
 
 /**
- * @description: Trace message for bgp service
- * @type: Trace
- * @severity: DEBUG
+ * Structure definition for bgp-router
  */
-trace sandesh BgpAsAServiceTrace {
-    /** Message for bgp service object */
-    1: string message;
+struct BgpRouterSandeshList {
+   /** Bgp-Router name*/
+   1: string name (link="BgpRouterSandeshReq");
+   /** Bgp-Router ipv4-address and port */
+   2: string ipv4_address_port;
+   /** Bgp-Router control-node-zone */
+   4: string control_node_zone (link="ControlNodeZoneSandeshReq")
+}
+
+/**
+ * @description: Request bgp-router list
+ * @cli_name: read oper bgp-router list
+ */
+request sandesh BgpRouterSandeshReq {
+    /** Bgp-Router name */
+    1: string name;
+}
+
+/**
+ * bgp-router list response message
+ */
+response sandesh BgpRouterSandeshResp {
+    /** List of bgp-router information */
+    1: list<BgpRouterSandeshList> bgp_router_list;
+}
+
+/**
+ * Structure definition for bgp-router
+ */
+struct ControlNodeZoneSandeshList {
+    /** Controlnodezone name */
+    1: string name;
+    /** List of bgp-router information */
+    2: list<BgpRouterSandeshList> bgp_router_list;
+}
+
+/**
+ * @description: Request control-node-zone list
+ * @cli_name: read oper control-node-zone list
+ */
+request sandesh ControlNodeZoneSandeshReq {
+    /** Controlnodezone name */
+    1: string name;
+}
+
+/**
+ * control-node-zone list response message
+ */
+response sandesh ControlNodeZoneSandeshResp {
+    /** List of control-node-zone information */
+    1: list<ControlNodeZoneSandeshList> control_node_zone_list;
 }
 
 /**
@@ -3527,4 +3624,45 @@ response sandesh VxlanRoutingResp {
  * @cli_name: read vxlan-routing
  */
 request sandesh VxlanRoutingReq {
+}
+
+/**
+ * Structure definition for MulticastSourceGroups
+ */
+struct MulticastPolicyEntrySandeshData {
+    /** Id for multicast-source-groups entry */
+    1: i32 entry_id;
+    /** Multicast Source Address */
+    2: string source_address;
+    /** Multicast Group Address */
+    3: string group_address;
+    /** action associated entry */
+    4: string action;
+}
+
+/**
+ * Structure definition for Multicast Policy
+ */
+struct MulticastPolicySandeshData {
+    /** List of multicast policy entries information */
+    1: list<MulticastPolicyEntrySandeshData> entries;
+    /** Name of multicast policy entry */
+    2: string name;
+}
+
+/**
+ * @description: Request Mulitcast Policy object with given uuid
+ * @cli_name: read oper multicast policy list
+ */
+request sandesh MulticastPolicyReq {
+    /** Uuid of multicast policy entry */
+    1: string uuid;
+}
+
+/**
+ * Response for Multicast Policy list
+ */
+response sandesh MulticastPolicyResp {
+    /** List of multicast policy entry information */
+    1: list<MulticastPolicySandeshData> mp_list;
 }

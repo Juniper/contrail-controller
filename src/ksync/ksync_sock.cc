@@ -596,7 +596,7 @@ KSyncBulkMsgContext *KSyncSock::LocateBulkContext
 //  - false : if message cannot be added to bulk context
 bool KSyncSock::TryAddToBulk(KSyncBulkMsgContext *bulk_message_context,
                              IoContext *ioc) {
-    if ((bulk_buf_size_ + ioc->GetMsgLen()) > max_bulk_buf_size_)
+    if ((bulk_buf_size_ + ioc->GetMsgLen()) >= max_bulk_buf_size_)
         return false;
 
     if (bulk_msg_count_ >= max_bulk_msg_count_)

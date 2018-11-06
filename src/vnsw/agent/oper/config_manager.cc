@@ -31,11 +31,13 @@
 #include <oper/qos_config.h>
 #include <oper/vrouter.h>
 #include <oper/global_vrouter.h>
+#include <oper/bgp_router.h>
 #include <oper/forwarding_class.h>
 #include<oper/qos_queue.h>
 #include <oper/bridge_domain.h>
 #include <oper/project_config.h>
 #include <oper/security_logging_object.h>
+#include <oper/multicast_policy.h>
 #include <filter/policy_set.h>
 #include <vector>
 #include <string>
@@ -290,10 +292,13 @@ void ConfigManager::Init() {
             ConfigManagerNodeList(agent_->forwarding_class_table()));
     slo_list_.reset(new
             ConfigManagerNodeList(agent_->slo_table()));
+    mp_list_.reset(new ConfigManagerNodeList(agent_->mp_table()));
 
     OperDB *oper_db = agent()->oper_db();
     global_vrouter_list_.reset
         (new ConfigManagerNodeList(oper_db->global_vrouter()));
+    bgp_router_config_list_.reset
+        (new ConfigManagerNodeList(oper_db->bgp_router_config()));
     virtual_router_list_.reset
         (new ConfigManagerNodeList(oper_db->vrouter()));
     global_qos_config_list_.reset
@@ -310,6 +315,7 @@ void ConfigManager::Init() {
 uint32_t ConfigManager::Size() const {
     return
         global_vrouter_list_->Size() +
+        bgp_router_config_list_->Size() +
         virtual_router_list_->Size() +
         global_qos_config_list_->Size() +
         global_system_config_list_->Size() +
@@ -329,12 +335,14 @@ uint32_t ConfigManager::Size() const {
         qos_config_list_->Size() +
         bridge_domain_list_->Size() +
         project_list_->Size() +
-        policy_set_list_->Size();
+        policy_set_list_->Size() +
+        mp_list_->Size();
 }
 
 uint32_t ConfigManager::ProcessCount() const {
     return
         global_vrouter_list_->process_count() +
+        bgp_router_config_list_->process_count() +
         virtual_router_list_->process_count() +
         global_qos_config_list_->process_count() +
         global_system_config_list_->process_count() +
@@ -353,7 +361,8 @@ uint32_t ConfigManager::ProcessCount() const {
         device_vn_list_->process_count() +
         qos_config_list_->process_count() +
         project_list_->process_count() +
-        policy_set_list_->process_count();
+        policy_set_list_->process_count() +
+        mp_list_->process_count();
 }
 
 void ConfigManager::Start() {
@@ -400,6 +409,7 @@ int ConfigManager::Run() {
     uint32_t count = 0;
 
     count += global_vrouter_list_->Process(max_count - count);
+    count += bgp_router_config_list_->Process(max_count - count);
     count += virtual_router_list_->Process(max_count - count);
     count += global_qos_config_list_->Process(max_count - count);
     count += global_system_config_list_->Process(max_count - count);
@@ -423,6 +433,7 @@ int ConfigManager::Run() {
     count += device_vn_list_->Process(max_count - count);
     count += slo_list_->Process(max_count - count);
     count += project_list_->Process(max_count - count);
+    count += mp_list_->Process(max_count - count);
     return count;
 }
 
@@ -494,6 +505,10 @@ void ConfigManager::AddSecurityLoggingObjectNode(IFMapNode *node) {
     slo_list_->Add(agent_, this, node);
 }
 
+void ConfigManager::AddMulticastPolicyNode(IFMapNode *node) {
+    mp_list_->Add(agent_, this, node);
+}
+
 void ConfigManager::AddQosQueueNode(IFMapNode *node) {
     qos_queue_list_->Add(agent_, this, node);
 }
@@ -529,6 +544,10 @@ void ConfigManager::AddVirtualDnsNode(IFMapNode *node) {
 
 void ConfigManager::AddGlobalVrouterNode(IFMapNode *node) {
     global_vrouter_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddBgpRouterConfigNode(IFMapNode *node) {
+    bgp_router_config_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddVirtualRouterNode(IFMapNode *node) {

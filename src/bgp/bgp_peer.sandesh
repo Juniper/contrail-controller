@@ -856,9 +856,9 @@ struct ShowBgpNeighborConfig {
     21: string private_as_action;
     18: string router_type;
     8: string local_identifier;
-    9: i32 local_as;
+    9: u32 local_as;
     3: string vendor;
-    4: i32 autonomous_system;
+    4: u32 autonomous_system;
     5: string identifier;
     6: string address;
     22: string cluster_id;

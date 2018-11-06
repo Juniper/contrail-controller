@@ -11,7 +11,9 @@ import json
 import jsonschema
 import argparse
 import traceback
+import socket
 
+from cfgm_common.zkclient import ZookeeperClient
 from job_manager.job_handler import JobHandler
 from job_manager.job_exception import JobException
 from job_manager.job_log_utils import JobLogUtils
@@ -30,7 +32,8 @@ monkey.patch_socket()
 class JobManager(object):
 
     def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
-                 result_handler, job_utils, playbook_seq, job_percent):
+                 result_handler, job_utils, playbook_seq, job_percent,
+                 zk_client):
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_execution_id = None
@@ -42,16 +45,18 @@ class JobManager(object):
         self.sandesh_args = None
         self.max_job_task = JobLogUtils.TASK_POOL_SIZE
         self.fabric_fq_name = None
+        self.vnc_api_init_params = None
         self.parse_job_input(job_input)
         self.job_utils = job_utils
         self.playbook_seq = playbook_seq
         self.result_handler = result_handler
         self.job_percent = job_percent
+        self._zk_client = zk_client
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
 
-        self.job_execution_id = job_input_json['job_execution_id']
+        self.job_execution_id = job_input_json.get('job_execution_id')
 
         self.job_data = job_input_json.get('input')
         if self.job_data is None:
@@ -61,28 +66,37 @@ class JobManager(object):
         if self.device_json is None:
             self._logger.debug("Device data is not passed from api server.")
 
-        self.auth_token = job_input_json['auth_token']
-        self.api_server_host = job_input_json['api_server_host']
+        self.auth_token = job_input_json.get('auth_token')
+        self.api_server_host = job_input_json.get('api_server_host')
 
-        self.sandesh_args = job_input_json['args']
+        self.sandesh_args = job_input_json.get('args')
         self.max_job_task = self.job_log_utils.args.max_job_task
 
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
+
+        self.vnc_api_init_params = job_input_json.get('vnc_api_init_params')
+
+        self.total_job_task_count = self.job_data.get('total_job_task_count')
 
     def start_job(self):
         # spawn job greenlets
         job_handler = JobHandler(self._logger, self._vnc_api,
                                  self.job_template, self.job_execution_id,
-                                 self.job_data,
-                                 self.job_utils, self.device_json,
-                                 self.auth_token, self.api_server_host,
-                                 self.job_log_utils,
+                                 self.job_data, self.job_utils,
+                                 self.device_json, self.auth_token,
+                                 self.api_server_host, self.job_log_utils,
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
-                                 self.playbook_seq)
+                                 self.playbook_seq, self.vnc_api_init_params,
+                                 self._zk_client)
 
-        if self.device_json is not None:
-            if not self.device_json:
+        # check if its a multi device playbook
+        playbooks = self.job_template.get_job_template_playbooks()
+        play_info = playbooks.playbook_info[self.playbook_seq]
+        is_multi_device_playbook = play_info.multi_device_playbook
+
+        if is_multi_device_playbook is not None and is_multi_device_playbook:
+            if self.device_json is None or not self.device_json:
                 msg = MsgBundle.getMessage(MsgBundle.DEVICE_JSON_NOT_FOUND)
                 raise JobException(msg, self.job_execution_id)
             else:
@@ -95,7 +109,8 @@ class JobManager(object):
         job_worker_pool = Pool(self.max_job_task)
         job_percent_per_task = \
             self.job_log_utils.calculate_job_percentage(
-                len(self.device_json), buffer_task_percent=False,
+                self.total_job_task_count or len(self.device_json),
+                buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
             if device_id in result_handler.failed_device_jobs:
@@ -107,19 +122,18 @@ class JobManager(object):
             device_fqname = ':'.join(
                 map(str, device_data.get('device_fqname')))
             device_name = device_data.get('device_fqname', [""])[-1]
-            # create prouter UVE in job_manager only if it is not a multi
-            # device job template
-            if not self.job_template.get_job_template_multi_device_job():
-                job_template_fq_name = ':'.join(
-                    map(str, self.job_template.fq_name))
-                pr_fabric_job_template_fq_name = device_fqname + ":" + \
-                    self.fabric_fq_name + ":" + \
-                    job_template_fq_name
-                self.job_log_utils.send_prouter_job_uve(
-                    self.job_template.fq_name,
-                    pr_fabric_job_template_fq_name,
-                    self.job_execution_id,
-                    job_status="IN_PROGRESS")
+
+            # update prouter UVE
+            job_template_fq_name = ':'.join(
+                map(str, self.job_template.fq_name))
+            pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                self.fabric_fq_name + ":" + \
+                job_template_fq_name
+            self.job_log_utils.send_prouter_job_uve(
+                self.job_template.fq_name,
+                pr_fabric_job_template_fq_name,
+                self.job_execution_id,
+                job_status="IN_PROGRESS")
 
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,
@@ -135,7 +149,7 @@ class JobManager(object):
 
 class WFManager(object):
 
-    def __init__(self, logger, vnc_api, job_input, job_log_utils):
+    def __init__(self, logger, vnc_api, job_input, job_log_utils, zk_client):
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_input = job_input
@@ -145,10 +159,12 @@ class WFManager(object):
         self.device_json = None
         self.result_handler = None
         self.job_data = None
+        self.fabric_fq_name = None
         self.parse_job_input(job_input)
         self.job_utils = JobUtils(self.job_execution_id,
                                   self.job_template_id,
                                   self._logger, self._vnc_api)
+        self._zk_client = zk_client
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -163,7 +179,7 @@ class WFManager(object):
             raise Exception(msg)
 
         self.job_template_id = job_input_json.get('job_template_id')
-        self.job_execution_id = job_input_json['job_execution_id']
+        self.job_execution_id = job_input_json.get('job_execution_id')
         self.job_data = job_input_json.get('input')
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
 
@@ -231,6 +247,11 @@ class WFManager(object):
 
             for i in range(0, len(playbook_list)):
 
+                # check if its a multi device playbook
+                playbooks = job_template.get_job_template_playbooks()
+                play_info = playbooks.playbook_info[i]
+                multi_device_playbook = play_info.multi_device_playbook
+
                 if len(playbook_list) > 1:
                     # get the job percentage based on weightage of each plabook
                     # when they are chained
@@ -245,13 +266,22 @@ class WFManager(object):
                             len(playbook_list), buffer_task_percent=True,
                             total_percent=100)[0]  # using equal weightage
 
-                job_mgr = JobManager(self._logger, self._vnc_api,
-                                     self.job_input, self.job_log_utils,
-                                     job_template,
-                                     self.result_handler, self.job_utils, i,
-                                     job_percent)
+                retry_devices = None
+                while True:
+                    job_mgr = JobManager(self._logger, self._vnc_api,
+                                         self.job_input, self.job_log_utils,
+                                         job_template,
+                                         self.result_handler, self.job_utils, i,
+                                         job_percent, self._zk_client)
+                    job_mgr.start_job()
 
-                job_mgr.start_job()
+                    # retry the playbook execution if retry_devices is added to
+                    # the playbook output
+                    job_status = self.result_handler.job_result_status
+                    retry_devices = self.result_handler.get_retry_devices()
+                    if job_status == JobStatus.FAILURE or not retry_devices:
+                        break
+                    self.job_input['device_json'] = retry_devices
 
                 # stop the workflow if playbook failed
                 if self.result_handler.job_result_status == JobStatus.FAILURE:
@@ -261,14 +291,15 @@ class WFManager(object):
                     # and all the devices have failed some job execution
                     # declare it as failure and the stop the workflow
 
-                    if self.job_input.get('device_json') is None or\
-                        len(self.result_handler.failed_device_jobs)\
-                            == len(self.job_input['device_json']):
+                    if not multi_device_playbook or \
+                            (multi_device_playbook and
+                             len(self.result_handler.failed_device_jobs) == \
+                             len(self.job_input.get('device_json'))):
                         self._logger.error(
                             "Stop the workflow on the failed Playbook.")
                         break
 
-                    else:
+                    elif not retry_devices:
                         # it is a multi device playbook but one of the device jobs
                         # have failed. This means we should still declare
                         # the operation as success. We declare workflow as
@@ -282,7 +313,7 @@ class WFManager(object):
                 # read the device_data output of the playbook
                 # and update the job input so that it can be used in next
                 # iteration
-                if not self.job_input.get('device_json'):
+                if not multi_device_playbook:
                     device_json = pb_output.pop('device_json', None)
                     self.job_input['device_json'] = device_json
 
@@ -331,6 +362,49 @@ def parse_args():
     return parser.parse_args()
 
 
+def initialize_vnc_api(auth_token, api_server_host, vnc_api_init_params):
+    if auth_token is not None:
+        vnc_api = VncApi(auth_token=auth_token)
+    elif vnc_api_init_params is not None:
+        vnc_api = VncApi(
+            vnc_api_init_params.get("admin_user"),
+            vnc_api_init_params.get("admin_password"),
+            vnc_api_init_params.get("admin_tenant_name"),
+            api_server_host,
+            vnc_api_init_params.get("api_server_port"),
+            api_server_use_ssl=vnc_api_init_params.get("api_server_use_ssl"))
+    else:
+        vnc_api = VncApi()
+    return vnc_api
+
+
+def initialize_zookeeper_client(args):
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
+
+    if args.cluster_id:
+        client_pfx = args.cluster_id + '-'
+    else:
+        client_pfx = ''
+
+    zookeeper_client = ZookeeperClient(client_pfx+"job-manager",
+                                        args.zk_server_ip, host_ip)
+    return zookeeper_client
+
+
+def handle_init_failure(job_input_json, error_num, error_msg):
+    logger.error(MsgBundle.getMessage(error_num,
+                                      exc_msg=traceback.format_exc()))
+    msg = MsgBundle.getMessage(error_num, exc_msg=error_msg)
+    job_log_utils.send_job_log(job_input_json.get('job_template_fq_name'),
+                               job_input_json.get('job_execution_id'),
+                               job_input_json.get('fabric_fq_name'),
+                               msg, JobStatus.FAILURE)
+    sys.exit(msg)
+
+
 if __name__ == "__main__":
 
     # parse the params passed to the job manager process and initialize
@@ -344,8 +418,8 @@ if __name__ == "__main__":
                      "Aborting job ...")
 
         job_log_utils = JobLogUtils(
-            sandesh_instance_id=job_input_json['job_execution_id'],
-            config_args=job_input_json['args'])
+            sandesh_instance_id=job_input_json.get('job_execution_id'),
+            config_args=job_input_json.get('args'))
         logger = job_log_utils.config_logger
     except Exception as exp:
         print >> sys.stderr, "Failed to initialize logger due "\
@@ -356,34 +430,29 @@ if __name__ == "__main__":
     # initialize _vnc_api instance
     vnc_api = None
     try:
-        auth_token = job_input_json['auth_token']
-
-        vnc_api = VncApi(auth_token=auth_token)
-        logger.info("VNC api is initialized using the auth token passed.")
+        vnc_api = initialize_vnc_api(job_input_json.get('auth_token'),
+                                     job_input_json.get('api_server_host'),
+                                     job_input_json.get('vnc_api_init_params'))
+        logger.info("VNC api is initialized.")
     except Exception as exp:
-        logger.error(MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
-                                          exc_msg=traceback.format_exc()))
-        msg = MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
-                                   exc_msg=repr(exp))
-        job_log_utils.send_job_log(job_input_json['job_template_fq_name'],
-                                   job_input_json['job_execution_id'],
-                                   job_input_json.get('fabric_fq_name'),
-                                   msg, JobStatus.FAILURE)
-        sys.exit(msg)
+        handle_init_failure(job_input_json, MsgBundle.VNC_INITIALIZATION_ERROR,
+                            repr(exp))
+
+    # initialize zk
+    zk_client = None
+    try:
+        zk_client = initialize_zookeeper_client(logger._args)
+        logger.info("Zookeeper client is initialized.")
+    except Exception as exp:
+        handle_init_failure(job_input_json, MsgBundle.ZK_INIT_FAILURE,
+                            repr(exp))
 
     # invoke job manager
     try:
         workflow_manager = WFManager(logger, vnc_api, job_input_json,
-                                     job_log_utils)
+                                     job_log_utils, zk_client)
         logger.info("Job Manager is initialized. Starting job.")
         workflow_manager.start_job()
     except Exception as exp:
-        logger.error(MsgBundle.getMessage(MsgBundle.JOB_ERROR,
-                                          exc_msg=traceback.format_exc()))
-        msg = MsgBundle.getMessage(MsgBundle.JOB_ERROR,
-                                   exc_msg=repr(exp))
-        job_log_utils.send_job_log(job_input_json['job_template_fq_name'],
-                                   job_input_json['job_execution_id'],
-                                   job_input_json.get('fabric_fq_name'),
-                                   msg, JobStatus.FAILURE)
-        sys.exit(msg)
+        handle_init_failure(job_input_json, MsgBundle.JOB_ERROR,
+                            repr(exp))

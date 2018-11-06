@@ -25,6 +25,7 @@ setup_sources = [
            'schema',
            'filter_plugins',
            'templates',
+           'common',
           ]
 
 setup_sources_rules = []
@@ -37,13 +38,14 @@ local_sources = [
     'delete_fabric_devices.yml',
     'device_import.yml',
     'discover_device.yml',
-    'generate_underlay_config.yml',
     'image_upgrade.yml',
+    'hitless_upgrade.yml',
     'fabric_onboard.yml',
     'existing_fabric_onboard.yml',
     'error_handler.yml',
     'discover_role.yml',
-    'topo_discovery.yml',
+    'topology_discovery.yml',
+    'hitless_upgrade_strategy.yml',
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
@@ -52,6 +54,12 @@ local_sources = [
     'role_assignment.yml',
     'percentage_update.yml',
     'operational_command.yml',
+    'discover_server.yml',
+    'ipmi_discovery.yml',
+    'node_profile.yml',
+    'plugin_ironic.yml',
+    'server_import.yml',
+    'hitless_upgrade_errors.yml',
 ]
 
 local_sources_rules = []

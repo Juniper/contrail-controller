@@ -1,0 +1,47 @@
+{
+   "input_schema":{
+       "$schema":"http://json-schema.org/draft-06/schema#",
+       "type": "object",
+       "minProperties":1
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Generic Topology Discovery Parser Output",
+      "type":"object",
+      "minProperties": 1,
+      "properties":{
+         "neighbor_info_list":{
+            "$id": "/properties/neighbor_info_list",
+            "type":"array",
+            "description":"List of physical interfaces (and other information) to be created or updated by vnc",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "local_physical_interface_name": {
+                        "type": "string",
+                        "description": "physical interface name of the local device",
+                        "examples": ["xe-0/0/0", "ge-0/0/35"]
+                    },
+                    "remote_device_name": {
+                        "type": "string",
+                        "description": "Remote system name",
+                        "examples": ["5b5-qfx11"]
+                    },
+                    "remote_physical_interface_port_id": {
+                        "type": "string",
+                        "description": "port id (stringified number) of the remote physical interface",
+                        "examples": ["542", "538"]
+                    }
+                },
+                "required": [
+                    "local_physical_interface_name",
+                    "remote_device_name",
+                    "remote_physical_interface_port_id"
+                ]
+            }
+         }
+      },
+      "required": ["neighbor_info_list"]
+   }
+}
+

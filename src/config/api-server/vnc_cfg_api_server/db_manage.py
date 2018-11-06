@@ -22,6 +22,7 @@ except ImportError:
     import cgitb as vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 import pycassa
+import pycassa.connection
 import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
@@ -32,12 +33,16 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.9"
+__version__ = "1.11"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.11
+  - Make Individual connection timeout and buffer size user configurable
+* 1.10
+  - Add support SSL/TLS connection to cassandra DB
 * 1.9
   - Add support to remove stale ref entries from obj_uuid_table of cassandra
 * 1.8
@@ -289,7 +294,7 @@ def _parse_args(args_str):
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s ' + __version__)
     parser.add_argument('operation', help=format_help())
-    help = "Path to contrail-api conf file, default /etc/contrail-api.conf"
+    help = "Path to contrail-api conf file, default /etc/contrail/contrail-api.conf"
     parser.add_argument(
         "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
     parser.add_argument(
@@ -298,6 +303,14 @@ def _parse_args(args_str):
     parser.add_argument(
         "--debug", help="Run in debug mode, default False",
         action='store_true', default=False)
+    parser.add_argument(
+        "--connection-timeout", type=float,
+        help="Individual Connection timeout, in seconds",
+        default=0.5)
+    parser.add_argument(
+        "--buffer-size", type=int,
+        help="Number of rows fetched at once",
+        default=1024)
 
     if os.path.isdir("/var/log/contrail"):
         default_log = "/var/log/contrail/db_manage.log"
@@ -358,6 +371,10 @@ class DatabaseManager(object):
                 'username': self._api_args.cassandra_user,
                 'password': self._api_args.cassandra_password,
             }
+        socket_factory = pycassa.connection.default_socket_factory
+        if self._api_args.cassandra_use_ssl:
+            socket_factory = pycassa.connection.make_ssl_socket_factory(
+                self._api_args.cassandra_ca_certs, validate=False)
         for ks_name, cf_name_list in self._db_info:
             if cluster_id:
                 full_ks_name = '%s_%s' % (cluster_id, ks_name)
@@ -366,10 +383,14 @@ class DatabaseManager(object):
             pool = pycassa.ConnectionPool(
                 keyspace=full_ks_name,
                 server_list=self._cassandra_servers,
-                prefill=False, credentials=self.creds)
+                prefill=False, credentials=self.creds,
+                socket_factory=socket_factory,
+                timeout=self._args.connection_timeout)
             for cf_name in cf_name_list:
                 self._cf_dict[cf_name] = pycassa.ColumnFamily(
-                    pool, cf_name, read_consistency_level=rd_consistency)
+                    pool, cf_name,
+                    read_consistency_level=rd_consistency,
+                    buffer_size=self._args.buffer_size)
 
         # zookeeper connection
         self.base_vn_id_zk_path = cluster_id + self.BASE_VN_ID_ZK_PATH

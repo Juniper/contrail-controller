@@ -245,6 +245,12 @@ void ContrailInitCommon::CreateInterfaces() {
     l2_table->AddBridgeReceiveRoute(agent()->local_vm_peer(),
                                     agent()->fabric_policy_vrf_name(), 0,
                                     vhost->xconnect()->mac(), "");
+    // Add vhost labelled inet route
+    InetUnicastAgentRouteTable *inet_mpls_table =
+        static_cast<InetUnicastAgentRouteTable *>
+        (agent()->fabric_vrf()->GetInet4MplsUnicastRouteTable());
+    inet_mpls_table->AddVhostMplsRoute(agent()->params()->vhost_addr(),
+                            agent()->fabric_rt_export_peer());
 
     agent()->InitXenLinkLocalIntf();
     if (agent_param()->isVmwareMode()) {

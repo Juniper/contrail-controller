@@ -7,7 +7,6 @@
 
 #include <boost/static_assert.hpp>
 #include <pkt/flow_table.h>
-#include <pkt/flow_mgmt_request.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
 #include <uve/stats_collector.h>

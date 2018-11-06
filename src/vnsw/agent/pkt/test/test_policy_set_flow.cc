@@ -33,12 +33,13 @@ TestTag src[] = {
     {"App1",  1, (TagTable::APPLICATION << TagEntry::kTagTypeBitShift) | 0x1},
     {"Tier1", 2, (TagTable::TIER << TagEntry::kTagTypeBitShift) | 0x1},
     {"Site1", 3, (TagTable::SITE << TagEntry::kTagTypeBitShift) | 0x1},
+    {"NFWG1",  4, (TagTable::NEUTRON_FWAAS << TagEntry::kTagTypeBitShift) | 0x1},
 };
 
 TestTag dst[] = {
-    {"App2",  4, (TagTable::APPLICATION << TagEntry::kTagTypeBitShift) | 0x2},
-    {"Tier2", 5, (TagTable::TIER << TagEntry::kTagTypeBitShift) | 0x2},
-    {"Site2", 6, (TagTable::SITE << TagEntry::kTagTypeBitShift) | 0x2},
+    {"App2",  5, (TagTable::APPLICATION << TagEntry::kTagTypeBitShift) | 0x2},
+    {"Tier2", 6, (TagTable::TIER << TagEntry::kTagTypeBitShift) | 0x2},
+    {"Site2", 7, (TagTable::SITE << TagEntry::kTagTypeBitShift) | 0x2},
 };
 
 class TestPolicySet : public ::testing::Test {
@@ -51,12 +52,13 @@ public:
         AddIPAM("vn1", ipam_info, 1);
         client->WaitForIdle();
 
-        CreateTags(src, 3);
+        CreateTags(src, 4);
         CreateTags(dst, 3);
 
         AddLink("virtual-machine-interface", "vnet1", "tag", "App1");
         AddLink("virtual-machine-interface", "vnet1", "tag", "Tier1");
         AddLink("virtual-machine-interface", "vnet1", "tag", "Site1");
+        AddLink("virtual-machine-interface", "vnet1", "tag", "NFWG1");
         client->WaitForIdle();
 
         AddLink("virtual-machine-interface", "vnet2", "tag", "App2");
@@ -84,14 +86,20 @@ public:
         AddFirewall("MatchCondition", 4, match, src, 3, dst, 3, "pass");
         client->WaitForIdle();
 
+        AddFirewall("FwaasMatch", 5, match, src, 3, dst, 3, "pass");
+        client->WaitForIdle();
+
         AddNode("firewall-policy", "fw1", 1);
         AddNode("firewall-policy", "fw2", 2);
+        AddNode("firewall-policy", "fw3", 3);
 
         AddNode("application-policy-set", "aps1", 1);
         AddNode("application-policy-set", "aps2", 2);
+        AddNode("application-policy-set", "fwaas1", 3);
 
         AddLink("tag", "App1", "application-policy-set", "aps1");
         AddLink("tag", "App2", "application-policy-set", "aps1");
+        AddLink("tag", "NFWG1", "application-policy-set", "fwaas1");
 
         AddFwRuleTagLink("MatchAllTag", src, 3);
         AddFwRuleTagLink("MatchAllTag", dst, 3);
@@ -103,12 +111,13 @@ public:
     virtual void TearDown() {
         DelIPAM("vn1");
         DeleteVmportEnv(input1, 2, true);
-        DeleteTags(src, 3);
+        DeleteTags(src, 4);
         DeleteTags(dst, 3);
 
         DelLink("virtual-machine-interface", "vnet1", "tag", "App1");
         DelLink("virtual-machine-interface", "vnet1", "tag", "Tier1");
         DelLink("virtual-machine-interface", "vnet1", "tag", "Site1");
+        DelLink("virtual-machine-interface", "vnet1", "tag", "NFWG1");
         DelLink("virtual-machine-interface", "vnet2", "tag", "App2");
         DelLink("virtual-machine-interface", "vnet2", "tag", "Tier2");
         DelLink("virtual-machine-interface", "vnet2", "tag", "Site2");
@@ -118,19 +127,25 @@ public:
         DelNode("firewall-rule", "AppOnly");
         DelNode("firewall-rule", "SiteOnly");
         DelNode("firewall-rule", "MatchCondition");
+        DelNode("firewall-rule", "FwaasMatch");
         client->WaitForIdle();
 
         DelNode("firewall-policy", "fw1");
         DelNode("firewall-policy", "fw2");
+        DelNode("firewall-policy", "fw3");
         DelNode("application-policy-set", "aps1");
         DelNode("application-policy-set", "aps2");
+        DelNode("application-policy-set", "fwaas1");
         DelLink("tag", "App1", "application-policy-set", "aps1");
         DelLink("tag", "App2", "application-policy-set", "aps1");
+        DelLink("tag", "NFWG1", "application-policy-set", "fwaas1");
 
         DelFwRuleTagLink("MatchAllTag", src, 3);
         DelFwRuleTagLink("MatchAllTag", dst, 3);
         DelFwRuleTagLink("AppOnly", src, 3);
         DelFwRuleTagLink("AppOnly", dst, 3);
+        DelFwRuleTagLink("FwaasMatch", src, 3);
+        DelFwRuleTagLink("FwaasMatch", dst, 3);
         client->WaitForIdle();
     }
 protected:
@@ -418,6 +433,75 @@ TEST_F(TestPolicySet, MoreSpecificRule) {
     DelFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag");
     DelFirewallPolicyRuleLink("fpfr2", "fw2", "SiteOnly");
     DelPolicySetFirewallPolicyLink("link2", "aps1", "fw2");
+    client->WaitForIdle();
+}
+
+//Unidirection Neutron FWAAS Forward
+TEST_F(TestPolicySet, Unidirectional_Fwaas_Forward) {
+    std::vector<std::string> match;
+    AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "pass", ">");
+    AddFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag", "1");
+    AddPolicySetFirewallPolicyLink("link1", "aps1", "fw1", "1");
+    client->WaitForIdle();
+
+    AddFirewall("FwaasMatch", 5, match, src, 3, dst, 3, "pass", ">");
+    AddFirewallPolicyRuleLink("fpfr2", "fw3", "FwaasMatch", "2");
+    AddPolicySetFirewallPolicyLink("link2", "fwaas1", "fw3", "2");
+
+    //Service group allows only UDP flow deny ICMP flow
+    TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
+    EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
+
+    FlowEntry* rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->match_p().action_info.action & (1 << TrafficAction::PASS));
+
+    DelPolicySetFirewallPolicyLink("link2", "fwaas1", "fw3");
+    DelFirewallPolicyRuleLink("fpfr2", "fw3", "FwaasMatch");
+    client->WaitForIdle();
+
+    DelPolicySetFirewallPolicyLink("link1", "aps1", "fw1");
+    DelFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag");
+    client->WaitForIdle();
+}
+
+//Unidirection Neutron FWAAS Deny
+TEST_F(TestPolicySet, Unidirectional_Fwaas_Deny) {
+    std::vector<std::string> match;
+    AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "pass", ">");
+    AddFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag", "1");
+    AddPolicySetFirewallPolicyLink("link1", "aps1", "fw1", "1");
+    client->WaitForIdle();
+
+    AddFirewall("FwaasMatch", 5, match, src, 3, dst, 3, "pass", "<");
+    AddFirewallPolicyRuleLink("fpfr2", "fw3", "FwaasMatch", "2");
+    AddPolicySetFirewallPolicyLink("link2", "fwaas1", "fw3", "2");
+
+    //Service group allows only UDP flow deny ICMP flow
+    TxIpPacket(vnet[1]->id(), "1.1.1.1", "1.1.1.2", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.2",
+                               1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->IsShortFlow() == false);
+    EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::DENY));
+
+    FlowEntry* rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->match_p().action_info.action & (1 << TrafficAction::DENY));
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+
+    DelPolicySetFirewallPolicyLink("link2", "fwaas1", "fw3");
+    DelFirewallPolicyRuleLink("fpfr2", "fw3", "FwaasMatch");
+    client->WaitForIdle();
+
+    DelPolicySetFirewallPolicyLink("link1", "aps1", "fw1");
+    DelFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag");
     client->WaitForIdle();
 }
 

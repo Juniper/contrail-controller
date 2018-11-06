@@ -23,6 +23,7 @@
 #include <oper/agent_profile.h>
 #include <oper/crypt_tunnel.h>
 #include <filter/acl.h>
+#include <oper/multicast_policy.h>
 #include <controller/controller_init.h>
 #include <resource_manager/resource_manager.h>
 
@@ -306,6 +307,7 @@ void AgentInit::CreateVrfBase() {
     agent_->set_fabric_vrf(vrf);
     agent_->set_fabric_policy_vrf(policy_vrf);
     agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
+    agent_->set_fabric_inet4_mpls_table(vrf->GetInet4MplsUnicastRouteTable());
     agent_->set_fabric_inet4_multicast_table
         (vrf->GetInet4MulticastRouteTable());
     agent_->set_fabric_l2_unicast_table(vrf->GetBridgeRouteTable());
@@ -474,6 +476,9 @@ void AgentInit::DeleteDBEntriesBase() {
 
     RunInTaskContext(this, task_id,
                      boost::bind(&FlushTable, agent_->acl_table()));
+
+    RunInTaskContext(this, task_id,
+                 boost::bind(&FlushTable, agent_->mp_table()));
 }
 
 static bool WaitForDbCount(DBTableBase *table, AgentInit *init,
@@ -495,6 +500,7 @@ void AgentInit::WaitForDBEmpty() {
     WaitForDbCount(agent_->vn_table(), this, 0, 10000);
     WaitForDbCount(agent_->mpls_table(), this, 2, 10000);
     WaitForDbCount(agent_->acl_table(), this, 0, 10000);
+    WaitForDbCount(agent_->mp_table(), this, 0, 10000);
 }
 
 void AgentInit::ServicesShutdownBase() {

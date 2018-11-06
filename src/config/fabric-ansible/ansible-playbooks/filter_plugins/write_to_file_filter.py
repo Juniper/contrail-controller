@@ -1,31 +1,12 @@
 #!/usr/bin/python
-import logging
 import argparse
-import traceback
 import sys
 from job_manager.job_utils import JobFileWrite
 
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from filter_utils import FilterLog
+
 class FilterModule(object):
-    @staticmethod
-    def _init_logging():
-        logger = logging.getLogger('WriteToFileFilter')
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(
-            '%(asctime)s %(levelname)-8s %(message)s',
-            datefmt='%Y/%m/%d %H:%M:%S'
-        )
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-        return logger
-    # end _init_logging
-
-    def __init__(self):
-        self._logger = FilterModule._init_logging()
-        self._job_file_write = JobFileWrite(self._logger)
-    # end __init__
 
     def filters(self):
         return {
@@ -37,8 +18,10 @@ class FilterModule(object):
         return job_ctx.get('job_execution_id'),job_ctx.get('unique_pb_id')
 
     def report_percentage_completion(self, job_ctx, percentage):
+        logger = FilterLog.instance("WritePercentToFileFilter").logger()
+        job_file_write = JobFileWrite(logger)
         exec_id, unique_pb_id = self.get_job_ctx_details(job_ctx)
-        self._job_file_write.write_to_file(
+        job_file_write.write_to_file(
             exec_id, unique_pb_id, JobFileWrite.JOB_PROGRESS, str(percentage)
         )
         return {
@@ -47,8 +30,10 @@ class FilterModule(object):
         }
 
     def report_playbook_results(self, job_ctx, pb_results):
+        logger = FilterLog.instance("WritePbResultsToFileFilter").logger()
+        job_file_write = JobFileWrite(logger)
         exec_id, unique_pb_id = self.get_job_ctx_details(job_ctx)
-        self._job_file_write.write_to_file(
+        job_file_write.write_to_file(
             exec_id, unique_pb_id, JobFileWrite.GEN_DEV_OP_RES, str(pb_results)
         )
         return {
@@ -72,7 +57,7 @@ if __name__ == '__main__':
     parser = _parse_args()
     if parser.percentage_complete:
         results = fabric_filter.report_percentage_completion(
-            "sample_exec_id_filename",
-            "sample_unique_pb_id",
+            {"sample_exec_id_filename": "sample_exec_id",
+            "sample_unique_pb_id": "sample_unique_pb_id"},
             10)
     print results

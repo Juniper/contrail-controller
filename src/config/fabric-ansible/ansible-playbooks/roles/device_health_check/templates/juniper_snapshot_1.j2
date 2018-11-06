@@ -1,0 +1,65 @@
+version:
+  - command: show system configuration database usage
+  - ignore-null: True
+  - item:
+      xpath: '/database-usage'
+      tests:
+        - is-gt: maximum-size, 0
+          err: "Test Failed!!"
+          info: "Test succeeded!!"
+{% if advanced_parameters.Juniper.interface.interface_error_check == True or advanced_parameters.Juniper.interface.interface_drop_count_check == True or advanced_parameters.Juniper.interface.interface_carrier_transition_count_check == True %}
+interface_extensive:
+  - command: show interface extensive
+  - ignore-null: True
+{% if advanced_parameters.Juniper.interface.interface_error_check == True %}
+  - iterate:
+      xpath: '//physical-interface/input-error-list'
+      id: '../name'
+      tests:
+        - no-diff: input-errors
+          err: "Test Failed!! input-errors of {% raw %}<{{post['input-errors']}}>{% endraw %} is greater than {% raw %}<{{pre['input-errors']}}>{% endraw %}"
+          info: "Test succeeded!! input-errors is equal to {% raw %}<{{post['input-errors']}}>{% endraw %}"
+{% endif %}
+{% if advanced_parameters.Juniper.interface.interface_drop_count_check == True %}
+  - iterate:
+      xpath: '//physical-interface/input-error-list'
+      id: '../name'
+      tests:
+        - no-diff: input-drops
+          err: "Test Failed!! input-drops of {% raw %}<{{post['input-drops']}}>{% endraw %} is greater than {% raw %}<{{pre['input-drops']}}>{% endraw %}"
+          info: "Test succeeded!! input-drops is equal to {% raw %}<{{post['input-drops']}}>{% endraw %}"
+{% endif %}
+{% if advanced_parameters.Juniper.interface.interface_carrier_transition_count_check == True %}
+  - iterate:
+      xpath: '//physical-interface/output-error-list'
+      id: '../name'
+      tests:
+        - no-diff: carrier-transitions
+          err: "Test Failed!! carrier-transitions of {% raw %}<{{post['carrier-transitions']}}>{% endraw %} is greater than {% raw %}<{{pre['carrier-transitions']}}>{% endraw %}"
+          info: "Test succeeded!! carrier-transitions is equal to {% raw %}<{{post['carrier-transitions']}}>{% endraw %}"
+{% endif %}
+{% endif %}
+{% if advanced_parameters.Juniper.active_route_count_check == True %}
+route_summary:
+  - command: show route summary table default-switch.evpn.0
+  - ignore-null: True
+  - item:
+      xpath: '/route-summary-information/route-table'
+      id: '../router-id'
+      tests:
+        - no-diff: active-route-count
+          err: "Test Failed!! active-route-count of {% raw %}<{{post['active-route-count']}}>{% endraw %} is greater than {% raw %}<{{pre['active-route-count']}}>{% endraw %}"
+          info: "Test succeeded!! active-route-count is equal to {% raw %}<{{post['active-route-count']}}>{% endraw %}"
+{% endif %}
+{% if advanced_parameters.Juniper.l2_total_mac_count_check == True %}
+ethernet_switching_table:
+  - command: show ethernet-switching table
+  - ignore-null: True
+  - item:
+      xpath: '/l2ng-l2ald-rtb-macdb'
+      id: '../router-id'
+      tests:
+        - no-diff: l2ng-l2-total-mac-count
+          err: "Test Failed!! l2ng-l2-total-mac-count of {% raw %}<{{post['l2ng-l2-total-mac-count']}}>{% endraw %} is greater than {% raw %}<{{pre['l2ng-l2-total-mac-count']}}>{% endraw %}"
+          info: "Test succeeded!! l2ng-l2-total-mac-count is equal to {% raw %}<{{post['l2ng-l2-total-mac-count']}}>{% endraw %}"
+{% endif %}

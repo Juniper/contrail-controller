@@ -29,6 +29,9 @@ using std::string;
 using std::vector;
 using boost::iequals;
 
+#define BGP_RTGT_MIN_ID_AS2 8000000
+#define BGP_RTGT_MIN_ID_AS4 8000
+
 const int BgpIfmapConfigManager::kConfigTaskInstanceId = 0;
 
 static BgpNeighborConfig::AddressFamilyList default_addr_family_list;
@@ -1110,6 +1113,61 @@ string BgpIfmapInstanceConfig::GetVitFromId(uint32_t identifier) {
     return Ip4Address(identifier).to_string() + ":" + integerToString(index());
 }
 
+void BgpIfmapInstanceConfig::UpateRouteTargetIndex(
+                         BgpInstanceConfig::RouteTargetList& rt_list) {
+    BgpInstanceConfig::RouteTargetList remove_rt_list;
+    BOOST_FOREACH(const BgpInstanceConfig::RouteTargetList::value_type &value,
+            rt_list) {
+        string token = value.substr(0, value.find(":"));
+        if (strcmp(token.c_str(), "target") == 0) {
+            string rtarget_id = value.substr(value.rfind(":")+1);
+            string rtarget_asn = value.substr(value.find(":") + 1,
+                                                  value.rfind(":") - 1);
+            if ((rtarget_asn.find(".") == string::npos) &&
+                    (BGP_RTGT_MIN_ID_AS2 <= strtoul(rtarget_id.c_str(),
+                                                    NULL, 0))) {
+                remove_rt_list.insert(value);
+            }
+        }
+    }
+    BOOST_FOREACH(BgpInstanceConfig::RouteTargetList::value_type value,
+            remove_rt_list) {
+        rt_list.erase(value);
+        size_t pos = value.rfind(":") + 1;
+        string id = value.substr(pos);
+        uint32_t new_id = strtoul(id.c_str(), NULL, 0) - BGP_RTGT_MIN_ID_AS2
+                                                          + BGP_RTGT_MIN_ID_AS4;
+        string new_id_str = integerToString(new_id);
+        value.replace(pos, strlen(value.c_str()) - pos, new_id_str);
+        rt_list.insert(value);
+    }
+}
+
+// This is hack until schema transformer can provide rtarget correctly based
+// for 4 byte ASN
+// Update indices of route targets if asn is 4 byte and index is also 4 bytes
+void BgpIfmapInstanceConfig::UpateRouteTargetIndex(
+                         BgpIfmapConfigManager *mgr,
+                         BgpInstanceConfig::RouteTargetList& import_list,
+                         BgpInstanceConfig::RouteTargetList& export_list) {
+    const BgpIfmapInstanceConfig *master_instance =
+        mgr->config()->FindInstance(BgpConfigManager::kMasterInstance);
+    uint32_t asn = 0;
+    if (master_instance) {
+        const BgpIfmapProtocolConfig *master_protocol =
+            master_instance->protocol_config();
+        if (master_protocol) {
+            if (master_protocol->protocol_config()) {
+                asn = master_protocol->protocol_config()->autonomous_system();
+            }
+        }
+    }
+    if (asn > 0xFFFF) {
+        UpateRouteTargetIndex(import_list);
+        UpateRouteTargetIndex(export_list);
+    }
+}
+
 // Populate Vit in import list
 void BgpIfmapInstanceConfig::InsertVitInImportList(
                          BgpIfmapConfigManager *mgr,
@@ -1202,6 +1260,7 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
     }
 
     InsertVitInImportList(manager, import_list);
+    UpateRouteTargetIndex(manager, import_list, export_list);
     data_.set_import_list(import_list);
     data_.set_export_list(export_list);
 

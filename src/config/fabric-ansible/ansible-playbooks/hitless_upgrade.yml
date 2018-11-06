@@ -1,0 +1,94 @@
+---
+
+- name: Hitless image upgrade workflow
+  hosts: localhost
+  connection: local
+  roles:
+    - Juniper.junos
+  vars:
+    upgrade_mode: "{{playbook_input.input.upgrade_mode}}"
+    pr_name: "{{playbook_input.device_fqname[-1]}}"
+    pr_uuid: "{{playbook_input.device_id}}"
+    upgrade_plan: "{{playbook_input.input.upgrade_plan}}"
+    current_index: 0
+    is_hitless_upgrade: "{{playbook_input.device_hitless_upgrade}}" #assuming this will be a boolean value
+    hitless_dict:
+      total_task_count: 7
+      task_weightage_array: [10, 10, 5, 35, 30, 5, 5]
+    non_hitless_dict:
+      total_task_count: 4
+      task_weightage_array: [5, 40, 45, 10]
+
+  tasks:
+    - name: Set auto increment if not hitless
+      set_fact:
+        percentage_auto_increment: true
+
+    - set_fact:
+        final_task_array: "{% if is_hitless_upgrade -%}{{hitless_dict}}{%else-%}{{non_hitless_dict}}{%- endif %}"
+
+    - set_fact:
+        job_ctx: "{{job_ctx|combine(final_task_array)}}"
+
+    - block:
+        - name: Run health check only
+          include_role:
+            name: maintenance_mode_validation
+
+        - set_fact:
+            output: {
+                  "status": "Success",
+                  "message": "Device {{pr_name}} has been verified to be healthy for upgrade."
+                    }
+
+        - name: Print the output
+          debug:
+            var: output
+            verbosity: 1
+      when: upgrade_mode == 'test_run'
+
+    - block:
+        - block:
+            - name: Upgrade devices
+              include_role:
+                name: image_upgrade_role
+          when: not is_hitless_upgrade
+
+        - block:
+            - name: Run health check
+              include_role:
+                name: maintenance_mode_validation
+
+            - name: Push config
+              include_role:
+                name: maintenance_mode_config_push
+
+            - name: Upgrade devices
+              include_role:
+                name: image_upgrade_role
+
+            - name: Deactivate maintenance mode
+              include_role:
+                name: maintenance_mode_deactivate
+          when: is_hitless_upgrade
+
+        - name: Get next batch of devices and return to job manager
+          set_fact:
+            next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, pr_uuid)}}"
+
+        - set_fact:
+                next_set: "{{next_batch.next.batch_devices}}"
+        - set_fact:
+                output: {
+                      "status": "Success.",
+                      "retry_devices": "{{next_set}}",
+                      "message": "{% if next_set | length > 0 -%}
+                                  Finished upgrading device {{pr_name}}. Starting hitless image upgrade on {{next_batch.next.batch_name}}.
+                                  {% else -%}
+                                  Hitless image upgrade has finished successfully on all devices.{%- endif %}"
+                       }
+        - name: Print the output.
+          debug:
+            var: output
+            verbosity: 1
+      when: upgrade_mode == 'upgrade'

@@ -1837,6 +1837,7 @@ public:
                     BgpAttrTemplate<BgpAttrOrigin, 1, int,
                                     &BgpAttrOrigin::origin> >,
           mpl::pair<mpl::int_<BgpAttribute::AsPath>, BgpPathAttributeAsPath>,
+          mpl::pair<mpl::int_<BgpAttribute::As4Path>, BgpPathAttributeAs4Path>,
           mpl::pair<mpl::int_<BgpAttribute::NextHop>,
                     BgpAttrTemplate<BgpAttrNextHop, 4, uint32_t,
                                     &BgpAttrNextHop::nexthop> >,
