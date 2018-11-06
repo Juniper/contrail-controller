@@ -20,11 +20,42 @@ PORT_IPC_VROUTER_AGENT_PORT = 9091
 TIMEOUT_SECS = 15
 DPDK_NETLINK_TCP_PORT = 20914
 PORT_OPEN_TIMEOUT_SECS = 120
+MAX_REPR_VFS = 60
+REPR_MAP = '/sys/module/nfp_vrouter/control/fallback_map'
 
 
 class VrouterPortControl(object):
 
     def __init__(self, args_str=None):
+
+        # VF-to-representor mapping dict
+        self.pci_to_repr = {}
+
+        # Scan Agilio fallback map, if it exists
+        fbmap = '/sys/module/nfp_vrouter/control/fallback_map'
+        try:
+            with open(fbmap, 'r') as mapfile:
+                imap = mapfile.read()
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            imap = ''
+
+        for line in imap.split('\n'):
+            cols = line.split()
+            if len(cols) != 4:
+                continue
+
+            netdev = cols[2]
+            pci_dev = cols[1]
+            vf_number = int(cols[3])
+
+            # Ignore reserved Agilio fallback devices.
+            if vf_number >= MAX_REPR_VFS:
+                continue
+
+            self.pci_to_repr[pci_dev] = netdev
+
         self._args = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
@@ -46,6 +77,9 @@ class VrouterPortControl(object):
 
             if self._args.port_type == "NovaVMPort":
                 port_type_value = 0
+                if (self._args.vnic_type == "direct" or
+                    self._args.vnic_type == "virtio-forwarder"):
+                    self._repr_pre_plug(self._args.tap_name)
             elif self._args.port_type == "NameSpacePort":
                 port_type_value = 1
 
@@ -95,6 +129,9 @@ class VrouterPortControl(object):
                     ret_code = 1
             except ConnectionError:
                 pass
+            if (self._args.vnic_type == "direct" or
+                self._args.vnic_type == "virtio-forwarder"):
+                self._repr_post_unplug(self._args.tap_name)
         sys.exit(ret_code)
     # end __init__
 
@@ -110,6 +147,21 @@ class VrouterPortControl(object):
         except ValueError:
             return False
     # end IsNumber
+
+    def _repr_pre_plug(self, netdev):
+        disv6 = ('/proc/sys/net/ipv6/conf/%s/disable_ipv6' % netdev)
+        if os.path.exists(disv6):
+            with open(disv6, "w") as f:
+                f.write("1")
+        os.system("ip link set dev %s up" % netdev)
+        if self._args.vnic_type == 'virtio-forwarder':
+            cmd = "/usr/lib/virtio-forwarder/virtioforwarder_port_control.py add_sock --vhost-path=%s --pci-addr=%s" % (self._args.vhostuser_socket, self._args.pci_dev)
+            os.system(cmd)
+
+    def _repr_post_unplug(self, netdev):
+        if self._args.vnic_type == 'virtio-forwarder':
+            os.system("/usr/lib/virtio-forwarder/virtioforwarder_port_control.py remove_sock --vhost-path=%s --pci-addr=%s" % (self._args.vhostuser_socket, self._args.pci_dev))
+        os.system("ip link set dev %s down" % netdev)
 
     def _parse_args(self, args_str):
         strip_quotes = False
@@ -145,6 +197,8 @@ class VrouterPortControl(object):
         parser.add_argument('--vm_name', help="VM Name")
         parser.add_argument('--mac', help="MAC address")
         parser.add_argument('--tap_name', help="System name of interface")
+        parser.add_argument('--pci_dev', help="PCI device of offloaded interface")
+        parser.add_argument('--vnic_type', help="VNIC type of the interface")
         parser.add_argument("--port_type", help="Port type", default="NovaVMPort")
         parser.add_argument("--tx_vlan_id", help="Transmit VLAN ID")
         parser.add_argument("--rx_vlan_id", help="Receive VLAN ID")
@@ -170,6 +224,8 @@ class VrouterPortControl(object):
             self._args.vm_project_uuid = self.StripQuotes(self._args.vm_project_uuid)
             self._args.mac = self.StripQuotes(self._args.mac)
             self._args.tap_name = self.StripQuotes(self._args.tap_name)
+            self._args.pci_dev = self.StripQuotes(self._args.pci_dev)
+            self._args.vnic_type = self.StripQuotes(self._args.vnic_type)
             self._args.port_type = self.StripQuotes(self._args.port_type)
             self._args.rx_vlan_id = self.StripQuotes(self._args.rx_vlan_id)
             self._args.tx_vlan_id = self.StripQuotes(self._args.tx_vlan_id)
@@ -208,8 +264,35 @@ class VrouterPortControl(object):
                 self._args.tx_vlan_id = int(self._args.tx_vlan_id)
 
             if self._args.vhostuser_mode:
-                self._args.vhostuser_mode = int(self._args.vhostuser_mode)
+                if self._args.vhostuser_mode == 'server':
+                    self._args.vhostuser_mode = 0
+                elif self._args.vhostuser_mode == 'client':
+                    self._args.vhostuser_mode = 1
+                else:
+                    self._args.vhostuser_mode = int(self._args.vhostuser_mode)
 
+
+        if not self._args.vnic_type:
+            self._args.vnic_type = 'normal'
+
+        if self._args.vnic_type:
+            if self._args.vnic_type == 'direct':
+                if not self._args.pci_dev:
+                    print "DIRECT vnics require --pci_dev"
+                    sys.exit(1)
+                tap_name = self.pci_to_repr.get(self._args.pci_dev, None)
+                if tap_name:
+                    self._args.tap_name = tap_name
+            elif self._args.vnic_type == 'virtio-forwarder':
+                if not self._args.pci_dev:
+                    print "VIRTIO_FORWARDER vnics require --pci_dev"
+                    sys.exit(1)
+                if not self._args.vhostuser_socket:
+                    print "VIRTIO_FORWARDER vnics require --vhostuser_socket"
+                    sys.exit(1)
+                tap_name = self.pci_to_repr.get(self._args.pci_dev, None)
+                if tap_name:
+                    self._args.tap_name = tap_name
     #end _parse_args
 
     def CreateDirectoryTree(self, path):
