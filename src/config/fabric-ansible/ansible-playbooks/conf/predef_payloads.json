@@ -433,7 +433,12 @@
               "juniper-mx2008",
               "juniper-mx2010",
               "juniper-mx2020",
-              "juniper-mx10003"
+              "juniper-mx10003",
+              "juniper-srx5400",
+              "juniper-srx4600",
+              "juniper-srx4100",
+              "juniper-srx1500",
+              "juniper-vsrx"
             ]
           }
         }
@@ -651,6 +656,36 @@
             "juniper-vmx"
           ],
           "name": "juniper-vmx"
+        },
+        {
+          "fq_name": [
+            "juniper-srx5400"
+          ],
+          "name": "juniper-srx5400"
+        },
+        {
+          "fq_name": [
+            "juniper-srx4600"
+          ],
+          "name": "juniper-srx4600"
+        },
+        {
+          "fq_name": [
+            "juniper-srx4100"
+          ],
+          "name": "juniper-srx4100"
+        },
+        {
+          "fq_name": [
+            "juniper-srx1500"
+          ],
+          "name": "juniper-srx1500"
+        },
+        {
+          "fq_name": [
+            "juniper-vsrx"
+          ],
+          "name": "juniper-vsrx"
         }
       ]
     },
@@ -733,6 +768,22 @@
               {
                 "physical_role": "spine",
                 "rb_roles": ["DC-Gateway", "Route-Reflector"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-srx"
+          ],
+          "name": "juniper-srx",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "pnf",
+                "rb_roles": ["L3FW"]
               }
             ]
           }
@@ -1051,6 +1102,36 @@
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-vmx" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx5400" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx4600" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx4100" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx1500" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-vsrx" ]
     },
     {
       "from_type": "role_config",
