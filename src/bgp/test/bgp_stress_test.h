@@ -173,7 +173,7 @@ public:
         int idx = cassandra_client->HashUUID(uuid_key);
         task_util::TaskFire(boost::bind(&IFMapXmppChannelTest::InjectConfig,
                                 this, iq->action, uuid_key, id_type, id_name),
-                            "cassandra::Reader", idx);
+                            "config_client::Reader", idx);
     }
 
     void InjectConfig(string action, string uuid_key, string id_type,
