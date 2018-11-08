@@ -208,7 +208,8 @@ class VncNamespace(VncCommon):
                 vn_obj.set_fabric_snat(False)
             vn_uuid = self._vnc_lib.virtual_network_create(vn_obj)
             # Cache the virtual network.
-            VirtualNetworkKM.locate(vn_uuid)
+            vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+            VirtualNetworkKM.locate(vn_uuid, vn_obj.__dict__)
         else:
             ip_fabric_enabled = False
             if provider:
@@ -418,7 +419,8 @@ class VncNamespace(VncCommon):
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
         except RefsExistError:
             self._vnc_lib.security_group_update(sg_obj)
-        sg = SecurityGroupKM.locate(sg_obj.get_uuid())
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.get_uuid())
+        sg = SecurityGroupKM.locate(sg_obj.get_uuid(), sg_obj.__dict__)
         return sg
 
     def vnc_namespace_add(self, namespace_id, name, labels):
@@ -445,8 +447,9 @@ class VncNamespace(VncCommon):
         try:
             self._vnc_lib.project_create(proj_obj)
         except RefsExistError:
-            proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        project = ProjectKM.locate(proj_obj.uuid)
+            pass
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        project = ProjectKM.locate(proj_obj.uuid, proj_obj.__dict__)
 
 
         # Validate the presence of annotated virtual network.
