@@ -67,7 +67,8 @@ class VncTags(object):
                 (tag.get_fq_name(), str(e)))
             return
         # Cache the object in local db.
-        TagKM.locate(tag_obj.uuid)
+        tag_obj = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        TagKM.locate(tag_obj.uuid, tag_obj.__dict__)
 
     def delete(self, type, value):
         tag_uuid = TagKM.get_fq_name_to_uuid(
