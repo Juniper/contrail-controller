@@ -180,7 +180,8 @@ class VncIngress(VncCommon):
             fip_obj.floating_ip_address = external_ip
         try:
             self._vnc_lib.floating_ip_create(fip_obj)
-            fip = FloatingIpKM.locate(fip_obj.uuid)
+            fip_obj = self._vnc_lib.floating_ip_read(fip_obj.uuid)
+            fip = FloatingIpKM.locate(fip_obj.uuid, fip_obj)
         except Exception as e:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
@@ -222,6 +223,7 @@ class VncIngress(VncCommon):
             lb_obj.add_annotations(
                 KeyValuePair(key='externalIP', value=external_ip))
             self._vnc_lib.loadbalancer_update(lb_obj)
+            LoadbalancerKM.locate(lb_obj.get_uuid(), lb_obj)
         return fip
 
     def _update_kube_api_server(self, name, ns_name, lb_obj, fip):
