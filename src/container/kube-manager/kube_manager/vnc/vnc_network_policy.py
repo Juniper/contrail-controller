@@ -165,7 +165,8 @@ class VncNetworkPolicy(VncCommon):
         except Exception as e:
             self._logger.error("%s - %s SG Not Created" %s(self._name, name))
             return None
-        sg = SecurityGroupKM.locate(sg_obj.uuid)
+        sg_obj = self._vnc_lib.security_group_read(sg_obj.uuid)
+        sg = SecurityGroupKM.locate(sg_obj.uuid, sg_obj)
         return sg
 
     def _create_ingress_sg(self, namespace, sg_name, ingress_pod_selector):

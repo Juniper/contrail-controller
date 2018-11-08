@@ -82,7 +82,8 @@ class ServiceLbManager(VncCommon):
         try:
             self.logger.debug("Create LB Interface %s " % vmi_obj.get_fq_name())
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-            VirtualMachineInterfaceKM.locate(vmi_obj.uuid)
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
+            VirtualMachineInterfaceKM.locate(vmi_obj.uuid, vmi_obj)
         except BadRequest as e:
             self.logger.warning("LB (%s) Interface create failed %s " % (service_name, str(e)))
             return None, None
@@ -116,7 +117,8 @@ class ServiceLbManager(VncCommon):
             self._vnc_lib.instance_ip_create(iip_obj)
         except RefsExistError:
             self._vnc_lib.instance_ip_update(iip_obj)
-        InstanceIpKM.locate(iip_obj.uuid)
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
+        InstanceIpKM.locate(iip_obj.uuid, iip_obj)
         iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
         vip_address = iip_obj.get_instance_ip_address()
         self.logger.debug("Created LB VMI InstanceIp %s with VIP %s" %
@@ -209,6 +211,8 @@ class ServiceLbManager(VncCommon):
             self._vnc_lib.loadbalancer_create(lb_obj)
         except RefsExistError:
             self._vnc_lib.loadbalancer_update(lb_obj)
+        lb_obj = self._vnc_lib.loadbalancer_read(fq_name=lb_obj.fq_name)
+        LoadbalancerKM.locate(lb_obj.uuid, lb_obj)
         return lb_obj
 
 class ServiceLbListenerManager(VncCommon):
@@ -263,6 +267,9 @@ class ServiceLbListenerManager(VncCommon):
         except RefsExistError:
             self._vnc_lib.loadbalancer_listener_update(ll_obj)
 
+        ll_obj = self._vnc_lib.loadbalancer_listener_read(fq_name=ll_obj.fq_name)
+        LoadbalancerListenerKM.locate(ll_obj.uuid, ll_obj)
+
         return ll_obj
 
 class ServiceLbPoolManager(VncCommon):
@@ -315,6 +322,9 @@ class ServiceLbPoolManager(VncCommon):
         except RefsExistError:
             self._vnc_lib.loadbalancer_pool_update(pool_obj)
 
+        pool_obj = self._vnc_lib.loadbalancer_pool_read(fq_name=pool_obj.fq_name)
+        LoadbalancerPoolKM.locate(pool_obj.uuid, pool_obj)
+
         return pool_obj
 
 class ServiceLbMemberManager(VncCommon):
@@ -347,6 +357,10 @@ class ServiceLbMemberManager(VncCommon):
             for key in annotations:
                 member_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
         self._vnc_lib.loadbalancer_member_create(member_obj)
+
+        member_obj = self._vnc_lib.loadbalancer_member_read(fq_name=member_obj.fq_name)
+        LoadbalancerMemberKM.locate(member_obj.uuid, member_obj)
+        
         return member_obj
 
     def update(self, member_id, address, port, annotations):
