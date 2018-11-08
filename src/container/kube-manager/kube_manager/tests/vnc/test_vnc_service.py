@@ -469,6 +469,7 @@ class VncServiceTest(KMTestCase):
         net_obj = self._vnc_lib.virtual_network_read(id=net_uuid)
         fip_pool_obj = FloatingIpPool('public_fip_pool', parent_obj=net_obj)
         fip_pool_uuid = self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+        FloatingIpPoolKM.locate(fip_pool_uuid, fip_pool_obj)
         proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
                                                                 'default')
 
@@ -622,7 +623,9 @@ class VncServiceTest(KMTestCase):
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         subnet_data = self._create_subnet_data(self.external_cidr)
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
-        return self._vnc_lib.virtual_network_create(vn_obj)
+        uuid = self._vnc_lib.virtual_network_create(vn_obj)
+        VirtualNetworkKM.locate(vn_obj.uuid, vn_obj)
+        return uuid
 
     @staticmethod
     def _create_subnet_data(vn_subnet):

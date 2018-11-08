@@ -206,6 +206,7 @@ class KMTestCase(test_common.TestCase):
         except RefsExistError:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
+        ProjectKM.locate(proj_obj.uuid, proj_obj)
         return proj_obj
 
     def create_security_group(self, proj_obj):
@@ -245,7 +246,8 @@ class KMTestCase(test_common.TestCase):
                                id_perms=id_perms,
                                security_group_entries=sg_rules)
 
-        self._vnc_lib.security_group_create(sg_obj)
+        sg_uuid = self._vnc_lib.security_group_create(sg_obj)
+        SecurityGroupKM.locate(sg_uuid, sg_obj)
         self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
         return sg_obj
 
@@ -267,6 +269,7 @@ class KMTestCase(test_common.TestCase):
                 vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
             else:
                 vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([ipam_subnet]))
+        NetworkIpamKM.locate(ipam_obj.uuid, ipam_obj)
         return ipam_obj
 
     def create_pod_service_network(self, pod_vn_name, service_vn_name, \
@@ -302,6 +305,8 @@ class KMTestCase(test_common.TestCase):
 
         vn_obj = self._vnc_lib.virtual_network_read(
             fq_name=vn_obj.get_fq_name())
+
+        VirtualNetworkKM.locate(vn_obj.uuid, vn_obj)
         #kube = vnc_kubernetes.VncKubernetes.get_instance()
         #kube._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
 
@@ -318,7 +323,7 @@ class KMTestCase(test_common.TestCase):
                 fq_name=vrouter_obj.get_fq_name())
         except NoIdError:
             cls._vnc_lib.virtual_router_create(vrouter_obj)
-            VirtualRouterKM.locate(vrouter_obj.uuid)
+            VirtualRouterKM.locate(vrouter_obj.uuid, vrouter_obj)
         return vrouter_obj
 
     @classmethod
@@ -332,21 +337,21 @@ class KMTestCase(test_common.TestCase):
     def create_virtual_machine(self, name, vn, ipaddress):
         vm = VirtualMachine(name)
         self._vnc_lib.virtual_machine_create(vm)
-        VirtualMachineKM.locate(vm.uuid)
+        VirtualMachineKM.locate(vm.uuid, vm)
 
         vmi = VirtualMachineInterface(
             parent_type='virtual-machine', fq_name=[name, '0'])
         vmi.set_virtual_machine(vm)
         vmi.set_virtual_network(vn)
         self._vnc_lib.virtual_machine_interface_create(vmi)
-        VirtualMachineInterfaceKM.locate(vmi.uuid)
+        VirtualMachineInterfaceKM.locate(vmi.uuid, vmi)
 
         ip = InstanceIp(vm.name + '.0')
         ip.set_virtual_machine_interface(vmi)
         ip.set_virtual_network(vn)
         ip.set_instance_ip_address(ipaddress)
         self._vnc_lib.instance_ip_create(ip)
-        InstanceIpKM.locate(ip.uuid)
+        InstanceIpKM.locate(ip.uuid, ip)
 
         return vm, vmi, ip
 

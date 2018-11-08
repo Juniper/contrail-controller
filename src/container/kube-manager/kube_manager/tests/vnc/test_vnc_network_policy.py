@@ -635,6 +635,7 @@ class VncNetworkPolicyTest(KMTestCase):
         # Detach ingress policy from APS to introduce error.
         aps_obj.del_firewall_policy(fw_policy_obj)
         self._vnc_lib.application_policy_set_update(aps_obj)
+        ApplicationPolicySetKM.locate(aps_obj.uuid, aps_obj)
 
         # Verify that validation of APS will fail.
         valid = VncSecurityPolicy.validate_cluster_security_policy()
@@ -693,6 +694,7 @@ class VncNetworkPolicyTest(KMTestCase):
         # Detach deny-all policy from APS to introduce error.
         aps_obj.del_firewall_policy(fw_policy_obj)
         self._vnc_lib.application_policy_set_update(aps_obj)
+        ApplicationPolicySetKM.locate(aps_obj.uuid, aps_obj)
 
         # Verify that validation of APS will fail.
         valid = VncSecurityPolicy.validate_cluster_security_policy()
@@ -750,6 +752,7 @@ class VncNetworkPolicyTest(KMTestCase):
         # Detach allow-all policy from APS to introduce error.
         aps_obj.del_firewall_policy(fw_policy_obj)
         self._vnc_lib.application_policy_set_update(aps_obj)
+        ApplicationPolicySetKM.locate(aps_obj.uuid, aps_obj)
 
         # Verify that validation of APS will fail.
         valid = VncSecurityPolicy.validate_cluster_security_policy()
@@ -801,6 +804,7 @@ class VncNetworkPolicyTest(KMTestCase):
         # Detach allow-all policy from APS to introduce error.
         aps_obj.del_firewall_policy(fw_policy_obj)
         self._vnc_lib.application_policy_set_update(aps_obj)
+        ApplicationPolicySetKM.locate(aps_obj.uuid, aps_obj)
 
         # Verify that validation of APS will fail.
         valid = VncSecurityPolicy.validate_cluster_security_policy()
@@ -890,6 +894,7 @@ class VncNetworkPolicyTest(KMTestCase):
         # Detach deny-all policy from APS to introduce error.
         aps_obj.del_firewall_policy(fw_policy_obj)
         self._vnc_lib.application_policy_set_update(aps_obj)
+        ApplicationPolicySetKM.locate(aps_obj.uuid, aps_obj)
 
         # Verify that validation of APS will fail.
         valid = VncSecurityPolicy.validate_cluster_security_policy()

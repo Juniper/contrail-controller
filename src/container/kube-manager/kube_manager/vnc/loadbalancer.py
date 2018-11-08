@@ -82,7 +82,7 @@ class ServiceLbManager(VncCommon):
         try:
             self.logger.debug("Create LB Interface %s " % vmi_obj.get_fq_name())
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-            VirtualMachineInterfaceKM.locate(vmi_obj.uuid)
+            VirtualMachineInterfaceKM.locate(vmi_obj.uuid, vmi_obj)
         except BadRequest as e:
             self.logger.warning("LB (%s) Interface create failed %s " % (service_name, str(e)))
             return None, None
@@ -116,8 +116,8 @@ class ServiceLbManager(VncCommon):
             self._vnc_lib.instance_ip_create(iip_obj)
         except RefsExistError:
             self._vnc_lib.instance_ip_update(iip_obj)
-        InstanceIpKM.locate(iip_obj.uuid)
         iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
+        InstanceIpKM.locate(iip_obj.uuid, iip_obj)
         vip_address = iip_obj.get_instance_ip_address()
         self.logger.debug("Created LB VMI InstanceIp %s with VIP %s" %
                           (iip_obj.get_fq_name(), vip_address))

@@ -180,7 +180,7 @@ class VncIngress(VncCommon):
             fip_obj.floating_ip_address = external_ip
         try:
             self._vnc_lib.floating_ip_create(fip_obj)
-            fip = FloatingIpKM.locate(fip_obj.uuid)
+            fip = FloatingIpKM.locate(fip_obj.uuid, fip_obj)
         except Exception as e:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")

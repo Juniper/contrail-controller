@@ -161,11 +161,11 @@ class VncNetworkPolicy(VncCommon):
         self._set_sg_annotations(namespace, name,
             sg_obj, **kwargs_annotations)
         try:
-            self._vnc_lib.security_group_create(sg_obj)
+            sg_uuid = self._vnc_lib.security_group_create(sg_obj)
         except Exception as e:
             self._logger.error("%s - %s SG Not Created" %s(self._name, name))
             return None
-        sg = SecurityGroupKM.locate(sg_obj.uuid)
+        sg = SecurityGroupKM.locate(sg_obj.uuid, sg_obj)
         return sg
 
     def _create_ingress_sg(self, namespace, sg_name, ingress_pod_selector):
@@ -374,7 +374,8 @@ class VncNetworkPolicy(VncCommon):
             sg_obj.set_security_group_entries(rules)
         self._set_sg_annotations(namespace, sg.name,
             sg_obj, **annotations)
-        self._vnc_lib.security_group_update(sg_obj)
+        sg_uuid = self._vnc_lib.security_group_update(sg_obj)
+        SecurityGroupKM.locate(sg_uuid, sg_obj)
 
     def _update_ns_sg(self, ns_sg_uuid, np_sg_uuid, oper):
         ns_sg = SecurityGroupKM.get(ns_sg_uuid)
@@ -393,7 +394,8 @@ class VncNetworkPolicy(VncCommon):
         annotations = {}
         annotations['np_sgs'] = json.dumps(list(ns_sg.np_sgs))
         self._set_sg_annotations(ns_sg.namespace, ns_sg.name, sg_obj, **annotations)
-        self._vnc_lib.security_group_update(sg_obj)
+        sg_uuid = self._vnc_lib.security_group_update(sg_obj)
+        SecurityGroupKM.locate(sg_uuid, sg_obj)
 
     def _get_ingress_sg_rule_list(self, namespace, name,
             ingress_rule_list, ingress_pod_sg_create=True):

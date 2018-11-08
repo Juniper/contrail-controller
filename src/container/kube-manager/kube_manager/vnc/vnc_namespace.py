@@ -208,7 +208,6 @@ class VncNamespace(VncCommon):
                 vn_obj.set_fabric_snat(False)
             vn_uuid = self._vnc_lib.virtual_network_create(vn_obj)
             # Cache the virtual network.
-            VirtualNetworkKM.locate(vn_uuid)
         else:
             ip_fabric_enabled = False
             if provider:
@@ -230,6 +229,7 @@ class VncNamespace(VncCommon):
             vn_uuid = vn_obj.get_uuid()
 
         vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+        VirtualNetworkKM.locate(vn_uuid, vn_obj)
 
         # If required, enforce security policy at virtual network level.
         if enforce_policy:
@@ -274,6 +274,8 @@ class VncNamespace(VncCommon):
                 vn_obj.add_network_policy(policy,
                     VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
         self._vnc_lib.virtual_network_update(vn_obj)
+        VirtualNetworkKM.locate(vn.uuid, vn_obj)
+
         for policy in policies or []:
             if policy:
                 self._vnc_lib.ref_relax_for_delete(vn_obj.uuid, policy.uuid)
@@ -414,10 +416,11 @@ class VncNamespace(VncCommon):
                                         name=sg_obj.name,
                                         k8s_type=self._k8s_event_type)
         try:
-            self._vnc_lib.security_group_create(sg_obj)
+            sg_uuid = self._vnc_lib.security_group_create(sg_obj)
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
         except RefsExistError:
-            self._vnc_lib.security_group_update(sg_obj)
+            sg_uuid = self._vnc_lib.security_group_update(sg_obj)
+        SecurityGroupKM.locate(sg_obj.get_uuid(), sg_obj)
         sg = SecurityGroupKM.locate(sg_obj.get_uuid())
         return sg
 

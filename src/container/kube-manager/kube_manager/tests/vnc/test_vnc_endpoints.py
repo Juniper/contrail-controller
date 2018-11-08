@@ -83,7 +83,9 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         subnet_data = self._create_subnet_data('10.32.0.0/24')
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
-        return self._vnc_lib.virtual_network_create(vn_obj)
+        uuid = self._vnc_lib.virtual_network_create(vn_obj)
+        VirtualNetworkKM.locate(vn_obj.uuid, vn_obj)
+        return uuid
 
     @staticmethod
     def _create_subnet_data(vn_subnet):
