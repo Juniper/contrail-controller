@@ -4608,7 +4608,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
                 zk_node = [node for node in dump_zk
                     if node[0] == '%s/fq-name-to-uuid/virtual_network:%s/' %(
                         self._cluster_id, vn_obj.get_fq_name_str())]
-                self.assertEqual(len(zk_node), 1)
+                self.assertEqual(len(zk_node), 2)
                 self.assertEqual(zk_node[0][1][0], vn_obj.uuid)
     # end test_db_export
 
@@ -4631,7 +4631,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
             zk_node = [node for node in dump_zk
                 if node[0] == '%s/fq-name-to-uuid/virtual_network:%s/' %(
                     self._cluster_id, vn_obj.get_fq_name_str())]
-            self.assertEqual(len(zk_node), 1)
+            self.assertEqual(len(zk_node), 2)
             self.assertEqual(zk_node[0][1][0], vn_obj.uuid)
     # end test_db_export_with_omit_keyspaces
 
@@ -4792,7 +4792,7 @@ class TestPagination(test_case.ApiServerTestCase):
         verify_collection_walk()
         verify_collection_walk(page_limit=-1)
         verify_collection_walk(page_limit=0)
-        verify_collection_walk(page_limit=10000)
+        verify_collection_walk(page_limit=1000)
         verify_collection_walk(page_limit=1)
         verify_collection_walk(page_limit=2)
         logger.info("Verified unanchored pagination fetch.")
@@ -5367,7 +5367,7 @@ class TestSubCluster(test_case.ApiServerTestCase):
                 fq_name=sub_cluster_obj1.get_fq_name())
         bgp_router_obj = self._vnc_lib.bgp_router_read(id=cur_id)
         bgp_router_parameters = bgp_router_obj.get_bgp_router_parameters()
-        bgp_router_parameters.autonomous_system = 64515
+        bgp_router_parameters.autonomous_system = 64514
         bgp_router_obj.set_bgp_router_parameters(bgp_router_parameters)
         bgp_router_obj.set_sub_cluster(sub_cluster_obj1)
         try:
