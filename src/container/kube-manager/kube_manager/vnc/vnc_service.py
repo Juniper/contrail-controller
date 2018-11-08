@@ -367,7 +367,8 @@ class VncService(VncCommon):
                 err_msg = string_buf.getvalue()
                 self.logger.error("%s" %(err_msg))
 
-            fip = FloatingIpKM.locate(fip_obj.uuid)
+            fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
+            fip = FloatingIpKM.locate(fip_obj.uuid, fip_obj)
             self.logger.notice("floating ip allocated : %s for Service (%s)" %
                            (fip.address, service_id))
             return(fip.address)

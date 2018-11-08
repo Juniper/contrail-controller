@@ -221,7 +221,8 @@ class VncPod(VncCommon):
             self._vnc_lib.instance_ip_create(iip_obj)
         except RefsExistError:
             self._vnc_lib.instance_ip_update(iip_obj)
-        InstanceIpKM.locate(iip_obj.uuid)
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
+        InstanceIpKM.locate(iip_obj.uuid, iip_obj)
         return iip_obj
 
     def _get_host_vmi(self, pod_name):
@@ -280,7 +281,8 @@ class VncPod(VncCommon):
         except RefsExistError:
             vmi_uuid = self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
-        VirtualMachineInterfaceKM.locate(vmi_uuid)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+        VirtualMachineInterfaceKM.locate(vmi_uuid, vmi_obj)
         return vmi_uuid
 
     def _create_vm(self, pod_namespace, pod_id, pod_name, labels):
@@ -296,8 +298,9 @@ class VncPod(VncCommon):
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=pod_id)
-        VirtualMachineKM.locate(vm_obj.uuid)
+            pass
+        vm_obj = self._vnc_lib.virtual_machine_read(id=pod_id)
+        VirtualMachineKM.locate(vm_obj.uuid, vm_obj)
         return vm_obj
 
     def _link_vm_to_node(self, vm_obj, pod_node, node_ip):
