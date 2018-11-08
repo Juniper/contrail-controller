@@ -530,7 +530,8 @@ class VncIngressTest(KMTestCase):
         net_obj = self._vnc_lib.virtual_network_read(id=net_uuid)
         fip_pool_obj = FloatingIpPool('public_fip_pool', parent_obj=net_obj)
         fip_pool_uuid = self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
-
+        fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fip_pool_uuid)
+        FloatingIpPoolKM.locate(fip_pool_uuid, fip_pool_obj)
         kube_config.VncKubernetesConfig.args().public_fip_pool = str({
             'project': 'default',
             'domain': 'default-domain',
@@ -705,7 +706,9 @@ class VncIngressTest(KMTestCase):
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         subnet_data = self._create_subnet_data('10.0.0.0/24')
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
-        return self._vnc_lib.virtual_network_create(vn_obj)
+        uuid = self._vnc_lib.virtual_network_create(vn_obj)
+        VirtualNetworkKM.locate(vn_obj.uuid, vn_obj)
+        return uuid
 
     @staticmethod
     def _create_subnet_data(vn_subnet):
@@ -737,6 +740,7 @@ class VncIngressTest(KMTestCase):
 
         vrouter_obj.set_virtual_machine(vm)
         self._vnc_lib.virtual_router_update(vrouter_obj)
+        VirtualRouterKM.locate(vrouter_obj.get_uuid(), vrouter_obj)
         return vrouter_obj
 
     def _try_read_loadbalancer(self, lb_id, retry_limit=10):

@@ -206,6 +206,8 @@ class KMTestCase(test_common.TestCase):
         except RefsExistError:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
+        # proj_obj = self._vnc_lib.project_read(fq_name=proj_obj.fq_name)
+        # ProjectKM.locate(proj_obj.uuid, proj_obj)
         return proj_obj
 
     def create_security_group(self, proj_obj):
@@ -247,6 +249,7 @@ class KMTestCase(test_common.TestCase):
 
         self._vnc_lib.security_group_create(sg_obj)
         self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
+        SecurityGroupKM.locate(sg_obj.get_uuid(), sg_obj)
         return sg_obj
 
     def _create_network_ipam(self, name, network_type, subnet, proj_obj,
@@ -267,6 +270,9 @@ class KMTestCase(test_common.TestCase):
                 vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
             else:
                 vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([ipam_subnet]))
+        ipam_obj = self._vnc_lib.network_ipam_read(
+                fq_name=ipam_obj.get_fq_name())
+        NetworkIpamKM.locate(ipam_obj.get_uuid(), ipam_obj)
         return ipam_obj
 
     def create_pod_service_network(self, pod_vn_name, service_vn_name, \
@@ -290,6 +296,7 @@ class KMTestCase(test_common.TestCase):
             # Virtual network does not exist. Create one.
             vn_uuid = self._vnc_lib.virtual_network_create(vn)
             vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+            VirtualNetworkKM.locate(vn_uuid, vn_obj)
 
         ipam_obj = self._create_network_ipam(ipam_name, 'flat-subnet',
                                                  subnet, proj_obj, vn_obj)
@@ -318,7 +325,8 @@ class KMTestCase(test_common.TestCase):
                 fq_name=vrouter_obj.get_fq_name())
         except NoIdError:
             cls._vnc_lib.virtual_router_create(vrouter_obj)
-            VirtualRouterKM.locate(vrouter_obj.uuid)
+            vrouter_obj = cls._vnc_lib.virtual_router_read(vrouter_obj.get_uuid())
+            VirtualRouterKM.locate(vrouter_obj.uuid, vrouter_obj)
         return vrouter_obj
 
     @classmethod
