@@ -16,6 +16,7 @@
 #include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/misc_utils.h"
+#include "base/address_util.h"
 #include "io/process_signal.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -103,7 +104,7 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     XmppServer *xmpp_server;
     xmpp_server = new XmppServer(evm, options->hostname(), xmpp_cfg);
     boost::system::error_code ec;
-    IpAddress xmpp_ip_address = address::from_string(options->host_ip(), ec);
+    IpAddress xmpp_ip_address = AddressFromString(options->host_ip(), &ec);
     if (ec) {
         LOG(ERROR, "Xmpp IP Address:" <<  options->host_ip() <<
                    " conversion error:" << ec.message());
@@ -300,7 +301,7 @@ int main(int argc, char *argv[]) {
     parser.Parse(FileRead(options.bgp_config_file().c_str()));
 
     boost::system::error_code ec;
-    IpAddress bgp_ip_address = address::from_string(options.host_ip(), ec);
+    IpAddress bgp_ip_address = AddressFromString(options.host_ip(), &ec);
     if (ec) {
         LOG(ERROR, "Bgp IP Address:" <<  options.host_ip() <<
                    " conversion error:" << ec.message());

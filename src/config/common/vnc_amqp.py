@@ -27,7 +27,7 @@ class VncAmqpHandle(object):
         self.timer = timer_obj
 
     def establish(self):
-        q_name = '.'.join([self.q_name_prefix, socket.gethostname()])
+        q_name = '.'.join([self.q_name_prefix, socket.getfqdn()])
         self._vnc_kombu = VncKombuClient(
                 self._rabbitmq_cfg['servers'], self._rabbitmq_cfg['port'],
                 self._rabbitmq_cfg['user'], self._rabbitmq_cfg['password'],

@@ -66,7 +66,7 @@ class VrouterProcessStat(ProcessStat):
                                 msg = "Tor Agent command does " + \
                                       "not have config file : "
                                 self.msg_log(msg + command, SandeshLevel.SYS_ERR)
-        return ('vrouter_group', socket.gethostname())
+        return ('vrouter_group', socket.getfqdn())
     # end get_vrouter_process_info
 
     # Read agent_name from vrouter-tor-agent conf file

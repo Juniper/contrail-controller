@@ -25,7 +25,7 @@ class TorAgentBaseSetup(ContrailSetup):
         if self._args.non_mgmt_ip:
             self._args.self_ip = self._args.non_mgmt_ip
         if self._args.tor_agent_name is None:
-            self._args.tor_agent_name = socket.gethostname()+ '-' + str(self._args.tor_id)
+            self._args.tor_agent_name = socket.getfqdn()+ '-' + str(self._args.tor_id)
     def fixup_tor_agent(self):
         #if self._args.tor_ovs_protocol.lower() == 'pssl':
         self.ssl_cacert = '/etc/contrail/ssl/certs/tor-ca-cert.pem'

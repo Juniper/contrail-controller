@@ -246,7 +246,7 @@ class VncServerKombuClient(VncKombuClient):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         listen_port = db_client_mgr.get_server_port()
-        q_name = 'vnc_config.%s-%s' % (socket.gethostname(), listen_port)
+        q_name = 'vnc_config.%s-%s' % (socket.getfqdn(), listen_port)
         super(VncServerKombuClient, self).__init__(
             rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
             rabbit_ha_mode, q_name, self._dbe_subscribe_callback,
