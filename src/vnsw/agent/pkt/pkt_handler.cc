@@ -733,6 +733,19 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
+
+    // For ICMP, IGMP, make sure IP is IPv4, else fail the parsing
+    // so that we don't go ahead and access the ip header later
+    if (((pkt_info->ip_proto == IPPROTO_ICMP) ||
+         (pkt_info->ip_proto == IPPROTO_IGMP)) && (!pkt_info->ip)) {
+        return -1;
+    }
+    // If ip proto is ICMPv6, then make sure IP is IPv6, else fail
+    // the parsing so that we don't go ahead and access the ip6 header
+    // later
+    if ((pkt_info->ip_proto == IPPROTO_ICMPV6) && (!pkt_info->ip6)) {
+        return -1;
+    }
     
     // If packet is an IP fragment and not flow trap, ignore it
     if (IgnoreFragmentedPacket(pkt_info)) {
