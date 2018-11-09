@@ -32,14 +32,14 @@ public:
     static BridgeRouteEntry *L2RouteGet(VxLanId* vxlan, string remotemac,
                                         Agent *agent);
 private:
-    uuid vn_uuid_;
+    boost::uuids::uuid vn_uuid_;
     MacAddress remote_vm_mac_;
-    uint16_t   data_len_;
-    uint16_t   len_;   //Length including tcp, ip, agent headers + outer eth
+    uint16_t data_len_;
+    uint16_t len_;   //Length including tcp, ip, agent headers + outer eth
     std::string context_;
     boost::posix_time::ptime senttime_;
     boost::posix_time::time_duration avg_rtt_;
-    uint32_t  pkt_lost_count_;
+    uint32_t pkt_lost_count_;
 };
 
 #endif

@@ -431,7 +431,8 @@ static bool FlushTable(AgentDBTable *table) {
 
 void AgentInit::DeleteVhost() {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                     boost::uuids::nil_uuid(),
                                      agent_->vhost_interface_name()));
     VmInterfaceConfigData *data = new VmInterfaceConfigData(agent_.get(), NULL);
     req.data.reset(data);

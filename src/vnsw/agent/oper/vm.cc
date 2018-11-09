@@ -18,7 +18,7 @@ using namespace autogen;
 
 VmTable *VmTable::vm_table_;
 
-VmEntry::VmEntry(const uuid &id) : uuid_(id), name_(""),
+VmEntry::VmEntry(const boost::uuids::uuid &id) : uuid_(id), name_(""),
     drop_new_flows_(false) {
     flow_count_ = 0;
     linklocal_flow_count_ = 0;

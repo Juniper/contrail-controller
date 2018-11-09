@@ -820,8 +820,8 @@ AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
 void VrfTable::CreateVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags,
-                               nil_uuid(), 0, "", 0, false));
+    req.data.reset(new VrfData(agent(), NULL, flags, boost::uuids::nil_uuid(),
+                               0, "", 0, false));
     Enqueue(&req);
 }
 
@@ -860,7 +860,7 @@ void VrfTable::CreateVrf(const string &name,
 void VrfTable::DeleteVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid(),
+    req.data.reset(new VrfData(agent(), NULL, flags, boost::uuids::nil_uuid(),
                                0, "", 0, false));
     Enqueue(&req);
 }
@@ -868,14 +868,14 @@ void VrfTable::DeleteVrfReq(const string &name, uint32_t flags) {
 void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid(),
+    req.data.reset(new VrfData(agent(), NULL, flags, boost::uuids::nil_uuid(),
                                0, "", 0, false));
     Process(req);
 }
 
 void VrfTable::CreateStaticVrf(const string &name) {
     static_vrf_set_.insert(name);
-    CreateVrf(name, nil_uuid(), VrfData::ConfigVrf);
+    CreateVrf(name, boost::uuids::nil_uuid(), VrfData::ConfigVrf);
 }
 
 void VrfTable::CreateFabricPolicyVrf(const string &name) {
@@ -883,7 +883,7 @@ void VrfTable::CreateFabricPolicyVrf(const string &name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
     VrfData *data = new VrfData(agent(), NULL, VrfData::ConfigVrf,
-                                nil_uuid(), 0, "", 0, false);
+                                boost::uuids::nil_uuid(), 0, "", 0, false);
     data->forwarding_vrf_name_ = agent()->fabric_vrf_name();
     req.data.reset(data);
     Process(req);
@@ -959,7 +959,7 @@ static void BuildForwardingVrf(Agent *agent, IFMapNode *vn_node,
 }
 
 static VrfData *BuildData(Agent *agent, IFMapNode *node) {
-    boost::uuids::uuid vn_uuid = nil_uuid();
+    boost::uuids::uuid vn_uuid = boost::uuids::nil_uuid();
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
     bool learning_enabled = false;
@@ -1019,7 +1019,7 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
         }
 
         VrfData *data = new VrfData(agent(), node, VrfData::ConfigVrf,
-                                    nil_uuid(), 0, "", 0, false);
+                                    boost::uuids::nil_uuid(), 0, "", 0, false);
         if (node->name() == agent()->fabric_policy_vrf_name()) {
             data->forwarding_vrf_name_ = agent()->fabric_vrf_name();
         }
@@ -1047,7 +1047,7 @@ bool VrfTable::ProcessConfig(IFMapNode *node, DBRequest &req,
         }
 
         VrfData *data = new VrfData(agent(), node, VrfData::ConfigVrf,
-                                    nil_uuid(), 0, "", 0, false);
+                                    boost::uuids::nil_uuid(), 0, "", 0, false);
         if (node->name() == agent()->fabric_policy_vrf_name()) {
             data->forwarding_vrf_name_ = agent()->fabric_vrf_name();
         }

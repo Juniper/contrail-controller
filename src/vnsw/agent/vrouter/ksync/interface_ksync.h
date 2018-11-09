@@ -20,8 +20,6 @@
 #include "vrouter/ksync/agent_ksync_types.h"
 #include "vr_types.h"
 
-using namespace std;
-
 void KSyncInterfaceCreate(Interface::Type type, const char *if_name,
                           uint32_t vrf_id, uint32_t &ifindex, uint32_t &fd,
                           MacAddress &mac);

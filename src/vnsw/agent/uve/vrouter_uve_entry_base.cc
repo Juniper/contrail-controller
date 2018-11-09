@@ -372,7 +372,7 @@ void VrouterUveEntryBase::AppendInterfaceInternal(const VmInterface *port,
 PhysicalDevice *VrouterUveEntryBase::VmiToPhysicalDevice
     (const VmInterface *port) {
     const boost::uuids::uuid u = port->logical_interface();
-    if (u == nil_uuid()) {
+    if (u == boost::uuids::nil_uuid()) {
         return NULL;
     }
     LogicalInterface *intf;

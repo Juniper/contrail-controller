@@ -15,8 +15,6 @@
 #include <oper/vrf.h>
 #include <oper/ecmp_load_balance.h>
 
-using namespace boost::uuids;
-using namespace std;
 class NextHopKey;
 class MplsLabel;
 
@@ -815,7 +813,7 @@ public:
 
     const MacAddress &GetMac() const {return mac_;};
     const Interface *GetInterface() const {return interface_.get();};
-    const uuid &GetIfUuid() const;
+    const boost::uuids::uuid &GetIfUuid() const;
     const uint32_t vrf_id() const;
     const Ip4Address *GetIp() const {return &ip_;};
     const VrfEntry *GetVrf() const {return vrf_.get();};
@@ -1038,7 +1036,7 @@ public:
     }
 
     virtual ~InterfaceNHKey() {};
-    const uuid &GetUuid() const {return intf_key_->uuid_;};
+    const boost::uuids::uuid &GetUuid() const {return intf_key_->uuid_;};
     const std::string& name() const { return intf_key_->name_;};
     const Interface::Type &intf_type() const {return intf_key_->type_;}
     const InterfaceKey *intf_key() const { return intf_key_.get(); }
@@ -1128,37 +1126,38 @@ public:
     bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
     bool IsBridge() const { return flags_ & InterfaceNHFlags::BRIDGE; };
     uint8_t GetFlags() const {return flags_;};
-    const uuid &GetIfUuid() const;
+    const boost::uuids::uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
 
-    static void CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
+    static void CreateMulticastVmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                              const MacAddress &dmac,
                                              const string &vrf_name,
                                              const string &intf_name);
-    static void DeleteMulticastVmInterfaceNH(const uuid &intf_uuid,
+    static void DeleteMulticastVmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                              const MacAddress &dmac,
                                              const std::string &intf_name);
-    static void CreateL2VmInterfaceNH(const uuid &intf_uuid,
+    static void CreateL2VmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                       const MacAddress &dmac,
                                       const string &vrf_name,
                                       bool learning_enabled,
                                       bool etree_leaf,
                                       bool layer2_control_word,
                                       const std::string &intf_name);
-    static void DeleteL2InterfaceNH(const uuid &intf_uuid,
+    static void DeleteL2InterfaceNH(const boost::uuids::uuid &intf_uuid,
                                     const MacAddress &mac,
                                     const std::string &intf_name);
-    static void CreateL3VmInterfaceNH(const uuid &intf_uuid,
+    static void CreateL3VmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                       const MacAddress &dmac,
                                       const string &vrf_name,
                                       bool learning_enabled,
                                       const std::string &intf_name);
-    static void DeleteL3InterfaceNH(const uuid &intf_uuid,
+    static void DeleteL3InterfaceNH(const boost::uuids::uuid &intf_uuid,
                                     const MacAddress &mac,
                                     const std::string &intf_name);
-    static void DeleteNH(const uuid &intf_uuid, bool policy, uint8_t flags,
+    static void DeleteNH(const boost::uuids::uuid &intf_uuid,
+                         bool policy, uint8_t flags,
                          const MacAddress &mac, const std::string &intf_name);
-    static void DeleteVmInterfaceNHReq(const uuid &intf_uuid,
+    static void DeleteVmInterfaceNHReq(const boost::uuids::uuid &intf_uuid,
                                        const MacAddress &mac,
                                        const std::string &intf_name);
     static void CreatePacketInterfaceNh(Agent *agent, const string &ifname);
@@ -1310,7 +1309,7 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class VlanNHKey : public NextHopKey {
 public:
-    VlanNHKey(const uuid &vm_port_uuid, uint16_t vlan_tag) :
+    VlanNHKey(const boost::uuids::uuid &vm_port_uuid, uint16_t vlan_tag) :
         NextHopKey(NextHop::VLAN, false),
         intf_key_(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, vm_port_uuid,
                                      "")),
@@ -1375,20 +1374,20 @@ public:
 
     const Interface *GetInterface() const {return interface_.get();};
     uint16_t GetVlanTag() const {return vlan_tag_;};
-    const uuid &GetIfUuid() const;
+    const boost::uuids::uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
     const MacAddress &GetSMac() const {return smac_;};
     const MacAddress &GetDMac() const {return dmac_;};
-    static VlanNH *Find(const uuid &intf_uuid, uint16_t vlan_tag);
+    static VlanNH *Find(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag);
 
-    static void Create(const uuid &intf_uuid, uint16_t vlan_tag,
+    static void Create(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag,
                           const std::string &vrf_name, const MacAddress &smac,
                           const MacAddress &dmac);
-    static void Delete(const uuid &intf_uuid, uint16_t vlan_tag);
-    static void CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
+    static void Delete(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag);
+    static void CreateReq(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag,
                           const std::string &vrf_name, const MacAddress &smac,
                           const MacAddress &dmac);
-    static void DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag);
+    static void DeleteReq(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag);
 
     virtual bool MatchEgressData(const NextHop *nh) const {
         const VlanNH *vlan_nh = dynamic_cast<const VlanNH *>(nh);
@@ -1479,14 +1478,14 @@ public:
     ComponentNHKey(int label, Composite::Type type, bool policy,
                    const ComponentNHKeyList &component_nh_list,
                    const std::string &vrf_name);
-    ComponentNHKey(int label, const uuid &intf_uuid, uint8_t flags,
-                   const MacAddress &mac):
+    ComponentNHKey(int label, const boost::uuids::uuid &intf_uuid,
+                   uint8_t flags, const MacAddress &mac):
         label_(label),
         nh_key_(new InterfaceNHKey(
                     new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
                     false, flags, mac)) {
     }
-    ComponentNHKey(int label, uint8_t tag, const uuid &intf_uuid):
+    ComponentNHKey(int label, uint8_t tag, const boost::uuids::uuid &intf_uuid):
         label_(label), nh_key_(new VlanNHKey(intf_uuid, tag)) {
     }
 

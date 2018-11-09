@@ -23,11 +23,11 @@ public:
 
 private:
     void IncrementTtl();
-    uuid  vn_uuid_;
+    boost::uuids::uuid vn_uuid_;
     MacAddress remote_vm_mac_;
     uint8_t ttl_;
-    bool       done_;
-    uint16_t   max_ttl_;
+    bool done_;
+    uint16_t max_ttl_;
     uint32_t len_;
     std::string context_;
 };

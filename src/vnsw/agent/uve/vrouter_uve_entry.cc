@@ -144,7 +144,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         }
     }
 
-    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, boost::uuids::nil_uuid(),
                        agent_->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>
         (agent_->interface_table()->FindActiveEntry(&key));

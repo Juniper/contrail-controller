@@ -234,7 +234,7 @@ TagData* TagTable::BuildData(Agent *agent, IFMapNode *node) {
          node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
 
-        uuid aps_uuid(nil_uuid());
+        boost::uuids::uuid aps_uuid(boost::uuids::nil_uuid());
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (agent->config_manager()->SkipNode(adj_node,
                     agent->cfg()->cfg_policy_set_table())) {

@@ -44,15 +44,15 @@ VxlanRoutingState::~VxlanRoutingState() {
 }
 
 VxlanRoutingVnState::VxlanRoutingVnState(VxlanRoutingManager *mgr) :
-    vmi_list_(), is_routing_vn_(false), logical_router_uuid_(nil_uuid()),
-    mgr_(mgr) {
+    vmi_list_(), is_routing_vn_(false),
+    logical_router_uuid_(boost::uuids::nil_uuid()), mgr_(mgr) {
 }
 
 VxlanRoutingVnState::~VxlanRoutingVnState() {
 }
 
 void VxlanRoutingVnState::AddVmi(const VnEntry *vn, const VmInterface *vmi) {
-    assert(vmi->logical_router_uuid() != nil_uuid());
+    assert(vmi->logical_router_uuid() != boost::uuids::nil_uuid());
     VmiListIter it = vmi_list_.find(vmi);
     if (it != vmi_list_.end()) {
         return;
@@ -75,7 +75,7 @@ void VxlanRoutingVnState::DeleteVmi(const VnEntry *vn, const VmInterface *vmi) {
 }
 
 VxlanRoutingVmiState::VxlanRoutingVmiState() :
-    vn_entry_(NULL), logical_router_uuid_(nil_uuid()) {
+    vn_entry_(NULL), logical_router_uuid_(boost::uuids::nil_uuid()) {
 }
 
 VxlanRoutingVmiState::~VxlanRoutingVmiState() {
@@ -83,7 +83,8 @@ VxlanRoutingVmiState::~VxlanRoutingVmiState() {
 
 boost::uuids::uuid VxlanRoutingVnState::logical_router_uuid() const {
     if (vmi_list_.size() == 0)
-        return nil_uuid();
+        return boost::uuids::nil_uuid();
+
     return (*(vmi_list_.begin()))->logical_router_uuid();
 }
 
@@ -187,6 +188,8 @@ const VrfEntry *VxlanRoutingVrfMapper::GetRoutingVrfUsingUuid
 
 const boost::uuids::uuid VxlanRoutingVrfMapper::GetLogicalRouterUuidUsingRoute
 (const AgentRoute *rt) {
+    using boost::uuids::nil_uuid;
+
     //Local VM path provides interface to get LR.
     AgentPath *path = rt->FindLocalVmPortPath();
     if (path == NULL) {
@@ -340,6 +343,8 @@ void VxlanRoutingManager::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
 void UpdateLogicalRouterUuid(const VnEntry *vn,
                              VxlanRoutingVnState *vn_state) {
+    using boost::uuids::nil_uuid;
+
     if (vn_state->vmi_list_.size() == 0) {
         vn_state->logical_router_uuid_ = nil_uuid();
     }
@@ -363,6 +368,8 @@ void UpdateLogicalRouterUuid(const VnEntry *vn,
 
 void VxlanRoutingManager::BridgeVnNotify(const VnEntry *vn,
                                          VxlanRoutingVnState *vn_state) {
+    using boost::uuids::nil_uuid;
+
     if (vn->logical_router_uuid() != nil_uuid()) {
         return;
     }
@@ -493,7 +500,7 @@ void VxlanRoutingManager::RoutingVnNotify(const VnEntry *vn,
     }
 
     if (update) {
-        if (vn_state->logical_router_uuid_ == nil_uuid()) {
+        if (vn_state->logical_router_uuid_ == boost::uuids::nil_uuid()) {
             return;
         }
 
@@ -571,7 +578,7 @@ void VxlanRoutingManager::VmiNotify(DBTablePartBase *partition,
     VxlanRoutingVmiState *vmi_state = dynamic_cast<VxlanRoutingVmiState *>(vmi->
                              GetAgentDBEntryState(vmi_listener_id_));
     if (vmi->IsDeleted() || (vn == NULL) ||
-        (vmi->logical_router_uuid() == nil_uuid())) {
+        (vmi->logical_router_uuid() == boost::uuids::nil_uuid())) {
         if (!vmi_state) {
             return;
         }
@@ -595,7 +602,7 @@ void VxlanRoutingManager::VmiNotify(DBTablePartBase *partition,
         return;
     }
 
-    if (vmi->logical_router_uuid() == nil_uuid()) {
+    if (vmi->logical_router_uuid() == boost::uuids::nil_uuid()) {
         return;
     }
 

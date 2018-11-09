@@ -215,7 +215,7 @@ void FlowStatsCollector::UpdateFloatingIpStats(const FlowExportInfo *flow,
     }
 
     /* Ignore Non-Floating-IP flow */
-    if (!fe->fip() || fe->fip_vmi().uuid_ == nil_uuid()) {
+    if (!fe->fip() || fe->fip_vmi().uuid_ == boost::uuids::nil_uuid()) {
         return;
     }
 
@@ -274,7 +274,8 @@ VmInterfaceKey FlowStatsCollector::ReverseFlowFipVmi
     if (rflow) {
         return rflow->fip_vmi();
     }
-    return VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "");
+    return VmInterfaceKey(
+        AgentKey::ADD_DEL_CHANGE, boost::uuids::nil_uuid(), "");
 }
 
 void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,

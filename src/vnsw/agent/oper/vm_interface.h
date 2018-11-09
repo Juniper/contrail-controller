@@ -938,7 +938,7 @@ public:
     struct FatFlowEntry : ListEntry {
         FatFlowEntry(): protocol(0), port(0),
             ignore_address(IGNORE_NONE), prefix_aggregate(AGGREGATE_NONE),
-            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0), 
+            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0),
             dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) {}
 
         FatFlowEntry(const FatFlowEntry &rhs):
@@ -951,12 +951,12 @@ public:
             protocol(proto), port(p),
             ignore_address(IGNORE_NONE),
             prefix_aggregate(AGGREGATE_NONE),
-            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0), 
+            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0),
             dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) { }
 
         FatFlowEntry(const uint8_t proto, const uint16_t p,
             std::string ignore_addr, FatFlowPrefixAggregateType prefix_aggregate,
-            IpAddress src_prefix, uint8_t src_prefix_mask, uint8_t src_aggregate_plen, 
+            IpAddress src_prefix, uint8_t src_prefix_mask, uint8_t src_aggregate_plen,
             IpAddress dst_prefix, uint8_t dst_prefix_mask, uint8_t dst_aggregate_plen);
 
         static FatFlowEntry MakeFatFlowEntry(const std::string &protocol, const int &port,
@@ -1026,7 +1026,7 @@ public:
         }
     };
     struct BridgeDomain : ListEntry {
-        BridgeDomain(): uuid_(nil_uuid()), vlan_tag_(0),
+        BridgeDomain(): uuid_(boost::uuids::nil_uuid()), vlan_tag_(0),
             bridge_domain_(NULL) {}
         BridgeDomain(const BridgeDomain &rhs):
             uuid_(rhs.uuid_), vlan_tag_(rhs.vlan_tag_),

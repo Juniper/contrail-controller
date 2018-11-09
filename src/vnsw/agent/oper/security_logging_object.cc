@@ -277,7 +277,7 @@ SecurityLoggingObjectTable::BuildData(IFMapNode *node) const {
             IFMapNode *fp_node = agent()->config_manager()->
                 FindAdjacentIFMapNode(adj_node, "firewall-policy");
             if (fp_node) {
-                uuid fp_uuid = nil_uuid();
+                boost::uuids::uuid fp_uuid = boost::uuids::nil_uuid();
                 autogen::FirewallPolicy *fp =
                     static_cast<autogen::FirewallPolicy *>(fp_node->GetObject());
                 autogen::IdPermsType id_perms = fp->id_perms();
@@ -297,7 +297,7 @@ SecurityLoggingObjectTable::BuildData(IFMapNode *node) const {
             IFMapNode *fr_node = agent()->config_manager()->
                 FindAdjacentIFMapNode(adj_node, "firewall-rule");
             if (fr_node) {
-                uuid fr_uuid = nil_uuid();
+                boost::uuids::uuid fr_uuid = boost::uuids::nil_uuid();
                 autogen::FirewallRule *fr =
                     static_cast<autogen::FirewallRule *>(fr_node->GetObject());
                 autogen::IdPermsType id_perms = fr->id_perms();
@@ -323,4 +323,3 @@ SecurityLoggingObjectTable::GetAgentSandesh(const AgentSandeshArguments *args,
     return AgentSandeshPtr(new AgentSecurityLoggingObjectSandesh(context,
                            args->GetString("uuid")));
 }
-
