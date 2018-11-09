@@ -22,7 +22,7 @@
             jl_err_message: "\nFail to delete device: {{ output.error_msg }}"
             results: {}
 
-       - name: handle failure
+        - name: handle failure
           include_tasks: error_handler.yml
       when: output.status == 'failure'
 
