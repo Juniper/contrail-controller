@@ -147,17 +147,19 @@ void VxlanRoutingVrfMapper::RouteWalkDone(DBTable::DBTableWalkRef walk_ref,
 void VxlanRoutingVrfMapper::WalkBridgeVrfs
 (const VxlanRoutingVrfMapper::RoutedVrfInfo &routed_vrf_info)
 {
-    //Start walk on all l2 table
+    //Start walk on all l2 tables
     VxlanRoutingVrfMapper::RoutedVrfInfo::BridgeVnListIter it =
         routed_vrf_info.bridge_vn_list_.begin();
     while (it != routed_vrf_info.bridge_vn_list_.end()) {
         const VnEntry *vn = static_cast<const VnEntry *>(*it);
-        EvpnAgentRouteTable *evpn_table =
-            static_cast<EvpnAgentRouteTable *>(vn->GetVrf()->
-                                               GetEvpnRouteTable());
-        if (!evpn_table)
-            continue;
-        WalkEvpnTable(evpn_table);
+        const VrfEntry *vrf = vn->GetVrf();
+        if (vrf) {
+            EvpnAgentRouteTable *evpn_table =
+                static_cast<EvpnAgentRouteTable *>(vrf->GetEvpnRouteTable());
+            if (!evpn_table)
+                continue;
+            WalkEvpnTable(evpn_table);
+        }
         it++;
     }
 }
