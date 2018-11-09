@@ -494,6 +494,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_baremetal_logical_interface_bindings
 
+    @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings_with_lag(self):
         """ This test tests the Logical to LAG interface binding.
 
@@ -653,6 +654,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_baremetal_logical_interface_bindings_with_lag
 
+    @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings_with_multi_homing(self):
         """ This test tests the Bond interface that connects to two Tors.
 
@@ -835,6 +837,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             self._vnc_lib.physical_router_delete(id=pr_uuid[t])
     # end test_baremetal_logical_interface_bindings_with_multi_homing
 
+    @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings_multiple_bonds(self):
 
         def _test_multiple_bonds(tors=None, bonds=None):
