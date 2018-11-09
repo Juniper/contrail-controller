@@ -2534,9 +2534,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         li_fq_name = ['default-global-system-config', tor, link]
         li_fq_name = li_fq_name + ['%s.%s' %(link, vlan_tag)]
 
+        li_display_name = li_fq_name[-1]
+        li_display_name = li_display_name.replace("_",":")
         li_obj = LogicalInterface(parent_type='physical-interface',
             fq_name=li_fq_name,
-            logical_interface_vlan_tag=vlan_tag)
+            logical_interface_vlan_tag=vlan_tag,
+            display_name=li_display_name)
 
         ok, resp = api_server.internal_request_create('logical-interface',
             li_obj.serialize_to_json())
