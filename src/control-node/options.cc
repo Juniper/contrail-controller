@@ -50,9 +50,12 @@ void Options::Initialize(EventManager &evm,
     boost::system::error_code error;
     string hostname = host_name(error);
     string host_ip = GetHostIp(evm.io_service(), hostname);
+    string introspect_host_ip = host_ip;
 
-    if (host_ip.empty())
+    if (host_ip.empty()) {
         host_ip = "127.0.0.1";
+        introspect_host_ip = "0.0.0.0";
+    }
 
     opt::options_description generic("Generic options");
 
@@ -107,6 +110,9 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.http_server_port",
              opt::value<uint16_t>()->default_value(default_http_server_port),
              "Sandesh HTTP listener port")
+        ("DEFAULT.http_server_ip",
+             opt::value<string>()->default_value(introspect_host_ip),
+             "Sandesh HTTP listener IP")
 
         ("DEFAULT.log_category",
              opt::value<string>()->default_value(log_category_),
