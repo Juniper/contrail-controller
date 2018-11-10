@@ -4,49 +4,46 @@
 {%             continue %}
 {%         endif %}
 {%         set contrail_l3_ri = ri.get('name') %}
-
 {%         set intfs = ri.get('interfaces', []) %}
 {%         for intf in intfs %}
 {%             set name = intf.get('name') %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{name}}
 {%         endfor %}
-
-{%         set service_interfaces = ri.get('service_interfaces') %}
-{%         if service_interfaces != None %}
-{%             set ri_type = ri.get('routing_instance_type') %}
-{%             for intf in service_interfaces %}
-{%                 set intf_name = intf.get('name') %}
-{%                 set phy_intf = intf_name.split(".")[0] %}
-{%                 set lo_unit = intf_name.split(".")[1] %}
+{%         set ri_type = ri.get('routing_instance_type') %}
+{%         for intf in ri.get('ingress_interfaces') %}
+{%             set intf_name = intf.get('name') %}
+{%             set phy_intf = intf_name.split(".")[0] %}
+{%             set lo_unit = intf_name.split(".")[1] %}
 set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} family inet
-{%                 if 'Ingress' in intf.get('comment', '') %}
-{%                     set nat_ingress_import = contrail_l3_ri + '-import' %}
-{%                     set nat_ingress_export = contrail_l3_ri + '-export' %}
+{%             set nat_ingress_import = contrail_l3_ri + '-import' %}
+{%             set nat_ingress_export = contrail_l3_ri + '-export' %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type {{ri_type}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{nat_ingress_import}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{nat_ingress_export}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route 0.0.0.0/0 next-hop {{intf_name}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet unicast
-{%                     for import_target in ri.get('import_targets', []) %}
-{%                         set community_target = import_target.replace(':', '_') %}
+{%             for import_target in ri.get('import_targets', []) %}
+{%                 set community_target = import_target.replace(':', '_') %}
 set groups {{cfg_group}} policy-options policy-statement {{nat_ingress_import}} term t1 from community {{community_target}}
 set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target}}
-{%                     endfor %}
+{%             endfor %}
 set policy-options policy-statement {{nat_ingress_import}} term t1 then accept
 set policy-options policy-statement {{nat_ingress_import}} then reject
 set groups {{cfg_group}} policy-options policy-statement {{nat_ingress_export}} term t1 then reject
 set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} service-domain inside
-{%                 endif %}
-{%                 if 'Egress' in intf.get('comment', '') %}
-{%                     for route in ri.get('static_routes', []) %}
-{%                         set cidr = route.get('prefix') + '/' + route.get('prefix_len')|string %}
+{%         endfor %}
+{%         for intf in ri.get('egress_interfaces') %}
+{%             set intf_name = intf.get('name') %}
+{%             set phy_intf = intf_name.split(".")[0] %}
+{%             set lo_unit = intf_name.split(".")[1] %}
+set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} family inet
+{%             for route in ri.get('static_routes', []) %}
+{%                 set cidr = route.get('prefix') + '/' + route.get('prefix_len')|string %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} next-hop {{intf_name}}
-{%                     endfor %}
-set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} service-domain outside
-{%                 endif %}
 {%             endfor %}
-{%         endif %}
+set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} service-domain outside
+{%         endfor %}
 {%         set nat_rules = ri.get('nat_rules') %}
 {%         if nat_rules != None %}
 {%             set nat_rules_name = nat_rules.get('name') %}

@@ -83,7 +83,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     vn_obj = VirtualNetworkDM.get(vn)
                     irb_name = "irb." + str(vn_obj.vn_network_id)
                     if irb_name in self.irb_interfaces:
-                        int_ri.add_routing_interfaces(LogicalInterface(name=irb_name))
+                        self.add_ref_to_list(int_ri.get_routing_interfaces(), irb_name)
     # end set_internal_vn_irb_config
 
     def add_irb_config(self, ri_conf):
@@ -91,11 +91,11 @@ class AnsibleRoleCommon(AnsibleConf):
         is_l2_l3 = ri_conf.get("is_l2_l3", False)
         gateways = ri_conf.get("gateways", [])
         network_id = ri_conf.get("network_id", None)
-        irb_intf = self.set_default_pi('irb', 'irb')
+        irb_intf, li_map = self.set_default_pi('irb', 'irb')
         self._logger.info("Vn=" + vn.name + ", IRB: " + str(gateways) + ", pr="
                           + self.physical_router.name)
         if gateways is not None:
-            intf_unit = self.set_default_li(irb_intf,
+            intf_unit = self.set_default_li(li_map,
                                             'irb.' + str(network_id),
                                             network_id)
             intf_unit.set_comment(DMUtils.vn_irb_comment(vn, False, is_l2_l3))
@@ -109,13 +109,12 @@ class AnsibleRoleCommon(AnsibleConf):
     # qfx10k pfe limitation
     def add_bogus_lo0(self, ri, network_id, vn):
         ifl_num = 1000 + int(network_id)
-        lo_intf = self.set_default_pi('lo0', 'loopback')
-        intf_unit = self.set_default_li(lo_intf,
-                                        'lo0.' + str(ifl_num),
-                                        ifl_num)
+        lo_intf, li_map = self.set_default_pi('lo0', 'loopback')
+        intf_name = 'lo0.' + str(ifl_num)
+        intf_unit = self.set_default_li(li_map, intf_name, ifl_num)
         intf_unit.set_comment(DMUtils.l3_bogus_lo_intf_comment(vn))
         intf_unit.add_ip_list("127.0.0.1")
-        ri.add_loopback_interfaces(LogicalInterface(name="lo0." + str(ifl_num)))
+        self.add_ref_to_list(ri.get_loopback_interfaces(), intf_name)
     # end add_bogus_lo0
 
     def add_inet_public_vrf_filter(self, firewall_config, inet_type):
@@ -161,13 +160,12 @@ class AnsibleRoleCommon(AnsibleConf):
         encapsulation_priorities = \
            ri_conf.get("encapsulation_priorities") or ["MPLSoGRE"]
 
-        self.ri_config = self.ri_config or []
         ri = RoutingInstance(name=ri_name)
         if vn:
             is_nat = True if fip_map else False
             ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat,
                                                  router_external))
-        self.ri_config.append(ri)
+        self.ri_map[ri_name] = ri
 
         ri.set_virtual_network_id(str(network_id))
         ri.set_vxlan_id(str(vni))
@@ -187,7 +185,7 @@ class AnsibleRoleCommon(AnsibleConf):
             ri.set_routing_instance_type("vrf")
             if fip_map is None:
                 for interface in interfaces:
-                    ri.add_interfaces(LogicalInterface(name=interface.name))
+                    self.add_ref_to_list(ri.get_interfaces(), interface.name)
                 if prefixes:
                     for prefix in prefixes:
                         ri.add_static_routes(self.get_route_for_cidr(prefix))
@@ -208,7 +206,7 @@ class AnsibleRoleCommon(AnsibleConf):
             self.attach_irb(ri_conf, ri)
 
         if fip_map is not None:
-            ri.add_interfaces(LogicalInterface(name=interfaces[0].name))
+            self.add_ref_to_list(ri.get_interfaces(), interfaces[0].name)
 
             public_vrf_ips = {}
             for pip in fip_map.values():
@@ -218,8 +216,8 @@ class AnsibleRoleCommon(AnsibleConf):
 
             for public_vrf, fips in public_vrf_ips.items():
                 ri_public = RoutingInstance(name=public_vrf)
-                self.ri_config.append(ri_public)
-                ri_public.add_interfaces(LogicalInterface(name=interfaces[1].name))
+                self.ri_map[public_vrf] = ri_public
+                self.add_ref_to_list(ri_public.get_interfaces(), interfaces[1].name)
                 floating_ips = []
                 for fip in fips:
                     ri_public.add_static_routes(
@@ -275,15 +273,14 @@ class AnsibleRoleCommon(AnsibleConf):
             term.set_then(Then(routing_instance=[ri_name]))
             f.add_terms(term)
 
-            irb_intf = self.set_default_pi('irb', 'irb')
-            intf_unit = self.set_default_li(irb_intf,
-                                            'irb.' + str(network_id),
-                                            network_id)
+            irb_intf, li_map = self.set_default_pi('irb', 'irb')
+            intf_name = 'irb.' + str(network_id)
+            intf_unit = self.set_default_li(li_map, intf_name, network_id)
             intf_unit.set_comment(DMUtils.vn_irb_fip_inet_comment(vn))
             intf_unit.set_family("inet")
             intf_unit.add_firewall_filters(
                 DMUtils.make_private_vrf_filter_name(ri_name))
-            ri.add_routing_interfaces(intf_unit)
+            self.add_ref_to_list(ri.get_routing_interfaces(), intf_name)
 
         if gateways is not None:
             for (ip, gateway) in gateways:
@@ -296,22 +293,21 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             vlan = None
             if encapsulation_priorities[0] == "VXLAN":
-                self.vlans_config = self.vlans_config or []
                 vlan = Vlan(name=DMUtils.make_bridge_name(vni), vxlan_id=vni)
                 vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
-                self.vlans_config.append(vlan)
+                self.vlan_map[vlan.get_name()] = vlan
                 for interface in interfaces:
-                     vlan.add_interfaces(LogicalInterface(name=interface.name))
+                    self.add_ref_to_list(vlan.get_interfaces(), interface.name)
                 if is_l2_l3:
                     # network_id is unique, hence irb
                     irb_intf = "irb." + str(network_id)
-                    vlan.add_interfaces(LogicalInterface(name=irb_intf))
+                    self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
             elif (any(x in encapsulation_priorities for x in ["MPLSoGRE", "MPLSoUDP"])):
                 self.init_evpn_config(encapsulation_priorities[1])
                 self.evpn.set_comment(
                       DMUtils.vn_evpn_comment(vn, encapsulation_priorities[1]))
                 for interface in interfaces:
-                    self.evpn.add_interfaces(LogicalInterface(name=interface.name))
+                    self.add_ref_to_list(self.evpn.get_interfaces(), interface.name)
 
             self.build_l2_evpn_interface_config(interfaces, vn, vlan)
 
@@ -324,10 +320,9 @@ class AnsibleRoleCommon(AnsibleConf):
 
         if (not is_l2 and not is_l2_l3 and gateways):
             ifl_num = 1000 + int(network_id)
-            lo_intf = self.set_default_pi('lo0', 'loopback')
-            intf_unit = self.set_default_li(lo_intf,
-                                            'lo0.' + str(ifl_num),
-                                            ifl_num)
+            lo_intf, li_map = self.set_default_pi('lo0', 'loopback')
+            intf_name = 'lo0.' + str(ifl_num)
+            intf_unit = self.set_default_li(li_map, intf_name, ifl_num)
             intf_unit.set_comment(DMUtils.l3_lo_intf_comment(vn))
             for (lo_ip, _) in gateways:
                 subnet = lo_ip
@@ -337,9 +332,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 else:
                     lo_ip = ip + '/' + '32'
                 intf_unit.add_ip_list(lo_ip)
-            ri.add_loopback_interfaces(LogicalInterface(
-                name="lo0." + str(ifl_num),
-                comment=DMUtils.lo0_ri_intf_comment(vn)))
+            self.add_ref_to_list(ri.get_loopback_interfaces(), intf_name)
 
         # fip services config
         if fip_map is not None:
@@ -376,25 +369,14 @@ class AnsibleRoleCommon(AnsibleConf):
                 dnat_rule.add_destination_prefixes(
                     self.get_subnet_for_cidr(pip))
 
-            intf_unit = LogicalInterface(
-                name=interfaces[0].name,
-                unit=interfaces[0].unit,
-                comment=DMUtils.service_intf_comment("Ingress"))
-            intf_unit.set_family("inet")
-            ri.add_service_interfaces(intf_unit)
-
-            intf_unit = LogicalInterface(
-                name=interfaces[1].name,
-                unit=interfaces[1].unit,
-                comment=DMUtils.service_intf_comment("Egress"))
-            intf_unit.set_family("inet")
-            ri.add_service_interfaces(intf_unit)
+            self.add_ref_to_list(ri.get_ingress_interfaces(), interfaces[0].name)
+            self.add_ref_to_list(ri.get_egress_interfaces(), interfaces[1].name)
 
         for target in import_targets:
-            ri.add_import_targets(target)
+            self.add_to_list(ri.get_import_targets(), target)
 
         for target in export_targets:
-            ri.add_export_targets(target)
+            self.add_to_list(ri.get_export_targets(), target)
     # end add_routing_instance
 
     def attach_acls(self, interface, unit):
@@ -436,7 +418,7 @@ class AnsibleRoleCommon(AnsibleConf):
             ifd_map.setdefault(interface.ifd_name, []).append(interface)
 
         for ifd_name, interface_list in ifd_map.items():
-            intf = self.set_default_pi(ifd_name)
+            intf, li_map = self.set_default_pi(ifd_name)
             if interface_list[0].is_untagged():
                 if len(interface_list) > 1:
                     self._logger.error(
@@ -444,7 +426,7 @@ class AnsibleRoleCommon(AnsibleConf):
                             ifd_name))
                     continue
                 unit_name = ifd_name + "." + str(interface_list[0].unit)
-                unit = self.set_default_li(intf, unit_name,
+                unit = self.set_default_li(li_map, unit_name,
                                            interface_list[0].unit)
                 unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn, False))
                 unit.set_is_tagged(False)
@@ -452,11 +434,11 @@ class AnsibleRoleCommon(AnsibleConf):
                 # attach acls
                 self.attach_acls(interface_list[0], unit)
                 if vlan_conf:
-                    vlan_conf.add_interfaces(LogicalInterface(name=unit_name))
+                    self.add_ref_to_list(vlan_conf.get_interfaces(), unit_name)
             else:
                 for interface in interface_list:
                     unit_name = ifd_name + "." + str(interface.unit)
-                    unit = self.set_default_li(intf, unit_name,
+                    unit = self.set_default_li(li_map, unit_name,
                                                interface.unit)
                     unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn,
                         True, interface.vlan_tag))
@@ -465,12 +447,11 @@ class AnsibleRoleCommon(AnsibleConf):
                     # attach acls
                     self.attach_acls(interface, unit)
                     if vlan_conf:
-                        vlan_conf.add_interfaces(LogicalInterface(
-                            name=unit_name))
+                        self.add_ref_to_list(vlan_conf.get_interfaces(), unit_name)
     # end build_l2_evpn_interface_config
 
     def init_evpn_config(self, encapsulation='vxlan'):
-        if not self.ri_config:
+        if not self.ri_map:
             # no vn config then no need to configure evpn
             return
         if self.evpn:
@@ -480,21 +461,20 @@ class AnsibleRoleCommon(AnsibleConf):
     # end init_evpn_config
 
     def add_vlan_config(self, vrf_name, vni, is_l2_l3=False, irb_intf=None):
-        self.vlans_config = self.vlans_config or []
         vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
         if is_l2_l3:
             if not irb_intf:
                 self._logger.error("Missing irb interface config l3 vlan: %s" % vrf_name)
             else:
                 vlan.set_vlan_id(vni)
-                vlan.add_interfaces(LogicalInterface(name=irb_intf))
-        self.vlans_config.append(vlan)
+                self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
+        self.vlan_map[vlan.get_name()] = vlan
         return vlan
     # end add_vlan_config
 
     def add_ri_vlan_config(self, vrf_name, vni):
-        self.vlans_config = self.vlans_config or []
-        self.vlans_config.append(Vlan(name=vrf_name[1:], vlan_id=vni, vxlan_id=vni))
+        vlan = Vlan(name=vrf_name[1:], vlan_id=vni, vxlan_id=vni)
+        self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
 
     def build_esi_config(self):
@@ -505,7 +485,7 @@ class AnsibleRoleCommon(AnsibleConf):
             pi = PhysicalInterfaceDM.get(pi_uuid)
             if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
                 continue
-            intf = self.set_default_pi(pi.name)
+            intf, _ = self.set_default_pi(pi.name)
             intf.set_ethernet_segment_identifier(pi.esi)
     # end build_esi_config
 
@@ -531,7 +511,7 @@ class AnsibleRoleCommon(AnsibleConf):
                               (lag_uuid, link_members, ae_intf_name))
             lag = LinkAggrGroup(lacp_enabled=lag_obj.lacp_enabled,
                                 link_members=link_members)
-            intf = self.set_default_pi(ae_intf_name, 'lag')
+            intf, _ = self.set_default_pi(ae_intf_name, 'lag')
             intf.set_link_aggregation_group(lag)
     # end build_lag_config
 
@@ -633,7 +613,7 @@ class AnsibleRoleCommon(AnsibleConf):
                  link_members.append(pi.name)
 
             lag = LinkAggrGroup(link_members=link_members)
-            intf = self.set_default_pi(ae_name)
+            intf, _ = self.set_default_pi(ae_name)
             intf.set_ethernet_segment_identifier(esi)
             intf.set_link_aggregation_group(lag)
     # end build_ae_config
@@ -873,7 +853,7 @@ class AnsibleRoleCommon(AnsibleConf):
             self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
             vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
 
-        for vn_id, interfaces in vn_dict.items():
+        for vn_id, interfaces in self.get_sorted_key_value_pairs(vn_dict):
             vn_obj = VirtualNetworkDM.get(vn_id)
             if (vn_obj is None or
                     vn_obj.get_vxlan_vni() is None or
