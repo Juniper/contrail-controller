@@ -66,6 +66,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
+    EXPECT_EQ(options_.http_server_ip(), "0.0.0.0");
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
     EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-control.log");
@@ -234,6 +235,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
+        "http_server_ip=10.10.10.1\n"
         "log_category=bgp\n"
         "log_disable=1\n"
         "log_file=<stdout>\n"
@@ -293,6 +295,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);
+    EXPECT_EQ(options_.http_server_ip(), "10.10.10.1");
     EXPECT_EQ(options_.log_category(), "bgp");
     EXPECT_EQ(options_.log_disable(), true);
     EXPECT_EQ(options_.log_file(), "<stdout>");
@@ -330,6 +333,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
+        "http_server_ip=10.10.10.1\n"
         "log_category=bgp\n"
         "log_disable=1\n"
         "log_file=test.log\n"
@@ -371,6 +375,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_9[] = "--DEFAULT.gr_helper_xmpp_disable";
     char argv_10[] = "--SANDESH.disable_object_logs";
     char argv_11[] = "--DEFAULT.mvpn_ipv4_enable";
+    char argv_12[] = "--DEFAULT.http_server_ip=20.20.20.2";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -383,6 +388,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[9] = argv_9;
     argv[10] = argv_10;
     argv[11] = argv_11;
+    argv[12] = argv_12;
 
     options_.Parse(evm_, argc, argv);
 
@@ -401,6 +407,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);
+    EXPECT_EQ(options_.http_server_ip(), "20.20.20.2");
     EXPECT_EQ(options_.log_category(), "bgp");
     EXPECT_EQ(options_.log_disable(), true);
     EXPECT_EQ(options_.log_file(), "new_test.log");
