@@ -110,6 +110,7 @@ private:
     std::string config_file_;
     std::string hostname_;
     std::string host_ip_;
+    std::string http_server_ip_;
     uint16_t http_server_port_;
     std::string log_category_;
     bool log_disable_;

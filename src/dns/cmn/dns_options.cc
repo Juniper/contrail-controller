@@ -112,6 +112,8 @@ void Options::Initialize(EventManager &evm,
              "IP address of DNS Server")
         ("DEFAULT.hostname", opt::value<string>()->default_value(hostname),
              "Hostname of DNS Server")
+        ("DEFAULT.http_server_ip", opt::value<string>()->default_value(host_ip),
+             "Sandesh HTTP listener IP")
         ("DEFAULT.http_server_port",
              opt::value<uint16_t>()->default_value(default_http_server_port),
              "Sandesh HTTP listener port")
@@ -292,6 +294,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
 
+    GetOptValue<string>(var_map, http_server_ip_, "DEFAULT.http_server_ip");
     GetOptValue<uint16_t>(var_map, http_server_port_,
                           "DEFAULT.http_server_port");
 

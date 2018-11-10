@@ -117,6 +117,7 @@ private:
 
     std::string hostname_;
     std::string host_ip_;
+    std::string http_server_ip_;
     uint16_t http_server_port_;
     uint16_t dns_server_port_;
     std::string log_category_;
