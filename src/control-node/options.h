@@ -26,6 +26,7 @@ public:
     std::string config_file() const { return config_file_; };
     std::string hostname() const { return hostname_; }
     std::string host_ip() const { return host_ip_; }
+    std::string http_server_ip() const { return http_server_ip_; }
     uint16_t http_server_port() const { return http_server_port_; }
     std::string log_category() const { return log_category_; }
     bool log_disable() const { return log_disable_; }
@@ -110,6 +111,7 @@ private:
     std::string config_file_;
     std::string hostname_;
     std::string host_ip_;
+    std::string http_server_ip_;
     uint16_t http_server_port_;
     std::string log_category_;
     bool log_disable_;
