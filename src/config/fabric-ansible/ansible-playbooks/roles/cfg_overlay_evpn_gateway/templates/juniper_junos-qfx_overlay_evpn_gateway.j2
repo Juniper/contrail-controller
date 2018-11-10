@@ -7,9 +7,11 @@ set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%                 set family = 'inet' %}
 {%                 for ip_addr in li.get('ip_list', []) %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} virtual-gateway-address {{gw}}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} preferred
 {%                 endfor %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:04:00:00
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
