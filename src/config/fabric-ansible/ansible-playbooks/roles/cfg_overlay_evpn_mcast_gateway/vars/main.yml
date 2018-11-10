@@ -1,0 +1,4 @@
+---
+# vars input file
+feature: overlay_evpn_mcast_gateway
+add_ztp_suffix: false
