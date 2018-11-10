@@ -578,6 +578,7 @@ def parse_args(args_str):
         'zk_server_port': '2181',
         'collectors': None,
         'http_server_port': '8096',
+        'http_server_ip': '0.0.0.0',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
@@ -682,8 +683,10 @@ def parse_args(args_str):
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")
+    parser.add_argument("--http_server_ip",
+                        help="IP of Introspect HTTP server")
     parser.add_argument("--http_server_port",
-                        help="Port of local HTTP server")
+                        help="Port of Introspect HTTP server")
     parser.add_argument("--log_local", action="store_true",
                         help="Enable local logging of sandesh messages")
     parser.add_argument(
