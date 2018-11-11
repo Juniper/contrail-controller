@@ -5,6 +5,7 @@ import sys
 import copy
 import gevent
 from testtools.matchers import Contains, Not
+from testtools import content, content_type, ExpectedException
 
 try:
     import to_bgp
@@ -2146,4 +2147,35 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_vn(fq_name=vn1_obj.get_fq_name())
 
     # end test_routing_policy_primary_ri_ref_present
+
+    def test_sc_init(self):
+        test_common.kill_schema_transformer(self._st_greenlet)
+        gevent.sleep(3)
+
+        def yijie_fake_cassandra_init(self, manager, zkclient):
+            raise Exception
+
+        try:
+            import db
+        except ImportError:
+            from schema_transformer import db
+
+        orig_init = db.SchemaTransformerDB.__init__
+        db.SchemaTransformerDB.__init__ = yijie_fake_cassandra_init
+
+        try:
+            self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+                self._cluster_id, self.id(), self._api_server_ip,
+                self._api_server_port)
+        except Exception as e:
+            pass
+        gevent.sleep(3)
+
+        db.SchemaTransformerDB.__init__ = orig_init
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+                self._cluster_id, self.id(), self._api_server_ip,
+                self._api_server_port)
+
+        test_common.wait_for_schema_transformer_up()
+    #end test_sc_init
 # end class TestServicePolicy
