@@ -992,6 +992,12 @@ static void BuildVn(VmInterfaceConfigData *data,
                                                   it->destination_aggregate_prefix_length);
         data->fat_flow_list_.Insert(&e);
     }
+
+    /* Copy max-flow at VN level */
+    if (data->max_flows_ == 0) {
+        autogen::VirtualNetworkType properties = vn->properties();
+        data->max_flows_ = properties.max_flows;
+    }
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
             node->begin(table->GetGraph());
@@ -1338,9 +1344,10 @@ static void ReadIgmpConfig(Agent *agent, const IFMapNode *vn_node,
 static void BuildAttributes(Agent *agent, IFMapNode *node,
                             VirtualMachineInterface *cfg,
                             VmInterfaceConfigData *data) {
-    //Extract the local preference
+    //Extract the local preference and max flows
     if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
         data->local_preference_ = cfg->properties().local_preference;
+        data->max_flows_ = cfg->properties().max_flows;
     }
 
     ReadAnalyzerNameAndCreate(agent, cfg, *data);

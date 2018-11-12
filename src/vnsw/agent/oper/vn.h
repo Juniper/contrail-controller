@@ -99,7 +99,7 @@ struct VnData : public AgentOperDBData {
            bool underlay_forwarding,
            bool vxlan_routing_vn,
            const boost::uuids::uuid &logical_router_uuid,
-           bool cfg_igmp_enable) :
+           bool cfg_igmp_enable, uint32_t vn_max_flows) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -112,7 +112,8 @@ struct VnData : public AgentOperDBData {
         underlay_forwarding_(underlay_forwarding),
         vxlan_routing_vn_(vxlan_routing_vn),
         logical_router_uuid_(logical_router_uuid),
-        cfg_igmp_enable_(cfg_igmp_enable) {
+        cfg_igmp_enable_(cfg_igmp_enable),
+        vn_max_flows_(vn_max_flows)  {
     };
     virtual ~VnData() { }
 
@@ -139,6 +140,7 @@ struct VnData : public AgentOperDBData {
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
     bool cfg_igmp_enable_;
+    uint32_t vn_max_flows_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -237,6 +239,7 @@ public:
     const boost::uuids::uuid &logical_router_uuid() const {
         return logical_router_uuid_;
     }
+    uint32_t vn_max_flows() const {return vn_max_flows_;}
 
 private:
     friend class VnTable;
@@ -292,6 +295,7 @@ private:
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
     bool cfg_igmp_enable_;
+    uint32_t vn_max_flows_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -322,7 +326,7 @@ public:
     void CfgForwardingFlags(IFMapNode *node, bool *rpf,
                             bool *flood_unknown_unicast,
                             Agent::ForwardingMode *forwarding_mode,
-                            bool *mirror_destination);
+                            bool *mirror_destination, uint32_t *vn_max_flows);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};
