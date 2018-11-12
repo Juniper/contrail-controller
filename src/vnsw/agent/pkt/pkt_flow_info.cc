@@ -1853,6 +1853,28 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
     }
 
     bool limit_exceeded = false;
+    if (in->intf_->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(in->intf_);
+        if (vm_intf) {
+            if (vm_intf->max_flows() &&
+                ((vm_intf->flow_count() +2) > vm_intf->max_flows())) {
+                limit_exceeded = true;
+            }
+        }
+    }
+
+    if (out->intf_->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(out->intf_);
+        if (vm_intf) {
+            if (vm_intf->max_flows() &&
+                ((vm_intf->flow_count() +2) > vm_intf->max_flows())) {
+                limit_exceeded = true;
+            }
+        }
+    }
+
     if (agent->max_vm_flows() &&
         (in->vm_ && ((in->vm_->flow_count() + 2) > agent->max_vm_flows()))) {
         limit_exceeded = true;

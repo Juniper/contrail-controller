@@ -319,6 +319,8 @@ void AddL3Vn(const char *name, int id);
 void AddVn(const char *name, int id, bool admin_state = true);
 void AddVn(const char *name, int id, int vxlan_id, bool admin_state = true);
 void DelVn(const char *name);
+void ModifyVnMaxFlows(const string &name, int id, uint32_t max_flows);
+void AddMaxFlowsVmi(std::string intf_name, int intf_id, uint32_t max_flows);
 void AddPortWithMac(const char *name, int id, const char *mac,
                     const char *attr);
 void AddPort(const char *name, int id, const char *attr = NULL);
@@ -390,7 +392,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vm_interface_attr = NULL, bool l2_vn = false,
                      bool with_ip = false, bool ecmp = false,
                      bool vn_admin_state = true, bool with_ip6 = false,
-                     bool send_nova_msg = true);
+                     bool send_nova_msg = true, uint32_t max_flows=0);
 void CreateL3VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
@@ -403,7 +405,7 @@ void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL,
                      const char *vm_interface_attr = NULL,
-                     bool vn_admin_state = true);
+                     bool vn_admin_state = true, uint32_t max_flows=0);
 void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id = 0,

@@ -3361,7 +3361,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf,
                      const char *vm_interface_attr,
                      bool l2_vn, bool with_ip, bool ecmp,
-                     bool vn_admin_state, bool with_ip6, bool send_nova_msg) {
+                     bool vn_admin_state, bool with_ip6, bool send_nova_msg, uint32_t max_flows) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
     char vrf_name[MAX_TESTNAME_LEN];
@@ -3458,10 +3458,10 @@ void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id,
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf,
                      const char *vm_interface_attr,
-                     bool vn_admin_state) {
+                     bool vn_admin_state, uint32_t max_flows) {
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf,
                             vm_interface_attr, false, true, false,
-                            vn_admin_state, false, true);
+                            vn_admin_state, false, true, max_flows);
 }
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id,
@@ -5322,3 +5322,29 @@ void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool enable) {
     AddNode("virtual-machine-interface", intf_name.c_str(), intf_id,
             str.str().c_str());
 }
+
+// Default max-flows for vn is 0, use this function to set max flows for vn
+void ModifyVnMaxFlows(const string &name, int id, uint32_t max_flows) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <max-flows>" << max_flows << "</max-flows>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name.c_str(), id, str.str().c_str());
+    client->WaitForIdle();
+}
+
+void AddMaxFlowsVmi(std::string intf_name, int intf_id, uint32_t max_flows) {
+         std::ostringstream buf;
+         buf << "<virtual-machine-interface-properties>";
+         buf << "<max-flows>";
+         buf << max_flows;
+         buf << "</max-flows>";
+         buf << "</virtual-machine-interface-properties>";
+         char cbuf[10000];
+         strcpy(cbuf, buf.str().c_str());
+         AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+         client->WaitForIdle();
+} 

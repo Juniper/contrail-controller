@@ -282,6 +282,11 @@ void FlowData::Reset() {
     flow_dest_vrf = VrfEntry::kInvalidIndex;
     match_p.Reset();
     vn_entry.reset(NULL);
+    const VmInterface *vm_intf =
+        dynamic_cast<const VmInterface *>(intf_entry.get());
+    if (vm_intf) {
+        vm_intf->update_flow_count(-1);
+    }
     intf_entry.reset(NULL);
     in_vm_entry.Reset(true);
     out_vm_entry.Reset(true);
@@ -629,6 +634,11 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.out_vm_entry.SetVm(rev_ctrl->vm_);
     l3_flow_ = info->l3_flow;
     data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
+    const VmInterface *vm_intf =
+        dynamic_cast<const VmInterface *>(intf_entry());
+    if (vm_intf) {
+        vm_intf->update_flow_count(1);
+    }
     return true;
 }
 

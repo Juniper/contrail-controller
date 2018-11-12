@@ -39,6 +39,7 @@ struct PortInfo input[] = {
         {"vmi_2", 8, vm3_ip, "00:00:00:01:01:03", 5, 3},
         {"vmi_3", 9, vm4_ip, "00:00:00:01:01:04", 3, 4},
 };
+
 IpamInfo ipam_info[] = {
     {"11.1.1.0", 24, "11.1.1.10"},
     {"12.1.1.0", 24, "12.1.1.10"},
@@ -58,6 +59,8 @@ VmInterface *vmi_0;
 VmInterface *vmi_1;
 VmInterface *vmi_2;
 VmInterface *vmi_3;
+VmInterface *vmi_4;
+VmInterface *vmi_5;
 std::string eth_itf;
 
 class FlowTest : public ::testing::Test {
@@ -724,6 +727,98 @@ TEST_F(FlowTest, FlowLimit_2) {
     client->WaitForIdle();
     client->WaitForIdle();
     agent_->set_max_vm_flows(vm_flows);
+}
+
+// Configure max-flows on vn level and expect vmi's to match it
+TEST_F(FlowTest, MaxFlows_1) {
+    
+    // Set max-flows=3 for vn3 
+    ModifyVnMaxFlows("vn3", 3, 3);
+
+    // Set max-flows=3 for vn5
+    ModifyVnMaxFlows("vn5", 5, 3);
+
+    client->WaitForIdle();
+
+    // Add Local VM route of vrf3 to vrf5
+    CreateLocalRoute("vrf5", vm4_ip, vmi_3, 19);
+    // Add Local VM route of vrf5 to vrf3
+    CreateLocalRoute("vrf3", vm1_ip, vmi_0, 16);
+
+    VmInterface *intf_0 = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_0->id()));
+
+    VmInterface *intf_1 = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_1->id()));
+
+    // Check both interfaces in vn5 have max_flows=3 since for vn5 max-flows=3
+    EXPECT_EQ(3U, intf_0->max_flows());
+    EXPECT_EQ(3U, intf_1->max_flows());
+
+    TestFlow flow[] = {
+        //Send a ICMP request from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                    vmi_0->id(), 1),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an ICMP reply from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, 1, 0, 0, "vrf3",
+                    vmi_3->id(), 2),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300,
+                        "vrf5", vmi_0->id(), 3),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200,
+                        "vrf3", vmi_3->id(), 4),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+
+    FlowStatsTimerStartStop(agent_, true);
+    client->WaitForIdle();
+    CreateFlow(flow, 4);
+    client->WaitForIdle();
+    client->WaitForIdle();
+    VmInterface *intf = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_3->id()));
+    int nh_id = intf->flow_key_nh()->id();
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
+    //Validate interface is set to drop new flows after flow limit is reached
+    EXPECT_EQ(3U, intf->max_flows());
+    EXPECT_TRUE(intf->drop_new_flows());
+    FlowEntry *fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                            IPPROTO_TCP, 300, 200, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
+    EXPECT_TRUE(agent()->stats()->flow_drop_due_to_max_limit() > 0);
+    FlowStatsTimerStartStop(agent_, false);
+
+    //1. Remove remote VM routes
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+    FlushFlowTable();
+    client->WaitForIdle();
+    // Validate interface is not dropping new flows after flows age-out
+    EXPECT_FALSE(intf->drop_new_flows());
+    client->WaitForIdle();
+
 }
 
 int main(int argc, char *argv[]) {
