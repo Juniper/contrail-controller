@@ -320,6 +320,10 @@ class DMUtils(object):
         return "/* fip: Public VRF Filter for Floating IPs */"
 
     @staticmethod
+    def vrf_filter_comment(ri_name):
+        return "/* VRF Filter for Virtual Network : " + ri_name + " */"
+
+    @staticmethod
     def vn_ps_comment(vn, target_type):
         return "/* Virtual Network: %s, UUID: %s, Route Targets Type: %s */"%(
                                           vn.fq_name[-1], vn.uuid, target_type)
@@ -544,6 +548,28 @@ class DMUtils(object):
         (uuid, _) = uuid.split('__')
         return uuid
     # end extract_lr_uuid_from_internal_vn_name
+
+    @classmethod
+    def get_dci_internal_vn_prefix(cls):
+        return '__contrail_dci_internal_vn_'
+    # end get_dci_internal_vn_prefix
+
+    @classmethod
+    def get_pr_dci_bgp_group(cls, pr_name, dci_uuid):
+        return DMUtils.contrail_prefix() + 'dci_' + pr_name + '_' + dci_uuid
+    # end get_pr_dci_bgp_group
+
+    @classmethod
+    def get_dci_internal_vn_name(cls, uuid):
+        return cls.get_dci_internal_vn_prefix() + uuid + '__'
+    # end get_dci_internal_vn_name
+
+    @classmethod
+    def extract_dci_uuid_from_internal_vn_name(cls, name):
+        (_, uuid) = name.split(cls.get_dci_internal_vn_prefix())
+        (uuid, _) = uuid.split('__')
+        return uuid
+    # end extract_dci_uuid_from_internal_vn_name
 
     @classmethod
     def get_switch_policy_name(cls):
