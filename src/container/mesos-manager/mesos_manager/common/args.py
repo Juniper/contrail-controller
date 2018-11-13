@@ -114,6 +114,12 @@ def parse_args(args_str=None):
         'mesos_cni_secure_ip': None,
         MandatoryArgs.POD_TASK_SUBNET.value['arg_str']: None,
         MandatoryArgs.IP_FABRIC_SUBNET.value['arg_str']: None,
+        'mesos_cluster_owner': 'mesos',
+        'mesos_cluster_domain' : 'default-domain',
+        'cluster_name': 'mesos',
+        'cluster_project' : "{}",
+        'cluster_network' : "{}",
+        'cluster_pod_task_network' : None,
         'ip_fabric_forwarding': False,
         'ip_fabric_snat': False,
     }
