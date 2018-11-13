@@ -39,6 +39,7 @@ protected:
           blue_(NULL),
           blue_si_(NULL),
           tid_(DBTableBase::kInvalidId) {
+        server_.set_autonomous_system(64512);
     }
 
     virtual void SetUp() {
@@ -739,6 +740,52 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN5) {
     ostringstream repr1, repr2;
     repr1 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1.1";
     repr2 << "2-0:0-0-11:12:13:14:15:16,192.168.1.1";
+    AddRoute(master_, repr1.str(), "target:64512:1", 2);
+    task_util::WaitForIdle();
+    VerifyRouteExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    VerifyRouteNoExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+
+    DelRoute(master_, repr1.str());
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    VerifyRouteNoExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+}
+
+//
+// Route is replicated to VRF even if origin vn is different, if asn:1 rtarget
+// is associated with the type-1 AD route with kMaxTag.
+//
+TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_1) {
+    ostringstream repr1, repr2;
+    repr1 << "1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-4294967295";
+    repr2 << "1-0:0-00:01:02:03:04:05:06:07:08:09-4294967295";
+    AddRoute(master_, repr1.str(), "target:64512:1", 2);
+    task_util::WaitForIdle();
+    VerifyRouteExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    VerifyRouteExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+
+    DelRoute(master_, repr1.str());
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    VerifyRouteNoExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+}
+
+//
+// Route is not replicated to VRF even if origin vn is different, if asn:1
+// rtarget is associated with the type-1 AD route, but with a valid tag.
+//
+TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_2) {
+    ostringstream repr1, repr2;
+    repr1 << "1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-65536";
+    repr2 << "1-0:0-00:01:02:03:04:05:06:07:08:09-65536";
     AddRoute(master_, repr1.str(), "target:64512:1", 2);
     task_util::WaitForIdle();
     VerifyRouteExists(master_, repr1.str());
