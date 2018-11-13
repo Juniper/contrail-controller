@@ -33,7 +33,7 @@ set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
 {%             endfor %}
 {%             set sys_config = device_abstract_config.get('system', None) %}
 {%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{%             if (router_external == true and 'DC-Gateway' in sys_roles) %}
+{%             if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%                 for subnet in ri.get('prefixes', []) %}

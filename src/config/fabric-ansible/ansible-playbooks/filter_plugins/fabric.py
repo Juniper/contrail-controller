@@ -2113,9 +2113,11 @@ def _mock_supported_roles():
             "null@spine",
             "CRB-Gateway@spine",
             "DC-Gateway@spine",
+            "DCI-Gateway@spine",
             "CRB-Access@leaf",
             "CRB-Gateway@leaf",
             "DC-Gateway@leaf"
+            "DCI-Gateway@leaf"
         ]
     }
 # end _mock_supported_roles
