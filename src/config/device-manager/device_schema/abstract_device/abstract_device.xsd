@@ -98,6 +98,7 @@
        <xsd:element name="virtual-network-id" type="xsd:string"/>
        <xsd:element name="virtual-network-mode" type="xsd:string"/>
        <xsd:element name="virtual-network-is-internal" type="xsd:boolean"/>
+       <xsd:element name="virtual-network-is-for-dci" type="xsd:boolean"/>
        <xsd:element name="vxlan-id" type="xsd:integer"/>
        <xsd:element name="routing-instance-type" type="xsd:string"/>
        <xsd:element name="is-public-network" type="xsd:boolean"/>
