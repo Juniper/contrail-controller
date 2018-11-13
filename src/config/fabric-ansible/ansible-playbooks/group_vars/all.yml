@@ -162,6 +162,24 @@ role_to_feature_mapping:
     - overlay_evpn
     - overlay_evpn_gateway
     - overlay_evpn_type5
+  DCI-Gateway@leaf:
+    - basic
+    - underlay_ip_clos
+    - overlay_bgp
+    - overlay_networking
+    - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
+  DCI-Gateway@spine:
+    - basic
+    - underlay_ip_clos
+    - overlay_bgp
+    - overlay_networking
+    - overlay_fip_snat
+    - overlay_evpn
+    - overlay_evpn_gateway
+    - overlay_evpn_type5
   Route-Reflector@spine:
     - basic
     - underlay_ip_clos
