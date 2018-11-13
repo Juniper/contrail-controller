@@ -12,6 +12,7 @@ from dm_utils import PushConfigState
 from dm_utils import DMUtils
 from dm_utils import DMIndexer
 from cfgm_common.vnc_db import DBBase
+from cfgm_common import DCI_VN_FQ_NAME
 from cfgm_common.uve.physical_router.ttypes import *
 from cfgm_common.exceptions import ResourceExistsError
 from vnc_api.vnc_api import *
@@ -106,6 +107,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.e2_service_providers = set()
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
+        self.dci_ip_map = {}
         self.ae_id_map = {}
         self.allocated_asn = None
         self.config_sent = False
@@ -162,6 +164,12 @@ class PhysicalRouterDM(DBBaseDM):
             self.physical_router_role.lower().startswith('e2-')
     # end is_ec2_role
 
+    def has_rb_role(self, role):
+        if self.routing_bridging_roles and role in self.routing_bridging_roles:
+            return True
+        return False
+    # end has_rb_role
+
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
@@ -207,6 +215,57 @@ class PhysicalRouterDM(DBBaseDM):
             return fabric is not None and fabric.ztp
         return False
     # end is_ztp
+
+    def get_lr_dci_map(self):
+        lrs = self.logical_routers
+        dcis = []
+        for lr_uuid in lrs or []:
+            lr = LogicalRouterDM.get(lr_uuid)
+            if lr and lr.data_center_interconnect:
+                dci = DataCenterInterconnectDM.get(lr.data_center_interconnect)
+                if dci:
+                    dcis.append({"from": lr_uuid, "dci": lr.data_center_interconnect})
+        return dcis
+    # end get_lr_dci_map
+
+    def get_dci_list(self):
+        lrs = self.logical_routers
+        dcis = []
+        for lr_uuid in lrs or []:
+            lr = LogicalRouterDM.get(lr_uuid)
+            if lr and lr.data_center_interconnect:
+                dci = DataCenterInterconnectDM.get(lr.data_center_interconnect)
+                if dci:
+                    dcis.append(lr.data_center_interconnect)
+        return dcis
+    # end get_dci_list
+
+    def get_dci_bgp_params(self, dci_uuid):
+        dci = DataCenterInterconnectDM.get(dci_uuid)
+        params = {}
+        if dci:
+            params["asn"] = dci.allocated_asn
+            params["ip"] = self.dci_ip_map(self.uuid + ":" + dci_uuid)
+            params["name"] = DMUtils.get_pr_dci_bgp_group(self.name, dci_uuid)
+            params["type"] = "external"
+        return params
+    # end get_dci_bgp_params
+
+    def get_dci_bgp_neighbours(self, dci_uuid):
+        dci = DataCenterInterconnectDM.get(dci_uuid)
+        neigh = []
+        if dci and dci.get_connected_physical_routers():
+            for pr in dci.get_connected_physical_routers():
+                if self.uuid == pr.uuid:
+                    continue
+                params = {}
+                params["asn"] = dci.allocated_asn
+                params["ip"] = pr.dci_ip_map(pr.uuid + ":" + dci_uuid)
+                params["name"] = DMUtils.get_pr_dci_bgp_group(pr.name, dci_uuid)
+                params["type"] = "external"
+                neigh.append(params)
+        return neigh
+    # end get_dci_bgp_neighbours
 
     def verify_allocated_asn(self, fabric):
         self._logger.debug("physical router: verify allocated asn for %s" %
@@ -375,6 +434,13 @@ class PhysicalRouterDM(DBBaseDM):
             ip = self._object_db.get_ip(self.uuid + ':' + subnet, ip_used_for)
             if ip:
                 self.vn_ip_map[ip_used_for][subnet] = ip
+
+        dci_set = self._object_db.get_pr_dci_set(self.uuid)
+        for dci_key in dci_set:
+            ip = self._object_db.get_dci_ip(self.uuid + ':' + dci_key)
+            if ip:
+                self.dci_ip_map[dci_key] = ip
+
         ae_id_map = self._object_db.get_pr_ae_id_map(self.uuid)
         if not ae_id_map:
             return
@@ -463,6 +529,79 @@ class PhysicalRouterDM(DBBaseDM):
             for pi in pi_list:
                 pi.set_parent_ae_id(index)
     # end evaluate_ae_id_map
+
+    def get_dci_lo_ip(self, dci_uuid):
+        if not self.dci_ip_map:
+            return None
+        return self.dci_ip_map.get(self.uuid + ":" + dci_uuid)
+    # end get_dci_lo_ip
+
+    def evaluate_dci_ip_map(self):
+        if self.has_rb_role('DCI-Gateway'):
+            self._logger.debug("NO DCI Gateway role configured for pr: " + self.uuid)
+            return
+        if not DataCenterInterconnectDM.dci_network:
+            self._logger.debug("no dci network: " + self.uuid)
+            return
+        vn_uuid = DataCenterInterconnectDM.dci_network.uuid
+        new_dci_ip_set = set()
+        for dci_info in self.get_lr_dci_map():
+            from_lr = dci_info.get("from")
+            dci_uuid = dci_info.get("dci")
+            dci = DataCenterInterconnectDM.get(dci_uuid)
+            if not dci:
+                continue
+            key = from_lr + ":" + dci_uuid
+            new_dci_ip_set.add(key)
+        old_set = set(self.dci_ip_map.keys())
+        delete_set = old_set.difference(new_dci_ip_set)
+        create_set = new_dci_ip_set.difference(old_set)
+        for dci_id in delete_set:
+            ret = self.free_ip(vn_uuid, self.dci_ip_map[dci_id])
+            if ret == False:
+                self._logger.error("Unable to free ip for dci/pr "
+                                   "(%s/%s)" % (
+                    dci_id,
+                    self.uuid))
+
+            ret = self._object_db.delete_dci_ip(
+                       self.uuid + ':' + dci_id)
+            if ret == False:
+                self._logger.error("Unable to free ip from db for dci/pr "
+                                   "(%s/%s)" % (
+                    dci_id,
+                    self.uuid))
+                continue
+
+            self._object_db.delete_from_pr_dci_map(self.uuid, dci_id)
+            del self.dci_ip_map[dci_id]
+
+        vn = DataCenterInterconnectDM.dci_network
+        for dci_id in create_set:
+            subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
+            ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
+            if ip_addr is None:
+                self._logger.error("Unable to allocate ip for dci/pr "
+                                   "(%s/%s)" % (
+                    dci_id,
+                    self.uuid))
+                continue
+            ret = self._object_db.add_dci_ip(self.uuid + ':' + dci_id,
+                                         ip_addr)
+            if ret == False:
+                self._logger.error("Unable to store ip for dci/pr "
+                                   "(%s/%s/%s)" % (
+                    dci_id,
+                    self.uuid))
+                if self.free_ip(vn_uuid, ip_addr) == False:
+                    self._logger.error("Unable to free ip for dci/pr "
+                                       "(%s/%s)" % (
+                        dci_id,
+                        self.uuid))
+                continue
+            self._object_db.add_to_pr_dci_map(self.uuid, dci_id)
+            self.dci_ip_map[dci_id] = ip_addr
+    # end evaluate_dci_ip_map
 
     def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
         new_vn_ip_set = set()
@@ -809,10 +948,13 @@ class GlobalSystemConfigDM(DBBaseDM):
     obj_type = 'global_system_config'
     global_asn = None
     ip_fabric_subnets = None
+    dci_asn_namespace = None
+    dci_loopback_namespace = None
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.physical_routers = set()
+        self.data_center_interconnects = set()
         self.node_profiles = set()
         self.update(obj_dict)
     # end __init__
@@ -822,7 +964,10 @@ class GlobalSystemConfigDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         GlobalSystemConfigDM.global_asn = obj.get('autonomous_system')
         GlobalSystemConfigDM.ip_fabric_subnets = obj.get('ip_fabric_subnets')
+        GlobalSystemConfigDM.dci_asn_namespace = obj.get('data_center_interconnect_asn_namespace')
+        GlobalSystemConfigDM.dci_loopback_namespace = obj.get('data_center_interconnect_loopback_namespace')
         self.set_children('physical_router', obj)
+        self.set_children('data_center_interconnect', obj)
         self.set_children('node_profile', obj)
     # end update
 
@@ -1254,6 +1399,7 @@ class LogicalRouterDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.physical_routers = set()
+        self.data_center_interconnect = None
         self.virtual_machine_interfaces = set()
         # internal virtual-network
         self.virtual_network = None
@@ -1271,6 +1417,7 @@ class LogicalRouterDM(DBBaseDM):
                 vn_obj.logical_router = self.uuid
         self.logical_router_gateway_external = obj.get("logical_router_gateway_external")
         self.update_multiple_refs('physical_router', obj)
+        self.update_single_ref('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
@@ -1299,6 +1446,7 @@ class LogicalRouterDM(DBBaseDM):
         obj.update_multiple_refs('physical_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_single_ref('virtual_network', None)
+        obj.update_single_ref('data_center_interconnect', None)
         del cls._dict[uuid]
     # end delete
 
@@ -1314,6 +1462,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.name = None
         self.physical_routers = set()
         self.logical_router = None
+        self.data_center_interconnect = None
         self.router_external = False
         self.forwarding_mode = None
         self.gateways = None
@@ -1332,10 +1481,22 @@ class VirtualNetworkDM(DBBaseDM):
                 lr_obj.virtual_network = self.uuid
     # end set_logical_router
 
+    def set_data_center_interconnect(self, name):
+        if DMUtils.get_dci_internal_vn_prefix() in name:
+            dci_uuid = DMUtils.extract_dci_uuid_from_internal_vn_name(name)
+            dci_obj = DataCenterInterconnectDM.get(dci_uuid)
+            if dci_obj:
+                self.data_center_interconnect = dci_obj.uuid
+                dci_obj.virtual_network = self.uuid
+    # end set_data_center_interconnect
+
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
             self.set_logical_router(obj.get("fq_name")[-1])
+            self.set_data_center_interconnect(obj.get("fq_name")[-1])
+            if obj["fq_name"] == DCI_VN_FQ_NAME:
+                DataCenterInterconnectDM.set_dci_network(obj)
         self.update_multiple_refs('physical_router', obj)
         self.set_children('floating_ip_pool', obj)
         self.fq_name = obj['fq_name']
@@ -1381,8 +1542,8 @@ class VirtualNetworkDM(DBBaseDM):
         return set(self.gateways.keys())
     # end get_prefixes
 
-    def get_vxlan_vni(self, is_internal_vn = False):
-        if is_internal_vn:
+    def get_vxlan_vni(self, is_internal_vn = False, is_dci_vn = False):
+        if is_internal_vn or is_dci_vn:
             props = self.virtual_network_properties or {}
             return props.get("vxlan_network_identifier") or self.vn_network_id
         if GlobalVRouterConfigDM.is_global_vxlan_id_mode_auto():
@@ -1811,6 +1972,114 @@ class NetworkDeviceConfigDM(DBBaseDM):
         del cls._dict[uuid]
 # end class NetworkDeviceConfigDM
 
+class DataCenterInterconnectDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'data_center_interconnect'
+    dci_network = None
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.logical_routers = set()
+        self.bgp_hold_time = None
+        self.allocated_asn = None
+        self.virtual_network = None
+        self.bgp_address_families = None
+        self.init_cs_state()
+        obj = self.update(obj_dict)
+        self.add_to_parent(obj)
+    # end __init__
+
+    def init_cs_state(self):
+        asn = self._object_db.get_asn_for_dci(self.uuid)
+        if asn:
+            self.allocated_asn = asn
+    # end init_cs_state
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        if not self.virtual_network:
+            vn_name = DMUtils.get_dci_internal_vn_name(self.uuid)
+            vn_obj = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
+            if vn_obj:
+                self.virtual_network = vn_obj.uuid
+                vn_obj.data_center_interconnect = self.uuid
+        self.name = obj['fq_name'][-1]
+        self.bgp_hold_time = obj.get('data_center_interconnect_bgp_hold_time')
+        self.bgp_address_families = obj.get('data_center_interconnect_bgp_address_families')
+        self.update_multiple_refs('logical_router', obj)
+        self.allocate_asn()
+    # end update
+
+    def get_connected_physical_routers(self):
+        if not self.logical_routers:
+            return []
+        pr_list = []
+        for lr_uuid in self.logical_routers:
+            lr = LogicalRouterDM.get(lr_uuid)
+            if lr and lr.physical_routers:
+                prs = lr.physical_routers
+                for pr_uuid in prs:
+                    pr = PhysicalRouterDM.get(pr_uuid)
+                    if pr.has_rb_role("DCI-Gateway"):
+                        pr_list.append(pr)
+        return pr_list
+    # end get_connected_physical_routers
+
+    @classmethod
+    def set_dci_network(cls, vn_obj):
+        DataCenterInterconnectDM.dci_network = vn_obj
+    # end set_dci_network
+
+    def verify_allocated_asn(self):
+        self._logger.debug("DCI: verify allocated asn for %s" %
+                           self.uuid)
+        if self.allocated_asn is not None and GlobalSystemConfigDM.dci_asn_namespace is not None:
+            ns = GlobalSystemConfigDM.dci_asn_namespace
+            min_asn = ns.asn_min
+            max_asn = ns.asn_max
+            if min_asn <= self.allocated_asn <= max_asn:
+                self._logger.debug(
+                        "DCI %s: asn %d is allocated" %
+                        (self.uuid, self.allocated_asn))
+                return True
+        self._logger.debug("DCI %s: asn not allocated"%(self.uuid))
+        return False
+    # end verify_allocated_asn
+
+    def allocate_asn(self):
+        if self.verify_allocated_asn():
+            return
+        # find the first available asn
+        # loop through all asns to account for dangling asn in a range
+        ns = GlobalSystemConfigDM.dci_asn_namespace
+        min_asn = ns.asn_min
+        max_asn = ns.asn_max
+        for asn in range(min_asn, max_asn):
+            if self._object_db.get_dci_for_asn(asn) is None:
+                self.allocated_asn = asn
+                self._object_db.add_dci_asn(self.uuid, asn)
+                self._logger.debug(
+                        "DCI: allocated asn %d for %s" %
+                        (self.allocated_asn, self.uuid))
+                return
+        self._logger.error(
+            "DCI: could not find an unused asn to allocate for %s"
+            % self.uuid)
+    # end allocate_asn
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('logical_router', {})
+        obj.update_single_ref('virtual_network', None)
+        del cls._dict[uuid]
+    # end delete
+
+# end class DataCenterInterconnectDM
 
 class FabricDM(DBBaseDM):
     _dict = {}
@@ -2072,6 +2341,8 @@ class DMCassandraDB(VncObjectDBClient):
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
     _PR_AE_ID_CF = 'dm_pr_ae_id_table'
     _PR_ASN_CF = 'dm_pr_asn_table'
+    _DCI_ASN_CF = 'dm_dci_asn_table'
+    _PR_DCI_IP_CF = 'dm_pr_vn_ip_table'
     # PNF table
     _PNF_RESOURCE_CF = 'dm_pnf_resource_table'
 
@@ -2109,6 +2380,8 @@ class DMCassandraDB(VncObjectDBClient):
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
                              self._PR_AE_ID_CF: {},
                              self._PR_ASN_CF: {},
+                             self._DCI_ASN_CF: {},
+                             self._DCI_VNI_CF: {},
                              self._PNF_RESOURCE_CF: {}}}
 
         cass_server_list = self._args.cassandra_server_list
@@ -2125,12 +2398,17 @@ class DMCassandraDB(VncObjectDBClient):
             ca_certs=self._args.cassandra_ca_certs)
 
         self.pr_vn_ip_map = {}
+        self.pr_dci_ip_map = {}
         self.pr_ae_id_map = {}
         self.pr_asn_map = {}
         self.asn_pr_map = {}
+        self.dci_asn_map = {}
+        self.asn_dci_map = {}
         self.init_pr_map()
+        self.init_pr_dci_map()
         self.init_pr_ae_map()
         self.init_pr_asn_map()
+        self.init_dci_asn_map()
 
         self.pnf_vlan_allocator_map = {}
         self.pnf_unit_allocator_map = {}
@@ -2255,6 +2533,15 @@ class DMCassandraDB(VncObjectDBClient):
                 self.add_to_pr_map(pr_uuid, vn_subnet_uuid, ip_used_for)
     # end
 
+    def init_pr_dci_map(self):
+        cf = self.get_cf(self._PR_DCI_IP_CF)
+        pr_entries = dict(cf.get_range(column_count=1000000))
+        for key in pr_entries.keys():
+            key_data = key.split(':', 1)
+            pr_uuid, dci_key = (key_data[0], key_data[1])
+            self.add_to_pr_dci_map(pr_uuid, dci_key)
+    # end
+
     def init_pr_ae_map(self):
         cf = self.get_cf(self._PR_AE_ID_CF)
         pr_entries = dict(cf.get_range(column_count=1000000))
@@ -2282,6 +2569,19 @@ class DMCassandraDB(VncObjectDBClient):
                     self.asn_pr_map[asn] = pr_uuid
     # end init_pr_asn_map
 
+    def init_dci_asn_map(self):
+        cf = self.get_cf(self._DCI_ASN_CF)
+        dci_entries = dict(cf.get_range())
+        for dci_uuid in dci_entries.keys():
+            dci_entry = dci_entries[dci_uuid] or {}
+            asn = dci_entry.get('asn')
+            if asn:
+                if dci_uuid not in self.dci_asn_map:
+                    self.dci_asn_map[dci_uuid] = asn
+                if asn not in self.asn_dci_map:
+                    self.asn_dci_map[asn] = dci_uuid
+    # end init_dci_asn_map
+
     def get_ip(self, key, ip_used_for):
         return self.get_one_col(self._PR_VN_IP_CF, key,
                       DMUtils.get_ip_cs_column_name(ip_used_for))
@@ -2299,8 +2599,24 @@ class DMCassandraDB(VncObjectDBClient):
         return self.asn_pr_map.get(asn)
     # end get_pr_for_asn
 
+    def get_asn_for_dci(self, dci_uuid):
+        return self.dci_asn_map.get(dci_uuid)
+    # end get_asn_for_dci
+
+    def get_dci_for_asn(self, asn):
+        return self.asn_dci_map.get(asn)
+    # end get_dci_for_asn
+
+    def get_dci_ip(self, key):
+        return self.get_one_col(self._PR_DCI_IP_CF, key, "ip")
+    # end
+
     def add_ip(self, key, ip_used_for, ip):
         self.add(self._PR_VN_IP_CF, key, {DMUtils.get_ip_cs_column_name(ip_used_for): ip})
+    # end
+
+    def add_dci_ip(self, key, ip):
+        self.add(self._PR_DCI_IP_CF, key, {"ip": ip})
     # end
 
     def add_ae_id(self, pr_uuid, esi, ae_id):
@@ -2319,8 +2635,18 @@ class DMCassandraDB(VncObjectDBClient):
         self.asn_pr_map[asn] = pr_uuid
     # end add_asn
 
+    def add_dci_asn(self, dci_uuid, asn):
+        self.add(self._DCI_ASN_CF, dci_uuid, {'asn': asn})
+        self.dci_asn_map[dci_uuid] = asn
+        self.asn_dci_map[asn] = dci_uuid
+    # end add_dci_asn
+
     def delete_ip(self, key, ip_used_for):
         self.delete(self._PR_VN_IP_CF, key, [DMUtils.get_ip_cs_column_name(ip_used_for)])
+    # end
+
+    def delete_dci_ip(self, key):
+        self.delete(self._PR_DCI_IP_CF, key)
     # end
 
     def delete_ae_id(self, pr_uuid, esi):
@@ -2342,6 +2668,21 @@ class DMCassandraDB(VncObjectDBClient):
             self.pr_vn_ip_map[pr_uuid].remove((vn_subnet, ip_used_for))
             if not self.pr_vn_ip_map[pr_uuid]:
                 del self.pr_vn_ip_map[pr_uuid]
+    # end
+
+    def add_to_pr_dci_map(self, pr_uuid, dci_key):
+        if pr_uuid in self.pr_dci_ip_map:
+            self.pr_dci_ip_map[pr_uuid].add(dci_key)
+        else:
+            self.pr_dci_ip_map[pr_uuid] = set()
+            self.pr_dci_ip_map[pr_uuid].add(dci_key)
+    # end
+
+    def delete_from_pr_dci_map(self, pr_uuid, dci_key):
+        if pr_uuid in self.pr_dci_ip_map:
+            self.pr_dci_ip_map[pr_uuid].remove((dci_key))
+            if not self.pr_dci_ip_map[pr_key]:
+                del self.pr_dci_ip_map[pr_key]
     # end
 
     def delete_pr(self, pr_uuid):
@@ -2369,6 +2710,23 @@ class DMCassandraDB(VncObjectDBClient):
                                    pr_uuid)
     # end
 
+    def delete_dci(self, dci_uuid):
+        asn = self.dci_asn_map.pop(dci_uuid, None)
+        if asn is not None:
+            self.asn_dci_map.pop(asn, None)
+            ret = self.delete(self._DCI_ASN_CF, dci_uuid)
+            if not ret:
+                self._logger.error("Unable to free dci asn from db for dci %s" %
+                                   dci_uuid)
+    # end
+
+    def handle_dci_deletes(self, current_dci_set):
+        cs_dci_set = set(self.dci_acn_map.keys())
+        delete_set = cs_pr_set.difference(current_pr_set)
+        for dci_uuid in delete_set:
+            self.delete_dci(dci_uuid)
+    # end
+
     def handle_pr_deletes(self, current_pr_set):
         cs_pr_set = set(self.pr_vn_ip_map.keys())
         delete_set = cs_pr_set.difference(current_pr_set)
@@ -2378,6 +2736,10 @@ class DMCassandraDB(VncObjectDBClient):
 
     def get_pr_vn_set(self, pr_uuid):
         return self.pr_vn_ip_map.get(pr_uuid, set())
+    # end
+
+    def get_pr_dci_set(self, pr_uuid):
+        return self.pr_dci_ip_map.get(pr_uuid, set())
     # end
 
     def get_pr_ae_id_map(self, pr_uuid):
