@@ -109,15 +109,21 @@ role_to_feature_mapping:
     - overlay_evpn
     - overlay_evpn_gateway
     - overlay_evpn_type5
-    - overlay_security_group
-    - overlay_lag
-    - overlay_multi_homing
     - overlay_networking
   null@spine:
     - basic
     - underlay_ip_clos
     - overlay_bgp
     - overlay_networking
+  CRB-Access@spine:
+    - basic
+    - underlay_ip_clos
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_evpn_access
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
   CRB-Gateway@spine:
     - basic
     - underlay_ip_clos
@@ -125,9 +131,6 @@ role_to_feature_mapping:
     - overlay_evpn
     - overlay_evpn_gateway
     - overlay_evpn_type5
-    - overlay_security_group
-    - overlay_lag
-    - overlay_multi_homing
     - overlay_networking
   CRB-MCAST-Gateway@spine:
     - basic
