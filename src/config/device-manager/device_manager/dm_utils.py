@@ -546,6 +546,23 @@ class DMUtils(object):
     # end extract_lr_uuid_from_internal_vn_name
 
     @classmethod
+    def get_dci_internal_vn_prefix(cls):
+        return '__contrail_dci_internal_vn_'
+    # end get_dci_internal_vn_prefix
+
+    @classmethod
+    def get_dci_internal_vn_name(cls, uuid):
+        return cls.get_dci_internal_vn_prefix() + uuid + '__'
+    # end get_dci_internal_vn_name
+
+    @classmethod
+    def extract_dci_uuid_from_internal_vn_name(cls, name):
+        (_, uuid) = name.split(cls.get_dci_internal_vn_prefix())
+        (uuid, _) = uuid.split('__')
+        return uuid
+    # end extract_dci_uuid_from_internal_vn_name
+
+    @classmethod
     def get_switch_policy_name(cls):
         return "_contrail_switch_policy_"
     # end get_switch_policy_name
