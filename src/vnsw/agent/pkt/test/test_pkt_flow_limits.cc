@@ -726,6 +726,423 @@ TEST_F(FlowTest, FlowLimit_2) {
     agent_->set_max_vm_flows(vm_flows);
 }
 
+// Configure max-flows on vn level and expect vmi's to match it
+TEST_F(FlowTest, MaxFlows_1) {
+    // Set max-flows=3 for vn3
+    SetVnMaxFlows("vn3", 3, 3);
+
+    // Set max-flows=3 for vn5
+    SetVnMaxFlows("vn5", 5, 3);
+
+    client->WaitForIdle();
+
+    // Add Local VM route of vrf3 to vrf5
+    CreateLocalRoute("vrf5", vm4_ip, vmi_3, 19);
+    // Add Local VM route of vrf5 to vrf3
+    CreateLocalRoute("vrf3", vm1_ip, vmi_0, 16);
+
+    VmInterface *intf_0 = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_0->id()));
+
+    VmInterface *intf_1 = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_1->id()));
+
+    // Check both interfaces in vn5 have max_flows=3 since for vn5 max-flows=3
+    EXPECT_EQ(3U, intf_0->max_flows());
+    EXPECT_EQ(3U, intf_1->max_flows());
+
+    TestFlow flow[] = {
+        //Send a ICMP request from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                    vmi_0->id(), 1),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an ICMP reply from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, 1, 0, 0, "vrf3",
+                    vmi_3->id(), 2),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300,
+                        "vrf5", vmi_0->id(), 3),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200,
+                        "vrf3", vmi_3->id(), 4),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+
+    FlowStatsTimerStartStop(agent_, true);
+    client->WaitForIdle();
+    CreateFlow(flow, 4);
+    client->WaitForIdle();
+    VmInterface *intf = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_3->id()));
+    int nh_id = intf->flow_key_nh()->id();
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
+    //Validate interface is set to drop new flows after flow limit is reached
+    EXPECT_EQ(3U, intf->max_flows());
+    EXPECT_TRUE(intf->drop_new_flows());
+    FlowEntry *fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                            IPPROTO_TCP, 300, 200, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
+    EXPECT_TRUE(agent()->stats()->flow_drop_due_to_max_limit() > 0);
+    FlowStatsTimerStartStop(agent_, false);
+
+    //1. Remove remote VM routes
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+    FlushFlowTable();
+    client->WaitForIdle();
+    // Validate interface is not dropping new flows after flows age-out
+    EXPECT_FALSE(intf->drop_new_flows());
+    client->WaitForIdle();
+
+    // Disable max-flows for vn3 
+    SetVnMaxFlows("vn3", 3, 0);
+    // Disable max-flows for vn5
+    SetVnMaxFlows("vn5", 5, 0);
+    client->WaitForIdle();
+
+    // Expect max flows disabled on vmi
+    EXPECT_EQ(0U, intf_0->max_flows());
+    EXPECT_EQ(0U, intf_1->max_flows());
+    client->WaitForIdle();
+}
+
+// Verify that max_flows limit on vmi, includes short flows
+TEST_F(FlowTest, MaxFlows_2) {
+
+    // Set max-flows=3 for vn3
+    SetVnMaxFlows("vn3", 3, 3);
+
+    // Set max-flows=3 for vn5
+    SetVnMaxFlows("vn5", 5, 3);
+
+    client->WaitForIdle();
+
+    EXPECT_EQ(3U, vmi_0->max_flows());
+    EXPECT_EQ(3U, vmi_1->max_flows());
+
+    TestFlow short_flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
+                    vmi_0->id()),
+            {
+                new ShortFlow()
+            }
+        }
+    };
+    FlowStatsTimerStartStop(agent_, true);
+    CreateFlow(short_flow, 1);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+    int nh_id = agent_->interface_table()->FindInterface
+        (vmi_0->id())->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(1, vm1_ip, "115.115.115.115", 1,
+                            0, 0, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NO_DST_ROUTE);
+    FlowStatsTimerStartStop(agent_, false);
+
+    /* Add Local VM route of vrf3 to vrf5 */
+    CreateLocalRoute("vrf5", vm4_ip, vmi_3, 19);
+    /* Add Local VM route of vrf5 to vrf3 */
+    CreateLocalRoute("vrf3", vm1_ip, vmi_0, 16);
+
+    TestFlow flow[] = {
+        // Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 100, 101,
+                        "vrf5", vmi_0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        // Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 101, 100,
+                        "vrf3", vmi_3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        // Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300,
+                        "vrf5", vmi_0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        // Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200,
+                        "vrf3", vmi_3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+
+    FlowStatsTimerStartStop(agent_, true);
+    CreateFlow(flow, 4);
+    client->WaitForIdle();
+    EXPECT_EQ(6U, get_flow_proto()->FlowCount());
+
+    nh_id = agent_->interface_table()->FindInterface
+        (vmi_3->id())->flow_key_nh()->id();
+    fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                 IPPROTO_TCP, 300, 200, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
+    fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                 IPPROTO_TCP, 101, 100, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    nh_id = agent_->interface_table()->FindInterface
+        (vmi_0->id())->flow_key_nh()->id();
+    fe = FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip,
+                 IPPROTO_TCP, 100, 101, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    FlowStatsTimerStartStop(agent_, false);
+
+    // 1. Remove remote VM routes
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+
+    // Disable max-flow for vn3
+    SetVnMaxFlows("vn3", 3, 0);
+    // Disable max-flows for vn5
+    SetVnMaxFlows("vn5", 5, 0);
+    client->WaitForIdle();
+}
+
+//Configure max flows both at vn and vmi, verify value at vmi is used
+TEST_F(FlowTest, MaxFlows_3) {
+
+    // Set max-flows=10 for vn3 20 for vn5
+    SetVnMaxFlows("vn3", 3, 10);
+    SetVnMaxFlows("vn5", 5, 20);
+
+    client->WaitForIdle();
+
+    // Set max-flows=3 for vmi_0 and vmi_5
+    SetVmiMaxFlows("vmi_3", 9, 3);
+    SetVmiMaxFlows("vmi_0", 6, 3);
+
+    client->WaitForIdle();
+
+    // vmi_0 and vmi_3 have max-flows set to 3
+    EXPECT_EQ(3U, vmi_0->max_flows());
+    EXPECT_EQ(3U, vmi_3->max_flows());
+
+    // vmi_1 has max_flows set to 20, same as vn5
+    EXPECT_EQ(20U, vmi_1->max_flows());
+
+    // Add Local VM route of vrf3 to vrf5
+    CreateLocalRoute("vrf5", vm4_ip, vmi_3, 19);
+
+    // Add Local VM route of vrf5 to vrf3
+    CreateLocalRoute("vrf3", vm1_ip, vmi_0, 16);
+
+    TestFlow flow[] = {
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 100, 101,
+                        "vrf5", vmi_0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 101, 100,
+                        "vrf3", vmi_3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300,
+                        "vrf5", vmi_0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200,
+                        "vrf3", vmi_3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+
+    FlowStatsTimerStartStop(agent_, true);
+    CreateFlow(flow, 4);
+    client->WaitForIdle();
+
+    VmInterface *intf = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_3->id()));
+    int nh_id = intf->flow_key_nh()->id();
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
+    // Validate interface is set to drop new flows after flow limit is reached
+    EXPECT_EQ(3U, intf->max_flows());
+    EXPECT_TRUE(intf->drop_new_flows());
+    FlowEntry *fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                            IPPROTO_TCP, 300, 200, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
+    EXPECT_TRUE(agent()->stats()->flow_drop_due_to_max_limit() > 0);
+    FlowStatsTimerStartStop(agent_, false);
+
+    // Remove remote VM routes
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+    FlushFlowTable();
+    client->WaitForIdle();
+    // Validate interface is not dropping new flows after flows age-out
+    EXPECT_FALSE(intf->drop_new_flows());
+    client->WaitForIdle();
+
+    // Restore max-flows for vn3 and vn5
+    SetVnMaxFlows("vn3", 3, 0);
+    SetVnMaxFlows("vn5", 5, 0);
+
+    // vmi_0 and vmi_3 have max-flows set to 3,since  max_flow=3 on vmi
+    EXPECT_EQ(3U, vmi_0->max_flows());
+    EXPECT_EQ(3U, vmi_3->max_flows());
+    client->WaitForIdle();
+
+    // Restore max-flows for vmi0 and vmi3
+    SetVmiMaxFlows("vmi_3", 9, 0);
+    SetVmiMaxFlows("vmi_0", 6, 0);
+    client->WaitForIdle();
+
+    // vmi_0 and vmi_3 have max-flows now set to 0
+    EXPECT_EQ(0U, vmi_0->max_flows());
+    EXPECT_EQ(0U, vmi_3->max_flows());
+    client->WaitForIdle();    
+}
+
+TEST_F(FlowTest, MaxFlowsPreference) {
+
+    // Set flow limit to 4 for each vm on compute
+    uint32_t vm_flows = agent_->max_vm_flows();
+    agent_->set_max_vm_flows(4);
+ 
+    // Set max-flows=3 for vn3
+    SetVnMaxFlows("vn3", 3, 3);
+
+    // Set max-flows=3 for vn5
+    SetVnMaxFlows("vn5", 5, 3);
+
+    client->WaitForIdle();
+
+    // vmi_0 and vmi1 should have max_flows set to 3 as vn3 and vn5
+    EXPECT_EQ(3U, vmi_0->max_flows());
+    EXPECT_EQ(3U, vmi_1->max_flows());
+
+    // Add Local VM route of vrf3 to vrf5
+    CreateLocalRoute("vrf5", vm4_ip, vmi_3, 19);
+    // Add Local VM route of vrf5 to vrf3
+    CreateLocalRoute("vrf3", vm1_ip, vmi_0, 16);
+
+    TestFlow flow[] = {
+        // Send a ICMP request from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                    vmi_0->id(), 1),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        // Send an ICMP reply from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, 1, 0, 0, "vrf3",
+                    vmi_3->id(), 2),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        // Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300,
+                        "vrf5", vmi_0->id(), 3),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        // Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200,
+                        "vrf3", vmi_3->id(), 4),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+
+    FlowStatsTimerStartStop(agent_, true);
+    client->WaitForIdle();
+    CreateFlow(flow, 4);
+    client->WaitForIdle();
+    client->WaitForIdle();
+    VmInterface *intf = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_3->id()));
+    int nh_id = intf->flow_key_nh()->id();
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
+    // Validate interface is set to drop new flows after flow limit is reached
+    EXPECT_EQ(3U, intf->max_flows());
+    EXPECT_TRUE(intf->drop_new_flows());
+    FlowEntry *fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                            IPPROTO_TCP, 300, 200, nh_id);
+    // Expect 4th flow to be short flow, only 3 flows allowed per vmi(preffered), 4 flows at vm level.
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
+    EXPECT_TRUE(agent()->stats()->flow_drop_due_to_max_limit() > 0);
+    FlowStatsTimerStartStop(agent_, false);
+
+    // 1. Remove remote VM routes
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    // Validate interface is not dropping new flows after flows age-out
+    EXPECT_FALSE(intf->drop_new_flows());
+    client->WaitForIdle();
+
+    agent_->set_max_vm_flows(vm_flows);
+
+    // Disable max-flow for vn3
+    SetVnMaxFlows("vn3", 3, 0);
+    // Disable max-flows for vn5
+    SetVnMaxFlows("vn5", 5, 0);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

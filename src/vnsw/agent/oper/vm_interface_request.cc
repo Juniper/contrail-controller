@@ -78,7 +78,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     disable_policy_(false), analyzer_name_(""),
     local_preference_(0), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN),
-    cfg_igmp_enable_(false), igmp_enabled_(false), sg_list_(),
+    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0), sg_list_(),
     floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
     instance_ipv4_list_(true), instance_ipv6_list_(false),
@@ -163,7 +163,7 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
                           &etree_leaf_mode_changed, &tag_changed);
     if (sg_changed || ecmp_changed || local_pref_changed ||
         ecmp_load_balance_changed || static_route_config_changed
-        || etree_leaf_mode_changed || tag_changed)
+        || etree_leaf_mode_changed || tag_changed )
         *force_update = true;
 
     vmi->SetConfigurer(VmInterface::CONFIG);
@@ -472,6 +472,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (igmp_enabled_ != data->igmp_enabled_) {
         igmp_enabled_ = data->igmp_enabled_;
+        ret = true;
+    }
+
+    if (max_flows_ != data->max_flows_) {
+        max_flows_ = data->max_flows_;
         ret = true;
     }
 

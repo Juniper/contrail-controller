@@ -5321,3 +5321,29 @@ void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool enable) {
     AddNode("virtual-machine-interface", intf_name.c_str(), intf_id,
             str.str().c_str());
 }
+
+// Default max-flows for vn is 0, use this function to set max flows for vn
+void SetVnMaxFlows(const string &name, int id, uint32_t max_flows) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <max-flows>" << max_flows << "</max-flows>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name.c_str(), id, str.str().c_str());
+    client->WaitForIdle();
+}
+
+void SetVmiMaxFlows(std::string intf_name, int intf_id, uint32_t max_flows) {
+         std::ostringstream buf;
+         buf << "<virtual-machine-interface-properties>";
+         buf << "<max-flows>";
+         buf << max_flows;
+         buf << "</max-flows>";
+         buf << "</virtual-machine-interface-properties>";
+         char cbuf[10000];
+         strcpy(cbuf, buf.str().c_str());
+         AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+         client->WaitForIdle();
+}
