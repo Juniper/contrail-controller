@@ -11,6 +11,7 @@ IP_FABRIC_RI_FQ_NAME = IP_FABRIC_VN_FQ_NAME + ['__default__']
 LINK_LOCAL_VN_FQ_NAME = ['default-domain', 'default-project', '__link_local__']
 LINK_LOCAL_RI_FQ_NAME = LINK_LOCAL_VN_FQ_NAME + ['__link_local__']
 SG_NO_RULE_FQ_NAME = ['default-domain', 'default-project', '__no_rule__']
+DCI_VN_FQ_NAME = ['default-domain', 'default-project', 'dci-netwrok']
 
 BGP_RTGT_MIN_ID = 8000000
 SGID_MIN_ALLOC = 8000000
@@ -123,6 +124,9 @@ def has_role(role, roles):
 
 def get_lr_internal_vn_name(uuid):
     return '__contrail_lr_internal_vn_' + uuid + '__'
+
+def get_dci_internal_vn_name(uuid):
+    return '__contrail_dci_internal_vn_' + uuid + '__'
 
 
 def _obj_serializer_all(obj):

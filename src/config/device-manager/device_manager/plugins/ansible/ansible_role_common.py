@@ -38,6 +38,14 @@ class AnsibleRoleCommon(AnsibleConf):
         return False
     # end is_spine
 
+    def is_dci_gateway(self):
+        if self.physical_router.routing_bridging_roles:
+            gateway_roles = [r for r in self.physical_router.routing_bridging_roles if 'DCI-Gateway' in r]
+            if gateway_roles:
+                return True
+        return False
+    # end is_dci_gateway
+
     def underlay_config(self, is_delete=False):
         if not self.physical_router.is_ztp():
             return
@@ -56,6 +64,7 @@ class AnsibleRoleCommon(AnsibleConf):
         super(AnsibleRoleCommon, self).initialize()
         self.irb_interfaces = []
         self.internal_vn_ris = []
+        self.dci_vn_ris = []
     # end initialize
 
     def attach_irb(self, ri_conf, ri):
@@ -70,6 +79,20 @@ class AnsibleRoleCommon(AnsibleConf):
             if is_l2_l3:
                 self.irb_interfaces.append("irb." + str(network_id))
     # end attach_irb
+
+    def set_dci_vn_irb_config(self):
+        if self.dci_vn_ris and self.irb_interfaces:
+            for int_ri in self.dci_vn_ris:
+                dci_uuid = DMUtils.extract_dci_uuid_from_internal_vn_name(int_ri.name)
+                dci = DataCenterInterconnectDM.get(dci_uuid)
+                if not dci or not dci.virtual_network:
+                    continue
+                vn = dci.virtual_network
+                vn_obj = VirtualNetworkDM.get(vn)
+                irb_name = "irb." + str(vn_obj.vn_network_id)
+                if irb_name in self.irb_interfaces:
+                    int_ri.add_routing_interfaces(LogicalInterface(name=irb_name))
+    # end set_dci_vn_irb_config
 
     def set_internal_vn_irb_config(self):
         if self.internal_vn_ris and self.irb_interfaces:
@@ -157,6 +180,7 @@ class AnsibleRoleCommon(AnsibleConf):
         fip_map = ri_conf.get("fip_map", None)
         network_id = ri_conf.get("network_id", None)
         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn.name else False
+        is_dci_vn = True if '_contrail_dci_internal_vn_' in vn.name else False
         encapsulation_priorities = \
            ri_conf.get("encapsulation_priorities") or ["MPLSoGRE"]
 
@@ -170,6 +194,7 @@ class AnsibleRoleCommon(AnsibleConf):
         ri.set_virtual_network_id(str(network_id))
         ri.set_vxlan_id(str(vni))
         ri.set_virtual_network_is_internal(is_internal_vn)
+        ri.set_virtual_network_is_for_dci(is_dci_vn)
         ri.set_is_public_network(router_external)
         if is_l2_l3:
             ri.set_virtual_network_mode('l2-l3')
@@ -198,7 +223,10 @@ class AnsibleRoleCommon(AnsibleConf):
 
         if is_internal_vn:
             self.internal_vn_ris.append(ri)
-        if is_internal_vn or router_external:
+        if is_dci_vn:
+            self.dci_vn_ris.append(ri)
+
+        if is_internal_vn or router_external or is_dci_vn:
             self.add_bogus_lo0(ri, network_id, vn)
 
         if self.is_gateway() and is_l2_l3:
@@ -314,7 +342,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if (not is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             self.init_evpn_config()
-            if not is_internal_vn:
+            if not is_internal_vn or not is_dci_vn:
                 # add vlans
                 self.add_ri_vlan_config(ri_name, vni)
 
@@ -524,6 +552,10 @@ class AnsibleRoleCommon(AnsibleConf):
             if not lr:
                 continue
             vn_list += lr.get_connected_networks(include_internal=True)
+            if lr.data_center_interconnect:
+                dci = DataCenterInterconnectDM.get(lr.data_center_interconnect)
+                if dci.virtual_network:
+                    vn_list += dci.virtual_network
 
         vn_dict = {}
         for vn_id in vn_list:
@@ -853,6 +885,13 @@ class AnsibleRoleCommon(AnsibleConf):
             self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
             vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
 
+        '''
+        dci_ip_map = None
+        if self.is_dci_gateway():
+            self.physical_router.evaluate_dci_ip_map()
+            dci_ip_map = self.physical_router.self.dci_ip_map
+        '''
+
         for vn_id, interfaces in self.get_sorted_key_value_pairs(vn_dict):
             vn_obj = VirtualNetworkDM.get(vn_id)
             if (vn_obj is None or
@@ -916,6 +955,7 @@ class AnsibleRoleCommon(AnsibleConf):
                         elif self.is_gateway():
                             lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
                         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn_obj.name else False
+                        is_dci_vn = True if '_contrail_dci_internal_vn_' in vn_obj.name else False
                         ri_conf = {'ri_name': vrf_name_l3, 'vn': vn_obj,
                                    'is_l2': False,
                                    'is_l2_l3': vn_obj.get_forwarding_mode() ==
@@ -927,7 +967,9 @@ class AnsibleRoleCommon(AnsibleConf):
                                    'interfaces': interfaces,
                                    'gateways': lo0_ips,
                                    'network_id': vn_obj.vn_network_id}
-                        if is_internal_vn:
+                        if is_dci_vn:
+                            ri_conf['vni'] = vn_obj.get_vxlan_vni(is_dci_vn = is_dci_vn)
+                        elif is_internal_vn:
                             ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                             lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(vrf_name_l3)
                             lr = LogicalRouterDM.get(lr_uuid)
@@ -980,6 +1022,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
+        self.set_dci_vn_irb_config()
         self.init_evpn_config()
         self.build_firewall_config()
         self.build_esi_config()
