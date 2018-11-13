@@ -319,6 +319,8 @@ void AddL3Vn(const char *name, int id);
 void AddVn(const char *name, int id, bool admin_state = true);
 void AddVn(const char *name, int id, int vxlan_id, bool admin_state = true);
 void DelVn(const char *name);
+void ModifyVnMaxFlows(const string &name, int id, uint32_t max_flows);
+void AddMaxFlowsVmi(std::string intf_name, int intf_id, uint32_t max_flows);
 void AddPortWithMac(const char *name, int id, const char *mac,
                     const char *attr);
 void AddPort(const char *name, int id, const char *attr = NULL);
