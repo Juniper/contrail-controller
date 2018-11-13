@@ -258,7 +258,7 @@ class TestQfxBasicDM(TestCommonDM):
             raise Exception("No Correct EVPN Config generated")
         vni_options = evpn_config.get_vni_options()
         for vni_op in vni_options.get_vni() or []:
-            if vni_op.name == str(vni) and vni_op.vrf_target.community == "target:64512:8000002":
+            if vni_op.name == str(vni) and vni_op.vrf_target.community == "target:64512:8000003":
                 return
         raise Exception("No Correct EVPN Config generated")
     # end check_l2_evpn_proto_config
