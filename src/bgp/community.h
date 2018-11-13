@@ -166,6 +166,7 @@ public:
     virtual void Remove();
     int CompareTo(const ExtCommunity &rhs) const;
 
+    bool ContainsRTarget(const ExtCommunityValue &val) const;
     bool ContainsOriginVn(as_t asn, uint32_t vn_index) const;
     bool ContainsOriginVn(const ExtCommunityValue &val) const;
     bool ContainsOriginVn4(const ExtCommunityValue &val) const;
