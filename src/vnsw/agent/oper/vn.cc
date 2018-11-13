@@ -103,7 +103,7 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     enable_rpf_(true), flood_unknown_unicast_(false),
     forwarding_mode_(Agent::L2_L3), mirror_destination_(false),
     underlay_forwarding_(false), vxlan_routing_vn_(false),
-    logical_router_uuid_(), cfg_igmp_enable_(false) {
+    logical_router_uuid_(), cfg_igmp_enable_(false), vn_max_flows_(0) {
 }
 
 VnEntry::~VnEntry() {
@@ -296,6 +296,11 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
 
     if (cfg_igmp_enable_ != data->cfg_igmp_enable_) {
         cfg_igmp_enable_ = data->cfg_igmp_enable_;
+    }
+
+    if (vn_max_flows_ != data->vn_max_flows_) {
+        vn_max_flows_ = data->vn_max_flows_;
+        ret = true;
     }
 
     return ret;
@@ -901,7 +906,7 @@ int VnTable::ComputeCfgVxlanId(IFMapNode *node) {
 void VnTable::CfgForwardingFlags(IFMapNode *node,
                                  bool *rpf, bool *flood_unknown_unicast,
                                  Agent::ForwardingMode *forwarding_mode,
-                                 bool *mirror_destination) {
+                                 bool *mirror_destination, uint32_t *vn_max_flows) {
     *rpf = true;
 
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
@@ -915,6 +920,7 @@ void VnTable::CfgForwardingFlags(IFMapNode *node,
     *mirror_destination = properties.mirror_destination;
     *forwarding_mode =
         agent()->TranslateForwardingMode(properties.forwarding_mode);
+    *vn_max_flows = properties.max_flows;
  }
 
 void
@@ -1081,14 +1087,14 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool enable_rpf;
     bool flood_unknown_unicast;
     bool mirror_destination;
+    uint32_t vn_max_flows;
     bool pbb_evpn_enable = cfg->pbb_evpn_enable();
     bool pbb_etree_enable = cfg->pbb_etree_enable();
     bool layer2_control_word = cfg->layer2_control_word();
     bool cfg_igmp_enable = cfg->igmp_enable();
-
     Agent::ForwardingMode forwarding_mode;
     CfgForwardingFlags(node, &enable_rpf, &flood_unknown_unicast,
-                       &forwarding_mode, &mirror_destination);
+                       &forwarding_mode, &mirror_destination, &vn_max_flows);
     return new VnData(agent(), node, node->name(), acl_uuid, vrf_name,
                       mirror_acl_uuid, mirror_cfg_acl_uuid, vn_ipam,
                       vn_ipam_data, cfg->properties().vxlan_network_identifier,
@@ -1097,7 +1103,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
                       pbb_evpn_enable, layer2_control_word, slo_list,
                       underlay_forwarding, vxlan_routing_vn,
-                      logical_router_uuid, cfg_igmp_enable);
+                      logical_router_uuid, cfg_igmp_enable, vn_max_flows);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -1155,7 +1161,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
                               pbb_evpn_enable, layer2_control_word, empty_list,
-                              false, false, nil_uuid(), false);
+                              false, false, nil_uuid(), false, 0);
 
     req.data.reset(data);
     Enqueue(&req);
@@ -1262,6 +1268,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);
     data.set_cfg_igmp_enable(cfg_igmp_enable());
+    data.set_max_flows(vn_max_flows());
     return true;
 }
 

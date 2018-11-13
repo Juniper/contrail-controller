@@ -34,11 +34,6 @@ class VmEntry : AgentRefCount<VmEntry>, public AgentOperDBEntry {
 public:
     static const int kVectorIncreaseSize = 16;
 
-    // kDropNewFlowsRecoveryThreshold is set to 90% of the Max flows for a
-    // VM this value represents that recovery from the drop new flows will
-    // happen only when total number of flow fall below this value
-    static const int kDropNewFlowsRecoveryThreshold = 90;
-
     VmEntry(const uuid &id);
     virtual ~VmEntry();
 
