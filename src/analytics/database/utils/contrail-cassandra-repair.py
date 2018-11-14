@@ -14,8 +14,8 @@ from sandesh_common.vns.constants import RepairNeededKeyspaces
 def repair(options):
     returncode = 0
     for keyspace in RepairNeededKeyspaces:
-        keyspace_repair_logfile = "/var/log/cassandra/repair-" + keyspace + ".log"
-        keyspace_repair_running = "/var/log/cassandra/repair-" + keyspace + "-running"
+        keyspace_repair_logfile = "/var/log/contrail/repair-" + keyspace + ".log"
+        keyspace_repair_running = "/var/log/contrail/repair-" + keyspace + "-running"
         if os.path.exists(keyspace_repair_running):
             logging.debug("REPAIR for {keyspace} is still running".format(keyspace=keyspace))
             returncode = 1
