@@ -1134,6 +1134,300 @@ class AccessControlListDM(DBBaseDM):
 
 # end AccessControlListDM
 
+class DAG(object):
+
+    def __init__(self, name):
+        self.name = name
+        self.vmis = set()
+    # end __init__
+
+    @classmethod
+    def create_dag(cls, tags):
+        dag_name = '' #TODO
+        return DAG(dag_name)
+    # end create_dag
+
+    def add_vmi(self, vmi):
+        self.vmis.add(vmi)
+    # end add_vmi
+
+    def remove_vmi(self, vmi):
+        self.vmis.rmeove(vmi)
+    # end remove_vmi
+
+    def delete(self):
+        pass
+    # end delete
+
+    @classmethod
+    def delete_dag(cls, dag):
+        pass
+    # end delete_dag
+# end DAG
+
+class PolicyManagementDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'policy_management'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.dags = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        del cls._dict[uuid]
+    # end delete
+# end PolicyManagementDM
+
+class ApplicationPolicySetDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'application_policy_set'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.virtual_machine_interfaces = set()
+        self.firewall_policys = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.all_application = obj.get('all_application')
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('firewall_policy', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('firewall_policy', {})
+        del cls._dict[uuid]
+    # end delete
+# end ApplicationPolicySetDM
+
+class FirewallPolicyDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'firewall_policy'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.application_policy_sets = set()
+        self.firewall_rules = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.update_multiple_refs('application_policy_set', obj)
+        self.update_multiple_refs('firewall_rule', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('application_policy_set', {})
+        obj.update_multiple_refs('firewall_rule', {})
+        del cls._dict[uuid]
+    # end delete
+# end FirewallPolicyDM
+
+class FirewallRuleDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'firewall_rule'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.firewall_policys = set()
+        self.service_groups = set()
+        self.address_groups = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.action_list = obj.get("action_list")
+        self.service = obj.get("service")
+        self.end_point_1 = obj.get("end_point_1")
+        self.end_point_2 = obj.get("end_point_2")
+        self.match_tags = obj.get("match_tags")
+        self.match_tag_types  = obj.get("match_tag_types")
+        self.direction = obj.get("direction")
+        self.update_multiple_refs('firewall_policy', obj)
+        self.update_multiple_refs('service_group', obj)
+        self.update_multiple_refs('address_group', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('firewall_policy', {})
+        obj.update_multiple_refs('service_group', {})
+        obj.update_multiple_refs('address_group', {})
+        del cls._dict[uuid]
+    # end delete
+# end FirewallRuleDM
+
+class ServiceGroupDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_group'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.firewall_rules = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.protocol = obj.get('protocol')
+        self.protocol_id = obj.get('protocol_id')
+        self.src_ports = obj.get('src_ports')
+        self.dst_ports = obj.get('dst_ports')
+        self.update_multiple_refs('firewall_rule', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('firewall_rule', {})
+        del cls._dict[uuid]
+    # end delete
+# end ServiceGroupDM
+
+class AddressGroupDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'address_group'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.firewall_rules = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.prefix = obj.get('prefix')
+        self.update_multiple_refs('firewall_rule', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('firewall_rule', {})
+        del cls._dict[uuid]
+    # end delete
+# end AddressGroupDM
+
+class ProjectDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'project'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.virtual_networks = set()
+        self.tags = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.update_multiple_refs('tag', obj)
+        self.set_children('virtual_network', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('tag', {})
+        del cls._dict[uuid]
+    # end delete
+# end ProjectDM
+
+class TagDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'tag'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.virtual_machine_interfaces = set()
+        self.virtual_networks = set()
+        self.projects = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('project', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('virtual_network', {})
+        obj.update_multiple_refs('project', {})
+        del cls._dict[uuid]
+    # end delete
+# end TagDM
+
 class SecurityGroupDM(DBBaseDM):
     _dict = {}
     obj_type = 'security_group'
@@ -1334,6 +1628,7 @@ class VirtualNetworkDM(DBBaseDM):
             self.set_logical_router(obj.get("fq_name")[-1])
         self.update_multiple_refs('physical_router', obj)
         self.set_children('floating_ip_pool', obj)
+        self.add_to_parent(obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
         try:
@@ -1463,6 +1758,7 @@ class VirtualNetworkDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        obj.remove_from_parent()
         obj.update_multiple_refs('physical_router', {})
         del cls._dict[uuid]
     # end delete

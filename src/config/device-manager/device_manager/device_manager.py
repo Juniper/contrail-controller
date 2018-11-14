@@ -46,7 +46,9 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
-    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM
+    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
+    ApplicationPolicySetDM, FirewallPolicyDM, FirewallRuleDM, ServiceGroupDM, \
+    AddressGroupDM, ProjectDM, TagDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -86,6 +88,37 @@ class DeviceManager(object):
             'fabric': [],
             'fabric_namespace': [],
             'link_aggregation_group': [],
+        },
+        'policy_management' {
+           'self': [],
+        },
+        'policy_management': {
+           'self': []
+        },
+        'application_policy_set' {
+           'self': ['virtual_machine_interface'],
+           'firewall_policy': ['virtual_machine_interface'],
+        },
+        'firewall_policy' {
+           'self': ['application_policy_set'],
+           'firewall_rule': ['application_policy_set'],
+        },
+        'firewall_rule' {
+           'self': ['firewall_policy'],
+           'service_group': ['firewall_policy'],
+           'address_group': ['firewall_policy'],
+        },
+        'service_group' {
+           'self': ['firewall_rule'],
+        },
+        'address_group' {
+           'self': ['firewall_rule'],
+        },
+        'tag' {
+           'self': ['virtual_machine_interface', 'virtual_network', 'project'],
+        },
+        'project': {
+           'self': ['virtual_network']
         },
         'global_system_config': {
             'self': ['physical_router'],
@@ -153,6 +186,8 @@ class DeviceManager(object):
             'port_tuple': ['physical_interface'],
             'service_endpoint': ['physical_router'],
             'security_group': ['logical_interface'],
+            'tag': ['logical_interface'],
+            'application_policy_set'] : ['logical_interface'],
         },
         'security_group': {
             'self': [],
@@ -177,6 +212,7 @@ class DeviceManager(object):
             'routing_instance': ['physical_router', 'logical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
+            'tag': ['virtual_machine_interface'],
             'logical_router': ['physical_router'],
             'virtual_machine_interface': ['physical_router'],
             'floating_ip_pool': ['physical_router'],
@@ -355,6 +391,30 @@ class DeviceManager(object):
 
         for obj in PortTupleDM.list_obj():
             PortTupleDM.locate(obj['uuid'], obj)
+
+        for obj in ApplicationPolicySetDM.list_obj():
+            ApplicationPolicySetDM.locate(obj['uuid'], obj)
+
+        for obj in FirewallPolicyDM.list_obj():
+            FirewallPolicyDM.locate(obj['uuid'], obj)
+
+        for obj in FirewallRuleDM.list_obj():
+            FirewallRuleDM.locate(obj['uuid'], obj)
+
+        for obj in ServiceGroupDM.list_obj():
+            FirewallRuleDM.locate(obj['uuid'], obj)
+
+        for obj in AddressGroupDM.list_obj():
+            AddressGroupDM.locate(obj['uuid'], obj)
+
+        for obj in ProjectDM.list_obj():
+            ProjectDM.locate(obj['uuid'], obj)
+
+        for obj in TagDM.list_obj():
+            TagDM.locate(obj['uuid'], obj)
+
+        for obj in PolicyManagementDM.list_obj():
+            PolicyManagementDM.locate(obj['uuid'], obj)
 
         for obj in PhysicalInterfaceDM.list_obj():
             PhysicalInterfaceDM.locate(obj['uuid'], obj)
