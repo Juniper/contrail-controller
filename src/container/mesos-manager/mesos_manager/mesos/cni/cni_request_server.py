@@ -70,11 +70,9 @@ class MesosCniServer(object):
     def process_cni_data(self, container_id, data):
         self.logger.info("Server: Got CNI data for Container Id: %s."
                          % (container_id))
-        #print (data)
         cni_data_obj = MESOSCniDataObject(data)
         cni_conf = cni_data_obj.parse_cni_data()
         self._queue.put(cni_conf)
-        print cni_conf
         pass
 
     def create_cni_data(self, container_id, data):
