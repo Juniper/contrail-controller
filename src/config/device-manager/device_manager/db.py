@@ -278,7 +278,7 @@ class PhysicalRouterDM(DBBaseDM):
                 pass
     # end wait_for_config_push
 
-    def delete_obj(self):
+    def delete_handler(self):
         self.wait_for_config_push()
         if self.nc_handler_gl:
             gevent.kill(self.nc_handler_gl)
@@ -310,6 +310,10 @@ class PhysicalRouterDM(DBBaseDM):
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
         self.update_single_ref('node_profile', {})
+    # end delete_handler
+
+    def delete_obj(self):
+        vnc_greenlets.VncGreenlet("VNC Device Manager", self.delete_handler)
     # end delete_obj
 
     @classmethod
