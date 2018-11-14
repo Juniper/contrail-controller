@@ -25,7 +25,11 @@ if GetOption('with_libvirt'):
     optional_objs.append(except_env.Object('libvirt_instance_adapter.cc'))
 
 if platform.system() == 'Windows':
-    os_specific_src = ['windows/interface_params.cc', 'windows/instance_task_stub.cc']
+    os_specific_src = [
+        'windows/windows_net_interface.cc',
+        'windows/interface_params.cc',
+        'windows/instance_task_stub.cc',
+    ]
 else:
     os_specific_src = ['nix/interface_params.cc', 'instance_task.cc']
 
