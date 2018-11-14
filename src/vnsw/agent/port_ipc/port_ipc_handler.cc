@@ -30,8 +30,6 @@
 
 namespace fs = boost::filesystem;
 
-const std::string PortIpcHandler::kPortsDir = "/var/lib/contrail/ports";
-
 /////////////////////////////////////////////////////////////////////////////
 // Utility methods
 /////////////////////////////////////////////////////////////////////////////
@@ -397,8 +395,7 @@ bool PortIpcHandler::AddVmiUuidEntry(PortSubscribeEntryPtr entry_ref,
 
 bool PortIpcHandler::WriteJsonToFile(VmiSubscribeEntry *entry, bool overwrite)
                                      const {
-    string filename = ports_dir_ + "/" +
-        UuidToString(entry->vm_uuid()) + UuidToString(entry->vmi_uuid());
+    string filename = ports_dir_ + "/" + UuidToString(entry->vmi_uuid());
     fs::path file_path(filename);
 
     /* Don't overwrite if the file already exists */
@@ -612,14 +609,6 @@ bool PortIpcHandler::GetPortInfo(const string &uuid_str, string &info) const {
     }
 
     return MakeJsonFromVmi(vmi_uuid, info);
-}
-
-bool PortIpcHandler::InterfaceExists(const std::string &name) const {
-    int indx  = if_nametoindex(name.c_str());
-    if (indx == 0) {
-        return false;
-    }
-    return true;
 }
 
 void PortIpcHandler::SyncHandler() {
