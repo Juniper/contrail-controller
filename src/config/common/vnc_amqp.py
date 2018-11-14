@@ -1,5 +1,6 @@
 import socket
 import gevent
+from gevent.threadpool import ThreadPool
 import cStringIO
 from pprint import pformat
 
@@ -20,6 +21,9 @@ class VncAmqpHandle(object):
         self._db_resync_done = gevent.event.Event()
         self._args = args
         self.timer = timer_obj
+        # Use a native threadpool with a single worker thread to offload
+        # dependency evaluation off the gevent event loop
+        self.native_threadpool = ThreadPool(1)
 
     def establish(self):
         q_name = '.'.join([self.q_name_prefix, socket.gethostname()])
@@ -195,12 +199,27 @@ class VncAmqpHandle(object):
             cls = self.db_cls.get_obj_type_map().get(res_type)
             if cls is None:
                 continue
-            for res_id in res_id_list:
-                res_obj = cls.get(res_id)
-                if res_obj is not None:
-                    res_obj.evaluate()
-                    if self.timer:
-                        self.timer.timed_yield()
+            res_info = {}
+            res_info['cls'] = cls
+            res_info['res_id_list'] = res_id_list
+            # Offload CPU intensive dependency evaluation task to a
+            # native thread so that the current greenlet switches out
+            # and doesn't starve heartbeat greenlets.  Be careful not
+            # to offload any blocking I/O operation to a native thread
+            # like reading from Cassandra using self.db_cls as that
+            # would cause the native thread greenlet to switch out
+            # with a LoopExit error as there is no other greenlet in
+            # the native space to switch out to.
+            self.native_threadpool.spawn(self.evaluate_resources, **res_info)
+            self.native_threadpool.join()
+
+    def evaluate_resources(self, **res_info):
+        cls = res_info['cls']
+        res_id_list = res_info['res_id_list']
+        for res_id in res_id_list:
+            res_obj = cls.get(res_id)
+            if res_obj is not None:
+                res_obj.evaluate()
 
     def close(self):
         self._vnc_kombu.shutdown()
