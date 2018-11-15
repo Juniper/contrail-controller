@@ -60,7 +60,7 @@ void OverlayPingReq::HandleRequest() const {
     OverlayPing *overlayping = NULL;
     {
     Agent *agent = Agent::GetInstance();
-    uuid vn_uuid = StringToUuid(get_vn_uuid());
+    boost::uuids::uuid vn_uuid = StringToUuid(get_vn_uuid());
     IpAddress sip(IpAddress::from_string(get_source_ip(), ec));
     if (ec != 0) {
         err_str = "Invalid source IP";
@@ -257,4 +257,3 @@ if (pkt_lost_count_ != GetMaxAttempts()) {
     resp->set_context(context_);
     resp->Response();
 }
-

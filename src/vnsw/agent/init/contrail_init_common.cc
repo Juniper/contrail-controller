@@ -147,7 +147,8 @@ void ContrailInitCommon::ProcessComputeAddress(AgentParam *param) {
         param->compute_node_address_list();
     AgentParam::AddressList::const_iterator it = addr_list.begin();
     while (it != addr_list.end()) {
-        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE,
+                               boost::uuids::nil_uuid(),
                                param->vhost_name());
         rt_table->AddVHostRecvRouteReq(agent()->local_peer(),
                                        agent()->fabric_vrf_name(),
@@ -190,7 +191,8 @@ void ContrailInitCommon::CreateInterfaces() {
     PhysicalInterface::Create(table, agent_param()->eth_port(),
                               agent()->fabric_vrf_name(),
                               PhysicalInterface::FABRIC, type,
-                              agent_param()->eth_port_no_arp(), nil_uuid(),
+                              agent_param()->eth_port_no_arp(),
+                              boost::uuids::nil_uuid(),
                               agent_param()->vhost_addr(),
                               physical_transport);
     PhysicalInterfaceKey physical_key(agent()->fabric_interface_name());
@@ -205,7 +207,8 @@ void ContrailInitCommon::CreateInterfaces() {
         PhysicalInterface::Create(table, agent_param()->crypt_port(),
                                   agent()->fabric_vrf_name(),
                                   PhysicalInterface::FABRIC, type,
-                                  agent_param()->crypt_port_no_arp(), nil_uuid(),
+                                  agent_param()->crypt_port_no_arp(),
+                                  boost::uuids::nil_uuid(),
                                   agent_param()->vhost_addr(),
                                   physical_transport);
         PhysicalInterfaceKey physical_key(agent()->crypt_interface_name());
@@ -223,7 +226,7 @@ void ContrailInitCommon::CreateInterfaces() {
         agent()->set_vhost_interface
             (static_cast<Interface *>(table->FindActiveEntry(&key)));
     } else {
-        VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+        VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, boost::uuids::nil_uuid(),
                            agent()->vhost_interface_name());
         agent()->set_vhost_interface
             (static_cast<Interface *>(table->FindActiveEntry(&key)));
@@ -250,7 +253,7 @@ void ContrailInitCommon::CreateInterfaces() {
                                   agent()->fabric_vrf_name(),
                                   PhysicalInterface::VMWARE,
                                   PhysicalInterface::ETHERNET, false,
-                                  nil_uuid(), Ip4Address(0),
+                                  boost::uuids::nil_uuid(), Ip4Address(0),
                                   physical_transport);
 
         PhysicalInterfaceKey vmware_pk(agent_param()->vmware_physical_port());
