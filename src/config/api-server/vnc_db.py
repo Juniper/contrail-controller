@@ -1336,25 +1336,13 @@ class VncDbClient(object):
 
     def _owner_id(self):
         env = get_request().headers.environ
-        try:
-            tenant_uuid = env.get('HTTP_X_PROJECT_ID')
-        except (TypeError):
-            tenant_uuid = None
-        except (ValueError):
-            tenant_uuid = None
-
-        domain = env.get('HTTP_X_DOMAIN_ID')
-        if domain is None:
-            domain = env.get('HTTP_X_USER_DOMAIN_ID')
-            try:
-                domain = str(uuid.UUID(domain))
-            except (ValueError, TypeError):
-                if domain == 'default' or domain is None:
-                    domain = 'default-domain'
-                domain = self._object_db.fq_name_to_uuid('domain', [domain])
-        if domain:
-            domain = domain.replace('-', '')
-        return domain, tenant_uuid
+        domain_id = env.get('HTTP_X_DOMAIN_ID')
+        if domain_id:
+            domain_id = domain_id.replace('-', '')
+        project_id = env.get('HTTP_X_PROJECT_ID')
+        if project_id:
+            project_id = domain_id.replace('-', '')
+        return domain_id, project_id
 
     def dbe_list_rdbms(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                        obj_uuids=None, is_count=False, filters=None,
@@ -1384,8 +1372,8 @@ class VncDbClient(object):
         def collect_shared(owned_fq_name_uuids=None, start=None, count=None):
             shared_result = []
             # include objects shared with tenant
-            domain, tenant_uuid = self._owner_id()
-            shares = self.get_shared_objects(obj_type, tenant_uuid, domain)
+            domain_id, project_id = self._owner_id()
+            shares = self.get_shared_objects(obj_type, project_id, domain_id)
             if start is not None:
                 # pick only ones greater than marker
                 shares = sorted(shares, key=lambda uuid_perm: uuid_perm[0])
@@ -1397,7 +1385,7 @@ class VncDbClient(object):
 
             collected = 0
             marker = None
-            for (obj_uuid, obj_perm) in shares:
+            for obj_uuid, obj_perm in shares:
                 # skip owned objects already included in results
                 if obj_uuid in owned_objs:
                     continue
@@ -1409,7 +1397,7 @@ class VncDbClient(object):
                         marker = obj_uuid
                         break
                 except NoIdError:
-                    # uuid no longer valid. Delete?
+                    # uuid no longer valid. Deleted?
                     pass
 
             return shared_result, marker
