@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
 import argparse
@@ -13,8 +13,8 @@ from enum import Enum
 
 class MandatoryArgs(Enum):
     """
-    Enum of mandatory arguments to kube-manager.
-    Kube-manager arguments will be validated against these arguments to
+    Enum of mandatory arguments to mesos-manager.
+    mesos-manager arguments will be validated against these arguments to
     enforce the presence of these mandatory arguments and optionally to
     enforce the correctness/validity of the supplied value for an argument.
 
@@ -116,7 +116,7 @@ def parse_args(args_str=None):
         MandatoryArgs.IP_FABRIC_SUBNET.value['arg_str']: None,
         'mesos_cluster_owner': 'mesos',
         'mesos_cluster_domain' : 'default-domain',
-        'cluster_name': 'mesos',
+        'mesos_cluster_name': 'mesos',
         'cluster_project' : "{}",
         'cluster_network' : "{}",
         'cluster_pod_task_network' : None,
