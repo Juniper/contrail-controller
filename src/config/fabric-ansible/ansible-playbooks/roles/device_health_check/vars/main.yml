@@ -1,0 +1,5 @@
+device_mgmt_ip: "{{pr_host}}"
+device_vendor: "{{pr_vendor | lower}}"
+device_username: "{{pr_user}}"
+device_password: "{{pr_password}}"
+advanced_parameters: "{{playbook_input.input.advanced_parameters}}"

@@ -1,0 +1,15 @@
+- name: Call vendor-specific health check logic
+  include_tasks: "{{ device_vendor }}.yml"
+
+- name: Abort if requested
+  include_tasks: error_handler.yml
+  when: device_health_report.total_failures > 0 and abort_upon_failure == True
+  vars:
+    op_err_message: "Failed device health check with {{ device_health_report.total_failures }} failures"
+    jl_err_message: "Failed device health check with {{ device_health_report.total_failures }} failures"
+    results:
+      "test_results": "{{ device_health_report }}"
+
+- name: convert to json string
+  set_fact:
+    device_health_report: "{{device_health_report|to_yaml}}"
