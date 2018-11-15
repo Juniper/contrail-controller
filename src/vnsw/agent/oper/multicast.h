@@ -295,7 +295,8 @@ public:
     static const uint32_t kMulticastTimeout = 5 * 60 * 1000;
     static const Ip4Address kBroadcast;
     typedef std::set<MulticastGroupObject *> MulticastGroupObjectList;
-    typedef std::map<uuid, MulticastGroupObjectList> VmMulticastGroupObjectList;
+    typedef std::map<boost::uuids::uuid, MulticastGroupObjectList>
+        VmMulticastGroupObjectList;
     typedef std::vector<std::string> ManagedPhysicalDevicesList;
 
     MulticastHandler(Agent *agent);
@@ -545,7 +546,7 @@ private:
     Agent *agent_;
     std::map<std::string, std::vector<VnIpam> > vrf_ipam_mapping_;
     //VN uuid to VRF name mapping
-    std::map<uuid, string> vn_vrf_mapping_;
+    std::map<boost::uuids::uuid, string> vn_vrf_mapping_;
     //VM uuid <-> VN uuid
     //List of all multicast objects(VRF/G/S)
     std::set<MulticastGroupObject *> multicast_obj_list_;

@@ -119,13 +119,13 @@ void BgpAsAService::BgpAsAServiceList::Update(const BgpAsAServiceEntry *lhs,
         if (lhs->health_check_configured_) {
             lhs->old_health_check_delete_ = false;
             lhs->new_health_check_add_ = true;
-            lhs->old_health_check_uuid_ = nil_uuid();
+            lhs->old_health_check_uuid_ = boost::uuids::nil_uuid();
             lhs->health_check_uuid_ = rhs->health_check_uuid_;
         } else {
             lhs->old_health_check_delete_ = true;
             lhs->new_health_check_add_ = false;
             lhs->old_health_check_uuid_ = lhs->health_check_uuid_;
-            lhs->health_check_uuid_ = nil_uuid();
+            lhs->health_check_uuid_ = boost::uuids::nil_uuid();
         }
         return;
     }
@@ -151,7 +151,7 @@ void BgpAsAService::StartHealthCheck(const boost::uuids::uuid &vm_uuid,
     for (BgpAsAServiceEntryListConstIterator iter = list.begin();
          iter != list.end(); ++iter) {
         if (!health_check_cb_list_.empty() && iter->new_health_check_add_ &&
-            iter->health_check_uuid_ != nil_uuid()) {
+            iter->health_check_uuid_ != boost::uuids::nil_uuid()) {
             std::vector<HealthCheckCb>::iterator hcb_it =
                 health_check_cb_list_.begin();
             while (hcb_it != health_check_cb_list_.end()) {
@@ -193,7 +193,7 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
     IpAddress peer_ip;
     uint32_t source_port = 0;
     bool health_check_configured = false;
-    boost::uuids::uuid health_check_uuid = nil_uuid();
+    boost::uuids::uuid health_check_uuid = boost::uuids::nil_uuid();
     uint64_t hc_delay_usecs = 0;
     uint64_t hc_timeout_usecs = 0;
     uint32_t hc_retries = 0;
@@ -365,7 +365,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
             }
             if (prev->old_health_check_delete_) {
                 if (!health_check_cb_list_.empty() &&
-                    prev->old_health_check_uuid_ != nil_uuid()) {
+                    prev->old_health_check_uuid_ != boost::uuids::nil_uuid()) {
                     std::vector<HealthCheckCb>::iterator hcb_it =
                         health_check_cb_list_.begin();
                     while (hcb_it != health_check_cb_list_.end()) {
@@ -375,11 +375,11 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
                      }
                 }
                 prev->old_health_check_delete_ = false;
-                prev->old_health_check_uuid_ = nil_uuid();
+                prev->old_health_check_uuid_ = boost::uuids::nil_uuid();
             }
             if (prev->new_health_check_add_) {
                 if (!health_check_cb_list_.empty() &&
-                    prev->health_check_uuid_ != nil_uuid()) {
+                    prev->health_check_uuid_ != boost::uuids::nil_uuid()) {
                     std::vector<HealthCheckCb>::iterator hcb_it =
                         health_check_cb_list_.begin();
                     while (hcb_it != health_check_cb_list_.end()) {
