@@ -154,8 +154,10 @@ protected:
 
     void NovaIntfAdd(int id, const char *name, const char *addr,
                     const char *mac) {
-        IntfCfgAddNoWait(id, name, ip.to_v4(), nil_uuid(), nil_uuid(), mac,
-                         VmInterface::kInvalidVlanId, Ip6Address(), nil_uuid());
+        IntfCfgAddNoWait(id, name, ip.to_v4(), boost::uuids::nil_uuid(),
+                         boost::uuids::nil_uuid(), mac,
+                         VmInterface::kInvalidVlanId, Ip6Address(),
+                         boost::uuids::nil_uuid());
         usleep(1000);
     }
 

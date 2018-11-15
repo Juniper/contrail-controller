@@ -105,8 +105,9 @@ protected:
                                 eth_name_,
                                 agent_->fabric_vrf_name(),
                                 PhysicalInterface::FABRIC,
-                                PhysicalInterface::ETHERNET, false, nil_uuid(),
-                                Ip4Address(0), Interface::TRANSPORT_ETHERNET);
+                                PhysicalInterface::ETHERNET, false,
+                                boost::uuids::nil_uuid(), Ip4Address(0),
+                                Interface::TRANSPORT_ETHERNET);
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
         bgp_peer_ = CreateBgpPeer("127.0.0.1", "remote");
@@ -143,7 +144,8 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE,
+                                 boost::uuids::nil_uuid(),
                                  agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),

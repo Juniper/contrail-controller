@@ -286,6 +286,8 @@ protected:
 };
 
 TEST_F(VxlanRoutingTest, Basic) {
+    using boost::uuids::nil_uuid;
+
     SetupEnvironment(true);
     AddRoutingVrf(1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
@@ -310,6 +312,8 @@ TEST_F(VxlanRoutingTest, Basic) {
 }
 
 TEST_F(VxlanRoutingTest, Route_1) {
+    using boost::uuids::nil_uuid;
+
     SetupEnvironment(true);
     AddRoutingVrf(1);
     AddBridgeVrf("vn1", 1);
@@ -337,6 +341,8 @@ TEST_F(VxlanRoutingTest, Route_1) {
 }
 
 TEST_F(VxlanRoutingTest, Route_2) {
+    using boost::uuids::nil_uuid;
+
     SetupEnvironment(true);
     AddRoutingVrf(1);
     AddBridgeVrf("vn1", 1);
@@ -364,6 +370,8 @@ TEST_F(VxlanRoutingTest, Route_2) {
 }
 
 TEST_F(VxlanRoutingTest, Route_3) {
+    using boost::uuids::nil_uuid;
+
     SetupEnvironment(true);
     AddRoutingVrf(1);
     AddBridgeVrf("vn1", 1);
@@ -396,6 +404,8 @@ TEST_F(VxlanRoutingTest, Route_3) {
 }
 
 TEST_F(VxlanRoutingTest, Route_4) {
+    using boost::uuids::nil_uuid;
+
     SetupEnvironment(true);
     AddRoutingVrf(1);
     AddRoutingVrf(2);
@@ -432,6 +442,8 @@ TEST_F(VxlanRoutingTest, Route_4) {
 }
 
 TEST_F(VxlanRoutingTest, Route_5) {
+    using boost::uuids::nil_uuid;
+
     SetupEnvironment(true);
     AddRoutingVrf(1);
     AddBridgeVrf("vn1", 1);
@@ -471,6 +483,8 @@ TEST_F(VxlanRoutingTest, Route_5) {
 }
 
 TEST_F(VxlanRoutingTest, Route_6) {
+    using boost::uuids::nil_uuid;
+
     SetupEnvironment(true);
     AddRoutingVrf(1);
     AddRoutingVrf(2);
