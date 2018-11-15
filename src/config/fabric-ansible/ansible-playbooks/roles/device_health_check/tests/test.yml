@@ -1,0 +1,29 @@
+---
+- name: Validate device
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+
+  tasks:
+    - name: Call health checks
+      include_role:
+        name: device_health_check
+      vars:
+        snap_test_pfx: "juniper_health_check_1"
+        snap_action: "snapcheck"
+
+    - name: Take a device snapshot
+      include_role:
+        name: device_health_check
+      vars:
+        snap_test_pfx: "juniper_snapshot_1"
+        snap_action: "snap_pre"
+
+    - name: Take another device snapshot and compare
+      include_role:
+        name: device_health_check
+      vars:
+        snap_test_pfx: "juniper_snapshot_1"
+        snap_action: "snap_post"
