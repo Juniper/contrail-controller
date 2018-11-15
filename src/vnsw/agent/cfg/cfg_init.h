@@ -9,8 +9,6 @@
 #include <ifmap/ifmap_agent_table.h>
 #include <sandesh/sandesh_trace.h>
 
-using namespace boost::uuids;
-
 class CfgFilter;
 class CfgListener;
 class InterfaceCfgClient;
