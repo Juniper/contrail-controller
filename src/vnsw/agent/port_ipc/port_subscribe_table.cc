@@ -12,6 +12,7 @@
 #include "port_ipc_handler.h"
 
 using namespace autogen;
+using boost::uuids::nil_uuid;
 
 /////////////////////////////////////////////////////////////////////////////
 // Init/Shutdown routines
@@ -355,7 +356,7 @@ void PortSubscribeTable::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     }
 }
 
-IFMapNode *PortSubscribeTable::UuidToIFNode(const uuid &u) const {
+IFMapNode *PortSubscribeTable::UuidToIFNode(const boost::uuids::uuid &u) const {
     UuidToIFNodeTree::const_iterator it;
     it = uuid_ifnode_tree_.find(u);
     if (it == uuid_ifnode_tree_.end()) {

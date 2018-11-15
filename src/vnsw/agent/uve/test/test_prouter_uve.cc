@@ -677,7 +677,7 @@ TEST_F(UveProuterUveTest, VMI_Logical_Assoc_1) {
 
     DelLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (vmi->logical_interface() == nil_uuid()));
+    WAIT_FOR(1000, 500, (vmi->logical_interface() == boost::uuids::nil_uuid()));
 
     DelPort("vmi1");
     DeleteLogicalInterface("li1");
@@ -944,8 +944,8 @@ TEST_F(UveProuterUveTest, VMIAddDel_4) {
     WAIT_FOR(1000, 500, (VmInterfaceGet(2) != NULL));
     VmInterface *vm1 = VmInterfaceGet(1);
     VmInterface *vm2 = VmInterfaceGet(2);
-    WAIT_FOR(1000, 500, (vm1->logical_interface() != nil_uuid()));
-    WAIT_FOR(1000, 500, (vm2->logical_interface() != nil_uuid()));
+    WAIT_FOR(1000, 500, (vm1->logical_interface() != boost::uuids::nil_uuid()));
+    WAIT_FOR(1000, 500, (vm2->logical_interface() != boost::uuids::nil_uuid()));
     const LogicalInterface *li1 = LogicalInterfaceGet(1, "li1");
 
     util_.EnqueueSendLIUveTask();
