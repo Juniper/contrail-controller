@@ -9,7 +9,6 @@
 #include <oper/oper_db.h>
 #include <agent_types.h>
 
-using namespace boost::uuids;
 using namespace std;
 
 struct VmKey : public AgentOperDBKey {

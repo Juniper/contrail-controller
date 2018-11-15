@@ -18,8 +18,6 @@
 #include <filter/packet_header.h>
 
 struct FlowKey;
-
-using namespace boost::uuids;
 class VnEntry;
 class Interface;
 
