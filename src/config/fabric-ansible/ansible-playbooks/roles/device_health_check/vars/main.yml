@@ -1,0 +1,25 @@
+device_mgmt_ip: "{{pr_host}}"
+device_vendor: "{{prouter_vendor| lower}}"
+device_username: "{{pr_user}}"
+device_password: c0ntrail123
+advanced_parameters:
+  bulk_device_upgrade_count: 4
+  bgp_flap_count: 4
+  bgp_flap_count_check: True
+  bgp_down_peer_count: 0
+  bgp_down_peer_count_check: True
+  bgp_peer_state_check: True
+  system_alarm_check: True
+  chassis_alarm_check: True
+  interface_error_count_check: True
+  interface_drop_count_check: True
+  interface_carrier_transition_count_check: True
+  routing_engine_cpu_idle: 60
+  routing_engine_cpu_idle_check: True
+  fpc_cpu_5min_avg: 50
+  fpc_cpu_5min_avg_check: True
+  fpc_memory_heap_util: 45
+  fpc_memory_heap_util_check: True
+  active_route_count_check: True
+  l2_total_mac_count_check: True
+  storm_control_flag_check: True
