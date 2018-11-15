@@ -14,15 +14,16 @@ using namespace boost::uuids;
 using namespace std;
 
 struct SgKey : public AgentOperDBKey {
-    SgKey(uuid sg_uuid) : AgentOperDBKey(), sg_uuid_(sg_uuid) {} ;
-    virtual ~SgKey() { };
+    SgKey(boost::uuids::uuid sg_uuid) : AgentOperDBKey(), sg_uuid_(sg_uuid) {}
+    virtual ~SgKey() {}
 
-    uuid sg_uuid_;
+    boost::uuids::uuid sg_uuid_;
 };
 
 struct SgData : public AgentOperDBData {
     SgData(Agent *agent, IFMapNode *node, const uint32_t &sg_id,
-           const uuid &egress_acl_id, const uuid &ingress_acl_id) :
+           const boost::uuids::uuid &egress_acl_id,
+           const boost::uuids::uuid &ingress_acl_id) :
                    AgentOperDBData(agent, node), sg_id_(sg_id),
                    egress_acl_id_(egress_acl_id),
                    ingress_acl_id_(ingress_acl_id) {
@@ -30,23 +31,24 @@ struct SgData : public AgentOperDBData {
     virtual ~SgData() { }
 
     uint32_t sg_id_;
-    uuid egress_acl_id_;
-    uuid ingress_acl_id_;
+    boost::uuids::uuid egress_acl_id_;
+    boost::uuids::uuid ingress_acl_id_;
 };
 
 class SgEntry : AgentRefCount<SgEntry>, public AgentOperDBEntry {
 public:
-    SgEntry(uuid sg_uuid, uint32_t sg_id) : sg_uuid_(sg_uuid), sg_id_(sg_id),
-                                            egress_acl_(NULL), ingress_acl_(NULL) {};
-    SgEntry(uuid sg_uuid) : sg_uuid_(sg_uuid) { };
-    virtual ~SgEntry() { };
+    SgEntry(boost::uuids::uuid sg_uuid, uint32_t sg_id) :
+        sg_uuid_(sg_uuid), sg_id_(sg_id),
+        egress_acl_(NULL), ingress_acl_(NULL) {}
+    SgEntry(boost::uuids::uuid sg_uuid) : sg_uuid_(sg_uuid) {}
+    virtual ~SgEntry() {}
 
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
 
-    const uuid &GetSgUuid() const {return sg_uuid_;};
+    const boost::uuids::uuid &GetSgUuid() const {return sg_uuid_;};
     const uint32_t &GetSgId() const {return sg_id_;};
     const AclDBEntry *GetIngressAcl() const {return ingress_acl_.get();};
     const AclDBEntry *GetEgressAcl() const {return egress_acl_.get();};
@@ -63,7 +65,7 @@ public:
                        AgentLogEvent::type event) const;
 private:
     friend class SgTable;
-    uuid sg_uuid_;
+    boost::uuids::uuid sg_uuid_;
     uint32_t sg_id_;
     AclDBEntryRef egress_acl_;
     AclDBEntryRef ingress_acl_;

@@ -13,14 +13,14 @@ using namespace boost::uuids;
 using namespace std;
 
 struct VmKey : public AgentOperDBKey {
-    VmKey(uuid id) : AgentOperDBKey(), uuid_(id) {} ;
+    VmKey(boost::uuids::uuid id) : AgentOperDBKey(), uuid_(id) {} ;
     virtual ~VmKey() { }
 
-    uuid uuid_;
+    boost::uuids::uuid uuid_;
 };
 
 struct VmData : public AgentOperDBData {
-    typedef vector<uuid> SGUuidList;
+    typedef vector<boost::uuids::uuid> SGUuidList;
     VmData(Agent *agent, IFMapNode *node, const std::string &name,
            const SGUuidList &sg_list) :
         AgentOperDBData(agent, node), name_(name), sg_list_(sg_list) { }
@@ -39,7 +39,7 @@ public:
     // happen only when total number of flow fall below this value
     static const int kDropNewFlowsRecoveryThreshold = 90;
 
-    VmEntry(const uuid &id);
+    VmEntry(const boost::uuids::uuid &id);
     virtual ~VmEntry();
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -49,7 +49,7 @@ public:
     const string &GetCfgName() const { return name_; }
     void SetCfgName(std::string name) { name_ = name; }
 
-    const uuid &GetUuid() const { return uuid_; }
+    const boost::uuids::uuid &GetUuid() const { return uuid_; }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VmEntry>::GetRefCount();
@@ -73,7 +73,7 @@ public:
 private:
     void SetInterfacesDropNewFlows(bool drop_new_flows) const;
     friend class VmTable;
-    uuid uuid_;
+    boost::uuids::uuid uuid_;
     std::string name_;
     mutable tbb::atomic<int> flow_count_;
     mutable tbb::atomic<int> linklocal_flow_count_;
