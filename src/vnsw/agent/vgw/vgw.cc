@@ -110,7 +110,8 @@ void VirtualGateway::CreateVrf() {
 }
 
 void VirtualGateway::CreateVrf(const std::string &vrf_name) {
-    agent_->vrf_table()->CreateVrf(vrf_name, nil_uuid(), VrfData::GwVrf);
+    agent_->vrf_table()->CreateVrf(
+        vrf_name, boost::uuids::nil_uuid(), VrfData::GwVrf);
 }
 
 void VirtualGateway::DeleteVrf(const std::string &vrf_name) {
@@ -166,7 +167,8 @@ VirtualGateway::SubnetUpdate(const std::string &vrf,
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
         Ip4Address addr = Address::GetIp4SubnetAddress(add_list[idx].ip_,
                                                        add_list[idx].plen_);
-        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE,
+                               boost::uuids::nil_uuid(),
                                agent_->vhost_interface_name());
         rt_table->AddVHostRecvRouteReq(agent_->vgw_peer(),
                                        agent_->fabric_vrf_name(),

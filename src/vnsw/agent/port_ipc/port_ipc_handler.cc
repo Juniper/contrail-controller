@@ -28,6 +28,7 @@
 #include "port_ipc/port_ipc_types.h"
 #include "port_ipc/port_subscribe_table.h"
 
+using boost::uuids::nil_uuid;
 namespace fs = boost::filesystem;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -72,8 +73,8 @@ static bool GetUuidMember(const contrail_rapidjson::Value &d, const char *member
     return true;
 }
 
-static void InterfaceResync(Agent *agent, const uuid &u, const string &name,
-                            bool link_status) {
+static void InterfaceResync(Agent *agent, const boost::uuids::uuid &u,
+                            const string &name, bool link_status) {
     InterfaceTable *table = agent->interface_table();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, name));
@@ -434,7 +435,7 @@ bool PortIpcHandler::ValidateMac(const string &mac) const {
 }
 
 bool PortIpcHandler::DeletePort(const string &url, string &err_msg) {
-    uuid vmi_uuid = StringToUuid(url);
+    boost::uuids::uuid vmi_uuid = StringToUuid(url);
     if (vmi_uuid != nil_uuid()) {
         DeleteVmiUuidEntry(vmi_uuid, err_msg);
         return true;
@@ -443,7 +444,8 @@ bool PortIpcHandler::DeletePort(const string &url, string &err_msg) {
     return true;
 }
 
-void PortIpcHandler::DeleteVmiUuidEntry(const uuid &u, string &err_msg) {
+void PortIpcHandler::DeleteVmiUuidEntry(
+    const boost::uuids::uuid &u, string &err_msg) {
     uint64_t version = 0;
     PortSubscribeEntryPtr entry = port_subscribe_table_->GetVmi(u);
     if (entry.get() != NULL) {
@@ -463,7 +465,7 @@ void PortIpcHandler::DeleteVmiUuidEntry(const uuid &u, string &err_msg) {
 }
 
 bool PortIpcHandler::EnablePort(const string &url, string &err_msg) {
-    uuid u = StringToUuid(url);
+    boost::uuids::uuid u = StringToUuid(url);
     if (u == nil_uuid()) {
         err_msg = "Port Not found " + url;
         return false;
@@ -503,7 +505,7 @@ bool PortIpcHandler::EnablePort(const string &url, string &err_msg) {
 }
 
 bool PortIpcHandler::DisablePort(const string &url, string &err_msg) {
-    uuid u = StringToUuid(url);
+    boost::uuids::uuid u = StringToUuid(url);
     if (u == nil_uuid()) {
         err_msg = "Port Not found " + url;
         return false;
@@ -543,7 +545,7 @@ bool PortIpcHandler::DisablePort(const string &url, string &err_msg) {
 }
 
 bool PortIpcHandler::IsUUID(const string &uuid_str) const {
-    uuid vmi_uuid = StringToUuid(uuid_str);
+    boost::uuids::uuid vmi_uuid = StringToUuid(uuid_str);
     if (vmi_uuid == nil_uuid()) {
         return false;
     }
@@ -603,7 +605,7 @@ std::string PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
 }
 
 bool PortIpcHandler::GetPortInfo(const string &uuid_str, string &info) const {
-    uuid vmi_uuid = StringToUuid(uuid_str);
+    boost::uuids::uuid vmi_uuid = StringToUuid(uuid_str);
     if (vmi_uuid == nil_uuid()) {
         return false;
     }
@@ -976,7 +978,7 @@ bool PortIpcHandler::DeleteVmVnPort(const boost::uuids::uuid &vm_uuid,
 
     std::set<boost::uuids::uuid>::iterator it = vmi_uuid_set.begin();
     while (it != vmi_uuid_set.end()) {
-        uuid vmi_uuid = *it;
+        boost::uuids::uuid vmi_uuid = *it;
         const PortSubscribeTable::VmiEntry *vmi_entry =
                 port_subscribe_table_->VmiToEntry(vmi_uuid);
         PortSubscribeEntryPtr entry =
@@ -1019,7 +1021,7 @@ bool PortIpcHandler::DeleteVmVnPort(const boost::uuids::uuid &vm_uuid,
 
 bool PortIpcHandler::DeleteVmVnPort(const string &json, const string &vm,
                                     string &err_msg) {
-    uuid vm_uuid = StringToUuid(vm);
+    boost::uuids::uuid vm_uuid = StringToUuid(vm);
     if (vm_uuid == nil_uuid()) {
         return true;
     }
@@ -1029,7 +1031,7 @@ bool PortIpcHandler::DeleteVmVnPort(const string &json, const string &vm,
 }
 
 bool PortIpcHandler::GetVmVnCfgPort(const string &vm, string &info) const {
-    uuid vm_uuid = StringToUuid(vm);
+    boost::uuids::uuid vm_uuid = StringToUuid(vm);
     if (vm_uuid == nil_uuid()) {
         return false;
     }
@@ -1041,7 +1043,7 @@ bool PortIpcHandler::GetVmVnCfgPort(const string &vm, string &info) const {
     std::set<boost::uuids::uuid>::iterator it = vmi_uuid_set.begin();
     info = '[';
     do {
-        uuid vmi_uuid = *it;
+        boost::uuids::uuid vmi_uuid = *it;
         if (!MakeJsonFromVmiConfig(vmi_uuid, info))
             return false;
         it++;
@@ -1054,7 +1056,7 @@ bool PortIpcHandler::GetVmVnCfgPort(const string &vm, string &info) const {
 
 }
 
-bool PortIpcHandler::MakeJsonFromVmiConfig(const uuid &vmi_uuid,
+bool PortIpcHandler::MakeJsonFromVmiConfig(const boost::uuids::uuid &vmi_uuid,
                                            string &resp) const {
     const PortSubscribeTable::VmiEntry *vmi_entry =
         port_subscribe_table_->VmiToEntry(vmi_uuid);
@@ -1114,7 +1116,7 @@ bool PortIpcHandler::MakeJsonFromVmiConfig(const uuid &vmi_uuid,
 }
 
 bool PortIpcHandler::GetVmVnPort(const string &vm, string &info) const {
-    uuid vm_uuid = StringToUuid(vm);
+    boost::uuids::uuid vm_uuid = StringToUuid(vm);
     if (vm_uuid == nil_uuid()) {
         return false;
     }
@@ -1126,7 +1128,7 @@ bool PortIpcHandler::GetVmVnPort(const string &vm, string &info) const {
     std::set<boost::uuids::uuid>::iterator it = vmi_uuid_set.begin();
     info = '[';
     do {
-        uuid vmi_uuid = *it;
+        boost::uuids::uuid vmi_uuid = *it;
         if (!MakeJsonFromVmi(vmi_uuid, info))
             return false;
         it++;
@@ -1138,7 +1140,8 @@ bool PortIpcHandler::GetVmVnPort(const string &vm, string &info) const {
     return true;
 }
 
-bool PortIpcHandler::MakeJsonFromVmi(const uuid &vmi_uuid, string &resp) const {
+bool PortIpcHandler::MakeJsonFromVmi(
+    const boost::uuids::uuid &vmi_uuid, string &resp) const {
     InterfaceConstRef intf_ref = agent_->interface_table()->FindVmi(vmi_uuid);
     const VmInterface *vmi = static_cast<const VmInterface *>(intf_ref.get());
     if (vmi == NULL) {

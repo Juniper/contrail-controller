@@ -399,7 +399,7 @@ bool SessionKey::IsEqual(const SessionKey &rhs) const {
 void SessionKey::Reset() {
     remote_ip = IpAddress();
     client_port = 0;
-    uuid = nil_uuid();
+    uuid = boost::uuids::nil_uuid();
 }
 
 bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
@@ -1006,7 +1006,7 @@ void SessionStatsCollector::BuildSloList(
     global_session_slo_rule_map->clear();
 
     if (agent_uve_->agent()->oper_db()->global_vrouter()->slo_uuid() !=
-                                                                nil_uuid()) {
+        boost::uuids::nil_uuid()) {
         AddSloEntry(
                 agent_uve_->agent()->oper_db()->global_vrouter()->slo_uuid(),
                 global_session_slo_rule_map);
@@ -2192,4 +2192,3 @@ bool SessionSloState::UpdateSessionSloStateRuleRefCount(
     }
     return is_logged;
 }
-
