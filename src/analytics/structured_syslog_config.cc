@@ -76,7 +76,6 @@ StructuredSyslogConfig::AddNetwork(const std::string& key, const std::string& ne
     IPNetwork net(net_lower, net_upper, id);
 
     IPNetworks_map::iterator it = networks_map_.find(key);
-    IPNetworks  found_network;
     if (it  != networks_map_.end()) {
         LOG(DEBUG, "VPN name found in Networks MAP while adding network. Appending to existing values of VPN key... ");
         //sorted insertion into vector
@@ -84,8 +83,9 @@ StructuredSyslogConfig::AddNetwork(const std::string& key, const std::string& ne
         LOG(DEBUG, "IPNetwork with destination address " << network_addr << " added in networks_map with VPN key " << key);
     } else {
         LOG(DEBUG, "VPN name NOT found in Networks MAP while adding network. Creating a new entry in Networks MAP ...");
-        found_network.push_back(net);
-        networks_map_.insert(std::make_pair<std::string, IPNetworks>(key, found_network) );
+        IPNetworks  new_network;
+        new_network.push_back(net);
+        networks_map_.insert(std::make_pair<std::string, IPNetworks>(key, new_network) );
         LOG(DEBUG, "IPNetwork with destination address " << network_addr << " added in networks_map with VPN key " << key);
     }
     return true;
