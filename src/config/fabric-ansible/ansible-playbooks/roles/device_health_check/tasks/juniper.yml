@@ -1,0 +1,96 @@
+- name: Import Juniper junos
+  import_role:
+    name: Juniper.junos
+
+- name: Initialize variables
+  set_fact:
+    test_results_detail: {}
+    test_results_list: []
+    device_health_report: {}
+
+- name: Set location of jsnapy test files
+  set_fact:
+    jsnapy_dir: "./config/{{device_mgmt_ip}}/jsnapy/testfiles"
+
+- name: Create directory for jsnapy test files
+  file:
+    path: "{{ jsnapy_dir }}"
+    state: directory
+
+- name: Render test file
+  template:
+    src: "{{snap_test_pfx}}.j2"
+    dest: "{{jsnapy_dir}}/{{snap_test_pfx}}.yml"
+  register: cmd_res
+
+- name: Perform snapshot action
+  juniper_junos_jsnapy:
+    provider:
+      host: "{{device_mgmt_ip}}"
+      username: "{{device_username}}"
+      password: "{{device_password}}"
+    action: "{{snap_action}}"
+    dir: "{{jsnapy_dir}}"
+    test_files: "{{snap_test_pfx}}.yml"
+  register: check_results
+
+- name: Compare snapshot if snap_post
+  block:
+    - name: Call jsnapy
+      juniper_junos_jsnapy:
+        provider:
+          host: "{{device_mgmt_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+        action: "check"
+        dir: "{{jsnapy_dir}}"
+        test_files: "{{snap_test_pfx}}.yml"
+      register: ccheck_results
+
+    - set_fact:
+      check_results: "{{ccheck_results}}"
+  when: snap_action == 'snap_post'
+
+- name: Init dict
+  set_fact:
+    device_health_report: >
+                           {'description':'{{snap_action}} test results for device {{device_mgmt_ip}}',
+                            'total_failures':{{check_results.total_failed}},
+                            'advanced_parameters':{{advanced_parameters}}}
+  when: check_results.total_failed is defined
+
+- name: Init dict
+  set_fact:
+    device_health_report: >
+                           {'description':'{{snap_action}} test results for device {{device_mgmt_ip}}',
+                            'total_failures':0,
+                            'advanced_parameters':{{advanced_parameters}}}
+  when: check_results.total_failed is not defined
+
+- name: Print test results if errors
+  block:
+    - name: Create list
+      set_fact:
+        test_results_list: "{{test_results_list}} + [{{item}}]"
+      with_dict: "{{ check_results.test_results }}"
+
+    - name: Collect detailed failed test info
+      set_fact:
+        test_results_detail: >
+                              {{test_results_detail|combine({item[0].key+' ('+item[1].node_name+')':
+                                {'expected':item[1].expected_node_value,'failed':item[1].failed}})}}
+      with_subelements:
+        - "{{ test_results_list }}"
+        - value
+      when: item[1].failed != []
+
+    - name: Combine dicts
+      set_fact:
+        device_health_report: "{{device_health_report|combine({'failure_list':test_results_detail})}}"
+  when: check_results.total_failed is defined and check_results.total_failed > 0
+
+- name: Print device health report
+  debug:
+    var: device_health_report
+    verbosity: 1
+
