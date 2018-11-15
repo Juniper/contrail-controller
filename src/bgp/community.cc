@@ -230,6 +230,15 @@ void ExtCommunity::Append(const ExtCommunityValue &value) {
     communities_.erase(it, communities_.end());
 }
 
+bool ExtCommunity::ContainsRTarget(const ExtCommunityValue &val) const {
+    for (ExtCommunityList::const_iterator it = communities_.begin();
+         it != communities_.end(); ++it) {
+        if (ExtCommunity::is_route_target(*it) && *it == val)
+            return true;
+    }
+    return false;
+}
+
 bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
     for (ExtCommunityList::const_iterator it = communities_.begin();
          it != communities_.end(); ++it) {

@@ -166,6 +166,7 @@ public:
     virtual void Remove();
     int CompareTo(const ExtCommunity &rhs) const;
 
+    bool ContainsRTarget(const ExtCommunityValue &val) const;
     bool ContainsOriginVn(const ExtCommunityValue &val) const;
     bool ContainsVrfRouteImport(const ExtCommunityValue &val) const;
     bool ContainsSourceAs(const ExtCommunityValue &val) const;

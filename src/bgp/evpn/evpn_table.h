@@ -61,6 +61,9 @@ public:
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
+    bool ShouldReplicate(const BgpServer *server, const BgpTable *src_table,
+                         const ExtCommunityPtr community,
+                         const  EvpnPrefix &evpn_prefix) const;
     EvpnManager *evpn_manager_;
     mutable tbb::atomic<uint64_t> mac_route_count_;
     mutable tbb::atomic<uint64_t> unique_mac_route_count_;
