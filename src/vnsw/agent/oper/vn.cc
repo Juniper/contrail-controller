@@ -96,7 +96,7 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
 /////////////////////////////////////////////////////////////////////////////
 // VnEntry routines
 /////////////////////////////////////////////////////////////////////////////
-VnEntry::VnEntry(Agent *agent, uuid id) :
+VnEntry::VnEntry(Agent *agent, boost::uuids::uuid id) :
     AgentOperDBEntry(), agent_(agent), uuid_(id), vrf_(NULL, this),
     vxlan_id_(0), vnid_(0), active_vxlan_id_(0), bridging_(true),
     layer3_forwarding_(true), admin_state_(true), table_label_(0),
@@ -785,7 +785,7 @@ bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     vn->SendObjectLog(AgentLogEvent::DEL);
 
     if (vn->name_ == agent()->fabric_vn_name()) {
-        agent()->set_fabric_vn_uuid(nil_uuid());
+        agent()->set_fabric_vn_uuid(boost::uuids::nil_uuid());
         agent()->cfg()->cfg_vm_interface_table()->NotifyAllEntries();
     }
     return true;
@@ -950,6 +950,9 @@ VnTable::BuildVnIpamData(const std::vector<autogen::IpamSubnetType> &subnets,
 }
 
 VnData *VnTable::BuildData(IFMapNode *node) {
+    using boost::uuids::uuid;
+    using boost::uuids::nil_uuid;
+
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
 
@@ -963,7 +966,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     UuidList slo_list;
     bool underlay_forwarding = false;
     bool vxlan_routing_vn = false;
-    boost::uuids::uuid logical_router_uuid = nil_uuid();
+    uuid logical_router_uuid = nil_uuid();
 
     // Find link with ACL / VRF adjacency
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
@@ -1143,13 +1146,15 @@ bool VnTable::ProcessConfig(IFMapNode *node, DBRequest &req,
     return false;
 }
 
-void VnTable::AddVn(const uuid &vn_uuid, const string &name,
-                    const uuid &acl_id, const string &vrf_name,
+void VnTable::AddVn(const boost::uuids::uuid &vn_uuid, const string &name,
+                    const boost::uuids::uuid &acl_id, const string &vrf_name,
                     const std::vector<VnIpam> &ipam,
                     const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
                     int vxlan_id, bool admin_state, bool enable_rpf,
                     bool flood_unknown_unicast, bool pbb_etree_enable,
                     bool pbb_evpn_enable, bool layer2_control_word) {
+    using boost::uuids::nil_uuid;
+
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     UuidList empty_list;
     req.key.reset(new VnKey(vn_uuid));
@@ -1166,14 +1171,14 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
     Enqueue(&req);
 }
 
-void VnTable::DelVn(const uuid &vn_uuid) {
+void VnTable::DelVn(const boost::uuids::uuid &vn_uuid) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VnKey(vn_uuid));
     req.data.reset(NULL);
     Enqueue(&req);
 }
 
-void VnTable::ResyncReq(const uuid &vn) {
+void VnTable::ResyncReq(const boost::uuids::uuid &vn) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     VnKey *key = new VnKey(vn);
     key->sub_op_ = AgentKey::RESYNC;

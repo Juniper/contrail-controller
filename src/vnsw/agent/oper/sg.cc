@@ -148,8 +148,8 @@ bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req,
     SgKey *key = new SgKey(u);
     SgData *data  = NULL;
 
-    uuid egress_acl_uuid = nil_uuid();
-    uuid ingress_acl_uuid = nil_uuid();
+    boost::uuids::uuid egress_acl_uuid = boost::uuids::nil_uuid();
+    boost::uuids::uuid ingress_acl_uuid = boost::uuids::nil_uuid();
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph());
