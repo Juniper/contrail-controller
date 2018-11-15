@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 from mesos_manager.vnc.vnc_utils import (get_vn_fq_name_from_dict_string,
                                      get_domain_name_from_vn_dict_string,
@@ -19,24 +19,54 @@ class VncMesosConfig(object):
         VncMesosConfig.vnc_mesos_config = kwargs
 
     @classmethod
+    def update(cls, **kwargs):
+        VncMesosConfig.vnc_mesos_config.update(kwargs)
+
+    @classmethod
     def cluster_ip_fabric_network_fq_name(cls):
         vn_fq_name = ['default-domain', 'default-project', 'ip-fabric']
         return vn_fq_name
 
     @classmethod
-    def cluster_name(cls):
-        return cls.args().cluster_name
-
-    @classmethod
-    def cluster_default_pod_network_name(cls):
+    def cluster_default_pod_task_network_name(cls):
         vn_name = cls.get_configured_pod_task_network_name()
         if vn_name:
             return vn_name
         return cls.cluster_name() + '-default-pod-task-network'
 
     @classmethod
+    def cluster_default_pod_task_network_fq_name(cls):
+        vn_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
+                      cls.cluster_default_pod_task_network_name()]
+        return vn_fq_name
+
+    @classmethod
     def cluster_project_fq_name(cls, namespace=None):
         return [cls.cluster_domain(), cls.cluster_project_name(namespace)]
+
+    @classmethod
+    def cluster_default_project_name(cls):
+        project_name = cls.get_configured_project_name()
+        if project_name:
+            return project_name
+        return cls.construct_project_name_for_namespace("default")
+
+    @classmethod
+    def pod_task_ipam_fq_name(cls):
+        return cls.vnc_mesos_config.get("cluster_pod_task_ipam_fq_name", None)
+
+    @classmethod
+    def ip_fabric_ipam_fq_name(cls):
+        return cls.vnc_kubernetes_config.get("cluster_ip_fabric_ipam_fq_name", None)
+
+
+    @classmethod
+    def cluster_owner(cls):
+        return cls.args().mesos_cluster_owner
+
+    @classmethod
+    def cluster_name(cls):
+        return cls.args().mesos_cluster_name
 
     @classmethod
     def cluster_domain(cls):
