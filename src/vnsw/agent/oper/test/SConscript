@@ -96,6 +96,12 @@ docker_instance_adapter_test = env.UnitTest(
 env.Alias('agent:docker_instance_adapter_test', docker_instance_adapter_test)
 oper_test_suite.append(docker_instance_adapter_test)
 
+inet_route_tree_test = env.UnitTest(
+    'inet_route_tree_test',
+    ['test_inet_route_tree.cc'])
+env.Alias('agent:inet_route_tree_test', inet_route_tree_test)
+oper_test_suite.append(inet_route_tree_test)
+
 libvirt_instance_adapter_test = env.UnitTest(
     'libvirt_instance_adapter_test',
     ['libvirt_instance_adapter_test.cc'])
