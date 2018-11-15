@@ -196,7 +196,7 @@ TEST_F(BridgeDomainMGTest, Test3) {
     //Modify olist for pbb VRF and verify it gets
     //updated for cmac vrf
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyFabricMembers(agent->multicast_tree_builder_peer(),
@@ -245,7 +245,7 @@ TEST_F(BridgeDomainMGTest, Test4) {
     //Modify olist for pbb VRF and verify it gets
     //updated for cmac vrf
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyFabricMembers(agent->multicast_tree_builder_peer(),
@@ -303,7 +303,7 @@ TEST_F(BridgeDomainMGTest, Test5) {
     //Modify olist for pbb VRF and verify it gets
     //updated for cmac vrf
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyEvpnMembers(bgp_peer_ptr,
@@ -446,7 +446,7 @@ TEST_F(BridgeDomainMGTest, Test9) {
     //Modify olist for pbb VRF and B component VRF
     //and verify it gets updated for cmac vrf
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyEvpnMembers(bgp_peer_ptr,
@@ -497,7 +497,7 @@ TEST_F(BridgeDomainMGTest, Test10) {
     //Modify olist for pbb VRF and verify it gets
     //updated for cmac vrf
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyEvpnMembers(bgp_peer_ptr,

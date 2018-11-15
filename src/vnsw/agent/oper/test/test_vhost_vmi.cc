@@ -190,7 +190,8 @@ TEST_F(FabricVmiTest, NoIpam) {
 
 TEST_F(FabricVmiTest, PolicyChange) {
     VnListType vn_list;
-    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
+                            boost::uuids::nil_uuid(), "vhost0");
     LocalVmRoute *local_vm_route =
         new LocalVmRoute(intf_key, 17, VxLanTable::kInvalidvxlan_id,
                          false, vn_list, InterfaceNHFlags::INET4,

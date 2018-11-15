@@ -325,7 +325,7 @@ static uint64_t FindInterfaceScale(DBTable *table, uint32_t id,
         }
     } else {
         for (uint32_t i = 0; i < count; i++) {
-            VmInterface entry(u, "", true, nil_uuid());
+            VmInterface entry(u, "", true, boost::uuids::nil_uuid());
             if (do_lock) {
                 assert(table->Find(&entry) != NULL);
             } else {

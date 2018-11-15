@@ -54,7 +54,7 @@ public:
 
     HealthCheckService *FindHealthCheck(int id) {
         HealthCheckTable *table = agent->health_check_table();
-        uuid hc_uuid = MakeUuid(id);
+        boost::uuids::uuid hc_uuid = MakeUuid(id);
         HealthCheckServiceKey key(hc_uuid);
         return static_cast<HealthCheckService *>(table->FindActiveEntry(&key));
     }
@@ -162,6 +162,8 @@ TEST_F(HealthCheckConfigTest, interface_config_before_nova) {
 /* Verify agent parses port-tuple config and updates its VmInterface object with
  * uuid of other end of the service-instance */
 TEST_F(HealthCheckConfigTest, port_tuple) {
+    using boost::uuids::nil_uuid;
+
     struct PortInfo input[] = {
         {"vnet10", 10, "1.1.1.10", "00:00:00:01:01:10", 10, 10},
         {"vnet11", 11, "2.1.1.10", "00:00:00:01:02:10", 11, 11},
@@ -228,6 +230,8 @@ TEST_F(HealthCheckConfigTest, port_tuple) {
 }
 
 TEST_F(HealthCheckConfigTest, segment_hc) {
+    using boost::uuids::nil_uuid;
+
     struct PortInfo input[] = {
         {"vnet10", 10, "1.1.1.10", "00:00:00:01:01:10", 10, 10},
         {"vnet11", 11, "2.1.1.10", "00:00:00:01:02:10", 11, 11},
