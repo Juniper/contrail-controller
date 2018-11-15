@@ -1,0 +1,61 @@
+version:
+  - command: show system database usage
+  - ignore-null: True
+  - item:
+      xpath: '/database-usage'
+      tests:
+        - is-gt: maximum-size, 0
+          err: "Test Failed!!"
+          info: "Test succeeded!!"
+{% if advanced_parameters.bgp_peer_state_check == True or advanced_parameters.bgp_flap_count_check == True %}
+bgp_neighbor:
+  - command: show bgp neighbor
+  - ignore-null: True
+  - iterate:
+      xpath: '//bgp-peer'
+      id: './peer-address'
+      tests:
+{% if advanced_parameters.bgp_peer_state_check == True %}
+          # Check if peers are in the established state
+        - is-equal: peer-state, Established
+          err: "Test Failed!! peer {% raw %}<{{post['peer-address']}}>{% endraw %} state is not Established, it is {% raw %}<{{post['peer-state']}}>{% endraw %}"
+          info: "Test succeeded!! peer {% raw %}<{{post['peer-address']}}>{% endraw %} state is {% raw %}<{{post['peer-state']}}>{% endraw %}"
+{% endif %}
+{% if advanced_parameters.bgp_flap_count_check == True %}
+        - in-range: flap-count, 0,{{advanced_parameters.bgp_flap_count}}
+          err: "Test Failed!! flap-count of {% raw %}<{{post['flap-count']}}>{% endraw %} is greater than {{advanced_parameters.bgp_flap_count}}"
+          info: "Test succeeded!! flap-count is equal to {% raw %}<{{post['flap-count']}}>{% endraw %}"
+{% endif %}
+{% endif %}
+{% if advanced_parameters.bgp_down_peer_count_check == True %}
+bgp_summary:
+  - command: show bgp summary
+  - item:
+      xpath: '/bgp-information'
+      tests:
+{% if advanced_parameters.bgp_down_peer_count_check == True %}
+        - in-range: down-peer-count, 0,{{advanced_parameters.bgp_down_peer_count}}
+          err: "Test Failed!! down-peer-count of {% raw %}<{{post['down-peer-count']}}>{% endraw %} is greater than {{advanced_parameters.bgp_down_peer_count}}."
+          info: "Test succeeded!! down-peer-count is equal to {% raw %}<{{post['down-peer-count']}}>{% endraw %}"
+{% endif %}
+{% endif %}
+{% if advanced_parameters.system_alarm_count_check == True %}
+system_alarm:
+  - command: show system alarm
+  - item:
+      xpath: '//alarm-information'
+      tests:
+        - exists: alarm-summary
+          err: "Test Failed!!"
+          info: "Test succeeded!!"
+{% endif %}
+{% if advanced_parameters.chassis_alarm_count_check == True %}
+chassis_alarm:
+  - command: show chassis alarm
+  - item:
+      xpath: '//alarm-information'
+      tests:
+        - exists: alarm-summary
+          err: "Test Failed!!"
+          info: "Test succeeded!!"
+{% endif %}

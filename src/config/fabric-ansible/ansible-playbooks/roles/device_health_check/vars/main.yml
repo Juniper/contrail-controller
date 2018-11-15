@@ -1,0 +1,17 @@
+#    device_mgmt_ip: "172.16.2.1"
+device_vendor: "juniper"
+device_username: "root"
+device_password: "c0ntrail123"
+advanced_parameters:
+  bgp_flap_count: 4
+  bgp_flap_count_check: True
+  bgp_down_peer_count: 0
+  bgp_down_peer_count_check: True
+  bgp_peer_state_check: True
+  system_alarm_count: 0
+  system_alarm_count_check: True
+  chassis_alarm_count: 0
+  chassis_alarm_count_check: True
+  interface_error_count_check: True
+  interface_drop_count_check: True
+  interface_carrier_transition_count_check: True
