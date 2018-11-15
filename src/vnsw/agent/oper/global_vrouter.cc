@@ -480,7 +480,8 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
     if (is_add) {
         if (vn_entry->layer3_forwarding()) {
             state->Add(key.linklocal_service_ip);
-            VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+            VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE,
+                                   boost::uuids::nil_uuid(),
                                    agent->vhost_interface_name());
 
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
@@ -543,7 +544,8 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
                 services.begin(); it != services.end(); ++it) {
-            VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+            VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE,
+                               boost::uuids::nil_uuid(),
                                agent->vhost_interface_name());
             state->Add(it->first.linklocal_service_ip);
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
@@ -566,7 +568,8 @@ GlobalVrouter::GlobalVrouter(Agent *agent) :
     fabric_dns_resolver_(new FabricDnsResolver
                          (this, *(agent->event_manager()->io_service()))),
     forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
-    ecmp_load_balance_(), configured_(false), slo_uuid_(nil_uuid()) {
+    ecmp_load_balance_(), configured_(false),
+    slo_uuid_(boost::uuids::nil_uuid()) {
         agent_route_resync_walker_.reset
             (new AgentRouteResync("GlobalVrouterRouteWalker", agent));
         agent->oper_db()->agent_route_walk_manager()->

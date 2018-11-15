@@ -194,7 +194,7 @@ public:
                             LocalVmRoute *data);
     void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
                             const IpAddress &addr, uint8_t plen,
-                            const uuid &intf_uuid,
+                            const boost::uuids::uuid &intf_uuid,
                             const VnListType &vn_list,
                             uint32_t label,
                             const SecurityGroupList &sg_list,
@@ -209,7 +209,7 @@ public:
                             bool native_encap);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                 const IpAddress &addr, uint8_t plen,
-                const uuid &intf_uuid,
+                const boost::uuids::uuid &intf_uuid,
                 const VnListType &vn_list,
                 uint32_t label,
                 const SecurityGroupList &sg_list,
@@ -233,14 +233,14 @@ public:
                            VlanNhRoute *data);
     void AddVlanNHRouteReq(const Peer *peer, const string &vm_vrf,
                            const IpAddress &addr, uint8_t plen,
-                           const uuid &intf_uuid, uint16_t tag,
+                           const boost::uuids::uuid &intf_uuid, uint16_t tag,
                            uint32_t label, const VnListType &dest_vn_list,
                            const SecurityGroupList &sg_list_,
                            const TagList &tag_list,
                            const PathPreference &path_preference);
     static void AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
                                const IpAddress &addr, uint8_t plen,
-                               const uuid &intf_uuid, uint16_t tag,
+                               const boost::uuids::uuid &intf_uuid, uint16_t tag,
                                uint32_t label, const VnListType &dest_vn_list,
                                const SecurityGroupList &sg_list_,
                                const TagList &tag_list,

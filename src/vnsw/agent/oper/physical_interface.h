@@ -29,7 +29,7 @@ public:
     };
 
     PhysicalInterface(const std::string &name,
-                      const uuid &logical_router_uuid);
+                      const boost::uuids::uuid &logical_router_uuid);
     virtual ~PhysicalInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;

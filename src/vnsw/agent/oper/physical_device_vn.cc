@@ -191,6 +191,8 @@ void PhysicalDeviceVnTable::ProcessConfig(const boost::uuids::uuid &dev,
 bool PhysicalDeviceVnTable::AddConfigEntry(const boost::uuids::uuid &vmi,
                                            const boost::uuids::uuid &dev,
                                            const boost::uuids::uuid &vn) {
+    using boost::uuids::nil_uuid;
+
     // Sanity checks. Needed since VMInterface is not checking for nil_uuid
     if (vmi == nil_uuid() || dev == nil_uuid() || vn == nil_uuid())
         return false;
@@ -203,6 +205,7 @@ bool PhysicalDeviceVnTable::AddConfigEntry(const boost::uuids::uuid &vmi,
 bool PhysicalDeviceVnTable::DeleteConfigEntry(const boost::uuids::uuid &vmi,
                                               const boost::uuids::uuid &dev,
                                               const boost::uuids::uuid &vn) {
+    using boost::uuids::nil_uuid;
 
     // Sanity checks. Needed since VMInterface is not checking for nil_uuid
     if (vmi == nil_uuid() || dev == nil_uuid() || vn == nil_uuid())

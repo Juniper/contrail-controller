@@ -107,7 +107,8 @@ Inet4MulticastAgentRouteTable::AddVHostRecvRoute(const string &vm_vrf,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     Inet4MulticastRouteKey *rt_key = new Inet4MulticastRouteKey(vm_vrf, addr);
     req.key.reset(rt_key);
-    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), interface_name);
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
+                            boost::uuids::nil_uuid(), interface_name);
     ReceiveRoute *data =
         new ReceiveRoute(intf_key, MplsTable::kInvalidLabel,
                          TunnelType::AllType(), policy,

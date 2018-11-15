@@ -25,8 +25,8 @@ using boost::uuids::uuid;
 // RemotePhysicalInterface routines
 /////////////////////////////////////////////////////////////////////////////
 RemotePhysicalInterface::RemotePhysicalInterface(const std::string &name) :
-    Interface(Interface::REMOTE_PHYSICAL, nil_uuid(), name, NULL, true,
-              nil_uuid()),
+    Interface(Interface::REMOTE_PHYSICAL, boost::uuids::nil_uuid(), name,
+              NULL, true, boost::uuids::nil_uuid()),
     display_name_(), physical_device_(NULL) {
 }
 
@@ -87,7 +87,7 @@ bool RemotePhysicalInterface::OnChange(const InterfaceTable *table,
 /////////////////////////////////////////////////////////////////////////////
 RemotePhysicalInterfaceKey::RemotePhysicalInterfaceKey(const std::string &name):
     InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::REMOTE_PHYSICAL,
-                 nil_uuid(), name, false) {
+                 boost::uuids::nil_uuid(), name, false) {
 }
 
 RemotePhysicalInterfaceKey::~RemotePhysicalInterfaceKey() {
@@ -138,7 +138,7 @@ static RemotePhysicalInterfaceKey *BuildKey(IFMapNode *node) {
 
 static RemotePhysicalInterfaceData *BuildData
 (Agent *agent, IFMapNode *node, const autogen::PhysicalInterface *port) {
-    boost::uuids::uuid dev_uuid = nil_uuid();
+    boost::uuids::uuid dev_uuid = boost::uuids::nil_uuid();
     // Find link with physical-router adjacency
     IFMapNode *adj_node = NULL;
     adj_node = agent->config_manager()->FindAdjacentIFMapNode(node,
