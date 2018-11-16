@@ -1,0 +1,48 @@
+#Playbook to deactivate maintenance mode on device.
+
+- name: Rollback to the previous config
+  block:
+    - juniper_junos_config:
+        provider:
+          host: "{{pr_host}}"
+          username: "{{pr_user}}"
+          password: "{{pr_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+        rollback: 'rescue'
+      register: device_info
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "device_info.failed == true"
+      vars:
+        op_err_message: "{{device_info.msg}}"
+        jl_err_message: "Error while obtaining interface information from Juniper device: {{device_info.msg}}"
+
+- name: Print the diff
+  debug:
+    var: group_info.diff_lines
+
+#- name: Check health of the device after deactivation of maintenance mode
+#  include_role:
+#    name: device_health_check
+#  vars:
+#    snap_test_pfx: "juniper_snapshot_1"
+#    snap_action: "snap_post"
+#
+#
+#- name: Wait and check if it's entered maintenance mode or not depending on config push # add retry logic, set fact to use appropriate temaplets for health check
+#  include_role:
+#    name: device_health_check
+#  vars:
+#    snap_test_pfx: "juniper_check_maintenance_mode"
+#    snap_action: "snapcheck"
+#
+#
+#- name: PR objectlog update to set completion of maintenance_mode
+#  prouter_objectlog:
+#    job_ctx: "{{ job_ctx }}"
+#    prouter_fqname: "{{ prouter_fqname }}"
+#    onboarding_state: "{{ DEVICE_STATE.EXITING_MAINTENANCE_MODE }}"
+
+

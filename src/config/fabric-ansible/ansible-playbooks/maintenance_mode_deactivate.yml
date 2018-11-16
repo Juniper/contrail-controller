@@ -1,0 +1,27 @@
+---
+
+- name: Push config for maintenance mode
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - maintenance_mode_deactivate
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Maintenance mode deactivated on the device",
+              "results":
+                  {
+                    "prouter_uuid": "{{prouter_uuid}}",
+                    "msg": "Maintenence mode deactivated on the device."
+                  }
+          }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 1

@@ -1,0 +1,40 @@
+delete apply-groups maintenance_mode
+delete groups maintenance_mode
+{% for group_item in valid_groups_cfg %}
+{%     set cfg_group = group_item.name %}
+{%     set bgp_group = group_item.protocols.bgp.group %}
+{%     if bgp_group is mapping %}
+{%         set bgp_group = [bgp_group] %}
+{%     endif %}
+{%     for bgp_item in bgp_group %}
+{%         set bgp_group_name = bgp_item.name %}
+{%         if bgp_item.type == "internal" %}
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
+{%         else %}
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
+{%         endif %}
+{%     endfor %}
+{% endfor %}
+{% if results_json.protocols.bgp is defined %}
+{%     set bgp_group = results_json.protocols.bgp.group %}
+{%     if bgp_group is mapping %}
+{%         set bgp_group = [bgp_group] %}
+{%     endif %}
+{%     for item in bgp_group %}
+{%         set bgp_group_name = item.name %}
+{%         if item.type == "internal" %}
+delete protocols bgp group {{bgp_group_name}} export
+set protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
+{%         else %}
+delete protocols bgp group {{bgp_group_name}} export
+set protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
+{%         endif %}
+{%     endfor %}
+{% endif %}
+
+set groups maintenance_mode
+set apply-groups maintenance_mode
+
+

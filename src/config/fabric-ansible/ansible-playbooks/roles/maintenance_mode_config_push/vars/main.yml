@@ -1,0 +1,12 @@
+---
+# vars file for maintenance_mode_role
+pr_user: "{{playbook_input.device_username}}"
+pr_host: "{{playbook_input.device_management_ip}}"
+pr_fqname: "{{playbook_input.device_fqname}}"
+pr_name: "{{playbook_input.device_fqname[-1]}}"
+pr_family: "{{playbook_input.device_family}}"
+pr_password: "{{playbook_input.device_password}}"
+prouter_name: "{{pr_name}}"
+prouter_uuid: "{{playbook_input.device_id}}"
+image_uuid: "{{playbook_input.input.image_uuid}}"
+prouter_vendor: "{{playbook_input.vendor}}"
