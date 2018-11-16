@@ -1,0 +1,43 @@
+
+- name: Change state to deactivate maintenance mode
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "update"
+    object_dict: |
+      {
+        "uuid": "{{prouter_uuid}}",
+        "id_perms": {"description": "deactivate"}
+      }
+  register: prouter_obj
+
+- include_role:
+    name: "maintenance_mode_config_push"
+
+- name : Check if it's deactivated, if yes, compare snapshot
+  block:
+    - name: Capture post_snapshot in the xml format
+      juniper_junos_jsnapy:
+        provider:
+          host: "{{pr_host}}"
+          username: "{{pr_user}}"
+          password: "{{pr_password}}"
+        action: "snap_post"
+        test_files: "test_snapshot.yml"
+
+    - name: Compare snapshot
+      juniper_junos_jsnapy:
+        provider:
+          host: "{{pr_host}}"
+          username: "{{pr_user}}"
+          password: "{{pr_password}}"
+        action: "check"
+        test_files: "test_snapshot.yml"
+  when: device_push_response is defined and device_push_response.failed == false
+
+#- name: PR objectlog update to set completion of maintenance_mode
+#  prouter_objectlog:
+#    job_ctx: "{{ job_ctx }}"
+#    prouter_fqname: "{{ prouter_fqname }}"
+#    onboarding_state: "{{ DEVICE_STATE.EXITING_MAINTENANCE_MODE }}"
+

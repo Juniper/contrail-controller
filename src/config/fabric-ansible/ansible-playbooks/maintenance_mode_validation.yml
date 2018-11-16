@@ -1,0 +1,25 @@
+---
+
+- name: Device validation for maintenance mode
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - maintenance_mode_validation
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Device validated to be put into maintenance mode",
+              "image_uuid": "{{image_uuid}}"
+              }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 1
+
+
