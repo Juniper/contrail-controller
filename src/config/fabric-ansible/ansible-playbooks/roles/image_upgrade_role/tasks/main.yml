@@ -2,8 +2,8 @@
 # tasks file for image_upgrade_role
 
 # Initialize job data
-- set_fact:
-    job_ctx: "{{job_ctx|combine({'current_task_index':1, 'total_task_count':4, 'task_weightage_array':[5, 40, 45, 10] })}}"
+#- set_fact:
+#    job_ctx: "{{job_ctx|combine({'current_task_index':1, 'total_task_count':4, 'task_weightage_array':[5, 40, 45, 10] })}}"
 
 - name: Read Image info
   include_tasks: read_image_info.yml
@@ -11,9 +11,6 @@
 - name: parse image uri to get container name
   set_fact:
     container_name: "{{image_uri.split('/')[-2]}}"
-
-#- name: Read PR device info
-#  include_tasks: read_pr_info.yml
 
 # compatibilty check using device family
 - name: Compatibily check using device family
@@ -23,7 +20,7 @@
     op_err_message: "Image family is {{image_family}} and Device family is {{pr_family}}"
     results: |
       {
-        "prouter_uuid": "{{prouter_uuid}}",
+        "prouter_uuid": "{{pr_uuid}}",
         "image_uuid": "{{image_uuid}}",
         "msg": "Image compatibility task failed"
       }
@@ -40,69 +37,28 @@
 - name: Appending job log for retreiving image download link and starting image upgrade with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 1
-    jl_message: >
-      Upgrade device, Image name {{filename}}. Retreived image download link: {{downloadurl}}.
-      Now starting image upgrade on the device. It may take 10 to 15 mins. 
-
-- name: Do junos upgrade
-  include_tasks: junos_upgrade.yml
-
-# Initialize job data
-- name: Job logs for image upgrade task with percentage
-  include_tasks: percentage_update.yml
-  vars:
-    current_index: 2
-    jl_message: >
-      {% if 'Reboot' in junos_response.msg -%}
-        Upgrade device, Image name:{{filename}}. Image upgrade task completed on this device: {{junos_response.msg}}. Device reboot may take 15 to 20 mins.
-      {% else -%}
-        Upgrade device, Image name:{{filename}}. Image upgrade task completed on this device. Same version found.
-      {%- endif %}
-
-
-# Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
-- name: Check NETCONF connectivity after reboot
-  wait_for:
-    host: "{{pr_host}}"
-    port: 830
-    timeout: 1200
-    delay: 60
-    connect_timeout: 10
-    sleep: 60
-  when: "'Reboot' in junos_response.msg"
-
-# Initialize job data
-- name: Append job logs after device is up with percentage
-  include_tasks: percentage_update.yml
-  vars:
     current_index: 3
     jl_message: >
-      {% if 'Reboot' in junos_response.msg -%}
-        Device is up after reboot. Now validating image version on device.
-      {% else -%}
-        Validating image version on device.
-      {%- endif %}
+      Now starting image upgrade with image name {{filename}} on the device
+      {{prouter_name}}. It may take 10 to 15 mins.
 
-- name: check device OS version
-  include_tasks: check_version_rpc.yml
+- name: Vendor specific image upgrade and device bring up
+  include_tasks: "{{pr_vendor}}_upgrade.yml"
 
-# check if image os version is same as device os version
-- name: Validate version in device to see if it does not matches image version
-  include_tasks: error_handler.yml
-  when: "image_info.device_image_os_version != device_version"
-  vars:
-    op_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
-    results: |
+- name: Vendor specific OS version check
+  include_tasks: "{{pr_vendor}}_check_version_rpc.yml"
+
+- name: Update physical device with os version
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "update"
+    object_dict: |
       {
-        "prouter_uuid": "{{prouter_uuid}}",
-        "image_uuid": "{{image_uuid}}",
-        "msg": "Device version validation task failed"
+       "uuid": "{{pr_uuid}}",
+       "physical_router_os_version": "{{device_version}}"
       }
-    jl_err_message: >
-      "Upgrade device, Image name {{filename}}. Device version validation task failed.
-       Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
-
+  register: prouter_obj
 
 - name: PR objectlog update for OS version
   prouter_objectlog:
@@ -115,5 +71,6 @@
 - name: Job logs for version validation status with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 4
-    jl_message: Upgrade device, Image name {{filename}}. Image upgrade version validated.
+    current_index: 6
+    jl_message: Image upgrade version validated. The device OS version is now {{device_version}}.
+
