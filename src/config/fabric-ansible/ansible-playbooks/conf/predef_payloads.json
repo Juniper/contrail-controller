@@ -28,6 +28,58 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "hitless_upgrade_strategy_template"
+          ],
+          "name": "hitless_upgrade_strategy_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
+          "job_template_type": "workflow",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hitless_upgrade_strategy.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 10
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hitless_upgrade.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 90
+              }
+
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "maintenance_mode_deactivate_template"
+          ],
+          "name": "maintenance_mode_deactivate_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "device",
+          "job_template_type": "workflow",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_deactivate.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "discover_device_template"
           ],
           "name": "discover_device_template",

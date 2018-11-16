@@ -475,7 +475,13 @@ class SanityBase(object):
             response = r.json()
             job_uve = response.get('FabricJobExecution')
             if job_uve:
-                return job_uve['percentage_completed'][-1][0]["#text"]
+                percomp0 = job_uve['percentage_completed'][0]
+                percomp1 = job_uve['percentage_completed'][-1]
+                if "FabricAnsible" in percomp0[1]:
+                    percomp = percomp0[0]["#text"]
+                else:
+                    percomp = percomp1[0]["#text"]
+                return percomp
             else:
                 return "??"
         else:
@@ -561,7 +567,8 @@ class SanityBase(object):
         """upgrade the physical routers with specified images"""
         self._logger.info("Upgrade image on the physical router ...")
         job_template_fq_name = [
-            'default-global-system-config', 'image_upgrade_template']
+            'default-global-system-config',
+            'image_upgrade_template']
         job_execution_info = self._api.execute_job(
             job_template_fq_name=job_template_fq_name,
             job_input={'image_uuid': image.uuid},
@@ -575,6 +582,29 @@ class SanityBase(object):
                                             job_template_fq_name)
 
     # end image_upgrade
+
+    def image_upgrade_maintenance_mode(self, image_upgrade_list,
+                                       advanced_params, upgrade_mode,
+                                       fabric):
+        job_template_fq_name = [
+            'default-global-system-config', 'hitless_upgrade_strategy_template']
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=job_template_fq_name,
+            job_input={
+                'image_devices': image_upgrade_list,
+                'advanced_parameters': advanced_params,
+                'upgrade_mode': upgrade_mode,
+                'fabric_uuid': fabric.uuid
+            }
+        )
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.info(
+            "Maintenance mode upgrade job started with execution id: %s",
+            job_execution_id)
+        self._wait_and_display_job_progress('Image upgrade', job_execution_id,
+                                            fabric.fq_name,
+                                            job_template_fq_name)
+    #end image_upgrade_maintenance_mode
 
     def ztp(self, fabric_uuid):
         """run ztp for a fabric"""
@@ -597,4 +627,5 @@ class SanityBase(object):
     # end _exit_with_error
 
 # end SanityBase class
+
 
