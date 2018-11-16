@@ -1,0 +1,40 @@
+#Playbook to deactivate maintenance mode on device.
+
+- name: Deactivate maintenance mode on device {{pr_name}}
+  set_fact:
+    device_maintenance_mode: "deactivate"
+
+# Push deactivation config
+
+- include_role:
+    name: "maintenance_mode_config_push"
+
+- name: Check health of the device after deactivation of maintenance mode
+  include_role:
+    name: device_health_check
+  vars:
+    snap_test_pfx: "juniper_snapshot_1"
+    snap_action: "snap_post"
+
+- name: Compare the snapshots  # add retry logic, set fact to use appropriate templates for health check
+  include_role:
+    name: device_health_check
+  vars:
+    snap_test_pfx: "juniper_health_check_1"
+    snap_action: "snapcheck"
+
+- name: Logging after deactivation
+  job_objectlog:
+    job_ctx: "{{ job_ctx }}"
+    message: "Maintenance miode has been deactivated on the device{{pr_name}}. Fetching the next batch.."
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+
+- name: Update job log with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 4
+    jl_message: "Hitless image upgrade workflow completed on current batch."
+
+- name: Get next batch of devices and return to job manager
+  set_fact:
+    next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, prouter_uuid)}}"
