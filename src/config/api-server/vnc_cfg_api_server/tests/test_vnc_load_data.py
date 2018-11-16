@@ -98,7 +98,7 @@ class TestInitData1(test_case.ApiServerTestCase):
             for item in input_json.get('data'):
                 res_type = item.get("object_type")
                 for object in item.get("objects"):
-                    fq_name = object.get("fq_name")
+                    fq_name = object.get("name")
                     self._vnc_lib._object_read(res_type=res_type, fq_name=fq_name)
         except NoIdError:
             self.create_object(object, res_type, fq_name)
@@ -249,5 +249,4 @@ class TestInitDataError4(test_case.ApiServerTestCase):
                 self.assertEquals(len(tags.get('tags')), 0)
         except Exception as e:
              print("Test failed due to unexpected error: %s" % str(e))
-
 

@@ -1,0 +1,66 @@
+---
+
+- name: Hitless image upgrade workflow
+  hosts: localhost
+  connection: local
+  vars:
+    upgrade_mode: "{{playbook_input.input.upgrade_mode}}"
+    pr_name: "{{playbook_input.device_fqname[-1]}}"
+
+
+  tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':7, 'task_weightage_array':[10, 10, 5, 25, 30, 10, 10] })}}"
+
+    - block:
+        - name: Run health check only
+          include_role:
+            name: maintenance_mode_validation
+
+        - set_fact:
+            output: {
+                  "status": "Success",
+                  "message": "Device {{pr_name}} has been verified to be healthy for upgrade."
+                    }
+
+        - name: Print the output
+          debug:
+            var: output
+            verbosity: 1
+      when: upgrade_mode == 'test_run'
+
+    - block:
+        - name: Run health check
+          include_role:
+            name: maintenance_mode_validation
+
+        - name: Push config
+          include_role:
+            name: maintenance_mode_config_push
+
+        - name: Upgrade devices
+          include_role:
+            name: image_upgrade_role
+
+        - name: Deactivate maintenance mode
+          include_role:
+            name: maintenance_mode_deactivate
+
+        - set_fact:
+            next_set: "{{next_batch.next.batch_devices}}"
+
+        - set_fact:
+            output: {
+                  "status": "Success.",
+                  "retry_devices": "{{next_set}}",
+                  "message": "{% if next_set | length > 0 -%}
+                              Finished upgrading device {{pr_name}}. Starting hitless image upgrade on {{next_batch.next.batch_name}}.
+                              {% else -%}
+                              Hitless image upgrade has finished successfully on all devices.{%- endif %}"
+                   }
+
+        - name: Print the output.
+          debug:
+            var: output
+            verbosity: 1
+      when: upgrade_mode == 'upgrade'
