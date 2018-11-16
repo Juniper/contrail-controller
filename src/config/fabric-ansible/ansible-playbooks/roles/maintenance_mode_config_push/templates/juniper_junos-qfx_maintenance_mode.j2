@@ -1,0 +1,18 @@
+delete apply-groups maintenance_mode
+delete groups maintenance_mode
+
+{% if maintenance_mode_state == "activate" %}
+delete groups {{cfg_overlay_group}} protocols bgp group {{bgp_overlay_group_name}} export
+set groups {{cfg_overlay_group}} protocols bgp group {{bgp_overlay_group_name}} export MAINTENANCE-MODE
+delete protocols bgp group {{bgp_underlay_group_name}} export
+set protocols bgp group {{bgp_underlay_group_name}} export MAINTENANCE-MODE-underlay
+{% else %}
+delete groups {{cfg_overlay_group}} protocols bgp group {{bgp_overlay_group_name}} export
+set groups {{cfg_overlay_group}} protocols bgp group {{bgp_overlay_group_name}} export _contrail_ibgp_export_policy
+delete protocols bgp group {{bgp_underlay_group_name}} export
+set protocols bgp group {{bgp_underlay_group_name}} export export-bgp
+{% endif %}
+
+set groups maintenance_mode
+set apply-groups maintenance_mode
+

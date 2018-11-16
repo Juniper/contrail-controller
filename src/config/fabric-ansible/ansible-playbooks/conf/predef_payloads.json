@@ -27,6 +27,67 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "image_upgrade_maintenance_mode_template"
+          ],
+          "name": "image_upgrade_maintenance_mode_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "device",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_validation.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 5
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_config_push.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 10
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/image_upgrade_dummy.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 75
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_deactivate.yml",
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 10
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "maintenance_mode_deactivate_template"
+          ],
+          "name": "maintenance_mode_deactivate_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_concurrency_level": "fabric",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_deactivate.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "discover_device_template"
           ],
           "name": "discover_device_template",
@@ -433,12 +494,7 @@
               "juniper-mx2008",
               "juniper-mx2010",
               "juniper-mx2020",
-              "juniper-mx10003",
-              "juniper-srx5400",
-              "juniper-srx4600",
-              "juniper-srx4100",
-              "juniper-srx1500",
-              "juniper-vsrx"
+              "juniper-mx10003"
             ]
           }
         }
@@ -656,36 +712,6 @@
             "juniper-vmx"
           ],
           "name": "juniper-vmx"
-        },
-        {
-          "fq_name": [
-            "juniper-srx5400"
-          ],
-          "name": "juniper-srx5400"
-        },
-        {
-          "fq_name": [
-            "juniper-srx4600"
-          ],
-          "name": "juniper-srx4600"
-        },
-        {
-          "fq_name": [
-            "juniper-srx4100"
-          ],
-          "name": "juniper-srx4100"
-        },
-        {
-          "fq_name": [
-            "juniper-srx1500"
-          ],
-          "name": "juniper-srx1500"
-        },
-        {
-          "fq_name": [
-            "juniper-vsrx"
-          ],
-          "name": "juniper-vsrx"
         }
       ]
     },
@@ -707,7 +733,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "Route-Reflector"]
+                "rb_roles": ["null"]
               }
             ]
           }
@@ -723,11 +749,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway"]
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
               }
             ]
           }
@@ -743,11 +769,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway"]
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
               }
             ]
           }
@@ -767,23 +793,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["DC-Gateway", "Route-Reflector"]
-              }
-            ]
-          }
-        },
-        {
-          "fq_name": [
-            "default-global-system-config", "juniper-srx"
-          ],
-          "name": "juniper-srx",
-          "node_profile_vendor": "Juniper",
-          "node_profile_device_family": "junos",
-          "node_profile_roles": {
-            "role_mappings": [
-              {
-                "physical_role": "pnf",
-                "rb_roles": ["L3PNF"]
+                "rb_roles": ["DC-Gateway"]
               }
             ]
           }
@@ -1104,36 +1114,6 @@
       "to_fq_name": [ "juniper-vmx" ]
     },
     {
-      "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
-      "to_type": "hardware",
-      "to_fq_name": [ "juniper-srx5400" ]
-    },
-    {
-      "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
-      "to_type": "hardware",
-      "to_fq_name": [ "juniper-srx4600" ]
-    },
-    {
-      "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
-      "to_type": "hardware",
-      "to_fq_name": [ "juniper-srx4100" ]
-    },
-    {
-      "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
-      "to_type": "hardware",
-      "to_fq_name": [ "juniper-srx1500" ]
-    },
-    {
-      "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
-      "to_type": "hardware",
-      "to_fq_name": [ "juniper-vsrx" ]
-    },
-    {
       "from_type": "role_config",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean", "basic" ],
       "to_type": "job_template",
@@ -1183,3 +1163,4 @@
     }
   ]
 }
+

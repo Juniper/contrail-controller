@@ -1,0 +1,81 @@
+# Generic playbook to push config to the device (activate/deactivate)
+
+- name: Read the router to get the state of the device
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "read"
+    object_dict: {"uuid": "{{prouter_uuid}}"}
+  register: prouter_obj
+
+# set_fact accordingly to either activate or deactivate
+- set_fact:
+    maintenance_mode_state: "{{prouter_obj.obj.id_perms.description}}"
+    device_name: "{{prouter_obj.obj.display_name}}"
+    device_vendor: "{{prouter_obj.obj.physical_router_vendor_name|lower}}"
+
+- set_fact:
+    conf_dir: "./config/{{pr_host}}"
+
+#- name: Get the bgp group names
+#  block:
+#    - juniper_junos_command:
+#        commands:
+#          - show configuration | display set | match bgp | match internal
+#        display: set
+#        provider:
+#          host: "{{junos_host}}"
+#          username: "{{junos_username}}"
+#          password: "{{junos_password}}"
+#          port: 22
+#          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+#      register: device_info
+#  rescue:
+#    - name: Perform the necessary error handling
+#      include_tasks: error_handler.yml
+#      when: "device_info.failed == true"
+#      vars:
+#        op_err_message: "{{device_info.msg}}"
+#        jl_err_message: "Error while obtaining interface information from Juniper device: {{device_info.msg}}"
+
+- name: Setting the group names
+  set_fact:
+    cfg_overlay_group : '__contrail_overlay_bgp__'
+    bgp_overlay_group_name: '_contrail_asn-64512'
+    bgp_underlay_group_name: 'CLOS'
+
+- name: Remove build_config folder if it already exists
+  file:
+    path: "{{ conf_dir }}/build_config"
+    state: absent
+
+- name: Remove final_config folder if it already exists
+  file:
+    path: "{{ conf_dir }}/final_config"
+    state: absent
+
+- name: Create build folder
+  file:
+    path: "{{ conf_dir }}/build_config"
+    state: directory
+
+- name: Generate config
+  block:
+    - name: Generate script file on local host
+      template:
+        src: juniper_junos-qfx_maintenance_mode.j2
+        dest: "{{ conf_dir }}/build_config/maintenance_mode.conf"
+      register: cmd_res
+  rescue:
+    - name: Perform necessary error handling
+      include_tasks: error_handler.yml
+      vars:
+        op_err_message: "{{cmd_res.msg}}"
+        jl_err_message: "Failed to generate script"
+
+
+- include_role:
+    name: "commit_fabric_config"
+
+#- name: Check if it's entered maintenance mode or not depending on config push
+#  when: device_push_response is defined and device_push_response.failed == false
