@@ -559,9 +559,10 @@ class SanityBase(object):
 
     def image_upgrade(self, image, device, fabric):
         """upgrade the physical routers with specified images"""
-        self._logger.info("Upgrade image on the physical router ...")
+        self._logger.info("Put device into maintenance mode and upgrade image on the physical router ...")
         job_template_fq_name = [
-            'default-global-system-config', 'image_upgrade_template']
+            'default-global-system-config',
+            'image_upgrade_maintenance_mode_template']
         job_execution_info = self._api.execute_job(
             job_template_fq_name=job_template_fq_name,
             job_input={'image_uuid': image.uuid},
@@ -575,6 +576,24 @@ class SanityBase(object):
                                             job_template_fq_name)
 
     # end image_upgrade
+
+    def image_upgrade_maintenance_mode(self, image, device_uuid):
+        job_template_fq_name = [
+            'default-global-system-config', 'image_upgrade_maintenance_mode_template']
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=job_template_fq_name,
+            job_input={'image_uuid': image.uuid},
+            device_list=[device_uuid]
+        )
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.info(
+            "Maintenance mode upgrade job started with execution id: %s",
+            job_execution_id)
+        self._wait_for_job_to_finish('Starting to execute maintenance mode '
+                                     'job ', job_execution_id)
+
+
+    #end image_upgrade_maintenance_mode()
 
     def ztp(self, fabric_uuid):
         """run ztp for a fabric"""
@@ -597,4 +616,5 @@ class SanityBase(object):
     # end _exit_with_error
 
 # end SanityBase class
+
 

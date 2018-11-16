@@ -1,0 +1,32 @@
+---
+
+- name: Hitless image upgrade workflow
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - maintenance_mode_validation
+    - maintenance_mode_config_push
+    - image_upgrade_role
+    - maintenance_mode_deactivate
+
+  tasks:
+    - set_fact:
+        next_set: "{{next_batch.next.batch_devices}}"
+
+    - set_fact:
+        output: {
+              "status": "Success.",
+              "retry_devices": "{{next_set}}",
+              "message": "{% if next_set | length > 0 -%}
+                          Finished processing {{next_batch.current.batch_name}}. Starting hitless image upgrade on {{next_batch.next.batch_name}}.
+                          {% else -%}
+                          Hitless image upgrade has finished sucessfully on all the batches.{%- endif %}"
+               }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 0
