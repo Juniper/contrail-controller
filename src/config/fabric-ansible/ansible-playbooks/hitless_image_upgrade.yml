@@ -1,0 +1,65 @@
+---
+
+- name: Hitless image upgrade workflow
+
+  hosts: localhost
+  connection: local
+
+  vars:
+    upgrade_mode: "{{playbook_input.input.upgrade_mode}}"
+
+  roles:
+    - Juniper.junos
+
+  tasks:
+    - block:
+        - name: Run health check
+          include_role:
+            name: maintenance_mode_validation
+
+        - set_fact:
+            output: {
+                  "status": "Success",
+                  "message": "All the selected devices have been verified to be healthy for upgrade"
+                    }
+        - name: Print the output
+          debug:
+            var: output
+            verbosity: 0
+      when: upgrade_mode == 'test_run'
+
+    - block:
+        - name: Run health check
+          include_role:
+            name: maintenance_mode_validation
+
+        - name: Push config
+          include_role:
+            name: maintenance_mode_config_push
+
+        - name: Upgrade devices
+          include_role:
+            name: image_upgrade_role
+
+        - name: Deactivate maintenance mode
+          include_role:
+            name: maintenance_mode_deactivate
+
+        - set_fact:
+            next_set: "{{next_batch.next.batch_devices}}"
+
+        - set_fact:
+            output: {
+                  "status": "Success.",
+                  "retry_devices": "{{next_set}}",
+                  "message": "{% if next_set | length > 0 -%}
+                              Finished processing {{next_batch.current.batch_name}}. Starting hitless image upgrade on {{next_batch.next.batch_name}}.
+                              {% else -%}
+                              Hitless image upgrade has finished successfully on all the batches.{%- endif %}"
+                   }
+
+        - name: Print the output.
+          debug:
+            var: output
+            verbosity: 0
+      when: upgrade_mode == 'upgrade'
