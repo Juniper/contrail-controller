@@ -4,9 +4,10 @@
       block:
         - import_role:
             name: Juniper.junos
+
         - juniper_junos_config:
             load: "set"
-            src: "{{ conf_dir }}/final_config/combined_config.conf"
+            src: "{{source_file}}"
             comment: "Applied by Ansible"
             ignore_warning: "True"
             format: "set"
@@ -36,4 +37,3 @@
                 "msg": "Junos config push task failed"
               }
             jl_err_message: "Unable to push config on the device, Junos config push task failed with following error:\n{{junos_response.msg}}"
-
