@@ -1,28 +1,54 @@
 ---
-    - name: create config folder
-      file:
-        path: "{{ conf_dir }}/final_config"
-        state: directory
+    - block:
+        - name: create config folder
+          file:
+            path: "{{ conf_dir }}/final_config"
+            state: directory
 
-    - name: Assembling configurations and copying to conf/
-      assemble: src={{ conf_dir }}/build_config dest={{ conf_dir }}/final_config/combined_config.conf
+        - name: Assembling configurations and copying to conf/
+          assemble: src={{ conf_dir }}/build_config dest={{ conf_dir }}/final_config/combined_config.conf
 
-    # Append a job log to record the config to be deployed
-    - name: Load final config be deployed to device
-      set_fact:
-        final_cfg: "{{ item }}"
-      with_file:
-        - "{{ conf_dir }}/final_config/combined_config.conf"
-      no_log: True
+      # Append a job log to record the config to be deployed
+        - name: Load final config be deployed to device
+          set_fact:
+            final_cfg: "{{ item }}"
+          with_file:
+            - "{{ conf_dir }}/final_config/combined_config.conf"
+          no_log: True
 
-    - name: print final config
-      debug: var=final_cfg verbosity=1
+        - name: print final config
+          debug: var=final_cfg verbosity=1
 
-    - name: Update job log with percentage
-      include_tasks: percentage_update.yml
-      vars:
-        current_index: 1
-        jl_message: "Deploying following config to device '{{ device_name }}' (it may take a while)\n{{ final_cfg }}"
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "Deploying following config to device '{{ device_name }}' (it may take a while)\n{{ final_cfg }}"
+
+        - name: Set the source file
+          set_fact:
+            source_file: "{{ conf_dir}}/final_config/combined_config.conf"
+      when: set_device_mode is undefined
+
+#Push other different config
+    - block:
+        - name: Get the src file for other config push
+          set_fact:
+            source_file: "{{ conf_dir }}/final_config/final_hitless_config/maintenance_mode.conf"
+
+        - name: Load final config be deployed to device
+          set_fact:
+            final_cfg: "{{ item }}"
+          with_file:
+            - "{{ conf_dir }}/final_config/final_hitless_config/maintenance_mode.conf"
+          no_log: True
+
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "Deploying following config to device '{{ device_name }}' (it may take a while)\n{{ final_cfg }}"
+      when: set_device_mode is defined
 
     - name: finish with vendor-specific commit logic
       include_tasks: "{{ device_vendor }}.yml"
@@ -35,4 +61,5 @@
       vars:
         current_index: 2
         jl_message: "{{ device_push_message }}"
+      when: set_device_mode is undefined
 
