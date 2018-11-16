@@ -1,0 +1,115 @@
+---
+
+#Playbook to validate device
+
+- name: call vnc to read the physical-router
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "read"
+    object_dict: {"uuid": "{{prouter_uuid}}"}
+  register: prouter_obj
+
+# Used to push different maintenance mode config
+- name: get physical and routing bridging role of device
+  set_fact:
+    prouter_fq_name: "{{prouter_obj.obj.display_name}}"
+    physical_role: "{{ prouter_obj.obj.physical_router_role}}"
+    rb_role: "{{ prouter_obj.obj.routing_bridging_roles}}"
+
+#- name: Fetch the image for this device to check for upgrade # do jinja processing here.
+#
+#
+#- name: Set the image_uuid
+#  set_fact:
+#    image_uuid: ""
+
+- name: call vnc to read image info
+  vnc_db_mod:
+    job_ctx: "{{job_ctx}}"
+    object_type: "device_image"
+    object_op: "read"
+    object_dict: |
+      {
+        "uuid": "{{image_uuid}}"
+      }
+
+  register: image_details
+
+- name: Read Image object dict response
+  debug:
+    var: image_details
+
+- set_fact:
+    image_info: "{{image_details.obj}}"
+
+- set_fact:
+    image_os_version: "{{image_info.device_image_os_version}}"
+    image_family: "{{image_info.device_image_device_family}}"
+
+- name: Fetch the current os version on the device
+  block:
+    - juniper_junos_rpc:
+        host="{{pr_host}}"
+        user="{{pr_user}}"
+        passwd="{{pr_password}}"
+        port=22
+        rpc=get-system-information
+        timeout="{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: sys_info
+  rescue:
+      - include_tasks: error_handler.yml
+        vars:
+          op_err_message: "Unable to check version on the device. {{sys_info.msg}}"
+          results: |
+            {
+              "prouter_uuid": "{{prouter_uuid}}",
+              "image_uuid": "{{image_uuid}}",
+              "msg": "Unable to check version on the device. Version validation task failed with an exception"
+            }
+          jl_err_message: "Physical device {{pr_fqname}}. Unable to check version on the device. {{sys_info.msg}}"
+
+- name: Print sys info
+  debug: var=sys_info verbosity=1
+
+- set_fact:
+    device_version: "{{sys_info.parsed_output['system-information']['os-version']}}"
+
+- name: Validate version on device to see if it matches the image version
+  include_tasks: error_handler.yml
+  when: "image_os_version == device_version"
+  vars:
+    op_err_message: "Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}. Same image found."
+    results: |
+      {
+        "prouter_uuid": "{{prouter_uuid}}",
+        "image_uuid": "{{image_uuid}}",
+        "msg": "Device has already been upgraded with the selected image"
+      }
+    jl_err_message: >
+      "Same OS version {{device_version}} found. Skipping the image upgrade on this device.
+
+# Check generic health of the device
+#- name: Check health of the device
+#  include_role:
+#    name: device_health_check
+#  vars:
+#    snap_test_pfx: "juniper_health_check_1"
+#    snap_action: "snapcheck"
+#
+#- debug:
+#    var: device_health_report
+
+#- name: Check health of the device before maintenance mode config push
+#  include_role:
+#    name: device_health_check
+#  vars:
+#    snap_test_pfx: "juniper_snapshot_1"
+#    snap_action: "snap_pre"
+#
+#- debug:
+#    var: device_health_report
+
+- name: Set variable to activate maintenance mode
+  set_fact:
+    device_maintenance_mode: "activate"

@@ -1,0 +1,1 @@
+device_maintenance_mode: "{{playbook_input.input.device_maintenance_mode}}"
