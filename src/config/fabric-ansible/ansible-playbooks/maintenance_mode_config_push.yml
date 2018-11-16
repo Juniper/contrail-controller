@@ -1,0 +1,22 @@
+---
+
+- name: Push config for maintenance mode
+
+  hosts: localhost
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - maintenance_mode_config_push
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Maintenance mode config pushed has been pushed down to the device {{pr_name}}"
+               }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 1
