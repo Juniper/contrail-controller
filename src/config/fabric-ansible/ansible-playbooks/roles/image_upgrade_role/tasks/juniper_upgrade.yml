@@ -1,0 +1,71 @@
+- name: Execute a basic Junos software upgrade.
+  block:
+    - juniper_junos_software:
+        provider:
+          host: "{{pr_host}}"
+          user: "{{pr_user}}"
+          password: "{{pr_password}}"
+          port: 22
+        version: "{{image_os_version}}"
+        remote_package: "{{downloadurl}}"
+      register: junos_response
+    #  ignore_errors: True
+  rescue:
+    - include_tasks: error_handler.yml
+      vars:
+        op_err_message: "Unable to upgrade image on the device. Junos upgrade task failed with exception. {{junos_response.msg}}"
+        results: |
+          {
+            "prouter_uuid": "{{pr_uuid}}",
+            "image_uuid": "{{image_uuid}}",
+            "msg": "Image upgrade task failed"
+          }
+        jl_err_message: "Unable to upgrade image {{filename}} on the device {{pr_fqname}}. Junos upgrade task failed with exception. {{junos_response.msg}}"
+
+- name: Print the complete response.
+  debug:
+    var: junos_response
+    verbosity: 1
+
+- name: Job logs for image upgrade task with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 4
+    jl_message: >
+      {% if 'Reboot' in junos_response.msg -%}
+        Image upgrade task completed on this device: {{junos_response.msg}}. Device reboot may take 15 to 20 mins.
+      {% else -%}
+       Image upgrade task completed on this device. Same version found.
+      {%- endif %}
+
+- name: Rebooting
+  block:
+    - name: Update prouter logs with maintenance mode status
+      prouter_objectlog:
+        prouter_fqname: "{{pr_fqname}}"
+        onboarding_state: "{{DEVICE_STATE.REBOOTING}}"
+        job_ctx: "{{job_ctx}}"
+
+     #Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
+    - name: Check NETCONF connectivity after reboot
+      wait_for:
+        host: "{{pr_host}}"
+        port: 830
+        timeout: 1200
+        delay: 60
+        connect_timeout: 10
+        sleep: 60
+  when: "'Reboot' in junos_response.msg"
+
+ #Initialize job data
+- name: Append job logs after device is up with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 5
+    jl_message: >
+      {% if 'Reboot' in junos_response.msg -%}
+        Device is up after reboot. Now validating image version on device.
+      {% else -%}
+        Validating image version on device.
+      {%- endif %}
+

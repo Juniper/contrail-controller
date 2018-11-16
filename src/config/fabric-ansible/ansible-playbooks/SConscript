@@ -38,6 +38,7 @@ local_sources = [
     'device_import.yml',
     'discover_device.yml',
     'image_upgrade.yml',
+    'hitless_upgrade.yml',
     'fabric_onboard.yml',
     'existing_fabric_onboard.yml',
     'error_handler.yml',
