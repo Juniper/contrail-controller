@@ -1,0 +1,55 @@
+---
+
+#Playbook to validate device
+
+- name: Call vnc to read the physical-router {{pr_name}}
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "read"
+    object_dict: {"uuid": "{{pr_uuid}}"}
+  register: prouter_obj
+
+# Get role of the device
+
+- name: Get physical and routing bridging role of the device
+  set_fact:
+    prouter_fq_name: "{{prouter_obj.obj.display_name}}"
+    physical_role: "{{ prouter_obj.obj.physical_router_role}}"
+    rb_role: "{{ prouter_obj.obj.routing_bridging_roles}}"
+
+#Check generic health of the device
+
+- name: Check health of the device
+  include_role:
+    name: device_health_check
+  vars:
+    snap_test_pfx: "{{pr_vendor}}_health_check_1"
+    snap_action: "snapcheck"
+
+- debug: var=device_health_report verbosity=1
+
+- name: Check health of the device before maintenance mode config push
+  include_role:
+    name: device_health_check
+  vars:
+    snap_test_pfx: "{{pr_vendor}}_snapshot_1"
+    snap_action: "snap_pre"
+
+- name: Update job logs with health report
+  job_objectlog:
+    job_ctx: "{{ job_ctx }}"
+    message: "Health report for {{prouter_name}} : {{device_health_report}}"
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+
+- name: Activating maintenance mode on device {{pr_name}}
+  set_fact:
+    device_maintenance_mode: "activate"
+
+- name: Update job log with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 1
+    jl_message: "Completed health check successfully. Putting device {{prouter_name}} into maintenance mode."
+
+
