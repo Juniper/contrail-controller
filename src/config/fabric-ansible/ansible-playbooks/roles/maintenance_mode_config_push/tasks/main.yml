@@ -1,0 +1,138 @@
+# Generic playbook to push config to the device (activate/deactivate)
+
+# Get the device details for commit fabric config
+- set_fact:
+    device_name: "{{pr_name}}"
+    device_vendor: "{{pr_vendor|lower}}"
+    device_mgmt_ip: "{{pr_host}}"
+    device_username: "{{pr_user}}"
+    device_password: "{{pr_password}}"
+
+#Bgp group names that belong to a config group
+
+- name: Get the bgp group names with config groups
+  block:
+    - juniper_junos_config:
+        provider:
+          host: "{{pr_host}}"
+          username: "{{pr_user}}"
+          password: "{{pr_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+        retrieve: 'committed'
+        filter: 'groups'
+        diff: true
+        check: false
+        commit: false
+        config_mode: 'private'
+        format: xml
+      register: group_info_cfg
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "group_info_cfg.failed == true"
+      vars:
+        op_err_message: "{{group_info_cfg.msg}}"
+        jl_err_message: "Error while obtaining group information from Juniper device: {{group_info_cfg.msg}}"
+
+- name: Get the group information
+  set_fact:
+    results_json_cfg: "{{group_info_cfg|json_query('config_parsed.configuration')}}"
+
+- name: Get the required groups from results
+  set_fact:
+    valid_groups_cfg: "{{results_json_cfg.groups| selectattr('protocols','defined')| selectattr('protocols.bgp','defined')| list}}"
+
+- name: Print valid groups
+  debug: msg="{{valid_groups_cfg}}" verbosity=1
+
+# Bgp group names without a config group
+
+- name: Get bgp group names without config groups
+  block:
+    - juniper_junos_config:
+        provider:
+          host: "{{pr_host}}"
+          username: "{{pr_user}}"
+          password: "{{pr_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+        retrieve: 'committed'
+        filter: 'protocols/bgp'
+        diff: true
+        check: false
+        commit: false
+        config_mode: 'private'
+        format: xml
+      register: group_info
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "group_info.failed == true"
+      vars:
+        op_err_message: "{{group_info.msg}}"
+        jl_err_message: "Error while obtaining group information (without config groups) from Juniper device: {{group_info.msg}}"
+
+- name: Get bgp group info without cfg group
+  set_fact:
+    bgp_group_info: "{{group_info|json_query('config_parsed.configuration')}}"
+
+- name: Print group_info
+  debug: msg="{{bgp_group_info}}" verbosity=1
+
+- set_fact:
+    conf_dir: "./config/{{pr_host}}"
+
+- name: Remove build_config folder if it already exists
+  file:
+    path: "{{ conf_dir }}/build_config"
+    state: absent
+
+- name: Remove final_config folder if it already exists
+  file:
+    path: "{{ conf_dir }}/final_config"
+    state: absent
+
+- name: Create build folder
+  file:
+    path: "{{ conf_dir }}/build_config"
+    state: directory
+
+- name: Generate maintenance mode config to be pushed on device {{prouter_name}}
+  block:
+    - name: Generate script file on local host
+      template:
+        src: juniper_junos-qfx_maintenance_mode.j2
+        dest: "{{ conf_dir }}/build_config/maintenance_mode.conf"
+      register: cmd_res
+  rescue:
+    - name: Perform necessary error handling
+      include_tasks: error_handler.yml
+      vars:
+        op_err_message: "{{cmd_res.msg}}"
+        jl_err_message: "Failed to generate script to {{device_maintenance_mode}} maintenance mode on device {{pr_name}}"
+
+- include_role:
+    name: "commit_fabric_config"
+
+- name: Update prouter logs with maintenance mode status
+  prouter_objectlog:
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{DEVICE_STATE.MAINTENANCE_MODE_ACTIVATED}}"
+    job_ctx: "{{job_ctx}}"
+  when: device_maintenance_mode == "activate"
+
+- name: Update prouter logs with maintenance mode status
+  prouter_objectlog:
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{DEVICE_STATE.MAINTENANCE_MODE_DEACTIVATED}}"
+    job_ctx: "{{job_ctx}}"
+  when: device_maintenance_mode == "deactivate"
+
+- name: Update job log with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 2
+    jl_message: "Configuration pushed down to {{device_maintenance_mode}} maintenance mode on the device {{prouter_name}}."
+
+

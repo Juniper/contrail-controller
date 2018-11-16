@@ -1,5 +1,6 @@
 ---
-# vars file for image_upgrade_role
+# vars file for maintenance mode validation role
+pr_uuid: "{{playbook_input.device_id}}"
 pr_user: "{{playbook_input.device_username}}"
 pr_host: "{{playbook_input.device_management_ip}}"
 pr_fqname: "{{playbook_input.device_fqname}}"
@@ -7,9 +8,6 @@ pr_name: "{{playbook_input.device_fqname[-1]}}"
 prouter_name: "{{pr_name}}"
 pr_family: "{{playbook_input.device_family}}"
 pr_password: "{{playbook_input.device_password}}"
-pr_uuid: "{{playbook_input.device_id}}"
-
-auth_token: "{{playbook_input.auth_token}}"
+pr_vendor: "{{playbook_input.vendor}}"
 image_uuid: "{{playbook_input.device_image_uuid}}"
-
-
+upgrade_plan: "{{playbook_input.input.upgrade_plan}}"
