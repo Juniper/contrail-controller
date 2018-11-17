@@ -52,8 +52,6 @@ class TestExecuteJob(test_case.ApiServerTestCase):
 
         # create the job_template
         job_template_object = JobTemplate(
-                                  job_template_type='device',
-                                  job_template_job_runtime='ansible',
                                   job_template_multi_device_job=False,
                                   job_template_fqname=[
                                    "default-global-system-config",
