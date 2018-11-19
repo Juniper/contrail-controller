@@ -71,7 +71,7 @@ class TestJobManager(test_case.JobTestCase):
                        job_input_json, log_utils)
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
-                         JobStatus.SUCCESS)
+                         JobStatus.FAILURE)
 
     # Test for job success with multiple playbooks in the workflow template
     def test_execute_job_success_multiple_templates(self):
@@ -133,7 +133,7 @@ class TestJobManager(test_case.JobTestCase):
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
-                         JobStatus.SUCCESS)
+                         JobStatus.FAILURE)
 
     # to test the case when device vendor and multiple device families are
     # passed in job_template_input
@@ -205,7 +205,7 @@ class TestJobManager(test_case.JobTestCase):
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
-                         JobStatus.SUCCESS)
+                         JobStatus.FAILURE)
 
     # to test the case when multiple device vendors and multiple_playbooks are
     # passed in job_template_input
@@ -278,7 +278,7 @@ class TestJobManager(test_case.JobTestCase):
 
         wm.start_job()
         self.assertEqual(wm.result_handler.job_result_status,
-                         JobStatus.SUCCESS)
+                         JobStatus.FAILURE)
 
     def get_details(self, job_template_uuid):
         job_input_json, log_utils = TestJobManagerUtils.get_min_details(
@@ -324,7 +324,7 @@ class TestJobManager(test_case.JobTestCase):
             fake_process)
         fake_process.should_receive('poll').and_return(123)
         # mock the call to invoke the playbook process
-        flexmock(os.path).should_receive('exists').and_return(True)
+        flexmock(os.path).should_receive('exists').and_return(False)
         # mock sys exit call
         flexmock(sys).should_receive('exit')
         fake_resp = flexmock(status_code=123)
