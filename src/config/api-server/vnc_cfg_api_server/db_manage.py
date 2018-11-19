@@ -32,12 +32,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.8"
+__version__ = "1.9"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.9
+  - Add support to remove stale ref entries from obj_uuid_table of cassandra
 * 1.8
   - Return error if a IIP/FIP/AIP have a stale VN referenced
 * 1.7
@@ -1693,6 +1695,12 @@ class DatabaseCleaner(DatabaseManager):
     # end clean_stale_back_refs
 
     @cleaner
+    def clean_stale_refs(self):
+        """Removes stale ref entries from obj_uuid_table of cassandra."""
+        return self._remove_stale_from_uuid_table('ref')
+    # end clean_stale_refs
+
+    @cleaner
     def clean_stale_children(self):
         """Removes stale children entries from obj_uuid_table of cassandra."""
         return self._remove_stale_from_uuid_table('children')
@@ -2647,6 +2655,7 @@ def db_clean(args, api_args):
     db_cleaner.clean_stale_route_target()
     db_cleaner.clean_stale_instance_ip()
     db_cleaner.clean_stale_back_refs()
+    db_cleaner.clean_stale_refs()
     db_cleaner.clean_stale_children()
     # ID allocation inconsistencies
     db_cleaner.clean_stale_subnet_uuid()
