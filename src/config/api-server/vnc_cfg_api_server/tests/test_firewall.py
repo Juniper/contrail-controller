@@ -1620,7 +1620,7 @@ class FirewallDraftModeCommonTestSuite(object):
         fp = self.api.firewall_policy_read(id=fp.uuid)
         self.draft_mode = True
         old_fp_name = fp.display_name
-        new_fp_name = 'new-name-%s' % old_fp_name
+        new_fp_name = 'new-%s' % old_fp_name
         fp.display_name = new_fp_name
         self.api.firewall_policy_update(fp)
 
@@ -1855,7 +1855,7 @@ class FirewallDraftModeCommonTestSuite(object):
         self.assertEqual(fp_draft_from_fq_name.display_name, new_fp_name)
         self.assertEqual(fp_draft_from_uuid.display_name, new_fp_name)
         self.assertIsNone(fp.draft_mode_state)
-        self.assertEqual(fp_draft_from_fq_name.draft_mode_state, 'updated')
+        self.assertEqual(fp_draft_from_fq_name.draft_mode_state, 'update')
         self.assertEqual(fp_draft_from_uuid.draft_mode_state, 'updated')
 
     def test_read_draft_version_of_deleted_security_resource(self):
@@ -1886,7 +1886,7 @@ class FirewallDraftModeCommonTestSuite(object):
         self.assertEqual(fp_draft_from_fq_name.fq_name,
                          fp_draft_from_uuid.fq_name)
         self.assertIsNone(fp.draft_mode_state)
-        self.assertEqual(fp_draft_from_fq_name.draft_mode_state, 'deleted')
+        self.assertEqual(fp_draft_from_fq_name.draft_mode_state, 'delete')
         self.assertEqual(fp_draft_from_uuid.draft_mode_state, 'deleted')
 
     def _setup_complex_security_environment(self):
