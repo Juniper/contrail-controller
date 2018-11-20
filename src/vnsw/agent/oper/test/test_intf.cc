@@ -89,18 +89,18 @@ struct TestFatFlowEntry {
     int dst_prefix_mask;
     int dst_aggregate_plen;
     TestFatFlowEntry(string proto, uint16_t num) :
-        protocol(proto), port(num), ignore_address("none"), src_prefix(""), src_prefix_mask(0), 
+        protocol(proto), port(num), ignore_address("none"), src_prefix(""), src_prefix_mask(0),
         src_aggregate_plen(0), dst_prefix(""), dst_prefix_mask(0), dst_aggregate_plen(0) {
     }
     TestFatFlowEntry(string proto, uint16_t num, const std::string &addr) :
-        protocol(proto), port(num), ignore_address(addr), src_prefix(""), src_prefix_mask(0), 
+        protocol(proto), port(num), ignore_address(addr), src_prefix(""), src_prefix_mask(0),
         src_aggregate_plen(0), dst_prefix(""), dst_prefix_mask(0), dst_aggregate_plen(0) {
     }
     TestFatFlowEntry(string proto, uint16_t num, const std::string &addr, const std::string &in_src_prefix,
                      int in_src_prefix_mask, int in_src_aggregate_plen, const std::string &in_dst_prefix,
                      int in_dst_prefix_mask, int in_dst_aggregate_plen) :
-        protocol(proto), port(num), ignore_address(addr), src_prefix(in_src_prefix), 
-        src_prefix_mask(in_src_prefix_mask), src_aggregate_plen(in_src_aggregate_plen), 
+        protocol(proto), port(num), ignore_address(addr), src_prefix(in_src_prefix),
+        src_prefix_mask(in_src_prefix_mask), src_aggregate_plen(in_src_aggregate_plen),
         dst_prefix(in_dst_prefix), dst_prefix_mask(in_dst_prefix_mask), dst_aggregate_plen(in_dst_aggregate_plen) {
     }
 };
@@ -197,7 +197,7 @@ public:
     }
 
     void AddFatFlow(struct PortInfo *input, std::string protocol, int port,
-                    const string &ignore_address, const string &src_prefix, int src_prefix_mask, int src_aggregate_plen, 
+                    const string &ignore_address, const string &src_prefix, int src_prefix_mask, int src_aggregate_plen,
                     const string &dst_prefix, int dst_prefix_mask, int dst_aggregate_plen) {
 
         ostringstream str;
@@ -329,9 +329,9 @@ static void CreateMirror(AnalyzerInfo &analyzer_info) {
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         VmInterface::FloatingIpList list, string vrf_name,
                         string ip, AnalyzerInfo &analyzer_info) {
-    uuid intf_uuid = MakeUuid(id);
-    uuid vn_uuid = MakeUuid(vn);
-    uuid vm_uuid = MakeUuid(vm);
+    boost::uuids::uuid intf_uuid = MakeUuid(id);
+    boost::uuids::uuid vn_uuid = MakeUuid(vn);
+    boost::uuids::uuid vm_uuid = MakeUuid(vm);
 
     std::string cfg_name = cfg_str;
 
@@ -374,9 +374,9 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         VmInterface::FloatingIpList list, string vrf_name,
                         string ip) {
-    uuid intf_uuid = MakeUuid(id);
-    uuid vn_uuid = MakeUuid(vn);
-    uuid vm_uuid = MakeUuid(vm);
+    boost::uuids::uuid intf_uuid = MakeUuid(id);
+    boost::uuids::uuid vn_uuid = MakeUuid(vn);
+    boost::uuids::uuid vm_uuid = MakeUuid(vm);
 
     std::string cfg_name = cfg_str;
 
@@ -1616,7 +1616,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     //config is deleted
     EXPECT_FALSE(RouteFind("vrf1", "1.1.1.10", 32));
 
-    uuid intf_uuid = MakeUuid(1);
+    boost::uuids::uuid intf_uuid = MakeUuid(1);
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
@@ -1669,7 +1669,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
 
-    uuid intf_uuid = MakeUuid(1);
+    boost::uuids::uuid intf_uuid = MakeUuid(1);
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
@@ -1742,7 +1742,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     // VMI created now
     EXPECT_TRUE(VmPortGet(1) != NULL);
 
-    uuid intf_uuid = MakeUuid(1);
+    boost::uuids::uuid intf_uuid = MakeUuid(1);
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
@@ -3200,7 +3200,7 @@ TEST_F(IntfTest, vm_interface_key_verification) {
 }
 
 TEST_F(IntfTest, packet_interface_get_key_verification) {
-    PacketInterfaceKey key(nil_uuid(), "pkt0");
+    PacketInterfaceKey key(boost::uuids::nil_uuid(), "pkt0");
     Interface *intf =
         static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key));
     DBEntryBase::KeyPtr entry_key = intf->GetDBRequestKey();

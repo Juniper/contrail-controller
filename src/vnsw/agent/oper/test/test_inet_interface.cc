@@ -47,8 +47,8 @@ public:
         agent_ = Agent::GetInstance();
 
         DBRequest req(DBRequest::DB_ENTRY_DELETE);
-        req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
-                                         "vhost0"));
+        req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                         boost::uuids::nil_uuid(), "vhost0"));
         req.data.reset(new VmInterfaceConfigData(NULL, NULL));
         agent_->interface_table()->Enqueue(&req);
         client->WaitForIdle();
@@ -374,8 +374,8 @@ TEST_F(InetInterfaceTest, physical_eth_encap_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::ETHERNET, false, nil_uuid(),
-                                 Ip4Address(0),
+                                 PhysicalInterface::ETHERNET, false,
+                                 boost::uuids::nil_uuid(), Ip4Address(0),
                                  Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
@@ -410,8 +410,8 @@ TEST_F(InetInterfaceTest, physical_eth_raw_ip_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::RAW_IP, false, nil_uuid(),
-                                 Ip4Address(0),
+                                 PhysicalInterface::RAW_IP, false,
+                                 boost::uuids::nil_uuid(), Ip4Address(0),
                                  Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
@@ -447,8 +447,8 @@ TEST_F(InetInterfaceTest, physical_eth_no_arp_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::ETHERNET, true, nil_uuid(),
-                                 Ip4Address(0),
+                                 PhysicalInterface::ETHERNET, true,
+                                 boost::uuids::nil_uuid(), Ip4Address(0),
                                  Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
@@ -478,8 +478,8 @@ TEST_F(InetInterfaceTest, physical_ipsec0_no_arp) {
     PhysicalInterface::CreateReq(interface_table_, "ipsec0",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::ETHERNET, true, nil_uuid(),
-                                 Ip4Address(0),
+                                 PhysicalInterface::ETHERNET, true,
+                                 boost::uuids::nil_uuid(), Ip4Address(0),
                                  Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
     PhysicalInterfaceKey physical_key("ipsec0");

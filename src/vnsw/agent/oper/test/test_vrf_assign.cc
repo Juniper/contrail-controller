@@ -39,9 +39,9 @@ static void NovaDel(int id) {
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string ) {
     VmInterface::FloatingIpList list;
-    uuid intf_uuid = MakeUuid(id);
-    uuid vn_uuid = MakeUuid(vn);
-    uuid vm_uuid = MakeUuid(vm);
+    boost::uuids::uuid intf_uuid = MakeUuid(id);
+    boost::uuids::uuid vn_uuid = MakeUuid(vn);
+    boost::uuids::uuid vm_uuid = MakeUuid(vm);
 
     std::string cfg_name = cfg_str;
 
