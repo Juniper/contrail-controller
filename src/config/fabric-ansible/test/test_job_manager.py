@@ -11,6 +11,7 @@ import logging
 from flexmock import flexmock
 import subprocess32
 import requests
+import uuid
 from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
 from vnc_api.vnc_api import JobTemplate
@@ -25,7 +26,6 @@ from test_job_manager_utils import TestJobManagerUtils
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-loop_var = 0
 
 
 class TestJobManager(test_case.JobTestCase):
@@ -52,8 +52,7 @@ class TestJobManager(test_case.JobTestCase):
                                      vendor='Juniper',
                                      device_family='MX')
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
-        job_template = JobTemplate(job_template_type='device',
-                                   job_template_job_runtime='ansible',
+        job_template = JobTemplate(
                                    job_template_multi_device_job=False,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template')
@@ -85,8 +84,7 @@ class TestJobManager(test_case.JobTestCase):
             device_family='QFX')
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info,
                                                              play_info1])
-        job_template = JobTemplate(job_template_type='device',
-                                   job_template_job_runtime='ansible',
+        job_template = JobTemplate(
                                    job_template_multi_device_job=False,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template1')
@@ -116,8 +114,7 @@ class TestJobManager(test_case.JobTestCase):
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info, play_info1])
-        job_template = JobTemplate(job_template_type='device',
-                                   job_template_job_runtime='ansible',
+        job_template = JobTemplate(
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multidevice')
@@ -147,8 +144,7 @@ class TestJobManager(test_case.JobTestCase):
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_qfx, play_info_mx])
-        job_template = JobTemplate(job_template_type='device',
-                                   job_template_job_runtime='ansible',
+        job_template = JobTemplate(
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multidevfamilies')
@@ -186,8 +182,7 @@ class TestJobManager(test_case.JobTestCase):
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_qfx, play_info_mx, play_info_2])
-        job_template = JobTemplate(job_template_type='device',
-                                   job_template_job_runtime='ansible',
+        job_template = JobTemplate(
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multi_devfamilies')
@@ -225,8 +220,7 @@ class TestJobManager(test_case.JobTestCase):
             playbook_info=[play_info_arista_df,
                            play_info_juniper_qfx,
                            play_info_juniper_mx])
-        job_template = JobTemplate(job_template_type='device',
-                                   job_template_job_runtime='ansible',
+        job_template = JobTemplate(
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_multivendors')
@@ -257,8 +251,7 @@ class TestJobManager(test_case.JobTestCase):
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_juniper_qfx,
                            play_info_vendor_agnostic])
-        job_template = JobTemplate(job_template_type='device',
-                                   job_template_job_runtime='ansible',
+        job_template = JobTemplate(
                                    job_template_multi_device_job=True,
                                    job_template_playbooks=playbooks_list,
                                    name='Test_template_no_vendor')
@@ -300,33 +293,26 @@ class TestJobManager(test_case.JobTestCase):
         return job_input_json, log_utils
 
     def mock_play_book_execution(self):
-        # mocking the loop with the stdout.readline function.
-        loop_var = 0
-
-        def mock_readline():
-            global loop_var
-            loop_var += 1
-            if loop_var == 1:
-                with open("test/test.txt", 'r') as f:
-                    line = f.readline()
-                    return line
-            if loop_var == 2:
-                fake_process.should_receive("poll").and_return(123)
-                loop_var = 0
-                return ""
-
-        stdout = flexmock(readline=mock_readline)
         mock_subprocess32 = flexmock(subprocess32)
-        fake_process = flexmock(returncode=0, pid=123,
-                                stdout=stdout)
+        mock_unique_pb_id = flexmock(uuid)
+
+        fake_process = flexmock(returncode=0, pid=123)
         fake_process.should_receive('wait')
         mock_subprocess32.should_receive('Popen').and_return(
             fake_process)
+        mock_unique_pb_id.should_receive('uuid4').and_return('12345')
+
         fake_process.should_receive('poll').and_return(123)
         # mock the call to invoke the playbook process
         flexmock(os.path).should_receive('exists').and_return(True)
+
+        # mock the call to write an END to the file
+        with open("/tmp/"+TestJobManagerUtils.execution_id, "a") as f:
+            f.write('12345' + 'END' + '\n')
+
         # mock sys exit call
         flexmock(sys).should_receive('exit')
         fake_resp = flexmock(status_code=123)
         fake_request = flexmock(requests).should_receive(
                            'post').and_return(fake_resp)
+
