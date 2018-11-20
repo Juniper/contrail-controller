@@ -309,10 +309,18 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
 
 bool NextHopTable::OnChange(DBEntry *entry, const DBRequest *req) {
     NextHop *nh = static_cast<NextHop *>(entry);
+    bool DelCleared = false;
+    //Since as part of label addition later, active nh entries are looked
+    //up. So makes sense to clear delete now so as to allow proper label 
+    //binding. 
+    if (entry->IsDeleted()) {
+        entry->ClearDelete();
+        DelCleared = true;
+    }
     nh->Change(req);
     bool ret = nh->ChangeEntry(req);
     nh->SendObjectLog(this, AgentLogEvent::CHANGE);
-    return ret;
+    return (ret | DelCleared);
 }
 
 bool NextHopTable::Resync(DBEntry *entry, const DBRequest *req) {
