@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
 """
@@ -24,7 +24,8 @@ class MESOSCniDataObject:
         self._conf['cmd'] = data['cmd']
 	json_data = json.loads(data['args'])
         lbl_dict = {}
-        lbl_dict['cluster-name'] = json_data['contrail']['cluster-name']
+        lbl_dict['node-name'] = json_data['contrail']['cluster-name']
+        lbl_dict['node-ip'] = json_data['contrail']['vrouter-ip']
         #lbl_dict['app_subnets'] = json_data['app_subnets']
         net_info = json_data['args']['org.apache.mesos']['network_info']
         if net_info and 'labels' in net_info:
