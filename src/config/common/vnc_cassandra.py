@@ -1655,7 +1655,7 @@ class ObjectCacheManager(object):
 
             # TODO filter with field_names
             return {k: copy.deepcopy(self.obj_dict[k])
-                    for k in set(self.obj_dict.keys()) & set(field_names)}
+                    for k in field_names if k in self.obj_dict}
         # end get_filtered_copy
 
     # end class CachedObject
@@ -1668,52 +1668,45 @@ class ObjectCacheManager(object):
 
     def evict(self, obj_uuids):
          for obj_uuid in obj_uuids:
-             try:
-                 del self._cache[obj_uuid]
-             except KeyError:
-                 continue
+             self._cache.pop(obj_uuid, None)
     # end evict
 
     def set(self, obj_class, db_rendered_objs, req_fields,
             include_backrefs_children):
-        # evict to accomodate new entries
-        new_size = len(set(self._cache.keys()) |
-                       set(db_rendered_objs.keys()))
-        if new_size > self.max_entries:
-            for i in range(new_size - self.max_entries):
-                # Evict the oldest entry
-                self._cache.pop(self._cache.keys()[0])
 
         # build up results with field filter
         result_obj_dicts = []
         if req_fields:
             result_fields = set(req_fields) | set(['fq_name', 'uuid',
                         'parent_type', 'parent_uuid'])
+
         for obj_uuid, render_info in db_rendered_objs.items():
             id_perms_ts = render_info.get('id_perms_ts', 0)
             row_latest_ts = render_info.get('row_latest_ts', 0)
-            try:
+
+            cached_obj = self._cache.pop(obj_uuid, None)
+            if cached_obj is not None:
                # if we had stale, just update from new db value
-               cached_obj = self._cache[obj_uuid]
                cached_obj.update_obj_dict(render_info['obj_dict'])
                cached_obj.id_perms_ts = id_perms_ts
                if include_backrefs_children:
                    cached_obj.row_latest_ts = row_latest_ts
-            except KeyError:
-               # this was a miss in cache
+            else:
+                # this was a miss in cache
                 cached_obj = self.CachedObject(
                     render_info['obj_dict'],
                     id_perms_ts,
                     row_latest_ts)
 
+            if len(self._cache) + 1 >= self.max_entries:
+                self._cache.popitem(last=False) # LRU semantic
             self._cache[obj_uuid] = cached_obj
 
             if req_fields:
-                obj_keys = render_info['obj_dict'].keys()
                 result_obj_dicts.append(
-                    self._cache[obj_uuid].get_filtered_copy(result_fields))
+                    cached_obj.get_filtered_copy(result_fields))
             else:
-                result_obj_dicts.append(self._cache[obj_uuid].get_filtered_copy())
+                result_obj_dicts.append(cached_obj.get_filtered_copy())
         # end for all rendered objects
 
         return result_obj_dicts
@@ -1722,10 +1715,14 @@ class ObjectCacheManager(object):
     def read(self, obj_uuids, req_fields, include_backrefs_children):
         # find which keys are a hit, find which hit keys are not stale
         # return hit entries and miss+stale uuids.
-        cached_uuid_set = set(self._cache.keys())
-        request_uuid_set = set(obj_uuids)
-        hit_uuid_set = set(obj_uuids) & cached_uuid_set
-        miss_uuid_set = set(obj_uuids) - cached_uuid_set
+        hit_uuids = []
+        miss_uuids = []
+        for obj_uuid in obj_uuids:
+            if obj_uuid in self._cache:
+                hit_uuids.append(obj_uuid)
+            else:
+                miss_uuids.append(obj_uuid)
+
         stale_uuids = []
 
         # staleness when include_backrefs_children is False = id_perms tstamp
@@ -1739,15 +1736,16 @@ class ObjectCacheManager(object):
 
         hit_rows_in_db = self._db_client.multiget(
                                    self._db_client._OBJ_UUID_CF_NAME,
-                                   list(hit_uuid_set),
+                                   hit_uuids,
                                    columns=[stale_check_col_name],
                                    timestamp=True)
 
         obj_dicts = []
+        result_fields = {'fq_name', 'uuid', 'parent_type', 'parent_uuid'}
         if req_fields:
-            result_fields = set(req_fields) | set(['fq_name', 'uuid',
-                'parent_type', 'parent_uuid'])
-        for hit_uuid in hit_uuid_set:
+            result_fields = set(req_fields) | result_fields
+
+        for hit_uuid in hit_uuids:
             try:
                 obj_cols = hit_rows_in_db[hit_uuid]
                 cached_obj = self._cache[hit_uuid]
@@ -1755,12 +1753,12 @@ class ObjectCacheManager(object):
                 # Either stale check column missing, treat as miss
                 # Or entry could have been evicted while context switched
                 # for reading stale-check-col, treat as miss
-                miss_uuid_set.add(hit_uuid)
+                miss_uuids.append(hit_uuid)
                 continue
 
             if (getattr(cached_obj, stale_check_ts_attr) !=
                 obj_cols[stale_check_col_name][1]):
-                miss_uuid_set.add(hit_uuid)
+                miss_uuids.append(hit_uuid)
                 stale_uuids.append(hit_uuid)
                 continue
 
@@ -1772,7 +1770,7 @@ class ObjectCacheManager(object):
         # end for all hit in cache
 
         self.evict(stale_uuids)
-        return obj_dicts, list(miss_uuid_set)
+        return obj_dicts, miss_uuids
     # end read
     def dump_cache(self, obj_uuid=None, count=10):
         if obj_uuid:
