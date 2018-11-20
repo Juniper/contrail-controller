@@ -5,8 +5,10 @@
 package contrailCni
 
 import (
+        "bytes"
 	"encoding/json"
 	"fmt"
+        "net/http"
 	"strconv"
 	"strings"
 
@@ -75,7 +77,9 @@ type ContrailCni struct {
 	ContainerUuid string
 	ContainerName string
 	ContainerVn   string
-	VRouter       VRouter
+	MesosIP       string `json:"mesos-ip"`
+	MesosPort     string `json:"mesos-port"`
+        VRouter       VRouter
 }
 
 type cniJson struct {
@@ -255,7 +259,38 @@ func (cni *ContrailCni) CmdAdd() error {
 
 	var finalTypesResult *current.Result
 
-	// Pre-fetch initial configuration for the interfaces from vrouter
+	if cni.Mode == CNI_MODE_MESOS {
+          op := "POST"
+          url := "http://" + cni.MesosIP + ":" + cni.MesosPort + "/" + "add_cni_info"
+	  values := map[string]string{"cid": cni.cniArgs.ContainerID, "cmd": "ADD", "args": string(cni.cniArgs.StdinData)}
+          jsonValue, _ := json.Marshal(values)
+	  log.Infof("IN CNI MESOS mode - Updating Mesos Manager: URL -  %s\n", url)
+	  req, err := http.NewRequest(op, url, bytes.NewBuffer(jsonValue))
+	  if err != nil {
+	    log.Errorf("Error creating http Request. Op %s Url %s Msg %s."+
+                       "Error : %+v", op, url, err)
+            return err
+          }
+
+          req.Header.Set("Content-Type", "application/json")
+	  httpClient := new(http.Client)
+	  resp, err := httpClient.Do(req)
+	  if err != nil {
+            log.Errorf("Failed HTTP operation :  %+v. Error : %+v", req, err)
+	    return err
+	  }
+          defer resp.Body.Close()
+
+          if resp.StatusCode != http.StatusOK {
+	    msg := fmt.Sprintf("Failed HTTP POST operation. Return code %d",
+	                      int(resp.StatusCode))
+	    log.Errorf(msg)
+	    return fmt.Errorf(msg)
+	  }
+          log.Infof("IN CNI MESOS mode - Post to mesos manager success!\n")
+        }
+
+        // Pre-fetch initial configuration for the interfaces from vrouter
 	// This will give MAC address for the interface and in case of
 	// VMI sub-interface, we will also get the vlan-tag
 	results, err := cni.VRouter.Poll(cni.ContainerUuid, cni.ContainerVn)
@@ -354,6 +389,39 @@ func (cni *ContrailCni) CmdAdd() error {
  * Delete message handlers
  ****************************************************************************/
 func (cni *ContrailCni) CmdDel() error {
+        if cni.Mode == CNI_MODE_MESOS {
+          op := "POST"
+          url := "http://" + cni.MesosIP + ":" + cni.MesosPort + "/" + "del_cni_info"
+
+          values := map[string]string{"cid": cni.cniArgs.ContainerID, "cmd": "DEL",
+            "args": string(cni.cniArgs.StdinData)}
+          jsonValue, _ := json.Marshal(values)
+          log.Infof("IN CNI MESOS mode - Updating Mesos Manager: URL -  %s\n", url)
+          req, err := http.NewRequest(op, url, bytes.NewBuffer(jsonValue))
+          if err != nil {
+            log.Errorf("Error creating http Request. Op %s Url %s Msg %s."+
+                "Error : %+v", op, url, err)
+            return err
+          }
+          req.Header.Set("Content-Type", "application/json")
+          httpClient := new(http.Client)
+          resp, err := httpClient.Do(req)
+          if err != nil {
+            log.Errorf("Failed HTTP operation :  %+v. Error : %+v", req, err)
+            return err
+          }
+          defer resp.Body.Close()
+
+          if resp.StatusCode != http.StatusOK {
+            msg := fmt.Sprintf("Failed HTTP POST operation. Return code %d",
+                int(resp.StatusCode))
+            log.Errorf(msg)
+            return fmt.Errorf(msg)
+          }
+
+          log.Infof("IN CNI MESOS mode - Post to mesos manager success!\n")
+        }
+
 	containerIntfNames, vmiUuids, err := cni.VRouter.CanDelete(
 		cni.cniArgs.ContainerID, cni.ContainerUuid, cni.ContainerVn)
 	if err != nil {
