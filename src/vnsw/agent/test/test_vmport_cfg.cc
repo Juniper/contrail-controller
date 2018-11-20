@@ -1174,8 +1174,9 @@ TEST_F(CfgTest, Basic_1) {
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             eth_intf, Agent::GetInstance()->fabric_vrf_name(),
                             PhysicalInterface::FABRIC,
-                            PhysicalInterface::ETHERNET, false, nil_uuid(),
-                            Ip4Address(0), Interface::TRANSPORT_ETHERNET);
+                            PhysicalInterface::ETHERNET, false,
+                            boost::uuids::nil_uuid(), Ip4Address(0),
+                            Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     phy_intf = static_cast<PhysicalInterface *>

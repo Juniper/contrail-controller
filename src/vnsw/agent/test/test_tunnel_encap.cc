@@ -134,7 +134,7 @@ public:
         client->WaitForIdle();
 
         TunnelOlist olist_map;
-        olist_map.push_back(OlistTunnelEntry(nil_uuid(), 3000,
+        olist_map.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 3000,
                             IpAddress::from_string("8.8.8.8").to_v4(),
                             TunnelType::MplsType()));
         agent->oper_db()->multicast()->ModifyFabricMembers(Agent::GetInstance()->
@@ -376,7 +376,7 @@ TEST_F(TunnelEncapTest, EncapChange) {
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
             oper_db()->multicast());
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                 IpAddress::from_string("8.8.8.8").to_v4(),
                 TunnelType::MplsType()));
     mc_handler->ModifyFabricMembers(Agent::GetInstance()->

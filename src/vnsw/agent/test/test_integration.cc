@@ -319,7 +319,7 @@ void ReadInputFile(char *input_file) {
     //config_create.save_file("config_integration.xml");
 }
 
-void TestReadUuid (xml_node &parent, uuid &id) {
+void TestReadUuid (xml_node &parent, boost::uuids::uuid &id) {
     UuidType    uuid_type;
 
     if (parent.first_child().type() != node_pcdata) {
@@ -507,14 +507,14 @@ void DumpXmlNode (pugi::xml_node &node) {
 }
 
 void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool create) {
-    uuid    port_id;
-    uuid    vn_id;
-    uuid    vm_id;
-    uuid    project_id = MakeUuid(kProjectUuid);
-    const char   *ipaddr = NULL;
-    const char   *mac = NULL;
-    const char   *tap_intf = NULL;
-    xml_node  parent = node.first;
+    boost::uuids::uuid port_id;
+    boost::uuids::uuid vn_id;
+    boost::uuids::uuid vm_id;
+    boost::uuids::uuid project_id = MakeUuid(kProjectUuid);
+    const char *ipaddr = NULL;
+    const char *mac = NULL;
+    const char *tap_intf = NULL;
+    xml_node parent = node.first;
     GroupEntry *g_parent = node.second;
 
     for (xml_node node = parent.first_child(); node;

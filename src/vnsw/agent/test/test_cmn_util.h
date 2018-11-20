@@ -77,7 +77,7 @@ struct TestTag {
     uint32_t id_;
 };
 
-uuid MakeUuid(int id);
+boost::uuids::uuid MakeUuid(int id);
 void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);
 void AddXmlHdr(char *buff, int &len);

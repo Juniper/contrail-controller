@@ -635,7 +635,8 @@ TEST_F(CfgTest, Nexthop_keys) {
     EXPECT_TRUE(vrf_nh->bridge_nh() == true);
     DoNextHopSandesh();
 
-    VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+    VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE,
+                                  boost::uuids::nil_uuid(),
                                   agent_->vhost_interface()->name());
     //Tunnel NH key
     agent_->
@@ -1102,7 +1103,7 @@ TEST_F(CfgTest, mcast_comp_nh_encap_change) {
         static_cast<MulticastHandler *>(agent_->
                                         oper_db()->multicast());
     TunnelOlist tor_olist;
-    tor_olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    tor_olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     mc_handler->ModifyTorMembers(bgp_peer_,
@@ -1112,7 +1113,7 @@ TEST_F(CfgTest, mcast_comp_nh_encap_change) {
                                  1);
     client->WaitForIdle();
     TunnelOlist evpn_olist;
-    evpn_olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    evpn_olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyEvpnMembers(bgp_peer_,

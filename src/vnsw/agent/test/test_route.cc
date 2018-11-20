@@ -102,7 +102,7 @@ protected:
                                      agent_->fabric_vrf_name(),
                                      PhysicalInterface::FABRIC,
                                      PhysicalInterface::ETHERNET, false,
-                                     nil_uuid(), Ip4Address(0),
+                                     boost::uuids::nil_uuid(), Ip4Address(0),
                                      Interface::TRANSPORT_ETHERNET);
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
@@ -139,7 +139,7 @@ protected:
 
     void AddVhostRoute() {
         VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE,
-                                 nil_uuid(), "vhost0");
+                                 boost::uuids::nil_uuid(), "vhost0");
         agent_->fabric_inet4_unicast_table()->AddVHostRecvRouteReq
             (agent_->local_peer(), agent_->fabric_vrf_name(), vhost_key,
              secondary_vhost_ip_, 32, "", false, true);
@@ -164,7 +164,8 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE,
+                                      boost::uuids::nil_uuid(),
                                       agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute
             (agent_->local_peer(), agent_->fabric_vrf_name(), server_ip, plen,
