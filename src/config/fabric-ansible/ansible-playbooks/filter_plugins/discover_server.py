@@ -13,15 +13,16 @@ import requests
 import json
 import gevent
 from gevent import Greenlet, monkey, pool, queue
-monkey.patch_all()
-
+#monkey.patch_all()
+from plugin_ironic import *
+from contrail_command import *
 
 class FilterModule(object):
     @staticmethod
     def _init_logging():
         logger = logging.getLogger('ServerDiscoveryFilter')
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.WARN)
 
         formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s',
                                       datefmt='%Y/%m/%d %H:%M:%S')
@@ -36,12 +37,13 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'discover_server': self.discover_server,
             'expand_subnets': self.expand_subnets,
             'ping_sweep': self.ping_sweep,
             'ipmi_auth_check': self.ipmi_auth_check,
             'check_nodes_with_cc': self.check_nodes_with_cc,
             'register_nodes': self.register_nodes,
+            'trigger_introspect': self.trigger_introspect,
+            'import_ironic_nodes': self.import_ironic_nodes,
         }
 
     def get_keystone_token(self,keystone_url, username, password, user_domain='default', project_name='admin', verify=False):
@@ -99,14 +101,17 @@ class FilterModule(object):
         # TODO: returning all nodes as of now, it must be the diff of nodes 
         # from CC and ipmi_nodes_details
         final_ipmi_detail = []
-        cc_token = self.get_cc_token("10.87.69.79", "admin", "contrail123")
-        print cc_token
-        request_headers = { 'X-Auth-Token': cc_token,
+        print cc_node_details
+        print type(cc_node_details)
+        cc_node = CreateCCResource(cc_node_details)
+        print  cc_node.auth_token
+        request_headers = { 'X-Auth-Token': cc_node.auth_token,
                             'Content-Type': 'application/json',
                           }
 
         cc_url = "https://10.87.69.79:9091/nodes?detail=true"
         cc_resp = requests.get(cc_url, headers = request_headers, verify = False)
+        #print cc_resp
         cc_nodes = json.loads( cc_resp.content)
         #pprint.pprint(cc_nodes)
         cc_node_data = []
@@ -149,42 +154,6 @@ class FilterModule(object):
         
         return final_ipmi_detail
 
-    def register_nodes(self, node_ipmi_details, ironic_node_details):
-        registered_nodes_list = []
-        kwargs = {
-            'os_username': ironic_node_details['username'],
-            'os_password': ironic_node_details['password'],
-            'os_auth_url' : ironic_node_details['auth_url'],
-            'os_project_name': ironic_node_details['project_name'],
-            'os_user_domain_name': ironic_node_details['user_domain_name'],
-            'os_project_domain_name': ironic_node_details['project_domain_name'],
-            'os_ironic_api_version': '1.31'
-        }
-
-        try:
-            ironic_client = client.get_client(1, **kwargs)
-        except Exception as e:
-             print "ERROR:  ", e
-             return registered_nodes_list
-
-        for node in node_ipmi_details:
-            ironic_node = {}
-            ironic_node['driver'] = 'pxe_ipmitool'
-            ironic_node['driver_info'] = {}
-            ironic_node['driver_info']['ipmi_address'] = node['host']
-            ironic_node['driver_info']['ipmi_port'] = node['port']
-            ironic_node['driver_info']['ipmi_username'] = node['username']
-            ironic_node['driver_info']['ipmi_password'] = node['password']
-            resp = ironic_client.node.create(**ironic_node)
-            print resp.uuid
-            node['uuid'] = resp.uuid
-            registered_nodes_list.append(node)
-
-        #current_nodes = ironic_client.node.list()
-        #pprint.pprint(current_nodes)
-
-
-        return registered_nodes_list
 
     def ping_check(self, retry_queue, result_queue ):
         if retry_queue.empty() :
@@ -210,6 +179,7 @@ class FilterModule(object):
       input_queue = queue.Queue()
       result_queue = queue.Queue()
 
+      print ipaddr_list
       for address in ipaddr_list:
         print address
         host_map_dict = {
@@ -232,8 +202,29 @@ class FilterModule(object):
       return ping_sweep_success_list
 
     def expand_subnets(self, ipmi_subnets):
+        self._logger.info("Starting Server Discovery2")
         print (ipmi_subnets)
         ipmi_addresses = []
+        #my_auth_args = {
+        #'auth_url': 'http://10.87.82.34:5000/v3',
+        #'username': "admin",
+        #'password': "905bee05b9f8dda6c3f5eee0aed8056e214b77f6",
+        #'user_domain_name': 'default',
+        #'project_domain_name': 'default',
+        #'project_name': 'admin',
+        #'aaa_mode': None
+        #}
+        #cc_auth = {
+        #'auth_host': "10.87.69.79",
+        #'username': "admin",
+        #'password': "contrail123"
+        #}
+        #introspection_flag = False 
+        #ironic_node = ImportIronicNodes(auth_args=my_auth_args,
+        #cc_auth_args=cc_auth )
+        #print "CC-NODE:" , ironic_node.cc_node.auth_token
+        self._logger.info("Starting Server Discovery3")
+
         for subnet in ipmi_subnets:
             print subnet
             for ipaddr in netaddr.IPNetwork(subnet):
@@ -241,17 +232,6 @@ class FilterModule(object):
         print (ipmi_addresses)
         return list(set(ipmi_addresses))
 
-
-    def discover_server(self,  ipmi_address_list, ipmi_credentials, 
-                        discovery_host_details, discover_module='ironic', 
-                        ipmi_port_range = ['623']):
-        self._logger.info("Starting Server Discovery")
-        print (discovery_host_details)
-        print (ipmi_address_list)
-        print (ipmi_port_range)
-        print (ipmi_credentials)
-
-        return discovery_host_details
 
     def ipmi_check_gevent(self, input_queue, result_queue):
         if input_queue.empty():
@@ -323,7 +303,7 @@ class FilterModule(object):
         valid_ipmi_details = []
         #expand ipmi_ports to port list
         port_list = []
-        for ports in ipmi_ports:
+        for ports in map(str, ipmi_ports):
             print ports
             if '-' in ports:
                 # we need to expand it.
@@ -380,44 +360,33 @@ class FilterModule(object):
 
         return valid_ipmi_details
 
-def _parse_args():
-    parser = argparse.ArgumentParser(description='fabric filters tests')
-    parser.add_argument('-d', '--discover-server',
-                        action='store_true',
-                        help='discover role for physical routers')
-    parser.add_argument('-p', '--ping-sweep',
-                        action='store_true',
-                        help='discover role for physical routers')
-    return parser.parse_args()
-# end _parse_args
+    def register_nodes(self, ipmi_nodes_detail, ironic_node,
+                       contrail_command_node):
+        ironic_node_object = ImportIronicNodes(auth_args = ironic_node,
+                                 cc_auth_args = contrail_command_node)
+        registered_nodes = ironic_node_object.register_nodes(ipmi_nodes_detail)
+        return registered_nodes
 
+    def trigger_introspect(self, registered_nodes, ironic_node,
+                       contrail_command_node):
+        ironic_node_object = ImportIronicNodes(auth_args = ironic_node,
+                                 cc_auth_args = contrail_command_node)
+        introspected_nodes = ironic_node_object.trigger_introspection(registered_nodes)
+        return introspected_nodes
 
-if __name__ == '__main__':
+    def import_ironic_nodes(self, added_nodes_list, ironic_node, 
+                            contrail_command_node, introspection_flag):
 
-    results = None
-    fabric_filter = FilterModule()
-    parser = _parse_args()
-    if parser.ping_sweep:
-        thirdparty_node_details = { 'plugin': 'ironic',
-                                    'auth_url': 'http://10.87.82.34:5000/v3',
-                                    'username': 'admin',
-                                    'password': '905bee05b9f8dda6c3f5eee0aed8056e214b77f6',
-                                    'user_domain_name': 'Default',
-                                    'project_domain_name': 'Default',
-                                    'project_name': 'admin',
-                                  }
-        #results_expand_subnets = fabric_filter.expand_subnets( ['10.87.82.5', '10.87.82.6', '10.87.82.7', '10.87.82.10', '10.87.82.11', '10.87.82.0/24',"10.84.22.30", "10.])
-        #results_expand_subnets = fabric_filter.expand_subnets( ['10.87.82.5', '10.87.82.6', '10.87.82.7', '10.87.82.10', '10.87.82.11', '10.84.22.30', '10.87.69.53'])
-        #result_ping_sweep = fabric_filter.ping_sweep(results_expand_subnets)
-        #result_ping_sweep = ['10.87.82.5', '10.87.82.6', '10.87.82.7']
-        #result_ipmi_auth_check = fabric_filter.ipmi_auth_check(result_ping_sweep, ["admin:admin", "ADMIN:ADMIN", "admin:password"], ["600", "623", "1020-1025", "620-630", "1021-1024", "100-90", "abd", "abc-333", "6200-6210", "admin:password"])
-        result_ipmi_auth_check = [{'host': '10.87.82.7', 'password': 'ADMIN', 'port': 623, 'username': 'ADMIN', 'valid': True}, {'host': '10.87.69.53', 'password': 'password', 'port': 6206, 'username': 'admin', 'valid': True}, {'host': '10.87.69.53', 'password': 'password', 'port': 6205, 'username': 'admin', 'valid': True}, {'host': '10.87.69.53', 'password': 'password', 'port': 6204, 'username': 'admin', 'valid': True}, {'host': '10.87.69.53', 'password': 'password', 'port': 6203, 'username': 'admin', 'valid': True}, {'host': '10.87.69.53', 'password': 'password', 'port': 6202, 'username': 'admin', 'valid': True}, {'host': '10.87.69.53', 'password': 'password', 'port': 6200, 'username': 'admin', 'valid': True}, {'host': '10.87.82.5', 'password': 'ADMIN', 'port': 623, 'username': 'ADMIN', 'valid': True}, {'host': '10.87.82.6', 'password': 'ADMIN', 'port': 623, 'username': 'ADMIN', 'valid': True}]
-        results_check_nodes_with_cc = fabric_filter.check_nodes_with_cc(result_ipmi_auth_check, {})
-        #new_node_uuids = fabric_filter.register_nodes(
-                           #results_check_nodes_with_cc,
-                           #thirdparty_node_details)
-        #print (result_ipmi_auth_check)
-        pprint.pprint ( results_check_nodes_with_cc)
-        
-
+        pprint.pprint(added_nodes_list)
+        ironic_object = ImportIronicNodes(auth_args=ironic_node,
+                                          cc_auth_args=contrail_command_node,
+                                          added_nodes_list=added_nodes_list)
+        ironic_object.read_nodes_from_db()
+        if introspection_flag:
+            print "CHECKING INTROSPECTION"
+            ironic_object.check_introspection()
+        else:
+            print "IMPORTING WITHOUT INTROSPECT"
+            for node in ironic_object.node_info_list:
+                ironic_object.create_cc_node(node)
 
