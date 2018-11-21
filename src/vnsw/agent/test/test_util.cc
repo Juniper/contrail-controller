@@ -2058,6 +2058,10 @@ void AddSriovPort(const char *name, int id) {
     str << "<key>vnic_type</key>";
     str << "<value>direct</value>";
     str << "</key-value-pair>";
+    str << "<key-value-pair>";
+    str << "<key>vif_type</key>";
+    str << "<value>hw_veb</value>";
+    str << "</key-value-pair>";
     str << "</virtual-machine-interface-bindings>";
 
     char buff[4096];
