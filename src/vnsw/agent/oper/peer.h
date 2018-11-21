@@ -155,7 +155,7 @@ class BgpPeer : public DynamicPeer {
 public:
     typedef boost::function<void()> WalkDoneCb;
     BgpPeer(AgentXmppChannel *channel,
-            const Ip4Address &server_ip, const std::string &name,
+            const IpAddress &server_ip, const std::string &name,
             DBTableBase::ListenerId id, Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
 
@@ -202,7 +202,7 @@ public:
 
 private:
     AgentXmppChannel *channel_;
-    Ip4Address server_ip_;
+    IpAddress server_ip_;
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
     AgentRouteWalkerPtr route_walker_;

@@ -157,7 +157,7 @@ void AgentXmppChannel::CreateBgpPeer() {
                                        agent_, this, _1, _2));
     boost::system::error_code ec;
     const string &addr = agent_->controller_ifmap_xmpp_server(xs_idx_);
-    Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
+    IpAddress ip = AddressFromString(addr, &ec);
     assert(ec.value() == 0);
     bgp_peer_id_.reset(new BgpPeer(this, ip, addr, id, Peer::BGP_PEER));
 }
