@@ -10,29 +10,15 @@
 // Interface class
 /////////////////////////////////////////////////////////////////////////////
 
+#include <boost/optional.hpp>
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
-#include <oper_db.h>
-#include <boost/optional.hpp>
+#include <oper/oper_db.h>
+#include <oper/interface_os_params.h>
 
 struct InterfaceData;
 class VmInterface;
 class IFMapDependencyManager;
-
-struct InterfaceOsParams {
-    // Used on Windows as operating system identifier's type
-    typedef boost::uuids::uuid IfGuid;
-
-    InterfaceOsParams() {}
-    InterfaceOsParams(const string &name, size_t os_index, bool state) :
-        name_(name), os_index_(os_index), os_oper_state_(state) {}
-
-    std::string name_;
-    MacAddress mac_;
-    size_t os_index_;
-    bool os_oper_state_;
-    boost::optional<IfGuid> os_guid_;
-};
 
 class Interface : AgentRefCount<Interface>, public AgentOperDBEntry {
 public:
