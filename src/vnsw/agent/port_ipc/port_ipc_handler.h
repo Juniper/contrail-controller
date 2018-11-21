@@ -21,7 +21,7 @@ typedef boost::shared_ptr<PortSubscribeEntry> PortSubscribeEntryPtr;
 typedef std::vector<PortSubscribeEntryPtr> VmiSubscribeEntryPtrList;
 
 class PortIpcHandler {
- public:
+public:
     static const std::string kPortsDir;
 
     PortIpcHandler(Agent *agent, const std::string &dir);
@@ -49,8 +49,8 @@ class PortIpcHandler {
     bool GetPortInfo(const std::string &uuid_str, std::string &info) const;
     bool AddVgwFromJson(const std::string &json, std::string &err_msg) const;
     bool DelVgwFromJson(const std::string &json, std::string &err_msg) const;
-    void MakeVmiUuidJson(const VmiSubscribeEntry *entry, string &info,
-                         bool meta_info) const;
+    std::string MakeVmiUuidJson(const VmiSubscribeEntry *entry,
+                                bool meta_info) const;
     bool EnablePort(const string &url, string &err_msg);
     bool DisablePort(const string &url, string &err_msg);
 
@@ -72,17 +72,15 @@ class PortIpcHandler {
     PortSubscribeTable *port_subscribe_table() const {
         return port_subscribe_table_.get();
     }
- private:
+private:
     friend class PortIpcTest;
     bool InterfaceExists(const std::string &name) const;
 
     VmiSubscribeEntry *MakeAddVmiUuidRequest(const contrail_rapidjson::Value &d,
-                                             const std::string &json,
                                              bool check_port,
                                              std::string &err_msg) const;
 
     VmVnPortSubscribeEntry *MakeAddVmVnPortRequest(const contrail_rapidjson::Value &d,
-                                                   const std::string &json,
                                                    bool check_port,
                                                    std::string &err_msg) const;
 

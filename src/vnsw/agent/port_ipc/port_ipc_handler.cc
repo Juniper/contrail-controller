@@ -28,7 +28,6 @@
 #include "port_ipc/port_ipc_types.h"
 #include "port_ipc/port_subscribe_table.h"
 
-using namespace std;
 namespace fs = boost::filesystem;
 
 const std::string PortIpcHandler::kPortsDir = "/var/lib/contrail/ports";
@@ -168,11 +167,11 @@ void PortIpcHandler::ReloadAllPorts(bool check_port) {
 void PortIpcHandler::ProcessFile(const string &file, bool check_port,
                                  bool vm_vn_ports) {
     string err_msg;
-    ifstream f(file.c_str());
+    std::ifstream f(file.c_str());
     if (!f.good()) {
         return;
     }
-    ostringstream tmp;
+    std::ostringstream tmp;
     tmp<<f.rdbuf();
     string json = tmp.str();
     f.close();
@@ -197,7 +196,7 @@ bool PortIpcHandler::AddPortArrayFromJson(const contrail_rapidjson::Value &d,
         }
 
         PortSubscribeEntry *entry =
-            MakeAddVmiUuidRequest(elem, json, check_port, err_msg);
+            MakeAddVmiUuidRequest(elem, check_port, err_msg);
         if (entry == NULL) {
             CONFIG_TRACE(PortInfo, err_msg.c_str());
             return false;
@@ -237,8 +236,7 @@ bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
         return true;
     }
 
-    PortSubscribeEntryPtr entry(MakeAddVmiUuidRequest(d, json, check_port,
-                                                      err_msg));
+    PortSubscribeEntryPtr entry(MakeAddVmiUuidRequest(d, check_port, err_msg));
     if (entry.get() == NULL) {
         CONFIG_TRACE(PortInfo, err_msg.c_str());
         return false;
@@ -249,8 +247,8 @@ bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
 }
 
 VmiSubscribeEntry *PortIpcHandler::MakeAddVmiUuidRequest
-(const contrail_rapidjson::Value &d, const std::string &json, bool check_port,
- std::string &err_msg) const {
+(const contrail_rapidjson::Value &d, bool check_port,
+std::string &err_msg) const {
     boost::uuids::uuid vmi_uuid;
     if (GetUuidMember(d, "id", &vmi_uuid, &err_msg) == false) {
         return NULL;
@@ -408,9 +406,8 @@ bool PortIpcHandler::WriteJsonToFile(VmiSubscribeEntry *entry, bool overwrite)
         return true;
     }
 
-    string info;
-    MakeVmiUuidJson(entry, info, true);
-    ofstream fs(filename.c_str());
+    string info = MakeVmiUuidJson(entry, true);
+    std::ofstream fs(filename.c_str());
     if (fs.fail()) {
         return false;
     }
@@ -564,8 +561,8 @@ void PortIpcHandler::AddMember(const char *key, const char *value,
     doc->AddMember(vk.SetString(key, a), v.SetString(value, a), a);
 }
 
-void PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
-                                     string &info, bool meta_info) const {
+std::string PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
+                                            bool meta_info) const {
     contrail_rapidjson::Document doc;
     doc.SetObject();
     contrail_rapidjson::Document::AllocatorType &a = doc.GetAllocator();
@@ -604,8 +601,8 @@ void PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
     contrail_rapidjson::StringBuffer buffer;
     contrail_rapidjson::PrettyWriter<contrail_rapidjson::StringBuffer> writer(buffer);
     doc.Accept(writer);
-    info = buffer.GetString();
-    return;
+
+    return buffer.GetString();
 }
 
 bool PortIpcHandler::GetPortInfo(const string &uuid_str, string &info) const {
@@ -831,8 +828,7 @@ bool PortIpcHandler::AddVmVnPort(const string &json, bool check_port,
         return false;
     }
 
-    PortSubscribeEntryPtr entry(MakeAddVmVnPortRequest(d, json, check_port,
-                                                       err_msg));
+    PortSubscribeEntryPtr entry(MakeAddVmVnPortRequest(d, check_port, err_msg));
     if (entry.get() == NULL) {
         CONFIG_TRACE(VmVnPortInfo, err_msg.c_str());
         return false;
@@ -865,8 +861,8 @@ bool PortIpcHandler::AddVmVnPortEntry(PortSubscribeEntryPtr entry_ref,
 }
 
 VmVnPortSubscribeEntry *PortIpcHandler::MakeAddVmVnPortRequest
-(const contrail_rapidjson::Value &d, const std::string &json, bool check_port,
- std::string &err_msg) const {
+(const contrail_rapidjson::Value &d, bool check_port,
+std::string &err_msg) const {
     PortSubscribeEntry::Type vmi_type = PortSubscribeEntry::VMPORT;
     boost::uuids::uuid vm_uuid;
     if (GetUuidMember(d, "vm-uuid", &vm_uuid, &err_msg) == false) {
@@ -969,7 +965,7 @@ bool PortIpcHandler::WriteJsonToFile(VmVnPortSubscribeEntry *entry) const {
 
     string info;
     MakeVmVnPortJson(entry, info, true);
-    ofstream fs(filename.c_str());
+    std::ofstream fs(filename.c_str());
     if (fs.fail()) {
         return false;
     }

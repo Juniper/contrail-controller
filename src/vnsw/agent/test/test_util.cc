@@ -578,9 +578,8 @@ uint32_t PortSubscribeSize(Agent *agent) {
 }
 
 bool PortSubscribe(VmiSubscribeEntry *entry) {
-    string json;
     Agent *agent = Agent::GetInstance();
-    agent->port_ipc_handler()->MakeVmiUuidJson(entry, json, false);
+    string json = agent->port_ipc_handler()->MakeVmiUuidJson(entry, false);
     string err;
     return agent->port_ipc_handler()->AddPortFromJson(json, false, err, false);
 }
@@ -635,9 +634,8 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                             MakeUuid(intf_id), MakeUuid(vm_id), vm_name,
                             MakeUuid(vn_id), MakeUuid(project_id), ip, ip6,
                             mac, vlan, vlan, vhostuser_mode, 1);
-    string json;
     Agent *agent = Agent::GetInstance();
-    agent->port_ipc_handler()->MakeVmiUuidJson(&entry, json, false);
+    string json = agent->port_ipc_handler()->MakeVmiUuidJson(&entry, false);
     string err;
     agent->port_ipc_handler()->AddPortFromJson(json, false, err, false);
     client->WaitForIdle();
