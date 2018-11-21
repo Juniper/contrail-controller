@@ -3,28 +3,34 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-import sys
+import platform
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
 except_env = env.Clone()
 cflags = except_env['CCFLAGS']
 if '-fno-exceptions' in cflags:
-   cflags.remove('-fno-exceptions')
+    cflags.remove('-fno-exceptions')
 except_env.Replace(CCFLAGS=cflags)
 
 SandeshGenFiles = env.SandeshGenCpp('port_ipc.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
-libport_ipc = env.Library('port_ipc',
-                          sandesh_objs +
-                          ['config_stale_cleaner.cc',
-                           except_env.Object('port_ipc_handler.cc'),
-                           'port_subscribe_table.cc',
-                           'rest_common.cc',
-                           except_env.Object('rest_server.cc')
-                          ])
+if platform.system() == 'Windows':
+    os_dependent_sources = ['windows/port_ipc_handler_os_impl.cc']
+else:
+    os_dependent_sources = ['nix/port_ipc_handler_os_impl.cc']
+
+port_ipc_sources = [
+    'config_stale_cleaner.cc',
+    except_env.Object('port_ipc_handler.cc'),
+    'port_subscribe_table.cc',
+    'rest_common.cc',
+    except_env.Object('rest_server.cc')
+] + os_dependent_sources
+
+libport_ipc = env.Library('port_ipc', sandesh_objs + port_ipc_sources)
 
 install_files = [ 'vrouter-port-control' ]
 

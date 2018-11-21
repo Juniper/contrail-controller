@@ -11,7 +11,8 @@ namespace WindowsNetworkInterface {
 /* This function assumes that name will have the following format:
         Container NIC xxxxxxxx
 */
-boost::optional<NET_LUID> GetVmInterfaceLuidFromName(const std::string& name) {
+boost::optional<NET_LUID> GetVmInterfaceLuidFromName(
+    const std::string& name, const size_t max_retries) {
     std::stringstream ss;
     ss << "vEthernet (" << name << ")";
 
@@ -29,15 +30,18 @@ boost::optional<NET_LUID> GetVmInterfaceLuidFromName(const std::string& name) {
         assert(0);
     }
 
-    const int MAX_RETRIES = 10;
     const int TIMEOUT = 1000;
-    int retries = 0;
-    while (retries < MAX_RETRIES) {
+    size_t retries = 0;
+    while (true) {
         NET_LUID intf_luid;
         NETIO_STATUS net_error = ConvertInterfaceAliasToLuid(mb_name, &intf_luid);
         if (net_error == NO_ERROR) {
             delete mb_name;
             return intf_luid;
+        }
+
+        if (retries >= max_retries) {
+            break;
         }
 
         Sleep(TIMEOUT);
