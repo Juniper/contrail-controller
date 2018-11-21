@@ -178,19 +178,36 @@ class EventManager(object):
         ret_value = False
         try:
             corenames = glob.glob('/var/crashes/*')
-            core_file_set = set(corenames)
-            for key in self.process_state_db.keys():
-                proc_stat = self.process_state_db[key]
-                # If core_file_list is longer than max_cores
-                # remove them from the core file list
-                if (len(proc_stat.core_file_list) > self.max_cores):
-                    while (len(proc_stat.core_file_list) != self.max_cores):
-                        if (proc_stat.core_file_list[0] in core_file_set):
-                            try:
-                                os.remove(proc_stat.core_file_list[0])
-                            except OSError as e:
-                                sys.stderr.write('ERROR: ' + str(e) + '\n')
-                        del proc_stat.core_file_list[0]
+            corenames.sort(key=os.path.getmtime)
+            process_state_db_tmp = {}
+            for key in self.process_state_db:
+                #LOG_DEBUG sys.stderr.write('update_process_core_file_list: key: '+key+'\n')
+                proc_stat = self.get_process_stat_object(key)
+                process_state_db_tmp[key] = proc_stat
+                # clear the core file list
+                process_state_db_tmp[key].core_file_list=[]
+
+            for corename in corenames:
+                exec_name = corename.split('.')[1]
+                for key in self.process_state_db:
+                    if key.startswith(exec_name):
+                        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: startswith: '+exec_name+'\n')
+                        # core files will be oldest to newest in the list
+                        process_state_db_tmp[key].core_file_list.append(corename.rstrip())
+
+            for key in process_state_db_tmp:
+                if len(process_state_db_tmp[key].core_file_list) > self.max_cores:
+                    # delete all core files until count < max_cores
+                    while len(process_state_db_tmp[key].core_file_list) > self.max_cores:
+                        try:
+                            os.remove(corename)
+                        except OSError as e:
+                            sys.stderr.write('ERROR: ' + str(e) + '\n')
+                        del process_state_db_tmp[key].core_file_list[0]
+
+            for key in self.process_state_db:
+                if set(process_state_db_tmp[key].core_file_list) != set(self.process_state_db[key].core_file_list):
+                    self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
                     ret_value = True
                 self.process_state_db[key] = proc_stat
                 # clear the core file list
@@ -294,22 +311,6 @@ class EventManager(object):
                     pname + " with pid:" + pheaders['pid'] +
                     " exited abnormally\n")
                 proc_stat.last_exit_unexpected = True
-
-                find_command_option = \
-                    "find /var/crashes -name core.[A-Za-z]*." + \
-                    pheaders['pid'] + "*"
-                self.stderr.write(
-                    "find command option for cores:" +
-                    find_command_option + "\n")
-                (corename, stderr) = Popen(
-                    find_command_option.split(),
-                    stdout=PIPE).communicate()
-                self.stderr.write("core file: " + corename + "\n")
-
-                if ((corename is not None) and (len(corename.rstrip()) >= 1)):
-                    #append to the core file list of the pid
-                    proc_stat.core_file_list.append(corename.rstrip())
-
         # update process state database
         self.process_state_db[pname] = proc_stat
         f = open('/var/log/contrail/process_state' +

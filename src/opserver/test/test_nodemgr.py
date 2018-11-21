@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+#
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
@@ -43,8 +43,8 @@ class NodemgrTest(unittest.TestCase):
         cm = nodemgr.control_nodemgr.control_event_manager.\
             ControlEventManager('','','','')
         proc_stat = nodemgr.common.process_stat.ProcessStat('proc1')
+        # create 4 core files
         cm.process_state_db['proc1'] = proc_stat
-        # Generate 3 core files
         mock_popen.return_value.returncode = 0
         mock_popen.return_value.communicate.return_value = ('core.proc1.1', '')
         cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
@@ -52,49 +52,27 @@ class NodemgrTest(unittest.TestCase):
         cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
         mock_popen.return_value.communicate.return_value = ('core.proc1.3', '')
         cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
-        self.assertEqual(len(cm.process_state_db['proc1'].core_file_list), 3)
         mock_popen.return_value.communicate.return_value = ('core.proc1.4', '')
         cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
-        nodemgr.common.process_stat.ProcessStat('proc1').core_file_list = cm.process_state_db['proc1'].core_file_list
-        # Trigger an T60 event, the core file list should not change
-        mock_glob.return_value = ['core.proc1.1','core.proc1.2','core.proc1.3', 'core.proc1.4']
-        status = cm.update_process_core_file_list()
         self.assertEqual(len(cm.process_state_db['proc1'].core_file_list), 4)
-        exp_core_file = ['core.proc1.1','core.proc1.2','core.proc1.3', 'core.proc1.4']
-        self.assertEqual(cm.process_state_db['proc1'].core_file_list, exp_core_file)
-        mock_glob.return_value = ['core.proc1.2', 'core.proc1.3', 'core.proc1.4']
-        # Add 5th core file
+        # add the 5th core file
         mock_popen.return_value.communicate.return_value = ('core.proc1.5', '')
         cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
-        # core file list should contain all 5 core files
-        exp_core_file.append('core.proc1.5')
-        self.assertEqual(len(cm.process_state_db['proc1'].core_file_list), 5)
-        self.assertEqual(cm.process_state_db['proc1'].core_file_list, exp_core_file)
-        # Trigger a T60 event, the core file list should be truncated
-        mock_glob.return_value = ['core.proc1.1','core.proc1.2','core.proc1.3', 'core.proc1.4', 'core.proc1.5' ]
+        # test manual deletion of core file
+        #mock_popen.return_value = ('', 0)
+        mock_glob.return_value = ['core.proc1.1','core.proc1.2', 'core.proc1.3', 'core.proc1.4', 'core.proc1.5']
+        #mock_sort.return_value = ['core.proc1.2', 'core.proc1.3', 'core.proc1.4']
+        def mock_sort(i,j):
+            return 1
+        mock_tm_time = mock_sort
+        status = cm.update_process_core_file_list()
+        exp_core_list = ['core.proc1.2', 'core.proc1.3', 'core.proc1.4', 'core.proc1.5']
+        # there should be no core files
+        self.assertEqual(len(cm.process_state_db['proc1'].core_file_list), 4)
+        self.assertEqual(cm.process_state_db['proc1'].core_file_list, exp_core_list)
+        # Calls with less core files should not change the file
         status = cm.update_process_core_file_list()
         self.assertEqual(len(cm.process_state_db['proc1'].core_file_list), 4)
-        exp_core_file = ['core.proc1.2','core.proc1.3','core.proc1.4', 'core.proc1.5']
-        self.assertEqual(cm.process_state_db['proc1'].core_file_list, exp_core_file)
-        # generate more core files
-        mock_popen.return_value.communicate.return_value = ('core.proc1.6', '')
-        cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
-        mock_popen.return_value.communicate.return_value = ('core.proc1.7', '')
-        cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
-        mock_popen.return_value.communicate.return_value = ('core.proc1.8', '')
-        cm.send_process_state('proc1', 'PROCESS_STATE_EXITED',headers)
-
-        # all core files retained until T60 event
-        exp_core_file.extend(['core.proc1.6', 'core.proc1.7', 'core.proc1.8'])
-        self.assertEqual(len(cm.process_state_db['proc1'].core_file_list), 7)
-        self.assertEqual(cm.process_state_db['proc1'].core_file_list, exp_core_file)
-        # call t60 the core file list should shrink back to 3
-        mock_glob.return_value = ['core.proc1.2','core.proc1.3', 'core.proc1.4', 'core.proc1.5',
-                                  'core.proc1.6', 'core.proc1.7', 'core.proc1.8']
-        status = cm.update_process_core_file_list()
-        exp_core_file = ['core.proc1.5','core.proc1.6', 'core.proc1.7', 'core.proc1.8']
-        self.assertEqual(len(cm.process_state_db['proc1'].core_file_list), 4)
-        self.assertEqual(cm.process_state_db['proc1'].core_file_list, exp_core_file)
 
 if __name__ == '__main__':
     unittest.main()
