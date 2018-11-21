@@ -1,0 +1,41 @@
+---
+- name: get keystone token from ironic node
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - set_fact:
+        ip_address_list : "{{ipmi_subnets |expand_subnets() }}"
+    - debug:
+        msg: "SERVER DISCOVERY  {{ ip_address_list}}"
+
+    - set_fact:
+        active_ip_addresses : "{{ ip_address_list | ping_sweep() }}"
+    - debug:
+        msg: "SERVER DISCOVERY: Ping SWEEP  {{ active_ip_addresses}}"
+
+    - set_fact:
+        valid_ipmi_details : "{{ active_ip_addresses | ipmi_auth_check(ipmi_credentials, ipmi_port_range) }}"
+    - debug:
+        msg: "SERVER DISCOVERY: IPMI AUTH CHECK {{ valid_ipmi_details }}"
+
+    - set_fact:
+        final_ipmi_details: "{{ valid_ipmi_details | check_nodes_with_cc(contrail_command_node) }}"
+    - debug:
+        msg: "SERVER DISCOVERY: CHECK WITH CC {{ final_ipmi_details }}"
+
+    - set_fact:
+        registered_nodes : "{{ final_ipmi_details | register_nodes(ironic_node, contrail_command_node) }}"
+    - debug:
+        msg: "SERVER DISCOVERY: REGISTERED NODES {{ registered_nodes }}"
+
+    - set_fact:
+        triggered_nodes: "{{ registered_nodes | trigger_introspect(ironic_node, contrail_command_node) }}"
+    - debug:
+        msg: "SERVER DISCOVERY: TRIGGERED NODES {{ triggered_nodes }}"
+
+    - set_fact:
+        imported_nodes : "{{ triggered_nodes | import_ironic_nodes(ironic_node, contrail_command_node, True) }}"
+    - debug:
+        msg: "SERVER DISCOVERY: IMPORTED NODES {{ imported_nodes}}"
