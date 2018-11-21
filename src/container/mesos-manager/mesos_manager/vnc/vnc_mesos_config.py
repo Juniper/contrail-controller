@@ -99,6 +99,10 @@ class VncMesosConfig(object):
         return cls.vnc_mesos_config.get("queue", None)
 
     @classmethod
+    def sync_queue(cls):
+        return cls.vnc_mesos_config.get("sync_queue", None)
+
+    @classmethod
     def logger(cls):
         return cls.vnc_mesos_config.get("logger", None)
 

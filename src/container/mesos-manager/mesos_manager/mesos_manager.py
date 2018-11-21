@@ -13,6 +13,7 @@ import common.args as mesos_args
 import common.logger as logger
 from cfgm_common import vnc_cgitb
 import vnc.vnc_mesos as vnc_mesos
+import mesos.pod_task_monitor as monitor
 import mesos.cni.cni_request_server as cni_server
 
 
@@ -29,19 +30,24 @@ class MesosNetworkManager(object):
         else:
             self.queue = Queue()
 
+        self.sync_queue = Queue();
         #TODO: Sync DB with current state using mesos agent api
 
         self.logger = logger.MesosManagerLogger(args)
         self.cni_server = cni_server.MesosCniServer(args=self.args,
                                            logger=self.logger,
                                            queue=self.queue)
-        self.vnc = vnc_mesos.VncMesos(self.args, self.logger, self.queue)
+        self.vnc = vnc_mesos.VncMesos(self.args, self.logger, self.queue,
+                                      self.sync_queue)
+        self.pod_task_monitor = monitor.PodTaskMonitor(self.args, self.logger,
+                                                       self.sync_queue)
     # end __init__
 
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
-	self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
+        self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
         self.greenlets.append(gevent.spawn(self.cni_server.start_server))
+        self.greenlets.append(gevent.spawn(self.pod_task_monitor.sync_process))
         gevent.joinall(self.greenlets)
     # end start_tasks
 

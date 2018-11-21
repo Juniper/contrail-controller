@@ -40,7 +40,8 @@ local_sources = [
     'mesos_manager/common/logger.py',
     'mesos_manager/common/__init__.py',
     'mesos_manager/mesos_manager.py',
-    'mesos_manager/__init__.py'
+    'mesos_manager/__init__.py',
+    'mesos_manager/mesos/pod_task_monitor.py'             
 ]
 
 # Sandesh source files.

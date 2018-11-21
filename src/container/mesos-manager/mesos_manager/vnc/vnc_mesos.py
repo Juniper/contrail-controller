@@ -32,10 +32,11 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 class VncMesos(object):
     "Class to handle vnc operations"
     _vnc_mesos = None
-    def __init__(self, args=None, logger=None, queue=None):
+    def __init__(self, args=None, logger=None, queue=None, sync_queue=None):
         self.args = args
         self.logger = logger
         self.queue = queue
+        self.sync_queue = sync_queue
         self._cluster_pod_task_ipam_fq_name = None
         self._cluster_ip_fabric_ipam_fq_name = None
 
@@ -44,7 +45,8 @@ class VncMesos(object):
 
         # Cache common config.
         self.vnc_mesos_config = vnc_mesos_config(logger=self.logger,
-            vnc_lib=self.vnc_lib, args=self.args, queue=self.queue)
+            vnc_lib=self.vnc_lib, args=self.args, queue=self.queue,
+            sync_queue = self.sync_queue)
 
         # init access to db
         self._db = db.MesosNetworkManagerDB(self.args, self.logger)
