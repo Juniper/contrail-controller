@@ -130,7 +130,7 @@ class FilterModule(object):
                     and node['bms_info']['driver_info']['ipmi_port']:
   
                     print node['bms_info']['driver_info']['ipmi_port']
-                    cc_node['ipmi_port'] = node['bms_info']['driver_info']['opmi_port']
+                    cc_node['ipmi_port'] = node['bms_info']['driver_info']['ipmi_port']
                 else: 
                     cc_node['ipmi_port'] = '623'
 
@@ -382,11 +382,15 @@ class FilterModule(object):
                                           cc_auth_args=contrail_command_node,
                                           added_nodes_list=added_nodes_list)
         ironic_object.read_nodes_from_db()
+        success_nodes = []
+        failed_nodes = []
         if introspection_flag:
             print "CHECKING INTROSPECTION"
-            ironic_object.check_introspection()
+            success_nodes, failed_nodes = ironic_object.check_introspection()
         else:
             print "IMPORTING WITHOUT INTROSPECT"
             for node in ironic_object.node_info_list:
                 ironic_object.create_cc_node(node)
+
+        return {'success_nodes': success_nodes, 'failed_nodes': failed_nodes}
 

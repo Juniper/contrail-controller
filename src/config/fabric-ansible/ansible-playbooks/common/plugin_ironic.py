@@ -137,6 +137,8 @@ class ImportIronicNodes(object):
         nodes_to_check_introspected = []
 
         uuid_list = []
+        failed_nodes = []
+        success_nodes = []
 
         for node in self.node_info_list:
             uuid_list.append(node['uuid'])
@@ -150,7 +152,8 @@ class ImportIronicNodes(object):
         if not len(nodes_to_check_introspected):
             return
         else:
-            self.wait_for_introspection(nodes_to_check_introspected)
+            success_nodes, failed_nodes = self.wait_for_introspection(nodes_to_check_introspected)
+        return success_nodes, failed_nodes
 
     def wait_for_introspection(self, node_list):
         wait_for_introspection = False
@@ -158,26 +161,36 @@ class ImportIronicNodes(object):
             wait_for_introspection = True
 
         timeout = 0
+        failed_nodes = []
+        success_nodes = []
         while len(node_list) and timeout < self.introspection_timeout_secs:
             new_node_list = []
             for node in node_list:
                 intro_status = self.check_introspection_status(node)
                 if intro_status == "finished":
                     print "CREATING CC NODE", node
-                    self.create_cc_node(node)
+                    # Get latest Node Info from Ironic POST Introspection
+                    node_info = self.ironic_client.node.get(node['uuid'])
+                    new_node_info = node_info.to_dict()
+                    self.create_cc_node(new_node_info)
+                    success_nodes.append(new_node_info['uuid'])
                 elif intro_status == "error":
                     self.log_introspection_error([node])
+                    failed_nodes.append(node['uuid'])
                 else:
                     new_node_list.append(node)
 
             node_list = new_node_list
             if len(node_list):
-                print "SLEEPING FOR NEXT INSPECT"
+                print "SLEEPING FOR NEXT INSPECT", timeout
                 time.sleep(self.introspection_check_secs)
                 timeout += self.introspection_check_secs
             
         if len(node_list):
             self.log_introspection_error(node_list)
+            for node in node_list:
+                failed_nodes.append(node['uuid'])
+        return success_nodes, failed_nodes
 
     def check_introspection_status(self, node):
         status = self.ironic_inspector_client.get_status(node['uuid'])
@@ -189,7 +202,9 @@ class ImportIronicNodes(object):
             return "running"
 
     def log_introspection_error(self, node_list):
-        print "LOG INTROSPECTION ERROR", node_list
+        print "LOG INTROSPECTION ERROR"
+        for node in node_list:
+            print "FAILED NODES", node['uuid']
         return
 
     def get_cc_port_payload(self, port_dict, local_link_dict):
@@ -232,6 +247,8 @@ class ImportIronicNodes(object):
                 }
             }]
         }
+        cc_node['resources'][0]['data']['bms_info']['driver_info']['ipmi_port'] = str(cc_node['resources'][0]['data']['bms_info']['driver_info']['ipmi_port'])
+
         return cc_node
 
     def get_processed_if_data(self, introspection_data):
