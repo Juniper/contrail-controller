@@ -2221,9 +2221,9 @@ class DBInterface(object):
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
 
-        if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF
-            and port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_GW
-            and 'device_id' in port_q):
+        if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_GW
+                and port_q.get('device_owner') not in constans.ROUTER_INTERFACE_OWNERS_SNAT
+                and 'device_id' in port_q):
             # IRONIC: verify port associated to baremetal 'VM'
             if port_q.get('binding:vnic_type') == 'baremetal':
                 self._port_set_vm_instance(port_obj, port_q.get('device_id'),
