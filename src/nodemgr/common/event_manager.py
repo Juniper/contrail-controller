@@ -91,8 +91,6 @@ class EventManager(object):
         self.sandesh_instance = sandesh_instance
         self.curr_build_info = None
         self.new_build_info = None
-        self.last_cpu = None
-        self.last_time = 0
         self.hostname = socket.getfqdn()
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
@@ -131,6 +129,7 @@ class EventManager(object):
                          SandeshLevel.SYS_ERR)
             exit(-1)
 
+        self.system_mem_cpu_usage_data = SysMemCpuUsageData()
         self.process_state_db = self.get_current_processes()
         for group in self.process_state_db:
             self.send_init_info(group)
@@ -498,12 +497,11 @@ class EventManager(object):
     def send_init_info(self, group_name):
         key = next(key for key in self.process_state_db[group_name])
         # system_cpu_info
-        mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu, self.last_time)
         sys_cpu = SystemCpuInfo()
-        sys_cpu.num_socket = mem_cpu_usage_data.get_num_socket()
-        sys_cpu.num_cpu = mem_cpu_usage_data.get_num_cpu()
-        sys_cpu.num_core_per_socket = mem_cpu_usage_data.get_num_core_per_socket()
-        sys_cpu.num_thread_per_core = mem_cpu_usage_data.get_num_thread_per_core()
+        sys_cpu.num_socket = self.system_mem_cpu_usage_data.get_num_socket()
+        sys_cpu.num_cpu = self.system_mem_cpu_usage_data.get_num_cpu()
+        sys_cpu.num_core_per_socket = self.system_mem_cpu_usage_data.get_num_core_per_socket()
+        sys_cpu.num_thread_per_core = self.system_mem_cpu_usage_data.get_num_thread_per_core()
 
         node_status = NodeStatus(
             name=self.process_state_db[group_name][key].name,
@@ -619,16 +617,10 @@ class EventManager(object):
             process_mem_cpu_usage = self.get_group_processes_mem_cpu_usage(group)
 
             # get system mem/cpu usage
-            system_mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu,
-                                                           self.last_time)
-            system_mem_usage = system_mem_cpu_usage_data.get_sys_mem_info(
+            system_mem_usage = self.system_mem_cpu_usage_data.get_sys_mem_info(
                 self.type_info._uve_node_type)
-            system_cpu_usage = system_mem_cpu_usage_data.get_sys_cpu_info(
+            system_cpu_usage = self.system_mem_cpu_usage_data.get_sys_cpu_info(
                 self.type_info._uve_node_type)
-
-            # update last_cpu/time after all processing is complete
-            self.last_cpu = system_mem_cpu_usage_data.last_cpu
-            self.last_time = system_mem_cpu_usage_data.last_time
 
             # send above encoded buffer
             node_status = NodeStatus(
