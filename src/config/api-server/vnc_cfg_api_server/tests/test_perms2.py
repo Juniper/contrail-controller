@@ -484,7 +484,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         vnc_aal_add_rule(self.admin.vnc_lib, self.alice.proj_rg,
                 rule_str = 'virtual-network.parent_type %s:R' % self.alice.role)
 
-        logger.info( '')
+        logger.info( ' ')
         # vn1 has uuid in it.
         # api_lib, frames request with body as uuid
         # uuid and fqname are skipped by RBAC
