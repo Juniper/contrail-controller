@@ -36,11 +36,11 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 def package_installed(pkg):
     (pdist, _, _) = platform.dist()
     if pdist == 'Ubuntu':
-        cmd = "dpkg -l " + pkg + " | " + 'grep "^ii"'
+        cmd = "dpkg -l " + pkg
     else:
         cmd = "rpm -q " + pkg
     with open(os.devnull, "w") as fnull:
-        return (not subprocess.call(cmd, stdout=fnull, stderr=fnull, shell=True))
+        return (not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull))
 
 
 class EventManager(object):
@@ -187,7 +187,6 @@ class EventManager(object):
                 # clear the core file list
                 process_state_db_tmp[key].core_file_list=[]
 
-            #LOG_DEBUG sys.stderr.write('update_process_core_file_list: corenames: '+corenames+'\n')
             for corename in corenames:
                 exec_name = corename.split('.')[1]
                 for key in self.process_state_db:
@@ -196,25 +195,25 @@ class EventManager(object):
                         # core files will be oldest to newest in the list
                         process_state_db_tmp[key].core_file_list.append(corename.rstrip())
 
+            for key in process_state_db_tmp:
+                if len(process_state_db_tmp[key].core_file_list) > self.max_cores:
+                    # delete all core files until count < max_cores
+                    while len(process_state_db_tmp[key].core_file_list) > self.max_cores:
+                        try:
+                            os.remove(corename)
+                        except OSError as e:
+                            sys.stderr.write('ERROR: ' + str(e) + '\n')
+                        del process_state_db_tmp[key].core_file_list[0]
+
             for key in self.process_state_db:
                 if set(process_state_db_tmp[key].core_file_list) != set(self.process_state_db[key].core_file_list):
-                    # if core file more than allowed, delete the older one
-                    if len(process_state_db_tmp[key].core_file_list) > self.max_old_cores:
-                        cur_len = len(process_state_db_tmp[key].core_file_list)
-                        del_file_list = process_state_db_tmp[key].core_file_list[0:(cur_len-self.max_old_cores)]
-                        for files in del_file_list:
-                            try:
-                                os.remove(files)
-                            except OSError as e:
-                                sys.stderr.write('ERROR: ' + str(e) + '\n')
-                        self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list[cur_len-self.max_old_cores:]
-                    else:
-                        self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
+                    self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
                     ret_value = True
+                self.process_state_db[key] = proc_stat
+                # clear the core file list
         except Exception as e:
-            sys.stderr.write('update_process_core_file_list: exception: '+str(e))
-
-        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: ret_value: '+str(ret_value)+'\n')
+            sys.stderr.write("Error in listing files in /var/crashes")
+            sys.stderr.write('ERROR: ' + str(e) + '\n')
         return ret_value
     #end update_process_core_file_list
 
@@ -312,7 +311,6 @@ class EventManager(object):
                     pname + " with pid:" + pheaders['pid'] +
                     " exited abnormally\n")
                 proc_stat.last_exit_unexpected = True
-
         # update process state database
         self.process_state_db[pname] = proc_stat
         f = open('/var/log/contrail/process_state' +
