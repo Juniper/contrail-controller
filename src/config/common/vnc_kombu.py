@@ -123,9 +123,10 @@ class VncKombuClientBase(object):
     def _delete_queue(self):
         # delete the queue
         try:
-            bound_q = self._update_queue_obj(self._channel)
-            if bound_q:
-                bound_q.delete()
+            with self._conn_lock:
+                bound_q = self._update_queue_obj(self._channel)
+                if bound_q:
+                   bound_q.delete()
         except Exception as e:
             msg = 'Unable to delete the old ampq queue: %s' %(str(e))
             self._logger(msg, level=SandeshLevel.SYS_ERR)
@@ -138,8 +139,9 @@ class VncKombuClientBase(object):
         self.prepare_to_consume()
         while True:
             try:
-                self._consumer.consume()
-                self._conn.drain_events()
+                with self._conn_lock:
+                    self._consumer.consume()
+                    self._conn.drain_events()
             except self._conn.connection_errors + self._conn.channel_errors as e:
                 self._reconnect()
     # end _connection_watch
@@ -183,7 +185,8 @@ class VncKombuClientBase(object):
 
                 while True:
                     try:
-                        self._producer.publish(message)
+                        with self._conn_lock:
+                            self._producer.publish(message)
                         message = None
                         break
                     except self._conn.connection_errors + self._conn.channel_errors as e:
