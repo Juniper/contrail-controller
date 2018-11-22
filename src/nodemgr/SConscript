@@ -83,6 +83,7 @@ common_sources = [
            '__init__.py',
            'common/cassandra_manager.py',
            'common/common_process_manager.py',
+           'common/common_sys_mem_cpu.py',
            'common/docker_mem_cpu.py',
            'common/docker_process_manager.py',
            'common/event_manager.py',
