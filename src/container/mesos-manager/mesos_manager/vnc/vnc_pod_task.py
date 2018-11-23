@@ -22,7 +22,7 @@ from mesos_manager.vnc.config_db import (
 from mesos_manager.vnc.vnc_common import VncCommon
 from mesos_manager.vnc.vnc_mesos_config import (
     VncMesosConfig as vnc_mesos_config)
-
+from mesos_manager.mesos.pod_task_monitor import PodTaskMonitor
 from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
 
@@ -34,6 +34,7 @@ class VncPodTask(VncCommon):
         self._name = type(self).__name__
         self._vnc_lib = vnc_mesos_config.vnc_lib()
         self._queue = vnc_mesos_config.queue()
+        self._sync_queue = vnc_mesos_config.sync_queue()
         self._args = vnc_mesos_config.args()
         self._logger = vnc_mesos_config.logger()
         if not VncPodTask.vnc_pod_task_instance:
@@ -86,9 +87,9 @@ class VncPodTask(VncCommon):
         vmi_prop = None
         obj_uuid = str(uuid.uuid1())
         vmi_obj = VirtualMachineInterface(
-            name=pod_task_id, parent_obj=proj_obj,
+            name=vm_obj.name, parent_obj=proj_obj,
             virtual_machine_interface_properties=vmi_prop,
-            display_name=pod_task_id)
+            display_name=vm_obj.name)
 
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
@@ -106,7 +107,11 @@ class VncPodTask(VncCommon):
         return vmi_uuid
 
     def _create_vm(self, pod_task_id):
-        vm_obj = VirtualMachine(name=pod_task_id)
+        pod_task_name = PodTaskMonitor.get_task_pod_name_from_cid(pod_task_id)
+        if pod_task_name is None:
+            vm_obj = VirtualMachine(name=pod_task_id)
+        else:
+            vm_obj = VirtualMachine(name=pod_task_name)
         vm_obj.uuid = pod_task_id
         vm_obj.set_server_type("container")
 
@@ -172,7 +177,7 @@ class VncPodTask(VncCommon):
         vmi_uuid = self._create_vmi(obj_labels.pod_task_uuid, vm_obj, vn_obj)
         vmi = VirtualMachineInterfaceMM.get(vmi_uuid)
 
-        self._create_iip(obj_labels.pod_task_uuid, vn_obj, vmi)
+        self._create_iip(vm_obj.name, vn_obj, vmi)
 
         self._link_vm_to_node(vm_obj, node_name, node_ip)
 
@@ -255,6 +260,9 @@ class VncPodTask(VncCommon):
         if obj_labels.operation == 'ADD':
             self._logger.info('Add request.')
             vm = self.vnc_pod_task_add(obj_labels)
+            if vm.uuid == vm.name:
+                event['event_type'] = vm.uuid
+                self._sync_queue.put(event)
         elif obj_labels.operation == 'DEL':
             self._logger.info('Delete request')
             vm = self.vnc_pod_task_delete(obj_labels.pod_task_uuid)
