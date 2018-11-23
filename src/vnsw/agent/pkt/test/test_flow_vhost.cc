@@ -229,7 +229,7 @@ TEST_F(VhostVmi, VmiToLocalVhost) {
     client->WaitForIdle();
 
     Ip4Address sip = Ip4Address::from_string("10.1.1.1");
-    VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
+    VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, boost::uuids::nil_uuid(), "vhost0");
 
     InetUnicastAgentRouteTable *table =
         static_cast<InetUnicastAgentRouteTable *>(
