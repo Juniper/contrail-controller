@@ -40,9 +40,11 @@ class VncPodTask(VncCommon):
         if not VncPodTask.vnc_pod_task_instance:
             VncPodTask.vnc_pod_task_instance = self
 
-    def _get_network(self):
-        #TODO: If network if provided in labels honor those.
-        vn_fq_name = vnc_mesos_config.cluster_default_pod_task_network_fq_name()
+    def _get_network(self, custom_network=None):
+        if custom_network == None:
+            vn_fq_name = vnc_mesos_config.cluster_default_pod_task_network_fq_name()
+        else:
+            vn_fq_name = custom_network.split(':')
         vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         return vn_obj
 
@@ -107,11 +109,12 @@ class VncPodTask(VncCommon):
         return vmi_uuid
 
     def _create_vm(self, pod_task_id):
-        pod_task_name = PodTaskMonitor.get_task_pod_name_from_cid(pod_task_id)
-        if pod_task_name is None:
-            vm_obj = VirtualMachine(name=pod_task_id)
-        else:
-            vm_obj = VirtualMachine(name=pod_task_name)
+        #pod_task_name = PodTaskMonitor.get_task_pod_name_from_cid(pod_task_id)
+        #if pod_task_name is None:
+        #    vm_obj = VirtualMachine(name=pod_task_id)
+        #else:
+        #    vm_obj = VirtualMachine(name=pod_task_name)
+        vm_obj = VirtualMachine(name=pod_task_id)
         vm_obj.uuid = pod_task_id
         vm_obj.set_server_type("container")
 
@@ -123,13 +126,15 @@ class VncPodTask(VncCommon):
         VirtualMachineMM.locate(vm_obj.uuid)
         return vm_obj
 
-    def _create_iip(self, pod_task_id, vn_obj, vmi):
+    def _create_iip(self, pod_task_id, vn_obj, vmi, custom_ipam=None):
         vn = VirtualNetworkMM.find_by_name_or_uuid(vn_obj.get_uuid())
         if not vn:
             # It is possible our cache may not have the VN yet. Locate it.
             vn = VirtualNetworkMM.locate(vn_obj.get_uuid())
-
-        ipam_fq_name = vnc_mesos_config.pod_task_ipam_fq_name()
+        if custom_ipam is None:
+            ipam_fq_name = vnc_mesos_config.pod_task_ipam_fq_name()
+        else:
+            ipam_fq_name = custom_ipam.split(':')
         pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(ipam_fq_name)
 
         # Create instance-ip.
@@ -168,8 +173,7 @@ class VncPodTask(VncCommon):
             return vm
         #else:
             #TODO: If needed check for old container with new uuid.
-
-        vn_obj = self._get_network()
+        vn_obj = self._get_network(obj_labels.networks)
         if not vn_obj:
             return
 
@@ -177,7 +181,7 @@ class VncPodTask(VncCommon):
         vmi_uuid = self._create_vmi(obj_labels.pod_task_uuid, vm_obj, vn_obj)
         vmi = VirtualMachineInterfaceMM.get(vmi_uuid)
 
-        self._create_iip(vm_obj.name, vn_obj, vmi)
+        self._create_iip(vm_obj.name, vn_obj, vmi, obj_labels.pod_subnets)
 
         self._link_vm_to_node(vm_obj, node_name, node_ip)
 
@@ -260,9 +264,9 @@ class VncPodTask(VncCommon):
         if obj_labels.operation == 'ADD':
             self._logger.info('Add request.')
             vm = self.vnc_pod_task_add(obj_labels)
-            if vm.uuid == vm.name:
-                event['event_type'] = vm.uuid
-                self._sync_queue.put(event)
+            #if vm.uuid == vm.name:
+            #    event['event_type'] = vm.uuid
+            #    self._sync_queue.put(event)
         elif obj_labels.operation == 'DEL':
             self._logger.info('Delete request')
             vm = self.vnc_pod_task_delete(obj_labels.pod_task_uuid)
@@ -280,7 +284,8 @@ class MesosCniLabels(object):
         self.project_name = ''
         self.node_name = ''
         self.node_ip = ''
-        self.networks = ''
+        self.networks = None
+        self.pod_subnets = None
         self.security_groups = ''
         self.floating_ips = ''
         self._extract_values(event)
@@ -295,8 +300,8 @@ class MesosCniLabels(object):
                 self.project_name = labels['project-name']
             if 'networks' in labels.keys():
                 self.networks = labels['networks']
-            if 'app_subnets' in labels.keys():
-                self.app_subnets =  labels['network-subnets']
+            if 'pod_subnets' in labels.keys():
+                self.pod_subnets =  labels['pod-subnets']
             if 'security-groups' in labels.keys():
                 self.security_groups = labels['security-groups']
             if 'floating-ips' in labels.keys():
