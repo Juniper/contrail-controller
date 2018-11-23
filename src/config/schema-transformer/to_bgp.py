@@ -714,7 +714,7 @@ def main(args_str=None):
 
     # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
-                                        zk_timeout=args.zk_timeout)
+                                        args.listen_ip_addr, zk_timeout=args.zk_timeout)
     st_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
                                       os.getpid(), run_schema_transformer,
