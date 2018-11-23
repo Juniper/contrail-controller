@@ -2100,7 +2100,7 @@ class VncApiServer(object):
             instance_id = self._args.worker_id
         else:
             instance_id = INSTANCE_ID_DEFAULT
-        hostname = socket.gethostname()
+        hostname = socket.getfqdn(self._args.listen_ip_addr)
         self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
                                      self._random_collectors,
@@ -2171,7 +2171,7 @@ class VncApiServer(object):
 
         if os.path.exists('/usr/bin/contrail-version'):
             cfgm_cpu_uve = ModuleCpuState()
-            cfgm_cpu_uve.name = socket.gethostname()
+            cfgm_cpu_uve.name = socket.getfqdn(self._args.listen_ip_addr)
             cfgm_cpu_uve.config_node_ip = self.get_server_ip()
 
             command = "contrail-version contrail-config | grep 'contrail-config'"
@@ -4876,7 +4876,7 @@ class VncApiServer(object):
                 self.security_lock_prefix, scope_type,
                 ':'.join(scope_fq_name)
             ),
-            'api-server-%s %s' % (socket.gethostname(), action),
+            'api-server-%s %s' % (socket.getfqdn(self._args.listen_ip_addr), action),
         )
         try:
             acquired_lock = scope_lock.acquire(timeout=1)
