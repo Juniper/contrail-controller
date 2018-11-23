@@ -593,15 +593,15 @@ class ZookeeperClient(object):
 
     def lock(self, path, identifier=None):
         if not identifier:
-            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+            identifier = '%s-%s' % (socket.getfqdn(), os.getpid())
         return self._zk_client.Lock(path, identifier)
 
     def read_lock(self, path, identifier=None):
         if not identifier:
-            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+            identifier = '%s-%s' % (socket.getfqdn(), os.getpid())
         return self._zk_client.ReadLock(path, identifier)
 
     def write_lock(self, path, identifier=None):
         if not identifier:
-            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+            identifier = '%s-%s' % (socket.getfqdn(), os.getpid())
         return self._zk_client.WriteLock(path, identifier)
