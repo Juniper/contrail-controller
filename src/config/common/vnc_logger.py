@@ -51,7 +51,7 @@ class ConfigServiceLogger(object):
         self._node_type_name = NodeTypeNames[node_type]
         self.table = "ObjectConfigNode"
         self._instance_id = INSTANCE_ID_DEFAULT
-        self._hostname = socket.getfqdn()
+        self._hostname = socket.getfqdn(self._args.api_server_ip)
 
         # sandesh init
         self.sandesh_init(http_server_port)

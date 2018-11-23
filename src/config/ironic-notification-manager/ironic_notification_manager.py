@@ -180,7 +180,7 @@ class IronicNotificationManager(object):
                                   len(self._args.collectors))
             sandesh_global.init_generator(
                 module_name,
-                socket.getfqdn(),
+                socket.getfqdn(self._args.api_server_ip),
                 node_type_name,
                 instance_id,
                 self.random_collectors,

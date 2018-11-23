@@ -242,11 +242,12 @@ class VncServerCassandraClient(VncCassandraClient):
 class VncServerKombuClient(VncKombuClient):
     def __init__(self, db_client_mgr, rabbit_ip, rabbit_port,
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
-                 rabbit_health_check_interval, **kwargs):
+                 api_server_ip, rabbit_health_check_interval, **kwargs):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         listen_port = db_client_mgr.get_server_port()
-        q_name = 'vnc_config.%s-%s' % (socket.getfqdn(), listen_port)
+        q_name = 'vnc_config.%s-%s' % (socket.getfqdn(api_server_ip),
+            listen_port)
         super(VncServerKombuClient, self).__init__(
             rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
             rabbit_ha_mode, q_name, self._dbe_subscribe_callback,
@@ -426,7 +427,7 @@ class VncZkClient(object):
     _TAG_TYPE_RESERVED_SIZE = 255
     _TAG_VALUE_MAX_ID = (1 << 16) - 1
 
-    def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix,
+    def __init__(self, instance_id, zk_server_ip, api_server_ip, reset_config, db_prefix,
                  sandesh_hdl, log_response_time=None):
         self._db_prefix = db_prefix
         if db_prefix:
@@ -451,7 +452,7 @@ class VncZkClient(object):
         while True:
             try:
                 self._zk_client = ZookeeperClient(client_name, zk_server_ip,
-                                           self._sandesh,
+                                           api_server_ip, self._sandesh,
                                            log_response_time=log_response_time)
                 # set the lost callback to always reconnect
                 self._zk_client.set_lost_cb(self.reconnect_zk)
@@ -859,8 +860,8 @@ class VncZkClient(object):
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, db_srv_list, rabbit_servers, rabbit_port,
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
-                 reset_config=False, zk_server_ip=None, db_prefix='',
-                 db_credential=None, obj_cache_entries=0,
+                 vnc_listen_ip, reset_config=False, zk_server_ip=None,
+                 db_prefix='', db_credential=None, obj_cache_entries=0,
                  obj_cache_exclude_types=None, debug_obj_cache_types=None,
                  db_engine='cassandra', cassandra_use_ssl=False,
                  cassandra_ca_certs=None, **kwargs):
@@ -898,7 +899,7 @@ class VncDbClient(object):
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         if db_engine == 'cassandra':
-            self._zk_db = VncZkClient(api_svr_mgr.get_worker_id(), zk_server_ip,
+            self._zk_db = VncZkClient(api_svr_mgr.get_worker_id(), zk_server_ip, vnc_listen_ip,
                                       reset_config, db_prefix, self.config_log,
                                       log_response_time=self.log_zk_response_time)
             def db_client_init():
@@ -929,10 +930,9 @@ class VncDbClient(object):
 
         self._msgbus = VncServerKombuClient(self, rabbit_servers,
             rabbit_port, rabbit_user, rabbit_password,
-            rabbit_vhost, rabbit_ha_mode,
-            health_check_interval,
+            rabbit_vhost, rabbit_ha_mode, api_server_ip,
+            health_check_interval, **kwargs)
             **kwargs)
-    # end __init__
 
     def log_db_response_time(self, db, response_time, oper):
         response_time_in_usec = ((response_time.days*24*60*60) +
