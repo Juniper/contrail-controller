@@ -774,7 +774,7 @@ def main(args_str=None):
     dm_logger.debug("Removed remained AMQP queue")
 
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
-                                        args.zk_server_ip)
+                                        args.zk_server_ip, args.api_server_ip)
     dm_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
                                       os.getpid(), run_device_manager,

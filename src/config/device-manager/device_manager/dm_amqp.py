@@ -27,7 +27,7 @@ class DMAmqpHandle(VncAmqpHandle):
             'ssl_ca_certs': args.kombu_ssl_ca_certs
         }
         super(DMAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseDM,
-                reaction_map, q_name_prefix, rabbitmq_cfg)
+                reaction_map, q_name_prefix, rabbitmq_cfg, args.api_server_ip)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
