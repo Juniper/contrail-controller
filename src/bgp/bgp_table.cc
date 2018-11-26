@@ -433,7 +433,7 @@ void BgpTable::CreateAsPath2Byte(BgpAttr *attr, as_t local_as) const {
 
 // Create aspath_4byte by merging as_path and as4_path
 void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
-    AsPath4ByteSpec *aspath_4byte = new AsPath4ByteSpec;
+    boost::scoped_ptr<AsPath4ByteSpec> aspath_4byte(new AsPath4ByteSpec);
     if (attr->as_path()) {
         const AsPathSpec &as_path = attr->as_path()->path();
         if (attr->as4_path()) {
@@ -468,17 +468,17 @@ void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
             }
         }
     }
-    AsPath4ByteSpec *as_path_ptr = aspath_4byte->Add(local_as);
-    attr->set_aspath_4byte(as_path_ptr);
-    delete as_path_ptr;
+    boost::scoped_ptr<AsPath4ByteSpec> as_path_spec(
+        aspath_4byte->Add(local_as));
+    attr->set_aspath_4byte(as_path_spec.get());
 }
 
 bool BgpTable::IsAsPathLoop(const RibOut *ribout, const BgpAttr *attr) const {
-    if ((ribout->peer_as() <= AsPathSpec::kMaxPrivateAs) && attr->as_path() && 
+    if ((ribout->peer_as() <= AsPathSpec::kMaxPrivateAs) && attr->as_path() &&
         attr->as_path()->path().AsPathLoop(ribout->peer_as())) {
         return true;
     }
-    if (attr->aspath_4byte() && 
+    if (attr->aspath_4byte() &&
         attr->aspath_4byte()->path().AsPathLoop(ribout->peer_as())) {
         return true;
     }
