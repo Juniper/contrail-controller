@@ -764,6 +764,9 @@ void AgentParam::ParseCollectorDSArguments
                                       "DEFAULT.derived_stats")) {
         derived_stats_map_ = ParseDerivedStats(dsvec);
     }
+
+    GetValueFromTree<uint32_t>(task_monitor_timeout_msec_,
+                               "TASK.task_monitor_timeout");
 }
 
 void AgentParam::ParseVirtualHostArguments
