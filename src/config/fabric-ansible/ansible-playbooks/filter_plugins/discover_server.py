@@ -46,89 +46,26 @@ class FilterModule(object):
             'import_ironic_nodes': self.import_ironic_nodes,
         }
 
-    def get_keystone_token(self,keystone_url, username, password, user_domain='default', project_name='admin', verify=False):
-        print "GET TOKEN : openstack-url ", keystone_url
-        print "GET TOKEN : username ", username
-        print "GET TOKEN : password ", password
-        print "GET TOKEN : user domain", user_domain
     
-        print "GET TOKEN : ", keystone_url
-        request_headers = { 'Content-Type': 'application/json',
-                          }
-        #pdb.set_trace()
-        ks_data = { "auth": {
-                       "identity": {
-                         "methods": ["password"],
-                         "password": {
-                           "user": {
-                             "name": username,
-                             "domain": { "id": user_domain },
-                             "password": password
-                           }
-                         }
-                       },
-                       "scope": {
-                         "project": {
-                           "name": project_name,
-                           "domain": { "id": "default" }
-                         }
-                       }
-                     }
-                   }
-    
-    
-        response = requests.post(keystone_url, headers= request_headers, data = json.dumps(ks_data), verify=verify)
-        print "GET TOKEN : response ", response
-        print "GET TOKEN : headers ", pprint.pprint(response.headers)
-        print "GET TOKEN : body ", pprint.pprint(response.content)
-        token = ""
-        if response.status_code == 201:
-            token = response.headers['X-Subject-Token']
-            print "GET TOKEN : ", pprint.pprint(token)
-        else:
-             print  "GET TOKEN : status_code " , response.status_code
-    
-        return token
-    
-    def get_cc_token(self,cc_ip, username, password):
-        keystone_url = "https://" + cc_ip + ":9091/keystone/v3/auth/tokens?nocatalog"
-        print "GET CC TOKEN : openstack-url ", keystone_url
-        token = self.get_keystone_token(keystone_url, username, password, verify=False)
-
-        return token
-
     def check_nodes_with_cc(self, ipmi_nodes_detail, cc_node_details):
         # TODO: returning all nodes as of now, it must be the diff of nodes 
         # from CC and ipmi_nodes_details
         final_ipmi_detail = []
         print cc_node_details
-        print type(cc_node_details)
-        cc_node = CreateCCResource(cc_node_details)
-        print  cc_node.auth_token
-        request_headers = { 'X-Auth-Token': cc_node.auth_token,
-                            'Content-Type': 'application/json',
-                          }
-
-        cc_url = "https://10.87.69.79:9091/nodes?detail=true"
-        cc_resp = requests.get(cc_url, headers = request_headers, verify = False)
-        #print cc_resp
-        cc_nodes = json.loads( cc_resp.content)
+        cc_node = CreateCCNode(cc_node_details)
+        cc_nodes = cc_node.get_cc_nodes()
         #pprint.pprint(cc_nodes)
         cc_node_data = []
         for node in cc_nodes['nodes']:
             #pprint.pprint(node)
             cc_node = {}
-            if 'bms_info' in node and node['bms_info']  \
-                and 'driver_info' in node['bms_info'] \
-                and node['bms_info']['driver_info'] \
-                and 'ipmi_address' in node['bms_info']['driver_info']  \
-                and node['bms_info']['driver_info'] ['ipmi_address']:
+            if node.get('bms_info') \
+                and node['bms_info'].get('driver_info') \
+                and node['bms_info']['driver_info'].get('ipmi_address') :
                
                 print node['bms_info']['driver_info']['ipmi_address']
                 cc_node['ipmi_address'] = node['bms_info']['driver_info']['ipmi_address']
-                if 'ipmi_port' in node['bms_info']['driver_info'] \
-                    and node['bms_info']['driver_info']['ipmi_port']:
-  
+                if node['bms_info']['driver_info'].get('ipmi_port'):
                     print node['bms_info']['driver_info']['ipmi_port']
                     cc_node['ipmi_port'] = node['bms_info']['driver_info']['ipmi_port']
                 else: 
@@ -141,7 +78,7 @@ class FilterModule(object):
             node_found_in_cc = False
             for cc_node in cc_node_data:
                 #print "NODE CC", cc_node, ipmi_node
-                if ipmi_node['host'] == cc_node['ipmi_address'] \
+                if ipmi_node['address'] == cc_node['ipmi_address'] \
                     and int(ipmi_node['port']) == int(cc_node['ipmi_port']):
                     # node is already there in contrail-command, skip for 
                     # introspection
@@ -160,14 +97,14 @@ class FilterModule(object):
           return True
 
         host_params = retry_queue.get_nowait()
-        host = host_params['host']
+        host = host_params['address']
         print host, len(host)
         try:
             ping_output = subprocess.Popen(
                 ['ping', '-W', '1', '-c', '2', host], stdout=subprocess.PIPE)
             gevent.sleep(2)
             ping_output.wait()
-            result_queue.put({'host':host,
+            result_queue.put({'address':host,
                               'result': ping_output.returncode == 0})
             return ping_output.returncode == 0
         except Exception as ex:
@@ -183,7 +120,7 @@ class FilterModule(object):
       for address in ipaddr_list:
         print address
         host_map_dict = {
-          'host': str(address)
+          'address': str(address)
         }
         input_queue.put(host_map_dict)
 
@@ -194,8 +131,8 @@ class FilterModule(object):
       while result_queue.qsize() != 0:
         result = result_queue.get()
         if result['result']:
-          print "HOST PING PASSED", result['host']
-          ping_sweep_success_list.append(result['host'])
+          print "HOST PING PASSED", result['address']
+          ping_sweep_success_list.append(result['address'])
         #print result
 
       print "PING SWEEP DONE"
@@ -205,25 +142,6 @@ class FilterModule(object):
         self._logger.info("Starting Server Discovery2")
         print (ipmi_subnets)
         ipmi_addresses = []
-        #my_auth_args = {
-        #'auth_url': 'http://10.87.82.34:5000/v3',
-        #'username': "admin",
-        #'password': "905bee05b9f8dda6c3f5eee0aed8056e214b77f6",
-        #'user_domain_name': 'default',
-        #'project_domain_name': 'default',
-        #'project_name': 'admin',
-        #'aaa_mode': None
-        #}
-        #cc_auth = {
-        #'auth_host': "10.87.69.79",
-        #'username': "admin",
-        #'password': "contrail123"
-        #}
-        #introspection_flag = False 
-        #ironic_node = ImportIronicNodes(auth_args=my_auth_args,
-        #cc_auth_args=cc_auth )
-        #print "CC-NODE:" , ironic_node.cc_node.auth_token
-        self._logger.info("Starting Server Discovery3")
 
         for subnet in ipmi_subnets:
             print subnet
@@ -237,7 +155,7 @@ class FilterModule(object):
         if input_queue.empty():
             return True
         ipmi_host = input_queue.get_nowait()
-        status = self.ipmi_check_power_status(ipmi_host['host'], 
+        status = self.ipmi_check_power_status(ipmi_host['address'], 
                                               ipmi_host['username'],
                                               ipmi_host['password'],
                                               ipmi_host['port'])
@@ -247,7 +165,7 @@ class FilterModule(object):
 
     def ipmi_check_power_status(self, address, ipmi_username, ipmi_password,
                                ipmi_port):
-        print address , ipmi_port , ipmi_username, ipmi_password
+        #print address , ipmi_port , ipmi_username, ipmi_password
         try:
             ipmi_output = subprocess.Popen(['/usr/bin/ipmitool', '-R', '2',
                                               '-I','lanplus',
@@ -260,12 +178,12 @@ class FilterModule(object):
                                           stderr=subprocess.PIPE)
             gevent.sleep(10)
             ipmi_output.wait()
-            print address, "IPMI_OUTPUT_CODE", ipmi_output.returncode
+            #print address, "IPMI_OUTPUT_CODE", ipmi_output.returncode
             if ipmi_output.returncode == 0:
-                print address, "IPMI CREDS ARE GOOD"
+                #print address, "IPMI CREDS ARE GOOD"
                 return True
             else:
-                print address, "IPMI CREDS ARE BAD"
+                #print address, "IPMI CREDS ARE BAD"
                 return False
         except Exception as ex:
             print address, "ERROR: SUBPROCESS.POPEN failed {} ".format(str(ex))
@@ -336,17 +254,20 @@ class FilterModule(object):
         result_queue = queue.Queue()
         for address in ipaddress_list:
             for item in itertools.product(final_port_list, ipmi_credentials):
-                print item
-                print item[0]
+                #print item
+                #print item[0]
                 ipmi_username, ipmi_password = item[1].split(":")
                 ipmi_host_dict = {
-                    'host'     : address,
+                    'address'     : address,
                     'username' : ipmi_username,
                     'password' : ipmi_password,
                     'port'     : item[0],
                 }
                 validate_ipmi_details_queue.put(ipmi_host_dict)
 
+        print "TOTAL IP/PORT/CREDS COMBO to VERIFY",
+        validate_ipmi_details_queue.qsize()
+        
         self.call_gevent_func(validate_ipmi_details_queue, 
                               result_queue,
                               self.ipmi_check_gevent)
@@ -354,7 +275,7 @@ class FilterModule(object):
             result = result_queue.get()
             #print result
             if result['valid']:
-                print ("HOST IPMI PASSED", result['host'], result['port'],
+                print ("HOST IPMI PASSED", result['address'], result['port'],
                        result['username'],  result['password'])
                 valid_ipmi_details.append(result)
 

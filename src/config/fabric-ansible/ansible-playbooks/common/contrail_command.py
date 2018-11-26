@@ -9,6 +9,7 @@ from keystoneclient.v3 import client
 import ironic_inspector_client
 import json
 import time
+import pprint
 
 
 class CreateCCResource(object):
@@ -84,11 +85,15 @@ class CreateCCNode(CreateCCResource):
 
     def get_rest_api_response(self, url, headers, data=None, request_type=None):
         response = None
+        print data
         if request_type == "post":
             response = requests.post(url, headers=headers, data=data,
                                      verify=False)
         elif request_type == "get":
-            response = requests.get(url, headers=headers, data=data)
+            response = requests.get(url, headers=headers, data=data,
+                                        verify=False)
+        print response
+        print response.content
         response.raise_for_status()
         return response
 
@@ -105,15 +110,29 @@ class CreateCCNode(CreateCCResource):
         print response
         print response.content
 
+    def get_cc_nodes(self ):
+        cc_url = '%s://%s:%s%s' % (self.auth_args['auth_protocol'],
+                                   self.auth_args['auth_host'],
+                                   self.auth_args['auth_port'],
+                                   '/nodes?detail=true')
+        self.auth_headers['X-Auth-Token'] = self.auth_token
+
+        response = self.get_rest_api_response(cc_url,
+                                              headers=self.auth_headers,
+                                              request_type="get")
+        print response
+        print response.content
+        pprint.pprint(json.loads(response.content))
+        return json.loads( response.content)
 
 def main(cc_auth_args=None):
     return
 
 if __name__ == '__main__':
     my_auth_args = {
-        'auth_host': "10.87.69.79",
+        'auth_host': "1.1.1.1",
         'username': "admin",
-        'password': "contrail123"
+        'password': "password"
     }
     try:
         main(cc_auth_args=my_auth_args)

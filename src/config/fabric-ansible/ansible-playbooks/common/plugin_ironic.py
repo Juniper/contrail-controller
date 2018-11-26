@@ -314,7 +314,7 @@ class ImportIronicNodes(object):
             ironic_node = {}
             ironic_node['driver'] = 'pxe_ipmitool'
             ironic_node['driver_info'] = {}
-            ironic_node['driver_info']['ipmi_address'] = node['host']
+            ironic_node['driver_info']['ipmi_address'] = node['address']
             ironic_node['driver_info']['ipmi_port'] = node['port']
             ironic_node['driver_info']['ipmi_username'] = node['username']
             ironic_node['driver_info']['ipmi_password'] = node['password']
