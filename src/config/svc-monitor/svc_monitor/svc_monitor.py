@@ -79,9 +79,13 @@ class SvcMonitor(object):
 
         # init rabbit connection
         rabbitmq_cfg = get_rabbitmq_cfg(args)
+        if 'host_ip' in self._args:
+            host_ip = self._args.host_ip
+        else:
+            host_ip = socket.gethostbyname(socket.getfqdn())
         self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger,
                 DBBaseSM, REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
-                self._args.trace_file)
+                host_ip, self._args.trace_file)
         self.rabbit.establish()
 
     def post_init(self, vnc_lib, args=None):
@@ -935,17 +939,21 @@ def main(args_str=None):
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
     rabbitmq_cfg = get_rabbitmq_cfg(args)
     vnc_amqp = VncAmqpHandle(sm_logger._sandesh, sm_logger, DBBaseSM,
                              REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
-                             args.trace_file)
+                             host_ip, args.trace_file)
     vnc_amqp.establish()
     vnc_amqp.close()
     sm_logger.debug("Removed remained AMQP queue")
 
     # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(
-        client_pfx+"svc-monitor", args.zk_server_ip)
+        client_pfx+"svc-monitor", args.zk_server_ip, host_ip)
     sm_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/svc-monitor", os.getpid(),
                                       run_svc_monitor, sm_logger, args)

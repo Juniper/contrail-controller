@@ -26,8 +26,12 @@ class DMAmqpHandle(VncAmqpHandle):
             'ssl_certfile': args.kombu_ssl_certfile,
             'ssl_ca_certs': args.kombu_ssl_ca_certs
         }
+        if 'host_ip' in args:
+            host_ip = args.host_ip
+        else:
+            host_ip = socket.gethostbyname(socket.getfqdn())
         super(DMAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseDM,
-                reaction_map, q_name_prefix, rabbitmq_cfg)
+                reaction_map, q_name_prefix, rabbitmq_cfg, host_ip)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:

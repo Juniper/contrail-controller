@@ -216,6 +216,11 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
 
     args = kube_args.parse_args(args_str)
 
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
+
     if args.cluster_id:
         client_pfx = args.cluster_id + '-'
         zk_path_pfx = args.cluster_id + '/'
@@ -253,7 +258,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
 
         # Ensure zookeeper is up and running before starting kube-manager
         _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
-                                            args.zk_server_ip)
+                                            args.zk_server_ip, host_ip)
 
         km_logger.notice("Waiting to be elected as master...")
         _zookeeper_client.master_election(
