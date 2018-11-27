@@ -43,6 +43,7 @@ import random
 import os
 import platform
 import signal
+import socket
 import sys
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -114,7 +115,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         usage()
     default = {'rules': '',
                'collectors': [],
-               'hostip': '127.0.0.1',
+               'hostip': socket.gethostbyname(socket.getfqdn()),
                'db_port': '9042',
                'db_jmx_port': '7199',
                'db_user': None,

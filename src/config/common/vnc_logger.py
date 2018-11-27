@@ -46,12 +46,16 @@ class ConfigServiceLogger(object):
             self.context = module_pkg
         self._args = args
 
+        if 'host_ip' in args:
+            host_ip = args.host_ip
+        else:
+            host_ip = socket.gethostbyname(socket.getfqdn())
         node_type = Module2NodeType[module]
         self._module_name = ModuleNames[module]
         self._node_type_name = NodeTypeNames[node_type]
         self.table = "ObjectConfigNode"
         self._instance_id = INSTANCE_ID_DEFAULT
-        self._hostname = socket.getfqdn()
+        self._hostname = socket.getfqdn(host_ip)
 
         # sandesh init
         self.sandesh_init(http_server_port)
