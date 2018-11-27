@@ -367,8 +367,9 @@ class ZookeeperCounter(Counter):
 
 class ZookeeperClient(object):
 
-    def __init__(self, module, server_list, logging_fn=None, zk_timeout=400,
+    def __init__(self, module, server_list, host_ip, logging_fn=None, zk_timeout=400,
                  log_response_time=None):
+        self.host_ip = host_ip
         # logging
         logger = logging.getLogger(module)
         logger.setLevel(logging.DEBUG)
@@ -593,15 +594,18 @@ class ZookeeperClient(object):
 
     def lock(self, path, identifier=None):
         if not identifier:
-            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+            identifier = '%s-%s' % (socket.getfqdn(self.host_ip),
+                    os.getpid())
         return self._zk_client.Lock(path, identifier)
 
     def read_lock(self, path, identifier=None):
         if not identifier:
-            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+            identifier = '%s-%s' % (socket.getfqdn(self.host_ip),
+                    os.getpid())
         return self._zk_client.ReadLock(path, identifier)
 
     def write_lock(self, path, identifier=None):
         if not identifier:
-            identifier = '%s-%s' % (socket.gethostname(), os.getpid())
+            identifier = '%s-%s' % (socket.getfqdn(self.host_ip),
+                    os.getpid())
         return self._zk_client.WriteLock(path, identifier)

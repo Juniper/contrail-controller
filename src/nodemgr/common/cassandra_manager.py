@@ -24,7 +24,7 @@ class CassandraManager(object):
         self._db_owner = db_owner
         self.table = table
         self.hostip = hostip
-        self.hostname = socket.getfqdn()
+        self.hostname = socket.getfqdn(self.hostip)
         self.minimum_diskgb = minimum_diskgb
         self.db_port = db_port
         self.db_jmx_port = db_jmx_port

@@ -2474,7 +2474,8 @@ class DatabaseHealer(DatabaseManager):
             self._logger.info("Would allocate VN ID to %s", missing_ids)
         elif missing_ids and self._args.execute:
             obj_uuid_table = self._cf_dict['obj_uuid_table']
-            zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip)
+            zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
+                    self._api_args.listen_ip_addr)
             id_allocator = IndexAllocator(
                 zk_client, '%s/' % self.base_vn_id_zk_path, 1 << 24)
             bch = obj_uuid_table.batch()
@@ -2507,7 +2508,8 @@ class DatabaseHealer(DatabaseManager):
             self._logger.info("Would allocate SG ID to %s", missing_ids)
         elif missing_ids and self._args.execute:
             obj_uuid_table = self._cf_dict['obj_uuid_table']
-            zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip)
+            zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
+                    self._api_args.listen_ip_addr)
             id_allocator = IndexAllocator(zk_client, '%s/' % self.base_sg_id_zk_path, 1 << 32)
             bch = obj_uuid_table.batch()
             for uuid, fq_name_str in missing_ids:
