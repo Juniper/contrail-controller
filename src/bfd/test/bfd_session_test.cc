@@ -71,13 +71,15 @@ class SessionTest : public ::testing::Test {
             ASSERT_EQ(remoteDiscriminator, packet->receiver_discriminator);
             ASSERT_EQ(detectionTimeMultiplier,
                       packet->detection_time_multiplier);
-            savedPacket = *packet;
+            savedPacket.reset(packet);
+            const uint8_t *p = boost::asio::buffer_cast<const uint8_t *>(pkt);
+            delete[] p;
         }
         virtual void NotifyStateChange(const SessionKey &key, const bool &up) {
         }
         virtual Server *GetServer() const { return server_; }
         virtual void SetServer(Server *server) { server_ = server; }
-        boost::optional<ControlPacket> savedPacket;
+        boost::scoped_ptr<ControlPacket> savedPacket;
         virtual ~TestConnection() {}
       private:
         Server *server_;
@@ -105,14 +107,14 @@ TEST_F(SessionTest, PollRecvTest) {
     packet.poll = true;
     session.ProcessControlPacket(&packet);
 
-    EXPECT_TRUE(tc.savedPacket.is_initialized());
-    EXPECT_EQ(0, tc.savedPacket.get().poll);
-    EXPECT_EQ(1, tc.savedPacket.get().final);
+    EXPECT_TRUE(NULL != tc.savedPacket.get());
+    EXPECT_EQ(0, tc.savedPacket->poll);
+    EXPECT_EQ(1, tc.savedPacket->final);
 
     tc.savedPacket.reset();
     packet.poll = false;
     session.ProcessControlPacket(&packet);
-    EXPECT_FALSE(tc.savedPacket.is_initialized());
+    EXPECT_EQ(NULL, tc.savedPacket.get());
 }
 
 TEST_F(SessionTest, PollSendTest) {
@@ -122,15 +124,15 @@ TEST_F(SessionTest, PollSendTest) {
     session.ProcessControlPacket(&packet);
     session.InitPollSequence();
 
-    EXPECT_TRUE(tc.savedPacket.is_initialized());
-    EXPECT_EQ(1, tc.savedPacket.get().poll);
-    EXPECT_EQ(0, tc.savedPacket.get().final);
+    EXPECT_TRUE(NULL != tc.savedPacket.get());
+    EXPECT_EQ(1, tc.savedPacket->poll);
+    EXPECT_EQ(0, tc.savedPacket->final);
     tc.savedPacket.reset();
 
     EventManagerThread t(&evm);
-    TASK_UTIL_EXPECT_TRUE(tc.savedPacket.is_initialized());
-    EXPECT_EQ(1, tc.savedPacket.get().poll);
-    EXPECT_EQ(0, tc.savedPacket.get().final);
+    TASK_UTIL_EXPECT_TRUE(NULL != tc.savedPacket.get());
+    EXPECT_EQ(1, tc.savedPacket->poll);
+    EXPECT_EQ(0, tc.savedPacket->final);
     tc.savedPacket.reset();
 
     session.ProcessControlPacket(&packet);
