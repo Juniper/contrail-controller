@@ -16,6 +16,7 @@ class CreateCCResource(object):
 
     auth_token = None
     auth_url = None
+    auth_uri = None
 
     keystone_auth = None
     keystone_session = None
@@ -52,8 +53,19 @@ class CreateCCResource(object):
                                               self.auth_args['auth_port'],
                                               self.auth_args[
                                                   'auth_path'])
+            self.auth_uri = '%s://%s:%s' % (self.auth_args['auth_protocol'],
+                                              self.auth_args['auth_host'],
+                                              self.auth_args['auth_port'])
         else:
             self.auth_url = self.auth_args['auth_url']
+            parsed_auth_url = urlparse(self.auth_url)
+            self.auth_args['auth_protocol'] = parsed_auth_url.scheme
+            self.auth_args['auth_host'] = parsed_auth_url.hostname
+            self.auth_args['auth_port'] = parsed_auth_url.port
+            self.auth_args['auth_url_version'] = parsed_auth_url.path
+            self.auth_uri = '%s://%s:%s' % (self.auth_args['auth_protocol'],
+                                              self.auth_args['auth_host'],
+                                              self.auth_args['auth_port'])
 
         self.set_ks_auth_sess()
         self.auth_token = self.keystone_session.get_token()
@@ -98,10 +110,7 @@ class CreateCCNode(CreateCCResource):
         return response
 
     def create_cc_node(self, node_payload):
-        cc_url = '%s://%s:%s%s' % (self.auth_args['auth_protocol'],
-                                   self.auth_args['auth_host'],
-                                   self.auth_args['auth_port'],
-                                   '/sync')
+        cc_url = '%s%s' % (self.auth_uri, '/sync')
         self.auth_headers['X-Auth-Token'] = self.auth_token
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
@@ -111,10 +120,7 @@ class CreateCCNode(CreateCCResource):
         print response.content
 
     def get_cc_nodes(self ):
-        cc_url = '%s://%s:%s%s' % (self.auth_args['auth_protocol'],
-                                   self.auth_args['auth_host'],
-                                   self.auth_args['auth_port'],
-                                   '/nodes?detail=true')
+        cc_url = '%s%s' % (self.auth_uri, '/nodes?detail=true')
         self.auth_headers['X-Auth-Token'] = self.auth_token
 
         response = self.get_rest_api_response(cc_url,

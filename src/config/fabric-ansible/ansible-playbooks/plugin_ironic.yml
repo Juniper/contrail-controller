@@ -1,0 +1,20 @@
+---
+- set_fact:
+    final_ipmi_details: "{{ valid_ipmi_details | check_nodes_with_cc(contrail_command_node) }}"
+- debug:
+    msg: "SERVER DISCOVERY: CHECK WITH CC {{ final_ipmi_details }}"
+
+- set_fact:
+    registered_nodes : "{{ final_ipmi_details | register_nodes(ironic_node, contrail_command_node) }}"
+- debug:
+    msg: "SERVER DISCOVERY: REGISTERED NODES {{ registered_nodes }}"
+
+- set_fact:
+    triggered_nodes: "{{ registered_nodes | trigger_introspect(ironic_node, contrail_command_node) }}"
+- debug:
+    msg: "SERVER DISCOVERY: TRIGGERED NODES {{ triggered_nodes }}"
+
+- set_fact:
+    imported_nodes : "{{ triggered_nodes | import_ironic_nodes(ironic_node, contrail_command_node, True) }}"
+- debug:
+    msg: "SERVER DISCOVERY: IMPORTED NODES {{ imported_nodes}}"
