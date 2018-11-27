@@ -14,9 +14,9 @@ from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 class VrouterProcessStat(ProcessStat):
-    def __init__(self, pname, sandesh_logger):
+    def __init__(self, pname, host_ip, sandesh_logger):
         self.logger = sandesh_logger
-        ProcessStat.__init__(self, pname)
+        ProcessStat.__init__(self, pname, host_ip)
         (self.group, self.name) = self.get_vrouter_process_info(pname)
 
     def msg_log(self, msg, level):

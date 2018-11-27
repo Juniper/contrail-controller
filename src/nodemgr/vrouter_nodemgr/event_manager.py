@@ -21,9 +21,10 @@ class VrouterEventManager(EventManager):
         super(VrouterEventManager, self).__init__(config, type_info,
                 sandesh_global, unit_names, update_process_list=True)
         self.lb_stats = LoadbalancerStatsUVE(self.logger)
+        self.host_ip = config.hostip
 
     def get_process_stat_object(self, pname):
-        return VrouterProcessStat(pname, self.logger)
+        return VrouterProcessStat(pname, self.host_ip, self.logger)
 
     def do_periodic_events(self):
         super(VrouterEventManager, self).do_periodic_events()
