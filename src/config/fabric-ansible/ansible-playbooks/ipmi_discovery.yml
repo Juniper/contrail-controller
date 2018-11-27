@@ -1,0 +1,20 @@
+---
+- set_fact:
+    ip_address_list : "{{ipmi_subnets |expand_subnets() }}"
+- debug:
+    msg: "SERVER DISCOVERY  {{ ip_address_list}}"
+
+- set_fact:
+    active_ip_addresses : "{{ ip_address_list | ping_sweep() }}"
+- debug:
+    msg: "SERVER DISCOVERY: Ping SWEEP  {{ active_ip_addresses}}"
+
+- set_fact:
+    valid_ipmi_details : "{{ active_ip_addresses | ipmi_auth_check(ipmi_credentials, ipmi_port_range) }}"
+- debug:
+    msg: "SERVER DISCOVERY: IPMI AUTH CHECK {{ valid_ipmi_details }}"
+
+- set_fact:
+    final_ipmi_details: "{{ valid_ipmi_details | check_nodes_with_cc(contrail_command_node) }}"
+- debug:
+    msg: "SERVER DISCOVERY: CHECK WITH CC {{ final_ipmi_details }}"

@@ -59,7 +59,7 @@ class ImportIronicNodes(object):
         'Content-Type': 'application/json'
     }
 
-    def __init__(self, auth_args, cc_auth_args, added_nodes_list=None):
+    def __init__(self, auth_args, cc_auth_args=None, added_nodes_list=None):
         for key,val in auth_args.iteritems():
             if key in self.auth_args:
                 self.auth_args[key] = val
