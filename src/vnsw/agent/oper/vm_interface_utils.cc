@@ -1299,8 +1299,8 @@ bool VmInterface::IsFatFlowPrefixAggregation(bool ingress, uint8_t protocol,
                                              FatFlowIgnoreAddressType
                                                   *ignore_addr) const
 {
-    uint16_t *src_port = (ingress? sport: dport),
-             *dst_port = (ingress? dport: sport);
+    uint16_t *src_port = sport,
+             *dst_port = dport;
     IpAddress *src_ip = (ingress? SrcIP: DstIP),
               *dst_ip = (ingress? DstIP: SrcIP);
     bool *is_src_prefix = (ingress? is_fat_flow_src_prefix : is_fat_flow_dst_prefix);
