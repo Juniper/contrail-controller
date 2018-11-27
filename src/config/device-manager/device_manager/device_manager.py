@@ -776,8 +776,12 @@ def main(args_str=None):
     vnc_amqp.close()
     dm_logger.debug("Removed remained AMQP queue")
 
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
-                                        args.zk_server_ip)
+                                        args.zk_server_ip, host_ip)
     dm_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
                                       os.getpid(), run_device_manager,
