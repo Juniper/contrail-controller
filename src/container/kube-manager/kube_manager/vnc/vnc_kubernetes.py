@@ -10,6 +10,7 @@ import gevent
 from gevent.queue import Empty
 
 import requests
+import socket
 import argparse
 import uuid
 
@@ -106,7 +107,7 @@ class VncKubernetes(VncCommon):
         # init rabbit connection
         rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
         self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
-            REACTION_MAP, 'kube_manager', rabbitmq_cfg)
+            REACTION_MAP, 'kube_manager', rabbitmq_cfg, self.args.host_ip)
         self.rabbit.establish()
         self.rabbit._db_resync_done.set()
 

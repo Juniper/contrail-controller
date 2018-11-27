@@ -7,6 +7,7 @@ Kubernetes network manager
 """
 
 import random
+import socket
 import os
 import sys
 import time
@@ -253,7 +254,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
 
         # Ensure zookeeper is up and running before starting kube-manager
         _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
-                                            args.zk_server_ip)
+                                            args.zk_server_ip, args.host_ip)
 
         km_logger.notice("Waiting to be elected as master...")
         _zookeeper_client.master_election(
