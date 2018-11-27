@@ -132,7 +132,7 @@ TEST_F(AclTest, Basic) {
     LOG(DEBUG, "db.acl.0:0x" << table);
 
     AclSpec acl_spec;
-    uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000010");
+    boost::uuids::uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000010");
     acl_spec.acl_id = acl_id;
 
     AclEntrySpec ae_spec;
@@ -190,7 +190,7 @@ TEST_F(AclTest, Basic1) {
     assert(table);
 
     AclSpec acl_spec;
-    uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000012");
+    boost::uuids::uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000012");
     acl_spec.acl_id = acl_id;
 
     AclEntrySpec ae_spec;
@@ -237,7 +237,7 @@ TEST_F(AclTest, PacketMatching) {
     assert(table);
 
     AclSpec acl_spec;
-    uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000012");
+    boost::uuids::uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000012");
     acl_spec.acl_id = acl_id;
 
     AclEntrySpec ae_spec;
@@ -291,7 +291,7 @@ TEST_F(AclTest, Config) {
     client->WaitForIdle();
 
     AclTable *table = Agent::GetInstance()->acl_table();
-    uuid acl_id = StringToUuid("65babf07-3bcb-4d38-b920-be3355f11126");
+    boost::uuids::uuid acl_id = StringToUuid("65babf07-3bcb-4d38-b920-be3355f11126");
     AclKey key_1 = AclKey(acl_id);
     AclDBEntry *acl1 = static_cast<AclDBEntry *>(table->FindActiveEntry(&key_1));
     EXPECT_TRUE(acl1 != NULL);

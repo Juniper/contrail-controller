@@ -446,14 +446,14 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             nh_label >> label;
             TunnelType::TypeBmap encap = agent_->controller()->
                 GetTypeBitmap(nh.tunnel_encapsulation_list);
-            olist.push_back(OlistTunnelEntry(nil_uuid(), label,
+            olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), label,
                                              addr.to_v4(), encap));
         }
 
         IpAddress source_address =
                 IpAddress::from_string(item->entry.nlri.source_address, ec);
         if ((ec.value() == 0) && (source_address != IpAddress(Ip4Address()))) {
-            olist.push_back(OlistTunnelEntry(nil_uuid(), 0,
+            olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 0,
                             source_address.to_v4(),
                             TunnelType::MplsType()));
         }
@@ -831,7 +831,7 @@ static bool FillEvpnOlist(Agent *agent,
         int label = olist.next_hop[i].label;
         TunnelType::TypeBmap encap = agent->controller()->
             GetTypeBitmap(olist.next_hop[i].tunnel_encapsulation_list);
-        tunnel_olist->push_back(OlistTunnelEntry(nil_uuid(), label,
+        tunnel_olist->push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), label,
                                                  addr.to_v4(), encap));
     }
     return true;

@@ -326,11 +326,11 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
     return;
 }
 
-const uuid MirrorCfgTable::GetMirrorUuid(const string &vn_name) const {
+const boost::uuids::uuid MirrorCfgTable::GetMirrorUuid(const string &vn_name) const {
      VnAclMap::const_iterator va_it;
      va_it = vn_acl_map_.find(vn_name);
      if (va_it == vn_acl_map_.end()) {
-         return nil_uuid();
+         return boost::uuids::nil_uuid();
      }
 
      return va_it->second.id;
@@ -622,5 +622,3 @@ void IntfMirrorCfgDisplayReq::HandleRequest() const {
     resp->Response();
     return;
 }
-
-

@@ -125,7 +125,8 @@ static PolicySetKey* BuildKey(const boost::uuids::uuid &u) {
     return new PolicySetKey(u);
 }
 
-static bool BuildFirewallPolicy(Agent *agent, IFMapNode *node, uuid &fp_uuid) {
+static bool BuildFirewallPolicy(
+    Agent *agent, IFMapNode *node, boost::uuids::uuid &fp_uuid) {
 
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
@@ -167,7 +168,7 @@ static PolicySetData* BuildData(Agent *agent, IFMapNode *node,
             continue;
         }
 
-        uuid fp_uuid = nil_uuid();
+        boost::uuids::uuid fp_uuid = boost::uuids::nil_uuid();
         autogen::ApplicationPolicySetFirewallPolicy *aps_fp =
             static_cast<autogen::ApplicationPolicySetFirewallPolicy *>
             (adj_node->GetObject());
