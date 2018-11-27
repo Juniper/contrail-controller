@@ -5,6 +5,8 @@
 from gevent import monkey
 monkey.patch_all()
 
+import socket
+
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.vrouter_nodemgr.process_stat import VrouterProcessStat
 from pysandesh.sandesh_base import sandesh_global
@@ -20,10 +22,15 @@ class VrouterEventManager(EventManager):
             sandesh_packages=['vrouter.loadbalancer'])
         super(VrouterEventManager, self).__init__(config, type_info,
                 sandesh_global, unit_names, update_process_list=True)
-        self.lb_stats = LoadbalancerStatsUVE(self.logger)
+        if 'hostip' in config:
+            self.host_ip = config.hostip
+        else:
+            self.host_ip = socket.gethostbyname(socket.getfqdn())
+        self.host_ip = config.hostip
+        self.lb_stats = LoadbalancerStatsUVE(self.logger, self.host_ip)
 
     def get_process_stat_object(self, pname):
-        return VrouterProcessStat(pname, self.logger)
+        return VrouterProcessStat(pname, self.host_ip, self.logger)
 
     def do_periodic_events(self):
         super(VrouterEventManager, self).do_periodic_events()

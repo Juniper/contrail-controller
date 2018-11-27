@@ -10,9 +10,9 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 LB_BASE_DIR = '/var/lib/contrail/loadbalancer/'
 
 class LoadbalancerStatsUVE(object):
-    def __init__(self, logger):
+    def __init__(self, logger, host_ip):
        self.logger = logger
-       self.driver = HaproxyStats(logger)
+       self.driver = HaproxyStats(logger, host_ip)
        self.driver.logger = logger
        if not self.driver.lbaas_dir:
            self.driver.lbaas_dir = LB_BASE_DIR

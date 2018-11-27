@@ -91,7 +91,8 @@ class EventManager(object):
         self.sandesh_instance = sandesh_instance
         self.curr_build_info = None
         self.new_build_info = None
-        self.hostname = socket.getfqdn()
+        self.hostip = self.config.hostip
+        self.hostname = socket.getfqdn(self.hostip)
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
         event_handlers['PROCESS_COMMUNICATION'] = self.event_process_communication
@@ -160,7 +161,7 @@ class EventManager(object):
             proc_name = self.get_process_name(proc_info)
             proc_pid = int(proc_info['pid'])
 
-            stat = ProcessStat(proc_name)
+            stat = ProcessStat(proc_name, host_ip=self.hostip)
             stat.process_state = proc_info['statename']
             if 'start' in proc_info:
                 stat.start_time = str(proc_info['start'])
@@ -382,7 +383,7 @@ class EventManager(object):
                 if pname in self.process_state_db[group]:
                     proc_stat = self.process_state_db[group][pname]
         else:
-            proc_stat = ProcessStat(pname)
+            proc_stat = ProcessStat(pname, host_ip=self.hostip)
 
         pstate = process_info['state']
         proc_stat.process_state = pstate

@@ -10,6 +10,7 @@ import gevent
 from gevent.queue import Empty
 
 import requests
+import socket
 import argparse
 import uuid
 
@@ -55,6 +56,11 @@ class VncKubernetes(VncCommon):
         self._cluster_pod_ipam_fq_name = None
         self._cluster_service_ipam_fq_name = None
         self._cluster_ip_fabric_ipam_fq_name = None
+
+        if 'host_ip' in args:
+            host_ip = args.host_ip
+        else:
+            host_ip = socket.gethostbyname(socket.getfqdn())
 
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
@@ -106,7 +112,7 @@ class VncKubernetes(VncCommon):
         # init rabbit connection
         rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
         self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
-            REACTION_MAP, 'kube_manager', rabbitmq_cfg)
+            REACTION_MAP, 'kube_manager', rabbitmq_cfg, host_ip)
         self.rabbit.establish()
         self.rabbit._db_resync_done.set()
 
