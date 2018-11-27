@@ -183,6 +183,7 @@ public:
     uint32_t cluster_id() const { return cluster_id_; }
     void set_cluster_id(uint32_t id) { cluster_id_ = id; }
     as_t autonomous_system() const { return autonomous_system_; }
+    void set_autonomous_system(as_t asn) { autonomous_system_ = asn; }
     as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
     uint32_t bgp_identifier_u32() const { return bgp_identifier_u32_; }
