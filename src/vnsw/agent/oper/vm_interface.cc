@@ -61,7 +61,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL, this),
     local_preference_(0), oper_dhcp_options_(),
-    cfg_igmp_enable_(false), igmp_enabled_(false),
+    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0),
     mac_vm_binding_state_(new MacVmBindingState()),
     nexthop_state_(new NextHopState()),
     vrf_table_label_state_(new VrfTableLabelState()),
@@ -88,6 +88,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
+    flow_count_ = 0;
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -113,7 +114,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent, this),
     local_preference_(0), oper_dhcp_options_(),
-    cfg_igmp_enable_(false), igmp_enabled_(false),
+    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0),
     mac_vm_binding_state_(new MacVmBindingState()),
     nexthop_state_(new NextHopState()),
     vrf_table_label_state_(new VrfTableLabelState()),
@@ -139,6 +140,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
+    flow_count_ = 0;
 }
 
 VmInterface::~VmInterface() {
@@ -3057,4 +3059,41 @@ void VmInterface::CopyTagIdList(TagList *tag_id_list) const {
         tag_id_list->push_back(it->tag_->tag_id());
     }
     std::sort(tag_id_list->begin(), tag_id_list->end());
+}
+
+void VmInterface::update_flow_count(int val) const {
+    int max_flows = max_flows_;
+    int new_flow_count = flow_count_.fetch_and_add(val);
+
+    if (max_flows == 0) {
+        // max_flows are not configured,
+        // disable drop new flows and return
+        SetInterfacesDropNewFlows(false);
+        return;
+    }
+
+    if (val < 0) {
+        assert(new_flow_count >= val);
+        if ((new_flow_count + val) <
+            ((max_flows * (Agent::kDropNewFlowsRecoveryThreshold))/100)) {
+            SetInterfacesDropNewFlows(false);
+        }
+    } else {
+        if ((new_flow_count + val) >= max_flows) {
+            SetInterfacesDropNewFlows(true);
+        }
+    }
+}
+
+void VmInterface::SetInterfacesDropNewFlows(bool drop_new_flows) const {
+    if (drop_new_flows_vmi_ == drop_new_flows) {
+        return;
+    }
+    drop_new_flows_vmi_ = drop_new_flows;
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC,
+                                     GetUuid(), ""));
+    req.data.reset(new VmInterfaceNewFlowDropData(drop_new_flows));
+    agent()->interface_table()->Enqueue(&req);
 }

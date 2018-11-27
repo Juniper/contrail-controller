@@ -1360,6 +1360,25 @@ static void ReadIgmpConfig(Agent *agent, const IFMapNode *vn_node,
     }
 }
 
+// max_flows is read from vmi properties preferentially , else vn properties
+static void ReadMaxFlowsConfig(const IFMapNode *vn_node,
+                            const VirtualMachineInterface *cfg,
+                            VmInterfaceConfigData *data) {
+
+    const VirtualNetwork *vn = NULL;
+    if (vn_node) {
+        vn = static_cast<const VirtualNetwork *>(vn_node->GetObject());
+    }
+
+    if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
+        data->max_flows_ = cfg->properties().max_flows;
+    } else if (vn && (data->max_flows_ == 0)) {
+        autogen::VirtualNetworkType properties = vn->properties();
+        data->max_flows_ = properties.max_flows;
+
+    }
+}
+
 static void BuildAttributes(Agent *agent, IFMapNode *node,
                             VirtualMachineInterface *cfg,
                             VmInterfaceConfigData *data) {
@@ -1695,6 +1714,9 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     // Fill IGMP data
     ReadIgmpConfig(agent(), vn_node, cfg, data);
+
+    // Read flow control parameter on vmi
+    ReadMaxFlowsConfig(vn_node, cfg, data);
 
     if (parent_vmi_node && data->vm_uuid_ == nil_uuid()) {
         IFMapAgentTable *vmi_table = static_cast<IFMapAgentTable *>

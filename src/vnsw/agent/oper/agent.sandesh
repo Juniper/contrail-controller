@@ -320,6 +320,8 @@ struct ItfSandeshData {
    65: bool cfg_igmp_enable;
    /** IGMP Status on the VMI */
    66: bool igmp_enabled;
+   /** Max number of flows on vmi **/
+   67: i32 max_flows;
 }
 
 /**
@@ -408,6 +410,8 @@ struct VnSandeshData {
     20: list<SecurityLoggingObjectLink> slo_list;
     /** Enable IGMP on the VMI */
     21: bool cfg_igmp_enable;
+    /** Max number of flows on each vmi in vn **/
+    22: i32 max_flows;
 }
 
 /**
