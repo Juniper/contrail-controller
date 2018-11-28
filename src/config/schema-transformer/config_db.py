@@ -2004,6 +2004,7 @@ class SecurityGroupST(DBBaseST):
         ingress_acl_rule_list = []
         egress_acl_rule_list = []
         rule_uuid = prule.get_rule_uuid()
+        action = prule.get_action_list() or ActionListType(simple_action='pass')
 
         ethertype = prule.ethertype
         arule_proto = self.protocol_policy_to_acl(prule.protocol, ethertype)
@@ -2037,7 +2038,6 @@ class SecurityGroupST(DBBaseST):
 
                     # If no dst port is specified, assume 0-65535
                     for dp in prule.dst_ports or [PortType()]:
-                        action = ActionListType(simple_action='pass')
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
                                                    daddr_match, dp,

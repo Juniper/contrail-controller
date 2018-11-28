@@ -3,14 +3,20 @@
 #
 
 import uuid
-import copy
 
 try:
     import config_db
 except ImportError:
     from schema_transformer import config_db
-from vnc_api.vnc_api import (AddressType, SubnetType, PolicyRuleType,
-        PortType, PolicyEntriesType, SecurityGroup, NoIdError)
+from vnc_api.vnc_api import AddressType
+from vnc_api.vnc_api import ActionListType
+from vnc_api.vnc_api import NoIdError
+from vnc_api.vnc_api import PolicyEntriesType
+from vnc_api.vnc_api import PolicyRuleType
+from vnc_api.vnc_api import PortType
+from vnc_api.vnc_api import Project
+from vnc_api.vnc_api import SecurityGroup
+from vnc_api.vnc_api import SubnetType
 
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
@@ -418,3 +424,48 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                       rule1['protocol'])
         self._vnc_lib.security_group_delete(id=sg1_obj.uuid)
     # end test_create_sg_check_acl_protocol
+
+    def test_can_set_action_to_security_group_policy_rule(self):
+        action = 'deny'
+        project = Project('%s-project' % self.id())
+        self._vnc_lib.project_create(project)
+        sg = SecurityGroup(name='%s-sg' % self.id(), parent_obj=project)
+        pr_in = PolicyRuleType(
+            rule_uuid=str(uuid.uuid4()),
+            direction='>',
+            protocol='tcp',
+            src_addresses=[AddressType(subnet=SubnetType('10.0.0.0', 24))],
+            src_ports=[PortType(0, 65535)],
+            dst_addresses=[AddressType(security_group='local')],
+            dst_ports=[PortType(22, 22)],
+            ethertype='IPv4',
+            action_list=ActionListType(simple_action=action),
+        )
+        pr_out = PolicyRuleType(
+            rule_uuid=str(uuid.uuid4()),
+            direction='>',
+            protocol='tcp',
+            src_addresses=[AddressType(security_group='local')],
+            src_ports=[PortType(0, 65535)],
+            dst_addresses=[AddressType(subnet=SubnetType('10.0.0.0', 24))],
+            dst_ports=[PortType(22, 22)],
+            ethertype='IPv4',
+            action_list=ActionListType(simple_action=action),
+        )
+        sg.set_security_group_entries(PolicyEntriesType([pr_in, pr_out]))
+        self._vnc_lib.security_group_create(sg)
+
+        sg = self._vnc_lib.security_group_read(id=sg.uuid)
+        prs = sg.get_security_group_entries().get_policy_rule()
+        self.assertEquals(len(prs), 2)
+        for pr in prs:
+            self.assertEquals(pr.get_action_list().get_simple_action(), action)
+
+        for acl_ref in sg.get_access_control_lists() or []:
+            acl = self._vnc_lib.access_control_list_read(id=acl_ref['uuid'])
+            acl_rules = acl.get_access_control_list_entries().get_acl_rule()
+            self.assertEquals(len(acl_rules), 1)
+            acl_rule = acl_rules[0]
+            self.assertEquals(acl_rule.get_action_list().get_simple_action(),
+                              action)
+
