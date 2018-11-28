@@ -114,6 +114,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.init_cs_state()
         self.ansible_manager = None
         self.fabric = None
+        self.link_aggregation_groups = []
         self.node_profile = None
         self.nc_handler_gl = None
         self.update(obj_dict)
@@ -191,8 +192,8 @@ class PhysicalRouterDM(DBBaseDM):
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
-        self.link_aggregation_groups = set([lag['uuid'] for lag in
-                                           obj.get('link_aggregation_groups', [])])
+        # self.link_aggregation_groups = set([lag['uuid'] for lag in
+        #                                    obj.get('link_aggregation_groups', [])])
         self.update_single_ref('fabric', obj)
         self.update_multiple_refs('service_endpoint', obj)
         self.update_multiple_refs('e2_service_provider', obj)
@@ -200,6 +201,16 @@ class PhysicalRouterDM(DBBaseDM):
         self.allocate_asn()
         self.reinit_device_plugin()
     # end update
+
+    def get_associated_lags(self):
+        return self._object_db.get_lag(self.uuid)
+
+    def set_associated_lags(self, lag_uuid):
+        self._object_db.add_lag(self.uuid, lag_uuid)
+        self.link_aggregation_groups = self.get_associated_lags()
+
+    def remove_associated_lags(self, lag_uuid):
+        self._object_db.delete_lag(self.uuid, lag_uuid)
 
     def is_ztp(self):
         if self.fabric:
@@ -375,14 +386,14 @@ class PhysicalRouterDM(DBBaseDM):
             ip = self._object_db.get_ip(self.uuid + ':' + subnet, ip_used_for)
             if ip:
                 self.vn_ip_map[ip_used_for][subnet] = ip
-        ae_id_map = self._object_db.get_pr_ae_id_map(self.uuid)
-        if not ae_id_map:
-            return
-        for esi, ae_id in ae_id_map.items():
-            ae_id = self._object_db.get_ae_id(self.uuid + ':' + esi)
-            if ae_id:
-                self.ae_id_map[esi] = ae_id
-                self.ae_index_allocator.reserve_index(ae_id)
+        # ae_id_map = self._object_db.get_pr_ae_id_map(self.uuid)
+        # if not ae_id_map:
+        #     return
+        # for esi, ae_id in ae_id_map.items():
+        #     ae_id = self._object_db.get_ae_id(self.uuid + ':' + esi)
+        #     if ae_id:
+        #         self.ae_id_map[esi] = ae_id
+        #         self.ae_index_allocator.reserve_index(ae_id)
     # end init_cs_state
 
     def reserve_ip(self, vn_uuid, subnet_uuid):
@@ -426,42 +437,42 @@ class PhysicalRouterDM(DBBaseDM):
         return ips
     # end get_vn_irb_ip_map
 
-    def evaluate_ae_id_map(self, esi_map):
-        # esi_map contains aggr list of latest esis need to be programmed
-        # self.ae_id_map contains current status of allocated esis/aes
-        esis = set(esi_map.keys())
-        old_set = set(self.ae_id_map.keys())
-        delete_set = old_set.difference(esis)
-        create_set = esis.difference(old_set)
-
-        for esi in delete_set:
-            # get index allocated, make it available and remove entry from db,
-            # finally remove from in-memory
-            index = self.ae_id_map[esi]
-            self.ae_index_allocator.free_index(index)
-            self._object_db.delete_ae_id(self.uuid, esi)
-            pi_set = PhysicalInterfaceDM.get_esi_interfaces(esi)
-            pi_list = list(pi_set) if pi_set else []
-            # set_parent_id modifies pi_set, hence copied to new list
-            for pi_uuid in pi_list:
-                pi = PhysicalInterfaceDM.get(pi_uuid)
-                pi.set_parent_ae_id(None)
-            del self.ae_id_map[esi]
-
-        for esi in create_set:
-            # get next av index, assign it to esi and persist in db,
-            # finally assign to esi in in-memory ds
-            index = self.ae_index_allocator.find_next_available_index()
-            if index == -1:
-                self._logger.error("Can't allocate(exhausted) index for pr/esi:" \
-                                             " (%s, %s)"%(self.uuid, esi))
-                continue
-            self._object_db.add_ae_id(self.uuid, esi, index)
-            self.ae_index_allocator.reserve_index(index)
-            self.ae_id_map[esi] = index
-            pi_list = esi_map.get(esi)
-            for pi in pi_list:
-                pi.set_parent_ae_id(index)
+    # def evaluate_ae_id_map(self, esi_map):
+    #     # esi_map contains aggr list of latest esis need to be programmed
+    #     # self.ae_id_map contains current status of allocated esis/aes
+    #     esis = set(esi_map.keys())
+    #     old_set = set(self.ae_id_map.keys())
+    #     delete_set = old_set.difference(esis)
+    #     create_set = esis.difference(old_set)
+    #
+    #     for esi in delete_set:
+    #         # get index allocated, make it available and remove entry from db,
+    #         # finally remove from in-memory
+    #         index = self.ae_id_map[esi]
+    #         self.ae_index_allocator.free_index(index)
+    #         self._object_db.delete_ae_id(self.uuid, esi)
+    #         pi_set = PhysicalInterfaceDM.get_esi_interfaces(esi)
+    #         pi_list = list(pi_set) if pi_set else []
+    #         # set_parent_id modifies pi_set, hence copied to new list
+    #         for pi_uuid in pi_list:
+    #             pi = PhysicalInterfaceDM.get(pi_uuid)
+    #             pi.set_parent_ae_id(None)
+    #         del self.ae_id_map[esi]
+    #
+    #     for esi in create_set:
+    #         # get next av index, assign it to esi and persist in db,
+    #         # finally assign to esi in in-memory ds
+    #         index = self.ae_index_allocator.find_next_available_index()
+    #         if index == -1:
+    #             self._logger.error("Can't allocate(exhausted) index for pr/esi:" \
+    #                                          " (%s, %s)"%(self.uuid, esi))
+    #             continue
+    #         self._object_db.add_ae_id(self.uuid, esi, index)
+    #         self.ae_index_allocator.reserve_index(index)
+    #         self.ae_id_map[esi] = index
+    #         pi_list = esi_map.get(esi)
+    #         for pi in pi_list:
+    #             pi.set_parent_ae_id(index)
     # end evaluate_ae_id_map
 
     def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
@@ -865,42 +876,35 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.physical_router = self.get_parent_uuid(obj)
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
+        self.mac_address = obj.get('physical_interface_mac_addresses')
         self.name = obj.get('display_name')
         if self.name and re.search(r"[0-9]+_[0-9]+$", self.name):
             # For channelized ports
             self.name = self.name.replace("_", ":")
         self.esi = obj.get('ethernet_segment_identifier')
         self.interface_type = obj.get('physical_interface_type')
-        self.update_multiple_refs('virtual_machine_interface', obj)
+        # self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
         return obj
     # end update
 
-    @classmethod
-    def get_esi_interfaces(cls, esi):
-        return cls._esi_map.get(esi)
+    # @classmethod
+    # def get_esi_interfaces(cls, esi):
+    #     return cls._esi_map.get(esi)
 
     def set_parent_ae_id(self, ae_id):
         self.parent_ae_id = ae_id
-        if ae_id:
-            if not self.esi:
-                self._logger.error("Invalid pi state, trying to set ae for non "
-                              "esi interface (%s:%s)" % (self.uuid, self.name))
-                return
-            PhysicalInterfaceDM._esi_map.setdefault(self.esi, set()).add(self.uuid)
-        else:
-            if not self.esi:
-                return
-            pi_set = PhysicalInterfaceDM._esi_map.get(self.esi)
-            if pi_set:
-                pi_set.discard(self.uuid)
-                if not pi_set:
-                    del PhysicalInterfaceDM._esi_map[self.esi]
     # end set_parent_ae_id
+
+    def get_mac_address(self):
+        return self.mac_address.get('mac_address')[0]
+
+    def get_pr_uuid(self):
+        return self.physical_router
 
     def get_parent_ae_id(self):
         return self.parent_ae_id
-    # end get_parent_ae_id
+    #end get_parent_ae_id
 
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
@@ -1194,17 +1198,20 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
-        if obj.get('virtual_machine_interface_properties', None):
-            self.params = obj['virtual_machine_interface_properties']
-            self.service_interface_type = self.params.get(
-                'service_interface_type', None)
+        # if obj.get('virtual_machine_interface_properties', None):
+        #     self.params = obj['virtual_machine_interface_properties']
+        #     self.service_interface_type = self.params.get(
+        #         'service_interface_type', None)
+        # self.vlan_tag = obj.get('virtual_machine_interface_properties').get(
+        #     'sub_interface_vlan_tag') or None
+        self.vlan_tag = obj.get('virtual_machine_interface_properties')
         self.bindings = obj.get('virtual_machine_interface_bindings') or {}
         self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
         self.update_multiple_refs('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
         self.update_single_ref('instance_ip', obj)
-        self.update_single_ref('physical_interface', obj)
+        # self.update_single_ref('physical_interface', obj)
         self.update_multiple_refs('routing_instance', obj)
         self.update_multiple_refs('security_group', obj)
         self.update_single_ref('port_tuple', obj)
@@ -1215,6 +1222,9 @@ class VirtualMachineInterfaceDM(DBBaseDM):
                 self.service_instance = pt.parent_uuid
         self.update_single_ref('service_endpoint', obj)
     # end update
+
+    def get_vlan_tag(self):
+        return self.vlan_tag.get('sub_interface_vlan_tag')
 
     def is_device_owner_bms(self):
         if self.logical_interfaces and len(self.logical_interfaces) >= 1 and \
@@ -1954,6 +1964,9 @@ class LinkAggregationGroupDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.physical_interfaces = set()
+        self.virtual_machine_interfaces = set()
+        self.physical_routers = []
+        self.index = None
         self.update(obj_dict)
     # end __init__
 
@@ -1963,12 +1976,100 @@ class LinkAggregationGroupDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.add_to_parent(obj)
         self.lacp_enabled = obj.get('link_aggregation_group_lacp_enabled')
+        self.update_single_ref('fabric', obj)
         self.update_multiple_refs('physical_interface', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.ae_index_allocator = DMIndexer(
+            DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
+        if obj.get('physical_interface_refs') and obj.get(
+                'virtual_machine_interface_refs'):
+            self.ae_allocation()
+
+
     # end update
+    def get_pr_from_pi(self):
+        for pi in self.physical_interfaces:
+            pi_obj = PhysicalInterfaceDM.get(pi)
+            if pi_obj.get_pr_uuid() not in self.physical_routers:
+                self.physical_routers.append(pi_obj.get_pr_uuid())
+                pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
+                pr_obj.set_associated_lags(self.uuid)
+            if pi_obj.get_parent_ae_id() is None:
+                pi_obj.set_parent_ae_id(self.index)
+
+
+    def esi_allocation(self):
+        #check if already in the lag map
+        pi = None
+        pi = self._object_db.get_esi_pi_to_lag(self.uuid)
+        if pi not in self.physical_interfaces:
+            pi = list(self.physical_interfaces)[0]
+            self._object_db.add_esi_pi_to_lag(self.uuid, pi)
+        return pi
+
+
+    def ae_allocation(self):
+        esi_pi = None
+
+        if not self._object_db.get_ae_esi_id(self.uuid):
+            index = self.ae_index_allocator.find_next_available_index()
+            self.index = int(index)
+            if self.index == -1:
+                self._logger.error("Can't allocate(exhausted) index for lag:" \
+                                             " (%s)"%(self.uuid))
+                return
+            self.ae_index_allocator.reserve_index(self.index)
+
+        self.get_pr_from_pi()
+
+        if len(self.physical_routers) > 1:
+            esi_pi = self.esi_allocation()
+
+        if esi_pi:
+            pi_obj = PhysicalInterfaceDM.get(esi_pi)
+            esi = pi_obj.get_mac_address()
+        else:
+            esi = 0
+        self._object_db.add_ae_esi_id(self.uuid, esi, self.index)
+
+    @classmethod
+    def get_ae_esi_for_lag(self, lag_uuid):
+        return self._object_db.get_ae_esi_id(lag_uuid)
+
+    def get_attached_sgs(self):
+        sg_list = []
+        for vmi_uuid in self.virtual_machine_interfaces:
+            vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if not vmi_obj:
+                return sg_list
+            for sg in vmi_obj.security_groups or []:
+                sg = SecurityGroupDM.get(sg)
+                if sg:
+                    sg_list.append(sg)
+        return sg_list
+    # end get_attached_sgs
 
     def delete_obj(self):
-        self.remove_from_parent()
+        #remove ae esi mapping
+        self._object_db.delete_ae_esi_id(self.uuid)
+
+        # free ae index
+        self.ae_index_allocator.free_index(self.index)
+
+        # clear local cassandra db
+        self._object_db.delete_esi_pi_to_lag(self.uuid)
+
+        for pr_uuid in self.physical_routers:
+            pr_obj = PhysicalRouterDM.get(pr_uuid)
+            pr_obj.remove_associated_lags(self.uuid)
+        for pi_uuid in self.physical_interfaces:
+            pi_obj = PhysicalInterfaceDM.get(pi_uuid)
+            pi_obj.set_parent_ae_id(None)
+
+        self.update_single_ref('fabric', {})
         self.update_multiple_refs('physical_interface', {})
+        self.update_multiple_refs('virtual_machine_interface', {})
+        self.remove_from_parent()
     # end delete_obj
 # end class LinkAggregationGroupDM
 
@@ -2070,7 +2171,8 @@ class PeeringPolicyDM(DBBaseDM):
 class DMCassandraDB(VncObjectDBClient):
     _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
-    _PR_AE_ID_CF = 'dm_pr_ae_id_table'
+    # _PR_AE_ID_CF = 'dm_pr_ae_id_table'
+    _LAG_AE_ID_CF = 'dm_lag_ae_id_table'
     _PR_ASN_CF = 'dm_pr_asn_table'
     # PNF table
     _PNF_RESOURCE_CF = 'dm_pnf_resource_table'
@@ -2107,7 +2209,7 @@ class DMCassandraDB(VncObjectDBClient):
 
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
-                             self._PR_AE_ID_CF: {},
+                             self._LAG_AE_ID_CF: {},
                              self._PR_ASN_CF: {},
                              self._PNF_RESOURCE_CF: {}}}
 
@@ -2125,11 +2227,15 @@ class DMCassandraDB(VncObjectDBClient):
             ca_certs=self._args.cassandra_ca_certs)
 
         self.pr_vn_ip_map = {}
-        self.pr_ae_id_map = {}
+        # self.pr_ae_id_map = {}
+        self.lag_ae_esi_map = {}
+        self.lag_pr_map = {}
         self.pr_asn_map = {}
         self.asn_pr_map = {}
         self.init_pr_map()
-        self.init_pr_ae_map()
+        # self.init_pr_ae_map()
+        # self.init_lag_ae_esi_map()
+        self.lag_pi_map = {}
         self.init_pr_asn_map()
 
         self.pnf_vlan_allocator_map = {}
@@ -2255,19 +2361,19 @@ class DMCassandraDB(VncObjectDBClient):
                 self.add_to_pr_map(pr_uuid, vn_subnet_uuid, ip_used_for)
     # end
 
-    def init_pr_ae_map(self):
-        cf = self.get_cf(self._PR_AE_ID_CF)
-        pr_entries = dict(cf.get_range(column_count=1000000))
-        for key in pr_entries.keys():
-            key_data = key.split(':', 1)
-            (pr_uuid, esi) = (key_data[0], key_data[1])
-            ae_index = pr_entries[key] or {}
-            ae_id = ae_index.get("index")
-            if ae_id:
-                if pr_uuid not in self.pr_ae_id_map:
-                    self.pr_ae_id_map[pr_uuid] = {}
-                self.pr_ae_id_map[pr_uuid][esi] = ae_id
-    # end
+    # def init_pr_ae_map(self):
+    #     cf = self.get_cf(self._PR_AE_ID_CF)
+    #     pr_entries = dict(cf.get_range(column_count=1000000))
+    #     for key in pr_entries.keys():
+    #         key_data = key.split(':', 1)
+    #         (pr_uuid, esi) = (key_data[0], key_data[1])
+    #         ae_index = pr_entries[key] or {}
+    #         ae_id = ae_index.get("index")
+    #         if ae_id:
+    #             if pr_uuid not in self.pr_ae_id_map:
+    #                 self.pr_ae_id_map[pr_uuid] = {}
+    #             self.pr_ae_id_map[pr_uuid][esi] = ae_id
+    # # end
 
     def init_pr_asn_map(self):
         cf = self.get_cf(self._PR_ASN_CF)
@@ -2282,13 +2388,51 @@ class DMCassandraDB(VncObjectDBClient):
                     self.asn_pr_map[asn] = pr_uuid
     # end init_pr_asn_map
 
+    def add_ae_esi_id(self, lag_uuid, esi, ae_id):
+        # key = lag_uuid + ':' + ae_id
+        # self.add(self._LAG_AE_ID_CF, key, {"esi": esi})
+        if lag_uuid in self.lag_ae_esi_map:
+            self.lag_ae_esi_map[lag_uuid] = {"ae_id": ae_id, "esi": esi}
+        else:
+            self.lag_ae_esi_map[lag_uuid] = {}
+            self.lag_ae_esi_map[lag_uuid] = {"ae_id": ae_id, "esi": esi}
+    # end
+
+    def delete_ae_esi_id(self, lag_uuid):
+        del self.lag_ae_esi_map[lag_uuid]
+    # end
+
+    def get_ae_esi_id(self, lag_uuid):
+        # return self.get_one_col(self._LAG_AE_ID_CF, key, "esi")
+        return self.lag_ae_esi_map.get(lag_uuid)
+    # end
+
+    def add_esi_pi_to_lag(self, lag_uuid, pi):
+        self.lag_pi_map[lag_uuid] = pi
+
+    def delete_esi_pi_to_lag(self, lag_uuid):
+        if self.lag_ae_esi_map.get(lag_uuid):
+            del self.lag_pi_map[lag_uuid]
+
+    def get_esi_pi_to_lag(self, lag_uuid):
+        return self.lag_pi_map.get(lag_uuid)
+
+    def add_lag(self, pr_uuid, lag_uuid):
+        if self.lag_pr_map.get(pr_uuid) and lag_uuid not in self.lag_pr_map.get(pr_uuid):
+            self.lag_pr_map[pr_uuid].append(lag_uuid)
+        else:
+            self.lag_pr_map[pr_uuid] = []
+            self.lag_pr_map[pr_uuid].append(lag_uuid)
+
+    def get_lag(self, pr_uuid):
+        return self.lag_pr_map[pr_uuid]
+
+    def delete_lag(self, pr_uuid, lag_uuid):
+        self.lag_pr_map[pr_uuid].remove(lag_uuid)
+
     def get_ip(self, key, ip_used_for):
         return self.get_one_col(self._PR_VN_IP_CF, key,
                       DMUtils.get_ip_cs_column_name(ip_used_for))
-    # end
-
-    def get_ae_id(self, key):
-        return self.get_one_col(self._PR_AE_ID_CF, key, "index")
     # end
 
     def get_asn_for_pr(self, pr_uuid):
@@ -2303,16 +2447,6 @@ class DMCassandraDB(VncObjectDBClient):
         self.add(self._PR_VN_IP_CF, key, {DMUtils.get_ip_cs_column_name(ip_used_for): ip})
     # end
 
-    def add_ae_id(self, pr_uuid, esi, ae_id):
-        key = pr_uuid + ':' + esi
-        self.add(self._PR_AE_ID_CF, key, {"index": ae_id})
-        if pr_uuid in self.pr_ae_id_map:
-            self.pr_ae_id_map[pr_uuid][esi] = ae_id
-        else:
-            self.pr_ae_id_map[pr_uuid] = {}
-            self.pr_ae_id_map[pr_uuid][esi] = ae_id
-    # end
-
     def add_asn(self, pr_uuid, asn):
         self.add(self._PR_ASN_CF, pr_uuid, {'asn': asn})
         self.pr_asn_map[pr_uuid] = asn
@@ -2323,11 +2457,6 @@ class DMCassandraDB(VncObjectDBClient):
         self.delete(self._PR_VN_IP_CF, key, [DMUtils.get_ip_cs_column_name(ip_used_for)])
     # end
 
-    def delete_ae_id(self, pr_uuid, esi):
-        key = pr_uuid + ':' + esi
-        self.delete(self._PR_AE_ID_CF, key)
-        del self.pr_ae_id_map[pr_uuid][esi]
-    # end
 
     def add_to_pr_map(self, pr_uuid, vn_subnet, ip_used_for):
         if pr_uuid in self.pr_vn_ip_map:
@@ -2354,12 +2483,12 @@ class DMCassandraDB(VncObjectDBClient):
             if ret == False:
                 self._logger.error("Unable to free ip from db for vn/pr/subnet/ip_used_for "
                                    "(%s/%s/%s)" % (pr_uuid, vn_subnet, ip_used_for))
-        esi_map = self.pr_ae_id_map.get(pr_uuid, {})
-        for esi, ae_id in esi_map.values():
-            ret = self.delete(self._PR_AE_ID_CF, pr_uuid + ':' + esi)
-            if ret == False:
-                self._logger.error("Unable to free ae id from db for pr/esi"
-                                   "(%s/%s)" % (pr_uuid, esi))
+        # esi_map = self.pr_ae_id_map.get(pr_uuid, {})
+        # for esi, ae_id in esi_map.values():
+        #     ret = self.delete(self._PR_AE_ID_CF, pr_uuid + ':' + esi)
+        #     if ret == False:
+        #         self._logger.error("Unable to free ae id from db for pr/esi"
+        #                            "(%s/%s)" % (pr_uuid, esi))
         asn = self.pr_asn_map.pop(pr_uuid, None)
         if asn is not None:
             self.asn_pr_map.pop(asn, None)

@@ -380,29 +380,22 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_routing_instance
 
     def attach_acls(self, interface, unit):
-        pi_list = []
-        esi_map = self.get_ae_alloc_esi_map()
-        for esi, ae_id in self.physical_router.ae_id_map.items():
-            ae_name = "ae" + str(ae_id)
-            if_name, if_unit = interface.name.split('.')
-            if ae_name == if_name:
-                pi_list = esi_map.get(esi)
-                if pi_list:
-                    self._logger.info("attach acls on AE intf:%s, link_member:%s, unit:%s" %
-                                      (ae_name, pi_list[0].name, if_unit))
-                    li_name = pi_list[0].name + '.' + if_unit
-                    break
-
-        if not pi_list and not interface.li_uuid:
+        pr = self.physical_router
+        if not pr:
             return
 
-        interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
-        if not interface:
-            interface = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
-            if not interface:
-                return
+        sg_list = []
+        for lag_uuid in pr.link_aggregation_groups or []:
+            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            if not lag_obj:
+                continue
+            sg_list += lag_obj.get_attached_sgs()
 
-        sg_list = interface.get_attached_sgs()
+        if interface.li_uuid:
+            interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
+            if interface:
+                sg_list += interface.get_attached_sgs()
+
         filter_list = []
         for sg in sg_list:
             flist = self.get_configured_filters(sg)
@@ -410,6 +403,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if filter_list:
             for fname in filter_list:
                 unit.add_firewall_filters(fname)
+
     # end attach_acls
 
     def build_l2_evpn_interface_config(self, interfaces, vn, vlan_conf):
@@ -477,16 +471,16 @@ class AnsibleRoleCommon(AnsibleConf):
         self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
 
-    def build_esi_config(self):
-        pr = self.physical_router
-        if not pr:
-            return
-        for pi_uuid in pr.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
-                continue
-            intf, _ = self.set_default_pi(pi.name)
-            intf.set_ethernet_segment_identifier(pi.esi)
+    # def build_esi_config(self):
+    #     pr = self.physical_router
+    #     if not pr:
+    #         return
+    #     for pi_uuid in pr.physical_interfaces:
+    #         pi = PhysicalInterfaceDM.get(pi_uuid)
+    #         if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
+    #             continue
+    #         intf, _ = self.set_default_pi(pi.name)
+    #         intf.set_ethernet_segment_identifier(pi.esi)
     # end build_esi_config
 
     def build_lag_config(self):
@@ -498,14 +492,15 @@ class AnsibleRoleCommon(AnsibleConf):
             lag_obj = LinkAggregationGroupDM.get(lag_uuid)
             if not lag_obj:
                 continue
+            ae_esi = LinkAggregationGroupDM.get_ae_esi_for_lag(lag_uuid)
             for pi_uuid in lag_obj.physical_interfaces or []:
-                pi = PhysicalInterfaceDM.get(pi_uuid)
-                if not pi:
-                    continue
-                if pi.interface_type != 'lag':
-                   link_members.append(pi.name)
-                else:
-                   ae_intf_name = pi.name
+                if pi_uuid in pr.physical_interfaces:
+                    pi = PhysicalInterfaceDM.get(pi_uuid)
+                    if not pi:
+                        continue
+                    link_members.append(pi.name)
+
+            ae_intf_name = 'ae' + str(ae_esi.get('ae_id'))
 
             self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
                               (lag_uuid, link_members, ae_intf_name))
@@ -513,57 +508,82 @@ class AnsibleRoleCommon(AnsibleConf):
                                 link_members=link_members)
             intf, _ = self.set_default_pi(ae_intf_name, 'lag')
             intf.set_link_aggregation_group(lag)
+            if ae_esi.get('esi') is not 0:
+                esi = '00:00:00:00:' + ae_esi.get('esi')
+                intf.set_ethernet_segment_identifier(esi)
     # end build_lag_config
 
     def get_vn_li_map(self):
         pr = self.physical_router
-        vn_list = []
-        # get all logical router connected networks
-        for lr_id in pr.logical_routers or []:
-            lr = LogicalRouterDM.get(lr_id)
-            if not lr:
-                continue
-            vn_list += lr.get_connected_networks(include_internal=True)
 
         vn_dict = {}
-        for vn_id in vn_list:
-            vn_dict[vn_id] = []
-
-        for vn_id in pr.virtual_networks:
-            vn_dict[vn_id] = []
-            vn = VirtualNetworkDM.get(vn_id)
-            if vn and vn.router_external:
-                vn_list = vn.get_connected_private_networks()
-                for pvn in vn_list or []:
-                    vn_dict[pvn] = []
-
-        li_set = pr.logical_interfaces
-        for pi_uuid in pr.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if pi is None:
+        for lag_uuid in pr.link_aggregation_groups or []:
+            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            if not lag_obj:
                 continue
-            li_set |= pi.logical_interfaces
-        for li_uuid in li_set:
-            li = LogicalInterfaceDM.get(li_uuid)
-            if li is None:
-                continue
-            vmi_id = li.virtual_machine_interface
-            vmi = VirtualMachineInterfaceDM.get(vmi_id)
-            if vmi is None:
-                continue
-            vn_id = vmi.virtual_network
-            if li.physical_interface:
-                pi = PhysicalInterfaceDM.get(li.physical_interface)
-                ae_id = pi.get_parent_ae_id()
-                if ae_id and li.physical_interface:
-                    _, unit= li.name.split('.')
-                    ae_name = "ae" + str(ae_id) + "." + unit
-                    vn_dict.setdefault(vn_id, []).append(
-                           JunosInterface(ae_name, li.li_type, li.vlan_tag))
-                    continue
-            vn_dict.setdefault(vn_id, []).append(
-                JunosInterface(li.name, li.li_type, li.vlan_tag, li_uuid=li.uuid))
+            lag_interfaces = lag_obj.physical_interfaces
+            vmis = lag_obj.virtual_machine_interfaces
+            for vmi_uuid in lag_obj.virtual_machine_interfaces:
+                vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+                vn_id = vmi_obj.virtual_network
+                vlan_tag = vmi_obj.get_vlan_tag()
+                for pi_uuid in lag_interfaces:
+                    if pi_uuid in pr.physical_interfaces:
+                        pi = PhysicalInterfaceDM.get(pi_uuid)
+                        # create logical interface for the
+                        ae_id = pi.get_parent_ae_id()
+                        if ae_id is not None:
+                            ae_name = "ae" + str(ae_id) + "." + str(vlan_tag)
+                            vn_dict.setdefault(vn_id, []).append(
+                                JunosInterface(ae_name, 'l3', vlan_tag))
         return vn_dict
+        # vn_list = []
+        #get all logical router connected networks
+        # for lr_id in pr.logical_routers or []:
+        #     lr = LogicalRouterDM.get(lr_id)
+        #     if not lr:
+        #         continue
+        #     vn_list += lr.get_connected_networks(include_internal=True)
+
+        # vn_dict = {}
+        # for vn_id in vn_list:
+        #     vn_dict[vn_id] = []
+
+        # for vn_id in pr.virtual_networks:
+        #     vn_dict[vn_id] = []
+        #     vn = VirtualNetworkDM.get(vn_id)
+        #     if vn and vn.router_external:
+        #         vn_list = vn.get_connected_private_networks()
+        #         for pvn in vn_list or []:
+        #             vn_dict[pvn] = []
+
+        # li_set = pr.logical_interfaces
+        # for pi_uuid in pr.physical_interfaces:
+        #     pi = PhysicalInterfaceDM.get(pi_uuid)
+        #     if pi is None:
+        #         continue
+        #     li_set |= pi.logical_interfaces
+        # for li_uuid in li_set:
+        #     li = LogicalInterfaceDM.get(li_uuid)
+        #     if li is None:
+        #         continue
+        #     vmi_id = li.virtual_machine_interface
+        #     vmi = VirtualMachineInterfaceDM.get(vmi_id)
+        #     if vmi is None:
+        #         continue
+        #     vn_id = vmi.virtual_network
+        #     if li.physical_interface:
+        #         pi = PhysicalInterfaceDM.get(li.physical_interface)
+        #         ae_id = pi.get_parent_ae_id()
+        #         if ae_id and li.physical_interface:
+        #             _, unit= li.name.split('.')
+        #             ae_name = "ae" + str(ae_id) + "." + unit
+        #             vn_dict.setdefault(vn_id, []).append(
+        #                    JunosInterface(ae_name, li.li_type, li.vlan_tag))
+        #             continue
+        #     vn_dict.setdefault(vn_id, []).append(
+        #         JunosInterface(li.name, li.li_type, li.vlan_tag, li_uuid=li.uuid))
+        # return vn_dict
     # end
 
     def get_vn_associated_physical_interfaces(self):
@@ -600,22 +620,22 @@ class AnsibleRoleCommon(AnsibleConf):
         return esi_map
     # end get_ae_alloc_esi_map
 
-    def build_ae_config(self, esi_map):
-        # self.ae_id_map should have all esi => ae_id mapping
-        # esi_map should have esi => interface memberships
-        for esi, ae_id in self.physical_router.ae_id_map.items():
-            # config ae interface
-            ae_name = "ae" + str(ae_id)
-            # associate 'ae' membership
-            pi_list = esi_map.get(esi)
-            link_members = []
-            for pi in pi_list or []:
-                 link_members.append(pi.name)
+    #def build_ae_config(self, esi_map):
+    #    # self.ae_id_map should have all esi => ae_id mapping
+    #    # esi_map should have esi => interface memberships
+    #    for esi, ae_id in self.physical_router.ae_id_map.items():
+    #        # config ae interface
+    #        ae_name = "ae" + str(ae_id)
+    #        # associate 'ae' membership
+    #        pi_list = esi_map.get(esi)
+    #        link_members = []
+    #        for pi in pi_list or []:
+    #             link_members.append(pi.name)
 
-            lag = LinkAggrGroup(link_members=link_members)
-            intf, _ = self.set_default_pi(ae_name)
-            intf.set_ethernet_segment_identifier(esi)
-            intf.set_link_aggregation_group(lag)
+    #        lag = LinkAggrGroup(link_members=link_members)
+    #        intf, _ = self.set_default_pi(ae_name)
+    #        intf.set_ethernet_segment_identifier(esi)
+    #        intf.set_link_aggregation_group(lag)
     # end build_ae_config
 
     def add_addr_term(self, term, addr_match, is_src):
@@ -749,7 +769,19 @@ class AnsibleRoleCommon(AnsibleConf):
     # end build_firewall_filters
 
     def build_firewall_config(self):
-        sg_list = LogicalInterfaceDM.get_sg_list()
+        pr = self.physical_router
+        if not pr:
+            return
+        sg_list = []
+        for lag_uuid in pr.link_aggregation_groups or []:
+            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            if not lag_obj:
+                continue
+            sg_list += lag_obj.get_attached_sgs()
+
+        if LogicalInterfaceDM.get_sg_list():
+            sg_list += LogicalInterfaceDM.get_sg_list()
+
         for sg in sg_list or []:
             acls = sg.access_control_lists
             for acl in acls or []:
@@ -842,9 +874,9 @@ class AnsibleRoleCommon(AnsibleConf):
     # end get_configured_filters
 
     def build_ri_config(self):
-        esi_map = self.get_ae_alloc_esi_map()
-        self.physical_router.evaluate_ae_id_map(esi_map)
-        self.build_ae_config(esi_map)
+        # esi_map = self.get_ae_alloc_esi_map()
+        # self.physical_router.evaluate_ae_id_map(esi_map)
+        # self.build_ae_config(esi_map)
 
         vn_dict = self.get_vn_li_map()
         vn_irb_ip_map = None
@@ -982,7 +1014,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.set_internal_vn_irb_config()
         self.init_evpn_config()
         self.build_firewall_config()
-        self.build_esi_config()
+        # self.build_esi_config()
         self.build_lag_config()
     # end set_common_config
 

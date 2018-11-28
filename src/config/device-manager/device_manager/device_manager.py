@@ -100,8 +100,8 @@ class DeviceManager(object):
             'node_profile': [],
         },
         'link_aggregation_group': {
-            'self': ['physical_router'],
-            'physical_router': [],
+            'self': ['physical_interface'],
+            'physical_interface': ['physical_router'],
         },
         'fabric': {
             'self': ['physical_router'],
@@ -122,7 +122,7 @@ class DeviceManager(object):
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_router'],
             'physical_interface': ['physical_router'],
-            'virtual_machine_interface': ['physical_interface'],
+            'link_aggregation_group': ['physical_router'],
         },
         'logical_interface': {
             'self': ['physical_router',
@@ -143,7 +143,8 @@ class DeviceManager(object):
                      'floating_ip',
                      'instance_ip',
                      'port_tuple',
-                     'service_endpoint'],
+                     'service_endpoint',
+                     'link_aggregation_group'],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface', 'logical_router'],
             'logical_router': [],
@@ -153,6 +154,7 @@ class DeviceManager(object):
             'port_tuple': ['physical_interface'],
             'service_endpoint': ['physical_router'],
             'security_group': ['logical_interface'],
+            'link_aggregation_group': ['physical_interface'],
         },
         'security_group': {
             'self': [],
@@ -359,9 +361,6 @@ class DeviceManager(object):
         for obj in PhysicalInterfaceDM.list_obj():
             PhysicalInterfaceDM.locate(obj['uuid'], obj)
 
-        for obj in LinkAggregationGroupDM.list_obj():
-            LinkAggregationGroupDM.locate(obj['uuid'], obj)
-
         for obj in LogicalInterfaceDM.list_obj():
             LogicalInterfaceDM.locate(obj['uuid'], obj)
 
@@ -371,6 +370,9 @@ class DeviceManager(object):
 
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
         self._object_db.handle_pr_deletes(pr_uuid_set)
+
+        for obj in LinkAggregationGroupDM.list_obj():
+            LinkAggregationGroupDM.locate(obj['uuid'], obj)
 
         for obj in VirtualMachineInterfaceDM.list_obj():
             VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
