@@ -537,25 +537,25 @@ class QfxConf(JuniperConf):
                                  RouteDistinguisher(rd_type=self.bgp_params['identifier'] + ":1"))
     # end set_route_distinguisher_config
 
-    def build_esi_config(self):
-        pr = self.physical_router
-        if not pr or self.is_spine():
-            return
-        if not self.interfaces_config:
-            self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
-        for pi_uuid in pr.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
-                continue
-            esi_conf = Esi(identifier=pi.esi, all_active='')
-            intf = Interface(name=pi.name, esi=esi_conf)
-            self.interfaces_config.add_interface(intf)
-        # add ae interfaces
-        # self.ae_id_map should have all esi => ae_id mapping
-        for esi, ae_id in self.physical_router.ae_id_map.items():
-            esi_conf = Esi(identifier=esi, all_active='')
-            intf = Interface(name="ae" + str(ae_id), esi=esi_conf)
-            self.interfaces_config.add_interface(intf)
+    # def build_esi_config(self):
+    #     pr = self.physical_router
+    #     if not pr or self.is_spine():
+    #         return
+    #     if not self.interfaces_config:
+    #         self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
+    #     for pi_uuid in pr.physical_interfaces:
+    #         pi = PhysicalInterfaceDM.get(pi_uuid)
+    #         if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
+    #             continue
+    #         esi_conf = Esi(identifier=pi.esi, all_active='')
+    #         intf = Interface(name=pi.name, esi=esi_conf)
+    #         self.interfaces_config.add_interface(intf)
+    #     # add ae interfaces
+    #     # self.ae_id_map should have all esi => ae_id mapping
+    #     for esi, ae_id in self.physical_router.ae_id_map.items():
+    #         esi_conf = Esi(identifier=esi, all_active='')
+    #         intf = Interface(name="ae" + str(ae_id), esi=esi_conf)
+    #         self.interfaces_config.add_interface(intf)
     # end build_esi_config
 
     def get_vn_li_map(self):
@@ -589,13 +589,13 @@ class QfxConf(JuniperConf):
             vn_id = vmi.virtual_network
             if li.physical_interface:
                 pi = PhysicalInterfaceDM.get(li.physical_interface)
-                ae_id = pi.get_parent_ae_id()
-                if ae_id and li.physical_interface:
-                    _, unit= li.name.split('.')
-                    ae_name = "ae" + str(ae_id) + "." + unit
-                    vn_dict.setdefault(vn_id, []).append(
-                           JunosInterface(ae_name, li.li_type, li.vlan_tag))
-                    continue
+                # ae_id = pi.get_parent_ae_id()
+                # if ae_id and li.physical_interface:
+                #     _, unit= li.name.split('.')
+                #     ae_name = "ae" + str(ae_id) + "." + unit
+                #     vn_dict.setdefault(vn_id, []).append(
+                #            JunosInterface(ae_name, li.li_type, li.vlan_tag))
+                #     continue
             vn_dict.setdefault(vn_id, []).append(
                 JunosInterface(li.name, li.li_type, li.vlan_tag, li_uuid=li.uuid))
         return vn_dict
@@ -906,10 +906,10 @@ class QfxConf(JuniperConf):
     # end get_configured_filters
 
     def build_ri_config(self):
-        if not self.is_spine():
-            esi_map = self.get_ae_alloc_esi_map()
-            self.physical_router.evaluate_ae_id_map(esi_map)
-            self.build_ae_config(esi_map)
+        # if not self.is_spine():
+        #     esi_map = self.get_ae_alloc_esi_map()
+        #     self.physical_router.evaluate_ae_id_map(esi_map)
+        #     self.build_ae_config(esi_map)
         vn_dict = self.get_vn_li_map()
         vn_irb_ip_map = None
         if self.is_spine():
@@ -990,7 +990,7 @@ class QfxConf(JuniperConf):
         self.build_firewall_config()
         self.init_global_switch_opts()
         self.set_resolve_bgp_route_target_family_config()
-        self.build_esi_config()
+        # self.build_esi_config()
         self.set_route_targets_config()
         self.set_route_distinguisher_config()
     # end set_qfx_common_config

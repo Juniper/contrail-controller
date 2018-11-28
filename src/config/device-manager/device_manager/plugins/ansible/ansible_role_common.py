@@ -433,29 +433,23 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_routing_instance
 
     def attach_acls(self, interface, unit):
-        pi_list = []
-        esi_map = self.get_ae_alloc_esi_map()
-        for esi, ae_id in self.physical_router.ae_id_map.items():
-            ae_name = "ae" + str(ae_id)
-            if_name, if_unit = interface.name.split('.')
-            if ae_name == if_name:
-                pi_list = esi_map.get(esi)
-                if pi_list:
-                    self._logger.info("attach acls on AE intf:%s, link_member:%s, unit:%s" %
-                                      (ae_name, pi_list[0].name, if_unit))
-                    li_name = pi_list[0].name + '.' + if_unit
-                    break
-
-        if not pi_list and not interface.li_uuid:
+        pr = self.physical_router
+        if not pr:
             return
 
-        interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
-        if not interface:
-            interface = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
-            if not interface:
-                return
+        sg_list = []
+        for lag_uuid in pr.link_aggregation_groups or []:
+            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            if not lag_obj:
+                continue
+            if lag_obj.ae_id in interface.name:
+                sg_list += lag_obj.get_attached_sgs()
 
-        sg_list = interface.get_attached_sgs()
+        if interface.li_uuid:
+            interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
+            if interface:
+                sg_list += interface.get_attached_sgs()
+
         filter_list = []
         for sg in sg_list:
             flist = self.get_configured_filters(sg)
@@ -530,19 +524,8 @@ class AnsibleRoleCommon(AnsibleConf):
         self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
 
-    def build_esi_config(self):
-        pr = self.physical_router
-        if not pr:
-            return
-        for pi_uuid in pr.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
-                continue
-            intf, _ = self.set_default_pi(pi.name)
-            intf.set_ethernet_segment_identifier(pi.esi)
-    # end build_esi_config
-
     def build_lag_config(self):
+        multi_homed = False
         pr = self.physical_router
         if not pr:
             return
@@ -551,14 +534,18 @@ class AnsibleRoleCommon(AnsibleConf):
             lag_obj = LinkAggregationGroupDM.get(lag_uuid)
             if not lag_obj:
                 continue
+            ae_id = lag_obj.ae_id
+            esi = lag_obj.esi
             for pi_uuid in lag_obj.physical_interfaces or []:
+                if pi_uuid not in pr.physical_interfaces:
+                    multi_homed = True
+                    continue
                 pi = PhysicalInterfaceDM.get(pi_uuid)
                 if not pi:
                     continue
-                if pi.interface_type != 'lag':
-                   link_members.append(pi.name)
-                else:
-                   ae_intf_name = pi.name
+                link_members.append(pi.name)
+
+            ae_intf_name = 'ae' + str(ae_id)
 
             self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
                               (lag_uuid, link_members, ae_intf_name))
@@ -566,6 +553,12 @@ class AnsibleRoleCommon(AnsibleConf):
                                 link_members=link_members)
             intf, _ = self.set_default_pi(ae_intf_name, 'lag')
             intf.set_link_aggregation_group(lag)
+            intf.set_comment("")
+
+            #check if esi needs to be set
+            if multi_homed:
+                intf.set_ethernet_segment_identifier(esi)
+                multi_homed = False
     # end build_lag_config
 
     def get_vn_li_map(self):
@@ -594,32 +587,25 @@ class AnsibleRoleCommon(AnsibleConf):
                 for pvn in vn_list or []:
                     vn_dict[pvn] = []
 
-        li_set = pr.logical_interfaces
-        for pi_uuid in pr.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if pi is None:
+        for lag_uuid in pr.link_aggregation_groups or []:
+            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            if not lag_obj:
                 continue
-            li_set |= pi.logical_interfaces
-        for li_uuid in li_set:
-            li = LogicalInterfaceDM.get(li_uuid)
-            if li is None:
-                continue
-            vmi_id = li.virtual_machine_interface
-            vmi = VirtualMachineInterfaceDM.get(vmi_id)
-            if vmi is None:
-                continue
-            vn_id = vmi.virtual_network
-            if li.physical_interface:
-                pi = PhysicalInterfaceDM.get(li.physical_interface)
-                ae_id = pi.get_parent_ae_id()
-                if ae_id and li.physical_interface:
-                    _, unit= li.name.split('.')
-                    ae_name = "ae" + str(ae_id) + "." + unit
-                    vn_dict.setdefault(vn_id, []).append(
-                           JunosInterface(ae_name, li.li_type, li.vlan_tag))
+            ae_id = lag_obj.ae_id
+            lag_interfaces = lag_obj.physical_interfaces
+            for vmi_uuid in lag_obj.virtual_machine_interfaces:
+                vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+                if not vmi_obj:
                     continue
-            vn_dict.setdefault(vn_id, []).append(
-                JunosInterface(li.name, li.li_type, li.vlan_tag, li_uuid=li.uuid))
+                vn_id = vmi_obj.virtual_network or None
+                vlan_tag = vmi_obj.vlan_tag
+                if vn_id:
+                    for pi_uuid in lag_interfaces:
+                        if pi_uuid in pr.physical_interfaces:
+                            if ae_id and vlan_tag is not None:
+                                ae_name = "ae" + str(ae_id) + "." + str(vlan_tag)
+                                vn_dict.setdefault(vn_id, []).append(
+                                    JunosInterface(ae_name, 'l2', vlan_tag))
         return vn_dict
     # end
 
@@ -647,33 +633,6 @@ class AnsibleRoleCommon(AnsibleConf):
             return True
         return False
     # end has_vmi
-
-    def get_ae_alloc_esi_map(self):
-        pi_list = self.get_vn_associated_physical_interfaces()
-        esi_map = {}
-        for pi in pi_list:
-            if not pi.name.startswith("ae") and pi.esi:
-                esi_map.setdefault(pi.esi, []).append(pi)
-        return esi_map
-    # end get_ae_alloc_esi_map
-
-    def build_ae_config(self, esi_map):
-        # self.ae_id_map should have all esi => ae_id mapping
-        # esi_map should have esi => interface memberships
-        for esi, ae_id in self.physical_router.ae_id_map.items():
-            # config ae interface
-            ae_name = "ae" + str(ae_id)
-            # associate 'ae' membership
-            pi_list = esi_map.get(esi)
-            link_members = []
-            for pi in pi_list or []:
-                 link_members.append(pi.name)
-
-            lag = LinkAggrGroup(link_members=link_members)
-            intf, _ = self.set_default_pi(ae_name)
-            intf.set_ethernet_segment_identifier(esi)
-            intf.set_link_aggregation_group(lag)
-    # end build_ae_config
 
     def add_addr_term(self, term, addr_match, is_src):
         if not addr_match:
@@ -806,7 +765,19 @@ class AnsibleRoleCommon(AnsibleConf):
     # end build_firewall_filters
 
     def build_firewall_config(self):
-        sg_list = LogicalInterfaceDM.get_sg_list()
+        pr = self.physical_router
+        if not pr:
+            return
+        sg_list = []
+        for lag_uuid in pr.link_aggregation_groups or []:
+            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            if not lag_obj:
+                continue
+            sg_list += lag_obj.get_attached_sgs()
+
+        if LogicalInterfaceDM.get_sg_list():
+            sg_list += LogicalInterfaceDM.get_sg_list()
+
         for sg in sg_list or []:
             acls = sg.access_control_lists
             for acl in acls or []:
@@ -899,10 +870,6 @@ class AnsibleRoleCommon(AnsibleConf):
     # end get_configured_filters
 
     def build_ri_config(self):
-        esi_map = self.get_ae_alloc_esi_map()
-        self.physical_router.evaluate_ae_id_map(esi_map)
-        self.build_ae_config(esi_map)
-
         vn_dict = self.get_vn_li_map()
         vn_irb_ip_map = None
         if self.is_gateway():
@@ -1048,7 +1015,6 @@ class AnsibleRoleCommon(AnsibleConf):
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
         self.build_firewall_config()
-        self.build_esi_config()
         self.build_lag_config()
     # end set_common_config
 
