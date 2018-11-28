@@ -371,6 +371,11 @@ public:
     static const uint8_t kMaxSessionAggs = 8;
     static const uint8_t kMaxSessions = 100;
     static const uint16_t kFabricSnatTableSize = 4096;
+    // kDropNewFlowsRecoveryThreshold is set to 90% of the Max flows for a
+    // VM this value represents that recovery from the drop new flows will
+    // happen only when total number of flow fall below this value
+    static const int kDropNewFlowsRecoveryThreshold = 90;
+
     enum ForwardingMode {
         NONE,
         L2_L3,

@@ -1260,7 +1260,8 @@ public:
 
     bool cfg_igmp_enable() const { return cfg_igmp_enable_; }
     bool igmp_enabled() const { return igmp_enabled_; }
-
+    uint32_t max_flows() const { return max_flows_; }
+    void set_max_flows( uint32_t val) { max_flows_ = val;}
     ProxyArpMode proxy_arp_mode() const { return proxy_arp_mode_; }
     bool IsUnrestrictedProxyArp() const {
         return proxy_arp_mode_ == PROXY_ARP_UNRESTRICTED;
@@ -1493,6 +1494,8 @@ public:
                              const std::string &ifname);
     static void DeleteIfNameReq(InterfaceTable *table,
                                 const boost::uuids::uuid &uuid);
+    void update_flow_count(int val) const;
+    uint32_t flow_count() const { return flow_count_; }
 
 private:
     friend struct VmInterfaceConfigData;
@@ -1585,6 +1588,8 @@ private:
         return value;
     }
 
+    void SetInterfacesDropNewFlows(bool drop_new_flows) const;
+
 private:
     static IgnoreAddressMap fatflow_ignore_addr_map_;
     VmEntryBackRef vm_;
@@ -1600,6 +1605,7 @@ private:
     bool fabric_port_;
     bool need_linklocal_ip_;
     bool drop_new_flows_;
+    mutable bool drop_new_flows_vmi_;
     // DHCP flag - set according to the dhcp option in the ifmap subnet object.
     // It controls whether the vrouter sends the DHCP requests from VM interface
     // to agent or if it would flood the request in the VN.
@@ -1638,6 +1644,9 @@ private:
     // IGMP Configuration
     bool cfg_igmp_enable_;
     bool igmp_enabled_;
+    // Max flows for VMI
+    uint32_t max_flows_;
+    mutable tbb::atomic<int> flow_count_;
 
     // Attributes
     std::auto_ptr<MacVmBindingState> mac_vm_binding_state_;
@@ -1848,7 +1857,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     // IGMP Configuration
     bool cfg_igmp_enable_;
     bool igmp_enabled_;
-
+    uint32_t max_flows_;
+ 
     VmInterface::SecurityGroupEntryList sg_list_;
     VmInterface::TagEntryList tag_list_;
     VmInterface::FloatingIpList floating_ip_list_;

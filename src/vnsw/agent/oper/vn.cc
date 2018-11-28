@@ -103,7 +103,7 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     enable_rpf_(true), flood_unknown_unicast_(false),
     forwarding_mode_(Agent::L2_L3), mirror_destination_(false),
     underlay_forwarding_(false), vxlan_routing_vn_(false),
-    logical_router_uuid_(), cfg_igmp_enable_(false) {
+    logical_router_uuid_(), cfg_igmp_enable_(false), vn_max_flows_(0) {
 }
 
 VnEntry::~VnEntry() {
@@ -296,6 +296,11 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
 
     if (cfg_igmp_enable_ != data->cfg_igmp_enable_) {
         cfg_igmp_enable_ = data->cfg_igmp_enable_;
+    }
+
+    if (vn_max_flows_ != data->vn_max_flows_) {
+        vn_max_flows_ = data->vn_max_flows_;
+        ret = true;
     }
 
     return ret;
@@ -1085,7 +1090,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool pbb_etree_enable = cfg->pbb_etree_enable();
     bool layer2_control_word = cfg->layer2_control_word();
     bool cfg_igmp_enable = cfg->igmp_enable();
-
+    uint32_t vn_max_flows = cfg->properties().max_flows;
     Agent::ForwardingMode forwarding_mode;
     CfgForwardingFlags(node, &enable_rpf, &flood_unknown_unicast,
                        &forwarding_mode, &mirror_destination);
@@ -1097,7 +1102,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
                       pbb_evpn_enable, layer2_control_word, slo_list,
                       underlay_forwarding, vxlan_routing_vn,
-                      logical_router_uuid, cfg_igmp_enable);
+                      logical_router_uuid, cfg_igmp_enable, vn_max_flows);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -1155,7 +1160,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
                               pbb_evpn_enable, layer2_control_word, empty_list,
-                              false, false, nil_uuid(), false);
+                              false, false, nil_uuid(), false, 0);
 
     req.data.reset(data);
     Enqueue(&req);
@@ -1262,6 +1267,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);
     data.set_cfg_igmp_enable(cfg_igmp_enable());
+    data.set_max_flows(vn_max_flows());
     return true;
 }
 

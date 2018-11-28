@@ -79,7 +79,8 @@ void VmEntry::update_flow_count(int val) const {
 
     if (val < 0) {
         assert(tmp >= val);
-        if ((tmp + val) < ((max_flows * kDropNewFlowsRecoveryThreshold)/100)) {
+        if ((tmp + val) <
+            ((max_flows * (Agent::kDropNewFlowsRecoveryThreshold))/100)) {
             SetInterfacesDropNewFlows(false);
         }
     } else {
