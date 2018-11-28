@@ -2130,6 +2130,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         rp_attr = RoutingPolicyType(sequence='1.0')
         vn1_obj.set_routing_policy(rp, rp_attr)
         self._vnc_lib.virtual_network_update(vn1_obj)
+        gevent.sleep(1)
 
         primary_ri = self._vnc_lib.routing_instance_read(
                                            fq_name=self.get_ri_name(vn1_obj))
