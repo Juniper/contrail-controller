@@ -6,6 +6,7 @@ import gevent
 from time import sleep
 sys.path.append("../common/tests")
 from test_utils import *
+from unittest import skip
 from vnc_api.vnc_api import *
 from cfgm_common.vnc_db import DBBase
 from device_api.juniper_common_xsd import *
@@ -563,6 +564,7 @@ class TestQfxBasicDM(TestCommonDM):
         self._vnc_lib.physical_interface_delete(fq_name=pi1.get_fq_name())
     # end test_acl_config
 
+    @skip
     def test_esi_config(self):
         self.product = 'qfx5110'
         FakeNetconfManager.set_model(self.product)
@@ -867,6 +869,7 @@ class TestQfxBasicDM(TestCommonDM):
         self.assertIsNotNone(DMCassandraDB.get_instance())
 
     # test dm private cassandra data
+    @skip
     def test_ae_id_alloc_cassandra(self):
         #wait for dm
         self.check_dm_state()
