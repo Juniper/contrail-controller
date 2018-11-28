@@ -109,12 +109,12 @@ class VncPodTask(VncCommon):
         return vmi_uuid
 
     def _create_vm(self, pod_task_id):
-        #pod_task_name = PodTaskMonitor.get_task_pod_name_from_cid(pod_task_id)
-        #if pod_task_name is None:
-        #    vm_obj = VirtualMachine(name=pod_task_id)
-        #else:
-        #    vm_obj = VirtualMachine(name=pod_task_name)
-        vm_obj = VirtualMachine(name=pod_task_id)
+        pod_task_name = PodTaskMonitor.get_task_pod_name_from_cid(pod_task_id)
+        if pod_task_name is None:
+            vm_obj = VirtualMachine(name=pod_task_id)
+        else:
+            vm_obj = VirtualMachine(name=pod_task_name)
+
         vm_obj.uuid = pod_task_id
         vm_obj.set_server_type("container")
 
@@ -264,9 +264,9 @@ class VncPodTask(VncCommon):
         if obj_labels.operation == 'ADD':
             self._logger.info('Add request.')
             vm = self.vnc_pod_task_add(obj_labels)
-            #if vm.uuid == vm.name:
-            #    event['event_type'] = vm.uuid
-            #    self._sync_queue.put(event)
+            if vm.uuid == vm.name:
+                event['event_type'] = vm.uuid
+                self._sync_queue.put(event)
         elif obj_labels.operation == 'DEL':
             self._logger.info('Delete request')
             vm = self.vnc_pod_task_delete(obj_labels.pod_task_uuid)
