@@ -398,6 +398,10 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
     SDWANKPIMetricsRecord sdwankpimetricrecord_source;
     SDWANKPIMetricsRecord sdwankpimetricrecord_destination;
+    SDWANTenantKPIMetricsRecord sdwantenantkpimetricrecord;
+    boost::shared_ptr<MessageConfig> message_config = config_obj->GetMessageConfig("APPTRACK_SESSION_CLOSE");
+    bool collect_auxilliary_stats = message_config->collect_auxilliary_stats();
+
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
@@ -410,6 +414,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     const std::string uvename = tenant + "::" + location + "::" + device_id;
     const std::string tenantuvename = region + "::" + opco + "::" + tenant;
     const std::string kpi_uvename_source = location;
+    const std::string kpi_uvename_tenant = tenant;
     const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
     const std::string nested_appname(SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN"));
     const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
@@ -425,6 +430,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     sdwanmetricrecord.set_name(uvename);
     sdwantenantmetricrecord.set_name(tenantuvename);
     sdwankpimetricrecord_source.set_name(kpi_uvename_source);
+    sdwantenantkpimetricrecord.set_name(kpi_uvename_tenant);
 
     std::string link1, link2, underlay_link1, underlay_link2;
     int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
@@ -607,6 +613,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     SDWANKPIMetrics_diff sdwankpimetricdiff;
     std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_source;
     std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_destination;
+    std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_tenant;
     if (is_close) {
       const std::string routing_instance (SyslogParser::GetMapVals(v, "routing-instance", "UNKNOWN"));
       const std::string vpn_name = get_VPNName(routing_instance);
@@ -615,41 +622,56 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
       sdwankpimetricdiff.set_session_close_count(1);
       sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
       IPNetwork found_lan = config_obj->FindNetwork(destination_address, vpn_name);
-      LOG(DEBUG,"destination address "<< destination_address  <<" in VPN " << vpn_name <<
-       " belongs to site : " << found_lan.id);
-      std::string destination_site = found_lan.id;
-
-      const std::string kpi_uvename_destination = destination_site;
-      sdwankpimetricrecord_destination.set_name(kpi_uvename_destination);
-
-      std::string searchHubInterface = destination_interface_name + ",";
-      std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
-
-       // map key should be destination site for source UVE and source site for destination UVE
-      std::string kpimetricdiff_key_source(destination_site);
-      std::string kpimetricdiff_key_destination(location);
-      LOG(DEBUG,"UVE: KPI key destination : " << kpimetricdiff_key_source);
-      LOG(DEBUG,"UVE: KPI key source : " << kpimetricdiff_key_destination);
-      sdwan_kpi_metrics_diff_source.insert(std::make_pair(kpimetricdiff_key_source, sdwankpimetricdiff));
-      sdwan_kpi_metrics_diff_destination.insert(std::make_pair(kpimetricdiff_key_destination, sdwankpimetricdiff));
-
-      if (destination_interface_name_found != std::string::npos){
-        LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" found in hubs_interfaces" );
-
-        sdwankpimetricrecord_source.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_source);
-        sdwankpimetricrecord_destination.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_destination);
+      std::string destination_site;
+      if (found_lan.id.empty()){
+        destination_site = "UNKNOWN";
       }
-      else {
-        LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
-        
-        sdwankpimetricrecord_source.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_source);
-        sdwankpimetricrecord_destination.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_destination);
+      else{
+        destination_site = found_lan.id;
+      }
+      LOG(DEBUG,"destination address "<< destination_address  <<" in VPN " << vpn_name <<
+       " belongs to site : " << destination_site);
+      //send UVEs only if destination site is not equal to source site
+      if (location != destination_site) {
+        const std::string kpi_uvename_destination = destination_site;
+        sdwankpimetricrecord_destination.set_name(kpi_uvename_destination);
+
+        std::string searchHubInterface = destination_interface_name + ",";
+        std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
+
+        // map key should be destination site for source UVE and source site for destination UVE
+        std::string kpimetricdiff_key_source(destination_site);
+        std::string kpimetricdiff_key_destination(location);
+        LOG(DEBUG,"UVE: KPI key destination : " << kpimetricdiff_key_source);
+        LOG(DEBUG,"UVE: KPI key source : " << kpimetricdiff_key_destination);
+        sdwan_kpi_metrics_diff_source.insert(std::make_pair(kpimetricdiff_key_source, sdwankpimetricdiff));
+        sdwan_kpi_metrics_diff_destination.insert(std::make_pair(kpimetricdiff_key_destination, sdwankpimetricdiff));
+        sdwan_kpi_metrics_diff_tenant.insert(std::make_pair(tenant, sdwankpimetricdiff));
+
+        if (destination_interface_name_found != std::string::npos){
+          LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" found in hubs_interfaces" );
+
+          sdwankpimetricrecord_source.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_source);
+          sdwankpimetricrecord_destination.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_destination);
+          sdwantenantkpimetricrecord.set_kpi_metrics_hub_traffic(sdwan_kpi_metrics_diff_tenant);
+        }
+        else {
+          LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
+
+          sdwankpimetricrecord_source.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_source);
+          sdwankpimetricrecord_destination.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_destination);
+          sdwantenantkpimetricrecord.set_kpi_metrics_site_to_site_traffic(sdwan_kpi_metrics_diff_tenant);
+
+        }
+        SDWANKPIMetrics::Send(sdwankpimetricrecord_source,"ObjectCPETable");
+        SDWANKPIMetrics::Send(sdwankpimetricrecord_destination,"ObjectCPETable");
+        if (collect_auxilliary_stats){
+          SDWANTenantKPIMetrics::Send(sdwantenantkpimetricrecord,"ObjectCPETable");
+        }
+
       }
     }
     SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
-    SDWANKPIMetrics::Send(sdwankpimetricrecord_source,"ObjectCPETable");
-    SDWANKPIMetrics::Send(sdwankpimetricrecord_destination,"ObjectCPETable");
-
     return;
 }
 

@@ -103,6 +103,12 @@
      Property('structured-syslog-message-process-and-store',
               'structured-syslog-message', 'required', 'CRUD',
               'message is to be processed and stored or not') -->
+<xsd:element name="structured-syslog-message-collect-auxilliary-stats"
+     type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('structured-syslog-message-collect-auxilliary-stats',
+              'structured-syslog-message', 'required', 'CRUD',
+              'message is to be processed for collecting auxilliary stats or not') -->
 <xsd:element name="structured-syslog-message-process-and-summarize"
      type="xsd:boolean" default="false"/>
 <!--#IFMAP-SEMANTICS-IDL

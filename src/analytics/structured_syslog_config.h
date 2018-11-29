@@ -210,10 +210,10 @@ class MessageConfig {
     public:
         explicit MessageConfig(const std::string &name, const std::vector< std::string > &tags,
         const std::vector< std::string > &ints, bool process_and_store, bool forward,
-        bool process_before_forward, bool process_and_summarize, bool process_and_summarize_user):
+        bool process_before_forward, bool process_and_summarize, bool process_and_summarize_user, bool collect_auxilliary_stats):
             refreshed_(true), name_(name), tags_(tags), ints_(ints), process_and_store_(process_and_store),
             forward_(forward), process_before_forward_(process_before_forward), process_and_summarize_(process_and_summarize),
-            process_and_summarize_user_(process_and_summarize_user) {
+            process_and_summarize_user_(process_and_summarize_user), collect_auxilliary_stats_(collect_auxilliary_stats) {
         }
         bool operator==(const MessageConfig &rhs) {
             return rhs.IsMe(name_) && rhs.tags().size() == tags_.size() &&
@@ -224,7 +224,8 @@ class MessageConfig {
             rhs.process_and_store() == process_and_store_ &&
             rhs.process_before_forward() == process_before_forward_ &&
             rhs.process_and_summarize() == process_and_summarize_ &&
-            rhs.process_and_summarize_user() == process_and_summarize_user_;
+            rhs.process_and_summarize_user() == process_and_summarize_user_ &&
+            rhs.collect_auxilliary_stats() == collect_auxilliary_stats_;
         }
 
         const std::string name() { return name_; }
@@ -235,11 +236,12 @@ class MessageConfig {
         const bool process_and_summarize_user() const { return process_and_summarize_user_; }
         const bool forward() const { return forward_; }
         const bool process_before_forward() const { return process_before_forward_; }
+        const bool collect_auxilliary_stats() const { return collect_auxilliary_stats_; }
         bool IsMe(const std::string &name) const { return name == name_; }
         void Refresh(const std::string &name, const std::vector< std::string > &tags,
                      const std::vector< std::string > &ints, bool process_and_store,
                      bool forward, bool process_before_forward, bool process_and_summarize,
-                     bool process_and_summarize_user) {
+                     bool process_and_summarize_user, bool collect_auxilliary_stats) {
              if (tags.size() != tags_.size()) {
                  tags_ = tags;
              } else if (!(std::equal(tags.begin(), tags.end(), tags_.begin()))) {
@@ -256,6 +258,8 @@ class MessageConfig {
                 process_and_summarize_ = process_and_summarize;
              if (process_and_summarize_user_ != process_and_summarize_user)
                 process_and_summarize_user_ = process_and_summarize_user;
+             if (collect_auxilliary_stats_ != collect_auxilliary_stats)
+                collect_auxilliary_stats_ = collect_auxilliary_stats;
              if (forward_ != forward)
                 forward_ = forward;
              if (process_before_forward_ != process_before_forward)
@@ -274,6 +278,7 @@ class MessageConfig {
         bool                        process_before_forward_;
         bool                        process_and_summarize_;
         bool                        process_and_summarize_user_;
+        bool                        collect_auxilliary_stats_;
 };
 
 class SlaProfileRecord {
@@ -331,7 +336,7 @@ class StructuredSyslogConfig {
                                   const std::string &tenant_app_risk, const std::string &tenant_app_service_tags);
         void AddMessageConfig(const std::string &name, const std::vector< std::string > &tags,
                                   const std::vector< std::string > &ints, bool process_and_store,
-                                  const std::string &forward, bool process_and_summarize, bool process_and_summarize_user);
+                                  const std::string &forward, bool process_and_summarize, bool process_and_summarize_user, bool collect_auxilliary_stats);
         void AddSlaProfileRecord(const std::string &name, const std::string &sla_params);
         boost::shared_ptr<HostnameRecord> GetHostnameRecord(const std::string &name);
         boost::shared_ptr<ApplicationRecord> GetApplicationRecord(const std::string &name);

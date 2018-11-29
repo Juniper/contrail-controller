@@ -104,7 +104,7 @@ StructuredSyslogConfig::RefreshNetworksMap(const std::string location){
               indexes_to_be_deleted.push_back(i - it->second.begin());
             }
          }
-         for(std::vector<int>::iterator v = indexes_to_be_deleted.begin(); v != indexes_to_be_deleted.end(); v++) {
+         for(std::vector<int>::reverse_iterator v = indexes_to_be_deleted.rbegin(); v != indexes_to_be_deleted.rend(); ++v) {
           IPNetworks::iterator i = it->second.begin();
           it->second.erase(*v + i);
          }
@@ -118,8 +118,7 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
 {
     uint32_t network_addr = IPToUInt(ip);
     IPNetwork ip_network(network_addr, 0, ip);
-    std::string unknown_location = "UNKNOWN";
-    IPNetwork ip_network_not_found(0, 0, unknown_location);
+    std::string unknown_location;
 
     IPNetworks_map::iterator it = networks_map_.find(key);
     if (it  != networks_map_.end()) {
@@ -147,7 +146,8 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
     else {
         LOG(DEBUG, "VPN "<< key << " NOT found in Network MAP!");
     }
-    return ip_network_not_found;
+    //return ip_network_not_found;
+    return IPNetwork(0, 0, unknown_location);
  }
 
 void
@@ -319,6 +319,7 @@ StructuredSyslogConfig::MessageConfigsHandler(const contrail_rapidjson::Document
         bool process_and_store = false;
         bool process_and_summarize = false;
         bool process_and_summarize_user = false;
+        bool collect_auxilliary_stats = false;
 
         if (hr.HasMember("fq_name")) {
             const contrail_rapidjson::Value& fq_name = hr["fq_name"];
@@ -353,9 +354,12 @@ StructuredSyslogConfig::MessageConfigsHandler(const contrail_rapidjson::Document
         if (hr.HasMember("structured_syslog_message_process_and_summarize_user")) {
             process_and_summarize_user = hr["structured_syslog_message_process_and_summarize_user"].GetBool();
         }
+        if (hr.HasMember("structured_syslog_message_collect_auxilliary_stats")) {
+            collect_auxilliary_stats = hr["structured_syslog_message_collect_auxilliary_stats"].GetBool();
+        }
         if (add_update) {
             LOG(DEBUG, "Adding MessageConfig: " << name);
-            AddMessageConfig(name, tags, ints, process_and_store, forward, process_and_summarize, process_and_summarize_user);
+            AddMessageConfig(name, tags, ints, process_and_store, forward, process_and_summarize, process_and_summarize_user, collect_auxilliary_stats);
         } else {
             Cmc_t::iterator cit = message_configs_.find(name);
             if (cit != message_configs_.end()) {
@@ -552,7 +556,7 @@ void
 StructuredSyslogConfig::AddMessageConfig(const std::string &name,
         const std::vector< std::string > &tags, const std::vector< std::string > &ints,
         bool process_and_store, const std::string &forward_action, bool process_and_summarize, 
-        bool process_and_summarize_user) {
+        bool process_and_summarize_user, bool collect_auxilliary_stats) {
     bool forward = false, process_before_forward = false;
     if (forward_action == "forward-unprocessed") {
         forward = true;
@@ -564,11 +568,11 @@ StructuredSyslogConfig::AddMessageConfig(const std::string &name,
     Cmc_t::iterator it = message_configs_.find(name);
     if (it  != message_configs_.end()) {
         it->second->Refresh(name, tags, ints, process_and_store, forward, process_before_forward, 
-                            process_and_summarize, process_and_summarize_user);
+                            process_and_summarize, process_and_summarize_user, collect_auxilliary_stats);
     } else {
         boost::shared_ptr<MessageConfig> c(new MessageConfig(
                     name, tags, ints, process_and_store, forward, process_before_forward, 
-		    process_and_summarize, process_and_summarize_user));
+		    process_and_summarize, process_and_summarize_user, collect_auxilliary_stats));
         message_configs_.insert(std::make_pair<std::string,
                 boost::shared_ptr<MessageConfig> >(name, c));
     }

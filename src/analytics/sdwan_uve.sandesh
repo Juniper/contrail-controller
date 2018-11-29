@@ -205,3 +205,19 @@ struct SDWANKPIMetricsRecord {
 uve sandesh SDWANKPIMetrics {
     1: SDWANKPIMetricsRecord               data;
 }
+
+struct SDWANTenantKPIMetricsRecord {
+    1: string                           name (key="ObjectCPETable")
+    2: optional bool                    deleted
+
+    3: optional map<string, SDWANKPIMetrics_diff>      kpi_metrics_hub_traffic (hidden="yes",metric="diff")
+    4: optional map<string, SDWANKPIMetrics_diff_P_>   kpi_metrics_hub_traffic_5m (mstats="5-kpi_metrics_hub_traffic:DSSum:",tags=".__key")
+
+    5: optional map<string, SDWANKPIMetrics_diff>      kpi_metrics_site_to_site_traffic (hidden="yes",metric="diff")
+    6: optional map<string, SDWANKPIMetrics_diff_P_>   kpi_metrics_site_to_site_traffic_5m (mstats="5-kpi_metrics_site_to_site_traffic:DSSum:",tags=".__key")
+
+}(period="60")
+
+uve sandesh SDWANTenantKPIMetrics {
+    1: SDWANTenantKPIMetricsRecord               data;
+}
