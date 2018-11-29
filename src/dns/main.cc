@@ -163,8 +163,7 @@ int main(int argc, char *argv[]) {
     Dns::SetHttpPort(options.http_server_port());
     Dns::SetDnsPort(options.dns_server_port());
 
-    boost::system::error_code ec;
-    string hostname = host_name(ec);
+    string hostname = options.hostname()
     Dns::SetHostName(hostname);
 
     ConnectionStateManager::GetInstance();
