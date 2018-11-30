@@ -21,7 +21,6 @@ from cfgm_common.exceptions import (
     RefsExistError,
     NoIdError
 )
-from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import (
     Fabric,
     FabricNamespace,
@@ -1446,9 +1445,8 @@ class FilterModule(object):
                         fq_name=node_profile_fq_name,
                         fields=['node_profile_roles']
                     )
-                    device_roles['supported_roles'] = \
-                        node_profile_obj.get_node_profile_roles().\
-                        get_role_mappings()
+                    device_roles['supported_roles'] = node_profile_obj\
+                        .get_node_profile_roles().get_role_mappings()
 
             # validate role assignment against device's supported roles
             self._validate_role_assignments(
@@ -1815,12 +1813,17 @@ class FilterModule(object):
                 vnc_api.bgp_router_create(bgp_router_obj)
 
             device_obj.add_bgp_router(bgp_router_obj)
+        else:
+            self._logger.warn(
+                "Loopback interfaces are not found on device '%s', therefore"
+                "not creating the bgp router object" % device_obj.name
+            )
         # end if
         return bgp_router_obj
     # end _add_bgp_router
 
-    def _add_logical_router(self, vnc_api, device_obj, device_roles,
-                            fabric_name):
+    def _add_logical_router(
+            self, vnc_api, device_obj, device_roles, fabric_name):
         """
         Add logical-router object for this device if CRB gateway role
         :param vnc_api: <vnc_api.VncApi>
