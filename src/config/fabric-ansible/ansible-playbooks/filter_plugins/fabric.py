@@ -1684,6 +1684,11 @@ class FilterModule(object):
                 vnc_api.bgp_router_create(bgp_router_obj)
 
             device_obj.add_bgp_router(bgp_router_obj)
+        else:
+            self._logger.warn(
+                "Loopback interfaces are not found on device '%s', therefore"
+                "not creating the bgp router object" % device_obj.name
+            )
         # end if
         return bgp_router_obj
     # end _add_bgp_router
