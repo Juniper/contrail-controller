@@ -475,7 +475,13 @@ class SanityBase(object):
             response = r.json()
             job_uve = response.get('FabricJobExecution')
             if job_uve:
-                return job_uve['percentage_completed'][-1][0]["#text"]
+                percomp0 = job_uve['percentage_completed'][0]
+                percomp1 = job_uve['percentage_completed'][-1]
+                if "FabricAnsible" in percomp0[1]:
+                    percomp = percomp0[0]["#text"]
+                else:
+                    percomp = percomp1[0]["#text"]
+                return percomp
             else:
                 return "??"
         else:
