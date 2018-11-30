@@ -268,7 +268,7 @@ static BridgeDomainData *BuildData(Agent *agent, IFMapNode *node,
                                    const autogen::BridgeDomain *bd) {
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
-    uuid vn_uuid = nil_uuid();
+    boost::uuids::uuid vn_uuid = boost::uuids::nil_uuid();
     BridgeDomainData *bdd = new BridgeDomainData(agent, node);
 
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);

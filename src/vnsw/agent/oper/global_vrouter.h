@@ -6,6 +6,7 @@
 #define vnsw_agent_global_router_h_
 
 #include <cmn/agent_cmn.h>
+#include <oper/oper_db.h>
 #include <oper/ecmp_load_balance.h>
 #include <oper/agent_route_walker.h>
 

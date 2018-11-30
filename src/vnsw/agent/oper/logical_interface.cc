@@ -101,7 +101,7 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
     if (vm_interface_.get() && vmi->vn()) {
         vn_uuid_ = vmi->vn()->GetUuid();
     } else {
-        vn_uuid_ = nil_uuid();
+        vn_uuid_ = boost::uuids::nil_uuid();
     }
     if (old_vn_uuid != vn_uuid_)
         ret = true;
@@ -210,7 +210,7 @@ VlanLogicalInterfaceKey::~VlanLogicalInterfaceKey() {
 LogicalInterface *
 VlanLogicalInterfaceKey::AllocEntry(const InterfaceTable *table)
     const {
-    return new VlanLogicalInterface(uuid_, name_, 0, nil_uuid());
+    return new VlanLogicalInterface(uuid_, name_, 0, boost::uuids::nil_uuid());
 }
 
 LogicalInterface *
@@ -265,7 +265,7 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
     string phy_dev_display_name;
     string phy_intf_display_name;
     IFMapNode *adj_node = NULL;
-    boost::uuids::uuid dev_uuid = nil_uuid();
+    boost::uuids::uuid dev_uuid = boost::uuids::nil_uuid();
     adj_node = agent->config_manager()->FindAdjacentIFMapNode(node,
             "physical-interface");
     IFMapNode *prouter_node = NULL;
@@ -289,7 +289,7 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
     }
 
     // Find link with virtual-machine-interface adjacency
-    boost::uuids::uuid vmi_uuid = nil_uuid();
+    boost::uuids::uuid vmi_uuid = boost::uuids::nil_uuid();
     adj_node = agent->config_manager()->FindAdjacentIFMapNode
         (node, "virtual-machine-interface");
     if (adj_node) {
@@ -306,7 +306,7 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
         (node, "physical-router");
     if (adj_node) {
         dev_name = adj_node->name();
-        if (dev_uuid != nil_uuid()) {
+        if (dev_uuid != boost::uuids::nil_uuid()) {
             IFMAP_ERROR(LogicalInterfaceConfiguration,
                 "Both physical-router and physical-interface links for "
                 "interface:", node->name(),
