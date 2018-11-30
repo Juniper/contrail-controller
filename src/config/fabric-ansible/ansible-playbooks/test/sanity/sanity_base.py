@@ -475,7 +475,7 @@ class SanityBase(object):
             response = r.json()
             job_uve = response.get('FabricJobExecution')
             if job_uve:
-                return job_uve['percentage_completed'][-1][0]["#text"]
+               return job_uve['percentage_completed'][-1][0]["#text"]
             else:
                 return "??"
         else:
