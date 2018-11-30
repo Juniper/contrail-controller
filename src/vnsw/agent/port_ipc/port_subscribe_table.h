@@ -197,7 +197,9 @@ public:
             vm_uuid_(vm_uuid), vn_uuid_(vn_uuid), vmi_uuid_(vmi_uuid) {
         }
         VmVnUuidEntry() :
-            vm_uuid_(nil_uuid()), vn_uuid_(nil_uuid()), vmi_uuid_(nil_uuid()) {
+            vm_uuid_(boost::uuids::nil_uuid()),
+            vn_uuid_(boost::uuids::nil_uuid()),
+            vmi_uuid_(boost::uuids::nil_uuid()) {
         }
         virtual ~VmVnUuidEntry() { }
         bool operator()(const VmVnUuidEntry &lhs,

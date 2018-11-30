@@ -55,8 +55,8 @@ typedef std::auto_ptr<FlowEntryInfo> FlowMgmtEntryInfoPtr;
 // following struct.
 ////////////////////////////////////////////////////////////////////////////
 struct RevFlowDepParams {
-    uuid rev_uuid_;
-    uuid rev_egress_uuid_;
+    boost::uuids::uuid rev_uuid_;
+    boost::uuids::uuid rev_egress_uuid_;
     IpAddress sip_;
     std::string vmi_uuid_;
     std::string sg_uuid_;
@@ -70,7 +70,8 @@ struct RevFlowDepParams {
                          nw_ace_uuid_(), action_info_() {
     }
 
-    RevFlowDepParams(const uuid &rev_uuid, const uuid &rev_egress_uuid,
+    RevFlowDepParams(const boost::uuids::uuid &rev_uuid,
+                     const boost::uuids::uuid &rev_egress_uuid,
                      IpAddress sip,
                      const std::string &vmi_uuid,
                      const std::string &sg_uuid,

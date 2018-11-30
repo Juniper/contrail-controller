@@ -940,7 +940,8 @@ void DnsHandler::SendDnsResponse() {
     dns_resp_size_ += data_len + eth_len;
     pkt_info_->set_len(dns_resp_size_);
 
-    PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
+    PacketInterfaceKey key(
+        boost::uuids::nil_uuid(), agent()->pkt_interface_name());
     Interface *pkt_itf = static_cast<Interface *>
                          (agent()->interface_table()->FindActiveEntry(&key));
     if (pkt_itf) {

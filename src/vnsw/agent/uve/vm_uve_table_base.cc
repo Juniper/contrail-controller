@@ -6,6 +6,8 @@
 #include <uve/vm_uve_table_base.h>
 #include <uve/agent_uve_base.h>
 
+using boost::uuids::nil_uuid;
+
 VmUveTableBase::VmUveTableBase(Agent *agent, uint32_t default_intvl)
     : uve_vm_map_(), agent_(agent), uve_vm_map_mutex_(),
       intf_listener_id_(DBTableBase::kInvalidId),
@@ -296,6 +298,3 @@ void VmUveTableBase::Shutdown(void) {
         timer_ = NULL;
     }
 }
-
-
-

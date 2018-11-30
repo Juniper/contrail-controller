@@ -49,6 +49,7 @@
 #include <uve/flow_uve_stats_request.h>
 
 using namespace boost::asio::ip;
+using boost::uuids::nil_uuid;
 
 const std::map<FlowEntry::FlowPolicyState, const char*>
     FlowEntry::FlowPolicyStateStr = boost::assign::map_list_of
@@ -2261,7 +2262,7 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
     //     and sp->m_out_acl_l will be populated. Pick the
     //     UUID specified by acl_info for flow's SG rule UUID
     // For TCP-ACK flows
-    //     ALLOW if both ((policy.action && out_action) && 
+    //     ALLOW if both ((policy.action && out_action) &&
     //                      (policy.reverse_action & policy.reverse_out_action))
     //                      ALLOW
     //     For flow's SG rule UUID use the following rules

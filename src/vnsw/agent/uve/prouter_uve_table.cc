@@ -6,6 +6,8 @@
 #include <uve/prouter_uve_table.h>
 #include <uve/agent_uve_base.h>
 
+using boost::uuids::nil_uuid;
+
 SandeshTraceBufferPtr ProuterUveTraceBuf(SandeshTraceBufferCreate
                                          ("ProuterUve", 500));
 
@@ -669,7 +671,7 @@ void ProuterUveTable::VMInterfaceAdd(const VmInterface *vmi) {
 }
 
 void ProuterUveTable::VMInterfaceRemove(const boost::uuids::uuid &li,
-                                                   const VmInterface *vmi) {
+                                        const VmInterface *vmi) {
     LogicalInterfaceMap::iterator it = uve_logical_interface_map_.find(li);
     if (it != uve_logical_interface_map_.end()) {
         LogicalInterfaceUveEntry *entry = it->second.get();
