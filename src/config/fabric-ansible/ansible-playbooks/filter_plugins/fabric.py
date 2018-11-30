@@ -12,7 +12,6 @@ import traceback
 import argparse
 import json
 import uuid
-import time
 from netaddr import IPNetwork
 import jsonschema
 
@@ -22,7 +21,6 @@ from cfgm_common.exceptions import (
     RefsExistError,
     NoIdError
 )
-from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import (
     Fabric,
     FabricNamespace,
@@ -96,6 +94,7 @@ def _bgp_router_fq_name(device_name):
         device_name + '-bgp'
     ]
 # end _bgp_router_fq_name
+
 
 def _logical_router_fq_name(fabric_name):
     return [
@@ -1330,12 +1329,11 @@ class FilterModule(object):
 
             fabric_info = job_ctx.get('job_input')
             fabric_fq_name = fabric_info.get('fabric_fq_name')
-            fabric_obj = None
             if fabric_fq_name:
                 try:
-                    fabric_obj = vnc_api.fabric_read(fq_name=fabric_fq_name)
+                    vnc_api.fabric_read(fq_name=fabric_fq_name)
                 except NoIdError:
-                    self._logger.debug(
+                    self._logger.warn(
                         'Fabric does not exist: %s', fabric_fq_name
                     )
 
@@ -1416,9 +1414,7 @@ class FilterModule(object):
                 device2roles_mappings[device_obj] = device_roles
 
             # disable ibgp auto mesh to avoid O(n2) issue in schema transformer
-            self._enable_ibgp_auto_mesh(
-                vnc_api, device2roles_mappings.keys(), False
-            )
+            self._enable_ibgp_auto_mesh(vnc_api, False)
 
             # load supported roles from node profile assigned to the device
             for device_obj, device_roles in device2roles_mappings.iteritems():
@@ -1436,9 +1432,8 @@ class FilterModule(object):
                         fq_name=node_profile_fq_name,
                         fields=['node_profile_roles']
                     )
-                    device_roles['supported_roles'] = \
-                        node_profile_obj.get_node_profile_roles().\
-                            get_role_mappings()
+                    device_roles['supported_roles'] = node_profile_obj\
+                        .get_node_profile_roles().get_role_mappings()
 
             # validate role assignment against device's supported roles
             self._validate_role_assignment(role_assignments)
@@ -1453,7 +1448,6 @@ class FilterModule(object):
                 )
                 self._add_bgp_router(vnc_api, device_roles)
 
-
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
             # the devices
@@ -1461,9 +1455,7 @@ class FilterModule(object):
                 self._assign_device_roles(vnc_api, device_roles)
 
             # enable ibgp auto mesh now
-            self._enable_ibgp_auto_mesh(
-                vnc_api, device2roles_mappings.keys(), True
-            )
+            self._enable_ibgp_auto_mesh(vnc_api, True)
 
             return {
                 'status': 'success',
@@ -1481,10 +1473,10 @@ class FilterModule(object):
             }
     # end assign_roles
 
-    def _enable_ibgp_auto_mesh(self, vnc_api, device_objs, enable):
+    @staticmethod
+    def _enable_ibgp_auto_mesh(vnc_api, enable):
         """
         :param vnc_api: <vnc_api.VncApi>
-        :param device_obj: List<vnc_api.gen.resource_client.PhysicalRouter>
         :param enable: set to True to enable
         """
         gsc_obj = vnc_api.global_system_config_read(
@@ -1530,8 +1522,9 @@ class FilterModule(object):
                     else:
                         raise ValueError(
                             'role "%s : %s" is not supported. Here are the '
-                            'supported roles : %s' % (phys_role, rb_roles,
-                            supported_roles)
+                            'supported roles : %s' % (
+                                phys_role, rb_roles, supported_roles
+                            )
                         )
     # end _validate_role_assignments
 
@@ -1684,12 +1677,17 @@ class FilterModule(object):
                 vnc_api.bgp_router_create(bgp_router_obj)
 
             device_obj.add_bgp_router(bgp_router_obj)
+        else:
+            self._logger.warn(
+                "Loopback interfaces are not found on device '%s', therefore"
+                "not creating the bgp router object" % device_obj.name
+            )
         # end if
         return bgp_router_obj
     # end _add_bgp_router
 
-    def _add_logical_router(self, vnc_api, device_obj, device_roles,
-                            fabric_name):
+    def _add_logical_router(
+            self, vnc_api, device_obj, device_roles, fabric_name):
         """
         Add logical-router object for this device if CRB gateway role
         :param vnc_api: <vnc_api.VncApi>
@@ -1701,14 +1699,14 @@ class FilterModule(object):
                 'physical_role": 'leaf',
                 'routing_bridging_roles": ['CRB-Gateway']
             }
-        :param fabric_info: Fabric information containing fabric name
+        :param fabric_name: fabric name
         :return: None
         """
         logical_router_obj = None
+        rb_roles = device_roles.get('routing_bridging_roles') or []
+        logical_router_fq_name = _logical_router_fq_name(fabric_name)
+        logical_router_name = logical_router_fq_name[-1]
         try:
-            rb_roles = device_roles.get('routing_bridging_roles') or []
-            logical_router_fq_name = _logical_router_fq_name(fabric_name)
-            logical_router_name = logical_router_fq_name[-1]
             logical_router_obj = vnc_api.logical_router_read(
                 fq_name=logical_router_fq_name
             )
@@ -1719,7 +1717,9 @@ class FilterModule(object):
                 else:
                     if device_obj.get_logical_router_back_refs():
                         # delete the logical-router
-                        self._delete_logical_router(vnc_api, device_obj, fabric_name)
+                        self._delete_logical_router(
+                            vnc_api, device_obj, fabric_name
+                        )
                         logical_router_obj = None
         except NoIdError:
             if 'CRB-Gateway' in rb_roles:
@@ -2157,7 +2157,7 @@ def __main__():
         )
     elif parser.assign_roles:
         results = fabric_filter.assign_roles(
-            _mock_job_ctx_assign_roles(), _mock_supported_roles()
+            _mock_job_ctx_assign_roles()
         )
     print results
 # end __main__
