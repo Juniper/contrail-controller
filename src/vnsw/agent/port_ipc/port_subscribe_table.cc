@@ -216,7 +216,19 @@ void PortSubscribeTable::AddVmi(const boost::uuids::uuid &u,
     std::pair<VmiTree::iterator, bool> ret =
         vmi_tree_.insert(std::make_pair(u, entry));
     if (ret.second == false) {
-        ret.first->second->Update(entry.get());
+        // Could be a port add for an exisiting VMI with a different VM.
+        // If so need to handle as a del and add.
+        VmiSubscribeEntry *new_entry =
+        dynamic_cast<VmiSubscribeEntry *>(entry.get());
+        VmiSubscribeEntry *old_entry =
+            dynamic_cast<VmiSubscribeEntry *>(ret.first->second.get());
+        if (old_entry->vm_uuid() != new_entry->vm_uuid()) {
+            ret.first->second->OnDelete(agent_, this);
+            vmi_tree_.erase(ret.first);
+            ret = vmi_tree_.insert(std::make_pair(u, entry));
+        } else {
+            ret.first->second->Update(entry.get());
+        }
     }
 
     ret.first->second->OnAdd(agent_, this);
