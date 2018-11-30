@@ -43,6 +43,7 @@ local_sources = [
     'error_handler.yml',
     'discover_role.yml',
     'topo_discovery.yml',
+    'hitless_upgrade_strategy.yml',
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
