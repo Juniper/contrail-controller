@@ -2176,7 +2176,7 @@ void ConfigDBUUIDCacheReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
+    s0.taskId_ = scheduler->GetTaskId("config_client::Reader");
     s0.allocFn_ = ShowConfigDBUUIDCache::AllocBuffer;
     s0.cbFn_ = ShowConfigDBUUIDCache::BufferStage;
     for (int i = 0; i < ConfigClientManager::GetNumConfigReader(); ++i) {
@@ -2200,7 +2200,7 @@ void ConfigDBUUIDCacheReqIterate::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
+    s0.taskId_ = scheduler->GetTaskId("config_client::Reader");
     s0.allocFn_ = ShowConfigDBUUIDCache::AllocBuffer;
     s0.cbFn_ = ShowConfigDBUUIDCache::BufferStageIterate;
     for (int i = 0; i < ConfigClientManager::GetNumConfigReader(); ++i) {
@@ -2326,7 +2326,7 @@ void ConfigDBUUIDToFQNameReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
+    s0.taskId_ = scheduler->GetTaskId("config_client::Reader");
     s0.cbFn_ = ShowConfigDBUUIDToFQName::ProcessRequest;
     s0.instances_.push_back(0);
 
@@ -2340,7 +2340,7 @@ void ConfigDBUUIDToFQNameReqIterate::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
+    s0.taskId_ = scheduler->GetTaskId("config_client::Reader");
     s0.cbFn_ = ShowConfigDBUUIDToFQName::ProcessRequestIterate;
     s0.instances_.push_back(0);
 

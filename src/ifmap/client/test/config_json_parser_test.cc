@@ -43,7 +43,7 @@ public:
         retry_time_ms_(kUUIDReadRetryTimeInMsec) {
     }
 
-    virtual int UUIDRetryTimeInMSec(const ObjectCacheEntry *obj) const {
+    virtual int UUIDRetryTimeInMSec(const ObjCacheEntry *obj) const {
         return retry_time_ms_;
     }
 
@@ -52,27 +52,27 @@ public:
     }
 
     uint32_t GetUUIDReadRetryCount(string uuid) const {
-        const ObjectCacheEntry *obj = GetObjectCacheEntry(uuid);
+        const ObjCacheEntry *obj = GetObjCacheEntry(uuid);
         if (obj)
             return (obj->GetRetryCount());
         return 0;
     }
 
-    void RestartTimer(ObjectCacheEntry *obj, string uuid) {
+    void RestartTimer(ObjCacheEntry *obj, string uuid) {
         obj->GetRetryTimer()->Cancel();
         obj->GetRetryTimer()->Start(10,
                 boost::bind(
-                        &ConfigCassandraPartition::ObjectCacheEntry::
+                        &ConfigCassandraPartition::ObjCacheEntry::
                         CassReadRetryTimerExpired,
                         obj, uuid),
                 boost::bind(
-                        &ConfigCassandraPartition::ObjectCacheEntry::
+                        &ConfigCassandraPartition::ObjCacheEntry::
                         CassReadRetryTimerErrorHandler,
                         obj));
     }
 
     void FireUUIDReadRetryTimer(string uuid) {
-        ObjectCacheEntry *obj = GetObjectCacheEntry(uuid);
+        ObjCacheEntry *obj = GetObjCacheEntry(uuid);
         if (obj) {
             if (obj->IsRetryTimerCreated()) {
                 RestartTimer(obj, uuid);
@@ -2248,7 +2248,7 @@ TEST_F(ConfigJsonParserTest, ServerParser17InParts) {
     task_util::TaskFire(boost::bind(
                 &ConfigCassandraPartitionTest2::FireUUIDReadRetryTimer,
                 GetConfigCassandraPartition(uuid), uuid),
-                "cassandra::Reader",
+                "config_client::Reader",
                 GetConfigCassandraPartitionInstanceId(uuid));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, GetConfigCassandraPartitionUUIDReadRetryCount(uuid));
