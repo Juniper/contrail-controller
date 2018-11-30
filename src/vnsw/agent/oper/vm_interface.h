@@ -944,7 +944,7 @@ public:
 
         FatFlowEntry(): protocol(0), port(0),
             ignore_address(IGNORE_NONE), prefix_aggregate(AGGREGATE_NONE),
-            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0), 
+            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0),
             dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) {}
 
         FatFlowEntry(const FatFlowEntry &rhs):
@@ -1067,7 +1067,7 @@ public:
         }
     };
     struct BridgeDomain : ListEntry {
-        BridgeDomain(): uuid_(nil_uuid()), vlan_tag_(0),
+        BridgeDomain(): uuid_(boost::uuids::nil_uuid()), vlan_tag_(0),
             bridge_domain_(NULL) {}
         BridgeDomain(const BridgeDomain &rhs):
             uuid_(rhs.uuid_), vlan_tag_(rhs.vlan_tag_),
@@ -1858,7 +1858,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool cfg_igmp_enable_;
     bool igmp_enabled_;
     uint32_t max_flows_;
- 
+
     VmInterface::SecurityGroupEntryList sg_list_;
     VmInterface::TagEntryList tag_list_;
     VmInterface::FloatingIpList floating_ip_list_;
