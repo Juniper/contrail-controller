@@ -141,6 +141,63 @@ TEST_F(PortIpcTest, PortReload) {
     WAIT_FOR(500, 1000, ((port_count) == PortSubscribeSize(agent_)));
 }
 
+/* Reads files in a directory and adds port info into agent - 2 ports for
+   the same VM.
+   Subsequently, add port for different VM using the same VMI's. Ensure that
+   previous port information is removed and now port infomation is used.
+*/
+TEST_F(PortIpcTest, PortReloadAndAddWithDifferentVMSameVMI) {
+
+    const string dir = "controller/src/vnsw/agent/port_ipc/test/data";
+    uint32_t port_count = PortSubscribeSize(agent_);
+
+    //There are 2 files present in controller/src/vnsw/agent/port_ipc/test/data
+    pih_->ReloadAllPorts(dir, false, false);
+    client->WaitForIdle(2);
+
+    // Port count should increase by 2 as we have 2 ports
+    WAIT_FOR(500, 1000, ((port_count + 2) == PortSubscribeSize(agent_)));
+
+    // Call Add port for the same VMI's with a different VM.
+
+    AddPort("c8c0a3dd-ae36-4d0d-8952-72623f3f1a83",
+            "fefe5292-e2d4-4d9b-8982-6483bac44252",
+            "56297dc0-5553-4e6a-b87f-8423afc21e9d",
+            "9970147c-33b1-4bf7-8944-8968e708d430", "vm2", "tapc8c0a3dd-ae",
+            "11.0.0.4", "", "02:c8:c0:a3:dd:ae", VmiSubscribeEntry::REMOTE_PORT,
+            -1, -1);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count + 2) == PortSubscribeSize(agent_)));
+    AddPort("93c2c386-6e79-485e-bfa4-b9daa713133b",
+            "fefe5292-e2d4-4d9b-8982-6483bac44252",
+            "56297dc0-5553-4e6a-b87f-8423afc21e9d",
+            "9970147c-33b1-4bf7-8944-8968e708d430", "vm2", "tap93c2c386-6e",
+            "11.0.0.3", "", "02:93:c2:c3:86:6e", VmiSubscribeEntry::REMOTE_PORT,
+            -1, -1);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count + 2) == PortSubscribeSize(agent_)));
+    AddPort("c8c0a3dd-ae36-4d0d-8952-72623f3f1a83",
+            "69ce06bd-6d1e-43d0-8e48-a30043a49ed8",
+            "56297dc0-5553-4e6a-b87f-8423afc21e9d",
+            "9970147c-33b1-4bf7-8944-8968e708d430", "vm1", "tapc8c0a3dd-ae",
+            "11.0.0.4", "", "02:c8:c0:a3:dd:ae", VmiSubscribeEntry::REMOTE_PORT,
+            -1, -1);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count + 2) == PortSubscribeSize(agent_)));
+    AddPort("93c2c386-6e79-485e-bfa4-b9daa713133b",
+            "69ce06bd-6d1e-43d0-8e48-a30043a49ed8",
+            "56297dc0-5553-4e6a-b87f-8423afc21e9d",
+            "9970147c-33b1-4bf7-8944-8968e708d430", "vm1", "tap93c2c386-6e",
+            "11.0.0.3", "", "02:93:c2:c3:86:6e", VmiSubscribeEntry::REMOTE_PORT,
+            -1, -1);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count + 2) == PortSubscribeSize(agent_)));
+    //cleanup
+    DeleteAllPorts(dir);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count) == PortSubscribeSize(agent_)));
+}
+
 /* Add/delete a port */
 TEST_F(PortIpcTest, Vcenter_Port_Add_Del) {
 
