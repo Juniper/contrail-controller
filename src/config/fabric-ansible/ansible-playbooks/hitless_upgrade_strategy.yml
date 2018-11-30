@@ -1,0 +1,59 @@
+---
+- name: Determine upgrade strategy and start sending upgrade batches
+
+  hosts: localhost
+  connection: local
+
+  vars:
+    job_ctx: {"fabric_fqname": "Fabric-1", "job_input": {"fabric_uuid": "21eb0733-54b0-43ed-9626-7f48ab8ded4a"} }
+    image_upgrade_list: [{"image_uuid": "38833f29-abff-4834-84a6-7caa78e4c444", "device_list": ["57a8c72f-aa0f-4377-97e9-0d4039ed9268","0aaa320a-476b-4c06-a26e-58324825584a"]}, {"image_uuid": "0d4dc5e0-70e8-47a1-914a-3ef5423a73be", "device_list": ["76a5c2ad-b728-4e24-b331-e7ef5ee32208","7242250b-dc49-4bfe-9905-7cf8f83e487c","6346a50a-2f69-463f-ba9a-17db8300a08d","41aa39c8-5c9c-4df5-8dd5-bee266ffa655"]}]
+    batch_limit: 4
+    output: {"status":"", "message":""}
+
+  tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':1, 'task_weightage_array':[100] })}}"
+
+    - name: Create hitless upgrade plan
+      set_fact:
+        upgrade_plan: "{{ job_ctx | hitless_upgrade_plan(image_upgrade_list, batch_limit) }}"
+
+    - name: Print upgrade_plan
+      debug:
+        var: upgrade_plan
+
+    - name: Get first batch of devices and return to job manager
+      set_fact:
+        first_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, '') }}"
+
+    - block:
+        - set_fact:
+            op_err_message: "Failed to onboard fabric due to error: {{ output.error_msg }}"
+            jl_err_message: "Failed to onboard fabric due to error: {{ output.error_msg }}"
+            results: {}
+
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "{{ jl_err_message }}"
+
+        - pause: seconds=5
+
+        - name: handle failure
+          include_tasks: error_handler.yml
+      when: output.status == 'failure'
+
+#    - name: Update job log with percentage
+#      include_tasks: percentage_update.yml
+#      vars:
+#        current_index: 1
+#        jl_message: "Successfully created upgrade plan"
+
+    - name: set output parameter
+      set_fact:
+         output: "{{ output|combine({'status':'SUCCESS', 'message':'Created upgrade plan', 'device_json': first_batch})}}"
+
+    - name: Print output
+      debug:
+        var: output
