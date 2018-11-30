@@ -117,6 +117,7 @@
         object_dict: |
           {
             "uuid": "{{playbook_input.device_id}}",
+            "physical_router_os_version": "{{os_version}}",
             "physical_router_dataplane_ip": "{{dataplane_ip}}",
             "physical_router_loopback_ip": "{{dataplane_ip}}"
           }

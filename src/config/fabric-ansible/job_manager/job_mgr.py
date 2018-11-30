@@ -245,13 +245,23 @@ class WFManager(object):
                             len(playbook_list), buffer_task_percent=True,
                             total_percent=100)[0]  # using equal weightage
 
-                job_mgr = JobManager(self._logger, self._vnc_api,
-                                     self.job_input, self.job_log_utils,
-                                     job_template,
-                                     self.result_handler, self.job_utils, i,
-                                     job_percent)
+                while True:
+                    job_mgr = JobManager(self._logger, self._vnc_api,
+                                         self.job_input, self.job_log_utils,
+                                         job_template,
+                                         self.result_handler, self.job_utils, i,
+                                         job_percent)
+                    job_mgr.start_job()
 
-                job_mgr.start_job()
+                    # retry the playbook execution if retry_devices is added to
+                    # the playbook output
+                    job_status = self.result_handler.job_result_status
+                    retry_devices = self.result_handler.get_retry_devices()
+                    if job_status == JobStatus.FAILURE or not retry_devices:
+                        self.job_input['device_json'] = None
+                        break
+                    else:
+                        self.job_input['device_json'] = retry_devices
 
                 # stop the workflow if playbook failed
                 if self.result_handler.job_result_status == JobStatus.FAILURE:
