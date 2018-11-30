@@ -69,6 +69,8 @@ class JobManager(object):
 
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
 
+        self.multi_device_count = self.job_data.get('multi_device_count')
+
     def start_job(self):
         # spawn job greenlets
         job_handler = JobHandler(self._logger, self._vnc_api,
@@ -93,9 +95,11 @@ class JobManager(object):
     def handle_multi_device_job(self, job_handler, result_handler):
 
         job_worker_pool = Pool(self.max_job_task)
+        self._logger.error("MULTI-DEVICE-COUNT: {}".format(self.multi_device_count))
         job_percent_per_task = \
             self.job_log_utils.calculate_job_percentage(
-                len(self.device_json), buffer_task_percent=False,
+                self.multi_device_count or len(self.device_json),
+                buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
             if device_id in result_handler.failed_device_jobs:
