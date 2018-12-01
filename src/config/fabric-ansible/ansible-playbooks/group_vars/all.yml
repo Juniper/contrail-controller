@@ -187,8 +187,8 @@ ipmi_credentials:
   - admin:admin
   - admin:password
 
-ipmi_port_range:
-  - 623
+ipmi_port_ranges:
+  - 623-623
 
 contrail_command_node: 
   auth_host: 1.1.1.1
@@ -198,7 +198,7 @@ contrail_command_node:
 ironic_node:
   auth_url: http://10.10.10.10:5000/v3 
   username: admin
-  password: 905bee05b9f8dda6c3f5eee0aed8056e214b77f6
+  password: admin
   user_domain_name: default
   project_domain_name:  default
   project_name:  admin

@@ -313,11 +313,9 @@ class ImportIronicNodes(object):
         for node in node_ipmi_details:
             ironic_node = {}
             ironic_node['driver'] = 'pxe_ipmitool'
-            ironic_node['driver_info'] = {}
-            ironic_node['driver_info']['ipmi_address'] = node['address']
-            ironic_node['driver_info']['ipmi_port'] = node['port']
-            ironic_node['driver_info']['ipmi_username'] = node['username']
-            ironic_node['driver_info']['ipmi_password'] = node['password']
+            ironic_node['driver_info'] = {
+                str("ipmi_" + k): v for (k, v) in node
+            }
             try:
                 resp = self.ironic_client.node.create(**ironic_node)
                 print resp.uuid
@@ -355,18 +353,18 @@ def main(added_nodes_list=None, ironic_auth_args=None, cc_auth_args=None,
 
 if __name__ == '__main__':
     my_auth_args = {
-        'auth_url': 'http://10.87.82.34:5000/v3',
+        'auth_url': 'http://1.1.1.1:5000/v3',
         'username': "admin",
-        'password': "905bee05b9f8dda6c3f5eee0aed8056e214b77f6",
+        'password': "admin",
         'user_domain_name': 'default',
         'project_domain_name': 'default',
         'project_name': 'admin',
         'aaa_mode': None
     }
     cc_auth = {
-        'auth_host': "10.87.69.79",
+        'auth_host': "1.1.1.1",
         'username': "admin",
-        'password': "contrail123"
+        'password': "admin"
     }
     introspection_flag = False 
     try:

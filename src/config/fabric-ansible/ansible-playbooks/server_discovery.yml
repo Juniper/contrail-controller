@@ -1,9 +1,0 @@
----
-- name: get keystone token from ironic node
-  hosts: localhost
-  gather_facts: no
-  connection: local
-
-  tasks:
-    - include: ipmi_discovery.yml
-    - include: plugin_ironic.yml

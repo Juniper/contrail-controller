@@ -1,20 +1,23 @@
 ---
 - set_fact:
-    ip_address_list : "{{ipmi_subnets |expand_subnets() }}"
+    job_ctx: "{{job_ctx|combine({'total_task_count':4, 'task_weightage_array':[25,25,25,25] })}}"
+
+- set_fact:
+    ip_address_list : "{{ playbook_input |expand_subnets }}"
 - debug:
     msg: "SERVER DISCOVERY  {{ ip_address_list}}"
 
 - set_fact:
-    active_ip_addresses : "{{ ip_address_list | ping_sweep() }}"
+    active_ip_addresses : "{{ playbook_input | ping_sweep(ip_address_list) }}"
 - debug:
     msg: "SERVER DISCOVERY: Ping SWEEP  {{ active_ip_addresses}}"
 
 - set_fact:
-    valid_ipmi_details : "{{ active_ip_addresses | ipmi_auth_check(ipmi_credentials, ipmi_port_range) }}"
+    valid_ipmi_details : "{{ playbook_input | ipmi_auth_check(active_ip_addresses) }}"
 - debug:
     msg: "SERVER DISCOVERY: IPMI AUTH CHECK {{ valid_ipmi_details }}"
 
 - set_fact:
-    final_ipmi_details: "{{ valid_ipmi_details | check_nodes_with_cc(contrail_command_node) }}"
+    output: "{{ playbook_input | check_nodes_with_cc(valid_ipmi_details, contrail_command_node) }}"
 - debug:
-    msg: "SERVER DISCOVERY: CHECK WITH CC {{ final_ipmi_details }}"
+    msg: "SERVER DISCOVERY: CHECK WITH CC {{ output.final_ipmi_details }}"

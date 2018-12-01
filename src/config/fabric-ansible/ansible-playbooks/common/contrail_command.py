@@ -69,6 +69,7 @@ class CreateCCResource(object):
 
         self.set_ks_auth_sess()
         self.auth_token = self.keystone_session.get_token()
+        self.auth_headers['X-Auth-Token'] = self.auth_token
 
     def set_ks_auth_sess(self):
         self.keystone_auth = v3.Password(
@@ -111,7 +112,6 @@ class CreateCCNode(CreateCCResource):
 
     def create_cc_node(self, node_payload):
         cc_url = '%s%s' % (self.auth_uri, '/sync')
-        self.auth_headers['X-Auth-Token'] = self.auth_token
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
                                               data=json.dumps(node_payload),
@@ -121,8 +121,6 @@ class CreateCCNode(CreateCCResource):
 
     def get_cc_nodes(self ):
         cc_url = '%s%s' % (self.auth_uri, '/nodes?detail=true')
-        self.auth_headers['X-Auth-Token'] = self.auth_token
-
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
                                               request_type="get")
