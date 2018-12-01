@@ -1429,6 +1429,8 @@ class AddrMgmt(object):
                 db_df_gw = db_subnet.get('default_gateway')
                 if db_df_gw:
                     db_df_gw = db_df_gw.lower()
+                    if db_df_gw == 'none':
+                        db_df_gw = None
 
                 db_prefix = db_cidr.get('ip_prefix')
                 db_prefix_len = db_cidr.get('ip_prefix_len')
