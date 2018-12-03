@@ -3427,12 +3427,6 @@ class BgpRouterST(DBBaseST):
         if not is_rr_supported:
             return False
 
-        # Always create peering between control-nodes until control-node can
-        # be a route-reflector server (or bgp-router can support ermvpn afi)
-        if self.router_type == 'control-node' and \
-                router.router_type == 'control-node':
-            return False
-
         # No need to create peeering between RRs in the same cluster.
         if self.cluster_id and router.cluster_id:
             return self.cluster_id == router.cluster_id
