@@ -245,7 +245,7 @@ void ServicesSandesh::BfdStatsSandesh(std::string ctxt, bool more) {
         session.remote_port = key.remote_port;
 
         BFD::Session *bfd_session = server->SessionByKey(key);
-        ostringstream ss;
+        std::ostringstream ss;
         ss << bfd_session->local_state();
         session.local_status = ss.str();
         ss.clear();
