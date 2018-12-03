@@ -310,7 +310,7 @@ void DhcpLeaseDb::LoadLeaseFile() {
 }
 
 void DhcpLeaseDb::ReadLeaseFile(std::string &leases) {
-    ifstream ifile(lease_filename_.c_str());
+    std::ifstream ifile(lease_filename_.c_str());
     if (!ifile.good()) {
         ifile.close();
         DHCP_TRACE(Error, "Cannot open DHCP Lease file for reading : " <<
@@ -322,8 +322,8 @@ void DhcpLeaseDb::ReadLeaseFile(std::string &leases) {
     leases.reserve(ifile.tellg());
     ifile.seekg(0, std::ios::beg);
 
-    leases.assign((istreambuf_iterator<char>(ifile)),
-                   istreambuf_iterator<char>());
+    leases.assign((std::istreambuf_iterator<char>(ifile)),
+                   std::istreambuf_iterator<char>());
     ifile.close();
 }
 
@@ -331,7 +331,7 @@ void DhcpLeaseDb::ParseLeaseFile(const std::string &leases) {
     if (leases.empty())
         return;
 
-    istringstream sstream(leases);
+    std::istringstream sstream(leases);
     xml_document xdoc;
     xml_parse_result result = xdoc.load(sstream);
     if (!result) {

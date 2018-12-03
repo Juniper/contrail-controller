@@ -210,7 +210,7 @@ void Ping::RequestTimedOut(uint32_t seqno) {
 }
 
 void time_duration_to_string(time_duration &td, std::string &str) {
-    ostringstream td_str;
+    std::ostringstream td_str;
 
     if (td.minutes()) {
         td_str << td.minutes() << "m " << td.seconds() << "s";

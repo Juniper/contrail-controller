@@ -39,6 +39,10 @@
 
 using namespace boost::asio;
 using namespace autogen;
+
+using std::auto_ptr;
+using std::stringstream;
+
 using process::ConnectionType;
 using process::ConnectionStatus;
 using process::ConnectionState;

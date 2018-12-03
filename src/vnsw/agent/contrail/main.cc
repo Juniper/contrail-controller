@@ -57,21 +57,21 @@ int main(int argc, char *argv[]) {
     try {
         params.ParseArguments(argc, argv);
     } catch (...) {
-        cout << "Invalid arguments. ";
-        cout << params.options() << endl;
+        std::cout << "Invalid arguments. ";
+        std::cout << params.options() << std::endl;
         exit(0);
     }
 
     opt::variables_map var_map = params.var_map();
     if (var_map.count("help")) {
-        cout << params.options() << endl;
+        std::cout << params.options() << std::endl;
         exit(0);
     }
 
     if (var_map.count("version")) {
         string build_info;
         MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info);
-        cout << params.options() << endl;
+        std::cout << params.options() << std::endl;
         exit(0);
     }
 
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
         init_file = var_map["config_file"].as<string>();
         struct stat s;
         if (stat(init_file.c_str(), &s) != 0) {
-            cout << "Error opening config file <" << init_file
+            std::cout << "Error opening config file <" << init_file
                  << ">. Error number <" << errno << ">";
             exit(EINVAL);
         }

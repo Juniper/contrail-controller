@@ -44,7 +44,7 @@ void VmStatDocker::ReadCpuStat() {
 
     if (!cpu_stat_str.empty()) {
         //Convert string to double
-        stringstream ss(cpu_stat_str);
+        std::stringstream ss(cpu_stat_str);
         ss >> cpu_stat;
         //Convert from Nanoseconds to seconds
         cpu_stat = cpu_stat / kOneSecInNanoSecs;
@@ -158,7 +158,7 @@ void VmStatDocker::ReadPid() {
     if (pid_str.size() >= 2) {
         pid_str.erase(pid_str.size() - 1);
         //Convert string to uint32_t
-        stringstream ss(pid_str);
+        std::stringstream ss(pid_str);
         ss >> pid_;
     }
 

@@ -17,7 +17,7 @@
 
 static string InetRouteFlowMgmtKeyToString(uint16_t id,
                                            InetRouteFlowMgmtKey *key) {
-    stringstream ss;
+    std::stringstream ss;
     uint16_t plen = key->plen();
     ss << id << PktSandeshFlow::kDelimiter;
     ss << key->vrf_id() << PktSandeshFlow::kDelimiter;
@@ -269,7 +269,7 @@ void PktSandeshFlow::SendResponse(SandeshResponse *resp) {
 }
 
 string PktSandeshFlow::GetFlowKey(const FlowKey &key, uint16_t partition_id) {
-    stringstream ss;
+    std::stringstream ss;
     ss << partition_id << kDelimiter;
     ss << key.nh << kDelimiter;
     ss << key.src_port << kDelimiter;
@@ -281,12 +281,14 @@ string PktSandeshFlow::GetFlowKey(const FlowKey &key, uint16_t partition_id) {
 }
 
 bool PktSandeshFlow::SetFlowKey(string key) {
+    using std::istringstream;
+
     const char ch = kDelimiter;
     size_t n = std::count(key.begin(), key.end(), ch);
     if (n != 6) {
         return false;
     }
-    stringstream ss(key);
+    std::stringstream ss(key);
     string item, sip, dip;
     uint32_t proto = 0;
 
@@ -586,13 +588,13 @@ bool PktSandeshFlowStats::Run() {
         count++;
         if (count == kMaxFlowResponse) {
             if (it != flow_obj->flow_entry_map_.end()) {
-                ostringstream ostr;
+                std::ostringstream ostr;
                 ostr << proto_ << ":" << port_ << ":"
                     << GetFlowKey(fe->key(), partition_id_);
                 resp_->set_flow_key(ostr.str());
                 flow_key_set = true;
             } else {
-                ostringstream ostr;
+                std::ostringstream ostr;
                 FlowKey key;
                 ostr << proto_ << ":" << port_ << ":"
                     << GetFlowKey(key, ++partition_id_);
@@ -617,7 +619,7 @@ bool PktSandeshFlowStats::Run() {
     }
 
     if (!flow_key_set) {
-       ostringstream ostr;
+       std::ostringstream ostr;
        ostr << proto_ << ":" << port_ << ":" <<PktSandeshFlow::start_key;
        resp_->set_flow_key(ostr.str());
     }
@@ -630,13 +632,13 @@ bool PktSandeshFlowStats::SetProto(string &key) {
     if (n != 2) {
         return false;
     }
-    stringstream ss(key);
+    std::stringstream ss(key);
     string item;
     if (getline(ss, item, ':')) {
-        istringstream(item) >> proto_;
+        std::istringstream(item) >> proto_;
     }
     if (getline(ss, item, ':')) {
-        istringstream(item) >> port_;
+        std::istringstream(item) >> port_;
     }
     if (getline(ss, item)) {
         SetFlowKey(item);
@@ -658,7 +660,7 @@ void ShowFlowStatsCollector::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     FlowStatsCollectorRecordsResp *resp = new FlowStatsCollectorRecordsResp();
 
-    ostringstream ostr;
+    std::ostringstream ostr;
     ostr << get_protocol() << ":" << get_port() << ":" <<
         PktSandeshFlow::start_key;
     PktSandeshFlowStats *task = new PktSandeshFlowStats(agent, resp, context(),
@@ -706,13 +708,15 @@ void SandeshFlowTableInfoRequest::HandleRequest() const {
 
 static InetRouteFlowMgmtKey* StringToInetRouteFlowMgmtKey(const string &key,
                                                           uint16_t *id) {
+    using std::istringstream;
+
     Agent *agent = Agent::GetInstance();
     const char ch = PktSandeshFlow::kDelimiter;
     size_t n = std::count(key.begin(), key.end(), ch);
     if (n != 3) {
         return NULL;
     }
-    stringstream ss(key);
+    std::stringstream ss(key);
     string item, ip_str;
     uint32_t vrf_id = 0;
     uint16_t plen = 0, mgr_id = 0;
@@ -973,13 +977,15 @@ void SNatPerPortFlowList::HandleRequest() const {
 }
 
 void NextPerPortFlowList::HandleRequest() const {
+    using std::istringstream;
+
     uint16_t proto = 0;
     uint16_t port = 0;
     bool match_proto = false;
     bool match_port = false;
     std::string colon;
 
-    stringstream ss(port_key);
+    std::stringstream ss(port_key);
     string item;
     const char ch = ':';
 

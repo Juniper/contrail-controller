@@ -80,7 +80,7 @@ void VmStatKvm::ReadCpuStat() {
     if (cpu_stat_str.size() >= 2) {
         cpu_stat_str.erase(cpu_stat_str.size() - 1);
         //Convert string to double
-        stringstream ss(cpu_stat_str);
+        std::stringstream ss(cpu_stat_str);
         ss >> cpu_stat;
     }
 
@@ -244,13 +244,13 @@ void VmStatKvm::ReadDiskStat() {
     }
     if (virtual_size_str.size() >= 2) {
         //Convert string to uint32_t
-        stringstream ss(virtual_size_str);
+        std::stringstream ss(virtual_size_str);
         ss >> virtual_size_;
     }
 
     if (disk_size_str.size() >= 2) {
         //Convert string to uint32_t
-        stringstream ss(disk_size_str);
+        std::stringstream ss(disk_size_str);
         ss >> disk_size_;
     }
 

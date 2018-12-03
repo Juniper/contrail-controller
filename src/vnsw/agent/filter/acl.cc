@@ -990,13 +990,13 @@ void NextAclFlowReq::HandleRequest() const {
         resp->set_context(context());
         resp->Response();
     }
-    stringstream ss(key);
+    std::stringstream ss(key);
     string item, uuid;
     if (getline(ss, item, ':')) {
         uuid = item;
     }
     if (getline(ss, item, ':')) {
-        istringstream(item) >> last_count;
+        std::istringstream(item) >> last_count;
     }
 
     AclTable::AclFlowResponse(uuid, context(), last_count);
@@ -1018,7 +1018,7 @@ void NextAclFlowCountReq::HandleRequest() const {
         resp->set_context(context());
         resp->Response();
     }
-    stringstream ss(key);
+    std::stringstream ss(key);
     string uuid_str, item;
     std::string ace_id = "";
     if (getline(ss, item, ':')) {
