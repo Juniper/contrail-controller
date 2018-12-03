@@ -13,6 +13,7 @@ class DBEntryBase;
 class Agent;
 class DB;
 class GlobalVrouter;
+class BgpRouterConfig;
 class PathPreferenceModule;
 class IFMapDependencyManager;
 class MulticastHandler;
@@ -50,6 +51,9 @@ public:
     Agent *agent() const { return agent_; }
     MulticastHandler *multicast() const { return multicast_.get(); }
     GlobalVrouter *global_vrouter() const { return global_vrouter_.get(); }
+    BgpRouterConfig *bgp_router_config() const {
+        return bgp_router_config_.get();
+    }
     PathPreferenceModule *route_preference_module() const {
         return route_preference_module_.get();
     }
@@ -113,6 +117,7 @@ private:
 
     std::auto_ptr<VRouter> vrouter_;
     std::auto_ptr<GlobalVrouter> global_vrouter_;
+    std::auto_ptr<BgpRouterConfig> bgp_router_config_;
     std::auto_ptr<OperNetworkIpam> network_ipam_;
     std::auto_ptr<OperVirtualDns> virtual_dns_;
     std::auto_ptr<GlobalQosConfig> global_qos_config_;

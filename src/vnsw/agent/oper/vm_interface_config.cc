@@ -1603,8 +1603,12 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
          iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        // skip if oper-dbtable is available in ifmap node
         if (agent_->config_manager()->SkipNode(adj_node)) {
-            continue;
+            if (strcmp(adj_node->table()->Typename(),
+                        BGP_ROUTER_CONFIG_NAME) != 0) {
+                continue;
+            }
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_sg_table()) {

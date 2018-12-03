@@ -667,15 +667,33 @@ void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void AddStaticPreference(std::string intf_name, int intf_id, uint32_t value);
 bool VnMatch(VnListType &vn_list, std::string &vn);
-void SendBgpServiceConfig(const std::string &ip,
+void AddControlNodeZone(const std::string &name, int id);
+void DeleteControlNodeZone(const std::string &name);
+std::string GetBgpRouterXml(const std::string &ip,
+                            uint32_t &source_port,
+                            uint32_t &dest_port,
+                            const std::string &bgp_router_type);
+std::string AddBgpRouterConfig(const std::string &ip,
+                        uint32_t source_port,
+                        uint32_t dest_port,
+                        uint32_t id,
+                        const std::string &vrf_name,
+                        const std::string &bgp_router_type);
+void DeleteBgpRouterConfig(const std::string &ip,
+                           uint32_t source_port,
+                           const std::string &vrf_name);
+std::string AddBgpServiceConfig(const std::string &ip,
+                                uint32_t source_port,
+                                uint32_t dest_port,
+                                uint32_t id,
+                                const std::string &vmi_name,
+                                const std::string &vrf_name,
+                                const std::string &bgp_router_type,
+                                bool is_shared);
+void DeleteBgpServiceConfig(const std::string &ip,
                           uint32_t source_port,
-                          uint32_t dest_port,
-                          uint32_t id,
                           const std::string &vmi_name,
-                          const std::string &vrf_name,
-                          const std::string &bgp_router_type,
-                          bool deleted,
-                          bool is_shared);
+                          const std::string &vrf_name);
 void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,
