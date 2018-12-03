@@ -22,6 +22,7 @@
 #include "oper/qos_config.h"
 #include "oper/config_manager.h"
 #include "oper/vrouter.h"
+#include "oper/bgp_router.h"
 #include "oper/global_qos_config.h"
 #include "oper/global_system_config.h"
 #include "oper/global_vrouter.h"
@@ -91,7 +92,9 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "application-policy-set",
         "application-policy-set-firewall-policy",
         "bgp-as-a-service",
+        "bgpaas-control-node-zone",
         "bgp-router",
+        "control-node-zone",
         "firewall-policy",
         "firewall-rule",
         "floating-ip",
@@ -973,7 +976,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                           agent->oper_db()->virtual_dns());
     RegisterConfigHandler(this, "global-vrouter-config",
                           agent->oper_db()->global_vrouter());
-     AddDependencyPath("bridge-domain",
+    RegisterConfigHandler(this, "bgp-router",
+                          agent->oper_db()->bgp_router_config());
+    AddDependencyPath("bridge-domain",
                       MakePath("virtual-network-bridge-domain",
                                "virtual-network", true,
                                "virtual-network-routing-instance",

@@ -17,6 +17,7 @@
 #include <cmn/agent.h>
 #include <oper/operdb_init.h>
 #include <oper/bgp_as_service.h>
+#include <oper/bgp_router.h>
 #include <oper/audit_list.h>
 #include <oper/agent_sandesh.h>
 #include <oper/config_manager.h>
@@ -103,6 +104,8 @@ void BgpAsAService::BgpAsAServiceList::Insert(const BgpAsAServiceEntry *rhs) {
 void BgpAsAService::BgpAsAServiceList::Update(const BgpAsAServiceEntry *lhs,
                                               const BgpAsAServiceEntry *rhs) {
     lhs->dest_port_ = rhs->dest_port_;
+    lhs->primary_control_node_zone_ = rhs->primary_control_node_zone_;
+    lhs->secondary_control_node_zone_ = rhs->secondary_control_node_zone_;
     if (rhs->health_check_configured_) {
         if (lhs->hc_delay_usecs_ != rhs->hc_delay_usecs_ ||
             lhs->hc_timeout_usecs_ != rhs->hc_timeout_usecs_ ||
@@ -179,6 +182,20 @@ static const std::string GetBgpRouterVrfName(const Agent *agent,
     return std::string();
 }
 
+static const std::string GetControlNodeZoneName(IFMapNode *node) {
+    IFMapAgentTable *table =
+        static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator it = node->begin(table->GetGraph());
+         it != node->end(table->GetGraph()); ++it) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
+        if (strcmp(adj_node->table()->Typename(),
+                CONTROL_NODE_ZONE_CONFIG_NAME) == 0) {
+            return adj_node->name();
+        }
+    }
+    return std::string();
+}
+
 void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                       std::list<IFMapNode *> &bgp_router_nodes,
                                       BgpAsAServiceEntryList &new_list,
@@ -197,6 +214,8 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
     uint64_t hc_delay_usecs = 0;
     uint64_t hc_timeout_usecs = 0;
     uint32_t hc_retries = 0;
+    std::string primary_control_node_zone;
+    std::string secondary_control_node_zone;
 
     // Find the health check config first
     for (DBGraphVertex::adjacency_iterator it = bgp_as_a_service_node->begin(table->GetGraph());
@@ -223,15 +242,35 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                hc->properties().timeoutUsecs;
             hc_retries = hc->properties().max_retries;
         }
+
+        if (strcmp(adj_node->table()->Typename(),
+                    BGPAAS_CONTROL_NODE_ZONE_CONFIG_NAME) == 0) {
+            autogen::BgpaasControlNodeZone
+                *bgpaas_cnz = static_cast<autogen::BgpaasControlNodeZone *>
+                    (adj_node->GetObject());
+            const autogen::BGPaaSControlNodeZoneAttributes &attr =
+                static_cast<autogen::BGPaaSControlNodeZoneAttributes>
+                    (bgpaas_cnz->data());
+            const std::string cnz_name = GetControlNodeZoneName(adj_node);
+            if (cnz_name.size()) {
+                if (strcmp(attr.bgpaas_control_node_zone_type.c_str(),
+                           "primary") == 0) {
+                    primary_control_node_zone = cnz_name;
+                    continue;
+                }
+                if (strcmp(attr.bgpaas_control_node_zone_type.c_str(),
+                           "secondary") == 0) {
+                    secondary_control_node_zone = cnz_name;
+                    continue;
+                }
+            }
+        }
     }
 
     //Look for neighbour bgp-router to take the source port
     for (DBGraphVertex::adjacency_iterator it = bgp_as_a_service_node->begin(table->GetGraph());
          it != bgp_as_a_service_node->end(table->GetGraph()); ++it) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
-        if (agent_->config_manager()->SkipNode(adj_node)) {
-            continue;
-        }
         if (strcmp(adj_node->table()->Typename(), BGP_ROUTER_CONFIG_NAME) == 0) {
             //Verify that bgp-router object is of use for this VMI.
             //List of valid bgp-router for vmi is in bgp_router_nodes.
@@ -276,7 +315,9 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                         bgp_as_a_service->bgpaas_shared(),
                                         hc_delay_usecs,
                                         hc_timeout_usecs,
-                                        hc_retries));
+                                        hc_retries,
+                                        primary_control_node_zone,
+                                        secondary_control_node_zone));
                 /*
                  * if it is same session then retain original source port
                  */
@@ -302,7 +343,9 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                                    bgp_as_a_service->bgpaas_shared(),
                                                    hc_delay_usecs,
                                                    hc_timeout_usecs,
-                                                   hc_retries));
+                                                   hc_retries,
+                                                   primary_control_node_zone,
+                                                   secondary_control_node_zone));
             }
         }
     }
@@ -524,49 +567,75 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
     const IpAddress &gw = vn->GetGatewayFromIpam(vm_ip);
     const IpAddress &dns = vn->GetDnsFromIpam(vm_ip);
 
-    boost::system::error_code ec;
+    std::stringstream ss;
     BgpAsAServiceEntryMapConstIterator map_it =
         bgp_as_a_service_entry_map_.find(vm_intf->GetUuid());
-    if (map_it == bgp_as_a_service_entry_map_.end()) return false;
+    if (map_it == bgp_as_a_service_entry_map_.end()) {
+        ss << "vmi-uuid:" << vm_intf->GetUuid() << " not found";
+        BGPASASERVICETRACE(Trace, ss.str().c_str());
+        return false;
+    }
 
+    BgpRouterConfig *bgp_router_cfg = agent_->oper_db()->bgp_router_config();
     BgpAsAServiceEntryListConstIterator it = map_it->second->list_.begin();
     while (it != map_it->second->list_.end()) {
+        if ((*it).local_peer_ip_ != source_ip) {
+            it++;
+            continue;
+        }
+        bool cnz_configured = it->IsControlNodeZoneConfigured();
+        BgpRouterPtr bgp_router;
+        IpAddress ip_address;
+        std::string xmpp_server;
+        std::string control_node_zone;
         if (dest == gw) {
-            if (agent_->controller_ifmap_xmpp_server(0).empty())
-                return false;
-            *nat_server =
-                IpAddress::from_string(agent_->
-                                       controller_ifmap_xmpp_server(0), ec);
-            if (ec.value() != 0) {
-                std::stringstream ss;
-                ss << "Ip address parsing failed for ";
-                ss << agent_->controller_ifmap_xmpp_server(0);
-                BGPASASERVICETRACE(Trace, ss.str().c_str());
-                return false;
+            if (cnz_configured) {
+                bgp_router = bgp_router_cfg->GetControlNodeZoneBgpRouter(
+                    it->primary_control_node_zone_);
+                control_node_zone = it->primary_control_node_zone_;
+            } else {
+                xmpp_server = agent_->controller_ifmap_xmpp_server(0);
+                if (xmpp_server.size())
+                    bgp_router = bgp_router_cfg->GetBgpRouter(xmpp_server);
             }
-            *sport = it->source_port_;
-            *dport = it->dest_port_?it->dest_port_:DefaultBgpPort;
-            return true;
-        }
-        if (dest == dns) {
-            if (agent_->controller_ifmap_xmpp_server(1).empty())
-                return false;
-            *nat_server =
-                IpAddress::from_string(agent_->
-                                       controller_ifmap_xmpp_server(1), ec);
-            if (ec.value() != 0) {
-                std::stringstream ss;
-                ss << "Ip address parsing failed for ";
-                ss << agent_->controller_ifmap_xmpp_server(1);
-                BGPASASERVICETRACE(Trace, ss.str().c_str());
-                return false;
+        } else if (dest == dns) {
+            if (cnz_configured) {
+                bgp_router = bgp_router_cfg->GetControlNodeZoneBgpRouter(
+                    it->secondary_control_node_zone_);
+                control_node_zone = it->secondary_control_node_zone_;
+            } else {
+                xmpp_server = agent_->controller_ifmap_xmpp_server(1);
+                if (xmpp_server.size())
+                    bgp_router = bgp_router_cfg->GetBgpRouter(xmpp_server);
             }
-            *sport = it->source_port_;
-            *dport = it->dest_port_?it->dest_port_:DefaultBgpPort;
-            return true;
+        } else {
+            it++;
+            continue;
         }
-        it++;
+        if (bgp_router.get() == NULL) {
+            ss << "BgpRouter not found.";
+            ss << " bgpaas-source-ip:" << source_ip.to_string();
+            ss << " bgpaas-destination-ip:" << dest.to_string();
+            ss << " control-node-zone:" << control_node_zone;
+            ss << " xmpp-server:" << xmpp_server;
+            BGPASASERVICETRACE(Trace, ss.str().c_str());
+            //reset bgp_peer_info for sandesh
+            it->bgp_peer_ip_ = IpAddress();
+            it->bgp_peer_port_ = 0;
+            return false;
+        }
+        *nat_server = bgp_router->ip4_address();
+        *sport = it->source_port_;
+        *dport = it->dest_port_?it->dest_port_:bgp_router->port();
+        //update bgp_peer_info for sandesh
+        it->bgp_peer_ip_ = *nat_server;
+        it->bgp_peer_port_ = *dport;
+        return true;
     }
+    ss << "BgpRouter not found ";
+    ss << " bgpaas-source-ip:" << source_ip.to_string();
+    ss << " bgpaas-destination-ip" << dest.to_string();
+    BGPASASERVICETRACE(Trace, ss.str().c_str());
     return false;
 }
 
@@ -632,7 +701,9 @@ void BgpAsAService::UpdateBgpAsAServiceSessionInfo() {
                                     list_iter->is_shared_,
                                     list_iter->hc_delay_usecs_,
                                     list_iter->hc_timeout_usecs_,
-                                    list_iter->hc_retries_);
+                                    list_iter->hc_retries_,
+                                    list_iter->primary_control_node_zone_,
+                                    list_iter->secondary_control_node_zone_);
                 std::vector<ServiceDeleteCb>::iterator scb_it =
                     service_delete_cb_list_.begin();
                 while (scb_it != service_delete_cb_list_.end()) {
@@ -660,7 +731,8 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry() :
     health_check_configured_(false), health_check_uuid_(),
     new_health_check_add_(false),old_health_check_delete_(false),
     old_health_check_uuid_(),hc_delay_usecs_(0),
-    hc_timeout_usecs_(0), hc_retries_(0), is_shared_(false) {
+    hc_timeout_usecs_(0), hc_retries_(0), is_shared_(false),
+    primary_control_node_zone_(), secondary_control_node_zone_() {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
@@ -677,15 +749,17 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
     old_health_check_uuid_(rhs.old_health_check_uuid_),
     hc_delay_usecs_(rhs.hc_delay_usecs_),
     hc_timeout_usecs_(rhs.hc_timeout_usecs_),
-    hc_retries_(rhs.hc_retries_),
-    is_shared_(rhs.is_shared_) {
+    hc_retries_(rhs.hc_retries_), is_shared_(rhs.is_shared_),
+    primary_control_node_zone_(rhs.primary_control_node_zone_),
+    secondary_control_node_zone_(rhs.secondary_control_node_zone_) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 (const IpAddress &local_peer_ip, uint32_t source_port, uint32_t dest_port,
  bool health_check_configured, const boost::uuids::uuid &health_check_uuid,
  bool is_shared, uint64_t hc_delay_usecs, uint64_t hc_timeout_usecs,
- uint32_t hc_retries) :
+ uint32_t hc_retries, const std::string &primary_control_node_zone,
+ const std::string &secondary_control_node_zone) :
     VmInterface::ListEntry(),
     installed_(false),
     local_peer_ip_(local_peer_ip),
@@ -696,7 +770,9 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
     new_health_check_add_(health_check_configured),
     old_health_check_delete_(false), old_health_check_uuid_(),
     hc_delay_usecs_(hc_delay_usecs), hc_timeout_usecs_(hc_timeout_usecs),
-    hc_retries_(hc_retries), is_shared_(is_shared) {
+    hc_retries_(hc_retries), is_shared_(is_shared),
+    primary_control_node_zone_(primary_control_node_zone),
+    secondary_control_node_zone_(secondary_control_node_zone) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::~BgpAsAServiceEntry() {
@@ -720,6 +796,10 @@ bool BgpAsAService::BgpAsAServiceEntry::IsLess
         return source_port_ < rhs->source_port_;
     if (local_peer_ip_ != rhs->local_peer_ip_)
          return local_peer_ip_ < rhs->local_peer_ip_;
+    if (primary_control_node_zone_ != rhs->primary_control_node_zone_)
+        return primary_control_node_zone_ < rhs->primary_control_node_zone_;
+    if (secondary_control_node_zone_ != rhs->secondary_control_node_zone_)
+        return secondary_control_node_zone_ < rhs->secondary_control_node_zone_;
     return is_shared_ < rhs->is_shared_;
 }
 
@@ -756,6 +836,12 @@ void BgpAsAServiceSandeshReq::HandleRequest() const {
            entry.set_health_check_timeout_usecs((*it).hc_timeout_usecs_);
            entry.set_health_check_retries((*it).hc_retries_);
            entry.set_is_shared((*it).is_shared_);
+           entry.set_primary_control_node_zone(
+                (*it).primary_control_node_zone_);
+           entry.set_secondary_control_node_zone(
+                (*it).secondary_control_node_zone_);
+           entry.set_bgp_peer_ip((*it).bgp_peer_ip_.to_string());
+           entry.set_bgp_peer_port((*it).bgp_peer_port_);
            bgpaas_map.push_back(entry);
            it++;
        }
