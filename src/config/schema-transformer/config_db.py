@@ -3415,21 +3415,27 @@ class BgpRouterST(DBBaseST):
 
     def _is_route_reflector_supported(self):
         if self.cluster_id > 0:
-            return True
+            return False, False
+        cluster_rr_supported = False
+        control_rr_supported = False
         for router in self._dict.values():
-            if router.cluster_id > 0:
-                return True
-        return False
+            if router.cluster_id and router.cluster_id > 0:
+                if router.router_type == 'control-node':
+                    control_rr_supported = True
+                else:
+                    cluster_rr_supported = True
+        return cluster_rr_supported, control_rr_supported
     # end _is_route_reflector_supported
 
-    def skip_bgp_router_peering_add(self, router, is_rr_supported):
+    def skip_bgp_router_peering_add(self, router, cluster_rr_supported,
+                                   control_rr_supported):
         # If there is no RR, always add peering in order to create full mesh.
-        if not is_rr_supported:
+        if not cluster_rr_supported and not control_rr_supported:
             return False
 
         # Always create peering between control-nodes until control-node can
         # be a route-reflector server (or bgp-router can support ermvpn afi)
-        if self.router_type == 'control-node' and \
+        if (not control_rr_supported) and self.router_type == 'control-node' and \
                 router.router_type == 'control-node':
             return False
 
@@ -3459,7 +3465,8 @@ class BgpRouterST(DBBaseST):
                                    "%s: %s"%(self.name, str(e)))
             return
 
-        is_rr_supported = self._is_route_reflector_supported()
+        cluster_rr_supported, control_rr_supported = \
+                                     self._is_route_reflector_supported()
         peerings = set(':'.join(ref['to']) for ref in (obj.get_bgp_router_refs() or []))
         new_peerings_set = set()
         new_peerings_list = []
@@ -3471,7 +3478,8 @@ class BgpRouterST(DBBaseST):
                 continue
             if router.router_type in ('bgpaas-server', 'bgpaas-client'):
                 continue
-            if self.skip_bgp_router_peering_add(router, is_rr_supported):
+            if self.skip_bgp_router_peering_add(router, cluster_rr_supported,
+                                                control_rr_supported):
                 continue
 
             af = AddressFamilies(family=[])

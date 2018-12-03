@@ -99,7 +99,8 @@ class VerifyBgp(VerifyRouteTarget):
         self.assertEqual(len(ref_names), length)
         self.assertThat(ref_names, Contains(router2.get_fq_name()))
 
-    def create_bgp_router(self, name, vendor, asn=None, cluster_id=None):
+    def create_bgp_router(self, name, vendor, asn=None, cluster_id=None,
+                          router_type=None):
         ip_fabric_ri = self._vnc_lib.routing_instance_read(
             fq_name=['default-domain', 'default-project', 'ip-fabric', '__default__'])
         router = BgpRouter(name, parent_obj=ip_fabric_ri)
@@ -108,6 +109,8 @@ class VerifyBgp(VerifyRouteTarget):
         params.autonomous_system = asn
         if cluster_id:
             params.cluster_id = cluster_id
+        if router_type:
+            params.router_type = router_type
         router.set_bgp_router_parameters(params)
         self._vnc_lib.bgp_router_create(router)
         return router
@@ -516,6 +519,23 @@ class TestBgp(STTestCase, VerifyBgp):
         self.check_bgp_peering(router3, router1, 1)
         self.check_bgp_no_peering(router2, router3)
         self.check_bgp_no_peering(router3, router2)
+
+        # make routers as contrail controllers and route reflector is external
+        # router, contrail controllers should still create mesh
+        params2 = router2.get_bgp_router_parameters()
+        params2.router_type = 'control-node'
+        router2.set_bgp_router_parameters(params2)
+        self._vnc_lib.bgp_router_update(router2)
+        params3 = router2.get_bgp_router_parameters()
+        params3.router_type = 'control-node'
+        router3.set_bgp_router_parameters(params3)
+        self._vnc_lib.bgp_router_update(router3)
+        gevent.sleep(1)
+
+        # verify full mesh created
+        self.check_bgp_peering(router1, router2, 2)
+        self.check_bgp_peering(router1, router3, 2)
+        self.check_bgp_peering(router2, router1, 2)
 
         # reset the cluster id so that there is no rr any more
         params.cluster_id = 0
