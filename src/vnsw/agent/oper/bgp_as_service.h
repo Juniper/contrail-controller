@@ -54,6 +54,7 @@
 
 #define BGP_ROUTER_CONFIG_NAME "bgp-router"
 #define BGP_AS_SERVICE_CONFIG_NAME "bgp-as-a-service"
+#define BGPAAS_CONTROL_NODE_ZONE_CONFIG_NAME "bgpaas-control-node-zone"
 #define VALID_BGP_ROUTER_TYPE "bgpaas-client"
 
 extern SandeshTraceBufferPtr BgpAsAServiceTraceBuf;
@@ -83,12 +84,19 @@ public:
                            bool is_shared,
                            uint64_t hc_delay_usecs,
                            uint64_t hc_timeout_usecs,
-                           uint32_t hc_retries);
+                           uint32_t hc_retries,
+                           const std::string &primary_control_node_zone,
+                           const std::string &secondary_control_node_zone);
         ~BgpAsAServiceEntry();
         bool operator == (const BgpAsAServiceEntry &rhs) const;
         bool operator() (const BgpAsAServiceEntry &lhs,
                          const BgpAsAServiceEntry &rhs) const;
         bool IsLess(const BgpAsAServiceEntry *rhs) const;
+
+        bool IsControlNodeZoneConfigured() const {
+            return (primary_control_node_zone_.size() ||
+                secondary_control_node_zone_.size());
+        }
 
         bool installed_;
         IpAddress local_peer_ip_;
@@ -105,6 +113,10 @@ public:
         mutable uint64_t hc_timeout_usecs_;
         mutable uint32_t hc_retries_;
         bool is_shared_;
+        mutable IpAddress bgp_peer_ip_;
+        mutable uint32_t bgp_peer_port_;
+        mutable std::string primary_control_node_zone_;
+        mutable std::string secondary_control_node_zone_;
     };
     typedef std::set<BgpAsAServiceEntry, BgpAsAServiceEntry> BgpAsAServiceEntryList;
     typedef BgpAsAServiceEntryList::iterator BgpAsAServiceEntryListIterator;
