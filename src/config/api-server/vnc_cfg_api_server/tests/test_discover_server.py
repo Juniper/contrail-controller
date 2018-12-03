@@ -36,7 +36,7 @@ class ServerDiscoveryJob(object):
         self._api_server_config = api_server_config
         self._job_id = None
         self._job_status = ServerDiscoveryStatus.INIT
-        self._ipmi_subnet_list = job_input['ipmi_subnet_list']
+        self._ipmi_subnet_list = job_input['ipmi']['ipmi_subnet_list']
         super(ServerDiscoveryJob, self).__init__()
     # end __init__
 
@@ -145,10 +145,10 @@ def main():
     """Main entry point for the script."""
     fabric_fq_name = [
         'default-global-system-config', "abc"]
-    job_input = {
+    ipmi_config = {
         "ipmi_subnet_list": [
-            "10.87.82.5/32",
-            "10.87.82.7/32"
+            "10.10.10.10/32",
+            "20.20.20.0/24"
         ],
         "ipmi_credentials": [
             "admin:admin",
@@ -157,17 +157,32 @@ def main():
         ],
         "ipmi_port_ranges": [
             "623-623"
-        ],
+        ]
+    }
+    ironic_config = {
+        "auth_url": "http://1.1.1.1:5000/v3",
+        "username": "admin",
+        "password": "password"
+    }
+    cc_config = {
+        "auth_host": "1.1.1.2",
+        "username": "admin",
+        "password": "password"
+    }
+    job_input = {
+        "ipmi": ipmi_config,
+        "ironic": ironic_config,
+        "contrail_command": cc_config,
         "fabric_fq_name": fabric_fq_name
     }
     job_template_fq_name = [
         'default-global-system-config', 'discover_server_template']
 
     api_server_config = {
-        'api_server_host': '10.87.82.2',
+        'api_server_host': '1.1.1.3',
         'api_server_port': '8082',
         'username': 'admin',
-        'password': 'contrail123',
+        'password': 'password',
         'tenant_name': 'admin',
         'api_server_use_ssl': False
     }

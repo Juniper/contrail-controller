@@ -91,10 +91,8 @@ class ImportIronicNodes(object):
         self.set_ks_auth_sess()
         self.set_ironic_clients()
         self.auth_token = self.keystone_session.get_token()
-        print "Auth Token: " + str(self.auth_token)
         self.auth_headers['X-Auth-Token'] = self.auth_token
         self.cc_node = CreateCCNode(cc_auth_args)
-        print "CC Auth Token: " + str(self.cc_node.auth_token)
 
     def set_ks_auth_sess(self):
         self.keystone_auth = v3.Password(
@@ -267,9 +265,7 @@ class ImportIronicNodes(object):
 
     def convert_port_format(self, port_list, introspection_data, uuid):
         cc_port_list = []
-        pxe_enabled_port = ""
         generated_hostname = ""
-        pxe_mac = ""
         processed_interface_dict = self.get_processed_if_data(
          introspection_data)
 
@@ -291,7 +287,6 @@ class ImportIronicNodes(object):
         return generated_hostname, cc_port_list
 
     def create_cc_node(self, node_dict):
-        print node_dict
         port_list = self.ironic_client.port.list(
             node=node_dict['uuid'], detail=True)
         introspection_data = self.ironic_inspector_client.get_data(
@@ -314,7 +309,7 @@ class ImportIronicNodes(object):
             ironic_node = {}
             ironic_node['driver'] = 'pxe_ipmitool'
             ironic_node['driver_info'] = {
-                str("ipmi_" + k): v for (k, v) in node
+                str("ipmi_" + k): v for (k, v) in node.iteritems()
             }
             try:
                 resp = self.ironic_client.node.create(**ironic_node)
@@ -323,6 +318,7 @@ class ImportIronicNodes(object):
                 registered_nodes_list.append(node)
             except Exception as error:
                 print "ERROR: ", error
+                raise error
 
         return registered_nodes_list
         
@@ -335,6 +331,7 @@ class ImportIronicNodes(object):
             except Exception as error:
                 node['inspect'] = False
                 print "ERROR: ", error
+                raise error
         return registered_nodes
 
 

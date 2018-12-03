@@ -138,13 +138,10 @@ class FilterModule(object):
         # TODO: returning all nodes as of now, it must be the diff of nodes 
         # from CC and ipmi_nodes_details
         final_ipmi_details = []
-        print cc_node_details
         cc_node = CreateCCNode(cc_node_details)
         cc_nodes = cc_node.get_cc_nodes()
-        #pprint.pprint(cc_nodes)
         cc_node_data = []
         for node in cc_nodes['nodes']:
-            #pprint.pprint(node)
             cc_node = {}
             if node.get('bms_info') \
                 and node['bms_info'].get('driver_info') \
@@ -160,16 +157,13 @@ class FilterModule(object):
 
                 cc_node_data.append(cc_node)
 
-        pprint.pprint(cc_node_data)
         for ipmi_node in ipmi_nodes_detail:
             node_found_in_cc = False
             for cc_node in cc_node_data:
-                #print "NODE CC", cc_node, ipmi_node
                 if ipmi_node['address'] == cc_node['ipmi_address'] \
                     and int(ipmi_node['port']) == int(cc_node['ipmi_port']):
                     # node is already there in contrail-command, skip for 
                     # introspection
-                    print "NODE FOUND IN CC", cc_node
                     node_found_in_cc = True
                     break
 
@@ -179,7 +173,7 @@ class FilterModule(object):
         return {
             'status': 'success',
             'final_ipmi_details': final_ipmi_details,
-            'onboard_log': DiscoveryLog.instance().dump()
+            'discover_log': DiscoveryLog.instance().dump()
         }
 
 
@@ -189,7 +183,6 @@ class FilterModule(object):
 
         host_params = retry_queue.get_nowait()
         host = host_params['address']
-        print host, len(host)
         try:
             ping_output = subprocess.Popen(
                 ['ping', '-W', '1', '-c', '2', host], stdout=subprocess.PIPE)
@@ -207,9 +200,7 @@ class FilterModule(object):
       input_queue = queue.Queue()
       result_queue = queue.Queue()
 
-      print ipaddr_list
       for address in ipaddr_list:
-        print address
         host_map_dict = {
           'address': str(address)
         }
@@ -217,16 +208,12 @@ class FilterModule(object):
 
       self.call_gevent_func(input_queue, result_queue, self.ping_check)
 
-      print ("RESULTS" , result_queue.qsize())
       ping_sweep_success_list = []
       while result_queue.qsize() != 0:
         result = result_queue.get()
         if result['result']:
-          print "HOST PING PASSED", result['address']
           ping_sweep_success_list.append(result['address'])
-        #print result
 
-      print "PING SWEEP DONE"
       return ping_sweep_success_list
 
     # ***************** expand_subnets filter *********************************
@@ -238,16 +225,28 @@ class FilterModule(object):
             {
                 "auth_token": "EB9ABC546F98",
                 "job_input": {
-                    "ipmi_subnet_list": [
-                        "30.1.1.1/24"
-                    ],
-                    "ipmi_cred_list": [
-                        "admin:admin",
-                        "admin:password"
-                    ],
-                    "ipmi_port_ranges": [
-                        "623-623"
-                    ]
+                    "ipmi": {
+                        "ipmi_subnet_list": [
+                            "30.1.1.1/24"
+                        ],
+                        "ipmi_cred_list": [
+                           "admin:admin",
+                           "admin:password"
+                        ],
+                        "ipmi_port_ranges": [
+                            "623-623"
+                        ]
+                    },
+                    "ironic": {
+                        "auth_url": "",
+                        "username": "",
+                        "password": ""
+                    },
+                    "contrail_command": {
+                        "auth_host": "",
+                        "username": "",
+                        "password": ""
+                    }
                 }
             }
         :return: Dictionary
@@ -276,16 +275,14 @@ class FilterModule(object):
             }
 
         self._logger.info("Job INPUT:\n" + str(job_input))
-        ipmi_subnets = job_input.get('ipmi_subnet_list')
+        ipmi_config = job_input.get('ipmi')
+        ipmi_subnets = ipmi_config.get('ipmi_subnet_list')
         self._logger.info("Starting Server Discovery2")
-        print (ipmi_subnets)
         ipmi_addresses = []
 
         for subnet in ipmi_subnets:
-            print subnet
             for ipaddr in netaddr.IPNetwork(subnet):
                ipmi_addresses.append(str(ipaddr))
-        print (ipmi_addresses)
         return list(set(ipmi_addresses))
 
 
@@ -303,7 +300,6 @@ class FilterModule(object):
 
     def ipmi_check_power_status(self, address, ipmi_username, ipmi_password,
                                ipmi_port):
-        #print address , ipmi_port , ipmi_username, ipmi_password
         try:
             ipmi_output = subprocess.Popen(['/usr/bin/ipmitool', '-R', '2',
                                               '-I','lanplus',
@@ -316,19 +312,15 @@ class FilterModule(object):
                                           stderr=subprocess.PIPE)
             gevent.sleep(10)
             ipmi_output.wait()
-            #print address, "IPMI_OUTPUT_CODE", ipmi_output.returncode
             if ipmi_output.returncode == 0:
-                #print address, "IPMI CREDS ARE GOOD"
                 return True
             else:
-                #print address, "IPMI CREDS ARE BAD"
                 return False
         except Exception as ex:
             print address, "ERROR: SUBPROCESS.POPEN failed {} ".format(str(ex))
             return False
 
     def call_gevent_func(self, input_queue, result_queue, func_call):
-        print "INPUT-QUEUE: ", input_queue.qsize()
         concurrent = 500
         if input_queue.qsize() < concurrent:
             concurrent = input_queue.qsize()
@@ -359,16 +351,28 @@ class FilterModule(object):
             {
                 "auth_token": "EB9ABC546F98",
                 "job_input": {
-                    "ipmi_subnets": [
-                        "30.1.1.1/24"
-                    ]
-                    ipmi_credentials: [
-                        "admin:admin",
-                        "admin:password"
-                    ],
-                    ipmi_port_ranges: [
-                        "623-623"
-                    ]
+                    "ipmi": {
+                        "ipmi_subnet_list": [
+                            "30.1.1.1/24"
+                        ],
+                        "ipmi_cred_list": [
+                           "admin:admin",
+                           "admin:password"
+                        ],
+                        "ipmi_port_ranges": [
+                            "623-623"
+                        ]
+                    },
+                    "ironic": {
+                        "auth_url": "",
+                        "username": "",
+                        "password": ""
+                    },
+                    "contrail_command": {
+                        "auth_host": "",
+                        "username": "",
+                        "password": ""
+                    }
                 }
             }
         :return: Dictionary
@@ -395,22 +399,19 @@ class FilterModule(object):
                 'error_msg': errmsg,
                 'discovery_log': DiscoveryLog.instance().dump()
             }
-        ipmi_credentials = job_input.get('ipmi_credentials')
-        ipmi_port_ranges = job_input.get('ipmi_port_ranges')
-        print ipmi_credentials, len(ipmi_credentials)
-        print ipmi_port_ranges
+        ipmi_config = job_input.get('ipmi')
+        ipmi_credentials = ipmi_config.get('ipmi_credentials')
+        ipmi_port_ranges = ipmi_config.get('ipmi_port_ranges')
         valid_ipmi_details = []
         #expand ipmi_ports to port list
         port_list = []
         for ipmi_port_range in map(str, ipmi_port_ranges):
-            print ipmi_port_range
             if '-' in ipmi_port_range:
                 # we need to expand it.
                 port_range = ipmi_port_range.split('-')
                 if not (port_range[0].isdigit() and port_range[1].isdigit()):
                     print "BAD RANGE", ipmi_port_range
                     continue
-                print range(int(port_range[0]), int(port_range[1]))
                 #validate correct range
                 if int(port_range[1]) >= int(port_range[0]):
                     # we are good
@@ -423,16 +424,12 @@ class FilterModule(object):
                 # ignore it, report it
                 print "IGNORING " , ipmi_port_range
 
-        print port_list, len(port_list)
         final_port_list = list(set(port_list))
-        print final_port_list, len(final_port_list)
 
         validate_ipmi_details_queue = queue.Queue()
         result_queue = queue.Queue()
         for address in ipaddress_list:
             for item in itertools.product(final_port_list, ipmi_credentials):
-                #print item
-                #print item[0]
                 ipmi_username, ipmi_password = item[1].split(":")
                 ipmi_host_dict = {
                     'address'     : address,
@@ -442,7 +439,6 @@ class FilterModule(object):
                 }
                 validate_ipmi_details_queue.put(ipmi_host_dict)
 
-        print "TOTAL IP/PORT/CREDS COMBO to VERIFY",
         validate_ipmi_details_queue.qsize()
         
         self.call_gevent_func(validate_ipmi_details_queue, 
@@ -450,45 +446,136 @@ class FilterModule(object):
                               self.ipmi_check_gevent)
         while result_queue.qsize() != 0:
             result = result_queue.get()
-            #print result
             if result['valid']:
-                print ("HOST IPMI PASSED", result['address'], result['port'],
-                       result['username'],  result['password'])
                 valid_ipmi_details.append(result)
 
         return valid_ipmi_details
 
-    def register_nodes(self, ipmi_nodes_detail, ironic_node,
-                       contrail_command_node):
-        ironic_node_object = ImportIronicNodes(auth_args = ironic_node,
-                                 cc_auth_args = contrail_command_node)
-        registered_nodes = ironic_node_object.register_nodes(ipmi_nodes_detail)
+    def register_nodes(self, job_ctx, ipmi_nodes_detail):
+        try:
+            job_input = FilterModule._validate_job_ctx(job_ctx)
+            ironic_auth_args = job_input.get('ironic')
+            cc_auth_args = job_input.get('contrail_command')
+            ironic_node_object = ImportIronicNodes(auth_args=ironic_auth_args,
+                                                   cc_auth_args=cc_auth_args)
+
+            registered_nodes = ironic_node_object.register_nodes(
+                ipmi_nodes_detail)
+        except Exception as e:
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(e), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+                'discovery_log': DiscoveryLog.instance().dump()
+            }
+
         return registered_nodes
 
-    def trigger_introspect(self, registered_nodes, ironic_node,
-                       contrail_command_node):
-        ironic_node_object = ImportIronicNodes(auth_args = ironic_node,
-                                 cc_auth_args = contrail_command_node)
-        introspected_nodes = ironic_node_object.trigger_introspection(registered_nodes)
+    def trigger_introspect(self, job_ctx, registered_nodes):
+        try:
+            job_input = FilterModule._validate_job_ctx(job_ctx)
+            ironic_auth_args = job_input.get('ironic')
+            cc_auth_args = job_input.get('contrail_command')
+            ironic_node_object = ImportIronicNodes(auth_args=ironic_auth_args,
+                                                   cc_auth_args=cc_auth_args)
+            introspected_nodes = ironic_node_object.trigger_introspection(
+                registered_nodes)
+        except Exception as e:
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(e), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+                'discovery_log': DiscoveryLog.instance().dump()
+            }
+
         return introspected_nodes
 
-    def import_ironic_nodes(self, added_nodes_list, ironic_node, 
-                            contrail_command_node, introspection_flag):
+    def import_ironic_nodes(self, job_ctx, added_nodes_list):
+        """
+                :param job_ctx: Dictionary
+                    example:
+                    {
+                        "auth_token": "EB9ABC546F98",
+                        "job_input": {
+                            "ipmi": {
+                                "ipmi_subnet_list": [
+                                    "30.1.1.1/24"
+                                ],
+                                "ipmi_cred_list": [
+                                   "admin:admin",
+                                   "admin:password"
+                                ],
+                                "ipmi_port_ranges": [
+                                    "623-623"
+                                ]
+                            },
+                            "ironic": {
+                                "auth_url": "",
+                                "username": "",
+                                "password": ""
+                            },
+                            "contrail_command": {
+                                "auth_host": "",
+                                "username": "",
+                                "password": ""
+                            }
+                        }
+                    }
+                :return: Dictionary
+                    if success, returns
+                    [
+                        'status': 'success',
+                        'success_nodes': <list: successful introspected nodes>,
+                        'failed_nodes': <list: failed introspected nodes>,
+                        'discovery_log': <list: discovery_log>
+                    ]
+                    if failure, returns
+                    {
+                        'status': 'failure',
+                        'error_msg': <string: error message>,
+                        'discovery_log': <string: discovery_log>
+                    }
+                    """
+        try:
+            job_input = FilterModule._validate_job_ctx(job_ctx)
+            ironic_auth_args = job_input.get('ironic')
+            cc_auth_args = job_input.get('contrail_command')
 
-        pprint.pprint(added_nodes_list)
-        ironic_object = ImportIronicNodes(auth_args=ironic_node,
-                                          cc_auth_args=contrail_command_node,
-                                          added_nodes_list=added_nodes_list)
-        ironic_object.read_nodes_from_db()
-        success_nodes = []
-        failed_nodes = []
-        if introspection_flag:
-            print "CHECKING INTROSPECTION"
-            success_nodes, failed_nodes = ironic_object.check_introspection()
-        else:
-            print "IMPORTING WITHOUT INTROSPECT"
-            for node in ironic_object.node_info_list:
-                ironic_object.create_cc_node(node)
+            ironic_object = ImportIronicNodes(auth_args=ironic_auth_args,
+                                              cc_auth_args=cc_auth_args,
+                                              added_nodes_list=added_nodes_list)
+            ironic_object.read_nodes_from_db()
+            success_nodes = []
+            failed_nodes = []
+            introspection_flag = ironic_auth_args.get('introspection_flag',True)
+            if introspection_flag:
+                print "CHECKING INTROSPECTION"
+                success_nodes, failed_nodes = \
+                    ironic_object.check_introspection()
+            else:
+                print "IMPORTING WITHOUT INTROSPECT"
+                for node in ironic_object.node_info_list:
+                    ironic_object.create_cc_node(node)
+        except Exception as e:
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(e), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+                'discovery_log': DiscoveryLog.instance().dump()
+            }
 
-        return {'success_nodes': success_nodes, 'failed_nodes': failed_nodes}
-
+        return {
+            'status': 'success',
+            'success_nodes': success_nodes,
+            'failed_nodes': failed_nodes,
+            'discover_log': DiscoveryLog.instance().dump()
+        }

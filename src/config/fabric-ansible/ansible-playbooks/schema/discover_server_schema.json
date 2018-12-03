@@ -5,34 +5,105 @@
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "ipmi_subnet_list", "ipmi_credentials"
+      "contrail_command"
     ],
     "properties": {
       "fabric_fq_name": {
-         "type": "array",
-         "items": {
-            "type": "string"
-         }
-      },
-      "ipmi_subnet_list": {
         "type": "array",
         "items": {
-          "type": "string",
-          "description": "List of the subnet prefixes that could be carved out for the p2p networks between fabric devices.",
-          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+          "type": "string"
         }
       },
-      "ipmi_credentials": {
-         "type": "array",
-         "items": {
-            "type": "string"
-         }
+      "ipmi":{
+        "$id":"/properties/ipmi",
+        "type":"object",
+        "required": [ "ipmi_subnet_list", "ipmi_credentials" ],
+        "properties":{
+          "ipmi_subnet_list":{
+            "$id":"/properties/ipmi/properties/ipmi_subnet_list",
+            "type":"array",
+            "items":{
+              "$id":"/properties/ipmi/properties/ipmi_subnet_list/items",
+              "type": "string",
+              "description": "List of the subnet prefixes that could be carved out for the p2p networks between fabric devices.",
+              "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+            }
+          },
+          "ipmi_credentials":{
+            "$id":"/properties/ipmi/properties/ipmi_credentials",
+            "type":"array",
+            "items":{
+              "$id":"/properties/ipmi/properties/ipmi_credentials/items",
+              "type": "string"
+            }
+          },
+          "ipmi_port_ranges":{
+            "$id":"/properties/ipmi/properties/ipmi_port_ranges",
+            "type":"array",
+            "items":{
+              "$id":"/properties/ipmi/properties/ipmi_port_ranges/items",
+              "type": "string"
+            }
+          }
+        }
       },
-      "ipmi_port_ranges": {
-         "type": "array",
-         "items": {
-            "type": "string"
-         }
+      "ironic":{
+        "$id":"/properties/ironic",
+        "type":"object",
+        "required": [ "auth_url", "username", "password" ],
+        "properties":{
+          "auth_url":{
+            "$id":"/properties/ironic/properties/auth_host",
+            "type":"string"
+          },
+          "username":{
+            "$id":"/properties/ironic/properties/username",
+            "type":"string"
+          },
+          "password":{
+            "$id":"/properties/ironic/properties/password",
+            "type":"string"
+          },
+          "introspection_flag":{
+            "$id":"/properties/ironic/properties/introspection_flag",
+            "type":"boolean",
+            "default": true
+          }
+        }
+      },
+      "contrail_command":{
+        "$id":"/properties/contrail_command",
+        "type":"object",
+        "required": [ "auth_host", "username", "password" ],
+        "properties":{
+          "auth_host":{
+            "$id":"/properties/contrail_command/properties/auth_host",
+            "type":"string"
+          },
+          "username":{
+            "$id":"/properties/contrail_command/properties/username",
+            "type":"string"
+          },
+          "password":{
+            "$id":"/properties/contrail_command/properties/password",
+            "type":"string"
+          },
+          "user_domain_name":{
+            "$id":"/properties/contrail_command/properties/user_domain_name",
+            "type":"string",
+            "default": "Default"
+          },
+          "project_domain_name":{
+            "$id":"/properties/contrail_command/properties/project_domain_name",
+            "type":"string",
+            "default": "Default"
+          },
+          "project_name":{
+            "$id":"/properties/contrail_command/properties/project_name",
+            "type":"string",
+            "default": "admin"
+          }
+        }
       }
     }
   },
