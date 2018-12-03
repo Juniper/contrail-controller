@@ -10,7 +10,6 @@
 #include <cmn/agent.h>
 #include <agent_types.h>
 #include <oper/nexthop.h>
-using namespace std;
 
 class VxLanId : AgentRefCount<VxLanId>, public AgentDBEntry {
 public:

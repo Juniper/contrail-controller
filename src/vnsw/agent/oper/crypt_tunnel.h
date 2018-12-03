@@ -11,7 +11,6 @@
 #include <oper/oper_db.h>
 
 using namespace boost::uuids;
-using namespace std;
 
 extern SandeshTraceBufferPtr CryptTunnelTraceBuf;
 #define CRYPT_TUNNEL_TASK_TRACE(obj, ...)\

@@ -16,7 +16,6 @@
 #include <oper/ecmp_load_balance.h>
 
 using namespace boost::uuids;
-using namespace std;
 class NextHopKey;
 class MplsLabel;
 

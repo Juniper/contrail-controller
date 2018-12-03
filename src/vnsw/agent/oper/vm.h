@@ -10,7 +10,6 @@
 #include <agent_types.h>
 
 using namespace boost::uuids;
-using namespace std;
 
 struct VmKey : public AgentOperDBKey {
     VmKey(uuid id) : AgentOperDBKey(), uuid_(id) {} ;

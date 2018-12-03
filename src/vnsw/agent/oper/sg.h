@@ -11,7 +11,6 @@
 #include <oper/oper_db.h>
 
 using namespace boost::uuids;
-using namespace std;
 
 struct SgKey : public AgentOperDBKey {
     SgKey(uuid sg_uuid) : AgentOperDBKey(), sg_uuid_(sg_uuid) {} ;
