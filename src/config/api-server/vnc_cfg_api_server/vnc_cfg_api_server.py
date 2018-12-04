@@ -3757,7 +3757,8 @@ class VncApiServer(object):
                             "output_schema")
                         object["job_template_input_ui_schema"] = schema_json.get(
                             "input_ui_schema")
-
+                        object["job_template_output_ui_schema"] = schema_json.get(
+                            "output_ui_schema")
         return input_json
     # end load json data
 

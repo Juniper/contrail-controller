@@ -283,7 +283,7 @@
           ],
           "name": "show_interfaces_template",
           "display_name": "Show Interfaces",
-          "description": "This command is used to get a list of physical or logical interfaces from a device and interfaces' operational state information.",
+          "job_template_description": "This command is used to get a list of physical or logical interfaces from a device and interfaces' operational state information.",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
           "job_template_type": "device_operation",
@@ -299,7 +299,8 @@
           },
           "job_template_output_schema": "",
           "job_template_input_schema": "",
-          "job_template_input_ui_schema": ""
+          "job_template_input_ui_schema": "",
+          "job_template_output_ui_schema": ""
         },
         {
           "fq_name": [
@@ -308,7 +309,7 @@
           ],
           "name": "show_config_interfaces_template",
           "display_name": "Show Configured Interfaces",
-          "description": "This command is used to get a list of configured interfaces",
+          "job_template_description": "This command is used to get a list of configured interfaces",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
           "job_template_type": "device_operation",
@@ -325,6 +326,7 @@
           "job_template_output_schema": "",
           "job_template_input_schema": "",
           "job_template_input_ui_schema": ""
+          "job_template_output_ui_schema": ""
         },
         {
           "fq_name": [
@@ -333,7 +335,7 @@
           ],
           "name": "show_interfaces_by_names_template",
           "display_name": "Show Interfaces By Names",
-          "description": "This command is used to get operational info for interface(s) as specified in the input",
+          "job_template_description": "This command is used to get operational info for interface(s) as specified in the input",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
           "job_template_type": "device_operation",
@@ -350,6 +352,7 @@
           "job_template_output_schema": "",
           "job_template_input_schema": "",
           "job_template_input_ui_schema": ""
+          "job_template_output_ui_schema": ""
         },
         {
           "fq_name": [
