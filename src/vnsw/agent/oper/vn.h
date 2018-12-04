@@ -12,8 +12,6 @@
 #include <oper/oper_dhcp_options.h>
 #include <oper/agent_route_walker.h>
 
-using namespace boost::uuids;
-
 class AgentRouteResync;
 
 namespace autogen {

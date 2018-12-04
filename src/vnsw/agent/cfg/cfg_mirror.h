@@ -10,8 +10,6 @@
 #include <cmn/agent.h>
 #include <agent_types.h>
 
-using namespace boost::uuids;
-
 class MirrorCfgDisplayResp;
 struct MirrorCfgKey {
     std::string handle;
