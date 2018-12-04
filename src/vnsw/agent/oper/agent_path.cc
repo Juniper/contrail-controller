@@ -230,6 +230,30 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     return true;
 }
 
+void AgentPath::ImportPrevActiveNH(Agent *agent, NextHop *nh)
+{
+    if (nh_ == nh) {
+        return;
+    }
+    // change NH ,
+    // assumptions here is that composite nh grid order would be different
+    // but elements would be same , so importing previous active nh
+    // would make sure the holes are already set in proper order
+    // ex: previous nh order A,B, C, new path nh order would be BCA
+    // ex2: previous nh order _,B,C, new path nh order is just B,C
+    ChangeNH(agent, nh);
+    // will there be a race condition while removing teh active path,
+    // adding new component nh? 
+    // this can be handled by calling reorder composite nh method
+    boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
+    bool comp_nh_policy = false;
+    //TODO: optimize here , compare compositenh_key from path and nh?
+    ReorderCompositeNH(agent, composite_nh_key.get(), comp_nh_policy);
+    composite_nh_key->SetPolicy(comp_nh_policy);
+    ChangeCompositeNH(agent, composite_nh_key.get());
+
+}
+
 bool AgentPath::Sync(AgentRoute *sync_route) {
     bool ret = false;
     bool unresolved = false;
@@ -1340,10 +1364,14 @@ bool AgentPath::ChangeCompositeNH(Agent *agent,
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(composite_nh_key->Clone());
     nh_req.data.reset(new CompositeNHData());
-    agent->nexthop_table()->Process(nh_req);
-
     NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_key));
+    if (!nh) {
+        agent->nexthop_table()->Process(nh_req);
+        nh = static_cast<NextHop *>(agent->nexthop_table()->
+            FindActiveEntry(composite_nh_key));
+    }
+
     assert(nh);
 
     if (ChangeNH(agent, nh) == true) {
