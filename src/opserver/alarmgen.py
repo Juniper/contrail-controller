@@ -1215,7 +1215,7 @@ class Controller(object):
 
     def reconnect_agg_uve(self, lredis):
         self._logger.error("Connected to Redis for Agg")
-        lredis.set(self._moduleid+':'+self._instance_id, True)
+        lredis.set(self._moduleid+':'+self._instance_id, "true")
         for pp in self._workers.keys():
             self._workers[pp].reset_acq_time()
             self._workers[pp].kill(\

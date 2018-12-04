@@ -429,7 +429,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     std::string link1, link2, underlay_link1, underlay_link2;
     int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
     int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
-    int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
+    //int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
     if (link1_bytes == -1)
         link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
     if (link2_bytes == -1)
@@ -505,9 +505,9 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         sdwanmetric1.set_total_bytes(link1_bytes + link2_bytes);
         sdwanmetric1.set_input_bytes(link2_bytes);
         sdwanmetric1.set_output_bytes(link1_bytes);
-        if (sampling_percentage != -1) {
-            sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
-        }
+        // if (sampling_percentage != -1) {
+        //     sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
+        // }
         if (is_close) {
             sdwanmetric1.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
             sdwanmetric1.set_session_count(1);
@@ -546,10 +546,10 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         sdwanmetric2.set_total_bytes(link2_bytes);
         sdwanmetric2.set_output_bytes(0);
         sdwanmetric2.set_input_bytes(link2_bytes);
-        if (sampling_percentage != -1) {
-            sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
-            sdwanmetric_dial2.set_sampling_percentage(sampling_percentage);
-        }
+        // if (sampling_percentage != -1) {
+        //     sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
+        //     sdwanmetric_dial2.set_sampling_percentage(sampling_percentage);
+        // }
         if (is_close) {
             sdwanmetric1.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
             sdwanmetric1.set_session_count(1);
@@ -603,7 +603,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         }
     }
 
-//Update maps for SDWANKPI metrics record
+    //Update maps for SDWANKPI metrics record
     SDWANKPIMetrics_diff sdwankpimetricdiff;
     std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_source;
     std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_destination;
@@ -615,9 +615,16 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
       sdwankpimetricdiff.set_session_close_count(1);
       sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
       IPNetwork found_lan = config_obj->FindNetwork(destination_address, vpn_name);
+      std::string destination_site;
+      if (found_lan.id.empty()){
+        destination_site = "UNKNOWN";
+      }
+      else{
+        destination_site = found_lan.id;
+      }
       LOG(DEBUG,"destination address "<< destination_address  <<" in VPN " << vpn_name <<
-       " belongs to site : " << found_lan.id);
-      std::string destination_site = found_lan.id;
+       " belongs to site : " << destination_site);
+
 
       const std::string kpi_uvename_destination = destination_site;
       sdwankpimetricrecord_destination.set_name(kpi_uvename_destination);
@@ -641,14 +648,14 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
       }
       else {
         LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
-        
+
         sdwankpimetricrecord_source.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_source);
         sdwankpimetricrecord_destination.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_destination);
       }
     }
-    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
     SDWANKPIMetrics::Send(sdwankpimetricrecord_source,"ObjectCPETable");
-    SDWANKPIMetrics::Send(sdwankpimetricrecord_destination,"ObjectCPETable");
+    //SDWANKPIMetrics::Send(sdwankpimetricrecord_destination,"ObjectCPETable");
+    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
 
     return;
 }
@@ -1194,7 +1201,7 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
                     ParseStructuredPart(&v, app_service_tags, int_fields, msg);
                 }
             } else {
-                LOG(ERROR, "StructuredSyslogDecorate: Application Record not found for: " << an);
+                LOG(INFO, "StructuredSyslogDecorate: Application Record not found for: " << an);
             }
             std::string sla_rec_name = tenant + "/" + device + "/" + sla_profile;
             boost::shared_ptr<SlaProfileRecord> sla_rec;
