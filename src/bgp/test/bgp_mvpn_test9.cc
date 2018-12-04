@@ -90,7 +90,8 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_4) {
             const BgpAttr *green_attr = green_path->GetAttr();
 
             // Notify ermvpn route without any change.
-            ermvpn_rt[(i-1)*groups_count_+(j-1)]->Notify();
+            task_util::TaskFire(boost::bind(&BgpMvpnTest::NotifyRoute, this,
+                         ermvpn_rt, i, j), "bgpConfig");
 
             // Verify that leafad path or its attributes did not change.
             std::map<SG, const PMSIParams>::iterator iter =

@@ -343,26 +343,6 @@ private:
     DISALLOW_COPY_AND_ASSIGN(EvpnState);
 };
 
-// This class holds a reference to EvpnState along with associated route
-// pointer. This is stored as DBState inside the table along with the
-// associated route.
-//
-// Note: Routes are never deleted until the DB state is deleted. MvpnState which
-// is refcounted is also deleted only when there is no EvpnDBState that refers
-// to it.
-struct EvpnDBState : public EvpnMcastNode {
-    explicit EvpnDBState(EvpnManagerPartition *partition, EvpnStatePtr state);
-    ~EvpnDBState();
-    EvpnStatePtr state();
-    void set_state(EvpnStatePtr state);
-    virtual void TriggerUpdate();
-
-private:
-    EvpnStatePtr state_;
-
-    DISALLOW_COPY_AND_ASSIGN(EvpnDBState);
-};
-
 //
 // This class represents a partition in the EvpnManager.
 //
@@ -435,6 +415,7 @@ private:
     const EvpnState::StatesMap &states() const { return states_; }
     EvpnState::StatesMap &states() { return states_; }
     bool GetForestNodeAddress(ErmVpnRoute *rt, Ip4Address *address) const;
+    void NotifyForestNode(EvpnRoute *route, ErmVpnTable *table);
 
     EvpnManager *evpn_manager_;
     size_t part_id_;
@@ -558,11 +539,14 @@ private:
     void EnableSegmentDeleteProcessing();
     void DisableMacUpdateProcessing();
     void EnableMacUpdateProcessing();
+    void SetDBState(EvpnRoute *route, EvpnMcastNode *dbstate);
+    void ClearDBState(EvpnRoute *route);
 
     EvpnTable *table_;
     ErmVpnTable *ermvpn_table_;
     int listener_id_;
     int ermvpn_listener_id_;
+    tbb::atomic<int> db_states_count_;
     PartitionList partitions_;
     tbb::spin_rw_mutex segment_rw_mutex_;
     SegmentMap segment_map_;
