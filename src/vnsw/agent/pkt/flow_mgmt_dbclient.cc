@@ -634,6 +634,11 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     }
 
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
+        if (inet_route && state->active_nh_ &&
+                (state->active_nh_->GetType() != active_nh->GetType()))
+        {
+            inet_rt_nh_changed = true;
+        }
         state->active_nh_ = active_nh;
         state->local_nh_ = local_nh;
         /* NH change can result in change of DMAC for the following routes, if
@@ -643,6 +648,8 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
          * Ipv4 InetRoutes which have prefix < 32
          * Ipv6 InetRoutes which have prefix < 128
          */
+
+
         if (inet_route) {
             uint8_t plen = inet_route->plen();
             if ((inet_route->addr().is_v4() && plen < 32) ||

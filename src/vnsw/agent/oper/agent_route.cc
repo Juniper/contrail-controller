@@ -248,7 +248,11 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     }
 
     const Peer *peer = path->peer();
+    bool active_path_deletion = false;
     CompositeNH *cnh = dynamic_cast<CompositeNH *>(path->nexthop());
+    if (path == rt->GetActivePath()) {
+        active_path_deletion = true;
+    }
     //Recompute paths since one is going off before deleting.
     rt->ReComputePathDeletion(path);
     // Remove path from the route
@@ -256,6 +260,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     if (cnh) {
         cnh->UpdateEcmpHashFieldsUponRouteDelete(agent_, vrf_name());
     }
+
     // Local path(non BGP type) is going away and so will route.
     // For active peers reflector will remove the route but for 
     // non active peers explicitly squash the paths.
@@ -278,6 +283,24 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         ProcessDelete(rt);
         part->Delete(rt);
     } else {
+        // change to support flow stickiness for ecmp paths
+        // find new active path peer
+        // if peer type is same, and it is composite NH
+        // then import previous active NH to current active path
+        // Note: Change is limited to paths of same type
+        const Peer *new_active_path_peer = rt->GetActivePath()->peer();
+        AgentPath *new_active_path = rt->FindPath(new_active_path_peer);
+        CompositeNH *new_cnh = NULL;
+        if (new_active_path && new_active_path->nexthop()) {
+            new_cnh =
+                dynamic_cast<CompositeNH *>(new_active_path->nexthop());
+        }
+        if (active_path_deletion &&
+                cnh && new_cnh &&
+                (cnh->composite_nh_type() == Composite::ECMP) &&
+                (new_cnh->composite_nh_type() == Composite::ECMP)) {
+            new_active_path->ImportPrevActiveNH(agent_, cnh);
+        }
         // Notify deletion of path. 
         part->Notify(rt);
         UpdateDerivedRoutes(rt, NULL, deleted_path_was_active_path);
@@ -420,7 +443,6 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 rt->InsertPath(path);
                 rt->ProcessPath(agent_, part, path, data);
                 notify = true;
-
                 RouteInfo rt_info;
                 rt->FillTrace(rt_info, AgentRoute::ADD_PATH, path);
                 OPER_TRACE_ROUTE_ENTRY(Route, this, rt_info);
@@ -476,9 +498,29 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     //Route changed, trigger change on dependent routes
     if (notify) {
         bool was_active_path = (path == rt->GetActivePath());
+        const AgentPath *prev_active_path = rt->GetActivePath();
+        CompositeNH *cnh = NULL;
+        if (prev_active_path) {
+            cnh = dynamic_cast<CompositeNH *>(prev_active_path->nexthop());
+        }
         const Path *prev_front = rt->front();
         if (prev_front) {
             rt->Sort(&AgentRouteTable::PathSelection, prev_front);
+        }
+        // for flow stickiness , maintain same component NH grid
+        // if the newly insterted path becomes active, 
+        // if peer type is same, and it is composite NH
+        // then import previous active NH to current active path
+        // Note: Change is limited to paths of same type
+        if ( (path == rt->GetActivePath()) &&
+                (path != prev_active_path)) {
+            CompositeNH *new_cnh =
+                dynamic_cast<CompositeNH *>(path->nexthop());
+            if (cnh && new_cnh &&
+                (cnh->composite_nh_type() == Composite::ECMP) &&
+                (new_cnh->composite_nh_type() == Composite::ECMP)) {
+                path->ImportPrevActiveNH(agent_, cnh);
+            }
         }
         part->Notify(rt);
         rt->UpdateDependantRoutes();
