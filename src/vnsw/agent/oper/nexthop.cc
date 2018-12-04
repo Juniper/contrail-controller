@@ -1407,14 +1407,12 @@ uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index) const {
     if (size == 0) {
         return idx;
     }
-
     if (affinity_index != kInvalidComponentNHIdx) {
         const NextHop *nh = GetNH(affinity_index);
         if (nh != NULL && nh->IsActive()) {
             return affinity_index;
         }
     }
-
     idx = seed % size;
     if (component_nh_list_[idx].get() == NULL ||
         component_nh_list_[idx]->nh() == NULL ||
