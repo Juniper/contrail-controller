@@ -55,6 +55,29 @@
            "ui:help": "filter using regex"
        }
    },
+   "output_ui_schema": {
+     "results":
+     {
+       "items":
+       {
+         "command_output":
+         {
+           "interface_stats": {
+             "items": {
+               "ui:order": [
+                 "name",
+                 "op_status",
+                 "admin_status",
+                 "input_rate",
+                 "output_rate",
+                 "*"
+               ]
+             }
+           }
+         }
+       }
+     }
+   },
    "output_schema":{
       "$schema":"http://json-schema.org/draft-06/schema#",
       "title":"Show interfaces command Job Output",
