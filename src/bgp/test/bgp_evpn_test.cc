@@ -206,6 +206,11 @@ private:
 
 typedef std::tr1::tuple<int, int, int> TestParams;
 class BgpEvpnTest : public ::testing::TestWithParam<TestParams> {
+public:
+    void NotifyRoute(ErmVpnRoute **ermvpn_rt, int i, int j) {
+        ermvpn_rt[(i-1)*groups_count_+(j-1)]->Notify();
+    }
+
 protected:
     BgpEvpnTest() {
     }
@@ -232,18 +237,6 @@ protected:
 "   <routing-instance name='red" << i << "'>"
 "       <vrf-target>" << getRouteTarget(i, "1") << "</vrf-target>"
 "   </routing-instance>"
-"   <routing-instance name='blue" << i << "'>"
-"       <vrf-target>" << getRouteTarget(i, "2") << "</vrf-target>"
-"   </routing-instance>"
-"   <routing-instance name='green" << i << "'>"
-"       <vrf-target>" << getRouteTarget(i, "3") << "</vrf-target>"
-"       <vrf-target>"
-"           <import-export>import</import-export>" << getRouteTarget(i, "1") <<
-"       </vrf-target>"
-"       <vrf-target>"
-"           <import-export>import</import-export>" << getRouteTarget(i, "2") <<
-"       </vrf-target>"
-"   </routing-instance>"
             ;
         }
 
@@ -260,10 +253,7 @@ protected:
         groups_count_ = std::tr1::get<1>(GetParam());
         paths_count_ = std::tr1::get<2>(GetParam());
         red_ermvpn_ = new ErmVpnTable *[instances_set_count_];
-        green_ermvpn_ = new ErmVpnTable *[instances_set_count_];
         red_ = new EvpnTable *[instances_set_count_];
-        blue_ = new EvpnTable *[instances_set_count_];
-        green_ = new EvpnTable *[instances_set_count_];
         peers_ = new scoped_ptr<BgpPeerMock>[paths_count_];
         for (size_t i = 0; i < paths_count_; i++)
             peers_[i].reset(new BgpPeerMock(i));
@@ -280,29 +270,16 @@ protected:
                             server_->database()->FindTable("bgp.ermvpn.0"));
 
         for (size_t i = 1; i <= instances_set_count_; i++) {
-            ostringstream r, b, g, re, ge;
+            ostringstream r, re;
             r << "red" << i << ".evpn.0";
-            b << "blue" << i << ".evpn.0";
-            g << "green" << i << ".evpn.0";
             re << "red" << i << ".ermvpn.0";
-            ge << "green" << i << ".ermvpn.0";
             TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
                                 server_->database()->FindTable(r.str()));
-            TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
-                                server_->database()->FindTable(b.str()));
-            TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
-                                server_->database()->FindTable(g.str()));
 
             red_[i-1] = static_cast<EvpnTable *>(
                 server_->database()->FindTable(r.str()));
-            blue_[i-1] = static_cast<EvpnTable *>(
-                server_->database()->FindTable(b.str()));
-            green_[i-1] = static_cast<EvpnTable *>(
-                server_->database()->FindTable(g.str()));
             red_ermvpn_[i-1] = dynamic_cast<ErmVpnTable *>(
                  server_->database()->FindTable(re.str()));
-            green_ermvpn_[i-1] = dynamic_cast<ErmVpnTable *>(
-                 server_->database()->FindTable(ge.str()));
         }
     }
 
@@ -323,12 +300,10 @@ protected:
             thread_->Join();
         }
         delete[] red_ermvpn_;
-        delete[] green_ermvpn_;
         delete[] red_;
-        delete[] blue_;
-        delete[] green_;
         delete[] peers_;
     }
+
 
     ErmVpnRoute *AddErmVpnRoute(ErmVpnTable *table, const string &prefix_str,
                                 const string &target) {
@@ -337,8 +312,6 @@ protected:
         add_req.key.reset(new ErmVpnTable::RequestKey(prefix, NULL));
         BgpAttrSpec attr_spec;
         ExtCommunitySpec *commspec(new ExtCommunitySpec());
-        RouteTarget tgt = RouteTarget::FromString(target);
-        commspec->communities.push_back(tgt.GetExtCommunityValue());
         attr_spec.push_back(commspec);
 
         BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
@@ -483,10 +456,7 @@ protected:
     DB db_;
     BgpTable *master_;
     ErmVpnTable **red_ermvpn_;
-    ErmVpnTable **green_ermvpn_;
     EvpnTable **red_;
-    EvpnTable **blue_;
-    EvpnTable **green_;
     scoped_ptr<BgpPeerMock> *peers_;
     size_t instances_set_count_;
     size_t groups_count_;
@@ -563,7 +533,6 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute) {
             pmsi_params.insert(make_pair(sg(i, j), pmsi));
             lock.release();
             AddEvpnRoute(red_[i-1], prefix6(i, j));
-            AddEvpnRoute(green_[i-1], prefix6(i, j));
         }
     }
 
@@ -582,14 +551,11 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute) {
     // smet routes should now be valid and propagate
     for (size_t i = 1; i <= instances_set_count_; i++) {
         TASK_UTIL_EXPECT_EQ(groups_count_, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(0, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(groups_count_, green_[i-1]->Size());
     }
 
     for (size_t i = 1; i <= instances_set_count_; i++) {
         for (size_t j = 1; j <= groups_count_; j++) {
             DeleteEvpnRoute(red_[i-1], prefix6(i, j));
-            DeleteEvpnRoute(green_[i-1], prefix6(i, j));
             {
                 tbb::mutex::scoped_lock lock(pmsi_params_mutex);
                 pmsi_params.erase(sg(i, j));
@@ -601,8 +567,6 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute) {
     TASK_UTIL_EXPECT_EQ(0, master_->Size());
     for (size_t i = 1; i <= instances_set_count_; i++) {
         TASK_UTIL_EXPECT_EQ(0, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(0, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(0, green_[i-1]->Size());
     }
 }
 
@@ -610,17 +574,14 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute) {
 // already is withdrawn.
 TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_2) {
     // Inject Type6 route from a mock peer into evpn.0 table with red1 route
-    // target. This route should go into red1 and green1 table.
+    // target. This route should go into red1 table.
     for (size_t i = 1; i <= instances_set_count_; i++)
         for (size_t j = 1; j <= groups_count_; j++) {
             AddEvpnRoute(red_[i-1], prefix6(i, j));
-            AddEvpnRoute(green_[i-1], prefix6(i, j));
         }
 
     for (size_t i = 1; i <= instances_set_count_; i++) {
         TASK_UTIL_EXPECT_EQ(groups_count_, red_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(0, blue_[i-1]->Size());
-        TASK_UTIL_EXPECT_EQ(groups_count_, green_[i-1]->Size());
     }
     TASK_UTIL_EXPECT_EQ(0, master_->Size());
 
@@ -661,11 +622,12 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_2) {
     }
 
     TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    for (size_t i = 1; i <= instances_set_count_; i++)
+        TASK_UTIL_EXPECT_EQ(0, red_ermvpn_[i-1]->Size());
 
     for (size_t i = 1; i <= instances_set_count_; i++)
         for (size_t j = 1; j <= groups_count_; j++) {
             DeleteEvpnRoute(red_[i-1], prefix6(i, j));
-            DeleteEvpnRoute(green_[i-1], prefix6(i, j));
         }
 }
 
@@ -673,7 +635,7 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_2) {
 // but only after ermvpn route becomes available.
 TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
     // Inject smet route from a mock peer into evpn.0 table with red1 route
-    // target. This route should go into red1 and green1 table.
+    // target. This route should go into red1 table.
     for (size_t i = 1; i <= instances_set_count_; i++)
         for (size_t j = 1; j <= groups_count_; j++) {
             AddEvpnRoute(red_[i-1], prefix6(i, j));
@@ -715,7 +677,8 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
             const BgpAttr *red_attr = red_path->GetAttr();
 
             // Notify ermvpn route without any change.
-            ermvpn_rt[(i-1)*groups_count_+(j-1)]->Notify();
+            task_util::TaskFire(boost::bind(&BgpEvpnTest::NotifyRoute, this,
+                         ermvpn_rt, i, j), "bgpConfig");
 
             // Verify that smet path or its attributes did not change.
             std::map<SG, const PMSIParams>::iterator iter =
@@ -730,20 +693,20 @@ TEST_P(BgpEvpnTest, Smet_With_ErmVpnRoute_3) {
 
     for (size_t i = 1; i <= instances_set_count_; i++) {
         for (size_t j = 1; j <= groups_count_; j++) {
+            DeleteEvpnRoute(red_[i-1], prefix6(i, j));
             {
                 tbb::mutex::scoped_lock lock(pmsi_params_mutex);
-                pmsi_params.erase(sg(i, j));
+                assert(pmsi_params.erase(sg(i, j)) == 1);
             }
             DeleteErmVpnRoute(red_ermvpn_[i-1], ermvpn_prefix(i, j));
-            task_util::WaitForIdle();
-            DeleteEvpnRoute(red_[i-1], prefix6(i, j));
-            task_util::WaitForIdle();
         }
     }
 
     TASK_UTIL_EXPECT_EQ(0, master_->Size());
     for (size_t i = 1; i <= instances_set_count_; i++) {
         TASK_UTIL_EXPECT_EQ(0, red_[i-1]->Size());
+        if (red_ermvpn_[i-1]->Size() > 0)
+            WalkTable(red_ermvpn_[i-1]);
         TASK_UTIL_EXPECT_EQ(0, red_ermvpn_[i-1]->Size());
     }
 }
