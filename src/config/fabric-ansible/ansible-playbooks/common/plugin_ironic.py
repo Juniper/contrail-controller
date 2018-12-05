@@ -15,7 +15,6 @@ import time
 class ImportIronicNodes(object):
 
     added_nodes_list = None
-    added_nodes_uuids = None
     auth_token = None
     auth_url = None
     ironic_client = None
@@ -83,18 +82,15 @@ class ImportIronicNodes(object):
             self.auth_args['auth_url_version'] = parsed_auth_url.path
 
         if added_nodes_list:
-            self.added_nodes_list = added_nodes_list
-            self.added_nodes_uuids = [node['uuid'] for node in
-                                      self.added_nodes_list]
+            self.added_nodes_dict = {node['uuid']: node for node in
+                                     added_nodes_list}
 
         # Set authentication and client auth objects
         self.set_ks_auth_sess()
         self.set_ironic_clients()
         self.auth_token = self.keystone_session.get_token()
-        print "Auth Token: " + str(self.auth_token)
         self.auth_headers['X-Auth-Token'] = self.auth_token
         self.cc_node = CreateCCNode(cc_auth_args)
-        print "CC Auth Token: " + str(self.cc_node.auth_token)
 
     def set_ks_auth_sess(self):
         self.keystone_auth = v3.Password(
@@ -124,8 +120,8 @@ class ImportIronicNodes(object):
         for node_dict in all_ironic_nodes:
             node_dict = node_dict.to_dict()
 
-            if self.added_nodes_uuids:
-                if node_dict.get('uuid', None) in self.added_nodes_uuids:
+            if self.added_nodes_dict:
+                if node_dict.get('uuid', None) in self.added_nodes_dict.keys():
                     self.node_info_list.append(node_dict)
                     self.uuid_node_map[str(node_dict['uuid'])] = node_dict
             else:
@@ -150,15 +146,14 @@ class ImportIronicNodes(object):
                 )
 
         if not len(nodes_to_check_introspected):
-            return
+            return [], []
         else:
-            success_nodes, failed_nodes = self.wait_for_introspection(nodes_to_check_introspected)
+            success_nodes, failed_nodes = self.wait_for_introspection(
+                nodes_to_check_introspected
+            )
         return success_nodes, failed_nodes
 
     def wait_for_introspection(self, node_list):
-        wait_for_introspection = False
-        if len(node_list) > 0:
-            wait_for_introspection = True
 
         timeout = 0
         failed_nodes = []
@@ -172,6 +167,16 @@ class ImportIronicNodes(object):
                     # Get latest Node Info from Ironic POST Introspection
                     node_info = self.ironic_client.node.get(node['uuid'])
                     new_node_info = node_info.to_dict()
+
+                    # Merge with known IPMI Info if available
+                    if self.added_nodes_dict and node['uuid'] in \
+                            self.added_nodes_dict.keys():
+                        node_ipmi_info = self.added_nodes_dict[node['uuid']]
+                        new_node_info['driver_info'] = {
+                            str("ipmi_" + k): node_ipmi_info[k] for k in [
+                                'username', 'password', 'address', 'port']
+                        }
+
                     self.create_cc_node(new_node_info)
                     success_nodes.append(new_node_info['uuid'])
                 elif intro_status == "error":
@@ -267,9 +272,7 @@ class ImportIronicNodes(object):
 
     def convert_port_format(self, port_list, introspection_data, uuid):
         cc_port_list = []
-        pxe_enabled_port = ""
         generated_hostname = ""
-        pxe_mac = ""
         processed_interface_dict = self.get_processed_if_data(
          introspection_data)
 
@@ -282,16 +285,16 @@ class ImportIronicNodes(object):
             if port_dict['pxe_enabled']:
                 generated_hostname = "auto-" + mac.replace(":", "")[6:]
             if mac in processed_interface_dict:
-                switch_name = processed_interface_dict[mac].get(
-                    'switch_name',"")
-                local_link_dict['switch_info'] = switch_name
+                local_link_dict['switch_info'] = \
+                    processed_interface_dict[mac].get('switch_name',"")
+                local_link_dict['port_id'] = \
+                    processed_interface_dict[mac].get('port_name', "")
 
             cc_port = self.get_cc_port_payload(port_dict, local_link_dict)
             cc_port_list.append(cc_port)
         return generated_hostname, cc_port_list
 
     def create_cc_node(self, node_dict):
-        print node_dict
         port_list = self.ironic_client.port.list(
             node=node_dict['uuid'], detail=True)
         introspection_data = self.ironic_inspector_client.get_data(
@@ -307,17 +310,14 @@ class ImportIronicNodes(object):
 
         self.cc_node.create_cc_node(cc_node_payload)
 
-
     def register_nodes(self, node_ipmi_details):
         registered_nodes_list = []
         for node in node_ipmi_details:
             ironic_node = {}
             ironic_node['driver'] = 'pxe_ipmitool'
-            ironic_node['driver_info'] = {}
-            ironic_node['driver_info']['ipmi_address'] = node['address']
-            ironic_node['driver_info']['ipmi_port'] = node['port']
-            ironic_node['driver_info']['ipmi_username'] = node['username']
-            ironic_node['driver_info']['ipmi_password'] = node['password']
+            ironic_node['driver_info'] = {
+                str("ipmi_" + k): v for (k, v) in node.iteritems()
+            }
             try:
                 resp = self.ironic_client.node.create(**ironic_node)
                 print resp.uuid
@@ -325,6 +325,7 @@ class ImportIronicNodes(object):
                 registered_nodes_list.append(node)
             except Exception as error:
                 print "ERROR: ", error
+                raise error
 
         return registered_nodes_list
         
@@ -337,6 +338,7 @@ class ImportIronicNodes(object):
             except Exception as error:
                 node['inspect'] = False
                 print "ERROR: ", error
+                raise error
         return registered_nodes
 
 
@@ -355,18 +357,18 @@ def main(added_nodes_list=None, ironic_auth_args=None, cc_auth_args=None,
 
 if __name__ == '__main__':
     my_auth_args = {
-        'auth_url': 'http://10.87.82.34:5000/v3',
+        'auth_url': 'http://1.1.1.1:5000/v3',
         'username': "admin",
-        'password': "905bee05b9f8dda6c3f5eee0aed8056e214b77f6",
+        'password': "admin",
         'user_domain_name': 'default',
         'project_domain_name': 'default',
         'project_name': 'admin',
         'aaa_mode': None
     }
     cc_auth = {
-        'auth_host': "10.87.69.79",
+        'auth_host': "1.1.1.1",
         'username': "admin",
-        'password': "contrail123"
+        'password': "admin"
     }
     introspection_flag = False 
     try:
