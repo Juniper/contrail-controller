@@ -220,15 +220,30 @@ class EventManager(object):
         return state, description
 
     def check_ntp_status(self):
+        ntp_service_list = [
+            ['/usr/sbin/ntpd', 'ntpq -n -c pe | grep "^*"'],
+            ['/usr/sbin/chrony','chronyc -n sources |grep "^\^\*"']
+        ]
         if platform.system() != 'Windows':
-            ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
-            proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE,
-                         close_fds=True)
-            (_, _) = proc.communicate()
-            if proc.returncode != 0:
-                self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
+            # select ntp implementation
+            ntp_status_cmd = ''
+            for ntp_service in ntp_service_list:
+                ps_cmd = 'ps -eaf |grep -v "grep"| grep "' + ntp_service[0] + '"'
+                ps = Popen(ps_cmd, shell=True, stdout=PIPE, stderr=PIPE,
+                    close_fds=True)
+                (output, error) = ps.communicate()
+                if output != '':
+                    ntp_status_cmd = ntp_service[1]
+            if (ntp_status_cmd != ''):
+                proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE,
+                    close_fds=True)
+                (_, _) = proc.communicate()
+                if proc.returncode != 0:
+                    self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
+                else:
+                    self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
             else:
-                self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
+                self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
         self.send_nodemgr_process_status()
 
     def get_build_info(self):
