@@ -312,71 +312,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_port_bindings
 
-    def test_baremetal_port_bindings(self):
-        vn_obj = vnc_api.VirtualNetwork(self.id())
-        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
-            vnc_api.VnSubnetsType(
-                [vnc_api.IpamSubnetType(
-                         vnc_api.SubnetType('1.1.1.0', 24))]))
-        self._vnc_lib.virtual_network_create(vn_obj)
-
-        vr_obj = vnc_api.VirtualRouter("myhost")
-        vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
-
-        sg_obj = vnc_api.SecurityGroup('default')
-        try:
-            self._vnc_lib.security_group_create(sg_obj)
-        except vnc_api.RefsExistError:
-            pass
-
-        proj_uuid = self._vnc_lib.fq_name_to_id('project',
-            fq_name=['default-domain', 'default-project'])
-
-        context = {'operation': 'CREATE',
-                   'user_id': '',
-                   'is_admin': True,
-                   'roles': ''}
-        vnic_type = 'baremetal'
-        binding_profile = {'local_link_information': [
-            {'port_id': 'ge-0/0/1', 'switch_id': 'switch-id-1',
-             'switch_info': 'QFX-10000'}]}
-        data = {'resource':{'network_id': vn_obj.uuid,
-                            'tenant_id': proj_uuid,
-                            'binding:profile': binding_profile,
-                            'binding:vnic_type': vnic_type,
-                            'binding:host_id': 'myhost'}}
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/port', body)
-        port_dict = json.loads(resp.text)
-        # Make sure that the binding profile for baremetal is set correctly
-        match = port_dict['binding:profile'] == binding_profile
-        self.assertTrue(match)
-
-        # clean this port before recreating the next one
-        self.delete_resource('port', proj_uuid, port_dict['id'])
-        # Now set the bindings to normal (i.e. non baremetal)
-        # In this case bindings should not match
-        vnic_type = 'normal'
-        data = {'resource':{'network_id': vn_obj.uuid,
-                            'tenant_id': proj_uuid,
-                            'binding:profile': {'foo': 'bar'},
-                            'binding:vnic_type': vnic_type,
-                            'binding:host_id': 'myhost'}}
-        body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/port', body)
-        port_dict = json.loads(resp.text)
-
-        # This time it should not match
-        match = port_dict['binding:profile'] == binding_profile
-        self.assertFalse(match)
-
-        # Clen up the resources
-        self.delete_resource('port', proj_uuid, port_dict['id'])
-        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
-        self._vnc_lib.virtual_router_delete(id=vr_obj)
-        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-    # end test_baremetal_port_bindings
-
     @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings(self):
         """ This test tests the Logical to Physical interface binding.
@@ -494,8 +429,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_baremetal_logical_interface_bindings
 
-    @unittest.skip("Flaky test in CI")
-    def test_baremetal_logical_interface_bindings_with_lag(self):
+    def test_baremetal_bindings_with_lag_and_multi_vlan(self):
         """ This test tests the Logical to LAG interface binding.
 
         Multiple physical interfaces are created to represent
@@ -517,6 +451,13 @@ class TestBasic(test_case.NeutronBackendTestCase):
                          vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
+        vn2_obj = vnc_api.VirtualNetwork(self.id() + 'vn2')
+        vn2_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(
+                         vnc_api.SubnetType('2.2.2.0', 24))]))
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
         vr_obj = vnc_api.VirtualRouter("myhost")
         vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
 
@@ -531,11 +472,21 @@ class TestBasic(test_case.NeutronBackendTestCase):
         pr_uuid = self._vnc_lib.physical_router_create(pr)
         pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
 
+        fabric_name = self.id()  + '_fabric'
+        fabric = vnc_api.Fabric(fabric_name)
+        fabric_uuid = self._vnc_lib.fabric_create(fabric)
+        fabric_obj = self._vnc_lib.fabric_read(id=fabric_uuid)
+        fabric_fq_name = fabric_obj.get_fq_name()
+
+        pr_obj.set_fabric(fabric_obj)
+        self._vnc_lib.physical_router_update(pr_obj)
+
         num_phy_interfaces = 2
         pi_uuid = []
         pi_fq_name = []
         binding_profile = {'local_link_information':[]}
-        for i in range(num_phy_interfaces):
+        binding_profile_update = {'local_link_information':[]}
+        for i in range(num_phy_interfaces+1):
             pi_name = self.id() + 'ge-0/0/%s' %i
             pi = vnc_api.PhysicalInterface(name=pi_name,
                                    parent_obj=pr_obj)
@@ -543,8 +494,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
             pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid[i])
             pi_fq_name.append(pi_obj.get_fq_name())
             profile = {'port_id': pi_fq_name[i][2], 'switch_id': pi_fq_name[i][2],
-             'switch_info': pi_fq_name[i][1]}
-            binding_profile['local_link_information'].append(profile)
+             'switch_info': pi_fq_name[i][1], 'fabric': fabric_fq_name[1]}
+            if i == num_phy_interfaces:
+                binding_profile_update['local_link_information'].append(profile)
+            else:
+                binding_profile['local_link_information'].append(profile)
 
         proj_uuid = self._vnc_lib.fq_name_to_id('project',
             fq_name=['default-domain', 'default-project'])
@@ -566,53 +520,56 @@ class TestBasic(test_case.NeutronBackendTestCase):
         match = port_dict['binding:profile'] == binding_profile
         self.assertTrue(match)
 
-        # Make sure LAG is created
-	lag_found = False
+        # CREATE:  Make sure LAG is created
+        lag_found = False
         lag_dict = self._vnc_lib.link_aggregation_groups_list()
         lags = lag_dict['link-aggregation-groups']
+        lag_obj = None
         for l in lags:
             lag_obj = self._vnc_lib.link_aggregation_group_read(id=l['uuid'])
-            if lag_obj.parent_uuid == pr_uuid:
+            if lag_obj.parent_uuid == fabric_uuid:
                 lag_found = True
                 break
         self.assertTrue(lag_found)
 
-        # Make sure physical interface starting with "ae" got created
-        phy_interface_found = False
-        pi_dict = self._vnc_lib.physical_interfaces_list()
-        lis = pi_dict['physical-interfaces']
-        for l in lis:
-            pi_obj = self._vnc_lib.physical_interface_read(id=l['uuid'])
-            if pi_obj.name.startswith('ae'):
-                phy_interface_found = True
-                new_pi_uuid = pi_obj.uuid
-                break
-        self.assertTrue(phy_interface_found)
+        data2 = {'resource':{'network_id': vn2_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:profile': binding_profile,
+                            'binding:vnic_type': vnic_type,
+                            'binding:host_id': 'myhost',
+                            'binding:lag': lag_obj.name}}
+        body2 = {'context': context, 'data': data2}
+        resp = self._api_svr_app.post_json('/neutron/port', body2)
+        port_dict2 = json.loads(resp.text)
 
-        bound_logical_interface_found = False
-        li_dict = self._vnc_lib.logical_interfaces_list()
-        lis = li_dict['logical-interfaces']
-        for l in lis:
-            li_obj = self._vnc_lib.logical_interface_read(id=l['uuid'])
-            if li_obj.parent_uuid == new_pi_uuid:
-                bound_logical_interface_found = True
-                break
+        # Make sure LAG has two VMIs associated
+        lag_obj = self._vnc_lib.link_aggregation_group_read(id=lag_obj.uuid)
+        vmi_refs = lag_obj.get_virtual_machine_interface_refs()
+        self.assertEqual(len(vmi_refs), 2)
 
-        self.assertTrue(bound_logical_interface_found)
+        self.delete_resource('port', proj_uuid, port_dict2['id'])
+        # Ensure that LAG interface is not deleted
+        # since it still has reference to other VMI
+        lag_dict = self._vnc_lib.link_aggregation_groups_list()
+        lags = lag_dict['link-aggregation-groups']
+        if len(lags) == 0:
+            self.assertFalse(True)
 
-        # Now verify that a zk id is reserved for LAG interface.
-        # First, get the interface name of first physical interface as that's
-        # what will be used to reserve a id in zookeeper.
-        zk_pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid[0])
+        # UPDATE: Make sure LAG has ref to only 3rd physical interface
+        # after port update
+        vnic_type = 'baremetal'
+        data = {            'binding:profile': binding_profile_update,
+                            'binding:vnic_type': vnic_type,
+                            'binding:lag': lag_obj.name,
+                            'binding:host_id': 'myhost'}
+        self.update_resource('port', port_dict['id'], proj_uuid, extra_res_fields=data)
+        lag_obj = self._vnc_lib.link_aggregation_group_read(id=lag_obj.uuid)
 
-        # Compare the fq_name stored in Zookeeper with first physical interface of the LAG
-        # Since we are creating only one LAG, the zookeeper id will be 0.
-        self.assertEqual(mock_zk.get_ae_from_id(0),
-                            zk_pi_obj.get_fq_name_str())
+        llc = binding_profile_update['local_link_information']
+        ref = lag_obj.get_physical_interface_refs()[0]
+        self.assertEqual(llc[0]['port_id'], ref['to'][-1])
 
-        # Now verify the delete funtion to ensure that the resources
-        # created to facilitate LAG interface are deleted with the
-        # deleetion of portDed and/or bound.
+        # DELETE: Make sure LAG obj. gets deleted after port delete
 
         self.delete_resource('port', proj_uuid, port_dict['id'])
 
@@ -622,37 +579,16 @@ class TestBasic(test_case.NeutronBackendTestCase):
         if len(lags) > 0:
             self.assertFalse(True)
 
-        # Make sure physical interface starting with "ae" got deleted
-        phy_interface_found = False
-        pi_dict = self._vnc_lib.physical_interfaces_list()
-        lis = pi_dict['physical-interfaces']
-        for l in lis:
-            pi_obj = self._vnc_lib.physical_interface_read(id=l['uuid'])
-            if pi_obj.name.startswith('ae'):
-                phy_interface_found = True
-                break
-
-        self.assertFalse(phy_interface_found)
-
-        # Ensure that the Logical Interface got deleted as well
-        li_dict = self._vnc_lib.logical_interfaces_list()
-        lis = li_dict['logical-interfaces']
-        if len(lis) > 0:
-            self.assertFalse(True)
-
-        # Verify that zookeeper entry was deleted.
-        # Compare the fq_name stored in Zookeeper with first physical interface of the LAG
-        self.assertNotEqual(mock_zk.get_ae_from_id(0),
-                            zk_pi_obj.get_fq_name_str())
-
-        # Clen up the resources
-        for i in range(num_phy_interfaces):
+        # Clean up the resources
+        for i in range(num_phy_interfaces+1):
             self._vnc_lib.physical_interface_delete(id=pi_uuid[i])
         self._vnc_lib.physical_router_delete(id=pr_uuid)
         self._vnc_lib.security_group_delete(id=sg_obj.uuid)
         self._vnc_lib.virtual_router_delete(id=vr_obj)
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-    # end test_baremetal_logical_interface_bindings_with_lag
+        self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
+
+    # end test_baremetal_bindings_with_lag_and_multi_vlan
 
     @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings_with_multi_homing(self):
