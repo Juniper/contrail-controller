@@ -15,6 +15,8 @@ if sys.platform.startswith('freebsd'):
 else:
     make = 'make'
 
+env.EnsureBuildDependency(make)
+
 cmd = make + ' -f ' + '$SOURCE'
 
 BUILD_ENV = {'PATH': env['ENV']['PATH'],

@@ -43,6 +43,8 @@ header_files = [
 header_files = [File('#build/include/' + h).abspath for h in header_files]
 
 def build_rabbitmq_c(target, source, env):
+    env.EnsureBuildDependency('cmake')
+
     subprocess.call(['cmake'] + cmake_flags + [Dir(vpath).abspath], cwd=working_dir)
     subprocess.call(['cmake', '--build', '.', '--target', 'install'], cwd=working_dir)
 
