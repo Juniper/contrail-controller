@@ -15,7 +15,6 @@ import time
 class ImportIronicNodes(object):
 
     added_nodes_list = None
-    added_nodes_uuids = None
     auth_token = None
     auth_url = None
     ironic_client = None
@@ -83,9 +82,8 @@ class ImportIronicNodes(object):
             self.auth_args['auth_url_version'] = parsed_auth_url.path
 
         if added_nodes_list:
-            self.added_nodes_list = added_nodes_list
-            self.added_nodes_uuids = [node['uuid'] for node in
-                                      self.added_nodes_list]
+            self.added_nodes_dict = {node['uuid']: node for node in
+                                     added_nodes_list}
 
         # Set authentication and client auth objects
         self.set_ks_auth_sess()
@@ -122,8 +120,8 @@ class ImportIronicNodes(object):
         for node_dict in all_ironic_nodes:
             node_dict = node_dict.to_dict()
 
-            if self.added_nodes_uuids:
-                if node_dict.get('uuid', None) in self.added_nodes_uuids:
+            if self.added_nodes_dict:
+                if node_dict.get('uuid', None) in self.added_nodes_dict.keys():
                     self.node_info_list.append(node_dict)
                     self.uuid_node_map[str(node_dict['uuid'])] = node_dict
             else:
@@ -148,15 +146,14 @@ class ImportIronicNodes(object):
                 )
 
         if not len(nodes_to_check_introspected):
-            return
+            return [], []
         else:
-            success_nodes, failed_nodes = self.wait_for_introspection(nodes_to_check_introspected)
+            success_nodes, failed_nodes = self.wait_for_introspection(
+                nodes_to_check_introspected
+            )
         return success_nodes, failed_nodes
 
     def wait_for_introspection(self, node_list):
-        wait_for_introspection = False
-        if len(node_list) > 0:
-            wait_for_introspection = True
 
         timeout = 0
         failed_nodes = []
@@ -170,6 +167,16 @@ class ImportIronicNodes(object):
                     # Get latest Node Info from Ironic POST Introspection
                     node_info = self.ironic_client.node.get(node['uuid'])
                     new_node_info = node_info.to_dict()
+
+                    # Merge with known IPMI Info if available
+                    if self.added_nodes_dict and node['uuid'] in \
+                            self.added_nodes_dict.keys():
+                        node_ipmi_info = self.added_nodes_dict[node['uuid']]
+                        new_node_info['driver_info'] = {
+                            str("ipmi_" + k): node_ipmi_info[k] for k in [
+                                'username', 'password', 'address', 'port']
+                        }
+
                     self.create_cc_node(new_node_info)
                     success_nodes.append(new_node_info['uuid'])
                 elif intro_status == "error":
@@ -278,9 +285,10 @@ class ImportIronicNodes(object):
             if port_dict['pxe_enabled']:
                 generated_hostname = "auto-" + mac.replace(":", "")[6:]
             if mac in processed_interface_dict:
-                switch_name = processed_interface_dict[mac].get(
-                    'switch_name',"")
-                local_link_dict['switch_info'] = switch_name
+                local_link_dict['switch_info'] = \
+                    processed_interface_dict[mac].get('switch_name',"")
+                local_link_dict['port_id'] = \
+                    processed_interface_dict[mac].get('port_name', "")
 
             cc_port = self.get_cc_port_payload(port_dict, local_link_dict)
             cc_port_list.append(cc_port)
@@ -301,7 +309,6 @@ class ImportIronicNodes(object):
         cc_node_payload['resources'].extend(port_list)
 
         self.cc_node.create_cc_node(cc_node_payload)
-
 
     def register_nodes(self, node_ipmi_details):
         registered_nodes_list = []
