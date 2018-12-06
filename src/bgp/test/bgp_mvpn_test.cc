@@ -208,6 +208,11 @@ private:
 
 typedef std::tr1::tuple<bool, int, int, int> TestParams;
 class BgpMvpnTest : public ::testing::TestWithParam<TestParams> {
+public:
+    void NotifyRoute(ErmVpnRoute **ermvpn_rt, int i, int j) {
+        ermvpn_rt[(i-1)*groups_count_+(j-1)]->Notify();
+    }
+
 protected:
     BgpMvpnTest() {
     }
