@@ -22,6 +22,9 @@ void vr_interface_req::Process(SandeshContext *context) {
      ioc->IfMsgHandler(this);
 }
 
+void vr_pkt_drop_log_req::Process(SandeshContext *context)
+{}
+
 void vr_drop_stats_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->DropStatsMsgHandler(this);
