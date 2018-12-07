@@ -793,11 +793,13 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                         create_right_port=True, **kwargs):
         sa_set = None
         if kwargs.get('service_virtualization_type') == 'physical-device':
-            pr = PhysicalRouter(si_name)
+            pr = PhysicalRouter(si_name, physical_router_role='pnf')
             self._vnc_lib.physical_router_create(pr)
             sa_set = ServiceApplianceSet('sa_set-'+si_name)
             self._vnc_lib.service_appliance_set_create(sa_set)
-            sa = ServiceAppliance('sa-'+si_name, parent_obj=sa_set)
+            sa_prop = 
+            sa = ServiceAppliance('sa-'+si_name, parent_obj=sa_set,
+                                  service_appliance_properties=sa_prop)
             for if_type, _ in vn_list:
                attr = ServiceApplianceInterfaceType(interface_type=if_type)
                pi = PhysicalInterface('pi-'+si_name+if_type, parent_obj=pr)
