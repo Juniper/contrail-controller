@@ -232,8 +232,6 @@ class VncApi(object):
             self._use_api_certs=False
             if apicafile and api_server_use_ssl:
                 certs=[apicafile]
-                if apikeyfile and apicertfile:
-                    certs=[apicertfile, apikeyfile, apicafile]
                 apicertbundle = os.path.join(
                     '/tmp', self._web_host.replace('.', '_'),
                      VncApi._DEFAULT_API_CERT_BUNDLE)
@@ -259,8 +257,6 @@ class VncApi(object):
             self._use_ks_certs=False
             if kscafile and self._authn_protocol == 'https':
                 certs=[kscafile]
-                if kskeyfile and kscertfile:
-                    certs=[kscertfile, kskeyfile, kscafile]
                 kscertbundle = os.path.join(
                         '/tmp', self._web_host.replace('.', '_'),
                         VncApi._DEFAULT_KS_CERT_BUNDLE)

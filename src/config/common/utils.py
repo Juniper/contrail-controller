@@ -165,7 +165,7 @@ def getCertKeyCaBundle(bundle, certs):
             with open(cert) as ifile:
                 for line in ifile:
                     ofile.write(line)
-    os.chmod(bundle,0o777)
+    os.chmod(bundle,0o600)
     return bundle
 # end CreateCertKeyCaBundle
 
