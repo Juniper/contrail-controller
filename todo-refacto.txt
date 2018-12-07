@@ -1,0 +1,3 @@
+- remove all '# end' or '#end'
+- remove all '%('
+- replace any 'self' by 'cls'

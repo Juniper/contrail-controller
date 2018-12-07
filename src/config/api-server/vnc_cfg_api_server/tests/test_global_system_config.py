@@ -1,13 +1,13 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-import gevent.monkey
-gevent.monkey.patch_all()  # noqa
 import logging
-import mock
 
 from cfgm_common import BGP_RTGT_MIN_ID
 from cfgm_common.exceptions import BadRequest
+import gevent.monkey
+gevent.monkey.patch_all()  # noqa
+import mock
 from vnc_api.vnc_api import GlobalSystemConfig
 
 from vnc_cfg_api_server.tests import test_case
