@@ -194,3 +194,18 @@ role_to_feature_mapping:
     - basic
     - underlay_ip_clos
     - overlay_bgp
+
+# Server Discovery test variables
+ipmi_subnets:
+  - 2.2.2.2
+  - 3.3.3.3
+  - 4.4.4.4
+
+ipmi_credentials:
+  - ADMIN:ADMIN
+  - admin:admin
+  - admin:password
+
+ipmi_port_ranges:
+  - port_range_start: 623
+    port_range_end: 623
