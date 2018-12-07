@@ -594,23 +594,24 @@ class VncIfmapClient(object):
 
     def _build_request(self, id1_name, id2_name, meta_list, delete=False):
             request = ''
-            id1 = unicode(Identity(name=id1_name, type="other",
+            id1 = str(Identity(name=id1_name, type="other",
                                    other_type="extended"))
             if id2_name != 'self':
-                id2 = unicode(Identity(name=id2_name, type="other",
+                id2 = str(Identity(name=id2_name, type="other",
                                        other_type="extended"))
             else:
                 id2 = None
             for m in meta_list:
                 if delete:
-                    filter = unicode(m) if m else None
+                    _filter = str(m) if m else None
                     op = PublishDeleteOperation(id1=id1, id2=id2,
-                                                filter=filter)
+                                                filter=_filter)
                 else:
+                    x = str(m)
                     op = PublishUpdateOperation(id1=id1, id2=id2,
-                                                metadata=unicode(m),
+                                                metadata=x,
                                                 lifetime='forever')
-                request += unicode(op)
+                request += str(op)
             return request
 
     def _delete_id_self_meta(self, self_imid, meta_name):
@@ -695,8 +696,6 @@ class VncIfmapClient(object):
         for id2, metalist in update.items():
             request = self._build_request(self_imid, id2, metalist)
 
-            # remember what we wrote for diffing during next update
-            old_metalist = []
             for m in metalist:
                 meta_name = m._Metadata__name[9:]
 
@@ -714,7 +713,6 @@ class VncIfmapClient(object):
                     continue
 
                 if meta_name in self_metas:
-                    old_metalist.append(self_metas[meta_name])
                     # Update the link/ref
                     self_metas[meta_name][id2] = m
                 else:
@@ -729,9 +727,7 @@ class VncIfmapClient(object):
                 else:
                     self._id_to_metas[id2][meta_name] = {self_imid : m}
 
-            old_request = self._build_request(self_imid, id2, old_metalist)
-            if request != old_request:
-                requests.append(request)
+            requests.append(request)
 
         upd_str = ''.join(requests)
         self._publish_to_ifmap_enqueue('update', upd_str)

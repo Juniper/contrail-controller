@@ -793,7 +793,7 @@ class VncDbClient(object):
         self._update_default_quota()
         end_time = datetime.datetime.utcnow()
         msg = "Time elapsed in syncing ifmap: %s" % (str(end_time - start_time))
-        self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        self.config_log(msg, level=SandeshLevel.SYS_INFO)
         self._db_resync_done.set()
     # end db_resync
 
