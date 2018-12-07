@@ -1,12 +1,10 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-import gevent
 import os
 import sys
 import uuid
 import logging
-import coverage
 
 import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains

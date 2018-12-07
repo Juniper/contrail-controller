@@ -1,9 +1,6 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-import gevent
-import gevent.monkey
-gevent.monkey.patch_all()
 import sys
 import os
 import logging

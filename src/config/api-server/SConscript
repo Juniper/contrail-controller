@@ -8,8 +8,7 @@ env = CfgmEnv.Clone()
 
 setup_sources = [
     '.coveragerc',
-    '.pylintrc',
-    '.testr.conf',
+    '.stestr.conf',
     'MANIFEST.in',
     'README.md',
     'requirements.txt',
