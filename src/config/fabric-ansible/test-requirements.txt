@@ -4,6 +4,7 @@ flexmock
 coverage
 pyaml
 python-keystoneclient
+python-novaclient
 webtest
 ncclient
 cfgm_common
