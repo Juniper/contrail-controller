@@ -583,6 +583,10 @@ class AddrMgmt(object):
         subnet_name = str(subnet['ip_prefix']) + '/' + str(subnet['ip_prefix_len'])
         gateway_ip = ipam_subnet.get('default_gateway')
         service_address = ipam_subnet.get('dns_server_address')
+        if gateway_ip == 'None':
+            gateway_ip = None
+        if service_address == 'None':
+            service_address = None
         allocation_pools = ipam_subnet.get('allocation_pools')
         nameservers = ipam_subnet.get('dns_nameservers')
         addr_start = ipam_subnet.get('addr_from_start') or False
