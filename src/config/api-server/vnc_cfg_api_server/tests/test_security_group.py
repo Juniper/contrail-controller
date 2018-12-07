@@ -1,16 +1,16 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-import gevent.monkey
-gevent.monkey.patch_all()  # noqa
 import logging
-from testtools import ExpectedException
 
+from cfgm_common import SG_NO_RULE_FQ_NAME
+from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import PermissionDenied
-from cfgm_common import SG_NO_RULE_FQ_NAME
-from cfgm_common import SGID_MIN_ALLOC
+import gevent.monkey
+gevent.monkey.patch_all()  # noqa
+from testtools import ExpectedException
 from vnc_api.vnc_api import SecurityGroup
 
 from vnc_cfg_api_server.tests import test_case
