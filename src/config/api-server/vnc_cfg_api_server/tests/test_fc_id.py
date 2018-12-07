@@ -8,7 +8,6 @@ import socket
 import errno
 import uuid
 import logging
-import coverage
 
 import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains
@@ -19,7 +18,6 @@ import json
 import copy
 import inspect
 import pycassa
-import kombu
 import requests
 
 from vnc_api.vnc_api import *
