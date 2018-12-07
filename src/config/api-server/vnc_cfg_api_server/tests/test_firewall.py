@@ -3,12 +3,12 @@
 #
 import abc
 import logging
-import six
 
 from gevent import monkey
 monkey.patch_all()  # noqa
 from mock import patch
 from sandesh_common.vns import constants
+import six
 from testtools import ExpectedException
 from vnc_api.exceptions import BadRequest
 from vnc_api.exceptions import HttpError
@@ -290,9 +290,10 @@ class TestFirewall(TestFirewallBase):
     def test_firewall_rule_endpoint_match_limited_to_one(self):
         project = Project('%s-project' % self.id())
         self.api.project_create(project)
-        type = 'type-%s' % self.id()
-        value = 'value-%s' % self.id()
-        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        tag_type = 'type-%s' % self.id()
+        tag_value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value,
+                  parent_obj=project)
         self.api.tag_create(tag)
         ag = AddressGroup(
             address_group_prefix=SubnetListType(
@@ -303,7 +304,7 @@ class TestFirewall(TestFirewallBase):
         vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
         self.api.virtual_network_create(vn)
         ep = FirewallRuleEndpointType(
-            tags=['%s=%s' % (type.lower(), value)],
+            tags=['%s=%s' % (tag_type.lower(), tag_value)],
             address_group=ag.get_fq_name_str(),
             virtual_network=vn.get_fq_name_str(),
             subnet=SubnetType('1.1.1.0', 24),
@@ -450,9 +451,10 @@ class TestFirewall(TestFirewallBase):
     def test_cannot_create_firewall_rule_with_tag_ref(self):
         project = Project('%s-project' % self.id())
         self.api.project_create(project)
-        type = 'type-%s' % self.id()
-        value = 'value-%s' % self.id()
-        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        tag_type = 'type-%s' % self.id()
+        tag_value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value,
+                  parent_obj=project)
         self.api.tag_create(tag)
         tag = self.api.tag_read(id=tag.uuid)
         fr = FirewallRule(
@@ -467,9 +469,10 @@ class TestFirewall(TestFirewallBase):
     def test_cannot_update_firewall_rule_with_tag_ref(self):
         project = Project('%s-project' % self.id())
         self.api.project_create(project)
-        type = 'type-%s' % self.id()
-        value = 'value-%s' % self.id()
-        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        tag_type = 'type-%s' % self.id()
+        tag_value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value,
+                  parent_obj=project)
         self.api.tag_create(tag)
         tag = self.api.tag_read(id=tag.uuid)
         fr = FirewallRule(
@@ -543,9 +546,10 @@ class TestFirewall(TestFirewallBase):
     def test_remove_tag_ref(self):
         project = Project('%s-project' % self.id())
         self.api.project_create(project)
-        type = 'type-%s' % self.id()
-        value = 'value-%s' % self.id()
-        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        tag_type = 'type-%s' % self.id()
+        tag_value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value,
+                  parent_obj=project)
         self.api.tag_create(tag)
         tag = self.api.tag_read(id=tag.uuid)
         fr = FirewallRule(

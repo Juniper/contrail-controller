@@ -1,0 +1,4 @@
+last commit ID 7d96d0c732ea81a55dc11ac53f114614af66510a
+- remove all '# end' or '#end'
+- remove all '%('
+- replace any 'self' by 'cls'
