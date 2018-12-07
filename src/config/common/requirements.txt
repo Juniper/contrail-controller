@@ -1,5 +1,6 @@
+pycassa>=1.7.2
+kazoo
+# kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
 bitarray
 bottle
-geventhttpclient
-psutil>=0.6.0
 attrdict

@@ -9,7 +9,6 @@ import logging
 import tempfile
 import mock
 from pprint import pformat
-import coverage
 import fixtures
 import testtools
 from testtools import content
@@ -725,10 +724,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def setUpClass(cls, extra_mocks=None, extra_config_knobs=None,
                    db='cassandra'):
         super(TestCase, cls).setUpClass()
-        global cov_handle
-        if not cov_handle:
-            cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
-        #cov_handle.start()
 
         cfgm_common.zkclient.LOG_DIR = './'
         gevent.pywsgi.WSGIServer.handler_class = FakeWSGIHandler
