@@ -6777,3 +6777,599 @@ class RoutingPolicyServer(Resource, RoutingPolicy):
         return True, ""
 # end class RoutingPolicyServer
 
+class ServiceApplianceServer(Resource, ServiceAppliance):
+    @classmethod
+    def get_left_right_attachment_points(cls, obj_dict):
+        left_intf_list = []
+        right_intf_list = []
+
+        if obj_dict.get('service_appliance_properties') is not None:
+            kvps = obj_dict.get('service_appliance_properties').get('key_value_pair')
+            if kvps is not None:
+                for d in kvps:
+                    if d.get('key') == 'left-attachment-point':
+                        value = d.get('value')
+                        left_intf_list = value.split(',')
+                    elif d.get('key') == 'right-attachment-point':
+                        value = d.get('value')
+                        right_intf_list = value.split(',')
+
+        return left_intf_list, right_intf_list
+
+    @classmethod
+    def check_phys_intf_belongs_to_pnf(cls, obj_dict):
+        # Validate if the referenced physical interfaces belongs to physical
+        # router with 'pnf' physical role
+        db_conn = cls.db_conn
+        for phys_intf_ref in obj_dict.get('physical_interface_refs') or []:
+            if phys_intf_ref.get('uuid') is None:
+                pi_uuid = db_conn.fq_name_to_uuid('physical_interface', phys_intf_ref.get('to'))
+            else:
+                pi_uuid = phys_intf_ref['uuid']
+
+            if pi_uuid is not None:
+                ok, phys_intf_result = cls.dbe_read(db_conn, 'physical_interface',
+                                                    pi_uuid,
+                                                    obj_fields=['parent_type', 'parent_uuid'])
+                if not ok:
+                    return ok, phys_intf_result
+                if phys_intf_result.get('parent_type') == 'physical-router':
+                    phys_router_uuid = phys_intf_result.get('parent_uuid')
+                    ok, phys_router_result = cls.dbe_read(db_conn, 'physical_router',
+                                                          phys_router_uuid,
+                                                          obj_fields=['physical_router_role'])
+                    if not ok:
+                        return ok, phys_router_result
+                    if (phys_router_result.get('physical_router_role') != 'pnf'):
+                         msg = ("Referenced physical interface(%s) does not belong to PNF device" %\
+                                (phys_intf_ref['uuid']))
+                         return (False, (400, msg))
+        return (True, '')
+
+    @classmethod
+    def check_sa_has_left_right_attachment_point(cls, obj_dict):
+        # Validate if left and right attachment points are defined as
+        # key-value pairs in service appliance properties
+
+        if obj_dict.get('physical_interface_refs') is not None:
+            left_intf_list, right_intf_list = cls.get_left_right_attachment_points(obj_dict)
+            if len(left_intf_list) < 1 or len(right_intf_list) < 1:
+                msg = ("There should be atleast one left/right attachment point defined")
+                return (False, (400, msg))
+
+        return (True, '')
+
+    @classmethod
+    def add_delete_physical_interface_refs(cls, obj_dict, op):
+        # Add/Delete physical interface refs depending on 'op' -
+        # Ref from PNF device interface to service chaining device interface
+        virtualization_type = obj_dict.get('service_appliance_virtualization_type')
+        if virtualization_type == 'physical-device':
+            api_server = cls.db_conn.get_api_server()
+            for phys_intf_ref in obj_dict.get('physical_interface_refs') or []:
+                if phys_intf_ref.get('uuid') is None:
+                    pi_uuid = db_conn.fq_name_to_uuid('physical_interface', phys_intf_ref.get('to'))
+                else:
+                    pi_uuid = phys_intf_ref['uuid']
+
+                left_intf_list, right_intf_list = cls.get_left_right_attachment_points(obj_dict)
+                if pi_uuid is not None:
+                    if phys_intf_ref['attr'].get('interface_type') == 'left':
+                        for intf in left_intf_list or []:
+                            api_server.internal_request_ref_update('physical-interface', pi_uuid,
+                                                                   op, 'physical-interface',
+                                                                    None, intf.split(':'))
+                    elif phys_intf_ref['attr'].get('interface_type') == 'right':
+                        for intf in right_intf_list or []:
+                            api_server.internal_request_ref_update('physical-interface', pi_uuid,
+                                                                   op, 'physical-interface',
+                                                                   None, intf.split(':'))
+
+        return (True, '')
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_phys_intf_belongs_to_pnf(obj_dict)
+        if not ok:
+            return ok, result
+
+        ok, result = cls.check_sa_has_left_right_attachment_point(obj_dict)
+        if not ok:
+            return ok, result
+
+        return True, ""
+    # end pre_dbe_create
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.add_delete_physical_interface_refs(obj_dict, 'ADD')
+        if not ok:
+            return ok, result
+
+        return True, ""
+    # end post_dbe_create
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, result = cls.add_delete_physical_interface_refs(obj_dict, 'DELETE')
+        if not ok:
+            return ok, result
+
+        return True, ""
+    # end post_dbe_delete
+#end class ServiceApplianceServer
+
+class ServiceInstanceServer(Resource, ServiceInstance):
+    @classmethod
+    def check_svc_inst_belongs_to_pnf(cls, obj_dict):
+        params = obj_dict.get('service_instance_properties')
+        if params:
+            virtualization_type = params.get('service_virtualization_type')
+            if virtualization_type == 'physical-device':
+                return True
+
+        return False
+
+    @classmethod
+    def validate_svc_inst_annotations(cls, obj_dict):
+        msg = ""
+        pnf_svc_inst = cls.check_svc_inst_belongs_to_pnf(obj_dict)
+        if pnf_svc_inst:
+            if obj_dict.get('annotations') is not None:
+                if obj_dict.get('annotations').get('key_value_pair') is not None:
+                    kvps = obj_dict.get('annotations').get('key_value_pair')
+                    kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+                    if kvp_dict.get('left-svc-vlan') is None:
+                        msg = "Left svc vlan should be defined in svc instance annotations"
+                    elif kvp_dict.get('right-svc-vlan') is None:
+                        msg = "Right svc vlan should be defined in svc instance annotations"
+                    elif kvp_dict.get('left-svc-asns') is None:
+                        msg = "Left svc asn should be defined in svc instance annotations"
+                    elif kvp_dict.get('right-svc-asns') is None:
+                        msg = "Right svc asn should be defined in svc instance annotations"
+                else:
+                    msg = "svc attributes should be defined as key_value_pairs"
+            else:
+                msg = "svc attributes should be defined as key_value_pairs in annotations"
+
+            if msg:
+                return (False, (400, msg))
+
+        return True, ""
+    # end validate_svc_inst_annotations
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.validate_svc_inst_annotations(obj_dict)
+        if not ok:
+            return ok, result
+
+        return True, ""
+    # end pre_dbe_create
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # Allocate unit number for service IRB interfaces, each for left and
+        # right VRF on the service chaining device
+        pnf_svc_inst = cls.check_svc_inst_belongs_to_pnf(obj_dict)
+        if pnf_svc_inst:
+            left_svc_fq_name = ':'.join(obj_dict['fq_name']) + 'left_svc'
+            right_svc_fq_name = ':'.join(obj_dict['fq_name']) + 'right_svc'
+
+            left_svc_unit = cls.vnc_zk_client.alloc_vn_id(left_svc_fq_name)
+            def undo_left_svc_unit():
+                cls.vnc_zk_client.free_vn_id(left_svc_unit,
+                                             left_svc_fq_name)
+                return True, ""
+            get_context().push_undo(undo_left_svc_unit)
+
+            right_svc_unit = cls.vnc_zk_client.alloc_vn_id(right_svc_fq_name)
+            def undo_right_svc_unit():
+                cls.vnc_zk_client.free_vn_id(right_svc_unit,
+                                             right_svc_fq_name)
+                return True, ""
+            get_context().push_undo(undo_right_svc_unit)
+
+            if left_svc_unit and right_svc_unit:
+                # Store these unit-id's as key value pairs in service_instance_bindings
+                api_server = db_conn.get_api_server()
+                svc_inst_obj = ServiceInstance(obj_dict)
+                svc_inst_obj.set_service_instance_bindings(KeyValuePairs(
+                                                           [KeyValuePair('left-svc-unit', str(left_svc_unit)),
+                                                           KeyValuePair('right-svc-unit', str(right_svc_unit))]))
+                svc_inst_dict = json.dumps(svc_inst_obj, default=_obj_serializer_all)
+                api_server.internal_request_update('service-instance',
+                                                   obj_dict['uuid'],
+                                                   json.loads(svc_inst_dict))
+        return True, ''
+    # end post_dbe_create
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        # Delete all the port tuples associated with this service instance
+        pnf_svc_inst = cls.check_svc_inst_belongs_to_pnf(obj_dict)
+        if pnf_svc_inst:
+            api_server = db_conn.get_api_server()
+            for pt in obj_dict.get('port_tuples') or []:
+                try:
+                   pt_uuid = db_conn.fq_name_to_uuid('port_tuple', pt.get('to'))
+                except cfgm_common.exceptions.NoIdError:
+                   pass
+                if pt_uuid is not None:
+                    ok, pt_result = cls.dbe_read(db_conn, 'port_tuple',
+                                                 pt_uuid,
+                                                 obj_fields=['virtual_machine_interface_back_refs'])
+                    if not ok:
+                        return ok, pt_result, None
+                    if pt_result.get('virtual_machine_interface_back_refs') is None:
+                        api_server.internal_request_delete('port_tuple', pt_uuid)
+
+        return True, '', None
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        # Deallocate left and right allocated service IRB unit ID
+        pnf_svc_inst = cls.check_svc_inst_belongs_to_pnf(obj_dict)
+        if pnf_svc_inst:
+            if obj_dict.get('service_instance_bindings') is not None:
+                kvps = obj_dict.get('service_instance_bindings').get('key_value_pair')
+                if kvps is not None:
+                    for d in kvps:
+                       if d.get('key') == 'right-svc-unit':
+                           right_unit = d.get('value')
+                           cls.vnc_zk_client.free_vn_id(int(right_unit),
+                                                        ':'.join(obj_dict['fq_name']) + 'right_svc')
+                       elif d.get('key') == 'left-svc-unit':
+                           left_unit = d.get('value')
+                           cls.vnc_zk_client.free_vn_id(int(left_unit),
+                                                        ':'.join(obj_dict['fq_name']) + 'left_svc')
+
+        return True, ''
+    #end post_dbe_delete
+# end class ServiceInstanceServer
+
+class PortTupleServer(Resource, PortTuple):
+    @classmethod
+    def get_sa_from_pt(cls, obj_dict):
+        sa_uuid = None
+        db_conn = cls.db_conn
+        svc_instance_uuid = obj_dict.get('parent_uuid')
+        ok, svc_inst_result = cls.dbe_read(db_conn, 'service_instance',
+                                           svc_instance_uuid,
+                                           obj_fields=['service_template_refs'])
+        if not ok:
+            return ok, svc_inst_result
+
+        if svc_inst_result.get('service_template_refs') is not None:
+            svc_template_uuid = svc_inst_result.get('service_template_refs')[0]['uuid']
+            ok, svc_tmpl_result = cls.dbe_read(db_conn, 'service_template',
+                                               svc_template_uuid,
+                                               obj_fields=['service_appliance_set_refs'])
+            if not ok:
+                return ok, svc_tmpl_result
+
+        if svc_tmpl_result.get('service_appliance_set_refs') is not None:
+            svc_appliance_set_uuid = svc_tmpl_result.get('service_appliance_set_refs')[0]['uuid']
+            ok, svc_appl_set_result = cls.dbe_read(db_conn, 'service_appliance_set',
+                                                   svc_appliance_set_uuid,
+                                                   obj_fields=['service_appliances'])
+            if not ok:
+                return ok, svc_appl_set_result
+            for sa in svc_appl_set_result.get('service_appliances') or []:
+                sa_uuid = sa.get('uuid')
+
+        return True, sa_uuid
+
+    @classmethod
+    def get_svc_vlans(cls, annotations):
+        left_svc_vlan = right_svc_vlan = None
+        if annotations is not None:
+            kvps = annotations.get('key_value_pair')
+            if kvps is not None:
+                for d in kvps:
+                    if d.get('key') == 'left-svc-vlan':
+                       left_svc_vlan = d.get('value')
+                    elif d.get('key') == 'right-svc-vlan':
+                       right_svc_vlan = d.get('value')
+
+        return left_svc_vlan, right_svc_vlan
+
+    @classmethod
+    def _delete_logical_interface(cls, api_server, db_conn, dev_name, link, vlan_tag):
+        iip_uuid = None
+        li_uuid = None
+        iip_fqname = ["%s.%s.%s" %(dev_name, link, vlan_tag)]
+        try:
+            iip_uuid = db_conn.fq_name_to_uuid('instance_ip', iip_fqname)
+        except cfgm_common.exceptions.NoIdError:
+            pass
+        if iip_uuid is not None:
+            api_server.internal_request_delete('instance_ip', iip_uuid)
+
+        li_fq_name = ['default-global-system-config', dev_name, link]
+        li_fq_name = li_fq_name + ['%s.%s' %(link, vlan_tag)]
+        try:
+            li_uuid = db_conn.fq_name_to_uuid('logical_interface', li_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            pass
+        if li_uuid is not None:
+            api_server.internal_request_delete('logical_interface', li_uuid)
+        return True, ''
+
+    @classmethod
+    def _create_logical_interface(cls, api_server, db_conn, dev_name, link,
+                                  vlan_tag, subscriber_tag, network_name):
+        li_fq_name = ['default-global-system-config', dev_name, link]
+        li_fq_name = li_fq_name + ['%s.%s' %(link, vlan_tag)]
+
+        li_display_name = li_fq_name[-1]
+        li_display_name = li_display_name.replace("_",":")
+
+        try:
+           li_uuid = db_conn.fq_name_to_uuid('logical_interface',
+                                              li_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            msg = 'LI object %s not found, creating one' % li_display_name
+            li_obj = LogicalInterface(parent_type='physical-interface',
+                                      fq_name=li_fq_name,
+                                      logical_interface_vlan_tag=vlan_tag,
+                                      display_name=li_display_name)
+
+            id_perms = IdPermsType(enable=True, user_visible=False)
+            li_obj.set_id_perms(id_perms)
+            li_int_dict = json.dumps(li_obj, default=_obj_serializer_all)
+            ok, li_obj_resp = api_server.internal_request_create('logical-interface',
+                                                                 json.loads(li_int_dict))
+
+            if not ok:
+                return (ok, 400, li_obj_resp)
+            li_dict = li_obj_resp['logical-interface']
+            li_uuid = li_obj_resp['logical-interface']['uuid']
+
+            # Allocate IP address for this logical interface
+            iip_name = "%s.%s.%s" %(dev_name, link, vlan_tag)
+            if subscriber_tag is not None:
+                iip_obj = InstanceIp(
+                                     name=iip_name,
+                                     instance_ip_family='v4',
+                                     instance_ip_subscriber_tag=subscriber_tag
+                          )
+            else:
+                iip_obj = InstanceIp(
+                                     name=iip_name,
+                                     instance_ip_family='v4'
+                          )
+            nw_fq_name = ['default-domain', 'default-project', network_name]
+            nw_id = db_conn.fq_name_to_uuid('virtual_network', nw_fq_name)
+            ok, nw_obj_result = cls.dbe_read(db_conn, 'virtual_network',
+                                             nw_id,
+                                             obj_fields=['fq_name'])
+            if not ok:
+                return ok, nw_obj_result
+
+            nw_obj = VirtualNetwork(name=nw_obj_result.get('fq_name')[-1])
+            li_obj = LogicalInterface(fq_name=li_fq_name, parent_type='physical-interface')
+            iip_obj.set_virtual_network(nw_obj)
+            iip_obj.set_logical_interface(li_obj)
+            iip_obj.set_id_perms(id_perms)
+
+            iip_int_dict = json.dumps(iip_obj, default=_obj_serializer_all)
+            ok, resp = api_server.internal_request_create('instance-ip',
+                                                          json.loads(iip_int_dict))
+            if not ok:
+                return (ok, 400, resp)
+
+        return True, ''
+
+    @classmethod
+    def create_pt_vn_refs(cls, obj_dict, db_conn):
+        left_vn_int_name = '__contrail_pt_internal_vn_' + obj_dict.get('uuid') + '-left' + '__'
+        right_vn_int_name = '__contrail_pt_internal_vn_' + obj_dict.get('uuid') + '-right' + '__'
+        vn_list = [left_vn_int_name, right_vn_int_name]
+
+        api_server = db_conn.get_api_server()
+        for vn in vn_list:
+             vn_obj = VirtualNetwork(name=vn)
+             id_perms = IdPermsType(enable=True, user_visible=False)
+             vn_obj.set_id_perms(id_perms)
+
+             int_vn_property = VirtualNetworkType(forwarding_mode='l3')
+             vn_obj.set_virtual_network_properties(int_vn_property)
+
+             vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
+             status, obj = api_server.internal_request_create('virtual-network',
+                                                              json.loads(vn_int_dict))
+             api_server.internal_request_ref_update('port-tuple', obj_dict['uuid'], 'ADD',
+                                                    'virtual-network', obj['virtual-network']['uuid'],
+                                                    obj['virtual-network']['fq_name'])
+        return True, ''
+    # end create_pt_vn_refs
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # Create logical interfaces for the physical interfaces using
+        # vlan allocated per service instance
+
+        # IP addresese are allocated from the fabric-service-chain subnet for
+        # these logical interfaces using IPAM
+        api_server = db_conn.get_api_server()
+        svc_instance_uuid = obj_dict.get('parent_uuid')
+        ok, svc_inst_result = cls.dbe_read(db_conn, 'service_instance',
+                                           svc_instance_uuid,
+                                           obj_fields=['fq_name', 'service_template_refs',
+                                                       'annotations'])
+        if not ok:
+            return ok, svc_inst_result
+        svc_inst_name = svc_inst_result.get('fq_name')[-1]
+
+        # Fetch left and right vlan from the service instance
+        left_svc_vlan, right_svc_vlan = cls.get_svc_vlans(svc_inst_result.get('annotations'))
+        if left_svc_vlan and right_svc_vlan:
+            if svc_inst_result.get('service_template_refs') is not None:
+                svc_template_uuid = svc_inst_result.get('service_template_refs')[0]['uuid']
+                ok, svc_tmpl_result = cls.dbe_read(db_conn, 'service_template',
+                                                   svc_template_uuid,
+                                                   obj_fields=['service_template_properties'])
+                if not ok:
+                    return ok, svc_tmpl_result
+
+                intf_type_ordered_list = []
+                # Store the order of interfaces from service template.
+                # Port tuple order should be same as service template
+                if svc_tmpl_result.get('service_template_properties') is not None:
+                    interface_type = svc_tmpl_result.get('service_template_properties').get('interface_type')
+                    if interface_type is not None:
+                        for svc_intf_type in interface_type:
+                             intf_type_ordered_list.append(svc_intf_type.get('service_interface_type'))
+
+                ok, sa_uuid = cls.get_sa_from_pt(obj_dict)
+                if sa_uuid is not None:
+                    ok, svc_appl_result = cls.dbe_read(db_conn, 'service_appliance',
+                                                       sa_uuid,
+                                                       obj_fields=['physical_interface_refs'])
+                    if not ok:
+                        return ok, svc_appl_result
+                    for phys_intf_ref in svc_appl_result.get('physical_interface_refs') or []:
+                         ok, phys_intf_result = cls.dbe_read(db_conn, 'physical_interface',
+                                                             phys_intf_ref['uuid'],
+                                                             obj_fields=['fq_name', 'parent_type',
+                                                                         'parent_uuid',
+                                                                         'physical_interface_refs'])
+                         if not ok:
+                             return ok, phys_intf_result
+
+                         phys_intf_name = phys_intf_result.get('fq_name')[-1]
+                         dev_name = phys_intf_result.get('fq_name')[-2]
+
+                         if phys_intf_result.get('parent_type') == 'physical-router':
+                             phys_router_uuid = phys_intf_result.get('parent_uuid')
+                             ok, phys_router_result = cls.dbe_read(db_conn, 'physical_router',
+                                                                   phys_router_uuid,
+                                                                   obj_fields=['fabric_refs'])
+                             if not ok:
+                                 return ok, phys_router_result
+                             fabric_refs = phys_router_result.get('fabric_refs')
+                             if len(fabric_refs) != 1:
+                                 return False, phys_router_result
+                             fabric_name = str(fabric_refs[0].get('to')[-1])
+                             svc_chain_network_type = 'pnf-servicechain'
+                             svc_chain_network_name = '%s-%s-network' % (fabric_name, svc_chain_network_type)
+
+                             if phys_intf_ref['attr'].get('interface_type') == 'left':
+                                 vlan_tag = left_svc_vlan
+                                 svc_chain_subscriber_tag = svc_inst_name + '-' + 'left'
+                             elif phys_intf_ref['attr'].get('interface_type') == 'right':
+                                 vlan_tag = right_svc_vlan
+                                 svc_chain_subscriber_tag = svc_inst_name + '-' + 'right'
+
+                             # Create logical interfaces for the PNF device
+                             cls._create_logical_interface(api_server, db_conn, dev_name,
+                                                           phys_intf_name, vlan_tag,
+                                                           svc_chain_subscriber_tag, svc_chain_network_name)
+
+                             loopback_network_type = 'loopback'
+                             loopback_network_name = '%s-%s-network' % (fabric_name, loopback_network_type)
+                             # Create one dummy loopback interface for the PNF device
+                             cls._create_logical_interface(api_server, db_conn, dev_name,
+                                                           'lo0', left_svc_vlan,
+                                                           None, loopback_network_name)
+
+                             for ref in phys_intf_result.get('physical_interface_refs') or []:
+                                  ok, read_result = cls.dbe_read(db_conn, 'physical_interface',
+                                                                 ref['uuid'],
+                                                                 obj_fields=['fq_name'])
+                                  if not ok:
+                                      return ok, read_result
+                                  phys_intf_name = read_result.get('fq_name')[-1]
+                                  dev_name = read_result.get('fq_name')[-2]
+                                  # Create logical interfaces for spine
+                                  cls._create_logical_interface(api_server, db_conn, dev_name,
+                                                                phys_intf_name, vlan_tag,
+                                                                svc_chain_subscriber_tag, svc_chain_network_name)
+
+        return True, ''
+    # end post_dbe_create
+
+    @classmethod
+    def delete_pt_vn_refs(cls, obj_dict, db_conn):
+        vn_int_fqname = ["default-domain", "default-project"]
+        left_vn_int_fqname = vn_int_fqname + ['__contrail_pt_internal_vn_' + obj_dict.get('uuid') + '-left' + '__']
+        right_vn_int_fqname = vn_int_fqname + ['__contrail_pt_internal_vn_' + obj_dict.get('uuid') + '-right' + '__']
+
+        vn_list = [left_vn_int_fqname, right_vn_int_fqname]
+
+        api_server = db_conn.get_api_server()
+        for vn in vn_list:
+             vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn)
+
+             api_server.internal_request_ref_update('port-tuple', obj_dict['uuid'], 'DELETE',
+                                                    'virtual-network', vn_int_uuid, vn)
+             api_server.internal_request_delete('virtual-network', vn_int_uuid)
+             def undo_pt_vn_delete():
+                 return cls.create_pt_vn_and_ref(obj_dict, db_conn)
+             get_context().push_undo(undo_pt_vn_delete)
+
+        return True, '', None
+    # end delete_pt_vn_refs
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        # Delete the logical interfaces created and de-allocate IP addresses from them
+        api_server = db_conn.get_api_server()
+        svc_instance_uuid = obj_dict.get('parent_uuid')
+        ok, svc_inst_result = cls.dbe_read(db_conn, 'service_instance',
+                                           svc_instance_uuid,
+                                           obj_fields=['fq_name', 'annotations'])
+        if not ok:
+            return ok, svc_inst_result, None
+        svc_inst_name = svc_inst_result.get('fq_name')[-1]
+
+        # Fetch left and right vlan from the service instance
+        left_svc_vlan, right_svc_vlan = cls.get_svc_vlans(svc_inst_result.get('annotations'))
+        if left_svc_vlan and right_svc_vlan:
+            ok, sa_uuid = cls.get_sa_from_pt(obj_dict)
+            if sa_uuid is not None:
+                ok, svc_appl_result = cls.dbe_read(db_conn, 'service_appliance',
+                                                   sa_uuid,
+                                                   obj_fields=['physical_interface_refs'])
+                if not ok:
+                    return ok, svc_appl_result, None
+                for phys_intf_ref in svc_appl_result.get('physical_interface_refs') or []:
+                     ok, phys_intf_result = cls.dbe_read(db_conn, 'physical_interface',
+                                                    phys_intf_ref['uuid'],
+                                                    obj_fields=['fq_name',
+                                                                'physical_interface_refs'])
+                     if not ok:
+                         return ok, phys_intf_result, None
+
+                     phys_intf_name = phys_intf_result.get('fq_name')[-1]
+                     dev_name = phys_intf_result.get('fq_name')[-2]
+                     if phys_intf_ref['attr'].get('interface_type') == 'left':
+                         vlan_tag = left_svc_vlan
+                     elif phys_intf_ref['attr'].get('interface_type') == 'right':
+                         vlan_tag = right_svc_vlan
+
+                     # Delete logical interfaces for the PNF device
+                     cls._delete_logical_interface(api_server, db_conn, dev_name,
+                                                   phys_intf_name, vlan_tag)
+
+                     # Delete dummy loopback interface for the PNF device
+                     cls._delete_logical_interface(api_server, db_conn, dev_name,
+                                                   'lo0', left_svc_vlan)
+
+                     for ref in phys_intf_result.get('physical_interface_refs') or []:
+                          ok, read_result = cls.dbe_read(db_conn, 'physical_interface',
+                                                         ref['uuid'],
+                                                         obj_fields=['fq_name'])
+                          if not ok:
+                              return ok, read_result, None
+                          phys_intf_name = read_result.get('fq_name')[-1]
+                          dev_name = read_result.get('fq_name')[-2]
+                          # Delete logical interfaces for spine
+                          cls._delete_logical_interface(api_server, db_conn, dev_name,
+                                                        phys_intf_name, vlan_tag)
+
+        return True, '', None
+    # end pre_dbe_delete
+
+# end class PortTupleServer
