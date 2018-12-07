@@ -1,4 +1,5 @@
+pycassa>=1.7.2
+kazoo
+kombu
 bitarray
 bottle
-geventhttpclient
-psutil>=0.6.0

@@ -80,7 +80,7 @@ import context
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext
 from context import is_internal_request
-import vnc_cfg_types
+from resources import initialize_all_server_resource_classes
 from vnc_db import VncDbClient
 
 import cfgm_common
@@ -1986,7 +1986,7 @@ class VncApiServer(object):
 
     def __init__(self, args_str=None):
         self._db_conn = None
-        self._resource_classes = {}
+        self._resource_classes = initialize_all_server_resource_classes(self)
         self._args = None
         self._path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX
         self.quota_counter = {}
@@ -3120,30 +3120,10 @@ class VncApiServer(object):
     # end get_profile_info
 
     def get_resource_class(self, type_str):
-        if type_str in self._resource_classes:
-            return self._resource_classes[type_str]
-
-        common_name = cfgm_common.utils.CamelCase(type_str)
-        server_name = '%sServer' % common_name
         try:
-            resource_class = getattr(vnc_cfg_types, server_name)
-        except AttributeError:
-            common_class = cfgm_common.utils.str_to_class(common_name,
-                                                          __name__)
-            if common_class is None:
-                raise TypeError('Invalid type: ' + type_str)
-            # Create Placeholder classes derived from Resource, <Type> so
-            # resource_class methods can be invoked in CRUD methods without
-            # checking for None
-            resource_class = type(
-                str(server_name),
-                (vnc_cfg_types.Resource, common_class, object),
-                {})
-        resource_class.server = self
-        self._resource_classes[resource_class.object_type] = resource_class
-        self._resource_classes[resource_class.resource_type] = resource_class
-        return resource_class
-    # end get_resource_class
+            return self._resource_classes[type_str]
+        except KeyError:
+            raise TypeError('Invalid Contrail resource type: %s' % type_str)
 
     def list_bulk_collection_http_post(self):
         """ List collection when requested ids don't fit in query params."""
@@ -3896,7 +3876,7 @@ class VncApiServer(object):
         type_str = obj_dict['tag_type_name']
         value_str = obj_dict['tag_value']
 
-        ok, result = vnc_cfg_types.TagTypeServer.locate(
+        ok, result = self.get_resource_class('tag_type').locate(
             [type_str], id_perms=IdPermsType(user_visible=False))
         tag_type = result
         obj_dict['tag_type_refs'] = [
@@ -3908,8 +3888,9 @@ class VncApiServer(object):
 
         # Allocate ID for tag value. Use the all fq_name to distinguish same
         # tag values between global and scoped
-        value_id = vnc_cfg_types.TagServer.vnc_zk_client.alloc_tag_value_id(
-            type_str, ':'.join(obj_dict['fq_name']))
+        value_id = self.get_resource_class(
+            'tag').vnc_zk_client.alloc_tag_value_id(
+                type_str, ':'.join(obj_dict['fq_name']))
 
         # Compose Tag ID with the type ID and value ID
         obj_dict['tag_id'] = "{}{:04x}".format(tag_type['tag_type_id'],
@@ -4602,7 +4583,7 @@ class VncApiServer(object):
         subnet = req_dict.get('subnet')
         family = req_dict.get('family')
         try:
-            result = vnc_cfg_types.VirtualNetworkServer.ip_alloc(
+            result = self.get_resource_class('virtual_network').ip_alloc(
                 vn_fq_name, subnet, count, family)
         except vnc_addr_mgmt.AddrMgmtSubnetUndefined as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
@@ -4629,7 +4610,7 @@ class VncApiServer(object):
 
         req_dict = get_request().json
         ip_list = req_dict['ip_addr'] if 'ip_addr' in req_dict else []
-        result = vnc_cfg_types.VirtualNetworkServer.ip_free(
+        result = self.get_resource_class('virtual_network').ip_free(
             vn_fq_name, ip_list)
         return result
     # end vn_ip_free_http_post
@@ -4657,7 +4638,7 @@ class VncApiServer(object):
         obj_dict = result
         subnet_list = req_dict[
             'subnet_list'] if 'subnet_list' in req_dict else []
-        result = vnc_cfg_types.VirtualNetworkServer.subnet_ip_count(
+        result = self.get_resource_class('virtual_network').subnet_ip_count(
             vn_fq_name, subnet_list)
         return result
     # end vn_subnet_ip_count_http_post
