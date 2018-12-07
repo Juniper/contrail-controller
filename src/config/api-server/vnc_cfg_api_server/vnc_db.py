@@ -696,7 +696,6 @@ class VncZkClient(object):
             if (allocated_fq_name_str is not None and
                     allocated_fq_name_str != fq_name_str):
                 return
-
             if notify:
                 # If notify, the ZK allocation already removed, just remove
                 # lock in memory
