@@ -28,6 +28,7 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
+from cfgm_common import VLANID_MIN_ALLOC
 
 import copy
 from cfgm_common import jsonutils as json
@@ -412,6 +413,9 @@ class VncZkClient(object):
     _VN_ID_ALLOC_PATH = "/id/virtual-networks/"
     _VN_MAX_ID = 1 << 24
 
+    _VLAN_ID_ALLOC_PATH = "/id/vlan-ids/"
+    _VLAN_MAX_ID = 1 << 12
+
     _AE_ID_ALLOC_PATH = "/id/aggregated-ethernet/"
     _AE_MIN_ID = 0
     _AE_MAX_ID = 64
@@ -440,6 +444,7 @@ class VncZkClient(object):
         self._subnet_path = zk_path_pfx + self._SUBNET_PATH
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
         _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
+        _vlan_id_alloc_path = zk_path_pfx + self._VLAN_ID_ALLOC_PATH
         _ae_id_alloc_path = zk_path_pfx + self._AE_ID_ALLOC_PATH
         _sg_id_alloc_path = zk_path_pfx + self._SG_ID_ALLOC_PATH
         _tag_type_id_alloc_path = zk_path_pfx + self._TAG_TYPE_ID_ALLOC_PATH
@@ -463,6 +468,7 @@ class VncZkClient(object):
             self._zk_client.delete_node(self._subnet_path, True)
             self._zk_client.delete_node(self._fq_name_to_uuid_path, True)
             self._zk_client.delete_node(_vn_id_alloc_path, True)
+            self._zk_client.delete_node(_vlan_id_alloc_path, True)
             self._zk_client.delete_node(_ae_id_alloc_path, True)
             self._zk_client.delete_node(_sg_id_alloc_path, True)
             self._zk_client.delete_node(
@@ -479,6 +485,11 @@ class VncZkClient(object):
         self._vn_id_allocator = IndexAllocator(self._zk_client,
                                                _vn_id_alloc_path,
                                                self._VN_MAX_ID)
+
+        # Initialize the vlan ID allocator
+        self._vlan_id_allocator = IndexAllocator(self._zk_client,
+                                                 _vlan_id_alloc_path,
+                                                 self._VLAN_MAX_ID)
 
         # Initialize the security group ID allocator
         self._sg_id_allocator = IndexAllocator(self._zk_client,
@@ -650,6 +661,31 @@ class VncZkClient(object):
         return self._zk_client.is_connected()
     # end is_connected
 
+    def alloc_vlan_id(self, fq_name_str, id=None):
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None:
+            if self.get_vlan_from_id(id) is not None:
+                self._vlan_id_allocator.set_in_use(id - VLANID_MIN_ALLOC)
+                return id
+        elif fq_name_str is not None:
+            return self._vlan_id_allocator.alloc(fq_name_str) + VLANID_MIN_ALLOC
+
+    def free_vlan_id(self, id, fq_name_str, notify=False):
+        if id is not None and id - VLANID_MIN_ALLOC < self._VLAN_MAX_ID:
+            # If fq_name associated to the allocated ID does not correpond to
+            # freed resource fq_name, keep zookeeper lock
+            allocated_fq_name_str = self.get_vlan_from_id(id)
+            if (allocated_fq_name_str is not None and
+                    allocated_fq_name_str != fq_name_str):
+                return
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                self._vlan_id_allocator.reset_in_use(id - VLANID_MIN_ALLOC)
+            else:
+                self._vlan_id_allocator.delete(id - VLANID_MIN_ALLOC)
+
     def alloc_vn_id(self, fq_name_str, id=None):
         # If ID provided, it's a notify allocation, just lock allocated ID in
         # memory
@@ -695,13 +731,16 @@ class VncZkClient(object):
             if (allocated_fq_name_str is not None and
                     allocated_fq_name_str != fq_name_str):
                 return
-
             if notify:
                 # If notify, the ZK allocation already removed, just remove
                 # lock in memory
                 self._vn_id_allocator.reset_in_use(id - VNID_MIN_ALLOC)
             else:
                 self._vn_id_allocator.delete(id - VNID_MIN_ALLOC)
+
+    def get_vlan_from_id(self, id):
+        if id is not None and id - VLANID_MIN_ALLOC < self._VLAN_MAX_ID:
+            return self._vlan_id_allocator.read(id - VLANID_MIN_ALLOC)
 
     def get_vn_from_id(self, id):
         if id is not None and id - VNID_MIN_ALLOC < self._VN_MAX_ID:
