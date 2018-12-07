@@ -1,14 +1,14 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-import gevent.monkey
-gevent.monkey.patch_all()  # noqa
 import logging
 
 from cfgm_common import BGP_RTGT_MIN_ID
+import gevent.monkey
+gevent.monkey.patch_all()  # noqa
 
+from vnc_cfg_api_server.resources import RouteTargetServer
 from vnc_cfg_api_server.tests import test_case
-from vnc_cfg_api_server.vnc_cfg_types import RouteTargetServer
 
 
 logger = logging.getLogger(__name__)

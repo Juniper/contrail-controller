@@ -1,22 +1,19 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-import gevent
-import gevent.monkey
-gevent.monkey.patch_all()
+
 import logging
 
+import gevent.monkey
+gevent.monkey.patch_all()  # noqa
 from vnc_api.exceptions import BadRequest
-from vnc_api.gen.resource_client import (
-    PhysicalRouter,
-    PhysicalInterface,
-    LogicalInterface
-)
+from vnc_api.gen.resource_client import LogicalInterface
+from vnc_api.gen.resource_client import PhysicalInterface
+from vnc_api.gen.resource_client import PhysicalRouter
 
 from vnc_cfg_api_server.tests import test_case
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 class TestLogicalInterface(test_case.ApiServerTestCase):
@@ -55,7 +52,7 @@ class TestLogicalInterface(test_case.ApiServerTestCase):
                                        logical_interface_vlan_tag=2,
                                        logical_interface_type='l2')
 
-        regex_msg = (r"Vlan ids \[1, 2, 4094\] are not allowed on "
+        regex_msg = (r"Vlan ids 1, 2, 4094 are not allowed on "
                      "QFX logical interface type: l2")
         self.assertRaisesRegexp(BadRequest, regex_msg,
                                 self._vnc_lib.logical_interface_create,
@@ -148,7 +145,7 @@ class TestLogicalInterface(test_case.ApiServerTestCase):
             "log_intf_qfx_%s" % self.id()])
         log_intf_obj.set_logical_interface_type('l2')
 
-        regex_msg = (r"Vlan ids \[1, 2, 4094\] are not allowed on "
+        regex_msg = (r"Vlan ids 1, 2, 4094 are not allowed on "
                      "QFX logical interface type: l2")
         self.assertRaisesRegexp(BadRequest, regex_msg,
                                 self._vnc_lib.logical_interface_update,
@@ -187,10 +184,8 @@ class TestLogicalInterface(test_case.ApiServerTestCase):
         log_intf_obj.set_logical_interface_vlan_tag(4094)
         log_intf_obj.set_logical_interface_type('l2')
 
-        regex_msg = (r"Vlan ids \[1, 2, 4094\] are not allowed on "
+        regex_msg = (r"Vlan ids 1, 2, 4094 are not allowed on "
                      "QFX logical interface type: l2")
         self.assertRaisesRegexp(BadRequest, regex_msg,
                                 self._vnc_lib.logical_interface_update,
                                 log_intf_obj)
-
-# end class TestLogicalInterface

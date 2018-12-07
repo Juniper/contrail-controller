@@ -51,7 +51,7 @@ sys.path.append('../common/tests')
 from test_utils import *
 import test_common
 import test_case
-from vnc_cfg_api_server.vnc_cfg_types import GlobalSystemConfigServer
+from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
