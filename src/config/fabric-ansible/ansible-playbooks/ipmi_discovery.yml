@@ -1,0 +1,25 @@
+---
+
+- set_fact:
+    ip_address_list : "{{ playbook_input |expand_subnets }}"
+- debug:
+    msg: "SERVER DISCOVERY  {{ ip_address_list}}"
+    verbosity: 2
+
+- set_fact:
+    active_ip_addresses : "{{ playbook_input | ping_sweep(ip_address_list) }}"
+- debug:
+    msg: "SERVER DISCOVERY: Ping SWEEP  {{ active_ip_addresses}}"
+    verbosity: 2
+
+- set_fact:
+    valid_ipmi_details : "{{ playbook_input | ipmi_auth_check(active_ip_addresses) }}"
+- debug:
+    msg: "SERVER DISCOVERY: IPMI AUTH CHECK {{ valid_ipmi_details }}"
+    verbosity: 2
+
+- set_fact:
+    output: "{{ playbook_input | check_nodes_with_cc(valid_ipmi_details, contrail_command_node) }}"
+- debug:
+    msg: "SERVER DISCOVERY: CHECK WITH CC {{ output.final_ipmi_details }}"
+    verbosity: 2

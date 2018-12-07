@@ -1,0 +1,74 @@
+{
+  "input_schema": {
+    "title": "server import",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "fabric_fq_name": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "encoded_file":{
+        "$id":"/properties/encoded_file",
+        "type":"string"
+      },
+      "file_format":{
+        "$id":"/properties/file_format",
+        "type":"string"
+      },
+      "ironic":{
+        "$id":"/properties/ironic",
+        "type":"object",
+        "required": [ "auth_url", "username", "password" ],
+        "properties":{
+          "auth_url":{
+            "$id":"/properties/ironic/properties/auth_host",
+            "type":"string"
+          },
+          "username":{
+            "$id":"/properties/ironic/properties/username",
+            "type":"string"
+          },
+          "password":{
+            "$id":"/properties/ironic/properties/password",
+            "type":"string"
+          },
+          "introspection_flag":{
+            "$id":"/properties/ironic/properties/introspection_flag",
+            "type":"boolean",
+            "default": true
+          }
+        }
+      },
+      "contrail_command_host":{
+        "$id":"/properties/contrail_command_host",
+        "type":"string"
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+       "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "object",
+          "description": "JSON object holding the job specific output details"
+       }
+    },
+    "required": [ "status" ]
+  }
+}
+
