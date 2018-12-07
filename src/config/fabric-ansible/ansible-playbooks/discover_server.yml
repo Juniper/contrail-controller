@@ -1,0 +1,59 @@
+---
+- name: Discover Servers from IPMI details
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - set_fact:
+      job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[50,50] })}}"
+    - debug: var=playbook_input verbosity=2
+    - include: ipmi_discovery.yml
+
+    - block:
+        - set_fact:
+          op_err_message: "Failed to discover server due to error: {{ output.error_msg }}. Here is the fabric onboard log: {{ output.discover_log}}"
+          jl_err_message: "Failed to discover server due to error: {{ output.error_msg }}"
+          results: {}
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 0
+            jl_message: "{{ jl_err_message }}"
+
+        - pause: seconds=5
+
+        - name: handle failure
+          include_tasks: error_handler.yml
+      when: output.status == 'failure'
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 0
+        jl_message: "Successfully discovered Nodes from IPMI '{{ output.final_ipmi_details }}'"
+
+    - include: plugin_ironic.yml
+
+    - block:
+        - set_fact:
+          op_err_message: "Failed to discover server due to error: {{ output.error_msg }}. Here is the fabric onboard log: {{ output.discover_log}}"
+          jl_err_message: "Failed to discover server due to error: {{ output.error_msg }}"
+          results: {}
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "{{ jl_err_message }}"
+
+        - pause: seconds=5
+
+        - name: handle failure
+          include_tasks: error_handler.yml
+      when: output.status == 'failure'
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 1
+        jl_message: "Successfully added nodes to Ironic '{{ output.success_nodes }}'"

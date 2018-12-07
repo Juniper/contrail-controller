@@ -192,3 +192,18 @@ TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"
 # DHCP and TFTP servers
 DHCP_SERVER: "localhost"
 TFTP_SERVER: "localhost"
+
+
+# Server Discovery test variables
+ipmi_subnets:
+  - 2.2.2.2
+  - 3.3.3.3
+  - 4.4.4.4
+
+ipmi_credentials:
+  - ADMIN:ADMIN
+  - admin:admin
+  - admin:password
+
+ipmi_port_ranges:
+  - 623-623
