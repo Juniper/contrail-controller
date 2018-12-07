@@ -1,6 +1,4 @@
 import gevent
-from gevent import monkey
-monkey.patch_all()
 import kombu
 import sys
 import logging

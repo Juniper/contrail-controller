@@ -1,11 +1,7 @@
 lxml>=2.3.3
-#testrepository # need newer version because the python module name is not the same as the package name (installed by tox from git)
 flexmock
-coverage
 webtest
-pyaml
 keystonemiddleware!=4.19.0
-junitxml
-pyOpenSSL
 mock
 kombu # set in test-requirements due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
+python-novaclient

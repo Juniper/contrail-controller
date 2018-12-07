@@ -5,3 +5,6 @@ omit =
     */tests/*
     */sandesh/*
     */gen/*
+
+[report]
+ignore_errors = True
