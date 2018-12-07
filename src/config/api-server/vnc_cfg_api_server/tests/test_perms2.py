@@ -1,15 +1,11 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-import gevent
-import gevent.monkey
-gevent.monkey.patch_all()
 
 import os
 import sys
 import uuid
 import logging
-import coverage
 
 import fixtures
 import testtools

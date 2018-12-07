@@ -1,15 +1,13 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-import gevent.monkey
-gevent.monkey.patch_all()  # noqa
 import logging
-from testtools import ExpectedException
 
 from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common import VNID_MIN_ALLOC
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import PermissionDenied
-from cfgm_common import VNID_MIN_ALLOC
+from testtools import ExpectedException
 from vnc_api.vnc_api import GlobalSystemConfig
 from vnc_api.vnc_api import RouteTargetList
 from vnc_api.vnc_api import VirtualNetwork
