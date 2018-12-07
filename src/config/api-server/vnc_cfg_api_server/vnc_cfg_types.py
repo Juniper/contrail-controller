@@ -35,6 +35,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
 
 
+###### DONE ######
 class ResourceDbMixin(object):
 
     @classmethod
@@ -196,6 +197,7 @@ class ResourceDbMixin(object):
 
 # end class ResourceDbMixin
 
+###### DONE ######
 class Resource(ResourceDbMixin):
     server = None
 
@@ -332,6 +334,7 @@ def draft_mode_sanity_checks(func):
     return wrapper
 
 
+###### DONE ######
 class SecurityResourceBase(Resource):
     @classmethod
     def check_associated_firewall_resource_in_same_scope(cls, id, fq_name,
@@ -687,6 +690,7 @@ class SecurityResourceBase(Resource):
         return cls.locate(pending_fq_name, create_it=False, fields=fields)
 
 
+###### DONE ######
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     @classmethod
     def _get_global_system_config(cls, fields=None):
@@ -888,6 +892,7 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         return True, ''
 
 
+###### DONE ######
 class FloatingIpServer(Resource, FloatingIp):
     @classmethod
     def _get_fip_pool_subnets(cls, fip_obj_dict, db_conn):
@@ -1052,6 +1057,7 @@ class FloatingIpServer(Resource, FloatingIp):
 # end class FloatingIpServer
 
 
+###### DONE ######
 class AliasIpServer(Resource, AliasIp):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -1133,6 +1139,7 @@ class AliasIpServer(Resource, AliasIp):
 # end class AliasIpServer
 
 
+###### DONE ######
 class InstanceIpServer(Resource, InstanceIp):
     @classmethod
     def _vmi_has_vm_ref(cls, db_conn, iip_dict):
@@ -1442,6 +1449,7 @@ class InstanceIpServer(Resource, InstanceIp):
 # end class InstanceIpServer
 
 
+###### DONE ######
 class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
 
     @classmethod
@@ -1643,6 +1651,7 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
 # end DataCenterInterconnectServer
 
 
+###### DONE ######
 class LogicalRouterServer(Resource, LogicalRouter):
     @classmethod
     def is_port_in_use_by_vm(cls, obj_dict, db_conn):
@@ -2093,6 +2102,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
     # end pre_dbe_delete
 # end class LogicalRouterServer
 
+###### DONE ######
 class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings = {}
     portbindings['VIF_TYPE_VROUTER'] = 'vrouter'
@@ -2928,6 +2938,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end post_dbe_delete
 # end class VirtualMachineInterfaceServer
 
+###### DONE ######
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
@@ -2944,6 +2955,7 @@ class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
 # end class ServiceApplianceSetServer
 
 
+###### DONE ######
 class BridgeDomainServer(Resource, BridgeDomain):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -2964,6 +2976,7 @@ class BridgeDomainServer(Resource, BridgeDomain):
 # end class BridgeDomainServer
 
 
+###### DONE ######
 class ServiceGroupServer(SecurityResourceBase, ServiceGroup):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -3000,6 +3013,7 @@ class ServiceGroupServer(SecurityResourceBase, ServiceGroup):
         return cls.pre_dbe_create(None, obj_dict, db_conn)
 
 
+###### DONE ######
 class TagTypeServer(Resource, TagType):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -3068,6 +3082,7 @@ class TagTypeServer(Resource, TagType):
         return True, int(tag_type['tag_type_id'], 0)
 
 
+###### DONE ######
 class TagServer(Resource, Tag):
     @classmethod
     def pre_dbe_alloc(cls, obj_dict):
@@ -3199,6 +3214,7 @@ class TagServer(Resource, Tag):
         return True, ''
 
 
+###### DONE ######
 class FirewallRuleServer(SecurityResourceBase, FirewallRule):
     @classmethod
     def _check_endpoint(cls, obj_dict):
@@ -3531,6 +3547,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         return True, ''
 
 
+###### DONE ######
 class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -3555,6 +3572,7 @@ class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
             id, fq_name, obj_dict, FirewallRuleServer)
 
 
+###### DONE ######
 class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
     @staticmethod
     def _check_all_applications_flag(obj_dict):
@@ -3609,6 +3627,7 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
         return True, '',None
 
 
+###### DONE ######
 class VirtualRouterServer(Resource, VirtualRouter):
 
     @classmethod
@@ -3816,6 +3835,7 @@ class VirtualRouterServer(Resource, VirtualRouter):
 # end class VirtualRouterServer
 
 
+###### DONE ######
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
@@ -4681,6 +4701,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 # end class VirtualNetworkServer
 
 
+###### DONE ######
 class NetworkIpamServer(Resource, NetworkIpam):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -4946,6 +4967,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
 
 # end class NetworkIpamServer
 
+###### DONE ######
 class DomainServer(Resource, Domain):
 
     @classmethod
@@ -4960,6 +4982,7 @@ class DomainServer(Resource, Domain):
     # end pre_dbe_create
 
 
+###### DONE ######
 class ServiceTemplateServer(Resource, ServiceTemplate):
     generate_default_instance = False
 
@@ -4977,6 +5000,7 @@ class ServiceTemplateServer(Resource, ServiceTemplate):
         return (True, "")
     # end pre_dbe_create
 
+###### DONE ######
 class VirtualDnsServer(Resource, VirtualDns):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -5129,6 +5153,7 @@ class VirtualDnsServer(Resource, VirtualDns):
 # end class VirtualDnsServer
 
 
+###### DONE ######
 class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -5204,6 +5229,7 @@ class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
     # end validate_dns_record
 # end class VirtualDnsRecordServer
 
+###### DONE ######
 def _check_policy_rules(entries, network_policy_rule=False):
     if not entries:
         return True, ""
@@ -5265,6 +5291,7 @@ def _check_policy_rules(entries, network_policy_rule=False):
     return True, ""
 # end _check_policy_rules
 
+###### DONE ######
 class SecurityGroupServer(Resource, SecurityGroup):
     get_nested_key_as_list = classmethod(lambda cls, x, y, z: (x.get(y).get(z)
                                  if (type(x) is dict and
@@ -5512,6 +5539,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
 # end class SecurityGroupServer
 
 
+###### DONE ######
 class NetworkPolicyServer(Resource, NetworkPolicy):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -5530,6 +5558,7 @@ class NetworkPolicyServer(Resource, NetworkPolicy):
 # end class NetworkPolicyServer
 
 
+###### DONE ######
 class LogicalInterfaceServer(Resource, LogicalInterface):
 
     @classmethod
@@ -5663,6 +5692,7 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
 
 # end class LogicalInterfaceServer
 
+###### DONE ######
 class RouteTableServer(Resource, RouteTable):
 
     @classmethod
@@ -5690,6 +5720,7 @@ class RouteTableServer(Resource, RouteTable):
 
 # end class RouteTableServer
 
+###### DONE ######
 class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
     @classmethod
@@ -5867,6 +5898,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 # end class PhysicalInterfaceServer
 
 
+###### DONE ######
 class ProjectServer(Resource, Project):
     @classmethod
     def _ensure_default_application_policy_set(cls, project_uuid,
@@ -6041,6 +6073,7 @@ class ProjectServer(Resource, Project):
     #end dbe_delete_notification
 # end ProjectServer
 
+###### DONE ######
 class RouteAggregateServer(Resource, RouteAggregate):
     @classmethod
     def _check(cls, obj_dict, db_conn):
@@ -6072,6 +6105,7 @@ class RouteAggregateServer(Resource, RouteAggregate):
 
 # end class RouteAggregateServer
 
+###### DONE ######
 class ForwardingClassServer(Resource, ForwardingClass):
     @classmethod
     def _check_fc_id(cls, obj_dict, db_conn):
@@ -6111,6 +6145,7 @@ class ForwardingClassServer(Resource, ForwardingClass):
 # end class ForwardingClassServer
 
 
+###### DONE ######
 class AlarmServer(Resource, Alarm):
 
     @classmethod
@@ -6178,6 +6213,7 @@ class AlarmServer(Resource, Alarm):
 # end class AlarmServer
 
 
+###### DONE ######
 class QosConfigServer(Resource, QosConfig):
     @classmethod
     def _check_qos_values(cls, obj_dict, db_conn):
@@ -6215,6 +6251,7 @@ class QosConfigServer(Resource, QosConfig):
 # end class QosConfigServer
 
 
+###### DONE ######
 class FloatingIpPoolServer(Resource, FloatingIpPool):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -6282,6 +6319,7 @@ class FloatingIpPoolServer(Resource, FloatingIpPool):
 # end class FloatingIpPoolServer
 
 
+###### DONE ######
 class BgpAsAServiceServer(Resource, BgpAsAService):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -6306,6 +6344,7 @@ class BgpAsAServiceServer(Resource, BgpAsAService):
 # end BgpAsAServiceServer
 
 
+###### DONE ######
 class PhysicalRouterServer(Resource, PhysicalRouter):
     @classmethod
     def post_dbe_read(cls, obj_dict, db_conn):
@@ -6325,6 +6364,7 @@ class PhysicalRouterServer(Resource, PhysicalRouter):
 # end class PhysicalRouterServer
 
 
+###### DONE ######
 class BgpvpnServer(Resource, Bgpvpn):
     @classmethod
     def check_network_supports_vpn_type(
@@ -6531,6 +6571,7 @@ class BgpvpnServer(Resource, Bgpvpn):
                     found_bgpvpn)
         return False, (400, msg[:-1])
 
+###### DONE ######
 class BgpRouterServer(Resource, BgpRouter):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -6587,6 +6628,7 @@ class BgpRouterServer(Resource, BgpRouter):
 
 # end class BgpRouterServer
 
+###### DONE ######
 class SubClusterServer(Resource, SubCluster):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
@@ -6597,11 +6639,13 @@ class SubClusterServer(Resource, SubCluster):
 # end class SubClusterServer
 
 
+###### DONE ######
 # Just decelare here to heritate 'locate' method of Resource class
 class PolicyManagementServer(Resource, PolicyManagement):
     pass
 
 
+###### DONE ######
 class AddressGroupServer(SecurityResourceBase, AddressGroup):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -6612,6 +6656,7 @@ class AddressGroupServer(SecurityResourceBase, AddressGroup):
         return cls.check_draft_mode_state(obj_dict)
 
 
+###### DONE ######
 class RouteTargetServer(Resource, RouteTarget):
     @staticmethod
     def _parse_route_target_name(name):
@@ -6658,6 +6703,7 @@ class RouteTargetServer(Resource, RouteTarget):
             return True, False
         return True, True
 
+###### DONE ######
 class RoutingPolicyServer(Resource, RoutingPolicy):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
