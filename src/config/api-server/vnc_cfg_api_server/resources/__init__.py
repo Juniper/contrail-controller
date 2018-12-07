@@ -60,6 +60,9 @@ from vnc_cfg_api_server.resources.virtual_machine_interface import\
     VirtualMachineInterfaceServer
 from vnc_cfg_api_server.resources.virtual_network import VirtualNetworkServer
 from vnc_cfg_api_server.resources.virtual_router import VirtualRouterServer
+from vnc_cfg_api_server.resources.service_appliance import ServiceApplianceServer
+from vnc_cfg_api_server.resources.service_instance import ServiceInstanceServer
+from vnc_cfg_api_server.resources.port_tuple import PortTupleServer
 
 
 def initialize_all_server_resource_classes(server_instance):
