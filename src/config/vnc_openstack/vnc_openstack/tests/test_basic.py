@@ -488,8 +488,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         binding_profile_update = {'local_link_information':[]}
         for i in range(num_phy_interfaces+1):
             pi_name = self.id() + 'ge-0/0/%s' %i
+            mac = vnc_api.MacAddressesType(mac_address=
+                          ['00:01:00:00:0f:c' + str(i)])
             pi = vnc_api.PhysicalInterface(name=pi_name,
-                                   parent_obj=pr_obj)
+                 parent_obj=pr_obj, physical_interface_mac_addresses = mac)
             pi_uuid.append(self._vnc_lib.physical_interface_create(pi))
             pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid[i])
             pi_fq_name.append(pi_obj.get_fq_name())
