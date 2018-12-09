@@ -540,7 +540,10 @@ void ConfigManager::AddProjectNode(IFMapNode *node) {
 }
 
 string ConfigManager::ProfileInfo() const {
-    stringstream str;
+    using std::setw;
+    using std::endl;
+
+    std::stringstream str;
     str << setw(16) << "CfgMgr"
         << " Queue" << setw(8) << Size()
         << " Timeout " << setw(8) << timeout()

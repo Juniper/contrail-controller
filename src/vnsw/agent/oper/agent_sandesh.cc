@@ -606,7 +606,7 @@ bool AgentSandeshArguments::Add(const std::string &key, const std::string &val){
 }
 
 bool AgentSandeshArguments::Add(const std::string &key, int val) {
-    stringstream ss;
+    std::stringstream ss;
     ss << val;
     ArgumentMap::iterator it = arguments_.find(key);
     if (it != arguments_.end()) {
@@ -676,7 +676,7 @@ int AgentSandeshArguments::Encode(std::string *str) {
 }
 
 static int Split(const string &s, char delim, vector<string> &tokens) {
-    stringstream ss(s);
+    std::stringstream ss(s);
     string item;
     int count = 0;
     while(getline(ss, item, delim)) {
@@ -741,7 +741,7 @@ void SandeshError(DBTable *table, const std::string &msg,
     ErrorResp *resp = new ErrorResp();
 
     if (table) {
-        stringstream s;
+        std::stringstream s;
         s << table->name() << ":" << msg;
         resp->set_resp(s.str());
     } else {
@@ -1388,5 +1388,3 @@ bool AgentCryptTunnelSandesh::Filter(const DBEntryBase *entry) {
         return false;
     return true;
 }
-
-

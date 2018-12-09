@@ -118,7 +118,7 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
             if (entry) {
                 id = entry->oper_id_;
             }
-            ostringstream oss;
+            std::ostringstream oss;
             oss << "Intf Del " << vmport->name() << " id " << id;
             string msg = oss.str();
             VNSWIF_TRACE(msg.c_str());
@@ -128,7 +128,7 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
         }
     } else {
         if (state == NULL) {
-            ostringstream oss;
+            std::ostringstream oss;
             oss << "Intf Add " << vmport->name() << " id " << vmport->id();
             string msg = oss.str();
             VNSWIF_TRACE(msg.c_str());
@@ -275,7 +275,7 @@ static void InterfaceResync(Agent *agent, uint32_t id, bool active,
     InterfaceTable *table = agent->interface_table();
     Interface *intrface = table->FindInterface(id);
     if (intrface == NULL) {
-        ostringstream oss;
+        std::ostringstream oss;
         oss << "InterfaceResync failed. Interface index " << id <<
             " not found. Active " << active;
         string msg = oss.str();
@@ -295,7 +295,7 @@ static void InterfaceResync(Agent *agent, uint32_t id, bool active,
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intrface->GetUuid(),
                                      intrface->name()));
     string link_state_str = link_status? "up" : "down";
-    ostringstream oss;
+    std::ostringstream oss;
     oss << "InterfaceResync for id " << id << " link_state " << link_state_str;
     VNSWIF_TRACE(oss.str().c_str());
     req.data.reset(new VmInterfaceOsOperStateData(link_status));
@@ -465,7 +465,7 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
         return;
     }
 
-    ostringstream oss;
+    std::ostringstream oss;
     oss << "Setting IP address for " << event->interface_ << " to "
         << event->addr_.to_string() << "/" << (unsigned short)event->plen_;
     string msg = oss.str();
@@ -587,7 +587,7 @@ bool VnswInterfaceListenerBase::ProcessEvent(Event *event) {
     if (entry) {
         id = entry->oper_id_;
     }
-    ostringstream oss;
+    std::ostringstream oss;
     oss << " Event " << EventTypeToString(event->event_)
         << " Interface " << event->interface_ << " Addr "
         << event->addr_.to_string() << " prefixlen " << (uint32_t)event->plen_

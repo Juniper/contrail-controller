@@ -250,7 +250,7 @@ public:
 
     // Config tree of VRF to VMI entries. Tree used to track the VMIs that are
     // already processed after VRF has been added
-    typedef set<std::string,  boost::uuids::uuid> CfgVmiTree;
+    typedef std::set<std::string, boost::uuids::uuid> CfgVmiTree;
 
     // Map from VRF Name to Route Table
     typedef map<string, RouteTable *> VrfDbTree;
