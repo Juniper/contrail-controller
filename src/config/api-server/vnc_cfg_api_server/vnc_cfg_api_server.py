@@ -3530,6 +3530,15 @@ class VncApiServer(object):
             RoutingInstance('__link_local__', link_local_vn,
                             routing_instance_is_default=True))
 
+        # dc network
+        dci_vn = self.create_singleton_entry(
+            VirtualNetwork(cfgm_common.DCI_VN_FQ_NAME[-1]))
+        self.create_singleton_entry(
+            RoutingInstance(cfgm_common.DCI_VN_FQ_NAME[-1], dci_vn,
+                            routing_instance_is_default=True))
+        self.create_singleton_entry(
+            RoutingInstance('__default__', dci_vn))
+
         # specifying alarm kwargs like contrail_alarm.py
         alarm_kwargs = {"alarm_rules":
                         {"or_list" : [

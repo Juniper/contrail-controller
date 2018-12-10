@@ -203,6 +203,53 @@ class AnsibleConf(AnsibleBase):
                     self.bgp_map[bgp_name] = bgp
     # end build_underlay_bgp
 
+    def build_dci_bgp_config(self):
+        if not self.physical_router.has_rb_role("DCI-Gateway"):
+            return
+        self.physical_router.evaluate_dci_ip_map()
+        dci_list = self.physical_router.get_dci_list()
+        for dci_uuid in dci_list or []:
+            params = self.physical_router.get_dci_bgp_params(dci_uuid)
+            if not params:
+                continue
+            asn = params.get("asn")
+            ip = params.get("ip")
+            name = params.get("name")
+            typ = params.get("type")
+            bgp = Bgp(name=name,
+                          ip_address=ip,
+                          autonomous_system=asn,
+                          type_=typ)
+            bgp.set_comment(DMUtils.dci_bgp_group_comment(bgp))
+            bgp.set_hold_time(params.get('hold_time'))
+            for family in params.get("families") or []:
+                if family in ['e-vpn', 'e_vpn']:
+                    family = 'evpn'
+                bgp.add_families(family)
+
+            bgp_name = name
+            neigh_list = self.physical_router.get_dci_bgp_neighbours(dci_uuid)
+            peers = {}
+            for neigh in neigh_list or []:
+                asn = neigh.get("asn")
+                ip = neigh.get("ip")
+                name = neigh.get("name")
+                typ = neigh.get("type")
+                peer = Bgp(name=name,
+                           ip_address=ip,
+                           autonomous_system=asn, type_=typ)
+                peers[name] = peer
+                peer.set_hold_time(neigh.get('hold_time'))
+                for family in neigh.get("families") or []:
+                    if family in ['e-vpn', 'e_vpn']:
+                        family = 'evpn'
+                    peer.add_families(family)
+
+            if peers:
+                bgp.set_peers(self.get_values_sorted_by_key(peers))
+                self.bgp_map[bgp_name] = bgp
+    # end build_dci_bgp_config
+
     def device_send(self, job_template, job_input, is_delete, retry):
         config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
