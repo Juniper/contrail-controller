@@ -6,7 +6,7 @@ gevent.monkey.patch_all()  # noqa
 import logging
 import mock
 
-from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common.exceptions import BadRequest
 from vnc_api.vnc_api import GlobalSystemConfig
 
@@ -26,7 +26,7 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
             'uuid': 'fake_uuid1',
             'route_target_list': {
                 'route_target': [
-                    'target:%d:%d' % (NEW_ASN, BGP_RTGT_MIN_ID + 1000),
+                    'target:%d:%d' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN) + 1000),
                 ]
             }
         }

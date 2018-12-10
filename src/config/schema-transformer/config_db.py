@@ -254,7 +254,7 @@ class GlobalSystemConfigST(DBBaseST):
             _, asn, target = route_tgt.obj.get_fq_name()[0].split(':')
             if int(asn) != cls.get_autonomous_system():
                 continue
-            if int(target) < common.BGP_RTGT_MIN_ID:
+            if int(target) < common.get_bgp_rtgt_min_id(asn):
                 continue
 
             new_rtgt_name = "target:%s:%s" % (new_asn, target)
@@ -2330,9 +2330,9 @@ class RoutingInstanceST(DBBaseST):
         if self.is_default:
             vn.set_route_target(rt_key)
 
-        if 0 < old_rtgt < common.BGP_RTGT_MIN_ID:
-            rt_key = "target:%s:%d" % (
-                GlobalSystemConfigST.get_autonomous_system(), old_rtgt)
+        asn = GlobalSystemConfigST.get_autonomous_system()
+        if 0 < old_rtgt < common.get_bgp_rtgt_min_id(asn):
+            rt_key = "target:%s:%d" % (asn, old_rtgt)
             RouteTargetST.delete_vnc_obj(rt_key)
     # end locate_route_target
 
@@ -4169,7 +4169,8 @@ class LogicalRouterST(DBBaseST):
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
             rtgt_num = int(rt_key.split(':')[-1])
-            if rtgt_num < common.BGP_RTGT_MIN_ID:
+            asn = GlobalSystemConfigST.get_autonomous_system()
+            if rtgt_num < common.get_bgp_rtgt_min_id(asn):
                 old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:

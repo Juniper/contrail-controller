@@ -91,44 +91,44 @@ TEST_F(RouteTargetTest, ByteArrayType1_4) {
     EXPECT_EQ("target:10.1.1.1:65535", rtarget.ToString());
 }
 
+TEST_F(RouteTargetTest, FromStringType2_1) {
+    boost::system::error_code ec;
+    RouteTarget rtarget =
+        RouteTarget::FromString("target:66412:16909", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:66412:16909", rtarget.ToString());
+}
+
+TEST_F(RouteTargetTest, FromStringType2_2) {
+    boost::system::error_code ec;
+    RouteTarget rtarget =
+        RouteTarget::FromString("target:66412:6730", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:66412:6730", rtarget.ToString());
+}
+
+TEST_F(RouteTargetTest, FromStringType2_3) {
+    boost::system::error_code ec;
+    RouteTarget rtarget =
+        RouteTarget::FromString("target:66412:0", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:66412:0", rtarget.ToString());
+}
+
 TEST_F(RouteTargetTest, FromStringType0_1) {
     boost::system::error_code ec;
     RouteTarget rtarget =
-        RouteTarget::FromString("target:65412:16909060", &ec);
+        RouteTarget::FromString("target:64512:4294967295", &ec);
     EXPECT_EQ(0, ec.value());
     EXPECT_EQ(0, rtarget.Type());
     EXPECT_EQ(2, rtarget.Subtype());
-    EXPECT_EQ("target:65412:16909060", rtarget.ToString());
-}
-
-TEST_F(RouteTargetTest, FromStringType0_2) {
-    boost::system::error_code ec;
-    RouteTarget rtarget =
-        RouteTarget::FromString("target:65412:67305985", &ec);
-    EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(0, rtarget.Type());
-    EXPECT_EQ(2, rtarget.Subtype());
-    EXPECT_EQ("target:65412:67305985", rtarget.ToString());
-}
-
-TEST_F(RouteTargetTest, FromStringType0_3) {
-    boost::system::error_code ec;
-    RouteTarget rtarget =
-        RouteTarget::FromString("target:65412:0", &ec);
-    EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(0, rtarget.Type());
-    EXPECT_EQ(2, rtarget.Subtype());
-    EXPECT_EQ("target:65412:0", rtarget.ToString());
-}
-
-TEST_F(RouteTargetTest, FromStringType0_4) {
-    boost::system::error_code ec;
-    RouteTarget rtarget =
-        RouteTarget::FromString("target:65412:4294967295", &ec);
-    EXPECT_EQ(0, ec.value());
-    EXPECT_EQ(0, rtarget.Type());
-    EXPECT_EQ(2, rtarget.Subtype());
-    EXPECT_EQ("target:65412:4294967295", rtarget.ToString());
+    EXPECT_EQ("target:64512:4294967295", rtarget.ToString());
 }
 
 TEST_F(RouteTargetTest, FromStringType1_1) {
@@ -169,6 +169,16 @@ TEST_F(RouteTargetTest, FromStringType1_4) {
     EXPECT_EQ(1, rtarget.Type());
     EXPECT_EQ(2, rtarget.Subtype());
     EXPECT_EQ("target:10.1.1.1:65535", rtarget.ToString());
+}
+
+TEST_F(RouteTargetTest, ByteArrayType2_1) {
+    RouteTarget::bytes_type data =
+        { { 0x02, 0x02, 0x0, 0x0, 0xff, 0x84, 0x03, 0x04 } };
+    RouteTarget rtarget(data);
+    EXPECT_FALSE(rtarget.IsNull());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:65412:772", rtarget.ToString());
 }
 
 // Does not contain a colon.

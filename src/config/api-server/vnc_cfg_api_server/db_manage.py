@@ -83,7 +83,8 @@ try:
 except AttributeError:
     VN_ID_MIN_ALLOC = 1
 SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
-RT_ID_MIN_ALLOC = cfgm_common.BGP_RTGT_MIN_ID
+def _get_rt_id_min_alloc(asn):
+    return cfgm_common.get_bgp_rtgt_min_id(asn)
 
 
 def _parse_rt(rt):
@@ -476,7 +477,7 @@ class DatabaseManager(object):
             res_fq_name_str = self._zk_client.get(base_path + '/' + id)[0]
             id = int(id)
             zk_set.add((id, res_fq_name_str))
-            if id < RT_ID_MIN_ALLOC:
+            if id < _get_rt_id_min_alloc(self.global_asn):
                 # ZK contain RT ID lock only for system RT
                 errmsg = 'Wrong Route Target range in zookeeper %d' % id
                 ret_errors.append(ZkRTRangeError(errmsg))
@@ -490,7 +491,7 @@ class DatabaseManager(object):
         num_bad_rts = 0
         for res_fq_name_str, cols in rt_table.get_range(columns=['rtgt_num']):
             id = int(cols['rtgt_num'])
-            if id < RT_ID_MIN_ALLOC:
+            if id < _get_rt_id_min_alloc(self.global_asn):
                 # Should never append
                 msg = ("Route Target ID %d allocated for %s by the schema "
                        "transformer is not contained in the system range" %
@@ -512,7 +513,8 @@ class DatabaseManager(object):
                 asn, id = _parse_rt(fq_name_str)
             except ValueError:
                 malformed_set.add((fq_name_str, uuid))
-            if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
+            if asn != self.global_asn or id < \
+                                _get_rt_id_min_alloc(self.global_asn):
                 user_rts += 1
                 continue  # Ignore user defined RT
             try:
@@ -571,7 +573,8 @@ class DatabaseManager(object):
                         stale_list.setdefault(
                             (fq_name_str, uuid, list_name), set()).add(rt)
 
-                    if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
+                    if asn != self.global_asn or id <\
+                            _get_rt_id_min_alloc(global_asn):
                         num_user_rts += 1
                         continue  # all good
                     num_bad_rts += 1
