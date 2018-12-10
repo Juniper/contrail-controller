@@ -890,6 +890,7 @@ bool VmInterface::IsFatFlowPortBased(uint8_t protocol, uint16_t port,
                                          FatFlowEntry(protocol, port,
                                                       IGNORE_ADDRESS_MAX_VAL,
                                                       AGGREGATE_PREFIX_MIN_VAL));
+
     if (start != fat_flow_list_.list_.end()) {
         while (start != end) {
             if ((start->protocol == protocol) && (start->port == port) &&
@@ -960,7 +961,7 @@ bool VmInterface::MatchSrcPrefixPort(uint8_t protocol, uint16_t port,
     if ((start != fat_flow_list_.list_.end()) &&
         (start->protocol == protocol) && (start->port == port)) {
         while (start != end) {
-            if (src_ip->is_v4() &&
+            if (src_ip->is_v4() && start->src_prefix.is_v4() &&
                 IsIp4SubnetMember(src_ip->to_v4(), start->src_prefix.to_v4(),
                                   start->src_prefix_mask) &&
                 (start->protocol == protocol) && (start->port == port)) {
@@ -968,7 +969,7 @@ bool VmInterface::MatchSrcPrefixPort(uint8_t protocol, uint16_t port,
                     (start->src_prefix_mask > match_ffe->src_prefix_mask)) {
                     match_ffe = &(*start);
                 }
-            } else if (src_ip->is_v6() &&
+            } else if (src_ip->is_v6() && start->src_prefix.is_v6() &&
                        IsIp6SubnetMember(src_ip->to_v6(), start->src_prefix.to_v6(),
                                          start->src_prefix_mask) &&
                        (start->protocol == protocol) && (start->port == port)) {
@@ -1084,7 +1085,7 @@ bool VmInterface::MatchDstPrefixPort(uint8_t protocol, uint16_t port,
     if ((start != fat_flow_list_.list_.end()) &&
         (start->protocol == protocol) && (start->port == port)) {
         while (start != end) {
-            if (dst_ip->is_v4() &&
+            if (dst_ip->is_v4() && start->dst_prefix.is_v4() &&
                 IsIp4SubnetMember(dst_ip->to_v4(), start->dst_prefix.to_v4(),
                                   start->dst_prefix_mask) &&
                 (start->protocol == protocol) && (start->port == port)) {
@@ -1092,7 +1093,7 @@ bool VmInterface::MatchDstPrefixPort(uint8_t protocol, uint16_t port,
                     (start->dst_prefix_mask > match_ffe->dst_prefix_mask)) {
                     match_ffe = &(*start);
                 }
-            } else if (dst_ip->is_v6() &&
+            } else if (dst_ip->is_v6() && start->dst_prefix.is_v6() &&
                        IsIp6SubnetMember(dst_ip->to_v6(), start->dst_prefix.to_v6(),
                                          start->dst_prefix_mask) &&
                        (start->protocol == protocol) && (start->port == port)) {
@@ -1212,14 +1213,16 @@ bool VmInterface::MatchSrcDstPrefixPort(uint8_t protocol, uint16_t port,
     if ((start != fat_flow_list_.list_.end()) &&
         (start->protocol == protocol) && (start->port == port)) {
         while (start != end) {
-            if (src_ip->is_v4() &&
+            if (src_ip->is_v4() && start->src_prefix.is_v4() &&
+                start->dst_prefix.is_v4() &&
                 IsIp4SubnetMember(src_ip->to_v4(), start->src_prefix.to_v4(),
                                   start->src_prefix_mask) &&
                 IsIp4SubnetMember(dst_ip->to_v4(), start->dst_prefix.to_v4(),
                                   start->dst_prefix_mask) &&
                 (start->protocol == protocol) && (start->port == port)) {
                 match_ffe = &(*start);
-            } else if (src_ip->is_v6() &&
+            } else if (src_ip->is_v6() && start->src_prefix.is_v6() &&
+                       start->dst_prefix.is_v6() &&
                        IsIp6SubnetMember(src_ip->to_v6(), start->src_prefix.to_v6(),
                                          start->src_prefix_mask) &&
                        IsIp6SubnetMember(dst_ip->to_v6(), start->dst_prefix.to_v6(),
@@ -1332,6 +1335,7 @@ bool VmInterface::IsFatFlowPrefixAggregation(bool ingress, uint8_t protocol,
         *is_src_prefix = true;
         *is_dst_prefix = true;
     }
+
     return ret;
 }
 
