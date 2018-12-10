@@ -154,10 +154,11 @@ static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
                const PktInfo *pkt, PktFlowInfo *info,
                            const EcmpLoadBalance &ecmp_load_balance) {
     const CompositeNH *comp_nh = dynamic_cast<const CompositeNH *>(*nh);
-    // ECMP supported only if composite-type is ECMP or LOCAL_ECMP
+    // ECMP supported only if composite-type is ECMP or LOCAL_ECMP or LU_ECMP
     if (comp_nh == NULL ||
         (comp_nh->composite_nh_type() != Composite::ECMP &&
-        comp_nh->composite_nh_type() != Composite::LOCAL_ECMP)) {
+        comp_nh->composite_nh_type() != Composite::LOCAL_ECMP &&
+        comp_nh->composite_nh_type() != Composite::LU_ECMP)) {
         info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
         return true;
     }

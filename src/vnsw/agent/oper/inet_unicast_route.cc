@@ -37,6 +37,9 @@ AgentRouteKey *InetUnicastRouteKey::Clone() const {
     return (new InetUnicastRouteKey(peer(), vrf_name_, dip_, plen_));
 }
 
+AgentRouteKey *InetMplsUnicastRouteKey::Clone() const {
+    return (new InetMplsUnicastRouteKey(peer(), vrf_name_, dip_, plen_));
+}
 /////////////////////////////////////////////////////////////////////////////
 // InetUnicastAgentRouteTable functions
 /////////////////////////////////////////////////////////////////////////////
@@ -46,6 +49,8 @@ InetUnicastAgentRouteTable::InetUnicastAgentRouteTable(DB *db,
 
     if (name.find("uc.route.0") != std::string::npos) {
         type_ = Agent::INET4_UNICAST;
+    } else if (name.find("uc.route.3") != std::string::npos) {
+        type_ = Agent::INET4_MPLS;
     } else if (name.find("uc.route6.0") != std::string::npos) {
         type_ = Agent::INET6_UNICAST;
     } else if (name.find("evpn.route.0") != std::string::npos) {
@@ -116,6 +121,13 @@ static void Inet4UnicastTableEnqueue(Agent *agent, DBRequest *req) {
     }
 }
 
+static void Inet4MplsUnicastTableEnqueue(Agent *agent, DBRequest *req) {
+    AgentRouteTable *table = agent->fabric_inet4_mpls_table();
+    if (table) {
+        table->Enqueue(req);
+    }
+}
+
 static void Inet6UnicastTableEnqueue(Agent *agent, const string &vrf_name,
                                      DBRequest *req) {
     AgentRouteTable *table = agent->fabric_inet4_unicast_table();
@@ -178,7 +190,7 @@ bool InetUnicastAgentRouteTable::ResyncSubnetRoutes
     if (GetTableType() == Agent::INET4_UNICAST) {
         v4_parent_mask = Address::GetIp4SubnetAddress(addr.to_v4(),
                                                       plen);
-    } else {
+    } else if (GetTableType() == Agent::INET6_UNICAST) {
         v6_parent_mask = Address::GetIp6SubnetAddress(addr.to_v6(),
                                                       plen);
     }
@@ -192,7 +204,7 @@ bool InetUnicastAgentRouteTable::ResyncSubnetRoutes
             if (v4_parent_mask != node_mask)
                 break;
 
-        } else {
+        } else if (GetTableType() == Agent::INET6_UNICAST) {
             Ip6Address node_mask =
                 Address::GetIp6SubnetAddress(lpm_rt->addr().to_v6(),
                                              plen);
@@ -282,8 +294,10 @@ InetUnicastAgentRouteTable::GetSubnetAddress(const IpAddress &addr,
                                              uint16_t plen) const {
     if (type_ == Agent::INET4_UNICAST) {
         return (Address::GetIp4SubnetAddress(addr.to_v4(), plen));
+    } else if (type_ == Agent::INET6_UNICAST) {
+        return (Address::GetIp6SubnetAddress(addr.to_v6(), plen));
     }
-    return (Address::GetIp6SubnetAddress(addr.to_v6(), plen));
+    return IpAddress(Ip4Address());
 }
 
 //Tries searching for subnet route to which this route belongs.
@@ -329,6 +343,11 @@ string InetUnicastRouteEntry::ToString() const {
     return str.str();
 }
 
+
+Agent::RouteTableType InetUnicastRouteEntry::GetTableType() const {
+    return ((InetUnicastAgentRouteTable *)get_table())->GetTableType();
+}
+
 int InetUnicastRouteEntry::CompareTo(const Route &rhs) const {
     const InetUnicastRouteEntry &a =
         static_cast<const InetUnicastRouteEntry &>(rhs);
@@ -353,11 +372,20 @@ int InetUnicastRouteEntry::CompareTo(const Route &rhs) const {
 }
 
 DBEntryBase::KeyPtr InetUnicastRouteEntry::GetDBRequestKey() const {
-    Agent *agent =
-        (static_cast<InetUnicastAgentRouteTable *>(get_table()))->agent();
-    InetUnicastRouteKey *key =
+    InetUnicastAgentRouteTable *table =
+        (static_cast<InetUnicastAgentRouteTable *>(get_table()));
+    Agent *agent = table->agent();
+    InetUnicastRouteKey *key = NULL;
+    if ((table->GetTableType() == Agent::INET4_MPLS)) {
+        key =
+        new InetMplsUnicastRouteKey(agent->local_peer(),
+                                 vrf()->GetName(), addr_, plen_);
+    } else {
+        key =
         new InetUnicastRouteKey(agent->local_peer(),
                                  vrf()->GetName(), addr_, plen_);
+    }
+
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -639,6 +667,66 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
     return true;
 }
 
+
+bool Inet4MplsUnicastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                                     const AgentRoute *agent_rt) {
+    path->set_vrf_name(vrf_name_);
+
+    InetUnicastAgentRouteTable *table = NULL;
+    table = static_cast<InetUnicastAgentRouteTable *>
+        (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_));
+    InetUnicastRouteEntry *rt = table->FindRoute(dest_ip_);
+    path->SetDependentTable(table);
+    if (rt == NULL || rt->plen() == 0) {
+        path->set_unresolved(true);
+    } else if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
+        const ResolveNH *nh =
+            static_cast<const ResolveNH *>(rt->GetActiveNextHop());
+        path->set_unresolved(true);
+        std::string nexthop_vrf = nh->get_interface()->vrf()->GetName();
+        if (nh->get_interface()->vrf()->forwarding_vrf()) {
+            nexthop_vrf = nh->get_interface()->vrf()->forwarding_vrf()->GetName();
+        }
+        InetUnicastAgentRouteTable::AddArpReq(vrf_name_, dest_ip_.to_v4(),
+                                              nexthop_vrf,
+                                              nh->get_interface(), nh->PolicyEnabled(),
+                                              vn_list_, sg_list_, tag_list_);
+        rt = NULL;
+        table->AddUnresolvedRoute(agent_rt);
+    } else {
+        path->set_unresolved(false);
+    }
+
+    if (path->label() != mpls_label_) {
+        path->set_label(mpls_label_);
+    }
+
+    path->set_nexthop(NULL);
+
+    SecurityGroupList path_sg_list;
+    path_sg_list = path->sg_list();
+    if (path_sg_list != sg_list_) {
+        path->set_sg_list(sg_list_);
+    }
+
+    TagList path_tag_list;
+    path_tag_list = path->tag_list();
+    if (path_tag_list != tag_list_) {
+        path->set_tag_list(tag_list_);
+    }
+
+
+    //Reset to new gateway route, no nexthop for indirect route
+    path->set_gw_ip(dest_ip_);
+    path->ResetDependantRoute(rt);
+
+    if (path->dest_vn_list() != vn_list_) {
+        path->set_dest_vn_list(vn_list_);
+    }
+
+    return true;
+}
+
 InetEvpnRoutePath::InetEvpnRoutePath(const Peer *peer,
                                      AgentRoute *rt) :
                                      AgentPath(peer, rt) {
@@ -852,10 +940,36 @@ void Inet4UcRouteReq::HandleRequest() const {
     sand->DoSandesh(sand);
 }
 
+void Inet4MplsUcRouteReq::HandleRequest() const {
+    VrfEntry *vrf =
+        Agent::GetInstance()->vrf_table()->FindVrfFromId(get_vrf_index());
+    if (!vrf) {
+        ErrorResp *resp = new ErrorResp();
+        resp->set_context(context());
+        resp->Response();
+        return;
+    }
+
+    AgentSandeshPtr sand;
+    if (get_src_ip().empty()) {
+        sand.reset(new AgentInet4MplsUcRtSandesh(vrf, context(), get_stale()));
+    } else {
+        boost::system::error_code ec;
+        Ip4Address src_ip = Ip4Address::from_string(get_src_ip(), ec);
+        sand.reset(new AgentInet4MplsUcRtSandesh(vrf, context(), src_ip,
+                                             (uint8_t)get_prefix_len(),
+                                             get_stale()));
+    }
+    sand->DoSandesh(sand);
+}
+
 AgentSandeshPtr InetUnicastAgentRouteTable::GetAgentSandesh
 (const AgentSandeshArguments *args, const std::string &context) {
     if (type_ == Agent::INET4_UNICAST) {
         return AgentSandeshPtr(new AgentInet4UcRtSandesh(vrf_entry(), context,
+                                                         false));
+    } else if (type_ == Agent::INET4_MPLS) {
+        return AgentSandeshPtr(new AgentInet4MplsUcRtSandesh(vrf_entry(), context,
                                                          false));
     } else {
         return AgentSandeshPtr(new AgentInet6UcRtSandesh(vrf_entry(), context,
@@ -899,6 +1013,7 @@ InetUnicastAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
     req.key.reset(new InetUnicastRouteKey(peer, vrf_name, addr, plen));
     req.data.reset(data);
     InetUnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
+
 }
 
 // Inline delete request
@@ -919,6 +1034,16 @@ InetUnicastAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
     req.key.reset(new InetUnicastRouteKey(peer, vrf_name, addr, plen));
     req.data.reset(data);
     InetUnicastTableProcess(Agent::GetInstance(), vrf_name, req);
+}
+
+void
+InetUnicastAgentRouteTable::DeleteMplsRouteReq(const Peer *peer, const string &vrf_name,
+                                      const IpAddress &addr, uint8_t plen,
+                                      AgentRouteData *data) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new InetMplsUnicastRouteKey(peer, vrf_name, addr, plen));
+    req.data.reset(data);
+    Inet4MplsUnicastTableEnqueue(Agent::GetInstance(),  &req);
 }
 
 // Utility function to create a route to trap packets to agent.
@@ -1335,6 +1460,32 @@ static void AddVHostRecvRouteInternal(DBRequest *req, const Peer *peer,
                                     tunnel_bmap, policy, vn_name));
 }
 
+static void AddVHostMplsRecvRouteInternal(DBRequest *req, const Peer *peer,
+                                      const string &vrf,
+                                      const InterfaceKey &intf_key,
+                                      const IpAddress &addr, uint8_t plen,
+                                      const string &vn_name, bool policy,
+                                      bool native_encap) {
+    req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req->key.reset(new InetMplsUnicastRouteKey(peer, vrf, addr, plen));
+
+    int tunnel_bmap = TunnelType::AllType();
+    if (native_encap) {
+        tunnel_bmap |= TunnelType::NativeType();
+    }
+
+    req->data.reset(new ReceiveRoute(intf_key, MplsTable::kImplicitNullLabel,
+                                    tunnel_bmap, policy, vn_name));
+}
+void InetUnicastAgentRouteTable::AddVHostMplsRecvRouteReq
+    (const Peer *peer, const string &vrf, const InterfaceKey &intf_key,
+     const IpAddress &addr, uint8_t plen, const string &vn_name, bool policy,
+     bool native_encap) {
+    DBRequest req;
+    AddVHostMplsRecvRouteInternal(&req, peer, vrf, intf_key, addr, plen,
+                              vn_name, policy, native_encap);
+    Inet4MplsUnicastTableEnqueue(Agent::GetInstance(), &req);
+}
 void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
                                                    const string &vrf,
                                                    const InterfaceKey &intf_key,
@@ -1463,6 +1614,17 @@ InetUnicastAgentRouteTable::AddGatewayRouteReq(const Peer *peer,
 }
 
 void
+InetUnicastAgentRouteTable::AddMplsRouteReq(const Peer *peer,
+                                               const string &vrf_name,
+                                               const IpAddress &dst_addr,
+                                               uint8_t plen,
+                                               AgentRouteData *data ) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InetMplsUnicastRouteKey(peer, vrf_name, dst_addr, plen));
+    req.data.reset(data);
+    Inet4MplsUnicastTableEnqueue(Agent::GetInstance(), &req);
+}
+void
 InetUnicastAgentRouteTable::AddIpamSubnetRoute(const string &vrf_name,
                                                const IpAddress &dst_addr,
                                                uint8_t plen,
@@ -1510,6 +1672,22 @@ InetUnicastAgentRouteTable::AddVrouterSubnetRoute(const IpAddress &dst_addr,
                            TagList(), CommunityList(), true);
 }
 
+void
+InetUnicastAgentRouteTable::AddVhostMplsRoute(const IpAddress &vhost_addr,
+                                                        const Peer *peer) {
+    /* Only IPv4 is supported */
+    if (!vhost_addr.is_v4()) {
+        return;
+    }
+    const string &vrf_name = agent()->fabric_vrf_name();
+    InetUnicastAgentRouteTable *table = NULL;
+    table = agent()->vrf_table()->GetInet4MplsUnicastRouteTable(vrf_name);
+
+    VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                               agent()->vhost_interface_name());
+    table->AddVHostMplsRecvRouteReq(peer, vrf_name, vmi_key, vhost_addr,
+                                32, agent()->fabric_vn_name(), false, false);
+}
 uint8_t InetUnicastAgentRouteTable::GetHostPlen(const IpAddress &ip_addr) const {
     if (ip_addr.is_v4()) {
         return Address::kMaxV4PrefixLen;

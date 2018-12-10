@@ -82,6 +82,8 @@ void OperDB::CreateDBTables(DB *db) {
                                     agent_, _1, _2));
     DB::RegisterFactory("uc.route.0",
                         &InetUnicastAgentRouteTable::CreateTable);
+    DB::RegisterFactory("uc.route.3",
+                        &InetUnicastAgentRouteTable::CreateTable);
     DB::RegisterFactory("mc.route.0",
                         &Inet4MulticastAgentRouteTable::CreateTable);
     DB::RegisterFactory("evpn.route.0", &EvpnAgentRouteTable::CreateTable);
