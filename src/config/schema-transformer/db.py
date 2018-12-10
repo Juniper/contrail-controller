@@ -24,7 +24,8 @@ class SchemaTransformerDB(VncObjectDBClient):
     _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
     _zk_path_prefix = ''
 
-    _BGP_RTGT_MAX_ID = 1 << 24
+    _BGP_RTGT_MAX_ID_AS2 = 1 << 24
+    _BGP_RTGT_MAX_ID_AS4 = 1 << 8
     _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
 
     _SERVICE_CHAIN_MAX_VLAN = 4093
@@ -39,6 +40,13 @@ class SchemaTransformerDB(VncObjectDBClient):
                                     cls._SERVICE_CHAIN_UUID_CF])]
         return db_info
     # end get_db_info
+
+    @classmethod
+    def get_rtgt_max_id(cls, asn):
+        max_rtgt_id = cls._BGP_RTGT_MAX_ID_AS2
+        if (asn > 0xFFFF):
+            max_rtgt_id = cls._BGP_RTGT_MAX_ID_AS4
+        return max_rtgt_id
 
     def __init__(self, manager, zkclient):
         self._manager = manager
@@ -85,11 +93,7 @@ class SchemaTransformerDB(VncObjectDBClient):
             zkclient.delete_node(
                 self._zk_path_pfx + self._SERVICE_CHAIN_VLAN_ALLOC_PATH, True)
 
-        self._rt_allocator = IndexAllocator(
-            zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
-            self._BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
-
-        def _init_bgpaas_ports_index_allocator():
+        def _init_index_allocators():
             bgpaas_port_start = self._args.bgpaas_port_start
             bgpaas_port_end = self._args.bgpaas_port_end
             gsc_fq_name = ['default-global-system-config']
@@ -107,7 +111,15 @@ class SchemaTransformerDB(VncObjectDBClient):
                 zkclient, self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH,
                 bgpaas_port_end - bgpaas_port_start, bgpaas_port_start)
 
-        _init_bgpaas_ports_index_allocator()
+            asn = cfg[0].get('autonomous_system')
+            max_rtgt_id = self._BGP_RTGT_MAX_ID_AS2
+            if (asn > 0xFFFF):
+                max_rtgt_id = self._BGP_RTGT_MAX_ID_AS4
+            self._rt_allocator = IndexAllocator(
+                zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
+                max_rtgt_id, common.get_bgp_rtgt_min_id(asn))
+
+        _init_index_allocators()
 
         self._sc_vlan_allocator_dict = {}
         self._upgrade_vlan_alloc_path()
@@ -194,14 +206,14 @@ class SchemaTransformerDB(VncObjectDBClient):
             #                 Probably need to be cleaned
             return 0
 
-    def alloc_route_target(self, ri_fq_name, zk_only=False):
+    def alloc_route_target(self, ri_fq_name, asn, zk_only=False):
         alloc_new = False
 
         if zk_only:
             alloc_new = True
         else:
             rtgt_num = self.get_route_target(ri_fq_name)
-            if rtgt_num < common.BGP_RTGT_MIN_ID:
+            if rtgt_num < common.get_bgp_rtgt_min_id(asn):
                 alloc_new = True
             else:
                 rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)

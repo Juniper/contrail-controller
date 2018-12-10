@@ -217,6 +217,7 @@ class GlobalSystemConfigST(DBBaseST):
     def update(self, obj=None):
         changed = self.update_vnc_obj(obj)
         if 'autonomous_system' in changed:
+            self.update_rtarget_range(self.obj.autonomous_system)
             self.update_autonomous_system(self.obj.autonomous_system)
         if 'bgpaas_parameters' in changed:
             self.update_bgpaas_parameters(self.obj.bgpaas_parameters)
@@ -243,6 +244,22 @@ class GlobalSystemConfigST(DBBaseST):
         return cls.ibgp_auto_mesh
     # end get_ibgp_auto_mesh
 
+    def update_rtarget_range(self, asn):
+        new_asn = int(asn)
+        if new_asn == 0:
+            return
+        old_asn = GlobalSystemConfigST._autonomous_system
+        if new_asn == old_asn:
+            return
+        if (new_asn > 0xFFFF and old_asn > 0xFFFF):
+            return
+        if (new_asn <= 0xFFFF and old_asn <= 0xFFFF):
+            return
+        rtgt_max_id = SchemaTransformerDB.get_rtgt_max_id(new_asn)
+        new_range = {'start': common.get_bgp_rtgt_min_id(new_asn),
+                     'end': common.get_bgp_rtgt_min_id(new_asn) + rtgt_max_id}
+        self._object_db._rt_allocator.reallocate([new_range])
+
     @classmethod
     def update_autonomous_system(cls, new_asn):
         if int(new_asn) == cls._autonomous_system:
@@ -254,7 +271,7 @@ class GlobalSystemConfigST(DBBaseST):
             _, asn, target = route_tgt.obj.get_fq_name()[0].split(':')
             if int(asn) != cls.get_autonomous_system():
                 continue
-            if int(target) < common.BGP_RTGT_MIN_ID:
+            if int(target) < common.get_bgp_rtgt_min_id(asn):
                 continue
 
             new_rtgt_name = "target:%s:%s" % (new_asn, target)
@@ -2246,10 +2263,10 @@ class RoutingInstanceST(DBBaseST):
 
     def locate_route_target(self):
         old_rtgt = self._object_db.get_route_target(self.name)
-        rtgt_num = self._object_db.alloc_route_target(self.name)
+        asn = GlobalSystemConfigST.get_autonomous_system()
+        rtgt_num = self._object_db.alloc_route_target(self.name, asn)
 
-        rt_key = "target:%s:%d" % (GlobalSystemConfigST.get_autonomous_system(),
-                                   rtgt_num)
+        rt_key = "target:%s:%d" % (asn, rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key).obj
         if self.is_default:
             inst_tgt_data = InstanceTargetType()
@@ -2330,9 +2347,9 @@ class RoutingInstanceST(DBBaseST):
         if self.is_default:
             vn.set_route_target(rt_key)
 
-        if 0 < old_rtgt < common.BGP_RTGT_MIN_ID:
-            rt_key = "target:%s:%d" % (
-                GlobalSystemConfigST.get_autonomous_system(), old_rtgt)
+        asn = GlobalSystemConfigST.get_autonomous_system()
+        if 0 < old_rtgt < common.get_bgp_rtgt_min_id(asn):
+            rt_key = "target:%s:%d" % (asn, old_rtgt)
             RouteTargetST.delete_vnc_obj(rt_key)
     # end locate_route_target
 
@@ -4169,13 +4186,14 @@ class LogicalRouterST(DBBaseST):
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
             rtgt_num = int(rt_key.split(':')[-1])
-            if rtgt_num < common.BGP_RTGT_MIN_ID:
+            asn = GlobalSystemConfigST.get_autonomous_system()
+            if rtgt_num < common.get_bgp_rtgt_min_id(asn):
                 old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
-            rtgt_num = self._object_db.alloc_route_target(name, True)
-            rt_key = "target:%s:%d" % (
-                GlobalSystemConfigST.get_autonomous_system(), rtgt_num)
+            asn = GlobalSystemConfigST.get_autonomous_system()
+            rtgt_num = self._object_db.alloc_route_target(name, asn, True)
+            rt_key = "target:%s:%d" % (asn, rtgt_num)
             rtgt_obj = RouteTargetST.locate(rt_key)
             self.obj.set_route_target(rtgt_obj.obj)
             self._vnc_lib.logical_router_update(self.obj)

@@ -3631,6 +3631,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         rt_dict = obj_dict.get('route_target_list')
         if not rt_dict:
             return True, ''
+        global_asn = cls.server.global_autonomous_system
         for rt in rt_dict.get('route_target') or []:
             ok, result = RouteTargetServer.is_user_defined(rt)
             if not ok:
@@ -3639,7 +3640,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             if not user_defined_rt:
                  return (False, "Configured route target must use ASN that is "
                          "different from global ASN or route target value must"
-                         " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+                         " be less than %d" %\
+                         cfgm_common.get_bgp_rtgt_min_id(global_asn))
 
         return (True, '')
     # end _check_route_targets
@@ -6383,7 +6385,8 @@ class RouteTargetServer(Resource, RouteTarget):
             except cfgm_common.exceptions.VncError as e:
                 return False, (400, str(e))
 
-        if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
+        if asn == global_asn and target >= \
+                    cfgm_common.get_bgp_rtgt_min_id(global_asn):
             return True, False
         return True, True
 

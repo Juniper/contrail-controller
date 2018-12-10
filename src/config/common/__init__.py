@@ -12,7 +12,8 @@ LINK_LOCAL_VN_FQ_NAME = ['default-domain', 'default-project', '__link_local__']
 LINK_LOCAL_RI_FQ_NAME = LINK_LOCAL_VN_FQ_NAME + ['__link_local__']
 SG_NO_RULE_FQ_NAME = ['default-domain', 'default-project', '__no_rule__']
 
-BGP_RTGT_MIN_ID = 8000000
+_BGP_RTGT_MIN_ID_AS2 = 8000000
+_BGP_RTGT_MIN_ID_AS4 = 8000
 SGID_MIN_ALLOC = 8000000
 VNID_MIN_ALLOC = 1
 
@@ -42,6 +43,11 @@ proto_dict = {
 RULE_IMPLICIT_ALLOW_UUID = "00000000-0000-0000-0000-100000000001"
 RULE_IMPLICIT_DENY_UUID = "00000000-0000-0000-0000-100000000002"
 
+def get_bgp_rtgt_min_id(asn):
+    if asn > 0xffff:
+        return _BGP_RTGT_MIN_ID_AS4
+    else:
+        return _BGP_RTGT_MIN_ID_AS2
 
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())
