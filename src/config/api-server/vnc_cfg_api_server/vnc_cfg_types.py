@@ -2756,6 +2756,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
             if not ok:
                 return (ok, 400, phy_interface_dict)
+            mac = (phy_interface_dict['physical_interface_mac_addresses']
+                                    ['mac_address'])
+            esi = "00:00:00:00:" + mac[0]
+
             lag_refs = phy_interface_dict.get('link_aggregation_group_back_refs')
             if lag_refs and lag_refs[0]['to'][-1] != lag_name:
                 msg = 'Physical interface %s already belong to the lag %s' %\
@@ -2778,6 +2782,19 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             if not ok:
                 return (ok, 400, lag_dict)
 
+            kvps = lag_dict['annotations']['key_value_pair']
+            kvp_dict = cls._kvp_to_dict(kvps)
+            lag_update_dict = {}
+            if kvp_dict.get('esi') != esi:
+                lag_dict['annotations']['key_value_pair'][1] = KeyValuePair(
+                                                                  'esi', esi)
+                lag_update_dict['annotations'] = lag_dict['annotations']
+                lag_update_dict = json.dumps(lag_update_dict,
+                                  default=_obj_serializer_all)
+                ok, resp = api_server.internal_request_update('link-aggregation-group',
+                                                              lag_dict['uuid'],
+                                                              json.loads(lag_update_dict))
+
         else: # create lag object
             fabric_fq_name=['default-global-system-config', fabric_name, phy_interface_uuids[0]]
             ae_id = cls.vnc_zk_client.alloc_ae_id(':'.join(fabric_fq_name))
@@ -2791,8 +2808,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 fq_name=['default-global-system-config', fabric_name, lag_name],
                 link_aggregation_group_lacp_enabled=True)
 
+            lag_obj.set_annotations(KeyValuePairs(
+                                   [KeyValuePair('ae_if_name', str(ae_id)),
+                                    KeyValuePair('esi', esi)]))
+            lag_int_dict = json.dumps(lag_obj, default=_obj_serializer_all)
+
             ok, resp = api_server.internal_request_create('link-aggregation-group',
-                lag_obj.serialize_to_json())
+                                                          json.loads(lag_int_dict))
 
             if not ok:
                 return (ok, 400, resp)
