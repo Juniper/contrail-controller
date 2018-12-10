@@ -178,6 +178,42 @@ struct PathPreferenceData : public AgentRouteData {
     PathPreference path_preference_;
 };
 
+class AgentPathEcmpComponent {
+public:
+    AgentPathEcmpComponent(IpAddress addr, uint32_t label, AgentRoute *rt);
+    virtual ~AgentPathEcmpComponent() { }
+    bool Unresolved() {return unresolved;}
+
+    bool operator == (const AgentPathEcmpComponent &rhs) const {
+        if (addr_ == rhs.addr_ && label_ == rhs.label_) {
+            return true;
+        }
+
+        return false;
+    }
+    IpAddress GetGwIpAddr() { return addr_;}
+    void UpdateDependentRoute(AgentRoute *rt) {
+        if (rt) {
+            dependent_rt_.reset(rt);
+        } else {
+            dependent_rt_.clear();
+        }
+    }
+
+    void SetUnresolved(bool flag) {
+        unresolved = flag;
+    }
+
+private:
+    IpAddress addr_;
+    uint32_t label_;
+    DependencyRef<AgentRoute, AgentRoute> dependent_rt_;
+    bool unresolved;
+    DISALLOW_COPY_AND_ASSIGN(AgentPathEcmpComponent);
+};
+
+typedef boost::shared_ptr<AgentPathEcmpComponent> AgentPathEcmpComponentPtr;
+typedef std::vector<AgentPathEcmpComponentPtr> AgentPathEcmpComponentPtrList;
 // A common class for all different type of paths
 class AgentPath : public Path {
 public:
@@ -268,6 +304,7 @@ public:
     uint32_t GetTunnelBmap() const;
     bool UpdateNHPolicy(Agent *agent);
     bool UpdateTunnelType(Agent *agent, const AgentRoute *sync_route);
+    bool ResolveGwNextHops(Agent *agent, const AgentRoute *sync_route);
     bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route);
     virtual std::string ToString() const { return "AgentPath"; }
     void SetSandeshData(PathSandeshData &data) const;
@@ -371,6 +408,14 @@ public:
     void ResetEcmpHashFields();
     void CopyLocalPath(CompositeNHKey *composite_nh_key,
                        const AgentPath *local_path);
+    AgentRoute *GetParentRoute() {return parent_rt_;}
+    void ResetEcmpMemberList(AgentPathEcmpComponentPtrList list) {
+        ecmp_member_list_ = list;
+    }
+    AgentRouteTable *GetDependentTable() const {return dependent_table_;}
+    void SetDependentTable(AgentRouteTable *table) {
+        dependent_table_ = table;
+    }
 
 private:
     PeerConstPtr peer_;
@@ -459,6 +504,9 @@ private:
     //Valid for routes exported in ip-fabric:__default__ VRF
     //Indicates the VRF from which routes was originated
     uint32_t  native_vrf_id_;
+    AgentRoute *parent_rt_;
+    AgentPathEcmpComponentPtrList ecmp_member_list_;
+    AgentRouteTable *dependent_table_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -934,6 +982,37 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastGatewayRoute);
 };
 
+class Inet4MplsUnicastRoute : public AgentRouteData {
+public:
+    Inet4MplsUnicastRoute(const IpAddress &dest_ip,
+                             const std::string &vrf_name,
+                             const VnListType &vn_list,
+                             uint32_t label, const SecurityGroupList &sg,
+                             const TagList &tag,
+                             const CommunityList &communities,
+                             bool native_encap):
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        dest_ip_(dest_ip), vrf_name_(vrf_name), vn_list_(vn_list),
+        mpls_label_(label), sg_list_(sg), tag_list_(tag),
+        communities_(communities),native_encap_(native_encap) {
+    }
+    virtual ~Inet4MplsUnicastRoute() { }
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
+    virtual std::string ToString() const {return "inetmplsroute";}
+
+private:
+    IpAddress dest_ip_;
+    std::string vrf_name_;
+    VnListType vn_list_;
+    uint32_t mpls_label_;
+    const SecurityGroupList sg_list_;
+    const TagList tag_list_;
+    const CommunityList communities_;
+    bool native_encap_;
+    DISALLOW_COPY_AND_ASSIGN(Inet4MplsUnicastRoute);
+};
+
 class DropRoute : public AgentRouteData {
 public:
     DropRoute(const string &vn_name) :
@@ -1108,4 +1187,5 @@ private:
     uint32_t l3_vrf_vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRoutingPath);
 };
+
 #endif // vnsw_agent_path_hpp

@@ -56,6 +56,76 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                                 const AgentRoute *rt) {
     path->set_copy_local_path(copy_local_path_);
 
+
+    if (tunnel_bmap_ == (1 << TunnelType::MPLS_OVER_MPLS)) {
+
+        // this path depends on inet.3 route table,
+        // update dependent_table if it is not set already.
+        if (!path->GetDependentTable()) {
+            InetUnicastAgentRouteTable *table = NULL;
+            table = static_cast<InetUnicastAgentRouteTable *>
+                (agent->fabric_inet4_mpls_table());
+            assert(table != NULL);
+            path->SetDependentTable(table);
+        }
+        InetUnicastAgentRouteTable *table =
+            (InetUnicastAgentRouteTable *)path->GetDependentTable();
+        assert(table != NULL);
+        AgentPathEcmpComponentPtrList new_list; 
+        bool path_unresolved = false;
+        ComponentNHKeyList comp_nh_list;
+        bool comp_nh_policy = false;
+        for (uint32_t i = 0; i < tunnel_dest_list_.size(); i++) {
+            // step1: update ecmpcomponent list
+            IpAddress addr = tunnel_dest_list_[i];
+            uint32_t label = label_list_[i];
+            AgentPathEcmpComponentPtr member(new AgentPathEcmpComponent(
+                                    addr, label, path->GetParentRoute()));
+            InetUnicastRouteEntry *uc_rt = table->FindRoute(addr);
+            if (uc_rt == NULL || uc_rt->plen() == 0) {
+                if (!path_unresolved) {
+                    path_unresolved  = true;
+                }
+                member->SetUnresolved(true);
+                DBEntryBase::KeyPtr key =
+                    agent->nexthop_table()->discard_nh()->GetDBRequestKey();
+                NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                   nh_key_ptr));
+                comp_nh_list.push_back(component_nh_key);
+            } else {
+                DBEntryBase::KeyPtr key =
+                    uc_rt->GetActiveNextHop()->GetDBRequestKey();
+                NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+                if (nh_key->GetType() != NextHop::COMPOSITE) {
+                    //By default all component members of composite NH
+                    //will be policy disabled, except for component NH
+                    //of type composite
+                    nh_key->SetPolicy(false);
+                }
+                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                   nh_key_ptr));
+                comp_nh_list.push_back(component_nh_key);
+                //Reset to new gateway route, no nexthop for indirect route
+                member->UpdateDependentRoute(uc_rt);
+                member->SetUnresolved(false);
+            }
+            new_list.push_back(member);
+
+            DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+            nh_req.key.reset(new CompositeNHKey(Composite::LU_ECMP, comp_nh_policy,
+                                        comp_nh_list, vrf_name_));
+            nh_req.data.reset(new CompositeNHData());
+            nh_req_.Swap(&nh_req);
+        }
+        path->ResetEcmpMemberList(new_list);
+        if (path_unresolved) {
+            path->set_unresolved(true);
+        }
+    }
+
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     bool ret = false;
 
@@ -112,6 +182,7 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
     std::string bgp_peer_name = channel->GetBgpPeerName();
     std::string vrf_name = rt_table->vrf_name();
     agent_ = rt_table->agent();
+    vrf_name_  = vrf_name;
 
     // use LOW PathPreference if local preference attribute is not set
     uint32_t preference = PathPreference::LOW;
@@ -190,6 +261,8 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
                 if (!comp_nh_policy) {
                     comp_nh_policy = mpls_nh->NexthopToInterfacePolicy();
                 }
+                tunnel_dest_list_.push_back(addr);
+                label_list_.push_back(label);
             } else if (label == 0) {
                 copy_local_path_ = true;
             }
@@ -197,20 +270,45 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
             encap = agent_->controller()->GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
             if (vrf_name == agent_->fabric_vrf_name()) {
-                encap = TunnelType::NativeType();
+                if (label != MplsTable::kInvalidLabel) {
+                    encap = TunnelType::MplsoMplsType();
+                } else {
+                    encap = TunnelType::NativeType();
+                }
             }
             MacAddress mac = agent_->controller()->GetTunnelMac
                 (item->entry.next_hops.next_hop[i]);
-            TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
-                                                  agent_->router_id(),
-                                                  addr.to_v4(),
-                                                  false,
-                                                  TunnelType::ComputeType(encap),
-                                                  mac);
-            std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
-            ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
-                                                                  nh_key_ptr));
-            comp_nh_list.push_back(component_nh_key);
+            if (encap == TunnelType::MplsoMplsType() &&
+                    vrf_name == agent_->fabric_vrf_name()) {
+                LabelledTunnelNHKey *nh_key = new LabelledTunnelNHKey(
+                                            agent_->fabric_vrf_name(),
+                                            agent_->router_id(),
+                                            addr.to_v4(),
+                                            false,
+                                            TunnelType::ComputeType(encap),
+                                            mac,
+                                            label);
+                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                                    nh_key_ptr));
+                comp_nh_list.push_back(component_nh_key);
+            } else if (encap == TunnelType::MplsoMplsType()) {
+                // copy ecmp nexthop list
+                tunnel_dest_list_.push_back(addr);
+                label_list_.push_back(label);
+            } else {
+
+                TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
+                                                    agent_->router_id(),
+                                                    addr.to_v4(),
+                                                    false,
+                                                    TunnelType::ComputeType(encap),
+                                                    mac);
+                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                                    nh_key_ptr));
+                comp_nh_list.push_back(component_nh_key);
+            }
         }
     }
 
@@ -221,6 +319,7 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
              tunnel_bmap_ = TunnelType::NativeType();
          }
     }
+    tunnel_bmap_ = encap;
 
     // Build the NH request and then create route data to be passed
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -229,7 +328,6 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
     nh_req.data.reset(new CompositeNHData());
     nh_req_.Swap(&nh_req);
  }
-
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
                                          const BgpPeer *bgp_peer,
                                          const string &default_vrf,
@@ -246,11 +344,12 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
                                          bool ecmp_suppressed,
                                          const EcmpLoadBalance &ecmp_load_balance,
                                          bool etree_leaf) {
-    // Make Tunnel-NH request
+
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    // Make Tunnel-NH request
     nh_req.key.reset(new TunnelNHKey(default_vrf, router_id, tunnel_dest, false,
-                                     TunnelType::ComputeType(bmap),
-                                     rewrite_dmac));
+                                    TunnelType::ComputeType(bmap),
+                                    rewrite_dmac));
     nh_req.data.reset(new TunnelNHData());
 
     // Make route request pointing to Tunnel-NH created above
@@ -262,6 +361,38 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
     return data;
 }
 
+ControllerMplsRoute *ControllerMplsRoute::MakeControllerMplsRoute(
+                                         const BgpPeer *bgp_peer,
+                                         const string &default_vrf,
+                                         const Ip4Address &router_id,
+                                         const string &vrf_name,
+                                         const Ip4Address &tunnel_dest,
+                                         TunnelType::TypeBmap bmap,
+                                         uint32_t label,
+                                         const MacAddress rewrite_dmac,
+                                         const VnListType &dest_vn_list,
+                                         const SecurityGroupList &sg_list,
+                                         const TagList &tag_list,
+                                         const PathPreference &path_preference,
+                                         bool ecmp_suppressed,
+                                         const EcmpLoadBalance &ecmp_load_balance,
+                                         bool etree_leaf) {
+ 
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    // Make Labelled Tunnel-NH request
+    nh_req.key.reset(new LabelledTunnelNHKey(default_vrf, router_id, tunnel_dest, false,
+                                    TunnelType::MPLS_OVER_MPLS,
+                                    rewrite_dmac, label));
+    nh_req.data.reset(new LabelledTunnelNHData());
+
+    // Make route request pointing to Labelled Tunnel-NH created above
+    ControllerMplsRoute *data =
+        new ControllerMplsRoute(bgp_peer, default_vrf, tunnel_dest, label,
+                              dest_vn_list, bmap, sg_list, tag_list, path_preference,
+                              nh_req, ecmp_suppressed,
+                              ecmp_load_balance, etree_leaf, rewrite_dmac);
+    return data;
+}
 bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
     bool ret = false;
     // For IP subnet routes with Tunnel NH, update arp_flood_ and
@@ -294,20 +425,64 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     }
 
     TunnelType::Type new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
-    if ((tunnel_bmap_ == (1 << TunnelType::VXLAN) &&
-         (new_tunnel_type != TunnelType::VXLAN)) ||
-        (tunnel_bmap_ != (1 << TunnelType::VXLAN) &&
-         (new_tunnel_type == TunnelType::VXLAN))) {
-        new_tunnel_type = TunnelType::INVALID;
-        nh_req_.key.reset(new TunnelNHKey(agent->fabric_vrf_name(),
-                                          agent->router_id(), tunnel_dest_,
-                                          false, new_tunnel_type,
-                                          rewrite_dmac_));
+    if (new_tunnel_type == TunnelType::MPLS_OVER_MPLS) {
+        // this path depends on inet.3 route table,
+        // update dependent_table if it is not set already.
+        if (!path->GetDependentTable()) {
+            InetUnicastAgentRouteTable *table = NULL;
+            table = static_cast<InetUnicastAgentRouteTable *>
+                (agent->fabric_inet4_mpls_table());
+            assert(table != NULL);
+            path->SetDependentTable(table);
+        }
+        InetUnicastAgentRouteTable *table =
+            (InetUnicastAgentRouteTable *)path->GetDependentTable();
+
+        AgentPathEcmpComponentPtrList new_list; 
+        AgentPathEcmpComponentPtr member( new AgentPathEcmpComponent(
+                                        tunnel_dest_, label_,
+                                        path->GetParentRoute()));
+        InetUnicastRouteEntry *uc_rt = table->FindRoute(tunnel_dest_);
+        if (uc_rt == NULL || uc_rt->plen() == 0) {
+            path->set_unresolved(true);
+            member->SetUnresolved(false);
+        } else {
+            path->set_unresolved(false);
+            DBEntryBase::KeyPtr key =
+                uc_rt->GetActiveNextHop()->GetDBRequestKey();
+            const NextHopKey *nh_key =
+                    static_cast<const NextHopKey*>(key.get());
+            nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                FindActiveEntry(nh_key));
+            assert(nh !=NULL);
+            //Reset to new gateway route, no nexthop for indirect route
+            member->UpdateDependentRoute(uc_rt);
+            member->SetUnresolved(false);
+            path->set_gw_ip(tunnel_dest_);
+            path->set_nexthop(NULL);
+        }
+        new_list.push_back(member);
+        path->ResetEcmpMemberList(new_list);
+
+    } else {
+
+        if ((tunnel_bmap_ == (1 << TunnelType::VXLAN) &&
+            (new_tunnel_type != TunnelType::VXLAN)) ||
+            (tunnel_bmap_ != (1 << TunnelType::VXLAN) &&
+            (new_tunnel_type == TunnelType::VXLAN))) {
+            new_tunnel_type = TunnelType::INVALID;
+            nh_req_.key.reset(new TunnelNHKey(agent->fabric_vrf_name(),
+                                            agent->router_id(), tunnel_dest_,
+                                            false, new_tunnel_type,
+                                            rewrite_dmac_));
+        }
+        agent->nexthop_table()->Process(nh_req_);
+        TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), tunnel_dest_,
+                        false, new_tunnel_type, rewrite_dmac_);
+        nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+
+        path->set_unresolved(false);
     }
-    agent->nexthop_table()->Process(nh_req_);
-    TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), tunnel_dest_,
-                    false, new_tunnel_type, rewrite_dmac_);
-    nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_tunnel_dest(tunnel_dest_);
 
     if (path->tunnel_type() != new_tunnel_type) {
@@ -323,7 +498,8 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
             path->set_label(MplsTable::kInvalidLabel);
             ret = true;
         }
-    } else if (tunnel_bmap_ == TunnelType::MplsType()) {
+    } else if ((tunnel_bmap_ == TunnelType::MplsType())||
+            (tunnel_bmap_ == TunnelType::MplsoMplsType())) {
         //MPLS (GRE/UDP) is the only encap sent,
         //so label is MPLS.
         if (path->label() != label_) {
@@ -347,6 +523,79 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                 ret = true;
             }
         }
+    }
+
+    if (path->dest_vn_list() != dest_vn_list_) {
+        path->set_dest_vn_list(dest_vn_list_);
+        ret = true;
+    }
+
+    if (nh != NULL) {
+        if (path->ChangeNH(agent, nh) == true)
+        ret = true;
+    }
+
+    path_sg_list = path->sg_list();
+    if (path_sg_list != sg_list_) {
+        path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    if (tag_list_ != path->tag_list()) {
+        path->set_tag_list(tag_list_);
+        ret = true;
+    }
+
+    if (path->path_preference() != path_preference_) {
+        path->set_path_preference(path_preference_);
+        ret = true;
+    }
+
+    //If a transition of path happens from ECMP to non ECMP
+    //reset local mpls label reference and composite nh key
+    if (path->composite_nh_key()) {
+        path->set_composite_nh_key(NULL);
+        path->set_local_ecmp_mpls_label(NULL);
+    }
+
+    if (path->ecmp_suppressed() != ecmp_suppressed_) {
+        path->set_ecmp_suppressed(ecmp_suppressed_);
+        ret = true;
+    }
+
+    if (ecmp_load_balance_ != path->ecmp_load_balance()) {
+        path->set_ecmp_load_balance(ecmp_load_balance_);
+        ret = true;
+    }
+
+    if (path->etree_leaf() != etree_leaf_) {
+        path->set_etree_leaf(etree_leaf_);
+        ret = true;
+    }
+
+    return ret;
+}
+bool ControllerMplsRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                              const AgentRoute *rt) {
+    bool ret = false;
+    NextHop *nh = NULL;
+    SecurityGroupList path_sg_list;
+
+    path->set_peer_sequence_number(sequence_number());
+    if (path->tunnel_bmap() != tunnel_bmap_) {
+        path->set_tunnel_bmap(tunnel_bmap_);
+        ret = true;
+    }
+ 
+    agent->nexthop_table()->Process(nh_req_);
+    LabelledTunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), tunnel_dest_,
+                    false, TunnelType::MPLS_OVER_MPLS, rewrite_dmac_, label_);
+    nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+    path->set_tunnel_dest(tunnel_dest_);
+
+    if (path->label() != label_) {
+        path->set_label(label_);
+        ret = true;
     }
 
     if (path->dest_vn_list() != dest_vn_list_) {

@@ -1783,9 +1783,11 @@ bool InetRouteFlowMgmtTree::HasVrfFlows(uint32_t vrf,
     if (type == Agent::INET4_UNICAST) {
         InetRouteFlowMgmtKey key(vrf, Ip4Address(0), 0);
         next_key = static_cast<InetRouteFlowMgmtKey *>(LowerBound(&key));
-    } else {
+    } else if (type == Agent::INET6_UNICAST) {
         InetRouteFlowMgmtKey key(vrf, Ip6Address(), 0);
         next_key = static_cast<InetRouteFlowMgmtKey *>(LowerBound(&key));
+    } else {
+        return false;
     }
 
     if (next_key == NULL)

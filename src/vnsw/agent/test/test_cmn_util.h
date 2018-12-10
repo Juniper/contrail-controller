@@ -224,6 +224,8 @@ void DeleteRoute(const char *vrf, const char *ip, uint8_t plen,
 void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
+bool RouteFindMpls(const string &vrf_name, const Ip4Address &addr, int plen);
+bool RouteFindMpls(const string &vrf_name, const string &addr, int plen);
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac);
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
                  const IpAddress &ip);
@@ -236,6 +238,7 @@ bool MCRouteFind(const string &vrf_name, const string &saddr,
                  const string &daddr);
 bool MCRouteFind(const string &vrf_name, const string &addr);
 InetUnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+InetUnicastRouteEntry *RouteGetMpls(const string &vrf_name, const Ip4Address &addr, int plen);
 InetUnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const Peer *peer, const string &vrf_name, const Ip4Address &grp_addr, const Ip4Address &src_addr);
@@ -295,6 +298,19 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                          const TagList &tag,
                          const PathPreference &path_preference);
 bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
+                         uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const TagList &tag,
+                         const PathPreference &path_preference);
+bool Inet4MplsRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                         const Ip4Address &vm_addr,
+                         uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const TagList &tag,
+                         const PathPreference &path_preference);
+bool Inet4MplsRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
