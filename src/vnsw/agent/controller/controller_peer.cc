@@ -1256,6 +1256,11 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             //Hence existing logic of picking up nexthop from mpls label to
             //nexthop, will not work. We have added a special path where we
             //pick nexthop from local vm path, instead of BGP
+            if (!prefix_addr.is_v4()) {
+                CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                "VRF nexthop is not supported for non IPv4");
+                return;
+            }
             BgpPeer *bgp_peer = bgp_peer_id();
             ClonedLocalPath *data =
                 new ClonedLocalPath(label, vn_list,
