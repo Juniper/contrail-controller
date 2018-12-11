@@ -12,7 +12,6 @@
 #include <oper/oper_db.h>
 #include <oper/agent_route_walker.h>
 
-using namespace std;
 class LifetimeActor;
 class LifetimeManager;
 class ComponentNHData;

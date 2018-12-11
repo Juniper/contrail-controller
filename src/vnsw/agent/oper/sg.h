@@ -10,8 +10,6 @@
 #include <agent_types.h>
 #include <oper/oper_db.h>
 
-using namespace std;
-
 struct SgKey : public AgentOperDBKey {
     SgKey(boost::uuids::uuid sg_uuid) : AgentOperDBKey(), sg_uuid_(sg_uuid) {}
     virtual ~SgKey() {}
