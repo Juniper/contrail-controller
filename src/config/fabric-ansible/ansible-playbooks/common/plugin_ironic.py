@@ -239,6 +239,7 @@ class ImportIronicNodes(object):
                     "name": node_dict['hostname'],
                     "display_name": node_dict['hostname'],
                     "hostname": node_dict['hostname'],
+                    "parent_type": "global-system-config",
                     "fq_name": ["default-global-system-config",
                                 node_dict['uuid']],
                     "bms_info": {
