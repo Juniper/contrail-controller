@@ -37,6 +37,7 @@ class JobFileWrite(object):
     PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
     JOB_LOG = 'JOB_LOG##'
     PROUTER_LOG = 'PROUTER_LOG##'
+    GEN_DEV_OP_RES = 'GENERIC_DEVICE##'
 
     def __init__(self, logger, ):
         self._logger = logger

@@ -241,7 +241,8 @@ class JobLogUtils(object):
             job_execution_id,
             prouter_state=None,
             job_status=None,
-            percentage_completed=None):
+            percentage_completed=None,
+            device_op_results = "{}"):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if prouter_state is None:
@@ -249,14 +250,18 @@ class JobLogUtils(object):
                     name=fq_names,
                     execution_id=job_execution_id,
                     job_status=job_status,
-                    percentage_completed=percentage_completed)
+                    percentage_completed=percentage_completed,
+                    device_op_results = device_op_results
+                )
             else:
                 prouter_job_data = PhysicalRouterJobExecution(
                     name=fq_names,
                     execution_id=job_execution_id,
                     prouter_state=prouter_state,
                     job_status=job_status,
-                    percentage_completed=percentage_completed)
+                    percentage_completed=percentage_completed,
+                    device_op_results = device_op_results
+                )
 
             prouter_job_uve = PhysicalRouterJobUve(
                 data=prouter_job_data, sandesh=self.config_logger._sandesh)
@@ -386,3 +391,4 @@ class JobLogUtils(object):
             self.config_logger.error(msg)
             self.config_logger.error("%s" % traceback.format_exc())
             raise JobException(e)
+
