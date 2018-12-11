@@ -528,10 +528,17 @@ class DBInterface(object):
             try:
                 obj_uuid = create_method(obj)
             except RefsExistError:
-                obj.uuid = str(uuid.uuid4())
-                obj.name += '-' + obj.uuid
-                obj.fq_name[-1] += '-' + obj.uuid
-                obj_uuid = create_method(obj)
+                orig_obj_name = obj.name
+                try:
+                    # try to change only name and fq_name before changing uuid
+                    obj.name += '-' + obj.uuid
+                    obj.fq_name[-1] += '-' + obj.uuid
+                    obj_uuid = create_method(obj)
+                except RefsExistError:
+                    obj.uuid = str(uuid.uuid4())
+                    obj.name = orig_obj_name + '-' + obj.uuid
+                    obj.fq_name[-1] = orig_obj_name + '-' + obj.uuid
+                    obj_uuid = create_method(obj)
         except BadRequest as e:
             self._raise_contrail_exception('BadRequest',
                 resource=resource_type, msg=str(e))
