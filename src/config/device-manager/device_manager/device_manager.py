@@ -8,41 +8,26 @@ This file contains implementation of managing physical router configuration
 
 import gevent
 # Import kazoo.client before monkey patching
-from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
-import sys
-import argparse
 import requests
 import ConfigParser
-import socket
 import time
 import hashlib
 import signal
 import random
 import traceback
-from pprint import pformat
 
-from pysandesh.sandesh_base import *
-from pysandesh.sandesh_logger import *
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
-    NodeTypeNames, INSTANCE_ID_DEFAULT
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from cfgm_common.exceptions import ResourceExhaustionError
-from cfgm_common.exceptions import NoIdError
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
-from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
-    NodeStatus
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
+    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, PortTupleDM, \
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
@@ -52,12 +37,7 @@ from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
-from cfgm_common.dependency_tracker import DependencyTracker
-from cfgm_common import vnc_cgitb
-from cfgm_common.utils import cgitb_hook
-from cfgm_common.vnc_logger import ConfigServiceLogger
 from logger import DeviceManagerLogger
-
 
 # zookeeper client connection
 _zookeeper_client = None
@@ -250,11 +230,15 @@ class DeviceManager(object):
         },
     }
 
-    _device_manager = None
+    _instance = None
 
-    def __init__(self, dm_logger=None, args=None):
-        DeviceManager._device_manager = self
+    def __init__(self, dm_logger=None, args=None, object_db=None,
+                 amqp_client=None):
+        DeviceManager._instance = self
         self._args = args
+        self._amqp_client = amqp_client
+        self._object_db = object_db
+
         PushConfigState.set_push_mode(int(self._args.push_mode))
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(
@@ -314,18 +298,11 @@ class DeviceManager(object):
             except ResourceExhaustionError:  # haproxy throws 503
                 time.sleep(3)
 
-        """ @sighup
-        Handle of SIGHUP for collector list config change
-        """
-        gevent.signal(signal.SIGHUP, self.sighup_handler)
-
         # Initialize amqp
         self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
                                       self._args)
         self._vnc_amqp.establish()
 
-        # Initialize cassandra
-        self._object_db = DMCassandraDB.get_instance(self, _zookeeper_client)
         DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
@@ -452,11 +429,8 @@ class DeviceManager(object):
             pr.uve_send()
 
         self._vnc_amqp._db_resync_done.set()
-        try:
-            gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
-        except KeyboardInterrupt:
-            DeviceManager.destroy_instance()
-            raise
+
+        gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
     # end __init__
 
     def get_analytics_config(self):
@@ -488,7 +462,8 @@ class DeviceManager(object):
 
     @classmethod
     def get_instance(cls):
-        return cls._device_manager
+        return cls._instance
+     # end get_instance
 
     @classmethod
     def destroy_instance(cls):
@@ -499,9 +474,8 @@ class DeviceManager(object):
         for obj_cls in DBBaseDM.get_obj_type_map().values():
             obj_cls.reset()
         DBBase.clear()
-        DMCassandraDB.clear_instance()
-        inst._object_db = None
-        cls._device_manager = None
+        cls._instance = None
+    # end destroy_instance
 
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
@@ -527,295 +501,6 @@ class DeviceManager(object):
                            config.random_collectors = random.sample(collectors, len(collectors))
                        # Reconnect to achieve load-balance irrespective of list
                        self.logger.sandesh_reconfig_collectors(config)
-               except ConfigParser.NoOptionError as e:
+               except ConfigParser.NoOptionError as _:
                    pass
     # end sighup_handler
-
-def parse_args(args_str):
-    '''
-    Eg. python device_manager.py  --rabbit_server localhost
-                         -- rabbit_port 5672
-                         -- rabbit_user guest
-                         -- rabbit_password guest
-                         --cassandra_server_list 10.1.2.3:9160
-                         --api_server_ip 10.1.2.3
-                         --api_server_port 8082
-                         --api_server_use_ssl False
-                         --analytics_server_ip 10.1.2.3
-                         --analytics_server_port 8181
-                         --analytics_username admin
-                         --analytics_password admin
-                         --zk_server_ip 10.1.2.3
-                         --zk_server_port 2181
-                         --collectors 127.0.0.1:8086
-                         --http_server_port 8090
-                         --log_local
-                         --log_level SYS_DEBUG
-                         --log_category test
-                         --log_file <stdout>
-                         --use_syslog
-                         --syslog_facility LOG_USER
-                         --cluster_id <testbed-name>
-                         --repush_interval 15
-                         --repush_max_interval 300
-                         --push_delay_per_kb 0.01
-                         --push_delay_max 100
-                         --push_delay_enable True
-                         --push_mode 0
-                         --job_status_retry_timeout 10
-                         --job_status_max_retries 60
-                         [--reset_config]
-    '''
-
-    # Source any specified config/ini file
-    # Turn off help, so we      all options in response to -h
-    conf_parser = argparse.ArgumentParser(add_help=False)
-
-    conf_parser.add_argument("-c", "--conf_file", action='append',
-                             help="Specify config file", metavar="FILE")
-    args, remaining_argv = conf_parser.parse_known_args(args_str.split())
-
-    defaults = {
-        'rabbit_server': 'localhost',
-        'rabbit_port': '5672',
-        'rabbit_user': 'guest',
-        'rabbit_password': 'guest',
-        'rabbit_vhost': None,
-        'rabbit_ha_mode': False,
-        'cassandra_server_list': '127.0.0.1:9160',
-        'api_server_ip': '127.0.0.1',
-        'api_server_port': '8082',
-        'api_server_use_ssl': False,
-        'analytics_server_ip': '127.0.0.1',
-        'analytics_server_port': '8081',
-        'analytics_username': None,
-        'analytics_password': None,
-        'zk_server_ip': '127.0.0.1',
-        'zk_server_port': '2181',
-        'collectors': None,
-        'http_server_port': '8096',
-        'http_server_ip': '0.0.0.0',
-        'log_local': False,
-        'log_level': SandeshLevel.SYS_DEBUG,
-        'log_category': '',
-        'log_file': Sandesh._DEFAULT_LOG_FILE,
-        'use_syslog': False,
-        'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
-        'cluster_id': '',
-        'logging_conf': '',
-        'logger_class': None,
-        'repush_interval': '15',
-        'push_mode': 0,
-        'repush_max_interval': '600',
-        'push_delay_per_kb': '0.01',
-        'push_delay_max': '100',
-        'push_delay_enable': True,
-        'rabbit_use_ssl': False,
-        'kombu_ssl_version': '',
-        'kombu_ssl_keyfile': '',
-        'kombu_ssl_certfile': '',
-        'kombu_ssl_ca_certs': '',
-        'job_status_retry_timeout': '10',
-        'job_status_max_retries': '60',
-    }
-    defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
-    secopts = {
-        'use_certs': False,
-        'keyfile': '',
-        'certfile': '',
-        'ca_certs': '',
-    }
-    ksopts = {
-        'admin_user': 'user1',
-        'admin_password': 'password1',
-        'admin_tenant_name': 'default-domain',
-    }
-    cassandraopts = {
-        'cassandra_user': None,
-        'cassandra_password': None
-    }
-    sandeshopts = SandeshConfig.get_default_options()
-
-    saved_conf_file = args.conf_file
-    if args.conf_file:
-        config = ConfigParser.SafeConfigParser()
-        config.read(args.conf_file)
-        defaults.update(dict(config.items("DEFAULTS")))
-        if ('SECURITY' in config.sections() and
-                'use_certs' in config.options('SECURITY')):
-            if config.getboolean('SECURITY', 'use_certs'):
-                secopts.update(dict(config.items("SECURITY")))
-        if 'KEYSTONE' in config.sections():
-            ksopts.update(dict(config.items("KEYSTONE")))
-        if 'CASSANDRA' in config.sections():
-            cassandraopts.update(dict(config.items('CASSANDRA')))
-        SandeshConfig.update_options(sandeshopts, config)
-
-    # Override with CLI options
-    # Don't surpress add_help here so it will handle -h
-    parser = argparse.ArgumentParser(
-        # Inherit options from config_parser
-        parents=[conf_parser],
-        # print script description with -h/--help
-        description=__doc__,
-        # Don't mess with format of description
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    defaults.update(secopts)
-    defaults.update(ksopts)
-    defaults.update(cassandraopts)
-    defaults.update(sandeshopts)
-    parser.set_defaults(**defaults)
-
-    parser.add_argument(
-        "--cassandra_server_list",
-        help="List of cassandra servers in IP Address:Port format",
-        nargs='+')
-    parser.add_argument(
-        "--cassandra_use_ssl", action="store_true",
-        help="Enable TLS for cassandra communication")
-    parser.add_argument(
-        "--cassandra_ca_certs",
-        help="Cassandra CA certs")
-    parser.add_argument(
-        "--reset_config", action="store_true",
-        help="Warning! Destroy previous configuration and start clean")
-    parser.add_argument("--api_server_ip",
-                        help="IP address of API server")
-    parser.add_argument("--api_server_port",
-                        help="Port of API server")
-    parser.add_argument("--api_server_use_ssl",
-                        help="Use SSL to connect with API server")
-    parser.add_argument("--analytics_server_ip",
-                        help="IP address of Analytics server")
-    parser.add_argument("--analytics_server_port",
-                        help="Port of Analytics server")
-    parser.add_argument("--analytics_username",
-                        help="Username for Analytics server")
-    parser.add_argument("--analytics_password",
-                        help="Password for Analytics server")
-    parser.add_argument("--zk_server_ip",
-                        help="IP address:port of zookeeper server")
-    parser.add_argument("--collectors",
-                        help="List of VNC collectors in ip:port format",
-                        nargs="+")
-    parser.add_argument("--http_server_ip",
-                        help="IP of Introspect HTTP server")
-    parser.add_argument("--http_server_port",
-                        help="Port of Introspect HTTP server")
-    parser.add_argument("--log_local", action="store_true",
-                        help="Enable local logging of sandesh messages")
-    parser.add_argument(
-        "--log_level",
-        help="Severity level for local logging of sandesh messages")
-    parser.add_argument(
-        "--log_category",
-        help="Category filter for local logging of sandesh messages")
-    parser.add_argument("--log_file",
-                        help="Filename for the logs to be written to")
-    parser.add_argument("--use_syslog", action="store_true",
-                        help="Use syslog for logging")
-    parser.add_argument("--syslog_facility",
-                        help="Syslog facility to receive log lines")
-    parser.add_argument("--admin_user",
-                        help="Name of keystone admin user")
-    parser.add_argument("--admin_password",
-                        help="Password of keystone admin user")
-    parser.add_argument("--admin_tenant_name",
-                        help="Tenant name for keystone admin user")
-    parser.add_argument("--cluster_id",
-                        help="Used for database keyspace separation")
-    parser.add_argument(
-        "--logging_conf",
-        help=("Optional logging configuration file, default: None"))
-    parser.add_argument(
-        "--logger_class",
-        help=("Optional external logger class, default: None"))
-    parser.add_argument("--repush_interval",
-                        help="time interval for config re push")
-    parser.add_argument("--repush_max_interval",
-                        help="max time interval for config re push")
-    parser.add_argument("--push_delay_per_kb",
-                        help="time delay between two successful commits per kb config size")
-    parser.add_argument("--push_delay_max",
-                        help="max time delay between two successful commits")
-    parser.add_argument("--push_delay_enable",
-                        help="enable delay between two successful commits")
-    parser.add_argument("--cassandra_user",
-                        help="Cassandra user name")
-    parser.add_argument("--cassandra_password",
-                        help="Cassandra password")
-    parser.add_argument("--job_status_retry_timeout",
-                        help="Timeout between job status check retries")
-    parser.add_argument("--job_status_max_retries",
-                        help="Max number of job status retries")
-    SandeshConfig.add_parser_arguments(parser)
-    args = parser.parse_args(remaining_argv)
-    if type(args.cassandra_server_list) is str:
-        args.cassandra_server_list = args.cassandra_server_list.split()
-    if type(args.collectors) is str:
-        args.collectors = args.collectors.split()
-    args.sandesh_config = SandeshConfig.from_parser_arguments(args)
-    args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
-
-    args.conf_file = saved_conf_file
-    return args
-# end parse_args
-
-
-def main(args_str=None):
-    global _zookeeper_client
-
-    if not args_str:
-        args_str = ' '.join(sys.argv[1:])
-    args = parse_args(args_str)
-    if args.cluster_id:
-        client_pfx = args.cluster_id + '-'
-        zk_path_pfx = args.cluster_id + '/'
-    else:
-        client_pfx = ''
-        zk_path_pfx = ''
-
-    # randomize collector list
-    args.random_collectors = args.collectors
-    if args.collectors:
-        args.random_collectors = random.sample(args.collectors,
-                                               len(args.collectors))
-
-    # Initialize logger without introspect thread
-    dm_logger = DeviceManagerLogger(args, http_server_port=-1)
-
-    # Initialize AMQP handler then close it to be sure remain queue of a
-    # precedent run is cleaned
-    vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
-    vnc_amqp.establish()
-    vnc_amqp.close()
-    dm_logger.debug("Removed remained AMQP queue")
-
-    if 'host_ip' in args:
-        host_ip = args.host_ip
-    else:
-        host_ip = socket.gethostbyname(socket.getfqdn())
-    _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
-                                        args.zk_server_ip, host_ip)
-    dm_logger.notice("Waiting to be elected as master...")
-    _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
-                                      os.getpid(), run_device_manager,
-                                      dm_logger, args)
-# end main
-
-
-def run_device_manager(dm_logger, args):
-    dm_logger.notice("Elected master Device Manager node. Initializing... ")
-    dm_logger.introspect_init()
-    DeviceManager(dm_logger, args)
-# end run_device_manager
-
-
-def server_main():
-    vnc_cgitb.enable(format='text')
-    main()
-# end server_main
-
-if __name__ == '__main__':
-    server_main()
