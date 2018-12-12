@@ -90,11 +90,8 @@ def parse_args(args_str):
         'db_engine': 'cassandra',
         'max_request_size': 1024000,
         'fabric_ansible_dir': '/opt/contrail/fabric_ansible_playbooks',
-        'fabric_ansible_conf_file':
-            ['/etc/contrail/contrail-keystone-auth.conf',
-             '/etc/contrail/contrail-fabric-ansible.conf'],
         'enable_fabric_ansible': True,
-        'max_job_mgr_processes': 100,
+        'amqp_timeout': 660,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
@@ -304,15 +301,10 @@ def parse_args(args_str):
             help="Maximum size of bottle requests served by api server")
     parser.add_argument("--fabric_ansible_dir",
         help="Fabric ansible directory path")
-    parser.add_argument("--fabric_ansible_conf_file",
-                        help="List of conf files required by fabric "
-                             "ansible job manager.", nargs="+")
     parser.add_argument("--enable_fabric_ansible",
                         help="Enables/disables execute-job api and the initial"
                              "data loading for the job manager.")
-    parser.add_argument("--max_job_mgr_processes", type=int,
-        help="Maximum number of concurrent job_mgr processes that can run "
-             "based on the system configuration")
+    parser.add_argument("--amqp_timeout", help="Timeout for amqp request")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file

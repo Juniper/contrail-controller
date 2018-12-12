@@ -42,6 +42,7 @@ class JobManager(object):
         self.sandesh_args = None
         self.max_job_task = JobLogUtils.TASK_POOL_SIZE
         self.fabric_fq_name = None
+        self.vnc_api_init_params = None
         self.parse_job_input(job_input)
         self.job_utils = job_utils
         self.playbook_seq = playbook_seq
@@ -51,7 +52,7 @@ class JobManager(object):
 
     def parse_job_input(self, job_input_json):
 
-        self.job_execution_id = job_input_json['job_execution_id']
+        self.job_execution_id = job_input_json.get('job_execution_id')
 
         self.job_data = job_input_json.get('input')
         if self.job_data is None:
@@ -61,13 +62,15 @@ class JobManager(object):
         if self.device_json is None:
             self._logger.debug("Device data is not passed from api server.")
 
-        self.auth_token = job_input_json['auth_token']
-        self.api_server_host = job_input_json['api_server_host']
+        self.auth_token = job_input_json.get('auth_token')
+        self.api_server_host = job_input_json.get('api_server_host')
 
-        self.sandesh_args = job_input_json['args']
+        self.sandesh_args = job_input_json.get('args')
         self.max_job_task = self.job_log_utils.args.max_job_task
 
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
+
+        self.vnc_api_init_params = job_input_json.get('vnc_api_init_params')
 
     def start_job(self):
         # spawn job greenlets
@@ -79,7 +82,8 @@ class JobManager(object):
                                  self.job_log_utils,
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
-                                 self.playbook_seq)
+                                 self.playbook_seq,
+                                 self.vnc_api_init_params)
 
         if self.device_json is not None:
             if not self.device_json:
@@ -163,7 +167,7 @@ class WFManager(object):
             raise Exception(msg)
 
         self.job_template_id = job_input_json.get('job_template_id')
-        self.job_execution_id = job_input_json['job_execution_id']
+        self.job_execution_id = job_input_json.get('job_execution_id')
         self.job_data = job_input_json.get('input')
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
 
@@ -263,7 +267,7 @@ class WFManager(object):
 
                     if self.job_input.get('device_json') is None or\
                         len(self.result_handler.failed_device_jobs)\
-                            == len(self.job_input['device_json']):
+                            == len(self.job_input.get('device_json')):
                         self._logger.error(
                             "Stop the workflow on the failed Playbook.")
                         break
@@ -331,6 +335,22 @@ def parse_args():
     return parser.parse_args()
 
 
+def initialize_vnc_api(auth_token, api_server_host, vnc_api_init_params):
+    if auth_token is not None:
+        vnc_api = VncApi(auth_token=auth_token)
+    elif vnc_api_init_params is not None:
+        vnc_api = VncApi(
+            vnc_api_init_params.get("admin_user"),
+            vnc_api_init_params.get("admin_password"),
+            vnc_api_init_params.get("admin_tenant_name"),
+            api_server_host,
+            vnc_api_init_params.get("api_server_port"),
+            api_server_use_ssl=vnc_api_init_params.get("api_server_use_ssl"))
+    else:
+        vnc_api = VncApi()
+    return vnc_api
+
+
 if __name__ == "__main__":
 
     # parse the params passed to the job manager process and initialize
@@ -344,8 +364,8 @@ if __name__ == "__main__":
                      "Aborting job ...")
 
         job_log_utils = JobLogUtils(
-            sandesh_instance_id=job_input_json['job_execution_id'],
-            config_args=job_input_json['args'])
+            sandesh_instance_id=job_input_json.get('job_execution_id'),
+            config_args=job_input_json.get('args'))
         logger = job_log_utils.config_logger
     except Exception as exp:
         print >> sys.stderr, "Failed to initialize logger due "\
@@ -356,17 +376,17 @@ if __name__ == "__main__":
     # initialize _vnc_api instance
     vnc_api = None
     try:
-        auth_token = job_input_json['auth_token']
-
-        vnc_api = VncApi(auth_token=auth_token)
-        logger.info("VNC api is initialized using the auth token passed.")
+        vnc_api = initialize_vnc_api(job_input_json.get('auth_token'),
+                                     job_input_json.get('api_server_host'),
+                                     job_input_json.get('vnc_api_init_params'))
+        logger.info("VNC api is initialized.")
     except Exception as exp:
         logger.error(MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
                                           exc_msg=traceback.format_exc()))
         msg = MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
                                    exc_msg=repr(exp))
-        job_log_utils.send_job_log(job_input_json['job_template_fq_name'],
-                                   job_input_json['job_execution_id'],
+        job_log_utils.send_job_log(job_input_json.get('job_template_fq_name'),
+                                   job_input_json.get('job_execution_id'),
                                    job_input_json.get('fabric_fq_name'),
                                    msg, JobStatus.FAILURE)
         sys.exit(msg)
@@ -382,8 +402,8 @@ if __name__ == "__main__":
                                           exc_msg=traceback.format_exc()))
         msg = MsgBundle.getMessage(MsgBundle.JOB_ERROR,
                                    exc_msg=repr(exp))
-        job_log_utils.send_job_log(job_input_json['job_template_fq_name'],
-                                   job_input_json['job_execution_id'],
+        job_log_utils.send_job_log(job_input_json.get('job_template_fq_name'),
+                                   job_input_json.get('job_execution_id'),
                                    job_input_json.get('fabric_fq_name'),
                                    msg, JobStatus.FAILURE)
         sys.exit(msg)
