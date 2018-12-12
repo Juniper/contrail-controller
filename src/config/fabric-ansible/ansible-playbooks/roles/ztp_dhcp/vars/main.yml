@@ -2,11 +2,7 @@
 # vars file for ztp_dhcp role
 
 ztp_create: "{{ True if hostvars['localhost'].get('ztp_create') else False }}"
-fabric_uuid: "{{hostvars['localhost']['fabric_uuid']}}"
-fabric_fq_name: "{{playbook_input.input.fabric_fq_name}}"
+fabric_name: "{{hostvars['localhost']['fabric_name']}}"
+dhcp_dir: "{{hostvars['localhost']['ztp_dnsmasq_dir']}}"
+config_file: "{{hostvars['localhost']['ztp_dnsmasq_conf_file']}}"
 device_count: "{{hostvars['localhost'].get('device_count', None)}}"
-ztp_config: "{{hostvars['localhost']['ztp_config']}}"
-dhcp_gconf_path: "{{hostvars['localhost'].get('ztp_dhcp_gconf_path', None)}}"
-dhcp_conf_path: "{{hostvars['localhost'].get('ztp_dhcp_conf_path', None)}}"
-dhcp_connection: "{{hostvars['localhost']['dhcp_connection']}}"
-
