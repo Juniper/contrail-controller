@@ -66,7 +66,10 @@ except ImportError:
 
 try:
     import device_manager
-    if not hasattr(device_manager, 'main'):
+    if hasattr(device_manager, 'DeviceManager'):
+        import dm_server
+    else:
+        from device_manager import dm_server
         from device_manager import device_manager
 except ImportError:
     device_manager = 'device_manager could not be imported'
@@ -333,7 +336,7 @@ def kill_schema_transformer(glet):
 
 def kill_device_manager(glet):
     glet.kill()
-    device_manager.DeviceManager.destroy_instance()
+    dm_server.sigterm_handler()
 
 def kill_kube_manager(glet):
     glet.kill()
@@ -385,9 +388,9 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
             cfg_parser.write(conf)
             conf.flush()
             args_str = args_str + "--conf_file %s " % conf.name
-            device_manager.main(args_str)
+            dm_server.main(args_str)
     else:
-        device_manager.main(args_str)
+        dm_server.main(args_str)
 
 # end launch_device_manager
 
