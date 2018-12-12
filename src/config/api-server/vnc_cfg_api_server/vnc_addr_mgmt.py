@@ -227,7 +227,7 @@ class Subnet(object):
             try:
                 gw_ip = IPAddress(gw)
             except netaddr.core.AddrFormatError:
-                raise AddrMgmtInvalidGatewayIp(name, gw_ip)
+                raise AddrMgmtInvalidGatewayIp(name, gw)
 
         else:
             if subnetting:

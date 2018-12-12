@@ -1,6 +1,7 @@
 python-subunit
 testrepository
 flexmock
+mock
 coverage
 pyaml
 python-keystoneclient
