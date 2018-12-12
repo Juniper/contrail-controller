@@ -2,31 +2,31 @@
 
 - name: Copy script files on remote host
   block:
-    - copy:
-        src: "{{ tftp_dir }}/"
-        dest: "{{ TFTP_BOOT_PATH }}"
-      register: cmd_res
+    - name: Read script file
+      slurp:
+        src: "{{ tftp_dir+'/'+script_file }}"
+      register: script_file_contents
+
+    - name: Publish create script file message
+      set_fact:
+        publish_result: "{{ script_file_contents.content | create_tftp_file(script_file, fabric_name, job_ctx) }}"
   rescue:
     - set_fact:
         tftp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to copy TFTP script files"},
-          "message": "{{cmd_res.msg}}"
+          "results": {"jl_message": "Failed to copy TFTP script files"}
         }
   when: ztp_create == True
 
 - name: Remove script files from remote host
   block:
-    - file:
-        state: absent
-        path: "{{ TFTP_BOOT_PATH }}/{{ fabric_fq_name[-1]  }}_juniper.sh"
-      register: cmd_res
+    - name: Publish delete script file message
+      set_fact:
+        publish_result: "{{ script_file | delete_tftp_file(fabric_name, job_ctx) }}"
   rescue:
     - set_fact:
         tftp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to remove TFTP script files"},
-          "message": "{{cmd_res.msg}}"
+          "results": {"jl_message": "Failed to remove TFTP script files"}
         }
   when: ztp_create == False
-

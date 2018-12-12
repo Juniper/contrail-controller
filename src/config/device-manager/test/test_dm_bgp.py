@@ -90,6 +90,7 @@ class TestBgpDM(TestCommonDM):
                                                           product=self.product)
         self.set_auth_data(bgp_router, 0, 'bgppswd', 'md5')
         self._vnc_lib.bgp_router_update(bgp_router)
+        gevent.sleep(1)
         self.check_bgp_auth_config('internal', 'bgppswd')
 
         #bgp peering, auth validate

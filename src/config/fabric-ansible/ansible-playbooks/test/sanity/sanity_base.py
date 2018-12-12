@@ -402,19 +402,18 @@ class SanityBase(object):
                     log_ts_fmt = time.strftime("%m/%d/%Y %H:%M:%S",
                                                log_ts_sec_gm) + ".%s" % \
                                                (str(log_ts_ms))[-3:]
-                    percomp = int(round(float(percentage_complete),0))
                     if log_device_name:
-                        pprint.pprint("[{}%] {}: [{}] {}".format(percomp,
+                        pprint.pprint("[{}%] {}: [{}] {}".format(percentage_complete,
                                                              log_ts_fmt,
                                                              log_device_name,
                                                              log_text))
                     else:
-                        pprint.pprint("[{}%] {}: {}".format(percomp,
+                        pprint.pprint("[{}%] {}: {}".format(percentage_complete,
                                                              log_ts_fmt,
                                                              log_text))
                     print
                     if log_details:
-                        pprint.pprint("[{}%] {}: ==> {}".format(percomp,
+                        pprint.pprint("[{}%] {}: ==> {}".format(percentage_complete,
                                                             log_ts_fmt,
                                                             log_details))
                         print

@@ -1,158 +1,40 @@
 ---
 
-- name: Determine whether insert/update/delete operation
-  set_fact:
-    dhcp_state: "{{ 'present' if ztp_create else 'absent' }}"
-
-- name: Check whether dhcpd directory exists
-  stat:
-    path: "/etc/dhcp"
-  register: dhcp_dir
-
-- name: Check whether dhcpd conf file exists
-  stat:
-    path: "{{ DHCPD_CONFIG_PATH }}"
-  register: dhcp_file
-
-- name: If DHCP directory does not exist, just bail
+- name: Copy dhcp config files on remote host
   block:
-    - debug: msg="dhcpd directory does not exist, skipping..." verbosity=1
-    - set_fact: 
-        dhcp_output: {
-          "status": "{{ 'Failure' if ztp_create else 'Success' }}",
-          "results": {"jl_message": "Warning: dhcpd server not installed"}
-        }
-    - meta: end_play
-  when: dhcp_dir.stat.exists == False
+    - name: Read dhcp config file
+      slurp:
+        src: "{{ dhcp_dir+'/'+config_file }}"
+      register: config_file_contents
 
-- name: Insert/update global section in DHCP config file on remote host
-  block:
-    - name: Insert/update global section in config file on remote host
-      blockinfile:
-        block: "{{ lookup('file', dhcp_gconf_path) if dhcp_gconf_path else '' }}"
-        dest: "{{ DHCPD_CONFIG_PATH }}"
-        marker: '########## {mark} GLOBAL BLOCK ##########'
-        state: "{{ dhcp_state }}"
-        create: yes
-      register: cmd_res
-  rescue:
-    - set_fact:
-        dhcp_output: {
-          "status": "Failure",
-          "results": {"jl_message": "Failed to insert/update global dhcp config"},
-          "message": "{{cmd_res.msg}}"
-        }
-    - name: print output
-      debug: var=dhcp_output verbosity=1
-    - meta: end_play
-  when: dhcp_state == 'present'
-
-- name: Insert/update/delete subsection in DHCP config file on remote host
-  block:
-    - name: Insert/update/delete subsection in DHCP config file on remote host
-      blockinfile:
-        block: "{{ lookup('file', dhcp_conf_path) if dhcp_conf_path else '' }}"
-        dest: "{{ DHCPD_CONFIG_PATH }}"
-        marker: "{{['########## {mark} SUBSECTION BLOCK', fabric_fq_name[-1], '##########']|join(' ')}}"
-        state: "{{ dhcp_state }}"
-        create: yes
-      register: cmd_res
-  rescue:
-    - set_fact:
-        dhcp_output: {
-          "status": "Failure",
-          "results": {"jl_message": "Failed to insert/update/delete dhcp config"},
-          "message": "{{cmd_res.msg}}"
-        }
-    - name: print output
-      debug: var=dhcp_output verbosity=1
-    - meta: end_play
-  when: dhcp_file.stat.exists == True
-
-- name: Check for absence of subsections
-  block:
-    - name: read the dhcp config file
-      shell: "cat {{ DHCPD_CONFIG_PATH }}"
-      register: config_file
-    - set_fact:
-        subsections_present: True
-      when: config_file.stdout.find('SUBSECTION BLOCK') != -1
-  rescue:
-    - set_fact:
-        dhcp_output: {
-          "status": "Failure",
-          "results": {"jl_message": "Failed to read dhcp config"},
-          "message": "{{cmd_res.msg}}"
-        }
-    - name: print output
-      debug: var=dhcp_output verbosity=1
-    - meta: end_play
-  when: dhcp_file.stat.exists == True
-
-- name: Delete global section in DHCP config file on remote host if no more subsections
-  block:
-    - name: Delete global section in config file on remote host
-      blockinfile:
-        block: "{{ lookup('file', dhcp_gconf_path) if dhcp_gconf_path else '' }}"
-        dest: "{{ DHCPD_CONFIG_PATH }}"
-        marker: '########## {mark} GLOBAL BLOCK ##########'
-        state: "{{ dhcp_state }}"
-        create: yes
-      register: cmd_res
-  rescue:
-    - set_fact:
-        dhcp_output: {
-          "status": "Failure",
-          "results": {"jl_message": "Failed to delete global dhcp config"},
-          "message": "{{cmd_res.msg}}"
-        }
-    - name: print output
-      debug: var=dhcp_output verbosity=1
-    - meta: end_play
-  when: dhcp_file.stat.exists == True and subsections_present is undefined
-
-- name: Restart or stop dhcpd server
-  block:
-    - name: Restart/stop dhcpd server
-      service:
-        name: dhcpd
-        state: "{{ 'restarted' if subsections_present is defined else 'stopped' }}"
-      register: cmd_res
-  rescue:
-    - set_fact:
-        dhcp_output: {
-          "status": "Failure",
-          "results": {"jl_message": "Failed to restart/stop dhcpd"},
-          "message": "{{cmd_res.msg}}"
-        }
-    - name: print output
-      debug: var=dhcp_output verbosity=1
-    - meta: end_play
-  when: dhcp_file.stat.exists == True
-
-- name: Read DHCP lease table and return addresses of devices contained in IPAM subnets
-  block:
-    - name: Read DHCP lease table and return addresses of devices contained in IPAM subnets
-      dhcp_leases:
-        device_count: "{{ device_count }}"
-        ztp_config: "{{ ztp_config }}"
-      register: cmd_res
-    - name: Save device ip table
+    - name: Publish create dhcp config file message
       set_fact:
-        dhcp_output: {
-          "status": "Success",
-          "results": "{{cmd_res}}",
-          "device_list": "{{cmd_res.device_list}}"
-        }
+        dhcp_output: "{{ config_file_contents.content | create_dhcp_file(config_file, fabric_name, job_ctx) }}"
+
+    - name: Read dhcp leases
+      set_fact:
+        dhcp_output: "{{ device_count | read_dhcp_leases(ztp_config['ipam_subnets'], config_file, fabric_name, job_ctx) }}"
   rescue:
     - set_fact:
         dhcp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to generate IP table from DHCP lease table"},
-          "message": "{{cmd_res.msg}}"
+          "results": {"jl_message": "Failed to copy DHCP config files"},
         }
-    - name: print output
-      debug: var=dhcp_output verbosity=1
-    - meta: end_play
-  when: dhcp_state == 'present'
+  when: ztp_create == True
 
+- name: Remove dhcp config files from remote host
+  block:
+    - name: Publish delete dhcp config file message
+      set_fact:
+        dhcp_output: "{{ config_file | delete_dhcp_file(fabric_name, job_ctx) }}"
+
+    - name: Restart dhcp server
+      set_fact:
+        dhcp_output: "{{ config_file | restart_dhcp_server(fabric_name, job_ctx) }}"
+  rescue:
+    - set_fact:
+        dhcp_output: {
+          "status": "Failure",
+          "results": {"jl_message": "Failed to remove DHCP config files"},
+        }
+  when: ztp_create == False
