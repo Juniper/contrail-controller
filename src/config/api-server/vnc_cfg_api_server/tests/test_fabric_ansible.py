@@ -7,10 +7,9 @@ import gevent.monkey
 gevent.monkey.patch_all()
 import sys
 import logging
-import subprocess
-from flexmock import flexmock
+
+import mock
 import json
-import uuid
 
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_test import *
@@ -29,20 +28,24 @@ class TestExecuteJob(test_case.ApiServerTestCase):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
+
+        kombu_mock = mock.Mock()
+        kombu_patch = mock.patch(
+            'vnc_cfg_api_server.vnc_cfg_api_server.KombuAmqpClient')
+        kombu_init_mock = kombu_patch.start()
+        kombu_init_mock.side_effect = kombu_mock
+
         super(TestExecuteJob, cls).setUpClass(*args, **kwargs)
     # end setUpClass
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
+
         super(TestExecuteJob, cls).tearDownClass(*args, **kwargs)
     # end tearDownClass
 
     def test_execute_job(self):
-        # mock the call to invoke the job manager
-        fake_process = flexmock(pid=123)
-        flexmock(subprocess).should_receive('Popen').and_return(fake_process)
-
         #populate config node info
         config_node_obj = ConfigNode(
             parent_type='global-system-config',
@@ -90,4 +93,4 @@ class TestExecuteJob(test_case.ApiServerTestCase):
                                            {'device_list': [str(pr_uuid)]}})
 
         (code, msg) = self._http_post('/execute-job', execute_job_body)
-        self.assertEqual(code, 200)
+        self.assertEquals(code, 200)
