@@ -33,7 +33,8 @@ class DMAmqpHandle(VncAmqpHandle):
         else:
             host_ip = socket.gethostbyname(socket.getfqdn())
         super(DMAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseDM,
-                reaction_map, q_name_prefix, rabbitmq_cfg, host_ip)
+            reaction_map, q_name_prefix, rabbitmq_cfg, host_ip,
+            register_handler=False)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
