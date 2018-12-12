@@ -83,16 +83,16 @@ common_sources = [
            '__init__.py',
            'common/cassandra_manager.py',
            'common/common_process_manager.py',
-           'common/common_sys_mem_cpu.py',
+           'common/common_sys_cpu.py',
            'common/docker_mem_cpu.py',
            'common/docker_process_manager.py',
            'common/event_manager.py',
-           'common/linux_sys_mem_cpu.py',
+           'common/linux_sys_data.py',
            'common/process_stat.py',
            'common/utils.py',
            'common/windows_process_manager.py',
            'common/windows_process_mem_cpu.py',
-           'common/windows_sys_mem_cpu.py',
+           'common/windows_sys_data.py',
           ]
 common_sources_rules = []
 for file in common_sources:

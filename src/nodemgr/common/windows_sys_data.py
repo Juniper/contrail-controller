@@ -5,9 +5,10 @@
 import psutil
 
 from sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
-from common_sys_mem_cpu import SysCpuShare
+from common_sys_cpu import SysCpuShare
 
-class WindowsSysMemCpuUsageData(object):
+
+class WindowsSysData(object):
     def __init__(self):
         self.sys_cpu_share = SysCpuShare(self.get_num_cpu())
 
@@ -40,3 +41,21 @@ class WindowsSysMemCpuUsageData(object):
         sys_cpu_info.cpu_share = self.sys_cpu_share.get()
         sys_cpu_info.node_type = node_type
         return sys_cpu_info
+
+    def check_ntp_status(self):
+        return True
+
+    def find_corefile(self, name_pattern):
+        return None
+
+    def get_corefiles(self):
+        return list()
+
+    def remove_corefiles(self, core_files):
+        pass
+
+    def update_all_core_file(self):
+        return False
+
+    def get_disk_usage(self):
+        return dict()
