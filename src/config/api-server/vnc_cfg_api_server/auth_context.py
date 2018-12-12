@@ -3,14 +3,21 @@ import bottle
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import cfgm_common
 
+
 def get_auth_hdrs():
     if have_auth_context():
-        return {'HTTP_X_PROJECT_ID':get_auth_context().get('HTTP_X_PROJECT_ID'),
-                'HTTP_X_USER':get_auth_context().get('HTTP_X_USER'),
-                'HTTP_X_ROLE':get_auth_context().get('HTTP_X_ROLE'),
-                'HTTP_X_PROJECT_NAME':get_auth_context().get('HTTP_X_PROJECT_NAME')}
+        return {
+            'HTTP_X_DOMAIN_ID': get_auth_context().get('HTTP_X_DOMAIN_ID'),
+            'HTTP_X_DOMAIN_NAME': get_auth_context().get('HTTP_X_DOMAIN_NAME'),
+            'HTTP_X_PROJECT_ID': get_auth_context().get('HTTP_X_PROJECT_ID'),
+            'HTTP_X_PROJECT_NAME': get_auth_context().get('HTTP_X_PROJECT_NAME'),
+            'HTTP_X_USER': get_auth_context().get('HTTP_X_USER'),
+            'HTTP_X_ROLE': get_auth_context().get('HTTP_X_ROLE'),
+        }
     else:
         return {}
+
+
 def get_auth_context():
     return gevent.getcurrent().auth_context
 
