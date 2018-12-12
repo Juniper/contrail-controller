@@ -18,3 +18,4 @@ junitxml
 xmltodict
 pyOpenSSL
 mock
+fabric-ansible

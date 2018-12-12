@@ -43,6 +43,7 @@ local_sources = [
                   'vnc_logger.py',
                   'vnc_cgitb.py',
                   'db_json_exim.py',
+                  'kombu_amqp.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
