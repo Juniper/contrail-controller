@@ -14,8 +14,9 @@ from pysandesh.sandesh_base import Sandesh
 class JobLogger(ConfigServiceLogger):
 
     def __init__(self, args=None, http_server_port=None,
-                 sandesh_instance_id=None):
+                 sandesh_instance_id=None, sandesh_instance=None):
         self.sandesh_instance_id = sandesh_instance_id
+        self._sandesh = sandesh_instance
         module = Module.FABRIC_ANSIBLE
         module_pkg = "job_manager"
         self.context = "job_manager"
@@ -24,6 +25,9 @@ class JobLogger(ConfigServiceLogger):
 
     def sandesh_init(self, http_server_port=None):
         """ Init sandesh """
+        if self._sandesh is not None:
+            return
+
         self._sandesh = Sandesh()
         self.redefine_sandesh_handles()
         if not http_server_port:

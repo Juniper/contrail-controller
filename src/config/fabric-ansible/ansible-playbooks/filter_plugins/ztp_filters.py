@@ -18,9 +18,22 @@ import logging
 
 class FilterModule(object):
 
+    ZTP_EXCHANGE = 'device_ztp_exchange'
+    ZTP_EXCHANGE_TYPE = 'direct'
+    CONFIG_FILE_ROUTING_KEY = 'device_ztp.config.file'
+    TFTP_FILE_ROUTING_KEY = 'device_ztp.tftp.file'
+    ZTP_REQUEST_ROUTING_KEY = 'device_ztp.request'
+    ZTP_RESPONSE_ROUTING_KEY = 'device_ztp.response.'
+
     def filters(self):
         return {
             'ztpcfg': self.get_ztp_config,
+            'create_tftp_file': self.create_tftp_file,
+            'delete_tftp_file': self.delete_tftp_file,
+            'create_dhcp_file': self.create_dhcp_file,
+            'delete_dhcp_file': self.delete_dhcp_file,
+            'read_dhcp_leases': self.read_dhcp_leases,
+            'restart_dhcp_server': self.restart_dhcp_server,
         }
 
     @classmethod
@@ -66,3 +79,84 @@ class FilterModule(object):
             logging.error("Error getting ZTP configuration: {}".format(ex))
 
         return ztp_config
+    # end get_ztp_config
+
+    @classmethod
+    def create_tftp_file(cls, file_contents, file_name,
+                         fabric_name, job_ctx):
+        return cls._publish_file(file_name, file_contents, 'create',
+            cls.TFTP_FILE_ROUTING_KEY, fabric_name, job_ctx)
+    # end create_tftp_file
+
+    @classmethod
+    def delete_tftp_file(cls, file_name, fabric_name, job_ctx):
+        return cls._publish_file(file_name, '', 'delete', cls.TFTP_FILE_ROUTING_KEY,
+            fabric_name, job_ctx)
+    # end delete_tftp_file
+
+    @classmethod
+    def create_dhcp_file(cls, file_contents, file_name,
+                         fabric_name, job_ctx):
+        return cls._publish_file(file_name, file_contents, 'create',
+            cls.CONFIG_FILE_ROUTING_KEY, fabric_name, job_ctx)
+    # end create_dhcp_file
+
+    @classmethod
+    def delete_dhcp_file(cls, file_name, fabric_name, job_ctx):
+        return cls._publish_file(file_name, '', 'delete', cls.CONFIG_FILE_ROUTING_KEY,
+            fabric_name, job_ctx)
+    # end delete_dhcp_file
+
+    @classmethod
+    def read_dhcp_leases(cls, device_count, ipam_subnets, file_name,
+                          fabric_name, job_ctx):
+        vnc_api = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                         auth_token=job_ctx.get('auth_token'))
+        headers = {
+            'fabric_name': fabric_name,
+            'file_name': file_name,
+            'action': 'create'
+        }
+        payload = {
+            'device_count': int(device_count),
+            'ipam_subnets': ipam_subnets
+        }
+        return vnc_api.amqp_request(exchange=cls.ZTP_EXCHANGE,
+            exchange_type=cls.ZTP_EXCHANGE_TYPE,
+            routing_key=cls.ZTP_REQUEST_ROUTING_KEY,
+            response_key=cls.ZTP_RESPONSE_ROUTING_KEY + fabric_name,
+            headers=headers, payload=payload)
+    # end read_dhcp_leases
+
+    @classmethod
+    def restart_dhcp_server(cls, file_name, fabric_name, job_ctx):
+        vnc_api = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                         auth_token=job_ctx.get('auth_token'))
+        headers = {
+            'fabric_name': fabric_name,
+            'file_name': file_name,
+            'action': 'delete'
+        }
+        vnc_api.amqp_publish(exchange=cls.ZTP_EXCHANGE,
+            exchange_type=cls.ZTP_EXCHANGE_TYPE,
+            routing_key=cls.ZTP_REQUEST_ROUTING_KEY, headers=headers,
+            payload={})
+        return { 'status': 'success' }
+    # end restart_dhcp_server
+
+    @classmethod
+    def _publish_file(cls, name, contents, action, routing_key,
+                      fabric_name, job_ctx):
+        vnc_api = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                         auth_token=job_ctx.get('auth_token'))
+        headers = {
+            'fabric_name': fabric_name,
+            'file_name': name,
+            'action': action
+        }
+        vnc_api.amqp_publish(exchange=cls.ZTP_EXCHANGE,
+            exchange_type=cls.ZTP_EXCHANGE_TYPE,
+            routing_key=routing_key, headers=headers,
+            payload=contents)
+        return { 'status': 'success' }
+    # end _publish_file
