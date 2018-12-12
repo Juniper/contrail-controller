@@ -38,9 +38,9 @@ from cStringIO import StringIO
 from vnc_api.utils import AAA_MODE_VALID_VALUES
 # import GreenletProfiler
 from cfgm_common import vnc_cgitb
-import subprocess
-import traceback
 from kazoo.exceptions import LockTimeout
+from attrdict import AttrDict
+from distutils.util import strtobool
 
 from cfgm_common import has_role
 from cfgm_common import _obj_serializer_all
@@ -126,6 +126,7 @@ from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
 from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
 from cfgm_common.vnc_greenlets import VncGreenlet
+from cfgm_common.kombu_amqp import KombuAmqpClient
 
 _ACTION_RESOURCES = [
     {'uri': '/prop-collection-get', 'link_name': 'prop-collection-get',
@@ -166,8 +167,10 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'dump_cache'},
     {'uri': '/execute-job', 'link_name': 'execute-job',
      'method': 'POST', 'method_name': 'execute_job_http_post'},
-    {'uri': '/job-status', 'link_name': 'job-status',
-     'method': 'GET', 'method_name': 'job_status_http_get'},
+    {'uri': '/amqp-publish', 'link_name': 'amqp-publish',
+     'method': 'POST', 'method_name': 'amqp_publish_http_post'},
+    {'uri': '/amqp-request', 'link_name': 'amqp-request',
+     'method': 'POST', 'method_name': 'amqp_request_http_post'},
 ]
 
 _MANDATORY_PROPS = [
@@ -222,6 +225,10 @@ class VncApiServer(object):
         'virtual_network', 'virtual-network',
         'network_ipam', 'network-ipam',
     ]
+
+    JOB_REQUEST_EXCHANGE = "job_request_exchange"
+    JOB_REQUEST_ROUTING_KEY = "job.request"
+
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
         obj.api_bottle = bottle.Bottle()
@@ -370,15 +377,6 @@ class VncApiServer(object):
                 msg = "Error while reading job_template_fqname: " + str(e)
                 raise cfgm_common.exceptions.HttpError(400, msg)
 
-        (ok, result) = self._db_conn.dbe_read("job-template", request_params[
-            'job_template_id'], ['job_template_concurrency_level'])
-        if not ok:
-            self.config_object_error(request_params['job_template_id'],
-                                     None, "job-template  ",
-                                     'execute_job', result)
-            raise cfgm_common.exceptions.HttpError(*result)
-        self.job_concurrency = result.get('job_template_concurrency_level')
-
         extra_params = request_params.get('params')
         if extra_params is not None:
             device_list = extra_params.get('device_list')
@@ -399,144 +397,6 @@ class VncApiServer(object):
                         msg = 'Invalid device uuid type %s.' \
                               ' uuid type required' % device_id
                         raise cfgm_common.exceptions.HttpError(400, msg)
-
-        return device_list
-
-    def _load_job_log(self, marker, str):
-        json_str = str.split(marker)[1]
-        try:
-            return json.loads(json_str)
-        except ValueError:
-            return ast.literal_eval(json_str)
-
-    def _extracted_file_output(self, execution_id):
-        status = "FAILURE"
-        prouter_info = {}
-        device_op_results = {}
-        failed_devices_list = []
-        try:
-            with open("/tmp/"+execution_id, "r") as f_read:
-                for line in f_read:
-                    if 'PROUTER_LOG##' in line:
-                        job_log = self._load_job_log('PROUTER_LOG##', line)
-                        fqname = ":".join(job_log.get('prouter_fqname'))
-                        prouter_info[fqname] = job_log.get('onboarding_state')
-                    if line.startswith('job_summary'):
-                        job_log = self._load_job_log('JOB_LOG##', line)
-                        status = job_log.get('job_status')
-                        failed_devices_list = job_log.get('failed_devices_list')
-                    if 'GENERIC_DEVICE##' in line:
-                        job_log = self._load_job_log(
-                            'GENERIC_DEVICE##', line)
-                        device_name = job_log.get('device_name')
-                        device_op_results[device_name] = job_log.get('command_output')
-        except Exception as e:
-            msg = "File corresponding to execution id %s not found: %s\n%s" % (
-                execution_id, str(e), cfgm_common.utils.detailed_traceback()
-            )
-            self.config_log(msg, level=SandeshLevel.SYS_ERR)
-
-        return status, prouter_info, device_op_results, failed_devices_list
-
-
-    def job_mgr_signal_handler(self, signalnum, frame):
-        try:
-            #get the child process id that called the signal handler
-            pid = os.waitpid(-1, os.WNOHANG)
-            signal_var = self._job_mgr_running_instances.get(str(pid[0]))
-            if not signal_var:
-                self.config_log("job mgr process %s not found in the instance "
-                                "map!" % str(pid), level=SandeshLevel.SYS_ERR)
-                return
-
-            msg = "Entered job_mgr_signal_handler for: %s" % signal_var
-            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-            exec_id = signal_var.get('exec_id')
-
-            status, prouter_info, device_op_results,\
-            failed_devices_list = \
-                self._extracted_file_output(exec_id)
-            self.job_status[exec_id] = status
-
-            if signal_var.get('fabric_name') is not \
-                    "__DEFAULT__" and not signal_var.get('device_fqnames'):
-                job_execution_data = FabricJobExecution(
-                    name=signal_var.get('fabric_name'),
-                    job_status=status,
-                    percentage_completed=100)
-                job_execution_uve = FabricJobUve(data=job_execution_data,
-                                                 sandesh=self._sandesh)
-                job_execution_uve.send(sandesh=self._sandesh)
-            else:
-                for prouter_uve_name in signal_var.get('device_fqnames'):
-                    prouter_status = status
-                    device_name = prouter_uve_name.split(":")[1]
-                    if device_name in failed_devices_list:
-                        prouter_status = "FAILURE"
-                    prouter_job_data = PhysicalRouterJobExecution(
-                        name=prouter_uve_name,
-                        job_status=prouter_status,
-                        percentage_completed=100,
-                        device_op_results=json.dumps(
-                            device_op_results.get(device_name, {}))
-                    )
-                    prouter_job_uve = PhysicalRouterJobUve(
-                        data=prouter_job_data, sandesh=self._sandesh)
-                    prouter_job_uve.send(sandesh=self._sandesh)
-
-            for k, v in prouter_info.iteritems():
-                prouter_uve_name = "%s:%s" % (k, signal_var.get('fabric_name'))
-                prouter_job_data = PhysicalRouterJobExecution(
-                    name=prouter_uve_name,
-                    execution_id=exec_id,
-                    job_start_ts=int(round(signal_var.get('start_time') * 1000)),
-                    prouter_state=v
-                )
-                prouter_job_uve = PhysicalRouterJobUve(
-                    data=prouter_job_data, sandesh=self._sandesh)
-                prouter_job_uve.send(sandesh=self._sandesh)
-
-            #remove the pid entry of the processed job_mgr process
-            del self._job_mgr_running_instances[str(pid[0])]
-
-            self._job_mgr_statitics['number_processess_running'] = len(
-                self._job_mgr_running_instances)
-
-            self.config_log("Job : %s finished. Current number of job_mgr "
-                            "processes running now %s " %
-                            (signal_var, self._job_mgr_statitics[
-                                'number_processess_running']))
-
-        except OSError as process_error:
-            self.config_log("Couldn retrieve the child process id. OS call "
-                            "returned with error %s" % str(process_error),
-                            level=SandeshLevel.SYS_ERR)
-
-    def is_existing_job_for_fabric(self, fabric_name):
-        for job_info in self._job_mgr_running_instances.values():
-            if fabric_name in job_info.get('fabric_name') and job_info.get(
-                    'job_concurrency') == 'fabric':
-                return True
-        return False
-
-    def job_status_http_get(self):
-        '''Input for job_status
-           execution-id (Mandatory parameter. Execution id of the job)
-        Returns:
-            FAILURE/SUCCESS/UNKNOWN based on the job status corresponding to
-            the execution-id
-        '''
-        input = get_request().query
-        execution_id = input['execution_id']
-
-        if self.job_status.has_key(execution_id):
-            result = {"job_status" : self.job_status.get(execution_id)}
-            return json.dumps(result)
-        else:
-            err_msg = "Execution id not found"
-            raise cfgm_common.exceptions.HttpError(404, err_msg)
-
-
 
     def execute_job_http_post(self):
         ''' Payload of execute_job
@@ -559,257 +419,153 @@ class VncApiServer(object):
             }
         '''
         try:
+            self.config_log("Entered execute-job",
+                            level=SandeshLevel.SYS_NOTICE)
+
+            # check if the job manager functionality is enabled
             if not self._args.enable_fabric_ansible:
                 err_msg = "Fabric ansible job manager is disabled. " \
                           "Please enable it by setting the " \
                           "'enable_fabric_ansible' to True in the conf file"
                 raise cfgm_common.exceptions.HttpError(405, err_msg)
 
-            self.config_log("Entered execute-job",
+            request_params = get_request().json
+            msg = "Job Input %s " % json.dumps(request_params)
+            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+            # some basic validation like checking if UUIDs in input are
+            # syntactically valid
+            self.validate_execute_job_input_params(request_params)
+
+            # get the auth token
+            auth_token = get_request().get_header('X-Auth-Token')
+            request_params['auth_token'] = auth_token
+
+            # get the API config node ip list
+            if not self._config_node_list:
+                (ok, cfg_node_list, _) = self._db_conn.dbe_list(
+                    'config_node', field_names=['config_node_ip_address'])
+                if not ok:
+                    (code, err_msg) = cfg_node_list
+                    raise cfgm_common.exceptions.HttpError(code, err_msg)
+                if not cfg_node_list:
+                    err_msg = "Config-Node list empty"
+                    raise cfgm_common.exceptions.HttpError(404, err_msg)
+                for node in cfg_node_list:
+                    self._config_node_list.append(node.get(
+                        'config_node_ip_address'))
+            request_params['api_server_host'] = self._config_node_list
+
+            # generate the job execution id
+            execution_id = str(int(round(time.time() * 1000))) + '_' + \
+                       str(uuid.uuid4())
+            request_params['job_execution_id'] = execution_id
+
+            # publish message to RabbitMQ
+            self.publish_job_request(request_params, execution_id)
+
+            self.config_log("Published job message to RabbitMQ."
+                            " Execution id: %s" % execution_id,
                             level=SandeshLevel.SYS_NOTICE)
 
-            if self._job_mgr_statitics.get('number_processess_running') < \
-                    self._job_mgr_statitics.get('max_number_processes'):
-
-                if not self._config_node_list:
-                    (ok, cfg_node_list, _) = self._db_conn.dbe_list(
-                        'config_node', field_names=['config_node_ip_address'])
-                    if not ok:
-                        (code, err_msg) = cfg_node_list
-                        raise cfgm_common.exceptions.HttpError(code, err_msg)
-                    if not cfg_node_list:
-                        err_msg = "Config-Node list empty"
-                        raise cfgm_common.exceptions.HttpError(404, err_msg)
-                    for node in cfg_node_list:
-                        self._config_node_list.append(node.get(
-                            'config_node_ip_address'))
-
-                request_params = get_request().json
-                msg = "Job Input %s " % json.dumps(request_params)
-                self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-
-                fabric_job_uve_name = ''
-                device_fqnames = []
-
-                # get the auth token
-                auth_token = get_request().get_header('X-Auth-Token')
-                request_params['auth_token'] = auth_token
-                request_params['api_server_host'] = self._config_node_list
-
-                # pass the required config args to job manager
-                job_args = {'collectors': self._args.collectors,
-                            'fabric_ansible_conf_file':
-                                self._args.fabric_ansible_conf_file
-                            }
-                request_params['args'] = json.dumps(job_args)
-
-                # generate the job execution id
-                execution_id = str(int(round(time.time() * 1000))) + '_' + \
-                           str(uuid.uuid4())
-                request_params['job_execution_id'] = execution_id
-
-                is_delete = request_params.get('input').get('is_delete')
-
-                device_list = self.validate_execute_job_input_params(
-                        request_params)
-
-                if is_delete is None or is_delete == False:
-                    # TODO - pass the job manager config file from api server config
-
-                    # read the device object and pass the necessary data to the job
-                    if device_list:
-                        self.read_device_data(device_list, request_params)
-                    else:
-                        self.read_fabric_data(request_params)
-
-                    fabric_job_name = request_params.get('job_template_fq_name')
-                    fabric_job_name.insert(0, request_params.get('fabric_fq_name'))
-                    fabric_job_uve_name = ':'.join(map(str, fabric_job_name))
-
-                    if self.job_concurrency == "fabric":
-                        existing_job = self.is_existing_job_for_fabric(
-                            request_params.get('fabric_fq_name'))
-                        if existing_job:
-                            msg = "Another job for the same fabric is in progress. " \
-                                  "Please wait for the job to finish"
-                            raise cfgm_common.exceptions.HttpError(412, msg)
-
-                    # create job manager fabric execution status uve
-                    if request_params.get('fabric_fq_name') is not "__DEFAULT__" \
-                            and not device_list:
-                        job_execution_data = FabricJobExecution(
-                            name=fabric_job_uve_name,
-                            execution_id=request_params.get('job_execution_id'),
-                            job_start_ts=int(round(time.time() * 1000)),
-                            job_status="STARTING",
-                            percentage_completed=0.0
-                        )
-                        job_execution_uve = FabricJobUve(data=job_execution_data,
-                                                         sandesh=self._sandesh)
-                        job_execution_uve.send(sandesh=self._sandesh)
-
-                    if device_list:
-                        for device_id in device_list:
-                            device_fqname = request_params.get(
-                                'device_json').get(device_id).get('device_fqname')
-                            device_fqname = ':'.join(map(str, device_fqname))
-                            prouter_uve_name = device_fqname + ":" + \
-                                fabric_job_uve_name
-
-                            prouter_job_data = PhysicalRouterJobExecution(
-                                name=prouter_uve_name,
-                                execution_id=request_params.get('job_execution_id'),
-                                job_start_ts=int(round(time.time() * 1000)),
-                                job_status="STARTING",
-                                percentage_completed=0.0
-                            )
-
-                            prouter_job_uve = PhysicalRouterJobUve(
-                                data=prouter_job_data, sandesh=self._sandesh)
-                            prouter_job_uve.send(sandesh=self._sandesh)
-                            device_fqnames.append(prouter_uve_name)
-
-                start_time = time.time()
-                signal_var = {
-                    'fabric_name': fabric_job_uve_name ,
-                    'start_time': start_time ,
-                    'exec_id': request_params.get('job_execution_id'),
-                    'device_fqnames': device_fqnames,
-                    'job_concurrency': self.job_concurrency
-                }
-
-                self.job_status.update({request_params.get(
-                    'job_execution_id'):"STARTING"})
-                # handle process exit signal
-                signal.signal(signal.SIGCHLD,  self.job_mgr_signal_handler)
-
-                # write the abstract config to file if needed
-                self.save_abstract_config(request_params)
-
-                # create job manager subprocess
-                job_mgr_path = os.path.dirname(__file__) + "/../job_manager/job_mgr.py"
-                job_process = subprocess.Popen(["python", job_mgr_path, "-i",
-                                                json.dumps(request_params)],
-                                               cwd="/", close_fds=True)
-
-                self._job_mgr_running_instances[str(job_process.pid)] = signal_var
-
-                self._job_mgr_statitics['number_processess_running'] = len(
-                    self._job_mgr_running_instances)
-
-                self.config_log("Created job manager process. Execution id: %s" %
-                                execution_id,
-                                level=SandeshLevel.SYS_NOTICE)
-
-                self.config_log("Current number of job_mgr processes running "
-                                "%s" % self._job_mgr_statitics[
-                    'number_processess_running'])
-
-                return {'job_execution_id': str(execution_id),
-                        'job_manager_process_id': str(job_process.pid)}
-            else:
-                err_msg = "Server is busy, cannot process the request, " \
-                          "try again later"
-                raise cfgm_common.exceptions.HttpError(503, err_msg)
+            return {'job_execution_id': str(execution_id)}
         except cfgm_common.exceptions.HttpError as e:
             raise
 
-    def save_abstract_config(self, job_params):
-        """
-        Saving device abstract config to a local file as it could be large
-        config. There will be one local file per device and this file gets
-        removed when device is removed from database.
-        :param job_params: dict
-        :return: None
-        """
-        dev_abs_cfg = job_params.get('input', {}).get('device_abstract_config')
-        if dev_abs_cfg:
-            dev_mgt_ip = dev_abs_cfg.get('system', {}).get('management_ip')
-            if not dev_mgt_ip:
-                raise ValueError('Missing management IP in abstract config')
+    def publish_job_request(self, request_params, job_execution_id):
+        try:
+            self._amqp_client.publish(
+                request_params, self.JOB_REQUEST_EXCHANGE,
+                routing_key=self.JOB_REQUEST_ROUTING_KEY,
+                serializer='json', retry=True,
+                retry_policy={'max_retries': 12,
+                              'interval_start': 2,
+                              'interval_step': 5,
+                              'interval_max': 15})
+        except Exception as e:
+            msg = "Failed to send job request via RabbitMQ" \
+                  " %s %s" % (job_execution_id, repr(e))
+            raise cfgm_common.exceptions.HttpError(500, msg)
 
-            dev_cfg_dir = '/opt/contrail/fabric_ansible_playbooks/config/' + dev_mgt_ip
-            if not os.path.exists(dev_cfg_dir):
-                os.makedirs(dev_cfg_dir)
-            if dev_cfg_dir:
-                with open(dev_cfg_dir + '/abstract_cfg.json', 'w') as f:
-                    f.write(json.dumps(dev_abs_cfg, indent=4))
-                job_params.get('input').pop('device_abstract_config')
+    def amqp_publish_http_post(self):
+        ''' Payload of amqp-publish
+            exchange (Type string) (mandatory): name of the exchange
+            exchange_type (Type string) (mandatory): type of the exchange
+            routing_key (Type string): routing key for the message
+            headers (Type dict): headers for the message
+            payload (Type object): the message
+        '''
+        self.config_log("Entered amqp-publish",
+                        level=SandeshLevel.SYS_NOTICE)
 
-    def read_fabric_data(self, request_params):
-        if request_params.get('input') is None:
-            err_msg = "Missing job input"
-            raise cfgm_common.exceptions.HttpError(400, err_msg)
-        # get the fabric fq_name from the database if fabric_uuid is provided
-        fabric_fq_name = None
-        if request_params.get('input').get('fabric_uuid'):
-            fabric_uuid = request_params.get('input').get('fabric_uuid')
-            try:
-                fabric_fq_name = self._db_conn.uuid_to_fq_name(fabric_uuid)
-            except NoIdError as e:
-                raise cfgm_common.exceptions.HttpError(404, str(e))
-        elif request_params.get('input').get('fabric_fq_name'):
-            fabric_fq_name = request_params.get('input').get('fabric_fq_name')
-        else:
-            if "device_deletion_template" in request_params.get(
-                   'job_template_fq_name'):
-                fabric_fq_name = "__DEFAULT__"
-            else:
-                err_msg = "Missing fabric details in the job input"
-                raise cfgm_common.exceptions.HttpError(400, err_msg)
-        if fabric_fq_name:
-            fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
-            request_params['fabric_fq_name'] = fabric_fq_name_str
+        body = get_request().json
+        msg = "Amqp publish %s " % json.dumps(body)
+        self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
-    def read_device_data(self, device_list, request_params):
-        device_data = dict()
-        for device_id in device_list:
-            db_conn = self._db_conn
-            try:
-                (ok, result) = db_conn.dbe_read(
-                    "physical-router", device_id,
-                    ['physical_router_user_credentials',
-                     'physical_router_management_ip', 'fq_name',
-                     'physical_router_device_family',
-                     'physical_router_vendor_name',
-                     'physical_router_product_name',
-                     'fabric_refs'])
-                if not ok:
-                    self.config_object_error(device_id, None,
-                                             "physical-router  ",
-                                             'execute_job', result)
-                    raise cfgm_common.exceptions.HttpError(500, result)
-            except NoIdError as e:
-                raise cfgm_common.exceptions.HttpError(404, str(e))
+        if self._amqp_client.get_exchange(body.get('exchange')) is None:
+            self._amqp_client.add_exchange(body.get('exchange'),
+                                           type=body.get('exchange_type'))
+        self._amqp_client.publish(body.get('payload'),
+                                  body.get('exchange'),
+                                  routing_key=body.get('routing_key'),
+                                  headers=body.get('headers'))
+        bottle.response.status = 202
+        self.config_log("Exiting amqp-publish", level=SandeshLevel.SYS_DEBUG)
+    # end amqp_publish_http_post
 
-            device_json = {"device_management_ip": result[
-                'physical_router_management_ip']}
-            device_json.update({"device_fqname": result['fq_name']})
-            user_cred = result.get('physical_router_user_credentials')
-            if user_cred:
-                device_json.update({"device_username": user_cred['username']})
-                device_json.update({"device_password":
-                                    user_cred['password']})
-            device_family = result.get("physical_router_device_family")
-            if device_family:
-                device_json.update({"device_family": device_family})
-            device_vendor_name = result.get("physical_router_vendor_name")
-            if device_vendor_name:
-                device_json.update({"device_vendor": device_vendor_name})
-            device_product_name = result.get("physical_router_product_name")
-            if device_product_name:
-                device_json.update({"device_product": device_product_name})
+    def amqp_request_http_post(self):
+        ''' Payload of amqp-request
+            exchange (Type string) (mandatory): name of the exchange
+            exchange_type (Type string) (mandatory): type of the exchange
+            routing_key (Type string): routing key for the message
+            response_key (Type string): routing key for the response message
+            headers (Type dict): headers for the message
+            payload (Type object): the message
+        '''
+        self.config_log("Entered amqp-response",
+                        level=SandeshLevel.SYS_NOTICE)
 
-            device_data.update({device_id: device_json})
+        body = get_request().json
+        msg = "Amqp response %s " % json.dumps(body)
+        self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
-            fabric_refs = result.get('fabric_refs')
-            if fabric_refs and len(fabric_refs) > 0:
-                fabric_fq_name = result.get('fabric_refs')[0].get('to')
-                fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
-                request_params['fabric_fq_name'] = fabric_fq_name_str
+        if self._amqp_client.get_exchange(body.get('exchange')) is None:
+            self._amqp_client.add_exchange(body.get('exchange'),
+                                           type=body.get('exchange_type'))
 
-        if len(device_data) > 0:
-            request_params.update({"device_json": device_data})
+        consumer = 'amqp_request.%s.%s' % (socket.getfqdn(), str(uuid.uuid4()))
+        amqp_worker = VncApiServer.AmqpWorker()
+        self._amqp_client.add_consumer(consumer, body.get('exchange'),
+            routing_key=body.get('response_key'),
+            callback=amqp_worker.handle_message)
+
+        self._amqp_client.publish(body.get('payload'),
+                                  body.get('exchange'),
+                                  routing_key=body.get('routing_key'),
+                                  headers=body.get('headers'))
+        try:
+            amqp_worker.queue.get(block=True, timeout=self._args.amqp_timeout)
+            bottle.response.status = 200
+        except gevent.queue.Empty:
+            bottle.response.status = 500
+        finally:
+            self._amqp_client.remove_consumer(consumer)
+
+        return amqp_worker.body
+    # end amqp_request_http_post
+
+    class AmqpWorker(object):
+        def __init__(self):
+            self.queue = gevent.queue.Queue(maxsize=1)
+            self.body = None
+        # end __init__
+
+        def handle_message(self, body, message):
+            message.ack()
+            self.body = body
+            self.queue.put_nowait(True)
+        # end handle_message
+    # end AmqpWorker
 
     @classmethod
     def _validate_simple_type(cls, type_name, xsd_type, simple_type, value, restrictions=None):
@@ -2235,17 +1991,45 @@ class VncApiServer(object):
 
         self._global_asn = None
 
-        # map of running job instances. Key is the pid and value is job
-        # instance info
-        self._job_mgr_running_instances = {}
         # api server list info
         self._config_node_list = []
-        # dict of exec_id:job_status (key/value pairs)
-        self.job_status = {}
-        #number of processes spawned at any time
-        self._job_mgr_statitics = {'max_number_processes': self._args.max_job_mgr_processes,
-                                   'number_processess_running': 0}
+
+        # create amqp handle
+        self._amqp_client = self.initialize_amqp_client()
+
     # end __init__
+
+    def initialize_amqp_client(self):
+        amqp_client = None
+        use_ssl = None
+        try:
+            if self._args.rabbit_use_ssl is not None:
+                use_ssl = str(self._args.rabbit_use_ssl).lower() == 'true'
+
+            # prepare rabbitMQ params
+            rabbitmq_cfg = AttrDict(
+                servers=self._args.rabbit_server,
+                port=self._args.rabbit_port,
+                user=self._args.rabbit_user,
+                password=self._args.rabbit_password,
+                vhost=self._args.rabbit_vhost,
+                ha_mode=self._args.rabbit_ha_mode,
+                use_ssl=use_ssl,
+                ssl_version=self._args.kombu_ssl_version,
+                ssl_keyfile=self._args.kombu_ssl_keyfile,
+                ssl_certfile=self._args.kombu_ssl_certfile,
+                ssl_ca_certs=self._args.kombu_ssl_ca_certs
+            )
+            amqp_client = KombuAmqpClient(self.config_log, rabbitmq_cfg,
+                                          heartbeat=10)
+            amqp_client.add_exchange(self.JOB_REQUEST_EXCHANGE, type="direct")
+            amqp_client.run()
+        except Exception as e:
+            err_msg = "Error while initializing the AMQP client %s " % repr(e)
+            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+            if amqp_client is not None:
+                amqp_client.stop()
+        return amqp_client
 
     @property
     def global_autonomous_system(self):
@@ -3686,6 +3470,11 @@ class VncApiServer(object):
         """
         try:
             json_data = self._load_json_data()
+            if json_data is None:
+                msg = 'unable to load init data'
+                self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+                return
+
             for item in json_data.get("data"):
                 object_type = item.get("object_type")
 
@@ -3736,10 +3525,14 @@ class VncApiServer(object):
 
     # Load json data from fabric_ansible_playbooks/conf directory
     def _load_json_data(self):
+        json_file = self._args.fabric_ansible_dir + '/conf/predef_payloads.json'
+        if not os.path.exists(json_file):
+            msg = 'predef payloads file does not exist: %s' % json_file
+            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+            return None
 
         # open the json file
-        with open(self._args.fabric_ansible_dir +
-                  '/conf/predef_payloads.json') as data_file:
+        with open(json_file) as data_file:
             input_json = json.load(data_file)
 
         # Loop through the json
@@ -4583,6 +4376,8 @@ class VncApiServer(object):
 
     def reset(self):
         # cleanup internal state/in-flight operations
+        if self._amqp_client is not None:
+            self._amqp_client.stop()
         if self._db_conn:
             self._db_conn.reset()
     # end reset
@@ -5098,6 +4893,7 @@ class VncApiServer(object):
                 self.internal_request_delete(r_class.object_type,
                                              child['uuid'])
 
+# end VncApiServer
 
 def main(args_str=None, server=None):
     vnc_api_server = server

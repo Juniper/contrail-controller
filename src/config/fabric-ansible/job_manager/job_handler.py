@@ -28,7 +28,7 @@ class JobHandler(object):
                  job_utils, device_json, auth_token, api_server_host,
                  job_log_utils, sandesh_args, \
                  fabric_fq_name,
-                 playbook_timeout, playbook_seq):
+                 playbook_timeout, playbook_seq, vnc_api_init_params):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -43,6 +43,7 @@ class JobHandler(object):
         self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
         self._playbook_seq = playbook_seq
+        self._vnc_api_init_params = vnc_api_init_params
         self._prouter_info = {}
     # end __init__
 
@@ -154,6 +155,7 @@ class JobHandler(object):
                 'api_server_host': self._api_server_host,
                 'job_execution_id': self._execution_id,
                 'args': self._sandesh_args,
+                'vnc_api_init_params': self._vnc_api_init_params,
                 'playbook_job_percentage': job_percent_per_task
             }
             playbooks = self._job_template.get_job_template_playbooks()

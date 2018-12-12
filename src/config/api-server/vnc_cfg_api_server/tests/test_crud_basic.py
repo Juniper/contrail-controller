@@ -1005,11 +1005,11 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                         return msg
                     consume_captured[0] = True
                     consume_test_payload[0] = payload
-                    rabbit_consumer.queues.put(payload, None)
+                    rabbit_consumer.queue.put(payload, None)
                     raise exc_obj
                 return msg
 
-            with test_common.patch(rabbit_consumer.queues,
+            with test_common.patch(rabbit_consumer.queue,
                 'get', err_on_consume):
                 # create the object to insert 'get' handler,
                 # update oper will test the error handling
@@ -1047,7 +1047,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 consume_captured[0] = True
                 consume_test_payload[0] = payload
                 rabbit_consumer = self._api_server._db_conn._msgbus._consumer
-                rabbit_consumer.queues.put(payload, None)
+                rabbit_consumer.queue.put(payload, None)
                 raise exc_obj
             return msg
 
@@ -1070,7 +1070,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
         rabbit_consumer = self._api_server._db_conn._msgbus._consumer
         rabbit_conn = self._api_server._db_conn._msgbus._conn
-        with test_common.patch(rabbit_consumer.queues,
+        with test_common.patch(rabbit_consumer.queue,
                                'get', err_on_consume):
             with test_common.patch(rabbit_conn,
                                'connect', block_on_connect):
