@@ -64,7 +64,11 @@ for file in setup_sources:
 
 local_sources = [
     'device_manager/__init__.py',
+    'device_manager/dm_server.py',
+    'device_manager/dm_server_args.py',
     'device_manager/device_manager.py',
+    'device_manager/device_job_manager.py',
+    'device_manager/device_ztp_manager.py',
     'device_manager/db.py',
     'device_manager/dm_utils.py',
     'device_manager/dm_amqp.py',
@@ -137,6 +141,7 @@ env.Alias('install', env.Install(
 #     override of default ':test' target, and/or add additional
 #     targets to be specified
 test_target = env.SetupPyTestSuite(sdist_gen,
+                                   '/config/fabric-ansible/dist/fabric_ansible-0.1.dev0.tar.gz',
                                    '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',
                                    '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz')
 
