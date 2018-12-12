@@ -147,6 +147,16 @@
         "type": "boolean",
         "description": "Set to true for greenfield fabric",
         "default": false
+      },
+      "fabric_fq_name": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "fabric_uuid": {
+        "type": "string",
+        "format":"uuid"
       }
     }
   },

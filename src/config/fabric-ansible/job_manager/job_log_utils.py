@@ -41,16 +41,19 @@ class JobLogUtils(object):
     # PLAYBOOK TIMEOUT
     PLAYBOOK_TIMEOUT_VALUE = 3600
 
-    def __init__(self, sandesh_instance_id=None, config_args=None, sandesh=True):
+    def __init__(self, sandesh_instance_id=None, config_args=None,
+                 sandesh=True, sandesh_instance=None):
         self.sandesh_instance_id = sandesh_instance_id
         self.args = None
-        self.config_logger = self.initialize_sandesh_logger(config_args, sandesh)
+        self.config_logger = self.initialize_sandesh_logger(config_args,
+            sandesh, sandesh_instance)
         self._job_file_write = JobFileWrite(self.config_logger)
 
     def get_config_logger(self):
         return self.config_logger
 
-    def initialize_sandesh_logger(self, config_args, sandesh=True):
+    def initialize_sandesh_logger(self, config_args, sandesh=True,
+                                  sandesh_instance=None):
         # parse the logger args
         args = self.parse_logger_args(config_args)
         args.random_collectors = args.collectors
@@ -60,8 +63,9 @@ class JobLogUtils(object):
             self.args = args
         # initialize logger
         logger = JobLogger(args=args,
-                           sandesh_instance_id=self.sandesh_instance_id)
-        if sandesh:
+                           sandesh_instance_id=self.sandesh_instance_id,
+                           sandesh_instance=sandesh_instance)
+        if not sandesh_instance and sandesh:
             try:
                 sandesh_util = SandeshUtils(logger)
                 sandesh_util.wait_for_connection_establish()
@@ -106,7 +110,8 @@ class JobLogUtils(object):
         if config_args.get("fabric_ansible_conf_file"):
             config = ConfigParser.SafeConfigParser()
             config.read(config_args['fabric_ansible_conf_file'])
-            defaults.update(dict(config.items("DEFAULTS")))
+            if 'DEFAULTS' in config.sections():
+                defaults.update(dict(config.items("DEFAULTS")))
             if ('SECURITY' in config.sections() and
                     'use_certs' in config.options('SECURITY')):
                 if config.getboolean('SECURITY', 'use_certs'):
