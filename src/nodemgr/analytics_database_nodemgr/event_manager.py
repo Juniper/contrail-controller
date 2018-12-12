@@ -5,10 +5,10 @@
 from gevent import monkey
 monkey.patch_all()
 
+from sandesh_common.vns.ttypes import Module
+
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.common.cassandra_manager import CassandraManager
-from pysandesh.sandesh_base import sandesh_global
-from sandesh_common.vns.ttypes import Module
 
 
 class AnalyticsDatabaseEventManager(EventManager):
@@ -19,7 +19,7 @@ class AnalyticsDatabaseEventManager(EventManager):
             module_type=Module.DATABASE_NODE_MGR,
             sandesh_packages=['database.sandesh'])
         super(AnalyticsDatabaseEventManager, self).__init__(
-            config, type_info, sandesh_global, unit_names)
+            config, type_info, unit_names)
         # TODO: try to understand is next needed here and use it or remove
         #self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_mgr = CassandraManager(
