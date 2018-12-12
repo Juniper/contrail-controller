@@ -90,6 +90,7 @@ installvenvopts="${installvenvopts} --find-links ${build_top}/config/api-server/
 installvenvopts="${installvenvopts} --find-links ${build_top}/config/schema-transformer/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/tools/sandesh/library/python/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/sandesh/common/dist/"
+installvenvopts="${installvenvopts} --find-links ${build_top}/config/fabric-ansible/dist/"
 testrargs=
 testropts=
 wrapper=""

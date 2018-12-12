@@ -2,6 +2,6 @@
 # vars file for ztp_tftp role
 
 ztp_create: "{{ True if hostvars['localhost'].get('ztp_create') else False }}"
-fabric_fq_name: "{{playbook_input.input.fabric_fq_name}}"
+fabric_name: "{{hostvars['localhost']['fabric_name']}}"
 tftp_dir: "{{hostvars['localhost']['ztp_tftp_dir']}}"
-tftp_connection: "{{hostvars['localhost']['tftp_connection']}}"
+script_file: "{{hostvars['localhost']['ztp_script_file']}}"

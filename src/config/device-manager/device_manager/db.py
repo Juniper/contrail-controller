@@ -2391,9 +2391,9 @@ class DMCassandraDB(VncObjectDBClient):
     dm_object_db_instance = None
 
     @classmethod
-    def get_instance(cls, manager=None, zkclient=None):
+    def get_instance(cls, zkclient=None, args=None, logger=None):
         if cls.dm_object_db_instance is None:
-            cls.dm_object_db_instance = DMCassandraDB(manager, zkclient)
+            cls.dm_object_db_instance = DMCassandraDB(zkclient, args, logger)
         return cls.dm_object_db_instance
     # end
 
@@ -2402,10 +2402,9 @@ class DMCassandraDB(VncObjectDBClient):
         cls.dm_object_db_instance = None
     # end
 
-    def __init__(self, manager, zkclient):
+    def __init__(self, zkclient, args, logger):
         self._zkclient = zkclient
-        self._manager = manager
-        self._args = manager._args
+        self._args = args
 
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
@@ -2423,7 +2422,7 @@ class DMCassandraDB(VncObjectDBClient):
 
         super(DMCassandraDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
-            manager.logger.log, credential=cred,
+            logger.log, credential=cred,
             ssl_enabled=self._args.cassandra_use_ssl,
             ca_certs=self._args.cassandra_ca_certs)
 
