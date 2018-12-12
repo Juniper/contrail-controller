@@ -16,89 +16,49 @@
       {
         "uuid": "{{ fabric_uuid }}"
       }
-  register: fq_name
+  register: fabric_fq_name
   when: fabric_uuid is defined
 
 - name: Save fabric name
   set_fact:
-     fabric_fq_name: "{{ fq_name.fq_name }}"
+     fabric_name: "{{ fabric_fq_name.fq_name[-1] }}"
   when: fabric_uuid is defined
 
 - name: Get ZTP config
   set_fact:
      ztp_config: "{{ job_ctx | ztpcfg(fabric_uuid) }}"
 
-- name: Set TFTP connection to local if TFTP server is on localhost
-  set_fact:
-     tftp_connection: "{{ 'local' if TFTP_SERVER == 'localhost' else 'ssh' }}"
-
-- name: Get TFTP host from config
-  block:
-    - add_host:
-        name: "{{ TFTP_SERVER }}"
-        groups: "tftp"
-      register: cmd_res
-  rescue:
-    - name: Perform necessary error handling
-      include_tasks: error_handler.yml
-      vars:
-        op_err_message: "{{cmd_res.msg}}"
-        jl_err_message: "Failed to add TFTP server to inventory"
-
-- name: Set DHCP connection to local if DHCP server is on localhost
-  set_fact:
-     dhcp_connection: "{{ 'local' if DHCP_SERVER == 'localhost' else 'ssh' }}"
-
-- name: Get DHCP host from config
-  block:
-    - add_host:
-        name: "{{ DHCP_SERVER }}"
-        groups: "dhcp"
-      register: cmd_res
-  rescue:
-    - name: Perform necessary error handling
-      include_tasks: error_handler.yml
-      vars:
-        op_err_message: "{{cmd_res.msg}}"
-        jl_err_message: "Failed to add DHCP server to inventory"
-
 - name: Create subdirectories for calculating config
   include_tasks: create_subdirs.yml
 
-- name: Generate config file global section on local host
-  block:
-    - name: Generate config file global section on local host
-      template:
-        src: dhcpd-global.conf.j2
-        dest: "{{ ztp_dhcp_gconf_path }}"
-      register: cmd_res
-  rescue:
-    - name: Perform necessary error handling
-      include_tasks: error_handler.yml
-      vars:
-        op_err_message: "{{cmd_res.msg}}"
-        jl_err_message: "Failed to generate global config"
+- name: Save ZTP DNSMASQ conf file name
+  set_fact:
+     ztp_dnsmasq_conf_file: "{{ fabric_name }}.conf"
 
-- name: Generate config file subsection on local host
+- name: Save ZTP script file name
+  set_fact:
+     ztp_script_file: "{{ fabric_name }}_juniper.sh"
+
+- name: Generate dnsmasq config file on local host
   block:
-    - name: Generate config file subsection on local host
+    - name: Generate dnsmasq config file on local host
       template:
-        src: dhcpd.conf.j2
-        dest: "{{ ztp_dhcp_conf_path }}"
+        src: dnsmasq.conf.j2
+        dest: "{{ ztp_dnsmasq_dir }}/{{ ztp_dnsmasq_conf_file }}"
       register: cmd_res
   rescue:
     - name: Perform necessary error handling
       include_tasks: error_handler.yml
       vars:
         op_err_message: "{{cmd_res.msg}}"
-        jl_err_message: "Failed to generate config"
+        jl_err_message: "Failed to generate dnsmasq config file"
 
 - name: Generate script file on local host
   block:
     - name: Generate script file on local host
       template:
         src: juniper.sh.j2
-        dest: "{{ ztp_tftp_dir }}/{{ fabric_fq_name[-1] }}_juniper.sh"
+        dest: "{{ ztp_tftp_dir }}/{{ ztp_script_file }}"
       register: cmd_res
   rescue:
     - name: Perform necessary error handling

@@ -15,7 +15,8 @@ from cfgm_common.uve.msg_traces.ttypes import MessageBusNotifyTrace,\
 class VncAmqpHandle(object):
 
     def __init__(self, sandesh, logger, db_cls, reaction_map, q_name_prefix,
-                 rabbitmq_cfg, host_ip, trace_file=None, timer_obj=None):
+                 rabbitmq_cfg, host_ip, trace_file=None, timer_obj=None,
+                 register_handler=True):
         self.sandesh = sandesh
         self.logger = logger
         self.db_cls = db_cls
@@ -26,6 +27,7 @@ class VncAmqpHandle(object):
         self._trace_file = trace_file
         self.timer = timer_obj
         self.host_ip = host_ip
+        self.register_handler = register_handler
 
     def establish(self):
         q_name = '.'.join([self.q_name_prefix, socket.getfqdn(self.host_ip)])
@@ -38,7 +40,8 @@ class VncAmqpHandle(object):
                 kombu_ssl_version=self._rabbitmq_cfg['ssl_version'],
                 kombu_ssl_keyfile=self._rabbitmq_cfg['ssl_keyfile'],
                 kombu_ssl_certfile=self._rabbitmq_cfg['ssl_certfile'],
-                kombu_ssl_ca_certs=self._rabbitmq_cfg['ssl_ca_certs'])
+                kombu_ssl_ca_certs=self._rabbitmq_cfg['ssl_ca_certs'],
+                register_handler=self.register_handler)
 
     def msgbus_store_err_msg(self, msg):
         self.msg_tracer.error = msg
