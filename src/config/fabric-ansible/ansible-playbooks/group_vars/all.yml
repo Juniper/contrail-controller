@@ -30,6 +30,7 @@ job_ctx:
   auth_token: "{{ playbook_input.auth_token }}"
   api_server_host: "{{ playbook_input.api_server_host }}"
   playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
+  vnc_api_init_params: "{{ playbook_input.vnc_api_init_params }}"
   # This is used to demarcate the marked outputs from playbooks to the common
   # file
   unique_pb_id: "{{ playbook_input.unique_pb_id }}"
@@ -51,6 +52,8 @@ POOL_SIZE: 500
 
 #Device Retry Timeout in Seconds
 TOTAL_RETRY_TIMEOUT: 3600
+
+TFTP_SERVER: "{{ lookup('env', 'TFTP_NODE') }}"
 
 #vendor mapping
 vendor_mapping:
@@ -191,12 +194,3 @@ role_to_feature_mapping:
     - basic
     - underlay_ip_clos
     - overlay_bgp
-
-# Paths for DHCP and TFTP config files
-DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
-TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"
-
-# DHCP and TFTP servers
-DHCP_SERVER: "localhost"
-TFTP_SERVER: "localhost"
-

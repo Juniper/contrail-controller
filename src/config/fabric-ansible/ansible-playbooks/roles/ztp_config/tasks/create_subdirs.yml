@@ -6,18 +6,18 @@
 
 - name: Save ZTP TFTP directory
   set_fact:
-    ztp_tftp_dir: "{{ ztp_conf_dir }}/tftpboot"
+    ztp_tftp_dir: "{{ ztp_conf_dir }}/tftp"
 
-- name: create conf and tftpboot directory
+- name: Save ZTP DNSMASQ directory
+  set_fact:
+    ztp_dnsmasq_dir: "{{ ztp_conf_dir }}/dnsmasq"
+
+- name: Create tftp directory
   file:
     path: "{{ ztp_tftp_dir }}"
     state: directory
 
-- name: Save ZTP DHCP config path
-  set_fact:
-    ztp_dhcp_conf_path: "{{ ztp_conf_dir  }}/dhcpd_config.conf"
-
-- name: Save ZTP DHCP global config path
-  set_fact:
-    ztp_dhcp_gconf_path: "{{ ztp_conf_dir  }}/dhcpd_global_config.conf"
-
+- name: Create dnsmasq directory
+  file:
+    path: "{{ ztp_dnsmasq_dir }}"
+    state: directory
