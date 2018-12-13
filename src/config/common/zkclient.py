@@ -348,6 +348,14 @@ class ZookeeperCounter(Counter):
         super(ZookeeperCounter, self).__init__(client, path, default)
 
         self.max_count = max_count
+        # Delete existing counter if it exists with stale data
+        if client.exists(path):
+            data = client.get(path)[0]
+            if data != b'':
+                try:
+                    self.default_type(data)
+                except (TypeError, ValueError):
+                    client.delete(path)
         self._ensure_node()
 
     def _inner_change(self, value):
