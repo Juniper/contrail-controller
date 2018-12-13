@@ -11,7 +11,7 @@
 #include "oper/tunnel_nh.h"
 #include "pkt/flow_table.h"
 #include "pkt/flow_mgmt.h"
-#include "pkt/flow_mgmt_dbclient.h"
+#include "pkt/flow_mgmt/flow_mgmt_dbclient.h"
 
 #include "test_flow_base.cc"
 

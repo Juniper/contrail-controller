@@ -3349,6 +3349,10 @@ const std::string FlowEntry::fw_policy_name_uuid() const {
         fw_policy_uuid();
 }
 
+void FlowEntry::set_flow_mgmt_info(FlowEntryInfo *info) {
+    flow_mgmt_info_.reset(info);
+}
+
 TcpPort::~TcpPort() {
     socket_.close();
 }
