@@ -192,3 +192,31 @@ TFTP_BOOT_PATH: "/var/lib/docker/volumes/ironic_pxe/_data"
 # DHCP and TFTP servers
 DHCP_SERVER: "localhost"
 TFTP_SERVER: "localhost"
+
+
+# Server Discovery test variables
+ipmi_subnets:
+  - 2.2.2.2
+  - 3.3.3.3
+  - 4.4.4.4
+
+ipmi_credentials:
+  - ADMIN:ADMIN
+  - admin:admin
+  - admin:password
+
+ipmi_port_ranges:
+  - 623-623
+
+contrail_command_node: 
+  auth_host: 1.1.1.1
+  username: admin
+  password: admin
+
+ironic_node:
+  auth_url: http://10.10.10.10:5000/v3 
+  username: admin
+  password: admin
+  user_domain_name: default
+  project_domain_name:  default
+  project_name:  admin

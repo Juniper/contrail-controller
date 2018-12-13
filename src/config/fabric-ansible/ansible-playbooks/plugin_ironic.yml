@@ -1,0 +1,21 @@
+---
+- set_fact:
+    output: "{{ playbook_input | check_nodes_with_cc(valid_ipmi_details, contrail_command_node) }}"
+- debug:
+    msg: "SERVER DISCOVERY: CHECK WITH CC {{ output.final_ipmi_details }}"
+
+- set_fact:
+    processed_nodes : "{{ playbook_input | register_nodes(output.final_ipmi_details) }}"
+- debug:
+    msg: "SERVER DISCOVERY: REGISTERED NODES {{ processed_nodes }}"
+
+- set_fact:
+    processed_nodes: "{{ playbook_input | trigger_introspect(processed_nodes) }}"
+  when: playbook_input.input.ironic.introspection_flag | default('yes') | bool
+- debug:
+    msg: "SERVER DISCOVERY: TRIGGERED NODES {{ processed_nodes }}"
+
+- set_fact:
+    output : "{{ playbook_input | import_ironic_nodes(processed_nodes)}}"
+- debug:
+    msg: "SERVER DISCOVERY: IMPORTED NODES {{ output.success_nodes }}"
