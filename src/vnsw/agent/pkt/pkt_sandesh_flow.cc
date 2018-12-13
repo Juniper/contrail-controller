@@ -4,6 +4,8 @@
 
 #include <pkt/pkt_sandesh_flow.h>
 #include <pkt/flow_mgmt.h>
+#include <pkt/flow_mgmt/flow_entry_info.h>
+#include <pkt/flow_mgmt/flow_mgmt_entry.h>
 #include <vector>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <sstream>

@@ -2,9 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
-# services directory
-
 import platform
 if platform.system() == 'Darwin':
     Return()
@@ -14,36 +11,33 @@ env = AgentEnv.Clone()
 
 SandeshGenFiles = env.SandeshGenCpp('pkt.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
- 
+
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
 
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 pkt_srcs = [
-                'flow_entry.cc',
-                'flow_event.cc',
-                'flow_table.cc',
-                'flow_token.cc',
-                'flow_handler.cc',
-                'flow_mgmt.cc',
-                'flow_mgmt_dbclient.cc',
-                'flow_proto.cc',
-                'flow_trace_filter.cc',
-                'packet_buffer.cc',
-                'pkt_init.cc',
-                'pkt_handler.cc',
-                'pkt_flow_info.cc',
-                'pkt_sandesh_flow.cc',
-                'proto.cc',
-                'proto_handler.cc',
-                ]
+    'flow_entry.cc',
+    'flow_event.cc',
+    'flow_table.cc',
+    'flow_token.cc',
+    'flow_handler.cc',
+    'flow_mgmt.cc',
+    'flow_mgmt/flow_mgmt_key.cc',
+    'flow_mgmt/flow_mgmt_entry.cc',
+    'flow_mgmt/flow_mgmt_tree.cc',
+    'flow_mgmt/flow_mgmt_dbclient.cc',
+    'flow_proto.cc',
+    'flow_trace_filter.cc',
+    'packet_buffer.cc',
+    'pkt_init.cc',
+    'pkt_handler.cc',
+    'pkt_flow_info.cc',
+    'pkt_sandesh_flow.cc',
+    'proto.cc',
+    'proto_handler.cc',
+]
 
-libservices = env.Library('pkt',
-                 sandesh_objs +
-                 pkt_srcs)
+libservices = env.Library('pkt', sandesh_objs + pkt_srcs)
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
-
-# Local Variables:
-# mode: python
-# End:
