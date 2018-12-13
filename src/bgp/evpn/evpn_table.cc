@@ -144,6 +144,42 @@ const EvpnRoute *EvpnTable::FindRoute(const EvpnPrefix &prefix) const {
     return dynamic_cast<const EvpnRoute *>(rtp->Find(&rt_key));
 }
 
+bool EvpnTable::ShouldReplicate(const BgpServer *server,
+                                const BgpTable *src_table,
+                                const ExtCommunityPtr community,
+                                const  EvpnPrefix &evpn_prefix) const {
+    // Always replicate into master table.
+    if (IsMaster())
+        return true;
+
+    // Always replicate Type-5 routes.
+    if (evpn_prefix.type() == EvpnPrefix::IpPrefixRoute)
+        return true;
+
+    // Don't replicate to a VRF from other VRF tables.
+    const EvpnTable *src_evpn_table =
+        dynamic_cast<const EvpnTable *>(src_table);
+    if (!src_evpn_table->IsMaster())
+        return false;
+
+    // Replicate to VRF from the VPN table if OriginVn matches.
+    if (community->ContainsOriginVn(server->autonomous_system(),
+                       routing_instance()->virtual_network_index())) {
+        return true;
+    }
+
+    // Do not replicate non AD routes as the OriginVN does not match.
+    if (evpn_prefix.type() != EvpnPrefix::AutoDiscoveryRoute)
+        return false;
+
+    // Replicate if AD route target is associated with the route.
+    RouteTarget rtarget = RouteTarget::FromString("target:" +
+                          integerToString(server->autonomous_system()) + ":1");
+    if (community->ContainsRTarget(rtarget.GetExtCommunity()))
+        return true;
+    return false;
+}
+
 BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {
@@ -152,18 +188,9 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     assert(evpn_rt);
     EvpnPrefix evpn_prefix(evpn_rt->GetPrefix());
 
-    if (!IsMaster() && evpn_prefix.type() != EvpnPrefix::IpPrefixRoute) {
-        // Don't replicate to a VRF from other VRF tables.
-        EvpnTable *src_evpn_table = dynamic_cast<EvpnTable *>(src_table);
-        if (!src_evpn_table->IsMaster())
-            return NULL;
-
-        // Don't replicate to VRF from the VPN table if OriginVn doesn't match.
-        if (!community->ContainsOriginVn(server->autonomous_system(),
-                    routing_instance()->virtual_network_index()))
-            return NULL;
-    }
-
+    // Check if this evpn route should be replicated.
+    if (!ShouldReplicate(server, src_table, community, evpn_prefix))
+        return NULL;
     if (evpn_prefix.type() == EvpnPrefix::AutoDiscoveryRoute) {
         if (IsMaster() || evpn_prefix.tag() != EvpnPrefix::kMaxTag)
             return NULL;

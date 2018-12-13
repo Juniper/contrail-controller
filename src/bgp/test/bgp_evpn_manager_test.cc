@@ -1574,9 +1574,9 @@ protected:
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
         EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
-                      partition->local_mcast_node_list().begin();
+                      partition->local_mcast_node_list()->begin();
         int count = 0;
-        for (; it != partition->local_mcast_node_list().end(); it++) {
+        for (; it != partition->local_mcast_node_list()->end(); it++) {
            count += it->second.size(); 
         }
         return count;
@@ -1586,9 +1586,9 @@ protected:
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
         EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
-                      partition->remote_mcast_node_list().begin();
+                      partition->remote_mcast_node_list()->begin();
         int count = 0;
-        for (; it != partition->remote_mcast_node_list().end(); it++) {
+        for (; it != partition->remote_mcast_node_list()->end(); it++) {
            count += it->second.size(); 
         }
         return count;
@@ -1598,9 +1598,9 @@ protected:
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
         EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
-                      partition->leaf_node_list().begin();
+                      partition->leaf_node_list()->begin();
         int count = 0;
-        for (; it != partition->leaf_node_list().end(); it++) {
+        for (; it != partition->leaf_node_list()->end(); it++) {
            count += it->second.size(); 
         }
         return count;

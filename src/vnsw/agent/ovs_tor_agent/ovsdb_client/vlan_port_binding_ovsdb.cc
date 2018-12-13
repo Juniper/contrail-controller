@@ -28,15 +28,15 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         uint16_t vlan_tag, const std::string &logical_switch) :
     OvsdbDBEntry(table), logical_switch_name_(logical_switch),
     physical_port_name_(physical_port), physical_device_name_(physical_device),
-    vlan_(vlan_tag), vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
-    logical_switch_(NULL, this) {
+    vlan_(vlan_tag), vmi_uuid_(boost::uuids::nil_uuid()),
+    old_logical_switch_name_(), logical_switch_(NULL, this) {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanLogicalInterface *entry) : OvsdbDBEntry(table),
     logical_switch_name_(), physical_port_name_(entry->phy_intf_display_name()),
     physical_device_name_(entry->phy_dev_display_name()), vlan_(entry->vlan()),
-    vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    vmi_uuid_(boost::uuids::nil_uuid()), old_logical_switch_name_(),
     logical_switch_(NULL, this) {
 }
 
@@ -45,7 +45,7 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
     logical_switch_name_(key->logical_switch_name_),
     physical_port_name_(key->physical_port_name_),
     physical_device_name_(key->physical_device_name_), vlan_(key->vlan_),
-    vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    vmi_uuid_(boost::uuids::nil_uuid()), old_logical_switch_name_(),
     logical_switch_(NULL, this) {
 }
 
@@ -128,7 +128,7 @@ bool VlanPortBindingEntry::Sync(DBEntry *db_entry) {
     std::string ls_name =
         (dynamic_cast<const VlanPortBindingTable *>(table_))->
         GetLogicalSwitchName(entry);
-    boost::uuids::uuid vmi_uuid(nil_uuid());
+    boost::uuids::uuid vmi_uuid(boost::uuids::nil_uuid());
     bool change = false;
 
     if (entry->vm_interface()) {
@@ -389,4 +389,3 @@ void OvsdbVlanPortBindingReq::HandleRequest() const {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
-

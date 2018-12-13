@@ -419,31 +419,34 @@ public:
         PROXY_ARP_INVALID
     };
 
+    /*
+     * NOTE: This value should be in sync with vrouter code.
+     *       THe order of elements is important since it is used
+     *       while searching the rules in the set in agent.
+     */
     enum FatFlowIgnoreAddressType {
+        IGNORE_SOURCE = 1,
+        IGNORE_ADDRESS_MIN_VAL = IGNORE_SOURCE,
+        IGNORE_DESTINATION,
         IGNORE_NONE,
-        IGNORE_SOURCE,
-        IGNORE_DESTINATION
+        IGNORE_ADDRESS_MAX_VAL = IGNORE_NONE,
     };
 
+    /*
+     * NOTE: This value should be in sync with vrouter code.
+     *       THe order of elements is important since it is used
+     *       while searching the rules in the set in agent.
+     */
     enum FatFlowPrefixAggregateType {
         AGGREGATE_NONE = 0,
-        AGGREGATE_SRC_IPV4,
-        AGGREGATE_SRC_IPV6,
-        AGGREGATE_DST_IPV4,
+        AGGREGATE_PREFIX_MIN_VAL = AGGREGATE_NONE,
         AGGREGATE_DST_IPV6,
+        AGGREGATE_SRC_IPV6,
+        AGGREGATE_SRC_DST_IPV6,
+        AGGREGATE_DST_IPV4,
+        AGGREGATE_SRC_IPV4,
         AGGREGATE_SRC_DST_IPV4,
-        AGGREGATE_SRC_DST_IPV6
-    };
-
-    struct FatFlowLkupResult {
-        FatFlowIgnoreAddressType ignore_address;
-        FatFlowPrefixAggregateType prefix_aggregate;
-        IpAddress src_prefix;
-        uint8_t src_prefix_mask;
-        uint8_t src_aggregate_plen;
-        IpAddress dst_prefix;
-        uint8_t dst_prefix_mask;
-        uint8_t dst_aggregate_plen;
+        AGGREGATE_PREFIX_MAX_VAL = AGGREGATE_SRC_DST_IPV4,
     };
 
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
@@ -936,9 +939,12 @@ public:
     typedef std::map<std::string, FatFlowIgnoreAddressType> IgnoreAddressMap;
 
     struct FatFlowEntry : ListEntry {
+
+#define FAT_FLOW_ENTRY_MIN_PREFIX_LEN  8
+
         FatFlowEntry(): protocol(0), port(0),
             ignore_address(IGNORE_NONE), prefix_aggregate(AGGREGATE_NONE),
-            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0), 
+            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0),
             dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) {}
 
         FatFlowEntry(const FatFlowEntry &rhs):
@@ -948,15 +954,24 @@ public:
             dst_prefix(rhs.dst_prefix), dst_prefix_mask(rhs.dst_prefix_mask), dst_aggregate_plen(rhs.dst_aggregate_plen) {}
 
         FatFlowEntry(const uint8_t proto, const uint16_t p) :
-            protocol(proto), port(p),
-            ignore_address(IGNORE_NONE),
-            prefix_aggregate(AGGREGATE_NONE),
-            src_prefix(), src_prefix_mask(0), src_aggregate_plen(0), 
-            dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) { }
+                protocol(proto), port(p),
+                ignore_address(IGNORE_NONE),
+                prefix_aggregate(AGGREGATE_NONE),
+                src_prefix(), src_prefix_mask(0), src_aggregate_plen(0),
+                dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) { }
+
+        FatFlowEntry(const uint8_t proto, const uint16_t p,
+                     FatFlowIgnoreAddressType ignore_addr,
+                     FatFlowPrefixAggregateType prefix_aggr) :
+                protocol(proto), port(p),
+                ignore_address(ignore_addr),
+                prefix_aggregate(prefix_aggr),
+                src_prefix(), src_prefix_mask(0), src_aggregate_plen(0),
+                dst_prefix(), dst_prefix_mask(0), dst_aggregate_plen(0) { }
 
         FatFlowEntry(const uint8_t proto, const uint16_t p,
             std::string ignore_addr, FatFlowPrefixAggregateType prefix_aggregate,
-            IpAddress src_prefix, uint8_t src_prefix_mask, uint8_t src_aggregate_plen, 
+            IpAddress src_prefix, uint8_t src_prefix_mask, uint8_t src_aggregate_plen,
             IpAddress dst_prefix, uint8_t dst_prefix_mask, uint8_t dst_aggregate_plen);
 
         static FatFlowEntry MakeFatFlowEntry(const std::string &protocol, const int &port,
@@ -985,9 +1000,33 @@ public:
             if (protocol != rhs->protocol) {
                 return protocol < rhs->protocol;
             }
-            return port < rhs->port;
+            if (port != rhs->port) {
+                return port < rhs->port;
+            }
+            if (ignore_address != rhs->ignore_address) {
+                return ignore_address < rhs->ignore_address;
+            }
+            if (prefix_aggregate != rhs->prefix_aggregate) {
+                return prefix_aggregate < rhs->prefix_aggregate;
+            }
+            if (src_prefix != rhs->src_prefix) {
+                return src_prefix < rhs->src_prefix;
+            }
+            if (src_prefix_mask != rhs->src_prefix_mask) {
+                return src_prefix_mask < rhs->src_prefix_mask;
+            }
+            if (src_aggregate_plen != rhs->src_aggregate_plen) {
+                return src_aggregate_plen < rhs->src_aggregate_plen;
+            }
+            if (dst_prefix != rhs->dst_prefix) {
+                return dst_prefix < rhs->dst_prefix;
+            }
+            if (dst_prefix_mask != rhs->dst_prefix_mask) {
+                return dst_prefix_mask < rhs->dst_prefix_mask;
+            }
+            return dst_aggregate_plen < rhs->dst_aggregate_plen;
         }
-        void print(void);
+        void print(void) const;
 
         uint8_t protocol;
         uint16_t port;
@@ -1000,6 +1039,7 @@ public:
         mutable uint8_t dst_prefix_mask;
         mutable uint8_t dst_aggregate_plen;
     };
+    /* All the fields in FatFlowEntry are considered as part of key */
     typedef std::set<FatFlowEntry, FatFlowEntry> FatFlowEntrySet;
 
     struct FatFlowList {
@@ -1009,6 +1049,7 @@ public:
         void Update(const FatFlowEntry *lhs, const FatFlowEntry *rhs);
         void Remove(FatFlowEntrySet::iterator &it);
         bool UpdateList(const Agent *agent, VmInterface *vmi);
+        void DumpList() const;
 
         FatFlowEntrySet list_;
     };
@@ -1026,7 +1067,7 @@ public:
         }
     };
     struct BridgeDomain : ListEntry {
-        BridgeDomain(): uuid_(nil_uuid()), vlan_tag_(0),
+        BridgeDomain(): uuid_(boost::uuids::nil_uuid()), vlan_tag_(0),
             bridge_domain_(NULL) {}
         BridgeDomain(const BridgeDomain &rhs):
             uuid_(rhs.uuid_), vlan_tag_(rhs.vlan_tag_),
@@ -1219,7 +1260,8 @@ public:
 
     bool cfg_igmp_enable() const { return cfg_igmp_enable_; }
     bool igmp_enabled() const { return igmp_enabled_; }
-
+    uint32_t max_flows() const { return max_flows_; }
+    void set_max_flows( uint32_t val) { max_flows_ = val;}
     ProxyArpMode proxy_arp_mode() const { return proxy_arp_mode_; }
     bool IsUnrestrictedProxyArp() const {
         return proxy_arp_mode_ == PROXY_ARP_UNRESTRICTED;
@@ -1298,9 +1340,32 @@ public:
     const FatFlowList &fat_flow_list() const {
         return fat_flow_list_;
     }
-    bool IsFatFlow(uint8_t protocol, uint16_t port, FatFlowLkupResult *) const;
+    bool IsFatFlowPortBased(uint8_t protocol, uint16_t port,
+                            FatFlowIgnoreAddressType *ignore_addr) const;
     bool ExcludeFromFatFlow(Address::Family family, const IpAddress &sip,
                             const IpAddress &dip) const;
+    bool MatchSrcPrefixPort(uint8_t protocol, uint16_t port, IpAddress *src_ip,
+                            FatFlowIgnoreAddressType *ignore_addr) const;
+    bool MatchSrcPrefixRule(uint8_t protocol, uint16_t *sport,
+                            uint16_t *dport, bool *same_port_num,
+                            IpAddress *SrcIP,
+                            FatFlowIgnoreAddressType *ignore_addr) const;
+    bool MatchDstPrefixPort(uint8_t protocol, uint16_t port, IpAddress *dst_ip,
+                            FatFlowIgnoreAddressType *ignore_addr) const;
+    bool MatchDstPrefixRule(uint8_t protocol, uint16_t *sport,
+                            uint16_t *dport, bool *same_port_num,
+                            IpAddress *DstIP,
+                            FatFlowIgnoreAddressType *ignore_addr) const;
+    bool MatchSrcDstPrefixPort(uint8_t protocol, uint16_t port, IpAddress *src_ip,
+                               IpAddress *dst_ip) const;
+    bool MatchSrcDstPrefixRule(uint8_t protocol, uint16_t *sport,
+                               uint16_t *dport, bool *same_port_num,
+                               IpAddress *SrcIP, IpAddress *DstIP) const;
+    bool IsFatFlowPrefixAggregation(bool ingress, uint8_t protocol, uint16_t *sport,
+                                    uint16_t *dport, bool *same_port_num,
+                                    IpAddress *SrcIP, IpAddress *DstIP,
+                                    bool *is_src_prefix, bool *is_dst_prefix,
+                                    FatFlowIgnoreAddressType *ignore_addr) const;
 
     const BridgeDomainList &bridge_domain_list() const {
         return bridge_domain_list_;
@@ -1429,6 +1494,8 @@ public:
                              const std::string &ifname);
     static void DeleteIfNameReq(InterfaceTable *table,
                                 const boost::uuids::uuid &uuid);
+    void update_flow_count(int val) const;
+    uint32_t flow_count() const { return flow_count_; }
 
 private:
     friend struct VmInterfaceConfigData;
@@ -1514,11 +1581,14 @@ private:
     bool DeleteState(VmInterfaceState *attr);
     static IgnoreAddressMap InitIgnoreAddressMap() {
         IgnoreAddressMap value;
+        value[""] = IGNORE_NONE;
         value["none"] = IGNORE_NONE;
         value["source"] = IGNORE_SOURCE;
         value["destination"] = IGNORE_DESTINATION;
         return value;
     }
+
+    void SetInterfacesDropNewFlows(bool drop_new_flows) const;
 
 private:
     static IgnoreAddressMap fatflow_ignore_addr_map_;
@@ -1535,6 +1605,7 @@ private:
     bool fabric_port_;
     bool need_linklocal_ip_;
     bool drop_new_flows_;
+    mutable bool drop_new_flows_vmi_;
     // DHCP flag - set according to the dhcp option in the ifmap subnet object.
     // It controls whether the vrouter sends the DHCP requests from VM interface
     // to agent or if it would flood the request in the VN.
@@ -1573,6 +1644,9 @@ private:
     // IGMP Configuration
     bool cfg_igmp_enable_;
     bool igmp_enabled_;
+    // Max flows for VMI
+    uint32_t max_flows_;
+    mutable tbb::atomic<int> flow_count_;
 
     // Attributes
     std::auto_ptr<MacVmBindingState> mac_vm_binding_state_;
@@ -1750,6 +1824,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
                           VmInterface *entry) const;
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
                           bool *force_update) const;
+    autogen::VirtualMachineInterface *GetVmiCfg() const;
     void CopyVhostData(const Agent *agent);
 
     Ip4Address addr_;
@@ -1782,6 +1857,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     // IGMP Configuration
     bool cfg_igmp_enable_;
     bool igmp_enabled_;
+    uint32_t max_flows_;
 
     VmInterface::SecurityGroupEntryList sg_list_;
     VmInterface::TagEntryList tag_list_;

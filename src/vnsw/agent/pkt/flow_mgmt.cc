@@ -1311,7 +1311,7 @@ bool FlowMgmtEntry::OperEntryDelete(FlowMgmtManager *mgr,
 string AclFlowMgmtEntry::GetAclFlowSandeshDataKey(const AclDBEntry *acl,
                                                   const int last_count) const {
     string uuid_str = UuidToString(acl->GetUuid());
-    stringstream ss;
+    std::stringstream ss;
     ss << uuid_str << ":";
     ss << last_count;
     return ss.str();
@@ -1320,7 +1320,7 @@ string AclFlowMgmtEntry::GetAclFlowSandeshDataKey(const AclDBEntry *acl,
 string AclFlowMgmtEntry::GetAceSandeshDataKey(const AclDBEntry *acl,
                                               const std::string &ace_id) {
     string uuid_str = UuidToString(acl->GetUuid());
-    stringstream ss;
+    std::stringstream ss;
     ss << uuid_str << ":";
     ss << ace_id;
     return ss.str();

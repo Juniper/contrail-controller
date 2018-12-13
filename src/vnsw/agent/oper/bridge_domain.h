@@ -23,9 +23,10 @@ struct BridgeDomainKey : public AgentOperDBKey {
 
 struct BridgeDomainData : public AgentOperDBData {
     BridgeDomainData(Agent *agent, IFMapNode *node):
-        AgentOperDBData(agent, node), name_(""), vn_uuid_(nil_uuid()), isid_(0),
-        learning_enabled_(false), bmac_vrf_name_(""), pbb_etree_enabled_(false),
-        mac_aging_time_(0) {}
+        AgentOperDBData(agent, node), name_(""),
+        vn_uuid_(boost::uuids::nil_uuid()), isid_(0),
+        learning_enabled_(false), bmac_vrf_name_(""),
+        pbb_etree_enabled_(false), mac_aging_time_(0) {}
 
     std::string name_;
     boost::uuids::uuid vn_uuid_;

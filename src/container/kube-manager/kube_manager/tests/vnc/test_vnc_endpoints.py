@@ -154,6 +154,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
             'namespace': pod_namespace,
             'labels': {}
         }
+        VncKubernetes._vnc_kubernetes.pod_mgr._kube = MagicMock()
         pod_add_event = self.create_event('Pod', pod_spec, pod_meta, 'ADDED')
         pod_add_event['object']['status'] = pod_status
         PodKM.locate(pod_uid, pod_add_event['object'])

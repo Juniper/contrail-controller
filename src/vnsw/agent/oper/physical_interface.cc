@@ -27,7 +27,7 @@ using std::string;
 /////////////////////////////////////////////////////////////////////////////
 PhysicalInterface::PhysicalInterface(const std::string &name,
                            const boost::uuids::uuid &logical_router_uuid) :
-    Interface(Interface::PHYSICAL, nil_uuid(), name, NULL, true,
+    Interface(Interface::PHYSICAL, boost::uuids::nil_uuid(), name, NULL, true,
               logical_router_uuid),
     persistent_(false), subtype_(INVALID), physical_device_(NULL) {
 }
@@ -151,15 +151,15 @@ void PhysicalInterface::PostAdd() {
 // PhysicalInterfaceKey routines
 /////////////////////////////////////////////////////////////////////////////
 PhysicalInterfaceKey::PhysicalInterfaceKey(const std::string &name) :
-    InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::PHYSICAL, nil_uuid(),
-                 name, false) {
+    InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::PHYSICAL,
+                 boost::uuids::nil_uuid(), name, false) {
 }
 
 PhysicalInterfaceKey::~PhysicalInterfaceKey() {
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table) const {
-    return new PhysicalInterface(name_, nil_uuid());
+    return new PhysicalInterface(name_, boost::uuids::nil_uuid());
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
@@ -193,7 +193,7 @@ PhysicalInterfaceData::PhysicalInterfaceData(Agent *agent, IFMapNode *node,
                                              PhysicalInterface::SubType subtype,
                                              PhysicalInterface::EncapType encap,
                                              bool no_arp,
-                                             const uuid &device_uuid,
+                                             const boost::uuids::uuid &device_uuid,
                                              const string &display_name,
                                              const Ip4Address &ip,
                                              Interface::Transport transport) :
@@ -271,7 +271,7 @@ bool InterfaceTable::PhysicalInterfaceProcessConfig(IFMapNode *node,
 
     req.key.reset(BuildKey(node->name()));
 
-    boost::uuids::uuid dev_uuid = nil_uuid();
+    boost::uuids::uuid dev_uuid = boost::uuids::nil_uuid();
     // Find link with physical-router adjacency
     IFMapNode *adj_node = NULL;
     adj_node = agent()->config_manager()->FindAdjacentIFMapNode(node,
@@ -304,7 +304,7 @@ bool InterfaceTable::PhysicalInterfaceProcessConfig(IFMapNode *node,
 void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
                                   const string &vrf_name, SubType subtype,
                                   EncapType encap, bool no_arp,
-                                  const uuid &device_uuid,
+                                  const boost::uuids::uuid &device_uuid,
                                   const Ip4Address &ip,
                                   Interface::Transport transport) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -318,7 +318,7 @@ void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
 void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
                                const string &vrf_name, SubType subtype,
                                EncapType encap, bool no_arp,
-                               const uuid &device_uuid,
+                               const boost::uuids::uuid &device_uuid,
                                const Ip4Address &ip,
                                Interface::Transport transport) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);

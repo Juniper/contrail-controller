@@ -97,6 +97,8 @@ void UDPConnectionManager::SendPacket(boost::asio::ip::address remoteHost,
                                       kMinimalPacketLength);
     if (pktSize != kMinimalPacketLength) {
         LOG(ERROR, "Unable to encode packet");
+        const uint8_t *p = boost::asio::buffer_cast<const uint8_t *>(send);
+        delete[] p;
         return;
     }
     boost::asio::ip::udp::endpoint remote_endpoint(remoteHost,

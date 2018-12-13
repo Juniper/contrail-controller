@@ -24,6 +24,7 @@ set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} 
 {%             if mode|length > 0 and mode[0] == 'MPLSoUDP' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} udp
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} export mpls_over_udp
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} vpn-apply-export
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then community add encap-udp
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then accept
 set groups {{cfg_group}} policy-options community encap-udp members 0x030c:64512:13
@@ -38,6 +39,10 @@ set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} neighbor {{p
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} destination-networks {{net.get('prefix')}}/{{net.get('prefix_len')}}
 {%             endfor %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} type {{bgp.get('type_')}}
+{%             set cluster_id = bgp.get('cluster_id') %}
+{%             if cluster_id != None %}
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} cluster {{cluster_id}}
+{%             endif %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} local-address {{bgp.get('ip_address')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} hold-time {{bgp.get('hold_time')}}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} multipath

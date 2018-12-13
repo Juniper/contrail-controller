@@ -3,18 +3,19 @@
 #
 
 import os
+import platform
 
 
 def get_package_version(pkg):
-    #retrieve current installed version of pkg
-    cmd = "contrail-version %s | grep %s" % (pkg, pkg)
-    version_line = os.popen(cmd).read()
-    try:
-        version = version_line.split()[1]
-    except IndexError:
+    if platform.system() == 'Windows':
         return None
-    else:
-        return version
+
+    #retrieve current installed version of pkg
+    try:
+        cmd = 'rpm -q --qf "%%{VERSION}-%%{RELEASE}" %s' % pkg
+        return os.popen(cmd).read()
+    except Exception:
+        return None
 
 
 def is_running_in_docker():

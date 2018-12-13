@@ -89,18 +89,18 @@ struct TestFatFlowEntry {
     int dst_prefix_mask;
     int dst_aggregate_plen;
     TestFatFlowEntry(string proto, uint16_t num) :
-        protocol(proto), port(num), ignore_address("none"), src_prefix(""), src_prefix_mask(0), 
+        protocol(proto), port(num), ignore_address("none"), src_prefix(""), src_prefix_mask(0),
         src_aggregate_plen(0), dst_prefix(""), dst_prefix_mask(0), dst_aggregate_plen(0) {
     }
     TestFatFlowEntry(string proto, uint16_t num, const std::string &addr) :
-        protocol(proto), port(num), ignore_address(addr), src_prefix(""), src_prefix_mask(0), 
+        protocol(proto), port(num), ignore_address(addr), src_prefix(""), src_prefix_mask(0),
         src_aggregate_plen(0), dst_prefix(""), dst_prefix_mask(0), dst_aggregate_plen(0) {
     }
     TestFatFlowEntry(string proto, uint16_t num, const std::string &addr, const std::string &in_src_prefix,
                      int in_src_prefix_mask, int in_src_aggregate_plen, const std::string &in_dst_prefix,
                      int in_dst_prefix_mask, int in_dst_aggregate_plen) :
-        protocol(proto), port(num), ignore_address(addr), src_prefix(in_src_prefix), 
-        src_prefix_mask(in_src_prefix_mask), src_aggregate_plen(in_src_aggregate_plen), 
+        protocol(proto), port(num), ignore_address(addr), src_prefix(in_src_prefix),
+        src_prefix_mask(in_src_prefix_mask), src_aggregate_plen(in_src_aggregate_plen),
         dst_prefix(in_dst_prefix), dst_prefix_mask(in_dst_prefix_mask), dst_aggregate_plen(in_dst_aggregate_plen) {
     }
 };
@@ -197,7 +197,7 @@ public:
     }
 
     void AddFatFlow(struct PortInfo *input, std::string protocol, int port,
-                    const string &ignore_address, const string &src_prefix, int src_prefix_mask, int src_aggregate_plen, 
+                    const string &ignore_address, const string &src_prefix, int src_prefix_mask, int src_aggregate_plen,
                     const string &dst_prefix, int dst_prefix_mask, int dst_aggregate_plen) {
 
         ostringstream str;
@@ -329,9 +329,9 @@ static void CreateMirror(AnalyzerInfo &analyzer_info) {
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         VmInterface::FloatingIpList list, string vrf_name,
                         string ip, AnalyzerInfo &analyzer_info) {
-    uuid intf_uuid = MakeUuid(id);
-    uuid vn_uuid = MakeUuid(vn);
-    uuid vm_uuid = MakeUuid(vm);
+    boost::uuids::uuid intf_uuid = MakeUuid(id);
+    boost::uuids::uuid vn_uuid = MakeUuid(vn);
+    boost::uuids::uuid vm_uuid = MakeUuid(vm);
 
     std::string cfg_name = cfg_str;
 
@@ -374,9 +374,9 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         VmInterface::FloatingIpList list, string vrf_name,
                         string ip) {
-    uuid intf_uuid = MakeUuid(id);
-    uuid vn_uuid = MakeUuid(vn);
-    uuid vm_uuid = MakeUuid(vm);
+    boost::uuids::uuid intf_uuid = MakeUuid(id);
+    boost::uuids::uuid vn_uuid = MakeUuid(vn);
+    boost::uuids::uuid vm_uuid = MakeUuid(vm);
 
     std::string cfg_name = cfg_str;
 
@@ -1616,7 +1616,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     //config is deleted
     EXPECT_FALSE(RouteFind("vrf1", "1.1.1.10", 32));
 
-    uuid intf_uuid = MakeUuid(1);
+    boost::uuids::uuid intf_uuid = MakeUuid(1);
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
@@ -1669,7 +1669,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
 
-    uuid intf_uuid = MakeUuid(1);
+    boost::uuids::uuid intf_uuid = MakeUuid(1);
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
@@ -1742,7 +1742,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     // VMI created now
     EXPECT_TRUE(VmPortGet(1) != NULL);
 
-    uuid intf_uuid = MakeUuid(1);
+    boost::uuids::uuid intf_uuid = MakeUuid(1);
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
@@ -3200,7 +3200,7 @@ TEST_F(IntfTest, vm_interface_key_verification) {
 }
 
 TEST_F(IntfTest, packet_interface_get_key_verification) {
-    PacketInterfaceKey key(nil_uuid(), "pkt0");
+    PacketInterfaceKey key(boost::uuids::nil_uuid(), "pkt0");
     Interface *intf =
         static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key));
     DBEntryBase::KeyPtr entry_key = intf->GetDBRequestKey();
@@ -4384,6 +4384,7 @@ TEST_F(IntfTest, FatFlow) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4393,12 +4394,13 @@ TEST_F(IntfTest, FatFlow) {
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
 
     AddFatFlow(input, "udp", 53, "none", "", 0, 0, "", 0, 0);
-    VmInterface::FatFlowLkupResult res;
 
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 53, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 54, &ignore_addr) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_TCP, 54, &ignore_addr) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == false);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4411,11 +4413,11 @@ TEST_F(IntfTest, FatFlow) {
 }
 
 TEST_F(IntfTest, FatFlowDel) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4427,14 +4429,14 @@ TEST_F(IntfTest, FatFlowDel) {
     AddFatFlow(input, "udp", 53, "none", "", 0, 0, "", 0, 0);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 53, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == false);
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53, &res) == false);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 53, &ignore_addr) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == false);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4448,11 +4450,11 @@ TEST_F(IntfTest, FatFlowDel) {
 /* Verify that 0 can used for port in fat-flow configuration. This is used to
  * ignore ports while setting up flows */
 TEST_F(IntfTest, FatFlowPortIgnore) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4464,8 +4466,8 @@ TEST_F(IntfTest, FatFlowPortIgnore) {
     AddFatFlow(input, "udp", 0, "none", "", 0, 0, "", 0, 0);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53, &res) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 53, &ignore_addr) == false);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4480,11 +4482,11 @@ TEST_F(IntfTest, FatFlowPortIgnore) {
 /* Verify that Fat-flow configured at VN level is available at VMI oper objects
  */
 TEST_F(IntfTest, VnFatFlow) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4504,8 +4506,8 @@ TEST_F(IntfTest, VnFatFlow) {
     AddVnFatFlow(input[0].vn_id, list);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 2);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234, &res) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_TCP, 1234, &ignore_addr) == true);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4522,11 +4524,11 @@ TEST_F(IntfTest, VnFatFlow) {
  * fat-flow config is removed, the VMI level config is retained at VMI oper
  * object. */
 TEST_F(IntfTest, VnVmiFatFlow1) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4547,17 +4549,17 @@ TEST_F(IntfTest, VnVmiFatFlow1) {
     AddFatFlow(input, "udp", 0, "none", "", 0, 0, "", 0, 0);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 3);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_TCP, 1234, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == true);
 
     list.clear();
     AddVnFatFlow(input[0].vn_id, list);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == false);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234, &res) == false);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_TCP, 1234, &ignore_addr) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == true);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4574,11 +4576,11 @@ TEST_F(IntfTest, VnVmiFatFlow1) {
  * fat-flow config is removed, the VN level config is retained at VMI oper
  * object. */
 TEST_F(IntfTest, VnVmiFatFlow2) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4599,16 +4601,16 @@ TEST_F(IntfTest, VnVmiFatFlow2) {
     AddFatFlow(input, "udp", 0, "none", "", 0, 0, "", 0, 0);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 3);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_TCP, 1234, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == true);
 
     DeleteFatFlow(input);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 2);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234, &res) == true);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == false);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_TCP, 1234, &ignore_addr) == true);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 0, &ignore_addr) == false);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4622,13 +4624,15 @@ TEST_F(IntfTest, VnVmiFatFlow2) {
 
 /* Verify that when same fat-flow is configured at VN and VMI level, the VMI
  * level fat-flow gets precedence. Also verify that when VMI level fat-flow
- * config is removed, VN level fat-flow config is applied to VMI*/
+ * config is removed, VN level fat-flow config is applied to VMI
+ * TODO: Deprecate this test case as it is no longer valid
+ */
 TEST_F(IntfTest, VnVmiFatFlow3) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4644,17 +4648,18 @@ TEST_F(IntfTest, VnVmiFatFlow3) {
 
     AddVnFatFlow(input[0].vn_id, list);
     client->WaitForIdle();
-    AddFatFlow(input, "udp", 55, "source", "", 0, 0, "", 0, 0);
+    //AddFatFlow(input, "udp", 55, "source", "", 0, 0, "", 0, 0);
+    AddFatFlow(input, "udp", 55, "none", "", 0, 0, "", 0, 0);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(res.ignore_address == VmInterface::IGNORE_SOURCE);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_NONE);
 
     DeleteFatFlow(input);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(res.ignore_address == VmInterface::IGNORE_NONE);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_NONE);
 
     list.clear();
     AddVnFatFlow(input[0].vn_id, list);
@@ -4672,13 +4677,15 @@ TEST_F(IntfTest, VnVmiFatFlow3) {
 
 /* Verify that when same fat-flow is configured at VN and VMI level, the VMI
  * level fat-flow gets precedence. Also verify that when VN level fat-flow
- * config is removed, VMI level fat-flow config is retained */
+ * config is removed, VMI level fat-flow config is retained
+ * TODO: Deprecate this test case as it is no longer valid
+ */
 TEST_F(IntfTest, VnVmiFatFlow4) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4694,18 +4701,19 @@ TEST_F(IntfTest, VnVmiFatFlow4) {
 
     AddVnFatFlow(input[0].vn_id, list);
     client->WaitForIdle();
-    AddFatFlow(input, "udp", 55, "destination", "", 0, 0, "", 0, 0);
+    //AddFatFlow(input, "udp", 55, "destination", "", 0, 0, "", 0, 0);
+    AddFatFlow(input, "udp", 55, "none", "", 0, 0, "", 0, 0);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(res.ignore_address == VmInterface::IGNORE_DESTINATION);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_NONE);
 
     list.clear();
     AddVnFatFlow(input[0].vn_id, list);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(res.ignore_address == VmInterface::IGNORE_DESTINATION);
+    EXPECT_TRUE(intf->IsFatFlowPortBased(IPPROTO_UDP, 55, &ignore_addr) == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_NONE);
 
     DeleteFatFlow(input);
     client->WaitForIdle();
@@ -4725,6 +4733,11 @@ TEST_F(IntfTest, FatFlowPrefixAggr1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    uint16_t port;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4734,19 +4747,22 @@ TEST_F(IntfTest, FatFlowPrefixAggr1) {
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
 
     AddFatFlow(input, "udp", 53, "none", "10.0.0.0", 8, 28, "20.0.0.0", 16, 28);
-    VmInterface::FatFlowLkupResult res;
+    VmInterface::FatFlowEntrySet::iterator start, end;
 
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53, &res) == true);
-    EXPECT_TRUE(res.prefix_aggregate == 5);
-    EXPECT_TRUE(res.src_prefix.to_string() == "10.0.0.0");
-    EXPECT_TRUE(res.src_prefix_mask == 8);
-    EXPECT_TRUE(res.src_aggregate_plen == 28);
-    EXPECT_TRUE(res.dst_prefix.to_string() == "20.0.0.0");
-    EXPECT_TRUE(res.dst_prefix_mask == 16);
-    EXPECT_TRUE(res.dst_aggregate_plen == 28);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == false);
+
+    port = 53;
+    SrcIP = IpAddress::from_string("10.0.0.1");
+    DstIP = IpAddress::from_string("20.0.0.1");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4763,6 +4779,11 @@ TEST_F(IntfTest, FatFlowPrefixAggr2) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    uint16_t port;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4772,19 +4793,22 @@ TEST_F(IntfTest, FatFlowPrefixAggr2) {
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
 
     AddFatFlow(input, "udp", 53, "source", "", 0, 0, "20.0.0.0", 8, 28);
-    VmInterface::FatFlowLkupResult res;
+    VmInterface::FatFlowEntrySet::iterator start, end;
 
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53, &res) == true);
-    EXPECT_TRUE(res.prefix_aggregate == 3);
-    EXPECT_TRUE(res.src_prefix.to_string() == "0.0.0.0");
-    EXPECT_TRUE(res.src_prefix_mask == 0);
-    EXPECT_TRUE(res.src_aggregate_plen == 0);
-    EXPECT_TRUE(res.dst_prefix.to_string() == "20.0.0.0");
-    EXPECT_TRUE(res.dst_prefix_mask == 8);
-    EXPECT_TRUE(res.dst_aggregate_plen == 28);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0, &res) == false);
+
+    port = 53;
+    SrcIP = IpAddress::from_string("10.0.0.1");
+    DstIP = IpAddress::from_string("20.0.0.1");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4798,11 +4822,15 @@ TEST_F(IntfTest, FatFlowPrefixAggr2) {
 
 // test fatflow cfg with multiple cfgs
 TEST_F(IntfTest, FatFlowPrefixAggr3) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    uint16_t port;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -4815,51 +4843,48 @@ TEST_F(IntfTest, FatFlowPrefixAggr3) {
     TestFatFlowEntry e1("udp", 55, "none", "2001::1", 64, 64, "5000::2", 64, 64);
     TestFatFlowEntry e2("tcp", 17, "source", "10.0.0.0", 16, 28, "20.0.0.0", 8, 28);
     TestFatFlowEntry e3("tcp", 22, "destination", "10.0.0.0", 16, 28, "20.0.0.0", 8, 28);
-    TestFatFlowEntry e4("tcp", 5000, "destination");
     vector<TestFatFlowEntry> list;
     list.push_back(e1);
     list.push_back(e2);
     list.push_back(e3);
-    list.push_back(e4);
 
     AddVnFatFlow(input[0].vn_id, list);
     client->WaitForIdle();
-    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 4);
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55, &res) == true);
-    EXPECT_TRUE(res.prefix_aggregate == 6);
-    EXPECT_TRUE(res.src_prefix.to_string() == "2001::1");
-    EXPECT_TRUE(res.src_prefix_mask == 64);
-    EXPECT_TRUE(res.src_aggregate_plen == 64);
-    EXPECT_TRUE(res.dst_prefix.to_string() == "5000::2");
-    EXPECT_TRUE(res.dst_prefix_mask == 64);
-    EXPECT_TRUE(res.dst_aggregate_plen == 64);
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 3);
+    port = 55;
+    SrcIP = IpAddress::from_string("2001::10");
+    DstIP = IpAddress::from_string("5000::50");
 
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 17, &res) == true);
-    EXPECT_TRUE(res.prefix_aggregate == 3);
-    EXPECT_TRUE(res.src_prefix.to_string() == "0.0.0.0");
-    EXPECT_TRUE(res.src_prefix_mask == 0);
-    EXPECT_TRUE(res.src_aggregate_plen == 0);
-    EXPECT_TRUE(res.dst_prefix.to_string() == "20.0.0.0");
-    EXPECT_TRUE(res.dst_prefix_mask == 8);
-    EXPECT_TRUE(res.dst_aggregate_plen == 28);
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
 
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 22, &res) == true);
-    EXPECT_TRUE(res.prefix_aggregate == 1);
-    EXPECT_TRUE(res.src_prefix.to_string() == "10.0.0.0");
-    EXPECT_TRUE(res.src_prefix_mask == 16);
-    EXPECT_TRUE(res.src_aggregate_plen == 28);
-    EXPECT_TRUE(res.dst_prefix.to_string() == "0.0.0.0");
-    EXPECT_TRUE(res.dst_prefix_mask == 0);
-    EXPECT_TRUE(res.dst_aggregate_plen == 0);
+    port = 17;
+    SrcIP = IpAddress::from_string("10.0.0.1");
+    DstIP = IpAddress::from_string("20.0.0.1");
 
-    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 5000, &res) == true);
-    EXPECT_TRUE(res.prefix_aggregate == 0);
-    EXPECT_TRUE(res.src_prefix.to_string() == "0.0.0.0");
-    EXPECT_TRUE(res.src_prefix_mask == 0);
-    EXPECT_TRUE(res.src_aggregate_plen == 0);
-    EXPECT_TRUE(res.dst_prefix.to_string() == "0.0.0.0");
-    EXPECT_TRUE(res.dst_prefix_mask == 0);
-    EXPECT_TRUE(res.dst_aggregate_plen == 0);
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
+
+    port = 22;
+    SrcIP = IpAddress::from_string("10.0.0.1");
+    DstIP = IpAddress::from_string("20.0.0.1");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_DESTINATION);
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -4873,7 +4898,6 @@ TEST_F(IntfTest, FatFlowPrefixAggr3) {
 
 // test fatflow cfg with -ve cases
 TEST_F(IntfTest, FatFlowPrefixAggr4) {
-    VmInterface::FatFlowLkupResult res;
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
@@ -4898,6 +4922,144 @@ TEST_F(IntfTest, FatFlowPrefixAggr4) {
     AddVnFatFlow(input[0].vn_id, list);
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+// test multiple fat flow cfgs with same protocol port
+TEST_F(IntfTest, FatFlowPrefixAggr5) {
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    uint16_t port;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+    EXPECT_TRUE(VnFind(input[0].vn_id));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    TestFatFlowEntry e1("udp", 55, "none", "2001::1", 64, 64, "5000::2", 64, 64);
+    TestFatFlowEntry e2("tcp", 17, "source", "", 0, 0, "20.0.0.0", 8, 28);
+    TestFatFlowEntry e3("udp", 55, "none", "", 0, 0, "", 0, 0);
+    TestFatFlowEntry e4("tcp", 17, "none", "10.0.0.0", 16, 24, "20.0.0.0", 16, 28);
+    vector<TestFatFlowEntry> list;
+    list.push_back(e1);
+    list.push_back(e2);
+    list.push_back(e3);
+    list.push_back(e4);
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 4);
+
+    port = 17;
+    SrcIP = IpAddress::from_string("10.0.0.1");
+    DstIP = IpAddress::from_string("20.0.0.1");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == false);
+    EXPECT_TRUE(is_dst_prefix == true);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_SOURCE);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+
+// test multiple fat flow cfgs with overlapping prefix
+TEST_F(IntfTest, FatFlowPrefixAggr6) {
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    uint16_t port;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+    EXPECT_TRUE(VnFind(input[0].vn_id));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    TestFatFlowEntry e1("tcp", 17, "none", "10.1.1.0", 8, 16, "", 0, 0);
+    TestFatFlowEntry e2("tcp", 17, "none", "10.1.1.0", 16, 16, "", 0, 0);
+    TestFatFlowEntry e3("tcp", 17, "none", "10.1.1.0", 24, 24, "", 0, 0);
+    vector<TestFatFlowEntry> list;
+    list.push_back(e1);
+    list.push_back(e2);
+    list.push_back(e3);
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 3);
+
+    port = 17;
+    SrcIP = IpAddress::from_string("10.1.1.1");
+    DstIP = IpAddress::from_string("20.0.0.1");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_NONE);
+
+    // check if src prefix matches
+    Ip4Address src_prefix = IpAddress::from_string("10.1.1.0").to_v4();
+    EXPECT_TRUE(src_prefix == (SrcIP.to_v4()));
+
+    // now remove /24 prefix and check if /16 is choosen
+    list.pop_back();
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 2);
+
+    port = 17;
+    SrcIP = IpAddress::from_string("10.1.1.1");
+    DstIP = IpAddress::from_string("20.0.0.1");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_TCP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == false);
+    EXPECT_TRUE(ignore_addr == VmInterface::IGNORE_NONE);
+
+    // check if src prefix matches
+    src_prefix = IpAddress::from_string("10.1.0.0").to_v4();
+    EXPECT_TRUE(src_prefix == (SrcIP.to_v4()));
 
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();

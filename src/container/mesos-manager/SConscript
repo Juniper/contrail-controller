@@ -25,23 +25,23 @@ for file in setup_sources:
         env.Install(Dir('.'), "#controller/src/container/mesos-manager/" + file))
 
 local_sources = [
-    'mesos_manager/__init__.py',
-    'mesos_manager/mesos_cni.py',
-    'mesos_manager/mesos_consts.py',
-    'mesos_manager/mesos_manager.py',
-    'mesos_manager/mesos_server.py',
-    'mesos_manager/common/__init__.py',
-    'mesos_manager/common/logger.py',
-    'mesos_manager/common/args.py',
+    'mesos_manager/mesos/cni/cni_request_server.py',
+    'mesos_manager/mesos/cni/__init__.py',
+    'mesos_manager/mesos/__init__.py',
+    'mesos_manager/vnc/vnc_mesos_config.py',
+    'mesos_manager/vnc/vnc_utils.py',
+    'mesos_manager/vnc/vnc_common.py',
     'mesos_manager/vnc/__init__.py',
-    'mesos_manager/vnc/vnc_mesos.py',
-    'mesos_manager/vnc/vnc_services.py',
-    'mesos_manager/vnc/db.py',
     'mesos_manager/vnc/config_db.py',
-    'mesos_manager/vnc/reaction_map.py',
-    'mesos_manager/tests/__init__.py',
-    'mesos_manager/tests/vnc/__init__.py',
-    'mesos_manager/tests/vnc/test_case.py'
+    'mesos_manager/vnc/vnc_mesos.py',
+    'mesos_manager/vnc/db.py',
+    'mesos_manager/vnc/vnc_pod_task.py',
+    'mesos_manager/common/args.py',
+    'mesos_manager/common/logger.py',
+    'mesos_manager/common/__init__.py',
+    'mesos_manager/mesos_manager.py',
+    'mesos_manager/__init__.py',
+    'mesos_manager/mesos/pod_task_monitor.py'             
 ]
 
 # Sandesh source files.

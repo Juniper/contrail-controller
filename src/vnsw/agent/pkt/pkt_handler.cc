@@ -80,9 +80,12 @@ void PktHandler::Send(const AgentHdr &hdr, const PacketBufferPtr &buff) {
     return;
 }
 
-void PktHandler::CalculatePort(PktInfo *pkt) {
+void PktHandler::CalculatePortIP(PktInfo *pkt) {
     const Interface *in = NULL;
     const VmInterface *intf = NULL;
+    const Interface *pkt_in_intf = NULL;
+    bool ingress= false;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     const NextHop *nh =
         agent()->nexthop_table()->FindNextHop(pkt->agent_hdr.nh);
@@ -117,45 +120,63 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     if (pkt->ip_proto == IPPROTO_ICMP || pkt->ip_proto == IPPROTO_IGMP) {
         sport = 0;
     }
-    VmInterface::FatFlowLkupResult res;
-    /*TODO: Fat flow prefix processing */
+
+    pkt->is_fat_flow_src_prefix = false;
+    pkt->is_fat_flow_dst_prefix = false;
 
     if (pkt->sport < pkt->dport) {
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &res)) {
+        if (intf->IsFatFlowPortBased(pkt->ip_proto, sport, &ignore_addr)) {
             pkt->dport = 0;
-            pkt->ignore_address = res.ignore_address;
+            pkt->ignore_address = ignore_addr;
             return;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &res)) {
+        if (intf->IsFatFlowPortBased(pkt->ip_proto, pkt->dport, &ignore_addr)) {
             pkt->sport = 0;
-            pkt->ignore_address = res.ignore_address;
+            pkt->ignore_address = ignore_addr;
             return;
         }
     } else {
-        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport, &res)) {
+        if (intf->IsFatFlowPortBased(pkt->ip_proto, pkt->dport, &ignore_addr)) {
             if (pkt->dport == pkt->sport) {
                 pkt->same_port_number = true;
             }
             pkt->sport = 0;
-            pkt->ignore_address = res.ignore_address;
+            pkt->ignore_address = ignore_addr;
             return;
         }
 
-        if (intf->IsFatFlow(pkt->ip_proto, sport, &res)) {
+        if (intf->IsFatFlowPortBased(pkt->ip_proto, sport, &ignore_addr)) {
             pkt->dport = 0;
-            pkt->ignore_address = res.ignore_address;
+            pkt->ignore_address = ignore_addr;
             return;
         }
     }
     /* If Fat-flow port is 0, then both source and destination ports have to
      * be ignored */
-    if (intf->IsFatFlow(pkt->ip_proto, 0, &res)) {
+    if (intf->IsFatFlowPortBased(pkt->ip_proto, 0, &ignore_addr)) {
         pkt->sport = 0;
         pkt->dport = 0;
-        pkt->ignore_address = res.ignore_address;
+        pkt->ignore_address = ignore_addr;
         return;
     }
+
+    // Check for fat flow based on prefix aggregation
+    pkt_in_intf = Agent::GetInstance()->interface_table()->FindInterface(
+                                                       pkt->agent_hdr.ifindex);
+    ingress = PktFlowInfo::ComputeDirection(pkt_in_intf);
+    // set the src and dst prefix to src & dst ip to begin with
+    pkt->ip_ff_src_prefix = pkt->ip_saddr;
+    pkt->ip_ff_dst_prefix = pkt->ip_daddr;
+    intf->IsFatFlowPrefixAggregation(ingress, pkt->ip_proto,
+                                     (uint16_t *)&pkt->sport,
+                                     (uint16_t *) &pkt->dport,
+                                     &pkt->same_port_number,
+                                     &pkt->ip_ff_src_prefix,
+                                     &pkt->ip_ff_dst_prefix,
+                                     &pkt->is_fat_flow_src_prefix,
+                                     &pkt->is_fat_flow_dst_prefix,
+                                     &pkt->ignore_address);
 }
 
 bool PktHandler::IsBFDHealthCheckPacket(const PktInfo *pkt_info,
@@ -241,7 +262,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 
     // Packets needing flow
     if (is_flow_packet) {
-        CalculatePort(pkt_info);
+        CalculatePortIP(pkt_info);
         if ((pkt_info->ip && pkt_info->family == Address::INET) ||
             (pkt_info->ip6 && pkt_info->family == Address::INET6)) {
             return FLOW;
@@ -768,6 +789,19 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
 
+    // For ICMP, IGMP, make sure IP is IPv4, else fail the parsing
+    // so that we don't go ahead and access the ip header later
+    if (((pkt_info->ip_proto == IPPROTO_ICMP) ||
+         (pkt_info->ip_proto == IPPROTO_IGMP)) && (!pkt_info->ip)) {
+        return -1;
+    }
+    // If ip proto is ICMPv6, then make sure IP is IPv6, else fail
+    // the parsing so that we don't go ahead and access the ip6 header
+    // later
+    if ((pkt_info->ip_proto == IPPROTO_ICMPV6) && (!pkt_info->ip6)) {
+        return -1;
+    }
+
     // If packet is an IP fragment and not flow trap, ignore it
     if (IgnoreFragmentedPacket(pkt_info)) {
         agent_->stats()->incr_pkt_fragments_dropped();
@@ -1114,8 +1148,10 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
     ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
     l3_label(false), is_segment_hc_pkt(false),
-    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false), eth(),
-    arp(), ip(), ip6(), packet_buffer_(buff) {
+    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
+    is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
+    is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),
+    eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -1125,8 +1161,10 @@ PktInfo::PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr) :
     agent_hdr(hdr), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
     dport(), ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
     l3_label(false), is_segment_hc_pkt(false),
-    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false), eth(),
-    arp(), ip(), ip6(), packet_buffer_(buff) {
+    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
+    is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
+    is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),
+    eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -1137,8 +1175,10 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
     tunnel(), l3_label(false), is_segment_hc_pkt(false),
-    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false), eth(),
-    arp(), ip(), ip6() {
+    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
+    is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
+    is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),
+    eth(),arp(), ip(), ip6() {
 
     packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
         (module, buff_len, mdata);
@@ -1155,8 +1195,10 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
     tunnel(), l3_label(false), is_segment_hc_pkt(false),
-    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false), eth(),
-    arp(), ip(), ip6(), packet_buffer_() {
+    ignore_address(VmInterface::IGNORE_NONE), same_port_number(false),
+    is_fat_flow_src_prefix(false), ip_ff_src_prefix(),
+    is_fat_flow_dst_prefix(false), ip_ff_dst_prefix(),
+    eth(), arp(), ip(), ip6(), packet_buffer_() {
     transp.tcp = 0;
 }
 

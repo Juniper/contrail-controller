@@ -49,6 +49,7 @@
 #include <uve/flow_uve_stats_request.h>
 
 using namespace boost::asio::ip;
+using boost::uuids::nil_uuid;
 
 const std::map<FlowEntry::FlowPolicyState, const char*>
     FlowEntry::FlowPolicyStateStr = boost::assign::map_list_of
@@ -282,6 +283,11 @@ void FlowData::Reset() {
     flow_dest_vrf = VrfEntry::kInvalidIndex;
     match_p.Reset();
     vn_entry.reset(NULL);
+    const VmInterface *vm_intf =
+        dynamic_cast<const VmInterface *>(intf_entry.get());
+    if (vm_intf) {
+        vm_intf->update_flow_count(-1);
+    }
     intf_entry.reset(NULL);
     in_vm_entry.Reset(true);
     out_vm_entry.Reset(true);
@@ -629,6 +635,11 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.out_vm_entry.SetVm(rev_ctrl->vm_);
     l3_flow_ = info->l3_flow;
     data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
+    const VmInterface *vm_intf =
+        dynamic_cast<const VmInterface *>(intf_entry());
+    if (vm_intf) {
+        vm_intf->update_flow_count(1);
+    }
     return true;
 }
 
@@ -2251,7 +2262,7 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
     //     and sp->m_out_acl_l will be populated. Pick the
     //     UUID specified by acl_info for flow's SG rule UUID
     // For TCP-ACK flows
-    //     ALLOW if both ((policy.action && out_action) && 
+    //     ALLOW if both ((policy.action && out_action) &&
     //                      (policy.reverse_action & policy.reverse_out_action))
     //                      ALLOW
     //     For flow's SG rule UUID use the following rules

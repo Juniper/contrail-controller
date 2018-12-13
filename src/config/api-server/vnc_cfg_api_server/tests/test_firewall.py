@@ -2409,9 +2409,94 @@ class TestFirewallDraftModeMixedScopes(FirewallDraftModeGlobalScopeBase):
                          global_fp.fq_name)
         self.assertEqual(global_fp.display_name, new_name)
 
-    def test_service_group_fq_name_update_in_firewall_rule_endpoints(self):
+    def test_address_group_fq_name_updated_in_firewall_rule_endpoints(self):
         self.set_scope_instance()
         ag = AddressGroup(
+            name='ag-%s' % self.id(),
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+            parent_obj=self._owner,
+        )
+        self.api.address_group_create(ag)
+
+        fr = FirewallRule(
+            parent_obj=self._project,
+            name='rule-%s' % self.id(),
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=FirewallRuleEndpointType(any=True),
+            endpoint_2=FirewallRuleEndpointType(
+                address_group=ag.get_fq_name_str()),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+
+        draft_ag = self.api.address_group_read(id=ag.uuid)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(draft_ag.get_fq_name_str(),
+                         fr.endpoint_2.address_group)
+
+        self.api.commit_security(self._scope)
+        ag = self.api.address_group_read(id=ag.uuid)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertNotEqual(draft_ag.get_fq_name_str(),
+                            fr.endpoint_2.address_group)
+        self.assertEqual(ag.get_fq_name_str(), fr.endpoint_2.address_group)
+
+    def test_address_groups_fq_name_updated_in_both_fr_endpoints(self):
+        self.set_scope_instance()
+
+        ag1 = AddressGroup(
+            name='ag1-%s' % self.id(),
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+            parent_obj=self._owner,
+        )
+        self.api.address_group_create(ag1)
+        ag2 = AddressGroup(
+            name='ag2-%s' % self.id(),
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('2.2.2.0', 24)]),
+            parent_obj=self._owner,
+        )
+        self.api.address_group_create(ag2)
+
+        fr = FirewallRule(
+            parent_obj=self._project,
+            name='rule-%s' % self.id(),
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=FirewallRuleEndpointType(
+                address_group=ag1.get_fq_name_str()),
+            endpoint_2=FirewallRuleEndpointType(
+                address_group=ag2.get_fq_name_str()),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr)
+
+        draft_ag1 = self.api.address_group_read(id=ag1.uuid)
+        draft_ag2 = self.api.address_group_read(id=ag2.uuid)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(draft_ag1.get_fq_name_str(),
+                         fr.endpoint_1.address_group)
+        self.assertEqual(draft_ag2.get_fq_name_str(),
+                         fr.endpoint_2.address_group)
+
+        self.api.commit_security(self._scope)
+        ag1 = self.api.address_group_read(id=ag1.uuid)
+        ag2 = self.api.address_group_read(id=ag2.uuid)
+        fr = self.api.firewall_rule_read(id=fr.uuid)
+        self.assertNotEqual(draft_ag1.get_fq_name_str(),
+                            fr.endpoint_1.address_group)
+        self.assertNotEqual(draft_ag2.get_fq_name_str(),
+                            fr.endpoint_2.address_group)
+        self.assertEqual(ag1.get_fq_name_str(), fr.endpoint_1.address_group)
+        self.assertEqual(ag2.get_fq_name_str(), fr.endpoint_2.address_group)
+
+    def test_same_address_group_fq_name_updated_in_both_fr_endpoints(self):
+        self.set_scope_instance()
+        ag = AddressGroup(
+            name='ag-%s' % self.id(),
             address_group_prefix=SubnetListType(
                 subnet=[SubnetType('1.1.1.0', 24)]),
             parent_obj=self._owner,
@@ -2423,7 +2508,8 @@ class TestFirewallDraftModeMixedScopes(FirewallDraftModeGlobalScopeBase):
             action_list=ActionListType(simple_action='pass'),
             endpoint_1=FirewallRuleEndpointType(
                 address_group=ag.get_fq_name_str()),
-            endpoint_2=FirewallRuleEndpointType(any=True),
+            endpoint_2=FirewallRuleEndpointType(
+                address_group=ag.get_fq_name_str()),
             direction='<>',
             service=FirewallServiceType(),
         )
@@ -2433,13 +2519,18 @@ class TestFirewallDraftModeMixedScopes(FirewallDraftModeGlobalScopeBase):
         fr = self.api.firewall_rule_read(id=fr.uuid)
         self.assertEqual(draft_ag.get_fq_name_str(),
                          fr.endpoint_1.address_group)
+        self.assertEqual(draft_ag.get_fq_name_str(),
+                         fr.endpoint_2.address_group)
 
         self.api.commit_security(self._scope)
         ag = self.api.address_group_read(id=ag.uuid)
         fr = self.api.firewall_rule_read(id=fr.uuid)
         self.assertNotEqual(draft_ag.get_fq_name_str(),
                             fr.endpoint_1.address_group)
+        self.assertNotEqual(draft_ag.get_fq_name_str(),
+                            fr.endpoint_2.address_group)
         self.assertEqual(ag.get_fq_name_str(), fr.endpoint_1.address_group)
+        self.assertEqual(ag.get_fq_name_str(), fr.endpoint_2.address_group)
 
     def test_cannot_create_ref_to_pending_deleted_resource(self):
         self.set_scope_instance(False)

@@ -19,6 +19,7 @@ sys.setdefaultencoding('UTF8')
 import requests
 import ConfigParser
 import signal
+import socket
 import random
 import time
 import hashlib
@@ -137,8 +138,9 @@ class SchemaTransformer(object):
             'virtual_machine_interface': ['bgp_router']
         },
         'bgp_router': {
-            'self': [],
+            'self': ['bgp_router'],
             'bgp_as_a_service': [],
+            'bgp_router': []
         },
         'global_system_config': {
             'self': [],
@@ -463,6 +465,7 @@ def parse_args(args_str):
         'zk_server_port': '2181',
         'collectors': None,
         'http_server_port': '8087',
+        'http_server_ip': '0.0.0.0',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
@@ -558,6 +561,8 @@ def parse_args(args_str):
                         nargs="+")
     parser.add_argument("--http_server_port",
                         help="Port of local HTTP server")
+    parser.add_argument("--http_server_ip",
+                        help="IP of local HTTP server")
     parser.add_argument("--log_local", action="store_true",
                         help="Enable local logging of sandesh messages")
     parser.add_argument(
@@ -713,8 +718,12 @@ def main(args_str=None):
     st_logger.debug("Removed remained AMQP queue")
 
     # Waiting to be elected as master node
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
-                                        zk_timeout=args.zk_timeout)
+                                        host_ip, zk_timeout=args.zk_timeout)
     st_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
                                       os.getpid(), run_schema_transformer,

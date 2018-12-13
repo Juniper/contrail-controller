@@ -98,7 +98,7 @@ class TestVncKombuClient(unittest.TestCase):
         with self.assertRaises(CorrectValueException):
             VncServerKombuClient(self.db_client_mgr, servers, self.port,
                                  self.username, self.password, self.vhost, 0,
-                                 False)
+                                 'x.x.x.x', False)
 
     @unittest.skipIf(is_kombu_client_v1,
                      "skipping because kombu client is older")
@@ -123,7 +123,7 @@ class TestVncKombuClient(unittest.TestCase):
         servers = "a.a.a.a"
         kc = VncServerKombuClient(self.db_client_mgr,servers, self.port,
                                   self.username, self.password, self.vhost, 0,
-                                  False)
+                                  'x.x.x.x', False)
         _lock.wait()
         kc.shutdown()
 
@@ -155,7 +155,7 @@ class TestVncKombuClient(unittest.TestCase):
         servers = "a.a.a.a"
         kc = VncServerKombuClient(self.db_client_mgr, servers, self.port,
                                   self.username, self.password, self.vhost, 0,
-                                  False)
+                                  'x.x.x.x', False)
         gevent.sleep(0)
         kc.dbe_publish('CREATE', 'virtual_network', ['vn1'], {})
         _lock.wait()

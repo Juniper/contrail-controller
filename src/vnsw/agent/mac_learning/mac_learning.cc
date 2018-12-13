@@ -332,27 +332,27 @@ bool MacLearningSandeshResp::SetMacKey(string key) {
         return false;
     }
 
-    stringstream ss(key);
+    std::stringstream ss(key);
     string item;
 
     if (getline(ss, item, ch)) {
-        istringstream(item) >> partition_id_;
+        std::istringstream(item) >> partition_id_;
     }
     if (getline(ss, item, ch)) {
-        istringstream(item) >> vrf_id_;
+        std::istringstream(item) >> vrf_id_;
     }
     if (getline(ss, item, ch)) {
         mac_ = MacAddress::FromString(item);
     }
     if (getline(ss, item, ch)) {
-        istringstream(item) >> exact_match_;
+        std::istringstream(item) >> exact_match_;
     }
     return true;
 }
 
 string
 MacLearningSandeshResp::GetMacKey() {
-    stringstream ss;
+    std::stringstream ss;
     ss << partition_id_ << kDelimiter;
     ss << vrf_id_ << kDelimiter;
     ss << mac_.ToString();

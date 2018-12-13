@@ -14,9 +14,10 @@ from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 class VrouterProcessStat(ProcessStat):
-    def __init__(self, pname, sandesh_logger):
+    def __init__(self, pname, host_ip, sandesh_logger):
         self.logger = sandesh_logger
-        ProcessStat.__init__(self, pname)
+        self.host_ip = host_ip
+        ProcessStat.__init__(self, pname, self.host_ip)
         (self.group, self.name) = self.get_vrouter_process_info(pname)
 
     def msg_log(self, msg, level):
@@ -66,7 +67,7 @@ class VrouterProcessStat(ProcessStat):
                                 msg = "Tor Agent command does " + \
                                       "not have config file : "
                                 self.msg_log(msg + command, SandeshLevel.SYS_ERR)
-        return ('vrouter_group', socket.gethostname())
+        return ('vrouter_group', socket.getfqdn(self.host_ip))
     # end get_vrouter_process_info
 
     # Read agent_name from vrouter-tor-agent conf file

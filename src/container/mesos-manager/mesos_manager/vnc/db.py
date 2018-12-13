@@ -1,6 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 #
-# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
 """
@@ -15,8 +15,7 @@ class MesosNetworkManagerDB(VncObjectDBClient):
         self._db_logger = logger
 
         cred = None
-        if (args.cassandra_user is not None and
-            args.cassandra_password is not None):
+        if args.cassandra_user and args.cassandra_password:
             cred={'username':args.cassandra_user,
                   'password':args.cassandra_password}
 

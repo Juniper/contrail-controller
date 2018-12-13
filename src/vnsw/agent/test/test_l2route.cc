@@ -125,7 +125,8 @@ protected:
                                 eth_name_,
                                 agent_->fabric_vrf_name(),
                                 PhysicalInterface::FABRIC,
-                                PhysicalInterface::ETHERNET, false, nil_uuid(),
+                                PhysicalInterface::ETHERNET, false,
+                                boost::uuids::nil_uuid(),
                                 Ip4Address(0), Interface::TRANSPORT_ETHERNET);
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
@@ -149,7 +150,8 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE,
+                                 boost::uuids::nil_uuid(),
                                  agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),
@@ -781,7 +783,7 @@ TEST_F(RouteTest, DISABLED_add_deleted_peer_to_multicast_route) {
     MulticastHandler *mc_handler =
         static_cast<MulticastHandler *>(agent_->oper_db()->multicast());
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     TaskScheduler::GetInstance()->Stop();
@@ -832,7 +834,7 @@ TEST_F(RouteTest, all_evpn_routes_deleted_when_local_vms_are_gone) {
     MulticastHandler *mc_handler =
         static_cast<MulticastHandler *>(agent_->oper_db()->multicast());
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     //Send explicit evpn olist
@@ -893,7 +895,7 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
     MulticastHandler *mc_handler =
         static_cast<MulticastHandler *>(agent_->oper_db()->multicast());
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     //Add EVPN olist
@@ -1318,7 +1320,7 @@ TEST_F(RouteTest, add_stale_non_stale_path_in_l2_mcast_and_delete_non_stale) {
                                       MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                                       Ip4Address(0));
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     //Send explicit evpn olist
@@ -1379,7 +1381,7 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
                                                                    oper_db()->multicast());
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyTorMembers(bgp_peer_, "vrf1", olist, 10, 1);
@@ -1684,7 +1686,7 @@ TEST_F(RouteTest, label_in_evpn_mcast_path) {
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>
         (agent_->oper_db()->multicast());
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     //Add EVPN olist
@@ -1731,7 +1733,7 @@ TEST_F(RouteTest, test_fmg_label_1) {
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
                                                                    oper_db()->multicast());
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
     mc_handler->ModifyFabricMembers(Agent::GetInstance()->

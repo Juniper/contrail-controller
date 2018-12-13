@@ -312,10 +312,18 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
 
 bool NextHopTable::OnChange(DBEntry *entry, const DBRequest *req) {
     NextHop *nh = static_cast<NextHop *>(entry);
+    bool delcleared = false;
+    //Since as part of label addition later, active nh entries are looked
+    //up. So makes sense to clear delete now so as to allow proper label 
+    //binding. 
+    if (entry->IsDeleted()) {
+        entry->ClearDelete();
+        delcleared = true;
+    }
     nh->Change(req);
     bool ret = nh->ChangeEntry(req);
     nh->SendObjectLog(this, AgentLogEvent::CHANGE);
-    return ret;
+    return (ret | delcleared);
 }
 
 bool NextHopTable::Resync(DBEntry *entry, const DBRequest *req) {
@@ -453,7 +461,7 @@ ArpNH::KeyPtr ArpNH::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-const uuid &ArpNH::GetIfUuid() const {
+const boost::uuids::uuid &ArpNH::GetIfUuid() const {
     return interface_->GetUuid();
 }
 
@@ -564,12 +572,13 @@ bool InterfaceNH::ChangeEntry(const DBRequest *req) {
     return ret;
 }
 
-const uuid &InterfaceNH::GetIfUuid() const {
+const boost::uuids::uuid &InterfaceNH::GetIfUuid() const {
     return interface_->GetUuid();
 }
 
-static void AddInterfaceNH(const uuid &intf_uuid, const MacAddress &dmac,
-                          uint8_t flags, bool policy, const string vrf_name,
+static void AddInterfaceNH(const boost::uuids::uuid &intf_uuid,
+                          const MacAddress &dmac, uint8_t flags,
+                          bool policy, const string vrf_name,
                           bool learning_enabled, bool etree_leaf,
                           bool layer2_control_word, const string &name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -583,7 +592,7 @@ static void AddInterfaceNH(const uuid &intf_uuid, const MacAddress &dmac,
 
 // Create 3 InterfaceNH for every Vm interface. One with policy another without
 // policy, third one is for multicast.
-void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
+void InterfaceNH::CreateL3VmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                         const MacAddress &dmac,
                                         const string &vrf_name,
                                         bool learning_enabled,
@@ -594,14 +603,14 @@ void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
                    learning_enabled, false, false, intf_name);
 }
 
-void InterfaceNH::DeleteL3InterfaceNH(const uuid &intf_uuid,
+void InterfaceNH::DeleteL3InterfaceNH(const boost::uuids::uuid &intf_uuid,
                                       const MacAddress &mac,
                                       const string &intf_name) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4, mac, intf_name);
     DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4, mac, intf_name);
 }
 
-void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
+void InterfaceNH::CreateL2VmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                         const MacAddress &dmac,
                                         const string &vrf_name,
                                         bool learning_enabled,
@@ -614,14 +623,14 @@ void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
                    learning_enabled, etree_leaf, layer2_control_word, intf_name);
 }
 
-void InterfaceNH::DeleteL2InterfaceNH(const uuid &intf_uuid,
+void InterfaceNH::DeleteL2InterfaceNH(const boost::uuids::uuid &intf_uuid,
                                       const MacAddress &dmac,
                                       const string &intf_name) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::BRIDGE, dmac, intf_name);
     DeleteNH(intf_uuid, true, InterfaceNHFlags::BRIDGE, dmac, intf_name);
 }
 
-void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
+void InterfaceNH::CreateMulticastVmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                                const MacAddress &dmac,
                                                const string &vrf_name,
                                                const string &intf_name) {
@@ -630,7 +639,7 @@ void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
                    vrf_name, false, false, false, intf_name);
 }
 
-void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid,
+void InterfaceNH::DeleteMulticastVmInterfaceNH(const boost::uuids::uuid &intf_uuid,
                                                const MacAddress &dmac,
                                                const string &intf_name) {
     DeleteNH(intf_uuid, false, (InterfaceNHFlags::INET4 |
@@ -638,7 +647,7 @@ void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid,
                                 dmac, intf_name);
 }
 
-void InterfaceNH::DeleteNH(const uuid &intf_uuid, bool policy,
+void InterfaceNH::DeleteNH(const boost::uuids::uuid &intf_uuid, bool policy,
                           uint8_t flags, const MacAddress &mac,
                           const string &intf_name) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
@@ -651,7 +660,7 @@ void InterfaceNH::DeleteNH(const uuid &intf_uuid, bool policy,
 }
 
 // Delete the 2 InterfaceNH. One with policy another without policy
-void InterfaceNH::DeleteVmInterfaceNHReq(const uuid &intf_uuid,
+void InterfaceNH::DeleteVmInterfaceNHReq(const boost::uuids::uuid &intf_uuid,
                                          const MacAddress &mac,
                                          const string &intf_name) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::BRIDGE, mac, intf_name);
@@ -696,16 +705,16 @@ void InterfaceNH::CreatePacketInterfaceNh(Agent *agent, const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
 
     // create nexthop without policy
-    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
-                                     false, InterfaceNHFlags::INET4,
-                                     agent->pkt_interface_mac()));
+    req.key.reset(new InterfaceNHKey(
+        new PacketInterfaceKey(boost::uuids::nil_uuid(), ifname), false,
+        InterfaceNHFlags::INET4, agent->pkt_interface_mac()));
     req.data.reset(new InterfaceNHData(""));
     agent->nexthop_table()->Process(req);
 
     // create nexthop with relaxed policy
-    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
-                                     true, InterfaceNHFlags::INET4,
-                                     agent->pkt_interface_mac()));
+    req.key.reset(new InterfaceNHKey(
+        new PacketInterfaceKey(boost::uuids::nil_uuid(), ifname), true,
+        InterfaceNHFlags::INET4, agent->pkt_interface_mac()));
     req.data.reset(new InterfaceNHData(""));
     agent->nexthop_table()->Process(req);
 }
@@ -715,16 +724,16 @@ void InterfaceNH::DeleteHostPortReq(Agent *agent, const string &ifname) {
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     // delete NH without policy
-    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
-                                     false, InterfaceNHFlags::INET4,
-                                     agent->pkt_interface_mac()));
+    req.key.reset(new InterfaceNHKey(
+        new PacketInterfaceKey(boost::uuids::nil_uuid(), ifname), false,
+        InterfaceNHFlags::INET4, agent->pkt_interface_mac()));
     req.data.reset(NULL);
     agent->nexthop_table()->Enqueue(&req);
 
     // delete NH with policy
-    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
-                                     true, InterfaceNHFlags::INET4,
-                                     agent->pkt_interface_mac()));
+    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(
+        boost::uuids::nil_uuid(), ifname), true,
+        InterfaceNHFlags::INET4, agent->pkt_interface_mac()));
     req.data.reset(NULL);
     agent->nexthop_table()->Enqueue(&req);
 }
@@ -1435,12 +1444,12 @@ bool VlanNH::ChangeEntry(const DBRequest *req) {
     return ret;
 }
 
-const uuid &VlanNH::GetIfUuid() const {
+const boost::uuids::uuid &VlanNH::GetIfUuid() const {
     return interface_->GetUuid();
 }
 
 // Create VlanNH for a VPort
-void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag,
+void VlanNH::Create(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag,
                     const string &vrf_name, const MacAddress &smac,
                     const MacAddress &dmac) {
     DBRequest req;
@@ -1454,7 +1463,7 @@ void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag,
     NextHopTable::GetInstance()->Process(req);
 }
 
-void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag) {
+void VlanNH::Delete(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
@@ -1466,7 +1475,7 @@ void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag) {
 }
 
 // Create VlanNH for a VPort
-void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
+void VlanNH::CreateReq(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag,
                     const string &vrf_name, const MacAddress &smac,
                     const MacAddress &dmac) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -1475,7 +1484,7 @@ void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
     NextHopTable::GetInstance()->Enqueue(&req);
 }
 
-void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
+void VlanNH::DeleteReq(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
@@ -1487,7 +1496,7 @@ void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
 }
 
 
-VlanNH *VlanNH::Find(const uuid &intf_uuid, uint16_t vlan_tag) {
+VlanNH *VlanNH::Find(const boost::uuids::uuid &intf_uuid, uint16_t vlan_tag) {
     VlanNHKey key(intf_uuid, vlan_tag);
     return static_cast<VlanNH *>(NextHopTable::GetInstance()->FindActiveEntry(&key));
 }

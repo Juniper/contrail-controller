@@ -104,7 +104,8 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
         boost::system::error_code ec;
         agent->set_router_id
             (Ip4Address::from_string("10.1.1.1", ec));
-        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
+        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE,
+                               boost::uuids::nil_uuid(), "vhost0");
         //Add a receive router
         agent->fabric_inet4_unicast_table()->AddVHostRecvRoute
             (agent->local_peer(),

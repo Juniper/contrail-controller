@@ -12,6 +12,7 @@
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
           "job_template_concurrency_level": "device",
+          "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -33,6 +34,7 @@
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
           "job_template_concurrency_level": "fabric",
+          "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -53,6 +55,7 @@
           "name": "generate_underlay_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
@@ -75,6 +78,7 @@
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
           "job_template_concurrency_level": "fabric",
+          "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
@@ -95,6 +99,7 @@
           "name": "device_import_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -116,6 +121,7 @@
           "name": "fabric_config_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "config",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
@@ -137,6 +143,7 @@
           "name": "ztp_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -158,6 +165,7 @@
           "name": "fabric_deletion_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -179,6 +187,7 @@
           "name": "device_deletion_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -200,6 +209,7 @@
           "name": "role_assignment_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "config",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -221,6 +231,7 @@
           "name": "topology_discovery_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": true,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -242,6 +253,7 @@
           "name": "fabric_onboard_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -289,11 +301,87 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "show_interfaces_template"
+          ],
+          "name": "show_interfaces_template",
+          "display_name": "Show Interfaces",
+          "description": "This command is used to get a list of physical or logical interfaces from a device and interfaces' operational state information.",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_type": "device_operation",
+          "job_template_concurrency_level": "device",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "job_template_input_ui_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "show_config_interfaces_template"
+          ],
+          "name": "show_config_interfaces_template",
+          "display_name": "Show Configured Interfaces",
+          "description": "This command is used to get a list of configured interfaces",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_type": "device_operation",
+          "job_template_concurrency_level": "device",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "job_template_input_ui_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "show_interfaces_by_names_template"
+          ],
+          "name": "show_interfaces_by_names_template",
+          "display_name": "Show Interfaces By Names",
+          "description": "This command is used to get operational info for interface(s) as specified in the input",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": true,
+          "job_template_type": "device_operation",
+          "job_template_concurrency_level": "device",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "job_template_input_ui_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "existing_fabric_onboard_template"
           ],
           "name": "existing_fabric_onboard_template",
           "parent_type": "global-system-config",
           "job_template_multi_device_job": false,
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
@@ -433,7 +521,12 @@
               "juniper-mx2008",
               "juniper-mx2010",
               "juniper-mx2020",
-              "juniper-mx10003"
+              "juniper-mx10003",
+              "juniper-srx5400",
+              "juniper-srx4600",
+              "juniper-srx4100",
+              "juniper-srx1500",
+              "juniper-vsrx"
             ]
           }
         }
@@ -651,6 +744,36 @@
             "juniper-vmx"
           ],
           "name": "juniper-vmx"
+        },
+        {
+          "fq_name": [
+            "juniper-srx5400"
+          ],
+          "name": "juniper-srx5400"
+        },
+        {
+          "fq_name": [
+            "juniper-srx4600"
+          ],
+          "name": "juniper-srx4600"
+        },
+        {
+          "fq_name": [
+            "juniper-srx4100"
+          ],
+          "name": "juniper-srx4100"
+        },
+        {
+          "fq_name": [
+            "juniper-srx1500"
+          ],
+          "name": "juniper-srx1500"
+        },
+        {
+          "fq_name": [
+            "juniper-vsrx"
+          ],
+          "name": "juniper-vsrx"
         }
       ]
     },
@@ -672,7 +795,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null"]
+                "rb_roles": ["null", "Route-Reflector"]
               }
             ]
           }
@@ -688,11 +811,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
+                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway"]
               }
             ]
           }
@@ -708,11 +831,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway"]
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway"]
               }
             ]
           }
@@ -728,11 +851,27 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["DC-Gateway"]
+                "rb_roles": ["DC-Gateway", "DCI-Gateway"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["DC-Gateway"]
+                "rb_roles": ["DC-Gateway", "Route-Reflector", "DCI-Gateway"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-srx"
+          ],
+          "name": "juniper-srx",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "pnf",
+                "rb_roles": ["L3PNF"]
               }
             ]
           }
@@ -1051,6 +1190,36 @@
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-vmx" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx5400" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx4600" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx4100" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx1500" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-vsrx" ]
     },
     {
       "from_type": "role_config",

@@ -91,10 +91,8 @@ class EventManager(object):
         self.sandesh_instance = sandesh_instance
         self.curr_build_info = None
         self.new_build_info = None
-        self.last_cpu = None
-        self.last_time = 0
-        self.own_version = None
-        self.hostname = socket.gethostname()
+        self.hostip = self.config.hostip
+        self.hostname = socket.getfqdn(self.hostip)
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
         event_handlers['PROCESS_COMMUNICATION'] = self.event_process_communication
@@ -132,6 +130,7 @@ class EventManager(object):
                          SandeshLevel.SYS_ERR)
             exit(-1)
 
+        self.system_mem_cpu_usage_data = SysMemCpuUsageData()
         self.process_state_db = self.get_current_processes()
         for group in self.process_state_db:
             self.send_init_info(group)
@@ -162,7 +161,7 @@ class EventManager(object):
             proc_name = self.get_process_name(proc_info)
             proc_pid = int(proc_info['pid'])
 
-            stat = ProcessStat(proc_name)
+            stat = ProcessStat(proc_name, host_ip=self.hostip)
             stat.process_state = proc_info['statename']
             if 'start' in proc_info:
                 stat.start_time = str(proc_info['start'])
@@ -234,28 +233,17 @@ class EventManager(object):
         self.send_nodemgr_process_status()
 
     def get_build_info(self):
-        if platform.system() == 'Windows':
-            rpm_version = ""
-            build_num = "unknown"
-        else:
-            # Retrieve build_info from package/rpm and cache it
-            if self.curr_build_info is not None:
-                return self.curr_build_info
+        # Retrieve build_info from package/rpm and cache it
+        if self.curr_build_info is not None:
+            return self.curr_build_info
 
-            command = "contrail-version contrail-nodemgr | grep contrail-nodemgr"
-            version = os.popen(command).read()
-            version_partials = version.split()
-            if len(version_partials) < 3:
-                self.msg_log('Not enough values to parse package version %s'
-                                 % version,
-                             SandeshLevel.SYS_ERR)
-                return ""
-            else:
-                _, rpm_version, build_num = version_partials
-
+        pkg_version = self._get_package_version()
+        pkg_version_parts = pkg_version.split('-')
+        build_id = pkg_version_parts[0]
+        build_number = pkg_version_parts[1] if len(pkg_version_parts) > 1 else "unknown"
         self.new_build_info = build_info + '"build-id" : "' + \
-            rpm_version + '", "build-number" : "' + \
-            build_num + '"}]}'
+            build_id + '", "build-number" : "' + \
+            build_number + '"}]}'
         if (self.new_build_info != self.curr_build_info):
             self.curr_build_info = self.new_build_info
         return self.curr_build_info
@@ -395,7 +383,7 @@ class EventManager(object):
                 if pname in self.process_state_db[group]:
                     proc_stat = self.process_state_db[group][pname]
         else:
-            proc_stat = ProcessStat(pname)
+            proc_stat = ProcessStat(pname, host_ip=self.hostip)
 
         pstate = process_info['state']
         proc_stat.process_state = pstate
@@ -500,22 +488,21 @@ class EventManager(object):
     # end send_nodemgr_process_status
 
     def _get_package_version(self):
-        own_version = utils.get_package_version('contrail-nodemgr')
-        if own_version is None:
+        pkg_version = utils.get_package_version('contrail-nodemgr')
+        if pkg_version is None:
             self.msg_log('Error getting %s package version' % (
                 'contrail-nodemgr'), SandeshLevel.SYS_ERR)
-            own_version = "package-version-unknown"
-        return own_version
+            pkg_version = "unknown"
+        return pkg_version
 
     def send_init_info(self, group_name):
         key = next(key for key in self.process_state_db[group_name])
         # system_cpu_info
-        mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu, self.last_time)
         sys_cpu = SystemCpuInfo()
-        sys_cpu.num_socket = mem_cpu_usage_data.get_num_socket()
-        sys_cpu.num_cpu = mem_cpu_usage_data.get_num_cpu()
-        sys_cpu.num_core_per_socket = mem_cpu_usage_data.get_num_core_per_socket()
-        sys_cpu.num_thread_per_core = mem_cpu_usage_data.get_num_thread_per_core()
+        sys_cpu.num_socket = self.system_mem_cpu_usage_data.get_num_socket()
+        sys_cpu.num_cpu = self.system_mem_cpu_usage_data.get_num_cpu()
+        sys_cpu.num_core_per_socket = self.system_mem_cpu_usage_data.get_num_core_per_socket()
+        sys_cpu.num_thread_per_core = self.system_mem_cpu_usage_data.get_num_thread_per_core()
 
         node_status = NodeStatus(
             name=self.process_state_db[group_name][key].name,
@@ -523,10 +510,9 @@ class EventManager(object):
             build_info=self.get_build_info())
 
         # installed/running package version
-        own_version = self._get_package_version()
-        self.own_version = own_version
-        node_status.installed_package_version = own_version
-        node_status.running_package_version = own_version
+        pkg_version = self._get_package_version()
+        node_status.installed_package_version = pkg_version
+        node_status.running_package_version = pkg_version
 
         node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                         data=node_status)
@@ -617,7 +603,6 @@ class EventManager(object):
 
     def event_tick_60(self):
         self.tick_count += 1
-        own_version = None
         for group in self.process_state_db:
             key = next(key for key in self.process_state_db[group])
             # get disk usage info periodically
@@ -633,16 +618,10 @@ class EventManager(object):
             process_mem_cpu_usage = self.get_group_processes_mem_cpu_usage(group)
 
             # get system mem/cpu usage
-            system_mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu,
-                                                           self.last_time)
-            system_mem_usage = system_mem_cpu_usage_data.get_sys_mem_info(
+            system_mem_usage = self.system_mem_cpu_usage_data.get_sys_mem_info(
                 self.type_info._uve_node_type)
-            system_cpu_usage = system_mem_cpu_usage_data.get_sys_cpu_info(
+            system_cpu_usage = self.system_mem_cpu_usage_data.get_sys_cpu_info(
                 self.type_info._uve_node_type)
-
-            # update last_cpu/time after all processing is complete
-            self.last_cpu = system_mem_cpu_usage_data.last_cpu
-            self.last_time = system_mem_cpu_usage_data.last_time
 
             # send above encoded buffer
             node_status = NodeStatus(
@@ -655,16 +634,12 @@ class EventManager(object):
             if self.update_all_core_file():
                 node_status.all_core_file_list = self.all_core_file_list
 
-            own_version = self._get_package_version()
-            if (own_version != self.own_version):
-                node_status.own_version = own_version
             node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                             data=node_status)
 
             self.msg_log('DBG: event_tick_60: node_status=%s' % node_status,
                          SandeshLevel.SYS_DEBUG)
             node_status_uve.send()
-        self.own_version = own_version
 
     def do_periodic_events(self):
         self.event_tick_60()

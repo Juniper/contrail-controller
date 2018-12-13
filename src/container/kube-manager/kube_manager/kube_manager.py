@@ -7,6 +7,7 @@ Kubernetes network manager
 """
 
 import random
+import socket
 import os
 import sys
 import time
@@ -31,6 +32,7 @@ import kube.service_monitor as service_monitor
 import kube.network_policy_monitor as network_policy_monitor
 import kube.endpoint_monitor as endpoint_monitor
 import kube.ingress_monitor as ingress_monitor
+import kube.network_monitor as network_monitor
 from sandesh.kube_introspect import ttypes as introspect
 
 
@@ -73,6 +75,10 @@ class KubeNetworkManager(object):
 
                 self.monitors['ingress'] = \
                     ingress_monitor.IngressMonitor(
+                        args=self.args, logger=self.logger, q=self.q)
+
+                self.monitors['network'] = \
+                    network_monitor.NetworkMonitor(
                         args=self.args, logger=self.logger, q=self.q)
 
                 kube_api_connected = True
@@ -248,7 +254,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
 
         # Ensure zookeeper is up and running before starting kube-manager
         _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
-                                            args.zk_server_ip)
+                                            args.zk_server_ip, args.host_ip)
 
         km_logger.notice("Waiting to be elected as master...")
         _zookeeper_client.master_election(

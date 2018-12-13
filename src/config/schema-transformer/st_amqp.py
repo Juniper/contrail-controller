@@ -7,8 +7,10 @@
 Sechmatransformer  amqp handler
 """
 
+import socket
+
 from cfgm_common.vnc_amqp import VncAmqpHandle
-from config_db import DBBaseST, VirtualNetworkST
+from config_db import DBBaseST, VirtualNetworkST, BgpRouterST
 
 
 class STAmqpHandle(VncAmqpHandle):
@@ -25,10 +27,14 @@ class STAmqpHandle(VncAmqpHandle):
             'ssl_certfile': args.kombu_ssl_certfile,
             'ssl_ca_certs': args.kombu_ssl_ca_certs
         }
+        if 'host_ip' in args:
+            host_ip = args.host_ip
+        else:
+            host_ip = socket.gethostbyname(socket.getfqdn())
         super(STAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseST,
                                            reaction_map, q_name_prefix,
-                                           rabbitmq_cfg, args.trace_file, 
-                                           timer_obj=timer_obj)
+                                           rabbitmq_cfg, host_ip,
+                                           args.trace_file, timer_obj=timer_obj)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
@@ -39,3 +45,8 @@ class STAmqpHandle(VncAmqpHandle):
             vn = VirtualNetworkST.get(vn_id)
             if vn is not None:
                 vn.uve_send()
+        for bgp_router_id in \
+                self.dependency_tracker.resources.get('bgp_router', []):
+            bgp_router = BgpRouterST.get(bgp_router_id)
+            if bgp_router is not None:
+                bgp_router.update_peering()

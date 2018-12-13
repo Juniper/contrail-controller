@@ -61,7 +61,7 @@ TestTaskHold::~TestTaskHold() {
     }
 }
 
-uuid MakeUuid(int id) {
+boost::uuids::uuid MakeUuid(int id) {
     char str[50];
     sprintf(str, "00000000-0000-0000-0000-00%010x", id);
     boost::uuids::uuid u1 = StringToUuid(std::string(str));
@@ -578,9 +578,8 @@ uint32_t PortSubscribeSize(Agent *agent) {
 }
 
 bool PortSubscribe(VmiSubscribeEntry *entry) {
-    string json;
     Agent *agent = Agent::GetInstance();
-    agent->port_ipc_handler()->MakeVmiUuidJson(entry, json, false);
+    string json = agent->port_ipc_handler()->MakeVmiUuidJson(entry, false);
     string err;
     return agent->port_ipc_handler()->AddPortFromJson(json, false, err, false);
 }
@@ -635,9 +634,8 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                             MakeUuid(intf_id), MakeUuid(vm_id), vm_name,
                             MakeUuid(vn_id), MakeUuid(project_id), ip, ip6,
                             mac, vlan, vlan, vhostuser_mode, 1);
-    string json;
     Agent *agent = Agent::GetInstance();
-    agent->port_ipc_handler()->MakeVmiUuidJson(&entry, json, false);
+    string json = agent->port_ipc_handler()->MakeVmiUuidJson(&entry, false);
     string err;
     agent->port_ipc_handler()->AddPortFromJson(json, false, err, false);
     client->WaitForIdle();
@@ -892,7 +890,7 @@ Interface *VmPortGet(int id) {
 }
 
 Interface *VhostGet(const char *ifname) {
-    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ifname);
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, boost::uuids::nil_uuid(), ifname);
     return static_cast<Interface *>(Agent::GetInstance()->interface_table()->Find(&key, false));
 }
 
@@ -1197,10 +1195,9 @@ bool DBTableFind(const string &table_name) {
 void VnAddReq(int id, const char *name) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
-                                              name, ipam, vn_ipam_data, id,
-                                              (id + 100), true, true, false,
-                                              false, false, false);
+    Agent::GetInstance()->vn_table()->AddVn(
+        MakeUuid(id), name, boost::uuids::nil_uuid(), name, ipam, vn_ipam_data,
+        id, (id + 100), true, true, false, false, false, false);
     usleep(1000);
 }
 
@@ -1229,20 +1226,18 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
 void VnAddReq(int id, const char *name, const char *vrf_name) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
-                                              vrf_name, ipam, vn_ipam_data, id,
-                                              (id + 100), true, true, false,
-                                              false, false, false);
+    Agent::GetInstance()->vn_table()->AddVn(
+        MakeUuid(id), name, boost::uuids::nil_uuid(), vrf_name, ipam,
+        vn_ipam_data, id, (id + 100), true, true, false, false, false, false);
     usleep(1000);
 }
 
 void VnVxlanAddReq(int id, const char *name, uint32_t vxlan_id) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
-                                              name, ipam, vn_ipam_data, id,
-                                              vxlan_id, true, true, false,
-                                              false, false, false);
+    Agent::GetInstance()->vn_table()->AddVn(
+        MakeUuid(id), name, boost::uuids::nil_uuid(), name, ipam, vn_ipam_data,
+        id, vxlan_id, true, true, false, false, false, false);
 }
 
 void VnDelReq(int id) {
@@ -2060,6 +2055,10 @@ void AddSriovPort(const char *name, int id) {
     str << "<key-value-pair>";
     str << "<key>vnic_type</key>";
     str << "<value>direct</value>";
+    str << "</key-value-pair>";
+    str << "<key-value-pair>";
+    str << "<key>vif_type</key>";
+    str << "<value>hw_veb</value>";
     str << "</key-value-pair>";
     str << "</virtual-machine-interface-bindings>";
 
@@ -2983,7 +2982,7 @@ void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip) {
 }
 
 uint32_t GetFlowKeyNH(int id) {
-    uuid intf_uuid = MakeUuid(id);
+    boost::uuids::uuid intf_uuid = MakeUuid(id);
     VmInterfaceKey key(AgentKey::RESYNC, intf_uuid, "");
     const Interface *intf = static_cast<const Interface *>(
             Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
@@ -4392,7 +4391,7 @@ void DeleteBgpPeer(Peer *peer) {
 void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,
                      uint32_t label, uint32_t bmap) {
     TunnelOlist evpn_olist_map;
-    evpn_olist_map.push_back(OlistTunnelEntry(nil_uuid(), label,
+    evpn_olist_map.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), label,
                                               IpAddress::from_string("8.8.8.8").to_v4(),
                                               bmap));
     Agent::GetInstance()->oper_db()->multicast()->
@@ -5321,4 +5320,30 @@ void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool enable) {
 
     AddNode("virtual-machine-interface", intf_name.c_str(), intf_id,
             str.str().c_str());
+}
+
+// Default max-flows for vn is 0, use this function to set max flows for vn
+void SetVnMaxFlows(const string &name, int id, uint32_t max_flows) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <max-flows>" << max_flows << "</max-flows>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name.c_str(), id, str.str().c_str());
+    client->WaitForIdle();
+}
+
+void SetVmiMaxFlows(std::string intf_name, int intf_id, uint32_t max_flows) {
+         std::ostringstream buf;
+         buf << "<virtual-machine-interface-properties>";
+         buf << "<max-flows>";
+         buf << max_flows;
+         buf << "</max-flows>";
+         buf << "</virtual-machine-interface-properties>";
+         char cbuf[10000];
+         strcpy(cbuf, buf.str().c_str());
+         AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+         client->WaitForIdle();
 }

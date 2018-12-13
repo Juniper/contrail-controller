@@ -8,6 +8,7 @@
 #include <base/timer.h>
 #include <base/contrail_ports.h>
 #include <base/connection_info.h>
+#include <base/address_util.h>
 #include <net/tunnel_encap_type.h>
 #include <sandesh/sandesh_trace.h>
 #include <cmn/agent_cmn.h>
@@ -87,7 +88,9 @@ VNController::~VNController() {
 void VNController::FillMcastLabelRange(uint32_t *start_idx,
                                        uint32_t *end_idx,
                                        uint8_t idx) const {
+    // Multicast labels required by both control nodes
     uint32_t max_mc_labels = 2 * (agent_->vrouter_max_vrfs());
+    // Multicast label count per control node
     uint32_t mc_label_count = 0;
     uint32_t vrouter_max_labels = agent_->vrouter_max_labels();
 
@@ -127,9 +130,9 @@ void VNController::SetAgentMcastLabelRange(uint8_t idx) {
     FillMcastLabelRange(&start, &end, idx);
     str << start << "-" << end;
 
-    agent_->mpls_table()->ReserveMulticastLabel(start, end + 1, idx);
+    agent_->mpls_table()->ReserveMulticastLabel(start, end, idx);
     fabric_multicast_label_range_[idx].start = start;
-    fabric_multicast_label_range_[idx].end = (end + 1);
+    fabric_multicast_label_range_[idx].end = end;
     fabric_multicast_label_range_[idx].fabric_multicast_label_range_str =
         str.str();
 }
@@ -169,8 +172,8 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             xmpp_cfg->FromAddr = agent_->agent_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS;
-            xmpp_cfg->endpoint.address(
-                ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
+            xmpp_cfg->endpoint.address(AddressFromString(
+                agent_->controller_ifmap_xmpp_server(count), &ec));
             assert(ec.value() == 0);
             xmpp_cfg->auth_enabled = agent_->xmpp_auth_enabled();
             if (xmpp_cfg->auth_enabled) {
@@ -253,8 +256,8 @@ void VNController::DnsXmppServerConnect() {
             xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
             xmpp_cfg_dns->FromAddr = agent_->agent_name() + "/dns";
             xmpp_cfg_dns->NodeAddr = "";
-            xmpp_cfg_dns->endpoint.address(
-                     ip::address::from_string(agent_->dns_server(count), ec));
+            xmpp_cfg_dns->endpoint.address(AddressFromString(
+                agent_->dns_server(count), &ec));
             assert(ec.value() == 0);
             if (agent_->xmpp_dns_test_mode()) {
                 xmpp_cfg_dns->endpoint.port(agent_->dns_server_port(count));

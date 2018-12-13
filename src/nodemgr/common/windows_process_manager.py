@@ -9,27 +9,8 @@ import common_process_manager as cpm
 from windows_process_mem_cpu import WindowsProcessMemCpuUsageData
 
 
-def _service_status_to_state(status):
-    if status == 'running':
-        return 'PROCESS_STATE_RUNNING'
-    else:
-        return 'PROCESS_STATE_STOPPED'
-
-def _get_service_by_name(name):
-    service = None
-    try:
-        service = psutil.win_service_get(name)
-    except:
-        pass
-    return service
-
-def _get_process_by_pid(pid):
-    process = None
-    try:
-        process = psutil.Process(pid)
-    except:
-        pass
-    return process
+def _get_process_by_name(name):
+    return next((proc for proc in psutil.process_iter() if proc.name() == name), None)
 
 class WindowsProcessInfoManager(object):
     def __init__(self, event_handlers):
@@ -40,15 +21,13 @@ class WindowsProcessInfoManager(object):
         return WindowsProcessMemCpuUsageData(pid, last_cpu, last_time)
 
     def _poll_processes(self):
-        agent_service = _get_service_by_name('ContrailAgent')
-        info = cpm.dummy_process_info('contrail-vrouter-agent')
-        if agent_service != None:
-            info['statename'] = _service_status_to_state(agent_service.status())
-            if info['statename'] == 'PROCESS_STATE_RUNNING':
-                info['pid'] = agent_service.pid()
-                agent_process = _get_process_by_pid(info['pid'])
-                if agent_process != None:
-                    info['start'] = str(int(agent_process.create_time() * 1000000))
+        agent_name = 'contrail-vrouter-agent'
+        agent_process = _get_process_by_name(agent_name + '.exe')
+        info = cpm.dummy_process_info(agent_name)
+        if agent_process != None:
+            info['statename'] = 'PROCESS_STATE_RUNNING'
+            info['pid'] = agent_process.pid
+            info['start'] = str(int(agent_process.create_time() * 1000000))
         return [info]
 
     def get_all_processes(self):

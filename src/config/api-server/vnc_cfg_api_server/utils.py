@@ -50,6 +50,7 @@ def parse_args(args_str):
         'cassandra_server_list': "127.0.0.1:9160",
         'collectors': None,
         'http_server_port': '8084',
+        'http_server_ip': _WEB_HOST,
         'log_local': True,
         'log_level': SandeshLevel.SYS_NOTICE,
         'log_category': '',
@@ -204,7 +205,10 @@ def parse_args(args_str):
         nargs="+")
     parser.add_argument(
         "--http_server_port",
-        help="Port of local HTTP server")
+        help="Port of Introspect HTTP server")
+    parser.add_argument(
+        "--http_server_ip",
+        help="IP address of Introspect HTTP server, default %s" % (_WEB_HOST))
     parser.add_argument(
         "--log_local", action="store_true",
         help="Enable local logging of sandesh messages")

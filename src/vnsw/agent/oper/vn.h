@@ -12,8 +12,6 @@
 #include <oper/oper_dhcp_options.h>
 #include <oper/agent_route_walker.h>
 
-using namespace boost::uuids;
-
 class AgentRouteResync;
 
 namespace autogen {
@@ -88,18 +86,19 @@ struct VnData : public AgentOperDBData {
     typedef std::pair<std::string, VnIpamLinkData> VnIpamDataPair;
 
     VnData(const Agent *agent, IFMapNode *node, const string &name,
-           const uuid &acl_id, const string &vrf_name,
-           const uuid &mirror_acl_id, const uuid &mc_acl_id,
-           const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
-           int vxlan_id, int vnid, bool admin_state, bool enable_rpf,
-           bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode,
+           const boost::uuids::uuid &acl_id, const string &vrf_name,
+           const boost::uuids::uuid &mirror_acl_id,
+           const boost::uuids::uuid &mc_acl_id, const std::vector<VnIpam> &ipam,
+           const VnIpamDataMap &vn_ipam_data, int vxlan_id, int vnid,
+           bool admin_state, bool enable_rpf, bool flood_unknown_unicast,
+           Agent::ForwardingMode forwarding_mode,
            const boost::uuids::uuid &qos_config_uuid, bool mirror_destination,
            bool pbb_etree_enable, bool pbb_evpn_enable,
            bool layer2_control_word, UuidList slo_list,
            bool underlay_forwarding,
            bool vxlan_routing_vn,
            const boost::uuids::uuid &logical_router_uuid,
-           bool cfg_igmp_enable) :
+           bool cfg_igmp_enable, uint32_t vn_max_flows) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -112,15 +111,16 @@ struct VnData : public AgentOperDBData {
         underlay_forwarding_(underlay_forwarding),
         vxlan_routing_vn_(vxlan_routing_vn),
         logical_router_uuid_(logical_router_uuid),
-        cfg_igmp_enable_(cfg_igmp_enable) {
+        cfg_igmp_enable_(cfg_igmp_enable),
+        vn_max_flows_(vn_max_flows)  {
     };
     virtual ~VnData() { }
 
     string name_;
     string vrf_name_;
-    uuid acl_id_;
-    uuid mirror_acl_id_;
-    uuid mirror_cfg_acl_id_;
+    boost::uuids::uuid acl_id_;
+    boost::uuids::uuid mirror_acl_id_;
+    boost::uuids::uuid mirror_cfg_acl_id_;
     std::vector<VnIpam> ipam_;
     VnIpamDataMap vn_ipam_data_;
     int vxlan_id_;
@@ -139,11 +139,12 @@ struct VnData : public AgentOperDBData {
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
     bool cfg_igmp_enable_;
+    uint32_t vn_max_flows_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
 public:
-    VnEntry(Agent *agent, uuid id);
+    VnEntry(Agent *agent, boost::uuids::uuid id);
     virtual ~VnEntry();
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -151,7 +152,7 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
 
-    const uuid &GetUuid() const {return uuid_;};
+    const boost::uuids::uuid &GetUuid() const {return uuid_;};
     const string &GetName() const {return name_;};
     bool IsAclSet() const {
         return ((acl_.get() != NULL) || (mirror_acl_.get() != NULL) ||
@@ -237,6 +238,7 @@ public:
     const boost::uuids::uuid &logical_router_uuid() const {
         return logical_router_uuid_;
     }
+    uint32_t vn_max_flows() const {return vn_max_flows_;}
 
 private:
     friend class VnTable;
@@ -260,7 +262,7 @@ private:
     void DelSubnetRoute(VnIpam *ipam);
 
     Agent *agent_;
-    uuid uuid_;
+    boost::uuids::uuid uuid_;
     string name_;
     AclDBEntryRef acl_;
     AclDBEntryRef mirror_acl_;
@@ -292,6 +294,7 @@ private:
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
     bool cfg_igmp_enable_;
+    uint32_t vn_max_flows_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -327,15 +330,16 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};
 
-    void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
-               const string &vrf_name, const std::vector<VnIpam> &ipam,
+    void AddVn(const boost::uuids::uuid &vn_uuid, const string &name,
+               const boost::uuids::uuid &acl_id, const string &vrf_name,
+               const std::vector<VnIpam> &ipam,
                const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
                int vxlan_id, bool admin_state, bool enable_rpf,
                bool flood_unknown_unicast, bool pbb_etree_enable,
                bool pbb_evpn_enable, bool layer2_control_word);
-    void DelVn(const uuid &vn_uuid);
+    void DelVn(const boost::uuids::uuid &vn_uuid);
     void ResyncReq(const boost::uuids::uuid &vn);
-    VnEntry *Find(const uuid &vn_uuid);
+    VnEntry *Find(const boost::uuids::uuid &vn_uuid);
     void GlobalVrouterConfigChanged();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VnEntryWalkDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *partition);

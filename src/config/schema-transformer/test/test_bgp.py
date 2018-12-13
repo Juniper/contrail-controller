@@ -99,7 +99,8 @@ class VerifyBgp(VerifyRouteTarget):
         self.assertEqual(len(ref_names), length)
         self.assertThat(ref_names, Contains(router2.get_fq_name()))
 
-    def create_bgp_router(self, name, vendor, asn=None, cluster_id=None):
+    def create_bgp_router(self, name, vendor, asn=None, cluster_id=None,
+                          router_type=None):
         ip_fabric_ri = self._vnc_lib.routing_instance_read(
             fq_name=['default-domain', 'default-project', 'ip-fabric', '__default__'])
         router = BgpRouter(name, parent_obj=ip_fabric_ri)
@@ -107,7 +108,9 @@ class VerifyBgp(VerifyRouteTarget):
         params.vendor = 'contrail'
         params.autonomous_system = asn
         if cluster_id:
-	    params.cluster_id = cluster_id
+            params.cluster_id = cluster_id
+        if router_type:
+            params.router_type = router_type
         router.set_bgp_router_parameters(params)
         self._vnc_lib.bgp_router_create(router)
         return router
@@ -416,7 +419,8 @@ class TestBgp(STTestCase, VerifyBgp):
 
         # create route reflector
         r3_name = self.id() + 'router3'
-        router3 = self.create_bgp_router(r3_name, 'contrail', None, cluster_id=1000)
+        router3 = self.create_bgp_router(r3_name, 'contrail', None,
+                                         cluster_id=1000)
 
         # create router1
         r1_name = self.id() + 'router1'
@@ -430,6 +434,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # connected to router3
         self.check_bgp_peering(router1, router3, 1)
         self.check_bgp_peering(router2, router3, 1)
+        self.check_bgp_peering(router3, router1, 2)
         self.check_bgp_peering(router3, router2, 2)
 
         self._vnc_lib.bgp_router_delete(id=router1.uuid)
@@ -477,6 +482,78 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.bgp_router_delete(id=router2.uuid)
         self._vnc_lib.bgp_router_delete(id=router3.uuid)
         self._vnc_lib.bgp_router_delete(id=router4.uuid)
+        gevent.sleep(1)
+
+    def test_ibgp_full_mesh_to_route_reflector(self):
+        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
+
+        # create router1
+        r1_name = self.id() + 'router1'
+        router1 = self.create_bgp_router(r1_name, 'juniper')
+        # create router2
+        r2_name = self.id() + 'router2'
+        router2 = self.create_bgp_router(r2_name, 'juniper')
+        # create router3
+        r3_name = self.id() + 'router3'
+        router3 = self.create_bgp_router(r3_name, 'juniper')
+        gevent.sleep(1)
+
+        # verify full mesh created
+        self.check_bgp_peering(router1, router2, 2)
+        self.check_bgp_peering(router1, router3, 2)
+        self.check_bgp_peering(router2, router1, 2)
+        self.check_bgp_peering(router2, router3, 2)
+        self.check_bgp_peering(router3, router1, 2)
+        self.check_bgp_peering(router3, router2, 2)
+
+        params = router1.get_bgp_router_parameters()
+        params.cluster_id = 100
+        router1.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_update(router1)
+        gevent.sleep(1)
+
+        # verify full mesh reduced to route reflector
+        self.check_bgp_peering(router1, router2, 2)
+        self.check_bgp_peering(router1, router3, 2)
+        self.check_bgp_peering(router2, router1, 1)
+        self.check_bgp_peering(router3, router1, 1)
+        self.check_bgp_no_peering(router2, router3)
+        self.check_bgp_no_peering(router3, router2)
+
+        # make routers as contrail controllers and route reflector is external
+        # router, contrail controllers should still create full mesh
+        params2 = router2.get_bgp_router_parameters()
+        params2.router_type = 'control-node'
+        router2.set_bgp_router_parameters(params2)
+        self._vnc_lib.bgp_router_update(router2)
+        params3 = router2.get_bgp_router_parameters()
+        params3.router_type = 'control-node'
+        router3.set_bgp_router_parameters(params3)
+        self._vnc_lib.bgp_router_update(router3)
+        gevent.sleep(1)
+
+        # verify full mesh created
+        self.check_bgp_peering(router1, router2, 2)
+        self.check_bgp_peering(router1, router3, 2)
+        self.check_bgp_peering(router2, router1, 2)
+
+        # reset the cluster id so that there is no rr any more
+        params.cluster_id = 0
+        router1.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_update(router1)
+        gevent.sleep(1)
+
+        # verify full mesh created
+        self.check_bgp_peering(router1, router2, 2)
+        self.check_bgp_peering(router1, router3, 2)
+        self.check_bgp_peering(router2, router1, 2)
+        self.check_bgp_peering(router2, router3, 2)
+        self.check_bgp_peering(router3, router1, 2)
+        self.check_bgp_peering(router3, router2, 2)
+
+        self._vnc_lib.bgp_router_delete(id=router1.uuid)
+        self._vnc_lib.bgp_router_delete(id=router2.uuid)
+        self._vnc_lib.bgp_router_delete(id=router3.uuid)
         gevent.sleep(1)
 
     def test_asn(self):
@@ -686,6 +763,8 @@ class TestBgp(STTestCase, VerifyBgp):
         config_db.BgpRouterST._dict = {}
         config_db.BgpAsAServiceST._dict = {}
         to_bgp.transformer.reinit()
+        gevent.sleep(1)
+
         port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
         refs = port_obj_updated.get_bgp_router_refs()
         self.assertNotEqual(refs, None)
@@ -696,6 +775,8 @@ class TestBgp(STTestCase, VerifyBgp):
         port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
         bgpaas.del_virtual_machine_interface(port_obj_updated)
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        gevent.sleep(1)
+
         bgpaas = self._vnc_lib.bgp_as_a_service_read(fq_name=bgpaas.fq_name)
         port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
 

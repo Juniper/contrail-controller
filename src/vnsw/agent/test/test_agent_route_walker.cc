@@ -164,7 +164,8 @@ public:
         if (num_vrfs > 2) {
             VrfAddReq(vrf_name_3_.c_str());
         }
-        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE,
+                boost::uuids::nil_uuid(),
                 Agent::GetInstance()->vhost_interface()->name());
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
                 Agent::GetInstance()->local_peer(),

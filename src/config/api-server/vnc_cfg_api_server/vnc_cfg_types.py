@@ -15,6 +15,7 @@ import uuid
 
 from cfgm_common import jsonutils as json
 from cfgm_common import get_lr_internal_vn_name
+from cfgm_common import get_dci_internal_vn_name
 from cfgm_common import _obj_serializer_all
 import cfgm_common
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
@@ -833,9 +834,56 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         return True, ''
 
     @classmethod
+    def _create_dci_lo0_network_ipam(cls, db_conn, subnetList):
+        vn_fq_name = cfgm_common.DCI_VN_FQ_NAME
+        vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        ok, res = cls.dbe_read(db_conn, 'virtual_network', vn_id)
+        if not ok:
+            return ok, res
+        ipam_refs = res['virtual-network'].get('network_ipam_refs')
+        ipam_obj = None
+        if ipam_refs:
+            ok, ipam_obj = cls.dbe_read(db_conn, 'network_ipam', ipam_refs[0].get("uuid"))
+            if not ok:
+                return ok, ipam_obj
+        is_create = False
+        if not ipam_obj:
+            ipam = NetworkIpam('default-dci-lo0-network-ipam')
+            ipam_dict = json.dumps(ipam, default=_obj_serializer_all)
+            ok, ipam_obj = api_server.internal_request_create('network-ipam',
+                                                        json.loads(ipam_dict))
+            if not ok:
+                return ok, ipam_obj
+            is_create = True
+
+        ipamList = []
+        if subnetList and subnetList.get("subnet"):
+            subList = subnetList.get("subnet")
+            for sub in subList or []:
+                ipamSub = IpamSubnetType(SubnetType(sub.get("ip_prefix"), sub.get("ip_prefix_len")))
+                ipamList.append(ipamSub)
+        # update ipam
+        attr = VnSubnetsType(ipamList)
+        attr_dict = attr.__dict__
+        api_server = db_conn.get_api_server()
+        op = 'ADD'
+        api_server.internal_request_ref_update('virtual-network', vn_id, op,
+                                               'network-ipam', ipam_obj['network-ipam']['uuid'],
+                                               ipam_obj['network-ipam']['fq_name'], attr=attr_dict)
+    # end _create_dci_lo0_network_ipam
+
+    @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if 'autonomous_system' in obj_dict:
             cls.server.global_autonomous_system = obj_dict['autonomous_system']
+
+        if obj_dict.get('data_center_interconnect_loopback_namespace'):
+            ok, read_result = cls.dbe_read(db_conn, 'global_system_config', id)
+            if not ok:
+                return ok, read_result
+            if not cls._create_dci_lo0_network_ipam(db_conn,
+                     obj_dict.get('data_center_interconnect_loopback_namespace')):
+                return False, "failed to create/update network ipam for dci loopbacks"
 
         return True, ''
 
@@ -1394,6 +1442,207 @@ class InstanceIpServer(Resource, InstanceIp):
 # end class InstanceIpServer
 
 
+class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.create_dci_vn_and_ref(obj_dict, db_conn)
+        if not ok:
+            return ok, result
+
+        return True, ''
+    # end post_dbe_create
+
+    @classmethod
+    def create_dci_vn_and_ref(cls, obj_dict, db_conn):
+        vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
+        vn_obj = VirtualNetwork(name=vn_int_name)
+        id_perms = IdPermsType(enable=True, user_visible=False)
+        vn_obj.set_id_perms(id_perms)
+
+        int_vn_property = VirtualNetworkType(forwarding_mode='l3')
+        if 'data_center_interconnect_vxlan_network_identifier' in obj_dict:
+            vni_id = obj_dict['data_center_interconnect_vxlan_network_identifier']
+            int_vn_property.set_vxlan_network_identifier(vni_id)
+        vn_obj.set_virtual_network_properties(int_vn_property)
+
+        rt_list = obj_dict.get('data_center_interconnect_configured_route_target_list',
+                               {}).get('route_target')
+        if rt_list:
+            vn_obj.set_route_target_list(RouteTargetList(rt_list))
+
+        vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
+        api_server = db_conn.get_api_server()
+        status, obj = api_server.internal_request_create('virtual-network',
+                                                        json.loads(vn_int_dict))
+        api_server.internal_request_ref_update('data-center-interconnect', obj_dict['uuid'], 'ADD',
+                                               'virtual-network', obj['virtual-network']['uuid'],
+                                               obj['virtual-network']['fq_name'])
+        return True, ''
+    # end create_dci_vn_and_ref
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, proj_dict = cls.get_parent_project(obj_dict, db_conn)
+        vn_int_fqname = proj_dict.get('fq_name')
+        vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
+        vn_int_fqname.append(vn_int_name)
+        vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_int_fqname)
+
+        api_server = db_conn.get_api_server()
+        api_server.internal_request_ref_update('data-center-interconnect', obj_dict['uuid'], 'DELETE',
+                                                   'virtual-network', vn_int_uuid, vn_int_fqname)
+        api_server.internal_request_delete('virtual-network', vn_int_uuid)
+        def undo_dci_vn_delete():
+            return cls.create_dci_vn_and_ref(obj_dict, db_conn)
+        get_context().push_undo(undo_dci_vn_delete)
+
+        return True,'',None
+    # end pre_dbe_delete
+
+    @staticmethod
+    def _check_vxlan_id_in_dci(obj_dict):
+        if ('data_center_interconnect_vxlan_network_identifier' in obj_dict):
+            vxlan_network_identifier = obj_dict['data_center_interconnect_vxlan_network_identifier']
+            if(vxlan_network_identifier != 'None'
+                      and vxlan_network_identifier != None
+                      and vxlan_network_identifier != ''):
+                return vxlan_network_identifier
+            else:
+                obj_dict['data_center_interconnect_vxlan_network_identifier'] = None
+                return None
+        else:
+            return None
+    #end _check_vxlan_id_in_dci
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # make sure referenced LRs belongs to different fabrics
+        if not cls._make_sure_lrs_belongs_to_different_fabrics(db_conn, obj_dict):
+            return False, "Each Logical Router should belong to different Fabric Physical Routers"
+
+        vxlan_id = cls._check_vxlan_id_in_dci(obj_dict)
+        if vxlan_id:
+            #If input vxlan_id is not None, that means we need to reserve it.
+            #First, check if vxlan_id is set for other fq_name
+            existing_fq_name = cls.vnc_zk_client.get_vn_from_id(int(vxlan_id))
+            if(existing_fq_name != None):
+                msg = 'Cannot set VXLAN_ID: %s, it has already been used' % vxlan_id
+                return False, (400, msg)
+
+            #Second, if vxlan_id is not None, set it in Zookeeper and set the
+            #undo function for when any failures happen later.
+            #But first, get the internal_vlan name using which the resource
+            #in zookeeper space will be reserved.
+
+            vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
+            vn_obj = VirtualNetwork(name=vn_int_name)
+            try:
+                vxlan_fq_name = ':'.join(vn_obj.fq_name) + '_vxlan'
+                #Now that we have the internal VN name, allocate it in zookeeper
+                #only if the resource hasn't been reserved already
+                cls.vnc_zk_client.alloc_vxlan_id(
+                      vxlan_fq_name,
+                      int(vxlan_id))
+            except cfgm_common.exceptions.ResourceExistsError as e:
+                msg = 'Cannot allocate VXLAN_ID: %s, it has already been used' % vxlan_id
+                return False, (400, msg)
+
+            def undo_vxlan_id():
+                cls.vnc_zk_client.free_vxlan_id(
+                   int(vxlan_id),
+                   vxlan_fq_name)
+                return True, ""
+            get_context().push_undo(undo_vxlan_id)
+        return True, ''
+    # end pre_dbe_create
+
+    @classmethod
+    def _make_sure_lrs_belongs_to_different_fabrics(cls, db_conn, dci):
+        lr_list = []
+        for lr_ref in dci['logical_router_refs']:
+            lr_uuid = lr_ref.get('uuid')
+            if lr_uuid:
+                lr_list.append(lr_uuid)
+
+        if not lr_list:
+            return True
+        fab_list = []
+        for lr_uuid in lr_list:
+            ok, read_result = cls.dbe_read(db_conn, 'logical_router', lr_uuid)
+            if ok:
+                for pr_ref in read_result['physical_router_refs']:
+                    pr_uuid = pr_ref.get('uuid')
+                    status, pr_result = cls.dbe_read(db_conn, 'physical_router', pr_uuid)
+                    if status and pr_result["fabric_refs"]:
+                        fab_id = pr_result["fabric_refs"][0].get('uuid')
+                        if fab_id in fab_list: 
+                            return False
+                        else:
+                            fab_list.append(fab_id)
+                            break
+        return True
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, read_result = cls.dbe_read(db_conn, 'data_center_interconnect', id)
+        if not ok:
+            return ok, read_result
+
+        # make sure referenced LRs belongs to different fabrics
+        if not cls._make_sure_lrs_belongs_to_different_fabrics(db_conn, read_result):
+            return False, "Each Logical Router should belong to different Fabric Physical Routers" 
+
+        if ('data_center_interconnect_vxlan_network_identifier' in obj_dict):
+            new_vxlan_id = None
+            old_vxlan_id = None
+            new_vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
+            #To get the current vxlan_id, read the LR from the DB
+
+            old_vxlan_id = cls._check_vxlan_id_in_dci(read_result)
+
+            if(new_vxlan_id != old_vxlan_id):
+                int_fq_name = None
+                for vn_ref in read_result['virtual_network_refs']:
+                    int_fq_name = vn_ref.get('to')
+                    break
+                if int_fq_name is None:
+                    msg = "DCI Internal VN FQ name not found"
+                    return False, (400, msg)
+                vxlan_fq_name = ':'.join(int_fq_name) + '_vxlan'
+                if(new_vxlan_id != None ):
+                    #First, check if the new_vxlan_id being updated exist for some other VN.
+                    new_vxlan_fq_name_in_db = cls.vnc_zk_client.get_vn_from_id(int(new_vxlan_id))
+                    if(new_vxlan_fq_name_in_db != None):
+                        if(new_vxlan_fq_name_in_db != vxlan_fq_name):
+                            msg = 'Cannot set VXLAN_ID: %s, it has already been used' % (new_vxlan_id)
+                            return (False, (400, msg))
+
+                    #Second, set the new_vxlan_id in Zookeeper.
+                    cls.vnc_zk_client.alloc_vxlan_id(
+                           vxlan_fq_name,
+                           int(new_vxlan_id))
+                    def undo_alloc():
+                        cls.vnc_zk_client.free_vxlan_id(
+                            int(old_vxlan_id), vxlan_fq_name)
+                    get_context().push_undo(undo_alloc)
+
+                #Third, check if old_vxlan_id is not None, if so, delete it from Zookeeper
+                if(old_vxlan_id != None):
+                    cls.vnc_zk_client.free_vxlan_id(
+                         int(old_vxlan_id),
+                         vxlan_fq_name)
+                    def undo_free():
+                        cls.vnc_zk_client.alloc_vxlan_id(
+                            vxlan_fq_name, int(old_vxlan_id))
+                    get_context().push_undo(undo_free)
+
+        return True, ''
+    # end pre_dbe_update
+
+# end DataCenterInterconnectServer
+
+
 class LogicalRouterServer(Resource, LogicalRouter):
     @classmethod
     def is_port_in_use_by_vm(cls, obj_dict, db_conn):
@@ -1851,6 +2100,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
     portbindings['VNIC_TYPE_BAREMETAL'] = 'baremetal'
+    portbindings['VNIC_TYPE_VIRTIO_FORWARDER'] = 'virtio-forwarder'
     portbindings['PORT_FILTER'] = True
     portbindings['VIF_TYPE_VHOST_USER'] = 'vhostuser'
     portbindings['VHOST_USER_MODE'] = 'vhostuser_mode'
@@ -2209,24 +2459,41 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         mac_addrs_dict = json.loads(mac_addrs_json)
         obj_dict['virtual_machine_interface_mac_addresses'] = mac_addrs_dict
 
+        kvps = []
         if 'virtual_machine_interface_bindings' in obj_dict:
             bindings = obj_dict['virtual_machine_interface_bindings']
             kvps = bindings['key_value_pair']
             kvp_dict = cls._kvp_to_dict(kvps)
 
-            if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_DIRECT']:
-                if not 'provider_properties' in  vn_dict:
-                    msg = 'No provider details in direct port'
-                    return (False, (400, msg))
-                kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
-                vif_type = {'key': 'vif_type',
-                            'value': cls.portbindings['VIF_TYPE_HW_VEB']}
-                kvps.append(vif_type)
-                vlan = vn_dict['provider_properties']['segmentation_id']
-                vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
-                              'vlan': str(vlan)}
-                vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
-                kvps.append(vif_details)
+            if (kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_DIRECT'] or
+               kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER']):
+                # If the segmentation_id in provider_properties is set, then
+                # a hw_veb VIF is requested.
+                if ('provider_properties' in vn_dict and
+                   vn_dict['provider_properties'] is not None and
+                   'segmentation_id' in vn_dict['provider_properties']):
+                    kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_HW_VEB']}
+                    vlan = vn_dict['provider_properties']['segmentation_id']
+                    vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
+                                  'vlan': str(vlan)}
+                    vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                    kvps.append(vif_details)
+                    kvps.append(vif_type)
+                else:
+                    # An offloaded port is requested
+                    vnic_type = {'key': 'vnic_type',
+                                 'value': kvp_dict.get('vnic_type')}
+                    if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER']:
+                        vif_params = {cls.portbindings['VHOST_USER_MODE']:
+                                      cls.portbindings['VHOST_USER_MODE_SERVER'],
+                                      cls.portbindings['VHOST_USER_SOCKET']:
+                                      cls._get_port_vhostuser_socket_name(obj_dict['uuid'])
+                                     }
+                        vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                        kvps.append(vif_details)
+                    kvps.append(vnic_type)
 
             if 'vif_type' not in kvp_dict:
                 vif_type = {'key': 'vif_type',
@@ -2268,6 +2535,20 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not ok:
             return ok, result
 
+        # Manage baremetal provisioning here
+        if kvps:
+            kvp_dict = cls._kvp_to_dict(kvps)
+            vnic_type = kvp_dict.get('vnic_type')
+            lag_name = kvp_dict.get('lag')
+            if vnic_type == 'baremetal' and kvp_dict.get('profile'):
+                # Process only if port profile exists and physical links are specified
+                phy_links = json.loads(kvp_dict.get('profile'))
+                if phy_links and phy_links.get('local_link_information'):
+                    links  = phy_links['local_link_information']
+                    lag_uuid = cls._manage_lag_interface(obj_dict['uuid'],
+                                   cls.server, db_conn, links, lag_name)
+                    obj_dict['port_link_aggregation_group_id'] = lag_uuid
+
         return True, ""
     # end pre_dbe_create
 
@@ -2275,30 +2556,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
         api_server = db_conn.get_api_server()
 
-        bindings = obj_dict.get('virtual_machine_interface_bindings', {})
-        kvps = bindings.get('key_value_pair', [])
-
-        bare_metal_vlan_id = 0
-        if ('virtual_machine_interface_properties' in obj_dict
-                 and 'sub_interface_vlan_tag' in obj_dict['virtual_machine_interface_properties']):
-            vmi_properties = obj_dict['virtual_machine_interface_properties']
-            bare_metal_vlan_id = vmi_properties['sub_interface_vlan_tag']
-
-        # Manage baremetal provisioning here
-        if kvps:
-            kvp_dict = cls._kvp_to_dict(kvps)
-            vnic_type = kvp_dict.get('vnic_type')
-            if vnic_type == 'baremetal' and kvp_dict.get('profile'):
-                # Process only if port profile exists and physical links are specified
-                phy_links = json.loads(kvp_dict.get('profile'))
-                if phy_links and phy_links.get('local_link_information'):
-                    links  = phy_links['local_link_information']
-                    if len(links) > 1:
-                        cls._manage_lag_interface(obj_dict['uuid'], api_server, db_conn,
-                             links, bare_metal_vlan_id)
-                    else:
-                        cls._create_logical_interface(obj_dict['uuid'], api_server, db_conn,
-                             links[0]['switch_info'], links[0]['port_id'], bare_metal_vlan_id)
+        # add a ref from LAG to this VMI
+        lag_uuid = obj_dict.get('port_link_aggregation_group_id')
+        if lag_uuid:
+            api_server.internal_request_ref_update('link-aggregation-group',
+               lag_uuid, 'ADD', 'virtual-machine-interface', obj_dict['uuid'],
+               relax_ref_for_delete=True)
 
         # Create ref to native/vn-default routing instance
         vn_refs = obj_dict.get('virtual_network_refs')
@@ -2402,7 +2665,19 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvps_port = bindings_port.get('key_value_pair') or []
             kvp_dict_port = cls._kvp_to_dict(kvps_port)
             kvp_dict = cls._kvp_to_dict(kvps)
-            if ((kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] or
+            if (kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER'] and
+               kvp_dict.get('host_id') != 'null'):
+                vif_type = {'key': 'vif_type',
+                            'value': cls.portbindings['VIF_TYPE_VROUTER']}
+                vif_params = {cls.portbindings['VHOST_USER_MODE']: \
+                              cls.portbindings['VHOST_USER_MODE_SERVER'],
+                              cls.portbindings['VHOST_USER_SOCKET']: \
+                              cls._get_port_vhostuser_socket_name(id),
+                              cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
+                             }
+                vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                cls._kvps_prop_update(obj_dict, kvps, prop_collection_updates, vif_type, vif_details, True)
+            elif ((kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] or
                     kvp_dict_port.get('vnic_type')  is None) and
                     kvp_dict.get('host_id') != 'null'):
                 (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn, kvp_dict.get('host_id'))
@@ -2455,106 +2730,122 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end pre_dbe_update
 
     @classmethod
-    def _create_lag_interface(cls, api_server, db_conn, prouter_name, phy_interfaces):
-        phy_if_fq_name=['default-global-system-config', prouter_name, phy_interfaces[0]]
-        ae_id = cls.vnc_zk_client.alloc_ae_id(':'.join(phy_if_fq_name))
-        def undo_ae_id():
-            cls.vnc_zk_client.free_ae_id(':'.join(phy_if_fq_name))
-            return True, ""
-        get_context().push_undo(undo_ae_id)
-        lag_interface_name = "ae" + str(ae_id)
-
-        # create lag object
-        lag_obj = LinkAggregationGroup(parent_type='physical-router',
-            fq_name=['default-global-system-config', prouter_name, lag_interface_name],
-            link_aggregation_group_lacp_enabled=True)
-
-        ok, resp = api_server.internal_request_create('link-aggregation-group',
-            lag_obj.serialize_to_json())
-
-        lag_uuid = resp['link-aggregation-group']['uuid']
-
-        # create lag interface
-        lag_interface_obj = PhysicalInterface(parent_type='physical-router',
-            fq_name=['default-global-system-config', prouter_name, lag_interface_name],
-            physical_interface_type='lag')
-
-        ok, resp = api_server.internal_request_create(
-            'physical-interface',
-            lag_interface_obj.serialize_to_json()
-        )
-        phy_interface_uuid = resp['physical-interface']['uuid']
-
-        # get physical interface uuids
-        phy_interface_uuids = [phy_interface_uuid]
-        for phy_interface_name in phy_interfaces:
-            fq_name = ['default-global-system-config', prouter_name, phy_interface_name]
-            phy_interface_uuids.append(
-                db_conn.fq_name_to_uuid('physical_interface', fq_name))
-
-        # add physical interfaces to the lag
-        for uuid in phy_interface_uuids:
-            api_server.internal_request_ref_update('link-aggregation-group',
-                lag_uuid, 'ADD', 'physical-interface', uuid, relax_ref_for_delete=True)
-
-        return lag_interface_name
-    # end _create_lag_interface
-
-    @classmethod
-    def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links, bare_metal_vlan_id):
-        tors = {}
-        esi = None
+    def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links,
+                              lag_name = None):
+        fabric_name = None
+        phy_interface_uuids = []
         for link in phy_links:
-            tor_name = link['switch_info']
-            port_name = link['port_id']
-            if not tors.get(tor_name):
-                tors[tor_name] = { 'phy_interfaces': [port_name] }
+            if fabric_name is not None and fabric_name != link['fabric']:
+                msg = 'Physical interfaces in the same lag should belong to '\
+                      'the same fabric'
+                return (False, (400, msg))
             else:
-                tors[tor_name]['phy_interfaces'].append(port_name)
+                fabric_name = link['fabric']
 
-        for tor_name, tor_info in tors.iteritems():
-            if len(tor_info['phy_interfaces']) > 1:
-                # need to create lag interface and lag group
-                vmi_connected_phy_interface = cls._create_lag_interface(
-                    api_server, db_conn, tor_name, tor_info['phy_interfaces'])
-            else:
-                vmi_connected_phy_interface = tor_info['phy_interfaces'][0]
+            phy_interface_name = link['port_id']
+            prouter_name = link['switch_info']
+            pi_fq_name = ['default-global-system-config', prouter_name,
+                          phy_interface_name]
+            phy_interface_uuids.append(
+                db_conn.fq_name_to_uuid('physical_interface', pi_fq_name))
 
-                # Get Mac address for vmi
-                ok, result = cls.dbe_read(db_conn,'virtual_machine_interface', vmi_id)
-                if ok:
-                    mac = result['virtual_machine_interface_mac_addresses']['mac_address']
-                    esi = "00:00:00:00:" + mac[0]
-            cls._create_logical_interface(vmi_id, api_server, db_conn, tor_name,
-                                          vmi_connected_phy_interface, bare_metal_vlan_id, esi=esi)
+        # check if new physical interfaces belongs to some other lag
+        for uuid in set(phy_interface_uuids):
+            (ok, phy_interface_dict) = db_conn.dbe_read(
+                    obj_type='physical-interface', obj_id=uuid)
 
-    @classmethod
-    def _create_logical_interface(cls, vim_id, api_server, db_conn, tor, link, bare_metal_vlan_id, esi=None):
-        vlan_tag = bare_metal_vlan_id
-        li_fq_name = ['default-global-system-config', tor, link]
-        li_fq_name = li_fq_name + ['%s.%s' %(link, vlan_tag)]
+            if not ok:
+                return (ok, 400, phy_interface_dict)
+            mac = (phy_interface_dict['physical_interface_mac_addresses']
+                                    ['mac_address'])
+            esi = "00:00:00:00:" + mac[0]
 
-        li_obj = LogicalInterface(parent_type='physical-interface',
-            fq_name=li_fq_name,
-            logical_interface_vlan_tag=vlan_tag)
+            lag_refs = phy_interface_dict.get('link_aggregation_group_back_refs')
+            if lag_refs and lag_refs[0]['to'][-1] != lag_name:
+                msg = 'Physical interface %s already belong to the lag %s' %\
+                      (phy_interface_dict.get('name'), lag_refs[0]['to'][-1])
+                return (False, (400, msg))
 
-        ok, resp = api_server.internal_request_create('logical-interface',
-            li_obj.serialize_to_json())
-        li_uuid = resp['logical-interface']['uuid']
-        api_server.internal_request_ref_update('logical-interface',
-                       li_uuid, 'ADD', 'virtual-machine-interface', vim_id,
-                       relax_ref_for_delete=True)
+        if lag_name: # read the lag object
+            lag_fq_name = ['default-global-system-config', fabric_name,
+                           lag_name]
+            try:
+                lag_uuid = db_conn.fq_name_to_uuid('link_aggregation_group',
+                                                   lag_fq_name)
+            except cfgm_common.exceptions.NoIdError:
+                msg = 'Lag object %s is not found' % lag_name
+                return (False, (404, msg))
 
-        # If this is a multi-homed interface, set the Ethernet Segment Identifier
-        if esi:
-            # Set the ESI for this multi-homed interface
-            fq_name = ['default-global-system-config', tor, link]
-            pi_uuid = db_conn.fq_name_to_uuid('physical_interface', fq_name)
-            ok, pi_obj = cls.dbe_read(db_conn,'physical_interface', pi_uuid)
-            if ok:
-                pi_obj['ethernet_segment_identifier'] = esi
-                db_conn.dbe_update('physical_interface', pi_uuid, pi_obj)
+            (ok, lag_dict) = db_conn.dbe_read(
+                    obj_type='link-aggregation-group', obj_id=lag_uuid)
 
+            if not ok:
+                return (ok, 400, lag_dict)
+
+            kvps = lag_dict['annotations']['key_value_pair']
+            kvp_dict = cls._kvp_to_dict(kvps)
+            lag_update_dict = {}
+            if kvp_dict.get('esi') != esi:
+                lag_dict['annotations']['key_value_pair'][1] = KeyValuePair(
+                                                                  'esi', esi)
+                lag_update_dict['annotations'] = lag_dict['annotations']
+                lag_update_dict = json.dumps(lag_update_dict,
+                                  default=_obj_serializer_all)
+                ok, resp = api_server.internal_request_update('link-aggregation-group',
+                                                              lag_dict['uuid'],
+                                                              json.loads(lag_update_dict))
+
+        else: # create lag object
+            fabric_fq_name=['default-global-system-config', fabric_name, phy_interface_uuids[0]]
+            ae_id = cls.vnc_zk_client.alloc_ae_id(':'.join(fabric_fq_name))
+            def undo_ae_id():
+                cls.vnc_zk_client.free_ae_id(':'.join(fabric_fq_name))
+                return True, ""
+            get_context().push_undo(undo_ae_id)
+
+            lag_name = "lag" + str(ae_id)
+            lag_obj = LinkAggregationGroup(parent_type='fabric',
+                fq_name=['default-global-system-config', fabric_name, lag_name],
+                link_aggregation_group_lacp_enabled=True)
+
+            lag_obj.set_annotations(KeyValuePairs(
+                                   [KeyValuePair('ae_if_name', str(ae_id)),
+                                    KeyValuePair('esi', esi)]))
+            lag_int_dict = json.dumps(lag_obj, default=_obj_serializer_all)
+
+            ok, resp = api_server.internal_request_create('link-aggregation-group',
+                                                          json.loads(lag_int_dict))
+
+            if not ok:
+                return (ok, 400, resp)
+
+            lag_dict = resp['link-aggregation-group']
+            lag_uuid = resp['link-aggregation-group']['uuid']
+
+            def undo_lag_create():
+                cls.server.internal_request_delete('link-aggregation-group',
+                                                   lag_uuid)
+                return True, ''
+            get_context().push_undo(undo_lag_create)
+
+        old_phy_interface_uuids = []
+        old_phy_interface_refs = lag_dict.get('physical_interface_refs')
+        for ref in old_phy_interface_refs or []:
+            old_phy_interface_uuids.append(ref['uuid'])
+
+        # add new physical interfaces to the lag
+        for uuid in set(phy_interface_uuids) - set(old_phy_interface_uuids):
+            api_server.internal_request_ref_update('link-aggregation-group',
+                lag_uuid, 'ADD', 'physical-interface', uuid,
+                relax_ref_for_delete=True)
+
+        # delete old physical interfaces to the lag
+        for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
+            api_server.internal_request_ref_update('link-aggregation-group',
+                lag_uuid, 'DELETE', 'physical-interface', uuid)
+
+        return lag_uuid
+    # end _manage_lag_interface
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
@@ -2563,12 +2854,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         bindings = obj_dict.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
-
-        bare_metal_vlan_id = 0
-        if ('virtual_machine_interface_properties' in obj_dict
-                 and 'sub_interface_vlan_tag' in obj_dict['virtual_machine_interface_properties']):
-            vmi_properties = obj_dict['virtual_machine_interface_properties']
-            bare_metal_vlan_id = vmi_properties['sub_interface_vlan_tag']
 
         for oper_param in prop_collection_updates or []:
             if (oper_param['field'] == 'virtual_machine_interface_bindings' and
@@ -2579,15 +2864,20 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             vnic_type = kvp_dict.get('vnic_type')
+            lag_name = kvp_dict.get('lag')
             if vnic_type == 'baremetal':
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links  = phy_links['local_link_information']
-                    if len(links) > 1:
-                        cls._manage_lag_interface(id, api_server, db_conn, links, bare_metal_vlan_id)
-                    else:
-                        cls._create_logical_interface(id, api_server, db_conn,
-                             links[0]['switch_info'], links[0]['port_id'], bare_metal_vlan_id, esi=None)
+                    lag_uuid = cls._manage_lag_interface(id, api_server,
+                                                db_conn, links, lag_name)
+
+                    # ADD a ref from this VMI only if it's getting created first time
+                    if not lag_name  and lag_uuid:
+                        api_server.internal_request_ref_update(
+                           'link-aggregation-group', lag_uuid, 'ADD',
+                           'virtual-machine-interface', id,
+                            relax_ref_for_delete=True)
 
         return True, ''
     # end post_dbe_update
@@ -2618,34 +2908,20 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         api_server = db_conn.get_api_server()
 
-        # For baremetal, delete the logical interface and related objects
-        for lri_back_ref in obj_dict.get('logical_interface_back_refs') or []:
-            fqname = lri_back_ref['to'][:-1]
-            interface_name = fqname[-1]
+        # For baremetal, delete the LAG object
+        for lag_back_ref in obj_dict.get('link_aggregation_group_back_refs') or []:
+            fqname = lag_back_ref['to']
 
-            # Check if LAG interfaces are involved. If yes, clean then up
-            if interface_name.startswith('ae'):
-                # In addition to LAG interface, delete the physical interface created for LAG
-                phy_interface_uuid = db_conn.fq_name_to_uuid('physical_interface', fqname)
-                lag_interface_uuid = db_conn.fq_name_to_uuid('link_aggregation_group', fqname)
-                # Note: ths order of delettion is important
-                api_server.internal_request_delete('logical_interface', lri_back_ref['uuid'])
-                api_server.internal_request_delete('link_aggregation_group', lag_interface_uuid)
-                api_server.internal_request_delete('physical_interface', phy_interface_uuid)
+            # Check if LAG is involved and and it's not referring to any other VMI.
+            # If yes, then clean up
+            lag_uuid = db_conn.fq_name_to_uuid('link_aggregation_group', fqname)
+            (ok, lag_dict) = db_conn.dbe_read(
+                    obj_type='link-aggregation-group', obj_id=lag_uuid)
+            if not lag_dict.get('virtual_machine_interface_refs'):
+                api_server.internal_request_delete('link_aggregation_group', lag_uuid)
                 id = int(fqname[2][2:])
                 ae_fqname = cls.vnc_zk_client.get_ae_from_id(id)
                 cls.vnc_zk_client.free_ae_id(id, ae_fqname)
-            else:
-                # Before deleting the logical interface, check if the parent physical interface
-                # has ESI set. If yes, clear it.
-                ok, li_obj = cls.dbe_read(db_conn,'logical_interface', lri_back_ref['uuid'])
-                if ok:
-                    ok, pi_obj = cls.dbe_read(db_conn,'physical_interface', li_obj['parent_uuid'])
-                    if ok:
-                        if pi_obj.get('ethernet_segment_identifier'):
-                            pi_obj['ethernet_segment_identifier'] = ''
-                            db_conn.dbe_update('physical_interface', li_obj['parent_uuid'], pi_obj)
-                api_server.internal_request_delete('logical_interface', lri_back_ref['uuid'])
 
 
         return True, ""
@@ -3033,7 +3309,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                                                               ag_fq_name)
                     except cfgm_common.exceptions.NoIdError:
                         msg = ('No Address Group object found for %s' %
-                               ref_fq_name)
+                               ag_fq_name_str)
                         return False, (404, msg)
                     ag_refs.append({'to': ag_fq_name, 'uuid': ag_uuid})
 
@@ -4990,6 +5266,10 @@ def _check_policy_rules(entries, network_policy_rule=False):
 # end _check_policy_rules
 
 class SecurityGroupServer(Resource, SecurityGroup):
+    get_nested_key_as_list = classmethod(lambda cls, x, y, z: (x.get(y).get(z)
+                                 if (type(x) is dict and
+                                    x.get(y) and x.get(y).get(z)) else []))
+
     @classmethod
     def _set_configured_security_group_id(cls, obj_dict):
         fq_name_str = ':'.join(obj_dict['fq_name'])
@@ -5079,9 +5359,8 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 return False, result
             proj_dict = result
 
-            rule_count = len(
-                    obj_dict.get('security_group_entries',
-                        {}).get('policy_rule', []))
+            rule_count = len(cls.get_nested_key_as_list(obj_dict,
+                             'security_group_entries', 'policy_rule'))
             ok, result = cls.check_security_group_rule_quota(
                     proj_dict, db_conn, rule_count)
             if not ok:
@@ -5129,12 +5408,10 @@ class SecurityGroupServer(Resource, SecurityGroup):
             if not ok:
                 return False, result
             proj_dict = result
-            new_rule_count = len(
-                    obj_dict.get('security_group_entries',
-                        {}).get('policy_rule', []))
-            existing_rule_count = len(
-                    sg_dict.get('security_group_entries',
-                        {}).get('policy_rule', []))
+            new_rule_count = len(cls.get_nested_key_as_list(obj_dict,
+                                 'security_group_entries', 'policy_rule'))
+            existing_rule_count = len(cls.get_nested_key_as_list(sg_dict,
+                                 'security_group_entries', 'policy_rule'))
             rule_count = (new_rule_count - existing_rule_count)
             ok, result = cls.check_security_group_rule_quota(
                     proj_dict, db_conn, rule_count)

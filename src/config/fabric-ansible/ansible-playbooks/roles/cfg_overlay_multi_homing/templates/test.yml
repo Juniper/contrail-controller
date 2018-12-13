@@ -143,7 +143,7 @@
     - debug: var=device_abstract_config verbosity=1
 
     - template:
-        src: juniper_junos-qfx_multi_homing.j2
+        src: juniper_junos-qfx_overlay_multi_homing.j2
         dest: /tmp/output2.json
 
     - command: cat /tmp/output2.json

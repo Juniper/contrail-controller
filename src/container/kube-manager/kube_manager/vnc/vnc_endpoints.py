@@ -15,7 +15,7 @@ from kube_manager.vnc.config_db import (
 from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.vnc.vnc_kubernetes_config \
     import VncKubernetesConfig as vnc_kube_config
-from vnc_api.vnc_api import NoIdError
+from vnc_api.vnc_api import (NoIdError, VirtualMachine)
 from kube_manager.vnc.label_cache import XLabelCache
 
 
@@ -27,6 +27,7 @@ class VncEndpoints(VncCommon):
         self.logger = vnc_kube_config.logger()
         self._kube = vnc_kube_config.kube()
         self._labels = XLabelCache('Endpoint')
+        self._args = vnc_kube_config.args()
 
         self.service_lb_pool_mgr = importutils.import_object(
             'kube_manager.vnc.loadbalancer.ServiceLbPoolManager')
@@ -104,13 +105,30 @@ class VncEndpoints(VncCommon):
 
         return LoadbalancerPoolKM.get(lb_listener.loadbalancer_pool)
 
-    def _add_pod_to_service(self, service_id, pod_id, port=None):
+    def _get_vmi_from_ip(self, host_ip):
+        vmi_list = self._vnc_lib.virtual_machine_interfaces_list(detail=True)
+        for vmi in vmi_list:
+            if vmi.parent_type == "virtual-router":
+                vr_obj = self._vnc_lib.virtual_router_read(id=vmi.parent_uuid)
+                if host_ip == vr_obj.get_virtual_router_ip_address():
+                    return vmi.uuid
+
+    def _add_pod_to_service(self, service_id, pod_id, port=None, address=None):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return
         vm = VirtualMachineKM.get(pod_id)
+        host_vmi = None
         if not vm:
-            return
+            if not self._args.host_network_service:
+                return
+            host_vmi = self._get_vmi_from_ip(address)
+            if host_vmi == None:
+                return
+            else:
+                vm = VirtualMachine(name="host", display_name="host")
+                vm.virtual_machine_interfaces = [host_vmi]
+
 
         for lb_listener_id in lb.loadbalancer_listeners:
             pool = self._get_loadbalancer_pool(lb_listener_id, port)
@@ -118,7 +136,10 @@ class VncEndpoints(VncCommon):
                 continue
 
             for vmi_id in vm.virtual_machine_interfaces:
-                vmi = VirtualMachineInterfaceKM.get(vmi_id)
+                if host_vmi == None:
+                    vmi = VirtualMachineInterfaceKM.get(vmi_id)
+                else:
+                    vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
                 if not vmi:
                     continue
 
@@ -231,22 +252,25 @@ class VncEndpoints(VncCommon):
         Pods are same for all ports.
         """
         pods_in_event = set()
-
+        pods_to_ip = {}
         subsets = event['object'].get('subsets', [])
         for subset in subsets if subsets else []:
             endpoints = subset.get('addresses', [])
             for endpoint in endpoints:
                 pod = endpoint.get('targetRef')
                 if pod and pod.get('uid'):
-                    pods_in_event.add(pod.get('uid'))
+                    pod_uid = pod.get('uid')
+                    pods_in_event.add(pod_uid)
+                    pods_to_ip[pod_uid] = endpoint.get('ip')
                 else:  # hosts
                     host_ip = endpoint.get('ip')
                     if self._is_nested():
                         host_vm = self._get_host_vm(host_ip)
                         if host_vm:
                             pods_in_event.add(host_vm)
+                            pods_to_ip[host_vm] = endpoint.get('ip')
 
-        return pods_in_event
+        return pods_in_event, pods_to_ip
 
     def vnc_endpoint_add(self, name, namespace, event):
         # Does service exists in contrail-api server?
@@ -258,7 +282,7 @@ class VncEndpoints(VncCommon):
                 "not exist".format(name))
             return
 
-        event_pod_ids = self._get_pods_from_event(event)
+        event_pod_ids, pods_to_ip = self._get_pods_from_event(event)
         ports = self._get_ports_from_event(event)
 
         for port in ports:
@@ -268,7 +292,7 @@ class VncEndpoints(VncCommon):
 
             # If Pod present only in event, add Pod to Service
             for pod_id in event_pod_ids.difference(attached_pod_ids):
-                self._add_pod_to_service(service_id, pod_id, port)
+                self._add_pod_to_service(service_id, pod_id, port, pods_to_ip[pod_id])
 
             # If Pod not present in event, delete Pod from Service
             for pod_id in attached_pod_ids.difference(event_pod_ids):
@@ -287,7 +311,7 @@ class VncEndpoints(VncCommon):
             return
 
         attached_pod_ids = self._get_pods_attached_to_service(service_id)
-        event_pod_ids = self._get_pods_from_event(event)
+        event_pod_ids, pods_to_ip = self._get_pods_from_event(event)
 
         # Compare 2 lists. Should be same.. any diff is a sign of warning
         if attached_pod_ids.symmetric_difference(event_pod_ids):

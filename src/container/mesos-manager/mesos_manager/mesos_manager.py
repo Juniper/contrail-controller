@@ -1,21 +1,20 @@
 #
-# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
 """
 Mesos network manager
 """
-# Standard library import
 import gevent
 import sys
+import greenlet
 from gevent.queue import Queue
-
-# Application library import
 import common.args as mesos_args
 import common.logger as logger
 from cfgm_common import vnc_cgitb
 import vnc.vnc_mesos as vnc_mesos
-import mesos_server as mserver
+import mesos.pod_task_monitor as monitor
+import mesos.cni.cni_request_server as cni_server
 
 
 class MesosNetworkManager(object):
@@ -24,52 +23,45 @@ class MesosNetworkManager(object):
     _mesos_network_manager = None
 
     def __init__(self, args=None, mesos_api_connected=False, queue=None):
+        self.greenlets = []
         self.args = args
         if queue:
             self.queue = queue
         else:
             self.queue = Queue()
+
+        self.sync_queue = Queue();
+        #TODO: Sync DB with current state using mesos agent api
+
         self.logger = logger.MesosManagerLogger(args)
-        self.vnc = vnc_mesos.VncMesos(args=self.args,
-                                      logger=self.logger,
-                                      queue=self.queue)
-        self.mserver = mserver.MesosServer(args=self.args,
+        self.cni_server = cni_server.MesosCniServer(args=self.args,
                                            logger=self.logger,
                                            queue=self.queue)
+        self.vnc = vnc_mesos.VncMesos(self.args, self.logger, self.queue,
+                                      self.sync_queue)
+        self.pod_task_monitor = monitor.PodTaskMonitor(self.args, self.logger,
+                                                       self.sync_queue)
     # end __init__
 
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
-        gevent.joinall([
-            gevent.spawn(self.vnc.vnc_process),
-            gevent.spawn(self.mserver.start_server),
-        ])
+        self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
+        self.greenlets.append(gevent.spawn(self.cni_server.start_server))
+        self.greenlets.append(gevent.spawn(self.pod_task_monitor.sync_process))
+        gevent.joinall(self.greenlets)
     # end start_tasks
 
-    def reset(self):
-        for cls in DBBaseMM.get_obj_type_map().values():
-            cls.reset()
+    def run_mesos_manager(self):
+        self.logger.info("Starting mesos manager.")
 
-    @classmethod
-    def get_instance(cls):
-       return MesosNetworkManager._mesos_network_manager
 
-    @classmethod
-    def destroy_instance(cls):
-       inst = cls.get_instance()
-       if inst is None:
-           return
-       inst.vnc = None
-       inst.q = None
-       MesosNetworkManager._mesos_network_manager = None
 # end class MesosNetworkManager
 
 
 def main(args_str=None, mesos_api_skip=False, event_queue=None):
     vnc_cgitb.enable(format='text')
     args = mesos_args.parse_args(args_str)
-    mesos_nw_mgr = MesosNetworkManager(args,
-                                       mesos_api_connected=mesos_api_skip,
+    mesos_nw_mgr = MesosNetworkManager(args, mesos_api_connected=mesos_api_skip,
                                        queue=event_queue)
     MesosNetworkManager._mesos_network_manager = mesos_nw_mgr
     mesos_nw_mgr.start_tasks()

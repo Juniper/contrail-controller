@@ -402,28 +402,41 @@ class VncApiServer(object):
 
         return device_list
 
+    def _load_job_log(self, marker, str):
+        json_str = str.split(marker)[1]
+        try:
+            return json.loads(json_str)
+        except ValueError:
+            return ast.literal_eval(json_str)
+
     def _extracted_file_output(self, execution_id):
-        status = "UNKNOWN"
-        prouter_info = []
+        status = "FAILURE"
+        prouter_info = {}
+        device_op_results = {}
+        failed_devices_list = []
         try:
             with open("/tmp/"+execution_id, "r") as f_read:
-                for each_line in f_read:
-                    if "JOB_MANAGER" in each_line:
-                        each_line = each_line.strip('\n')
-                        start = each_line.index("JOB_MANAGER") + len("JOB_MANAGER")
-                        end = each_line.rindex("JOB_MANAGER")
-                        json_str = each_line[start:end]
-                        extracted_string = ast.literal_eval(json_str)
-                        if extracted_string.has_key('job_status'):
-                            status = extracted_string.get('job_status')
-                        if extracted_string.has_key('prouter_info'):
-                            prouter_info.append(extracted_string.get(
-                                'prouter_info'))
+                for line in f_read:
+                    if 'PROUTER_LOG##' in line:
+                        job_log = self._load_job_log('PROUTER_LOG##', line)
+                        fqname = ":".join(job_log.get('prouter_fqname'))
+                        prouter_info[fqname] = job_log.get('onboarding_state')
+                    if line.startswith('job_summary'):
+                        job_log = self._load_job_log('JOB_LOG##', line)
+                        status = job_log.get('job_status')
+                        failed_devices_list = job_log.get('failed_devices_list')
+                    if 'GENERIC_DEVICE##' in line:
+                        job_log = self._load_job_log(
+                            'GENERIC_DEVICE##', line)
+                        device_name = job_log.get('device_name')
+                        device_op_results[device_name] = job_log.get('command_output')
         except Exception as e:
-            msg = "File corresponding to execution id %s not found" % execution_id
+            msg = "File corresponding to execution id %s not found: %s\n%s" % (
+                execution_id, str(e), cfgm_common.utils.detailed_traceback()
+            )
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
 
-        return status, prouter_info
+        return status, prouter_info, device_op_results, failed_devices_list
 
 
     def job_mgr_signal_handler(self, signalnum, frame):
@@ -440,7 +453,9 @@ class VncApiServer(object):
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
             exec_id = signal_var.get('exec_id')
 
-            status, prouter_info = self._extracted_file_output(exec_id)
+            status, prouter_info, device_op_results,\
+            failed_devices_list = \
+                self._extracted_file_output(exec_id)
             self.job_status[exec_id] = status
 
             if signal_var.get('fabric_name') is not \
@@ -454,26 +469,29 @@ class VncApiServer(object):
                 job_execution_uve.send(sandesh=self._sandesh)
             else:
                 for prouter_uve_name in signal_var.get('device_fqnames'):
+                    prouter_status = status
+                    device_name = prouter_uve_name.split(":")[1]
+                    if device_name in failed_devices_list:
+                        prouter_status = "FAILURE"
                     prouter_job_data = PhysicalRouterJobExecution(
                         name=prouter_uve_name,
-                        job_status=status,
-                        percentage_completed=100
+                        job_status=prouter_status,
+                        percentage_completed=100,
+                        device_op_results=json.dumps(
+                            device_op_results.get(device_name, {}))
                     )
                     prouter_job_uve = PhysicalRouterJobUve(
                         data=prouter_job_data, sandesh=self._sandesh)
                     prouter_job_uve.send(sandesh=self._sandesh)
 
-            for each_prouter in prouter_info:
-                prouter_uve_name = each_prouter.get('prouter_name') + ":" + \
-                    signal_var.get('fabric_name')
-
+            for k, v in prouter_info.iteritems():
+                prouter_uve_name = "%s:%s" % (k, signal_var.get('fabric_name'))
                 prouter_job_data = PhysicalRouterJobExecution(
                     name=prouter_uve_name,
                     execution_id=exec_id,
                     job_start_ts=int(round(signal_var.get('start_time') * 1000)),
-                    prouter_state=each_prouter.get('prouter_state')
+                    prouter_state=v
                 )
-
                 prouter_job_uve = PhysicalRouterJobUve(
                     data=prouter_job_data, sandesh=self._sandesh)
                 prouter_job_uve.send(sandesh=self._sandesh)
@@ -2098,7 +2116,7 @@ class VncApiServer(object):
             instance_id = self._args.worker_id
         else:
             instance_id = INSTANCE_ID_DEFAULT
-        hostname = socket.gethostname()
+        hostname = socket.getfqdn(self._args.listen_ip_addr)
         self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
                                      self._random_collectors,
@@ -2169,7 +2187,7 @@ class VncApiServer(object):
 
         if os.path.exists('/usr/bin/contrail-version'):
             cfgm_cpu_uve = ModuleCpuState()
-            cfgm_cpu_uve.name = socket.gethostname()
+            cfgm_cpu_uve.name = socket.getfqdn(self._args.listen_ip_addr)
             cfgm_cpu_uve.config_node_ip = self.get_server_ip()
 
             command = "contrail-version contrail-config | grep 'contrail-config'"
@@ -3305,8 +3323,8 @@ class VncApiServer(object):
 
         self._db_conn = VncDbClient(
             self, db_server_list, rabbit_servers, rabbit_port, rabbit_user,
-            rabbit_password, rabbit_vhost, rabbit_ha_mode, reset_config,
-            zk_server, self._args.cluster_id, db_credential=cred,
+            rabbit_password, rabbit_vhost, rabbit_ha_mode, self._args.listen_ip_addr,
+            reset_config, zk_server, self._args.cluster_id, db_credential=cred,
             db_engine=db_engine, rabbit_use_ssl=self._args.rabbit_use_ssl,
             kombu_ssl_version=self._args.kombu_ssl_version,
             kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
@@ -3528,6 +3546,15 @@ class VncApiServer(object):
             RoutingInstance('__link_local__', link_local_vn,
                             routing_instance_is_default=True))
 
+        # dc network
+        dci_vn = self.create_singleton_entry(
+            VirtualNetwork(cfgm_common.DCI_VN_FQ_NAME[-1]))
+        self.create_singleton_entry(
+            RoutingInstance(cfgm_common.DCI_VN_FQ_NAME[-1], dci_vn,
+                            routing_instance_is_default=True))
+        self.create_singleton_entry(
+            RoutingInstance('__default__', dci_vn))
+
         # specifying alarm kwargs like contrail_alarm.py
         alarm_kwargs = {"alarm_rules":
                         {"or_list" : [
@@ -3673,11 +3700,11 @@ class VncApiServer(object):
                     instance_obj = cls_ob(**obj)
                     self.create_singleton_entry(instance_obj)
 
-                    # update default-global-system-config for supported_device_families
-                    if object_type =='global-system-config':
-                        fq_name = instance_obj.get_fq_name()
-                        uuid = self._db_conn.fq_name_to_uuid('global_system_config', fq_name)
-                        self._db_conn.dbe_update(object_type, uuid, obj)
+                    # update the objects if it already exists
+                    fq_name = instance_obj.get_fq_name()
+                    uuid = self._db_conn.fq_name_to_uuid(
+                        object_type.replace('-', '_'), fq_name)
+                    self._db_conn.dbe_update(object_type, uuid, obj)
 
             for item in json_data.get("refs"):
                 from_type = item.get("from_type")
@@ -3702,8 +3729,9 @@ class VncApiServer(object):
                     None,
                 )
         except Exception as e:
-            self.config_log('error while loading init data: ' + str(e),
-                            level=SandeshLevel.SYS_NOTICE)
+            err_msg = 'error while loading init data: %s\n' % str(e)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
     # end Load init data
 
     # Load json data from fabric_ansible_playbooks/conf directory
@@ -3727,6 +3755,8 @@ class VncApiServer(object):
                             "input_schema")
                         object["job_template_output_schema"] = schema_json.get(
                             "output_schema")
+                        object["job_template_input_ui_schema"] = schema_json.get(
+                            "input_ui_schema")
 
         return input_json
     # end load json data
@@ -4873,7 +4903,7 @@ class VncApiServer(object):
                 self.security_lock_prefix, scope_type,
                 ':'.join(scope_fq_name)
             ),
-            'api-server-%s %s' % (socket.gethostname(), action),
+            'api-server-%s %s' % (socket.getfqdn(self._args.listen_ip_addr), action),
         )
         try:
             acquired_lock = scope_lock.acquire(timeout=1)
@@ -5042,15 +5072,14 @@ class VncApiServer(object):
                         fr = result
                         for ep_type in ['endpoint_1', 'endpoint_2']:
                             if (ep_type in fr and
-                                    fr[ep_type].get('address_group', '').split(
-                                        ':') == obj_dict['fq_name']):
+                                    fr[ep_type].get('address_group', '') ==\
+                                    ':'.join(obj_dict['fq_name'])):
                                 ept = FirewallRuleEndpointType(
                                     address_group=':'.join(fq_name))
                                 updates.append(
                                     ('update',
                                      (FirewallRule.resource_type, fr['uuid'],
                                       {ep_type: vars(ept)})))
-                                break
                     else:
                         held_refs.append(
                             ((backref_type, backref['uuid'], 'ADD', obj_type),

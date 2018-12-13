@@ -81,25 +81,28 @@ public:
     //Key for patricia node lookup
     class Rtkey {
       public:
-          static std::size_t BitLength(const AgentRoute *key) {
-              const InetUnicastRouteEntry *uckey =
-                  static_cast<const InetUnicastRouteEntry *>(key);
-              return uckey->plen();
+          static std::size_t BitLength(const InetUnicastRouteEntry *key) {
+              return key->plen();
           }
-          static char ByteValue(const AgentRoute *key, std::size_t i) {
-              const InetUnicastRouteEntry *uckey =
-                  static_cast<const InetUnicastRouteEntry *>(key);
-              if (uckey->addr().is_v4()) {
+          static char ByteValue(
+                  const InetUnicastRouteEntry *key, std::size_t i) {
+              if (key->addr().is_v4()) {
                   Ip4Address::bytes_type addr_bytes;
-                  addr_bytes = uckey->addr().to_v4().to_bytes();
-                  return static_cast<char>(addr_bytes[i]);
+                  addr_bytes = key->addr().to_v4().to_bytes();
+                  // volatile prevents specific version of Microsoft C++
+                  // compiler (19.00.24210) from doing undesired optimization
+                  // in 'production' build under Windows.
+                  volatile char res = static_cast<char>(addr_bytes[i]);
+                  return res;
               } else {
                   Ip6Address::bytes_type addr_bytes;
-                  addr_bytes = uckey->addr().to_v6().to_bytes();
-                  return static_cast<char>(addr_bytes[i]);
+                  addr_bytes = key->addr().to_v6().to_bytes();
+                  volatile char res = static_cast<char>(addr_bytes[i]);
+                  return res;
               }
           }
     };
+
     bool DBEntrySandesh(Sandesh *sresp, IpAddress addr, uint8_t plen, bool stale) const;
     bool IsHostRoute() const;
     bool IpamSubnetRouteAvailable() const;
@@ -194,7 +197,7 @@ public:
                             LocalVmRoute *data);
     void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
                             const IpAddress &addr, uint8_t plen,
-                            const uuid &intf_uuid,
+                            const boost::uuids::uuid &intf_uuid,
                             const VnListType &vn_list,
                             uint32_t label,
                             const SecurityGroupList &sg_list,
@@ -209,7 +212,7 @@ public:
                             bool native_encap);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                 const IpAddress &addr, uint8_t plen,
-                const uuid &intf_uuid,
+                const boost::uuids::uuid &intf_uuid,
                 const VnListType &vn_list,
                 uint32_t label,
                 const SecurityGroupList &sg_list,
@@ -233,14 +236,14 @@ public:
                            VlanNhRoute *data);
     void AddVlanNHRouteReq(const Peer *peer, const string &vm_vrf,
                            const IpAddress &addr, uint8_t plen,
-                           const uuid &intf_uuid, uint16_t tag,
+                           const boost::uuids::uuid &intf_uuid, uint16_t tag,
                            uint32_t label, const VnListType &dest_vn_list,
                            const SecurityGroupList &sg_list_,
                            const TagList &tag_list,
                            const PathPreference &path_preference);
     static void AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
                                const IpAddress &addr, uint8_t plen,
-                               const uuid &intf_uuid, uint16_t tag,
+                               const boost::uuids::uuid &intf_uuid, uint16_t tag,
                                uint32_t label, const VnListType &dest_vn_list,
                                const SecurityGroupList &sg_list_,
                                const TagList &tag_list,

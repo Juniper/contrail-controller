@@ -61,7 +61,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL, this),
     local_preference_(0), oper_dhcp_options_(),
-    cfg_igmp_enable_(false), igmp_enabled_(false),
+    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0),
     mac_vm_binding_state_(new MacVmBindingState()),
     nexthop_state_(new NextHopState()),
     vrf_table_label_state_(new VrfTableLabelState()),
@@ -88,6 +88,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
+    flow_count_ = 0;
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -113,7 +114,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent, this),
     local_preference_(0), oper_dhcp_options_(),
-    cfg_igmp_enable_(false), igmp_enabled_(false),
+    cfg_igmp_enable_(false), igmp_enabled_(false), max_flows_(0),
     mac_vm_binding_state_(new MacVmBindingState()),
     nexthop_state_(new NextHopState()),
     vrf_table_label_state_(new VrfTableLabelState()),
@@ -139,6 +140,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
+    flow_count_ = 0;
 }
 
 VmInterface::~VmInterface() {
@@ -750,12 +752,18 @@ VmInterface::FatFlowEntry::MakeFatFlowEntry(const std::string &proto, const int 
                                    fatflow_ignore_addr_map_.find(ignore_addr_str)->second;
 
     if (in_src_prefix_str.length() > 0) {
+
         src_prefix = IpAddress::from_string(in_src_prefix_str);
         src_prefix_mask = in_src_prefix_mask;
         src_aggregate_plen = in_src_aggregate_plen;
         if (src_prefix.is_v4()) {
+            // convert to prefix
+            src_prefix = IpAddress(Address::GetIp4SubnetAddress(src_prefix.to_v4(),
+                                   src_prefix_mask));
             prefix_aggregate = AGGREGATE_SRC_IPV4;
         } else {
+            src_prefix = IpAddress(Address::GetIp6SubnetAddress(src_prefix.to_v6(),
+                                   src_prefix_mask));
             prefix_aggregate = AGGREGATE_SRC_IPV6;
         }
     }
@@ -763,6 +771,14 @@ VmInterface::FatFlowEntry::MakeFatFlowEntry(const std::string &proto, const int 
         dst_prefix = IpAddress::from_string(in_dst_prefix_str);
         dst_prefix_mask = in_dst_prefix_mask;
         dst_aggregate_plen = in_dst_aggregate_plen;
+        if (dst_prefix.is_v4()) {
+            dst_prefix = IpAddress(Address::GetIp4SubnetAddress(dst_prefix.to_v4(),
+                                   dst_prefix_mask));
+        } else {
+            dst_prefix = IpAddress(Address::GetIp6SubnetAddress(dst_prefix.to_v6(),
+                                   dst_prefix_mask));
+        }
+
         if (prefix_aggregate == AGGREGATE_NONE) {
             if (dst_prefix.is_v4()) {
                 prefix_aggregate = AGGREGATE_DST_IPV4;
@@ -819,7 +835,7 @@ VmInterface::FatFlowEntry::MakeFatFlowEntry(const std::string &proto, const int 
     return entry;
 }
 
-void VmInterface::FatFlowEntry::print(void) {
+void VmInterface::FatFlowEntry::print(void) const {
     LOG(ERROR, "Protocol:" << (int) protocol << " Port:" << port << " IgnoreAddr:" << ignore_address
         << " PrefixAggr:" << prefix_aggregate << " SrcPrefix:" << src_prefix.to_string() << "/" << (int) src_prefix_mask
         << " SrcAggrPlen:" << (int) src_aggregate_plen << " DstPrefix:" << dst_prefix.to_string() << "/" << (int) dst_prefix_mask
@@ -827,20 +843,7 @@ void VmInterface::FatFlowEntry::print(void) {
 }
 
 void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
-    std::pair<FatFlowEntrySet::iterator, bool> ret = list_.insert(*rhs);
-    /* Insertion fails when the entry already exists. In this case update
-     * non-key fields
-     */
-    if (ret.second == false) {
-        ret.first->ignore_address = rhs->ignore_address;
-        ret.first->prefix_aggregate = rhs->prefix_aggregate;
-        ret.first->src_prefix = rhs->src_prefix;
-        ret.first->src_prefix_mask = rhs->src_prefix_mask;
-        ret.first->src_aggregate_plen = rhs->src_aggregate_plen;
-        ret.first->dst_prefix = rhs->dst_prefix;
-        ret.first->dst_prefix_mask = rhs->dst_prefix_mask;
-        ret.first->dst_aggregate_plen = rhs->dst_aggregate_plen;
-    }
+    list_.insert(*rhs);
 }
 
 void VmInterface::FatFlowList::Update(const FatFlowEntry *lhs,
@@ -869,6 +872,13 @@ bool VmInterface::FatFlowList::UpdateList(const Agent *agent,
         }
     }
     return true;
+}
+
+void VmInterface::FatFlowList::DumpList(void) const {
+    LOG(ERROR, "Dumping FatFlowList:\n");
+    for (FatFlowEntrySet::iterator it = list_.begin(); it != list_.end(); it++) {
+         it->print();
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -3049,4 +3059,41 @@ void VmInterface::CopyTagIdList(TagList *tag_id_list) const {
         tag_id_list->push_back(it->tag_->tag_id());
     }
     std::sort(tag_id_list->begin(), tag_id_list->end());
+}
+
+void VmInterface::update_flow_count(int val) const {
+    int max_flows = max_flows_;
+    int new_flow_count = flow_count_.fetch_and_add(val);
+
+    if (max_flows == 0) {
+        // max_flows are not configured,
+        // disable drop new flows and return
+        SetInterfacesDropNewFlows(false);
+        return;
+    }
+
+    if (val < 0) {
+        assert(new_flow_count >= val);
+        if ((new_flow_count + val) <
+            ((max_flows * (Agent::kDropNewFlowsRecoveryThreshold))/100)) {
+            SetInterfacesDropNewFlows(false);
+        }
+    } else {
+        if ((new_flow_count + val) >= max_flows) {
+            SetInterfacesDropNewFlows(true);
+        }
+    }
+}
+
+void VmInterface::SetInterfacesDropNewFlows(bool drop_new_flows) const {
+    if (drop_new_flows_vmi_ == drop_new_flows) {
+        return;
+    }
+    drop_new_flows_vmi_ = drop_new_flows;
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC,
+                                     GetUuid(), ""));
+    req.data.reset(new VmInterfaceNewFlowDropData(drop_new_flows));
+    agent()->interface_table()->Enqueue(&req);
 }

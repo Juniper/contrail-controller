@@ -153,8 +153,9 @@ TEST_F(PktTest, FlowAdd_1) {
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             "vnet0", Agent::GetInstance()->fabric_vrf_name(),
                              PhysicalInterface::FABRIC,
-                             PhysicalInterface::ETHERNET, false, nil_uuid(),
-                             Ip4Address(0), Interface::TRANSPORT_ETHERNET);
+                             PhysicalInterface::ETHERNET, false,
+                             boost::uuids::nil_uuid(), Ip4Address(0),
+                             Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
 
@@ -172,6 +173,31 @@ TEST_F(PktTest, FlowAdd_1) {
     sand->Release();
 
     client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true, 1);
+}
+
+TEST_F(PktTest, InvalidICMPv6) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1, 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(1U, PortSubscribeSize(agent_));
+
+    // Generate packet and enqueue
+    VmInterface *intf = VmInterfaceGet(input[0].intf_id);
+    assert(intf);
+    TxIpPacket(intf->id(), "1.1.1.10", "1.1.1.1", 58);
+    client->WaitForIdle();
+
     DeleteVmportEnv(input, 1, true, 1);
 }
 

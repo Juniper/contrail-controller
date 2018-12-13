@@ -67,7 +67,7 @@ def daemon_start():
                               api_server=arguments.api_server,
                               api_port=arguments.api_port,
                               project=project_name)
-    vrouter_name = socket.gethostname()
+    vrouter_name = socket.getfqdn()
     instance_name = '%s-%s' % (vrouter_name, arguments.daemon)
     vm = provisioner.virtual_machine_locate(vrouter_name, instance_name)
 

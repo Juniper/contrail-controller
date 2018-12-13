@@ -4,6 +4,7 @@
 
 #include "base/logging.h"
 #include "base/contrail_ports.h"
+#include "base/address_util.h"
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
 #include "cmn/dns.h"
@@ -35,7 +36,7 @@ bool DnsAgentXmppManager::Init(bool xmpp_auth_enabled,
     }
 
     error_code ec;
-    IpAddress xmpp_ip_address = address::from_string(Dns::GetSelfIp(), ec);
+    IpAddress xmpp_ip_address = AddressFromString(Dns::GetSelfIp(), &ec);
     if (ec) {
         LOG(ERROR, "Xmpp IP Address:" << Dns::GetSelfIp() <<
                    " conversion error:" << ec.message());

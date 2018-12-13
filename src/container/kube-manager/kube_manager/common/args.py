@@ -2,6 +2,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+import socket
 import sys
 
 import argparse
@@ -90,7 +91,8 @@ def parse_args(args_str=None):
         'global_tags': '1',
         'aps_name': '',
         'kube_timer_interval': '60',
-        'secure_project': 'True'
+        'secure_project': 'False',
+        'host_ip': socket.gethostbyname(socket.getfqdn())
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
@@ -136,6 +138,7 @@ def parse_args(args_str=None):
         'cluster_service_network' : None,
         'ip_fabric_forwarding': False,
         'ip_fabric_snat': False,
+        'host_network_service': False,
     }
 
     sandesh_opts = SandeshConfig.get_default_options()
@@ -192,6 +195,12 @@ def parse_args(args_str=None):
             args.ip_fabric_snat = True
         else:
             args.ip_fabric_snat = False
+    if type(args.host_network_service) is str:
+        if args.host_network_service.lower() == 'true':
+            args.host_network_service = True
+        else:
+            args.host_network_service = False
+
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
 
     # Validate input argumnents.

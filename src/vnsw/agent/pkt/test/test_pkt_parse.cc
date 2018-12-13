@@ -844,7 +844,7 @@ TEST_F(PktParseTest, MulticastControlWord) {
     Ip4Address sip(0);
     Ip4Address broadcast(0xFFFFFFFF);
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                 IpAddress::from_string("8.8.8.8").to_v4(),
                 TunnelType::MplsType()));
     mc_handler->ModifyFabricMembers(agent->multicast_tree_builder_peer(),

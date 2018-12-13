@@ -124,19 +124,22 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
+    EXPECT_EQ(options_.sandesh_config().http_server_ip, "0.0.0.0");
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
-    int argc = 4;
+    int argc = 5;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     char argv_3[] = "--DEFAULT.sandesh_send_rate_limit=5";
+    char argv_4[] = "--DEFAULT.http_server_ip=10.10.10.10";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
+    argv[4] = argv_4;
 
     options_.Parse(evm_, argc, argv);
 
@@ -172,6 +175,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
+    EXPECT_EQ(options_.sandesh_config().http_server_ip, "10.10.10.10");
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -234,6 +238,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
+        "http_server_ip=10.10.10.10\n"
         "log_category=bgp\n"
         "log_disable=1\n"
         "log_file=<stdout>\n"
@@ -317,6 +322,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
+    EXPECT_EQ(options_.sandesh_config().http_server_ip, "10.10.10.10");
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -330,6 +336,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
+        "http_server_ip=20.20.20.20\n"
         "log_category=bgp\n"
         "log_disable=1\n"
         "log_file=test.log\n"
@@ -357,7 +364,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 12;
+    int argc = 13;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -371,6 +378,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_9[] = "--DEFAULT.gr_helper_xmpp_disable";
     char argv_10[] = "--SANDESH.disable_object_logs";
     char argv_11[] = "--DEFAULT.mvpn_ipv4_enable";
+    char argv_12[] = "--DEFAULT.http_server_ip=10.10.10.10";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -383,6 +391,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[9] = argv_9;
     argv[10] = argv_10;
     argv[11] = argv_11;
+    argv[12] = argv_12;
 
     options_.Parse(evm_, argc, argv);
 
@@ -419,6 +428,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.gr_helper_bgp_disable(), true);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), true);
     EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
+    EXPECT_EQ(options_.sandesh_config().http_server_ip, "10.10.10.10");
 }
 
 TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIp) {

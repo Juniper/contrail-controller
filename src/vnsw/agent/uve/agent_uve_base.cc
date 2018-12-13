@@ -104,7 +104,8 @@ void AgentUveBase::BuildTagNamesFromList(const TagList &tl, UveTagData *info)
  * lookup in API server */
 string AgentUveBase::IntegerToHexString(uint32_t value) const {
     std::stringstream ss;
-    ss << "0x" << setfill('0') << setw(8) << std::hex << (uint32_t)value;
+    ss << "0x" << std::setfill('0') <<
+        std::setw(8) << std::hex << (uint32_t)value;
     return ss.str();
 }
 

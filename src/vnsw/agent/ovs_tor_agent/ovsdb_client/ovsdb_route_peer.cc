@@ -16,13 +16,13 @@ OvsPeer::OvsPeer(const IpAddress &peer_ip, uint64_t gen_id,
                 "OVS-" + peer_ip.to_string(), true),
     peer_ip_(peer_ip), gen_id_(gen_id), peer_manager_(peer_manager),
     ha_stale_export_(false) {
-    stringstream str;
+    std::stringstream str;
     str << "Allocating OVS Peer " << this << " Gen-Id " << gen_id;
     OVSDB_TRACE(Trace, str.str());
 }
 
 OvsPeer::~OvsPeer() {
-    stringstream str;
+    std::stringstream str;
     str << "Deleting OVS Peer " << this << " Gen-Id " << gen_id_;
     OVSDB_TRACE(Trace, str.str());
 }

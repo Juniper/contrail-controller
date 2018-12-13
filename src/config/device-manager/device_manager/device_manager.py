@@ -46,7 +46,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
-    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM
+    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
+    DataCenterInterconnectDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -88,12 +89,18 @@ class DeviceManager(object):
             'link_aggregation_group': [],
         },
         'global_system_config': {
-            'self': ['physical_router'],
+            'self': ['physical_router', 'data_center_interconnect'],
             'physical_router': [],
         },
         'node_profile': {
             'self': ['physical_router'],
             'role_config': ['physical_router'],
+        },
+        'data_center_interconnect': {
+            'self': ['logical_router', 'virtual_network'],
+            'logical_router': [],
+            'virtual_network': ['logical_router'],
+            'global_system_config': ['logical_router'],
         },
         'role_config': {
             'self': ['node_profile'],
@@ -172,18 +179,20 @@ class DeviceManager(object):
             'virtual_machine_interface': ['service_instance']
         },
         'virtual_network': {
-            'self': ['physical_router',
+            'self': ['physical_router', 'data_center_interconnect',
                      'virtual_machine_interface', 'logical_router', 'fabric', 'floating_ip_pool'],
             'routing_instance': ['physical_router', 'logical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
             'logical_router': ['physical_router'],
+            'data_center_interconnect': ['physical_router'],
             'virtual_machine_interface': ['physical_router'],
             'floating_ip_pool': ['physical_router'],
         },
         'logical_router': {
             'self': ['physical_router', 'virtual_network'],
             'physical_router': [],
+            'data_center_interconnect': ['physical_router'],
             'virtual_network': ['physical_router'],
             'routing_instance': ['physical_router'],
             'virtual_machine_interface': ['physical_router']
@@ -335,6 +344,10 @@ class DeviceManager(object):
         for obj in VirtualNetworkDM.list_obj():
             VirtualNetworkDM.locate(obj['uuid'], obj)
 
+        dci_obj_list = DataCenterInterconnectDM.list_obj()
+        for obj in dci_obj_list or []:
+            DataCenterInterconnectDM.locate(obj['uuid'], obj)
+
         for obj in FabricDM.list_obj():
             FabricDM.locate(obj['uuid'], obj)
 
@@ -371,6 +384,9 @@ class DeviceManager(object):
 
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
         self._object_db.handle_pr_deletes(pr_uuid_set)
+
+        dci_uuid_set = set([dci_obj['uuid'] for dci_obj in dci_obj_list])
+        self._object_db.handle_dci_deletes(dci_uuid_set)
 
         for obj in VirtualMachineInterfaceDM.list_obj():
             VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
@@ -578,6 +594,7 @@ def parse_args(args_str):
         'zk_server_port': '2181',
         'collectors': None,
         'http_server_port': '8096',
+        'http_server_ip': '0.0.0.0',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
@@ -682,8 +699,10 @@ def parse_args(args_str):
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")
+    parser.add_argument("--http_server_ip",
+                        help="IP of Introspect HTTP server")
     parser.add_argument("--http_server_port",
-                        help="Port of local HTTP server")
+                        help="Port of Introspect HTTP server")
     parser.add_argument("--log_local", action="store_true",
                         help="Enable local logging of sandesh messages")
     parser.add_argument(
@@ -773,8 +792,12 @@ def main(args_str=None):
     vnc_amqp.close()
     dm_logger.debug("Removed remained AMQP queue")
 
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
-                                        args.zk_server_ip)
+                                        args.zk_server_ip, host_ip)
     dm_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
                                       os.getpid(), run_device_manager,

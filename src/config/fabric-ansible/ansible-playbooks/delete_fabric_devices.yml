@@ -10,7 +10,7 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 1
-        jl_message: "Deleting all the devices in the fabric"
+        jl_message: "Deleting specified devices from fabric"
 
     - name: Delete devices in the fabric
       set_fact:
@@ -19,18 +19,10 @@
     - block:
         - set_fact:
             op_err_message: "Failed to delete fabric devices due to error: {{ output.error_msg }}. Here is the deletion log: {{ output.deletion_log }}"
-            jl_err_message: "Failed to delete fabric devices due to error: {{ output.error_msg }}"
+            jl_err_message: "\nFail to delete device: {{ output.error_msg }}"
             results: {}
 
-        - name: Update job log with percentage
-          include_tasks: percentage_update.yml
-          vars:
-            current_index: 1
-            jl_message: "{{ jl_err_message }}"
-
-        - pause: seconds=5
-
-        - name: handle failure
+       - name: handle failure
           include_tasks: error_handler.yml
       when: output.status == 'failure'
 

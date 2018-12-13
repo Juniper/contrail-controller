@@ -31,10 +31,11 @@
 // Tag list built at VMI would be  exported to control-node.
 // Tag list would be used in ACL lookups
 struct TagKey : public AgentOperDBKey {
-    TagKey(uuid tag_uuid) : AgentOperDBKey(), tag_uuid_(tag_uuid) {}
+    TagKey(boost::uuids::uuid tag_uuid) :
+        AgentOperDBKey(), tag_uuid_(tag_uuid) {}
     virtual ~TagKey() {}
 
-    uuid tag_uuid_;
+    boost::uuids::uuid tag_uuid_;
 };
 
 struct TagData : public AgentOperDBData {

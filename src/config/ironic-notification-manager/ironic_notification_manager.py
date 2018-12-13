@@ -178,9 +178,13 @@ class IronicNotificationManager(object):
                 self.random_collectors = \
                     random.sample(self._args.collectors,
                                   len(self._args.collectors))
+            if 'host_ip' in self._args:
+                host_ip = self._args.host_ip
+            else:
+                host_ip = socket.gethostbyname(socket.getfqdn())
             sandesh_global.init_generator(
                 module_name,
-                socket.gethostname(),
+                socket.getfqdn(host_ip),
                 node_type_name,
                 instance_id,
                 self.random_collectors,

@@ -6,6 +6,7 @@
 #include <base/util.h>
 #include <base/logging.h>
 #include <base/connection_info.h>
+#include "base/address_util.h"
 #include <net/bgp_af.h>
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
@@ -38,6 +39,10 @@
 
 using namespace boost::asio;
 using namespace autogen;
+
+using std::auto_ptr;
+using std::stringstream;
+
 using process::ConnectionType;
 using process::ConnectionStatus;
 using process::ConnectionState;
@@ -156,12 +161,12 @@ void AgentXmppChannel::CreateBgpPeer() {
                                        agent_, this, _1, _2));
     boost::system::error_code ec;
     const string &addr = agent_->controller_ifmap_xmpp_server(xs_idx_);
-    Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
+    IpAddress ip = AddressFromString(addr, &ec);
     assert(ec.value() == 0);
-    bgp_peer_id_.reset(new BgpPeer(this, ip, addr, id, Peer::BGP_PEER));
+    bgp_peer_id_.reset(new BgpPeer(this, ip.to_v4(), addr, id, Peer::BGP_PEER));
 }
 
-bool AgentXmppChannel::SendUpdate(uint8_t *msg, size_t size) {
+bool AgentXmppChannel::SendUpdate(const uint8_t *msg, size_t size) {
 
     if (agent_->stats())
         agent_->stats()->incr_xmpp_out_msgs(xs_idx_);
@@ -445,14 +450,14 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             nh_label >> label;
             TunnelType::TypeBmap encap = agent_->controller()->
                 GetTypeBitmap(nh.tunnel_encapsulation_list);
-            olist.push_back(OlistTunnelEntry(nil_uuid(), label,
+            olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), label,
                                              addr.to_v4(), encap));
         }
 
         IpAddress source_address =
                 IpAddress::from_string(item->entry.nlri.source_address, ec);
         if ((ec.value() == 0) && (source_address != IpAddress(Ip4Address()))) {
-            olist.push_back(OlistTunnelEntry(nil_uuid(), 0,
+            olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 0,
                             source_address.to_v4(),
                             TunnelType::MplsType()));
         }
@@ -830,7 +835,7 @@ static bool FillEvpnOlist(Agent *agent,
         int label = olist.next_hop[i].label;
         TunnelType::TypeBmap encap = agent->controller()->
             GetTypeBitmap(olist.next_hop[i].tunnel_encapsulation_list);
-        tunnel_olist->push_back(OlistTunnelEntry(nil_uuid(), label,
+        tunnel_olist->push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), label,
                                                  addr.to_v4(), encap));
     }
     return true;
@@ -1251,6 +1256,11 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             //Hence existing logic of picking up nexthop from mpls label to
             //nexthop, will not work. We have added a special path where we
             //pick nexthop from local vm path, instead of BGP
+            if (!prefix_addr.is_v4()) {
+                CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                "VRF nexthop is not supported for non IPv4");
+                return;
+            }
             BgpPeer *bgp_peer = bgp_peer_id();
             ClonedLocalPath *data =
                 new ClonedLocalPath(label, vn_list,
@@ -1702,8 +1712,8 @@ void AgentXmppChannel::PeerIsNotConfig() {
 bool AgentXmppChannel::ControllerSendVmCfgSubscribe(AgentXmppChannel *peer,
                          const boost::uuids::uuid &vm_id,
                          bool subscribe) {
-    uint8_t data_[4096];
-    size_t datalen_;
+    string repr;
+    boost::scoped_ptr<XmlWriter> xml_writer(new XmlWriter(&repr));
 
     if (!peer) {
         return false;
@@ -1734,13 +1744,13 @@ bool AgentXmppChannel::ControllerSendVmCfgSubscribe(AgentXmppChannel *peer,
     vm += vmid.str();
     pugi->AddAttribute("node", vm);
 
-
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     CONTROLLER_TX_CONFIG_TRACE(Trace, peer->GetXmppServerIdx(),
-                               peer->GetBgpPeerName(), "",
-              std::string(reinterpret_cast<const char *>(data_), datalen_));
+                               peer->GetBgpPeerName(), "", repr);
     // send data
-    if (peer->SendUpdate(data_,datalen_) == false) {
+    if (peer->SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()),
+                         repr.length()) == false) {
         CONTROLLER_TRACE(Session, peer->GetXmppServer(),
                          "VM subscribe Send Update deferred", vm, "");
     }
@@ -1750,8 +1760,8 @@ bool AgentXmppChannel::ControllerSendVmCfgSubscribe(AgentXmppChannel *peer,
 
 bool AgentXmppChannel::ControllerSendCfgSubscribe(AgentXmppChannel *peer) {
 
-    uint8_t data_[4096];
-    size_t datalen_;
+    string repr;
+    boost::scoped_ptr<XmlWriter> xml_writer(new XmlWriter(&repr));
 
     if (!peer) {
         return false;
@@ -1776,12 +1786,13 @@ bool AgentXmppChannel::ControllerSendCfgSubscribe(AgentXmppChannel *peer) {
     node  = node + XmppInit::kFqnPrependAgentNodeJID  + peer->channel_->FromString();
     pugi->AddAttribute("node", node);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     CONTROLLER_TX_CONFIG_TRACE(Trace, peer->GetXmppServerIdx(),
-                               peer->GetBgpPeerName(), "",
-            std::string(reinterpret_cast<const char *>(data_), datalen_));
+                               peer->GetBgpPeerName(), "", repr);
     // send data
-    if (peer->SendUpdate(data_,datalen_) == false) {
+    if (peer->SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()),
+                         repr.length()) == false) {
         CONTROLLER_TRACE(Session, peer->GetXmppServer(),
                          "Config subscribe Send Update deferred", node, "");
     }
@@ -1792,8 +1803,8 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
                                                VrfEntry *vrf,
                                                bool subscribe) {
     static int req_id = 0;
-    uint8_t data_[4096];
-    size_t datalen_;
+    string repr;
+    boost::scoped_ptr<XmlWriter> xml_writer(new XmlWriter(&repr));
 
     if (!peer) {
         return false;
@@ -1828,10 +1839,11 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     vrf_id << vrf->rd();
     pugi->AddChildNode("instance-id", vrf_id.str());
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
-
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    if (peer->SendUpdate(data_,datalen_) == false) {
+    if (peer->SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()),
+                         repr.length()) == false) {
         CONTROLLER_TRACE(Session, peer->GetXmppServer(),
                          "Vrf subscribe Send Update deferred", vrf_id.str(), "");
     }
@@ -1864,8 +1876,8 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
 
     static int id = 0;
     ItemType item;
-    uint8_t data_[4096];
-    size_t datalen_;
+    string repr;
+    boost::scoped_ptr<XmlWriter> xml_writer(new XmlWriter(&repr));
 
     //Build the DOM tree
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
@@ -1960,9 +1972,11 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     //Call Auto-generated Code to encode the struct
     item.Encode(&node);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    SendUpdate(data_,datalen_);
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
+    repr.clear();
 
     pugi->DeleteNode("pubsub");
     pugi->ReadNode("iq");
@@ -1982,9 +1996,10 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     }
     pugi->AddAttribute("node", node_id);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    SendUpdate(data_,datalen_);
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
     end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
@@ -2272,8 +2287,8 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
                                            const AgentRoute *route,
                                            bool associate) {
     static int id = 0;
-    uint8_t data_[4096];
-    size_t datalen_;
+    string repr;
+    boost::scoped_ptr<XmlWriter> xml_writer(new XmlWriter(&repr));
 
     //Build the DOM tree
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
@@ -2305,9 +2320,11 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
     //Call Auto-generated Code to encode the struct
     item.Encode(&node);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    SendUpdate(data_,datalen_);
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
+    repr.clear();
 
     pugi->DeleteNode("pubsub");
     pugi->ReadNode("iq");
@@ -2327,9 +2344,10 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
     }
     pugi->AddAttribute("node", node_id);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    SendUpdate(data_,datalen_);
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
     end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
@@ -2399,8 +2417,8 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
                                                       bool add_route) {
     static int id = 0;
     autogen::McastItemType item;
-    uint8_t data_[4096];
-    size_t datalen_;
+    string repr;
+    boost::scoped_ptr<XmlWriter> xml_writer(new XmlWriter(&repr));
 
     if (add_route && (agent_->mulitcast_builder() != this)) {
         CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(),
@@ -2463,10 +2481,11 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     //Call Auto-generated Code to encode the struct
     item.Encode(&node);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    SendUpdate(data_,datalen_);
-
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
+    repr.clear();
 
     pugi->DeleteNode("pubsub");
     pugi->ReadNode("iq");
@@ -2486,9 +2505,10 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     }
     pugi->AddAttribute("node", node_id);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    SendUpdate(data_,datalen_);
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
     end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
@@ -2506,8 +2526,8 @@ bool AgentXmppChannel::ControllerSendMvpnRouteCommon(AgentRoute *route,
                                     bool associate) {
     static int id = 0;
     MvpnItemType item;
-    uint8_t data_[4096];
-    size_t datalen_;
+    string repr;
+    boost::scoped_ptr<XmlWriter> xml_writer(new XmlWriter(&repr));
 
     CONTROLLER_INFO_TRACE(McastSubscribe, GetBgpPeerName(),
                                 route->vrf()->GetName(), " ",
@@ -2560,10 +2580,11 @@ bool AgentXmppChannel::ControllerSendMvpnRouteCommon(AgentRoute *route,
     //Call Auto-generated Code to encode the struct
     item.Encode(&node);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data
-    SendUpdate(data_,datalen_);
-
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
+    repr.clear();
 
     pugi->DeleteNode("pubsub");
     pugi->ReadNode("iq");
@@ -2583,11 +2604,10 @@ bool AgentXmppChannel::ControllerSendMvpnRouteCommon(AgentRoute *route,
     }
     pugi->AddAttribute("node", node_id);
 
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
-
+    pugi->doc().print(*xml_writer, "", pugi::format_default,
+                      pugi::encoding_utf8);
     // send data for BgpAf::Mvpn
-    SendUpdate(data_,datalen_);
-
+    SendUpdate(reinterpret_cast<const uint8_t *>(repr.c_str()), repr.length());
     end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec();
     return true;
 }
@@ -2815,8 +2835,8 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
     boost::asio::ip::tcp::endpoint ep;
     boost::system::error_code ec;
     string last_state_name;
-    ep.address(boost::asio::ip::address::from_string(agent_->
-                controller_ifmap_xmpp_server(xs_idx_), ec));
+    ep.address(AddressFromString(
+        agent_->controller_ifmap_xmpp_server(xs_idx_), &ec));
     uint16_t port = agent_->controller_ifmap_xmpp_port(xs_idx_);
     ep.port(port);
     const string name = agent_->xmpp_control_node_prefix() +

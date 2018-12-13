@@ -399,7 +399,7 @@ bool SessionKey::IsEqual(const SessionKey &rhs) const {
 void SessionKey::Reset() {
     remote_ip = IpAddress();
     client_port = 0;
-    uuid = nil_uuid();
+    uuid = boost::uuids::nil_uuid();
 }
 
 bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
@@ -1006,7 +1006,7 @@ void SessionStatsCollector::BuildSloList(
     global_session_slo_rule_map->clear();
 
     if (agent_uve_->agent()->oper_db()->global_vrouter()->slo_uuid() !=
-                                                                nil_uuid()) {
+        boost::uuids::nil_uuid()) {
         AddSloEntry(
                 agent_uve_->agent()->oper_db()->global_vrouter()->slo_uuid(),
                 global_session_slo_rule_map);
@@ -1628,21 +1628,20 @@ void SessionStatsCollector::FillSessionInfoUnlocked
                 session_info->set_vm(info.vm_cfg_name);
             }
             session_info->set_other_vrouter_ip(
-                boost::asio::ip::address::from_string(info.other_vrouter, ec));
+                AddressFromString(info.other_vrouter, &ec));
             session_info->set_underlay_proto(info.underlay_proto);
         }
     } else {
         session_info->set_vm(fe->data().vm_cfg_name);
         if (fe->is_flags_set(FlowEntry::LocalFlow)) {
-            session_info->set_other_vrouter_ip(
-                    boost::asio::ip::address::from_string(rid, ec));
+            session_info->set_other_vrouter_ip(AddressFromString(rid, &ec));
         } else {
             /* For Egress flows, pick VM name from reverse flow */
             if (!fe->IsIngressFlow() && rfe) {
                 session_info->set_vm(rfe->data().vm_cfg_name);
             }
             session_info->set_other_vrouter_ip(
-                boost::asio::ip::address::from_string(fe->peer_vrouter(), ec));
+                 AddressFromString(fe->peer_vrouter(), &ec));
         }
         session_info->set_underlay_proto(fe->tunnel_type().GetType());
     }
@@ -1754,8 +1753,7 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
     if (it->first.remote_tagset.size() > 0) {
         FillSessionRemoteTags(it->first.remote_tagset, session_ep);
     }
-    session_ep->set_vrouter_ip(
-                    boost::asio::ip::address::from_string(rid, ec));
+    session_ep->set_vrouter_ip(AddressFromString(rid, &ec));
 }
 
 bool SessionStatsCollector::ProcessSessionEndpoint
@@ -2194,4 +2192,3 @@ bool SessionSloState::UpdateSessionSloStateRuleRefCount(
     }
     return is_logged;
 }
-

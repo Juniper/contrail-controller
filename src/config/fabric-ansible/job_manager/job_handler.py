@@ -7,7 +7,6 @@ This file contains job manager api which involves playbook interactions
 """
 
 import os
-import random
 import uuid
 import json
 import subprocess32
@@ -15,16 +14,12 @@ import traceback
 import ast
 import time
 import gevent
-import requests
-import xml.etree.ElementTree as etree
 
 from job_manager.job_exception import JobException
-from job_manager.job_utils import JobStatus
+from job_manager.job_utils import (
+    JobStatus, JobFileWrite
+)
 from job_manager.job_messages import MsgBundle
-
-JOB_PROGRESS = 'JOB_PROGRESS##'
-PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
-JOB_MANAGER = 'JOB_MANAGER'
 
 
 class JobHandler(object):
@@ -48,11 +43,48 @@ class JobHandler(object):
         self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
         self._playbook_seq = playbook_seq
+        self._prouter_info = {}
     # end __init__
+
+
+    def get_pr_uve_name_from_device_name(self, playbook_info):
+        pr_uve_name = None
+        device_fqname = \
+            playbook_info['extra_vars']['playbook_input'].get(
+                'device_fqname')
+        if device_fqname:
+            pr_fqname = ':'.join(map(str, device_fqname))
+            job_template_fq_name = ':'.join(map(str, self._job_template.fq_name))
+            pr_uve_name = pr_fqname + ":" + \
+                          self._fabric_fq_name + ":" +\
+                          job_template_fq_name
+        return pr_uve_name
+
+
+    def check_and_send_prouter_job_uve_for_multidevice(self,
+        playbook_info,
+        job_status,
+        playbook_output_results=None):
+        # For multi device job templates, we need to send the prouter job
+        # uves as soon as they are complete in order to prevent them
+        # from waiting until the job completes.
+        if self._job_template.get_job_template_multi_device_job():
+
+            pr_uve_name = self.get_pr_uve_name_from_device_name(
+                playbook_info)
+            self.send_prouter_job_uve(
+                self._job_template.fq_name,
+                pr_uve_name,
+                self._execution_id,
+                job_status=job_status,
+                percentage_completed=100,
+                device_op_results=playbook_output_results
+            )
 
     def handle_job(self, result_handler, job_percent_per_task,
                    device_id=None, device_name=None):
         playbook_output = None
+        playbook_info = None
         try:
             msg = "Starting playbook execution for job template %s with " \
                   "execution id %s" % (self._job_template.get_uuid(),
@@ -67,15 +99,26 @@ class JobHandler(object):
                 playbook_info,
                 result_handler.percentage_completed)
 
+            # retrieve the device_op_results in case it was set for
+            # generic device operations.
+            playbook_output_results = None
+            if playbook_output != None:
+                playbook_output_results = playbook_output.get('results')
+
             msg = MsgBundle.getMessage(
                 MsgBundle.PLAYBOOK_EXECUTION_COMPLETE,
                 job_template_name=self._job_template.get_fq_name()[-1],
                 job_execution_id=self._execution_id)
             self._logger.debug(msg)
             result_handler.update_job_status(JobStatus.SUCCESS, msg,
-                                             device_id, device_name)
+                                             device_id, device_name,
+                                             pb_results=playbook_output_results)
             if playbook_output:
                 result_handler.update_playbook_output(playbook_output)
+
+            self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
+                                                                JobStatus.SUCCESS.value,
+                                                                playbook_output_results)
 
             if self.current_percentage:
                 result_handler.percentage_completed = self.current_percentage
@@ -85,11 +128,18 @@ class JobHandler(object):
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, job_exp.msg,
                                              device_id, device_name)
+            if playbook_info:
+                self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
+                                                                JobStatus.FAILURE.value)
+
         except Exception as exp:
             self._logger.error("Error while executing job %s " % repr(exp))
             self._logger.error("%s" % traceback.format_exc())
             result_handler.update_job_status(JobStatus.FAILURE, exp.message,
                                              device_id, device_name)
+            if playbook_info:
+                self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
+                                                                JobStatus.FAILURE.value)
     # end handle_job
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
@@ -190,9 +240,13 @@ class JobHandler(object):
                                            pr_uve_name):
         f_read = None
         marked_output = {}
-        self.prouter_info = []
         total_output = ''
-        markers = [PLAYBOOK_OUTPUT, JOB_PROGRESS, JOB_MANAGER]
+        markers = [
+            JobFileWrite.PLAYBOOK_OUTPUT,
+            JobFileWrite.JOB_PROGRESS,
+            JobFileWrite.JOB_LOG,
+            JobFileWrite.PROUTER_LOG
+        ]
         # read file as long as it is not a time out
         # Adding a residue timeout of 5 mins in case
         # the playbook dumps all the output towards the
@@ -217,19 +271,19 @@ class JobHandler(object):
                                 line_read.split(unique_pb_id)[-1].strip()
                             if total_output == 'END':
                                 break
-                        if JOB_MANAGER in line_read:
-                            total_output = line_read.strip()
+                            if JobFileWrite.JOB_LOG in line_read \
+                                    or JobFileWrite.PROUTER_LOG in line_read:
+                                total_output = line_read.strip()
 
-                        if total_output is not None:
                             for marker in markers:
                                 if marker in total_output:
                                     marked_output[marker] = total_output
-                                    if marker == JOB_PROGRESS:
-                                        marked_jsons =\
-                                            self._extract_marked_json(
-                                                marked_output)
+                                    marked_jsons = self._extract_marked_json(
+                                        marked_output
+                                    )
+                                    if marker == JobFileWrite.JOB_PROGRESS:
                                         self._job_progress =\
-                                            marked_jsons.get(JOB_PROGRESS)
+                                            marked_jsons.get(JobFileWrite.JOB_PROGRESS)
                                         self.current_percentage += float(
                                             self._job_progress)
                                         self._job_log_utils.\
@@ -240,23 +294,21 @@ class JobHandler(object):
                                                 percentage_completed=
                                                 self.current_percentage)
                                         if pr_uve_name:
-                                            self._job_log_utils.\
-                                                send_prouter_job_uve(
-                                                    self._job_template.fq_name,
-                                                    pr_uve_name, exec_id,
-                                                    job_status="IN_PROGRESS",
-                                                    percentage_completed=
-                                                    self.current_percentage)
-                                    if marker == JOB_MANAGER:
-                                        marked_jsons =\
-                                            self._extract_marked_json(
-                                                marked_output)
-                                        output =\
-                                            marked_jsons.get(JOB_MANAGER)
-                                        if output.has_key('prouter_info'):
-                                            self.prouter_info.append(
-                                                output.get('prouter_info'))
-
+                                            self.send_prouter_job_uve(
+                                                self._job_template.fq_name,
+                                                pr_uve_name,
+                                                exec_id,
+                                                "IN_PROGRESS",
+                                                self.current_percentage
+                                            )
+                                    elif marker == JobFileWrite.JOB_LOG:
+                                        self.send_job_log(
+                                            **marked_jsons.get(marker)
+                                        )
+                                    elif marker == JobFileWrite.PROUTER_LOG:
+                                        self.send_prouter_log(
+                                            **marked_jsons.get(marker)
+                                        )
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -272,6 +324,7 @@ class JobHandler(object):
                 if playbook_process.poll() is not None:
                     self._logger.info("No markers found....")
                     break
+
                 # for the case when the sub-process hangs for some
                 # reason and does not write to/create file
                 elif time.time() - last_read_time > file_read_timeout:
@@ -287,31 +340,79 @@ class JobHandler(object):
         return marked_output
     # end process_file_and_get_marked_output
 
+    def send_prouter_job_uve(self, job_template_fqname, pr_uve_name, exec_id,
+                         job_status, percentage_completed, device_op_results=None):
+        try:
+            self._logger.info(
+                "Calling send_prouter_job_uve(%s, %s, %s, %s, %s, %s)" % (
+                job_template_fqname,
+                pr_uve_name,
+                str(exec_id),
+                job_status,
+                percentage_completed,
+                json.dumps(
+                    device_op_results) if device_op_results else "{}"
+            ))
+            self._job_log_utils.send_prouter_job_uve(
+                job_template_fqname,
+                pr_uve_name,
+                exec_id,
+                job_status=job_status,
+                percentage_completed=percentage_completed,
+                device_op_results=json.dumps(
+                    device_op_results)if device_op_results else "{}"
+            )
+            self._logger.info("DONE")
+
+        except JobException as ex:
+            self._logger.error("Failed to send prouter uve: %s" % str(ex))
+
+    def send_job_log(self, **job_log):
+        try:
+            self._logger.info("Send_job_log(%s)" % json.dumps(job_log))
+            self._job_log_utils.send_job_log(**job_log)
+            self._logger.info("DONE")
+        except JobException as ex:
+            self._logger.error("Failed to send job log: %s" % str(ex))
+    # end send_job_log
+
+    def send_prouter_log(self, **prouter_log):
+        try:
+            # save the prouter onboarding state so that we can send
+            # prouter job uve after playbook finishes
+            fqname = ':'.join(prouter_log.get('prouter_fqname'))
+            self._prouter_info[fqname] = prouter_log.get('onboarding_state')
+
+            # now we can send the prouter object log
+            self._logger.info("Send_prouter_log(%s)" % json.dumps(prouter_log))
+            self._job_log_utils.send_prouter_object_log(**prouter_log)
+            self._logger.info("DONE")
+        except JobException as ex:
+            self._logger.error("Failed to send prouter log: %s" % str(ex))
+    # end send_prouter_log
+
     def send_prouter_uve(self, exec_id, pb_status):
-        status = "SUCCESS"
-
-        if pb_status != 0:
-            status = "FAILURE"
-
+        status = "SUCCESS" if pb_status == 0 else "FAILURE"
         job_template_fq_name = ':'.join(
             map(str, self._job_template.fq_name))
-        for each_prouter in self.prouter_info:
-            pr_fabric_job_template_fq_name = each_prouter.get('prouter_name') + \
-                                             ":" + self._fabric_fq_name + ":" + \
-                                             job_template_fq_name
-            self._job_log_utils.send_prouter_job_uve(
-                self._job_template.fq_name,
-                pr_fabric_job_template_fq_name,
-                exec_id,
-                prouter_state=each_prouter.get('prouter_state'),
-                job_status=status)
-
-    # end send_pr_object_log
+        for k, v in self._prouter_info.iteritems():
+            pr_fabric_job_template_fq_name = "%s:%s:%s" % (
+                 k, self._fabric_fq_name, job_template_fq_name
+            )
+            try:
+                self._job_log_utils.send_prouter_job_uve(
+                    self._job_template.fq_name,
+                    pr_fabric_job_template_fq_name,
+                    exec_id,
+                    prouter_state=v,
+                    job_status=status
+                )
+            except JobException as ex:
+                self._logger.error("Failed to send prouter log: %s" % str(ex))
+    # end send_prouter_uve
 
     def run_playbook_process(self, playbook_info, percentage_completed):
         playbook_process = None
-        playbook_output = None
-        pr_uve_name = None
 
         self.current_percentage = percentage_completed
         try:
@@ -323,17 +424,7 @@ class JobHandler(object):
             exec_id =\
                 playbook_info['extra_vars']['playbook_input'][
                     'job_execution_id']
-
-            device_fqname = \
-                playbook_info['extra_vars']['playbook_input'].get(
-                    'device_fqname')
-            if device_fqname:
-                pr_fqname = ':'.join(map(str, device_fqname))
-                job_template_fq_name = ':'.join(map(str, self._job_template.fq_name))
-                pr_uve_name = pr_fqname + ":" + \
-                    self._fabric_fq_name + ":" + job_template_fq_name
-
-            pr_object_log_start_time = time.time()
+            pr_uve_name = self.get_pr_uve_name_from_device_name(playbook_info)
 
             playbook_process = subprocess32.Popen(["python",
                                                    playbook_exec_path,
@@ -347,9 +438,8 @@ class JobHandler(object):
                 unique_pb_id, exec_id, playbook_process, pr_uve_name)
 
             marked_jsons = self._extract_marked_json(marked_output)
-            playbook_output = marked_jsons.get(PLAYBOOK_OUTPUT)
+            playbook_output = marked_jsons.get(JobFileWrite.PLAYBOOK_OUTPUT)
             playbook_process.wait(timeout=self._playbook_timeout)
-            pr_object_log_end_time = time.time()
 
             # create prouter UVE in job_manager only if it is not a multi
             # device job template
@@ -365,20 +455,15 @@ class JobHandler(object):
                       exc_msg=repr(timeout_exp))
             raise JobException(msg, self._execution_id)
 
-        except Exception as exp:
-            msg = MsgBundle.getMessage(MsgBundle.
-                                       RUN_PLAYBOOK_PROCESS_ERROR,
-                                       playbook_uri=playbook_info['uri'],
-                                       exc_msg=repr(exp))
-            raise JobException(msg, self._execution_id)
-
         if playbook_process.returncode != 0:
             msg = MsgBundle.getMessage(MsgBundle.
                                        PLAYBOOK_EXIT_WITH_ERROR,
                                        playbook_uri=playbook_info['uri'])
 
             if playbook_output:
-                msg = msg + "\n Error Message from playbook: %s" % playbook_output.get('message', "")
+                msg = "%s\n Error Message from playbook: %s" % (
+                    msg, playbook_output.get('message', "")
+                )
             raise JobException(msg, self._execution_id)
 
         return playbook_output
@@ -399,11 +484,6 @@ class JobHandler(object):
             msg = MsgBundle.getMessage(MsgBundle.START_EXE_PB_MSG,
                                        playbook_name=playbook_name)
             self._logger.debug(msg)
-            self._job_log_utils.send_job_log(self._job_template.fq_name,
-                                             self._execution_id,
-                                             self._fabric_fq_name,
-                                             msg, JobStatus.IN_PROGRESS.value,
-                                             device_name=device_name)
 
             if not os.path.exists(playbook_info['uri']):
                 msg = MsgBundle.getMessage(MsgBundle.PLAYBOOK_NOT_FOUND,
@@ -419,19 +499,15 @@ class JobHandler(object):
             msg = MsgBundle.getMessage(MsgBundle.STOP_EXE_PB_MSG,
                                        playbook_name=playbook_name)
             self._logger.debug(msg)
-            self._job_log_utils.send_job_log(self._job_template.fq_name,
-                                             self._execution_id,
-                                             self._fabric_fq_name,
-                                             msg, JobStatus.IN_PROGRESS.value,
-                                             device_name=device_name)
             return playbook_output
         except JobException:
             raise
         except Exception as exp:
+            trace = traceback.format_exc()
             msg = MsgBundle.getMessage(MsgBundle.RUN_PLAYBOOK_ERROR,
                                        playbook_uri=playbook_info['uri'],
                                        exc_msg=repr(exp))
-            raise JobException(msg, self._execution_id)
+            raise JobException("%s\n%s" %(msg, trace), self._execution_id)
     # end run_playbook
 
     def _extract_marked_json(self, marked_output):
@@ -445,13 +521,11 @@ class JobHandler(object):
             json_str = output[start:end]
             self._logger.info("Extracted marked output: %s" % json_str)
             try:
-                if marker == JOB_MANAGER:
-                    retval[marker] = ast.literal_eval(json_str)
-                else:
-                    retval[marker] = json.loads(json_str)
+                retval[marker] = json.loads(json_str)
             except ValueError as e:
                 # assuming failure is due to unicoding in the json string
                 retval[marker] = ast.literal_eval(json_str)
 
         return retval
     # end _extract_marked_json
+

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "base/os.h"
 #include "vr_defs.h"
+#include "base/address_util.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
 #include "services/dhcp_proto.h"
@@ -72,8 +73,7 @@ void DnsHandler::BuildDnsResolvers() {
         DnsResolverInfo *resolver = new DnsResolverInfo();
 
         boost::system::error_code ec;
-        resolver->ep_.address(boost::asio::ip::address::from_string(
-                              dns_servers[0], ec));
+        resolver->ep_.address(AddressFromString(dns_servers[0], &ec));
         assert(ec.value() == 0);
         uint16_t dns_port = DNS_SERVER_PORT;
         if (dns_servers.size() > 1)
@@ -940,7 +940,8 @@ void DnsHandler::SendDnsResponse() {
     dns_resp_size_ += data_len + eth_len;
     pkt_info_->set_len(dns_resp_size_);
 
-    PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
+    PacketInterfaceKey key(
+        boost::uuids::nil_uuid(), agent()->pkt_interface_name());
     Interface *pkt_itf = static_cast<Interface *>
                          (agent()->interface_table()->FindActiveEntry(&key));
     if (pkt_itf) {

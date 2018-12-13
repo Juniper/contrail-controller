@@ -967,7 +967,7 @@ TEST_F(IgmpTest, SendV3ReportsAndFabricOlist) {
     EXPECT_EQ(3, cnh->ActiveComponentNHCount());
 
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 100,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 100,
                     Ip4Address::from_string("1.1.1.1"),
                     TunnelType::MplsType()));
 
@@ -1147,7 +1147,7 @@ TEST_F(IgmpTest, SendV3ReportsAndNoFabricOlist) {
     EXPECT_EQ(3, cnh->ActiveComponentNHCount());
 
     TunnelOlist olist;
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 100,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 100,
                     Ip4Address::from_string("1.1.1.1"),
                     TunnelType::MplsType()));
 

@@ -233,8 +233,9 @@ VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
     // If there are no config-entries persent for the vxlan,
     //  - Add the config-entry and make it active
     //  - Create VxLan entry
-    ConfigTree::iterator it = config_tree_.lower_bound(ConfigKey(vxlan_id,
-                                                                 nil_uuid()));
+    ConfigTree::iterator it = config_tree_.lower_bound(
+        ConfigKey(vxlan_id, boost::uuids::nil_uuid()));
+
     if (it == config_tree_.end() || it->first.vxlan_id_ != vxlan_id) {
         config_tree_.insert(make_pair(ConfigKey(vxlan_id, vn),
                                       ConfigEntry(vrf, flood_unknown_unicast,
@@ -287,7 +288,9 @@ VxLanId *VxLanTable::Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn) {
         return NULL;
 
     // Make first entry as active
-    it = config_tree_.lower_bound(ConfigKey(vxlan_id, nil_uuid()));
+    it = config_tree_.lower_bound(
+        ConfigKey(vxlan_id, boost::uuids::nil_uuid()));
+
     if (it == config_tree_.end() || it->first.vxlan_id_ != vxlan_id)
         return NULL;
 
@@ -441,7 +444,7 @@ bool VxLanConfigSandeshTask::Run() {
     vector<VxLanConfigEntry> &list =
         const_cast<vector<VxLanConfigEntry>&>(resp->get_vxlan_config_entries());
 
-    uuid u = nil_uuid();
+    boost::uuids::uuid u = boost::uuids::nil_uuid();
     if (vn_.empty() == false) {
         u = StringToUuid(vn_);
     }
@@ -457,7 +460,7 @@ bool VxLanConfigSandeshTask::Run() {
             }
         }
 
-        if (u != nil_uuid() && u != it->first.vn_) {
+        if (u != boost::uuids::nil_uuid() && u != it->first.vn_) {
             it++;
             continue;
         }

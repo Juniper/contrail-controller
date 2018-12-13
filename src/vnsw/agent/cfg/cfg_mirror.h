@@ -10,8 +10,6 @@
 #include <cmn/agent.h>
 #include <agent_types.h>
 
-using namespace boost::uuids;
-
 class MirrorCfgDisplayResp;
 struct MirrorCfgKey {
     std::string handle;
@@ -57,7 +55,8 @@ struct MirrorCfgData {
 };
 
 struct AceInfo {
-    AceInfo() : id (0) {acl_id = nil_uuid();};
+    AceInfo() : acl_id(boost::uuids::nil_uuid()), id(0) {}
+
     boost::uuids::uuid acl_id;
     int id;
 };
@@ -75,7 +74,9 @@ struct MirrorCfgKeyCmp {
 };
 
 struct AclIdInfo {
-    AclIdInfo() : num_of_entries(0), ace_id_latest(0) {id = nil_uuid();};
+    AclIdInfo() :
+        id(boost::uuids::nil_uuid()), num_of_entries(0), ace_id_latest(0) {}
+
     boost::uuids::uuid id;
     int num_of_entries;
     int ace_id_latest;
@@ -127,7 +128,8 @@ struct MirrorDestination {
 };
 
 struct IntfMirrorCfgData {
-    IntfMirrorCfgData() {intf_id = nil_uuid();};
+    IntfMirrorCfgData() : intf_id(boost::uuids::nil_uuid()) {}
+
     boost::uuids::uuid intf_id;
     std::string intf_name;
     MirrorDestination mirror_dest;

@@ -115,6 +115,9 @@ protected:
         client->ConfigUpdate(config);
     }
 
+    void TestBasicConnection(const string &local_name,
+                             const string &remote_name, bool fail);
+
     auto_ptr<EventManager> evm_;
     auto_ptr<ServerThread> thread_;
     XmppServer *a_;
@@ -139,44 +142,53 @@ public:
     int count;
 };
 
-namespace {
-
-TEST_F(XmppServerTest, Connection) {
-
+void XmppServerTest::TestBasicConnection (const string &local_name,
+                                          const string &remote_name,
+                                          bool fail) {
     xmpp_peer_manager_.reset(new XmppPeerManagerMock(a_, NULL, this));
 
     // create a pair of Xmpp channel in server A and client B.
     XmppConfigData *cfg_b = new XmppConfigData;
     LOG(DEBUG, "Create client");
     cfg_b->AddXmppChannelConfig(CreateXmppChannelCfg("127.0.0.1",
-                                a_->GetPort(), SUB_ADDR, XMPP_CONTROL_SERV,
-                                true));
+                                a_->GetPort(), local_name, remote_name, true));
     ConfigUpdate(b_, cfg_b);
 
     LOG(DEBUG, "-- Exectuting --");
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_NE(static_cast<XmppBgpMockPeer *>(NULL), peer_);
+    if (!fail)
+        TASK_UTIL_EXPECT_NE(static_cast<XmppBgpMockPeer *>(NULL), peer_);
     xmpp_peer_manager_->VisitPeers(
             boost::bind(&XmppPeerManagerMock::XmppVisit,
                 xmpp_peer_manager_.get(), _1));
-    TASK_UTIL_EXPECT_EQ(1, xmpp_peer_manager_->count);
+    TASK_UTIL_EXPECT_EQ(fail ? 0 : 1, xmpp_peer_manager_->count);
     // reset the count for VisitPeers
     xmpp_peer_manager_->count = 0;
 
-    // server channels
-    XmppConnection *sconnection;
+
     // Wait for connection on server.
+    if (fail) {
+        TASK_UTIL_EXPECT_EQ(static_cast<XmppConnection *>(NULL),
+                            a_->FindConnection(local_name));
+    } else {
+        // server channels
+        TASK_UTIL_EXPECT_NE(static_cast<XmppConnection *>(NULL),
+                            a_->FindConnection(local_name));
+        XmppConnection *sconnection = a_->FindConnection(local_name);
+        // Check for server, client connection is established. Wait upto 1 sec
+        TASK_UTIL_EXPECT_EQ(xmsm::ESTABLISHED, sconnection->GetStateMcState());
+    }
+
+    // client channels
     TASK_UTIL_EXPECT_NE(static_cast<XmppConnection *>(NULL),
-            (sconnection = a_->FindConnection(SUB_ADDR)));
-    // Check for server, client connection is established. Wait upto 1 sec
-    TASK_UTIL_EXPECT_EQ(xmsm::ESTABLISHED, sconnection->GetStateMcState());
-
-    // client channel
-    XmppConnection *cconnection = b_->FindConnection(XMPP_CONTROL_SERV);
-    ASSERT_FALSE(cconnection == NULL);
-    TASK_UTIL_EXPECT_EQ(xmsm::ESTABLISHED, sconnection->GetStateMcState());
-
+                        b_->FindConnection(remote_name));
+    XmppConnection *cconnection = b_->FindConnection(remote_name);
+    if (fail) {
+        TASK_UTIL_EXPECT_NE(xmsm::ESTABLISHED, cconnection->GetStateMcState());
+    } else {
+        TASK_UTIL_EXPECT_EQ(xmsm::ESTABLISHED, cconnection->GetStateMcState());
+    }
 
     // Tear down client and check if server peer count has gone to 0.
     ConfigUpdate(b_, new XmppConfigData());
@@ -186,6 +198,61 @@ TEST_F(XmppServerTest, Connection) {
     // which will generate server side close event and
     // callback XmppConnectionEventCb will be called.
     TASK_UTIL_EXPECT_EQ(static_cast<XmppBgpMockPeer *>(NULL), peer_);
+}
+
+namespace {
+
+TEST_F(XmppServerTest, Connection) {
+    TestBasicConnection(SUB_ADDR, XMPP_CONTROL_SERV, false);
+}
+
+TEST_F(XmppServerTest, LongLocalName) {
+    string local_name;
+    for (int i = 0; i < 10; i++)
+        local_name += SUB_ADDR;
+    string remote_name;
+    TestBasicConnection(local_name, XMPP_CONTROL_SERV, false);
+}
+
+TEST_F(XmppServerTest, LongRemoteName) {
+    string remote_name;
+    for (int i = 0; i < 10; i++)
+        remote_name += XMPP_CONTROL_SERV;
+    TestBasicConnection(SUB_ADDR, remote_name, false);
+}
+
+TEST_F(XmppServerTest, LongBothName) {
+    string local_name;
+    for (int i = 0; i < 10; i++)
+        local_name += SUB_ADDR;
+    string remote_name;
+    for (int i = 0; i < 10; i++)
+        remote_name += XMPP_CONTROL_SERV;
+    TestBasicConnection(local_name, remote_name, false);
+}
+
+TEST_F(XmppServerTest, VeryLongLocalName) {
+    string local_name;
+    for (int i = 0; i < 100; i++)
+        local_name += SUB_ADDR;
+    TestBasicConnection(local_name, XMPP_CONTROL_SERV, true);
+}
+
+TEST_F(XmppServerTest, VeryLongRemoteName) {
+    string remote_name;
+    for (int i = 0; i < 100; i++)
+        remote_name += XMPP_CONTROL_SERV;
+    TestBasicConnection(SUB_ADDR, remote_name, true);
+}
+
+TEST_F(XmppServerTest, VeryLongBothName) {
+    string local_name;
+    for (int i = 0; i < 100; i++)
+        local_name += SUB_ADDR;
+    string remote_name;
+    for (int i = 0; i < 100; i++)
+        remote_name += XMPP_CONTROL_SERV;
+    TestBasicConnection(local_name, remote_name, true);
 }
 
 }

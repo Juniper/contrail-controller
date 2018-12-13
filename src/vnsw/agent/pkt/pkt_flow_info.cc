@@ -109,6 +109,7 @@ bool PktFlowInfo::ComputeDirection(const Interface *intf) {
     return ret;
 }
 
+
 // Get VRF corresponding to a NH
 static uint32_t NhToVrf(const NextHop *nh) {
     const VrfEntry *vrf = NULL;
@@ -784,14 +785,14 @@ void PktFlowInfo::ProcessHealthCheckFatFlow(const VmInterface *vmi,
                                              const PktInfo *pkt,
                                              PktControlInfo *in,
                                              PktControlInfo *out) {
-    VmInterface::FatFlowLkupResult res;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
 
     // Health check valid for IPv4 only
     if (pkt->ip_daddr.is_v4() == false || pkt->ip_saddr.is_v4() == false)
         return;
 
     // Ensure fat-flow is configured for the port first
-    if (vmi->IsFatFlow(pkt->ip_proto, pkt->sport, &res) == false)
+    if (vmi->IsFatFlowPortBased(pkt->ip_proto, pkt->sport, &ignore_addr) == false)
         return;
 
     // Look for health-check rule
@@ -1725,9 +1726,10 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    if (nat_done && (pkt->ignore_address == VmInterface::IGNORE_SOURCE ||
-        pkt->ignore_address == VmInterface::IGNORE_DESTINATION)) {
-        /* IGNORE_SOURCE/IGNORE_DESTINATION not supported for NAT flows */
+    if (nat_done && ((pkt->ignore_address == VmInterface::IGNORE_SOURCE) ||
+        (pkt->ignore_address == VmInterface::IGNORE_DESTINATION) || (pkt->is_fat_flow_src_prefix) ||
+        (pkt->is_fat_flow_dst_prefix))) {
+        /* Fat flow not supported for NAT flows */
         LogError(pkt, this, "Flow : Fat-flow and NAT cannot co-exist");
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_FAT_FLOW_NAT_CONFLICT;
@@ -1853,6 +1855,28 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
     }
 
     bool limit_exceeded = false;
+    if (in->intf_ && (in->intf_->type() == Interface::VM_INTERFACE)) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(in->intf_);
+        if (vm_intf) {
+            if (vm_intf->max_flows() &&
+                ((vm_intf->flow_count() +2) > vm_intf->max_flows())) {
+                limit_exceeded = true;
+            }
+        }
+    }
+
+    if (out->intf_ && (out->intf_->type() == Interface::VM_INTERFACE)) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(out->intf_);
+        if (vm_intf) {
+            if (vm_intf->max_flows() &&
+                ((vm_intf->flow_count() +2) > vm_intf->max_flows())) {
+                limit_exceeded = true;
+            }
+        }
+    }
+
     if (agent->max_vm_flows() &&
         (in->vm_ && ((in->vm_->flow_count() + 2) > agent->max_vm_flows()))) {
         limit_exceeded = true;
@@ -1971,6 +1995,13 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         } else {
             sip = FamilyToAddress(pkt->family);
         }
+    }
+
+    if (pkt->is_fat_flow_src_prefix) {
+        sip = pkt->ip_ff_src_prefix;
+    }
+    if (pkt->is_fat_flow_dst_prefix) {
+        dip = pkt->ip_ff_dst_prefix;
     }
 
     FlowKey key(in->nh_, sip, dip, pkt->ip_proto, pkt->sport, pkt->dport);

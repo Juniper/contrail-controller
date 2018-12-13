@@ -18,8 +18,6 @@
 #include <filter/packet_header.h>
 
 struct FlowKey;
-
-using namespace boost::uuids;
 class VnEntry;
 class Interface;
 
@@ -62,10 +60,10 @@ struct MatchAclParams {
 };
 
 struct AclKey : public AgentOperDBKey {
-    AclKey(const uuid &id) : AgentOperDBKey(), uuid_(id) {} ;
+    AclKey(const boost::uuids::uuid &id) : AgentOperDBKey(), uuid_(id) {} ;
     virtual ~AclKey() {};
 
-    uuid uuid_;
+    boost::uuids::uuid uuid_;
 };
 
 struct AclData: public AgentOperDBData {
@@ -98,7 +96,7 @@ public:
             &AclEntry::acl_list_node> AclEntryNode;
     typedef boost::intrusive::list<AclEntry, AclEntryNode> AclEntries;
 
-    AclDBEntry(const uuid &id) :
+    AclDBEntry(const boost::uuids::uuid &id) :
         AgentOperDBEntry(), uuid_(id), dynamic_acl_(false) {
     }
     ~AclDBEntry() {
@@ -111,7 +109,7 @@ public:
     uint32_t GetRefCount() const {
         return AgentRefCount<AclDBEntry>::GetRefCount();
     }
-    const uuid &GetUuid() const {return uuid_;};
+    const boost::uuids::uuid &GetUuid() const {return uuid_;};
     const std::string &GetName() const {return name_;};
     void SetName(const std::string name) {name_ = name;};
     bool DBEntrySandesh(Sandesh *resp, std::string &name) const;
@@ -139,7 +137,7 @@ public:
     const AclEntry* GetAclEntryAtIndex(uint32_t) const;
 private:
     friend class AclTable;
-    uuid uuid_;
+    boost::uuids::uuid uuid_;
     bool dynamic_acl_;
     std::string name_;
     AclEntries acl_entries_;

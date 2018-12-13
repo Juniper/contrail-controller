@@ -18,7 +18,7 @@ using namespace autogen;
 
 VmTable *VmTable::vm_table_;
 
-VmEntry::VmEntry(const uuid &id) : uuid_(id), name_(""),
+VmEntry::VmEntry(const boost::uuids::uuid &id) : uuid_(id), name_(""),
     drop_new_flows_(false) {
     flow_count_ = 0;
     linklocal_flow_count_ = 0;
@@ -79,7 +79,8 @@ void VmEntry::update_flow_count(int val) const {
 
     if (val < 0) {
         assert(tmp >= val);
-        if ((tmp + val) < ((max_flows * kDropNewFlowsRecoveryThreshold)/100)) {
+        if ((tmp + val) <
+            ((max_flows * (Agent::kDropNewFlowsRecoveryThreshold))/100)) {
             SetInterfacesDropNewFlows(false);
         }
     } else {

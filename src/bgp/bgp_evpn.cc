@@ -25,10 +25,10 @@
 #include "bgp/routing-instance/routing_instance_log.h"
 
 using std::pair;
+using std::set;
 using std::sort;
 using std::string;
 using std::vector;
-using std::set;
 
 // A global MVPN state for a given <S.G> within a EvpnProjectManager.
 EvpnState::EvpnState(const SG &sg, StatesMap *states, EvpnManager *manager) :
@@ -314,8 +314,8 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo(EvpnRoute *route) {
                                      route->GetPrefix().group());
     // Go through list of EvpnRemoteMcastNodes and build the BgpOList.
     BgpOListSpec olist_spec(BgpAttribute::OList);
-    if (partition_->remote_mcast_node_list().count(sg)) {
-        set<EvpnMcastNode*> nodes = partition_->remote_mcast_node_list()[sg];
+    if (partition_->remote_mcast_node_list()->count(sg)) {
+        set<EvpnMcastNode*> nodes = (*partition_->remote_mcast_node_list())[sg];
         BOOST_FOREACH(EvpnMcastNode *node, nodes) {
             if (node->address() == address_)
                 continue;
@@ -340,8 +340,8 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo(EvpnRoute *route) {
     // Go through list of leaf EvpnMcastNodes and build the leaf BgpOList.
     BgpOListSpec leaf_olist_spec(BgpAttribute::LeafOList);
     if (assisted_replication_supported_) {
-        if (partition_->leaf_node_list().count(sg)) {
-            set<EvpnMcastNode*> nodes = partition_->leaf_node_list()[sg];
+        if (partition_->leaf_node_list()->count(sg)) {
+            set<EvpnMcastNode*> nodes = (*partition_->leaf_node_list())[sg];
             BOOST_FOREACH(EvpnMcastNode *node, nodes) {
                 if (node->replicator_address() != address_)
                     continue;
@@ -1039,6 +1039,7 @@ EvpnManager::EvpnManager(EvpnTable *table)
           TaskScheduler::GetInstance()->GetTaskId("bgp::EvpnSegment"), 0)),
       table_delete_ref_(this, table->deleter()) {
     deleter_.reset(new DeleteActor(this));
+    db_states_count_ = 0;
 }
 
 //
@@ -1422,6 +1423,7 @@ void EvpnManager::InclusiveMulticastRouteListener(
 void EvpnManager::SelectiveMulticastRouteListener(
     EvpnManagerPartition *partition, EvpnRoute *route) {
 
+    CHECK_CONCURRENCY("db::DBTable");
     EvpnMcastNode *dbstate = dynamic_cast<EvpnMcastNode *>(
             route->GetState(table_, listener_id_));
     bool is_usable = route->IsUsable();
@@ -1439,9 +1441,9 @@ void EvpnManager::SelectiveMulticastRouteListener(
         if (evpn_state)
             evpn_state->smet_routes().erase(route);
         EVPN_RT_LOG(route, "Processed Smet route deletion");
-        route->ClearState(table_, listener_id_);
+        ClearDBState(route);
+        partition->NotifyForestNode(route, ermvpn_table());
         partition->DeleteMcastNode(dbstate, route);
-        route->NotifyOrDelete();
         delete dbstate;
         return;
     }
@@ -1460,7 +1462,7 @@ void EvpnManager::SelectiveMulticastRouteListener(
                                   ReplaceNexthopAndLocate(attr.get(), address);
             path->SetAttr(new_attr, attr);
             path->ResetCheckErmVpn();
-            route->Notify();
+            partition->NotifyForestNode(route, ermvpn_table());
         }
     }
 
@@ -1473,10 +1475,36 @@ void EvpnManager::SelectiveMulticastRouteListener(
         } else {
             node = new EvpnRemoteMcastNode(partition, route, evpn_state);
         }
-        route->SetState(table_, listener_id_, node);
+        SetDBState(route, node);
         partition->AddMcastNode(node, route);
         EVPN_RT_LOG(route, "Processed Smet route creation");
     }
+}
+
+void EvpnManagerPartition::NotifyForestNode(EvpnRoute *route,
+                                            ErmVpnTable *table) {
+    const Ip4Address &source = route->GetPrefix().source().to_v4();
+    const Ip4Address &group = route->GetPrefix().group().to_v4();
+    if (table->tree_manager())
+        table->tree_manager()->NotifyForestNode(part_id_, source, group);
+}
+
+// Set DB State and update count.
+void EvpnManager::SetDBState(EvpnRoute *route, EvpnMcastNode *dbstate) {
+    route->SetState(table_, listener_id_, dbstate);
+    db_states_count_++;
+}
+
+// Create DB State and update count. If there is no DB State associated in the
+// table, resume table deletion if the deletion was pending.
+void EvpnManager::ClearDBState(EvpnRoute *route) {
+    route->ClearState(table_, listener_id_);
+    assert(db_states_count_);
+    db_states_count_--;
+
+    // Retry deletion now as there is no more attached db state in the table.
+    if (!db_states_count_ && deleter_->IsDeleted())
+        deleter_->RetryDelete();
 }
 
 // Check whether an ErmVpnRoute is locally originated GlobalTreeRoute.
@@ -1503,15 +1531,15 @@ void EvpnManager::ErmVpnRouteListener(DBTablePartBase *tpart,
                                       DBEntryBase *db_entry) {
     CHECK_CONCURRENCY("db::DBTable");
 
-    EvpnManagerPartition *partition = GetPartition(tpart->index());
     ErmVpnRoute *ermvpn_route = dynamic_cast<ErmVpnRoute *>(db_entry);
     assert(ermvpn_route);
 
     // We only care about global tree routes for evpn stitching.
-    if (ermvpn_route->GetPrefix().type() != ErmVpnPrefix::GlobalTreeRoute)
+    if (ermvpn_route->GetPrefix().type() != ErmVpnPrefix::GlobalTreeRoute) {
         return;
+    }
 
-    EvpnDBState *dbstate = dynamic_cast<EvpnDBState*>(
+    EvpnMcastNode *dbstate = dynamic_cast<EvpnMcastNode *>(
         ermvpn_route->GetState(ermvpn_table(), ermvpn_listener_id()));
 
     // Handle GlobalTreeRoute route deletion.
@@ -1521,7 +1549,6 @@ void EvpnManager::ErmVpnRouteListener(DBTablePartBase *tpart,
             return;
         EvpnStatePtr evpn_state = dbstate->state();
         evpn_state->set_global_ermvpn_tree_rt(NULL);
-        ermvpn_route->ClearState(ermvpn_table(), ermvpn_listener_id());
 
         // Notify all received smet routes for PMSI re-computation.
         // Since usable global ermvpn is no longer available, any advertised
@@ -1530,21 +1557,23 @@ void EvpnManager::ErmVpnRouteListener(DBTablePartBase *tpart,
             BgpPath *path = const_cast<BgpPath *>(route->BestPath());
             if (path && (path->GetPathId() == 0)) {
                 path->SetCheckErmVpn();
-                route->Notify();
             }
+            route->Notify();
         }
+        ermvpn_route->ClearState(ermvpn_table(), ermvpn_listener_id());
         EVPN_ERMVPN_RT_LOG(ermvpn_route,
-                           "Processed MVPN GlobalErmVpnRoute deletion");
+                           "Processed EVPN GlobalErmVpnRoute deletion");
         delete dbstate;
         return;
     }
 
     // Set DB State in the route if not already done so before.
+    EvpnManagerPartition *partition = GetPartition(tpart->index());
     EvpnStatePtr evpn_state;
     if (!dbstate) {
         EvpnState::SG sg(ermvpn_route);
         evpn_state = partition->LocateState(sg);
-        dbstate = new EvpnDBState(partition, evpn_state);
+        dbstate = new EvpnLocalMcastNode(partition, NULL, evpn_state);
         ermvpn_route->SetState(ermvpn_table(), ermvpn_listener_id(), dbstate);
     } else {
         evpn_state = dbstate->state();
@@ -1558,7 +1587,7 @@ void EvpnManager::ErmVpnRouteListener(DBTablePartBase *tpart,
         route->Notify();
     }
     EVPN_ERMVPN_RT_LOG(ermvpn_route,
-                       "Processed MVPN GlobalErmVpnRoute creation");
+                       "Processed EVPN GlobalErmVpnRoute creation");
 }
 
 //
@@ -1604,8 +1633,8 @@ void EvpnManager::FillShowInfo(ShowEvpnTable *sevt) const {
     vector<string> ar_replicators;
     vector<ShowEvpnMcastLeaf> ar_leafs;
     EvpnManagerPartition::EvpnMcastNodeList::const_iterator it =
-                      partitions_[0]->remote_mcast_node_list().begin();
-    for (; it != partitions_[0]->remote_mcast_node_list().end(); it++) {
+                      partitions_[0]->remote_mcast_node_list()->begin();
+    for (; it != partitions_[0]->remote_mcast_node_list()->end(); it++) {
         BOOST_FOREACH(const EvpnMcastNode *node, it->second) {
             if (node->assisted_replication_leaf()) {
                 ShowEvpnMcastLeaf leaf;
@@ -1648,10 +1677,14 @@ bool EvpnManager::MayDelete() const {
     if (segment_delete_trigger_->IsSet())
         return false;
 
-    BOOST_FOREACH(const EvpnManagerPartition *parition, partitions_) {
-        if (!parition->empty())
+    BOOST_FOREACH(const EvpnManagerPartition *partition, partitions_) {
+        if (!partition->empty())
+            return false;
+        if (!partition->states().empty())
             return false;
     }
+    if (db_states_count_)
+        return false;
     return true;
 }
 
@@ -1730,25 +1763,3 @@ ErmVpnRoute *EvpnState::global_ermvpn_tree_rt() {
 const ErmVpnRoute *EvpnState::global_ermvpn_tree_rt() const {
     return global_ermvpn_tree_rt_;
 }
-
-EvpnDBState::EvpnDBState(EvpnManagerPartition *partition,
-                         EvpnStatePtr state) :
-    EvpnMcastNode(partition, NULL, EvpnMcastNode::LocalNode, state),
-    state_(state) {
-}
-
-EvpnDBState::~EvpnDBState() {
-    set_state(NULL);
-}
-
-EvpnStatePtr EvpnDBState::state() {
-    return state_;
-}
-
-void EvpnDBState::set_state(EvpnStatePtr state) {
-    state_ = state;
-}
-
-void EvpnDBState::TriggerUpdate() {
-}
-

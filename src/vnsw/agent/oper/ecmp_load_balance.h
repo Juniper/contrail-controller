@@ -7,8 +7,6 @@
 #include <boost/intrusive_ptr.hpp>
 #include <vnc_cfg_types.h>
 
-using namespace boost::uuids;
-
 namespace autogen {
     struct EcmpHashingIncludeFields;
 }

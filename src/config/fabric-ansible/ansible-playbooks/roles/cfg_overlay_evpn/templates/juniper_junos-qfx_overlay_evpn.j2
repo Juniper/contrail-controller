@@ -1,3 +1,6 @@
+set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 from protocol evpn
+set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 then load-balance per-packet
+set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         if (ri.get('routing_instance_type') == 'virtual-switch') or (ri.get('virtual_network_is_internal') == true) or ((ri.get('routing_instance_type') == 'vrf') and (ri.get('is_public_network') == true)) %}
 {%             set vrf_import = ri.name+'-import' %}
@@ -15,10 +18,8 @@ set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 
 set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target}}
 {%             endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then accept
-set groups {{cfg_group}} switch-options vrf-export {{vrf_export}}
 {%         endif %}
 {%     endfor %}
-
 {%     for bgp_elem in device_abstract_config.get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         for fam in families %}

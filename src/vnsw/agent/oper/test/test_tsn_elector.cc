@@ -113,7 +113,7 @@ bool AreEvpnComponentPresent(const std::string vrf_name,
 }
 
 void FillOlist(Agent *agent, std::string ip, TunnelOlist &olist) {
-    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+    olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                                      IpAddress::from_string(ip).to_v4(),
                                      TunnelType::VxlanType()));
 }

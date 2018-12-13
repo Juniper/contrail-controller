@@ -10,6 +10,7 @@ import gevent
 from gevent.queue import Empty
 
 import requests
+import socket
 import argparse
 import uuid
 
@@ -106,7 +107,7 @@ class VncKubernetes(VncCommon):
         # init rabbit connection
         rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
         self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
-            REACTION_MAP, 'kube_manager', rabbitmq_cfg)
+            REACTION_MAP, 'kube_manager', rabbitmq_cfg, self.args.host_ip)
         self.rabbit.establish()
         self.rabbit._db_resync_done.set()
 
@@ -150,6 +151,8 @@ class VncKubernetes(VncCommon):
             self.network_policy_mgr)
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints')
+        self.network_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_network.VncNetwork')
 
         # Create system default security policies.
         VncSecurityPolicy.create_deny_all_security_policy()
@@ -544,6 +547,8 @@ class VncKubernetes(VncCommon):
                     self.endpoints_mgr.process(event)
                 elif kind == 'Ingress':
                     self.ingress_mgr.process(event)
+                elif kind == 'NetworkAttachmentDefinition':
+                    self.network_mgr.process(event)
                 else:
                     print("%s - Event %s %s %s:%s:%s not handled"
                         %(self._name, event_type, kind, namespace, name, uid))
