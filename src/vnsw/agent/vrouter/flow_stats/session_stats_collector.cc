@@ -4,7 +4,7 @@
 
 #include <bitset>
 #include <pkt/flow_table.h>
-#include <pkt/flow_mgmt_request.h>
+#include <pkt/flow_mgmt/flow_mgmt_request.h>
 #include <uve/stats_collector.h>
 #include <uve/interface_uve_stats_table.h>
 #include <sandesh/common/flow_types.h>

@@ -9,7 +9,7 @@
 #include "ksync/ksync_sock_user.h"
 #include "oper/tunnel_nh.h"
 #include "pkt/flow_mgmt.h"
-#include "pkt/flow_mgmt_dbclient.h"
+#include "pkt/flow_mgmt/flow_mgmt_dbclient.h"
 #include <algorithm>
 
 #define vm1_ip "1.1.1.1"
