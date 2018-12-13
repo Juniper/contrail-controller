@@ -58,6 +58,48 @@ class TestNetworkDM(TestCommonDM):
     # end check_interface_ip_config
 
 
+    def get_subnets(self, ipam_refs=[]):
+        subnets = []
+        for ipam_ref in ipam_refs or []:
+            for subnet in ipam_ref['attr'].get('ipam_subnets', []):
+                if 'subnet' in subnet:
+                    subnets.append([subnet['subnet']['ip_prefix'],
+                                    subnet['subnet']['ip_prefix_len'])
+        return subnets
+    # end get_subnets
+
+    def check_dci_lo_network(self, check_subnet, should_exist=True):
+        vn_name = ['default-domain', 'default-project', 'dci-network']
+        vn = VirtualNetwork(vn_name)
+        vn = self._vnc_lib.virtual_network_read(fq_name=vn.get_fq_name())
+        if not vn:
+            raise Exception("DCI network not found: " + vn_name)
+        ipam_refs = vn.get_network_ipam_refs()
+        subnets = self.get_subnets(ipam_refs)
+        if should_exist:
+            if check_subnet not in subnets:
+                raise Exception("Subnet not found") 
+        else:
+            if check_subnet in subnets:
+                raise Exception("Subnet still found") 
+    # end check_dci_lo_network    
+
+    def test_dci_api(self):
+        gs = GlobalVrouterConfig(fq_name=["default-global-system-config"])
+        subnets = SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 16)])
+        gs.set_data_center_interconnect_loopback_namespace(subnets)
+        self._vnc_lib.global_system_config_update(gs)
+        self.check_dci_lo_network(["10.0.0.0", 24])
+        self.check_dci_lo_network(["20.0.0.0", 16])
+        subnets = SubnetListType([SubnetType("30.0.0.0", 24)])
+        gs.set_data_center_interconnect_loopback_namespace(subnets)
+        self._vnc_lib.global_system_config_update(gs)
+        self.check_dci_lo_network(["10.0.0.0", 24], False)
+        self.check_dci_lo_network(["30.0.0.0", 24], True)
+        gs.set_data_center_interconnect_loopback_namespace(None)
+        self.check_dci_lo_network(["30.0.0.0", 24], False)
+    # end test_dci_api
+
     # test vn  flat subnet lo0 ip allocation
     def test_dm_lo0_flat_subnet_ip_alloc(self):
         vn1_name = 'vn1' + self.id()

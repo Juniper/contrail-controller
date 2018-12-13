@@ -877,12 +877,10 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         if 'autonomous_system' in obj_dict:
             cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
-        if obj_dict.get('data_center_interconnect_loopback_namespace'):
-            ok, read_result = cls.dbe_read(db_conn, 'global_system_config', id)
+        if obj_dict.get('data_center_interconnect_loopback_namespace') is not None:
+            ok, result = cls._create_dci_lo0_network_ipam(db_conn,
+                     obj_dict.get('data_center_interconnect_loopback_namespace'))
             if not ok:
-                return ok, read_result
-            if not cls._create_dci_lo0_network_ipam(db_conn,
-                     obj_dict.get('data_center_interconnect_loopback_namespace')):
                 return False, "failed to create/update network ipam for dci loopbacks"
 
         return True, ''
