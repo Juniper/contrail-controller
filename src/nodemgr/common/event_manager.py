@@ -286,7 +286,8 @@ class EventManager(object):
         (corename, stderr) = Popen(
             ls_command_option.split(),
             stdout=PIPE).communicate()
-        self.all_core_file_list = corename.split('\n')[0:-1]
+        all_cores = corename.split('\n')[0:-1]
+        self.all_core_file_list = [core_file for core_file in all_cores if core_file != "lost+found"]
         self.send_process_state_db(self.group_names)
         return True
 
