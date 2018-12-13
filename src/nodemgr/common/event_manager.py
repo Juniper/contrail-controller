@@ -273,12 +273,13 @@ class EventManager(object):
             (corenames, _) = Popen(
                 ls_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
+
         except Exception as e:
             self.msg_log('Failed to get core files: %s' % (str(e)),
                 SandeshLevel.SYS_ERR)
         else:
             return [self.get_corefile_path() + '/' + core
-                    for core in corenames.split()]
+                    for core in corenames.split() if core != "lost+found"]
     # end get_corefiles
 
     def remove_corefiles(self, core_files):
