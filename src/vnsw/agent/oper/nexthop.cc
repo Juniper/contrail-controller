@@ -47,6 +47,8 @@ TunnelType::Type TunnelType::ComputeType(TunnelType::TypeBmap bmap) {
         return VXLAN;
     else if (bmap & (1 << NATIVE))
         return NATIVE;
+    else if (bmap & (1 << MPLS_OVER_MPLS))
+        return MPLS_OVER_MPLS;
 
     return DefaultType();
 }
@@ -892,6 +894,7 @@ NextHop *TunnelNHKey::AllocEntry() const {
 bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
     const TunnelNH &a = static_cast<const TunnelNH &>(rhs);
 
+    bool ret;
     if (vrf_.get() != a.vrf_.get()) {
         return vrf_.get() < a.vrf_.get();
     }
@@ -911,7 +914,8 @@ bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
     if (rewrite_dmac_ != a.rewrite_dmac_) {
         return rewrite_dmac_ < a.rewrite_dmac_;
     }
-    return false;
+    ret = TunnelNextHopIsLess(rhs);
+    return ret;
 }
 
 void TunnelNH::SetKey(const DBRequestKey *k) {
@@ -1062,6 +1066,62 @@ void TunnelNH::SendObjectLog(const NextHopTable *table,
     OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Labelled Tunnel  NH routines
+/////////////////////////////////////////////////////////////////////////////
+
+LabelledTunnelNH::LabelledTunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
+                   bool policy, TunnelType type, const MacAddress &rewrite_dmac,
+                   uint32_t label) :
+    TunnelNH(vrf, sip, dip, policy, type, rewrite_dmac), transport_mpls_label_(label) {
+}
+
+LabelledTunnelNH::~LabelledTunnelNH() {
+}
+
+NextHop *LabelledTunnelNHKey::AllocEntry() const {
+    VrfEntry *vrf = static_cast<VrfEntry *>
+        (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
+    return new LabelledTunnelNH(vrf, sip_, dip_, policy_, tunnel_type_,
+                        rewrite_dmac_, transport_mpls_label_);
+}
+
+LabelledTunnelNH::KeyPtr LabelledTunnelNH::GetDBRequestKey() const {
+    NextHopKey *key = new LabelledTunnelNHKey(vrf_->GetName(), sip_, dip_,
+                        policy_,tunnel_type_, rewrite_dmac_, transport_mpls_label_);
+    return DBEntryBase::KeyPtr(key);
+}
+
+bool LabelledTunnelNH::TunnelNextHopIsLess(const DBEntry &rhs) const {
+    const LabelledTunnelNH &a = static_cast<const LabelledTunnelNH &>(rhs);
+
+    return (transport_mpls_label_ < a.transport_mpls_label_);
+}
+
+void LabelledTunnelNH::SendObjectLog(const NextHopTable *table,
+                             AgentLogEvent::type event) const {
+    NextHopObjectLogInfo info;
+    FillObjectLog(event, info);
+
+    const VrfEntry *vrf = GetVrf();
+    if (vrf) {
+        info.set_vrf(vrf->GetName());
+    }
+    const Ip4Address *sip = GetSip();
+    info.set_source_ip(sip->to_string());
+    const Ip4Address *dip = GetDip();
+    info.set_dest_ip(dip->to_string());
+    info.set_tunnel_type(tunnel_type_.ToString());
+    if (crypt_)
+        info.set_crypt_traffic("All");
+    if (crypt_tunnel_available_)
+        info.set_crypt_tunnel_available("Yes");
+    if (crypt_interface_)
+        info.set_crypt_interface(GetCryptInterface()->name());
+    info.set_rewrite_dmac(rewrite_dmac_.ToString());
+    info.set_transport_mpls_label(transport_mpls_label_);
+    OPER_TRACE_ENTRY(NextHop, table, info);
+}
 /////////////////////////////////////////////////////////////////////////////
 // Mirror NH routines
 /////////////////////////////////////////////////////////////////////////////
@@ -2840,7 +2900,8 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
         break;
     }
     case Composite::ECMP:
-    case Composite::LOCAL_ECMP: {
+    case Composite::LOCAL_ECMP:
+    case Composite::LU_ECMP: {
         comp_str << "ECMP Composite"  << " sub nh count: "
             << comp_nh->ComponentNHCount();
         data.set_type(comp_str.str());

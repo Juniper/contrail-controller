@@ -30,6 +30,7 @@ TEST_F(IpChangeTest, vhost_ip_change) {
         Ip4Address addr = Ip4Address::from_string("27.0.0.1");
         EXPECT_TRUE(ResolvRouteFind(Agent::GetInstance()->fabric_vrf_name(), addr, 24));
         EXPECT_TRUE(VhostRecvRouteFind(Agent::GetInstance()->fabric_vrf_name(), addr, 32));
+        EXPECT_TRUE(RouteFindMpls(Agent::GetInstance()->fabric_vrf_name(), addr, 32));
         EXPECT_TRUE(RouterIdMatch(addr));
 
         EXPECT_GE(system("ip addr add 49.0.0.1/24 dev vhost0"), 0);
@@ -39,6 +40,7 @@ TEST_F(IpChangeTest, vhost_ip_change) {
         addr = Ip4Address::from_string("49.0.0.1");
         EXPECT_TRUE(ResolvRouteFind(Agent::GetInstance()->fabric_vrf_name(), addr, 24));
         EXPECT_TRUE(VhostRecvRouteFind(Agent::GetInstance()->fabric_vrf_name(), addr, 32));
+        EXPECT_TRUE(RouteFindMpls(Agent::GetInstance()->fabric_vrf_name(), addr, 32));
         EXPECT_TRUE(RouterIdMatch(addr));
 
         EXPECT_GE(system("ip addr del 49.0.0.1/24 dev vhost0"), 0);

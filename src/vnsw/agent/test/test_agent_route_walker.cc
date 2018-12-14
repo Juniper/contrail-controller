@@ -78,6 +78,7 @@ public:
         //1.1.1.10/32; 255.255.255.255; 0:0:1:1:1:10; ff:ff:ff:ff:ff:ff
         //vrf2
         //2.2.2.20/32; 255.255.255.255; 0:0:2:2:2:20; ff:ff:ff:ff:ff:ff
+        //inet_mpls table: fabric vrf: 10.1.1.1/32
         route_notifications_++;
         route_table_walk_started_ = true;
         assert(AreAllWalksDone() == false);
@@ -325,7 +326,7 @@ TEST_F(Test, walk_all_routes_wih_no_vrf) {
     client->Reset();
     SetupEnvironment(0);
     walker()->StartVrfWalk();
-    VerifyNotifications(14, 2, 1, (Agent::ROUTE_TABLE_MAX - 1) * 2);
+    VerifyNotifications(15, 2, 1, (Agent::ROUTE_TABLE_MAX - 1) * 2);
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(0);
@@ -335,7 +336,7 @@ TEST_F(Test, walk_all_routes_wih_1_vrf) {
     client->Reset();
     SetupEnvironment(1);
     walker()->StartVrfWalk();
-    VerifyNotifications(29, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
+    VerifyNotifications(30, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(1);
@@ -345,7 +346,7 @@ TEST_F(Test, walk_all_routes_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
     walker()->StartVrfWalk();
-    VerifyNotifications(44, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
+    VerifyNotifications(45, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(2);
@@ -355,7 +356,7 @@ TEST_F(Test, walk_all_routes_with_3_vrf) {
     client->Reset();
     SetupEnvironment(3);
     walker()->StartVrfWalk();
-    VerifyNotifications(59, 5, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 5));
+    VerifyNotifications(60, 5, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 5));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(3);

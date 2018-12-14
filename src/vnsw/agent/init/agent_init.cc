@@ -306,6 +306,7 @@ void AgentInit::CreateVrfBase() {
     agent_->set_fabric_vrf(vrf);
     agent_->set_fabric_policy_vrf(policy_vrf);
     agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
+    agent_->set_fabric_inet4_mpls_table(vrf->GetInet4MplsUnicastRouteTable());
     agent_->set_fabric_inet4_multicast_table
         (vrf->GetInet4MulticastRouteTable());
     agent_->set_fabric_l2_unicast_table(vrf->GetBridgeRouteTable());
