@@ -70,7 +70,11 @@ public:
         sg_list_(sg_list),tag_list_(tag_list), path_preference_(path_preference),
         ecmp_suppressed_(ecmp_suppressed), ecmp_load_balance_(ecmp_load_balance),
         etree_leaf_(etree_leaf), rewrite_dmac_(rewrite_dmac)
-        {nh_req_.Swap(&req);}
+        {
+            nh_req_.Swap(&req);
+            tunnel_dest_list_.push_back(addr);
+            label_list_.push_back(label);
+        }
     // Data passed in case of delete from BGP peer, to validate
     // the request at time of processing.
     ControllerVmRoute(const BgpPeer *peer) : ControllerPeerPath(peer) { }
@@ -112,9 +116,72 @@ private:
     EcmpLoadBalance ecmp_load_balance_;
     bool etree_leaf_;
     MacAddress rewrite_dmac_;
+    std::vector<IpAddress> tunnel_dest_list_;
+    std::vector<uint32_t> label_list_;
     DISALLOW_COPY_AND_ASSIGN(ControllerVmRoute);
 };
 
+class ControllerMplsRoute : public ControllerPeerPath {
+public:
+    ControllerMplsRoute(const BgpPeer *peer, const string &vrf_name,
+                  const Ip4Address &addr, uint32_t label,
+                  const VnListType &dest_vn_list, int bmap,
+                  const SecurityGroupList &sg_list,
+                  const TagList &tag_list,
+                  const PathPreference &path_preference,
+                  DBRequest &req, bool ecmp_suppressed,
+                  const EcmpLoadBalance &ecmp_load_balance,
+                  bool etree_leaf,
+                  const MacAddress &rewrite_dmac = MacAddress()) :
+        ControllerPeerPath(peer), server_vrf_(vrf_name), tunnel_dest_(addr),
+        tunnel_bmap_(bmap), label_(label), dest_vn_list_(dest_vn_list),
+        sg_list_(sg_list),tag_list_(tag_list), path_preference_(path_preference),
+        ecmp_suppressed_(ecmp_suppressed), ecmp_load_balance_(ecmp_load_balance),
+        etree_leaf_(etree_leaf), rewrite_dmac_(rewrite_dmac)
+        {nh_req_.Swap(&req);}
+    // Data passed in case of delete from BGP peer, to validate
+    // the request at time of processing.
+    ControllerMplsRoute(const BgpPeer *peer) : ControllerPeerPath(peer) { }
+    virtual ~ControllerMplsRoute() { }
+
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
+    //virtual bool UpdateRoute(AgentRoute *route);
+    virtual string ToString() const {return "remote PE";}
+    const SecurityGroupList &sg_list() const {return sg_list_;}
+    const TagList &tag_list() const {return tag_list_;}
+    static ControllerMplsRoute *MakeControllerMplsRoute(const BgpPeer *peer,
+                                            const string &default_vrf,
+                                            const Ip4Address &router_id,
+                                            const string &vrf_name,
+                                            const Ip4Address &tunnel_dest,
+                                            TunnelType::TypeBmap bmap,
+                                            uint32_t label,
+                                            MacAddress rewrite_dmac,
+                                            const VnListType &dest_vn_list,
+                                            const SecurityGroupList &sg_list,
+                                            const TagList &tag_list,
+                                            const PathPreference &path_preference,
+                                            bool ecmp_suppressed,
+                                            const EcmpLoadBalance &ecmp_load_balance,
+                                            bool etree_leaf);
+
+private:
+    string server_vrf_;
+    Ip4Address tunnel_dest_;
+    TunnelType::TypeBmap tunnel_bmap_;
+    uint32_t label_;
+    VnListType dest_vn_list_;
+    SecurityGroupList sg_list_;
+    TagList tag_list_;
+    PathPreference path_preference_;
+    DBRequest nh_req_;
+    bool ecmp_suppressed_;
+    EcmpLoadBalance ecmp_load_balance_;
+    bool etree_leaf_;
+    MacAddress rewrite_dmac_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerMplsRoute);
+};
 class ControllerEcmpRoute : public ControllerPeerPath {
 public:
     static const uint32_t maximum_ecmp_paths = 128;
@@ -164,6 +231,9 @@ private:
     ClonedLocalPathList cloned_data_list_;
     Agent *agent_;
     bool copy_local_path_;
+    std::vector<IpAddress>tunnel_dest_list_;
+    std::vector<uint32_t>label_list_;
+    string vrf_name_;
     DISALLOW_COPY_AND_ASSIGN(ControllerEcmpRoute);
 };
 

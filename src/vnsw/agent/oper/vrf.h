@@ -156,6 +156,7 @@ public:
                 const ComponentNHData &nh_data);
 
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable() const;
+    InetUnicastAgentRouteTable *GetInet4MplsUnicastRouteTable() const;
     AgentRouteTable *GetInet4MulticastRouteTable() const;
     AgentRouteTable *GetEvpnRouteTable() const;
     AgentRouteTable *GetBridgeRouteTable() const;
@@ -310,6 +311,8 @@ public:
     virtual bool CanNotify(IFMapNode *dbe);
 
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable
+        (const std::string &vrf_name);
+    InetUnicastAgentRouteTable *GetInet4MplsUnicastRouteTable
         (const std::string &vrf_name);
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
     AgentRouteTable *GetEvpnRouteTable(const std::string &vrf_name);
