@@ -237,7 +237,7 @@ public:
     AgentRoute(VrfEntry *vrf, bool is_multicast,
                const std::string &intf_route_type = "interface") :
         Route(), vrf_(vrf), is_multicast_(is_multicast),
-        intf_route_type_(intf_route_type) { }
+        intf_route_type_(intf_route_type), dependent_route_table_(NULL) { }
     virtual ~AgentRoute() { }
 
     // Virtual functions from base DBEntry
@@ -310,6 +310,8 @@ public:
                              AgentRouteData *data, bool route_added);
     void DeleteInput(DBTablePartition *part, AgentRouteTable *table,
                      AgentRouteKey *key, AgentRouteData *data);
+    void AddUnresolvedRouteToTable(AgentRouteTable *table);
+    void RemoveUnresolvedRouteFromTable(AgentRouteTable *table);
 protected:
     void SetVrf(VrfEntry *vrf) { vrf_ = vrf; }
     void RemovePath(AgentPath *path);
@@ -322,6 +324,9 @@ protected:
     virtual bool ReComputeMulticastPaths(AgentPath *path, bool del);
     virtual void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
     virtual Composite::Type GetMulticastCompType() { return Composite::L2COMP; }
+    const AgentRouteTable *GetDependentRouteTable(void) const {
+        return dependent_route_table_;
+    }
 
 private:
     friend class AgentRouteTable;
@@ -336,6 +341,7 @@ private:
     // (ex. subnet multicast). Flag to specify if this is multicast route
     bool is_multicast_;
     std::string intf_route_type_;
+    AgentRouteTable *dependent_route_table_;
     DEPENDENCY_LIST(AgentRoute, AgentRoute, dependant_routes_);
     DEPENDENCY_LIST(NextHop, AgentRoute, tunnel_nh_list_);
     DISALLOW_COPY_AND_ASSIGN(AgentRoute);
