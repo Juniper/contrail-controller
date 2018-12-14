@@ -397,7 +397,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     SDWANMetricsRecord sdwanmetricrecord;
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
     SDWANKPIMetricsRecord sdwankpimetricrecord_source;
-    SDWANKPIMetricsRecord sdwankpimetricrecord_destination;
+    //SDWANKPIMetricsRecord sdwankpimetricrecord_destination;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
@@ -429,7 +429,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     std::string link1, link2, underlay_link1, underlay_link2;
     int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
     int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
-    int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
+    //int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
     if (link1_bytes == -1)
         link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
     if (link2_bytes == -1)
@@ -496,18 +496,18 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     // Map: link_metrics_dial_traffic_type
     SDWANMetrics_diff sdwanmetric1;
     SDWANMetrics_diff sdwanmetric2;
-    SDWANMetrics_dial sdwanmetric_dial1;
-    SDWANMetrics_dial sdwanmetric_dial2;
+    //SDWANMetrics_dial sdwanmetric_dial1;
+    //SDWANMetrics_dial sdwanmetric_dial2;
     std::map<std::string, SDWANMetrics_diff> app_metrics_diff_link;
     std::map<std::string, SDWANMetrics_diff> link_metrics_diff_traffic_type;
-    std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
+    //std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
     if (boost::equals(link1, link2)) {
         sdwanmetric1.set_total_bytes(link1_bytes + link2_bytes);
         sdwanmetric1.set_input_bytes(link2_bytes);
         sdwanmetric1.set_output_bytes(link1_bytes);
-        if (sampling_percentage != -1) {
-            sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
-        }
+        // if (sampling_percentage != -1) {
+        //     sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
+        // }
         if (is_close) {
             sdwanmetric1.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
             sdwanmetric1.set_session_count(1);
@@ -521,9 +521,9 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
         sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
         // Map:  link_metrics_dial_traffic_type
-        std::string linkmetrics_key(link1 + "::" + sla_profile + "::" + traffic_type);
-        link_metrics_dial_traffic_type.insert(std::make_pair(linkmetrics_key, sdwanmetric_dial1));
-        sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+        //std::string linkmetrics_key(link1 + "::" + sla_profile + "::" + traffic_type);
+        //link_metrics_dial_traffic_type.insert(std::make_pair(linkmetrics_key, sdwanmetric_dial1));
+        //sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
 
         // Update maps for underlay links if needed
         if (!(boost::equals(link1, underlay_link1))) {
@@ -536,8 +536,8 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
             sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
             sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
             // Map:  link_metrics_dial_traffic_type
-            link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric_dial1));
-            sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+            //link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric_dial1));
+            //sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
         }
     } else {
         sdwanmetric1.set_total_bytes(link1_bytes);
@@ -546,10 +546,10 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         sdwanmetric2.set_total_bytes(link2_bytes);
         sdwanmetric2.set_output_bytes(0);
         sdwanmetric2.set_input_bytes(link2_bytes);
-        if (sampling_percentage != -1) {
-            sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
-            sdwanmetric_dial2.set_sampling_percentage(sampling_percentage);
-        }
+        // if (sampling_percentage != -1) {
+        //     sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
+        //     sdwanmetric_dial2.set_sampling_percentage(sampling_percentage);
+        // }
         if (is_close) {
             sdwanmetric1.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
             sdwanmetric1.set_session_count(1);
@@ -571,9 +571,9 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
         sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
         // Map:  link_metrics_dial_traffic_type
-        link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric_dial1));
-        link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric_dial2));
-        sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+        //link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric_dial1));
+        //link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric_dial2));
+        //sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
 
         // Update maps for underlay links if needed
         if ((!(boost::equals(link1, underlay_link1))) ||
@@ -585,7 +585,7 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
                 LOG(DEBUG,"UVE: underlay link_metrics_*_traffic_type key1 :" << linkmetricmap_key1);
                 app_metrics_diff_link.insert(std::make_pair(linkmap_key1, sdwanmetric1));
                 link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric1));
-                link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric_dial1));
+                //link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric_dial1));
             }
             if ((!(boost::equals(link2, underlay_link2))) &&
                (!(boost::equals(underlay_link1, underlay_link2)))) {
@@ -595,18 +595,19 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
                 LOG(DEBUG,"UVE: underlay link_metrics_*_traffic_type key2 :" << linkmetricmap_key2);
                 app_metrics_diff_link.insert(std::make_pair(linkmap_key2, sdwanmetric2));
                 link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric2));
-                link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric_dial2));
+                //link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric_dial2));
             }
             sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
             sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
-            sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+            //sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
         }
     }
+
 
 //Update maps for SDWANKPI metrics record
     SDWANKPIMetrics_diff sdwankpimetricdiff;
     std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_source;
-    std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_destination;
+    //std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_destination;
     if (is_close) {
       const std::string routing_instance (SyslogParser::GetMapVals(v, "routing-instance", "UNKNOWN"));
       const std::string vpn_name = get_VPNName(routing_instance);
@@ -615,46 +616,55 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
       sdwankpimetricdiff.set_session_close_count(1);
       sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
       IPNetwork found_lan = config_obj->FindNetwork(destination_address, vpn_name);
+      std::string destination_site;
+      if (found_lan.id.empty()){
+        destination_site = "UNKNOWN";
+      }
+      else{
+        destination_site = found_lan.id;
+      }
       LOG(DEBUG,"destination address "<< destination_address  <<" in VPN " << vpn_name <<
-       " belongs to site : " << found_lan.id);
-      std::string destination_site = found_lan.id;
+       " belongs to site : " << destination_site);
 
-      const std::string kpi_uvename_destination = destination_site;
-      sdwankpimetricrecord_destination.set_name(kpi_uvename_destination);
+
+      //const std::string kpi_uvename_destination = destination_site;
+      //sdwankpimetricrecord_destination.set_name(kpi_uvename_destination);
 
       std::string searchHubInterface = destination_interface_name + ",";
       std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
 
        // map key should be destination site for source UVE and source site for destination UVE
       std::string kpimetricdiff_key_source(destination_site);
-      std::string kpimetricdiff_key_destination(location);
+      //std::string kpimetricdiff_key_destination(location);
       LOG(DEBUG,"UVE: KPI key destination : " << kpimetricdiff_key_source);
-      LOG(DEBUG,"UVE: KPI key source : " << kpimetricdiff_key_destination);
+      //LOG(DEBUG,"UVE: KPI key source : " << kpimetricdiff_key_destination);
       sdwan_kpi_metrics_diff_source.insert(std::make_pair(kpimetricdiff_key_source, sdwankpimetricdiff));
-      sdwan_kpi_metrics_diff_destination.insert(std::make_pair(kpimetricdiff_key_destination, sdwankpimetricdiff));
+      //sdwan_kpi_metrics_diff_destination.insert(std::make_pair(kpimetricdiff_key_destination, sdwankpimetricdiff));
 
       if (destination_interface_name_found != std::string::npos){
         LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" found in hubs_interfaces" );
 
         sdwankpimetricrecord_source.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_source);
-        sdwankpimetricrecord_destination.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_destination);
+        //sdwankpimetricrecord_destination.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_destination);
       }
       else {
         LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
-        
+
         sdwankpimetricrecord_source.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_source);
-        sdwankpimetricrecord_destination.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_destination);
+        //sdwankpimetricrecord_destination.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_destination);
       }
     }
-    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
     SDWANKPIMetrics::Send(sdwankpimetricrecord_source,"ObjectCPETable");
-    SDWANKPIMetrics::Send(sdwankpimetricrecord_destination,"ObjectCPETable");
+    //SDWANKPIMetrics::Send(sdwankpimetricrecord_destination,"ObjectCPETable");
+
+    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
 
     return;
 }
 
 void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool summarize_user) {
     SDWANMetricsRecord sdwanmetricrecord;
+    SDWANTenantMetricsRecord sdwantenantmetricrecord;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
     const std::string link(SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
@@ -662,7 +672,11 @@ void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool sum
     const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
     const std::string department(SyslogParser::GetMapVals(v, "source-zone-name", "UNKNOWN"));
     const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    const std::string region(SyslogParser::GetMapVals(v, "region", "DEFAULT"));
+    const std::string opco(SyslogParser::GetMapVals(v, "OPCO", "DEFAULT"));
     const std::string uvename = tenant + "::" + location + "::" + device_id;
+    const std::string tenantuvename = region + "::" + opco + "::" + tenant;
+
     const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
     const std::string nested_appname(SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN"));
     const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
@@ -674,6 +688,7 @@ void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool sum
         username = SyslogParser::GetMapVals(v, "source-address", "UNKNOWN");
     }
     sdwanmetricrecord.set_name(uvename);
+    sdwantenantmetricrecord.set_name(tenantuvename);
     SDWANMetrics_dial sdwanmetric;
     int64_t pkt_loss = SyslogParser::GetMapVal(v, "pkt-loss", -1);
     int64_t rtt = SyslogParser::GetMapVal(v, "rtt", -1);
@@ -727,6 +742,14 @@ void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool sum
     link_metrics_dial_traffic_type.insert(std::make_pair(linkmetric_key, sdwanmetric));
     sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
 
+    // Map: tenant_metrics_dial_sla
+    std::map<std::string, SDWANMetrics_dial> tenant_metrics_dial_sla;
+    std::string tenantmetric_key(location + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: tenant_metrics_dial_sla key :" << tenantmetric_key);
+    tenant_metrics_dial_sla.insert(std::make_pair(tenantmetric_key, sdwanmetric));
+    sdwantenantmetricrecord.set_tenant_metrics_dial_sla(tenant_metrics_dial_sla);
+
+    SDWANTenantMetrics::Send(sdwantenantmetricrecord, "ObjectCPETable");
     SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
     return;
 }
@@ -1194,7 +1217,7 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
                     ParseStructuredPart(&v, app_service_tags, int_fields, msg);
                 }
             } else {
-                LOG(ERROR, "StructuredSyslogDecorate: Application Record not found for: " << an);
+                LOG(INFO, "StructuredSyslogDecorate: Application Record not found for: " << an);
             }
             std::string sla_rec_name = tenant + "/" + device + "/" + sla_profile;
             boost::shared_ptr<SlaProfileRecord> sla_rec;

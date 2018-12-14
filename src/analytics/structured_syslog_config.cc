@@ -104,7 +104,7 @@ StructuredSyslogConfig::RefreshNetworksMap(const std::string location){
               indexes_to_be_deleted.push_back(i - it->second.begin());
             }
          }
-         for(std::vector<int>::iterator v = indexes_to_be_deleted.begin(); v != indexes_to_be_deleted.end(); v++) {
+         for(std::vector<int>::reverse_iterator v = indexes_to_be_deleted.rbegin(); v != indexes_to_be_deleted.rend(); ++v) {
           IPNetworks::iterator i = it->second.begin();
           it->second.erase(*v + i);
          }
@@ -118,8 +118,7 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
 {
     uint32_t network_addr = IPToUInt(ip);
     IPNetwork ip_network(network_addr, 0, ip);
-    std::string unknown_location = "UNKNOWN";
-    IPNetwork ip_network_not_found(0, 0, unknown_location);
+    std::string unknown_location;
 
     IPNetworks_map::iterator it = networks_map_.find(key);
     if (it  != networks_map_.end()) {
@@ -147,7 +146,8 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
     else {
         LOG(DEBUG, "VPN "<< key << " NOT found in Network MAP!");
     }
-    return ip_network_not_found;
+    //return ip_network_not_found;
+    return IPNetwork(0, 0, unknown_location);
  }
 
 void
