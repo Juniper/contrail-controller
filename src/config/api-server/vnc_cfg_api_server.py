@@ -3508,7 +3508,12 @@ class VncApiServer(object):
 
     def _set_api_audit_info(self, apiConfig):
         apiConfig.url = get_request().url
-        apiConfig.remote_ip = get_request().headers.get('Host')
+        apiConfig.remote_ip = get_request().headers.get('X-Requestor-IP')
+        if not apiConfig.remote_ip:
+            # If the X-Requestor-IP was not sent, use the REMOTE_ADDR
+            # If REMOTE_ADDR is not present, just use the 'Host'
+            apiConfig.remote_ip = get_request().environ.get('REMOTE_ADDR', get_request().headers.get('Host'))
+
         useragent = get_request().headers.get('X-Contrail-Useragent')
         if not useragent:
             useragent = get_request().headers.get('User-Agent')
