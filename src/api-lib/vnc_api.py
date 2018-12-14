@@ -16,6 +16,7 @@ import __main__ as main
 import ssl
 import re
 import os
+import socket
 
 import gen.resource_common
 import gen.vnc_api_client_gen
@@ -350,6 +351,16 @@ class VncApi(object):
                 self._headers['X-API-USER'] = self._user_info['user']
             if 'role' in self._user_info:
                 self.set_user_roles([self._user_info['role']])
+
+        host_ip = None
+        try:
+            host_ip = socket.gethostbyname(socket.gethostname())
+            self._headers['X-Requestor-IP'] = host_ip
+        except:
+            # If there is an exception in gethostbyname, just set the
+            # X-Requestor-IP to include the hostname.
+            self._headers['X-Requestor-IP'] = socket.gethostname()
+            pass
 
         self._exclude_hrefs = exclude_hrefs
 
