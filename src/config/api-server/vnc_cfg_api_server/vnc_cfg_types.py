@@ -840,13 +840,14 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         ok, res = cls.dbe_read(db_conn, 'virtual_network', vn_id)
         if not ok:
             return ok, res
-        ipam_refs = res['virtual-network'].get('network_ipam_refs')
+        ipam_refs = res.get('network_ipam_refs')
         ipam_obj = None
         if ipam_refs:
             ok, ipam_obj = cls.dbe_read(db_conn, 'network_ipam', ipam_refs[0].get("uuid"))
             if not ok:
                 return ok, ipam_obj
         is_create = False
+        api_server = db_conn.get_api_server()
         if not ipam_obj:
             ipam = NetworkIpam('default-dci-lo0-network-ipam')
             ipam_dict = json.dumps(ipam, default=_obj_serializer_all)
@@ -855,21 +856,22 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
             if not ok:
                 return ok, ipam_obj
             is_create = True
+            ipam_obj = ipam_obj.get('network-ipam')
 
         ipamList = []
         if subnetList and subnetList.get("subnet"):
             subList = subnetList.get("subnet")
             for sub in subList or []:
-                ipamSub = IpamSubnetType(SubnetType(sub.get("ip_prefix"), sub.get("ip_prefix_len")))
+                ipamSub = IpamSubnetType(subnet=SubnetType(sub.get("ip_prefix"), sub.get("ip_prefix_len")))
                 ipamList.append(ipamSub)
         # update ipam
-        attr = VnSubnetsType(ipamList)
-        attr_dict = attr.__dict__
-        api_server = db_conn.get_api_server()
+        attr = VnSubnetsType(ipam_subnets=ipamList)
+        attr_dict = json.loads(json.dumps(attr, default=_obj_serializer_all))
         op = 'ADD'
         api_server.internal_request_ref_update('virtual-network', vn_id, op,
-                                               'network-ipam', ipam_obj['network-ipam']['uuid'],
-                                               ipam_obj['network-ipam']['fq_name'], attr=attr_dict)
+                                               'network-ipam', ipam_obj.get('uuid'),
+                                               ipam_obj.get('fq_name'), attr=attr_dict)
+        return True, ipam_obj
     # end _create_dci_lo0_network_ipam
 
     @classmethod
@@ -877,13 +879,13 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         if 'autonomous_system' in obj_dict:
             cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
-        if obj_dict.get('data_center_interconnect_loopback_namespace'):
-            ok, read_result = cls.dbe_read(db_conn, 'global_system_config', id)
-            if not ok:
-                return ok, read_result
+        try:
             if not cls._create_dci_lo0_network_ipam(db_conn,
-                     obj_dict.get('data_center_interconnect_loopback_namespace')):
+                     obj_dict['data_center_interconnect_loopback_namespace']):
                 return False, "failed to create/update network ipam for dci loopbacks"
+        except KeyError:
+            # obj_dict does not have 'data_center_interconnect_loopback_namespace', ignore
+            pass
 
         return True, ''
 
@@ -1446,7 +1448,7 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        ok, result = cls.create_dci_vn_and_ref(obj_dict, db_conn)
+        ok, result = cls.create_dci_vn(obj_dict, db_conn)
         if not ok:
             return ok, result
 
@@ -1454,7 +1456,7 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
     # end post_dbe_create
 
     @classmethod
-    def create_dci_vn_and_ref(cls, obj_dict, db_conn):
+    def create_dci_vn(cls, obj_dict, db_conn):
         vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
         vn_obj = VirtualNetwork(name=vn_int_name)
         id_perms = IdPermsType(enable=True, user_visible=False)
@@ -1473,18 +1475,13 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
 
         vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
         api_server = db_conn.get_api_server()
-        status, obj = api_server.internal_request_create('virtual-network',
+        return api_server.internal_request_create('virtual-network',
                                                         json.loads(vn_int_dict))
-        api_server.internal_request_ref_update('data-center-interconnect', obj_dict['uuid'], 'ADD',
-                                               'virtual-network', obj['virtual-network']['uuid'],
-                                               obj['virtual-network']['fq_name'])
-        return True, ''
     # end create_dci_vn_and_ref
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        ok, proj_dict = cls.get_parent_project(obj_dict, db_conn)
-        vn_int_fqname = proj_dict.get('fq_name')
+        vn_int_fqname = ["default-domain", "default-project"]
         vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
         vn_int_fqname.append(vn_int_name)
         vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_int_fqname)
@@ -1571,10 +1568,10 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
         for lr_uuid in lr_list:
             ok, read_result = cls.dbe_read(db_conn, 'logical_router', lr_uuid)
             if ok:
-                for pr_ref in read_result['physical_router_refs']:
+                for pr_ref in read_result.get('physical_router_refs'):
                     pr_uuid = pr_ref.get('uuid')
                     status, pr_result = cls.dbe_read(db_conn, 'physical_router', pr_uuid)
-                    if status and pr_result["fabric_refs"]:
+                    if status and pr_result.get("fabric_refs"):
                         fab_id = pr_result["fabric_refs"][0].get('uuid')
                         if fab_id in fab_list: 
                             return False

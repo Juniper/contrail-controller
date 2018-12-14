@@ -58,6 +58,91 @@ class TestNetworkDM(TestCommonDM):
     # end check_interface_ip_config
 
 
+    def get_subnets(self, ipam_refs=[]):
+        subnets = []
+        for ipam_ref in ipam_refs or []:
+            for ipam_subnet in ipam_ref['attr'].get_ipam_subnets() or []:
+                if ipam_subnet.subnet:
+                    subnet = ipam_subnet.subnet
+                    subnets.append([subnet.ip_prefix,
+                                    subnet.ip_prefix_len])
+        return subnets
+    # end get_subnets
+
+    @retries(5, hook=retry_exc_handler)
+    def check_dci_ipam(self):
+        # make sure network ipam created
+        ipam = NetworkIpam('default-dci-lo0-network-ipam')
+        self._vnc_lib.network_ipam_read(fq_name=ipam.get_fq_name())
+    # end check_dci_ipam
+
+    @retries(5, hook=retry_exc_handler)
+    def check_dci_lo_network(self, check_subnet, should_exist=True):
+        dci_vn_fq = ['default-domain', 'default-project', 'dci-network']
+        vn = VirtualNetwork(dci_vn_fq[:-1])
+        vn = self._vnc_lib.virtual_network_read(fq_name=dci_vn_fq)
+        if not vn:
+            raise Exception("DCI network not found: " + vn_name)
+        ipam_refs = vn.get_network_ipam_refs()
+        subnets = self.get_subnets(ipam_refs)
+        if should_exist:
+            if check_subnet not in subnets:
+                raise Exception("Subnet not found")
+        else:
+            if check_subnet in subnets:
+                raise Exception("Subnet still found")
+    # end check_dci_lo_network
+
+    @retries(5, hook=retry_exc_handler)
+    def check_dci_int_network(self, dci, is_del=False):
+        vn_name = DMUtils.get_dci_internal_vn_name(dci.uuid)
+        try:
+            vn = self._vnc_lib.virtual_network_read(fq_name=["default-domain", "default-project", vn_name])
+        except NoIdError:
+            if is_del:
+                return
+            raise Exception("DCI Network: " + vn_name + " not found")
+    # end check_dci_int_network
+
+    def test_dci_api(self):
+        gs = GlobalSystemConfig(fq_name=["default-global-system-config"])
+        subnets = SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 16)])
+        gs.set_data_center_interconnect_loopback_namespace(subnets)
+        self._vnc_lib.global_system_config_update(gs)
+        self.check_dci_ipam()
+
+        self.check_dci_lo_network(["10.0.0.0", 24])
+        self.check_dci_lo_network(["20.0.0.0", 16])
+
+        subnets = SubnetListType([SubnetType("30.0.0.0", 24)])
+        gs.set_data_center_interconnect_loopback_namespace(subnets)
+        self._vnc_lib.global_system_config_update(gs)
+        self.check_dci_lo_network(["10.0.0.0", 24], False)
+        self.check_dci_lo_network(["30.0.0.0", 24], True)
+
+        gs.set_data_center_interconnect_loopback_namespace(None)
+        self._vnc_lib.global_system_config_update(gs)
+        self.check_dci_lo_network(["30.0.0.0", 24], False)
+
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product="qfx10000", role="spine")
+        lr = LogicalRouter("lr1")
+        lr.set_physical_router(pr)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+
+        dci = DataCenterInterconnect("test-dci")
+        dci.add_logical_router(lr)
+
+        self._vnc_lib.data_center_interconnect_create(dci)
+        dci = self._vnc_lib.data_center_interconnect_read(fq_name=dci.fq_name)
+
+        self.check_dci_int_network(dci)
+
+        self._vnc_lib.data_center_interconnect_delete(fq_name=dci.fq_name)
+        self.check_dci_int_network(dci, True)
+
+    # end test_dci_api
+
     # test vn  flat subnet lo0 ip allocation
     def test_dm_lo0_flat_subnet_ip_alloc(self):
         vn1_name = 'vn1' + self.id()
