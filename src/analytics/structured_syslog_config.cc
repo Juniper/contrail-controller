@@ -97,29 +97,28 @@ StructuredSyslogConfig::RefreshNetworksMap(const std::string location){
 
     boost::mutex::scoped_lock lock(networks_map_refresh_mutex);
     for(IPNetworks_map::iterator it = networks_map_.begin(); it != networks_map_.end(); it++){
-      std::vector<int> indexes_to_be_deleted;
-      for(IPNetworks::iterator i = it->second.begin(); i != it->second.end(); i++) {
+        std::vector<int> indexes_to_be_deleted;
+        for(IPNetworks::iterator i = it->second.begin(); i != it->second.end(); i++) {
             if (location == i->id){
-              LOG(DEBUG, "Location " << i->id << " to be deleted from Networks MAP with VPN " << it->first );
-              indexes_to_be_deleted.push_back(i - it->second.begin());
+                LOG(DEBUG, "Location " << i->id << " to be deleted from Networks MAP with VPN " << it->first );
+                indexes_to_be_deleted.push_back(i - it->second.begin());
             }
-         }
-         for(std::vector<int>::iterator v = indexes_to_be_deleted.begin(); v != indexes_to_be_deleted.end(); v++) {
-          IPNetworks::iterator i = it->second.begin();
-          it->second.erase(*v + i);
-         }
+        }
+        for(std::vector<int>::reverse_iterator v = indexes_to_be_deleted.rbegin(); v != indexes_to_be_deleted.rend(); ++v) {
+            IPNetworks::iterator i = it->second.begin();
+            it->second.erase(*v + i);
+        }
     }
     LOG(INFO, "Networks MAP Refreshed!" );
     return true;
 }
 
-IPNetwork
+std::string
 StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
 {
     uint32_t network_addr = IPToUInt(ip);
     IPNetwork ip_network(network_addr, 0, ip);
-    std::string unknown_location = "UNKNOWN";
-    IPNetwork ip_network_not_found(0, 0, unknown_location);
+    std::string unknown_location;
 
     IPNetworks_map::iterator it = networks_map_.find(key);
     if (it  != networks_map_.end()) {
@@ -133,7 +132,7 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
 
                 LOG(DEBUG, "Network found for " << ip << " from routing instance " <<  key <<
                     " in Site : " << found_network_obj.id );
-                return found_network_obj;
+                return found_network_obj.id;
             }
             else {
                 LOG(DEBUG,"Network address "<< ip <<" doesnt not belong to the found range " 
@@ -147,7 +146,7 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
     else {
         LOG(DEBUG, "VPN "<< key << " NOT found in Network MAP!");
     }
-    return ip_network_not_found;
+    return unknown_location;
  }
 
 void
