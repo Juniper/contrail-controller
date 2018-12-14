@@ -20,6 +20,8 @@ elif env['OPT'] == 'production':
     lib_name = 'tbb.lib'
 
 def build_tbb_for_windows(target,source,env):
+    env.EnsureBuildDependency('make')
+
     srcdir = Dir(vpath +'/include/tbb').abspath
     destdir = Dir('#/build/include/tbb').abspath
     copy_tree(srcdir, destdir)
@@ -27,11 +29,11 @@ def build_tbb_for_windows(target,source,env):
               'tbb_build_dir': Dir('.').abspath,'tbb_root': Dir(vpath).abspath,'runtime':'vc14'
             }
     subprocess.call("make tbb", cwd=abs_vpath)
-    
+
     if not os.path.exists(env.Dir(env['TOP_BIN']).abspath):
         os.makedirs(env.Dir(env['TOP_BIN']).abspath)
     copyfile(os.path.join(abs_vpath, build_dir, dll_name), os.path.join(env.Dir(env['TOP_BIN']).abspath, dll_name))
     copyfile(os.path.join(abs_vpath, build_dir, lib_name), os.path.join(env.Dir(env['TOP_LIB']).abspath, lib_name))
-    
+
 
 env.Command(['#build/lib/' + lib_name, '#/build/include/tbb/mutex.h'], Dir(vpath), build_tbb_for_windows)
