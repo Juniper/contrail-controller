@@ -198,8 +198,10 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
         //Ignore route updates on delete marked vrf
         goto done;
     }
-
-    if (path && route->vrf()->GetName() == table->agent()->fabric_vrf_name()) {
+    // if vrf is fabric vrf and route is not labelled inet route
+    // then don't export the route
+    if (path && (route->vrf()->GetName() == table->agent()->fabric_vrf_name())
+            && (type != Agent::INET4_MPLS)) {
         //Dont export vhost IP path to control-node
         const InetUnicastRouteEntry *inet_rt =
             dynamic_cast<const InetUnicastRouteEntry *>(route);

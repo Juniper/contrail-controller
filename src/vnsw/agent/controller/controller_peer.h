@@ -57,6 +57,7 @@ public:
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
     virtual void ReceiveMvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveV4V6Update(XmlPugi *pugi);
+    virtual void ReceiveInet4MplsUpdate(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
     void ReceiveBgpMessage(std::auto_ptr<XmlBase> impl);
 
@@ -77,7 +78,6 @@ public:
     static bool ControllerSendSubscribe(AgentXmppChannel *peer,
                                         VrfEntry *vrf,
                                         bool subscribe);
-    //Add to control-node
     static bool ControllerSendRouteAdd(AgentXmppChannel *peer,
                                        AgentRoute *route,
                                        const Ip4Address *nexthop_ip,
@@ -214,16 +214,26 @@ private:
     void PeerIsNotConfig();
     InetUnicastAgentRouteTable *PrefixToRouteTable(const std::string &vrf_name,
                                                    const IpAddress &prefix_addr);
+    InetUnicastAgentRouteTable *PrefixToRouteMplsTable(const std::string &vrf_name,
+                                                   const IpAddress &prefix_addr);
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
     void AddRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
+                  autogen::ItemType *item);
+    void AddMplsRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                   autogen::ItemType *item);
     void AddMulticastEvpnRoute(const std::string &vrf_name,
                                const MacAddress &mac,
                                autogen::EnetItemType *item);
-    void AddRemoteRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
+    void AddRemoteMplsRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                         autogen::ItemType *item,
                         const VnListType &vn_list);
+    void AddRemoteRoute(std::string vrf_name, IpAddress prefix_addr,
+                            uint32_t prefix_len, autogen::ItemType *item,
+                            const VnListType &vn_list);
     void AddInetEcmpRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
+                          autogen::ItemType *item,
+                          const VnListType &vn_list);
+    void AddInetMplsEcmpRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                           autogen::ItemType *item,
                           const VnListType &vn_list);
     void AddEvpnEcmpRoute(std::string vrf_name, const MacAddress &mac,

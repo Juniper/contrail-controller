@@ -425,6 +425,22 @@ bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
     return rt->DBEntrySandesh(resp_, addr_, plen_, stale_);
 }
 
+DBTable *AgentInet4MplsUcRtSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(vrf_->GetInet4MplsUnicastRouteTable());
+}
+
+void AgentInet4MplsUcRtSandesh::Alloc() {
+    resp_ = new Inet4MplsUcRouteResp();
+}
+
+bool AgentInet4MplsUcRtSandesh::UpdateResp(DBEntryBase *entry) {
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(entry);
+    if (dump_table_) {
+        return rt->DBEntrySandesh(resp_, stale_);
+    }
+    return rt->DBEntrySandesh(resp_, addr_, plen_, stale_);
+}
+
 DBTable *AgentInet6UcRtSandesh::AgentGetTable() {
     return static_cast<DBTable *>(vrf_->GetInet6UnicastRouteTable());
 }
