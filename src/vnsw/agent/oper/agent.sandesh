@@ -806,14 +806,16 @@ struct VrfSandeshData {
    10: i32 evpnindex  (link="EvpnRouteReq");
    /** Vrf index set for bridge table */
    11: i32 brindex  (link="BridgeRouteReq");
+   /** Vrf index set for inet4 mpls table */
+   12: i32 mplsindex  (link="Inet4MplsUcRouteReq");
    /** Route distinguisher associated with vrf */
-   12: string RD;
+   13: string RD;
    /** MAC aging timeout */
-   13: i32 mac_aging_time;
+   14: i32 mac_aging_time;
    /** Layer 2 control word */
-   14: bool layer2_control_word;
+   15: bool layer2_control_word;
    /** Forwarding VRF */
-   15: string forwarding_vrf;
+   16: string forwarding_vrf;
 }
 
 /**
@@ -1027,6 +1029,28 @@ response sandesh Inet4UcRouteResp {
     1: list<RouteUcSandeshData> route_list;
 }
 
+/**
+ * @description: Request message for Inet4 Mpls Unicast routes from oper db
+ * @cli_name: read oper route inet4 list
+ */
+request sandesh Inet4MplsUcRouteReq {
+    /** Vrf index associated with unicast route entries */
+    1: i32 vrf_index = 0;
+    /** Source Ip address of unicast route */
+    2: string src_ip;
+    /** Ip prefix length of unicast route */
+    3: u16 prefix_len;
+    /** Boolean value which indicates to display stale unicast routes */
+    4: bool stale = 0;
+}
+
+/**
+ * Response message for Inet4 Mpls Unicast routes
+ */
+response sandesh Inet4MplsUcRouteResp {
+    /** List of unicast route information */
+    1: list<RouteUcSandeshData> route_list;
+}
 /**
  * @description: Request message for Inet6 Unicast routes from oper db
  * @cli_name: read oper route inet6 list
@@ -2327,6 +2351,8 @@ struct NextHopObjectLogInfo {
     21: optional string crypt_interface;
     /** Rewrite dmac for inner payload */
     22: string rewrite_dmac;
+    /** transport mpls label */
+    23: optional i32 transport_mpls_label;
 }
 
 /**

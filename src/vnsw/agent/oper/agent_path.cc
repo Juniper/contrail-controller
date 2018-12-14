@@ -60,7 +60,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
     peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false),
-    inactive_(false), copy_local_path_(false) {
+    inactive_(false), copy_local_path_(false), parent_rt_(rt), dependent_table_(NULL) {
 }
 
 AgentPath::~AgentPath() {
@@ -254,6 +254,46 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     return true;
 }
 
+bool AgentPath::ResolveGwNextHops(Agent *agent, const AgentRoute *sync_route) {
+
+    if (tunnel_type_ != TunnelType::MPLS_OVER_MPLS) {
+        return false;
+    }
+    NextHop *nh = NULL;
+    //if ecmp member list size is one them it is non ecmp route sync
+    if (ecmp_member_list_.size() == 1) {
+        AgentPathEcmpComponentPtr member = ecmp_member_list_[0];
+        InetUnicastAgentRouteTable *table = NULL;
+        table = static_cast<InetUnicastAgentRouteTable *>
+            (agent->fabric_inet4_mpls_table());
+        assert(table != NULL);
+        InetUnicastRouteEntry *uc_rt = table->FindRoute(member->GetGwIpAddr());
+        if (uc_rt == NULL || uc_rt->plen() == 0) {
+            set_unresolved(true);
+            table->AddUnresolvedRoute(GetParentRoute());
+            member->UpdateDependentRoute(NULL);
+            member->SetUnresolved(true);
+        } else {
+            set_unresolved(false);
+            table->RemoveUnresolvedRoute(GetParentRoute());
+            DBEntryBase::KeyPtr key =
+                uc_rt->GetActiveNextHop()->GetDBRequestKey();
+            const NextHopKey *nh_key =
+                static_cast<const NextHopKey*>(key.get());
+            nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                FindActiveEntry(nh_key));
+            assert(nh !=NULL);
+            //Reset to new gateway route, no nexthop for indirect route
+            member->UpdateDependentRoute(uc_rt);
+            member->SetUnresolved(false);
+            set_nexthop(NULL);
+        }
+        if (nh != NULL) {
+            ChangeNH(agent, nh);
+        }
+    }
+    return true;
+}
 bool AgentPath::Sync(AgentRoute *sync_route) {
     bool ret = false;
     bool unresolved = false;
@@ -266,7 +306,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     if (UpdateNHPolicy(agent)) {
         ret = true;
     }
-
+    if (ResolveGwNextHops(agent, sync_route)) {
+        return true;
+    }
     //Handle tunnel type change
     if (UpdateTunnelType(agent, sync_route)) {
         ret = true;
@@ -299,7 +341,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
 
     InetUnicastAgentRouteTable *table = NULL;
     InetUnicastRouteEntry *rt = NULL;
-    table = sync_route->vrf()->GetInetUnicastRouteTable(gw_ip_);
+    //table = sync_route->vrf()->GetInetUnicastRouteTable(gw_ip_);
+    //table = sync_route->vrf->GetRouteTable(sync_route->GetTableType());
+    table = (InetUnicastAgentRouteTable *)(sync_route->get_table());
 
     rt = table ? table->FindRoute(gw_ip_) : NULL;
     if (rt == sync_route) {
@@ -1907,3 +1951,7 @@ bool EvpnRoutingData::UpdateRoute(AgentRoute *rt) {
     }
     return uc_rt->UpdateRouteFlags(false, false, true);
 }
+AgentPathEcmpComponent::AgentPathEcmpComponent(IpAddress addr, uint32_t label,
+                            AgentRoute *rt):
+           addr_(addr), label_(label), dependent_rt_(rt) {}
+

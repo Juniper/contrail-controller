@@ -285,6 +285,10 @@ const std::string VrfEntry::GetTableTypeString(uint8_t table_type) const {
           return "inet4_unicast";
           break;
       }
+      case Agent::INET4_MPLS: {
+          return "inet4_mpls";
+          break;
+      }
       case Agent::INET6_UNICAST: {
           return "inet6_unicast";
           break;
@@ -309,6 +313,9 @@ InetUnicastAgentRouteTable *VrfEntry::GetInet4UnicastRouteTable() const {
     return static_cast<InetUnicastAgentRouteTable *>(GetRouteTable(Agent::INET4_UNICAST));
 }
 
+InetUnicastAgentRouteTable *VrfEntry::GetInet4MplsUnicastRouteTable() const {
+    return static_cast<InetUnicastAgentRouteTable *>(GetRouteTable(Agent::INET4_MPLS));
+}
 AgentRouteTable *VrfEntry::GetInet4MulticastRouteTable() const {
     return GetRouteTable(Agent::INET4_MULTICAST);
 }
@@ -401,6 +408,7 @@ void VrfEntry::SendObjectLog(AgentLogEvent::type event) const {
 bool VrfEntry::DeleteTimeout() {
     std::ostringstream str;
     str << "Unicast routes: " << rt_table_db_[Agent::INET4_UNICAST]->Size();
+    str << "Unicast MPLS routes: " << rt_table_db_[Agent::INET4_MPLS]->Size();
     str << " Mutlicast routes: " << rt_table_db_[Agent::INET4_MULTICAST]->Size();
     str << " EVPN routes: " << rt_table_db_[Agent::EVPN]->Size();
     str << " Bridge routes: " << rt_table_db_[Agent::BRIDGE]->Size();
@@ -785,6 +793,12 @@ InetUnicastAgentRouteTable *VrfTable::GetInet4UnicastRouteTable
     (const string &vrf_name) {
     return static_cast<InetUnicastAgentRouteTable *>
         (GetRouteTable(vrf_name, Agent::INET4_UNICAST));
+}
+
+InetUnicastAgentRouteTable *VrfTable::GetInet4MplsUnicastRouteTable
+    (const string &vrf_name) {
+    return static_cast<InetUnicastAgentRouteTable *>
+        (GetRouteTable(vrf_name, Agent::INET4_MPLS));
 }
 
 AgentRouteTable *VrfTable::GetInet4MulticastRouteTable(const string &vrf_name) {
