@@ -11,7 +11,7 @@ from cfgm_common.vnc_db import DBBase
 from bitstring import BitArray
 from vnc_api.vnc_api import (KeyValuePair)
 from mesos_manager.vnc.vnc_mesos_config import VncMesosConfig as vnc_mesos_config
-#from mesos_manager.sandesh.mesos_introspect import ttypes as introspect
+from mesos_manager.sandesh.mesos_introspect import ttypes as introspect
 
 class DBBaseMM(DBBase):
     obj_type = __name__
@@ -266,6 +266,44 @@ class VirtualMachineMM(DBBaseMM):
         super(VirtualMachineMM, cls).delete(uuid)
         del cls._dict[uuid]
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Machine DB lookup/introspect request. """
+        vm_resp = introspect.VirtualMachineDatabaseListResp(vms=[])
+
+        # Iterate through all elements of Virtual Machine DB.
+        for vm in VirtualMachineMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vm_uuid and req.vm_uuid != vm.uuid:
+                continue
+
+            vm_annotations = cls._build_annotation_dict(vm.annotations)
+
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, vm.virtual_machine_interfaces)
+            vr = introspect.VRUuid(vr_uuid=str(vm.virtual_router)) \
+                if vm.virtual_router else None
+
+            # Construct response for an element.
+            vm_instance = introspect.VirtualMachineInstance(
+                uuid=vm.uuid,
+                name=vm.name,
+                cluster=vm.cluster,
+                annotations=vm_annotations,
+                owner=vm.owner,
+                node_ip=str(vm.node_ip),
+                pod_node=vm.pod_node,
+                pod_labels=vm.pod_labels,
+                vm_interfaces=vmis,
+                vrouter_uuid=vr)
+
+            # Append the constructed element info to the response.
+            vm_resp.vms.append(vm_instance)
+
+        # Send the reply out.
+        vm_resp.response(req.context())
+
 class VirtualRouterMM(DBBaseMM):
     _dict = {}
     obj_type = 'virtual_router'
@@ -308,6 +346,37 @@ class VirtualRouterMM(DBBaseMM):
     @classmethod
     def get_ip_addr_to_uuid(cls, ip_addr):
         return cls._ip_addr_to_uuid.get(tuple(ip_addr))
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Router DB lookup/introspect request. """
+        vr_resp = introspect.VirtualRouterDatabaseListResp(vrs=[])
+
+        # Iterate through all elements of Virtual Router DB.
+        for vr in VirtualRouterMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vr_uuid and req.vr_uuid != vr.uuid:
+                continue
+
+            vr_annotations = cls._build_annotation_dict(vr.annotations)
+
+            vms = cls._build_cls_uuid_list(
+                    introspect.VMUuid, vr.virtual_machines)
+
+            # Construct response for an element.
+            vr_instance = introspect.VirtualRouterInstance(
+                uuid=vr.uuid,
+                name=vr.fq_name[-1],
+                fq_name=vr.fq_name,
+                annotations=vr_annotations,
+                virtual_machines=vms)
+
+            # Append the constructed element info to the response.
+            vr_resp.vrs.append(vr_instance)
+
+        # Send the reply out.
+        vr_resp.response(req.context())
 
 class VirtualMachineInterfaceMM(DBBaseMM):
     _dict = {}
@@ -370,6 +439,46 @@ class VirtualMachineInterfaceMM(DBBaseMM):
 
         obj.remove_from_parent()
         del cls._dict[uuid]
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Machine Interface DB lookup/introspect request. """
+        vmi_resp = introspect.VirtualMachineInterfaceDatabaseListResp(vmis=[])
+
+        # Iterate through all elements of Virtual Router DB.
+        for vmi in VirtualMachineInterfaceMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vmi_uuid and req.vmi_uuid != vmi.uuid:
+                continue
+
+            vmi_annotations = cls._build_annotation_dict(vmi.annotations)
+
+            fips = cls._build_cls_uuid_list(
+                    introspect.FIPUuid, vmi.floating_ips)
+            sgs = cls._build_cls_uuid_list(
+                    introspect.SGUuid, vmi.security_groups)
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, vmi.virtual_machine_interfaces)
+
+            # Construct response for an element.
+            vmi_instance = introspect.VirtualMachineInterfaceInstance(
+                uuid=vmi.uuid,
+                name=vmi.fq_name[-1],
+                fq_name=vmi.fq_name,
+                annotations=vmi_annotations,
+                floating_ips=fips,
+                host_id=vmi.host_id,
+                security_groups=sgs,
+                virtual_machine=str(vmi.virtual_machine),
+                virtual_machine_interfaces=vmis,
+                virtual_network=str(vmi.virtual_network))
+
+            # Append the constructed element info to the response.
+            vmi_resp.vmis.append(vmi_instance)
+
+        # Send the reply out.
+        vmi_resp.response(req.context())
 
 class VirtualNetworkMM(DBBaseMM):
     _dict = {}
@@ -438,6 +547,49 @@ class VirtualNetworkMM(DBBaseMM):
                 return subnet_uuid
         return None
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Network DB lookup/introspect request. """
+        vn_resp = introspect.VirtualNetworkDatabaseListResp(vns=[])
+
+        # Iterate through all elements of Virtual Network DB.
+        for vn in VirtualNetworkMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vn_uuid and req.vn_uuid != vn.uuid:
+                continue
+
+            vn_annotations = cls._build_annotation_dict(vn.annotations)
+
+            ipam_subnets = [introspect.NetworkIpamSubnetInstance(
+                uuid=sub[0], fq_name=sub[1])
+                            for sub
+                            in vn.network_ipam_subnets.iteritems()]
+
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, vn.virtual_machine_interfaces)
+            iips = cls._build_cls_uuid_list(
+                    introspect.IIPUuid, vn.instance_ips)
+            nipams = cls._build_cls_uuid_list(
+                    introspect.NIPAMUuid, vn.network_ipams)
+
+            # Construct response for an element.
+            vn_instance = introspect.VirtualNetworkInstance(
+                uuid=vn.uuid,
+                name=vn.fq_name[-1],
+                fq_name=vn.fq_name,
+                annotations=vn_annotations,
+                virtual_machine_interfaces=vmis,
+                instance_ips=iips,
+                network_ipams=nipams,
+                network_ipam_subnets=ipam_subnets)
+
+            # Append the constructed element info to the response.
+            vn_resp.vns.append(vn_instance)
+
+        # Send the reply out.
+        vn_resp.response(req.context())
+
 class InstanceIpMM(DBBaseMM):
     _dict = {}
     obj_type = 'instance_ip'
@@ -485,6 +637,42 @@ class InstanceIpMM(DBBaseMM):
                 if vn_uuid and vn_uuid in iip_obj.virtual_networks:
                     return iip_obj
         return None
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to InstanceIp DB lookup/introspect request. """
+        iip_resp = introspect.InstanceIpDatabaseListResp(iips=[])
+
+        # Iterate through all elements of InstanceIp DB.
+        for iip in InstanceIpMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.iip_uuid and req.iip_uuid != iip.uuid:
+                continue
+
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, iip.virtual_machine_interfaces)
+            vns = cls._build_cls_uuid_list(
+                    introspect.VNUuid, iip.virtual_networks)
+            fips = cls._build_cls_uuid_list(
+                    introspect.FIPUuid, iip.floating_ips)
+
+            # Construct response for an element.
+            iip_instance = introspect.InstanceIpInstance(
+                uuid=iip.uuid,
+                name=iip.fq_name[-1],
+                fq_name=iip.fq_name,
+                address=str(iip.address),
+                family=iip.family,
+                vm_interfaces=vmis,
+                virtual_networks=vns,
+                floating_ips=fips)
+
+            # Append the constructed element info to the response.
+            iip_resp.iips.append(iip_instance)
+
+        # Send the reply out.
+        iip_resp.response(req.context())
 
 # end class InstanceIpMM
 
@@ -534,6 +722,44 @@ class ProjectMM(DBBaseMM):
     def remove_security_group(self, sg_uuid):
         self.security_groups.discard(sg_uuid)
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Project DB lookup/introspect request. """
+        project_resp = introspect.ProjectDatabaseListResp(projects=[])
+
+        # Iterate through all elements of Project DB.
+        for project in ProjectMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.project_uuid and req.project_uuid != project.uuid:
+                continue
+
+            project_annotations = cls._build_annotation_dict(
+                project.annotations)
+
+            ns_labels = cls._build_string_dict(project.ns_labels)
+
+            sgs = cls._build_cls_uuid_list(
+                    introspect.SGUuid, project.security_groups)
+            vns = cls._build_cls_uuid_list(
+                    introspect.VNUuid, project.virtual_networks)
+
+            # Construct response for an element.
+            project_instance = introspect.ProjectInstance(
+                uuid=project.uuid,
+                name=project.fq_name[-1],
+                fq_name=project.fq_name,
+                annotations=project_annotations,
+                ns_labels=ns_labels,
+                security_groups=sgs,
+                virtual_networks=vns)
+
+            # Append the constructed element info to the response.
+            project_resp.projects.append(project_instance)
+
+        # Send the reply out.
+        project_resp.response(req.context())
+
 class DomainMM(DBBaseMM):
     _dict = {}
     obj_type = 'domain'
@@ -557,6 +783,34 @@ class DomainMM(DBBaseMM):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Domain DB lookup/introspect request. """
+        domain_resp = introspect.DomainDatabaseListResp(domains=[])
+
+        # Iterate through all elements of Domain DB.
+        for domain in DomainMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.domain_uuid and req.domain_uuid != domain.uuid:
+                continue
+
+            domain_annotations = cls._build_annotation_dict(
+                domain.annotations)
+
+            # Construct response for an element.
+            domain_instance = introspect.DomainInstance(
+                uuid=domain.uuid,
+                name=domain.fq_name[-1],
+                fq_name=domain.fq_name,
+                annotations=domain_annotations)
+
+            # Append the constructed element info to the response.
+            domain_resp.domains.append(domain_instance)
+
+        # Send the reply out.
+        domain_resp.response(req.context())
 
 class NetworkIpamMM(DBBaseMM):
     _dict = {}
@@ -584,6 +838,36 @@ class NetworkIpamMM(DBBaseMM):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to NetworkIpam DB lookup/introspect request. """
+        network_ipam_resp = introspect.NetworkIpamDatabaseListResp(
+            network_ipams=[])
+
+        # Iterate through all elements of NetworkIpam DB.
+        for network_ipam in NetworkIpamMM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.network_ipam_uuid \
+                and req.network_ipam_uuid != network_ipam.uuid:
+                continue
+
+            network_ipam_annotations = cls._build_annotation_dict(
+                network_ipam.annotations)
+
+            # Construct response for an element.
+            network_ipam_instance = introspect.NetworkIpamInstance(
+                uuid=network_ipam.uuid,
+                name=network_ipam.fq_name[-1],
+                fq_name=network_ipam.fq_name,
+                annotations=network_ipam_annotations)
+
+            # Append the constructed element info to the response.
+            network_ipam_resp.network_ipams.append(network_ipam_instance)
+
+        # Send the reply out.
+        network_ipam_resp.response(req.context())
 
 # end class NetworkIpamMM
 

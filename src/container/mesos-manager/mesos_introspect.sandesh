@@ -1,0 +1,273 @@
+//
+// Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+//
+
+// mesos_introspect.sandesh
+//
+// Introspect datastructures for Mesos Manager.
+//
+
+struct FIPUuid {
+    1: string fip_uuid (link="FloatingIpDatabaseList");
+}
+
+struct FIPPoolUuid {
+    1: string fip_pool_uuid (link="FloatingIpPoolDatabaseList");
+}
+
+struct IIPUuid {
+    1: string iip_uuid (link="InstanceIpDatabaseList");
+}
+
+struct NIPAMUuid {
+    1: string net_ipam_uuid (link="NetworkIpamDatabaseList");
+}
+
+struct VMUuid {
+    1: string vm_uuid (link="VirtualMachineDatabaseList");
+}
+
+struct VRUuid {
+    1: string vr_uuid (link="VirtualRouterDatabaseList");
+}
+
+struct VMIUuid {
+    1: string vmi_uuid (link="VirtualMachineInterfaceDatabaseList");
+}
+
+struct VNUuid {
+    1: string vn_uuid (link="VirtualNetworkDatabaseList");
+}
+
+struct SGUuid {
+    1: string sg_uuid (link="SecurityGroupDatabaseList");
+}
+
+
+//
+// SecurityGroup Introspect datastructures.
+//
+request sandesh SecurityGroupDatabaseList {
+    1: string sg_uuid;
+}
+
+//
+// VirtualMachine Introspect data structures.
+//
+struct VirtualMachineInstance {
+    1: string uuid (link="PodDatabaseList");
+    2: string name;
+    3: string cluster;
+    4: map<string, string> annotations;
+    5: string owner;
+    6: string node_ip;
+    7: string pod_node;
+    8: map<string, string> pod_labels;
+    9: list<VMIUuid> vm_interfaces;
+    10: optional VRUuid vrouter_uuid;
+}
+
+request sandesh VirtualMachineDatabaseList {
+    1: string vm_uuid;
+}
+
+response sandesh VirtualMachineDatabaseListResp {
+    1: list<VirtualMachineInstance> vms;
+}
+
+
+//
+// VirtualRouter Introspect data structures.
+//
+struct VirtualRouterInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<VMUuid> virtual_machines;
+}
+
+request sandesh VirtualRouterDatabaseList {
+    1: string vr_uuid;
+}
+
+response sandesh VirtualRouterDatabaseListResp {
+    1: list<VirtualRouterInstance> vrs;
+}
+
+
+//
+// VirtualMachineInterface Introspect data structures.
+//
+struct VirtualMachineInterfaceInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<FIPUuid> floating_ips;
+    6: string host_id;
+    7: list<SGUuid> security_groups;
+    8: string virtual_machine (link="VirtualMachineDatabaseList");
+    9: list<VMIUuid> virtual_machine_interfaces;
+    10: string virtual_network (link="VirtualNetworkDatabaseList");
+}
+
+request sandesh VirtualMachineInterfaceDatabaseList {
+    1: string vmi_uuid;
+}
+
+response sandesh VirtualMachineInterfaceDatabaseListResp {
+    1: list<VirtualMachineInterfaceInstance> vmis;
+}
+
+
+//
+// VirtualNetwork Introspect data structures.
+//
+struct NetworkIpamSubnetInstance {
+    1: string uuid;
+    2: list<string> fq_name;
+}
+
+struct VirtualNetworkInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<VMIUuid> virtual_machine_interfaces;
+    6: list<IIPUuid> instance_ips;
+    7: list<NIPAMUuid> network_ipams;
+    8: list<NetworkIpamSubnetInstance> network_ipam_subnets;
+}
+
+request sandesh VirtualNetworkDatabaseList {
+    1: string vn_uuid;
+}
+
+response sandesh VirtualNetworkDatabaseListResp {
+    1: list<VirtualNetworkInstance> vns;
+}
+
+
+//
+// InstanceIp Introspect data structures.
+//
+struct InstanceIpInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: string address;
+    5: string family;
+    6: list<VMIUuid> vm_interfaces;
+    7: list<VNUuid> virtual_networks;
+    8: list<FIPUuid> floating_ips;
+}
+
+request sandesh InstanceIpDatabaseList {
+    1: string iip_uuid;
+}
+
+response sandesh InstanceIpDatabaseListResp {
+    1: list<InstanceIpInstance> iips;
+}
+
+
+//
+// Project Introspect data structures.
+//
+struct ProjectInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    8: map<string, string> ns_labels;
+    9: list<SGUuid> security_groups;
+    10: list<VNUuid> virtual_networks;
+}
+
+request sandesh ProjectDatabaseList {
+    1: string project_uuid;
+}
+
+response sandesh ProjectDatabaseListResp {
+    1: list<ProjectInstance> projects;
+}
+
+
+//
+// Domain Introspect datastructures.
+//
+struct DomainInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+}
+
+request sandesh DomainDatabaseList {
+    1: string domain_uuid;
+}
+
+response sandesh DomainDatabaseListResp {
+    1: list<DomainInstance> domains;
+}
+
+//
+// FloatingIpPool Introspect datastructures.
+//
+struct FloatingIpPoolInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<string> fip_pool_subnets;
+    6: string virtual_network;
+}
+
+request sandesh FloatingIpPoolDatabaseList {
+    1: string fip_pool_uuid;
+}
+
+response sandesh FloatingIpPoolDatabaseListResp {
+    1: list<FloatingIpPoolInstance> fip_pools;
+}
+
+//
+// FloatingIp Introspect datastructures.
+//
+struct FloatingIpInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: string address;
+    6: string parent_uuid (link="FloatingIpPoolDatabaseList");
+    7: string virtual_ip;
+    8: list<VMIUuid> vm_interfaces;
+}
+
+request sandesh FloatingIpDatabaseList {
+    1: string fip_uuid;
+}
+
+response sandesh FloatingIpDatabaseListResp {
+    1: list<FloatingIpInstance> fips;
+}
+
+//
+// NetworkIpam Introspect datastructures.
+//
+struct NetworkIpamInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+}
+
+request sandesh NetworkIpamDatabaseList {
+    1: string network_ipam_uuid;
+}
+
+response sandesh NetworkIpamDatabaseListResp {
+    1: list<NetworkIpamInstance> network_ipams;
+}

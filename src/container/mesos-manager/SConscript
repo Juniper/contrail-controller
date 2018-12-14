@@ -41,12 +41,14 @@ local_sources = [
     'mesos_manager/common/__init__.py',
     'mesos_manager/mesos_manager.py',
     'mesos_manager/__init__.py',
-    'mesos_manager/mesos/pod_task_monitor.py'             
+    'mesos_manager/mesos/pod_task_monitor.py'
 ]
 
 # Sandesh source files.
 sandesh_sources = []
 sandesh_sources += env.SandeshGenPy('mesos_manager.sandesh',
+                                    'mesos_manager/sandesh/', False)
+sandesh_sources += env.SandeshGenPy('mesos_introspect.sandesh',
                                     'mesos_manager/sandesh/', False)
 
 local_sources_rules = []
@@ -58,7 +60,7 @@ for file in local_sources:
 # Documentation
 doc_files = []
 doc_files += env.SandeshGenDoc('mesos_manager.sandesh')
-doc_files += env['CFGM_DOC_FILES']
+doc_files += env.SandeshGenDoc('mesos_introspect.sandesh')
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
