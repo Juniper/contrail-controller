@@ -31,6 +31,9 @@
                         <Component Id="CurlDll" Guid="BE814CFF-7812-4D99-8E69-94A19185563F" Win64="yes">
                             <File Id="CurlDll" Source="build/bin/libcurl.dll"/>
                         </Component>
+                        <Component Id="Entrypoint" Guid="D2247CAF-617D-40E7-BC60-125B551A73A5" Win64="yes">
+                            <File Id="Entrypoint" Source="controller/src/vnsw/agent/contrail/windows/msi/entrypoint.ps1"/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -44,6 +47,7 @@
             <ComponentRef Id="TbbDll"/>
             <ComponentRef Id="Log4CPlusDll"/>
             <ComponentRef Id="CurlDll"/>
+            <ComponentRef Id="Entrypoint"/>
         </Feature>
     </Product>
 </Wix>
