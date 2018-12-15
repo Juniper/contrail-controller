@@ -86,16 +86,6 @@ class CreateCCResource(object):
         self.keystone_client = client.Client(
             session=self.keystone_session)
 
-
-class CreateCCNode(CreateCCResource):
-
-    node_obj = None
-    port_obj = None
-    node_list = []
-
-    def __init__(self, auth_args):
-        super(CreateCCNode, self).__init__(auth_args)
-
     def get_rest_api_response(self, url, headers, data=None, request_type=None):
         response = None
         print data
@@ -105,29 +95,54 @@ class CreateCCNode(CreateCCResource):
         elif request_type == "get":
             response = requests.get(url, headers=headers, data=data,
                                         verify=False)
-        print response
-        print response.content
         response.raise_for_status()
         return response
 
-    def create_cc_node(self, node_payload):
+    def create_cc_resource(self, resource_payload):
         cc_url = '%s%s' % (self.auth_uri, '/sync')
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
-                                              data=json.dumps(node_payload),
+                                              data=json.dumps(resource_payload),
                                               request_type="post")
-        print response
-        print response.content
+        return response.content
+
+
+class CreateCCNode(CreateCCResource):
+
+    def __init__(self, auth_args):
+        super(CreateCCNode, self).__init__(auth_args)
+
+    def create_cc_node(self, node_payload):
+
+        response = self.create_cc_resource(node_payload)
+        return response
 
     def get_cc_nodes(self ):
         cc_url = '%s%s' % (self.auth_uri, '/nodes?detail=true')
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
                                               request_type="get")
-        print response
-        print response.content
         pprint.pprint(json.loads(response.content))
-        return json.loads( response.content)
+        return json.loads(response.content)
+
+
+class CreateCCNodeProfile(CreateCCResource):
+
+    def __init__(self, auth_args):
+        super(CreateCCNodeProfile, self).__init__(auth_args)
+
+    def create_cc_node_profile(self, node_profile_payload):
+        response = self.create_cc_resource(node_profile_payload)
+        return response
+
+    def get_cc_node_profiles(self):
+        cc_url = '%s%s' % (self.auth_uri, '/node_profiles?detail=true')
+        response = self.get_rest_api_response(cc_url,
+                                              headers=self.auth_headers,
+                                              request_type="get")
+        pprint.pprint(json.loads(response.content))
+        return json.loads(response.content)
+
 
 def main(cc_auth_args=None):
     return
@@ -142,4 +157,3 @@ if __name__ == '__main__':
         main(cc_auth_args=my_auth_args)
     except Exception as e:
         print e.message
-
