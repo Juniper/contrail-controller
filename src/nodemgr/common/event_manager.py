@@ -214,15 +214,19 @@ class EventManager(object):
         return state, description
 
     def check_ntp_status(self):
-        ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
-        proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE,
-                     close_fds=True)
-        (_, _) = proc.communicate()
-        if proc.returncode != 0:
-            self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
-        else:
-            self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
-        self.send_nodemgr_process_status()
+        # chronyc fails faster - it should be first
+        ntp_status_cmds = [
+            'chronyc -n sources | grep "^\^\*"',
+            'ntpq -n -c pe | grep "^\*"',
+        ]
+        for cmd in ntp_status_cmds:
+            proc = subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            (_, _) = proc.communicate()
+            if proc.returncode == 0:
+                return True
+        return False
 
     def get_build_info(self):
         # Retrieve build_info from package/rpm and cache it
@@ -592,7 +596,11 @@ class EventManager(object):
             # typical ntp sync time is about 5 min - first time,
             # we scan only after 10 min
             if self.tick_count >= 10:
-                self.check_ntp_status()
+                if self.check_ntp_status():
+                    self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
+                else:
+                    self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
+                self.send_nodemgr_process_status()
             if self.update_process_core_file_list():
                 self.send_process_state_db([group])
 
