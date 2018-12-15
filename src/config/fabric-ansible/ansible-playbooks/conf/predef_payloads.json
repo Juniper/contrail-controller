@@ -441,6 +441,28 @@
           },
           "job_template_input_schema": "",
           "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "server_import_template"
+          ],
+          "name": "server_import_template",
+          "parent_type": "global-system-config",
+          "job_template_multi_device_job": false,
+          "job_template_concurrency_level": "fabric",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/server_import.yml",
+                "vendor": "Juniper",
+                "job_completion_weightage": 100
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
         }
       ]
     },
