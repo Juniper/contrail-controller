@@ -183,6 +183,9 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("bgp-router", "bgp-as-a-service");
     AddLinkToMetadata("bgp-router", "routing-instance");
     AddLinkToMetadata("bgp-router", "virtual-machine-interface");
+    AddLinkToMetadata("bgp-router", "control-node-zone");
+    AddLinkToMetadata("bgp-as-a-service", "control-node-zone",
+                      "bgpaas-control-node-zone");
     AddLinkToMetadata("virtual-network", "qos-config");
     AddLinkToMetadata("virtual-machine-interface", "qos-config");
     AddLinkToMetadata("global-qos-config", "qos-config");
@@ -4677,53 +4680,83 @@ void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
     client->WaitForIdle();
 }
 
-void SendBgpServiceConfig(const std::string &ip,
-                          uint32_t source_port,
-                          uint32_t dest_port,
-                          uint32_t id,
-                          const std::string &vmi_name,
-                          const std::string &vrf_name,
-                          const std::string &bgp_router_type,
-                          bool deleted,
-                          bool is_shared) {
+void AddControlNodeZone(const std::string &name, int id) {
+    AddNode("control-node-zone", name.c_str(), id);
+}
+
+void DeleteControlNodeZone(const std::string &name) {
+    DelNode("control-node-zone", name.c_str());
+}
+
+std::string GetBgpRouterXml(const std::string &ip,
+                            uint32_t &source_port,
+                            uint32_t &dest_port,
+                            const std::string &bgp_router_type) {
+    std::stringstream str;
+    str << "<bgp-router-parameters>"
+        << "<identifier>" << ip << "</identifier>"
+        << "<address>" << ip << "</address>"
+        << "<source-port>" << source_port << "</source-port>"
+        << "<port>" << dest_port << "</port>"
+        << "<router-type>" << bgp_router_type << "</router-type>"
+        << "</bgp-router-parameters>"
+        << endl;
+    return str.str();
+}
+
+std::string AddBgpRouterConfig(const std::string &ip,
+                        uint32_t source_port,
+                        uint32_t dest_port,
+                        uint32_t id,
+                        const std::string &vrf_name,
+                        const std::string &bgp_router_type) {
+    std::stringstream bgp_router_name;
+    bgp_router_name << "bgp-router-" << source_port << "-" << ip;
+    std::string str = GetBgpRouterXml(
+        ip, source_port, dest_port, bgp_router_type);
+    AddNode("bgp-router", bgp_router_name.str().c_str(), id,
+            str.c_str());
+    client->WaitForIdle();
+    AddLink("bgp-router", bgp_router_name.str().c_str(),
+            "routing-instance", vrf_name.c_str());
+    client->WaitForIdle();
+    return bgp_router_name.str();
+}
+
+void DeleteBgpRouterConfig(const std::string &ip,
+                           uint32_t source_port,
+                           const std::string &vrf_name) {
     std::stringstream bgp_router_name;
     bgp_router_name << "bgp-router-" << source_port << "-" << ip;
 
-    std::stringstream str;
-    str << "<bgp-router-parameters><identifier>" << ip << "</identifier>"
-        "<address>" << ip << "</address>"
-        "<source-port>" << source_port << "</source-port>"
-        "<port>" << dest_port << "</port>"
-        "<router-type>" << bgp_router_type << "</router-type>"
-        "</bgp-router-parameters>" << endl;
+    DelLink("bgp-router", bgp_router_name.str().c_str(),
+        "routing-instance", vrf_name.c_str());
+    client->WaitForIdle();
+    DelNode("bgp-router", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+    return;
+}
 
-    std::stringstream str1;
+std::string AddBgpServiceConfig(const std::string &ip,
+                                uint32_t source_port,
+                                uint32_t dest_port,
+                                uint32_t id,
+                                const std::string &vmi_name,
+                                const std::string &vrf_name,
+                                const std::string &bgp_router_type,
+                                bool is_shared) {
+    std::stringstream bgp_router_name;
+    bgp_router_name << "bgp-router-" << source_port << "-" << ip;
+    std::string str = GetBgpRouterXml(
+        ip, source_port, dest_port, bgp_router_type);
+
     //Agent does not pick IP from bgpaas-ip-address. So dont populate.
+    std::stringstream str1;
     str1 << "<bgpaas-ip-address></bgpaas-ip-address>"
            "<bgpaas-shared>" << is_shared << "</bgpaas-shared>" << endl;
 
-    if (deleted) {
-        DelLink("virtual-machine-interface", vmi_name.c_str(),
-                "bgp-router", bgp_router_name.str().c_str());
-        client->WaitForIdle();
-        DelLink("bgp-router", bgp_router_name.str().c_str(),
-                "bgp-as-a-service", bgp_router_name.str().c_str());
-        client->WaitForIdle();
-        DelLink("bgp-router", bgp_router_name.str().c_str(),
-                "routing-instance", vrf_name.c_str());
-        client->WaitForIdle();
-        DelLink("virtual-machine-interface", vmi_name.c_str(),
-                "bgp-as-a-service", bgp_router_name.str().c_str());
-        client->WaitForIdle();
-        DelNode("bgp-router", bgp_router_name.str().c_str());
-        client->WaitForIdle();
-        DelNode("bgp-as-a-service", bgp_router_name.str().c_str());
-        client->WaitForIdle();
-        return;
-    }
-
     AddNode("bgp-router", bgp_router_name.str().c_str(), id,
-            str.str().c_str());
+            str.c_str());
     client->WaitForIdle();
     AddNode("bgp-as-a-service", bgp_router_name.str().c_str(), id,
             str1.str().c_str());
@@ -4739,6 +4772,32 @@ void SendBgpServiceConfig(const std::string &ip,
     client->WaitForIdle();
     AddLink("virtual-machine-interface", vmi_name.c_str(),
             "bgp-router", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+
+    return bgp_router_name.str();
+}
+
+void DeleteBgpServiceConfig(const std::string &ip,
+                          uint32_t source_port,
+                          const std::string &vmi_name,
+                          const std::string &vrf_name) {
+    std::stringstream bgp_router_name;
+    bgp_router_name << "bgp-router-" << source_port << "-" << ip;
+    DelLink("virtual-machine-interface", vmi_name.c_str(),
+        "bgp-router", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+    DelLink("bgp-router", bgp_router_name.str().c_str(),
+        "bgp-as-a-service", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+    DelLink("bgp-router", bgp_router_name.str().c_str(),
+        "routing-instance", vrf_name.c_str());
+    client->WaitForIdle();
+    DelLink("virtual-machine-interface", vmi_name.c_str(),
+        "bgp-as-a-service", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+    DelNode("bgp-router", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+    DelNode("bgp-as-a-service", bgp_router_name.str().c_str());
     client->WaitForIdle();
 }
 

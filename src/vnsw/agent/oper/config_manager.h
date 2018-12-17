@@ -96,6 +96,7 @@ public:
     void AddNetworkIpamNode(IFMapNode *node);
     void AddVirtualDnsNode(IFMapNode *node);
     void AddGlobalVrouterNode(IFMapNode *node);
+    void AddBgpRouterConfigNode(IFMapNode *node);
     void AddVirtualRouterNode(IFMapNode *node);
     uint32_t LogicalInterfaceNodeCount() const;
     void AddSecurityLoggingObjectNode(IFMapNode *node);
@@ -147,6 +148,7 @@ private:
 
     // Lists of IFMapNodes without corresponding oper db-tables
     std::auto_ptr<ConfigManagerNodeList> global_vrouter_list_;
+    std::auto_ptr<ConfigManagerNodeList> bgp_router_config_list_;
     std::auto_ptr<ConfigManagerNodeList> virtual_router_list_;
     std::auto_ptr<ConfigManagerNodeList> global_qos_config_list_;
     std::auto_ptr<ConfigManagerNodeList> network_ipam_list_;

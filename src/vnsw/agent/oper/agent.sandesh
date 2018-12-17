@@ -2960,6 +2960,14 @@ struct BgpAsAServiceSandeshList {
    8: u64 health_check_timeout_usecs;
    /** Max retries configured in health check */
    9: u32 health_check_retries;
+   /** primary-control-node-zone **/
+   10: string primary_control_node_zone;
+   /** secondary-control-node-zone **/
+   11: string secondary_control_node_zone;
+   /** bgp-peer-ip **/
+   12: string bgp_peer_ip;
+   /** bgp-peer-port **/
+   13: i32 bgp_peer_port;
 }
 
 /**
