@@ -401,29 +401,23 @@ bool AddressMatch::TagsMatch(const TagList &pkt_tag_list) const {
     TagList::const_iterator it = tags_.begin();
     TagList::const_iterator pkt_it = pkt_tag_list.begin();
 
-    while(it != tags_.end() && pkt_it != pkt_tag_list.end()) {
+    /* We are doing OR operation for address group labels 
+    * If any of the tags/labels matches between endpoints,
+    * will allow traffic */ 
 
-        if (*pkt_it == *it) {
-            it++;
-            pkt_it++;
-            continue;
-        }
+    if(it == tags_.end() || pkt_it == pkt_tag_list.end())
+	return false;
 
-        //Packet tag list are sorted, hence if the packet tag
-        //id is greater then there is no match and hence return
-        if (*pkt_it > *it) {
-            return false;
-        }
-
-        if (*pkt_it < *it) {
-            pkt_it++;
-        }
+    while(it != tags_.end()) {
+	while(pkt_it != pkt_tag_list.end()) {
+		if(*pkt_it == *it) {
+			return true;
+		}
+		pkt_it++;
+	}
+	pkt_it = pkt_tag_list.begin();
+	it++;
     }
-
-    if (it == tags_.end()) {
-        return true;
-    }
-
     return false;
 }
 

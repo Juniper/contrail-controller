@@ -335,7 +335,7 @@ TEST_F(FirewallPolicy, Test6) {
     packet1->dst_port = 1000;
     packet1->src_tags_[2] = 100;
     std::sort(packet1->src_tags_.begin(), packet1->src_tags_.end());
-    EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
+    EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
 
     //Swap the field and reverse ACL should match it
     packet1->src_port = 10;

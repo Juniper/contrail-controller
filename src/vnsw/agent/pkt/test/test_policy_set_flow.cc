@@ -91,7 +91,7 @@ public:
         AddNode("application-policy-set", "aps2", 2);
 
         AddLink("tag", "App1", "application-policy-set", "aps1");
-        AddLink("tag", "App2", "application-policy-set", "aps1");
+        AddLink("tag", "App2", "application-policy-set", "aps2");
 
         AddFwRuleTagLink("MatchAllTag", src, 3);
         AddFwRuleTagLink("MatchAllTag", dst, 3);
@@ -217,7 +217,7 @@ TEST_F(TestPolicySet, ChangeOfTag) {
     DelLink("virtual-machine-interface", "vnet1", "tag", "Site1");
     client->WaitForIdle();
 
-    EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::DENY));
+    EXPECT_TRUE(flow->match_p().action_info.action & (1 << TrafficAction::PASS));
 
     DelPolicySetFirewallPolicyLink("link1", "aps1", "fw1");
     DelFirewallPolicyRuleLink("fpfr1", "fw1", "MatchAllTag");
