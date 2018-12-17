@@ -70,12 +70,19 @@ class LinuxSysData(object):
         return cpu_load_avg
 
     def check_ntp_status(self):
-        ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
-        proc = subprocess.Popen(
-            ntp_status_cmd, shell=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (_, _) = proc.communicate()
-        return proc.returncode == 0
+        # chronyc fails faster - it should be first
+        ntp_status_cmds = [
+            'chronyc -n sources | grep "^\^\*"',
+            'ntpq -n -c pe | grep "^\*"',
+        ]
+        for cmd in ntp_status_cmds:
+            proc = subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            (_, _) = proc.communicate()
+            if proc.returncode == 0:
+                return True
+        return False
 
     def _get_corefile_path(self):
         self.core_file_path = self.corefile_path
