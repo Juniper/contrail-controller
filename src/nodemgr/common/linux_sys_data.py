@@ -117,8 +117,9 @@ class LinuxSysData(object):
             self.msg_log('Failed to get core files: %s' % (str(e)),
                 SandeshLevel.SYS_ERR)
         else:
+            exception_set = {"lost+found"}
             return [self._get_corefile_path() + '/' + core
-                    for core in corenames.split()]
+                    for core in corenames.split() if core not in exception_set]
 
     def remove_corefiles(self, core_files):
         for core_file in core_files:
