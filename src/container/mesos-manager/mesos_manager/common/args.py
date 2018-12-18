@@ -77,6 +77,7 @@ def parse_args(args_str=None):
         'disc_server_ip': 'localhost',
         'disc_server_port': DiscoveryServerPort,
         'log_level': SandeshLevel.SYS_DEBUG,
+        'log_file': '/var/log/contrail/contrail-mesos-manager.log',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 

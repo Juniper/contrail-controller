@@ -11,6 +11,10 @@ import socket
 
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from mesos_manager.sandesh.mesos_manager import ttypes as sandesh
+from mesos_manager.sandesh.mesos_introspect import ttypes as introspect
+from mesos_manager.vnc.config_db import (VirtualMachineMM, VirtualRouterMM,
+    VirtualMachineInterfaceMM, VirtualNetworkMM, InstanceIpMM, ProjectMM,
+    DomainMM, NetworkIpamMM)
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
@@ -141,9 +145,47 @@ class MesosManagerLogger(object):
         # Log using the desired logging function.
         self.log(log_msg, level=log_level, fun=logging_fun)
 
+    def redefine_sandesh_handles(self):
+        """ Register custom introspect handlers. """
+
+        # Register Virtual Machine DB introspect handler.
+        introspect.VirtualMachineDatabaseList.handle_request = \
+            VirtualMachineMM.sandesh_handle_db_list_request
+
+        # Register Virtual Router DB introspect handler.
+        introspect.VirtualRouterDatabaseList.handle_request = \
+            VirtualRouterMM.sandesh_handle_db_list_request
+
+        # Register Virtual Machine Interface DB introspect handler.
+        introspect.VirtualMachineInterfaceDatabaseList.handle_request = \
+            VirtualMachineInterfaceMM.sandesh_handle_db_list_request
+
+        # Register Virtual Network DB introspect handler.
+        introspect.VirtualNetworkDatabaseList.handle_request = \
+            VirtualNetworkMM.sandesh_handle_db_list_request
+
+        # Register Instance IP DB introspect handler.
+        introspect.InstanceIpDatabaseList.handle_request = \
+            InstanceIpMM.sandesh_handle_db_list_request
+
+        # Register Project DB introspect handler.
+        introspect.ProjectDatabaseList.handle_request = \
+            ProjectMM.sandesh_handle_db_list_request
+
+        # Register Domain DB introspect handler.
+        introspect.DomainDatabaseList.handle_request = \
+            DomainMM.sandesh_handle_db_list_request
+
+        # Register NetworkIpam DB introspect handler.
+        introspect.NetworkIpamDatabaseList.handle_request = \
+            NetworkIpamMM.sandesh_handle_db_list_request
+
     def sandesh_init(self):
         """ Init Sandesh """
         self._sandesh = Sandesh()
+
+        # Register custom sandesh request handlers.
+        self.redefine_sandesh_handles()
 
         # Initialize Sandesh generator.
         self._sandesh.init_generator(
@@ -151,7 +193,7 @@ class MesosManagerLogger(object):
             self.module['node_type_name'], self.module['instance_id'],
             self._args.collectors, 'mesos_manager_context',
             int(self._args.http_server_port),
-            ['cfgm_common', 'mesos_manager.sandesh'],
+            ['cfgm_common', 'mesos_manager.sandesh', 'mesos_introspect.sandesh'],
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)
@@ -170,3 +212,5 @@ class MesosManagerLogger(object):
             staticmethod(ConnectionState.get_conn_state_cb),
             NodeStatusUVE, NodeStatus, self.module['table'])
 
+    def introspect_init(self):
+        self._sandesh.run_introspect_server(int(self._args.http_server_port))

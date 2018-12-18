@@ -53,7 +53,7 @@ class MesosNetworkManager(object):
 
     def run_mesos_manager(self):
         self.logger.info("Starting mesos manager.")
-
+        self.logger.introspect_init()
 
 # end class MesosNetworkManager
 
