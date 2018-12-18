@@ -1834,6 +1834,9 @@ class DBInterface(object):
             project_obj = self._get_project_obj(router_q)
             id_perms = IdPermsType(enable=True)
             rtr_obj = LogicalRouter(rtr_name, project_obj, id_perms=id_perms)
+            router_id = self._get_resource_id(router_q, False)
+            if router_id:
+                rtr_obj.uuid = router_id
         else:  # READ/UPDATE/DELETE
             rtr_obj = self._logical_router_read(rtr_id=router_q['id'])
 
