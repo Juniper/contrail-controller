@@ -814,6 +814,15 @@ TEST_F(FlowTest, MaxFlows_1) {
     EXPECT_FALSE(intf->drop_new_flows());
     client->WaitForIdle();
 
+    // Disable max-flows for vmi0 and vmi3
+    SetVmiMaxFlows("vmi_3", 9, 0);
+    SetVmiMaxFlows("vmi_0", 6, 0);
+    client->WaitForIdle();
+
+    // Expect max flows from vn level as max_flow=0 at vmi
+    EXPECT_EQ(3U, intf_0->max_flows());
+    EXPECT_EQ(3U, intf_1->max_flows());
+
     // Disable max-flows for vn3
     SetVnMaxFlows("vn3", 3, 0);
     // Disable max-flows for vn5
@@ -1029,9 +1038,14 @@ TEST_F(FlowTest, MaxFlows_3) {
     SetVnMaxFlows("vn3", 3, 0);
     SetVnMaxFlows("vn5", 5, 0);
 
-    // vmi_0 and vmi_3 have max-flows set to 3,since  max_flow=3 on vmi
+    // vmi_0 and vmi_3 have max-flows set to 3
+    // since  max_flow=3 on vmi was set by config message
     EXPECT_EQ(3U, vmi_0->max_flows());
     EXPECT_EQ(3U, vmi_3->max_flows());
+
+    // max_flows for vmi_1 was set from vn5 and not from config message
+    // since vn5 max_flows=0 expect vmi_1 max_flows=0
+    EXPECT_EQ(0U, vmi_1->max_flows());
     client->WaitForIdle();
 
     // Restore max-flows for vmi0 and vmi3
@@ -1039,7 +1053,7 @@ TEST_F(FlowTest, MaxFlows_3) {
     SetVmiMaxFlows("vmi_0", 6, 0);
     client->WaitForIdle();
 
-    // vmi_0 and vmi_3 have max-flows now set to 0
+    // vmi_0 and vmi_3 have max-flows now set to 0, as max_flow=0 at vn level
     EXPECT_EQ(0U, vmi_0->max_flows());
     EXPECT_EQ(0U, vmi_3->max_flows());
     client->WaitForIdle();
