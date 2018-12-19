@@ -814,6 +814,15 @@ TEST_F(FlowTest, MaxFlows_1) {
     EXPECT_FALSE(intf->drop_new_flows());
     client->WaitForIdle();
 
+    // Disable max-flows for vmi0 and vmi3
+    SetVmiMaxFlows("vmi_3", 9, 0);
+    SetVmiMaxFlows("vmi_0", 6, 0);
+    client->WaitForIdle();
+
+    // Expect max flows from vn level as max_flow=0 at vmi
+    EXPECT_EQ(3U, intf_0->max_flows());
+    EXPECT_EQ(3U, intf_1->max_flows());
+
     // Disable max-flows for vn3
     SetVnMaxFlows("vn3", 3, 0);
     // Disable max-flows for vn5

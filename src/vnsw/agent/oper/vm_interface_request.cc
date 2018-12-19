@@ -414,6 +414,20 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
                 ret = true;
             }
         }
+
+        uint32_t max_flow = 0;
+        if (vn) {
+            max_flow = vn->vn_max_flows();
+        }
+        if (max_flows_ != data->max_flows_) {
+            if(data->max_flows_ != 0) {
+                max_flows_ = data->max_flows_;
+            } else {
+                max_flows_ = max_flow;
+            }
+            ret = true;
+        }
+
     }
 
     if (local_preference_ != data->local_preference_) {
@@ -472,11 +486,6 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (igmp_enabled_ != data->igmp_enabled_) {
         igmp_enabled_ = data->igmp_enabled_;
-        ret = true;
-    }
-
-    if (max_flows_ != data->max_flows_) {
-        max_flows_ = data->max_flows_;
         ret = true;
     }
 
