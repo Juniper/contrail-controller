@@ -283,11 +283,6 @@ void FlowData::Reset() {
     flow_dest_vrf = VrfEntry::kInvalidIndex;
     match_p.Reset();
     vn_entry.reset(NULL);
-    const VmInterface *vm_intf =
-        dynamic_cast<const VmInterface *>(intf_entry.get());
-    if (vm_intf) {
-        vm_intf->update_flow_count(-1);
-    }
     intf_entry.reset(NULL);
     in_vm_entry.Reset(true);
     out_vm_entry.Reset(true);
@@ -452,6 +447,13 @@ void FlowEntry::Reset() {
     assert(ksync_entry_ == NULL);
     uuid_ = flow_table_->rand_gen();
     egress_uuid_ = flow_table_->rand_gen();
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(intf_entry());
+        if (vm_intf) {
+            vm_intf->update_flow_count(-2);
+        }
+    }
     data_.Reset();
     l3_flow_ = true;
     gen_id_ = 0;
@@ -635,11 +637,6 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.out_vm_entry.SetVm(rev_ctrl->vm_);
     l3_flow_ = info->l3_flow;
     data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
-    const VmInterface *vm_intf =
-        dynamic_cast<const VmInterface *>(intf_entry());
-    if (vm_intf) {
-        vm_intf->update_flow_count(1);
-    }
     return true;
 }
 
@@ -722,6 +719,14 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
 
     data_.smac = pkt->smac;
     data_.dmac = pkt->dmac;
+
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(intf_entry());
+        if (vm_intf) {
+            vm_intf->update_flow_count(2);
+        }
+    }
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
@@ -802,6 +807,14 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
 
     data_.smac = pkt->dmac;
     data_.dmac = pkt->smac;
+
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(intf_entry());
+        if (vm_intf) {
+            vm_intf->update_flow_count(2);
+        }
+    }
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
