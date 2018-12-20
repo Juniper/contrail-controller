@@ -1,0 +1,50 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_vlan 
+    cfg_group: __contrail_overlay_vlan__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "comment": "/* Contrail Generated Group Config */",
+          "physical_interfaces": [{
+            "comment": "overlay_vlan",
+            "logical_interfaces": [{
+              "comment": "overlay_vlan",
+              "uuid": "8a99b692-9216-4db6-aeb2-a09ae5344845",
+              "name": "ae0.100",
+              "unit": 100,
+              "ip_list": ["30.1.1.2"],
+              "ip_prefix_len": ["29"]
+            }],
+            "name": "ae0",
+            "uuid": "787af41c-b4fb-41fb-abd5-53553e0f198c"
+          }, {
+            "comment": "overlay_vlan",
+            "logical_interfaces": [{
+              "comment": "overlay_vlan",
+              "uuid": "8a99b692-9216-4db6-aeb2-a09ae5344845",
+              "name": "ae1.200",
+              "unit": 200,
+              "ip_list": ["30.2.1.2"],
+              "ip_prefix_len": ["29"]
+            }],
+            "name": "ae1",
+            "uuid": "787af41c-b4fb-41fb-abd5-53553e0f198c"
+          }],
+        }
+
+    - template:
+        src: juniper_junos-es_overlay_vlan.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+

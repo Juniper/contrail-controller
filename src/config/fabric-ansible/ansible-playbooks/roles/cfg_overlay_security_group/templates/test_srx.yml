@@ -1,0 +1,54 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: cfg_overlay_security
+    cfg_group: __contrail_overlay_security__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "security_policies": [
+            {
+              "from_zone": "left",
+              "to_zone": "right"
+            },
+            {
+              "from_zone": "right",
+              "to_zone": "left"
+            }
+          ],
+          "security_zones": [
+            {
+              "comment": "/* Left zone */",
+              "name": "left",
+              "interfaces": [
+                {
+                  "name": "reth1.200"
+                }
+              ]
+            },
+            {
+              "comment": "/* Right Zone */",
+              "name": "right",
+              "interfaces": [
+                {
+                  "name": "reth0.100"
+                }
+              ]
+            }
+          ]
+        }
+
+    - template:
+        src: juniper_junos-es_overlay_security_group.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+
