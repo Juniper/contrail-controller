@@ -2,7 +2,7 @@ set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 from
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 then load-balance per-packet
 set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
-{%         if (ri.get('routing_instance_type') == 'virtual-switch') or (ri.get('virtual_network_is_internal') == true) or ((ri.get('routing_instance_type') == 'vrf') and (ri.get('is_public_network') == true)) %}
+{%         if ((ri.get('routing_instance_type') == 'virtual-switch') and (ri.get('comment') != 'PNF-Service-Chaining')) or (ri.get('virtual_network_is_internal') == true) or ((ri.get('routing_instance_type') == 'vrf') and (ri.get('is_public_network') == true)) %}
 {%             set vrf_import = ri.name+'-import' %}
 {%             set vrf_export = ri.name+'-export' %}
 {%             for import_target in ri.get('import_targets', []) %}
@@ -38,8 +38,8 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term defaul
 set groups {{cfg_group}} switch-options vrf-import import-evpn
 {%                 for ri in device_abstract_config.get('routing_instances', []) %}
 {%                     set name = ri.get('name') %}
-{%                     set vxlan_id = ri.get('vxlan_id') %}
-{%                     if ri.get('routing_instance_type', '') == 'virtual-switch' %}
+{%                     set vxlan_id = ri.get('vxlan_id', '') %}
+{%                     if (vxlan_id != '') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
 {%                         for export_target in ri.get('export_targets', []) %}
 set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target}}
 {%                         endfor %}
