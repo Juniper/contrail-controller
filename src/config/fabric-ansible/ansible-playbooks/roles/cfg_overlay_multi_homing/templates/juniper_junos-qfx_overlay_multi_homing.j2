@@ -14,4 +14,12 @@ set groups {{cfg_group}} interfaces {{inter}} gigether-options 802.3ad {{ifd.nam
 {%                     endfor %}
 {%             endif %}
 {%         endif %}
+{%         for ifl in ifd.get('logical_interfaces',[]) %}
+{%             if ifd.get('name') and ifl.get('unit') and ifl.get('family') and ifl.get('interface_mode') %}
+set groups {{cfg_group}} interfaces {{ifd.get('name')}} unit {{ifl.get('unit')}} family {{ifl.get('family')}} interface-mode {{ifl.get('interface_mode')}}
+{%                 for vlan in ifl.get('vlans',[]) %}
+set groups {{cfg_group}} interfaces {{ifd.get('name')}} unit {{ifl.get('unit')}} family {{ifl.get('family')}} vlan members {{vlan.get('name')}}
+{%                 endfor %}
+{%             endif %}
+{%         endfor %}
 {%     endfor %}

@@ -1,0 +1,97 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_evpn_gateway
+    cfg_group: __contrail_overlay_evpn_gateway__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "physical_interfaces": [
+            {
+              "interface_type": "irb",
+              "logical_interfaces": [
+                {
+                  "unit": "12",
+                  "ip_list": [
+                    "10.1.1.6/24"
+                  ],
+                  "gateway": "10.1.1.1"
+                },
+                {
+                  "unit": "11",
+                  "ip_list": [
+                    "20.1.1.7/24"
+                  ],
+                  "gateway": "20.1.1.1"
+                },
+                {
+                  "unit": "200",
+                  "ip_list": [
+                    "100.1.1.1/29"
+                  ]
+                },
+                {
+                  "unit": "100",
+                  "ip_list": [
+                    "200.1.1.1/29"
+                  ]
+                }
+              ]
+            }
+          ],
+          "vlans": [
+            {
+              "name": "bd-12",
+              "vxlan_id": "12",
+              "interfaces": [
+                {
+                  "name": "irb.12"
+                }
+              ],
+              "vni": "12"
+            },
+            {
+              "name": "bd-11",
+              "vxlan_id": "11",
+              "interfaces": [
+                {
+                  "name": "irb.11"
+                }
+              ],
+              "vni": "11"
+            },
+            {
+              "name": "bd-200",
+              "vlan_id": "200",
+              "interfaces": [
+                {
+                  "name": "irb.200"
+                }
+              ]
+            },
+            {
+              "name": "bd-100",
+              "vlan_id": "100",
+              "interfaces": [
+                {
+                  "name": "irb.100"
+                }
+              ]
+            }
+          ]
+        }
+
+    - template:
+        src: juniper_junos-qfx_overlay_evpn_gateway.j2 
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+
