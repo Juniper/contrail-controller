@@ -27,6 +27,7 @@
 #include <oper/mirror_table.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
+#include <oper/multicast_policy.h>
 #include <oper/multicast.h>
 #include <oper/global_vrouter.h>
 #include <oper/path_preference.h>
@@ -124,6 +125,8 @@ void OperDB::CreateDBTables(DB *db) {
                         boost::bind(&SecurityLoggingObjectTable::CreateTable,
                         agent_, _1, _2));
     DB::RegisterFactory("db.policy_set.0", &PolicySetTable::CreateTable);
+    DB::RegisterFactory("db.multicast_policy.0",
+                        &MulticastPolicyTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -250,6 +253,13 @@ void OperDB::CreateDBTables(DB *db) {
         static_cast<BridgeDomainTable *>(db->CreateTable("db.bridge_domain.0"));
     assert(bd_table);
     agent_->set_bridge_domain_table(bd_table);
+
+    MulticastPolicyTable *mp_table;
+    mp_table = static_cast<MulticastPolicyTable *>(
+                                db->CreateTable("db.multicast_policy.0"));
+    assert(mp_table);
+    agent_->set_mp_table(mp_table);
+    mp_table->set_agent(agent_);
 
     acl_table->ListenerInit();
 
@@ -398,6 +408,7 @@ void OperDB::Shutdown() {
     agent_->vrf_assign_table()->Clear();
     agent_->vxlan_table()->Clear();
     agent_->service_instance_table()->Clear();
+    agent_->mp_table()->Clear();
 #endif
 
     route_preference_module_->Shutdown();

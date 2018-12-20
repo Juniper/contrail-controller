@@ -66,18 +66,90 @@ test::ControlNodeMock *cn_bgp_peer[kControlNodes];
 char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 
-IpamInfo ipam_info[] = {
-    {"10.1.1.0", 24, "10.1.1.1", true},
+#define MAX_TESTNAME_LEN            100
+#define MAX_VMS_PER_VN              7
+#define NUM_VNS                     2
+
+struct PortInfo input[MAX_VMS_PER_VN] = {
+    {"vnet1-0", 1, "10.2.1.3", "00:00:10:01:01:03", 1, 1},
+    {"vnet1-1", 2, "10.2.1.4", "00:00:10:01:01:04", 1, 1},
+    {"vnet1-2", 3, "10.2.1.5", "00:00:10:01:01:05", 1, 1},
+    {"vnet1-3", 4, "10.2.1.6", "00:00:10:01:01:06", 1, 1},
+    {"vnet1-4", 5, "10.2.1.7", "00:00:10:01:01:07", 1, 1},
+    {"vnet1-5", 6, "10.2.1.8", "00:00:10:01:01:08", 1, 1},
+    {"vnet1-6", 7, "10.2.1.9", "00:00:10:01:01:09", 1, 1},
 };
 
-struct PortInfo input[] = {
-    {"vnet1-0", 1, "10.1.1.3", "00:00:10:01:01:03", 1, 1},
-    {"vnet1-1", 2, "10.1.1.4", "00:00:10:01:01:04", 1, 1},
-    {"vnet1-2", 3, "10.1.1.5", "00:00:10:01:01:05", 1, 1},
-    {"vnet1-3", 4, "10.1.1.6", "00:00:10:01:01:06", 1, 1},
-    {"vnet1-4", 5, "10.1.1.7", "00:00:10:01:01:07", 1, 1},
-    {"vnet1-5", 6, "10.1.1.8", "00:00:10:01:01:08", 1, 1},
-    {"vnet1-6", 7, "10.1.1.9", "00:00:10:01:01:09", 1, 1},
+struct PortInfo input_2[MAX_VMS_PER_VN] = {
+    {"vnet2-0", 11, "10.2.2.3", "00:00:10:01:02:03", 2, 2},
+    {"vnet2-1", 12, "10.2.2.4", "00:00:10:01:02:04", 2, 2},
+    {"vnet2-2", 13, "10.2.2.5", "00:00:10:01:02:05", 2, 2},
+    {"vnet2-3", 14, "10.2.2.6", "00:00:10:01:02:06", 2, 2},
+    {"vnet2-4", 15, "10.2.2.7", "00:00:10:01:02:07", 2, 2},
+    {"vnet2-5", 16, "10.2.2.8", "00:00:10:01:02:08", 2, 2},
+    {"vnet2-6", 17, "10.2.2.9", "00:00:10:01:02:09", 2, 2},
+};
+
+IpamInfo ipam_info[] = {
+    {"10.2.1.0", 24, "10.2.1.1", true},
+};
+
+IpamInfo ipam_info_2[] = {
+    {"10.2.2.0", 24, "10.2.2.1", true},
+};
+
+#define MSUBNET_SYSTEMS     "224.0.0.1"
+#define MSUBNET_ROUTERS     "224.0.0.2"
+#define MIGMP_ADDRESS       "224.0.0.22"
+
+#define MGROUP_ADDR_1       "239.1.1.10"
+#define MGROUP_ADDR_2       "239.2.1.10"
+#define MGROUP_ADDR_3       "239.3.1.10"
+
+#define MSOURCE_ADDR_0      "0.0.0.0"
+#define MSOURCE_ADDR_11     "100.1.0.10"
+#define MSOURCE_ADDR_12     "100.1.0.20"
+#define MSOURCE_ADDR_13     "100.1.0.30"
+#define MSOURCE_ADDR_14     "100.1.0.40"
+#define MSOURCE_ADDR_15     "100.1.0.50"
+
+#define MSOURCE_ADDR_21     "100.2.0.10"
+#define MSOURCE_ADDR_22     "100.2.0.20"
+#define MSOURCE_ADDR_23     "100.2.0.30"
+#define MSOURCE_ADDR_24     "100.2.0.40"
+#define MSOURCE_ADDR_25     "100.2.0.50"
+
+#define MSOURCE_ADDR_31     "100.3.0.10"
+#define MSOURCE_ADDR_32     "100.3.0.20"
+#define MSOURCE_ADDR_33     "100.3.0.30"
+#define MSOURCE_ADDR_34     "100.3.0.40"
+#define MSOURCE_ADDR_35     "100.3.0.50"
+
+MulticastPolicy policy[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_1, false},
+    {MSOURCE_ADDR_13, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_14, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_11[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_12[] = {
+    {MSOURCE_ADDR_11, MGROUP_ADDR_2, false},
+    {MSOURCE_ADDR_12, MGROUP_ADDR_2, true},
+};
+
+MulticastPolicy policy_21[] = {
+    {MSOURCE_ADDR_21, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_22, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_22[] = {
+    {MSOURCE_ADDR_21, MGROUP_ADDR_2, false},
+    {MSOURCE_ADDR_22, MGROUP_ADDR_2, true},
 };
 
 char print_buf[1024*3];
@@ -179,26 +251,26 @@ public:
                 boost::bind(&IgmpTest::ItfUpdate, this, _2));
 
         memset(igmp_gs, 0x00, sizeof(igmp_gs));
-        igmp_gs[0].group = ntohl(inet_addr("239.1.1.10"));
-        igmp_gs[0].sources[0] = ntohl(inet_addr("100.1.1.10"));
-        igmp_gs[0].sources[1] = ntohl(inet_addr("100.1.1.20"));
-        igmp_gs[0].sources[2] = ntohl(inet_addr("100.1.1.30"));
-        igmp_gs[0].sources[3] = ntohl(inet_addr("100.1.1.40"));
-        igmp_gs[0].sources[4] = ntohl(inet_addr("100.1.0.50"));
+        igmp_gs[0].group = ntohl(inet_addr(MGROUP_ADDR_1));
+        igmp_gs[0].sources[0] = ntohl(inet_addr(MSOURCE_ADDR_11));
+        igmp_gs[0].sources[1] = ntohl(inet_addr(MSOURCE_ADDR_12));
+        igmp_gs[0].sources[2] = ntohl(inet_addr(MSOURCE_ADDR_13));
+        igmp_gs[0].sources[3] = ntohl(inet_addr(MSOURCE_ADDR_14));
+        igmp_gs[0].sources[4] = ntohl(inet_addr(MSOURCE_ADDR_15));
 
-        igmp_gs[1].group = ntohl(inet_addr("239.2.1.10"));
-        igmp_gs[1].sources[0] = ntohl(inet_addr("100.2.1.10"));
-        igmp_gs[1].sources[1] = ntohl(inet_addr("100.2.1.20"));
-        igmp_gs[1].sources[2] = ntohl(inet_addr("100.2.1.30"));
-        igmp_gs[1].sources[3] = ntohl(inet_addr("100.2.1.40"));
-        igmp_gs[1].sources[4] = ntohl(inet_addr("100.2.1.50"));
+        igmp_gs[1].group = ntohl(inet_addr(MGROUP_ADDR_2));
+        igmp_gs[1].sources[0] = ntohl(inet_addr(MSOURCE_ADDR_21));
+        igmp_gs[1].sources[1] = ntohl(inet_addr(MSOURCE_ADDR_22));
+        igmp_gs[1].sources[2] = ntohl(inet_addr(MSOURCE_ADDR_23));
+        igmp_gs[1].sources[3] = ntohl(inet_addr(MSOURCE_ADDR_24));
+        igmp_gs[1].sources[4] = ntohl(inet_addr(MSOURCE_ADDR_25));
 
-        igmp_gs[2].group = ntohl(inet_addr("239.3.1.10"));
-        igmp_gs[2].sources[0] = ntohl(inet_addr("100.3.1.10"));
-        igmp_gs[2].sources[1] = ntohl(inet_addr("100.3.1.20"));
-        igmp_gs[2].sources[2] = ntohl(inet_addr("100.3.1.30"));
-        igmp_gs[2].sources[3] = ntohl(inet_addr("100.3.1.40"));
-        igmp_gs[2].sources[4] = ntohl(inet_addr("100.3.1.50"));
+        igmp_gs[2].group = ntohl(inet_addr(MGROUP_ADDR_3));
+        igmp_gs[2].sources[0] = ntohl(inet_addr(MSOURCE_ADDR_31));
+        igmp_gs[2].sources[1] = ntohl(inet_addr(MSOURCE_ADDR_32));
+        igmp_gs[2].sources[2] = ntohl(inet_addr(MSOURCE_ADDR_33));
+        igmp_gs[2].sources[3] = ntohl(inet_addr(MSOURCE_ADDR_34));
+        igmp_gs[2].sources[4] = ntohl(inet_addr(MSOURCE_ADDR_35));
 
         rx_count = 0;
     }
@@ -233,6 +305,77 @@ public:
         return bgp_peer_[idx];
     }
 
+    void GetVnPortInfo(uint32_t i, struct PortInfo **port, uint32_t *size,
+                    IpamInfo **ipam) {
+        if (i == 0) {
+            if (port) *port = &input[0];
+            if (size) *size = sizeof(input)/sizeof(struct PortInfo);
+            if (ipam) *ipam = &ipam_info[0];
+        } else {
+            if (port) *port = &input_2[0];
+            if (size) *size = sizeof(input_2)/sizeof(struct PortInfo);
+            if (ipam) *ipam = &ipam_info_2[0];
+        }
+    }
+
+    void GetVnPortInfoForVmIdx(uint32_t i, struct PortInfo **port,
+                    IpamInfo **ipam) {
+        if (i < MAX_VMS_PER_VN) {
+            if (port) *port = &input[0];
+            if (ipam) *ipam = &ipam_info[0];
+        } else {
+            if (port) *port = &input_2[0];
+            if (ipam) *ipam = &ipam_info_2[0];
+        }
+    }
+
+    void CreateVns() {
+
+        char vn_name[MAX_TESTNAME_LEN];
+        char vrf_name[MAX_TESTNAME_LEN];
+
+        struct PortInfo *port;
+        IpamInfo *ipam;
+        uint32_t size = 0;
+        for (uint32_t i = 0; i < NUM_VNS; i++) {
+            GetVnPortInfo(i, &port, &size, &ipam);
+
+            sprintf(vn_name, "vn%d", port->vn_id);
+            sprintf(vrf_name, "vrf%d", port->vn_id);
+
+            CreateVmportEnv(port, size, 0, vn_name, vrf_name);
+            client->WaitForIdle();
+            client->Reset();
+            AddIPAM(vn_name, ipam, 1);
+            client->WaitForIdle();
+
+            IpAddress gateway = IpAddress(Ip4Address::from_string(ipam->gw));
+            VmInterface *vm_itf = VmInterfaceGet(port->intf_id);
+            const VnEntry *vn = vm_itf->vn();
+            agent_->GetIgmpProto()->ClearItfStats(vn, gateway);
+            client->WaitForIdle();
+        }
+    }
+
+    void DeleteVns() {
+
+        char vn_name[MAX_TESTNAME_LEN];
+
+        struct PortInfo *port;
+        uint32_t size = 0;
+        for (uint32_t i = 0; i < NUM_VNS; i++) {
+            GetVnPortInfo(i, &port, &size, NULL);
+
+            client->Reset();
+            DelIPAM(vn_name);
+            client->WaitForIdle();
+
+            client->Reset();
+            DeleteVmportEnv(port, size, 1, 0);
+            client->WaitForIdle();
+        }
+    }
+
     void TestEnvInit(uint32_t version, bool set_lmqt) {
         agent_ = Agent::GetInstance();
         client->WaitForIdle();
@@ -256,20 +399,10 @@ public:
         client->WaitForIdle();
 #endif
 
-        CreateVmportEnv(input, sizeof(input)/sizeof(struct PortInfo), 0);
-        client->WaitForIdle();
-        client->Reset();
-        AddIPAM("vn1", ipam_info, 1);
-        client->WaitForIdle();
+        CreateVns();
 
         agent_->GetIgmpProto()->ClearStats();
         agent_->GetIgmpProto()->GetGmpProto()->ClearStats();
-        client->WaitForIdle();
-
-        IpAddress gateway = IpAddress(Ip4Address::from_string(ipam_info[0].gw));
-        VmInterface *vm_itf = VmInterfaceGet(input[0].intf_id);
-        const VnEntry *vn = vm_itf->vn();
-        agent_->GetIgmpProto()->ClearItfStats(vn, gateway);
         client->WaitForIdle();
     }
 
@@ -280,13 +413,7 @@ public:
         client->WaitForIdle();
 #endif
 
-        client->Reset();
-        DelIPAM("vn1");
-        client->WaitForIdle();
-
-        client->Reset();
-        DeleteVmportEnv(input, sizeof(input)/sizeof(struct PortInfo), 1, 0);
-        client->WaitForIdle();
+        DeleteVns();
     }
 
     void VrfUpdate(DBEntryBase *entry) {
@@ -397,7 +524,7 @@ public:
         if (igmp_type == IgmpTypeV1Query) {
 
             if (igmp_gs == NULL) {
-                ip->ip_dst.s_addr = inet_addr("224.0.0.1");
+                ip->ip_dst.s_addr = inet_addr(MSUBNET_SYSTEMS);
             } else {
                 ip->ip_dst.s_addr = htonl(igmp_gs[0].group);
             }
@@ -407,10 +534,10 @@ public:
             ip->ip_dst.s_addr = htonl(igmp_gs[0].group);
         } else if (igmp_type == IgmpTypeV2Leave) {
 
-            ip->ip_dst.s_addr = inet_addr("224.0.0.2");
+            ip->ip_dst.s_addr = inet_addr(MSUBNET_ROUTERS);
         } else if (igmp_type == IgmpTypeV3Report) {
 
-            ip->ip_dst.s_addr = inet_addr("224.0.0.22");
+            ip->ip_dst.s_addr = inet_addr(MIGMP_ADDRESS);
         }
 
         uint32_t igmp_length = 0;
@@ -526,9 +653,13 @@ public:
     bool WaitForRxOkCount(uint32_t vm_idx, uint32_t index,
                                     uint32_t ex_count) {
 
-        VmInterface *vm_itf = VmInterfaceGet(input[vm_idx].intf_id);
+        struct PortInfo *port;
+        IpamInfo *ipam;
+        VmInterface *vm_itf;
+        GetVnPortInfoForVmIdx(vm_idx, &port, &ipam);
         IgmpInfo::IgmpItfStats stats;
 
+        vm_itf = VmInterfaceGet(port->intf_id);
         int count = 0;
         uint32_t counter = 0;
 
@@ -536,7 +667,7 @@ public:
             usleep(1000);
             client->WaitForIdle();
             const VnEntry *vn = vm_itf->vn();
-            IpAddress gateway = IpAddress(Ip4Address::from_string(ipam_info[0].gw));
+            IpAddress gateway = IpAddress(Ip4Address::from_string(ipam->gw));
             Agent::GetInstance()->GetIgmpProto()->GetItfStats(vn, gateway,
                                     stats);
             counter = stats.rx_okpacket[index-1];
@@ -586,16 +717,20 @@ public:
 
     bool WaitForTxCount(uint32_t vm_idx, bool tx, uint32_t ex_count) {
 
-        VmInterface *vm_itf = VmInterfaceGet(input[vm_idx].intf_id);
+        struct PortInfo *port;
+        IpamInfo *ipam;
+        VmInterface *vm_itf;
+        GetVnPortInfoForVmIdx(vm_idx, &port, &ipam);
         IgmpInfo::IgmpItfStats stats;
         int count = 0;
         uint32_t counter = 0;
 
+        vm_itf = VmInterfaceGet(port->intf_id);
         do {
             usleep(1000);
             client->WaitForIdle();
             const VnEntry *vn = vm_itf->vn();
-            IpAddress gateway = IpAddress(Ip4Address::from_string(ipam_info[0].gw));
+            IpAddress gateway = IpAddress(Ip4Address::from_string(ipam->gw));
             Agent::GetInstance()->GetIgmpProto()->GetItfStats(vn, gateway,
                                     stats);
             counter = tx ? stats.tx_packet : stats.tx_drop_packet;

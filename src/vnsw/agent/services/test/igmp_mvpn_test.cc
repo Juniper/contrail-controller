@@ -60,8 +60,8 @@ TEST_F(IgmpTest, SendV3ReportsAndFabricOlist) {
     const TunnelNH *tnh;
     const InterfaceNH *inh;
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.1.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -240,8 +240,8 @@ TEST_F(IgmpTest, SendV3ReportsAndNoFabricOlist) {
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.1.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     Agent *agent = Agent::GetInstance();
 
