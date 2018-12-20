@@ -395,6 +395,7 @@ public:
         EVPN,
         BRIDGE,
         INET6_UNICAST,
+        INET4_MPLS,
         ROUTE_TABLE_MAX
     };
     static const uint8_t ROUTE_TABLE_START = (Agent::INVALID + 1);
@@ -559,6 +560,17 @@ public:
     }
     void set_fabric_inet4_unicast_table(RouteTable * table) {
         uc_rt_table_ = (InetUnicastAgentRouteTable *)table;
+    }
+
+    InetUnicastAgentRouteTable *fabric_inet4_mpls_table() const {
+        return mpls_rt_table_;
+    }
+    void set_fabric_inet4_mpls_table(InetUnicastAgentRouteTable *
+                                                 table) {
+        mpls_rt_table_ = table;
+    }
+    void set_fabric_inet4_mpls_table(RouteTable * table) {
+        mpls_rt_table_ = (InetUnicastAgentRouteTable *)table;
     }
 
     Inet4MulticastAgentRouteTable *fabric_inet4_multicast_table() const {
@@ -1342,6 +1354,7 @@ private:
     std::auto_ptr<MetaDataIpAllocator> metadata_ip_allocator_;
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
+    InetUnicastAgentRouteTable *mpls_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;
     EvpnAgentRouteTable *evpn_rt_table_;
     BridgeAgentRouteTable *l2_rt_table_;

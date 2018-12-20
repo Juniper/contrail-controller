@@ -23,7 +23,7 @@ public:
 
     //Called from oute creation in input of route table
     AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
-    Agent::RouteTableType GetRouteTableType() {
+    virtual Agent::RouteTableType GetRouteTableType() {
         if (dip_.is_v4()) {
             return Agent::INET4_UNICAST;
         }
@@ -38,10 +38,29 @@ public:
     const IpAddress &addr() const {return dip_;}
     uint8_t plen() const {return plen_;}
 
-private:
+protected:
     IpAddress dip_;
     uint8_t plen_;
+private:
     DISALLOW_COPY_AND_ASSIGN(InetUnicastRouteKey);
+};
+class InetMplsUnicastRouteKey : public InetUnicastRouteKey {
+public:
+    InetMplsUnicastRouteKey(const Peer *peer, const string &vrf_name,
+                        const IpAddress &dip, uint8_t plen) :
+        InetUnicastRouteKey(peer, vrf_name, dip, plen) { }
+    virtual ~InetMplsUnicastRouteKey() { }
+
+    virtual Agent::RouteTableType GetRouteTableType() {
+        if (dip_.is_v4()) {
+            return Agent::INET4_MPLS;
+        }
+        return Agent::INVALID;
+    }
+    virtual AgentRouteKey *Clone() const;
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(InetMplsUnicastRouteKey);
 };
 
 class InetUnicastRouteEntry : public AgentRoute {
@@ -61,15 +80,7 @@ public:
     virtual const std::string GetSourceAddressString() const {
         return "0.0.0.0";
     }
-    virtual Agent::RouteTableType GetTableType() const {
-        if (addr_.is_v4()) {
-            return Agent::INET4_UNICAST;
-        }
-        if (addr_.is_v6()) {
-            return Agent::INET6_UNICAST;
-        }
-        return Agent::INVALID;
-    }
+    virtual Agent::RouteTableType GetTableType() const;
     virtual bool ReComputePathDeletion(AgentPath *path);
     virtual bool ReComputePathAdd(AgentPath *path);
     const IpAddress &addr() const { return addr_; }
@@ -116,7 +127,7 @@ public:
     bool ipam_host_route() const { return ipam_host_route_; }
     bool proxy_arp() const {return proxy_arp_;}
 
-private:
+protected:
     friend class InetUnicastAgentRouteTable;
 
     IpAddress addr_;
@@ -130,6 +141,7 @@ private:
     bool ipam_host_route_;
     // Specifies if ARP must be force proxied for this route
     bool proxy_arp_;
+private:
     DISALLOW_COPY_AND_ASSIGN(InetUnicastRouteEntry);
 };
 
@@ -147,6 +159,9 @@ public:
     virtual string GetTableName() const {
         if (type_ == Agent::INET4_UNICAST) {
             return "Inet4UnicastAgentRouteTable";
+        }
+        if (type_ == Agent::INET4_MPLS) {
+            return "Inet4MplsAgentRouteTable";
         }
         if (type_ == Agent::INET6_UNICAST) {
             return "Inet6UnicastAgentRouteTable";
@@ -181,6 +196,9 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
+                          const IpAddress &addr, uint8_t plen,
+                          AgentRouteData *data);
+    static void DeleteMplsRouteReq(const Peer *peer, const string &vrf_name,
                           const IpAddress &addr, uint8_t plen,
                           AgentRouteData *data);
     static void Delete(const Peer *peer, const string &vrf_name,
@@ -311,6 +329,11 @@ public:
                                      const IpAddress &addr, uint8_t plen,
                                      const string &vn_name, bool policy,
                                      bool native_encap);
+    static void AddVHostMplsRecvRouteReq(const Peer *peer, const string &vrf,
+                                     const InterfaceKey &interface,
+                                     const IpAddress &addr, uint8_t plen,
+                                     const string &vn_name, bool policy,
+                                     bool native_encap);
     static void AddVHostSubnetRecvRoute(const Peer *peer, const string &vrf,
                                         const InterfaceKey &interface,
                                         const Ip4Address &addr, uint8_t plen,
@@ -339,9 +362,32 @@ public:
                                    const TagList &tag_list,
                                    const CommunityList &communities,
                                    bool native_encap);
+    static void AddLocalMplsRouteReq(const Peer *peer,
+                                   const string &vrf_name,
+                                   const Ip4Address &dst_addr,uint8_t plen,
+                                   const Ip4Address &gw_ip,
+                                   const VnListType &vn_name, uint32_t label,
+                                   const SecurityGroupList &sg_list,
+                                   const TagList &tag_list,
+                                   const CommunityList &communities,
+                                   bool native_encap);
+    static void AddMplsRouteInternal(const Peer *peer,
+                                    DBRequest *req, const string &vrf_name,
+                                    const IpAddress &dst_addr, uint8_t plen,
+                                    const IpAddress &gw_ip,
+                                    const VnListType &vn_name, uint32_t label,
+                                    const SecurityGroupList &sg_list,
+                                    const TagList &tag_list,
+                                    const CommunityList &communities,
+                                    bool native_encap);
+    static void AddMplsRouteReq(const Peer *peer,
+                                   const string &vrf_name,
+                                   const IpAddress &dst_addr,uint8_t plen,
+                                   AgentRouteData *data);
     void AddIpamSubnetRoute(const string &vm_vrf, const IpAddress &addr,
                             uint8_t plen, const std::string &vn_name);
     void AddVrouterSubnetRoute(const IpAddress &dst_addr, uint8_t plen);
+    void AddVhostMplsRoute(const IpAddress &vhost_addr, const Peer *peer);
     void AddInterfaceRouteReq(Agent *agent, const Peer *peer,
                               const string &vrf_name,
                               const Ip4Address &ip, uint8_t plen,

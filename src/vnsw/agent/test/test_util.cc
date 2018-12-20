@@ -1398,6 +1398,27 @@ bool RouteFind(const string &vrf_name, const string &addr, int plen) {
     return RouteFind(vrf_name, Ip4Address::from_string(addr), plen);
 }
 
+bool RouteFindMpls(const string &vrf_name, const Ip4Address &addr, int plen) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return false;
+
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetMplsUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
+    if (!vrf->GetInet4MplsUnicastRouteTable()) {
+        return false;
+    }
+
+    InetUnicastRouteEntry* route =
+        static_cast<InetUnicastRouteEntry *>
+        (vrf->GetInet4MplsUnicastRouteTable()->FindActiveEntry(&key));
+    return (route != NULL);
+}
+
+bool RouteFindMpls(const string &vrf_name, const string &addr, int plen) {
+    return RouteFindMpls(vrf_name, Ip4Address::from_string(addr), plen);
+}
+
 bool RouteFindV6(const string &vrf_name, const Ip6Address &addr, int plen) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
@@ -1531,6 +1552,18 @@ InetUnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr, 
     return route;
 }
 
+InetUnicastRouteEntry* RouteGetMpls(const string &vrf_name, const Ip4Address &addr, int plen) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    const Agent *agent = (static_cast<VrfTable *>(vrf->get_table()))->agent();
+    InetMplsUnicastRouteKey key(agent->local_vm_peer(), vrf_name, addr, plen);
+    InetUnicastRouteEntry* route =
+        static_cast<InetUnicastRouteEntry *>
+        (vrf->GetInet4MplsUnicastRouteTable()->FindActiveEntry(&key));
+    return route;
+}
 InetUnicastRouteEntry* RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
@@ -1827,6 +1860,38 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_add
                                dest_vn_name, sg, tag, path_preference);
 }
 
+bool Inet4MplsRouteAdd(const BgpPeer *peer, const string &server_vrf, const Ip4Address &server_addr,
+                         uint8_t plen, const Ip4Address &gw_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const TagList &tag,
+                         const PathPreference &path_preference) {
+    VnListType vn_list;
+    vn_list.insert(dest_vn_name);
+    ControllerMplsRoute *data =
+        ControllerMplsRoute::MakeControllerMplsRoute(peer,
+                              Agent::GetInstance()->fabric_vrf_name(),
+                              Agent::GetInstance()->router_id(),
+                              server_vrf, gw_ip,
+                              bmap, label, MacAddress(), vn_list, sg, tag,
+                              path_preference, false, EcmpLoadBalance(),
+                              false);
+    InetUnicastAgentRouteTable::AddMplsRouteReq(peer, server_vrf, server_addr, plen,data);
+    return true;
+}
+
+bool Inet4MplsRouteAdd(const BgpPeer *peer, const string &server_vrf, char *server_addr,
+                         uint8_t plen, char *gw_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const TagList &tag,
+                         const PathPreference &path_preference) {
+    boost::system::error_code ec;
+    return Inet4MplsRouteAdd(peer, server_vrf, Ip4Address::from_string(server_addr, ec), plen,
+                            Ip4Address::from_string(gw_ip, ec), bmap,
+                               label,
+                               dest_vn_name, sg, tag, path_preference);
+}
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn, TunnelType::TypeBmap bmap) {
     boost::system::error_code ec;

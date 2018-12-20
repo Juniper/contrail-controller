@@ -129,6 +129,11 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
             crypt_interface_ = crypt_interface_object->GetReference(&if_ksync);
         }
         rewrite_dmac_ = tunnel->rewrite_dmac();
+        if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+            const LabelledTunnelNH *labelled_tunnel =
+                    static_cast<const LabelledTunnelNH *>(nh);
+            label_ = labelled_tunnel->GetTransportLabel();
+        }
         break;
     }
 
@@ -653,6 +658,14 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
                 ret = true;
             }
         }
+        if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+            const LabelledTunnelNH *labelled_tunnel =
+                    static_cast<const LabelledTunnelNH *>(nh);
+            if (label_ != labelled_tunnel->GetTransportLabel()) {
+                label_ = labelled_tunnel->GetTransportLabel();
+                ret = true;
+            }
+        }
 
         if (dmac != dmac_) {
             dmac_ = dmac;
@@ -933,6 +946,9 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 encoder.set_nhr_encap_family(ETHERTYPE_ARP);
                 encoder.set_nhr_tun_sip(0);
                 encoder.set_nhr_tun_dip(0);
+            } else if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+                flags |= NH_FLAG_MPLS_O_MPLS;
+                encoder.set_nhr_transport_label(label_);
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }
@@ -1099,6 +1115,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             case Composite::ECMP:
             case Composite::LOCAL_ECMP: {
                 flags |= NH_FLAG_COMPOSITE_ECMP;
+                break;
+            }
+            case Composite::LU_ECMP: {
+                flags |= NH_FLAG_COMPOSITE_ECMP;
+                flags |= NH_FLAG_COMPOSITE_LU_ECMP;
                 break;
             }
             case Composite::INVALID: {
