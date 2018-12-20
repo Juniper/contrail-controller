@@ -1,0 +1,23 @@
+{% for pi in device_abstract_config.get('physical_interfaces', []) %}
+{%     if (pi.get('interface_type') == 'loopback') %}
+{%         for li in pi.get('logical_interfaces',[]) %}
+set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} family {{li.family}} address {{li.ip_list[0]}}
+{%         endfor %}{# pi.get('logical_interfaces',[]) #}
+{%     endif %}
+{% endfor %}{# for device_abstract_config.get('physical_interfaces', []) #}
+{% for ri in device_abstract_config.get('routing_instances', []) %}
+{%     if 'pim' in ri.get('protocols',[]) %}
+{%         for pim in ri.protocols.pim %}
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM from protocol direct
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM from route-filter 0.0.0.0/0 prefix-length-range /32-/32
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM then accept 
+set groups {{cfg_group}} policy-options policy-statement from_aggregate then reject
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim join-prune-timeout 420
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim rp local family inet address {{pim.rp.ip_address}}
+{%             for pim_intf in pim.get('pim_interfaces',[]) %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface {{pim_intf.interface.name}} mode sparse
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface {{pim_intf.interface.name}} version 2
+{%             endfor %}{# pim.get('pim_interfaces',[]) #}
+{%         endfor %}{# if pim #}
+{%     endif %}{# if 'pim' in ri.get('protocols',[]) #}
+{% endfor %}{# for ri #}
