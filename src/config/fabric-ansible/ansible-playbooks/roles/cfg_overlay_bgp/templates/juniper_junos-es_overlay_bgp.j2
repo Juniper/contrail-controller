@@ -1,0 +1,23 @@
+{% for ri in device_abstract_config.get("routing_instances", []) %}
+set groups {{cfg_group}} routing-instances {{ri.name}} instance-type {{ri.routing_instance_type}}
+{%     for lo_intf in ri.get('loopback_interfaces',[]) %}
+set groups {{cfg_group}} routing-instances {{ri.name}} interface {{lo_intf.name}}
+{%     endfor %}
+{%     for intf in ri.get('routing_interfaces',[]) %}
+set groups {{cfg_group}} routing-instances {{ri.name}} interface {{intf.name}}
+{%     endfor %}
+{%     if 'bgp' in ri.get('protocols',[]) %}
+{%         for bgp in ri.protocols.bgp %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} local-address {{bgp.ip_address}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} local-as {{bgp.autonomous_system}}
+{%             for peer in bgp.get('peers',[]) %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
+{%                 if peer.get('comment','') %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}} description "{{peer.comment}}"
+{%                 endif %}{# peer.get('comment','') #}
+{%             endfor %}{# for bgp.get('peers',[]) #}
+{%         endfor %}{# for ri_proto.get('bgp',[]) #}
+{%     endif %}{# if 'bgp' in ri.get('protocols',[]) #}
+{% endfor %}{# for device_abstract_config.get("routing_instances", []) #}
