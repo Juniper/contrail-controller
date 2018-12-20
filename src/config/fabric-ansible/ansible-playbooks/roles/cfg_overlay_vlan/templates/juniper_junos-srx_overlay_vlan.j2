@@ -1,0 +1,7 @@
+{% for ifd in device_abstract_config.get('physical_interfaces', []) %}
+{%     for ifl in ifd.get('logical_interfaces', []) %}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} vlan-id {{ifl.unit}}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0]}}/{{ifl.ip_prefix_len[0]}}
+set groups {{cfg_group}} interfaces {{ifd.name}} vlan-tagging
+{%     endfor %}
+{% endfor %}

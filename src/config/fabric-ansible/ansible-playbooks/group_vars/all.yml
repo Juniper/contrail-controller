@@ -166,6 +166,11 @@ role_to_feature_mapping:
     - basic
     - underlay_ip_clos
     - overlay_bgp
+  L3PNF@pnf:
+    - basic
+    - overlay_vlan
+    - overlay_bgp
+    - overlay_security_group
 
 # Paths for DHCP and TFTP config files
 DHCPD_CONFIG_PATH: "/etc/dhcp/dhcpd.conf"
