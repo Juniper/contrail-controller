@@ -46,8 +46,8 @@ TEST_F(IgmpTest, IgmpV2) {
     ret = WaitForGCount(true, local_g_add_count);
     EXPECT_EQ(ret, true);
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("0.0.0.0", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_0, ec);
 
     MacAddress mac;
 
@@ -160,8 +160,8 @@ TEST_F(IgmpTest, IgmpV3) {
     ret = WaitForSgCount(true, local_sg_add_count);
     EXPECT_EQ(ret, true);
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.1.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     MacAddress mac;
 
