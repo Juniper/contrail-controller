@@ -105,8 +105,8 @@ TEST_F(IgmpTest, SendV2Reports) {
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("0.0.0.0", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_0, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -319,8 +319,8 @@ TEST_F(IgmpTest, SendV3Reports) {
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.1.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -418,6 +418,8 @@ TEST_F(IgmpTest, SendV3Reports) {
 
     usleep(lmqt);
 
+    usleep(30*USECS_PER_SEC);
+
     IgmpGlobalClear();
 
     TestEnvDeinit();
@@ -476,8 +478,8 @@ TEST_F(IgmpTest, IgmpIntfConfig) {
     ret = WaitForSgCount(true, local_sg_add_count);
     EXPECT_EQ(ret, true);
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.1.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
@@ -1006,8 +1008,8 @@ TEST_F(IgmpTest, DISABLED_IgmpTaskTrigger) {
     gmp_proto->ClearStats();
     client->WaitForIdle();
 
-    uint32_t group = inet_addr("239.1.1.10");
-    uint32_t source = inet_addr("100.1.1.10");
+    uint32_t group = inet_addr(MGROUP_ADDR_1);
+    uint32_t source = inet_addr(MSOURCE_ADDR_11);
 
     memset(&igmp_gs, 0x00, sizeof(igmp_gs));
     igmp_gs.record_type = 1;
@@ -1043,8 +1045,8 @@ TEST_F(IgmpTest, DISABLED_IgmpTaskTrigger) {
     uint32_t actual_count = stats.gmp_sg_add_count_;
     EXPECT_EQ(actual_count, ex_count);
 
-    group = inet_addr("239.1.1.10");
-    source = inet_addr("100.1.1.10");
+    group = inet_addr(MGROUP_ADDR_1);
+    source = inet_addr(MSOURCE_ADDR_11);
 
     igmp_gs.record_type = 6;
     igmp_gs.source_count = source_count;

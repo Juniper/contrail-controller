@@ -163,6 +163,12 @@ struct IpamInfo {
     char dns[128];
 };
 
+struct MulticastPolicy {
+    char src[128];
+    char grp[128];
+    bool action;
+};
+
 struct TestIp4Prefix {
     Ip4Address addr_;
     int plen_;
