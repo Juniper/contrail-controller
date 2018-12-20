@@ -12,6 +12,8 @@
        <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
        <xsd:element name="firewall" type="dac:Firewall"/>
        <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="security-policies" type="dac:SecurityPolicy" maxOccurs="unbounded"/>
+       <xsd:element name="security-zones" type="dac:SecurityZone" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -90,6 +92,34 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:complexType name="PimRp">
+    <xsd:all>
+        <xsd:element name="ip-address" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PimInterface">
+    <xsd:all>
+        <xsd:element name="interface" type="dac:Reference"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Pim">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="pim-interfaces" type="dac:PimInterface" maxOccurs="unbounded"/>
+       <xsd:element name="rp" type="dac:PimRp"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingInstanceProtocols">
+    <xsd:all>
+        <xsd:element name="evpn" type="dac:Evpn" maxOccurs="unbounded"/>
+        <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
+        <xsd:element name="pim" type="dac:Pim" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="RoutingInstance">
     <xsd:all>
        <xsd:element name="name" type="xsd:string"/>
@@ -113,6 +143,8 @@
        <xsd:element name="egress-interfaces" type="dac:Reference" maxOccurs="unbounded"/>
        <xsd:element name="nat-rules" type="dac:NatRules"/>
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
+       <xsd:element name="virtual-network-is-shared" type="xsd:boolean"/>
+       <xsd:element name="protocols" type="dac:RoutingInstanceProtocols"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -184,6 +216,8 @@
        <xsd:element name="ip-list" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="family" type="xsd:string"/>
        <xsd:element name="firewall-filters" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="interface-mode" type="xsd:string"/>
+       <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -224,6 +258,21 @@
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="from" type="dac:From"/>
         <xsd:element name="then" type="dac:Then"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityZone">
+    <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="interfaces" type="dac:Reference" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityPolicy">
+    <xsd:all>
+        <xsd:element name="from-zone" type="xsd:string"/>
+        <xsd:element name="to-zone" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
