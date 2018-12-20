@@ -1,0 +1,4 @@
+---
+# vars input file
+feature: overlay_pim
+add_ztp_suffix: false
