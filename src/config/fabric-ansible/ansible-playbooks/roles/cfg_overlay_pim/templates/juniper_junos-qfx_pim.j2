@@ -1,0 +1,11 @@
+{% for ri in device_abstract_config.get('routing_instances', []) %}
+{%     if 'pim' in ri.get('protocols','') %}
+{%         for pim in ri.protocols.pim %}
+{%             if 'PNF-Service-Chaining' in pim.get('comment','') %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim rp static address {{pim.rp.ip_address}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface all mode sparse
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface all distributed-dr
+{%             endif %}{# if PNF-Service-Chaining #}
+{%         endfor %}{# ri.protocols.get('pim',[]) #}
+{%     endif %}{# if pim #}
+{% endfor %}{# for ri #}
