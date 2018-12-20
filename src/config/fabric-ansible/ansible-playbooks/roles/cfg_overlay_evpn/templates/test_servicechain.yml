@@ -1,0 +1,81 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_evpn
+    cfg_group: __contrail_overlay_evpn__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "routing_instances": [
+            {
+              "name": "left_lr_VRF",
+              "routing_instance_type": "virtual-switch",
+              "import_targets": [
+                "target:64512:8000003",
+                "target:64512:8000200"
+              ],
+              "export_targets": [
+                "target:64512:8000003"
+              ],
+              "vxlan_id": "12"
+            },
+            {
+              "name": "right_lr_VRF",
+              "routing_instance_type": "virtual-switch",
+              "import_targets": [
+                "target:64512:8000004",
+                "target:64512:8000100"
+              ],
+              "export_targets": [
+                "target:64512:8000004"
+              ],
+              "vxlan_id": "11"
+            },
+            {
+              "name": "left_service_lr_VRF",
+              "routing_instance_type": "virtual-switch",
+              "import_targets": [
+                "target:64512:800000200",
+                "target:64512:8000003"
+              ],
+              "export_targets": [
+                "target:64512:8000200"
+              ]
+            },
+            {
+              "name": "right_service_lr_VRF",
+              "routing_instance_type": "virtual-switch",
+              "import_targets": [
+                "target:64512:8000100",
+                "target:64512:8000004"
+              ],
+              "export_targets": [
+                "target:64512:8000100"
+              ]
+            }
+          ],
+          "bgp": [
+            {
+              "families": [
+                "evpn"
+              ],
+              "ip_address": "2.2.2.1",
+              "as_number": "64521"
+            }
+          ]
+        }
+
+    - template:
+        src: juniper_junos-qfx_overlay_evpn.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+

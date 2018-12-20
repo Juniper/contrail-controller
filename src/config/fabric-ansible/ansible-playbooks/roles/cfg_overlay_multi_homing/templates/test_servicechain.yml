@@ -1,0 +1,101 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_multi_homing
+    cfg_group: __contrail_overlay_multi_homing__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "physical_interfaces": [
+            {
+              "interface_type": "irb",
+              "logical_interfaces": [
+                {
+                  "unit": "12",
+                  "ip_list": [
+                    "10.1.1.6/24"
+                  ],
+                  "gateway": "10.1.1.1"
+                },
+                {
+                  "unit": "11",
+                  "ip_list": [
+                    "20.1.1.7/24"
+                  ],
+                  "gateway": "20.1.1.1"
+                },
+                {
+                  "unit": "200",
+                  "ip_list": [
+                    "100.1.1.1/29"
+                  ]
+                },
+                {
+                  "unit": "100",
+                  "ip_list": [
+                    "200.1.1.1/29"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "ae0",
+              "interface_type": "lag",
+              "ethernet_segment_identifier": "00:00:00:00:10:01:00:00:00:00",
+              "link_aggregation_group": {
+                "link_members": [
+                  "xe-0/0/6:0"
+                ]
+              },
+              "logical_interfaces": [
+                {
+                  "unit": "0",
+                  "family": "ethernet-switching",
+                  "interface_mode": "trunk",
+                  "vlans": [
+                    {
+                      "name": "bd-100"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "ae1",
+              "interface_type": "lag",
+              "ethernet_segment_identifier": "00:00:00:00:10:02:00:00:00:00",
+              "link_aggregation_group": {
+                "link_members": [
+                  "xe-0/0/6:1"
+                ]
+              },
+              "logical_interfaces": [
+                {
+                  "unit": "0",
+                  "family": "ethernet-switching",
+                  "interface_mode": "trunk",
+                  "vlans": [
+                    {
+                      "name": "bd-200"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+        }
+
+    - template:
+        src: juniper_junos-qfx_overlay_multi_homing.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+
