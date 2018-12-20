@@ -1,0 +1,103 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: cfg_overlay_bgp
+    cfg_group: __contrail_overlay_bgp__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "comment": "/* Contrail Generated Group Config */",
+          "routing_instances": [
+            {
+              "name": "left",
+              "routing-instance-type": "virtual-router",
+              "interfaces": [
+                {
+                  "name": "reth0.100"
+                },
+                {
+                  "name": "lo.100"
+                }
+              ]
+            },
+            {
+              "name": "right",
+              "routing-instance-type": "virtual-router",
+              "interfaces": [
+                {
+                  "name": "reth1.200"
+                },
+                {
+                  "name": "lo.200"
+                }
+              ]
+            }
+          ],
+          "bgp": [
+            {
+              "comment": "SRX Left VRF",
+              "name": "left_VRF",
+              "families": [
+                "inet"
+              ],
+              "rib-groups": [
+                "left_to_right"
+              ],
+              "type": "external",
+              "ip-address": "100.1.1.5",
+              "autonomous-system": "64701",
+              "peers": [
+                {
+                  "comment": "Spine 1 LEFT_service_VRF",
+                  "ip-address": "100.1.1.1",
+                  "autonomous-system": "64601"
+                },
+                {
+                  "comment": "Spine 2 LEFT_service_VRF",
+                  "ip-address": "100.1.1.2",
+                  "autonomous-system": "64601"
+                }
+              ]
+            },
+            {
+              "comment": "SRX Right VRF",
+              "name": "right_VRF",
+              "families": [
+                "inet"
+              ],
+              "rib-groups": [
+                "right_to_left"
+              ],
+              "type": "external",
+              "ip-address": "200.1.1.5",
+              "autonomous-system": "64702",
+              "peers": [
+                {
+                  "comment": "Spine 1 RIGHT_service_VRF",
+                  "ip-address": "200.1.1.1",
+                  "autonomous-system": "64602"
+                },
+                {
+                  "comment": "Spine 2 RIGHT_service_VRF",
+                  "ip-address": "200.1.1.2",
+                  "autonomous-system": "64602"
+                }
+              ]
+            }
+          ]
+        }
+
+    - template:
+        src: juniper_junos-srx_overlay_vlan.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+

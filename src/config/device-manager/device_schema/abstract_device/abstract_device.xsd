@@ -70,6 +70,7 @@
        <xsd:element name="hold-time" type="xsd:integer"/>
        <xsd:element name="authentication-key" type="xsd:string"/>
        <xsd:element name="families" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="rib-groups" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="peers" type="dac:Bgp" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
