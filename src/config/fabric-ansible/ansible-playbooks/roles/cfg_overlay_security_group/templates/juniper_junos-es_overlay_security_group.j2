@@ -1,0 +1,22 @@
+{% set sp = device_abstract_config.get("security_policies", []) %}
+{% set sz = device_abstract_config.get("security_zones", []) %}
+{% for i in range(sp | length) %}
+set groups {{cfg_group}} security policies from-zone {{sp[i].get("from_zone")}} to-zone {{sp[i].get("to_zone")}} policy open-all match source-address any
+set groups {{cfg_group}} security policies from-zone {{sp[i].get("from_zone")}} to-zone {{sp[i].get("to_zone")}} policy open-all match destination-address any
+set groups {{cfg_group}} security policies from-zone {{sp[i].get("from_zone")}} to-zone {{sp[i].get("to_zone")}} policy open-all match application any
+set groups {{cfg_group}} security policies from-zone {{sp[i].get("from_zone")}} to-zone {{sp[i].get("to_zone")}} policy open-all then permit
+set groups {{cfg_group}} security policies policy-rematch
+{% endfor %}
+
+{% for i in range(sz | length) %}
+{% set intfs = sz[i].get("interfaces") %}
+{%   for j in range(intfs | length) %}
+set groups {{cfg_group}} security zones security-zone {{sz[i].get("name")}} interfaces {{intfs[j].get("name")}} host-inbound-traffic system-services ping
+set groups {{cfg_group}} security zones security-zone {{sz[i].get("name")}} interfaces {{intfs[j].get("name")}} host-inbound-traffic system-services traceroute
+set groups {{cfg_group}} security zones security-zone {{sz[i].get("name")}} interfaces {{intfs[j].get("name")}} host-inbound-traffic system-services dhcp
+set groups {{cfg_group}} security zones security-zone {{sz[i].get("name")}} interfaces {{intfs[j].get("name")}} host-inbound-traffic protocols bgp
+set groups {{cfg_group}} security zones security-zone {{sz[i].get("name")}} interfaces {{intfs[j].get("name")}} host-inbound-traffic protocols bfd
+set groups {{cfg_group}} security zones security-zone {{sz[i].get("name")}} interfaces {{intfs[j].get("name")}} host-inbound-traffic protocols ping
+{%  endfor %}
+{% endfor %}
+

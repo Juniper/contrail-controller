@@ -1,7 +1,7 @@
 set groups {{cfg_group}} routing-options forwarding-table chained-composite-next-hop ingress evpn
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set name = ri.get('name') %}
-{%         set vxlan_id = ri.get('vxlan_id') %}
+{%         set vxlan_id = ri.get('vxlan_id', '') %}
 {%         set router_external = ri.get('is_public_network', '') %}
 {%         if vxlan_id == 'None' %}
 {%             set vxlan_id = ri.get('virtual_network_id') %}
@@ -13,20 +13,20 @@ set groups {{cfg_group}} routing-options forwarding-table chained-composite-next
 set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
 set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
 {%             endfor %}
+{%             if (vxlan_id != '') %}
 set groups {{cfg_group}} protocols evpn default-gateway no-gateway-community
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
+{%             endif %}
 set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
 {%             set vrf_import = name+'-import' %}
 {%             set vrf_export = name+'-export' %}
-{%             for import_target in ri.get('import_targets', []) %}
 set groups {{cfg_group}} routing-instances {{name}} vrf-import {{vrf_import}}
-{%             endfor %}
-{%             for exp_target in ri.get('export_targets', []) %}
 set groups {{cfg_group}} routing-instances {{name}} vrf-export {{vrf_export}}
-{%             endfor %}
-
+{%             if ri.get('virtual_network_is_shared', '') == true %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options auto-export
+{%             endif %}
 {%             for irb_int in ri.get('routing_interfaces', []) %}
 {%                 set irb_name = irb_int.get('name') %}
 set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
@@ -42,6 +42,6 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 {%                 endfor %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
-{%             endif %}
-{%         endif %}
+{%             endif %}{# /* router_external */ #}
+{%         endif %}{# /* virtual_network_is_internal */ #}
 {%     endfor %}
