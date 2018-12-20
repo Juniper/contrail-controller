@@ -947,7 +947,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 encoder.set_nhr_tun_sip(0);
                 encoder.set_nhr_tun_dip(0);
             } else if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
-                flags |= NH_FLAG_MPLS_O_MPLS;
+                flags |= NH_FLAG_TUNNEL_MPLS_O_MPLS;
                 encoder.set_nhr_transport_label(label_);
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
