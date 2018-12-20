@@ -12,6 +12,8 @@
        <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
        <xsd:element name="firewall" type="dac:Firewall"/>
        <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="security-policies" type="dac:SecurityPolicy" maxOccurs="unbounded"/>
+       <xsd:element name="security-zones" type="dac:SecurityZone" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -70,6 +72,7 @@
        <xsd:element name="hold-time" type="xsd:integer"/>
        <xsd:element name="authentication-key" type="xsd:string"/>
        <xsd:element name="families" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="rib-groups" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="peers" type="dac:Bgp" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
@@ -224,6 +227,21 @@
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="from" type="dac:From"/>
         <xsd:element name="then" type="dac:Then"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityZone">
+    <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="interfaces" type="dac:Reference" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityPolicy">
+    <xsd:all>
+        <xsd:element name="from-zone" type="xsd:string"/>
+        <xsd:element name="to-zone" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
