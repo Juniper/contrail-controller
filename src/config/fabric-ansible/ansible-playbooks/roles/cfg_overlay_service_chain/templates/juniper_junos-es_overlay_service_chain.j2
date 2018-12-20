@@ -1,0 +1,26 @@
+{# Config for advertising 0/0 from SRX to QFX #}
+{% for ri in device_abstract_config.get('routing_instances', []) %}
+set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 from protocol direct
+set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
+set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 then accept
+set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t2 then reject
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term AGGR from protocol aggregate
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term AGGR then accept
+set groups {{cfg_group}} routing-instances {{ri.name}} routing-options aggregate route 0.0.0.0/0 policy aggregate_contribute
+{%     if 'bgp' in ri.get('protocols',[]) %}
+{%         for bgp in ri.protocols.bgp %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} export from-aggregate
+{%         endfor %}{# for ri_proto.get('bgp') #}
+{%     endif %}{# if 'bgp' in ri.get('protocols',[]) #}
+{% endfor %}{# for device_abstract_config.get('routing_instances', []) #}
+
+{# Config for adding service VLANs to tenants for service chaining #}
+{% for ifd in device_abstract_config.get('physical_interfaces', []) %}
+{%     if ifd.get('interface_type','') == 'service' %}
+{%         for ifl in ifd.get('logical_interfaces', []) %}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} vlan-id {{ifl.vlan_tag}}
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0]}}
+set groups {{cfg_group}} interfaces {{ifd.name}} vlan-tagging
+{%         endfor %}{# ifd.get('logical_interfaces', []) #}
+{%     endif %}{# ifd.get('interface_type','') #}
+{% endfor %}{# device_abstract_config.get('physical_interfaces', []) #}

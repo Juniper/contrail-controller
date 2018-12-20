@@ -923,11 +923,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain"]
               }
             ]
           }
@@ -943,11 +943,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain"]
               }
             ]
           }
@@ -983,7 +983,7 @@
             "role_mappings": [
               {
                 "physical_role": "pnf",
-                "rb_roles": ["L3PNF"]
+                "rb_roles": ["PNF-Service"]
               }
             ]
           }
