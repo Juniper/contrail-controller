@@ -1,0 +1,168 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: cfg_overlay_pim
+    cfg_group: __contrail_cfg_overlay_pim__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "comment": "/* Contrail Generated Group Config */",
+          "physical_interfaces": [
+            {
+              "comment": "/* cfg_overlay_pim: Loopback for PIM RP */",
+              "name": "lo0",
+              "interface_type": "loopback",
+              "logical_interfaces": [
+                {
+                  "unit": "100",
+                  "family": "inet",
+                  "ip_list": [
+                    "100.100.100.100/32"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "reth0",
+              "interface_type": "service",
+              "logical_interfaces": [
+                {
+                  "unit": "100",
+                  "vlan_tag": "100",
+                  "ip_list": [
+                    "200.1.1.5/29"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "reth1",
+              "interface_type": "service",
+              "logical_interfaces": [
+                {
+                  "unit": "200",
+                  "vlan_tag": "200",
+                  "ip_list": [
+                    "100.1.1.5/29"
+                  ]
+                }
+              ]
+            }
+          ],
+          "routing_instances": [
+            {
+              "name": "left_right",
+              "routing_instance_type": "virtual-router",
+              "routing_interfaces": [
+                {
+                  "name": "reth0.100"
+                },
+                {
+                  "name": "reth1.200"
+                }
+              ],
+              "loopback_interfaces": [
+                {
+                  "name": "lo0.100"
+                }
+              ],
+              "protocols": {
+                "bgp": [
+                  {
+                    "comment": "/* PNF_Service_Chaining - left VRF */",
+                    "name": "left_VRF",
+                    "type_": "external",
+                    "ip_address": "100.1.1.5",
+                    "autonomous_system": "64701",
+                    "peers": [
+                      {
+                        "comment": "/* Spine 1 Left_VRF */",
+                        "ip_address": "100.1.1.1",
+                        "autonomous_system": "64601"
+                      }
+                    ]
+                  },
+                  {
+                    "comment": "/* PNF_Service_Chaining - right VRF */",
+                    "name": "right_VRF",
+                    "type_": "external",
+                    "ip_address": "200.1.1.5",
+                    "autonomous_system": "64702",
+                    "peers": [
+                      {
+                        "comment": "/* Spine 1 Right_VRF */",
+                        "ip_address": "200.1.1.1",
+                        "autonomous_system": "64602"
+                      }
+                    ]
+                  }
+                ],
+                "pim": [
+                  {
+                    "comment": "/* PNF-Service-Chaining */",
+                    "rp": {
+                      "ip_address": "100.100.100.100"
+                    },
+                    "pim_interfaces": [
+                      {
+                        "interface": {
+                          "name": "reth0.100"
+                        }
+                      },
+                      {
+                        "interface": {
+                          "name": "reth1.200"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "security_policies": [
+            {
+              "from_zone": "left",
+              "to_zone": "right"
+            },
+            {
+              "from_zone": "right",
+              "to_zone": "left"
+            }
+          ],
+          "security_zones": [
+            {
+              "comment": "/* Left zone */",
+              "name": "left",
+              "interfaces": [
+                {
+                  "name": "reth1.200"
+                }
+              ]
+            },
+            {
+              "comment": "/* Right Zone */",
+              "name": "right",
+              "interfaces": [
+                {
+                  "name": "reth0.100"
+                }
+              ]
+            }
+          ]
+        }
+
+    - template:
+        src: juniper_junos-es_overlay_pim.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+
