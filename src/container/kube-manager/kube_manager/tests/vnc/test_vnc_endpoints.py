@@ -10,6 +10,7 @@ from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 from vnc_api.gen.resource_client import VirtualNetwork
 from vnc_api.gen.resource_xsd import IpamSubnetType, SubnetType, VnSubnetsType
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM, ServiceKM
+from kube_manager.vnc.config_db import (VirtualMachineInterfaceKM)
 from kube_manager.tests.vnc import test_case
 from kube_manager.tests.vnc.db_mock import DBBaseKM
 from kube_manager.vnc.vnc_kubernetes import VncKubernetes
@@ -161,7 +162,8 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         self.enqueue_event(pod_add_event)
         return pod_uid
 
-    def _add_endpoints(self, name, namespace, pod_uids=(), host_ips=()):
+    def _add_endpoints(self, name, namespace, pod_uids=(), host_ips=(),
+                        iip={}):
         endpoint_uid = str(uuid.uuid4())
         event = self.create_event(
             kind='Endpoints',
@@ -181,7 +183,8 @@ class VncEndpointsTestBase(test_case.KMTestCase):
                     'name': 'test-pod',
                     'namespace': namespace,
                     'uid': pod_uid
-                }
+                },
+                'ip': iip[pod_uid]
             } for pod_uid in pod_uids]
         else:
             addresses = [{
@@ -200,7 +203,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         return event['object']
 
     def _add_pod_to_endpoints(self, endpoints, namespace, pod_uid=None,
-                              host_ip=None):
+                              host_ip=None, iip={}):
         event = {
             'object': endpoints,
             'type': 'MODIFIED'
@@ -212,7 +215,8 @@ class VncEndpointsTestBase(test_case.KMTestCase):
                     'name': 'test-pod',
                     'namespace': namespace,
                     'uid': pod_uid
-                }
+                },
+                'ip': iip[pod_uid]
             })
         else:
             event['object']['subsets'][0]['addresses'].append({
@@ -239,7 +243,8 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         self.enqueue_event(event)
         return event['object']
 
-    def _replace_pod_in_endpoints(self, endpoints, old_pod_uid, new_pod_uid):
+    def _replace_pod_in_endpoints(self, endpoints, old_pod_uid, new_pod_uid,
+                                    iip={}):
         event = {
             'object': endpoints,
             'type': 'MODIFIED'
@@ -247,6 +252,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         for address in event['object']['subsets'][0]['addresses']:
             if address['targetRef']['uid'] == old_pod_uid:
                 address['targetRef']['uid'] = new_pod_uid
+                address['ip'] = iip[new_pod_uid]
                 break
 
         self.enqueue_event(event)
@@ -257,6 +263,14 @@ class VncEndpointsTestBase(test_case.KMTestCase):
             'object': endpoints,
             'type': 'DELETED'
         })
+
+    def _get_iip(self, vmi_uuid):
+        vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+        vmi = VirtualMachineInterfaceKM.locate(vmi_uuid)
+        iip_uuid = list(vmi.instance_ips)[0]
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_uuid)
+        iip_ip = iip_obj.get_instance_ip_address()
+        return iip_ip
 
     def _get_vmi_uid(self, pod_uid):
         # Assert proper creation of pod and return id of vm interface
@@ -297,11 +311,14 @@ class VncEndpointsTest(VncEndpointsTestBase):
             })
         self.wait_for_all_tasks_done()
         vmi_uid = self._get_vmi_uid(pod_uid)
+        iip = {}
+        iip[pod_uid] = self._get_iip(vmi_uid)
 
         self._add_endpoints(
             name=TEST_SERVICE_NAME,
             namespace=TEST_NAMESPACE,
-            pod_uids=[pod_uid])
+            pod_uids=[pod_uid],
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members((pod_uid, vmi_uid))
@@ -324,10 +341,16 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self.wait_for_all_tasks_done()
         vmi1_uid = self._get_vmi_uid(pod1_uid)
         vmi2_uid = self._get_vmi_uid(pod2_uid)
+
+        iip = {}
+        iip[pod1_uid] = self._get_iip(vmi1_uid)
+        iip[pod2_uid] = self._get_iip(vmi2_uid)
+
         endpoints = self._add_endpoints(
             name=TEST_SERVICE_NAME,
             namespace=TEST_NAMESPACE,
-            pod_uids=[pod1_uid])
+            pod_uids=[pod1_uid],
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members((pod1_uid, vmi1_uid))
@@ -335,7 +358,8 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self._add_pod_to_endpoints(
             endpoints=endpoints,
             namespace=TEST_NAMESPACE,
-            pod_uid=pod2_uid)
+            pod_uid=pod2_uid,
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members(
@@ -361,10 +385,15 @@ class VncEndpointsTest(VncEndpointsTestBase):
         vmi1_uid = self._get_vmi_uid(pod1_uid)
         vmi2_uid = self._get_vmi_uid(pod2_uid)
 
+        iip = {}
+        iip[pod1_uid] = self._get_iip(vmi1_uid)
+        iip[pod2_uid] = self._get_iip(vmi2_uid)
+
         endpoints = self._add_endpoints(
             name=TEST_SERVICE_NAME,
             namespace=TEST_NAMESPACE,
-            pod_uids=(pod1_uid, pod2_uid))
+            pod_uids=(pod1_uid, pod2_uid),
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members(
@@ -405,10 +434,16 @@ class VncEndpointsTest(VncEndpointsTestBase):
         vmi2_uid = self._get_vmi_uid(pod2_uid)
         vmi3_uid = self._get_vmi_uid(pod3_uid)
 
+        iip = {}
+        iip[pod1_uid] = self._get_iip(vmi1_uid)
+        iip[pod2_uid] = self._get_iip(vmi2_uid)
+        iip[pod3_uid] = self._get_iip(vmi3_uid)
+
         endpoints = self._add_endpoints(
             name=TEST_SERVICE_NAME,
             namespace=TEST_NAMESPACE,
-            pod_uids=(pod1_uid, pod2_uid))
+            pod_uids=(pod1_uid, pod2_uid),
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members(
@@ -418,7 +453,8 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self._replace_pod_in_endpoints(
             endpoints=endpoints,
             old_pod_uid=pod2_uid,
-            new_pod_uid=pod3_uid)
+            new_pod_uid=pod3_uid,
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members(
@@ -436,10 +472,14 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self.wait_for_all_tasks_done()
         vmi_uid = self._get_vmi_uid(pod_uid)
 
+        iip = {}
+        iip[pod_uid] = self._get_iip(vmi_uid)
+
         endpoints = self._add_endpoints(
             name=TEST_SERVICE_NAME,
             namespace=TEST_NAMESPACE,
-            pod_uids=[pod_uid])
+            pod_uids=[pod_uid],
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members((pod_uid, vmi_uid))
@@ -460,10 +500,14 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self.wait_for_all_tasks_done()
         lb_members = self._vnc_lib.loadbalancer_members_list()
 
+        iip = {}
+        iip[pod_uid] = '192.168.0.1'
+
         self._add_endpoints(
             name='some-unexisting-service',
             namespace=TEST_NAMESPACE,
-            pod_uids=[pod_uid])
+            pod_uids=[pod_uid],
+            iip=iip)
         self.wait_for_all_tasks_done()
         # Assert no new loadbalancer member was created
         self.assertEqual(lb_members, self._vnc_lib.loadbalancer_members_list())
@@ -479,10 +523,14 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self.wait_for_all_tasks_done()
         vmi_uid = self._get_vmi_uid(pod_uid)
 
+        iip = {}
+        iip[pod_uid] = self._get_iip(vmi_uid)
+
         endpoints = self._add_endpoints(
             name=TEST_SERVICE_NAME,
             namespace=TEST_NAMESPACE,
-            pod_uids=[pod_uid])
+            pod_uids=[pod_uid],
+            iip=iip)
         self.wait_for_all_tasks_done()
 
         self._check_lb_members((pod_uid, vmi_uid))
@@ -648,10 +696,14 @@ class VncEndpointsTestScaling(VncEndpointsTestBase):
             self.wait_for_all_tasks_done()
             vmi_uid = self._get_vmi_uid(pod_uid)
 
+            iip = {}
+            iip[pod_uid] = self._get_iip(vmi_uid)
+
             endpoints = self._add_endpoints(
                 name=TEST_SERVICE_NAME,
                 namespace=TEST_NAMESPACE,
-                pod_uids=[pod_uid])
+                pod_uids=[pod_uid],
+                iip=iip)
             self.wait_for_all_tasks_done()
 
             self._check_lb_members((pod_uid, vmi_uid))
