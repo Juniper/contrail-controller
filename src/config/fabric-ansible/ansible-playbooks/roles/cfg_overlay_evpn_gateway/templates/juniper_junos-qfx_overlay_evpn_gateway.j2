@@ -3,30 +3,41 @@
 set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%             for li in phy_int.get('logical_interfaces', []) %}
 {%                 set unit = li.get('unit') %}
-{%                 set gw = li.get('gateway') %}
+{%                 set gw = li.get('gateway', '') %}
 {%                 set family = 'inet' %}
 {%                 for ip_addr in li.get('ip_list', []) %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} preferred
+{%                     if gw != '' %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{ip_addr}} virtual-gateway-address {{gw}}
+{%                     endif %}
 {%                 endfor %}
+{%                 if gw != '' %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+{%                 endif %}
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
 
 {%     for vlan in device_abstract_config.get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
-{%         set vni = vlan.get('vxlan_id') %}
-{%         set vlan_id = vni %}
+{%         set vlan_id = vlan.get('vlan_id','') %}
+{%         set vni = vlan.get('vxlan_id', '') %}
+{%         if vlan_id == '' %}
+{%             set vlan_id = vni %}
+{%         endif %}
 {%         for irb_int in vlan.get('interfaces', []) %}
 {%             set int_name = irb_int.get('name') %}
+{#
 {%             if 'irb' not in int_name %}
 {%                 continue %}
 {%             endif %}
+#}
 set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
 {%         endfor %}
 set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
+{%         if vni != '' %}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%         endif %}
 {%     endfor %}

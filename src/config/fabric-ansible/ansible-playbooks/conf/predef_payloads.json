@@ -923,11 +923,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain"]
               }
             ]
           }
@@ -943,11 +943,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway"]
+                "rb_roles": ["null", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain"]
               }
             ]
           }
@@ -983,7 +983,7 @@
             "role_mappings": [
               {
                 "physical_role": "pnf",
-                "rb_roles": ["L3PNF"]
+                "rb_roles": ["PNF-Servicechain"]
               }
             ]
           }
@@ -1087,6 +1087,20 @@
           "parent_type": "node-profile",
           "role_config_config": {
             "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-srx", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
           }
         }
       ]
@@ -1384,6 +1398,12 @@
     {
       "from_type": "role_config",
       "from_fq_name": [ "default-global-system-config", "juniper-mx", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx", "basic" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     }
