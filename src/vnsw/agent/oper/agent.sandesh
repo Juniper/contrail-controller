@@ -165,6 +165,10 @@ struct SecurityLoggingObjectLink {
     1: string slo_uuid (link="SLOListReq");
 }
 
+struct MulticastPolicyLink {
+    1: string mp_uuid (link="MulticastPolicyReq");
+}
+
 struct VmiTagData {
     1: string name;
     2: i32 id;
@@ -413,6 +417,8 @@ struct VnSandeshData {
     21: bool cfg_igmp_enable;
     /** Max number of flows on each vmi in vn **/
     22: i32 max_flows;
+    /** List of multicast-policy(s) associated with virtual network */
+    23: list<MulticastPolicyLink> mp_list;
 }
 
 /**
@@ -3618,4 +3624,45 @@ response sandesh VxlanRoutingResp {
  * @cli_name: read vxlan-routing
  */
 request sandesh VxlanRoutingReq {
+}
+
+/**
+ * Structure definition for MulticastSourceGroups
+ */
+struct MulticastPolicyEntrySandeshData {
+    /** Id for multicast-source-groups entry */
+    1: i32 entry_id;
+    /** Multicast Source Address */
+    2: string source_address;
+    /** Multicast Group Address */
+    3: string group_address;
+    /** action associated entry */
+    4: string action;
+}
+
+/**
+ * Structure definition for Multicast Policy
+ */
+struct MulticastPolicySandeshData {
+    /** List of multicast policy entries information */
+    1: list<MulticastPolicyEntrySandeshData> entries;
+    /** Name of multicast policy entry */
+    2: string name;
+}
+
+/**
+ * @description: Request Mulitcast Policy object with given uuid
+ * @cli_name: read oper multicast policy list
+ */
+request sandesh MulticastPolicyReq {
+    /** Uuid of multicast policy entry */
+    1: string uuid;
+}
+
+/**
+ * Response for Multicast Policy list
+ */
+response sandesh MulticastPolicyResp {
+    /** List of multicast policy entry information */
+    1: list<MulticastPolicySandeshData> mp_list;
 }

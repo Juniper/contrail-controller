@@ -96,6 +96,7 @@ vnswoperdb = env.Library('vnswoperdb',
                           'vrouter.cc',
                           'vxlan.cc',
                           'vxlan_routing_manager.cc',
+                          'multicast_policy.cc',
                           os_specific_src,
                          ])
 subdirs = ['test']

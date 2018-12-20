@@ -6,6 +6,7 @@
 #include <init/agent_param.h>
 #include "oper/route_common.h"
 #include "oper/multicast.h"
+#include "oper/multicast_policy.h"
 #include "oper/nexthop.h"
 
 #ifdef __cplusplus
@@ -660,6 +661,40 @@ void GmpProto::TriggerEvpnNotification(const VmInterface *vm_intf, bool join,
     return;
 }
 
+bool GmpProto::MulticastPolicyCheck(GmpIntf *gif, IpAddress source,
+                            IpAddress group) {
+
+    if (!gif) {
+        return false;
+    }
+
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(gif->get_vrf_name());
+    VnEntry *vn = vrf ? vrf->vn() : NULL;
+    if (!vn) {
+        return false;
+    }
+
+    const UuidList &mp_list = vn->mp_list();
+    if (!mp_list.size()) {
+        return true;
+    }
+
+    UuidList::const_iterator it = mp_list.begin();
+    MulticastPolicyTable *table = agent_->mp_table();
+    while (it != mp_list.end()) {
+        MulticastPolicyKey key(*it);
+        MulticastPolicyEntry *entry = static_cast<MulticastPolicyEntry *>
+                                            (table->FindActiveEntry(&key));
+        SourceGroupInfo::Action action = entry->GetAction(source, group);
+        if (action == SourceGroupInfo::ACTION_PASS) {
+            return true;
+        }
+        it++;
+    }
+
+    return false;
+}
+
 bool GmpProto::SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
                             IpAddress dest) {
 
@@ -669,7 +704,8 @@ bool GmpProto::SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
         return false;
     }
 
-    const VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(gif->get_vrf_name());
+    const VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(
+                            gif->get_vrf_name());
     if (!vrf) {
         return false;
     }
@@ -697,6 +733,35 @@ bool GmpProtoManager::DeleteGmpProto(GmpProto *proto_inst) {
     delete proto_inst;
 
     return true;
+}
+
+boolean gmp_policy_check(mgm_global_data *gd, gmp_intf *intf,
+                            gmp_addr_string source, gmp_addr_string group)
+{
+    if (!gd || !intf) {
+        return FALSE;
+    }
+
+    if (gd->mgm_gd_af != MCAST_AF_IPV4) {
+        return FALSE;
+    }
+
+    GmpProto *gmp_proto = (GmpProto *)gd->gmp_sm;
+    GmpIntf *gif = (GmpIntf *)intf->vm_interface;
+
+    if (!gmp_proto || !gif) {
+        return FALSE;
+    }
+
+    uint32_t addr;
+    memcpy(&addr, &source, IPV4_ADDR_LEN);
+    IpAddress source_addr = Ip4Address(ntohl(addr));
+    memcpy(&addr, &group, IPV4_ADDR_LEN);
+    IpAddress group_addr = Ip4Address(ntohl(addr));
+
+    bool permit = gmp_proto->MulticastPolicyCheck(gif, source_addr, group_addr);
+
+    return (permit ? TRUE : FALSE);
 }
 
 void gmp_notification_ready(mgm_global_data *gd)

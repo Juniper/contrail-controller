@@ -98,7 +98,7 @@ struct VnData : public AgentOperDBData {
            bool underlay_forwarding,
            bool vxlan_routing_vn,
            const boost::uuids::uuid &logical_router_uuid,
-           bool cfg_igmp_enable, uint32_t vn_max_flows) :
+           UuidList mp_list, bool cfg_igmp_enable, uint32_t vn_max_flows) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -110,7 +110,7 @@ struct VnData : public AgentOperDBData {
         layer2_control_word_(layer2_control_word), slo_list_(slo_list),
         underlay_forwarding_(underlay_forwarding),
         vxlan_routing_vn_(vxlan_routing_vn),
-        logical_router_uuid_(logical_router_uuid),
+        logical_router_uuid_(logical_router_uuid), mp_list_(mp_list),
         cfg_igmp_enable_(cfg_igmp_enable),
         vn_max_flows_(vn_max_flows)  {
     };
@@ -138,6 +138,7 @@ struct VnData : public AgentOperDBData {
     bool underlay_forwarding_;
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
+    UuidList mp_list_;
     bool cfg_igmp_enable_;
     uint32_t vn_max_flows_;
 };
@@ -221,6 +222,10 @@ public:
         return underlay_forwarding_;
     }
 
+    const UuidList &mp_list() const {
+        return mp_list_;
+    }
+
     bool cfg_igmp_enable() const {
         return cfg_igmp_enable_;
     }
@@ -293,6 +298,7 @@ private:
     bool underlay_forwarding_;
     bool vxlan_routing_vn_;
     boost::uuids::uuid logical_router_uuid_;
+    UuidList mp_list_;
     bool cfg_igmp_enable_;
     uint32_t vn_max_flows_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);

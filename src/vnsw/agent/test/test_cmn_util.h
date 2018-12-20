@@ -381,6 +381,9 @@ void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
 void AddEncryptRemoteTunnelConfig(const EncryptTunnelEndpoint *endpoints, int count,
                                 std::string encrypt_mode);
+void AddMulticastPolicy(const char *name, uint32_t id, MulticastPolicy *msg,
+                                int msg_size);
+void DelMulticastPolicy(const char *name);
 void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
 void DelLinkLocalConfig();
 void DeleteGlobalVrouterConfig();
