@@ -1552,7 +1552,7 @@ class RouteTargetST(DBBaseST):
                         obj.get_logical_router_back_refs()):
                     cls.locate(obj.get_fq_name_str(), obj)
                 else:
-                    cls._vnc_lib.route_target_delete(id=obj.uuid)
+                    cls.delete_vnc_obj(obj.get_fq_name_str())
             except Exception as e:
                 cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
