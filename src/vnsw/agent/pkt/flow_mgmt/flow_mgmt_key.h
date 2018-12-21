@@ -158,6 +158,7 @@ public:
             return INET6;
 
         assert(0);
+        return INVALID;
     }
 
     static Type RouteToType(const AgentRoute *rt) {
@@ -244,6 +245,7 @@ public:
                 return rt->ip_.to_v6().to_bytes()[i];
             } else {
                 assert(0);
+                return 0;
             }
         }
     };
