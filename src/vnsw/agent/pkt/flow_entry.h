@@ -734,9 +734,7 @@ class FlowEntry {
     }
 
     FlowEntryInfo *flow_mgmt_info() const { return flow_mgmt_info_.get(); }
-    void set_flow_mgmt_info(FlowEntryInfo *info) {
-        flow_mgmt_info_.reset(info);
-    }
+    void set_flow_mgmt_info(FlowEntryInfo *info);
     void FillUveFwStatsInfo(FlowUveFwPolicyInfo *info, bool added) const;
     void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
     bool IsClientFlow();
