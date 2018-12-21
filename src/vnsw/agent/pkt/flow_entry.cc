@@ -43,6 +43,7 @@
 #include <pkt/flow_proto.h>
 #include <pkt/pkt_types.h>
 #include <pkt/pkt_sandesh_flow.h>
+#include <pkt/flow_mgmt/flow_entry_info.h>
 #include <pkt/flow_mgmt.h>
 #include <pkt/flow_event.h>
 #include <pkt/flow_entry.h>
@@ -3347,6 +3348,10 @@ const std::string FlowEntry::fw_policy_name_uuid() const {
     }
     return data_.match_p.aps_policy.acl_name_ + ":" +
         fw_policy_uuid();
+}
+
+void FlowEntry::set_flow_mgmt_info(FlowEntryInfo *info) {
+    flow_mgmt_info_.reset(info);
 }
 
 TcpPort::~TcpPort() {
