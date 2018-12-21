@@ -11,7 +11,6 @@
 
 class CfgFilter;
 class CfgListener;
-class InterfaceCfgClient;
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
 
@@ -161,9 +160,7 @@ public:
     IFMapAgentParser *cfg_parser() const { return cfg_parser_.get(); }
     DBGraph *cfg_graph() const { return cfg_graph_.get(); }
     MirrorCfgTable *cfg_mirror_table() const { return cfg_mirror_table_.get(); }
-    InterfaceCfgClient *cfg_interface_client() const {
-        return cfg_interface_client_.get();
-    }
+
     IntfMirrorCfgTable *cfg_intf_mirror_table() const {
         return cfg_intf_mirror_table_.get();
     }
@@ -180,7 +177,6 @@ private:
     std::auto_ptr<CfgFilter> cfg_filter_;
     std::auto_ptr<IFMapAgentParser> cfg_parser_;
     std::auto_ptr<DBGraph> cfg_graph_;
-    std::auto_ptr<InterfaceCfgClient> cfg_interface_client_;
     std::auto_ptr<MirrorCfgTable> cfg_mirror_table_;
     std::auto_ptr<IntfMirrorCfgTable> cfg_intf_mirror_table_;
 
