@@ -25,9 +25,7 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
 
-using std::map;
 using std::make_pair;
-using std::ostringstream;
 using std::string;
 
 class BgpTable::DeleteActor : public LifetimeActor {
@@ -586,9 +584,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             // then generate a Nil AsPath i.e. one with 0 length. No need
             // to modify the AsPath if it already exists since this is an
             // iBGP RibOut.
-            if (clone->aspath_4byte() == NULL) {
+            if (ribout->as4_supported() && !clone->aspath_4byte()) {
                 AsPath4ByteSpec as_path;
                 clone->set_aspath_4byte(&as_path);
+            }
+            if (!ribout->as4_supported() && !clone->as_path()) {
+                AsPathSpec as_path;
+                clone->set_as_path(&as_path);
             }
         } else if (ribout->peer_type() == BgpProto::EBGP) {
             // Don't advertise routes from non-master instances if there's
