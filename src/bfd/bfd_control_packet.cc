@@ -11,7 +11,6 @@
 #include "base/proto.h"
 
 namespace BFD {
-
 class VersionAndDiagnostic: public ProtoElement<VersionAndDiagnostic> {
  public:
     static const int kSize = 1;
@@ -28,16 +27,6 @@ class VersionAndDiagnostic: public ProtoElement<VersionAndDiagnostic> {
                     kVersionOffset == kSupportedVersion)
                 && ((value & kDiagnosticBitmask) < kDiagnosticFirstInvalid);
     }
-
-    typedef struct {
-        static void set(ControlPacket *obj, uint8_t value) {
-            obj->diagnostic = (Diagnostic) (value & kDiagnosticBitmask);
-        }
-
-        static uint8_t get(const ControlPacket *obj) {
-            return obj->diagnostic | (kSupportedVersion << kVersionOffset);
-        }
-    } Setter;
 };
 
 class Flags: public ProtoElement<Flags> {
@@ -52,39 +41,10 @@ class Flags: public ProtoElement<Flags> {
     static const int kAuthenticationPresentOffset = 2;
     static const int kDemandOffset = 1;
     static const int kMultipointOffset = 0;
-
-    typedef struct {
-        static void set(ControlPacket *obj, uint8_t value) {
-            obj->state = (BFDState) ((value & kStateBitmask)
-                                     >> kStateOffset);
-            obj->poll = value & (1 << kPollOffset);
-            obj->final = value & (1 << kFinallOffset);
-            obj->control_plane_independent = value &
-                                       (1 << kControlPlaneIndependentOffset);
-            obj->authentication_present = value &
-                                      (1 << kAuthenticationPresentOffset);
-            obj->demand = value & (1 << kDemandOffset);
-            obj->multipoint = value & (1 << kMultipointOffset);
-        }
-
-        static uint8_t get(const ControlPacket *obj) {
-            return (obj->state << kStateOffset) | (obj->poll << kPollOffset)
-                    | (obj->final << kFinallOffset)
-                    | (obj->control_plane_independent
-                       << kControlPlaneIndependentOffset)
-                    | (obj->authentication_present
-                       << kAuthenticationPresentOffset)
-                    | (obj->demand << kDemandOffset)
-                    | (obj->multipoint << kMultipointOffset);
-        }
-    } Setter;
 };
 
 class DetectionTimeMultiplier: public ProtoElement<DetectionTimeMultiplier> {
  public:
-    typedef Accessor<ControlPacket, int,
-                     &ControlPacket::detection_time_multiplier> Setter;
-
     static const int kSize = 1;
 
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
@@ -96,8 +56,6 @@ class DetectionTimeMultiplier: public ProtoElement<DetectionTimeMultiplier> {
 
 class Length: public ProtoElement<Length> {
  public:
-    typedef Accessor<ControlPacket, int, &ControlPacket::length> Setter;
-
     static const int kSize = 1;
 
     static bool Verifier(const void *obj, const uint8_t *data, size_t size,
@@ -109,9 +67,6 @@ class Length: public ProtoElement<Length> {
 
 class SenderDiscriminator: public ProtoElement<SenderDiscriminator> {
  public:
-    typedef Accessor<ControlPacket, uint32_t,
-                     &ControlPacket::sender_discriminator> Setter;
-
     static const int kSize = 4;
 
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
@@ -123,58 +78,22 @@ class SenderDiscriminator: public ProtoElement<SenderDiscriminator> {
 
 class ReceiverDiscriminator: public ProtoElement<ReceiverDiscriminator> {
  public:
-    typedef Accessor<ControlPacket, uint32_t,
-                     &ControlPacket::receiver_discriminator> Setter;
-
     static const int kSize = 4;
 };
 
 class DesiredMinTxInterval: public ProtoElement<DesiredMinTxInterval> {
  public:
-    typedef struct {
-        static void set(ControlPacket *obj, uint32_t value) {
-            obj->desired_min_tx_interval =
-                boost::posix_time::microseconds(value);
-        }
-
-        static uint32_t get(const ControlPacket *obj) {
-            return obj->desired_min_tx_interval.total_microseconds();
-        }
-    } Setter;
-
     static const int kSize = 4;
 };
 
 class RequiredMinRxInterval: public ProtoElement<RequiredMinRxInterval> {
  public:
-    typedef struct {
-        static void set(ControlPacket *obj, uint32_t value) {
-            obj->required_min_rx_interval =
-                boost::posix_time::microseconds(value);
-        }
-
-        static uint32_t get(const ControlPacket *obj) {
-            return obj->required_min_rx_interval.total_microseconds();
-        }
-    } Setter;
-
     static const int kSize = 4;
 };
 
 class RequiredMinEchoRXInterval :
             public ProtoElement<RequiredMinEchoRXInterval> {
  public:
-    typedef struct {
-        static void set(ControlPacket *obj, uint32_t value) {
-            obj->required_min_echo_rx_interval =
-                boost::posix_time::microseconds(value);
-        }
-
-        static uint32_t get(const ControlPacket *obj) {
-            return obj->required_min_echo_rx_interval.total_microseconds();
-        }
-    } Setter;
-
     static const int kSize = 4;
 };
 

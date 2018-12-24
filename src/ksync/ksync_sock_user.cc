@@ -119,7 +119,7 @@ void KSyncSockTypeMap::PurgeTxBuffer() {
     // Send a message for each entry in io-vector
     KSyncBufferList::iterator iovec_it = iovec.begin();
     while (iovec_it != iovec.end()) {
-         sock_.send_to(*iovec_it, local_ep_);
+         sock2_->send_to(*iovec_it, local_ep_);
          iovec_it++;
     }
 
@@ -589,12 +589,12 @@ std::size_t KSyncSockTypeMap::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
 
 //receive msgs from datapath
 void KSyncSockTypeMap::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
-    sock_.async_receive_from(buf, local_ep_, cb);
+    sock2_->async_receive_from(buf, local_ep_, cb);
 }
 
 //receive msgs from datapath
 void KSyncSockTypeMap::Receive(mutable_buffers_1 buf) {
-    sock_.receive(buf);
+    sock2_->receive(buf);
 }
 
 vr_flow_entry *KSyncSockTypeMap::FlowMmapAlloc(int size) {
@@ -766,9 +766,19 @@ void KSyncSockTypeMap::Init(boost::asio::io_service &ios) {
     singleton_->local_ep_.address
         (boost::asio::ip::address::from_string("127.0.0.1"));
     singleton_->local_ep_.port(0);
-    singleton_->sock_.open(boost::asio::ip::udp::v4());
-    singleton_->sock_.bind(singleton_->local_ep_);
-    singleton_->local_ep_ = singleton_->sock_.local_endpoint();
+
+    //boost::asio::ip::udp::socket socket(ios); 
+    //socket.open(boost::asio::ip::udp::v4());
+    //socket.bind(singleton_->local_ep_);
+    //std::cout << socket.local_endpoint().port() << std::endl;
+    //std::cout << "dziala3" << std::endl;
+    boost::asio::ip::udp::socket *socket_ = new boost::asio::ip::udp::socket(ios);
+    socket_->open(boost::asio::ip::udp::v4());
+    socket_->bind(singleton_->local_ep_);
+    std::cout << socket_->local_endpoint().port() << std::endl;
+    singleton_->local_ep_ = socket_->local_endpoint();
+    singleton_->sock2_ = socket_;
+    std::cout << "dziala4" << std::endl;
 }
 
 void KSyncSockTypeMap::Shutdown() {

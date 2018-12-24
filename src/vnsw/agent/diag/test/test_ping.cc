@@ -277,8 +277,22 @@ TEST_F(DiagTest, DiagReq6Test) {
 void RouterIdDepInit(Agent *agent) {
 }
 
+//using boost::asio::ip::udp;
+//using boost::asio::ip::address;
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
+    
+    /*std::cout << "dziala1" << std::endl;
+    boost::asio::io_service io_service;
+    udp::socket socket(io_service);
+    udp::endpoint ep;
+    ep.address(address::from_string("127.0.0.1"));
+    ep.port(0);
+    socket.open(boost::asio::ip::udp::v4());
+    socket.bind(ep);
+    std::cout << socket.local_endpoint().port() << std::endl;
+    std::cout << "dziala2" << std::endl;*/
 
     client = TestInit(init_file, ksync_init, true, true);
     client->WaitForIdle();

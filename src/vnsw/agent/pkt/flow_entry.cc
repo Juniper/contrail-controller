@@ -3710,7 +3710,6 @@ bool PortTable::HandlePortConfig(const PortConfig &pc) {
     port_config_ = pc;
 
     uint16_t count = 0;
-    PortToBitIndexMap::iterator it = port_to_bit_index_.begin();
 
     for (uint16_t index = 0; index < old_port_count; index++) {
         PortPtr port = port_list_.At(index);

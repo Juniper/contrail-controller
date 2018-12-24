@@ -89,7 +89,8 @@ public:
         KSYNC_MAX_ENTRY_TYPE
     };
 
-    KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
+    KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock() {
+        sock2_ = new boost::asio::ip::udp::socket(ios);
         block_msg_processing_ = false;
         is_incremental_index_ = false;
     }
@@ -225,8 +226,8 @@ public:
     void DisableReceiveQueue(bool disable);
 private:
     void PurgeBlockedMsg();
-    udp::socket sock_;
-    udp::endpoint local_ep_;
+    boost::asio::ip::udp::socket *sock2_;
+    boost::asio::ip::udp::endpoint local_ep_;
     int ksync_error_[KSYNC_MAX_ENTRY_TYPE];
     bool block_msg_processing_;
     bool is_incremental_index_;
