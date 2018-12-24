@@ -312,7 +312,11 @@ void ShowIFMapAgentReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
+#if __cplusplus >= 201103L
+    ps.stages_ = {s0, s1};
+#else
     ps.stages_= list_of(s0)(s1);
+#endif
     RequestPipeline rp(ps);
 }
 
