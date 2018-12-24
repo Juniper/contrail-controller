@@ -13,11 +13,14 @@ Import('BuildEnv')
 env = BuildEnv.Clone()
 
 ##########################################################################
-# Build CCFLAGS
+# Build CCFLAGS and CXXFLAGS
 ##########################################################################
 env.CppDisableExceptions()
 if GetOption('with_libvirt'):
     env.Append(CCFLAGS = ['-DWITH_LIBVIRT'])
+
+if platform.system() != 'Windows':
+    env.Append(CXXFLAGS = ['-std=c++11', '-Wno-deprecated'])
 
 ##########################################################################
 # Build CPPPATH
