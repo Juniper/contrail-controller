@@ -160,6 +160,61 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     // Policy definition
     IFMapDependencyTracker::NodeEventPolicy *policy = tracker_->policy_map();
 
+#ifdef __cplusplus >= 201103L
+    ReactionMap react_si {
+        {"service-instance-service-template", {"self"}},
+        {"virtual-machine-service-instance", {"self"}},
+        {"self", {"self"}}
+    };
+    policy->insert({"service-instance", react_si});
+
+    ReactionMap react_tmpl {
+        {"self", {"service-instance-service-template"}}
+    };
+    policy->insert({"service-template", react_tmpl});
+
+    ReactionMap react_vm {
+        {"self", {"virtual-machine-service-instance"}},
+        {"virtual-machine-virtual-machine-interface", {"virtual-machine-service-instance"}},
+        {"virtual-machine-interface-virtual-machine", {"virtual-machine-service-instance"}}
+    };
+    policy->insert({"virtual-machine", react_vm});
+
+    ReactionMap react_vmi {
+        {
+            "self", {
+                "virtual-machine-interface-virtual-machine",
+                "logical-interface-virtual-machine-interface"
+            }
+        }, {
+            "instance-ip-virtual-machine-interface", {
+                "virtual-machine-interface-virtual-machine"
+            }
+        }, {
+            "virtual-machine-interface-virtual-network", {
+                "virtual-machine-interface-virtual-machine",
+                "logical-interface-virtual-machine-interface"
+            }
+        }
+    };
+    policy->insert({"virtual-machine-interface", react_vmi});
+
+    ReactionMap react_ip {
+        {"self", {"instance-ip-virtual-machine-interface"}}
+    };
+    policy->insert({"instance-ip", react_ip});
+
+    ReactionMap react_subnet {
+        {"self", {"virtual-network-network-ipam"}},
+        {"virtual-network-network-ipam", {"nil"}}
+    };
+    policy->insert({"virtual-network-network-ipam", react_subnet});
+
+    ReactionMap react_ipam {
+        {"virtual-network-network-ipam", {"nil"}}
+    };
+    policy->insert({"network-ipam", react_ipam});
+#else
     ReactionMap react_si = map_list_of<string, PropagateList>
             ("service-instance-service-template", list_of("self"))
             ("virtual-machine-service-instance", list_of("self"))
@@ -200,6 +255,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     ReactionMap react_ipam = map_list_of<string, PropagateList>
             ("virtual-network-network-ipam", list_of("nil"));
     policy->insert(make_pair("network-ipam", react_ipam));
+#endif
 
     InitializeDependencyRules(agent);
 }

@@ -60,6 +60,9 @@ common.Prepend(LIBS = libs)
 if platform.system() != 'Windows':
     common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
 
+    # We need this until we get rid of deprecated auto_ptr
+    common.Append(CXXFLAGS = '-Wno-deprecated')
+
     if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
                                shell=True).rstrip() == "4.8.5":
         common.Append(CCFLAGS = '-Wno-narrowing -Wno-conversion-null')
