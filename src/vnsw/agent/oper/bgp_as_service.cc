@@ -584,6 +584,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
         IpAddress ip_address;
         std::string xmpp_server;
         std::string control_node_zone;
+        std::string *bgp_router_name;
         if (dest == gw) {
             if (cnz_configured) {
                 bgp_router = bgp_router_cfg->
@@ -596,6 +597,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                     bgp_router = bgp_router_cfg->
                         GetBgpRouterFromIpAddress(xmpp_server);
             }
+            bgp_router_name = &it->primary_bgp_peer_;
         } else if (dest == dns) {
             if (cnz_configured) {
                 bgp_router = bgp_router_cfg->
@@ -608,6 +610,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                     bgp_router = bgp_router_cfg->
                         GetBgpRouterFromIpAddress(xmpp_server);
             }
+            bgp_router_name = &it->secondary_bgp_peer_;
         } else {
             it++;
             continue;
@@ -619,17 +622,15 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
             ss << " control-node-zone:" << control_node_zone;
             ss << " xmpp-server:" << xmpp_server;
             BGPASASERVICETRACE(Trace, ss.str().c_str());
-            //reset bgp_peer_info for sandesh
-            it->bgp_peer_ip_ = IpAddress();
-            it->bgp_peer_port_ = 0;
+            //reset bgp_router for sandesh
+            *bgp_router_name = "";
             return false;
         }
-        *nat_server = bgp_router->ip4_address();
+        *nat_server = bgp_router->ipv4_address();
         *sport = it->source_port_;
         *dport = it->dest_port_?it->dest_port_:bgp_router->port();
-        //update bgp_peer_info for sandesh
-        it->bgp_peer_ip_ = *nat_server;
-        it->bgp_peer_port_ = *dport;
+        //update bgp_router for sandesh
+        *bgp_router_name = bgp_router->name();
         return true;
     }
     ss << "BgpRouter not found ";
@@ -840,8 +841,8 @@ void BgpAsAServiceSandeshReq::HandleRequest() const {
                 (*it).primary_control_node_zone_);
            entry.set_secondary_control_node_zone(
                 (*it).secondary_control_node_zone_);
-           entry.set_bgp_peer_ip((*it).bgp_peer_ip_.to_string());
-           entry.set_bgp_peer_port((*it).bgp_peer_port_);
+           entry.set_primary_bgp_peer((*it).primary_bgp_peer_);
+           entry.set_secondary_bgp_peer((*it).secondary_bgp_peer_);
            bgpaas_map.push_back(entry);
            it++;
        }
