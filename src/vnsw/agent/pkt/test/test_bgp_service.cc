@@ -40,7 +40,7 @@ IpamInfo ipam_info[] = {
     {"4.4.4.0", 24, "4.4.4.4", true},
     {"5.5.5.0", 24, "5.5.5.5", true},
     {"6.6.6.0", 24, "6.6.6.6", true},
-    {"7.7.7.0", 24, "7.7.7.7", true},
+    {"7.7.7.0", 24, "7.7.7.7", true, 0, "7.7.7.8"},
 };
 
 class BgpServiceTest : public ::testing::Test {
@@ -423,7 +423,8 @@ TEST_F(BgpServiceTest, Test_7) {
     EXPECT_TRUE(fe->bgp_as_a_service_dport() == 500);
 }
 
-TEST_F(BgpServiceTest, Test_ControlNodeZone_1) {
+//ControlNodeZone is associated to a BgpRouter
+TEST_F(BgpServiceTest, Test_8) {
     BgpRouterConfig *bgp_router_config =
         agent_->oper_db()->bgp_router_config();
     std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.10", 0, 179,
@@ -453,8 +454,6 @@ TEST_F(BgpServiceTest, Test_ControlNodeZone_1) {
 
     AddAap("vnet7", 7,
         Ip4Address::from_string("70.70.70.70"), "00:00:07:07:07:07");
-    client->WaitForIdle();
-
     TxTcpPacket(VmInterfaceGet(7)->id(), "70.70.70.70", "7.7.7.7", 10000, 179,
                 false);
     client->WaitForIdle();
@@ -467,6 +466,7 @@ TEST_F(BgpServiceTest, Test_ControlNodeZone_1) {
     FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.1"));
     EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
+
     DeleteControlNodeZone("cnz-c");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-a");
@@ -476,7 +476,8 @@ TEST_F(BgpServiceTest, Test_ControlNodeZone_1) {
     client->WaitForIdle();
 }
 
-TEST_F(BgpServiceTest, Test_ControlNodeZone_2) {
+//BgpRouter listens in non-standard port
+TEST_F(BgpServiceTest, Test_9) {
     BgpRouterConfig *bgp_router_config =
         agent_->oper_db()->bgp_router_config();
     std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.10", 0, 5000,
@@ -506,21 +507,23 @@ TEST_F(BgpServiceTest, Test_ControlNodeZone_2) {
     EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.10"));
     EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
     EXPECT_TRUE(rfe->key().src_port == 5000);
+
     DelNode("bgpaas-control-node-zone", "link1");
     DeleteControlNodeZone("cnz-a");
     DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
     client->WaitForIdle();
 }
 
-TEST_F(BgpServiceTest, Test_ControlNodeZone_3) {
+//ControlNodeZone is associated to multiple BgpRouters
+TEST_F(BgpServiceTest, Test_10) {
     BgpRouterConfig *bgp_router_config =
         agent_->oper_db()->bgp_router_config();
     std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.10", 0, 5000,
         1, "ip-fabric", "control-node");
     std::string bgp_router_2 = AddBgpRouterConfig("127.0.0.11", 0, 5001,
-        1, "ip-fabric", "control-node");
+        2, "ip-fabric", "control-node");
     std::string bgp_router_3 = AddBgpRouterConfig("127.0.0.12", 0, 5002,
-        1, "ip-fabric", "control-node");
+        3, "ip-fabric", "control-node");
     AddControlNodeZone("cnz-a", 1);
     AddLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
     AddLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-a");
@@ -555,6 +558,7 @@ TEST_F(BgpServiceTest, Test_ControlNodeZone_3) {
     EXPECT_TRUE(rfe->key().src_port == 5000 ||
                 rfe->key().src_port == 5001 ||
                 rfe->key().src_port == 5002);
+
     DelNode("bgpaas-control-node-zone", "link1");
     DeleteControlNodeZone("cnz-a");
     DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
@@ -563,7 +567,8 @@ TEST_F(BgpServiceTest, Test_ControlNodeZone_3) {
     client->WaitForIdle();
 }
 
-TEST_F(BgpServiceTest, Test_ControlNodeZone_4) {
+//ControlNodeZone is not associated to a BgpRouter
+TEST_F(BgpServiceTest, Test_11) {
     BgpRouterConfig *bgp_router_config =
         agent_->oper_db()->bgp_router_config();
     std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.10", 0, 5000,
@@ -594,10 +599,162 @@ TEST_F(BgpServiceTest, Test_ControlNodeZone_4) {
     EXPECT_FALSE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.10"));
     EXPECT_FALSE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
     EXPECT_FALSE(rfe->key().src_port == 5000);
+
     DelNode("bgpaas-control-node-zone", "link1");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-a");
     DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
+    client->WaitForIdle();
+}
+
+//Bgpaas with "Secondary" ControlNodeZone
+TEST_F(BgpServiceTest, Test_12) {
+    BgpRouterConfig *bgp_router_config =
+        agent_->oper_db()->bgp_router_config();
+    std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.10", 0, 5000,
+        1, "ip-fabric", "control-node");
+    AddControlNodeZone("cnz-a", 1);
+    AddLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    client->WaitForIdle();
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 2);
+    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 1);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-a") == 1);
+
+    AddBgpaasControlNodeZoneLink("link1", bgpaas[6], "cnz-a", "secondary");
+    AddAap("vnet7", 7,
+        Ip4Address::from_string("70.70.70.70"), "00:00:07:07:07:07");
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(7)->id(), "70.70.70.70", "7.7.7.8", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                            "70.70.70.70", "7.7.7.8", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_dport() == 5000);
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.10"));
+    EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
+    EXPECT_TRUE(rfe->key().src_port == 5000);
+
+    DelNode("bgpaas-control-node-zone", "link1");
+    DeleteControlNodeZone("cnz-a");
+    DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
+    client->WaitForIdle();
+}
+
+//Bgpaas with "Primary" and "Secondary" ControlNodeZone
+TEST_F(BgpServiceTest, Test_13) {
+    std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.10", 0, 5000,
+        1, "ip-fabric", "control-node");
+    std::string bgp_router_2 = AddBgpRouterConfig("127.0.0.11", 0, 5000,
+        2, "ip-fabric", "control-node");
+    std::string bgp_router_3 = AddBgpRouterConfig("127.0.0.12", 0, 5000,
+        3, "ip-fabric", "control-node");
+    AddControlNodeZone("cnz-a", 1);
+    AddControlNodeZone("cnz-b", 2);
+    AddControlNodeZone("cnz-c", 3);
+    AddLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    AddLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
+    AddLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
+    AddBgpaasControlNodeZoneLink("link1", bgpaas[6], "cnz-a", "primary");
+    AddBgpaasControlNodeZoneLink("link2", bgpaas[6], "cnz-b", "secondary");
+    AddAap("vnet7", 7,
+        Ip4Address::from_string("70.70.70.70"), "00:00:07:07:07:07");
+
+    TxTcpPacket(VmInterfaceGet(7)->id(), "70.70.70.70", "7.7.7.7", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                            "70.70.70.70", "7.7.7.7", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_dport() == 5000);
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.10"));
+    EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
+    EXPECT_TRUE(rfe->key().src_port == 5000);
+
+    TxTcpPacket(VmInterfaceGet(7)->id(), "70.70.70.70", "7.7.7.8", 10000, 179,
+                false);
+    client->WaitForIdle();
+    fe = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                 "70.70.70.70", "7.7.7.8", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_dport() == 5000);
+    rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.11"));
+    EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
+    EXPECT_TRUE(rfe->key().src_port == 5000);
+
+    //Change "Primary" and "Secondary" ControlNodeZone
+    DelNode("bgpaas-control-node-zone", "link1");
+    DelNode("bgpaas-control-node-zone", "link2");
+    DeleteControlNodeZone("cnz-a");
+    DeleteControlNodeZone("cnz-b");
+    DeleteControlNodeZone("cnz-c");
+    DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.11", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.12", 0, "ip-fabric");
+    bgp_router_1 = AddBgpRouterConfig("127.0.0.13", 0, 5000,
+        1, "ip-fabric", "control-node");
+    bgp_router_2 = AddBgpRouterConfig("127.0.0.14", 0, 5000,
+        2, "ip-fabric", "control-node");
+    bgp_router_3 = AddBgpRouterConfig("127.0.0.15", 0, 5000,
+        3, "ip-fabric", "control-node");
+    AddControlNodeZone("cnz-a", 1);
+    AddControlNodeZone("cnz-b", 2);
+    AddControlNodeZone("cnz-c", 3);
+    AddLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    AddLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
+    AddLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
+    AddBgpaasControlNodeZoneLink("link1", bgpaas[6], "cnz-c", "primary");
+    AddBgpaasControlNodeZoneLink("link2", bgpaas[6], "cnz-a", "secondary");
+    AddAap("vnet7", 7,
+        Ip4Address::from_string("70.70.70.70"), "00:00:07:07:07:07");
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(7)->id(), "70.70.70.70", "7.7.7.7", 10000, 179,
+                false);
+    client->WaitForIdle();
+    fe = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                 "70.70.70.70", "7.7.7.7", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_dport() == 5000);
+    rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.15"));
+    EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
+    EXPECT_TRUE(rfe->key().src_port == 5000);
+
+    TxTcpPacket(VmInterfaceGet(7)->id(), "70.70.70.70", "7.7.7.8", 10000, 179,
+                false);
+    client->WaitForIdle();
+    fe = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                 "70.70.70.70", "7.7.7.8", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_dport() == 5000);
+    rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.13"));
+    EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
+    EXPECT_TRUE(rfe->key().src_port == 5000);
+
+    DelNode("bgpaas-control-node-zone", "link1");
+    DelNode("bgpaas-control-node-zone", "link2");
+    DeleteControlNodeZone("cnz-a");
+    DeleteControlNodeZone("cnz-b");
+    DeleteControlNodeZone("cnz-c");
+    DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.11", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.12", 0, "ip-fabric");
     client->WaitForIdle();
 }
 

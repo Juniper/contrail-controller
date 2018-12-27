@@ -24,22 +24,22 @@ typedef std::map<std::string, ControlNodeZonePtr> ControlNodeZoneTree;
 class BgpRouter {
 public:
     BgpRouter(const std::string &name,
-              const std::string &ip4_address,
+              const std::string &ipv4_address,
               const uint32_t &port);
     ~BgpRouter();
 
-    void set_ip4_address(const std::string &ip_address, const uint32_t &port);
+    void set_ip_address_port(const std::string &ip_address, const uint32_t &port);
     void set_control_node_zone_name(const std::string &contol_node_zone_name);
 
     const std::string &name() const { return name_; }
-    const Ip4Address &ip4_address() const { return ip4_address_; }
+    const Ip4Address &ipv4_address() const { return ipv4_address_; }
     const uint32_t &port() const { return port_; }
     const std::string &control_node_zone_name() const {
         return control_node_zone_name_;
     }
 private:
     std::string name_;
-    Ip4Address ip4_address_;
+    Ip4Address ipv4_address_;
     uint32_t port_;
     std::string control_node_zone_name_;
     DISALLOW_COPY_AND_ASSIGN(BgpRouter);
@@ -50,6 +50,11 @@ public:
     ControlNodeZone(const std::string &name, const std::string &display_name,
                     const boost::uuids::uuid &uuid);
     ~ControlNodeZone();
+
+    const std::string &name() const { return name_; }
+    const BgpRouterTree &bgp_router_tree() const {
+        return bgp_router_tree_;
+    }
 private:
     friend class BgpRouterConfig;
     std::string name_;
@@ -64,10 +69,19 @@ public:
     BgpRouterConfig(Agent *agent);
     virtual ~BgpRouterConfig();
 
+    tbb::mutex &mutex() { return mutex_; }
     uint32_t GetBgpRouterCount() { return bgp_router_tree_.size(); }
     uint32_t GetBgpRouterCount(const std::string &cnz_name);
     uint32_t GetControlNodeZoneCount() {
         return control_node_zone_tree_.size();
+    }
+
+    const BgpRouterTree &bgp_router_tree() const {
+        return bgp_router_tree_;
+    }
+
+    const ControlNodeZoneTree &control_node_zone_tree() const {
+        return control_node_zone_tree_;
     }
 
     BgpRouterPtr GetBgpRouterFromIpAddress(const std::string &ip4_address);

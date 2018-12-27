@@ -2939,6 +2939,16 @@ response sandesh HealthCheckSandeshResp {
 }
 
 /**
+ * @description: Trace message for bgp service
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh BgpAsAServiceTrace {
+    /** Message for bgp service object */
+    1: string message;
+}
+
+/**
  * Structure definition for bgp as a service
  */
 struct BgpAsAServiceSandeshList {
@@ -2960,14 +2970,14 @@ struct BgpAsAServiceSandeshList {
    8: u64 health_check_timeout_usecs;
    /** Max retries configured in health check */
    9: u32 health_check_retries;
-   /** primary-control-node-zone **/
-   10: string primary_control_node_zone;
-   /** secondary-control-node-zone **/
-   11: string secondary_control_node_zone;
-   /** bgp-peer-ip **/
-   12: string bgp_peer_ip;
-   /** bgp-peer-port **/
-   13: i32 bgp_peer_port;
+   /** Primary control-node-zone for bgp as a service **/
+   10: string primary_control_node_zone (link="ControlNodeZoneSandeshReq");
+   /** Secondary control-node-zone for bgp as a service **/
+   11: string secondary_control_node_zone (link="ControlNodeZoneSandeshReq");
+   /** Primary bgp peer for bgp as a service **/
+   12: string primary_bgp_peer (link="BgpRouterSandeshReq")
+   /** Secondary bgp peer for bgp as a service **/
+   13: string secondary_bgp_peer (link="BgpRouterSandeshReq");
 }
 
 /**
@@ -2988,13 +2998,59 @@ response sandesh BgpAsAServiceSandeshResp {
 }
 
 /**
- * @description: Trace message for bgp service
- * @type: Trace
- * @severity: DEBUG
+ * Structure definition for bgp-router
  */
-trace sandesh BgpAsAServiceTrace {
-    /** Message for bgp service object */
-    1: string message;
+struct BgpRouterSandeshList {
+   /** Bgp-Router name*/
+   1: string name (link="BgpRouterSandeshReq");
+   /** Bgp-Router ipv4-address and port */
+   2: string ipv4_address_port;
+   /** Bgp-Router control-node-zone */
+   4: string control_node_zone (link="ControlNodeZoneSandeshReq")
+}
+
+/**
+ * @description: Request bgp-router list
+ * @cli_name: read oper bgp-router list
+ */
+request sandesh BgpRouterSandeshReq {
+    /** Bgp-Router name */
+    1: string name;
+}
+
+/**
+ * bgp-router list response message
+ */
+response sandesh BgpRouterSandeshResp {
+    /** List of bgp-router information */
+    1: list<BgpRouterSandeshList> bgp_router_list;
+}
+
+/**
+ * Structure definition for bgp-router
+ */
+struct ControlNodeZoneSandeshList {
+    /** Controlnodezone name */
+    1: string name;
+    /** List of bgp-router information */
+    2: list<BgpRouterSandeshList> bgp_router_list;
+}
+
+/**
+ * @description: Request control-node-zone list
+ * @cli_name: read oper control-node-zone list
+ */
+request sandesh ControlNodeZoneSandeshReq {
+    /** Controlnodezone name */
+    1: string name;
+}
+
+/**
+ * control-node-zone list response message
+ */
+response sandesh ControlNodeZoneSandeshResp {
+    /** List of control-node-zone information */
+    1: list<ControlNodeZoneSandeshList> control_node_zone_list;
 }
 
 /**

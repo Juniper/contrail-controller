@@ -113,10 +113,10 @@ public:
         mutable uint64_t hc_timeout_usecs_;
         mutable uint32_t hc_retries_;
         bool is_shared_;
-        mutable IpAddress bgp_peer_ip_;
-        mutable uint32_t bgp_peer_port_;
         mutable std::string primary_control_node_zone_;
         mutable std::string secondary_control_node_zone_;
+        mutable std::string primary_bgp_peer_;
+        mutable std::string secondary_bgp_peer_;
     };
     typedef std::set<BgpAsAServiceEntry, BgpAsAServiceEntry> BgpAsAServiceEntryList;
     typedef BgpAsAServiceEntryList::iterator BgpAsAServiceEntryListIterator;
