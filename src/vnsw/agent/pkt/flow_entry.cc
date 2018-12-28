@@ -1887,19 +1887,10 @@ bool FlowEntry::DoPolicy() {
                          !data_.match_p.out_sg_rule_present, &out_sg_acl_info);
         }
 
-        bool check_rev_sg = false;
-        if (ShouldDrop(data_.match_p.sg_action) ||
-            ShouldDrop(data_.match_p.out_sg_action)) {
-            //If forward direction SG action is DENY
-            //verify if packet is allowed in reverse side,
-            //if yes we set a flag to TRAP the reverse flow
-            check_rev_sg = true;
-        }
-
         // For TCP-ACK packet, we allow packet if either forward or reverse
         // flow says allow. So, continue matching reverse flow even if forward
         // flow says drop
-        if ((check_rev_sg || is_flags_set(FlowEntry::TcpAckFlow)) && rflow) {
+        if (rflow) {
             rflow->SetPacketHeader(&hdr);
             data_.match_p.reverse_sg_action =
                 MatchAcl(hdr, data_.match_p.m_reverse_sg_acl_l, true,
@@ -1939,9 +1930,7 @@ bool FlowEntry::DoPolicy() {
         if (!is_flags_set(FlowEntry::TcpAckFlow)) {
             data_.match_p.sg_action_summary =
                 data_.match_p.sg_action |
-                data_.match_p.out_sg_action |
-                data_.match_p.reverse_sg_action |
-                data_.match_p.reverse_out_sg_action;
+                data_.match_p.out_sg_action;
                 SetSgAclInfo(sg_acl_info, out_sg_acl_info, false);
         } else {
             if (ShouldDrop(data_.match_p.sg_action |
@@ -2201,16 +2190,23 @@ void FlowEntry::UpdateReflexiveAction() {
     data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
 
     FlowEntry *fwd_flow = reverse_flow_entry();
-    if (fwd_flow) {
-        data_.match_p.sg_action_summary =
-            fwd_flow->data().match_p.sg_action_summary;
+
+    if(fwd_flow) {
+        if (fwd_flow->data().match_p.reverse_sg_action || 
+            fwd_flow->data().match_p.reverse_out_sg_action) {
+                data_.match_p.sg_action_summary = 
+                    fwd_flow->data().match_p.reverse_sg_action |
+                    fwd_flow->data().match_p.reverse_out_sg_action;
+        } else {
+            data_.match_p.sg_action_summary =
+	        fwd_flow->data().match_p.sg_action_summary;
+        }
     }
     // If forward flow is DROP, set action for reverse flow to
     // TRAP. If packet hits reverse flow, we will re-establish
     // the flows
-    if (ShouldDrop(data_.match_p.sg_action_summary)) {
-        if (fwd_flow &&
-            ShouldDrop(fwd_flow->data().match_p.reverse_sg_action) == false &&
+    if (fwd_flow && ShouldDrop(fwd_flow->data().match_p.sg_action_summary)) {
+        if (ShouldDrop(fwd_flow->data().match_p.reverse_sg_action) == false &&
             ShouldDrop(fwd_flow->data().match_p.reverse_out_sg_action) == false) {
             data_.match_p.sg_action &= ~(TrafficAction::DROP_FLAGS);
             set_flags(FlowEntry::Trap);
