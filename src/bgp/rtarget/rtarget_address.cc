@@ -68,12 +68,12 @@ RouteTarget RouteTarget::FromString(const string &str,
     boost::system::error_code ec;
     string second(rest.substr(0, pos));
     Ip4Address addr = Ip4Address::from_string(second, ec);
-    int offset;
+    int offset = 6;
     char *endptr;
     if (ec.value() != 0) {
         // Not an IP address, try ASN.
         int64_t asn = strtol(second.c_str(), &endptr, 10);
-        if (asn == 0 || asn >= 65535 || *endptr != '\0') {
+        if (asn == 0 || asn > 0xFFFFFFFF || *endptr != '\0') {
             if (errorp != NULL) {
                 *errorp =
                     make_error_code(boost::system::errc::invalid_argument);
@@ -81,16 +81,20 @@ RouteTarget RouteTarget::FromString(const string &str,
             return RouteTarget::null_rtarget;
         }
 
-        data[0] = 0x0;
+        if (asn > 0xFFFF) {
+            data[0] = 0x2;
+            put_value(&data[2], 4, asn);
+        } else {
+            data[0] = 0x0;
+            put_value(&data[2], 2, asn);
+            offset = 4;
+        }
         data[1] = 0x2;
-        put_value(&data[2], 2, asn);
-        offset = 4;
     } else {
         data[0] = 0x1;
         data[1] = 0x2;
         uint32_t l_addr = addr.to_ulong();
         put_value(&data[2], 4, l_addr);
-        offset = 6;
     }
 
     string third(rest.substr(pos+1));
@@ -110,7 +114,7 @@ RouteTarget RouteTarget::FromString(const string &str,
         return RouteTarget::null_rtarget;
     }
 
-    // Check assigned number for type 1.
+    // Check assigned number for type 1 and 2
     if (offset == 6 && value > 0xFFFF) {
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
@@ -129,6 +133,12 @@ string RouteTarget::ToString() const {
     if (data[0] == 0) {
         uint16_t asn = get_value(data + 2, 2);
         uint32_t num = get_value(data + 4, 4);
+        char temp[50];
+        snprintf(temp, sizeof(temp), "target:%u:%u", asn, num);
+        return string(temp);
+    } else if (data[0] == 2) {
+        uint32_t asn = get_value(data + 2, 4);
+        uint16_t num = get_value(data + 6, 2);
         char temp[50];
         snprintf(temp, sizeof(temp), "target:%u:%u", asn, num);
         return string(temp);

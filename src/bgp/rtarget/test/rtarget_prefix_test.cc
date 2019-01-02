@@ -24,10 +24,10 @@ TEST_F(RTargetPrefixTest, Build) {
 
 TEST_F(RTargetPrefixTest, Parse) {
     RTargetPrefix prefix(
-        RTargetPrefix::FromString("64512:target:64512:1"));
-    EXPECT_EQ(prefix.ToString(), "64512:target:64512:1");
-    EXPECT_EQ(prefix.rtarget().ToString(), "target:64512:1");
-    EXPECT_EQ(prefix.as(), 64512);
+        RTargetPrefix::FromString("80000:target:80000:1"));
+    EXPECT_EQ(prefix.ToString(), "80000:target:80000:1");
+    EXPECT_EQ(prefix.rtarget().ToString(), "target:80000:1");
+    EXPECT_EQ(prefix.as(), 80000);
 }
 
 TEST_F(RTargetPrefixTest, Default) {
@@ -42,7 +42,7 @@ TEST_F(RTargetPrefixTest, Default) {
 // No ":" to delineate the AS number.
 TEST_F(RTargetPrefixTest, Error1) {
     boost::system::error_code ec;
-    string prefix_str("64512-target-64512-2");
+    string prefix_str("80000-target-80000-2");
     RTargetPrefix prefix = RTargetPrefix::FromString(prefix_str, &ec);
     EXPECT_NE(0, ec.value());
     EXPECT_EQ(0, prefix.as());
@@ -52,7 +52,7 @@ TEST_F(RTargetPrefixTest, Error1) {
 // Invalid route target.
 TEST_F(RTargetPrefixTest, Error2) {
     boost::system::error_code ec;
-    string prefix_str("64512:target:65536:4294967295");
+    string prefix_str("80000:target:65536:4294967295");
     RTargetPrefix prefix = RTargetPrefix::FromString(prefix_str, &ec);
     EXPECT_NE(0, ec.value());
     EXPECT_EQ(0, prefix.as());
@@ -60,7 +60,7 @@ TEST_F(RTargetPrefixTest, Error2) {
 }
 
 TEST_F(RTargetPrefixTest, FromProtoPrefix1) {
-    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    RTargetPrefix prefix(RTargetPrefix::FromString("80000:target:80000:1"));
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
     EXPECT_EQ(96, proto_prefix.prefixlen);
@@ -82,7 +82,7 @@ TEST_F(RTargetPrefixTest, FromProtoPrefix2) {
 }
 
 TEST_F(RTargetPrefixTest, FromProtoPrefixError1) {
-    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    RTargetPrefix prefix(RTargetPrefix::FromString("80000:target:80000:1"));
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
     RTargetPrefix prefix_1;
@@ -92,7 +92,7 @@ TEST_F(RTargetPrefixTest, FromProtoPrefixError1) {
 }
 
 TEST_F(RTargetPrefixTest, FromProtoPrefixError2) {
-    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    RTargetPrefix prefix(RTargetPrefix::FromString("80000:target:80000:1"));
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
     RTargetPrefix prefix_1;
@@ -102,7 +102,7 @@ TEST_F(RTargetPrefixTest, FromProtoPrefixError2) {
 }
 
 TEST_F(RTargetPrefixTest, FromProtoPrefixError3) {
-    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    RTargetPrefix prefix(RTargetPrefix::FromString("80000:target:80000:1"));
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
     RTargetPrefix prefix_1;
@@ -112,7 +112,7 @@ TEST_F(RTargetPrefixTest, FromProtoPrefixError3) {
 }
 
 TEST_F(RTargetPrefixTest, FromProtoPrefixError4) {
-    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    RTargetPrefix prefix(RTargetPrefix::FromString("80000:target:80000:1"));
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
     RTargetPrefix prefix_1;
@@ -122,8 +122,8 @@ TEST_F(RTargetPrefixTest, FromProtoPrefixError4) {
 }
 
 TEST_F(RTargetPrefixTest, CompareTo1) {
-    string prefix_str1("2:target:64512:4294967295");
-    string prefix_str2("256:target:64512:4294967295");
+    string prefix_str1("2:target:4294967295:8000");
+    string prefix_str2("256:target:4294967295:8000");
     RTargetPrefix prefix1 = RTargetPrefix::FromString(prefix_str1);
     RTargetPrefix prefix2 = RTargetPrefix::FromString(prefix_str2);
     EXPECT_GT(0, prefix1.CompareTo(prefix2));
@@ -131,8 +131,8 @@ TEST_F(RTargetPrefixTest, CompareTo1) {
 }
 
 TEST_F(RTargetPrefixTest, CompareTo2) {
-    string prefix_str1("64512:target:2:4294967295");
-    string prefix_str2("64512:target:256:4294967295");
+    string prefix_str1("80000:target:4294967295:2");
+    string prefix_str2("80000:target:4294967295:256");
     RTargetPrefix prefix1 = RTargetPrefix::FromString(prefix_str1);
     RTargetPrefix prefix2 = RTargetPrefix::FromString(prefix_str2);
     EXPECT_GT(0, prefix1.CompareTo(prefix2));
@@ -140,8 +140,8 @@ TEST_F(RTargetPrefixTest, CompareTo2) {
 }
 
 TEST_F(RTargetPrefixTest, CompareTo3) {
-    string prefix_str1("64512:target:64512:2");
-    string prefix_str2("64512:target:64512:65536");
+    string prefix_str1("80000:target:80000:2");
+    string prefix_str2("80000:target:80000:65526");
     RTargetPrefix prefix1 = RTargetPrefix::FromString(prefix_str1);
     RTargetPrefix prefix2 = RTargetPrefix::FromString(prefix_str2);
     EXPECT_GT(0, prefix1.CompareTo(prefix2));
@@ -149,8 +149,8 @@ TEST_F(RTargetPrefixTest, CompareTo3) {
 }
 
 TEST_F(RTargetPrefixTest, CompareTo4) {
-    string prefix_str1("64512:target:10.1.1.1:65535");
-    string prefix_str2("64512:target:10.1.1.2:65535");
+    string prefix_str1("80000:target:10.1.1.1:65535");
+    string prefix_str2("80000:target:10.1.1.2:65535");
     RTargetPrefix prefix1 = RTargetPrefix::FromString(prefix_str1);
     RTargetPrefix prefix2 = RTargetPrefix::FromString(prefix_str2);
     EXPECT_GT(0, prefix1.CompareTo(prefix2));
@@ -158,8 +158,8 @@ TEST_F(RTargetPrefixTest, CompareTo4) {
 }
 
 TEST_F(RTargetPrefixTest, CompareTo5) {
-    string prefix_str1("64512:target:10.1.1.1:2");
-    string prefix_str2("64512:target:10.1.1.1:256");
+    string prefix_str1("80000:target:10.1.1.1:2");
+    string prefix_str2("80000:target:10.1.1.1:256");
     RTargetPrefix prefix1 = RTargetPrefix::FromString(prefix_str1);
     RTargetPrefix prefix2 = RTargetPrefix::FromString(prefix_str2);
     EXPECT_GT(0, prefix1.CompareTo(prefix2));
@@ -169,7 +169,7 @@ TEST_F(RTargetPrefixTest, CompareTo5) {
 TEST_F(RTargetPrefixTest, SetKey1) {
     RTargetPrefix null_prefix;
     RTargetRoute route(null_prefix);
-    string prefix_str("64512:target:64512:4294967295");
+    string prefix_str("80000:target:80000:4294967295");
     RTargetPrefix prefix(RTargetPrefix::FromString(prefix_str));
     boost::scoped_ptr<RTargetTable::RequestKey> key(
         new RTargetTable::RequestKey(prefix, NULL));
@@ -181,7 +181,7 @@ TEST_F(RTargetPrefixTest, SetKey1) {
 TEST_F(RTargetPrefixTest, SetKey2) {
     RTargetPrefix null_prefix;
     RTargetRoute route(null_prefix);
-    string prefix_str("64512:target:10.1.1.1:65535");
+    string prefix_str("80000:target:10.1.1.1:65535");
     RTargetPrefix prefix(RTargetPrefix::FromString(prefix_str));
     boost::scoped_ptr<RTargetTable::RequestKey> key(
         new RTargetTable::RequestKey(prefix, NULL));
@@ -191,7 +191,7 @@ TEST_F(RTargetPrefixTest, SetKey2) {
 }
 
 TEST_F(RTargetPrefixTest, GetDBRequestKey1) {
-    string prefix_str("64512:target:64512:4294967295");
+    string prefix_str("80000:target:80000:4294967295");
     RTargetPrefix prefix(RTargetPrefix::FromString(prefix_str));
     RTargetRoute route(prefix);
     DBEntryBase::KeyPtr keyptr = route.GetDBRequestKey();
@@ -201,7 +201,7 @@ TEST_F(RTargetPrefixTest, GetDBRequestKey1) {
 }
 
 TEST_F(RTargetPrefixTest, GetDBRequestKey2) {
-    string prefix_str("64512:target:10.1.1.1:65535");
+    string prefix_str("80000:target:10.1.1.1:65535");
     RTargetPrefix prefix(RTargetPrefix::FromString(prefix_str));
     RTargetRoute route(prefix);
     DBEntryBase::KeyPtr keyptr = route.GetDBRequestKey();
