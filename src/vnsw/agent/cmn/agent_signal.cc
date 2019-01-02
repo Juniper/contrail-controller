@@ -66,6 +66,28 @@ void AgentSignal::RegisterSigHandler() {
     signal_.async_wait(boost::bind(&AgentSignal::HandleSig, this, _1, _2));
 }
 
+static void HandleTermSig(int signal, siginfo_t *act, void *si) {
+    FILE *fpipe = NULL;
+    char pname_query[256] = "";
+    char pname[256]="";
+
+    snprintf (pname_query, 256,"ps -p %d -o comm=", act->si_pid);
+    fpipe = popen(pname_query, "r");
+    if (fpipe != NULL) {
+        while (fgets(pname, sizeof(pname), fpipe) != NULL) { }
+        pclose(fpipe);
+    }
+    LOG(ERROR, "Agent Received signal " << signal
+              << " from pid: " << act->si_pid << " pname: " << pname);
+    exit(signal);
+}
+
+void AgentSignal::RegisterSigTermHandler() {
+    sact_.sa_sigaction = &HandleTermSig;
+    sact_.sa_flags = SA_SIGINFO;
+    sigaction(SIGTERM, &sact_, NULL);
+}
+
 void AgentSignal::Initialize() {
     boost::system::error_code ec;
 
@@ -77,6 +99,7 @@ void AgentSignal::Initialize() {
         LOG(ERROR, "SIGCHLD registration failed");
     }
     RegisterSigHandler();
+    RegisterSigTermHandler();
 }
 
 void AgentSignal::Terminate() {
