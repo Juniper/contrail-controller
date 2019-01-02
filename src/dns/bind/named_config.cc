@@ -311,7 +311,7 @@ void NamedConfig::WriteDefaultView(ZoneViewMap &zone_view_map) {
 
 void NamedConfig::WriteZone(const string &vdns, const string &name,
                             bool is_master, bool is_rr, const string &next_dns) {
-    file_ << "    zone \"" << name << "\" IN \{" << endl;
+    file_ << "    zone \"" << name << "\" IN {" << endl;
     if (is_master) {
         file_ << "        type master;" << endl;
         file_ << "        file \"" << GetZoneFilePath(vdns, name) << "\";" << endl;

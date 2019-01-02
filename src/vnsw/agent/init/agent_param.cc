@@ -1621,7 +1621,7 @@ AgentParam::AgentParam(bool enable_flow_options,
             ("FLOWS.thread_count", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowThreadCount),
              "Number of threads for flow setup")
             ("FLOWS.max_vm_flows", opt::value<float>()->default_value(100),
-             "Maximum flows allowed per VM - given as \% (in integer) of ")
+             "Maximum flows allowed per VM - given as % (in integer) of ")
             ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>()->default_value(Agent::kDefaultMaxLinkLocalOpenFds),
              "Maximum number of link-local flows allowed across all VMs")
             ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>()->default_value(Agent::kDefaultMaxLinkLocalOpenFds),

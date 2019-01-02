@@ -467,13 +467,14 @@ void EvpnAgentRouteTable::AddClonedLocalPathReq(const Peer *peer,
     EvpnTableEnqueue(Agent::GetInstance(), &req);
 }
 
-uint32_t EvpnAgentRouteTable::ComputeHostIpPlen
-(const IpAddress &addr) {
+uint32_t EvpnAgentRouteTable::ComputeHostIpPlen(const IpAddress &addr) {
     if (addr.is_v4())
         return 32;
     if (addr.is_v6())
         return 128;
+
     assert(0);
+    return 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////

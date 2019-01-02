@@ -135,7 +135,7 @@ private:
     uint32_t old_component_nh_idx_;
     uint32_t old_first_mirror_index_;
     uint32_t old_second_mirror_index_;
-    uint32_t trap_flow_;
+    bool trap_flow_;
     uint16_t old_drop_reason_;
     bool ecmp_;
     bool enable_rpf_;

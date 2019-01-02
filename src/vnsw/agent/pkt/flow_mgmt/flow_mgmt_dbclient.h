@@ -70,7 +70,9 @@ public:
                 return inet6_listener_id_;
             if (type == Agent::BRIDGE)
                 return bridge_listener_id_;
+
             assert(0);
+            return -1;
         }
         DBTableBase::ListenerId inet_listener_id_;
         DBTableBase::ListenerId inet6_listener_id_;
