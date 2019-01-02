@@ -4,8 +4,10 @@
 
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 #include <boost/asio/ip/host_name.hpp>
+#include <gtest/gtest.h>
 
 #include "base/contrail_ports.h"
 #include "base/test/task_test_util.h"
@@ -74,6 +76,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
+
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
@@ -83,6 +86,12 @@ TEST_F(OptionsTest, NoArguments) {
                      options_.rabbitmq_server_list());
     TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
                      options_.config_db_server_list());
+
+    EXPECT_EQ(options_.configdb_options().config_db_use_etcd, false);
+    EXPECT_EQ(options_.configdb_options().etcd_use_ssl, false);
+    EXPECT_EQ(options_.configdb_options().etcd_key_file, "");
+    EXPECT_EQ(options_.configdb_options().etcd_cert_file, "");
+    EXPECT_EQ(options_.configdb_options().etcd_ca_cert_file, "");
 
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
@@ -549,7 +558,7 @@ TEST_F(OptionsTest, DISABLED_UnresolvableHostName) {
 }
 
 TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
-    int argc = 10;
+    int argc = 9;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
@@ -560,7 +569,6 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     char argv_6[] = "--CONFIGDB.config_db_server_list=20.1.1.1:100 20.1.1.2:100";
     char argv_7[] = "--CONFIGDB.config_db_username=dbuser";
     char argv_8[] = "--CONFIGDB.config_db_password=dbpassword";
-    char argv_9[] = "--CONFIGDB.config_db_use_etcd=false";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -570,7 +578,6 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     argv[6] = argv_6;
     argv[7] = argv_7;
     argv[8] = argv_8;
-    argv[9] = argv_9;
 
     options_.Parse(evm_, argc, argv);
 
@@ -579,7 +586,6 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_user(), "myuser");
     EXPECT_EQ(options_.rabbitmq_password(), "mynewpassword");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
-    EXPECT_EQ(options_.using_etcd_client(), false);
 
     vector<string> rabbitmq_server_list;
     rabbitmq_server_list.push_back("10.1.1.1:100");
@@ -600,15 +606,14 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
         "rabbitmq_password=test-password\n"
         "rabbitmq_use_ssl=true\n"
         "rabbitmq_server_list=10.1.1.1:100 10.1.1.2:100\n"
-        "config_db_server_list=20.1.1.1:100 20.1.1.2:100\n"
-        "config_db_use_etcd=true\n";
+        "config_db_server_list=20.1.1.1:100 20.1.1.2:100\n";
 
     ofstream config_file;
     config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
-    int argc = 8;
+    int argc = 7;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -617,7 +622,6 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
     char argv_4[] = "--CONFIGDB.rabbitmq_use_ssl=false";
     char argv_5[] = "--CONFIGDB.rabbitmq_server_list=30.1.1.1:100 30.1.1.2:100";
     char argv_6[] = "--CONFIGDB.config_db_server_list=40.1.1.1:100 40.1.1.2:100";
-    char argv_7[] = "--CONFIGDB.config_db_use_etcd=false";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -625,14 +629,12 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
     argv[4] = argv_4;
     argv[5] = argv_5;
     argv[6] = argv_6;
-    argv[7] = argv_7;
 
     options_.Parse(evm_, argc, argv);
 
     EXPECT_EQ(options_.rabbitmq_user(), "myuser");
     EXPECT_EQ(options_.rabbitmq_password(), "mynewpassword");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
-    EXPECT_EQ(options_.using_etcd_client(), false);
 
     vector<string> rabbitmq_server_list;
     rabbitmq_server_list.push_back("30.1.1.1:100");
