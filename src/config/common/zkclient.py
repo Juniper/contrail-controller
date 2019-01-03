@@ -519,12 +519,13 @@ class ZookeeperClient(object):
         return ZookeeperCounter(self._zk_client, path, max_count,
                                 default=default)
 
-    def create_node(self, path, value=None):
+    def create_node(self, path, value=None, ephemeral=False):
         try:
             if value is None:
                 value = uuid.uuid4()
             retry = self._retry.copy()
-            retry(self._zk_client.create, path, str(value), makepath=True)
+            retry(self._zk_client.create, path, str(value),
+                  ephemeral=ephemeral, makepath=True)
         except kazoo.exceptions.NodeExistsError:
             current_value = self.read_node(path)
             if current_value == value:

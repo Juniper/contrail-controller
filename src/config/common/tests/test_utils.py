@@ -1325,6 +1325,21 @@ class FakeKazooClient(object):
         self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
     # end create
 
+    def create_node(self, path, value='', *args, **kwargs):
+        scrubbed_path = zk_scrub_path(path)
+        if scrubbed_path in self._values:
+            raise ResourceExistsError(
+                path, str(self._values[scrubbed_path][0]), 'zookeeper')
+        self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
+    # end create
+
+    def read_node(self, path):
+        try:
+            return self._values[zk_scrub_path(path)]
+        except KeyError:
+            raise kazoo.exceptions.NoNodeError()
+    # end get
+
     def get(self, path):
         try:
             return self._values[zk_scrub_path(path)]
@@ -1362,6 +1377,19 @@ class FakeKazooClient(object):
             return self._values[scrubbed_path]
         return None
     # end exists
+
+    def delete_node(self, path, recursive=False):
+        scrubbed_path = zk_scrub_path(path)
+        if not recursive:
+            try:
+                del self._values[scrubbed_path]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError()
+        else:
+            for path_key in self._values.keys():
+                if scrubbed_path in path_key:
+                    del self._values[path_key]
+    # end delete
 
     def delete(self, path, recursive=False):
         scrubbed_path = zk_scrub_path(path)

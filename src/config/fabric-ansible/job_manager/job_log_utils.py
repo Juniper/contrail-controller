@@ -169,6 +169,9 @@ class JobLogUtils(object):
         args = parser.parse_args(list())
         args.conf_file = config_args.get('fabric_ansible_conf_file')
         args.collectors = config_args.get('collectors')
+        args.host_ip = config_args.get('host_ip')
+        args.zk_server_ip = config_args.get('zk_server_ip')
+        args.cluster_id = config_args.get('cluster_id')
         if isinstance(args.collectors, str):
             args.collectors = args.collectors.split()
         args.sandesh_config = SandeshConfig.from_parser_arguments(args)
