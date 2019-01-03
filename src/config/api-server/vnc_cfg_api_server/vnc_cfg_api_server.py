@@ -596,6 +596,11 @@ class VncApiServer(object):
                 request_params['auth_token'] = auth_token
                 request_params['api_server_host'] = self._config_node_list
 
+                # Send username/password to job from API keystone auth
+                if self._args.admin_user and self._args.admin_password:
+                    request_params['username'] = self._args.admin_user
+                    request_params['password'] = self._args.admin_password
+
                 # pass the required config args to job manager
                 job_args = {'collectors': self._args.collectors,
                             'fabric_ansible_conf_file':

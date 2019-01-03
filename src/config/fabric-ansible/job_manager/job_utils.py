@@ -26,11 +26,19 @@ class JobVncApi(object):
     @staticmethod
     def vnc_init(job_ctx):
         host = random.choice(job_ctx.get('api_server_host'))
-        return VncApi(
-            api_server_host=host,
-            auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
-            auth_token=job_ctx.get('auth_token')
-        )
+        if job_ctx.get('username', None) and job_ctx.get('password', None):
+            return VncApi(
+                api_server_host=host,
+                username=job_ctx.get('username'),
+                password=job_ctx.get('password'),
+                auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY
+            )
+        else:
+            return VncApi(
+                api_server_host=host,
+                auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                auth_token=job_ctx.get('auth_token')
+            )
 
 class JobFileWrite(object):
     JOB_PROGRESS = 'JOB_PROGRESS##'
