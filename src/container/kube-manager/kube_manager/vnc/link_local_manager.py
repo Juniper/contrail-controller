@@ -6,6 +6,7 @@
 Link-local service management functions.
 """
 
+import socket
 from vnc_api.vnc_api import *
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
@@ -24,6 +25,17 @@ def create_link_local_service_entry(vnc_lib, name, service_ip, service_port,
     """
 
     link_local_name = _get_linklocal_entry_name(name, k8s_ns)
+
+    """
+    check if fabric_ip is a valid ip address. If not, assume it is a
+    hostname or fqdn.
+    """
+
+    try:
+        socket.inet_aton(fabric_ip)
+    except socket.error:
+        fabric_dns_svc_name = fabric_ip
+        fabric_ip = ""
 
     # Create a link-local service entry.
     linklocal_obj=LinklocalServiceEntryType(
