@@ -521,7 +521,8 @@
           "supported_device_families": {
             "device_family": [
               "junos",
-              "junos-qfx"
+              "junos-qfx",
+              "junos-ex"
             ]
           },
           "supported_vendor_hardwares": {
@@ -566,7 +567,11 @@
               "juniper-srx4100",
               "juniper-srx1500",
               "juniper-srx240h-poe",
-              "juniper-vsrx"
+              "juniper-vsrx",
+              "juniper-ex4600-40f",
+              "juniper-ex9200",
+              "juniper-ex9214",
+              "ex9214" 
             ]
           }
         }
@@ -820,6 +825,30 @@
             "juniper-vsrx"
           ],
           "name": "juniper-vsrx"
+        },
+        {
+          "fq_name": [
+            "juniper-ex4600-40f"
+          ],
+          "name": "juniper-ex4600-40f"
+        },
+        {
+          "fq_name": [
+            "juniper-ex9200"
+          ],
+          "name": "juniper-ex9200"
+        },
+        {
+          "fq_name": [
+            "juniper-ex9214"
+          ],
+          "name": "juniper-ex9214"
+        },
+        {
+          "fq_name": [
+            "ex9214"
+          ],
+          "name": "ex9214"
         }
       ]
     },
@@ -921,6 +950,46 @@
               }
             ]
           }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex9k"
+          ],
+          "name": "juniper-ex9k",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["CRB-Access"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "CRB-Gateway", "Route-Reflector"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4k"
+          ],
+          "name": "juniper-ex4k",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["CRB-Access"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "CRB-Gateway", "Route-Reflector"]
+              }
+            ]
+          }
         }
       ]
     },
@@ -1016,6 +1085,54 @@
         {
           "fq_name": [
             "default-global-system-config", "juniper-mx", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4k", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4k", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex9k", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex9k", "underlay_ip_clos"
           ],
           "name": "underlay_ip_clos",
           "parent_type": "node-profile",
@@ -1274,6 +1391,24 @@
       "to_fq_name": [ "juniper-vsrx" ]
     },
     {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-ex4600-40f" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-ex9214" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex9214" ]
+    },
+    {
       "from_type": "role_config",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean", "basic" ],
       "to_type": "job_template",
@@ -1318,6 +1453,30 @@
     {
       "from_type": "role_config",
       "from_fq_name": [ "default-global-system-config", "juniper-mx", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+{
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4k", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4k", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config","fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k", "underlay_ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     }
