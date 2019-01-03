@@ -23,11 +23,26 @@
         path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
       register: p
 
+    - name: Calculate feature name specific to the device specific only
+      block:
+        - set_fact:
+            vf_feature: "{{ device_vendor }}_{{ device_family }}-{{ device_model}}_{{ feature }}"
+        - name: Check whether Jinja file exists for this vendor/family/model/feature
+          stat:
+            path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
+          register: p2
+        - name: Mark if device model template found
+          block:
+            - set_fact:
+                found_template: True
+          when: p2.stat.exists
+
     - name: Mark if found
       block:
         - set_fact:
+            vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ feature }}"
             found_template: True
-      when: p.stat.exists
+      when: p.stat.exists and p2.stat.exists == False
 
     - name: Calculate feature name specific to the vendor only
       block:
