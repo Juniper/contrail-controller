@@ -41,7 +41,7 @@ namespace sc = boost::statechart;
     XMPP_UTDEBUG(XmppStateMachineDebug,                                        \
                  (_sm)->connection() ? (_sm)->connection()->ToUVEKey() : "",   \
                  XMPP_PEER_DIR_NA, (_sm)->ChannelType(), _msg);                \
-} while (0);
+} while (false)
 
 namespace xmsm {
 // events

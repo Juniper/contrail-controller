@@ -61,7 +61,7 @@ extern SandeshTraceBufferPtr BgpAsAServiceTraceBuf;
 #define BGPASASERVICETRACE(obj, ...)                                                     \
 do {                                                                                     \
     BgpAsAService##obj::TraceMsg(BgpAsAServiceTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);
+} while (false)
 
 class IFMapNode;
 class BgpAsAService {

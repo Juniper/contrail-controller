@@ -12,9 +12,9 @@ using namespace std;
 #define NH_PER_VM 5
 
 #define EXPECT_TRUE_RET(a) \
-    do { EXPECT_TRUE((a)); if ((a) == false) ret = false; } while(0);
+    do { EXPECT_TRUE((a)); if ((a) == false) ret = false; } while (false)
 #define EXPECT_FALSE_RET(a) \
-    do { EXPECT_FALSE((a)); if ((a) == true) ret = false; }  while(0);
+    do { EXPECT_FALSE((a)); if ((a) == true) ret = false; }  while (false)
 
 class VmiSubscribeEntry;
 static const int kProjectUuid = 101;

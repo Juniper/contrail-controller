@@ -73,12 +73,12 @@ do {                                                                           \
 
 #define XMPP_TRACE(obj, ...) do {                                              \
     obj::TraceMsg(XmppTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);            \
-} while (0);
+} while (false)
 
 #define XMPP_MESSAGE_TRACE(obj, ...) do {                                      \
     if (LoggingDisabled()) break;                                              \
     obj::TraceMsg(XmppMessageTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
-} while (0);
+} while (false)
 
 #define XMPP_CONNECTION_LOG_MSG(info)                                          \
 do {                                                                           \
