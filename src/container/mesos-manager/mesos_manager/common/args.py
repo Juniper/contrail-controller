@@ -123,6 +123,8 @@ def parse_args(args_str=None):
         'cluster_pod_task_network' : None,
         'ip_fabric_forwarding': False,
         'ip_fabric_snat': False,
+        'mesos_agent_retry_sync_hold_time': 2,
+        'mesos_agent_retry_sync_count': 6,
     }
 
     auth_opts = {
