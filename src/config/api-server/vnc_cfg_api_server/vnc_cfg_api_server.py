@@ -420,7 +420,7 @@ class VncApiServer(object):
         '''
         try:
             self.config_log("Entered execute-job",
-                            level=SandeshLevel.SYS_NOTICE)
+                            level=SandeshLevel.SYS_INFO)
 
             # check if the job manager functionality is enabled
             if not self._args.enable_fabric_ansible:
@@ -466,7 +466,7 @@ class VncApiServer(object):
 
             self.config_log("Published job message to RabbitMQ."
                             " Execution id: %s" % execution_id,
-                            level=SandeshLevel.SYS_NOTICE)
+                            level=SandeshLevel.SYS_INFO)
 
             return {'job_execution_id': str(execution_id)}
         except cfgm_common.exceptions.HttpError as e:
@@ -496,7 +496,7 @@ class VncApiServer(object):
             payload (Type object): the message
         '''
         self.config_log("Entered amqp-publish",
-                        level=SandeshLevel.SYS_NOTICE)
+                        level=SandeshLevel.SYS_INFO)
 
         body = get_request().json
         msg = "Amqp publish %s " % json.dumps(body)
@@ -523,7 +523,7 @@ class VncApiServer(object):
             payload (Type object): the message
         '''
         self.config_log("Entered amqp-response",
-                        level=SandeshLevel.SYS_NOTICE)
+                        level=SandeshLevel.SYS_INFO)
 
         body = get_request().json
         msg = "Amqp response %s " % json.dumps(body)
@@ -2029,6 +2029,7 @@ class VncApiServer(object):
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             if amqp_client is not None:
                 amqp_client.stop()
+            return None
         return amqp_client
 
     @property
