@@ -377,6 +377,6 @@ private:
 #define FLOW_TRACE(obj, ...)\
 do {\
     Flow##obj::TraceMsg(FlowTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while(false);\
+} while (false)
 
 #endif // __AGENT_FLOW_TABLE_MGMT_H__

@@ -201,7 +201,7 @@ do {                                                                       \
             ((tbl) && (tbl)->routing_instance()) ?                         \
                 (tbl)->routing_instance()->name() : "",                    \
             _os.str());                                                    \
-} while (false);
+} while (false)
 
 #define BGP_LOG_PEER_INSTANCE(peer, instance, level, flags, arg)           \
 do {                                                                       \

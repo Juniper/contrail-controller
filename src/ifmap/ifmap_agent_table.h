@@ -20,7 +20,7 @@ extern SandeshTraceBufferPtr IFMapAgentTraceBuf;
 #define IFMAP_AGENT_TRACE(obj, ...) do {                                      \
     if (LoggingDisabled()) break;                                              \
     IFMapAgent##obj::TraceMsg(IFMapAgentTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
-} while (0);
+} while (false)
 
 
 class DBGraph;

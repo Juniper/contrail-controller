@@ -237,7 +237,7 @@ do {\
         AgentXmpp##obj::TraceMsg(ControllerRxRouteMessageTraceBuf2, __FILE__, \
                                  __LINE__, __VA_ARGS__);\
     } \
-} while(0);\
+} while (false)
 
 #define CONTROLLER_RX_CONFIG_MESSAGE_TRACE(obj, index, ...)\
 do {\
@@ -248,12 +248,12 @@ do {\
         AgentXmpp##obj::TraceMsg(ControllerRxConfigMessageTraceBuf2, __FILE__, \
                                  __LINE__, __VA_ARGS__);\
     } \
-} while(0);\
+} while (false)
 
 #define CONTROLLER_INFO_TRACE(obj, ...)\
 do {\
     AgentXmpp##obj::TraceMsg(ControllerInfoTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(0);\
+} while (false)
 
 #define CONTROLLER_TX_CONFIG_TRACE(obj, index, ...)\
 do {\
@@ -262,22 +262,22 @@ do {\
     } else { \
         AgentXmpp##obj::TraceMsg(ControllerTxConfigTraceBuf2, __FILE__, __LINE__, __VA_ARGS__);\
     } \
-} while(0);\
+} while (false)
 
 #define CONTROLLER_ROUTE_WALKER_TRACE(obj, ...)\
 do {\
     AgentXmpp##obj::TraceMsg(ControllerRouteWalkerTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(0);\
+} while (false)
 
 #define CONTROLLER_CONNECTIONS_TRACE(obj, ...)\
 do {\
     AgentXmpp##obj::TraceMsg(ControllerConnectionsTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(0);\
+} while (false)
 
 #define CONTROLLER_TRACE(obj, ...)\
 do {\
     AgentXmpp##obj::TraceMsg(ControllerTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(0);\
+} while (false)
 
 #define CONTROLLER_TX_MESSAGE_TRACE(obj, index, ...)\
 do {\
@@ -288,6 +288,6 @@ do {\
         AgentXmpp##obj::TraceMsg(ControllerTxMessageTraceBuf2, __FILE__, \
                                  __LINE__, __VA_ARGS__);\
     } \
-} while(0);\
+} while (false)
 
 #endif

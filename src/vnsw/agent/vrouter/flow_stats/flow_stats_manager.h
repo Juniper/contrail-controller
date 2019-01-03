@@ -18,7 +18,7 @@ extern SandeshTraceBufferPtr FlowExportStatsTraceBuf;
 #define FLOW_EXPORT_STATS_TRACE(...)\
 do {\
     FlowExportStatsTrace::TraceMsg(FlowExportStatsTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(0);
+} while (false)
 
 class FlowStatsCollector;
 class FlowStatsCollectorObject;

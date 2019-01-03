@@ -319,6 +319,6 @@ extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
 #define FLOW_TRACE(obj, ...)\
 do {\
     Flow##obj::TraceMsg(FlowTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while(false);\
+} while (false)
 
 #endif
