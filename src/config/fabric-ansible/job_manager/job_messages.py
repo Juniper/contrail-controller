@@ -43,7 +43,9 @@ class MsgBundle(object):
     PLAYBOOK_STATUS_FAILED = 41,
     PLAYBOOK_OUTPUT_MISSING = 42,
     EMPTY_DEVICE_LIST = 43,
-    PRODUCT_NAME_MISSING = 44
+    PRODUCT_NAME_MISSING = 44,
+    DEVICE_LOCK_FAILURE = 45,
+    ZK_INIT_FAILURE = 46
     _msgs = {
         'en': {
             JOB_TEMPLATE_MISSING: 'job_template_id is missing '
@@ -160,7 +162,9 @@ class MsgBundle(object):
                              'playbook "{playbook_name}"',
             JOB_EXC_REC_HDR: 'Job Exception recieved: ',
             EXC_JOB_ERR_HDR: 'Error while executing job ',
-            EMPTY_DEVICE_LIST: 'Need to pass a valid device list '
+            EMPTY_DEVICE_LIST: 'Need to pass a valid device list ',
+            DEVICE_LOCK_FAILURE: 'Failed to acquire device level lock ',
+            ZK_INIT_FAILURE: 'Failed to initialize zoo keeper client'
         }
     }
 

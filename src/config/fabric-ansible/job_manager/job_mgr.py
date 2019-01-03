@@ -11,7 +11,9 @@ import json
 import jsonschema
 import argparse
 import traceback
+import socket
 
+from cfgm_common.zkclient import ZookeeperClient
 from job_manager.job_handler import JobHandler
 from job_manager.job_exception import JobException
 from job_manager.job_log_utils import JobLogUtils
@@ -30,7 +32,8 @@ monkey.patch_socket()
 class JobManager(object):
 
     def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
-                 result_handler, job_utils, playbook_seq, job_percent):
+                 result_handler, job_utils, playbook_seq, job_percent,
+                 zk_client):
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_execution_id = None
@@ -48,6 +51,7 @@ class JobManager(object):
         self.playbook_seq = playbook_seq
         self.result_handler = result_handler
         self.job_percent = job_percent
+        self._zk_client = zk_client
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -85,7 +89,8 @@ class JobManager(object):
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq,
-                                 self.vnc_api_init_params)
+                                 self.vnc_api_init_params,
+                                 self._zk_client)
 
         if self.device_json is not None:
             if not self.device_json:
@@ -142,7 +147,7 @@ class JobManager(object):
 
 class WFManager(object):
 
-    def __init__(self, logger, vnc_api, job_input, job_log_utils):
+    def __init__(self, logger, vnc_api, job_input, job_log_utils, zk_client):
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_input = job_input
@@ -156,6 +161,7 @@ class WFManager(object):
         self.job_utils = JobUtils(self.job_execution_id,
                                   self.job_template_id,
                                   self._logger, self._vnc_api)
+        self._zk_client = zk_client
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -258,7 +264,7 @@ class WFManager(object):
                                          self.job_input, self.job_log_utils,
                                          job_template,
                                          self.result_handler, self.job_utils, i,
-                                         job_percent)
+                                         job_percent, self._zk_client)
                     job_mgr.start_job()
 
                     # retry the playbook execution if retry_devices is added to
@@ -363,6 +369,33 @@ def initialize_vnc_api(auth_token, api_server_host, vnc_api_init_params):
     return vnc_api
 
 
+def initialize_zookeeper_client(args):
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
+
+    if args.cluster_id:
+        client_pfx = args.cluster_id + '-'
+    else:
+        client_pfx = ''
+
+    zookeeper_client = ZookeeperClient(client_pfx+"job-manager",
+                                        args.zk_server_ip, host_ip)
+    return zookeeper_client
+
+
+def handle_init_failure(job_input_json, error_num, error_msg):
+    logger.error(MsgBundle.getMessage(error_num,
+                                      exc_msg=traceback.format_exc()))
+    msg = MsgBundle.getMessage(error_num, exc_msg=error_msg)
+    job_log_utils.send_job_log(job_input_json.get('job_template_fq_name'),
+                               job_input_json.get('job_execution_id'),
+                               job_input_json.get('fabric_fq_name'),
+                               msg, JobStatus.FAILURE)
+    sys.exit(msg)
+
+
 if __name__ == "__main__":
 
     # parse the params passed to the job manager process and initialize
@@ -393,29 +426,24 @@ if __name__ == "__main__":
                                      job_input_json.get('vnc_api_init_params'))
         logger.info("VNC api is initialized.")
     except Exception as exp:
-        logger.error(MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
-                                          exc_msg=traceback.format_exc()))
-        msg = MsgBundle.getMessage(MsgBundle.VNC_INITIALIZATION_ERROR,
-                                   exc_msg=repr(exp))
-        job_log_utils.send_job_log(job_input_json.get('job_template_fq_name'),
-                                   job_input_json.get('job_execution_id'),
-                                   job_input_json.get('fabric_fq_name'),
-                                   msg, JobStatus.FAILURE)
-        sys.exit(msg)
+        handle_init_failure(job_input_json, MsgBundle.VNC_INITIALIZATION_ERROR,
+                            repr(exp))
+
+    # initialize zk
+    zk_client = None
+    try:
+        zk_client = initialize_zookeeper_client(logger._args)
+        logger.info("Zookeeper client is initialized.")
+    except Exception as exp:
+        handle_init_failure(job_input_json, MsgBundle.ZK_INIT_FAILURE,
+                            repr(exp))
 
     # invoke job manager
     try:
         workflow_manager = WFManager(logger, vnc_api, job_input_json,
-                                     job_log_utils)
+                                     job_log_utils, zk_client)
         logger.info("Job Manager is initialized. Starting job.")
         workflow_manager.start_job()
     except Exception as exp:
-        logger.error(MsgBundle.getMessage(MsgBundle.JOB_ERROR,
-                                          exc_msg=traceback.format_exc()))
-        msg = MsgBundle.getMessage(MsgBundle.JOB_ERROR,
-                                   exc_msg=repr(exp))
-        job_log_utils.send_job_log(job_input_json.get('job_template_fq_name'),
-                                   job_input_json.get('job_execution_id'),
-                                   job_input_json.get('fabric_fq_name'),
-                                   msg, JobStatus.FAILURE)
-        sys.exit(msg)
+        handle_init_failure(job_input_json, MsgBundle.JOB_ERROR,
+                            repr(exp))
