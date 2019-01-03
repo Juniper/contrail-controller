@@ -252,6 +252,12 @@ class DeviceManager(object):
             'self': ['e2_service_provider'],
             'e2_service_provider': [],
         },
+        'node': {
+            'self': ['port'],
+        },
+        'port': {
+            'self': ['physical_interface'],
+        },
     }
 
     _device_manager = None

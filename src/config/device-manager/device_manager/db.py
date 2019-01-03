@@ -571,7 +571,7 @@ class PhysicalRouterDM(DBBaseDM):
     def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
-            vn = VirtualNetworkDM.get(vn_uuid)
+            vn = DM.get(vn_uuid)
             if not vn:
                 continue
             # dont need irb ip, gateway ip
@@ -982,6 +982,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.interface_type = obj.get('physical_interface_type')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
+        self.update_single_ref('port', obj)
         return obj
     # end update
 
@@ -1397,7 +1398,7 @@ class LogicalRouterDM(DBBaseDM):
 # end LogicalRouterDM
 
 
-class VirtualNetworkDM(DBBaseDM):
+class VirtualNetworkDM(DBBaseVirtualNetworkDM):
     _dict = {}
     obj_type = 'virtual_network'
 
@@ -1459,6 +1460,7 @@ class VirtualNetworkDM(DBBaseDM):
         if obj["fq_name"] == ['default-domain', 'default-project', 'dci-network']:
             DataCenterInterconnectDM.set_dci_network(self)
         self.update_multiple_refs('physical_router', obj)
+        self.update_single_ref('tag', obj)
         self.set_children('floating_ip_pool', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
@@ -2206,6 +2208,61 @@ class NodeProfileDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
     # end update
 # end class NodeProfileDM
+
+
+class NodeDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'node'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.update_multiple_refs('port', obj)
+    # end update
+
+
+class PortDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'port'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.update_single_ref('tag', obj)
+    # end update
+
+    def get_associated_virtual_networks(self):
+        for tag in self.tags:
+
+
+class TagDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'port'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.update_multiple_refs('virtual_network', obj)
+    # end update
+
 
 class LinkAggregationGroupDM(DBBaseDM):
     _dict = {}

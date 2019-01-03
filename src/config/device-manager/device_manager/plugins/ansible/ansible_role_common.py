@@ -1005,11 +1005,43 @@ class AnsibleRoleCommon(AnsibleConf):
         return
     # end build_ri_config
 
+    def build_server_config(self):
+        pr = self.physical_router
+        if not pr:
+            return
+        pi_vn = {}
+        for pi in pr.physical_interfaces:
+            pi_obj = PhysicalInterfaceDM(pi)
+            if pi_obj.port:
+                pi_vn[pi] = []
+                port = PortDM(pi_obj.port)
+                if port.tag:
+                    tag_obj = TagDM(port.tag)
+                    pi_vn[pi].append(tag_obj.virtual_networks)
+        if not pi_vn:
+            return
+        irb_intf, li_map = self.set_default_pi('irb', 'irb')
+
+        intf_unit = self.set_default_li(li_map,
+                                        'irb.' + str(network_id),
+                                        network_id)
+        intf_unit.set_comment(DMUtils.vn_irb_comment(vn, False, is_l2_l3))
+        for (irb_ip, gateway) in gateways:
+            intf_unit.add_ip_list(irb_ip)
+            if len(gateway) and gateway != '0.0.0.0':
+                intf_unit.set_gateway(gateway)
+
+
+
+
+
+
     def set_common_config(self):
         if self.physical_router.is_ztp():
             self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return
+        self.build_server_config()
         self.build_bgp_config()
         self.build_dci_bgp_config()
         self.build_ri_config()
