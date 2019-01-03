@@ -420,7 +420,7 @@ class VncApiServer(object):
         '''
         try:
             self.config_log("Entered execute-job",
-                            level=SandeshLevel.SYS_NOTICE)
+                            level=SandeshLevel.SYS_INFO)
 
             # check if the job manager functionality is enabled
             if not self._args.enable_fabric_ansible:
@@ -446,8 +446,10 @@ class VncApiServer(object):
                 (ok, cfg_node_list, _) = self._db_conn.dbe_list(
                     'config_node', field_names=['config_node_ip_address'])
                 if not ok:
-                    (code, err_msg) = cfg_node_list
-                    raise cfgm_common.exceptions.HttpError(code, err_msg)
+                    raise cfgm_common.exceptions.HttpError(
+                        500, 'Error in dbe_list while getting the '
+                             'config_node_ip_address'
+                             ' %s' % cfg_node_list)
                 if not cfg_node_list:
                     err_msg = "Config-Node list empty"
                     raise cfgm_common.exceptions.HttpError(404, err_msg)
@@ -466,7 +468,7 @@ class VncApiServer(object):
 
             self.config_log("Published job message to RabbitMQ."
                             " Execution id: %s" % execution_id,
-                            level=SandeshLevel.SYS_NOTICE)
+                            level=SandeshLevel.SYS_INFO)
 
             return {'job_execution_id': str(execution_id)}
         except cfgm_common.exceptions.HttpError as e:
@@ -496,7 +498,7 @@ class VncApiServer(object):
             payload (Type object): the message
         '''
         self.config_log("Entered amqp-publish",
-                        level=SandeshLevel.SYS_NOTICE)
+                        level=SandeshLevel.SYS_INFO)
 
         body = get_request().json
         msg = "Amqp publish %s " % json.dumps(body)
@@ -523,7 +525,7 @@ class VncApiServer(object):
             payload (Type object): the message
         '''
         self.config_log("Entered amqp-response",
-                        level=SandeshLevel.SYS_NOTICE)
+                        level=SandeshLevel.SYS_INFO)
 
         body = get_request().json
         msg = "Amqp response %s " % json.dumps(body)
@@ -2029,6 +2031,7 @@ class VncApiServer(object):
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             if amqp_client is not None:
                 amqp_client.stop()
+            return None
         return amqp_client
 
     @property
