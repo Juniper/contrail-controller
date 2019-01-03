@@ -23,11 +23,30 @@
         path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
       register: p
 
+    - name: Calculate feature name specific to the device series specific only 
+      block:
+        - name: Find all templates exists for device series
+          find:
+            paths: "{{ feature_role_dir }}/templates/"
+            patterns: "{{ device_vendor }}_{{ device_family  }}_[*.j2"
+          register: found_templates 
+
+        - name: Find the template for current device specific
+          set_fact:
+            vf_feature: "{{ item.path | basename | regex_replace('.j2') }}"
+            found_template: True
+          with_items: "{{ found_templates.files  }}"
+          when:
+            - not item is skipped
+            - item.path | basename | regex_search('\[(.*?)\]', '\\1') | first in device_model
+      when: device_model is defined and device_model != ''    
+
     - name: Mark if found
       block:
         - set_fact:
+            vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ feature }}"
             found_template: True
-      when: p.stat.exists
+      when: p.stat.exists and found_template == False
 
     - name: Calculate feature name specific to the vendor only
       block:

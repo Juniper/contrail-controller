@@ -590,7 +590,8 @@
           "supported_device_families": {
             "device_family": [
               "junos",
-              "junos-qfx"
+              "junos-qfx",
+              "junos-ex"
             ]
           },
           "supported_vendor_hardwares": {
@@ -635,7 +636,30 @@
               "juniper-srx4100",
               "juniper-srx1500",
               "juniper-srx240h-poe",
-              "juniper-vsrx"
+              "juniper-vsrx",
+              "ex9214",
+              "ex9204",
+              "ex9208",
+              "ex9251",
+              "ex9253",
+              "ex4600-40f",
+              "ex4650",
+              "ex2300-24mp",
+              "ex2300-48mp",
+              "ex2300-24p",
+              "ex2300-48p",
+              "ex2300-24t",
+              "ex2300-48t",
+              "ex3400-24p",
+              "ex3400-48p",
+              "ex3400-24t",
+              "ex3400-48t",
+              "ex4300-48mp",
+              "ex4300-24p",
+              "ex4300-48p",
+              "ex4300-24t",
+              "ex4300-48t",
+              "ex4300-32f"
             ]
           }
         }
@@ -889,6 +913,144 @@
             "juniper-vsrx"
           ],
           "name": "juniper-vsrx"
+        },
+        {
+          "fq_name": [
+            "ex9204"
+          ],
+          "name": "ex9204"
+        },
+        {
+          "fq_name": [
+            "ex9208"
+          ],
+          "name": "ex9208"
+        },
+        {
+          "fq_name": [
+            "ex9214"
+          ],
+          "name": "ex9214"
+        },
+        {
+          "fq_name": [
+            "ex9251"
+          ],
+          "name": "ex9251"
+        },
+        {
+          "fq_name": [
+            "ex9253"
+          ],
+          "name": "ex9253"
+        },
+        {
+          "fq_name": [
+            "ex4600-40f"
+          ],
+          "name": "ex4600-40f"
+        },
+        {
+          "fq_name": [
+            "ex4650"
+          ],
+          "name": "ex4650"
+        },
+        {
+          "fq_name": [
+            "ex2300-24mp"
+          ],
+          "name": "ex2300-24mp"
+        },
+        {
+          "fq_name": [
+            "ex2300-48mp"
+          ],
+          "name": "ex2300-48mp"
+        },
+        {
+          "fq_name": [
+            "ex2300-24p"
+          ],
+          "name": "ex2300-24p"
+        },
+        {
+          "fq_name": [
+            "ex2300-48p"
+          ],
+          "name": "ex2300-48p"
+        },
+        {
+          "fq_name": [
+            "ex2300-24t"
+          ],
+          "name": "ex2300-24t"
+        },
+        {
+          "fq_name": [
+            "ex2300-48t"
+          ],
+          "name": "ex2300-48t"
+        },
+        {
+          "fq_name": [
+            "ex3400-24p"
+          ],
+          "name": "ex3400-24p"
+        },
+        {
+          "fq_name": [
+            "ex3400-48p"
+          ],
+          "name": "ex3400-48p"
+        },
+        {
+          "fq_name": [
+            "ex3400-24t"
+          ],
+          "name": "ex3400-24t"
+        },
+        {
+          "fq_name": [
+            "ex3400-48t"
+          ],
+          "name": "ex3400-48t"
+        },
+        {
+          "fq_name": [
+            "ex4300-48mp"
+          ],
+          "name": "ex4300-48mp"
+        },
+        {
+          "fq_name": [
+            "ex4300-24p"
+          ],
+          "name": "ex4300-24p"
+        },
+        {
+          "fq_name": [
+            "ex4300-48p"
+          ],
+          "name": "ex4300-48p"
+        },
+        {
+          "fq_name": [
+            "ex4300-24t"
+          ],
+          "name": "ex4300-24t"
+        },
+        {
+          "fq_name": [
+            "ex4300-48t"
+          ],
+          "name": "ex4300-48t"
+        },
+        {
+          "fq_name": [
+            "ex4300-32f"
+          ],
+          "name": "ex4300-32f"
         }
       ]
     },
@@ -990,7 +1152,111 @@
               }
             ]
           }
-        }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex9k"
+          ],
+          "name": "juniper-ex9k",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["CRB-Access"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["CRB-Gateway", "Route-Reflector", "CRB-MCAST-Gateway"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex43h"
+          ],
+          "name": "juniper-ex43h",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex3k"
+          ],
+          "name": "juniper-ex3k",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex2k"
+          ],
+          "name": "juniper-ex2k",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4650"
+          ],
+          "name": "juniper-ex4650",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["CRB-Access"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["CRB-Gateway", "Route-Reflector", "CRB-MCAST-Gateway"]
+              }
+            ]
+          }
+        },                      
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4600"
+          ],
+          "name": "juniper-ex4600",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["CRB-Access"]
+              }
+            ]
+          }
+        }   
       ]
     },
     {
@@ -1085,6 +1351,150 @@
         {
           "fq_name": [
             "default-global-system-config", "juniper-mx", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4600", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4600", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4650", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex4650", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex43h", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex43h", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },      
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex2k", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex2k", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex3k", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex3k", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },           
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex9k", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-ex9k", "underlay_ip_clos"
           ],
           "name": "underlay_ip_clos",
           "parent_type": "node-profile",
@@ -1343,6 +1753,144 @@
       "to_fq_name": [ "juniper-vsrx" ]
     },
     {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4600" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4600-40f" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4650" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4650" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex2300-24mp" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex2300-48mp" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex2300-24p" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex2300-48p" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex2300-24t" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex2300-48t" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex3k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex3400-24p" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex3k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex3400-48p" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex3k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex3400-24t" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex3k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex3400-48t" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4300-24p" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4300-48p" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4300-24t" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4300-48t" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4300-32f" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex4300-48mp" ]
+    },  
+    {  
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex9204" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex9208" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex9214" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex9251" ]
+    },
+            {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "ex9253" ]
+    },  
+    {
       "from_type": "role_config",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean", "basic" ],
       "to_type": "job_template",
@@ -1389,6 +1937,79 @@
       "from_fq_name": [ "default-global-system-config", "juniper-mx", "underlay_ip_clos" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex9k", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex2k", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex3k", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex3k", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex43h", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4600", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4600", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4650", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-ex4650", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     }
+
   ]
 }
