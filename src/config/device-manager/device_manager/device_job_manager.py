@@ -10,12 +10,12 @@ import signal
 import ast
 import traceback
 
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
     PhysicalRouterJobExecution, PhysicalRouterJobUve
 from job_manager.job_utils import JobStatus
 from job_manager.job_log_utils import JobLogUtils
 from job_manager.job_exception import JobException
+from cfgm_common.exceptions import ResourceExistsError
 from cfgm_common.exceptions import *
 
 
@@ -27,6 +27,7 @@ class DeviceJobManager(object):
     JOB_STATUS_EXCHANGE = "job_status_exchange"
     JOB_STATUS_ROUTING_KEY = "job.status."
     JOB_STATUS_TTL = 5*60
+    FABRIC_ZK_LOCK = "fabric-job-monitor"
 
     _instance = None
 
@@ -47,15 +48,19 @@ class DeviceJobManager(object):
         # instance info
         self._job_mgr_running_instances = {}
 
-        # initialize the job logger
-        job_logger_args = {
+        job_args = {
             'collectors': self._args.collectors,
-            'fabric_ansible_conf_file': self._args.fabric_ansible_conf_file
+            'fabric_ansible_conf_file': self._args.fabric_ansible_conf_file,
+            'host_ip': self._args.host_ip,
+            'zk_server_ip': self._args.zk_server_ip,
+            'cluster_id': self._args.cluster_id
         }
-        self._job_logger_args = json.dumps(job_logger_args)
+        self._job_args = json.dumps(job_args)
+
+        # initialize the job logger
         self._job_log_utils = JobLogUtils(
             sandesh_instance_id="DeviceJobManager" + str(time.time()),
-            config_args=self._job_logger_args,
+            config_args=self._job_args,
             sandesh_instance=dm_logger._sandesh)
         self._logger = self._job_log_utils.config_logger
         self._sandesh = self._logger._sandesh
@@ -196,16 +201,14 @@ class DeviceJobManager(object):
                         device_list, job_input_params, fabric_job_uve_name,
                         JobStatus.STARTING.value, 0.0)
 
-                # after creating the UVE, update the UVE upon any failures
+                # after creating the UVE, flag indicates to update the
+                # UVE upon any failures
                 update_uve_on_failure = True
-
-                # read the job concurrency level from job template
-                job_concurrency = job_input_params.get('job_concurrency')
 
                 # check if there is any other job running for the fabric
                 if job_concurrency is not None and job_concurrency == "fabric":
-                    existing_job = self.is_existing_job_for_fabric(
-                        fabric_fq_name)
+                    existing_job = self._is_existing_job_for_fabric(
+                        fabric_fq_name, job_execution_id)
                     if existing_job:
                         msg = "Another job for the same fabric is in" \
                               " progress. Please wait for the job to finish"
@@ -221,6 +224,7 @@ class DeviceJobManager(object):
             start_time = time.time()
             signal_var = {
                 'fabric_name': fabric_job_uve_name,
+                'fabric_fq_name': fabric_fq_name,
                 'start_time': start_time,
                 'exec_id': job_execution_id,
                 'device_fqnames': device_fqnames,
@@ -239,7 +243,7 @@ class DeviceJobManager(object):
             self.save_abstract_config(job_input_params)
 
             # add params needed for sandesh connection
-            job_input_params['args'] = self._job_logger_args
+            job_input_params['args'] = self._job_args
 
             # create job manager subprocess
             job_mgr_path = os.path.dirname(
@@ -356,12 +360,14 @@ class DeviceJobManager(object):
                     if line.startswith('job_summary'):
                         job_log = self._load_job_log('JOB_LOG##', line)
                         status = job_log.get('job_status')
-                        failed_devices_list = job_log.get('failed_devices_list')
+                        failed_devices_list = job_log.get(
+                            'failed_devices_list')
                     if 'GENERIC_DEVICE##' in line:
                         job_log = self._load_job_log(
                             'GENERIC_DEVICE##', line)
                         device_name = job_log.get('device_name')
-                        device_op_results[device_name] = job_log.get('command_output')
+                        device_op_results[device_name] = job_log.get(
+                            'command_output')
         except Exception as e:
             msg = "File corresponding to execution id %s not found: %s\n%s" % (
                 execution_id, str(e), traceback.format_exc())
@@ -370,6 +376,8 @@ class DeviceJobManager(object):
         return status, prouter_info, device_op_results, failed_devices_list
 
     def job_mgr_signal_handler(self, signalnum, frame):
+        pid = None
+        signal_var = None
         try:
             # get the child process id that called the signal handler
             pid = os.waitpid(-1, os.WNOHANG)
@@ -377,7 +385,7 @@ class DeviceJobManager(object):
             if not signal_var:
                 self._logger.error(
                     "Job mgr process %s not found in the instance "
-                    "map" % str(pid), level=SandeshLevel.SYS_ERR)
+                    "map" % str(pid))
                 return
 
             msg = "Entered job_mgr_signal_handler for: %s" % signal_var
@@ -429,11 +437,7 @@ class DeviceJobManager(object):
                     data=prouter_job_data, sandesh=self._sandesh)
                 prouter_job_uve.send(sandesh=self._sandesh)
 
-            # remove the pid entry of the processed job_mgr process
-            del self._job_mgr_running_instances[str(pid[0])]
-
-            self._job_mgr_statistics['number_processess_running'] = len(
-                self._job_mgr_running_instances)
+            self._clean_up_job_data(signal_var, str(pid[0]))
 
             self._logger.info("Job : %s finished. Current number of job_mgr "
                               "processes running now %s " %
@@ -443,14 +447,56 @@ class DeviceJobManager(object):
         except OSError as process_error:
             self._logger.error("Could not retrieve the child process id. "
                                "OS call returned with error %s" %
-                               str(process_error), level=SandeshLevel.SYS_ERR)
+                               str(process_error))
+        except Exception as unknown_exception:
+            self._clean_up_job_data(signal_var, str(pid[0]))
+            self._logger.error("Failed in job signal handler %s" %
+                               str(unknown_exception))
 
-    def is_existing_job_for_fabric(self, fabric_name):
-        for job_info in self._job_mgr_running_instances.values():
-            if fabric_name in job_info.get('fabric_name') and job_info.get(
-                    'job_concurrency') == 'fabric':
-                return True
-        return False
+    def _clean_up_job_data(self, signal_var, pid):
+        # remove the pid entry of the processed job_mgr process
+        del self._job_mgr_running_instances[pid]
+
+        # clean up fabric level lock
+        if signal_var.get('job_concurrency') \
+                is not None and signal_var.get('job_concurrency') == "fabric":
+            self._release_fabric_job_lock(signal_var.get('fabric_fq_name'))
+
+        self._job_mgr_statistics['number_processess_running'] = len(
+            self._job_mgr_running_instances)
+
+    def _is_existing_job_for_fabric(self, fabric_fq_name, job_execution_id):
+        is_fabric_job_running = False
+        # build the zk lock path
+        fabric_node_path = '/job-manager/' + fabric_fq_name + '/' + \
+                           self.FABRIC_ZK_LOCK
+        # check if the lock is already taken if not taken, acquire the lock
+        # by creating a node
+        try:
+            self._zookeeper_client.create_node(fabric_node_path,
+                                               value=job_execution_id,
+                                               ephemeral=True)
+            self._logger.info("Acquired fabric lock"
+                              " for %s " % fabric_node_path)
+        except ResourceExistsError:
+            # means the lock was acquired by some other job
+            value = self._zookeeper_client.read_node(fabric_node_path)
+            self._logger.error("Fabric lock is already acquired by"
+                               " job %s " % value)
+            is_fabric_job_running = True
+        return is_fabric_job_running
+
+    def _release_fabric_job_lock(self, fabric_fq_name):
+        # build the zk lock path
+        fabric_node_path = '/job-manager/' + fabric_fq_name + '/' + \
+                           self.FABRIC_ZK_LOCK
+        try:
+            self._zookeeper_client.delete_node(fabric_node_path)
+            self._logger.info("Released fabric lock"
+                              " for %s " % fabric_node_path)
+        except Exception as zk_error:
+            self._logger.error("Exception while releasing the zookeeper lock"
+                               " %s " % repr(zk_error))
 
     def save_abstract_config(self, job_params):
         """
