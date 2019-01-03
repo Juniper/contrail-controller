@@ -157,3 +157,11 @@ class VncMesosConfig(object):
         if vn_name:
             return vn_name
         return cls.cluster_name() + '-default-pod-task-network'
+
+    @classmethod
+    def get_mesos_agent_retry_sync_hold_time(cls):
+        return cls.args().mesos_agent_retry_sync_hold_time
+
+    @classmethod
+    def get_mesos_agent_retry_sync_count(cls):
+        return cls.args().mesos_agent_retry_sync_count
