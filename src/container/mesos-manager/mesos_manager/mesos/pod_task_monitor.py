@@ -90,9 +90,9 @@ class PodTaskMonitor(object):
         event_type = event['event_type']
         node_ip = event['labels']['node-ip']
         found = True;
-        while found:
-            #Fix me: Get this as parameter
-            time.sleep(2)
+        interval = vnc_mesos_config.get_mesos_agent_retry_sync_count()
+        while (interval > 0) and found:
+            time.sleep(vnc_mesos_config.get_mesos_agent_retry_sync_hold_time())
             result = PodTaskMonitor.get_task(node_ip)
             for container_info in result['get_containers']['containers']:
                 if container_info['container_id']['value'] == event_type.encode('utf-8'):
@@ -107,6 +107,7 @@ class PodTaskMonitor(object):
                     VirtualMachineMM.locate(vm_uuid)
                     if vm_obj:
                         found = False
+            interval -= 1
 
     def sync_process(self):
         """Process event from the work queue"""
