@@ -303,7 +303,10 @@ class VncEtcd(VncEtcdClient):
         """
         key = self._key_prefix(obj_type)
         response = self._client.get_prefix(key)
-        return (self._patch_refs_to(json.loads(resp[0])) for resp in response)
+        if response:
+            return (self._patch_refs_to(json.loads(resp[0])) for resp in response)
+        else:
+            return []
 
     @_handle_conn_error
     def object_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
@@ -549,6 +552,38 @@ class VncEtcd(VncEtcdClient):
             result = result[:paginate_count]
         ret_marker = None if not result else result[-1]['uuid']
         return result, ret_marker
+
+    @_handle_conn_error
+    def get_prefix_by_obj_type(self, obj_type):
+        """List all objects with given prefix.
+
+        :param (str) obj_type: type of objects to be listed
+        :return: (gen) generator with dict resources
+        """
+        key = self._key_prefix(obj_type)
+        return self._client.get_prefix(key)
+
+    @_handle_conn_error
+    def put_with_obj_type(self, obj_type, name, value):
+        """List all objects with given prefix.
+
+        :param obj_type (str): type of object
+        :param name (str): UUID of object
+        :param value (Any): data to store, typically a string (object
+                            serialized with jsonpickle.encode)
+        """
+        key = self._key_obj(obj_type, name)
+        self._client.put(key, value)
+
+    @_handle_conn_error
+    def delete_with_obj_type(self, obj_type, name):
+        """Remove an object given its obj_type and name.
+
+        :param (str) obj_type: type of object
+        :param name (str): UUID of object
+        """
+        key = self._key_obj(obj_type, name)
+        self._client.delete(key)
 
 
 class EtcdCache(object):
