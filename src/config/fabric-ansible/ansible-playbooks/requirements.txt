@@ -14,3 +14,4 @@ junos-eznc>=2.1.7
 requests>=2.11.1
 python-swiftclient>=3.5.0
 python-keystoneclient>=3.10.0
+jsnapy==1.3.2
