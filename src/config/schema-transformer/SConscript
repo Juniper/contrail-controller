@@ -30,7 +30,9 @@ local_sources = [
            'to_bgp.py',
            'config_db.py',
            'db.py',
+           'etcd.py',
            'st_amqp.py',
+           'st_amqp_etcd.py',
            'logger.py',
           ]
 
