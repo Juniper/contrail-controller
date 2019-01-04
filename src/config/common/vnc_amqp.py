@@ -238,5 +238,8 @@ class VncAmqpHandle(object):
                     if self.timer:
                         self.timer.timed_yield()
 
+    def greenlets(self):
+        return self._vnc_kombu.greenlets()
+
     def close(self):
         self._vnc_kombu.shutdown()

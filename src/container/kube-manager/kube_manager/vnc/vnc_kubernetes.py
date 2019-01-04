@@ -113,7 +113,7 @@ class VncKubernetes(VncCommon):
         if self.args.notification_driver == "etcd":
             etcd_cfg = vnc_etcd.etcd_args(self.args)
             self.notifier = vnc_etcd.VncEtcdWatchHandle(self.logger._sandesh, self.logger, DBBaseKM,
-                                          REACTION_MAP, etcd_cfg)
+                                          REACTION_MAP, etcd_cfg, self.args.host_ip)
         else:
             rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
             self.notifier = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
