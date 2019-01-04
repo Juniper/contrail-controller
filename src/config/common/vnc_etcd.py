@@ -178,7 +178,6 @@ class VncEtcdWatchClient(VncEtcdClient):
 
         self._consumer, self._cancel = self._client.watch_prefix(self._prefix)
 
-
     def _connection_watch(self, connected):
         if not connected:
             self._reconnect()
@@ -255,6 +254,14 @@ class VncEtcd(VncEtcdClient):
         key_prefix = self._key_prefix(obj_type)
         return "{prefix}{id}".format(prefix=key_prefix, id=obj_id)
 
+    def _key_path(self, key):
+        """Combine and return self._prefix with given key.
+
+        :param (str) key: key of an
+        :return: (str) full key ie: "/contrail/virtual_network/aaa-bbb-ccc"
+        """
+        return "{prefix}/{key}".format(prefix=self._prefix, key=key)
+
     @_handle_conn_error
     def object_read(self, obj_type, obj_uuids, field_names=None,
                     ret_readonly=False):
@@ -305,7 +312,10 @@ class VncEtcd(VncEtcdClient):
         """
         key = self._key_prefix(obj_type)
         response = self._client.get_prefix(key)
-        return (self._patch_refs_to(json.loads(resp[0])) for resp in response)
+        if response:
+            return (self._patch_refs_to(json.loads(resp[0])) for resp in response)
+        else:
+            return []
 
     @_handle_conn_error
     def object_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
@@ -551,6 +561,40 @@ class VncEtcd(VncEtcdClient):
             result = result[:paginate_count]
         ret_marker = None if not result else result[-1]['uuid']
         return result, ret_marker
+
+    @_handle_conn_error
+    def list_kv(self, path):
+        """List all objects with prefix consisting of self._prefix
+        (usually '/contrail') and `path` (a parameter).
+
+        :param (str) path: etcd path/key to be listed
+        :return: (gen) generator with dict resources
+        """
+        key = self._key_prefix(path)
+        return self._client.get_prefix(key)
+
+    @_handle_conn_error
+    def put_kv(self, key, value):
+        """Save a value under given key in etcd.
+
+        :param key (str): key (there might be slashes, so key could look like
+                          some kind of path)
+        :param value (Any): data to store, typically a string (object
+                            serialized with jsonpickle.encode)
+        """
+        prefixed_key = self._key_path(key)
+        self._client.put(prefixed_key, value)
+
+    @_handle_conn_error
+    def delete_kv(self, key):
+        """Delete a single key in etcd.
+
+        :param key (str): key (there might be slashes, so key could look like
+                          some kind of path)
+        :param name (str): UUID of object
+        """
+        prefixed_key = self._key_path(key)
+        self._client.delete(prefixed_key)
 
 
 class EtcdCache(object):

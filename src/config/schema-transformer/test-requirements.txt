@@ -16,3 +16,4 @@ contrail-api-server
 ../../../noarch/config/svc-monitor
 junitxml
 pyOpenSSL
+mock==2.0.0
