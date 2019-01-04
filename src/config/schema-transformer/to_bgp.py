@@ -33,13 +33,13 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
+from db import *
+from st_amqp import *
 from sandesh_common.vns.ttypes import Module
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from db import SchemaTransformerDB
 from logger import SchemaTransformerLogger
-from st_amqp import STAmqpHandle
 
 
 # connection to api-server
@@ -178,7 +178,6 @@ class SchemaTransformer(object):
         self._args = args
         self._fabric_rt_inst_obj = None
         self.timer_obj = self.STtimer(self._args.zk_timeout)
-
         if st_logger is not None:
             self.logger = st_logger
         else:
@@ -186,13 +185,11 @@ class SchemaTransformer(object):
             self.logger = SchemaTransformerLogger(args)
 
         # Initialize amqp
-        self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
-                                      self._args, timer_obj=self.timer_obj)
+        self._vnc_amqp = st_amqp_factory(self.logger, self.REACTION_MAP, self._args)
         self._vnc_amqp.establish()
         SchemaTransformer._schema_transformer = self
         try:
-            # Initialize cassandra
-            self._object_db = SchemaTransformerDB(self, _zookeeper_client)
+            self._object_db = schema_transformer_db_factory(self._args, _zookeeper_client, self.logger)
             DBBaseST.init(self, self.logger, self._object_db)
             DBBaseST._sandesh = self.logger._sandesh
             DBBaseST._vnc_lib = _vnc_lib
@@ -458,6 +455,8 @@ def parse_args(args_str):
         'rabbit_vhost': None,
         'rabbit_ha_mode': False,
         'cassandra_server_list': '127.0.0.1:9160',
+        'notification_driver': 'etcd',
+        'db_driver': 'etcd',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
         'api_server_use_ssl': False,
@@ -483,6 +482,15 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'etcd_user': None,
+        'etcd_password': None,
+        'etcd_server': '127.0.0.1',
+        'etcd_port': '2379',
+        'etcd_prefix': '/contrail',
+        'etcd_use_ssl': False,
+        'etcd_ssl_keyfile': '',
+        'etcd_ssl_certfile': '',
+        'etcd_ssl_ca_certs': '',
         'zk_timeout': 120,
         'logical_routers_enabled': True,
     }
@@ -680,7 +688,7 @@ def run_schema_transformer(st_logger, args):
     gevent.signal(signal.SIGHUP, transformer.sighup_handler)
 
     try:
-        gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
+        gevent.joinall(transformer._vnc_amqp.greenlets())
     except KeyboardInterrupt:
         SchemaTransformer.destroy_instance()
         raise
@@ -712,7 +720,7 @@ def main(args_str=None):
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    vnc_amqp = STAmqpHandle(st_logger, SchemaTransformer.REACTION_MAP, args)
+    vnc_amqp = st_amqp_factory(st_logger, SchemaTransformer.REACTION_MAP, args)
     vnc_amqp.establish()
     vnc_amqp.close()
     st_logger.debug("Removed remained AMQP queue")
