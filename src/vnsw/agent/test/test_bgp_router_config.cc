@@ -29,6 +29,7 @@ public:
     Agent *agent_;
 };
 
+/* Verify BgpRouter */
 TEST_F(BgpRouterCfgTest, Test_1) {
     client->Reset();
     BgpRouterConfig *bgp_router_config =
@@ -71,50 +72,8 @@ TEST_F(BgpRouterCfgTest, Test_2) {
     EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 0);
 }
 
+/* Verify BgpRouter-ControlNodeZone Link */
 TEST_F(BgpRouterCfgTest, Test_3) {
-    client->Reset();
-    BgpRouterConfig *bgp_router_config =
-        agent_->oper_db()->bgp_router_config();
-
-    std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.1", 0, 179,
-        1, "ip-fabric", "control-node");
-    std::string bgp_router_2 = AddBgpRouterConfig("127.0.0.2", 0, 179,
-        2, "ip-fabric", "control-node");
-    std::string bgp_router_3 = AddBgpRouterConfig("127.0.0.3", 0, 179,
-        3, "ip-fabric", "control-node");
-    AddControlNodeZone("cnz-a", 1);
-    AddControlNodeZone("cnz-b", 2);
-    AddControlNodeZone("cnz-c", 3);
-    client->WaitForIdle();
-    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 3);
-    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 0);
-
-    AddLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
-    AddLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
-    AddLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
-    client->WaitForIdle();
-    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 3);
-    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 3);
-
-    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
-    client->WaitForIdle();
-    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 3);
-    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 2);
-
-    DelLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
-    DelLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
-    DeleteBgpRouterConfig("127.0.0.1", 0, "ip-fabric");
-    DeleteBgpRouterConfig("127.0.0.2", 0, "ip-fabric");
-    DeleteBgpRouterConfig("127.0.0.3", 0, "ip-fabric");
-    DeleteControlNodeZone("cnz-a");
-    DeleteControlNodeZone("cnz-b");
-    DeleteControlNodeZone("cnz-c");
-    client->WaitForIdle();
-    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 0);
-    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 0);
-}
-
-TEST_F(BgpRouterCfgTest, Test_4) {
     client->Reset();
     BgpRouterConfig *bgp_router_config =
         agent_->oper_db()->bgp_router_config();
@@ -166,6 +125,71 @@ TEST_F(BgpRouterCfgTest, Test_4) {
     DeleteBgpRouterConfig("127.0.0.4", 0, "ip-fabric");
     DeleteBgpRouterConfig("127.0.0.5", 0, "ip-fabric");
     DeleteBgpRouterConfig("127.0.0.6", 0, "ip-fabric");
+    DeleteControlNodeZone("cnz-a");
+    DeleteControlNodeZone("cnz-b");
+    DeleteControlNodeZone("cnz-c");
+    client->WaitForIdle();
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 0);
+    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-a") == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-b") == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-c") == 0);
+}
+
+/* Verify BgpRouter-ControlNodeZone Update */
+TEST_F(BgpRouterCfgTest, Test_4) {
+    client->Reset();
+    BgpRouterConfig *bgp_router_config =
+        agent_->oper_db()->bgp_router_config();
+
+    std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.1", 0, 179,
+        1, "ip-fabric", "control-node");
+    std::string bgp_router_2 = AddBgpRouterConfig("127.0.0.2", 0, 179,
+        2, "ip-fabric", "control-node");
+    std::string bgp_router_3 = AddBgpRouterConfig("127.0.0.3", 0, 179,
+        3, "ip-fabric", "control-node");
+    AddControlNodeZone("cnz-a", 1);
+    AddControlNodeZone("cnz-b", 2);
+    AddControlNodeZone("cnz-c", 3);
+    client->WaitForIdle();
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 3);
+    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-a") == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-b") == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-c") == 0);
+
+    AddLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    AddLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
+    AddLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
+    client->WaitForIdle();
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 3);
+    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 3);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-a") == 1);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-b") == 1);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-c") == 1);
+
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    client->WaitForIdle();
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 3);
+    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 2);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-a") == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-b") == 1);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-c") == 1);
+
+    AddLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-b");
+    client->WaitForIdle();
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 3);
+    EXPECT_TRUE(bgp_router_config->GetControlNodeZoneCount() == 2);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-a") == 0);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-b") == 2);
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-c") == 1);
+
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-b");
+    DelLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
+    DelLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
+    DeleteBgpRouterConfig("127.0.0.1", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.2", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.3", 0, "ip-fabric");
     DeleteControlNodeZone("cnz-a");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-c");

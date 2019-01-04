@@ -25,22 +25,22 @@ ControlNodeZone::~ControlNodeZone() {
 // BgpRouter routines
 ////////////////////////////////////////////////////////////////////////////////
 BgpRouter::BgpRouter(const std::string &name,
-                     const std::string &ip4_address,
+                     const std::string &ipv4_address,
                      const uint32_t &port) :
     name_(name), port_(port) {
     boost::system::error_code ec;
-    ip4_address_ = Ip4Address::from_string(ip4_address, ec);
+    ipv4_address_ = Ip4Address::from_string(ipv4_address, ec);
     if (ec.value() != 0) {
-        ip4_address_ = Ip4Address();
+        ipv4_address_ = Ip4Address();
     }
 }
 
-void BgpRouter::set_ip4_address(const std::string &ip_address,
-                                const uint32_t &port) {
+void BgpRouter::set_ip_address_port(const std::string &ip_address,
+                                    const uint32_t &port) {
     boost::system::error_code ec;
-    ip4_address_ = Ip4Address::from_string(ip_address, ec);
+    ipv4_address_ = Ip4Address::from_string(ip_address, ec);
     if (ec.value() != 0) {
-        ip4_address_ = Ip4Address();
+        ipv4_address_ = Ip4Address();
     }
     port_ = port;
 }
@@ -61,9 +61,9 @@ BgpRouterConfig::BgpRouterConfig(Agent *agent) :
 }
 
 BgpRouterPtr BgpRouterConfig::GetBgpRouterFromIpAddress(
-    const std::string &ip4_address) {
+    const std::string &ip_address) {
     boost::system::error_code ec;
-    Ip4Address ip_address = Ip4Address::from_string(ip4_address, ec);
+    Ip4Address ipv4_address = Ip4Address::from_string(ip_address, ec);
     if (ec.value() != 0) {
         return BgpRouterPtr();
     }
@@ -72,7 +72,7 @@ BgpRouterPtr BgpRouterConfig::GetBgpRouterFromIpAddress(
     BgpRouterTree::const_iterator it = bgp_router_tree_.begin();
     for ( ;it != bgp_router_tree_.end(); it++) {
         entry = it->second;
-        if (entry->ip4_address() == ip_address)
+        if (entry->ipv4_address() == ipv4_address)
             return entry;
     }
     return BgpRouterPtr();
@@ -193,7 +193,7 @@ void BgpRouterConfig::ConfigAddChange(IFMapNode *node) {
     BgpRouterTree::const_iterator it = bgp_router_tree_.find(name);
     if (it != bgp_router_tree_.end()) {
         entry = it->second;
-        entry->set_ip4_address(params.address, params.port);
+        entry->set_ip_address_port(params.address, params.port);
     } else {
         BgpRouterPtr bgp_router(
             new BgpRouter(name, params.address, params.port));
@@ -230,4 +230,76 @@ void BgpRouterConfig::ConfigManagerEnqueue(IFMapNode *node) {
 }
 
 BgpRouterConfig::~BgpRouterConfig() {
+}
+
+void BgpRouterSandeshReq::HandleRequest() const {
+    BgpRouterSandeshResp *resp = new BgpRouterSandeshResp();
+    resp->set_context(context());
+    std::string filter = get_name();
+    std::vector<BgpRouterSandeshList> bgp_router_sandesh_list;
+    Agent *agent = Agent::GetInstance();
+    BgpRouterConfig *bgp_router_cfg = agent->oper_db()->bgp_router_config();
+    BgpRouterTree bgp_router_tree = bgp_router_cfg->bgp_router_tree();
+    BgpRouterTree::const_iterator it = bgp_router_tree.begin();
+    for ( ;it != bgp_router_tree.end(); it++) {
+        BgpRouterPtr bgp_router_entry = it->second;
+        BgpRouterSandeshList bgp_router_sandesh_entry;
+        std::string bgp_router_name = bgp_router_entry->name();
+        if (filter.size()) {
+            if (bgp_router_name.find(filter) == std::string::npos) {
+                continue;
+            }
+        }
+        bgp_router_sandesh_entry.set_name(bgp_router_entry->name());
+        std::stringstream ss;
+        ss << bgp_router_entry->ipv4_address()
+            << ":"<< bgp_router_entry->port();
+        bgp_router_sandesh_entry.set_ipv4_address_port(ss.str());
+        bgp_router_sandesh_entry.set_control_node_zone(
+            bgp_router_entry->control_node_zone_name());
+        bgp_router_sandesh_list.push_back(bgp_router_sandesh_entry);
+    }
+    resp->set_bgp_router_list(bgp_router_sandesh_list);
+    resp->Response();
+}
+
+void ControlNodeZoneSandeshReq::HandleRequest() const {
+    ControlNodeZoneSandeshResp *resp = new ControlNodeZoneSandeshResp();
+    resp->set_context(context());
+    std::string filter = get_name();
+    std::vector<ControlNodeZoneSandeshList> cnz_sandesh_list;
+    Agent *agent = Agent::GetInstance();
+    BgpRouterConfig *bgp_router_cfg = agent->oper_db()->bgp_router_config();
+    ControlNodeZoneTree cnz_tree = bgp_router_cfg->control_node_zone_tree();
+    ControlNodeZoneTree::const_iterator it = cnz_tree.begin();
+    for ( ;it != cnz_tree.end(); it++) {
+        ControlNodeZonePtr cnz_entry = it->second;
+        ControlNodeZoneSandeshList cnz_sandesh_entry;
+        std::string cnz_name = cnz_entry->name();
+        if (filter.size()) {
+            if (cnz_name.find(filter) == std::string::npos) {
+                continue;
+            }
+        }
+        cnz_sandesh_entry.set_name(cnz_entry->name());
+        BgpRouterTree bgp_router_tree = cnz_entry->bgp_router_tree();
+        BgpRouterTree::const_iterator it = bgp_router_tree.begin();
+        std::vector<BgpRouterSandeshList> bgp_router_list;
+        for ( ;it != bgp_router_tree.end(); it++) {
+            BgpRouterPtr bgp_router_entry = it->second;
+            BgpRouterSandeshList bgp_router_sandesh_entry;
+            bgp_router_sandesh_entry.set_name(bgp_router_entry->name());
+            std::stringstream ss;
+            ss << bgp_router_entry->ipv4_address()
+                << ":" << bgp_router_entry->port();
+            bgp_router_sandesh_entry.set_ipv4_address_port(ss.str());
+            bgp_router_sandesh_entry.set_control_node_zone(
+                bgp_router_entry->control_node_zone_name());
+            bgp_router_list.push_back(bgp_router_sandesh_entry);
+        }
+        cnz_sandesh_entry.set_bgp_router_list(bgp_router_list);
+        cnz_sandesh_list.push_back(cnz_sandesh_entry);
+    }
+    resp->set_control_node_zone_list(cnz_sandesh_list);
+    resp->Response();
 }
